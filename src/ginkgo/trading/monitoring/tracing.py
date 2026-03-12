@@ -248,8 +248,7 @@ class EventTracer:
         try:
             yield context
         except Exception as e:
-            self.log(f"Exception in {operation_name}: {str(e)}", "error")
-            self.finish_span(context, SpanStatus.ERROR)
+            GLOG.error(SpanStatus.ERROR)
             raise
         else:
             self.finish_span(context, SpanStatus.OK)

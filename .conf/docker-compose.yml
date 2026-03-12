@@ -30,24 +30,24 @@ services:
       - '9092:9092'
       - '9093:9093'
     environment:
-      # KRaft 模式配置
+      # KRaft 模式配置 (apache/kafka 使用 KAFKA_ 前缀)
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=1
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:19092,CONTROLLER://:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:19092,PLAINTEXT_HOST://localhost:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      # 其他配置
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
       # 日志配置
       - KAFKA_LOG_RETENTION_HOURS=2
       - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000
       - KAFKA_LOG_SEGMENT_BYTES=1073741824
       - KAFKA_LOG_CLEANUP_POLICY=delete
-      # 其他配置
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
-      - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
     volumes:
       - ../.db/kafka1_data:/var/lib/kafka/data
   kafka2:
@@ -66,9 +66,9 @@ services:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=2
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:19092,CONTROLLER://:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:19092,PLAINTEXT_HOST://localhost:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_LOG_RETENTION_HOURS=2
@@ -96,9 +96,9 @@ services:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=3
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:19092,CONTROLLER://:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:19092,PLAINTEXT_HOST://localhost:9096
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_LOG_RETENTION_HOURS=2
@@ -242,58 +242,58 @@ services:
         limits:
           cpus: '2.00'
           memory: 4096M
-  # Loki Stack - 分布式日志系统
-  loki:
-    image: grafana/loki:main-84ffd0d
-    container_name: ginkgo-loki
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    ports:
-      - "3100:3100"
-    command:
-      - -config.file=/etc/loki/local-config.yaml
-      - --validation.allow-structured-metadata=false
-    volumes:
-      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
-      - loki-storage:/loki
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1024M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+  # Loki Stack - 已弃用，改用 Vector + ClickHouse
+  # loki:
+  #   image: grafana/loki:main-84ffd0d
+  #   container_name: ginkgo-loki
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   ports:
+  #     - "3100:3100"
+  #   command:
+  #     - -config.file=/etc/loki/local-config.yaml
+  #     - --validation.allow-structured-metadata=false
+  #   volumes:
+  #     - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+  #     - loki-storage:/loki
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.00'
+  #         memory: 1024M
+  #       reservations:
+  #         cpus: '0.25'
+  #         memory: 256M
 
-  promtail:
-    image: grafana/promtail:main-84ffd0d
-    container_name: ginkgo-promtail
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    volumes:
-      - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./promtail-config.yml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
+  # promtail:
+  #   image: grafana/promtail:main-84ffd0d
+  #   container_name: ginkgo-promtail
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   volumes:
+  #     - /var/log:/var/log:ro
+  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./promtail-config.yml:/etc/promtail/config.yml:ro
+  #   command: -config.file=/etc/promtail/config.yml
+  #   depends_on:
+  #     - loki
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.50'
+  #         memory: 256M
+  #       reservations:
+  #         cpus: '0.10'
+  #         memory: 128M
 
   grafana:
     image: grafana/grafana:main-ubuntu
@@ -311,11 +311,13 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_INSTALL_PLUGINS=
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
       - grafana-storage:/var/lib/grafana
-    depends_on:
-      - loki
+      # Grafana provisioning 配置（自动添加数据源）
+      - ../.conf/grafana-provisioning:/etc/grafana/provisioning:ro
+    # depends_on:
+    #   - loki  # 已移除 Loki，改用 ClickHouse
     deploy:
       resources:
         limits:
@@ -324,6 +326,43 @@ services:
         reservations:
           cpus: '0.10'
           memory: 128M
+
+  # Vector - Log collection and routing to ClickHouse
+  vector:
+    image: timberio/vector:0.39.0-alpine
+    container_name: ginkgo-vector
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    ports:
+      - "8686:8686"  # Vector metrics API
+    volumes:
+      # Vector configuration
+      - ../deploy/vector/vector.toml:/etc/vector/vector.toml:ro
+      # Log files to collect (bind mount to local logs directory)
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo:ro
+      # Vector data directory for checkpoint positions (read-write)
+      - vector-data:/vector-data
+    command: --config /etc/vector/vector.toml
+    depends_on:
+      - clickhouse-master
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8686/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Mongo
   mongo-master:
@@ -487,6 +526,10 @@ services:
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
       LOGGING_MODE: container
+      GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
+      # 日志级别（从 .env 读取，容器默认 INFO）
+      LOG_LEVEL_CONSOLE: ${GINKGO_LOG_LEVEL_CONSOLE:-INFO}
+      LOG_LEVEL_FILE: ${GINKGO_LOG_LEVEL_FILE:-INFO}
       PYTHONUNBUFFERED: 1
       # 通知系统配置
       GINKGO_NOTIFICATION_DISCORD_TIMEOUT: 3
@@ -501,7 +544,7 @@ services:
       GINKGO_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS}
       GINKGO_FROM_NAME: ${EMAIL_FROM_NAME:-Ginkgo Notification}
     volumes:
-      - ../.logs/notification:/ginkgo/.logs
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
     deploy:
       resources:
         limits:
@@ -559,11 +602,16 @@ services:
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
       LOGGING_MODE: container
+      GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
+      # 日志级别（从 .env 读取，容器默认 INFO）
+      LOG_LEVEL_CONSOLE: ${GINKGO_LOG_LEVEL_CONSOLE:-INFO}
+      LOG_LEVEL_FILE: ${GINKGO_LOG_LEVEL_FILE:-INFO}
       PYTHONUNBUFFERED: 1
     volumes:
       # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
       - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
-      - ../.logs/tasktimer:/ginkgo/.logs
+      # 统一日志目录
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
     deploy:
       resources:
         limits:
@@ -628,12 +676,17 @@ services:
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
       LOGGING_MODE: container
+      GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
+      # 日志级别（从 .env 读取，容器默认 INFO）
+      LOG_LEVEL_CONSOLE: ${GINKGO_LOG_LEVEL_CONSOLE:-INFO}
+      LOG_LEVEL_FILE: ${GINKGO_LOG_LEVEL_FILE:-INFO}
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
     volumes:
       # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
       - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
-      - ../.logs/livecore:/ginkgo/.logs
+      # 统一日志目录
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
     deploy:
       resources:
         limits:
@@ -696,12 +749,15 @@ services:
       WORKER_GROUP_ID: data-worker-group
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
+      LOGGING_MODE: container
+      GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
       # Tushare API Token
       TUSHARE_TOKEN: ${TUSHARE_TOKEN}
     volumes:
-      - ../.logs/dataworker:/ginkgo/.logs
+      # 统一日志目录
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
     deploy:
       resources:
         limits:
@@ -765,10 +821,15 @@ services:
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
       LOGGING_MODE: container
+      GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
+      # 日志级别（从 .env 读取，容器默认 INFO）
+      LOG_LEVEL_CONSOLE: ${GINKGO_LOG_LEVEL_CONSOLE:-INFO}
+      LOG_LEVEL_FILE: ${GINKGO_LOG_LEVEL_FILE:-INFO}
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
     volumes:
-      - ../.logs/executionnode:/ginkgo/.logs
+      # 统一日志目录
+      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
     deploy:
       resources:
         limits:
@@ -851,9 +912,12 @@ services:
   #         cpus: '0.25'
   #         memory: 256M
 
-# Loki Stack 命名卷
+# 命名卷
 volumes:
   grafana-storage:
     driver: local
-  loki-storage:
+  # loki-storage:  # 已移除 Loki
+  #   driver: local
+  # Vector data directory for checkpoint positions
+  vector-data:
     driver: local

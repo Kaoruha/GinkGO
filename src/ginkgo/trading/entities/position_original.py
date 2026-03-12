@@ -151,10 +151,10 @@ class Position(Base):
         The Amount of position.
         """
         if self._volume < 0:
-            self.log("CRITICAL", f"Volume is less than 0: {self._volume}")
+            GLOG.CRITICAL(f"Volume is less than 0: {self._volume}")
             return 0
         if not isinstance(self._volume, (int, numpy.int64)):
-            self.log("CRITICAL", f"Volume is not a int: {self._volume}")
+            GLOG.CRITICAL(f"Volume is not a int: {self._volume}")
             return 0
         return self._volume
 
@@ -165,7 +165,7 @@ class Position(Base):
     @property
     def frozen_money(self, *args, **kwargs) -> Decimal:
         if self._frozen_money < 0:
-            self.log("CRITICAL", f"Frozen money is less than 0: {self._frozen_money}")
+            GLOG.CRITICAL(f"Frozen money is less than 0: {self._frozen_money}")
             return 0
         return self._frozen_money
 
@@ -193,9 +193,9 @@ class Position(Base):
         Current Price.
         """
         if self._price < 0:
-            self.log("CRITICAL", f"Price is less than 0: {self._price}")
+            GLOG.CRITICAL(f"Price is less than 0: {self._price}")
         if not isinstance(self._price, Decimal):
-            self.log("CRITICAL", f"Price is not a DECIMAL: {self._price}")
+            GLOG.CRITICAL(f"Price is not a DECIMAL: {self._price}")
             return 0
         return self._price
 
@@ -212,9 +212,9 @@ class Position(Base):
         Frozen amount of position.
         """
         if self._frozen_volume < 0:
-            self.log("CRITICAL", f"Frozen is less than 0: {self._frozen_volume}")
+            GLOG.CRITICAL(f"Frozen is less than 0: {self._frozen_volume}")
         if not isinstance(self._frozen_volume, (int, numpy.int64)):
-            self.log("CRITICAL", f"Frozen is not a int: {self._frozen_volume}")
+            GLOG.CRITICAL(f"Frozen is not a int: {self._frozen_volume}")
             return 0
         return self._frozen_volume
 
@@ -227,16 +227,16 @@ class Position(Base):
             bool: Success or failure.
         """
         if volume <= 0:
-            self.log("CRITICAL", f"Invalid freeze volume: {volume}")
+            GLOG.CRITICAL(f"Invalid freeze volume: {volume}")
             return False
         volume = int(volume)
         if volume > self.volume:
-            self.log("CRITICAL", f"Insufficient volume to freeze: {volume}, available: {self.volume}")
+            GLOG.CRITICAL(f"Insufficient volume to freeze: {volume}, available: {self.volume}")
             return False
 
         self._volume -= volume
         self._frozen_volume += volume
-        self.log("INFO", f"Freezed {volume} units. Remaining: {self.volume}, Frozen: {self.frozen_volume}")
+        GLOG.INFO(f"Freezed {volume} units. Remaining: {self.volume}, Frozen: {self.frozen_volume}")
         return True
 
     def unfreeze(self, volume: int, *args, **kwargs) -> int:
@@ -246,14 +246,12 @@ class Position(Base):
         volume = int(volume)
 
         if volume > self.frozen_volume:
-            self.log("CRITICAL", f"POS {self.code} just freezed {self.frozen} cant afford {volume}.")
+            GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}.")
             return
 
         self._frozen_volume -= volume
         self._volume += volume
-        self.log(
-            "INFO",
-            f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen_volume: {self.frozen_volume}",
+        GLOG.INFO(f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen_volume: {self.frozen_volume}",
         )
         return self.volume
 
@@ -263,15 +261,15 @@ class Position(Base):
         Sum of fee.
         """
         if self._fee < 0:
-            self.log("CRITICAL", f"Fee is less than 0: {self._fee}")
+            GLOG.CRITICAL(f"Fee is less than 0: {self._fee}")
         if not isinstance(self._fee, Decimal):
-            self.log("CRITICAL", f"Fee is not a DECIMAL: {self._fee}")
+            GLOG.CRITICAL(f"Fee is not a DECIMAL: {self._fee}")
             return to_decimal("0")
         return self._fee
 
     def add_fee(self, fee: float, *args, **kwargs) -> float:
         if fee < 0:
-            self.log("CRITICAL", f"Can not add fee less than 0.")
+            GLOG.CRITICAL(f"Can not add fee less than 0.")
             return
         self._fee += fee
         return self.fee
@@ -306,7 +304,7 @@ class Position(Base):
             if price <= 0 or volume <= 0:
                 raise ValueError(f"Invalid price: {price} or volume: {volume}")
         except Exception as e:
-            self.log("ERROR", f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
             return False
         finally:
             pass
@@ -319,13 +317,13 @@ class Position(Base):
             self.on_price_update(price)
             # Check cost
             if self._cost < 0:
-                self.log("CRITICAL", f"Cost is less than 0: {self._cost}")
+                GLOG.CRITICAL(f"Cost is less than 0: {self._cost}")
                 return
             if not isinstance(self._cost, Decimal):
-                self.log("CRITICAL", f"Cost is not a DECIMAL: {self._cost}")
+                GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
                 return
-            self.log("DEBUG", f"POS {self.code} added {volume} at ${price}. Final price: ${self._cost}, ")
-            self.log("DEBUG", f"volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}")
+            GLOG.DEBUG(f"POS {self.code} added {volume} at ${price}. Final price: ${self._cost}, ")
+            GLOG.DEBUG(f"volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}")
             return True
         except Exception as e:
             print(e)
@@ -351,15 +349,13 @@ class Position(Base):
             if price <= 0 or volume <= 0:
                 raise ValueError(f"Invalid price: {price} or volume: {volume}")
         except Exception as e:
-            self.log("ERROR", f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
             return False
         finally:
             pass
 
         if volume > self.frozen_volume:
-            self.log(
-                "CRITICAL", f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
-            )
+            GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code")
             return False
 
         # 执行卖出逻辑
@@ -367,18 +363,15 @@ class Position(Base):
             self._frozen_volume -= volume
             self.on_price_update(price)
             # 日志记录
-            self.log(
-                "DEBUG",
-                f"POS {self.code} sold {volume} at ${price}. "
+            GLOG.DEBUG(f"POS {self.code} sold {volume} at ${price}. "
                 f"Final price: ${self._cost}, volume: {self.volume}, "
-                f"cost: ${self.cost}, frozen: {self.frozen_volume}",
-            )
+                f"cost: ${self.cost}, frozen: {self.frozen_volume}")
             return True
         except Exception as e:
             import pdb
 
             pdb.set_trace()
-            self.log("ERROR", f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
         finally:
             pass
 
@@ -478,20 +471,20 @@ class Position(Base):
         time = datetime_normalize(time)
 
         if time is None:
-            self.log("ERROR", "Time format not support, can not update time")
+            GLOG.ERROR("Time format not support, can not update time")
             return
 
         if self._now is None:
             self._now = time
-            self.log("DEBUG", f"{self.name} Time Init: None --> {self._now}")
+            GLOG.DEBUG(f"{self.name} Time Init: None --> {self._now}")
             return
 
         if time < self.now:
-            self.log("ERROR", "We can not go back such as a TIME TRAVALER.")
+            GLOG.ERROR("We can not go back such as a TIME TRAVALER.")
             return
 
         elif time == self.now:
-            self.log("WARNING", "Time not goes on.")
+            GLOG.WARN("Time not goes on.")
             return
 
         else:
@@ -499,7 +492,7 @@ class Position(Base):
             # Go next frame
             old = self._now
             self._now = time
-            self.log("DEBUG", f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
+            GLOG.DEBUG(f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
             console.print(f":swimmer: {self.name} Time Elapses: {old} --> {self.now}")
 
     def add_logger(self, logger) -> None:

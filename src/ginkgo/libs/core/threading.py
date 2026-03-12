@@ -83,39 +83,39 @@ class GinkgoThreadManager:
         pid = os.getpid()
 
         # 打印Kafka消息解析详情
-        print("=" * 80)
-        print(f"🔍 Kafka Message解析 - PID: {pid}")
-        print(f"   type: {type}")
-        print(f"   code: {code}")
-        print(f"   full: {full}")
-        print(f"   force: {force}")
+        GLOG.DEBUG("=" * 80)
+        GLOG.DEBUG(f"Kafka Message解析 - PID: {pid}")
+        GLOG.DEBUG(f"   type: {type}")
+        GLOG.DEBUG(f"   code: {code}")
+        GLOG.DEBUG(f"   full: {full}")
+        GLOG.DEBUG(f"   force: {force}")
 
         # 根据消息类型打印处理逻辑映射
         if type == "stockinfo":
-            print("   处理逻辑: stockinfo 同步")
+            GLOG.DEBUG("   处理逻辑: stockinfo 同步")
         elif type == "calender":
-            print("   处理逻辑: 交易日历同步")
+            GLOG.DEBUG("   处理逻辑: 交易日历同步")
         elif type == "bar":
             strategy = f"日K线同步({{'强制覆盖' if force else '跳过已有'}})"
-            print(f"   处理逻辑: {strategy}")
-            print(f"   实际调用: fetch_and_update_cn_daybar(code={code})")
+            GLOG.DEBUG(f"   处理逻辑: {strategy}")
+            GLOG.DEBUG(f"   实际调用: fetch_and_update_cn_daybar(code={code})")
         elif type == "tick":
             if full:
                 sync_mode = f"全量同步({{'强制覆盖' if force else '跳过已有'}})"
-                print(f"   处理逻辑: Tick {sync_mode}")
-                print(f"   实际调用: TickService.sync_backfill_by_date(code={code}, force_overwrite={force})")
+                GLOG.DEBUG(f"   处理逻辑: Tick {sync_mode}")
+                GLOG.DEBUG(f"   实际调用: TickService.sync_backfill_by_date(code={code}, force_overwrite={force})")
             else:
                 sync_mode = f"增量同步({{'强制覆盖' if force else '跳过已有'}})"
-                print(f"   处理逻辑: Tick {sync_mode}")
-                print(f"   实际调用: fetch_and_update_tick(code={code})")
+                GLOG.DEBUG(f"   处理逻辑: Tick {sync_mode}")
+                GLOG.DEBUG(f"   实际调用: fetch_and_update_tick(code={code})")
         elif type == "adjust":
             strategy = f"复权因子同步({{'强制覆盖' if force else '跳过已有'}}) + 计算"
-            print(f"   处理逻辑: {strategy}")
-            print(f"   实际调用: fetch_and_update_adjustfactor(code={code}) + calculate({code})")
+            GLOG.DEBUG(f"   处理逻辑: {strategy}")
+            GLOG.DEBUG(f"   实际调用: fetch_and_update_adjustfactor(code={code}) + calculate({code})")
         else:
-            print("   处理逻辑: 未知类型")
+            GLOG.DEBUG("   处理逻辑: 未知类型")
 
-        print("=" * 80)
+        GLOG.DEBUG("=" * 80)
 
         # 实际任务处理逻辑
         if type == "stockinfo":
@@ -346,8 +346,8 @@ class GinkgoThreadManager:
                 task_name="got a unrecognized task",
                 status="IDLE",
             )
-            print("看看传的啥")
-            print(value)
+            GLOG.DEBUG("看看传的啥")
+            GLOG.DEBUG(value)
 
     def run_data_worker(self, *args, **kwargs):
         """Run data worker in containerized mode using DataWorker class."""
@@ -426,7 +426,7 @@ if __name__ == "__main__":
     def reset_all_workers(self, *args, **kwargs):
         while self.get_worker_count() > 0:
             for pid in self.get_worker_pids():
-                print(f"get worker : {pid}")
+                GLOG.DEBUG(f"get worker : {pid}")
                 if isinstance(pid, bytes):
                     pid = pid.decode("utf-8")
                 try:
@@ -577,7 +577,7 @@ if __name__ == "__main__":
                     return
             except Exception as e:
                 control_logger.INFO(f"{pid} in redis, but proc {pid} not exist, try run new live engine..")
-                print(e)
+                GLOG.ERROR(f"Error: {e}")
             self.run_live(id)
         elif value["type"] == "stop_live":
             console.print("Stop live.")
@@ -618,14 +618,14 @@ if __name__ == "__main__":
             console.print(f":sun_with_face: Live {id} is [steel_blue1]RUNNING[/steel_blue1] now.")
             time.sleep(1)
         except Exception as e:
-            print(e)
+            GLOG.ERROR(f"Error running live engine: {e}")
         finally:
             if os.path.exists(file_name):
                 os.remove(file_name)
 
     def handle_sigint(self, signum, frame):
         # 自定义 Ctrl+C 行为
-        print("\r[INFO] Gracefully stopping...")
+        GLOG.INFO("\r[INFO] Gracefully stopping...")
         raise KeyboardInterrupt
 
     def consume_main_control_message(self, *args, **kwargs) -> None:
@@ -815,7 +815,7 @@ if __name__ == "__main__":
             console.print(f":sun_with_face: Ginkgo WatchDog is [steel_blue1]RUNNING[/steel_blue1] now.")
             time.sleep(2)
         except Exception as e:
-            print(e)
+            GLOG.ERROR(f"Error starting watchdog: {e}")
         finally:
             if os.path.exists(file_name):
                 os.remove(file_name)
@@ -842,7 +842,7 @@ if __name__ == "__main__":
             console.print(f":sun_with_face: Ginkgo Main Contrl is [steel_blue1]RUNNING[/steel_blue1] now.")
             time.sleep(2)
         except Exception as e:
-            print(e)
+            GLOG.ERROR(f"Error starting main control: {e}")
         finally:
             if os.path.exists(file_name):
                 os.remove(file_name)

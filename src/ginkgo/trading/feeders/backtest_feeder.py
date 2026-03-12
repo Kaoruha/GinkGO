@@ -33,7 +33,7 @@ from ginkgo.trading.entities.bar import Bar
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
-from ginkgo.libs import datetime_normalize, cache_with_expiration
+from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
 from ginkgo.enums import SOURCE_TYPES
 
 
@@ -76,11 +76,11 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                 self.time_boundary_validator = TimeBoundaryValidator(self.time_controller)
 
             self.status = DataFeedStatus.IDLE
-            self.log("INFO", "BacktestFeeder initialized successfully")
+            GLOG.INFO("BacktestFeeder initialized successfully")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"BacktestFeeder initialization failed: {e}")
+            GLOG.ERROR(f"BacktestFeeder initialization failed: {e}")
             return False
     
     def start(self) -> bool:
@@ -90,11 +90,11 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                 return False
                 
             self.status = DataFeedStatus.CONNECTED
-            self.log("INFO", "BacktestFeeder started successfully")
+            GLOG.INFO("BacktestFeeder started successfully")
             return True
             
         except Exception as e:
-            self.log("ERROR", f"BacktestFeeder start failed: {e}")
+            GLOG.ERROR(f"BacktestFeeder start failed: {e}")
             return False
     
     def stop(self) -> bool:
@@ -102,11 +102,11 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
         try:
             self.status = DataFeedStatus.DISCONNECTED
             self._data_cache.clear()
-            self.log("INFO", "BacktestFeeder stopped")
+            GLOG.INFO("BacktestFeeder stopped")
             return True
             
         except Exception as e:
-            self.log("ERROR", f"BacktestFeeder stop failed: {e}")
+            GLOG.ERROR(f"BacktestFeeder stop failed: {e}")
             return False
     
     def get_status(self) -> DataFeedStatus:
@@ -134,7 +134,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
         
         # 默认验证：不能访问未来数据
         if self.now and data_time.date() > self.now.date():
-            self.log("CRITICAL", f"CurrentDate: {self.now} you cannot get future({data_time}) info.")
+            GLOG.CRITICAL(f"CurrentDate: {self.now} you cannot get future({data_time}) info.")
             return False
         return True
     
@@ -153,7 +153,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
             # 使用事件更新的兴趣集
             if len(self._interested_codes) == 0:
-                self.log("WARN", f"No interested symbols at {target_time}")
+                GLOG.WARN(f"No interested symbols at {target_time}")
                 return True
 
             # 为每个股票生成并推送价格更新事件
@@ -166,11 +166,11 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                         event_count += 1
 
             print(f"📅 DATAFEEDER GENERATED {event_count} price events for {len(self._interested_codes)} symbols")
-            self.log("INFO", f"Published {event_count} events for time {target_time}")
+            GLOG.INFO(f"Published {event_count} events for time {target_time}")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Error advancing time to {target_time}: {e}")
+            GLOG.ERROR(f"Error advancing time to {target_time}: {e}")
             return False
     
     @TimeMixin.validate_time(['start_time', 'end_time'])
@@ -205,15 +205,15 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                     if result.success and result.data:
                         df = result.data.to_dataframe()
                     else:
-                        self.log("ERROR", f"Failed to get bars for {symbol}: {result.error}")
+                        GLOG.ERROR(f"Failed to get bars for {symbol}: {result.error}")
                         continue
                     if not df.empty:
                         dfs.append(df)
                 else:
-                    self.log("WARN", f"Unsupported data type: {data_type}")
+                    GLOG.WARN(f"Unsupported data type: {data_type}")
 
         except Exception as e:
-            self.log("ERROR", f"Error getting historical data: {e}")
+            GLOG.ERROR(f"Error getting historical data: {e}")
 
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
     
@@ -256,7 +256,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                     print(f"🔍 DATAFEEDER DEBUG: result.data.empty: {result.data.empty()}")
 
             if not result.success or result.data.empty():
-                self.log("WARN", f"❌ No data found for {code} at {target_time}")
+                GLOG.WARN(f"❌ No data found for {code} at {target_time}")
                 print(f"❌ DATAFEEDER WARNING: No data found for {code} at {target_time}")
                 return events
 
@@ -269,19 +269,19 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None
             if bar is None:
-                self.log("WARN", f"❌ Failed to convert bar entity for {code}")
+                GLOG.WARN(f"❌ Failed to convert bar entity for {code}")
                 return events
 
             # 创建价格更新事件，使用Bar实体作为payload
-            self.log("INFO", f"✅ Creating EventPriceUpdate for {code}")
+            GLOG.INFO(f"✅ Creating EventPriceUpdate for {code}")
             event = EventPriceUpdate(payload=bar)
             event.set_source(SOURCE_TYPES.BACKTESTFEEDER)
             events.append(event)
 
-            self.log("INFO", f"🚀 EventPriceUpdate created for {code}")
+            GLOG.INFO(f"🚀 EventPriceUpdate created for {code}")
 
         except Exception as e:
-            self.log("ERROR", f"Error generating price events for {code}: {e}")
+            GLOG.ERROR(f"Error generating price events for {code}: {e}")
 
         return events
 
@@ -295,9 +295,9 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             self._interested_codes = sorted(list(merged))
             print(f"📅 DATAFEEDER INTEREST UPDATE: Received {len(codes)} codes: {codes}")
             print(f"📅 DATAFEEDER TOTAL INTERESTED: {len(self._interested_codes)} codes: {self._interested_codes}")
-            self.log("INFO", f"Updated interested codes: {len(self._interested_codes)} symbols")
+            GLOG.INFO(f"Updated interested codes: {len(self._interested_codes)} symbols")
         except Exception as e:
-            self.log("ERROR", f"Failed to update interested codes: {e}")
+            GLOG.ERROR(f"Failed to update interested codes: {e}")
     
     def _infer_data_range(self) -> tuple[datetime, datetime]:
         """从时间控制器推断数据范围"""

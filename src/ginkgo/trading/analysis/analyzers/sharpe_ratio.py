@@ -10,6 +10,7 @@
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
+from ginkgo.libs import GLOG
 import pandas as pd
 
 
@@ -53,7 +54,7 @@ class SharpeRatio(BaseAnalyzer):
                 try:
                     value = (annual_return - self._base_profit) / std if std > 0 else 0
                 except Exception as e:
-                    self.log("ERROR", f"SharpeRatio calculation error: {e}")
+                    GLOG.ERROR(f"SharpeRatio calculation error: {e}")
                     value = -1
             else:
                 value = 0

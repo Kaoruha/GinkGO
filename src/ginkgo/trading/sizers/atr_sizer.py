@@ -12,6 +12,7 @@ from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.signal import Signal
+from ginkgo.libs import GLOG
 # from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # Temporarily disabled
 from ginkgo.data.containers import container
 
@@ -64,7 +65,7 @@ class ATRSizer(BaseSizer):
             )
         if signal.direction == DIRECTION_TYPES.LONG:
             if self.now is None:
-                self.log("WARN", "ATRSizer: now is None, passing the signal")
+                GLOG.WARN("ATRSizer: now is None, passing the signal")
                 return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now
@@ -76,7 +77,7 @@ class ATRSizer(BaseSizer):
             
             # 检查数据是否足够
             if df is None or len(df) < self.period + 1:
-                self.log("WARN", f"ATRSizer: insufficient data for {code}, need {self.period + 1} bars")
+                GLOG.WARN(f"ATRSizer: insufficient data for {code}, need {self.period + 1} bars")
                 return None
             
             # 提取价格列表

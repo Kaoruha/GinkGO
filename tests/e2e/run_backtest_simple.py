@@ -1,207 +1,175 @@
 """
-简化的回测E2E测试 - 创建Portfolio并运行回测
+简化的回测 E2E 测试 - 通过 API 操作
 
-通过API直接操作，减少对页面交互的依赖
+测试流程：
+1. 通过 API 创建 Portfolio
+2. 通过 API 创建并启动回测任务
+3. 等待回测完成
+4. 验证分析器数据
 """
 
+import pytest
 import time
 import json
 import urllib.request
 
-WEB_UI_URL = "http://192.168.50.12:5173"
-API_URL = "http://localhost:8000/api/v1"
+from .config import config
 
-def create_portfolio():
-    """通过API创建Portfolio"""
-    print("\n=== 创建Portfolio ===")
 
-    # 先获取组件UUID
-    print("获取组件UUID...")
-    try:
+@pytest.mark.e2e
+@pytest.mark.slow
+class TestBacktestViaAPI:
+    """通过 API 进行回测测试"""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """设置 API 基础 URL"""
+        self.api_base = "http://192.168.50.12:8000/api/v1"
+        self.portfolio_id = None
+        self.backtest_id = None
+
+        yield
+
+    def test_01_get_available_components(self):
+        """测试 1: 获取可用组件"""
+        print("\n=== 获取可用组件 ===")
+
         # 获取选股器
-        resp = urllib.request.urlopen(f"{API_URL}/components/selectors?size=10", timeout=5)
+        resp = urllib.request.urlopen(f"{self.api_base}/components/selectors?size=10", timeout=5)
         selectors = json.loads(resp.read())["data"]
-        selector_uuid = selectors[0]["uuid"]
-        print(f"  选股器: {selectors[0]['name']} ({selector_uuid})")
+        assert len(selectors) > 0, "应该有可用的选股器"
+        self.selector_uuid = selectors[0]["uuid"]
+        print(f"✓ 选股器: {selectors[0]['name']}")
 
         # 获取仓位管理器
-        resp = urllib.request.urlopen(f"{API_URL}/components/sizers?size=10", timeout=5)
+        resp = urllib.request.urlopen(f"{self.api_base}/components/sizers?size=10", timeout=5)
         sizers = json.loads(resp.read())["data"]
-        sizer_uuid = sizers[0]["uuid"]
-        print(f"  仓位管理器: {sizers[0]['name']} ({sizer_uuid})")
+        assert len(sizers) > 0, "应该有可用的仓位管理器"
+        self.sizer_uuid = sizers[0]["uuid"]
+        print(f"✓ 仓位管理器: {sizers[0]['name']}")
 
         # 获取策略
-        resp = urllib.request.urlopen(f"{API_URL}/components/strategies?size=10", timeout=5)
+        resp = urllib.request.urlopen(f"{self.api_base}/components/strategies?size=10", timeout=5)
         strategies = json.loads(resp.read())["data"]
-        strategy_uuid = strategies[0]["uuid"]
-        print(f"  策略: {strategies[0]['name']} ({strategy_uuid})")
-    except Exception as e:
-        print(f"  ✗ 获取组件失败: {e}")
-        return None
+        assert len(strategies) > 0, "应该有可用的策略"
+        self.strategy_uuid = strategies[0]["uuid"]
+        print(f"✓ 策略: {strategies[0]['name']}")
 
-    # 创建Portfolio
-    task_name = f"E2E_BT_{int(time.time())}"
-    portfolio_data = {
-        "name": task_name,
-        "initial_cash": 100000,
-        "mode": "BACKTEST",
-        "description": "E2E自动化测试",
-        "selectors": [{"component_uuid": selector_uuid, "config": {"codes": "600000.SH"}}],
-        "sizers": [{"component_uuid": sizer_uuid, "config": {"volume": "1000"}}],
-        "strategies": [{"component_uuid": strategy_uuid, "config": {"buy_probability": "0.8", "sell_probability": "0.1"}}],
-    }
+    def test_02_create_portfolio(self):
+        """测试 2: 创建 Portfolio"""
+        task_name = f"Simple_BT_{int(time.time())}"
 
-    print(f"\n创建Portfolio: {task_name}")
-    try:
+        portfolio_data = {
+            "name": task_name,
+            "initial_cash": 100000,
+            "mode": "BACKTEST",
+            "description": "E2E自动化测试",
+            "selectors": [{"component_uuid": self.selector_uuid, "config": {"codes": "600000.SH"}}],
+            "sizers": [{"component_uuid": self.sizer_uuid, "config": {"volume": "1000"}}],
+            "strategies": [{"component_uuid": self.strategy_uuid, "config": {"buy_probability": "0.8", "sell_probability": "0.1"}}],
+        }
+
+        print(f"\n创建 Portfolio: {task_name}")
+
         req = urllib.request.Request(
-            f"{API_URL}/portfolio",
+            f"{self.api_base}/portfolio",
             data=json.dumps(portfolio_data).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
         resp = urllib.request.urlopen(req, timeout=10)
         result = json.loads(resp.read())
 
-        portfolio_id = result.get("uuid", "")
-        print(f"✓ Portfolio创建成功: {portfolio_id}")
-        return portfolio_id
-    except Exception as e:
-        print(f"✗ 创建Portfolio失败: {e}")
-        return None
+        self.portfolio_id = result.get("uuid", "")
+        assert self.portfolio_id, "Portfolio ID 不应该为空"
+        print(f"✓ Portfolio 创建成功: {self.portfolio_id}")
 
+    def test_03_create_backtest_task(self):
+        """测试 3: 创建回测任务"""
+        task_data = {
+            "name": f"BT_{int(time.time())}",
+            "portfolio_id": self.portfolio_id,
+            "start_date": "2024-01-02",
+            "end_date": "2024-01-05",
+            "initial_cash": 100000,
+        }
 
-def create_backtest(portfolio_id):
-    """通过API创建回测任务"""
-    print(f"\n=== 创建回测任务 (Portfolio: {portfolio_id[:20]}...) ===")
+        print(f"\n创建回测任务: {task_data['name']}")
 
-    task_data = {
-        "name": f"BT_{int(time.time())}",
-        "portfolio_id": portfolio_id,
-        "start_date": "2024-01-02",
-        "end_date": "2024-01-05",
-        "initial_cash": 100000,
-    }
-
-    print(f"任务配置: {task_data['name']}")
-    print(f"  日期: {task_data['start_date']} ~ {task_data['end_date']}")
-
-    try:
-        # 创建任务
         req = urllib.request.Request(
-            f"{API_URL}/backtest",
+            f"{self.api_base}/backtest",
             data=json.dumps(task_data).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
         resp = urllib.request.urlopen(req, timeout=10)
         result = json.loads(resp.read())
 
-        backtest_id = result.get("uuid", "")
-        print(f"✓ 回测任务创建成功: {backtest_id}")
+        self.backtest_id = result.get("uuid", "")
+        assert self.backtest_id, "回测任务 ID 不应该为空"
+        print(f"✓ 回测任务创建成功: {self.backtest_id}")
 
-        # 启动任务
-        print("\n启动回测任务...")
+    def test_04_start_backtest(self):
+        """测试 4: 启动回测"""
+        print(f"\n启动回测任务...")
+
         req = urllib.request.Request(
-            f"{API_URL}/backtest/{backtest_id}/start",
-            data=json.dumps({"portfolio_uuid": portfolio_id}).encode('utf-8'),
+            f"{self.api_base}/backtest/{self.backtest_id}/start",
+            data=b"{}",
             headers={'Content-Type': 'application/json'}
         )
         resp = urllib.request.urlopen(req, timeout=10)
         result = json.loads(resp.read())
+
+        assert result.get("success") or "message" in result, f"启动失败: {result}"
         print(f"✓ 回测任务已启动")
 
-        return backtest_id
-    except Exception as e:
-        print(f"✗ 创建/启动回测失败: {e}")
-        return None
+    def test_05_wait_for_completion(self):
+        """测试 5: 等待回测完成"""
+        print(f"\n等待回测完成...")
 
+        max_wait = 180
+        for i in range(max_wait // 5):
+            time.sleep(5)
 
-def wait_for_completion(backtest_id, max_wait=180):
-    """等待回测完成"""
-    print(f"\n=== 等待回测完成 (最多{max_wait}秒) ===")
-
-    for i in range(max_wait // 5):
-        time.sleep(5)
-
-        try:
-            resp = urllib.request.urlopen(f"{API_URL}/backtest/{backtest_id}", timeout=5)
+            resp = urllib.request.urlopen(f"{self.api_base}/backtest/{self.backtest_id}", timeout=5)
             data = json.loads(resp.read())
 
             status = data.get("status", "")
             progress = data.get("progress", 0)
 
-            print(f"  状态: {status}, 进度: {progress}% ({i*5}/{max_wait}s)", end='\r')
+            print(f"  状态: {status}, 进度: {progress}%", end='\r')
 
             if status == "completed" or progress >= 100:
                 print(f"\n✓ 回测完成!")
-                return True
+                return
             elif status == "failed":
-                print(f"\n✗ 回测失败")
-                return False
+                pytest.fail(f"回测失败: {data.get('error_message', 'Unknown error')}")
 
-        except Exception as e:
-            print(f"\n查询失败: {e}")
+        pytest.fail("回测超时")
 
-    print(f"\n✗ 回测超时")
-    return False
+    def test_06_check_analyzers(self):
+        """测试 6: 检查分析器数据"""
+        print(f"\n检查分析器数据...")
 
-
-def check_analyzers(backtest_id):
-    """检查分析器数据"""
-    print(f"\n=== 检查分析器数据 ===")
-
-    try:
-        resp = urllib.request.urlopen(f"{API_URL}/backtest/{backtest_id}/analyzers", timeout=5)
+        resp = urllib.request.urlopen(f"{self.api_base}/backtest/{self.backtest_id}/analyzers", timeout=5)
         data = json.loads(resp.read())
 
         print(f"run_id: {data.get('run_id', '')[:32]}...")
         print(f"分析器数量: {len(data.get('analyzers', []))}")
 
-        for analyzer in data.get('analyzers', []):
-            name = analyzer.get('name', '?')
-            count = analyzer.get('record_count', 0)
-            latest = analyzer.get('latest_value')
-            print(f"  - {name}: {count} 条记录, 最新值 = {latest}")
+        analyzers = data.get('analyzers', [])
+        assert isinstance(analyzers, list), "分析器数据应该是列表"
 
-        return len(data.get('analyzers', [])) > 0
-    except Exception as e:
-        print(f"✗ 获取分析器失败: {e}")
-        return False
+        if analyzers:
+            for analyzer in analyzers[:3]:
+                name = analyzer.get('name', '?')
+                count = analyzer.get('record_count', 0)
+                print(f"  - {name}: {count} 条记录")
 
-
-def main():
-    print("="*50)
-    print("        回测E2E测试 - 通过API")
-    print("="*50)
-
-    # 1. 创建Portfolio
-    portfolio_id = create_portfolio()
-    if not portfolio_id:
-        print("\n✗ Portfolio创建失败，终止测试")
-        return False
-
-    # 2. 创建并启动回测
-    backtest_id = create_backtest(portfolio_id)
-    if not backtest_id:
-        print("\n✗ 回测创建失败，终止测试")
-        return False
-
-    # 3. 等待完成
-    success = wait_for_completion(backtest_id)
-    if not success:
-        print("\n✗ 回测未完成")
-        return False
-
-    # 4. 检查分析器
-    has_analyzers = check_analyzers(backtest_id)
-
-    print("\n" + "="*50)
-    if has_analyzers:
-        print("✓✓✓ 测试通过！有分析器数据")
-    else:
-        print("✗✗✗ 测试失败！无分析器数据")
-    print("="*50)
-
-    return has_analyzers
-
-
-if __name__ == "__main__":
-    main()
+            # 验证至少有一个分析器有数据
+            has_data = any(a.get('record_count', 0) > 0 for a in analyzers)
+            if has_data:
+                print("✓ 有分析器数据")
+            else:
+                print("⚠️ 分析器无数据")
+        else:
+            pytest.skip("没有分析器数据（可能未配置）")

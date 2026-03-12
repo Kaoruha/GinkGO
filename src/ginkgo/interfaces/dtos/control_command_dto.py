@@ -47,6 +47,10 @@ class ControlCommandDTO(BaseModel):
     source: Optional[str] = Field(default="task_timer", description="命令来源")
     correlation_id: Optional[str] = Field(None, description="关联ID（用于追踪）")
 
+    # T068: 分布式追踪支持
+    trace_id: Optional[str] = Field(None, description="分布式追踪ID（用于跨服务日志关联）")
+    span_id: Optional[str] = Field(None, description="Span ID（用于调用链中的子操作）")
+
     # 预定义命令类型
     class Commands:
         """预定义命令常量"""

@@ -35,6 +35,7 @@ from ..time.providers import LogicalTimeProvider, SystemTimeProvider
 from ..time.clock import set_global_time_provider, now as clock_now
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES, EXECUTION_MODE, TIME_MODE, ENGINESTATUS_TYPES
 from ginkgo.trading.core.status import TimeInfo, ComponentSyncInfo
+from ginkgo.libs import GLOG
 
 
 class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
@@ -95,10 +96,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         super().__init__(name=name, mode=mode, timer_interval=timer_interval, *args, **kwargs)
 
         # 调试：记录线程状态
-        self.log(
-            "DEBUG", f"{self.name}: Initialized - _main_thread_started={getattr(self, '_main_thread_started', 'N/A')}"
+        GLOG.DEBUG(f"{self.name}: Initialized - _main_thread_started={getattr(self, '_main_thread_started', 'N/A')}"
         )
-        self.log("DEBUG", f"{self.name}: _main_thread.is_alive()={self._main_thread.is_alive()}")
+        GLOG.DEBUG(f"{self.name}: _main_thread.is_alive()={self._main_thread.is_alive()}")
 
         # mode属性通过继承BaseEngine的mode属性获取
 
@@ -156,18 +156,14 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             if end_date:
                 self._time_provider.set_end_time(end_date)
 
-            self.log("INFO", f"Time range set: {start_date} to {end_date}")
+            GLOG.INFO(f"Time range set: {start_date} to {end_date}")
 
     def start(self) -> bool:
         """启动引擎（带调试信息）"""
-        self.log(
-            "INFO",
-            f"{self.name}: 🔥 start() called - _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}",
+        GLOG.INFO(f"{self.name}: 🔥 start() called - _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}",
         )
         result = super().start()
-        self.log(
-            "INFO",
-            f"{self.name}: 🔥 start() completed - result={result}, _main_thread_started={self._main_thread_started}",
+        GLOG.INFO(f"{self.name}: 🔥 start() completed - result={result}, _main_thread_started={self._main_thread_started}",
         )
         return result
 
@@ -175,12 +171,12 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         """停止引擎（带调试信息）"""
         import traceback
 
-        self.log("ERROR", f"{self.name}: 🔥 stop() called! Call stack:")
+        GLOG.ERROR(f"{self.name}: 🔥 stop() called! Call stack:")
         for line in traceback.format_stack()[-3:-1]:  # 显示最近3层调用栈
-            self.log("ERROR", f"    {line.strip()}")
+            GLOG.ERROR(f"    {line.strip()}")
 
         result = super().stop()
-        self.log("DEBUG", f"{self.name}: stop() completed - result={result}")
+        GLOG.DEBUG(f"{self.name}: stop() completed - result={result}")
         return result
 
     def _initialize_components(self):
@@ -257,27 +253,27 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         2. 回测模式：短超时快速处理，队列空闲时自动推进时间
         3. 实盘模式：阻塞式等待事件，由timer_loop定时推送时间更新事件
         """
-        self.log("INFO", f"{self.name}: Main loop started - Mode: {self.mode}")
-        self.log("INFO", f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")
-        self.log("INFO", f"{self.name}: main_flag id = {id(main_flag)}")
+        GLOG.INFO(f"{self.name}: Main loop started - Mode: {self.mode}")
+        GLOG.INFO(f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")
+        GLOG.INFO(f"{self.name}: main_flag id = {id(main_flag)}")
 
         if main_flag.is_set():
-            self.log("ERROR", f"{self.name}: main_flag is already set at start! Exiting immediately.")
+            GLOG.ERROR(f"{self.name}: main_flag is already set at start! Exiting immediately.")
             return
 
         loop_count = 0
-        self.log("INFO", f"{self.name}: Entering while loop...")
-        self.log("INFO", f"{self.name}: About to enter while not main_flag.is_set(): {not main_flag.is_set()}")
+        GLOG.INFO(f"{self.name}: Entering while loop...")
+        GLOG.INFO(f"{self.name}: About to enter while not main_flag.is_set(): {not main_flag.is_set()}")
 
         while not main_flag.is_set():
             loop_count += 1
-            self.log("DEBUG", f"{self.name}: Main loop #{loop_count} started, main_flag.is_set()={main_flag.is_set()}")
+            GLOG.DEBUG(f"{self.name}: Main loop #{loop_count} started, main_flag.is_set()={main_flag.is_set()}")
 
             # 检查暂停标志，如果设置则阻塞等待直到清除
             if self._pause_flag.is_set():
-                self.log("DEBUG", "Engine paused, waiting for resume...")
+                GLOG.DEBUG("Engine paused, waiting for resume...")
                 self._pause_flag.wait()  # 阻塞直到pause_flag被clear()
-                self.log("DEBUG", "Engine resumed")
+                GLOG.DEBUG("Engine resumed")
                 continue
 
             try:
@@ -290,11 +286,11 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                     event = self._event_queue.get(block=True)
 
                 if event:
-                    self.log("DEBUG", f"{self.name}: Processing event: {type(event).__name__}")
+                    GLOG.DEBUG(f"{self.name}: Processing event: {type(event).__name__}")
                     # 根据模式选择处理方式
                     if self.mode == EXECUTION_MODE.BACKTEST:
                         self._process_backtest_event(event)
-                        self.log("INFO", f"{self.name}: ✅ Event processed, continuing loop...")
+                        GLOG.INFO(f"{self.name}: ✅ Event processed, continuing loop...")
                     else:
                         # 实盘模式：支持并发处理
                         if self._executor and self._concurrent_semaphore:
@@ -306,12 +302,12 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             except Empty:
                 # 回测模式：队列空闲，自动推进时间
                 if self.mode == EXECUTION_MODE.BACKTEST:
-                    self.log("DEBUG", f"{self.name}: Queue empty, checking time advance")
+                    GLOG.DEBUG(f"{self.name}: Queue empty, checking time advance")
 
                     # 统一检查回测是否结束
                     if self._is_backtest_finished():
                         current_time = self._time_provider.now()
-                        self.log("INFO", f"🏁 Backtest completed - {current_time.date()}")
+                        GLOG.INFO(f"🏁 Backtest completed - {current_time.date()}")
 
                         # 汇总回测结果
                         self._aggregate_backtest_results()
@@ -320,7 +316,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                         main_flag.set()
                         # 更新引擎状态为STOPPED，这样is_active会返回False
                         self._state = ENGINESTATUS_TYPES.STOPPED
-                        self.log("INFO", f"{self.name}: Engine state set to STOPPED")
+                        GLOG.INFO(f"{self.name}: Engine state set to STOPPED")
                         break
 
                     # 回测还未结束，继续推进时间
@@ -329,7 +325,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                         from ginkgo.trading.events.time_advance import EventTimeAdvance
 
                         event = EventTimeAdvance(next_time)
-                        self.log("INFO", f"{self.name}: ⏰ Advancing time to {next_time.date()}")
+                        GLOG.INFO(f"{self.name}: ⏰ Advancing time to {next_time.date()}")
                         self.put(event)
 
                         # 调用进度回调
@@ -339,7 +335,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 continue
 
             except Exception as e:
-                self.log("ERROR", f"Main loop error: {e}")
+                GLOG.ERROR(f"Main loop error: {e}")
 
     # === 时间感知组件接口实现 ===
 
@@ -356,25 +352,25 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 raise ValueError(f"LIVE/PAPER mode requires SystemTimeProvider, got {type(time_provider).__name__}")
 
         self._time_provider = time_provider
-        self.log("INFO", f"Time provider set: {type(time_provider).__name__}")
+        GLOG.INFO(f"Time provider set: {type(time_provider).__name__}")
 
         # 传递TimeProvider给所有已绑定的Portfolio
         for portfolio in self.portfolios:
             portfolio.set_time_provider(time_provider)
-            self.log("DEBUG", f"Time provider propagated to portfolio {portfolio.name}")
+            GLOG.DEBUG(f"Time provider propagated to portfolio {portfolio.name}")
 
         # 如果DataFeeder已存在，把TimeProvider绑定给DataFeeder
         if hasattr(self, "_datafeeder") and self._datafeeder:
             if hasattr(self._datafeeder, "set_time_provider"):
                 try:
                     self._datafeeder.set_time_provider(time_provider)
-                    self.log("INFO", f"Time provider propagated to data feeder {self._datafeeder.name}")
+                    GLOG.INFO(f"Time provider propagated to data feeder {self._datafeeder.name}")
                 except Exception as e:
-                    self.log("ERROR", f"Failed to propagate time provider to data feeder {self._datafeeder.name}: {e}")
+                    GLOG.ERROR(f"Failed to propagate time provider to data feeder {self._datafeeder.name}: {e}")
             else:
-                self.log("WARN", f"Data feeder {self._datafeeder.name} does not support set_time_provider")
+                GLOG.WARN(f"Data feeder {self._datafeeder.name} does not support set_time_provider")
         else:
-            self.log("DEBUG", "No data feeder available for time provider propagation")
+            GLOG.DEBUG("No data feeder available for time provider propagation")
 
     def on_time_update(self, new_time: datetime) -> None:
         """时间更新通知回调"""
@@ -405,7 +401,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             # 回测模式下事件完成由handler包装器负责登记
 
         except Exception as e:
-            self.log("ERROR", f"Backtest event processing error: {e}")
+            GLOG.ERROR(f"Backtest event processing error: {e}")
 
     def _process_live_event_safe(self, event: EventBase):
         """安全处理实盘事件（在线程池中运行）"""
@@ -424,7 +420,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 # 事件处理完成计数由父类_process方法自动处理
                 return result
             except Exception as e:
-                self.log("ERROR", f"Handler error for {event_type}: {e}")
+                GLOG.ERROR(f"Handler error for {event_type}: {e}")
                 raise
 
         return enhanced_handler
@@ -443,16 +439,16 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         self.register(EVENT_TYPES.TIME_ADVANCE, self._handle_time_advance_event)
         self.register(EVENT_TYPES.COMPONENT_TIME_ADVANCE, self._handle_component_time_advance)
-        self.log("INFO", f"{self.name}: 📝 Time advance event handlers registered")
+        GLOG.INFO(f"{self.name}: 📝 Time advance event handlers registered")
 
     def _handle_time_advance_event(self, event: "EventTimeAdvance") -> None:
         """处理时间推进事件 - 启动分阶段组件时间推进流程"""
-        self.log("INFO", f"{self.name}: ⚡ Processing EventTimeAdvance to {event.target_time.date()}")
+        GLOG.INFO(f"{self.name}: ⚡ Processing EventTimeAdvance to {event.target_time.date()}")
         import traceback
 
-        self.log("INFO", f"{self.name}: 🔍 Call stack before processing:")
+        GLOG.INFO(f"{self.name}: 🔍 Call stack before processing:")
         for line in traceback.format_stack()[-3:-1]:
-            self.log("INFO", f"    {line.strip()}")
+            GLOG.INFO(f"    {line.strip()}")
         try:
             target_time = event.target_time
             old_time = self._time_provider.now()
@@ -466,7 +462,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 try:
                     self.matchmaking.advance_time(target_time)
                 except Exception as e:
-                    self.log("ERROR", f"{self.name}: Matchmaking time advance error: {e}")
+                    GLOG.ERROR(f"{self.name}: Matchmaking time advance error: {e}")
 
             # 3. 发送Portfolio时间推进事件（异步，通过事件队列）
             from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
@@ -478,7 +474,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             #    统一由事件队列保证时序：Portfolio → Selector更新兴趣集 → Feeder生成价格事件
 
         except Exception as e:
-            self.log("ERROR", f"{self.name}: Error in time advance event handler: {e}")
+            GLOG.ERROR(f"{self.name}: Error in time advance event handler: {e}")
             raise
 
     def _handle_component_time_advance(self, event: "EventComponentTimeAdvance") -> None:
@@ -499,23 +495,23 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             if component_type == "portfolio":
                 # 阶段1：推进Portfolio时间
                 print(f"[COMPONENT TIME ADVANCE] Found {len(self.portfolios)} portfolios")
-                self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
+                GLOG.DEBUG(f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
                 for i, portfolio in enumerate(self.portfolios):
                     try:
                         print(f"[COMPONENT TIME ADVANCE] Calling advance_time on portfolio #{i+1}: {portfolio.name}")
-                        self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
+                        GLOG.DEBUG(f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
                         portfolio.advance_time(target_time)
                         # Portfolio内部会发送EventInterestUpdate（如果兴趣集有变化）
                         print(f"[COMPONENT TIME ADVANCE] Portfolio {portfolio.name} advanced to {target_time}")
-                        self.log("DEBUG", f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
+                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
                     except Exception as e:
-                        self.log("ERROR", f"{self.name}: Portfolio time advance error: {e}")
+                        GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
 
                 # Portfolio完成，发送Feeder时间推进事件（通过队列FIFO保证EventInterestUpdate先被处理）
                 from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
                 self.put(EventComponentTimeAdvance(target_time, "feeder"))
-                self.log("DEBUG", f"{self.name}: Portfolio stage completed, Feeder stage queued")
+                GLOG.DEBUG(f"{self.name}: Portfolio stage completed, Feeder stage queued")
 
             elif component_type == "feeder":
                 # 阶段2：推进Feeder时间（此时EventInterestUpdate已被mainloop处理）
@@ -523,17 +519,17 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                     try:
                         self._datafeeder.advance_time(target_time)
                         # Feeder内部会为interested_codes生成EventPriceUpdate
-                        self.log("DEBUG", f"{self.name}: Feeder advanced to {target_time}")
+                        GLOG.DEBUG(f"{self.name}: Feeder advanced to {target_time}")
                     except Exception as e:
-                        self.log("ERROR", f"{self.name}: Feeder time advance error: {e}")
+                        GLOG.ERROR(f"{self.name}: Feeder time advance error: {e}")
 
-                self.log("DEBUG", f"{self.name}: Component time advance sequence completed for {target_time}")
+                GLOG.DEBUG(f"{self.name}: Component time advance sequence completed for {target_time}")
 
             else:
-                self.log("WARN", f"{self.name}: Unknown component_type: {component_type}")
+                GLOG.WARN(f"{self.name}: Unknown component_type: {component_type}")
 
         except Exception as e:
-            self.log("ERROR", f"{self.name}: Error in component time advance handler: {e}")
+            GLOG.ERROR(f"{self.name}: Error in component time advance handler: {e}")
             raise
 
     # === 扩展接口 ===
@@ -556,7 +552,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Time advancement error: {e}")
+            GLOG.ERROR(f"Time advancement error: {e}")
             return False
 
     def _check_and_emit_market_status(self, old_time: datetime, new_time: datetime) -> None:
@@ -570,10 +566,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             if old_status != new_status:
                 status_event = EventMarketStatus(new_status, market="上海证券交易所", timestamp=new_time)
                 self.put(status_event)
-                self.log("INFO", f"Market status changed from {old_status} to {new_status}")
+                GLOG.INFO(f"Market status changed from {old_status} to {new_status}")
 
         except Exception as e:
-            self.log("ERROR", f"Market status check error: {e}")
+            GLOG.ERROR(f"Market status check error: {e}")
 
     def _determine_market_status(self, time: datetime) -> "MarketStatus":
         """根据时间确定市场状态"""
@@ -617,7 +613,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             self._check_and_emit_bar_close(target_time)
 
         except Exception as e:
-            self.log("ERROR", f"Data update trigger error: {e}")
+            GLOG.ERROR(f"Data update trigger error: {e}")
 
     def _is_end_of_day(self, old_time: datetime, new_time: datetime) -> bool:
         """判断是否跨越了交易日"""
@@ -637,7 +633,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             eod_event = EventEndOfDay(current_time.date())
             self.put(eod_event)
 
-            self.log("INFO", f"End of day sequence triggered for {current_time.date()}")
+            GLOG.INFO(f"End of day sequence triggered for {current_time.date()}")
 
             # 可以在这里添加日终处理逻辑，如：
             # - 持仓结算
@@ -646,7 +642,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             # - 数据持久化
 
         except Exception as e:
-            self.log("ERROR", f"End of day sequence error: {e}")
+            GLOG.ERROR(f"End of day sequence error: {e}")
 
     def add_portfolio(self, portfolio) -> None:
         """
@@ -665,12 +661,12 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         if router is not None:
             try:
                 router.register_portfolio(portfolio)
-                self.log("INFO", f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
+                GLOG.INFO(f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
             except Exception as e:
-                self.log("ERROR", f"Failed to register portfolio {portfolio.uuid[:8]} to router: {e}")
+                GLOG.ERROR(f"Failed to register portfolio {portfolio.uuid[:8]} to router: {e}")
                 raise
 
-        self.log("DEBUG", f"Auto-registered event handlers for portfolio {portfolio.name}")
+        GLOG.DEBUG(f"Auto-registered event handlers for portfolio {portfolio.name}")
 
     def add_analyzer(self, analyzer) -> None:
         """
@@ -691,7 +687,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         # 添加分析器
         self._analyzers.append(analyzer)
-        self.log("INFO", f"Analyzer {analyzer.name} ({analyzer.type}) added to engine")
+        GLOG.INFO(f"Analyzer {analyzer.name} ({analyzer.type}) added to engine")
 
         # 注册分析器的 hook 方法为事件处理器
         self._register_analyzer_hooks(analyzer)
@@ -731,7 +727,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                             # 通用处理
                             original_handler(portfolio.uuid, event)
                     except Exception as e:
-                        self.log("ERROR", f"Error in {analyzer_name}.{hook_method} for portfolio {portfolio.uuid}: {e}")
+                        GLOG.ERROR(f"Error in {analyzer_name}.{hook_method} for portfolio {portfolio.uuid}: {e}")
             return wrapped_handler
 
         registered_count = 0
@@ -744,11 +740,11 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
                     self.register(event_type, wrapped_handler)
                     registered_count += 1
-                    self.log("INFO", f"Analyzer {analyzer.name}: Registered {hook_method} -> {event_type.name} (wrapped)")
+                    GLOG.INFO(f"Analyzer {analyzer.name}: Registered {hook_method} -> {event_type.name} (wrapped)")
                 except Exception as e:
-                    self.log("ERROR", f"Failed to register {hook_method} for analyzer {analyzer.name}: {e}")
+                    GLOG.ERROR(f"Failed to register {hook_method} for analyzer {analyzer.name}: {e}")
 
-        self.log("INFO", f"Analyzer {analyzer.name}: {registered_count} hooks registered")
+        GLOG.INFO(f"Analyzer {analyzer.name}: {registered_count} hooks registered")
 
     def get_analyzers(self) -> list:
         """获取所有分析器"""
@@ -762,9 +758,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 if hasattr(analyzer, 'on_backtest_end'):
                     analyzer.on_backtest_end()
             except Exception as e:
-                self.log("ERROR", f"Error notifying analyzer {analyzer.name} of backtest end: {e}")
+                GLOG.ERROR(f"Error notifying analyzer {analyzer.name} of backtest end: {e}")
 
-        self.log("INFO", f"Notified {len(analyzers)} analyzers of backtest end")
+        GLOG.INFO(f"Notified {len(analyzers)} analyzers of backtest end")
 
     
     def _auto_register_component_events(self, component) -> None:
@@ -794,7 +790,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         component_type = component.__class__.__name__
         if component_type not in component_event_mapping:
-            self.log("DEBUG", f"No event mapping defined for component type: {component_type}")
+            GLOG.DEBUG(f"No event mapping defined for component type: {component_type}")
             return
 
         event_mapping = component_event_mapping[component_type]
@@ -806,58 +802,56 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                     handler = getattr(component, handler_method_name)
                     self.register(event_type, handler)
                     registered_count += 1
-                    self.log("INFO", f"Auto-registered {event_type.name} -> {component.name}.{handler_method_name}")
+                    GLOG.INFO(f"Auto-registered {event_type.name} -> {component.name}.{handler_method_name}")
                 except Exception as e:
-                    self.log(
-                        "WARN",
-                        f"Failed to auto-register {event_type.name} -> {component.name}.{handler_method_name}: {e}",
+                    GLOG.WARN(f"Failed to auto-register {event_type.name} -> {component.name}.{handler_method_name}: {e}",
                     )
             else:
-                self.log("WARN", f"Component {component.name} missing handler method: {handler_method_name}")
+                GLOG.WARN(f"Component {component.name} missing handler method: {handler_method_name}")
 
-        self.log("INFO", f"Auto-registered {registered_count} event handlers for {component.name} ({component_type})")
+        GLOG.INFO(f"Auto-registered {registered_count} event handlers for {component.name} ({component_type})")
 
     def set_data_feeder(self, feeder) -> None:
         """设置数据馈送器"""
         # 统一使用_datafeeder字段名
         self._datafeeder = feeder
-        self.log("INFO", f"Data feeder {feeder.name} bound to engine")
+        GLOG.INFO(f"Data feeder {feeder.name} bound to engine")
 
         # 绑定引擎到feeder
         feeder.bind_engine(self)
-        self.log("INFO", f"Engine bound for feeder {feeder.name}")
+        GLOG.INFO(f"Engine bound for feeder {feeder.name}")
 
         # 绑定Engine的put方法作为event_publisher
         if hasattr(feeder, "set_event_publisher"):
             try:
                 feeder.set_event_publisher(self.put)
-                self.log("INFO", f"Event publisher bound for feeder {feeder.name}")
+                GLOG.INFO(f"Event publisher bound for feeder {feeder.name}")
             except Exception as e:
-                self.log("ERROR", f"Failed to set event publisher for feeder {feeder.name}: {e}")
+                GLOG.ERROR(f"Failed to set event publisher for feeder {feeder.name}: {e}")
                 raise
 
         # 如果Engine已有TimeProvider，同时设置给DataFeeder
         if hasattr(feeder, "set_time_provider") and self._time_provider is not None:
             try:
                 feeder.set_time_provider(self._time_provider)
-                self.log("INFO", f"Time provider propagated to feeder {feeder.name}")
+                GLOG.INFO(f"Time provider propagated to feeder {feeder.name}")
             except Exception as e:
-                self.log("ERROR", f"Failed to set time provider for feeder {feeder.name}: {e}")
+                GLOG.ERROR(f"Failed to set time provider for feeder {feeder.name}: {e}")
         else:
-            self.log("DEBUG", f"Time provider not available yet for feeder {feeder.name}")
+            GLOG.DEBUG(f"Time provider not available yet for feeder {feeder.name}")
 
         # 自动注册Feeder的事件处理器
         self._auto_register_component_events(feeder)
 
         # 传播 data_feeder 给所有 portfolio 的子组件（strategies, sizer, selectors）
-        self.log("INFO", f"Propagating data_feeder to {len(self.portfolios)} portfolios")
+        GLOG.INFO(f"Propagating data_feeder to {len(self.portfolios)} portfolios")
         for portfolio in self.portfolios:
             if hasattr(portfolio, 'bind_data_feeder'):
                 try:
                     portfolio.bind_data_feeder(feeder)
-                    self.log("INFO", f"Data feeder propagated to portfolio {portfolio.name} and its components")
+                    GLOG.INFO(f"Data feeder propagated to portfolio {portfolio.name} and its components")
                 except Exception as e:
-                    self.log("ERROR", f"Failed to propagate data_feeder to portfolio {portfolio.name}: {e}")
+                    GLOG.ERROR(f"Failed to propagate data_feeder to portfolio {portfolio.name}: {e}")
 
     def bind_router(self, router) -> None:
         """绑定Router到引擎"""
@@ -866,15 +860,15 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         # Router需要引擎来推送事件
         router.bind_engine(self)
-        self.log("INFO", f"Router {router.name} bound to engine")
+        GLOG.INFO(f"Router {router.name} bound to engine")
 
         # 如果Engine已有TimeProvider，同时设置给Router
         if self._time_provider is not None:
             try:
                 router.set_time_provider(self._time_provider)
-                self.log("INFO", f"Time provider propagated to router {router.name}")
+                GLOG.INFO(f"Time provider propagated to router {router.name}")
             except Exception as e:
-                self.log("ERROR", f"Failed to set time provider for router {router.name}: {e}")
+                GLOG.ERROR(f"Failed to set time provider for router {router.name}: {e}")
 
         # 自动注册Router的事件处理器
         self._auto_register_component_events(router)
@@ -883,7 +877,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         if self.portfolios:
             for portfolio in self.portfolios:
                 router.register_portfolio(portfolio)
-                self.log("INFO", f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
+                GLOG.INFO(f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
 
     def get_data_feeder(self):
         """获取数据馈送器"""
@@ -919,9 +913,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         if isinstance(self._time_provider, LogicalTimeProvider):
             self._time_provider.set_start_time(start_time)
-            self.log("INFO", f"Backtest start time set to {start_time}")
+            GLOG.INFO(f"Backtest start time set to {start_time}")
         else:
-            self.log("WARN", "set_start_time only works with LogicalTimeProvider (BACKTEST mode)")
+            GLOG.WARN("set_start_time only works with LogicalTimeProvider (BACKTEST mode)")
 
     def set_end_time(self, end_time: datetime) -> None:
         """设置回测结束时间（委托给TimeProvider）
@@ -933,9 +927,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         if isinstance(self._time_provider, LogicalTimeProvider):
             self._time_provider.set_end_time(end_time)
-            self.log("INFO", f"Backtest end time set to {end_time}")
+            GLOG.INFO(f"Backtest end time set to {end_time}")
         else:
-            self.log("WARN", "set_end_time only works with LogicalTimeProvider (BACKTEST mode)")
+            GLOG.WARN("set_end_time only works with LogicalTimeProvider (BACKTEST mode)")
 
     def set_backtest_interval(self, interval: timedelta) -> None:
         """设置回测时间推进间隔
@@ -947,7 +941,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                      - timedelta(minutes=1): 分钟级回测
         """
         self._backtest_interval = interval
-        self.log("INFO", f"Backtest interval set to {interval}")
+        GLOG.INFO(f"Backtest interval set to {interval}")
 
     def set_live_idle_sleep(self, seconds: float) -> None:
         """设置实盘空闲休眠时间
@@ -956,7 +950,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             seconds: 休眠秒数，建议0.01-1.0之间
         """
         self._live_idle_sleep = seconds
-        self.log("INFO", f"Live idle sleep set to {seconds}s")
+        GLOG.INFO(f"Live idle sleep set to {seconds}s")
 
     # === 自动时间推进辅助方法 ===
     def _should_advance_time(self) -> bool:
@@ -1010,7 +1004,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 # 调用回调
                 self._progress_callback(progress, str(current_time.date()))
         except Exception as e:
-            self.log("DEBUG", f"{self.name}: Progress report failed: {e}")
+            GLOG.DEBUG(f"{self.name}: Progress report failed: {e}")
 
     def _aggregate_backtest_results(self) -> None:
         """
@@ -1046,12 +1040,12 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             )
 
             if result.is_success():
-                self.log("INFO", f"📊 Backtest results aggregated: {result.data}")
+                GLOG.INFO(f"📊 Backtest results aggregated: {result.data}")
             else:
-                self.log("ERROR", f"Failed to aggregate backtest results: {result.error}")
+                GLOG.ERROR(f"Failed to aggregate backtest results: {result.error}")
 
         except Exception as e:
-            self.log("ERROR", f"Error during backtest result aggregation: {e}")
+            GLOG.ERROR(f"Error during backtest result aggregation: {e}")
 
     def _get_next_time(self) -> Optional[datetime]:
         """获取下一个时间点"""
@@ -1076,9 +1070,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             from ginkgo.trading.events.time_advance import EventTimeAdvance
 
             self.put(EventTimeAdvance(current_time))
-            self.log("DEBUG", f"Timer task: EventTimeAdvance pushed for {current_time}")
+            GLOG.DEBUG(f"Timer task: EventTimeAdvance pushed for {current_time}")
         except Exception as e:
-            self.log("ERROR", f"Timer time update task error: {e}")
+            GLOG.ERROR(f"Timer time update task error: {e}")
 
     # === 增强的时间和组件同步查询接口 ===
 
@@ -1326,7 +1320,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             if self.run_id:
                 exists_result = task_service.exists(uuid=self.run_id)
                 if exists_result.is_success() and exists_result.data.get("exists"):
-                    self.log("INFO", f"Backtest task already exists: {self.run_id}, skipping creation")
+                    GLOG.INFO(f"Backtest task already exists: {self.run_id}, skipping creation")
                     return
 
             # 获取 portfolio_id
@@ -1355,9 +1349,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             )
 
             if result.is_success():
-                self.log("INFO", f"Created backtest task: {self.run_id}")
+                GLOG.INFO(f"Created backtest task: {self.run_id}")
             else:
-                self.log("WARN", f"Failed to create backtest task: {result.error}")
+                GLOG.WARN(f"Failed to create backtest task: {result.error}")
 
         except Exception as e:
-            self.log("ERROR", f"Error creating backtest task: {e}")
+            GLOG.ERROR(f"Error creating backtest task: {e}")

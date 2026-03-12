@@ -45,6 +45,7 @@ from ginkgo.trading.interfaces.broker_interface import IBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.libs import GLOG
 
 
 class TradeGatewayAdapter(Thread):
@@ -81,6 +82,9 @@ class TradeGatewayAdapter(Thread):
         # 运行状态
         self.is_running = False
 
+        # 设置日志分类
+        GLOG.set_log_category("component")
+
     def run(self):
         """
         运行TradeGatewayAdapter：订阅Kafka orders.submission topic
@@ -95,7 +99,7 @@ class TradeGatewayAdapter(Thread):
         from datetime import datetime
 
         self.is_running = True
-        print("TradeGatewayAdapter starting...")
+        GLOG.INFO("TradeGatewayAdapter starting...")
 
         # 创建Kafka消费者
         self.kafka_consumer = GinkgoConsumer(
@@ -106,7 +110,7 @@ class TradeGatewayAdapter(Thread):
         # 启动订单监控线程
         self._start_monitor_thread()
 
-        print("TradeGatewayAdapter started, consuming orders...")
+        GLOG.INFO("TradeGatewayAdapter started, consuming orders...")
 
         # 发送启动通知
         try:
@@ -122,7 +126,7 @@ class TradeGatewayAdapter(Thread):
                 },
             )
         except Exception as notify_error:
-            print(f"[WARN] Failed to send start notification: {notify_error}")
+            GLOG.WARN(f"Failed to send start notification: {notify_error}")
 
         # 消费订单提交
         while self.is_running:
@@ -141,9 +145,9 @@ class TradeGatewayAdapter(Thread):
 
             except Exception as e:
                 if self.is_running:
-                    print("[ERROR] Error consuming orders: {e}")
+                    GLOG.ERROR(f"Error consuming orders: {e}")
 
-        print("TradeGatewayAdapter stopped")
+        GLOG.INFO("TradeGatewayAdapter stopped")
 
         # 发送停止通知
         try:
@@ -162,7 +166,7 @@ class TradeGatewayAdapter(Thread):
                 },
             )
         except Exception as notify_error:
-            print(f"[WARN] Failed to send stop notification: {notify_error}")
+            GLOG.WARN(f"Failed to send stop notification: {notify_error}")
 
     def _process_order(self, order_data: dict):
         """
@@ -198,7 +202,7 @@ class TradeGatewayAdapter(Thread):
             # 提交到TradeGateway（同步，确认提交）
             # TODO: Phase 3调用TradeGateway.submit_order()
             # MVP阶段：模拟提交成功
-            print(f"Order {order.uuid} submitted to TradeGateway (simulation)")
+            GLOG.INFO(f"Order {order.uuid} submitted to TradeGateway (simulation)")
 
             # ORDER PERSISTENCE: 更新订单状态为 SUBMITTED - order_crud.update(order)
             # from ginkgo.data.crud import OrderCRUD; order.status = ORDERSTATUS_TYPES.SUBMITTED; order_crud.update(order)
@@ -206,7 +210,7 @@ class TradeGatewayAdapter(Thread):
         except Exception as e:
             # 更新失败订单统计
             self.failed_orders += 1
-            print(f"[ERROR] Error processing order {order_data.get('code', 'unknown')}: {e}")
+            GLOG.ERROR(f"Error processing order {order_data.get('code', 'unknown')}: {e}")
             import traceback
             traceback.print_exc()
 
@@ -214,7 +218,7 @@ class TradeGatewayAdapter(Thread):
         """启动订单监控线程"""
         monitor_thread = Thread(target=self._monitor_orders_loop, daemon=True)
         monitor_thread.start()
-        print("Order monitor thread started")
+        GLOG.INFO("Order monitor thread started")
 
     def _monitor_orders_loop(self):
         """
@@ -229,7 +233,7 @@ class TradeGatewayAdapter(Thread):
         MVP阶段：模拟成交逻辑（提交1秒后自动成交）
         Phase 4：调用TradeGateway.get_order_status()查询真实状态
         """
-        print("Order monitor loop running")
+        GLOG.INFO("Order monitor loop running")
 
         while self.is_running:
             try:
@@ -240,9 +244,9 @@ class TradeGatewayAdapter(Thread):
                 time.sleep(1)
 
             except Exception as e:
-                print(f"[ERROR] Error in monitor loop: {e}")
+                GLOG.ERROR(f"Error in monitor loop: {e}")
 
-        print("Order monitor loop stopped")
+        GLOG.INFO("Order monitor loop stopped")
 
     def _check_order_status(self):
         """
@@ -279,7 +283,7 @@ class TradeGatewayAdapter(Thread):
 
                 # 检查是否超时
                 if time_elapsed >= self.order_timeout:
-                    print(f"[WARNING] Order {order.uuid[:8]} expired (> {self.order_timeout}s)")
+                    GLOG.WARN(f"Order {order.uuid[:8]} expired (> {self.order_timeout}s)")
                     # TODO: 更新订单状态为EXPIRED
                     # order.status = ORDERSTATUS_TYPES.EXPIRED
                     # order_service.update_order(order)
@@ -310,10 +314,10 @@ class TradeGatewayAdapter(Thread):
 
                     # 更新成交统计
                     self.filled_orders += 1
-                    print(f"Order {order.uuid[:8]} filled (simulation)")
+                    GLOG.INFO(f"Order {order.uuid[:8]} filled (simulation)")
 
             except Exception as e:
-                print(f"[ERROR] Error checking order {order.uuid[:8]}: {e}")
+                GLOG.ERROR(f"Error checking order {order.uuid[:8]}: {e}")
                 continue
 
         # 定期打印统计信息（每60次检查，约1分钟）
@@ -345,10 +349,10 @@ class TradeGatewayAdapter(Thread):
 
             # 发布到Kafka
             self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, feedback_dto.model_dump_json())
-            print(f"Fill event sent to Kafka for order {fill_event.order.uuid[:8]}")
+            GLOG.INFO(f"Fill event sent to Kafka for order {fill_event.order.uuid[:8]}")
 
         except Exception as e:
-            print(f"[ERROR] Error publishing fill event: {e}")
+            GLOG.ERROR(f"Error publishing fill event: {e}")
 
     def _print_statistics(self):
         """打印订单统计信息"""
@@ -362,15 +366,15 @@ class TradeGatewayAdapter(Thread):
         ])
         pending_count = len(pending_orders) if pending_orders else 0
 
-        print(f"\n{'='*60}")
-        print(f"TradeGatewayAdapter Order Statistics:")
-        print(f"  Total orders:    {self.total_orders}")
-        print(f"  Filled orders:   {self.filled_orders}")
-        print(f"  Expired orders:  {self.expired_orders}")
-        print(f"  Failed orders:   {self.failed_orders}")
-        print(f"  Pending orders:  {pending_count} (from DB)")
-        print(f"  Fill rate:       {self.filled_orders/max(self.total_orders,1)*100:.1f}%")
-        print(f"{'='*60}\n")
+        GLOG.INFO(f"{'='*60}")
+        GLOG.INFO(f"TradeGatewayAdapter Order Statistics:")
+        GLOG.INFO(f"  Total orders:    {self.total_orders}")
+        GLOG.INFO(f"  Filled orders:   {self.filled_orders}")
+        GLOG.INFO(f"  Expired orders:  {self.expired_orders}")
+        GLOG.INFO(f"  Failed orders:   {self.failed_orders}")
+        GLOG.INFO(f"  Pending orders:  {pending_count} (from DB)")
+        GLOG.INFO(f"  Fill rate:       {self.filled_orders/max(self.total_orders,1)*100:.1f}%")
+        GLOG.INFO(f"{'='*60}")
 
     def get_statistics(self) -> dict:
         """
@@ -410,61 +414,61 @@ class TradeGatewayAdapter(Thread):
         4. 关闭 Kafka 连接
         5. 等待监控线程结束
         """
-        print("")
-        print("═══════════════════════════════════════════════════════")
-        print("🛑 Stopping TradeGatewayAdapter")
-        print("═══════════════════════════════════════════════════════")
+        GLOG.INFO("")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("🛑 Stopping TradeGatewayAdapter")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
 
         # 0. 设置停止标志
-        print("[Step 1] Setting stop flag...")
+        GLOG.INFO("[Step 1] Setting stop flag...")
         self.is_running = False
-        print("  ✅ Stop flag set")
+        GLOG.INFO("  ✅ Stop flag set")
 
         # 1. 打印最终统计
-        print("[Step 2] Printing final statistics...")
+        GLOG.INFO("[Step 2] Printing final statistics...")
         self._print_statistics()
 
         # 2. 关闭 Kafka Consumer
-        print("[Step 3] Closing Kafka Consumer...")
+        GLOG.INFO("[Step 3] Closing Kafka Consumer...")
         if self.kafka_consumer:
             try:
                 # 提交最终 offset
                 self.kafka_consumer.commit()
-                print(f"  ✅ Final offset committed")
+                GLOG.INFO("  ✅ Final offset committed")
 
                 # 关闭 consumer
                 self.kafka_consumer.close()
-                print(f"  ✅ Kafka consumer closed")
+                GLOG.INFO("  ✅ Kafka consumer closed")
             except Exception as e:
-                print(f"  ✗ Error closing Kafka consumer: {e}")
+                GLOG.ERROR(f"  ✗ Error closing Kafka consumer: {e}")
         else:
-            print(f"  ℹ️  No Kafka consumer to close")
+            GLOG.INFO("  ℹ️  No Kafka consumer to close")
 
         # 3. 关闭 Kafka Producer
-        print("[Step 4] Closing Kafka Producer...")
+        GLOG.INFO("[Step 4] Closing Kafka Producer...")
         if self.kafka_producer:
             try:
                 self.kafka_producer.close()
-                print(f"  ✅ Kafka producer closed")
+                GLOG.INFO("  ✅ Kafka producer closed")
             except Exception as e:
-                print(f"  ✗ Error closing Kafka producer: {e}")
+                GLOG.ERROR(f"  ✗ Error closing Kafka producer: {e}")
         else:
-            print(f"  ℹ️  No Kafka producer to close")
+            GLOG.INFO("  ℹ️  No Kafka producer to close")
 
         # 4. 等待监控线程结束
-        print("[Step 5] Waiting for monitor thread...")
+        GLOG.INFO("[Step 5] Waiting for monitor thread...")
         if hasattr(self, 'monitor_thread') and self.monitor_thread:
             if self.monitor_thread.is_alive():
                 self.monitor_thread.join(timeout=5)
                 if self.monitor_thread.is_alive():
-                    print(f"  ⚠️  Monitor thread did not finish gracefully")
+                    GLOG.WARN("  ⚠️  Monitor thread did not finish gracefully")
                 else:
-                    print(f"  ✅ Monitor thread finished")
+                    GLOG.INFO("  ✅ Monitor thread finished")
         else:
-            print(f"  ℹ️  No monitor thread running")
+            GLOG.INFO("  ℹ️  No monitor thread running")
 
-        print("")
-        print("═══════════════════════════════════════════════════════")
-        print("✅ TradeGatewayAdapter stopped gracefully")
-        print("═══════════════════════════════════════════════════════")
-        print("")
+        GLOG.INFO("")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("✅ TradeGatewayAdapter stopped gracefully")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("")

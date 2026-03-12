@@ -15,6 +15,7 @@ from threading import Thread, RLock, Event
 from datetime import datetime
 import time
 import logging
+from ginkgo.libs import GLOG
 
 from ginkgo.workers.backtest_worker.task_processor import BacktestProcessor
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
@@ -36,6 +37,7 @@ class BacktestWorker:
         Args:
             worker_id: Worker唯一标识
         """
+        GLOG.set_log_category("component")
         self.worker_id = worker_id
 
         # 任务管理：{task_uuid: BacktestProcessor}
@@ -87,7 +89,7 @@ class BacktestWorker:
         self.is_running = True
         self.started_at = datetime.now().isoformat()
 
-        print(f"Starting BacktestWorker {self.worker_id}")
+        GLOG.INFO(f"Starting BacktestWorker {self.worker_id}")
 
         # 清理旧数据
         self._cleanup_old_heartbeat_data()
@@ -114,17 +116,17 @@ class BacktestWorker:
         # 启动清理线程
         self._start_cleanup_thread()
 
-        print(f"BacktestWorker {self.worker_id} started")
-        print(f"Max concurrent backtests: {self.max_backtests}")
-        print(f"Ready to receive tasks from Kafka")
+        GLOG.INFO(f"BacktestWorker {self.worker_id} started")
+        GLOG.INFO(f"Max concurrent backtests: {self.max_backtests}")
+        GLOG.INFO(f"Ready to receive tasks from Kafka")
 
     def stop(self):
         """停止BacktestWorker（优雅关闭）"""
         if not self.is_running:
-            print(f"BacktestWorker {self.worker_id} is not running")
+            GLOG.WARN(f"BacktestWorker {self.worker_id} is not running")
             return
 
-        print(f"Stopping BacktestWorker {self.worker_id}")
+        GLOG.INFO(f"Stopping BacktestWorker {self.worker_id}")
 
         # 设置停止标志
         self.should_stop = True
@@ -133,12 +135,12 @@ class BacktestWorker:
         # 1. 关闭Kafka Consumer
         if self.task_consumer:
             self.task_consumer.close()
-            print("Task consumer closed")
+            GLOG.INFO("Task consumer closed")
 
         # 2. 等待任务完成或取消
         with self.task_lock:
             if self.tasks:
-                print(f"Waiting for {len(self.tasks)} tasks to complete...")
+                GLOG.INFO(f"Waiting for {len(self.tasks)} tasks to complete...")
                 wait_start = time.time()
                 while time.time() - wait_start < 10:  # 最多等10秒
                     for task_uuid, processor in list(self.tasks.items()):
@@ -150,7 +152,7 @@ class BacktestWorker:
 
                 # 还有未完成的任务，强制取消
                 if self.tasks:
-                    print(f"Cancelling {len(self.tasks)} remaining tasks...")
+                    GLOG.WARN(f"Cancelling {len(self.tasks)} remaining tasks...")
                     for processor in self.tasks.values():
                         processor.cancel()
 
@@ -166,7 +168,7 @@ class BacktestWorker:
         if self.progress_producer:
             self.progress_producer.close()
 
-        print(f"BacktestWorker {self.worker_id} stopped")
+        GLOG.INFO(f"BacktestWorker {self.worker_id} stopped")
 
     def _start_task_consumer_thread(self):
         """启动任务消费线程"""
@@ -174,13 +176,13 @@ class BacktestWorker:
             return
 
         def consume_tasks():
-            print("Task consumer thread started")
+            GLOG.INFO("Task consumer thread started")
             # 使用独特的 consumer group ID 避免与其他实例冲突
             unique_group_id = f"backtest-workers-{self.worker_id}"
             self.task_consumer = GinkgoConsumer(
                 topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
                 group_id=unique_group_id,
-                offset="earliest",
+                offset="latest",  # 只消费新消息，避免处理大量历史消息
             )
 
             while not self.should_stop:
@@ -197,19 +199,18 @@ class BacktestWorker:
                             # GinkgoConsumer 已反序列化，message.value 直接是 dict
                             assignment = message.value
 
-                            # 🔥 [FIX] 在接收任务后立即提交 offset，防止 worker 重启后重复消费
-                            # 注意：这里只确认"消息已接收"，不是"任务已完成"
-                            # 任务完成状态由 progress_tracker 跟踪
+                            # 立即提交 offset，防止 worker 重启后重复消费
+                            # 任务状态由数据库跟踪，失败的任务会被标记为 failed
                             try:
                                 self.task_consumer.commit()
                             except Exception as e:
-                                print(f"Failed to commit offset after receiving task: {e}")
+                                GLOG.ERROR(f"Failed to commit offset after receiving task: {e}")
 
                             self._handle_task_assignment(assignment)
 
                 except Exception as e:
                     if not self.should_stop:
-                        print(f"Error consuming task: {e}")
+                        GLOG.ERROR(f"Error consuming task: {e}")
 
         self.task_consumer_thread = Thread(target=consume_tasks, daemon=True)
         self.task_consumer_thread.start()
@@ -228,21 +229,47 @@ class BacktestWorker:
         """启动新任务（阻塞等待空闲槽位）"""
         task_uuid = assignment.get("task_uuid", "unknown")[:8]
 
-        # 🔥 [FIX] 检查任务是否已经完成，避免重复执行
+        # 检查任务是否已经在 Worker 中运行
+        with self.task_lock:
+            if task_uuid in self.tasks:
+                GLOG.WARN(f"[{task_uuid}] Task already running in this worker, skipping...")
+                return
+
+        # 检查任务状态
         existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
+        GLOG.DEBUG(f"[{task_uuid}] Current task status: {existing_status}")
+
+        # 如果任务已完成/失败/取消，跳过
         if existing_status and existing_status in ["completed", "failed", "cancelled"]:
-            print(f"[{task_uuid}] Task already {existing_status}, skipping...")
+            GLOG.INFO(f"[{task_uuid}] Task already {existing_status}, skipping...")
             return
+
+        # 如果任务状态是 pending 或 running，但不在 Worker 中运行，可能是僵尸任务
+        # 重置任务状态为 created，允许重新处理
+        if existing_status and existing_status in ["pending", "running"]:
+            GLOG.WARN(f"[{task_uuid}] Task is {existing_status} but not running, resetting to created...")
+            try:
+                # 尝试重置状态为 created
+                result = self.progress_tracker.task_service.update_status(
+                    uuid=assignment.get("task_uuid"),
+                    status="created"
+                )
+                if result.is_success():
+                    GLOG.INFO(f"[{task_uuid}] Reset task status to created")
+                else:
+                    GLOG.ERROR(f"[{task_uuid}] Failed to reset status: {result.error}")
+            except Exception as e:
+                GLOG.ERROR(f"[{task_uuid}] Error resetting status: {e}")
 
         # 阻塞等待空闲槽位
         while not self._can_accept_task():
-            print(f"[{task_uuid}] Worker at full capacity, waiting for slot...")
+            GLOG.INFO(f"[{task_uuid}] Worker at full capacity, waiting for slot...")
             # 清除标志，等待任务完成时被设置
             self._slot_available.clear()
             # 等待最多 60 秒，每隔 1 秒检查一次是否应该停止
             for _ in range(60):
                 if self.should_stop:
-                    print(f"[{task_uuid}] Worker stopping, discarding task")
+                    GLOG.WARN(f"[{task_uuid}] Worker stopping, discarding task")
                     return
                 if self._slot_available.wait(timeout=1):
                     break
@@ -252,17 +279,29 @@ class BacktestWorker:
 
             # 被唤醒后再次检查容量
             if self._can_accept_task():
-                print(f"[{task_uuid}] Slot available, proceeding with task")
+                GLOG.INFO(f"[{task_uuid}] Slot available, proceeding with task")
                 break
 
         # 验证必要的任务参数
         portfolio_uuid = assignment.get("portfolio_uuid")
         if not portfolio_uuid:
-            print(f"[{task_uuid}] ERROR: portfolio_uuid is required but missing, discarding task")
+            GLOG.ERROR(f"[{task_uuid}] ERROR: portfolio_uuid is required but missing, discarding task")
             # 上报任务失败到数据库
             self.progress_tracker.report_failed_by_uuid(
                 task_uuid=assignment.get("task_uuid", ""),
                 error="portfolio_uuid is required"
+            )
+            return
+
+        # 验证日期参数
+        config_dict = assignment.get("config", {})
+        start_date = config_dict.get("start_date")
+        end_date = config_dict.get("end_date")
+        if not start_date or not end_date:
+            GLOG.ERROR(f"[{task_uuid}] ERROR: start_date and end_date are required, discarding task")
+            self.progress_tracker.report_failed_by_uuid(
+                task_uuid=assignment.get("task_uuid", ""),
+                error=f"Missing dates: start_date={start_date}, end_date={end_date}"
             )
             return
 
@@ -300,9 +339,9 @@ class BacktestWorker:
             state=BacktestTaskState.PENDING,
         )
 
-        print(f"Starting task {task.task_uuid[:8]}: {task.name}")
+        GLOG.INFO(f"Starting task {task.task_uuid[:8]}: {task.name}")
         if analyzers:
-            print(f"  with {len(analyzers)} analyzers: {[a.name for a in analyzers]}")
+            GLOG.INFO(f"  with {len(analyzers)} analyzers: {[a.name for a in analyzers]}")
 
         # 创建Processor
         processor = BacktestProcessor(task, self.worker_id, self.progress_tracker)
@@ -319,13 +358,13 @@ class BacktestWorker:
         """取消任务"""
         with self.task_lock:
             if task_uuid not in self.tasks:
-                print(f"Task {task_uuid[:8]} not found")
+                GLOG.WARN(f"Task {task_uuid[:8]} not found")
                 return
 
             processor = self.tasks[task_uuid]
             processor.cancel()
             self.metrics.record_task_cancelled(task_uuid)
-            print(f"Task {task_uuid[:8]} cancelled")
+            GLOG.INFO(f"Task {task_uuid[:8]} cancelled")
 
     def _remove_task(self, task_uuid: str):
         """移除已完成的任务"""
@@ -342,9 +381,9 @@ class BacktestWorker:
         if self.task_consumer and self.task_consumer.is_connected:
             try:
                 self.task_consumer.commit()
-                print(f"[{task_uuid[:8]}] Kafka offset committed")
+                GLOG.DEBUG(f"[{task_uuid[:8]}] Kafka offset committed")
             except Exception as e:
-                print(f"[{task_uuid[:8]}] Failed to commit offset: {e}")
+                GLOG.ERROR(f"[{task_uuid[:8]}] Failed to commit offset: {e}")
 
     def _can_accept_task(self) -> bool:
         """检查是否还能接受任务"""
@@ -366,11 +405,11 @@ class BacktestWorker:
 
                     # 移除已完成的任务（_remove_task 会自己获取锁）
                     for uuid in completed_uuids:
-                        print(f"[Cleanup] Task {uuid[:8]} thread exited, removing...")
+                        GLOG.DEBUG(f"[Cleanup] Task {uuid[:8]} thread exited, removing...")
                         self._remove_task(uuid)
-                        print(f"[Cleanup] Task {uuid[:8]} removed, slot available")
+                        GLOG.DEBUG(f"[Cleanup] Task {uuid[:8]} removed, slot available")
                 except Exception as e:
-                    print(f"Error in cleanup: {e}")
+                    GLOG.ERROR(f"Error in cleanup: {e}")
 
         self.cleanup_thread = Thread(target=cleanup, daemon=True)
         self.cleanup_thread.start()
@@ -386,7 +425,7 @@ class BacktestWorker:
                     self._send_heartbeat()
                     time.sleep(self.heartbeat_interval)
                 except Exception as e:
-                    print(f"Error sending heartbeat: {e}")
+                    GLOG.ERROR(f"Error sending heartbeat: {e}")
 
         self.heartbeat_thread = Thread(target=send_heartbeat, daemon=True)
         self.heartbeat_thread.start()
@@ -410,10 +449,10 @@ class BacktestWorker:
             )
 
             redis.setex(key, RedisTTL.BACKTEST_WORKER_HEARTBEAT, heartbeat.to_json())
-            print(f"Heartbeat sent: {len(self.tasks)}/{self.max_backtests} tasks running")
+            GLOG.DEBUG(f"Heartbeat sent: {len(self.tasks)}/{self.max_backtests} tasks running")
 
         except Exception as e:
-            print(f"Failed to send heartbeat: {e}")
+            GLOG.ERROR(f"Failed to send heartbeat: {e}")
 
     def _clear_heartbeat(self):
         """清理Redis心跳"""
@@ -423,9 +462,9 @@ class BacktestWorker:
             redis = self._get_redis()
             key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
             redis.delete(key)
-            print("Heartbeat cleared")
+            GLOG.DEBUG("Heartbeat cleared")
         except Exception as e:
-            print(f"Failed to clear heartbeat: {e}")
+            GLOG.ERROR(f"Failed to clear heartbeat: {e}")
 
     def _cleanup_old_heartbeat_data(self):
         """清理旧的心跳数据"""
@@ -435,10 +474,10 @@ class BacktestWorker:
             redis = self._get_redis()
             key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
             if redis.exists(key):
-                print(f"Old heartbeat data found for {self.worker_id}, cleaning up...")
+                GLOG.INFO(f"Old heartbeat data found for {self.worker_id}, cleaning up...")
                 redis.delete(key)
         except Exception as e:
-            print(f"Failed to cleanup old heartbeat: {e}")
+            GLOG.ERROR(f"Failed to cleanup old heartbeat: {e}")
 
     def _is_worker_id_in_use(self) -> bool:
         """检查worker_id是否已被使用"""

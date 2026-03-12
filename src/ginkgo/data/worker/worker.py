@@ -13,6 +13,7 @@ from ginkgo.libs.utils.common import retry, time_logger
 from ginkgo.interfaces.dtos.control_command_dto import ControlCommandDTO
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.enums import WORKER_STATUS_TYPES
+from ginkgo.libs import GLOG
 
 
 class DataWorker(threading.Thread):
@@ -86,6 +87,9 @@ class DataWorker(threading.Thread):
         # 心跳线程
         self._heartbeat_thread: Optional[threading.Thread] = None
 
+        # 设置日志类别（用于Vector路由）
+        GLOG.set_log_category("component")
+
     @property
     def is_running(self) -> bool:
         """检查Worker是否正在运行"""
@@ -107,7 +111,7 @@ class DataWorker(threading.Thread):
         """
         with self._lock:
             if self._status != WORKER_STATUS_TYPES.STOPPED:
-                print(f"[DataWorker:{self._node_id}] Worker already started or in transition, current status: {self._status}")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Worker already started or in transition, current status: {self._status}")
                 return False
 
             self._status = WORKER_STATUS_TYPES.STARTING
@@ -132,7 +136,7 @@ class DataWorker(threading.Thread):
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.RUNNING
 
-            print(f"[DataWorker:{self._node_id}] DataWorker started successfully")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] DataWorker started successfully")
 
             # 发送系统事件：启动成功
             self._send_system_event("STARTED")
@@ -140,7 +144,7 @@ class DataWorker(threading.Thread):
             return True
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to start DataWorker: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to start DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
 
@@ -162,7 +166,7 @@ class DataWorker(threading.Thread):
         """
         with self._lock:
             if self._status != WORKER_STATUS_TYPES.RUNNING:
-                print(f"[DataWorker:{self._node_id}] Worker is not running, current status: {self._status}")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Worker is not running, current status: {self._status}")
                 return False
 
             self._status = WORKER_STATUS_TYPES.STOPPING
@@ -171,10 +175,10 @@ class DataWorker(threading.Thread):
             # 1. 先取消Kafka订阅，避免接收新消息
             if self._consumer and self._consumer.consumer:
                 try:
-                    print(f"[DataWorker:{self._node_id}] Unsubscribing from Kafka topic...")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Unsubscribing from Kafka topic...")
                     self._consumer.consumer.unsubscribe()
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error unsubscribing: {e}")
+                    GLOG.WARN(f"[DataWorker:{self._node_id}] Error unsubscribing: {e}")
 
             # 2. 设置停止事件
             self._stop_event.set()
@@ -189,11 +193,11 @@ class DataWorker(threading.Thread):
             # 5. 关闭Kafka消费者
             if self._consumer:
                 try:
-                    print(f"[DataWorker:{self._node_id}] Closing Kafka consumer...")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Closing Kafka consumer...")
                     self._consumer.close()
-                    print(f"[DataWorker:{self._node_id}] Kafka consumer closed")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Kafka consumer closed")
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error closing consumer: {e}")
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Error closing consumer: {e}")
                     pass
 
             with self._lock:
@@ -216,11 +220,11 @@ class DataWorker(threading.Thread):
                 except:
                     pass
 
-            print(f"[DataWorker:{self._node_id}] DataWorker stopped successfully")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] DataWorker stopped successfully")
             return True
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error stopping DataWorker: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error stopping DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
 
@@ -235,7 +239,7 @@ class DataWorker(threading.Thread):
 
         这是threading.Thread的入口方法，由start()方法调用
         """
-        print(f"[DataWorker:{self._node_id}] Worker thread started")
+        GLOG.INFO(f"[DataWorker:{self._node_id}] Worker thread started")
 
         try:
             # 使用poll模式，可以定期检查stop_event（适合低频控制命令）
@@ -265,12 +269,12 @@ class DataWorker(threading.Thread):
                                             message_data = json.loads(message_value)
                                             self._process_kafka_message_dict(message_data)
                                         except json.JSONDecodeError as e:
-                                            print(f"[DataWorker:{self._node_id}] Failed to parse message as JSON: {e}")
-                                            print(f"[DataWorker:{self._node_id}] Raw message: {message_value[:200]}")
+                                            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to parse message as JSON: {e}")
+                                            GLOG.ERROR(f"[DataWorker:{self._node_id}] Raw message: {message_value[:200]}")
                                             with self._lock:
                                                 self._stats["errors"] += 1
                                     else:
-                                        print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}, value: {message_value}")
+                                        GLOG.ERROR(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}, value: {message_value}")
                                         with self._lock:
                                             self._stats["errors"] += 1
 
@@ -282,25 +286,25 @@ class DataWorker(threading.Thread):
                                     self._stats["messages_processed"] += 1
 
                             except Exception as e:
-                                print(f"[DataWorker:{self._node_id}] Error processing message: {e}")
+                                GLOG.ERROR(f"[DataWorker:{self._node_id}] Error processing message: {e}")
                                 import traceback
-                                print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+                                GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                                 with self._lock:
                                     self._stats["errors"] += 1
 
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
                     import traceback
-                    print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                     with self._lock:
                         self._stats["errors"] += 1
                     # 出错后短暂等待再继续
                     time.sleep(5)
 
         except KeyboardInterrupt:
-            print(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
+            GLOG.WARN(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Unexpected error in worker thread: {e}")
+            GLOG.CRITICAL(f"[DataWorker:{self._node_id}] Unexpected error in worker thread: {e}")
             # 发送系统事件：严重错误
             self._send_system_event("ERROR", {
                 "error": str(e),
@@ -308,7 +312,7 @@ class DataWorker(threading.Thread):
                 "stats": self.get_stats()
             })
         finally:
-            print(f"[DataWorker:{self._node_id}] Worker thread exiting")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Worker thread exiting")
 
     def wait_for_completion(self):
         """等待Worker完成（阻塞调用）"""
@@ -316,7 +320,7 @@ class DataWorker(threading.Thread):
             while self.is_running:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print(f"[DataWorker:{self._node_id}] Interrupted, stopping worker...")
+            GLOG.WARN(f"[DataWorker:{self._node_id}] Interrupted, stopping worker...")
             self.stop()
 
     def get_stats(self) -> Dict[str, Any]:
@@ -342,10 +346,10 @@ class DataWorker(threading.Thread):
                 offset=self._auto_offset_reset
             )
 
-            print(f"[DataWorker:{self._node_id}] Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to initialize Kafka consumer: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to initialize Kafka consumer: {e}")
             raise
 
     def _init_producer(self):
@@ -356,12 +360,12 @@ class DataWorker(threading.Thread):
             self._producer = GinkgoProducer()
 
             if self._producer.is_connected:
-                print(f"[DataWorker:{self._node_id}] Kafka producer initialized for system events")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Kafka producer initialized for system events")
             else:
-                print(f"[DataWorker:{self._node_id}] Warning: Kafka producer not connected, system events will not be sent")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Warning: Kafka producer not connected, system events will not be sent")
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to initialize Kafka producer: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to initialize Kafka producer: {e}")
             self._producer = None
 
     def _send_system_event(self, event_type: str, details: Optional[Dict[str, Any]] = None):
@@ -417,12 +421,12 @@ class DataWorker(threading.Thread):
             )
 
             if success:
-                print(f"[DataWorker:{self._node_id}] System notification sent: {event_type}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] System notification sent: {event_type}")
             else:
-                print(f"[DataWorker:{self._node_id}] Failed to send system notification: {event_type}")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Failed to send system notification: {event_type}")
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to send system event: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to send system event: {e}")
 
     def _notify_task_start(self, command: str, payload: Dict[str, Any]) -> None:
         """
@@ -491,13 +495,13 @@ class DataWorker(threading.Thread):
                         async_mode=False
                     )
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Failed to send notification: {e}")
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to send notification: {e}")
 
             thread = threading.Thread(target=send_notification, daemon=True)
             thread.start()
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to queue task notification: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to queue task notification: {e}")
 
     def _get_kafka_bootstrap_servers(self) -> str:
         """获取Kafka bootstrap servers配置"""
@@ -519,11 +523,11 @@ class DataWorker(threading.Thread):
             message_data = json.loads(message_value.decode('utf-8'))
             self._process_kafka_message_dict(message_data)
         except json.JSONDecodeError as e:
-            print(f"[DataWorker:{self._node_id}] Failed to parse Kafka message as JSON: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to parse Kafka message as JSON: {e}")
             with self._lock:
                 self._stats["errors"] += 1
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error processing Kafka message: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error processing Kafka message: {e}")
             with self._lock:
                 self._stats["errors"] += 1
 
@@ -538,7 +542,7 @@ class DataWorker(threading.Thread):
             # 创建ControlCommandDTO对象
             command_dto = ControlCommandDTO(**message_data)
 
-            print(f"[DataWorker:{self._node_id}] Received control command: {command_dto.command}, source: {command_dto.source}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Received control command: {command_dto.command}, source: {command_dto.source}")
 
             # 处理命令
             success = self._process_command(
@@ -547,12 +551,12 @@ class DataWorker(threading.Thread):
             )
 
             if success:
-                print(f"[DataWorker:{self._node_id}] Command {command_dto.command} processed successfully")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Command {command_dto.command} processed successfully")
             else:
-                print(f"[DataWorker:{self._node_id}] Command {command_dto.command} processing failed")
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Command {command_dto.command} processing failed")
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error processing Kafka message dict: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error processing Kafka message dict: {e}")
             with self._lock:
                 self._stats["errors"] += 1
 
@@ -570,7 +574,7 @@ class DataWorker(threading.Thread):
                     redis_client = redis_crud.redis
 
                     if not redis_client:
-                        print(f"[DataWorker:{self._node_id}] Failed to get Redis client")
+                        GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to get Redis client")
                         self._stop_event.wait(self.HEARTBEAT_INTERVAL)
                         continue
 
@@ -592,10 +596,10 @@ class DataWorker(threading.Thread):
                     with self._lock:
                         self._stats["last_heartbeat"] = time.time()
 
-                    print(f"[DataWorker:{self._node_id}] Heartbeat sent: {heartbeat_key} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    GLOG.DEBUG(f"[DataWorker:{self._node_id}] Heartbeat sent: {heartbeat_key} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error sending heartbeat: {e}")
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Error sending heartbeat: {e}")
 
                 # 等待下一次心跳间隔
                 self._stop_event.wait(self.HEARTBEAT_INTERVAL)
@@ -627,7 +631,7 @@ class DataWorker(threading.Thread):
             bool: 处理是否成功
         """
         try:
-            print(f"[DataWorker:{self._node_id}] Processing command: {command}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Processing command: {command}")
 
             # 发送任务开始通知
             self._notify_task_start(command, payload)
@@ -643,13 +647,13 @@ class DataWorker(threading.Thread):
                 return self._handle_tick(payload)
             else:
                 # 理论上不会到达这里（topic 只有这 4 个命令）
-                print(f"[DataWorker:{self._node_id}] Unknown command: {command}")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Unknown command: {command}")
                 return False
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error processing command {command}: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error processing command {command}: {e}")
             import traceback
-            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             with self._lock:
                 self._stats["errors"] += 1
             return False
@@ -669,10 +673,10 @@ class DataWorker(threading.Thread):
 
             # 如果没有code参数，忽略此命令（TaskTimer的bar_snapshot是给DataManager用的）
             if not code:
-                print(f"[DataWorker:{self._node_id}] Ignoring bar_snapshot without code (for DataManager)")
+                GLOG.DEBUG(f"[DataWorker:{self._node_id}] Ignoring bar_snapshot without code (for DataManager)")
                 return True
 
-            print(f"[DataWorker:{self._node_id}] Handling bar_snapshot: code={code}, force={force}, full={full}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Handling bar_snapshot: code={code}, force={force}, full={full}")
 
             # 使用container获取bar_service
             from ginkgo.data.containers import container
@@ -681,29 +685,29 @@ class DataWorker(threading.Thread):
 
             if full:
                 # 全量同步：使用sync_range从上市日期开始
-                print(f"[DataWorker:{self._node_id}] Starting full sync for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Starting full sync for {code}")
                 result = bar_service.sync_range(code=code, start_date=None, end_date=None)
             else:
                 # 增量同步：使用sync_smart
-                print(f"[DataWorker:{self._node_id}] Starting incremental sync for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Starting incremental sync for {code}")
                 result = bar_service.sync_smart(code=code, fast_mode=not force)
 
             if result.success:
-                print(f"[DataWorker:{self._node_id}] Bar sync completed for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Bar sync completed for {code}")
                 # 更新统计
                 if result.data and hasattr(result.data, 'records_processed'):
-                    print(f"[DataWorker:{self._node_id}] Processed {result.data.records_processed} records for {code}")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Processed {result.data.records_processed} records for {code}")
                     with self._lock:
                         self._stats["bars_written"] += result.data.records_processed
                 return True
             else:
-                print(f"[DataWorker:{self._node_id}] Bar sync failed for {code}: {result.error}")
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Bar sync failed for {code}: {result.error}")
                 return False
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling bar_snapshot: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling bar_snapshot: {e}")
             import traceback
-            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False
 
     def _handle_stockinfo(self, payload: Dict[str, Any]) -> bool:
@@ -714,7 +718,7 @@ class DataWorker(threading.Thread):
         """
         try:
             code = payload.get("code")  # 参数会被忽略，sync()总是同步所有股票
-            print(f"[DataWorker:{self._node_id}] Handling stockinfo: code={code} (will sync all)")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Handling stockinfo: code={code} (will sync all)")
 
             from ginkgo.data.containers import container
             stockinfo_service = container.stockinfo_service()
@@ -723,16 +727,16 @@ class DataWorker(threading.Thread):
             result = stockinfo_service.sync()
 
             if result.success:
-                print(f"[DataWorker:{self._node_id}] Stockinfo sync completed")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Stockinfo sync completed")
             else:
-                print(f"[DataWorker:{self._node_id}] Stockinfo sync failed: {result.error}")
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Stockinfo sync failed: {result.error}")
 
             return result.success
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling stockinfo: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling stockinfo: {e}")
             import traceback
-            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False
 
     def _handle_adjustfactor(self, payload: Dict[str, Any]) -> bool:
@@ -744,10 +748,10 @@ class DataWorker(threading.Thread):
         try:
             code = payload.get("code")  # 股票代码（必需）
             if not code:
-                print(f"[DataWorker:{self._node_id}] Adjustfactor requires code parameter")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Adjustfactor requires code parameter")
                 return False
 
-            print(f"[DataWorker:{self._node_id}] Handling adjustfactor: code={code}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Handling adjustfactor: code={code}")
 
             from ginkgo.data.containers import container
             adjustfactor_service = container.adjustfactor_service()
@@ -756,20 +760,20 @@ class DataWorker(threading.Thread):
             result = adjustfactor_service.sync(code)
 
             if result.success:
-                print(f"[DataWorker:{self._node_id}] Adjustfactor sync completed for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Adjustfactor sync completed for {code}")
                 # 同步完成后计算复权因子
                 calc_result = adjustfactor_service.calculate(code)
                 if calc_result.success:
-                    print(f"[DataWorker:{self._node_id}] Adjustment factor calculation completed for {code}")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Adjustment factor calculation completed for {code}")
             else:
-                print(f"[DataWorker:{self._node_id}] Adjustfactor sync failed for {code}: {result.error}")
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Adjustfactor sync failed for {code}: {result.error}")
 
             return result.success
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling adjustfactor: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling adjustfactor: {e}")
             import traceback
-            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False
 
     def _handle_tick(self, payload: Dict[str, Any]) -> bool:
@@ -792,10 +796,10 @@ class DataWorker(threading.Thread):
             overwrite = payload.get("overwrite", False)  # 是否强制覆盖
 
             if not code:
-                print(f"[DataWorker:{self._node_id}] Tick requires code parameter")
+                GLOG.WARN(f"[DataWorker:{self._node_id}] Tick requires code parameter")
                 return False
 
-            print(f"[DataWorker:{self._node_id}] Handling tick: code={code}, full={full}, overwrite={overwrite}")
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Handling tick: code={code}, full={full}, overwrite={overwrite}")
 
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
@@ -803,24 +807,24 @@ class DataWorker(threading.Thread):
             if full:
                 # 全量回填
                 if overwrite:
-                    print(f"[DataWorker:{self._node_id}] Starting tick data repair (full + overwrite) for {code}")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick data repair (full + overwrite) for {code}")
                 else:
-                    print(f"[DataWorker:{self._node_id}] Starting tick backfill (full, skip existing) for {code}")
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick backfill (full, skip existing) for {code}")
                 result = tick_service.sync_backfill_by_date(code=code, force_overwrite=overwrite)
             else:
                 # 增量更新 (使用 sync_smart)
-                print(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")
                 result = tick_service.sync_smart(code=code, fast_mode=True)
 
             if result.success:
-                print(f"[DataWorker:{self._node_id}] Tick sync completed for {code}")
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Tick sync completed for {code}")
             else:
-                print(f"[DataWorker:{self._node_id}] Tick sync failed for {code}: {result.error}")
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Tick sync failed for {code}: {result.error}")
 
             return result.success
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling tick: {e}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling tick: {e}")
             import traceback
-            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False

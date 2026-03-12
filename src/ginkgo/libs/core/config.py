@@ -366,7 +366,15 @@ class GinkgoConfig(object):
         self._write_config("unittest_path", path)
 
     @property
-    def LOGGING_FILE_ON(self) -> str:
+    def LOGGING_FILE_ON(self) -> bool:
+        """
+        文件日志是否启用
+
+        默认值: True
+        配置路径: log_file_on
+        """
+        # 先初始化配置（确保 _has_local_config 被正确设置）
+        self._read_config()
         return bool(self._get_config("log_file_on"))
 
     @property
@@ -379,7 +387,15 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_LEVEL_FILE(self) -> str:
-        return self._get_config("log_level_file", "CRITICAL")
+        """
+        文件日志级别
+
+        默认值: "DEBUG"
+        配置路径: log_level_file
+        """
+        # 先初始化配置（确保 _has_local_config 被正确设置）
+        self._read_config()
+        return self._get_config("log_level_file", "DEBUG")
 
     @property
     def LOGGING_COLOR(self) -> dict:
@@ -1044,6 +1060,103 @@ class GinkgoConfig(object):
         if env_value:
             return [v.strip() for v in env_value.split(",")]
         return []
+
+    @property
+    def LOGGING_TTL_BACKTEST(self) -> int:
+        """
+        回测日志保留时间（天）
+
+        默认值: 180
+        配置路径: logging.ttl.backtest
+        用途: ClickHouse TTL配置，自动清理过期回测日志
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                ttl_config = config.get("logging", {}).get("ttl", {})
+                return int(ttl_config.get("backtest", 180))
+            except Exception:
+                pass
+        return os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180)
+
+    @property
+    def LOGGING_TTL_COMPONENT(self) -> int:
+        """
+        组件日志保留时间（天）
+
+        默认值: 90
+        配置路径: logging.ttl.component
+        用途: ClickHouse TTL配置，自动清理过期组件日志
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                ttl_config = config.get("logging", {}).get("ttl", {})
+                return int(ttl_config.get("component", 90))
+            except Exception:
+                pass
+        return os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90)
+
+    @property
+    def LOGGING_TTL_PERFORMANCE(self) -> int:
+        """
+        性能日志保留时间（天）
+
+        默认值: 30
+        配置路径: logging.ttl.performance
+        用途: ClickHouse TTL配置，自动清理过期性能日志
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                ttl_config = config.get("logging", {}).get("ttl", {})
+                return int(ttl_config.get("performance", 30))
+            except Exception:
+                pass
+        return os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30)
+
+    @property
+    def LOGGING_SAMPLING_RATE(self) -> float:
+        """
+        DEBUG日志采样率
+
+        默认值: 0.1 (10%)
+        配置路径: logging.sampling_rate
+        用途: 生产环境DEBUG日志采样，减少日志量和存储压力
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                logging_config = config.get("logging", {})
+                return float(logging_config.get("sampling_rate", 0.1))
+            except Exception:
+                pass
+        return float(os.environ.get("GINKGO_LOGGING_SAMPLING_RATE", 0.1))
+
+    @property
+    def LOGGING_LEVEL_WHITELIST(self) -> list:
+        """
+        允许动态调整日志级别的模块白名单
+
+        默认值: ["backtest", "trading", "data", "analysis"]
+        配置路径: logging.level_whitelist
+        用途: 防止误操作修改核心模块（libs、services）的日志级别
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                logging_config = config.get("logging", {})
+                whitelist = logging_config.get("level_whitelist", ["backtest", "trading", "data", "analysis"])
+                if isinstance(whitelist, list):
+                    return whitelist
+                return []
+            except Exception:
+                pass
+        # 尝试环境变量（逗号分隔）
+        env_value = os.environ.get("GINKGO_LOGGING_LEVEL_WHITELIST")
+        if env_value:
+            return [v.strip() for v in env_value.split(",")]
+        return ["backtest", "trading", "data", "analysis"]
 
 
 GCONF = GinkgoConfig()

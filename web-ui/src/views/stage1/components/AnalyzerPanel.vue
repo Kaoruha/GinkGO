@@ -95,7 +95,7 @@ import type { LineData } from 'lightweight-charts'
 import { backtestApi, type AnalyzerInfo } from '@/api/modules/backtest'
 
 interface Props {
-  taskId: string
+  taskId: string  // run_id
   portfolioId: string
   analyzers: AnalyzerInfo[]
 }

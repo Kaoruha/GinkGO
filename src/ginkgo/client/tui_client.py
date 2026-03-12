@@ -48,6 +48,7 @@ from textual.widgets.option_list import Option
 from textual.widgets.text_area import Selection
 
 from ginkgo.data.containers import container
+from ginkgo.libs import GLOG
 
 import asyncio
 import datetime
@@ -161,7 +162,7 @@ class DataPanel(Container):
         self.option_list.add_options(["Loading..."])
 
         if self.debounce_timer is not None and not self.debounce_timer._task.done():
-            print("Timer reset: ", self.debounce_timer._task.done())
+            GLOG.DEBUG(f"Timer reset: {self.debounce_timer._task.done()}")
             self.debounce_timer.reset()
         else:
             self.debounce_timer = self.set_timer(.5, self._filter_and_update_options)
@@ -221,8 +222,8 @@ class DataPanel(Container):
         elif event.key == "down":
             self.option_list.action_cursor_down()
             selected_index = self.option_list.highlighted
-            print(self.option_list.get_option_at_index(selected_index).prompt)
-            print(self.option_list.get_option_at_index(selected_index).id)
+            GLOG.DEBUG(f"Selected: {self.option_list.get_option_at_index(selected_index).prompt}")
+            GLOG.DEBUG(f"ID: {self.option_list.get_option_at_index(selected_index).id}")
         elif event.key == "pageup":
             pass
         elif event.key == "pagedown":

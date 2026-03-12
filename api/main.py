@@ -458,61 +458,92 @@ async def delete_backtest(backtest_id: str):
 
 
 class BacktestStartRequest(BaseModel):
-    """启动回测任务请求"""
-    portfolio_uuid: str
-    name: str = ""
-    start_date: str = ""
-    end_date: str = ""
-    initial_cash: float = 100000.0
-    analyzers: list = []
+    """启动回测任务请求（仅用于未来可能的参数扩展，当前不需要参数）"""
+    pass
 
 
 @app.post("/api/v1/backtest/{backtest_id}/start")
-async def start_backtest(backtest_id: str, request: BacktestStartRequest = None):
-    """启动回测任务（发送到Kafka队列）"""
+async def start_backtest(backtest_id: str):
+    """
+    启动回测任务（操作）
+
+    从任务记录中读取配置并启动，不接受参数。
+    如需修改配置，请使用编辑接口。
+    """
     task_service = get_backtest_task_service()
 
-    # 获取任务以检查 portfolio_id
+    # 获取任务记录
     task_result = task_service.get_by_id(backtest_id)
     if not task_result.is_success() or not task_result.data:
         raise HTTPException(status_code=404, detail="Backtest task not found")
 
     task = task_result.data
-    # 优先使用请求中的 portfolio_uuid，否则使用任务创建时的 portfolio_id
-    portfolio_uuid = None
-    if request and request.portfolio_uuid:
-        portfolio_uuid = request.portfolio_uuid
-    elif task.portfolio_id:
-        portfolio_uuid = task.portfolio_id
+
+    # 从任务记录中获取参数（操作不接受参数）
+    portfolio_uuid = task.portfolio_id
+    task_name = task.name or f"backtest_{task.run_id[:8]}"
+
+    # 从任务记录中解析配置快照，获取原始参数
+    import json
+    config_snapshot = {}
+    try:
+        if task.config_snapshot:
+            config_snapshot = json.loads(task.config_snapshot)
+    except:
+        pass
+
+    # 获取日期参数
+    start_date = config_snapshot.get("start_date", "")
+    end_date = config_snapshot.get("end_date", "")
+
+    # 如果任务记录中有日期字段，也使用它们
+    if not start_date and task.backtest_start_date:
+        start_date = task.backtest_start_date.strftime("%Y-%m-%d")
+    if not end_date and task.backtest_end_date:
+        end_date = task.backtest_end_date.strftime("%Y-%m-%d")
+
+    # �金和分析器参数
+    initial_cash = config_snapshot.get("initial_cash", 100000.0)
+    analyzers = config_snapshot.get("analyzers", [])
 
     # 校验必须有有效的 portfolio_uuid
     if not portfolio_uuid:
         raise HTTPException(
             status_code=400,
-            detail="portfolio_uuid is required. Please select a portfolio when creating the task."
+            detail="Task has no portfolio_id. Please recreate the task with a valid portfolio."
         )
 
     result = task_service.start_task(
-        uuid=backtest_id,  # backtest_id 就是 uuid
+        uuid=backtest_id,
         portfolio_uuid=portfolio_uuid,
-        name=request.name if request else None,
-        start_date=request.start_date if request else "",
-        end_date=request.end_date if request else "",
-        initial_cash=request.initial_cash if request else 100000.0,
-        analyzers=request.analyzers if request else [],
+        name=task_name,
+        start_date=start_date,
+        end_date=end_date,
+        initial_cash=initial_cash,
+        analyzers=analyzers,
     )
     if result.is_success():
-        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
     raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
 
 
 @app.post("/api/v1/backtest/{backtest_id}/stop")
 async def stop_backtest(backtest_id: str):
-    """停止回测任务（发送取消命令到Kafka）"""
+    """停止回测任务（只能停止 running 状态的任务）"""
     task_service = get_backtest_task_service()
     result = task_service.stop_task(uuid=backtest_id)  # backtest_id 就是 uuid
     if result.is_success():
-        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
+    raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
+
+
+@app.post("/api/v1/backtest/{backtest_id}/cancel")
+async def cancel_backtest(backtest_id: str):
+    """取消回测任务（只能取消 created/pending 状态的任务）"""
+    task_service = get_backtest_task_service()
+    result = task_service.cancel_task(uuid=backtest_id)  # backtest_id 就是 uuid
+    if result.is_success():
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
     raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
 
 
@@ -1539,7 +1570,6 @@ async def list_portfolios(
     """获取 Portfolio 列表"""
     try:
         portfolio_service = get_portfolio_service()
-        backtest_service = get_backtest_task_service()
         result = portfolio_service.get(page=page, page_size=page_size, name=keyword)
 
         if result.success:
@@ -1549,41 +1579,63 @@ async def list_portfolios(
             # 按创建时间降序排序（最新的在前面）
             raw_data = sorted(raw_data, key=lambda x: x.create_at or datetime.min, reverse=True)
 
-            for p in raw_data:
+            # 分页处理
+            total_count = len(raw_data)
+            start_idx = page * page_size
+            end_idx = start_idx + page_size
+            paginated_data = raw_data[start_idx:end_idx]
+
+            # 批量获取回测统计（只查询当前页 portfolios 的回测数据）
+            portfolio_backtest_stats = {}
+            if paginated_data:
+                try:
+                    from ginkgo import services
+                    backtest_crud = services.data.cruds.backtest_task()
+                    portfolio_ids = [p.uuid for p in paginated_data]
+
+                    # 使用 __in 操作符只查询当前页 portfolios 的回测
+                    backtest_tasks = backtest_crud.find(
+                        filters={"portfolio_id__in": portfolio_ids, "is_del": False}
+                    )
+
+                    # 按 portfolio_id 分组统计
+                    for task in backtest_tasks:
+                        # 只统计已完成的回测
+                        if task.status == "completed":
+                            pid = str(task.portfolio_id)
+                            if pid not in portfolio_backtest_stats:
+                                portfolio_backtest_stats[pid] = {"count": 0, "returns": []}
+                            portfolio_backtest_stats[pid]["count"] += 1
+                            try:
+                                final_value = float(task.final_portfolio_value or 0)
+                                config = json.loads(task.config_snapshot or '{}')
+                                initial = float(config.get('initial_capital', 1000000))
+                                if initial > 0:
+                                    portfolio_backtest_stats[pid]["returns"].append((final_value - initial) / initial)
+                            except:
+                                pass
+                except Exception as e:
+                    pass  # 忽略回测统计错误
+
+            for p in paginated_data:
                 # 计算净值
                 net_value = 1.0
                 if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
                     net_value = float(p.current_capital) / float(p.initial_capital)
 
-                # 获取回测统计数据（用于回测模式）
-                backtest_count = 0
-                avg_return = 0.0
-                try:
-                    backtest_result = backtest_service.list(portfolio_id=p.uuid, page=0, page_size=100)
-                    if backtest_result.success and backtest_result.data:
-                        tasks = backtest_result.data.get("data", [])
-                        completed_tasks = [t for t in tasks if t.status == "completed"]
-                        backtest_count = len(completed_tasks)
-                        if completed_tasks:
-                            returns = []
-                            for t in completed_tasks:
-                                final_value = float(t.final_portfolio_value or 0)
-                                config = json.loads(t.config_snapshot or '{}')
-                                initial = float(config.get('initial_capital', 1000000))
-                                if initial > 0:
-                                    returns.append((final_value - initial) / initial)
-                            if returns:
-                                avg_return = sum(returns) / len(returns)
-                except Exception as e:
-                    pass  # 忽略回测统计错误
+                # 从预加载的统计数据中获取
+                stats = portfolio_backtest_stats.get(p.uuid, {})
+                backtest_count = stats.get("count", 0)
+                returns = stats.get("returns", [])
+                avg_return = sum(returns) / len(returns) if returns else 0.0
 
                 portfolios.append({
                     "uuid": p.uuid,
                     "name": p.name,
                     "desc": p.desc or "",
-                    "is_live": p.is_live or False,
-                    "mode": 2 if p.is_live else 0,  # 根据 is_live 推断模式
-                    "state": 0,  # 默认停止状态
+                    "is_live": p.mode == 2,  # mode=2 表示实盘
+                    "mode": p.mode,  # 直接使用 mode 字段
+                    "state": p.state,  # 使用实际 state
                     "initial_cash": float(p.initial_capital) if p.initial_capital else 100000,
                     "current_cash": float(p.current_capital) if p.current_capital else 100000,
                     "cash": float(p.cash) if p.cash else 100000,
@@ -1598,15 +1650,6 @@ async def list_portfolios(
                     "updated_at": p.update_at.isoformat() if p.update_at else None,
                 })
 
-            # 获取总数（带搜索条件）
-            total_count = 0
-            try:
-                count_result = portfolio_service.count(name=keyword)
-                if count_result.success and count_result.data:
-                    total_count = count_result.data.get("count", 0)
-            except Exception:
-                total_count = len(portfolios)
-
             return {"data": portfolios, "total": total_count}
         return {"data": [], "total": 0}
     except Exception as e:
@@ -1618,7 +1661,7 @@ async def list_portfolios(
 
 @app.get("/api/v1/portfolio/stats")
 async def get_portfolio_stats():
-    """获取 Portfolio 统计"""
+    """获取 Portfolio 统计（全量数据统计）"""
     try:
         portfolio_service = get_portfolio_service()
 
@@ -2666,6 +2709,125 @@ async def optimization_bayesian(request: dict):
             for i in range(1, 11)
         ]
     }
+
+
+# ========== 日志级别管理 API (T084-T086) ==========
+
+class SetLogLevelRequest(BaseModel):
+    """设置日志级别请求"""
+    module: str
+    level: str
+
+
+@app.get("/api/logging/level")
+async def get_log_level(module: Optional[str] = None):
+    """
+    获取日志级别 (T084)
+
+    Args:
+        module: 模块名称（可选），不传则返回所有模块的日志级别
+
+    Returns:
+        模块日志级别信息
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        if module:
+            # 获取单个模块的日志级别
+            result = level_service.get_level(module)
+            if result.is_success:
+                return {
+                    "module": module,
+                    "level": result.data,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=404, detail=result.message)
+        else:
+            # 获取所有模块的日志级别
+            result = level_service.get_all_levels()
+            if result.is_success:
+                return {
+                    "levels": result.data,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=500, detail=result.message)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get log level: {str(e)}")
+
+
+@app.post("/api/logging/level")
+async def set_log_level(request: SetLogLevelRequest):
+    """
+    设置日志级别 (T085)
+
+    Args:
+        request: 包含 module 和 level 的请求体
+
+    Returns:
+        设置结果
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        result = level_service.set_level(request.module, request.level)
+
+        if result.is_success:
+            return {
+                "status": "success",
+                "module": request.module,
+                "level": request.level,
+                "message": f"Log level for '{request.module}' set to '{request.level}'",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set log level: {str(e)}")
+
+
+@app.post("/api/logging/level/reset")
+async def reset_log_level(module: Optional[str] = None):
+    """
+    重置日志级别到配置文件默认值 (T086)
+
+    Args:
+        module: 模块名称（可选），不传则重置所有模块
+
+    Returns:
+        重置结果
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        result = level_service.reset_levels(module)
+
+        if result.is_success:
+            return {
+                "status": "success",
+                "module": module or "all",
+                "message": f"Log level for '{module or 'all modules'}' reset to default",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reset log level: {str(e)}")
 
 
 # ========== 启动入口 ==========

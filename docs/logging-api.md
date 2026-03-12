@@ -1,348 +1,157 @@
-# LogService API 文档
+# GLOG 结构化日志 API 使用指南
 
-**Feature**: 012-distributed-logging
-**Last Updated**: 2026-02-26
+## API 分层结构
 
-## 概述
-
-LogService 是日志查询服务，封装了 Grafana Loki LogQL API，提供业务日志查询功能。支持按组合、策略、链路追踪 ID 等条件过滤。
-
-## 服务访问
-
-```python
-from ginkgo import services
-
-log_service = services.logging.log_service()
-
-# 或者直接访问 Loki 客户端
-loki_client = services.logging.loki_client()
+```
+GLOG
+├── backtest.*       # 回测业务日志
+│   ├── trade.*      # 交易流程事件
+│   ├── order.*      # 订单异常事件
+│   └── system.*     # 系统事件（引擎状态、风控、错误）
+├── execution.*      # 实盘执行日志
+├── component.*      # 组件日志
+└── performance.*    # 性能日志
 ```
 
-## API 方法
+## 1. 回测业务日志 (GLOG.backtest.*)
 
-### 1. query_logs - 通用日志查询
-
-查询日志，支持多条件过滤。
+### 1.1 交易流程事件 (GLOG.backtest.trade.*)
 
 ```python
-logs = log_service.query_logs(
-    portfolio_id="portfolio-uuid",
-    strategy_id="strategy-uuid",
-    trace_id="trace-123",
-    level="error",
-    start_time=datetime.now() - timedelta(hours=1),
-    end_time=datetime.now(),
-    limit=100,
-    offset=0
+# 信号生成
+GLOG.backtest.trade.signal(symbol="000001.SZ", direction="LONG")
+
+# 订单提交
+GLOG.backtest.trade.order(order_id=order.uuid)
+
+# 订单成交
+GLOG.backtest.trade.fill(order_id=order.uuid, price=10.52, volume=1000)
+
+# 持仓更新
+GLOG.backtest.trade.position(symbol="000001.SZ", volume=1000)
+
+# 资金更新
+GLOG.backtest.trade.capital(total=100000.0, cash=50000.0)
+```
+
+### 1.2 订单异常事件 (GLOG.backtest.order.*)
+
+```python
+# 订单拒绝
+GLOG.backtest.order.reject(order_id=order.uuid, code="INSUFFICIENT", reason="资金不足")
+
+# 订单取消
+GLOG.backtest.order.cancel(order_id=order.uuid, reason="用户取消")
+
+# 订单过期
+GLOG.backtest.order.expire(order_id=order.uuid, reason="已过期")
+
+# 订单确认（实盘）
+GLOG.backtest.order.ack(order_id=order.uuid, broker_order_id="broker-123")
+```
+
+### 1.3 系统事件 (GLOG.backtest.system.*)
+
+#### 引擎状态事件
+
+```python
+# 引擎启动
+GLOG.backtest.system.start(
+    engine_id=engine.uuid,
+    run_id=run.uuid,
+    portfolio_id=portfolio.uuid
+)
+
+# 引擎暂停
+GLOG.backtest.system.pause(
+    reason="用户暂停",
+    engine_id=engine.uuid,
+    progress=0.5
+)
+
+# 引擎恢复
+GLOG.backtest.system.resume(
+    engine_id=engine.uuid,
+    run_id=run.uuid
+)
+
+# 引擎完成
+GLOG.backtest.system.complete(
+    engine_id=engine.uuid,
+    run_id=run.uuid,
+    duration_seconds=3600,
+    final_capital=110000.0,
+    total_return=0.1
 )
 ```
 
-**参数：**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| portfolio_id | str | 否 | 组合 ID 过滤 |
-| strategy_id | str | 否 | 策略 ID 过滤 |
-| trace_id | str | 否 | 链路追踪 ID 过滤 |
-| level | str | 否 | 日志级别 (error, warning, info, debug) |
-| start_time | datetime | 否 | 开始时间（预留，暂未实现） |
-| end_time | datetime | 否 | 结束时间（预留，暂未实现） |
-| limit | int | 否 | 最大返回结果数，默认 100 |
-| offset | int | 否 | 偏移量（预留，暂未实现） |
-
-**返回：**
+#### 错误和风控事件
 
 ```python
-[
-    {
-        "timestamp": 1234567890000000000,  # 纳秒时间戳
-        "message": '{"level":"info","message":"Processing signal",...}'
-    },
-    ...
-]
-```
+# 风控事件
+GLOG.backtest.system.risk(
+    risk_type="POSITIONLIMIT",
+    reason="持仓超限",
+    risk_actual_value=0.25,
+    risk_limit_value=0.20
+)
 
-### 2. query_by_portfolio - 按组合 ID 查询
-
-查询某个组合的所有日志。
-
-```python
-logs = log_service.query_by_portfolio(
-    portfolio_id="portfolio-uuid",
-    level="error",    # 可选
-    limit=200,        # 可选
-    offset=0          # 可选
+# 引擎错误
+GLOG.backtest.system.error(
+    error_code="DATA_ERROR",
+    error_message="数据加载失败"
 )
 ```
 
-**使用场景：**
-- 回测完成后查看所有日志
-- 调试特定组合的运行问题
-- 生成组合运行报告
-
-### 3. query_by_trace_id - 按追踪 ID 查询
-
-查询完整的请求链路日志。
+### 1.4 快捷访问
 
 ```python
-logs = log_service.query_by_trace_id(trace_id="trace-123")
+GLOG.backtest.signal(symbol, direction)      # 信号
+GLOG.backtest.fill(order_id, price, volume)  # 成交
+GLOG.backtest.risk(risk_type, reason)        # 风控
 ```
 
-**使用场景：**
-- 追踪跨服务请求链路
-- 分析分布式调用时序
-- 排查跨组件问题
-
-**返回结果已按时间排序，可直接展示：**
+## 2. 实盘执行日志 (GLOG.execution.*)
 
 ```python
-for log in logs:
-    print(f"[{log['timestamp']}] {log['message']}")
+GLOG.execution.confirm(tracking_id, exp_price, act_price, exp_vol, act_vol)
+GLOG.execution.reject(tracking_id, reason)
+GLOG.execution.timeout(tracking_id)
+GLOG.execution.cancel(tracking_id, reason)
 ```
 
-### 4. query_errors - 查询错误日志
-
-查询错误日志，支持按组合过滤。
+## 3. 组件日志 (GLOG.component.*)
 
 ```python
-# 查询所有错误
-errors = log_service.query_errors(limit=50)
-
-# 查询特定组合的错误
-errors = log_service.query_errors(
-    portfolio_id="portfolio-uuid",
-    limit=100
-)
+GLOG.component.info(name="Strategy", message="初始化完成")
 ```
 
-**使用场景：**
-- 快速定位系统错误
-- 错误统计和分析
-- 错误报告生成
-
-### 5. get_log_count - 获取日志数量
-
-获取日志数量统计。
+## 4. 性能日志 (GLOG.performance.*)
 
 ```python
-# 统计某个组合的日志总数
-count = log_service.get_log_count(
-    portfolio_id="portfolio-uuid"
-)
-
-# 统计某个组合的错误日志数
-error_count = log_service.get_log_count(
-    portfolio_id="portfolio-uuid",
-    level="error"
-)
+GLOG.performance.metric(func="calculate_signals", duration_ms=125.5)
 ```
 
-## Web UI 集成示例
+## 完整事件覆盖
 
-### FastAPI 端点实现
-
-```python
-from fastapi import APIRouter, Query
-from typing import Optional
-from ginkgo import services
-
-router = APIRouter()
-log_service = services.logging.log_service()
-
-@router.get("/api/backtests/{portfolio_id}/logs")
-async def get_backtest_logs(
-    portfolio_id: str,
-    level: Optional[str] = Query(None, description="日志级别过滤"),
-    limit: int = Query(100, ge=1, le=1000, description="返回条数"),
-    offset: int = Query(0, ge=0, description="偏移量")
-):
-    """获取回测日志 API"""
-    try:
-        logs = log_service.query_logs(
-            portfolio_id=portfolio_id,
-            level=level,
-            limit=limit,
-            offset=offset
-        )
-        return {
-            "success": True,
-            "data": logs,
-            "total": len(logs)
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@router.get("/api/backtests/{portfolio_id}/errors")
-async def get_backtest_errors(
-    portfolio_id: str,
-    limit: int = Query(50, ge=1, le=500)
-):
-    """获取回测错误日志"""
-    errors = log_service.query_errors(
-        portfolio_id=portfolio_id,
-        limit=limit
-    )
-    return {
-        "success": True,
-        "data": errors,
-        "total": len(errors)
-    }
-
-@router.get("/api/traces/{trace_id}/logs")
-async def get_trace_logs(trace_id: str):
-    """获取链路追踪日志"""
-    logs = log_service.query_by_trace_id(trace_id=trace_id)
-    return {
-        "success": True,
-        "data": logs
-    }
-```
-
-### 前端调用示例
-
-```typescript
-// 获取回测日志
-async function getBacktestLogs(portfolioId: string, level?: string) {
-  const response = await fetch(
-    `/api/backtests/${portfolioId}/logs?level=${level || ''}&limit=100`
-  );
-  const data = await response.json();
-  return data.data;
-}
-
-// 获取错误日志
-async function getBacktestErrors(portfolioId: string) {
-  const response = await fetch(
-    `/api/backtests/${portfolioId}/errors?limit=50`
-  );
-  const data = await response.json();
-  return data.data;
-}
-```
-
-## 错误处理
-
-### Loki 不可用时的优雅降级
-
-当 Loki 服务不可用时，LogService 会优雅降级，返回空列表而不是抛出异常：
-
-```python
-from ginkgo.libs.exceptions import ServiceUnavailable
-
-try:
-    logs = log_service.query_by_portfolio(portfolio_id="xxx")
-    if not logs:
-        print("无日志或 Loki 不可用")
-except ServiceUnavailable:
-    print("无法连接到日志服务")
-```
-
-### LokiClient 错误处理
-
-```python
-# LokiClient 内部处理所有 HTTP 异常
-# 连接失败、超时等情况都会返回空列表
-logs = loki_client.query("{level='error'}", limit=100)
-# 如果 Loki 不可用，logs = []
-```
-
-## LogQL 查询字符串
-
-LogService 会根据查询参数自动构建 LogQL 查询字符串：
-
-```python
-# 单条件
-query_by_portfolio("portfolio-123")
-  → LogQL: '{portfolio_id="portfolio-123"}'
-
-# 多条件
-query_logs(portfolio_id="portfolio-123", level="error")
-  → LogQL: '{portfolio_id="portfolio-123", level="error"}'
-
-# 链路追踪
-query_by_trace_id("trace-456")
-  → LogQL: '{trace_id="trace-456"}'
-
-# 无条件（所有日志）
-query_logs()
-  → LogQL: '{}'
-```
-
-## 性能考虑
-
-### 1. 限制返回结果数
-
-```python
-# 推荐: 使用 limit 参数
-logs = log_service.query_by_portfolio(portfolio_id, limit=100)
-
-# 避免: 不限制结果数
-logs = log_service.query_by_portfolio(portfolio_id)  # 默认 limit=100
-```
-
-### 2. 使用时间范围过滤（未来支持）
-
-```python
-# 使用时间范围减少查询数据量
-logs = log_service.query_logs(
-    portfolio_id=portfolio_id,
-    start_time=datetime.now() - timedelta(hours=1),
-    end_time=datetime.now()
-)
-```
-
-### 3. 缓存查询结果
-
-```python
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def get_cached_logs(portfolio_id: str, level: str = None):
-    return log_service.query_by_portfolio(portfolio_id, level=level)
-```
-
-## 高级用法
-
-### 1. 自定义 Loki 客户端
-
-```python
-from ginkgo.services.logging.clients import LokiClient
-
-# 自定义 Loki endpoint
-custom_client = LokiClient(base_url="http://custom-loki:3100")
-
-# 创建自定义 LogService
-custom_log_service = LogService(loki_client=custom_client)
-logs = custom_log_service.query_by_portfolio("portfolio-123")
-```
-
-### 2. 直接使用 LokiClient
-
-```python
-loki_client = services.logging.loki_client()
-
-# 直接执行 LogQL 查询
-logs = loki_client.query('{level="error"} |= "database"', limit=50)
-```
-
-### 3. 组合多个过滤条件
-
-```python
-# 查询特定策略的错误日志
-logs = log_service.query_logs(
-    portfolio_id="portfolio-123",
-    strategy_id="strategy-456",
-    level="error",
-    limit=100
-)
-```
-
-## 相关文档
-
-- [快速开始](../specs/012-distributed-logging/quickstart.md)
-- [架构设计](../specs/012-distributed-logging/plan.md)
-- [数据模型](../specs/012-distributed-logging/data-model.md)
-- [API 契约](../specs/012-distributed-logging/contracts/log-api-contract.md)
+| 类别 | 事件类型 | API路径 |
+|------|---------|---------|
+| **引擎状态** | ENGINESTART | `backtest.system.start()` |
+| | ENGINEPAUSE | `backtest.system.pause()` |
+| | ENGINERESUME | `backtest.system.resume()` |
+| | ENGINECOMPLETE | `backtest.system.complete()` |
+| **交易流程** | SIGNALGENERATION | `backtest.trade.signal()` |
+| | ORDERSUBMITTED | `backtest.trade.order()` |
+| | ORDERFILLED | `backtest.trade.fill()` |
+| | POSITIONUPDATE | `backtest.trade.position()` |
+| | CAPITALUPDATE | `backtest.trade.capital()` |
+| **订单异常** | ORDERREJECTED | `backtest.order.reject()` |
+| | ORDERCANCELACK | `backtest.order.cancel()` |
+| | ORDEREXPIRED | `backtest.order.expire()` |
+| | ORDERACK | `backtest.order.ack()` |
+| **实盘执行** | EXECUTIONCONFIRMATION | `execution.confirm()` |
+| | EXECUTIONREJECTION | `execution.reject()` |
+| | EXECUTIONTIMEOUT | `execution.timeout()` |
+| | EXECUTIONCANCELLATION | `execution.cancel()` |
+| **风控错误** | RISKBREACH | `backtest.system.risk()` |
+| | ENGINEERROR | `backtest.system.error()` |

@@ -14,7 +14,7 @@ from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.trading.entities.tick import Tick
-from ginkgo.libs import pretty_repr
+from ginkgo.libs import pretty_repr, GLOG
 from ginkgo.libs.utils.display import base_repr
 
 
@@ -91,7 +91,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.TICK:
             return self.payload.price
         else:
-            self.log("WARN", f"The Price is Bar Type, but your are asking tick type price value.")
+            GLOG.WARN(f"The Price is Bar Type, but your are asking tick type price value.")
             return None
 
     @property
@@ -107,7 +107,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.payload.open
         else:
-            self.log("WARN", f"The Price is Tick Type, but your are asking Bar type open value.")
+            GLOG.WARN(f"The Price is Tick Type, but your are asking Bar type open value.")
             return None
 
     @property
@@ -117,7 +117,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.payload.high
         else:
-            self.log("WARN", f"The Price is Tick Type, but your are asking Bar type high value.")
+            GLOG.WARN(f"The Price is Tick Type, but your are asking Bar type high value.")
             return None
 
     @property
@@ -127,7 +127,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.payload.low
         else:
-            self.log("DEBUG", f"The Price is Tick Type, but your are asking Bar type low value.")
+            GLOG.DEBUG(f"The Price is Tick Type, but your are asking Bar type low value.")
             return None
 
     @property
@@ -137,7 +137,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.payload.close
         else:
-            self.log("DEBUG", f"The Price is Tick Type, but your are asking Bar type close value.")
+            GLOG.DEBUG(f"The Price is Tick Type, but your are asking Bar type close value.")
             return None
 
     def to_dataframe(self):

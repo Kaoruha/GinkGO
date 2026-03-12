@@ -36,7 +36,6 @@ from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.trading.bases.selector_base import SelectorBase
 from ginkgo.trading.bases.risk_base import RiskBase
 from ginkgo.trading.bases.sizer_base import SizerBase
@@ -53,14 +52,14 @@ from ginkgo.trading.events.order_lifecycle_events import (
 from ginkgo.trading.entities.position import Position
 from ginkgo.trading.entities.order import Order
 from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES, DEFAULT_ANALYZER_SET
-from ginkgo.libs import GCONF, to_decimal
+from ginkgo.libs import GCONF, GLOG, to_decimal
 
 
 console = Console()
 
 
 class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
-                   NamedMixin, LoggableMixin, Base, ABC):
+                   NamedMixin, Base, ABC):
     """
     投资组合组件基类
 
@@ -69,7 +68,6 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     - 上下文管理 (engine_id, run_id, portfolio_id)
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
-    - 日志管理 (log, add_logger)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
 
@@ -113,8 +111,6 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # NamedMixin初始化 - 传递name参数
         NamedMixin.__init__(self, name=name, **kwargs)
 
-        # LoggableMixin初始化
-        LoggableMixin.__init__(self, **kwargs)
 
         # Base初始化 - 传递kwargs（包括uuid参数）
         Base.__init__(self, **kwargs)
@@ -196,7 +192,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         for name in analyzer_names:
             # 跳过已存在的分析器（用户手动添加的优先）
             if name in self._analyzers:
-                self.log("DEBUG", f"Default analyzer '{name}' already exists, skipping")
+                GLOG.DEBUG(f"Default analyzer '{name}' already exists, skipping")
                 continue
 
             if name in builtin_map:
@@ -205,11 +201,11 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     analyzer = analyzer_class(name=name)
                     self.add_analyzer(analyzer)
                     added_count += 1
-                    self.log("DEBUG", f"Added default analyzer: {name}")
+                    GLOG.DEBUG(f"Added default analyzer: {name}")
                 except Exception as e:
-                    self.log("ERROR", f"Failed to add default analyzer '{name}': {e}")
+                    GLOG.ERROR(f"Failed to add default analyzer '{name}': {e}")
 
-        self.log("INFO", f"Initialized {added_count} default analyzers from set {self._default_analyzer_set.name}")
+        GLOG.INFO(f"Initialized {added_count} default analyzers from set {self._default_analyzer_set.name}")
 
     # ========== 基础属性和方法 ==========
 
@@ -237,7 +233,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Put event to eventengine.
         """
         if self._engine_put is None:
-            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
+            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -290,7 +286,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         elif isinstance(value, int):
             self._mode = PORTFOLIO_MODE_TYPES.from_int(value) or PORTFOLIO_MODE_TYPES.BACKTEST
         else:
-            self.log("WARN", f"Invalid mode value: {value}, using BACKTEST as default")
+            GLOG.WARN(f"Invalid mode value: {value}, using BACKTEST as default")
             self._mode = PORTFOLIO_MODE_TYPES.BACKTEST
 
     @property
@@ -316,7 +312,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         elif isinstance(value, int):
             self._state = PORTFOLIO_RUNSTATE_TYPES.from_int(value) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
         else:
-            self.log("WARN", f"Invalid state value: {value}, using INITIALIZED as default")
+            GLOG.WARN(f"Invalid state value: {value}, using INITIALIZED as default")
             self._state = PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
 
     @property
@@ -387,10 +383,10 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         money = to_decimal(money)
         old_cash = self._cash
         if money <= 0:
-            self.log("ERROR", f"The money should not under 0. {money} is illegal.")
+            GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
         else:
             self._cash += money
-            self.log("INFO", f"💰 [CASH MONITOR] add_cash: +{money} (old: {old_cash} -> new: {self._cash}) [CALLER: ADD_CASH]")
+            GLOG.INFO(f"💰 [CASH MONITOR] add_cash: +{money} (old: {old_cash} -> new: {self._cash}) [CALLER: ADD_CASH]")
             self.update_worth()
         return self.cash
 
@@ -404,9 +400,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         """
         fee = to_decimal(fee)
         if fee < 0:
-            self.log("ERROR", f"The fee should not under 0. {fee} is illegal.")
+            GLOG.ERROR(f"The fee should not under 0. {fee} is illegal.")
         else:
-            self.log("DEBUG", f"Add FEE {fee}")
+            GLOG.DEBUG(f"Add FEE {fee}")
             self._fee += fee
         return self.fee
 
@@ -451,18 +447,18 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Check if all parts set
         """
         if self.sizer is None:
-            self.log("ERROR", f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
+            GLOG.ERROR(f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
             return False
 
         if not self._selectors:
-            self.log("ERROR", f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
+            GLOG.ERROR(f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
             return False
 
         if len(self.risk_managers) == 0:
-            self.log("WARN", f"Portfolio RiskManager not set. Backtest will go on without Risk Control.")
+            GLOG.WARN(f"Portfolio RiskManager not set. Backtest will go on without Risk Control.")
 
         if len(self.strategies) == 0:
-            self.log("ERROR", f"No strategy register. No signal will come.")
+            GLOG.ERROR(f"No strategy register. No signal will come.")
             return False
 
         return True
@@ -491,7 +487,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             return event_time > current_time
 
         except Exception as e:
-            self.log("ERROR", f"Error checking event time: {e}")
+            GLOG.ERROR(f"Error checking event time: {e}")
             return False
 
     # ========== 绑定方法 ==========
@@ -502,7 +498,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         支持添加多个selector到列表中。
         """
         if not isinstance(selector, SelectorBase):
-            self.log("ERROR", f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
+            GLOG.ERROR(f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
             return
         self._selectors.append(selector)
         # 绑定portfolio引用，让selector可以直接从portfolio获取ID
@@ -573,7 +569,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Add risk manager to portfolio.
         """
         if not isinstance(risk, RiskBase):
-            self.log("ERROR", f"Risk manager only support RiskBase, {type(risk)} {risk} is not supported.")
+            GLOG.ERROR(f"Risk manager only support RiskBase, {type(risk)} {risk} is not supported.")
             return
         if risk not in self.risk_managers:
             self.risk_managers.append(risk)
@@ -602,7 +598,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Bind sizer to portfolio. And bind the portfolio itself to sizer.
         """
         if not isinstance(sizer, SizerBase):
-            self.log("ERROR", f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
+            GLOG.ERROR(f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
             return
         self._sizer = sizer
         # 绑定portfolio引用，让sizer可以直接从portfolio获取ID
@@ -620,14 +616,14 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         """
         money = to_decimal(money)
         if money > self.cash:
-            self.log("WARN", f"We cant freeze {money}, we only have {self.cash}.")
+            GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
             return False
-        self.log("DEBUG", f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+        GLOG.DEBUG(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         self._frozen += money
         self._cash -= money
-        self.log("INFO", f"💰 [CASH MONITOR] freeze_cash: -{money} (old: {self._cash + money} -> new: {self._cash}, frozen: {self._frozen})")
-        self.log("DEBUG", f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
+        GLOG.INFO(f"💰 [CASH MONITOR] freeze_cash: -{money} (old: {self._cash + money} -> new: {self._cash}, frozen: {self._frozen})")
+        GLOG.DEBUG(f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         console.print(f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         return True
 
@@ -638,7 +634,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         money = to_decimal(money)
         if money > self.frozen:
             if money - self.frozen > GCONF.EPSILON:
-                self.log("ERROR", f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
+                GLOG.ERROR(f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 console.print(f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 return
             else:
@@ -646,16 +642,16 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 old_frozen = self._frozen
                 self._cash += self._frozen  # 恢复全部frozen的cash
                 self._frozen = 0
-                self.log("INFO", f"💰 [CASH MONITOR] unfreeze: +{old_frozen} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
-                self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+                GLOG.INFO(f"💰 [CASH MONITOR] unfreeze: +{old_frozen} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
+                GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         else:
-            self.log("DEBUG", f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+            GLOG.DEBUG(f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
             old_cash = self._cash
             old_frozen = self._frozen
             self._frozen -= money
             self._cash += money  # 🚨 关键修复：unfreeze时需要恢复cash！
-            self.log("INFO", f"💰 [CASH MONITOR] unfreeze: +{money} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
-            self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+            GLOG.INFO(f"💰 [CASH MONITOR] unfreeze: +{money} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
+            GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         return self.frozen
 
     def deduct_from_frozen(self, cost: any, unfreeze_remain: any = None) -> Decimal:
@@ -684,7 +680,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
         # Check if we have enough frozen funds
         if cost > self.frozen:
-            self.log("ERROR", f"Cannot deduct ${cost} from frozen ${self.frozen}")
+            GLOG.ERROR(f"Cannot deduct ${cost} from frozen ${self.frozen}")
             raise ValueError(f"Insufficient frozen funds: have ${self.frozen}, need ${cost}")
 
         # Deduct cost from frozen funds (cost is converted to position, not cash)
@@ -701,7 +697,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             unfreeze_remain = to_decimal(unfreeze_remain)
             # Check if we have enough frozen funds for unfreeze
             if unfreeze_remain > self.frozen:
-                self.log("ERROR", f"Cannot unfreeze ${unfreeze_remain} from remaining frozen ${self.frozen}")
+                GLOG.ERROR(f"Cannot unfreeze ${unfreeze_remain} from remaining frozen ${self.frozen}")
                 raise ValueError(f"Insufficient frozen funds: have ${self.frozen}, need ${unfreeze_remain}")
 
             # Unfreeze specified amount back to cash
@@ -709,8 +705,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 self._frozen -= unfreeze_remain
                 self._cash += unfreeze_remain
 
-        self.log("INFO", f"💰 [CASH MONITOR] deduct_from_frozen: cost={cost}, unfreeze={unfreeze_remain}")
-        self.log("INFO", f"💰 [CASH MONITOR] cash: {old_cash} -> {self._cash}, frozen: {old_frozen} -> {self._frozen}")
+        GLOG.INFO(f"💰 [CASH MONITOR] deduct_from_frozen: cost={cost}, unfreeze={unfreeze_remain}")
+        GLOG.INFO(f"💰 [CASH MONITOR] cash: {old_cash} -> {self._cash}, frozen: {old_frozen} -> {self._frozen}")
 
         return self.frozen
 
@@ -740,15 +736,14 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         sys.stdout.write(f"[DEBUG] add_analyzer called: {analyzer.name}, has activate: {hasattr(analyzer, 'activate')}, active_stage: {analyzer.active_stage}\n")
         sys.stdout.flush()
         if analyzer.name in self._analyzers:
-            self.log(
-                "WARN", f"Analyzer {analyzer.name} already in the analyzers. Please Rename the ANALYZER and try again."
+            GLOG.WARN(f"Analyzer {analyzer.name} already in the analyzers. Please Rename the ANALYZER and try again."
             )
             return
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
             # 绑定 portfolio，让 analyzer 通过 ContextMixin 获取 run_id 等上下文信息
             if hasattr(analyzer, "bind_portfolio"):
                 analyzer.bind_portfolio(self)
-                self.log("DEBUG", f"[add_analyzer] {analyzer.name} bind_portfolio done, _context={analyzer._context}")
+                GLOG.DEBUG(f"[add_analyzer] {analyzer.name} bind_portfolio done, _context={analyzer._context}")
             else:
                 # 兼容旧代码，如果没有 bind_portfolio 方法则手动设置
                 analyzer.portfolio_id = self.portfolio_id
@@ -773,7 +768,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     return activate_func
 
                 self._analyzer_activate_hook[stage].append(make_activate_func(analyzer))
-                self.log("INFO", f"Added Analyzer {analyzer.name} activate to stage {stage} hook.")
+                GLOG.INFO(f"Added Analyzer {analyzer.name} activate to stage {stage} hook.")
 
             # record hook: 添加到配置的record_stage
             # 修复Lambda闭包陷阱 - 使用函数创建正确的闭包
@@ -787,17 +782,17 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 return record_func
 
             self._analyzer_record_hook[analyzer.record_stage].append(make_record_func(analyzer))
-            self.log("INFO", f"Added Analyzer {analyzer.name} record to stage {analyzer.record_stage} hook.")
+            GLOG.INFO(f"Added Analyzer {analyzer.name} record to stage {analyzer.record_stage} hook.")
 
         else:
-            self.log("WARN", f"Analyzer {analyzer.name} not support activate function. Please check.")
+            GLOG.WARN(f"Analyzer {analyzer.name} not support activate function. Please check.")
 
     def analyzer(self, key: str) -> "BaseAnalyzer":
         """
         Get the analyzer.
         """
         if key not in self.analyzers:
-            self.log("ERROR", f"Analyzer {key} not in the analyzers. Please check.")
+            GLOG.ERROR(f"Analyzer {key} not in the analyzers. Please check.")
             return
         return self.analyzers[key]
 
@@ -822,7 +817,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 print(f"[PORTFOLIO]   ✅ {analyzer_class.__name__} loaded")
             except Exception as e:
                 failed_analyzers.append(analyzer_class.__name__)
-                self.log("ERROR", f"Failed to load basic analyzer {analyzer_class.__name__}: {e}")
+                GLOG.ERROR(f"Failed to load basic analyzer {analyzer_class.__name__}: {e}")
                 print(f"[PORTFOLIO]   ❌ {analyzer_class.__name__} failed: {e}")
 
         if loaded_count == len(BASIC_ANALYZERS):
@@ -830,7 +825,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         else:
             print(f"[PORTFOLIO] ⚠️ Loaded {loaded_count}/{len(BASIC_ANALYZERS)} analyzers. Failed: {failed_analyzers}")
 
-        self.log("INFO", f"Loaded {loaded_count}/{len(BASIC_ANALYZERS)} basic analyzers")
+        GLOG.INFO(f"Loaded {loaded_count}/{len(BASIC_ANALYZERS)} basic analyzers")
 
     def _handle_analyzer_error(self, analyzer, error, stage, portfolio_info):
         """
@@ -891,20 +886,15 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     # 如果返回的是单个Signal对象，包装成列表
                     if hasattr(strategy_signals, "code"):  # 简单检查是否是Signal对象
                         strategy_signals = [strategy_signals]
-                        self.log(
-                            "WARN",
-                            f"Strategy {strategy.name} returned single Signal instead of List[Signal], auto-wrapped",
+                        GLOG.WARN(f"Strategy {strategy.name} returned single Signal instead of List[Signal], auto-wrapped",
                         )
                     else:
-                        self.log(
-                            "ERROR",
-                            f"Strategy {strategy.name} returned invalid type {type(strategy_signals)}, ignoring",
-                        )
+                        GLOG.ERROR(f"Strategy {strategy.name} returned invalid type {type(strategy_signals)}, ignoring")
                         strategy_signals = []
 
                 signals.extend(strategy_signals)
             except Exception as e:
-                self.log("ERROR", f"Strategy {strategy.name} generate signal failed: {e}")
+                GLOG.ERROR(f"Strategy {strategy.name} generate signal failed: {e}")
         return signals
 
     def generate_risk_signals(self, event: EventBase):
@@ -924,20 +914,15 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     # 如果返回的是单个Signal对象，包装成列表
                     if hasattr(risk_signals, "code"):  # 简单检查是否是Signal对象
                         risk_signals = [risk_signals]
-                        self.log(
-                            "WARN",
-                            f"Risk manager {risk_manager.name} returned single Signal instead of List[Signal], auto-wrapped",
+                        GLOG.WARN(f"Risk manager {risk_manager.name} returned single Signal instead of List[Signal], auto-wrapped",
                         )
                     else:
-                        self.log(
-                            "ERROR",
-                            f"Risk manager {risk_manager.name} returned invalid type {type(risk_signals)}, ignoring",
-                        )
+                        GLOG.ERROR(f"Risk manager {risk_manager.name} returned invalid type {type(risk_signals)}, ignoring")
                         risk_signals = []
 
                 signals.extend(risk_signals)
             except Exception as e:
-                self.log("ERROR", f"Risk manager {risk_manager.name} generate signal failed: {e}")
+                GLOG.ERROR(f"Risk manager {risk_manager.name} generate signal failed: {e}")
         return signals
 
     # ========== 批处理系统支持（简化版本）==========
@@ -950,7 +935,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             from ginkgo.trading.signal_processing.batch_processor import TimeWindowBatchProcessor
 
             if not isinstance(batch_processor, TimeWindowBatchProcessor):
-                self.log("ERROR", "Invalid batch processor type")
+                GLOG.ERROR("Invalid batch processor type")
                 return
 
             # 保存原始信号处理方法
@@ -963,16 +948,16 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             # 设置批处理器的组合信息获取函数
             self._batch_processor.get_portfolio_info = self.get_info
 
-            self.log("INFO", f"Batch processing enabled with {batch_processor.window_type.value} window")
+            GLOG.INFO(f"Batch processing enabled with {batch_processor.window_type.value} window")
 
         except Exception as e:
-            self.log("ERROR", f"Failed to enable batch processing: {e}")
+            GLOG.ERROR(f"Failed to enable batch processing: {e}")
 
     def disable_batch_processing(self) -> None:
         """禁用批处理模式，回退到原始信号处理"""
         self._batch_processing_enabled = False
         self._batch_processor = None
-        self.log("INFO", "Batch processing disabled")
+        GLOG.INFO("Batch processing disabled")
 
     def get_batch_processing_stats(self) -> Dict:
         """
@@ -999,26 +984,26 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         super()._on_time_advance(new_time)
 
         # 调用所有Selector的advance_time方法
-        self.log("INFO", f"🔧 About to advance time for {len(self._selectors)} selectors")
+        GLOG.INFO(f"🔧 About to advance time for {len(self._selectors)} selectors")
         for i, selector in enumerate(self._selectors):
             try:
-                self.log("INFO", f"🔧 About to call advance_time on selector #{i+1}: {selector.name}")
+                GLOG.INFO(f"🔧 About to call advance_time on selector #{i+1}: {selector.name}")
                 if selector is None:
-                    self.log("ERROR", f"❌ Selector #{i+1} is None!")
+                    GLOG.ERROR(f"❌ Selector #{i+1} is None!")
                     continue
                 if not hasattr(selector, 'advance_time'):
-                    self.log("ERROR", f"❌ Selector {selector.name} has no advance_time method!")
+                    GLOG.ERROR(f"❌ Selector {selector.name} has no advance_time method!")
                     continue
                 if not callable(selector.advance_time):
-                    self.log("ERROR", f"❌ Selector {selector.name}.advance_time is not callable!")
+                    GLOG.ERROR(f"❌ Selector {selector.name}.advance_time is not callable!")
                     continue
 
                 selector.advance_time(new_time)
-                self.log("INFO", f"✅ Successfully called advance_time on selector: {selector.name}")
+                GLOG.INFO(f"✅ Successfully called advance_time on selector: {selector.name}")
             except Exception as e:
-                self.log("ERROR", f"❌ Selector {selector.name} advance_time failed: {e}")
+                GLOG.ERROR(f"❌ Selector {selector.name} advance_time failed: {e}")
                 import traceback
-                self.log("ERROR", f"📋 Selector traceback: {traceback.format_exc()}")
+                GLOG.ERROR(f"📋 Selector traceback: {traceback.format_exc()}")
 
         if not self._selectors:
-            self.log("WARN", "No selectors bound to portfolio, interest set will remain empty")
+            GLOG.WARN("No selectors bound to portfolio, interest set will remain empty")
