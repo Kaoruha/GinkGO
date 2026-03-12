@@ -1,0 +1,43 @@
+# Grafana Data Source Provisioning
+# ClickHouse 数据源配置 - 基于 ClickHouse 官方文档格式
+
+apiVersion: 1
+
+datasources:
+  # ============================================
+  # ClickHouse 生产数据库 (主库)
+  # ============================================
+  - name: ClickHouse (Production)
+    type: grafana-clickhouse-datasource
+    uid: clickhouse_production
+    access: proxy
+    isDefault: true
+    editable: true
+    jsonData:
+      host: clickhouse-master
+      port: 8123
+      protocol: http
+      secure: false
+      username: default
+      defaultDatabase: ginkgo
+      dialTimeout: 10
+      queryTimeout: 60
+
+  # ============================================
+  # ClickHouse 测试数据库
+  # ============================================
+  - name: ClickHouse (Test)
+    type: grafana-clickhouse-datasource
+    uid: clickhouse_test
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      host: clickhouse-test
+      port: 18123
+      protocol: http
+      secure: false
+      username: default
+      defaultDatabase: ginkgo
+      dialTimeout: 10
+      queryTimeout: 60

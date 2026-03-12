@@ -21,6 +21,7 @@ from typing import Optional
 from ginkgo.trading.evaluation.core.enums import EvaluationLevel, EvaluationSeverity
 from ginkgo.trading.evaluation.core.evaluation_result import EvaluationIssue
 from ginkgo.trading.evaluation.rules.base_rule import ASTBasedRule
+from ginkgo.libs import GLOG
 
 
 class DecoratorUsageRule(ASTBasedRule):

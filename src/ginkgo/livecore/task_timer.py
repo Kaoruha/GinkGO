@@ -16,7 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.interfaces.dtos import ControlCommandDTO
 from ginkgo.messaging import GinkgoProducer
-from ginkgo.libs import GCONF
+from ginkgo.libs import GCONF, GLOG
 from ginkgo.livecore.utils.decorators import safe_job_wrapper
 from ginkgo.libs.utils.common import retry
 
@@ -77,7 +77,9 @@ class TaskTimer:
         # 运行状态
         self.is_running = False
 
-        print("[INFO] TaskTimer initialized")
+        # 设置日志分类
+        GLOG.set_log_category("component")
+        GLOG.INFO("TaskTimer initialized")
 
     def _get_redis_client(self) -> Optional[Redis]:
         """获取Redis客户端"""
@@ -93,7 +95,7 @@ class TaskTimer:
                     decode_responses=True
                 )
             except Exception as e:
-                print(f"[WARN] Failed to create Redis client: {e}")
+                GLOG.WARN(f"Failed to create Redis client: {e}")
         return self._redis_client
 
     def _get_heartbeat_key(self) -> str:
@@ -104,7 +106,7 @@ class TaskTimer:
     def _start_heartbeat_thread(self):
         """启动心跳上报线程"""
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
-            print("[WARN] Heartbeat thread already running")
+            GLOG.WARN("Heartbeat thread already running")
             return
 
         # 清理旧的心跳数据
@@ -120,7 +122,7 @@ class TaskTimer:
             name=f"heartbeat_{self.node_id}"
         )
         self.heartbeat_thread.start()
-        print(f"[INFO] Heartbeat thread started for {self.node_id}")
+        GLOG.INFO(f"Heartbeat thread started for {self.node_id}")
 
     def _heartbeat_loop(self):
         """心跳上报循环"""
@@ -135,10 +137,10 @@ class TaskTimer:
                     time.sleep(1)
 
             except Exception as e:
-                print(f"[ERROR] Error in heartbeat loop: {e}")
+                GLOG.ERROR(f"Error in heartbeat loop: {e}")
                 time.sleep(5)
 
-        print("[INFO] Heartbeat loop stopped")
+        GLOG.INFO("Heartbeat loop stopped")
 
     def _send_heartbeat(self):
         """发送心跳到Redis"""
@@ -182,10 +184,10 @@ class TaskTimer:
             heartbeat_key = self._get_heartbeat_key()
             deleted = redis_client.delete(heartbeat_key)
             if deleted:
-                print(f"[INFO] Cleaned up old heartbeat data")
+                GLOG.INFO("Cleaned up old heartbeat data")
 
         except Exception as e:
-            print(f"[WARN] Failed to cleanup old heartbeat data: {e}")
+            GLOG.WARN(f"Failed to cleanup old heartbeat data: {e}")
 
     def get_jobs_status(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -213,7 +215,7 @@ class TaskTimer:
             bool: 启动是否成功
         """
         try:
-            print("[INFO] TaskTimer starting...")
+            GLOG.INFO("TaskTimer starting...")
 
             self.is_running = True
 
@@ -232,7 +234,7 @@ class TaskTimer:
             # 启动心跳线程
             self._start_heartbeat_thread()
 
-            print(f"[INFO] TaskTimer started with {len(self._jobs)} jobs")
+            GLOG.INFO(f"TaskTimer started with {len(self._jobs)} jobs")
 
             # 发送启动通知
             try:
@@ -263,12 +265,12 @@ class TaskTimer:
                     fields=task_fields
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send start notification: {notify_error}")
+                GLOG.WARN(f"Failed to send start notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print(f"[ERROR] TaskTimer start failed: {e}")
+            GLOG.ERROR(f"TaskTimer start failed: {e}")
             self.is_running = False
 
             # 发送失败通知
@@ -296,7 +298,7 @@ class TaskTimer:
             bool: 停止是否成功
         """
         try:
-            print("[INFO] TaskTimer stopping...")
+            GLOG.INFO("TaskTimer stopping...")
 
             # 设置停止标志
             self.is_running = False
@@ -309,9 +311,9 @@ class TaskTimer:
             if self.heartbeat_thread and self.heartbeat_thread.is_alive():
                 self.heartbeat_thread.join(timeout=5)
                 if not self.heartbeat_thread.is_alive():
-                    print("[INFO] Heartbeat thread stopped")
+                    GLOG.INFO("Heartbeat thread stopped")
                 else:
-                    print("[WARN] Heartbeat thread did not stop in time")
+                    GLOG.WARN("Heartbeat thread did not stop in time")
 
             # 关闭Kafka Producer
             if self._producer:
@@ -321,7 +323,7 @@ class TaskTimer:
             if self._redis_client:
                 self._redis_client.close()
 
-            print("[INFO] TaskTimer stopped")
+            GLOG.INFO("TaskTimer stopped")
 
             # 发送停止通知
             try:
@@ -337,12 +339,12 @@ class TaskTimer:
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send stop notification: {notify_error}")
+                GLOG.WARN(f"Failed to send stop notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print(f"[ERROR] TaskTimer stop failed: {e}")
+            GLOG.ERROR(f"TaskTimer stop failed: {e}")
 
             # 发送失败通知
             try:
@@ -376,7 +378,7 @@ class TaskTimer:
         old_jobs = list(self._jobs)  # 记录旧任务列表
 
         try:
-            print("[INFO] Reloading TaskTimer configuration...")
+            GLOG.INFO("Reloading TaskTimer configuration...")
 
             # 重新加载配置
             self._load_config()
@@ -384,12 +386,12 @@ class TaskTimer:
             # 移除所有现有任务
             self.scheduler.remove_all_jobs()
             self._jobs.clear()
-            print("[INFO] Removed all existing jobs")
+            GLOG.INFO("Removed all existing jobs")
 
             # 重新添加任务
             self._add_jobs()
 
-            print(f"[INFO] Configuration reloaded successfully. Active jobs: {len(self._jobs)}")
+            GLOG.INFO(f"Configuration reloaded successfully. Active jobs: {len(self._jobs)}")
 
             # 发送重载成功通知
             try:
@@ -407,12 +409,12 @@ class TaskTimer:
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send reload notification: {notify_error}")
+                GLOG.WARN(f"Failed to send reload notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print(f"[ERROR] Failed to reload configuration: {e}")
+            GLOG.ERROR(f"Failed to reload configuration: {e}")
 
             # 发送重载失败通知
             try:
@@ -435,17 +437,17 @@ class TaskTimer:
         """加载配置文件"""
         try:
             if not os.path.exists(self.config_path):
-                print(f"[WARN] Config file not found: {self.config_path}, using defaults")
+                GLOG.WARN(f"Config file not found: {self.config_path}, using defaults")
                 self._config = self._get_default_config()
                 return
 
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 self._config = yaml.safe_load(f)
 
-            print(f"[INFO] Config loaded from {self.config_path}")
+            GLOG.INFO(f"Config loaded from {self.config_path}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to load config: {e}")
+            GLOG.ERROR(f"Failed to load config: {e}")
             self._config = self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -487,13 +489,13 @@ class TaskTimer:
                 command = task_config.get("command")
 
                 if not job_name or not cron_expr or not command:
-                    print(f"[WARN] Invalid task config: {task_config}")
+                    GLOG.WARN(f"Invalid task config: {task_config}")
                     continue
 
                 # 解析cron表达式
                 cron_parts = cron_expr.split()
                 if len(cron_parts) != 5:
-                    print(f"[WARN] Invalid cron expression: {cron_expr}")
+                    GLOG.WARN(f"Invalid cron expression: {cron_expr}")
                     continue
 
                 # 创建CronTrigger
@@ -516,14 +518,14 @@ class TaskTimer:
                         id=job_name,
                     )
                     self._jobs.append(job_name)
-                    print(f"[INFO] Added job: {job_name} ({cron_expr})")
+                    GLOG.INFO(f"Added job: {job_name} ({cron_expr})")
                 else:
                     # command不存在，记录警告日志
-                    print(f"[WARN] Unknown command '{command}' for task '{job_name}', job not registered")
-                    print(f"[WARN] Valid commands are: {', '.join(self._get_valid_commands())}")
+                    GLOG.WARN(f"Unknown command '{command}' for task '{job_name}', job not registered")
+                    GLOG.WARN(f"Valid commands are: {', '.join(self._get_valid_commands())}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to add jobs: {e}")
+            GLOG.ERROR(f"Failed to add jobs: {e}")
 
     def _get_job_function(self, command: str) -> Optional[callable]:
         """
@@ -569,13 +571,13 @@ class TaskTimer:
 
             # 直接发送到 ginkgo.data.commands
             self._publish_to_data_commands(command_dto.model_dump_json())
-            print("[INFO] Sent stockinfo command to DataWorker")
+            GLOG.INFO("Sent stockinfo command to DataWorker")
 
             # 发送Discord通知
             self._send_notification("股票信息更新命令已发送", "STOCKINFO")
 
         except Exception as e:
-            print(f"[ERROR] Stockinfo job failed: {e}")
+            GLOG.ERROR(f"Stockinfo job failed: {e}")
             self._send_error_notification("股票信息更新任务执行失败", e)
 
     @safe_job_wrapper
@@ -591,20 +593,20 @@ class TaskTimer:
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
-                print("[WARN] No stocks found, skipping adjustfactor update")
+                GLOG.WARN("No stocks found, skipping adjustfactor update")
                 return
 
             total = len(stock_codes)
-            print(f"[INFO] Sending adjustfactor commands for {total} stocks")
+            GLOG.INFO(f"Sending adjustfactor commands for {total} stocks")
 
             # 批量发送命令（batch_size=100）
             self._send_batch_commands("adjustfactor", stock_codes, batch_size=100)
 
-            print(f"[INFO] Completed adjustfactor update for {total} stocks")
+            GLOG.INFO(f"Completed adjustfactor update for {total} stocks")
             self._send_notification(f"复权因子更新完成，共 {total} 只股票", "ADJUSTFACTOR")
 
         except Exception as e:
-            print(f"[ERROR] Adjustfactor job failed: {e}")
+            GLOG.ERROR(f"Adjustfactor job failed: {e}")
             self._send_error_notification("复权因子更新任务执行失败", e)
 
     @safe_job_wrapper
@@ -620,21 +622,21 @@ class TaskTimer:
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
-                print("[WARN] No stocks found, skipping bar_snapshot update")
+                GLOG.WARN("No stocks found, skipping bar_snapshot update")
                 return
 
             total = len(stock_codes)
-            print(f"[INFO] Sending bar_snapshot commands for {total} stocks")
+            GLOG.INFO(f"Sending bar_snapshot commands for {total} stocks")
 
             # 批量发送命令（batch_size=50，默认参数：当日K线，不强制覆盖）
             payload = {"full": False, "force": False}
             self._send_batch_commands("bar_snapshot", stock_codes, batch_size=50, payload=payload)
 
-            print(f"[INFO] Completed bar_snapshot update for {total} stocks")
+            GLOG.INFO(f"Completed bar_snapshot update for {total} stocks")
             self._send_notification(f"K线数据更新完成，共 {total} 只股票", "BAR_SNAPSHOT")
 
         except Exception as e:
-            print(f"[ERROR] Bar snapshot job failed: {e}")
+            GLOG.ERROR(f"Bar snapshot job failed: {e}")
             self._send_error_notification("K线数据更新任务执行失败", e)
 
     @safe_job_wrapper
@@ -650,21 +652,21 @@ class TaskTimer:
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
-                print("[WARN] No stocks found, skipping tick update")
+                GLOG.WARN("No stocks found, skipping tick update")
                 return
 
             total = len(stock_codes)
-            print(f"[INFO] Sending tick commands for {total} stocks (this may take a while)")
+            GLOG.INFO(f"Sending tick commands for {total} stocks (this may take a while)")
 
             # 批量发送命令（batch_size=10，默认参数：增量同步，不强制覆盖）
             payload = {"full": False, "overwrite": False}
             self._send_batch_commands("tick", stock_codes, batch_size=10, payload=payload)
 
-            print(f"[INFO] Completed tick update for {total} stocks")
+            GLOG.INFO(f"Completed tick update for {total} stocks")
             self._send_notification(f"Tick数据更新完成，共 {total} 只股票", "TICK")
 
         except Exception as e:
-            print(f"[ERROR] Tick job failed: {e}")
+            GLOG.ERROR(f"Tick job failed: {e}")
             self._send_error_notification("Tick数据更新任务执行失败", e)
 
     @safe_job_wrapper
@@ -684,7 +686,7 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            print("[INFO] Sent adjustfactor command to Kafka")
+            GLOG.INFO("Sent adjustfactor command to Kafka")
 
             # 发送Discord通知
             try:
@@ -699,10 +701,10 @@ class TaskTimer:
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send notification: {notify_error}")
+                GLOG.WARN(f"Failed to send notification: {notify_error}")
 
         except Exception as e:
-            print(f"[ERROR] Adjustfactor job failed: {e}")
+            GLOG.ERROR(f"Adjustfactor job failed: {e}")
             # 发送错误通知
             try:
                 from ginkgo.notifier.core.notification_service import notify
@@ -731,7 +733,7 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            print("[INFO] Sent tick command to Kafka")
+            GLOG.INFO("Sent tick command to Kafka")
 
             # 发送Discord通知
             try:
@@ -746,10 +748,10 @@ class TaskTimer:
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send notification: {notify_error}")
+                GLOG.WARN(f"Failed to send notification: {notify_error}")
 
         except Exception as e:
-            print(f"[ERROR] Tick job failed: {e}")
+            GLOG.ERROR(f"Tick job failed: {e}")
             # 发送错误通知
             try:
                 from ginkgo.notifier.core.notification_service import notify
@@ -778,11 +780,11 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            print("[INFO] Sent update_selector command to Kafka")
+            GLOG.INFO("Sent update_selector command to Kafka")
             self._send_notification("Selector更新命令已发送", "UPDATE_SELECTOR")
 
         except Exception as e:
-            print(f"[ERROR] Selector update job failed: {e}")
+            GLOG.ERROR(f"Selector update job failed: {e}")
             self._send_error_notification("Selector更新任务执行失败", e)
 
     @safe_job_wrapper
@@ -792,7 +794,7 @@ class TaskTimer:
 
         注意：此命令已弃用，请使用独立的 stockinfo/adjustfactor/bar_snapshot/tick 命令。
         """
-        print("[WARN] _data_update_job is deprecated, use individual commands instead")
+        GLOG.WARN("_data_update_job is deprecated, use individual commands instead")
 
     @safe_job_wrapper
     def _heartbeat_test_job(self) -> None:
@@ -815,10 +817,10 @@ class TaskTimer:
                     "运行中任务数": len(self._jobs),
                 },
             )
-            print("[INFO] Heartbeat test notification sent")
+            GLOG.INFO("Heartbeat test notification sent")
 
         except Exception as e:
-            print(f"[ERROR] Heartbeat test job failed: {e}")
+            GLOG.ERROR(f"Heartbeat test job failed: {e}")
             self._send_error_notification("心跳测试任务执行失败", e)
 
     def _get_all_stock_codes(self) -> list:
@@ -840,7 +842,7 @@ class TaskTimer:
             return [stock.code for stock in stocks]
 
         except Exception as e:
-            print(f"[ERROR] Failed to get stock codes: {e}")
+            GLOG.ERROR(f"Failed to get stock codes: {e}")
             return []
 
     def _send_batch_commands(self, command: str, codes: list, batch_size: int = 50,
@@ -874,14 +876,14 @@ class TaskTimer:
                     self._publish_to_data_commands(command_dto.model_dump_json())
 
                 processed += len(batch)
-                print(f"[INFO] Progress: {processed}/{total} ({processed*100//total}%)")
+                GLOG.INFO(f"Progress: {processed}/{total} ({processed*100//total}%)")
 
                 # 短暂延迟，避免 Kafka 压力过大
                 import time
                 time.sleep(0.1)
 
         except Exception as e:
-            print(f"[ERROR] Failed to send batch {command} commands: {e}")
+            GLOG.ERROR(f"Failed to send batch {command} commands: {e}")
 
     def _publish_to_data_commands(self, message: str) -> None:
         """
@@ -897,7 +899,7 @@ class TaskTimer:
                     msg=message,
                 )
             except Exception as e:
-                print(f"[ERROR] Failed to publish to data.commands: {e}")
+                GLOG.ERROR(f"Failed to publish to data.commands: {e}")
 
     def _send_notification(self, message: str, command_name: str) -> None:
         """
@@ -919,7 +921,7 @@ class TaskTimer:
                 },
             )
         except Exception as e:
-            print(f"[WARN] Failed to send notification: {e}")
+            GLOG.WARN(f"Failed to send notification: {e}")
 
     def _send_error_notification(self, message: str, error: Exception) -> None:
         """
@@ -951,7 +953,7 @@ class TaskTimer:
         """
         try:
             if not os.path.exists(self.config_path):
-                print(f"[ERROR] Config file not found: {self.config_path}")
+                GLOG.ERROR(f"Config file not found: {self.config_path}")
                 return False
 
             with open(self.config_path, 'r') as f:
@@ -960,25 +962,25 @@ class TaskTimer:
             # 验证scheduled_tasks
             scheduled_tasks = config.get("scheduled_tasks", [])
             if not isinstance(scheduled_tasks, list):
-                print("[ERROR] scheduled_tasks must be a list")
+                GLOG.ERROR("scheduled_tasks must be a list")
                 return False
 
             for task in scheduled_tasks:
                 # 验证必需字段
                 if "name" not in task or "cron" not in task or "command" not in task:
-                    print(f"[ERROR] Task missing required fields: {task}")
+                    GLOG.ERROR(f"Task missing required fields: {task}")
                     return False
 
                 # 验证命令类型
                 if task["command"] not in self._get_valid_commands():
-                    print(f"[ERROR] Invalid command: {task['command']}")
+                    GLOG.ERROR(f"Invalid command: {task['command']}")
                     return False
 
-            print("[INFO] Config validation passed")
+            GLOG.INFO("Config validation passed")
             return True
 
         except Exception as e:
-            print(f"[ERROR] Config validation failed: {e}")
+            GLOG.ERROR(f"Config validation failed: {e}")
             return False
 
     @retry(max_try=3, backoff_factor=2)

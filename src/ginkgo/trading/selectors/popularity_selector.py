@@ -12,6 +12,7 @@ from rich.progress import Progress
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.data.containers import container
+from ginkgo.libs import GLOG
 
 
 class PopularitySelector(BaseSelector):
@@ -40,7 +41,7 @@ class PopularitySelector(BaseSelector):
         # self._now = self.advance_time(self.portfolio.now)
 
         if self.now is None:
-            self.log("ERROR", "No date set. skip picking.")
+            GLOG.ERROR("No date set. skip picking.")
             return []
 
         if self._last_pick is None:
@@ -53,7 +54,7 @@ class PopularitySelector(BaseSelector):
             self._last_pick = self.now
 
         if self.now is None:
-            self.log("ERROR", "No date set. skip picking.")
+            GLOG.ERROR("No date set. skip picking.")
             return self._interested
 
         from ginkgo.trading.time.clock import now as clock_now

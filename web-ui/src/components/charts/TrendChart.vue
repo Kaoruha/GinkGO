@@ -28,7 +28,7 @@ const props = withDefaults(defineProps<Props>(), {
   smooth: true,
   area: true,
   showZoom: true,
-  showLegend: true
+  showLegend: true,
   color: '#1890ff'
 })
 
@@ -72,8 +72,8 @@ const updateChart = () => {
     tooltip: {
       trigger: 'axis',
       axisPointer: {
-        type: 'cross'
-      backgroundColor: 'rgba(255, 255, 255, 0.1)'
+        type: 'cross',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)'
       }
     },
     legend: {
@@ -119,10 +119,10 @@ const updateChart = () => {
       type: 'line',
       smooth: props.smooth,
       symbol: 'none',
-      areaStyle: {
-        color: props.color
-      opacity: props.area ? 0.3 : 0
-      },
+      areaStyle: props.area ? {
+        color: props.color,
+        opacity: 0.3
+      } : undefined,
       lineStyle: {
         color: props.color,
         width: 2

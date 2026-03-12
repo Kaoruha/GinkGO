@@ -17,10 +17,9 @@ from ginkgo.trading.core.base import Base
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 
 
-class StrategyBase(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
+class StrategyBase(TimeMixin, ContextMixin, NamedMixin, Base):
     """
     策略组件基类
 
@@ -28,7 +27,6 @@ class StrategyBase(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
     - 时间戳管理 (timestamp, business_timestamp)
     - 上下文管理 (engine_id, run_id, portfolio_id)
     - 名称管理 (name)
-    - 日志管理 (log, add_logger)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
 
@@ -44,7 +42,6 @@ class StrategyBase(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         TimeMixin.__init__(self, **kwargs)
         ContextMixin.__init__(self, **kwargs)
         NamedMixin.__init__(self, name=name, **kwargs)
-        LoggableMixin.__init__(self, **kwargs)
         Base.__init__(self)
 
     def create_signal(

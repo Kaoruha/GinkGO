@@ -114,7 +114,7 @@ const getBarOption = () => ({
   },
   xAxis: {
     type: 'category',
-    data: barData.value.map(p => p.name)
+    data: barData.value.map(p => p.name),
     axisLabel: {
       interval: 0
     }

@@ -23,6 +23,7 @@ from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
 
+from ginkgo.libs import GLOG
 from ginkgo.trading.evaluation.core.enums import ComponentType
 
 app = typer.Typer(
@@ -318,9 +319,9 @@ def _validate_single_strategy(
         else:
             # Display results to console (only for text format or when no output file)
             if report_format == "text":
-                # Use print() for pre-formatted Rich content with ANSI codes
+                # Use console.print() for pre-formatted Rich content with ANSI codes
                 console.print()
-                print(report_content, end="")
+                console.print(report_content, end="")
 
         # Runtime signal tracing (T109)
         if show_trace:

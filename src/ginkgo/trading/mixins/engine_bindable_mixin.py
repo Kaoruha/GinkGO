@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ginkgo.trading.engines.base_engine import BaseEngine
+from ginkgo.libs import GLOG
 
 
 class EngineBindableMixin:
@@ -67,7 +68,7 @@ class EngineBindableMixin:
         if self._engine_put is None:
             # 使用log方法（如果继承者有的话）
             if hasattr(self, 'log'):
-                self.log("ERROR", "Engine put not bind. Events can not put back to the engine.")
+                GLOG.ERROR("Engine put not bind. Events can not put back to the engine.")
             else:
                 print(f"ERROR: Engine put not bind in {self.__class__.__name__}. Events can not put back to the engine.")
             return

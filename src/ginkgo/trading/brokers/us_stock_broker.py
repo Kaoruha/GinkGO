@@ -21,7 +21,7 @@ from ginkgo.trading.brokers.live_broker_base import LiveBrokerBase
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import to_decimal
+from ginkgo.libs import to_decimal, GLOG
 
 
 class USStockBroker(LiveBrokerBase):
@@ -57,7 +57,7 @@ class USStockBroker(LiveBrokerBase):
         # 美股特有配置
         self._extended_hours = config.get("extended_hours", False)  # 盘前盘后交易
 
-        self.log("INFO", f"USStockBroker initialized with account_id={self._account_id}, "
+        GLOG.INFO(f"USStockBroker initialized with account_id={self._account_id}, "
                         f"extended_hours={self._extended_hours}")
 
     def _get_default_commission_rate(self) -> Decimal:
@@ -88,11 +88,11 @@ class USStockBroker(LiveBrokerBase):
             # if account.status != 'ACTIVE':
             #     raise Exception("Account not active")
 
-            self.log("INFO", "🔗 美股券商API连接成功（模拟）")
+            GLOG.INFO("🔗 美股券商API连接成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 美股券商API连接失败: {e}")
+            GLOG.ERROR(f"❌ 美股券商API连接失败: {e}")
             return False
 
     def _disconnect_api(self) -> bool:
@@ -106,11 +106,11 @@ class USStockBroker(LiveBrokerBase):
             # TODO: 实现具体的断开逻辑
             # self._api.close()
 
-            self.log("INFO", "🔌 美股券商API断开成功（模拟）")
+            GLOG.INFO("🔌 美股券商API断开成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 美股券商API断开失败: {e}")
+            GLOG.ERROR(f"❌ 美股券商API断开失败: {e}")
             return False
 
     def _submit_to_exchange(self, order: Order) -> BrokerExecutionResult:
@@ -140,7 +140,7 @@ class USStockBroker(LiveBrokerBase):
                     error_message="Order violates 美股交易规则"
                 )
 
-            self.log("INFO", f"📈 订单已提交到美股交易所: {broker_order_id}")
+            GLOG.INFO(f"📈 订单已提交到美股交易所: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,
@@ -149,7 +149,7 @@ class USStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 美股订单提交失败: {e}")
+            GLOG.ERROR(f"❌ 美股订单提交失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message=f"美股订单提交失败: {str(e)}"
@@ -167,7 +167,7 @@ class USStockBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的美股撤单逻辑
-            self.log("INFO", f"🚫 美股撤单请求已发送: {broker_order_id}")
+            GLOG.INFO(f"🚫 美股撤单请求已发送: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.CANCELED,
@@ -176,7 +176,7 @@ class USStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 美股撤单失败: {e}")
+            GLOG.ERROR(f"❌ 美股撤单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -195,7 +195,7 @@ class USStockBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的美股查单逻辑
-            self.log("DEBUG", f"🔍 查询美股订单状态: {broker_order_id}")
+            GLOG.DEBUG(f"🔍 查询美股订单状态: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,  # 模拟状态
@@ -206,7 +206,7 @@ class USStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 美股查单失败: {e}")
+            GLOG.ERROR(f"❌ 美股查单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -254,26 +254,26 @@ class USStockBroker(LiveBrokerBase):
         min_trade_size = 1
 
         if order.volume < min_trade_size:
-            self.log("WARN", f"美股最小交易数量为{min_trade_size}股: {order.volume}")
+            GLOG.WARN(f"美股最小交易数量为{min_trade_size}股: {order.volume}")
             return False
 
         # 检查限价单价格
         if hasattr(order, 'order_type') and order.order_type == ORDER_TYPES.LIMITORDER:
             if order.limit_price <= 0:
-                self.log("WARN", f"美股限价单价格必须大于0: {order.limit_price}")
+                GLOG.WARN(f"美股限价单价格必须大于0: {order.limit_price}")
                 return False
 
             # 美股价格精度检查（通常是2位小数）
             if isinstance(order.limit_price, float):
                 price_str = f"{order.limit_price:.6f}"
                 if len(price_str.split('.')[-1]) > 6:
-                    self.log("WARN", f"美股价格精度过高: {order.limit_price}")
+                    GLOG.WARN(f"美股价格精度过高: {order.limit_price}")
                     return False
 
         # 检查是否在交易时间内
         if not self._is_market_hours():
             if not self._extended_hours:
-                self.log("WARN", "美股非交易时间，且未启用盘前盘后交易")
+                GLOG.WARN("美股非交易时间，且未启用盘前盘后交易")
                 return False
 
         return True

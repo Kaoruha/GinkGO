@@ -678,7 +678,7 @@ class PortfolioMappingService(BaseService):
             # 查找对应的 mapping_uuid
             mapping_uuid = file_to_mapping.get(file_id)
             if not mapping_uuid:
-                GLOG.WARNING(f"未找到文件 {file_id} 的映射，跳过参数同步")
+                GLOG.WARN(f"未找到文件 {file_id} 的映射，跳过参数同步")
                 continue
 
             # 同步参数

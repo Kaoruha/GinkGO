@@ -22,7 +22,7 @@ from ginkgo.trading.brokers.live_broker_base import LiveBrokerBase
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import to_decimal
+from ginkgo.libs import to_decimal, GLOG
 
 
 class FuturesBroker(LiveBrokerBase):
@@ -62,7 +62,7 @@ class FuturesBroker(LiveBrokerBase):
         # 合约信息缓存
         self._contract_info_cache: Dict[str, Dict[str, Any]] = {}
 
-        self.log("INFO", f"FuturesBroker initialized with account_id={self._account_id}, "
+        GLOG.INFO(f"FuturesBroker initialized with account_id={self._account_id}, "
                         f"margin_ratio={self._margin_ratio}")
 
     def _get_default_commission_rate(self) -> Decimal:
@@ -96,11 +96,11 @@ class FuturesBroker(LiveBrokerBase):
             # }
             # self._api = GatewayFactory.create_gateway(gateway_name)
 
-            self.log("INFO", "🔗 期货公司API连接成功（模拟）")
+            GLOG.INFO("🔗 期货公司API连接成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 期货公司API连接失败: {e}")
+            GLOG.ERROR(f"❌ 期货公司API连接失败: {e}")
             return False
 
     def _disconnect_api(self) -> bool:
@@ -114,11 +114,11 @@ class FuturesBroker(LiveBrokerBase):
             # TODO: 实现具体的断开逻辑
             # self._api.close()
 
-            self.log("INFO", "🔌 期货公司API断开成功（模拟）")
+            GLOG.INFO("🔌 期货公司API断开成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 期货公司API断开失败: {e}")
+            GLOG.ERROR(f"❌ 期货公司API断开失败: {e}")
             return False
 
     def _submit_to_exchange(self, order: Order) -> BrokerExecutionResult:
@@ -151,7 +151,7 @@ class FuturesBroker(LiveBrokerBase):
                     error_message="Insufficient margin for futures position"
                 )
 
-            self.log("INFO", f"📈 订单已提交到期货交易所: {broker_order_id}")
+            GLOG.INFO(f"📈 订单已提交到期货交易所: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,
@@ -160,7 +160,7 @@ class FuturesBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 期货订单提交失败: {e}")
+            GLOG.ERROR(f"❌ 期货订单提交失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message=f"期货订单提交失败: {str(e)}"
@@ -178,7 +178,7 @@ class FuturesBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的期货撤单逻辑
-            self.log("INFO", f"🚫 期货撤单请求已发送: {broker_order_id}")
+            GLOG.INFO(f"🚫 期货撤单请求已发送: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.CANCELED,
@@ -187,7 +187,7 @@ class FuturesBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 期货撤单失败: {e}")
+            GLOG.ERROR(f"❌ 期货撤单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -206,7 +206,7 @@ class FuturesBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的期货查单逻辑
-            self.log("DEBUG", f"🔍 查询期货订单状态: {broker_order_id}")
+            GLOG.DEBUG(f"🔍 查询期货订单状态: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,  # 模拟状态
@@ -217,7 +217,7 @@ class FuturesBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 期货查单失败: {e}")
+            GLOG.ERROR(f"❌ 期货查单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -269,29 +269,29 @@ class FuturesBroker(LiveBrokerBase):
         """
         # 检查合约是否有效
         if not self._is_valid_contract(order.code):
-            self.log("WARN", f"无效的期货合约: {order.code}")
+            GLOG.WARN(f"无效的期货合约: {order.code}")
             return False
 
         # 检查合约是否到期
         if self._is_contract_expired(order.code):
-            self.log("WARN", f"期货合约已到期: {order.code}")
+            GLOG.WARN(f"期货合约已到期: {order.code}")
             return False
 
         # 检查最小交易数量
         min_trade_size = self._get_min_trade_size(order.code)
         if order.volume < min_trade_size:
-            self.log("WARN", f"期货最小交易数量为{min_trade_size}手: {order.volume}")
+            GLOG.WARN(f"期货最小交易数量为{min_trade_size}手: {order.volume}")
             return False
 
         # 检查是否为整数手
         if order.volume != int(order.volume):
-            self.log("WARN", f"期货交易数量必须为整数手: {order.volume}")
+            GLOG.WARN(f"期货交易数量必须为整数手: {order.volume}")
             return False
 
         # 检查限价单价格
         if hasattr(order, 'order_type') and order.order_type == ORDER_TYPES.LIMITORDER:
             if order.limit_price <= 0:
-                self.log("WARN", f"期货限价单价格必须大于0: {order.limit_price}")
+                GLOG.WARN(f"期货限价单价格必须大于0: {order.limit_price}")
                 return False
 
         return True
@@ -320,7 +320,7 @@ class FuturesBroker(LiveBrokerBase):
             return True
 
         except Exception as e:
-            self.log("ERROR", f"保证金检查失败: {e}")
+            GLOG.ERROR(f"保证金检查失败: {e}")
             return False
 
     def _get_contract_info(self, code: str) -> Dict[str, Any]:
@@ -469,7 +469,7 @@ class FuturesBroker(LiveBrokerBase):
             return contract_value * volume * self._margin_ratio
 
         except Exception as e:
-            self.log("ERROR", f"计算保证金需求失败: {e}")
+            GLOG.ERROR(f"计算保证金需求失败: {e}")
             return 0.0
 
     def get_position_margin(self, code: str, volume: int, direction: DIRECTION_TYPES) -> float:

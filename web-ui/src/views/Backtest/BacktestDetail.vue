@@ -18,26 +18,41 @@
       </div>
       <div class="header-actions">
         <a-space>
-          <a-button
-            v-if="backtest?.state === 'PENDING'"
-            type="primary"
-            @click="handleStart"
-          >
-            <PlayCircleOutlined /> 启动回测
-          </a-button>
-          <a-button
-            v-if="backtest?.state === 'RUNNING'"
-            danger
-            @click="handleStop"
-          >
-            <StopOutlined /> 停止回测
-          </a-button>
-          <a-button
-            v-if="backtest?.state !== 'RUNNING'"
-            @click="handleDelete"
-          >
-            <DeleteOutlined /> 删除
-          </a-button>
+          <a-tooltip v-if="!canOperate" title="仅创建者可操作">
+            <span style="color: #ccc;">无权限操作</span>
+          </a-tooltip>
+          <template v-else>
+            <!-- 重新运行按钮（已完成/失败/已停止） -->
+            <a-button
+              v-if="canStart"
+              type="primary"
+              @click="handleStart"
+            >
+              <PlayCircleOutlined /> 重新运行
+            </a-button>
+            <!-- 停止按钮（进行中） -->
+            <a-button
+              v-if="canStop"
+              danger
+              @click="handleStop"
+            >
+              <StopOutlined /> 停止回测
+            </a-button>
+            <!-- 取消按钮（待调度/排队中） -->
+            <a-button
+              v-if="canCancel"
+              @click="handleCancel"
+            >
+              <CloseCircleOutlined /> 取消
+            </a-button>
+            <!-- 删除按钮（非运行中） -->
+            <a-button
+              v-if="canDelete"
+              @click="handleDelete"
+            >
+              <DeleteOutlined /> 删除
+            </a-button>
+          </template>
         </a-space>
       </div>
     </div>
@@ -61,15 +76,10 @@
           <!-- Custom -->
           <a-col :span="6">
             <a-card class="info-card">
-              <a-statistic
-                title="状态"
-                :value="getBacktestStateLabel(backtest.state)"
-                :value-style="{ color: getBacktestStateColor(backtest.state), fontSize: '24px' }"
-              >
-                <template #prefix>
-                  <a-badge :status="getBacktestStateStatus(backtest.state)" />
-                </template>
-              </a-statistic>
+              <div class="status-display">
+                <div class="status-label">状态</div>
+                <StatusTag v-if="backtest" :status="backtest.status" type="backtest" />
+              </div>
             </a-card>
           </a-col>
 
@@ -199,12 +209,12 @@
 
       <!-- Custom -->
       <a-card
-        v-if="backtest.error"
+        v-if="backtest.error_message"
         style="margin-top: 16px"
         title="错误信息"
       >
         <a-alert
-          :message="backtest.error"
+          :message="backtest.error_message"
           type="error"
           show-icon
         />
@@ -217,42 +227,67 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal, Empty } from 'ant-design-vue'
+import { storeToRefs } from 'pinia'
 import {
   ArrowLeftOutlined,
   PlayCircleOutlined,
   StopOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons-vue'
-import { backtestApi, type BacktestTaskDetail, type BacktestProgress } from '@/api/modules/backtest'
-import {
-  getBacktestStateLabel,
-  getBacktestStateColor,
-  getBacktestStateStatus
-} from '@/constants'
+import { useBacktestStore } from '@/stores/backtest'
+import StatusTag from '@/components/common/StatusTag.vue'
+import { getBacktestStateLabel, getBacktestStateColor } from '@/constants'
 import { formatDate } from '@/utils/format'
+import type { BacktestTask } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
 const taskUuid = route.params.uuid as string
 
-// 状态
-const loading = ref(true)
-const backtest = ref<BacktestTaskDetail | null>(null)
+// 使用 Store
+const backtestStore = useBacktestStore()
+const {
+  currentTask: backtest,
+  detailLoading: loading,
+  canOperateTask,
+  canStartTask,
+  canStopTask,
+  canCancelTask,
+  canDeleteTask
+} = storeToRefs(backtestStore)
+
+const {
+  fetchTask,
+  startTask,
+  stopTask,
+  cancelTask,
+  deleteTask
+} = backtestStore
+
+// 本地状态
 const progress = ref(0)
 const currentDate = ref('')
 const eventSource = ref<EventSource | null>(null)
 
+// 计算属性
+const canOperate = computed(() => backtest.value && canOperateTask(backtest.value))
+const canStart = computed(() => backtest.value && canStartTask(backtest.value))
+const canStop = computed(() => backtest.value && canStopTask(backtest.value))
+const canCancel = computed(() => backtest.value && canCancelTask(backtest.value))
+const canDelete = computed(() => backtest.value && canDeleteTask(backtest.value))
+
 // 获取进度状态
 const getProgressStatus = () => {
-  if (backtest.value?.state === 'FAILED') return 'exception'
-  if (backtest.value?.state === 'COMPLETED') return 'success'
+  if (backtest.value?.status === 'failed') return 'exception'
+  if (backtest.value?.status === 'completed') return 'success'
   return 'active'
 }
 
 // 获取进度颜色
 const getProgressColor = () => {
-  if (backtest.value?.state === 'FAILED') return '#f5222d'
-  if (backtest.value?.state === 'COMPLETED') return '#52c41a'
+  if (backtest.value?.status === 'failed') return '#f5222d'
+  if (backtest.value?.status === 'completed') return '#52c41a'
   return '#1890ff'
 }
 
@@ -334,18 +369,23 @@ const goBack = () => {
   router.push('/backtest')
 }
 
-// 启动回测
+// 启动回测（重新运行，创建新任务）
 const handleStart = async () => {
   if (!backtest.value) return
 
   Modal.confirm({
-    title: '确认启动',
-    content: `确定要启动回测任务"${backtest.value.name}"吗？`,
+    title: '确认重新运行',
+    content: `确定要重新运行回测任务"${backtest.value.name}"吗？这将创建一个新的回测任务。`,
     onOk: async () => {
       try {
-        await backtestApi.start(taskUuid)
-        message.success('启动成功')
-        await loadDetail()
+        const result = await startTask(backtest.value.uuid)
+        message.success('启动成功，正在跳转到新任务...')
+        // 跳转到新创建的任务详情页
+        if (result?.uuid) {
+          router.push(`/backtest/${result.uuid}`)
+        } else {
+          await fetchTask(taskUuid)
+        }
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -362,10 +402,30 @@ const handleStop = async () => {
     content: `确定要停止回测任务"${backtest.value.name}"吗？`,
     onOk: async () => {
       try {
-        await backtestApi.stop(taskUuid)
+        await stopTask(backtest.value.uuid)
         message.success('已停止')
         stopSSE()
-        await loadDetail()
+        await fetchTask(taskUuid)
+      } catch (error: any) {
+        message.error(`操作失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
+}
+
+// 取消任务
+const handleCancel = async () => {
+  if (!backtest.value) return
+
+  Modal.confirm({
+    title: '确认取消',
+    content: `确定要取消回测任务"${backtest.value.name}"吗？`,
+    onOk: async () => {
+      try {
+        await cancelTask(backtest.value.uuid)
+        message.success('已取消')
+        stopSSE()
+        await fetchTask(taskUuid)
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -384,7 +444,7 @@ const handleDelete = async () => {
     okType: 'danger',
     onOk: async () => {
       try {
-        await backtestApi.delete(taskUuid)
+        await deleteTask(backtest.value.uuid)
         message.success('删除成功')
         router.push('/backtest')
       } catch (error: any) {
@@ -392,6 +452,22 @@ const handleDelete = async () => {
       }
     }
   })
+}
+
+// 加载详情
+const loadDetail = async () => {
+  const detail = await fetchTask(taskUuid)
+  if (detail) {
+    progress.value = detail.progress || 0
+
+    // 如果正在运行，启动 SSE 监听
+    if (detail.status === 'running' || detail.status === 'pending') {
+      startSSE()
+    }
+  } else {
+    message.error('加载详情失败')
+    router.push('/backtest')
+  }
 }
 
 onMounted(() => {
@@ -450,6 +526,17 @@ onUnmounted(() => {
 .info-card {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.status-display {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.status-label {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 12px;
 }
 
 .progress-section {

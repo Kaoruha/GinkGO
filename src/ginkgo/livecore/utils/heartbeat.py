@@ -20,6 +20,8 @@ from typing import Optional
 from datetime import datetime
 from abc import ABC, abstractmethod
 
+from ginkgo.libs import GLOG
+
 
 class HeartbeatMixin(ABC):
     """
@@ -57,7 +59,7 @@ class HeartbeatMixin(ABC):
     def _start_heartbeat_thread(self):
         """启动心跳上报线程"""
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
-            print(f"[WARN] Heartbeat thread already running for {self._get_component_name()}")
+            GLOG.WARN(f"Heartbeat thread already running for {self._get_component_name()}")
             return
 
         # 清理旧的心跳数据（防止重启后残留）
@@ -73,7 +75,7 @@ class HeartbeatMixin(ABC):
             name=f"heartbeat_{self._get_component_name()}"
         )
         self.heartbeat_thread.start()
-        print(f"[INFO] Heartbeat thread started for {self._get_component_name()}")
+        GLOG.INFO(f"Heartbeat thread started for {self._get_component_name()}")
 
     def _heartbeat_loop(self):
         """
@@ -96,10 +98,10 @@ class HeartbeatMixin(ABC):
                     time.sleep(1)
 
             except Exception as e:
-                print(f"[ERROR] Error in heartbeat loop for {self._get_component_name()}: {e}")
+                GLOG.ERROR(f"Error in heartbeat loop for {self._get_component_name()}: {e}")
                 time.sleep(5)  # 出错后等待5秒再重试
 
-        print(f"[INFO] Heartbeat loop stopped for {self._get_component_name()}")
+        GLOG.INFO(f"Heartbeat loop stopped for {self._get_component_name()}")
 
     def _send_heartbeat(self):
         """
@@ -112,7 +114,7 @@ class HeartbeatMixin(ABC):
         try:
             redis_client = self._get_redis_client()
             if not redis_client:
-                print(f"[WARN] Redis client not available for {self._get_component_name()} heartbeat")
+                GLOG.WARN(f"Redis client not available for {self._get_component_name()} heartbeat")
                 return
 
             heartbeat_key = self._get_heartbeat_key()
@@ -125,10 +127,10 @@ class HeartbeatMixin(ABC):
                 heartbeat_value
             )
 
-            print(f"[DEBUG] Heartbeat sent for {self._get_component_name()}")
+            GLOG.DEBUG(f"Heartbeat sent for {self._get_component_name()}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to send heartbeat for {self._get_component_name()}: {e}")
+            GLOG.ERROR(f"Failed to send heartbeat for {self._get_component_name()}: {e}")
 
     def _cleanup_old_heartbeat_data(self):
         """
@@ -146,10 +148,10 @@ class HeartbeatMixin(ABC):
             # 删除旧的心跳数据
             deleted = redis_client.delete(heartbeat_key)
             if deleted:
-                print(f"[INFO] Cleaned up old heartbeat data for {self._get_component_name()}")
+                GLOG.INFO(f"Cleaned up old heartbeat data for {self._get_component_name()}")
 
         except Exception as e:
-            print(f"[WARN] Failed to cleanup old heartbeat data: {e}")
+            GLOG.WARN(f"Failed to cleanup old heartbeat data: {e}")
 
     # ========================================================================
     # 子类需要实现的抽象方法

@@ -26,6 +26,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import DIRECTION_TYPES
+from ginkgo.libs import GLOG
 
 
 class ProfitTargetRisk(BaseRiskManagement):
@@ -102,6 +103,16 @@ class ProfitTargetRisk(BaseRiskManagement):
             # 正确初始化Signal，提供必需参数
             portfolio_id = portfolio_info.get('uuid', 'default')
             reason = f"Partial profit target reached: {current_profit_ratio:.1%}" if self.partial_take_profit else f"Profit target reached: {current_profit_ratio:.1%}"
+
+            # 记录风控事件到ClickHouse
+            GLOG.backtest.risk(
+                risk_type="PROFITTARGET",
+                reason=reason,
+                risk_actual_value=float(current_profit_ratio),
+                risk_limit_value=float(self.profit_target),
+                symbol=event.code,
+                portfolio_id=portfolio_id,
+            )
 
             signal = Signal(
                 portfolio_id=portfolio_id,

@@ -22,6 +22,9 @@ class E2EConfig:
     # Web UI 地址
     web_ui_url: str = "http://192.168.50.12:5173"
 
+    # API 地址
+    api_base: str = "http://192.168.50.12:8000/api/v1"
+
     # 是否使用无头模式 (连接远程浏览器时无效)
     headless: bool = False
 

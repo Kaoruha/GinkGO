@@ -10,7 +10,7 @@
 from typing import TYPE_CHECKING, Callable, Optional
 import pandas as pd
 
-from ginkgo.libs import datetime_normalize, cache_with_expiration
+from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
 from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.events.base_event import EventBase
@@ -44,7 +44,7 @@ class BaseFeeder(BacktestBase, TimeMixin):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
+            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -60,12 +60,12 @@ class BaseFeeder(BacktestBase, TimeMixin):
         - 允许访问历史数据，禁止访问未来数据
         """
         if self.now is None:
-            self.log("ERROR", "Time need to be sync.")
+            GLOG.ERROR("Time need to be sync.")
             return pd.DataFrame()
 
         dt = datetime_normalize(date)
         if dt is None:
-            self.log("ERROR", f"Invalid date: {date}")
+            GLOG.ERROR(f"Invalid date: {date}")
             return pd.DataFrame()
 
         # 时间边界校验（子类可覆盖 validate_time_access 以实现更严格策略）
@@ -77,10 +77,10 @@ class BaseFeeder(BacktestBase, TimeMixin):
             else:
                 # 默认：不可访问未来
                 if dt.date() > self.now.date():
-                    self.log("CRITICAL", f"CurrentDate: {self.now} you cannot get future({dt}) info.")
+                    GLOG.CRITICAL(f"CurrentDate: {self.now} you cannot get future({dt}) info.")
                     return pd.DataFrame()
         except Exception as e:
-            self.log("ERROR", f"Time boundary validation failed: {e}")
+            GLOG.ERROR(f"Time boundary validation failed: {e}")
             return pd.DataFrame()
 
         # 读取指定日期的日线数据
@@ -88,7 +88,7 @@ class BaseFeeder(BacktestBase, TimeMixin):
             df = self._load_daybar(code, dt)
             return df if df is not None else pd.DataFrame()
         except Exception as e:
-            self.log("ERROR", f"Failed to load daybar for {code} at {dt}: {e}")
+            GLOG.ERROR(f"Failed to load daybar for {code} at {dt}: {e}")
             return pd.DataFrame()
 
     def _load_daybar(self, code: str, dt, *args, **kwargs) -> pd.DataFrame:
@@ -106,11 +106,11 @@ class BaseFeeder(BacktestBase, TimeMixin):
                 # BarService现在返回ModelList，使用to_dataframe()转换
                 return result.data.to_dataframe()
             else:
-                self.log("ERROR", f"Failed to get bars data: {result.error}")
+                GLOG.ERROR(f"Failed to get bars data: {result.error}")
                 return pd.DataFrame()
 
         except Exception as e:
-            self.log("ERROR", f"Error in _load_daybar for {code} at {dt}: {e}")
+            GLOG.ERROR(f"Error in _load_daybar for {code} at {dt}: {e}")
             return pd.DataFrame()
 
     # 订阅/广播机制已移除，兴趣集合通过 EventInterestUpdate 维护

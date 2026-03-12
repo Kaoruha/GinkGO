@@ -20,6 +20,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from ginkgo.libs import GLOG
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
 from ginkgo.trading.entities import Order
@@ -50,6 +51,7 @@ class TradeGateway(BaseTradeGateway):
             brokers: Broker实例列表
             name: TradeGateway名称
         """
+        GLOG.set_log_category("backtest")
         super().__init__(name=name)
 
         # 支持单个Broker或Broker列表
@@ -79,7 +81,7 @@ class TradeGateway(BaseTradeGateway):
         # 跟踪上一个价格数据的日期，用于检测日期变化并清空缓存
         self._last_price_date = None
 
-        self.log("INFO", f"Initialized {self.name} with {len(self.brokers)} brokers")
+        GLOG.INFO(f"Initialized {self.name} with {len(self.brokers)} brokers")
         self._log_market_mapping()
 
     def _setup_market_mapping(self):
@@ -87,7 +89,7 @@ class TradeGateway(BaseTradeGateway):
         for broker in self.brokers:
             if hasattr(broker, 'market'):
                 self._market_mapping[broker.market] = broker
-                self.log("INFO", f"Registered {broker.market} broker: {broker.__class__.__name__}")
+                GLOG.INFO(f"Registered {broker.market} broker: {broker.__class__.__name__}")
 
         # 建立股票代码到市场的映射规则
         self._code_market_mapping.update({
@@ -110,7 +112,7 @@ class TradeGateway(BaseTradeGateway):
             for market in default_markets:
                 if market not in self._market_mapping:
                     self._market_mapping[market] = sim_broker
-                    self.log("INFO", f"Set SIM broker as default for {market} market")
+                    GLOG.INFO(f"Set SIM broker as default for {market} market")
 
     def _setup_broker_callbacks(self):
         """设置Broker的异步结果回调"""
@@ -120,7 +122,7 @@ class TradeGateway(BaseTradeGateway):
     def _log_market_mapping(self):
         """记录市场映射信息"""
         for market, broker in self._market_mapping.items():
-            self.log("DEBUG", f"Market '{market}' -> Broker '{broker.__class__.__name__}'")
+            GLOG.DEBUG(f"Market '{market}' -> Broker '{broker.__class__.__name__}'")
 
     def _detect_execution_mode(self, broker: IBroker) -> str:
         """检测Broker执行模式"""
@@ -164,16 +166,16 @@ class TradeGateway(BaseTradeGateway):
         # 1. 根据股票代码判断市场
         market = self._get_market_by_code(order.code)
         if not market:
-            self.log("WARN", f"Cannot determine market for {order.code}")
+            GLOG.WARN(f"Cannot determine market for {order.code}")
             return None
 
         # 2. 找到对应市场的Broker
         broker = self._market_mapping.get(market)
         if not broker:
-            self.log("ERROR", f"No broker available for market: {market}")
+            GLOG.ERROR(f"No broker available for market: {market}")
             return None
 
-        self.log("DEBUG", f"Order {order.code} routed to {market} broker: {broker.__class__.__name__}")
+        GLOG.DEBUG(f"Order {order.code} routed to {market} broker: {broker.__class__.__name__}")
         return broker
 
     def on_order_ack(self, event, *args, **kwargs) -> None:
@@ -185,7 +187,21 @@ class TradeGateway(BaseTradeGateway):
         """
         order = event.payload
         # 添加Router订单确认的关键事件流日志
-        print(f"[ROUTER_ACK] {order.direction.name} {order.code} {order.volume}shares Message:{getattr(event, 'ack_message', 'ACK')} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Order:{order.uuid[:8]}")
+        GLOG.INFO(f"[ROUTER_ACK] {order.direction.name} {order.code} {order.volume}shares Message:{getattr(event, 'ack_message', 'ACK')} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Order:{order.uuid[:8]}")
+
+        # 记录订单确认事件到ClickHouse
+        try:
+            broker_order_id = getattr(event, 'broker_order_id', '')
+            GLOG.backtest.order.ack(
+                order_id=order.uuid,
+                broker_order_id=broker_order_id,
+                symbol=order.code,
+                direction=order.direction.value if hasattr(order.direction, 'value') else str(order.direction),
+                ack_message=getattr(event, 'ack_message', ''),
+                portfolio_id=getattr(event, 'portfolio_id', ''),
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to log order ack event: {e}")
 
         # 基础验证
         if not self._validate_order_basic(order):
@@ -194,17 +210,17 @@ class TradeGateway(BaseTradeGateway):
         # 选择合适的Broker
         selected_broker = self.get_broker_for_order(order)
         if not selected_broker:
-            self.log("ERROR", f"No suitable broker found for {order.code}")
+            GLOG.ERROR(f"No suitable broker found for {order.code}")
             return
 
         # 检查Broker级别的验证
         if not selected_broker.validate_order(order):
-            self.log("WARN", f"Order validation failed by {selected_broker.__class__.__name__}: {order.uuid[:8]}")
+            GLOG.WARN(f"Order validation failed by {selected_broker.__class__.__name__}: {order.uuid[:8]}")
             return
 
         # 执行模式判断和处理
         execution_mode = self._detect_execution_mode(selected_broker)
-        self.log("DEBUG", f"Execution mode for {selected_broker.__class__.__name__}: {execution_mode}")
+        GLOG.DEBUG(f"Execution mode for {selected_broker.__class__.__name__}: {execution_mode}")
 
         if execution_mode == "backtest":
             # 回测：同步执行
@@ -223,7 +239,7 @@ class TradeGateway(BaseTradeGateway):
         # 🔍 调试：跟踪Router处理价格事件的顺序
         from ginkgo.libs import GCONF
         if GCONF.DEBUGMODE:
-            print(f"🔥 [ROUTER] on_price_received called: code={getattr(event, 'code', 'None')}, price={getattr(event, 'close', 'None')}, time={getattr(event, 'timestamp', 'None')}")
+            GLOG.DEBUG(f"🔥 [ROUTER] on_price_received called: code={getattr(event, 'code', 'None')}, price={getattr(event, 'close', 'None')}, time={getattr(event, 'timestamp', 'None')}")
 
         price_data = event.payload
 
@@ -237,13 +253,13 @@ class TradeGateway(BaseTradeGateway):
         if current_date and self._last_price_date and current_date != self._last_price_date:
             # 日期变化，清空所有回测Broker的市场数据缓存
             if GCONF.DEBUGMODE:
-                print(f"🔥 [ROUTER] Date changed from {self._last_price_date} to {current_date}, clearing market data cache")
+                GLOG.DEBUG(f"🔥 [ROUTER] Date changed from {self._last_price_date} to {current_date}, clearing market data cache")
             for broker in self.brokers:
                 if self._detect_execution_mode(broker) == "backtest":
                     if hasattr(broker, 'clear_market_data'):
                         broker.clear_market_data()
                         if GCONF.DEBUGMODE:
-                            print(f"🔥 [ROUTER] Market data cache cleared for broker: {broker.__class__.__name__}")
+                            GLOG.DEBUG(f"🔥 [ROUTER] Market data cache cleared for broker: {broker.__class__.__name__}")
 
         # 更新最后看到的日期
         if current_date:
@@ -255,14 +271,14 @@ class TradeGateway(BaseTradeGateway):
                 if hasattr(broker, 'update_price_data'):
                     broker.update_price_data(price_data)
                     if GCONF.DEBUGMODE:
-                        print(f"🔥 [ROUTER] Price data updated for broker: {broker.__class__.__name__}")
+                        GLOG.DEBUG(f"🔥 [ROUTER] Price data updated for broker: {broker.__class__.__name__}")
                     break  # 回测通常只有一个，找到就停止
 
         # 触发待处理订单（价格更新可能影响撮合逻辑）
         self._process_pending_orders()
 
         if GCONF.DEBUGMODE:
-            print(f"🔥 [ROUTER] on_price_received completed")
+            GLOG.DEBUG(f"🔥 [ROUTER] on_price_received completed")
 
     def _handle_sync_execution(self, order: Order, broker: IBroker, event) -> None:
         """
@@ -274,7 +290,7 @@ class TradeGateway(BaseTradeGateway):
             event: 原始事件对象（包含上下文信息）
         """
         try:
-            self.log("DEBUG", f"Processing order synchronously with {broker.__class__.__name__}")
+            GLOG.DEBUG(f"Processing order synchronously with {broker.__class__.__name__}")
 
             # 保存 SUBMITTED 状态订单记录（在执行前）
             self._save_submitted_order_record(order, event)
@@ -286,7 +302,7 @@ class TradeGateway(BaseTradeGateway):
             self._handle_execution_result(result)
 
         except Exception as e:
-            self.log("ERROR", f"Sync execution failed for {order.uuid[:8]}: {e}")
+            GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
@@ -316,7 +332,7 @@ class TradeGateway(BaseTradeGateway):
             run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
 
             if not all([portfolio_id, engine_id, run_id]):
-                self.log("WARN", f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, run_id={run_id}")
+                GLOG.WARN(f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, run_id={run_id}")
                 return
 
             result_service = container.result_service()
@@ -339,11 +355,11 @@ class TradeGateway(BaseTradeGateway):
                 timestamp=order.timestamp,
                 business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
             )
-            print(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
-            self.log("INFO", f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+            GLOG.DEBUG(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
+            GLOG.INFO(f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
         except Exception as e:
-            print(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
-            self.log("ERROR", f"Failed to save SUBMITTED order record: {e}")
+            GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
+            GLOG.ERROR(f"Failed to save SUBMITTED order record: {e}")
 
     def _handle_async_execution(self, order: Order, broker: IBroker, execution_mode: str) -> None:
         """
@@ -355,7 +371,7 @@ class TradeGateway(BaseTradeGateway):
             execution_mode: 执行模式（paper/live）
         """
         try:
-            self.log("DEBUG", f"Processing order asynchronously with {broker.__class__.__name__}")
+            GLOG.DEBUG(f"Processing order asynchronously with {broker.__class__.__name__}")
 
             # 异步提交订单
             result = broker.submit_order(order)
@@ -371,7 +387,7 @@ class TradeGateway(BaseTradeGateway):
                     'timeout_seconds': self._get_timeout_for_mode(execution_mode)
                 })
 
-                self.log("INFO", f"📤 SUBMITTED to {broker.__class__.__name__}: {result.broker_order_id}")
+                GLOG.INFO(f"📤 SUBMITTED to {broker.__class__.__name__}: {result.broker_order_id}")
 
                 # SimBroker会直接发布事件，这里不需要额外处理
 
@@ -380,11 +396,11 @@ class TradeGateway(BaseTradeGateway):
 
             else:
                 # 立即失败的情况（如验证失败）
-                self.log("WARN", f"Async submission failed for {order.uuid[:8]}: {result.error_message}")
+                GLOG.WARN(f"Async submission failed for {order.uuid[:8]}: {result.error_message}")
                 self._handle_execution_result(result)
 
         except Exception as e:
-            self.log("ERROR", f"Async execution failed for {order.uuid[:8]}: {e}")
+            GLOG.ERROR(f"Async execution failed for {order.uuid[:8]}: {e}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
@@ -418,7 +434,7 @@ class TradeGateway(BaseTradeGateway):
         """
         # 这里可以实现定时器或其他超时机制
         # 当前版本只是记录日志
-        self.log("DEBUG", f"Scheduled timeout check for {broker_order_id}")
+        GLOG.DEBUG(f"Scheduled timeout check for {broker_order_id}")
 
     def _process_pending_orders(self):
         """处理所有待处理订单"""
@@ -427,11 +443,11 @@ class TradeGateway(BaseTradeGateway):
         if GCONF.DEBUGMODE:
             pending_orders = self.get_pending_orders()
             if pending_orders:
-                print(f"🔥 [ROUTER] _process_pending_orders: found {len(pending_orders)} pending orders")
+                GLOG.DEBUG(f"🔥 [ROUTER] _process_pending_orders: found {len(pending_orders)} pending orders")
                 for order in pending_orders:
-                    print(f"   - Order: {order.direction.name} {order.volume} {order.code}")
+                    GLOG.DEBUG(f"   - Order: {order.direction.name} {order.volume} {order.code}")
             else:
-                print(f"🔥 [ROUTER] _process_pending_orders: no pending orders")
+                GLOG.DEBUG(f"🔥 [ROUTER] _process_pending_orders: no pending orders")
                 return
         else:
             pending_orders = self.get_pending_orders()
@@ -445,7 +461,7 @@ class TradeGateway(BaseTradeGateway):
             selected_broker = self.get_broker_for_order(order)
             if selected_broker:
                 if GCONF.DEBUGMODE:
-                    print(f"🔥 [ROUTER] Submitting pending order to broker: {order.direction.name} {order.volume} {order.code}")
+                    GLOG.DEBUG(f"🔥 [ROUTER] Submitting pending order to broker: {order.direction.name} {order.volume} {order.code}")
                 self._submit_order_to_broker(order, selected_broker)
 
     def _submit_order_to_broker(self, order: Order, broker: IBroker):
@@ -475,7 +491,7 @@ class TradeGateway(BaseTradeGateway):
         """
         if result.status == ORDERSTATUS_TYPES.FILLED or result.status == ORDERSTATUS_TYPES.PARTIAL_FILLED:
             code = result.order.code if result.order else "Unknown"
-            self.log("INFO", f"✅ ORDER FILLED: {result.filled_volume} {code} @ {result.filled_price}")
+            GLOG.INFO(f"✅ ORDER FILLED: {result.filled_volume} {code} @ {result.filled_price}")
 
             # 获取engine_id和run_id（Router从绑定的engine获取）
             engine_id = self._bound_engine.engine_id if self._bound_engine else None
@@ -485,67 +501,67 @@ class TradeGateway(BaseTradeGateway):
             event = result.to_event(engine_id=engine_id, run_id=run_id)
             if event:
                 # 添加Router事件创建的关键事件流日志
-                print(f"[ROUTER_EVENT] {result.order.direction.name} {result.order.code} {result.filled_volume}shares @ {result.filled_price} Event:{type(event).__name__} Portfolio:{event.portfolio_id[:8]} Order:{result.order.uuid[:8]}")
+                GLOG.INFO(f"[ROUTER_EVENT] {result.order.direction.name} {result.order.code} {result.filled_volume}shares @ {result.filled_price} Event:{type(event).__name__} Portfolio:{event.portfolio_id[:8]} Order:{result.order.uuid[:8]}")
                 # 立即推送事件到引擎
                 self.publish_event(event)
-                self.log("INFO", f"🔥 [ROUTER EVENT TRACKING] Event published to engine: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
-                self.log("INFO", f"🔥 [ROUTER] ✅ Event published to engine")
+                GLOG.INFO(f"🔥 [ROUTER EVENT TRACKING] Event published to engine: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
+                GLOG.INFO(f"🔥 [ROUTER] ✅ Event published to engine")
             else:
-                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create event!")
+                GLOG.ERROR(f"🔥 [ROUTER] ❌ Failed to create event!")
 
         elif result.status == ORDERSTATUS_TYPES.REJECTED:
-            self.log("WARN", f"❌ ORDER REJECTED: {result.error_message}")
+            GLOG.WARN(f"❌ ORDER REJECTED: {result.error_message}")
 
             # 🔥 [CRITICAL FIX] 创建拒绝事件
             event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
                                     run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
             if event:
-                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_REJECTED event: {type(event).__name__}")
-                self.log("INFO", f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
-                self.log("INFO", f"🔥 [ROUTER] Rejection reason: {result.error_message}")
+                GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_REJECTED event: {type(event).__name__}")
+                GLOG.INFO(f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
+                GLOG.INFO(f"🔥 [ROUTER] Rejection reason: {result.error_message}")
 
                 # 发布拒绝事件到引擎
                 self.publish_event(event)
-                self.log("INFO", f"🔥 [ROUTER] ORDER_REJECTED event published to engine")
+                GLOG.INFO(f"🔥 [ROUTER] ORDER_REJECTED event published to engine")
             else:
-                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event!")
+                GLOG.ERROR(f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event!")
 
         elif result.status == ORDERSTATUS_TYPES.NEW:
             # 🔥 [BUG FIX] SimBroker 在验证失败时返回 NEW 状态（用作 REJECTED）
             # 这里需要将 NEW 作为拒绝处理，发布拒绝事件并保存记录
-            self.log("WARN", f"❌ ORDER REJECTED (NEW status): {result.error_message}")
+            GLOG.WARN(f"❌ ORDER REJECTED (NEW status): {result.error_message}")
 
             # 创建拒绝事件
             event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
                                     run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
             if event:
-                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_REJECTED event for NEW status: {type(event).__name__}")
-                self.log("INFO", f"🔥 [ROUTER] Rejection reason: {result.error_message}")
+                GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_REJECTED event for NEW status: {type(event).__name__}")
+                GLOG.INFO(f"🔥 [ROUTER] Rejection reason: {result.error_message}")
 
                 # 发布拒绝事件到引擎
                 self.publish_event(event)
-                self.log("INFO", f"🔥 [ROUTER] ORDER_REJECTED event published to engine (from NEW status)")
+                GLOG.INFO(f"🔥 [ROUTER] ORDER_REJECTED event published to engine (from NEW status)")
             else:
-                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event for NEW status!")
+                GLOG.ERROR(f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event for NEW status!")
 
         elif result.status == ORDERSTATUS_TYPES.SUBMITTED:
             # 对于异步提交，这里不需要发布事件，将在回调中处理
             pass
 
         elif result.status == ORDERSTATUS_TYPES.CANCELED:
-            self.log("INFO", f"🚫 CANCELED: {result.error_message or 'No reason'}")
+            GLOG.INFO(f"🚫 CANCELED: {result.error_message or 'No reason'}")
 
             # 创建取消事件
             engine_id = self._bound_engine.engine_id if self._bound_engine else None
             run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
             event = result.to_event(engine_id=engine_id, run_id=run_id)
             if event:
-                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_CANCELED event: {type(event).__name__}")
+                GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_CANCELED event: {type(event).__name__}")
                 # 发布取消事件到引擎
                 self.publish_event(event)
-                self.log("INFO", f"🔥 [ROUTER] ORDER_CANCELED event published to engine")
+                GLOG.INFO(f"🔥 [ROUTER] ORDER_CANCELED event published to engine")
             else:
-                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_CANCELED event!")
+                GLOG.ERROR(f"🔥 [ROUTER] ❌ Failed to create ORDER_CANCELED event!")
 
         # 更新订单跟踪状态
         if result.broker_order_id and hasattr(self, '_processing_orders'):
@@ -577,12 +593,12 @@ class TradeGateway(BaseTradeGateway):
             result: Broker执行结果
         """
         if result.broker_order_id not in self._processing_orders:
-            self.log("WARN", f"Received async result for unknown order: {result.broker_order_id}")
+            GLOG.WARN(f"Received async result for unknown order: {result.broker_order_id}")
             return
 
         order_info = self.get_tracked_order(result.broker_order_id)
         if not order_info:
-            self.log("ERROR", f"Order info missing for: {result.broker_order_id}")
+            GLOG.ERROR(f"Order info missing for: {result.broker_order_id}")
             return
 
         order = order_info['order']
@@ -592,16 +608,16 @@ class TradeGateway(BaseTradeGateway):
         # 计算处理时间
         processing_time = (datetime.now() - submit_time).total_seconds() if submit_time else 0
 
-        self.log("INFO", f"📨 ASYNC RESULT: {result.status.name} for {order.uuid[:8]} "
+        GLOG.INFO(f"📨 ASYNC RESULT: {result.status.name} for {order.uuid[:8]} "
                        f"(took {processing_time:.2f}s)")
 
         # 处理不同的执行结果
         if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.PARTIAL_FILLED]:
-            self.log("INFO", f"✅ ASYNC FILL: {result.filled_volume} {order.code} @ {result.filled_price}")
+            GLOG.INFO(f"✅ ASYNC FILL: {result.filled_volume} {order.code} @ {result.filled_price}")
         elif result.status == ORDERSTATUS_TYPES.NEW:  # REJECTED
-            self.log("WARN", f"❌ ASYNC REJECT: {result.error_message}")
+            GLOG.WARN(f"❌ ASYNC REJECT: {result.error_message}")
         elif result.status == ORDERSTATUS_TYPES.CANCELED:
-            self.log("INFO", f"🚫 ASYNC CANCEL: {result.broker_order_id}")
+            GLOG.INFO(f"🚫 ASYNC CANCEL: {result.broker_order_id}")
 
         # 处理执行结果并发布事件
         self._handle_execution_result(result)
@@ -610,7 +626,7 @@ class TradeGateway(BaseTradeGateway):
         if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.NEW,  # REJECTED
                              ORDERSTATUS_TYPES.CANCELED]:
             self.remove_tracked_order(result.broker_order_id)
-            self.log("DEBUG", f"Removed tracking for completed order: {result.broker_order_id}")
+            GLOG.DEBUG(f"Removed tracking for completed order: {result.broker_order_id}")
 
         # 如果是部分成交，继续跟踪
         elif result.status == ORDERSTATUS_TYPES.PARTIAL_FILLED:
@@ -656,19 +672,19 @@ class TradeGateway(BaseTradeGateway):
         broker = order_info.get('broker')
         execution_mode = order_info.get('execution_mode', 'unknown')
 
-        self.log("WARN", f"⏰ ORDER TIMEOUT: {broker_order_id} ({execution_mode} mode)")
+        GLOG.WARN(f"⏰ ORDER TIMEOUT: {broker_order_id} ({execution_mode} mode)")
 
         # 尝试取消订单（如果Broker支持）
         try:
             if broker and hasattr(broker, 'cancel_order'):
                 cancel_result = broker.cancel_order(broker_order_id)
-                self.log("INFO", f"Cancel request sent for timeout order: {broker_order_id}")
+                GLOG.INFO(f"Cancel request sent for timeout order: {broker_order_id}")
 
                 # 发布取消事件
                 self._handle_execution_result(cancel_result)
 
         except Exception as e:
-            self.log("ERROR", f"Failed to cancel timeout order {broker_order_id}: {e}")
+            GLOG.ERROR(f"Failed to cancel timeout order {broker_order_id}: {e}")
 
         # 无论取消是否成功，都移除跟踪
         self.remove_tracked_order(broker_order_id)
@@ -689,7 +705,7 @@ class TradeGateway(BaseTradeGateway):
             # 新增跟踪信息
             super().track_order(broker_order_id, order_info)
 
-        self.log("DEBUG", f"Tracking order: {broker_order_id} (update={update})")
+        GLOG.DEBUG(f"Tracking order: {broker_order_id} (update={update})")
 
     def get_async_order_status(self, broker_order_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -781,7 +797,7 @@ class TradeGateway(BaseTradeGateway):
             if broker.__class__.__name__ == broker_name:
                 if hasattr(broker, 'confirm_execution'):
                     broker.confirm_execution(broker_order_id, filled_volume, filled_price)
-                    self.log("INFO", f"Manual execution confirmed: {broker_order_id}")
+                    GLOG.INFO(f"Manual execution confirmed: {broker_order_id}")
                 break
 
     def add_broker(self, broker: IBroker):
@@ -792,7 +808,7 @@ class TradeGateway(BaseTradeGateway):
             self._market_mapping[broker.market] = broker
             broker.set_result_callback(self._handle_async_result)
 
-        self.log("INFO", f"Added broker: {broker.__class__.__name__}")
+        GLOG.INFO(f"Added broker: {broker.__class__.__name__}")
 
     def remove_broker(self, broker: IBroker):
         """移除Broker"""
@@ -804,7 +820,7 @@ class TradeGateway(BaseTradeGateway):
             for market in markets_to_remove:
                 del self._market_mapping[market]
 
-            self.log("INFO", f"Removed broker: {broker.__class__.__name__}")
+            GLOG.INFO(f"Removed broker: {broker.__class__.__name__}")
 
     def get_order_status_summary(self) -> Dict[str, int]:
         """获取订单状态摘要"""
@@ -826,18 +842,18 @@ class TradeGateway(BaseTradeGateway):
             portfolio_id = getattr(portfolio, 'uuid', None)
             if portfolio_id is None:
                 error_msg = "Portfolio missing uuid, cannot register"
-                self.log("ERROR", error_msg)
+                GLOG.ERROR(error_msg)
                 raise ValueError(error_msg)
 
             if not hasattr(portfolio, 'on_order_partially_filled'):
                 error_msg = f"Portfolio {portfolio_id} missing on_order_partially_filled method"
-                self.log("ERROR", error_msg)
+                GLOG.ERROR(error_msg)
                 raise AttributeError(error_msg)
 
             self._portfolio_handlers[portfolio_id] = portfolio
-            self.log("INFO", f"Portfolio {portfolio_id} registered for ORDERPARTIALLYFILLED routing")
+            GLOG.INFO(f"Portfolio {portfolio_id} registered for ORDERPARTIALLYFILLED routing")
         except Exception as e:
-            self.log("ERROR", f"Failed to register portfolio to router: {e}")
+            GLOG.ERROR(f"Failed to register portfolio to router: {e}")
             raise
 
     def on_order_partially_filled(self, event) -> None:
@@ -848,62 +864,62 @@ class TradeGateway(BaseTradeGateway):
             event: EventOrderPartiallyFilled事件
         """
         # 🔍 详细日志跟踪事件流转
-        self.log("INFO", f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件接收开始")
-        self.log("INFO", f"🔥 [ROUTER] 事件详情: {type(event).__name__}")
+        GLOG.INFO(f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件接收开始")
+        GLOG.INFO(f"🔥 [ROUTER] 事件详情: {type(event).__name__}")
 
         portfolio_id = getattr(event, 'portfolio_id', None)
-        self.log("INFO", f"🔥 [ROUTER] 提取的portfolio_id: {portfolio_id}")
+        GLOG.INFO(f"🔥 [ROUTER] 提取的portfolio_id: {portfolio_id}")
 
         if portfolio_id is None:
-            self.log("ERROR", "ORDERPARTIALLYFILLED event missing portfolio_id, cannot route")
+            GLOG.ERROR("ORDERPARTIALLYFILLED event missing portfolio_id, cannot route")
             return
 
         # 检查当前注册的Portfolio
         registered_portfolios = list(self._portfolio_handlers.keys())
-        self.log("INFO", f"🔥 [ROUTER] 已注册的Portfolio列表: {registered_portfolios}")
+        GLOG.INFO(f"🔥 [ROUTER] 已注册的Portfolio列表: {registered_portfolios}")
 
         portfolio = self._portfolio_handlers.get(portfolio_id)
         if portfolio is None:
-            self.log("WARN", f"No registered portfolio found for portfolio_id: {portfolio_id}")
-            self.log("WARN", f"🔥 [ROUTER] Portfolio注册失败，无法路由事件")
+            GLOG.WARN(f"No registered portfolio found for portfolio_id: {portfolio_id}")
+            GLOG.WARN(f"🔥 [ROUTER] Portfolio注册失败，无法路由事件")
             return
 
-        self.log("INFO", f"🔥 [ROUTER] 找到目标Portfolio: {type(portfolio).__name__}")
+        GLOG.INFO(f"🔥 [ROUTER] 找到目标Portfolio: {type(portfolio).__name__}")
 
         # 记录事件关键信息
         if hasattr(event, 'order'):
             order = event.order
-            self.log("INFO", f"🔥 [ROUTER] 订单信息: code={order.code}, volume={order.volume}, direction={order.direction}")
+            GLOG.INFO(f"🔥 [ROUTER] 订单信息: code={order.code}, volume={order.volume}, direction={order.direction}")
 
         if hasattr(event, 'filled_quantity'):
-            self.log("INFO", f"🔥 [ROUTER] 成交数量: {event.filled_quantity}")
+            GLOG.INFO(f"🔥 [ROUTER] 成交数量: {event.filled_quantity}")
 
         if hasattr(event, 'fill_price'):
-            self.log("INFO", f"🔥 [ROUTER] 成交价格: {event.fill_price}")
+            GLOG.INFO(f"🔥 [ROUTER] 成交价格: {event.fill_price}")
 
         # 路由事件到对应的Portfolio
         try:
-            print(f"[ROUTER_CALL] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
+            GLOG.DEBUG(f"[ROUTER_CALL] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
             portfolio.on_order_partially_filled(event)
-            print(f"[ROUTER_DONE] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
+            GLOG.DEBUG(f"[ROUTER_DONE] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
 
             # 检查Portfolio的持仓状态
             if hasattr(portfolio, 'get_positions'):
                 positions = portfolio.get_positions()
-                self.log("INFO", f"🔥 [ROUTER] Portfolio当前持仓数量: {len(positions)}")
+                GLOG.INFO(f"🔥 [ROUTER] Portfolio当前持仓数量: {len(positions)}")
                 for code, position in positions.items():
-                    self.log("INFO", f"🔥 [ROUTER] 持仓详情: {code} - {position.volume}股")
+                    GLOG.INFO(f"🔥 [ROUTER] 持仓详情: {code} - {position.volume}股")
 
             if hasattr(portfolio, 'cash'):
-                self.log("INFO", f"🔥 [ROUTER] Portfolio当前现金: {portfolio.cash}")
+                GLOG.INFO(f"🔥 [ROUTER] Portfolio当前现金: {portfolio.cash}")
 
-            self.log("DEBUG", f"ORDERPARTIALLYFILLED event routed to portfolio {portfolio_id}")
+            GLOG.DEBUG(f"ORDERPARTIALLYFILLED event routed to portfolio {portfolio_id}")
         except Exception as e:
-            self.log("ERROR", f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}")
+            GLOG.ERROR(f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}")
             import traceback
-            self.log("ERROR", f"🔥 [ROUTER] 异常堆栈: {traceback.format_exc()}")
+            GLOG.ERROR(f"🔥 [ROUTER] 异常堆栈: {traceback.format_exc()}")
 
-        self.log("INFO", f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
+        GLOG.INFO(f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
 
     # TODO: [订单持久化] on_order_rejected 未被引擎注册
     #       ORDERREJECTED 事件直接注册给 Portfolio (engine_assembly_service.py:1562)
@@ -917,27 +933,27 @@ class TradeGateway(BaseTradeGateway):
         Args:
             event: EventOrderRejected事件
         """
-        self.log("INFO", f"🔥 [ROUTER] ORDERREJECTED事件接收")
-        self.log("INFO", f"🔥 [ROUTER] portfolio_id: {event.portfolio_id}")
+        GLOG.INFO(f"🔥 [ROUTER] ORDERREJECTED事件接收")
+        GLOG.INFO(f"🔥 [ROUTER] portfolio_id: {event.portfolio_id}")
 
         portfolio = self._portfolio_handlers.get(event.portfolio_id)
         if portfolio is None:
             # 🔥 [CRITICAL] 找不到Portfolio会导致冻结资金永远无法解冻
-            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] No registered portfolio found for portfolio_id: {event.portfolio_id}")
-            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] This will cause frozen funds to be permanently locked!")
-            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] Event details: order_id={event.order_id}, code={event.order.code}, reason={event.reject_reason}")
+            GLOG.CRITICAL(f"🚨 [SYSTEM ERROR] No registered portfolio found for portfolio_id: {event.portfolio_id}")
+            GLOG.CRITICAL(f"🚨 [SYSTEM ERROR] This will cause frozen funds to be permanently locked!")
+            GLOG.CRITICAL(f"🚨 [SYSTEM ERROR] Event details: order_id={event.order_id}, code={event.order.code}, reason={event.reject_reason}")
             # 尝试手动解冻资金来避免永久锁定
             self._emergency_unfreeze_funds(event)
             return
 
-        self.log("INFO", f"🔥 [ROUTER] 拒绝订单: {event.order.code} {event.order.direction.name}")
-        self.log("INFO", f"🔥 [ROUTER] 拒绝原因: {event.reject_reason}")
+        GLOG.INFO(f"🔥 [ROUTER] 拒绝订单: {event.order.code} {event.order.direction.name}")
+        GLOG.INFO(f"🔥 [ROUTER] 拒绝原因: {event.reject_reason}")
 
         # 路由事件到对应的Portfolio
         portfolio.on_order_rejected(event)
 
-        self.log("INFO", f"🔥 [ROUTER] Portfolio当前现金: {portfolio.cash}")
-        self.log("INFO", f"🔥 [ROUTER] ORDERREJECTED事件路由完成")
+        GLOG.INFO(f"🔥 [ROUTER] Portfolio当前现金: {portfolio.cash}")
+        GLOG.INFO(f"🔥 [ROUTER] ORDERREJECTED事件路由完成")
 
     def _emergency_unfreeze_funds(self, event) -> None:
         """
@@ -951,11 +967,11 @@ class TradeGateway(BaseTradeGateway):
             # 尝试解冻该订单冻结的资金
             unfreeze_amount = order.frozen_money or 0
             if unfreeze_amount > 0:
-                self.log("CRITICAL", f"🚨 [EMERGENCY] Attempting to unfreeze {unfreeze_amount} for rejected order {event.order_id[:8]}")
+                GLOG.CRITICAL(f"🚨 [EMERGENCY] Attempting to unfreeze {unfreeze_amount} for rejected order {event.order_id[:8]}")
                 # 记录紧急情况，让管理员手动处理
-                self.log("CRITICAL", f"🚨 [EMERGENCY] Manual intervention required to unfreeze {unfreeze_amount}")
+                GLOG.CRITICAL(f"🚨 [EMERGENCY] Manual intervention required to unfreeze {unfreeze_amount}")
         except Exception as e:
-            self.log("CRITICAL", f"🚨 [EMERGENCY] Failed to emergency unfreeze funds: {e}")
+            GLOG.CRITICAL(f"🚨 [EMERGENCY] Failed to emergency unfreeze funds: {e}")
 
     def get_registered_portfolios(self) -> Dict[str, Any]:
         """

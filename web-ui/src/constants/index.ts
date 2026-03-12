@@ -3,3 +3,4 @@
  */
 
 export * from './portfolio'
+export * from './backtest'

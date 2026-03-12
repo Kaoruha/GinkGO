@@ -10,6 +10,7 @@
 import json
 from typing import List, Union
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
+from ginkgo.libs import GLOG
 
 
 class FixedSelector(BaseSelector):
@@ -46,5 +47,5 @@ class FixedSelector(BaseSelector):
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = self._interested
-        self.log("DEBUG", f"Selector:{self.name} pick {r}.")
+        GLOG.DEBUG(f"Selector:{self.name} pick {r}.")
         return r

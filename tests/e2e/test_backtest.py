@@ -43,8 +43,8 @@ class TestBacktestCRUD:
         # 验证在回测列表页
         assert "/stage1/backtest" in page.url
 
-        # 点击创建按钮 - 更新为"新建"
-        page.click('button:has-text("新建")')
+        # 点击创建回测按钮
+        page.click('button:has-text("创建回测")')
         page.wait_for_timeout(1000)
 
         # 验证模态框打开
@@ -60,11 +60,9 @@ class TestBacktestCRUD:
         page.wait_for_timeout(500)
 
         options = page.locator(".ant-select-dropdown .ant-select-item").all()
-        if options:
-            options[0].click()
-            print("选择了 Portfolio")
-        else:
-            print("⚠️ 没有 Portfolio 可选")
+        assert len(options) > 0, "应该有 Portfolio 可选"
+        options[0].click()
+        print("✓ 选择了 Portfolio")
         page.wait_for_timeout(500)
 
         # 设置日期
@@ -104,20 +102,30 @@ class TestBacktestCRUD:
 
         # 获取搜索前行数
         before_rows = page.locator(".ant-table-tbody tr").all()
-        print(f"搜索前行数: {len(before_rows)}")
+        before_count = len(before_rows)
+        print(f"搜索前行数: {before_count}")
 
         # 搜索
         search_input = page.locator(".ant-input-search input")
-        if search_input.is_visible():
-            search_input.fill("BT_")
-            page.wait_for_timeout(1000)
+        assert search_input.is_visible(), "搜索框应该可见"
 
-            after_rows = page.locator(".ant-table-tbody tr").all()
-            print(f"搜索后行数: {len(after_rows)}")
+        search_input.fill("BT_")
+        page.wait_for_timeout(1000)
 
-            # 清空搜索
-            search_input.fill("")
-            page.wait_for_timeout(500)
+        after_rows = page.locator(".ant-table-tbody tr").all()
+        after_count = len(after_rows)
+        print(f"搜索后行数: {after_count}")
+
+        # 验证搜索结果（应该只显示 BT_ 开头的任务）
+        assert after_count <= before_count, "搜索后结果数应该减少或不变"
+
+        # 清空搜索
+        search_input.fill("")
+        page.wait_for_timeout(500)
+
+        # 验证清空后恢复
+        final_rows = page.locator(".ant-table-tbody tr").all()
+        assert len(final_rows) >= after_count, "清空搜索后结果应该恢复"
 
         print("✅ 搜索功能正常")
 
@@ -125,13 +133,28 @@ class TestBacktestCRUD:
         """状态筛选"""
         page = self.page
 
+        # 获取初始行数
+        before_rows = page.locator(".ant-table-tbody tr").all()
+        before_count = len(before_rows)
+
         # 点击"已完成"
         page.click('.ant-radio-button-wrapper:has-text("已完成")')
         page.wait_for_timeout(1000)
 
+        # 验证筛选后的结果
+        filtered_rows = page.locator(".ant-table-tbody tr").all()
+        filtered_count = len(filtered_rows)
+
+        # 筛选后的结果数应该 <= 初始结果数
+        assert filtered_count <= before_count, f"筛选后结果数({filtered_count})应该 <= 初始结果数({before_count})"
+
         # 恢复
         page.click('.ant-radio-button-wrapper:has-text("全部")')
         page.wait_for_timeout(1000)
+
+        # 验证恢复
+        restored_rows = page.locator(".ant-table-tbody tr").all()
+        assert len(restored_rows) >= filtered_count, "恢复后结果数应该 >= 筛选后结果数"
 
         print("✅ 状态筛选功能正常")
 
@@ -142,15 +165,24 @@ class TestBacktestCRUD:
 
         pagination = page.locator(".ant-pagination")
         if pagination.is_visible():
+            # 验证分页器存在
+            assert pagination.is_visible(), "分页器应该可见"
+
             # 获取当前页
             active_page = pagination.locator(".ant-pagination-item-active")
             if active_page.is_visible():
-                print(f"当前页码: {active_page.text_content()}")
+                page_text = active_page.text_content()
+                print(f"当前页码: {page_text}")
+                # 验证页码是数字
+                assert page_text.isdigit(), "页码应该是数字"
 
             # 获取总数
             total_text = pagination.locator(".ant-pagination-total-text")
             if total_text.is_visible():
-                print(f"分页信息: {total_text.text_content()}")
+                total = total_text.text_content()
+                print(f"分页信息: {total}")
+                # 验证总数包含数字
+                assert any(c.isdigit() for c in total), "总数信息应该包含数字"
 
             print("✅ 分页功能正常")
         else:
@@ -161,21 +193,25 @@ class TestBacktestCRUD:
         page = self.page
 
         rows = page.locator(".ant-table-tbody tr").all()
-        if rows:
-            # 获取任务名
-            task_name = rows[0].locator(".task-name").text_content()
-            print(f"点击任务: {task_name}")
+        assert len(rows) > 0, "应该有数据可测试"
 
-            # 点击行
-            rows[0].click()
-            page.wait_for_timeout(2000)
+        # 保存当前 URL
+        before_url = page.url
 
-            # 验证 URL
-            current_url = page.url
-            if "/stage1/backtest/" in current_url:
-                print(f"✅ 行点击导航正常: {current_url}")
-        else:
-            print("⚠️ 没有数据可测试")
+        # 点击行
+        rows[0].click()
+        page.wait_for_timeout(2000)
+
+        # 验证 URL 改变
+        current_url = page.url
+        assert current_url != before_url, "点击行后 URL 应该改变"
+        assert "/stage1/backtest/" in current_url, "URL 应该包含回测详情路径"
+
+        print(f"✅ 行点击导航正常: {current_url}")
+
+        # 返回列表页
+        page.goto(f"{config.web_ui_url}/stage1/backtest")
+        page.wait_for_load_state("networkidle")
 
     def test_07_delete_backtest(self):
         """删除回测任务"""
@@ -183,24 +219,39 @@ class TestBacktestCRUD:
         page.set_default_timeout(60000)
 
         rows = page.locator(".ant-table-tbody tr").all()
-        if rows:
-            # 点击删除按钮
-            delete_btn = rows[0].locator('button:has-text("删除")')
-            if delete_btn.is_visible():
-                delete_btn.click()
-                page.wait_for_timeout(500)
+        if not rows:
+            pytest.skip("没有数据可删除")
 
-                # 确认删除
-                confirm_btn = page.locator(".ant-popconfirm .ant-btn-dangerous")
-                if confirm_btn.is_visible():
-                    confirm_btn.click()
-                    page.wait_for_timeout(2000)
+        # 获取删除前的行数
+        before_count = len(rows)
 
-                    success_msg = page.locator(".ant-message-success")
-                    if success_msg.is_visible():
-                        print("✅ 删除成功")
+        # 点击删除按钮
+        delete_btn = rows[0].locator('button:has-text("删除")')
+        assert delete_btn.is_visible(), "删除按钮应该可见"
+
+        delete_btn.click()
+        page.wait_for_timeout(500)
+
+        # 确认删除
+        confirm_btn = page.locator(".ant-popconfirm .ant-btn-dangerous")
+        if confirm_btn.is_visible():
+            confirm_btn.click()
+            page.wait_for_timeout(2000)
+
+            # 验证成功消息
+            success_msg = page.locator(".ant-message-success")
+            if success_msg.is_visible():
+                print("✅ 删除成功")
+
+            # 验证行数减少
+            page.wait_for_timeout(1000)
+            after_rows = page.locator(".ant-table-tbody tr").all()
+            after_count = len(after_rows)
+
+            assert after_count < before_count, f"删除后行数({after_count})应该 < 删除前行数({before_count})"
+            print(f"✅ 删除验证通过: {before_count} -> {after_count}")
         else:
-            print("⚠️ 没有数据可删除")
+            pytest.skip("确认删除按钮不可见")
 
     def _select_date(self, page, label: str):
         """选择日期"""

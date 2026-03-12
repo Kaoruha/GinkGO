@@ -2,19 +2,39 @@ import { get, post, put, del, getList } from '../common'
 import type { APIResponse, PaginatedResponse } from '../../../types/common'
 
 /**
- * 回测业务 API 模块
- * 封装回测相关的所有 API 调用
+ * Upstream: data-model.md
+ * Downstream: BacktestList.vue, BacktestDetail.vue, stores/backtest.ts
+ * Role: 回测任务 API 接口，提供 CRUD 和操作接口
  */
 
-// 回测任务状态
-export type BacktestState = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+/**
+ * 回测任务状态（六态模型）
+ */
+export type BacktestState = 'created' | 'pending' | 'running' | 'completed' | 'stopped' | 'failed'
+
+/**
+ * 启动回测响应
+ */
+export interface StartBacktestResponse {
+  uuid: string          // 新任务的 UUID（启动创建新实例）
+  status: BacktestState
+  message: string
+}
+
+/**
+ * 操作响应
+ */
+export interface OperationResponse {
+  success: boolean
+  message: string
+}
 
 // 回测任务摘要
 export interface BacktestTaskSummary {
   uuid: string
   name: string
   portfolio_name: string
-  state: BacktestState
+  status: BacktestState
   progress: number
   created_at: string
 }
@@ -27,6 +47,10 @@ export interface BacktestTaskDetail extends BacktestTaskSummary {
   result?: BacktestResult
   worker_id?: string | null
   error?: string | null
+  creator_id: string
+  updated_at: string
+  started_at?: string
+  completed_at?: string
 }
 
 // 回测配置
@@ -54,7 +78,7 @@ export interface BacktestResult {
 export function getBacktestList(params?: {
   page?: number
   pageSize?: number
-  state?: BacktestState
+  status?: BacktestState
 }) {
   return getList<PaginatedResponse<BacktestTaskSummary>>('/v1/backtests', params)
 }
@@ -79,23 +103,31 @@ export function createBacktest(data: {
 
 /**
  * 启动回测任务
+ * 返回新创建的任务 UUID
  */
 export function startBacktest(uuid: string) {
-  return post<any>(`/v1/backtests/${uuid}/start`)
+  return post<StartBacktestResponse>(`/v1/backtests/${uuid}/start`)
 }
 
 /**
  * 停止回测任务
  */
 export function stopBacktest(uuid: string) {
-  return post<any>(`/v1/backtests/${uuid}/stop`)
+  return post<OperationResponse>(`/v1/backtests/${uuid}/stop`)
+}
+
+/**
+ * 取消回测任务
+ */
+export function cancelBacktest(uuid: string) {
+  return post<OperationResponse>(`/v1/backtests/${uuid}/cancel`)
 }
 
 /**
  * 删除回测任务
  */
 export function deleteBacktest(uuid: string) {
-  return del<any>(`/v1/backtests/${uuid}`)
+  return del<OperationResponse>(`/v1/backtests/${uuid}`)
 }
 
 /**

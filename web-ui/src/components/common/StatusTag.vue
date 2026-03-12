@@ -12,14 +12,14 @@ const props = defineProps<{
   type?: 'backtest' | 'task' | 'system' | 'order' | 'position'
 }>()
 
-// 回测状态配置
-const backtestConfig: Record<string, { color: string; label: string }> = {
-  created: { color: 'default', label: '待启动' },
-  pending: { color: 'processing', label: '等待中' },
-  running: { color: 'blue', label: '运行中' },
-  completed: { color: 'success', label: '已完成' },
-  failed: { color: 'error', label: '失败' },
-  cancelled: { color: 'warning', label: '已取消' },
+// 回测状态配置（六态模型）
+const backtestConfig: Record<string, { color: string; label: string; badgeStatus: string }> = {
+  created: { color: 'default', label: '待调度', badgeStatus: 'default' },
+  pending: { color: 'blue', label: '排队中', badgeStatus: 'processing' },
+  running: { color: 'processing', label: '进行中', badgeStatus: 'processing' },
+  completed: { color: 'success', label: '已完成', badgeStatus: 'success' },
+  stopped: { color: 'warning', label: '已停止', badgeStatus: 'default' },
+  failed: { color: 'error', label: '失败', badgeStatus: 'error' },
 }
 
 // 系统状态配置
