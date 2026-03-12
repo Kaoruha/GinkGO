@@ -71,7 +71,9 @@ class DataManager(threading.Thread):
         # 数据队列（用于LiveDataFeeder推送）
         self._data_queue: Queue = Queue(maxsize=10000)
 
-        print(f"DataManager initialized with feeder_type: {feeder_type}")
+        # 设置日志分类
+        GLOG.set_log_category("component")
+        GLOG.INFO(f"DataManager initialized with feeder_type: {feeder_type}")
 
     def _create_feeder(self, feeder_type: str) -> Any:
         """
@@ -103,7 +105,7 @@ class DataManager(threading.Thread):
             bool: 启动是否成功
         """
         try:
-            print("DataManager starting...")
+            GLOG.INFO("DataManager starting...")
 
             # 初始化Kafka Producer
             self._producer = GinkgoProducer()
@@ -111,7 +113,7 @@ class DataManager(threading.Thread):
             # 初始化LiveDataFeeder
             with self._feeder_lock:
                 if not self.live_feeder.initialize():
-                    print("[ERROR] Failed to initialize LiveDataFeeder")
+                    GLOG.ERROR("Failed to initialize LiveDataFeeder")
                     return False
 
                 # 设置事件发布器
@@ -119,14 +121,14 @@ class DataManager(threading.Thread):
 
                 # 启动LiveDataFeeder
                 if not self.live_feeder.start():
-                    print("[ERROR] Failed to start LiveDataFeeder")
+                    GLOG.ERROR("Failed to start LiveDataFeeder")
                     return False
 
             # 启动主线程
             self._running.set()
             self.start()
 
-            print("DataManager started successfully")
+            GLOG.INFO("DataManager started successfully")
 
             # 发送启动通知
             try:
@@ -143,12 +145,12 @@ class DataManager(threading.Thread):
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send start notification: {notify_error}")
+                GLOG.WARN(f"Failed to send start notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print(f"[ERROR] DataManager start failed: {e}")
+            GLOG.ERROR(f"DataManager start failed: {e}")
 
             # 发送失败通知
             try:
@@ -175,7 +177,7 @@ class DataManager(threading.Thread):
             bool: 停止是否成功
         """
         try:
-            print("DataManager stopping...")
+            GLOG.INFO("DataManager stopping...")
 
             # 停止运行标志
             self._running.clear()
@@ -197,7 +199,7 @@ class DataManager(threading.Thread):
             # 等待线程结束
             self.join(timeout=10)
 
-            print("DataManager stopped")
+            GLOG.INFO("DataManager stopped")
 
             # 发送停止通知
             try:
@@ -213,12 +215,12 @@ class DataManager(threading.Thread):
                     },
                 )
             except Exception as notify_error:
-                print(f"[WARN] Failed to send stop notification: {notify_error}")
+                GLOG.WARN(f"Failed to send stop notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print(f"[ERROR] DataManager stop failed: {e}")
+            GLOG.ERROR(f"DataManager stop failed: {e}")
 
             # 发送失败通知
             try:
@@ -245,7 +247,7 @@ class DataManager(threading.Thread):
         1. ginkgo.live.interest.updates - 订阅更新
         2. ginkgo.live.control.commands - 控制命令
         """
-        print("DataManager main loop started")
+        GLOG.INFO("DataManager main loop started")
 
         # 创建Kafka Consumers
         self._consumer_interest = GinkgoConsumer(
@@ -270,10 +272,10 @@ class DataManager(threading.Thread):
                 time.sleep(0.1)
 
             except Exception as e:
-                print(f"[ERROR] DataManager main loop error: {e}")
+                GLOG.ERROR(f"DataManager main loop error: {e}")
                 time.sleep(1)
 
-        print("DataManager main loop ended")
+        GLOG.INFO("DataManager main loop ended")
 
     def _process_interest_updates(self) -> None:
         """处理interest updates消息"""
@@ -283,7 +285,7 @@ class DataManager(threading.Thread):
                     dto = InterestUpdateDTO.model_validate_json(message.value)
                     self.update_subscriptions(dto)
                 except Exception as e:
-                    print(f"[ERROR] Failed to process interest update: {e}")
+                    GLOG.ERROR(f"Failed to process interest update: {e}")
         except Exception as e:
             pass  # 超时是正常的
 
@@ -295,7 +297,7 @@ class DataManager(threading.Thread):
                     dto = ControlCommandDTO.model_validate_json(message.value)
                     self._handle_control_command(dto)
                 except Exception as e:
-                    print(f"[ERROR] Failed to process control command: {e}")
+                    GLOG.ERROR(f"Failed to process control command: {e}")
         except Exception as e:
             pass  # 超时是正常的
 
@@ -321,10 +323,10 @@ class DataManager(threading.Thread):
                     self.live_feeder.subscribe_symbols(list(self.all_symbols))
                     self.live_feeder.start_subscription()
 
-            print(f"Subscriptions updated: {len(self.all_symbols)} symbols")
+            GLOG.INFO(f"Subscriptions updated: {len(self.all_symbols)} symbols")
 
         except Exception as e:
-            print(f"[ERROR] Failed to update subscriptions: {e}")
+            GLOG.ERROR(f"Failed to update subscriptions: {e}")
 
     def _handle_control_command(self, dto: ControlCommandDTO) -> None:
         """
@@ -335,22 +337,22 @@ class DataManager(threading.Thread):
         """
         try:
             if dto.is_stockinfo():
-                print("Received stockinfo command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received stockinfo command (handled by TaskTimer, ignoring)")
             elif dto.is_adjustfactor():
-                print("Received adjustfactor command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received adjustfactor command (handled by TaskTimer, ignoring)")
             elif dto.is_bar_snapshot():
-                print("Received bar_snapshot command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received bar_snapshot command (handled by TaskTimer, ignoring)")
             elif dto.is_tick():
-                print("Received tick command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received tick command (handled by TaskTimer, ignoring)")
             elif dto.is_update_selector():
-                print("Received update_selector command (ignored by DataManager)")
+                GLOG.DEBUG("Received update_selector command (ignored by DataManager)")
             elif dto.is_update_data():
-                print("Received update_data command (deprecated, use individual commands)")
+                GLOG.DEBUG("Received update_data command (deprecated, use individual commands)")
             else:
-                print(f"[WARN] Unknown control command: {dto.command}")
+                GLOG.WARN(f"Unknown control command: {dto.command}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to handle control command: {e}")
+            GLOG.ERROR(f"Failed to handle control command: {e}")
 
     @retry(max_try=3, backoff_factor=2)
     def _publish_to_kafka(self, topic: str, message: str) -> None:
@@ -363,7 +365,7 @@ class DataManager(threading.Thread):
         """
         if self._producer:
             self._producer.send(topic=topic, message=message)
-            print(f"[DEBUG] Published to {topic}")
+            GLOG.DEBUG(f"Published to {topic}")
 
     def _on_live_data_received(self, event) -> None:
         """
@@ -401,10 +403,10 @@ class DataManager(threading.Thread):
                     topic=KafkaTopics.MARKET_DATA,
                     message=dto.model_dump_json(),
                 )
-                print(f"[DEBUG] Published PriceUpdateDTO to Kafka: {event.code}")
+                GLOG.DEBUG(f"Published PriceUpdateDTO to Kafka: {event.code}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to process live data: {e}")
+            GLOG.ERROR(f"Failed to process live data: {e}")
 
     def subscribe_live_data(self, symbols: List[str]) -> None:
         """
@@ -419,7 +421,7 @@ class DataManager(threading.Thread):
                     self.live_feeder.subscribe_symbols(symbols, data_types=["price_update"])
                     self.live_feeder.start_subscription()
 
-            print(f"Subscribed to live data for {len(symbols)} symbols")
+            GLOG.INFO(f"Subscribed to live data for {len(symbols)} symbols")
 
         except Exception as e:
-            print(f"[ERROR] Failed to subscribe live data: {e}")
+            GLOG.ERROR(f"Failed to subscribe live data: {e}")

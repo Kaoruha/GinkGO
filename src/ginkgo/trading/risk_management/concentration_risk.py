@@ -27,6 +27,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import GLOG
 
 
 class ConcentrationRisk(BaseRiskManagement):
@@ -126,7 +127,7 @@ class ConcentrationRisk(BaseRiskManagement):
                 min_volume = max(1, int(original_volume * 0.1))
                 order.volume = max(order.volume, min_volume)
 
-                self.log("WARNING", f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
+                GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
                          f"reducing order {original_volume} → {order.volume}")
 
             # 检查行业集中度
@@ -137,7 +138,7 @@ class ConcentrationRisk(BaseRiskManagement):
                 reduction_factor = self._max_industry_ratio / industry_ratio
                 order.volume = int(order.volume * reduction_factor)
 
-                self.log("WARNING", f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
+                GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
                          f"adjusting order to {order.volume}")
 
         return order
@@ -200,7 +201,7 @@ class ConcentrationRisk(BaseRiskManagement):
 
         # 检查前5大持仓集中度
         if current_concentrations.get('top5_ratio', 0) > self._max_top5_ratio:
-            self.log("WARNING", f"ConcentrationRisk: Top 5 positions concentration {current_concentrations['top5_ratio']:.1f}% > {self._max_top5_ratio}%")
+            GLOG.WARN(f"ConcentrationRisk: Top 5 positions concentration {current_concentrations['top5_ratio']:.1f}% > {self._max_top5_ratio}%")
 
         return signals
 

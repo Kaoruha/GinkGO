@@ -22,7 +22,7 @@ from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.data.containers import container
-from ginkgo.libs import datetime_normalize, to_decimal, Number
+from ginkgo.libs import datetime_normalize, to_decimal, Number, GLOG
 from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
 
 
@@ -400,7 +400,7 @@ class BaseAnalyzer(BacktestBase, TimeMixin, ContextMixin):
         self._error_log.append(error_record)
         
         # 详细错误日志
-        self.log("ERROR", f"Error in {method} at stage {stage}: {error}")
+        GLOG.ERROR(f"Error in {method} at stage {stage}: {error}")
     
     def _record_performance(self, method, stage, duration):
         """记录性能数据"""

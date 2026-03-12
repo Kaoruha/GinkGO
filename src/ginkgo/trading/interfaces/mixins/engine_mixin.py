@@ -28,6 +28,7 @@ Author: TDD Framework
 Created: 2024-01-17
 """
 
+from ginkgo.libs import GLOG
 import time
 import threading
 from typing import Dict, Any, List, Optional, Callable
@@ -177,7 +178,7 @@ class EngineMixin:
 
         # 调试日志
         if self._debug_mode or self._trace_events:
-            self.log("DEBUG", f"Event tracking started: {context.event_id} ({context.event_type})")
+            GLOG.DEBUG(f"Event tracking started: {context.event_id} ({context.event_type})")
 
         return context.event_id
 
@@ -219,7 +220,7 @@ class EngineMixin:
         # 调试日志
         if self._debug_mode or self._trace_events:
             status = "SUCCESS" if success else "FAILED"
-            self.log("DEBUG", f"Event tracking ended: {event_id} ({context.event_type}) - {status} in {processing_time:.4f}s")
+            GLOG.DEBUG(f"Event tracking ended: {event_id} ({context.event_type}) - {status} in {processing_time:.4f}s")
 
     def _update_performance_metrics(self, processing_time: float, success: bool):
         """更新性能指标"""
@@ -343,12 +344,12 @@ class EngineMixin:
                     self._collect_performance_sample()
                     time.sleep(interval)
                 except Exception as e:
-                    self.log("ERROR", f"Performance monitoring error: {e}")
+                    GLOG.ERROR(f"Performance monitoring error: {e}")
 
         self._monitoring_thread = threading.Thread(target=monitor_loop, daemon=True)
         self._monitoring_thread.start()
 
-        self.log("INFO", f"Performance monitoring started with interval {interval}s")
+        GLOG.INFO(f"Performance monitoring started with interval {interval}s")
 
     def stop_performance_monitoring(self):
         """停止性能监控"""
@@ -356,7 +357,7 @@ class EngineMixin:
         if self._monitoring_thread:
             self._monitoring_thread.join(timeout=5.0)
 
-        self.log("INFO", "Performance monitoring stopped")
+        GLOG.INFO("Performance monitoring stopped")
 
     def _collect_performance_sample(self):
         """收集性能样本"""
@@ -473,13 +474,13 @@ class EngineMixin:
         """
         self._debug_mode = True
         self._trace_events = trace_events
-        self.log("INFO", "Debug mode enabled")
+        GLOG.INFO("Debug mode enabled")
 
     def disable_debug_mode(self):
         """禁用调试模式"""
         self._debug_mode = False
         self._trace_events = False
-        self.log("INFO", "Debug mode disabled")
+        GLOG.INFO("Debug mode disabled")
 
     def dump_event_history(self, limit: int = 100) -> Dict[str, Any]:
         """
@@ -527,7 +528,7 @@ class EngineMixin:
             if self._debug_mode:
                 self.start_performance_monitoring()
 
-            self.log("INFO", f"Engine started with monitoring: debug={self._debug_mode}")
+            GLOG.INFO(f"Engine started with monitoring: debug={self._debug_mode}")
 
         return result
 
@@ -553,14 +554,14 @@ class EngineMixin:
         metrics = self.get_performance_metrics()
         stats = self.get_event_statistics()
 
-        self.log("INFO", "=== Final Engine Statistics ===")
-        self.log("INFO", f"Total Events: {metrics['total_events']}")
-        self.log("INFO", f"Processed Events: {metrics['processed_events']}")
-        self.log("INFO", f"Failed Events: {metrics['failed_events']}")
-        self.log("INFO", f"Success Rate: {metrics['success_rate']:.2f}%")
-        self.log("INFO", f"Average Processing Time: {metrics['average_processing_time']:.4f}s")
-        self.log("INFO", f"Uptime: {metrics['uptime_seconds']:.2f}s")
-        self.log("INFO", "=== End Statistics ===")
+        GLOG.INFO("=== Final Engine Statistics ===")
+        GLOG.INFO(f"Total Events: {metrics['total_events']}")
+        GLOG.INFO(f"Processed Events: {metrics['processed_events']}")
+        GLOG.INFO(f"Failed Events: {metrics['failed_events']}")
+        GLOG.INFO(f"Success Rate: {metrics['success_rate']:.2f}%")
+        GLOG.INFO(f"Average Processing Time: {metrics['average_processing_time']:.4f}s")
+        GLOG.INFO(f"Uptime: {metrics['uptime_seconds']:.2f}s")
+        GLOG.INFO("=== End Statistics ===")
 
     # ========== 事件处理器注册 ==========
 
@@ -575,7 +576,7 @@ class EngineMixin:
         with self._handlers_lock:
             self._event_handlers[event_type].append(handler)
 
-        self.log("INFO", f"Registered handler for {event_type}")
+        GLOG.INFO(f"Registered handler for {event_type}")
 
     def unregister_event_handler(self, event_type: str, handler: Callable):
         """
@@ -589,7 +590,7 @@ class EngineMixin:
             if handler in self._event_handlers[event_type]:
                 self._event_handlers[event_type].remove(handler)
 
-        self.log("INFO", f"Unregistered handler for {event_type}")
+        GLOG.INFO(f"Unregistered handler for {event_type}")
 
     def _notify_event_handlers(self, event_type: str, event: Any):
         """
@@ -606,7 +607,7 @@ class EngineMixin:
             try:
                 handler(event)
             except Exception as e:
-                self.log("ERROR", f"Event handler error: {e}")
+                GLOG.ERROR(f"Event handler error: {e}")
 
     # ========== 清理方法 ==========
 
@@ -627,4 +628,4 @@ class EngineMixin:
         with self._counters_lock:
             self._event_counters.clear()
 
-        self.log("INFO", "Monitoring data cleaned up")
+        GLOG.INFO("Monitoring data cleaned up")

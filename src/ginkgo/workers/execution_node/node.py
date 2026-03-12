@@ -50,6 +50,7 @@ from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo import services
 from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.libs import GLOG
 
 # 获取日志记录器
 logger = logging.getLogger(__name__)
@@ -116,6 +117,9 @@ class ExecutionNode:
 
         # 节点元数据
         self.max_portfolios = 5  # 最大可运行的Portfolio数量
+
+        # 设置日志类别（用于Vector路由）
+        GLOG.set_log_category("component")
         self.started_at: Optional[str] = None
 
         # output_queue listener 线程追踪
@@ -159,12 +163,12 @@ class ExecutionNode:
 
         # 检查node_id是否已被其他实例使用
         if self._is_node_id_in_use():
-            print(f"\n[ERROR] ExecutionNode {self.node_id} is already in use by another process!")
-            print(f"[ERROR] Cannot start duplicate node_id.")
-            print(f"\nPossible solutions:")
-            print(f"  1. Stop the other ExecutionNode instance (Ctrl+C)")
-            print(f"  2. Use a different node_id: ginkgo execution start --node-id <new_id>")
-            print(f"  3. Cleanup stale data: ginkgo execution cleanup --node-id {self.node_id}")
+            GLOG.ERROR(f"\n[ERROR] ExecutionNode {self.node_id} is already in use by another process!")
+            GLOG.ERROR(f"[ERROR] Cannot start duplicate node_id.")
+            GLOG.ERROR(f"\nPossible solutions:")
+            GLOG.ERROR(f"  1. Stop the other ExecutionNode instance (Ctrl+C)")
+            GLOG.ERROR(f"  2. Use a different node_id: ginkgo execution start --node-id <new_id>")
+            GLOG.ERROR(f"  3. Cleanup stale data: ginkgo execution cleanup --node-id {self.node_id}")
             raise RuntimeError(f"ExecutionNode {self.node_id} is already in use")
 
         # 重置停止标志（支持重启）
@@ -175,10 +179,10 @@ class ExecutionNode:
         self.started_at = datetime.now().isoformat()
 
         if self.is_paused:
-            print(f"Resuming ExecutionNode {self.node_id} (was paused)")
+            GLOG.INFO(f"Resuming ExecutionNode {self.node_id} (was paused)")
             self.is_paused = False
         else:
-            print(f"Starting ExecutionNode {self.node_id}")
+            GLOG.INFO(f"Starting ExecutionNode {self.node_id}")
 
         # 0. 清理旧的心跳和指标数据（防止节点异常重启后残留）
         self._cleanup_old_heartbeat_data()
@@ -198,7 +202,7 @@ class ExecutionNode:
         # 5. 启动订单回报消费线程（接收 EventOrderPartiallyFilled）
         self._start_order_feedback_consumer_thread()
 
-        print(f"[INFO] ExecutionNode {self.node_id} started")
+        GLOG.INFO(f"[INFO] ExecutionNode {self.node_id} started")
 
         # 发送启动通知
         try:
@@ -215,8 +219,8 @@ class ExecutionNode:
             )
         except Exception as e:
             logger.warning(f"Failed to send startup notification: {e}")
-        print(f"[INFO] Portfolio count: {len(self.portfolios)} (waiting for Scheduler)")
-        print(f"[INFO] Node is ready to receive portfolio.migrate commands from Scheduler")
+        GLOG.INFO(f"[INFO] Portfolio count: {len(self.portfolios)} (waiting for Scheduler)")
+        GLOG.INFO(f"[INFO] Node is ready to receive portfolio.migrate commands from Scheduler")
 
     def stop(self):
         """
@@ -231,50 +235,50 @@ class ExecutionNode:
         6. 上报状态、清理资源
         """
         if not self.is_running:
-            print(f"[WARNING] ExecutionNode {self.node_id} is not running")
+            GLOG.WARN(f"[WARNING] ExecutionNode {self.node_id} is not running")
             return
 
-        print(f"Stopping ExecutionNode {self.node_id}")
+        GLOG.INFO(f"Stopping ExecutionNode {self.node_id}")
 
         # 0. 设置停止标志（通知所有线程）
         self.should_stop = True
         self.is_running = False
 
         # 1. 关闭 Kafka Consumers - 切断新消息来源
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 1 步：关闭 Kafka Consumers（停止拉取新消息）")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 1 步：关闭 Kafka Consumers（停止拉取新消息）")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         if self.market_data_consumer:
             try:
                 self.market_data_consumer.close()
-                print(f"[INFO]   ✅ Market data consumer closed")
-                print(f"[INFO]      └─ 不再拉取 Price Update")
-                print(f"[INFO]      └─ 不会触发策略生成新订单")
+                GLOG.INFO(f"[INFO]   ✅ Market data consumer closed")
+                GLOG.INFO(f"[INFO]      └─ 不再拉取 Price Update")
+                GLOG.INFO(f"[INFO]      └─ 不会触发策略生成新订单")
             except Exception as e:
-                print(f"[ERROR]   ✗ Error closing market data consumer: {e}")
+                GLOG.ERROR(f"[ERROR]   ✗ Error closing market data consumer: {e}")
 
         if self.order_feedback_consumer:
             try:
                 self.order_feedback_consumer.close()
-                print(f"[INFO]   ✅ Order feedback consumer closed")
-                print(f"[INFO]      └─ 不再拉取 Order Feedback")
-                print(f"[INFO]      └─ 不会触发风控生成新订单")
+                GLOG.INFO(f"[INFO]   ✅ Order feedback consumer closed")
+                GLOG.INFO(f"[INFO]      └─ 不再拉取 Order Feedback")
+                GLOG.INFO(f"[INFO]      └─ 不会触发风控生成新订单")
             except Exception as e:
-                print(f"[ERROR]   ✗ Error closing order feedback consumer: {e}")
+                GLOG.ERROR(f"[ERROR]   ✗ Error closing order feedback consumer: {e}")
 
         if self.schedule_updates_consumer:
             try:
                 self.schedule_updates_consumer.close()
-                print(f"[INFO]   ✅ Schedule updates consumer closed")
-                print(f"[INFO]      └─ 不再接收调度命令")
+                GLOG.INFO(f"[INFO]   ✅ Schedule updates consumer closed")
+                GLOG.INFO(f"[INFO]      └─ 不再接收调度命令")
             except Exception as e:
-                print(f"[ERROR]   ✗ Error closing schedule updates consumer: {e}")
+                GLOG.ERROR(f"[ERROR]   ✗ Error closing schedule updates consumer: {e}")
 
         # 2. 等待 Portfolio 消费完 input_queue
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 2 步：等待 Portfolio 处理完 input_queue 中的消息")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 2 步：等待 Portfolio 处理完 input_queue 中的消息")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         with self.portfolio_lock:
             processors = list(self.portfolios.values())
@@ -288,25 +292,25 @@ class ExecutionNode:
                     total_remaining += remaining
 
                 if total_remaining == 0:
-                    print(f"[INFO]   ✅ 所有 input_queue 已清空")
-                    print(f"[INFO]      └─ 已拉取的消息已处理完毕")
+                    GLOG.INFO(f"[INFO]   ✅ 所有 input_queue 已清空")
+                    GLOG.INFO(f"[INFO]      └─ 已拉取的消息已处理完毕")
                     break
                 else:
-                    print(f"[DEBUG]   等待 {total_remaining} 个事件处理完成...")
+                    GLOG.DEBUG(f"  等待 {total_remaining} 个事件处理完成...")
                     time.sleep(0.1)
             else:
                 if total_remaining > 0:
-                    print(f"[WARNING] ⚠️  超时，仍有 {total_remaining} 个事件未处理")
+                    GLOG.WARN(f"[WARNING] ⚠️  超时，仍有 {total_remaining} 个事件未处理")
         else:
-            print(f"[INFO]   ℹ️  没有 Portfolio 运行，跳过")
+            GLOG.INFO(f"[INFO]   ℹ️  没有 Portfolio 运行，跳过")
 
         # 3. 等待 output_queue 发送完毕并停止 listener
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 3 步：等待 output_queue 中的订单发送完成")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 3 步：等待 output_queue 中的订单发送完成")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         if self.output_queue_threads:
-            print(f"[INFO]   停止 {len(self.output_queue_threads)} output queue listeners...")
+            GLOG.INFO(f"[INFO]   停止 {len(self.output_queue_threads)} output queue listeners...")
 
             # 设置停止事件
             for stop_event in self.output_queue_stop_events.values():
@@ -315,42 +319,42 @@ class ExecutionNode:
             # 等待所有 listener 完成
             for portfolio_id, thread in self.output_queue_threads.items():
                 if thread.is_alive():
-                    print(f"[DEBUG]   等待 output_queue listener ({portfolio_id[:8]}...) 完成...")
+                    GLOG.DEBUG(f"  等待 output_queue listener ({portfolio_id[:8]}...) 完成...")
                     thread.join(timeout=5)
                     if thread.is_alive():
-                        print(f"[WARNING]   ⚠️  Output queue listener ({portfolio_id[:8]}...) 未能在 5 秒内完成")
+                        GLOG.WARN(f"[WARNING]   ⚠️  Output queue listener ({portfolio_id[:8]}...) 未能在 5 秒内完成")
                     else:
-                        print(f"[INFO]   ✅ Output queue listener ({portfolio_id[:8]}...) 已完成")
+                        GLOG.INFO(f"[INFO]   ✅ Output queue listener ({portfolio_id[:8]}...) 已完成")
                 else:
-                    print(f"[INFO]   ✅ Output queue listener ({portfolio_id[:8]}...) 已停止")
+                    GLOG.INFO(f"[INFO]   ✅ Output queue listener ({portfolio_id[:8]}...) 已停止")
 
             # 清空追踪
             self.output_queue_threads.clear()
             self.output_queue_stop_events.clear()
-            print(f"[INFO]   ✅ 所有 output_queue listener 已停止")
+            GLOG.INFO(f"[INFO]   ✅ 所有 output_queue listener 已停止")
         else:
-            print(f"[INFO]   ℹ️  没有 output_queue listener 运行，跳过")
+            GLOG.INFO(f"[INFO]   ℹ️  没有 output_queue listener 运行，跳过")
 
         # 4. 关闭 Producer - 确保所有订单已发送
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 4 步：关闭 Producer（确保所有订单已发送）")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 4 步：关闭 Producer（确保所有订单已发送）")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         if hasattr(self, 'order_producer') and self.order_producer:
             try:
                 self.order_producer.close()
-                print(f"[INFO]   ✅ Order producer closed")
-                print(f"[INFO]      └─ flush() 确保所有订单已发送")
-                print(f"[INFO]      └─ close() 关闭连接")
+                GLOG.INFO(f"[INFO]   ✅ Order producer closed")
+                GLOG.INFO(f"[INFO]      └─ flush() 确保所有订单已发送")
+                GLOG.INFO(f"[INFO]      └─ close() 关闭连接")
             except Exception as e:
-                print(f"[ERROR]   ✗ Error closing order producer: {e}")
+                GLOG.ERROR(f"[ERROR]   ✗ Error closing order producer: {e}")
         else:
-            print(f"[INFO]   ℹ️  Order producer 不存在，跳过")
+            GLOG.INFO(f"[INFO]   ℹ️  Order producer 不存在，跳过")
 
         # 5. 等待所有 Portfolio 关闭
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 5 步：等待所有 PortfolioProcessor 线程退出")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 5 步：等待所有 PortfolioProcessor 线程退出")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         with self.portfolio_lock:
             processors = list(self.portfolios.values())
@@ -358,25 +362,25 @@ class ExecutionNode:
         for processor in processors:
             if processor.is_alive():
                 portfolio_id_short = processor.portfolio_id[:8] if len(processor.portfolio_id) > 8 else processor.portfolio_id
-                print(f"[DEBUG]   等待 Portfolio ({portfolio_id_short}...) 退出...")
+                GLOG.DEBUG(f"  等待 Portfolio ({portfolio_id_short}...) 退出...")
                 processor.join(timeout=5)
                 if processor.is_alive():
-                    print(f"[WARNING]   ⚠️  Portfolio ({portfolio_id_short}...) 未能在 5 秒内退出")
+                    GLOG.WARN(f"[WARNING]   ⚠️  Portfolio ({portfolio_id_short}...) 未能在 5 秒内退出")
                 else:
-                    print(f"[INFO]   ✅ Portfolio ({portfolio_id_short}...) 已退出")
+                    GLOG.INFO(f"[INFO]   ✅ Portfolio ({portfolio_id_short}...) 已退出")
             else:
                 portfolio_id_short = processor.portfolio_id[:8] if len(processor.portfolio_id) > 8 else processor.portfolio_id
-                print(f"[INFO]   ✅ Portfolio ({portfolio_id_short}...) 已停止")
+                GLOG.INFO(f"[INFO]   ✅ Portfolio ({portfolio_id_short}...) 已停止")
 
         if processors:
-            print(f"[INFO]   ✅ 所有 PortfolioProcessor 线程已退出")
+            GLOG.INFO(f"[INFO]   ✅ 所有 PortfolioProcessor 线程已退出")
         else:
-            print(f"[INFO]   ℹ️  没有 PortfolioProcessor 运行，跳过")
+            GLOG.INFO(f"[INFO]   ℹ️  没有 PortfolioProcessor 运行，跳过")
 
         # 6. 等待其他线程退出
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 6 步：等待其他线程退出")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 6 步：等待其他线程退出")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         threads_to_wait = [
             ("Market data thread", self.market_data_thread),
@@ -386,29 +390,29 @@ class ExecutionNode:
 
         for name, thread in threads_to_wait:
             if thread and thread.is_alive():
-                print(f"[DEBUG]   等待 {name} 退出...")
+                GLOG.DEBUG(f"  等待 {name} 退出...")
                 thread.join(timeout=5)
                 if not thread.is_alive():
-                    print(f"[INFO]   ✅ {name} 已退出")
+                    GLOG.INFO(f"[INFO]   ✅ {name} 已退出")
                 else:
-                    print(f"[WARNING]   ⚠️  {name} 未能在 5 秒内退出")
+                    GLOG.WARN(f"[WARNING]   ⚠️  {name} 未能在 5 秒内退出")
 
         # 7. 停止心跳线程
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 7 步：停止心跳线程")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 7 步：停止心跳线程")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
             self.heartbeat_thread.join(timeout=5)
             if not self.heartbeat_thread.is_alive():
-                print(f"[INFO]   ✅ Heartbeat thread 已退出")
+                GLOG.INFO(f"[INFO]   ✅ Heartbeat thread 已退出")
             else:
-                print(f"[WARNING]   ⚠️  Heartbeat thread 未能在 5 秒内退出")
+                GLOG.WARN(f"[WARNING]   ⚠️  Heartbeat thread 未能在 5 秒内退出")
 
         # 8. 清理 Redis（上报离线状态）
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 8 步：清理 Redis 数据（上报离线状态）")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 8 步：清理 Redis 数据（上报离线状态）")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         try:
             redis_client = self._get_redis_client()
@@ -419,19 +423,19 @@ class ExecutionNode:
 
                 deleted_heartbeat = redis_client.delete(heartbeat_key)
                 if deleted_heartbeat:
-                    print(f"[INFO]   ✅ 心跳数据已删除（Scheduler 将检测到节点离线）")
+                    GLOG.INFO(f"[INFO]   ✅ 心跳数据已删除（Scheduler 将检测到节点离线）")
 
                 deleted_metrics = redis_client.delete(metrics_key)
                 if deleted_metrics:
-                    print(f"[INFO]   ✅ 指标数据已删除")
+                    GLOG.INFO(f"[INFO]   ✅ 指标数据已删除")
 
         except Exception as e:
-            print(f"[ERROR]   ✗ 清理 Redis 失败: {e}")
+            GLOG.ERROR(f"[ERROR]   ✗ 清理 Redis 失败: {e}")
 
         # 9. 清空内存
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] 第 9 步：清空内存数据结构")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 第 9 步：清空内存数据结构")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         with self.portfolio_lock:
             portfolio_count = len(self.portfolios)
@@ -440,12 +444,12 @@ class ExecutionNode:
         self.input_queues.clear()
         self.output_queues.clear()
 
-        print(f"[INFO]   ✅ 内存已清空 (portfolios: {portfolio_count}, queues释放)")
+        GLOG.INFO(f"[INFO]   ✅ 内存已清空 (portfolios: {portfolio_count}, queues释放)")
 
         # 10. 完成
-        print(f"[INFO] ══════════════════════════════════════════════")
-        print(f"[INFO] ✅ ExecutionNode {self.node_id} 已完全停止")
-        print(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ✅ ExecutionNode {self.node_id} 已完全停止")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════")
 
         # 发送优雅退出通知
         try:
@@ -654,10 +658,10 @@ class ExecutionNode:
         logger.warning("[DEPRECATED] _load_portfolio_components已废弃，组件由PortfolioService加载")
         return
 
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] 📦 Portfolio Components Loading")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] Portfolio: {portfolio.name} ({portfolio.portfolio_id[:8]})")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 📦 Portfolio Components Loading")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] Portfolio: {portfolio.name} ({portfolio.portfolio_id[:8]})")
 
         try:
             # 获取Portfolio的所有组件
@@ -665,7 +669,7 @@ class ExecutionNode:
             components_result = portfolio_service.get_components(portfolio_id=portfolio.portfolio_id)
 
             if not components_result.is_success():
-                print(f"[WARNING] Failed to load components: {components_result.error}")
+                GLOG.WARN(f"[WARNING] Failed to load components: {components_result.error}")
                 return
 
             components = components_result.data
@@ -676,7 +680,7 @@ class ExecutionNode:
             risk_managers = []
 
             if components:
-                print(f"[INFO] Found {len(components)} components in database")
+                GLOG.INFO(f"[INFO] Found {len(components)} components in database")
 
                 # 第二版：实际加载组件到Portfolio
                 # 组件分类
@@ -698,15 +702,15 @@ class ExecutionNode:
                         risk_managers_list.append(component)
 
                 # 组件统计
-                print(f"[INFO]")
-                print(f"[INFO] ══════════════════════════════════════════════════════")
-                print(f"[INFO] 📊 Component Summary")
-                print(f"[INFO] ══════════════════════════════════════════════════════")
-                print(f"[INFO] Strategies:   {len(strategies_list)}")
-                print(f"[INFO] Selectors:    {len(selectors_list)}")
-                print(f"[INFO] Sizers:       {len(sizers_list)}")
-                print(f"[INFO] Risk Managers: {len(risk_managers_list)}")
-                print(f"[INFO] Total:        {len(components)}")
+                GLOG.INFO(f"[INFO]")
+                GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+                GLOG.INFO(f"[INFO] 📊 Component Summary")
+                GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+                GLOG.INFO(f"[INFO] Strategies:   {len(strategies_list)}")
+                GLOG.INFO(f"[INFO] Selectors:    {len(selectors_list)}")
+                GLOG.INFO(f"[INFO] Sizers:       {len(sizers_list)}")
+                GLOG.INFO(f"[INFO] Risk Managers: {len(risk_managers_list)}")
+                GLOG.INFO(f"[INFO] Total:        {len(components)}")
 
                 # 实际加载组件
                 self._bind_components_to_portfolio(
@@ -717,8 +721,8 @@ class ExecutionNode:
                     risk_managers_list
                 )
             else:
-                print(f"[INFO] No components found in database")
-                print(f"[INFO] Using default components for portfolio")
+                GLOG.INFO(f"[INFO] No components found in database")
+                GLOG.INFO(f"[INFO] Using default components for portfolio")
 
                 # 使用默认组件
                 self._bind_components_to_portfolio(
@@ -730,11 +734,12 @@ class ExecutionNode:
                 )
 
         except Exception as e:
-            print(f"[ERROR] Error loading portfolio components: {e}")
+            GLOG.ERROR(f"[ERROR] Error loading portfolio components: {e}")
             import traceback
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            for line in traceback.format_exc().split('\n'):
+                GLOG.ERROR(f"[ERROR] Traceback: {line}")
 
-        print(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
 
     def _print_portfolio_runtime_snapshot(self, portfolio: "PortfolioLive"):
         """
@@ -745,109 +750,109 @@ class ExecutionNode:
         Args:
             portfolio: PortfolioLive 实例
         """
-        print(f"[INFO]")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] 🔍 Portfolio Runtime Snapshot")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] Portfolio: {portfolio.name} ({portfolio.portfolio_id[:8]})")
-        print(f"[INFO] Engine ID: {portfolio.engine_id[:8] if portfolio.engine_id else 'N/A'}")
-        print(f"[INFO] Run ID: {portfolio.run_id[:8] if portfolio.run_id else 'N/A'}")
-        print(f"[INFO]")
+        GLOG.INFO(f"[INFO]")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 🔍 Portfolio Runtime Snapshot")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] Portfolio: {portfolio.name} ({portfolio.portfolio_id[:8]})")
+        GLOG.INFO(f"[INFO] Engine ID: {portfolio.engine_id[:8] if portfolio.engine_id else 'N/A'}")
+        GLOG.INFO(f"[INFO] Run ID: {portfolio.run_id[:8] if portfolio.run_id else 'N/A'}")
+        GLOG.INFO(f"[INFO]")
 
         # 1. 基本信息
-        print(f"[INFO] 📋 Basic Information")
-        print(f"[INFO] ├─ Initial Capital: {portfolio.initial_capital}")
-        print(f"[INFO] ├─ Current Cash: {portfolio.cash}")
-        print(f"[INFO] ├─ Frozen Cash: {portfolio.frozen_cash}")
+        GLOG.INFO(f"[INFO] 📋 Basic Information")
+        GLOG.INFO(f"[INFO] ├─ Initial Capital: {portfolio.initial_capital}")
+        GLOG.INFO(f"[INFO] ├─ Current Cash: {portfolio.cash}")
+        GLOG.INFO(f"[INFO] ├─ Frozen Cash: {portfolio.frozen_cash}")
         # PortfolioLive 可能没有 get_total_value() 方法，使用 cash 代替
         total_value = portfolio.get_total_value() if hasattr(portfolio, 'get_total_value') else portfolio.cash
-        print(f"[INFO] ├─ Total Value: {total_value}")
-        print(f"[INFO] ├─ Position Count: {len(portfolio.positions)}")
-        print(f"[INFO] └─ Status: {portfolio._status}")
-        print(f"[INFO]")
+        GLOG.INFO(f"[INFO] ├─ Total Value: {total_value}")
+        GLOG.INFO(f"[INFO] ├─ Position Count: {len(portfolio.positions)}")
+        GLOG.INFO(f"[INFO] └─ Status: {portfolio._status}")
+        GLOG.INFO(f"[INFO]")
 
         # 2. 策略组件
-        print(f"[INFO] ───────────────────────────────────────────────────────")
-        print(f"[INFO] 📊 Strategy Components ({len(portfolio.strategies)})")
-        print(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] 📊 Strategy Components ({len(portfolio.strategies)})")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
 
         if portfolio.strategies:
             for i, strategy in enumerate(portfolio.strategies, 1):
-                print(f"[INFO]")
-                print(f"[INFO] Strategy #{i}: {strategy.name}")
-                print(f"[INFO]   ├─ Type: {type(strategy).__name__}")
-                print(f"[INFO]   ├─ UUID: {strategy.uuid[:8] if strategy.uuid else 'N/A'}")
-                print(f"[INFO]   └─ Parameters:")
+                GLOG.INFO(f"[INFO]")
+                GLOG.INFO(f"[INFO] Strategy #{i}: {strategy.name}")
+                GLOG.INFO(f"[INFO]   ├─ Type: {type(strategy).__name__}")
+                GLOG.INFO(f"[INFO]   ├─ UUID: {strategy.uuid[:8] if strategy.uuid else 'N/A'}")
+                GLOG.INFO(f"[INFO]   └─ Parameters:")
 
                 # 获取策略参数
                 params = self._get_component_parameters(strategy)
                 for param_name, param_value in params.items():
-                    print(f"[INFO]      ├─ {param_name}: {param_value}")
+                    GLOG.INFO(f"[INFO]      ├─ {param_name}: {param_value}")
         else:
-            print(f"[INFO] ⚠️  No strategies loaded (Portfolio will not generate signals)")
+            GLOG.WARN(f"[INFO] ⚠️  No strategies loaded (Portfolio will not generate signals)")
 
-        print(f"[INFO]")
+        GLOG.INFO(f"[INFO]")
 
         # 3. Sizer 组件
-        print(f"[INFO] ───────────────────────────────────────────────────────")
-        print(f"[INFO] 📏 Sizer Component")
-        print(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] 📏 Sizer Component")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
 
         if portfolio.sizer:
-            print(f"[INFO]")
-            print(f"[INFO] Sizer: {portfolio.sizer.name}")
-            print(f"[INFO]   ├─ Type: {type(portfolio.sizer).__name__}")
-            print(f"[INFO]   ├─ UUID: {portfolio.sizer.uuid[:8] if portfolio.sizer.uuid else 'N/A'}")
-            print(f"[INFO]   └─ Parameters:")
+            GLOG.INFO(f"[INFO]")
+            GLOG.INFO(f"[INFO] Sizer: {portfolio.sizer.name}")
+            GLOG.INFO(f"[INFO]   ├─ Type: {type(portfolio.sizer).__name__}")
+            GLOG.INFO(f"[INFO]   ├─ UUID: {portfolio.sizer.uuid[:8] if portfolio.sizer.uuid else 'N/A'}")
+            GLOG.INFO(f"[INFO]   └─ Parameters:")
 
             # 获取 Sizer 参数
             params = self._get_component_parameters(portfolio.sizer)
             for param_name, param_value in params.items():
-                print(f"[INFO]      ├─ {param_name}: {param_value}")
+                GLOG.INFO(f"[INFO]      ├─ {param_name}: {param_value}")
         else:
-            print(f"[INFO] ⚠️  No sizer loaded (Orders will use default size)")
+            GLOG.WARN(f"[INFO] ⚠️  No sizer loaded (Orders will use default size)")
 
-        print(f"[INFO]")
+        GLOG.INFO(f"[INFO]")
 
         # 4. 风控组件
-        print(f"[INFO] ───────────────────────────────────────────────────────")
-        print(f"[INFO] 🛡️  Risk Management Components ({len(portfolio.risk_managers)})")
-        print(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] 🛡️  Risk Management Components ({len(portfolio.risk_managers)})")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
 
         if portfolio.risk_managers:
             for i, risk_manager in enumerate(portfolio.risk_managers, 1):
-                print(f"[INFO]")
-                print(f"[INFO] Risk Manager #{i}: {risk_manager.name}")
-                print(f"[INFO]   ├─ Type: {type(risk_manager).__name__}")
-                print(f"[INFO]   ├─ UUID: {risk_manager.uuid[:8] if risk_manager.uuid else 'N/A'}")
-                print(f"[INFO]   └─ Parameters:")
+                GLOG.INFO(f"[INFO]")
+                GLOG.INFO(f"[INFO] Risk Manager #{i}: {risk_manager.name}")
+                GLOG.INFO(f"[INFO]   ├─ Type: {type(risk_manager).__name__}")
+                GLOG.INFO(f"[INFO]   ├─ UUID: {risk_manager.uuid[:8] if risk_manager.uuid else 'N/A'}")
+                GLOG.INFO(f"[INFO]   └─ Parameters:")
 
                 # 获取风控参数
                 params = self._get_component_parameters(risk_manager)
                 for param_name, param_value in params.items():
-                    print(f"[INFO]      ├─ {param_name}: {param_value}")
+                    GLOG.INFO(f"[INFO]      ├─ {param_name}: {param_value}")
         else:
-            print(f"[INFO] ⚠️  No risk managers loaded (Orders will not be filtered)")
+            GLOG.WARN(f"[INFO] ⚠️  No risk managers loaded (Orders will not be filtered)")
 
-        print(f"[INFO]")
+        GLOG.INFO(f"[INFO]")
 
         # 5. 持仓快照
-        print(f"[INFO] ───────────────────────────────────────────────────────")
-        print(f"[INFO] 💼 Current Positions ({len(portfolio.positions)})")
-        print(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
+        GLOG.INFO(f"[INFO] 💼 Current Positions ({len(portfolio.positions)})")
+        GLOG.INFO(f"[INFO] ───────────────────────────────────────────────────────")
 
         if portfolio.positions:
             for code, position in list(portfolio.positions.items())[:5]:  # 只显示前5个
-                print(f"[INFO]   {code}: {position.volume} shares @ {position.price}")
+                GLOG.INFO(f"[INFO]   {code}: {position.volume} shares @ {position.price}")
             if len(portfolio.positions) > 5:
-                print(f"[INFO]   ... and {len(portfolio.positions) - 5} more")
+                GLOG.INFO(f"[INFO]   ... and {len(portfolio.positions) - 5} more")
         else:
-            print(f"[INFO]   No positions yet")
+            GLOG.INFO(f"[INFO]   No positions yet")
 
-        print(f"[INFO]")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] ✅ Runtime Snapshot Complete")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO]")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ✅ Runtime Snapshot Complete")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
 
     def _get_component_parameters(self, component) -> dict:
         """
@@ -890,7 +895,7 @@ class ExecutionNode:
                     pass
 
         except Exception as e:
-            print(f"[WARNING] Error getting parameters for {type(component).__name__}: {e}")
+            GLOG.WARN(f"[WARNING] Error getting parameters for {type(component).__name__}: {e}")
 
         return params
 
@@ -914,77 +919,78 @@ class ExecutionNode:
             sizers_list: 仓位管理组件配置列表
             risk_managers_list: 风控管理器组件配置列表
         """
-        print(f"[INFO]")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
-        print(f"[INFO] 🔧 Binding Components to Portfolio")
-        print(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO]")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] 🔧 Binding Components to Portfolio")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
 
         try:
             # 1. 加载策略 (必需)
             if len(strategies_list) == 0:
-                print(f"[WARNING] No strategy found, using default RandomSignalStrategy")
+                GLOG.WARN(f"[WARNING] No strategy found, using default RandomSignalStrategy")
                 default_strategy = self._get_default_component('strategy')
                 if default_strategy:
                     portfolio.add_strategy(default_strategy)
-                    print(f"[INFO] ✅ Added default strategy: {default_strategy.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Added default strategy: {default_strategy.__class__.__name__}")
             else:
                 for strategy_config in strategies_list:
                     strategy = self._instantiate_component_from_config(strategy_config, 'strategy')
                     if strategy:
                         portfolio.add_strategy(strategy)
-                        print(f"[INFO] ✅ Added strategy: {strategy.__class__.__name__}")
+                        GLOG.INFO(f"[INFO] ✅ Added strategy: {strategy.__class__.__name__}")
 
             # 2. 加载选股器 (必需)
             if len(selectors_list) == 0:
-                print(f"[WARNING] No selector found, using default CNAllSelector")
+                GLOG.WARN(f"[WARNING] No selector found, using default CNAllSelector")
                 default_selector = self._get_default_component('selector')
                 if default_selector:
                     portfolio.bind_selector(default_selector)
-                    print(f"[INFO] ✅ Bound default selector: {default_selector.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Bound default selector: {default_selector.__class__.__name__}")
             else:
                 selector_config = selectors_list[0]  # 只使用第一个selector
                 selector = self._instantiate_component_from_config(selector_config, 'selector')
                 if selector:
                     portfolio.bind_selector(selector)
-                    print(f"[INFO] ✅ Bound selector: {selector.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Bound selector: {selector.__class__.__name__}")
 
             # 3. 加载仓位管理 (必需)
             if len(sizers_list) == 0:
-                print(f"[WARNING] No sizer found, using default FixedSizer")
+                GLOG.WARN(f"[WARNING] No sizer found, using default FixedSizer")
                 default_sizer = self._get_default_component('sizer')
                 if default_sizer:
                     portfolio.bind_sizer(default_sizer)
-                    print(f"[INFO] ✅ Bound default sizer: {default_sizer.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Bound default sizer: {default_sizer.__class__.__name__}")
             else:
                 sizer_config = sizers_list[0]  # 只使用第一个sizer
                 sizer = self._instantiate_component_from_config(sizer_config, 'sizer')
                 if sizer:
                     portfolio.bind_sizer(sizer)
-                    print(f"[INFO] ✅ Bound sizer: {sizer.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Bound sizer: {sizer.__class__.__name__}")
 
             # 4. 加载风控管理器 (可选)
             if len(risk_managers_list) == 0:
-                print(f"[INFO] No risk managers found, using default PositionRatioRisk")
+                GLOG.INFO(f"[INFO] No risk managers found, using default PositionRatioRisk")
                 default_risk = self._get_default_component('risk_management')
                 if default_risk:
                     portfolio.add_risk_manager(default_risk)
-                    print(f"[INFO] ✅ Added default risk manager: {default_risk.__class__.__name__}")
+                    GLOG.INFO(f"[INFO] ✅ Added default risk manager: {default_risk.__class__.__name__}")
             else:
                 for risk_config in risk_managers_list:
                     risk_manager = self._instantiate_component_from_config(risk_config, 'risk_management')
                     if risk_manager:
                         portfolio.add_risk_manager(risk_manager)
-                        print(f"[INFO] ✅ Added risk manager: {risk_manager.__class__.__name__}")
+                        GLOG.INFO(f"[INFO] ✅ Added risk manager: {risk_manager.__class__.__name__}")
 
-            print(f"[INFO]")
-            print(f"[INFO] ✅ Component binding completed")
+            GLOG.INFO(f"[INFO]")
+            GLOG.INFO(f"[INFO] ✅ Component binding completed")
 
         except Exception as e:
-            print(f"[ERROR] Failed to bind components: {e}")
+            GLOG.ERROR(f"[ERROR] Failed to bind components: {e}")
             import traceback
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            for line in traceback.format_exc().split('\n'):
+                GLOG.ERROR(f"[ERROR] Traceback: {line}")
 
-        print(f"[INFO] ══════════════════════════════════════════════════════")
+        GLOG.INFO(f"[INFO] ══════════════════════════════════════════════════════")
 
     def _instantiate_component_from_config(self, component_config: dict, component_type: str):
         """
@@ -1003,7 +1009,7 @@ class ExecutionNode:
             # component_config包含: mount_id, portfolio_id, component_id(file_id), component_name, component_type
             file_id = component_config.get('component_id')  # 注意：这里是component_id，对应file_id
             if not file_id:
-                print(f"[WARNING] No component_id in component config")
+                GLOG.WARN(f"[WARNING] No component_id in component config")
                 return None
 
             # 获取参数
@@ -1020,12 +1026,12 @@ class ExecutionNode:
                         # 按index排序
                         sorted_params = sorted(param_records, key=lambda p: p.index)
                         component_params = [param.value for param in sorted_params]
-                        print(f"[DEBUG] Found {len(component_params)} params for {component_config.get('component_name')}")
+                        GLOG.DEBUG(f"Found {len(component_params)} params for {component_config.get('component_name')}")
                     else:
-                        print(f"[DEBUG] No params found for mount_id {mount_id[:8]}...")
+                        GLOG.DEBUG(f"No params found for mount_id {mount_id[:8]}...")
 
                 except Exception as e:
-                    print(f"[WARNING] Failed to get params: {e}")
+                    GLOG.WARN(f"[WARNING] Failed to get params: {e}")
 
             # 获取file_service
             file_service = services.data.file_service()
@@ -1033,7 +1039,7 @@ class ExecutionNode:
             # 获取文件内容
             file_result = file_service.get_by_uuid(file_id)
             if not file_result.success or not file_result.data:
-                print(f"[WARNING] Failed to get file {file_id[:8]}...: {file_result.error}")
+                GLOG.WARN(f"[WARNING] Failed to get file {file_id[:8]}...: {file_result.error}")
                 # 尝试使用默认组件
                 return self._get_default_component(component_type)
 
@@ -1047,7 +1053,7 @@ class ExecutionNode:
                         code_content = str(mfile.data)
                 else:
                     # Fallback: 使用默认组件
-                    print(f"[WARNING] No file data, using default component")
+                    GLOG.WARN(f"[WARNING] No file data, using default component")
                     return self._get_default_component(component_type)
             else:
                 return self._get_default_component(component_type)
@@ -1110,24 +1116,24 @@ class ExecutionNode:
                             break
 
                 if component_class is None:
-                    print(f"[ERROR] No component class found in file")
+                    GLOG.ERROR(f"[ERROR] No component class found in file")
                     return self._get_default_component(component_type)
 
                 # 实例化组件
                 try:
                     if component_params:
                         # 有参数：使用参数实例化
-                        print(f"[DEBUG] Creating {component_class.__name__} with params: {component_params}")
+                        GLOG.DEBUG(f"Creating {component_class.__name__} with params: {component_params}")
                         component = component_class(*component_params)
                     else:
                         # 无参数：尝试无参实例化（允许使用默认值）
-                        print(f"[INFO] No params found for {component_class.__name__}, attempting instantiation with defaults")
+                        GLOG.INFO(f"[INFO] No params found for {component_class.__name__}, attempting instantiation with defaults")
                         component = component_class()
 
-                    print(f"[DEBUG] Created {component_class.__name__} instance")
+                    GLOG.DEBUG(f"Created {component_class.__name__} instance")
                     return component
                 except Exception as e:
-                    print(f"[ERROR] Failed to instantiate {component_class.__name__}: {e}")
+                    GLOG.ERROR(f"[ERROR] Failed to instantiate {component_class.__name__}: {e}")
                     return self._get_default_component(component_type)
 
             finally:
@@ -1138,7 +1144,7 @@ class ExecutionNode:
                     pass
 
         except Exception as e:
-            print(f"[ERROR] Failed to instantiate component: {e}")
+            GLOG.ERROR(f"[ERROR] Failed to instantiate component: {e}")
             return self._get_default_component(component_type)
 
     def _get_default_component(self, component_type: str):
@@ -1152,27 +1158,27 @@ class ExecutionNode:
             默认组件实例
         """
         if component_type == 'strategy':
-            print(f"[INFO] Using default RandomSignalStrategy")
+            GLOG.INFO(f"[INFO] Using default RandomSignalStrategy")
             from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
             return RandomSignalStrategy()
 
         elif component_type == 'selector':
-            print(f"[INFO] Using default CNAllSelector")
+            GLOG.INFO(f"[INFO] Using default CNAllSelector")
             from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
             return CNAllSelector()
 
         elif component_type == 'sizer':
-            print(f"[INFO] Using default FixedSizer")
+            GLOG.INFO(f"[INFO] Using default FixedSizer")
             from ginkgo.trading.sizers.fixed_sizer import FixedSizer
             return FixedSizer()
 
         elif component_type == 'risk_management':
-            print(f"[INFO] Using default PositionRatioRisk")
+            GLOG.INFO(f"[INFO] Using default PositionRatioRisk")
             from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
             return PositionRatioRisk()
 
         else:
-            print(f"[WARNING] Unknown component type: {component_type}")
+            GLOG.WARN(f"[WARNING] Unknown component type: {component_type}")
             return None
 
     def _get_subscribed_codes(self, portfolio: "PortfolioLive") -> List[str]:
@@ -1205,33 +1211,33 @@ class ExecutionNode:
         """
         with self.portfolio_lock:
             if portfolio_id not in self.portfolios:
-                print(f"[WARNING] Portfolio {portfolio_id} not found")
+                GLOG.WARN(f"[WARNING] Portfolio {portfolio_id} not found")
                 return False
 
             # 优雅停止PortfolioProcessor（等待队列清空）
             processor = self.portfolios[portfolio_id]
-            print(f"[INFO] Unloading Portfolio {portfolio_id}...")
+            GLOG.INFO(f"[INFO] Unloading Portfolio {portfolio_id}...")
             processor.graceful_stop(timeout=30.0)
 
         # 在锁外等待 PortfolioProcessor 线程退出
         processor.join(timeout=10)
         if processor.is_alive():
-            print(f"[WARNING] Processor {portfolio_id} did not stop gracefully")
+            GLOG.WARN(f"[WARNING] Processor {portfolio_id} did not stop gracefully")
         else:
-            print(f"[INFO] Processor {portfolio_id} stopped")
+            GLOG.INFO(f"[INFO] Processor {portfolio_id} stopped")
 
         # 在锁外停止 output_queue listener 线程
         if portfolio_id in self.output_queue_stop_events:
-            print(f"[INFO] Stopping output queue listener for {portfolio_id}...")
+            GLOG.INFO(f"[INFO] Stopping output queue listener for {portfolio_id}...")
             self.output_queue_stop_events[portfolio_id].set()
 
         if portfolio_id in self.output_queue_threads:
             thread = self.output_queue_threads[portfolio_id]
             thread.join(timeout=10)
             if thread.is_alive():
-                print(f"[WARNING] Output queue listener for {portfolio_id} did not stop gracefully")
+                GLOG.WARN(f"[WARNING] Output queue listener for {portfolio_id} did not stop gracefully")
             else:
-                print(f"[INFO] Output queue listener for {portfolio_id} stopped")
+                GLOG.INFO(f"[INFO] Output queue listener for {portfolio_id} stopped")
 
             del self.output_queue_threads[portfolio_id]
             del self.output_queue_stop_events[portfolio_id]
@@ -1247,13 +1253,13 @@ class ExecutionNode:
             if portfolio_id in self.output_queues:
                 del self.output_queues[portfolio_id]
 
-            print(f"[INFO] Portfolio {portfolio_id} unloaded successfully")
+            GLOG.INFO(f"[INFO] Portfolio {portfolio_id} unloaded successfully")
 
             # 从InterestMap移除订阅（Phase 4实现）
             subscribed_codes = self.interest_map.get_all_subscriptions(portfolio_id)
             if subscribed_codes:
                 self.interest_map.remove_portfolio(portfolio_id, subscribed_codes)
-                print(f"[INFO] Removed {len(subscribed_codes)} subscriptions from InterestMap")
+                GLOG.INFO(f"[INFO] Removed {len(subscribed_codes)} subscriptions from InterestMap")
 
             return True
 
@@ -1319,7 +1325,7 @@ class ExecutionNode:
         """
         from ginkgo.trading.events.price_update import EventPriceUpdate
 
-        print(f"Market data consumer thread started for node {self.node_id}")
+        GLOG.INFO(f"Market data consumer thread started for node {self.node_id}")
 
         while self.is_running:
             try:
@@ -1370,13 +1376,13 @@ class ExecutionNode:
                 if self.is_running:
                     time.sleep(1)  # 消费异常时延迟
 
-        print(f"Market data consumer thread stopped for node {self.node_id}")
+        GLOG.INFO(f"Market data consumer thread stopped for node {self.node_id}")
 
     def _consume_order_feedback(self):
         """消费订单回报线程 - 消息成功放入队列后立即提交 offset"""
         from ginkgo.trading.events.order_lifecycle_events import EventOrderPartiallyFilled
 
-        print(f"Order feedback consumer thread started for node {self.node_id}")
+        GLOG.INFO(f"Order feedback consumer thread started for node {self.node_id}")
 
         while self.is_running:
             try:
@@ -1423,7 +1429,7 @@ class ExecutionNode:
                 if self.is_running:
                     time.sleep(1)  # 消费异常时延迟
 
-        print(f"Order feedback consumer thread stopped for node {self.node_id}")
+        GLOG.INFO(f"Order feedback consumer thread stopped for node {self.node_id}")
 
     def _route_event_to_portfolios(self, event):
         """
@@ -1491,17 +1497,17 @@ class ExecutionNode:
                     queue_usage = -1
 
                 # 记录详细背压日志
-                print(f"[BACKPRESSURE] Portfolio {portfolio_id} queue full")
-                print(f"  - Event: {event.code} at {event.timestamp if hasattr(event, 'timestamp') else 'N/A'}")
-                print(f"  - Queue: {queue_size}/1000 ({queue_usage*100:.1f}%)")
-                print(f"  - Total backpressure: {self.backpressure_count}, dropped: {self.dropped_event_count}")
+                GLOG.WARN(f"[BACKPRESSURE] Portfolio {portfolio_id} queue full")
+                GLOG.WARN(f"  - Event: {event.code} at {event.timestamp if hasattr(event, 'timestamp') else 'N/A'}")
+                GLOG.WARN(f"  - Queue: {queue_size}/1000 ({queue_usage*100:.1f}%)")
+                GLOG.WARN(f"  - Total backpressure: {self.backpressure_count}, dropped: {self.dropped_event_count}")
 
                 # TODO: Phase 4 - 发送背压告警到监控系统
                 # self._send_backpressure_alert(portfolio_id, queue_usage, event)
 
             except Exception as e:
                 # 其他异常（不应该发生）
-                print(f"[ERROR] Failed to route event to {portfolio_id}: {type(e).__name__}: {e}")
+                GLOG.ERROR(f"[ERROR] Failed to route event to {portfolio_id}: {type(e).__name__}: {e}")
                 continue
 
     def _start_output_queue_listener(self, queue: Queue, portfolio_id: str):
@@ -1524,7 +1530,7 @@ class ExecutionNode:
         self.output_queue_stop_events[portfolio_id] = stop_event
 
         def listener_thread():
-            print(f"Output queue listener started for portfolio {portfolio_id}")
+            GLOG.INFO(f"Output queue listener started for portfolio {portfolio_id}")
 
             while not stop_event.is_set():  # 检查停止事件
                 try:
@@ -1560,12 +1566,12 @@ class ExecutionNode:
                         # 发送到Kafka
                         success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_dto.model_dump_json())
                         if success:
-                            print(f"Order {event.uuid} sent to Kafka via output_queue")
+                            GLOG.INFO(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:
-                            print(f"[ERROR] Failed to send order {event.uuid} to Kafka")
+                            GLOG.ERROR(f"[ERROR] Failed to send order {event.uuid} to Kafka")
                     else:
                         # 其他事件类型（如Signal），暂时记录日志
-                        print(f"[DEBUG] Output queue event received for {portfolio_id}: {type(event).__name__}")
+                        GLOG.DEBUG(f"Output queue event received for {portfolio_id}: {type(event).__name__}")
 
                     queue.task_done()
 
@@ -1579,17 +1585,18 @@ class ExecutionNode:
 
                     # 其他异常：打印完整的错误堆栈
                     import traceback
-                    print(f"\n{'='*80}")
-                    print(f"[ERROR] Error processing output_queue for {portfolio_id}")
-                    print(f"{'='*80}")
-                    print(f"Exception Type: {type(e).__name__}")
-                    print(f"Exception Message: {str(e)}")
+                    GLOG.ERROR(f"\n{'='*80}")
+                    GLOG.ERROR(f"[ERROR] Error processing output_queue for {portfolio_id}")
+                    GLOG.ERROR(f"{'='*80}")
+                    GLOG.ERROR(f"Exception Type: {type(e).__name__}")
+                    GLOG.ERROR(f"Exception Message: {str(e)}")
                     if 'event' in locals():
-                        print(f"Event Type: {type(event).__name__}")
-                        print(f"Event Object: {event}")
-                    print(f"\nFull Traceback:")
-                    traceback.print_exc()
-                    print(f"{'='*80}\n")
+                        GLOG.ERROR(f"Event Type: {type(event).__name__}")
+                        GLOG.ERROR(f"Event Object: {event}")
+                    GLOG.ERROR(f"\nFull Traceback:")
+                    for line in traceback.format_exc().split('\n'):
+                        GLOG.ERROR(line)
+                    GLOG.ERROR(f"{'='*80}\n")
 
                     # 仍然标记task_done，避免阻塞队列
                     try:
@@ -1597,7 +1604,7 @@ class ExecutionNode:
                     except:
                         pass
 
-            print(f"Output queue listener stopped for portfolio {portfolio_id}")
+            GLOG.INFO(f"Output queue listener stopped for portfolio {portfolio_id}")
 
         thread = threading.Thread(
             target=listener_thread,
@@ -1608,7 +1615,7 @@ class ExecutionNode:
 
         # 追踪线程
         self.output_queue_threads[portfolio_id] = thread
-        print(f"[DEBUG] Output queue listener thread started for portfolio {portfolio_id}")
+        GLOG.DEBUG(f"Output queue listener thread started for portfolio {portfolio_id}")
 
 
 
@@ -2247,7 +2254,7 @@ class ExecutionNode:
             )
 
             logger.info(f"Subscribed to {topic} topic for node {self.node_id}")
-            print(f"[INFO] Subscribed to {topic} topic")
+            GLOG.INFO(f"[INFO] Subscribed to {topic} topic")
 
             while self.is_running:
                 try:

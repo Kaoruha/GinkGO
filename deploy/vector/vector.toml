@@ -1,5 +1,12 @@
 # Vector Configuration for Ginkgo Distributed Logging
 # Compatible with Vector 0.39.0
+#
+# 数据流：
+# 1. 读取 /var/log/ginkgo/**/*.log 文件
+# 2. 解析 JSON 格式日志
+# 3. 添加字段映射（log_category → event_category）
+# 4. 根据 log_category 路由到不同表
+# 5. 写入 ClickHouse 对应表
 
 # ============================================================================
 # Input Sources
@@ -25,8 +32,28 @@ source = '''
 . = parse_json!(.message)
 '''
 
-[transforms.route_by_category]
+[transforms.normalize_fields]
 inputs = ["parse_json"]
+type = "remap"
+source = '''
+# 字段映射：log_category → event_category
+if exists(.log_category) {
+  .event_category = .log_category
+  # 保留 log_category 用于路由
+}
+
+# 确保必需字段存在（使用默认值）
+if !exists(.level) { .level = "INFO" }
+if !exists(.message) { .message = "" }
+if !exists(.logger_name) { .logger_name = "ginkgo" }
+if !exists(.timestamp) { .timestamp = now() }
+
+# 将 timestamp 转换为 ClickHouse DateTime64(3) 兼容格式
+# ClickHouse 期望 ISO 8601 格式或 Unix 时间戳
+'''
+
+[transforms.route_by_category]
+inputs = ["normalize_fields"]
 type = "route"
 
 # Route logs by log_category field

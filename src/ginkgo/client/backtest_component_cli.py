@@ -18,6 +18,8 @@ from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
 
+from ginkgo.libs import GLOG
+
 # All heavy imports moved to function level for faster CLI startup
 
 app = typer.Typer(
@@ -32,7 +34,7 @@ def create():
     """
     :ram: Create components.
     """
-    print("create component")
+    GLOG.INFO("create component")
 
 
 @app.command(name="list")

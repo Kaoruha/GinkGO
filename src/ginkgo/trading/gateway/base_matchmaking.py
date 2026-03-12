@@ -17,7 +17,7 @@ import pandas as pd
 from decimal import Decimal
 
 
-from ginkgo.libs import datetime_normalize, to_decimal, Number
+from ginkgo.libs import datetime_normalize, to_decimal, Number, GLOG
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
 from ginkgo.trading.core.backtest_base import BacktestBase
@@ -49,7 +49,7 @@ class MatchMakingBase(BacktestBase, TimeMixin):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
+            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -93,7 +93,7 @@ class MatchMakingBase(BacktestBase, TimeMixin):
             Fee
         """
         if transaction_money <= 0:
-            self.log("ERROR", f"Transaction Money should be greater than 0, {transaction_money} is illegal.")
+            GLOG.ERROR(f"Transaction Money should be greater than 0, {transaction_money} is illegal.")
             return 0
         # 印花税，仅卖出时收
         stamp_tax = transaction_money * Decimal("0.001") if not is_long else 0

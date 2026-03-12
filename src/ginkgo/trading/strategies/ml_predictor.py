@@ -22,6 +22,7 @@ from decimal import Decimal
 from ginkgo.trading.strategies.ml_strategy_base import StrategyMLBase
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import DIRECTION_TYPES
+from ginkgo.libs import GLOG
 
 
 class StrategyMLPredictor(StrategyMLBase):
@@ -85,7 +86,7 @@ class StrategyMLPredictor(StrategyMLBase):
         
         # 如果ML模块不可用，策略仍可创建但功能受限
         if not hasattr(self, '_model') or self._model is None:
-            self.log("WARNING", "ML模块不可用，预测策略将以受限模式运行")
+            GLOG.WARN("ML模块不可用，预测策略将以受限模式运行")
             # 设置默认值
             self._prediction_horizon = prediction_horizon
             self._confidence_threshold = confidence_threshold
@@ -110,8 +111,8 @@ class StrategyMLPredictor(StrategyMLBase):
         self._entry_times: Dict[str, datetime.datetime] = {}  # 记录进场时间
         self._position_directions: Dict[str, DIRECTION_TYPES] = {}  # 记录持仓方向
         
-        self.log("INFO", f"初始化ML预测策略: {name}")
-        self.log("INFO", f"参数 - 预测期:{prediction_horizon}天, 置信度阈值:{confidence_threshold}, 收益率阈值:{return_threshold}")
+        GLOG.INFO(f"初始化ML预测策略: {name}")
+        GLOG.INFO(f"参数 - 预测期:{prediction_horizon}天, 置信度阈值:{confidence_threshold}, 收益率阈值:{return_threshold}")
 
     def generate_signals_from_prediction(self, portfolio_info, code: str, 
                                        prediction_result: Dict) -> List[Signal]:
@@ -132,7 +133,7 @@ class StrategyMLPredictor(StrategyMLBase):
             prediction = prediction_result['prediction']
             confidence = prediction_result['confidence']
             
-            self.log("DEBUG", f"处理预测结果: {code}, 预测:{prediction:.4f}, 置信度:{confidence:.3f}")
+            GLOG.DEBUG(f"处理预测结果: {code}, 预测:{prediction:.4f}, 置信度:{confidence:.3f}")
             
             # 首先检查风险管理信号
             if self._risk_managements:
@@ -143,12 +144,12 @@ class StrategyMLPredictor(StrategyMLBase):
             
             # 置信度检查
             if confidence < self._confidence_threshold:
-                self.log("DEBUG", f"置信度不足: {code}, {confidence:.3f} < {self._confidence_threshold}")
+                GLOG.DEBUG(f"置信度不足: {code}, {confidence:.3f} < {self._confidence_threshold}")
                 return signals
             
             # 预测收益率阈值检查
             if abs(prediction) < self._return_threshold:
-                self.log("DEBUG", f"预测收益率不足: {code}, {abs(prediction):.4f} < {self._return_threshold}")
+                GLOG.DEBUG(f"预测收益率不足: {code}, {abs(prediction):.4f} < {self._return_threshold}")
                 return signals
             
             # 检查当前持仓状态
@@ -211,7 +212,7 @@ class StrategyMLPredictor(StrategyMLBase):
             return signals
             
         except Exception as e:
-            self.log("ERROR", f"ML预测信号生成失败: {code}, {e}")
+            GLOG.ERROR(f"ML预测信号生成失败: {code}, {e}")
             return []
 
     def _check_risk_managements(self, portfolio_info, code: str) -> List[Signal]:
@@ -245,7 +246,7 @@ class StrategyMLPredictor(StrategyMLBase):
                         portfolio_info, code, DIRECTION_TYPES.SHORT, reason
                     )
                     signals.append(signal)
-                    self.log("INFO", f"触发止损: {code}, {reason}")
+                    GLOG.INFO(f"触发止损: {code}, {reason}")
                 
                 # 止盈
                 elif price_change >= float(self._take_profit_ratio):
@@ -254,7 +255,7 @@ class StrategyMLPredictor(StrategyMLBase):
                         portfolio_info, code, DIRECTION_TYPES.SHORT, reason
                     )
                     signals.append(signal)
-                    self.log("INFO", f"触发止盈: {code}, {reason}")
+                    GLOG.INFO(f"触发止盈: {code}, {reason}")
             
             elif position_direction == DIRECTION_TYPES.SHORT:
                 # 空头持仓风险管理
@@ -267,7 +268,7 @@ class StrategyMLPredictor(StrategyMLBase):
                         portfolio_info, code, DIRECTION_TYPES.LONG, reason
                     )
                     signals.append(signal)
-                    self.log("INFO", f"空头止损: {code}, {reason}")
+                    GLOG.INFO(f"空头止损: {code}, {reason}")
                 
                 # 止盈（空头）
                 elif price_change >= float(self._take_profit_ratio):
@@ -276,14 +277,14 @@ class StrategyMLPredictor(StrategyMLBase):
                         portfolio_info, code, DIRECTION_TYPES.LONG, reason
                     )
                     signals.append(signal)
-                    self.log("INFO", f"空头止盈: {code}, {reason}")
+                    GLOG.INFO(f"空头止盈: {code}, {reason}")
             
             # 如果生成了风险管理信号，清理持仓信息
             if signals:
                 self._cleanup_position_info(code)
                 
         except Exception as e:
-            self.log("ERROR", f"风险管理检查失败: {code}, {e}")
+            GLOG.ERROR(f"风险管理检查失败: {code}, {e}")
         
         return signals
 
@@ -299,7 +300,7 @@ class StrategyMLPredictor(StrategyMLBase):
             return None
             
         except Exception as e:
-            self.log("ERROR", f"获取当前价格失败: {code}, {e}")
+            GLOG.ERROR(f"获取当前价格失败: {code}, {e}")
             return None
 
     def _is_short_selling_allowed(self) -> bool:

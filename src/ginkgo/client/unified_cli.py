@@ -16,8 +16,10 @@ import typer
 from typing import Optional, Any, Dict, List
 from rich.console import Console
 from rich.table import Table
-from rich import print
+from rich import print as rich_print
 import json
+
+from ginkgo.libs import GLOG
 
 app = typer.Typer(help="[yellow]:zap:[/yellow] Ginkgo Unified Commands", rich_markup_mode="rich")
 console = Console()
@@ -317,7 +319,7 @@ def _handle_get_engines(engine_id=None, filters=None, format="table", page=20, l
             engines = result.data
             if format == "json":
                 engine_list = [{"uuid": e.uuid, "name": e.name, "status": e.status, "is_live": e.is_live} for e in engines]
-                print(json.dumps(engine_list, indent=2))
+                GLOG.INFO(json.dumps(engine_list, indent=2))
             else:
                 table = Table(title="[blue]:wrench:[/blue] Engines")
                 table.add_column("UUID", style="cyan", width=36)
@@ -356,7 +358,7 @@ def _handle_get_portfolios(portfolio_id=None, filters=None, format="table", page
             portfolios = result.data
             if format == "json":
                 portfolio_list = [{"uuid": p.uuid, "name": p.name, "status": p.status, "is_live": p.is_live} for p in portfolios]
-                print(json.dumps(portfolio_list, indent=2))
+                GLOG.INFO(json.dumps(portfolio_list, indent=2))
             else:
                 table = Table(title="[blue]🏦[/blue] Portfolios")
                 table.add_column("UUID", style="cyan", width=36)
@@ -380,7 +382,7 @@ def _handle_get_data(subtype, resource_id=None, filters=None, format="table", pa
         result = stockinfo_service.get(limit=limit or page)
         if result.success and result.data:
             if format == "json":
-                print(result.data.to_json() if hasattr(result.data, 'to_json') else str(result.data))
+                GLOG.INFO(result.data.to_json() if hasattr(result.data, 'to_json') else str(result.data))
             else:
                 table = Table(title="[blue]:bar_chart:[/blue] Stock Information")
                 table.add_column("Code", style="cyan", width=12)
@@ -436,7 +438,7 @@ def _handle_get_config(key=None, format="table"):
                 "log_path": str(GCONF.LOGGING_PATH),
                 "working_path": str(GCONF.WORKING_PATH)
             }
-            print(json.dumps(config_data, indent=2))
+            GLOG.INFO(json.dumps(config_data, indent=2))
         else:
             table = Table()
             table.add_column("Key", style="cyan", width=15)

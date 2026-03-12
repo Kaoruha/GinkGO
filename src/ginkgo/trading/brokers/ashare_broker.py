@@ -21,7 +21,7 @@ from ginkgo.trading.brokers.live_broker_base import LiveBrokerBase
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import to_decimal
+from ginkgo.libs import to_decimal, GLOG
 
 
 class AShareBroker(LiveBrokerBase):
@@ -52,7 +52,7 @@ class AShareBroker(LiveBrokerBase):
         """
         super().__init__(name=name, market="A股", **config)
 
-        self.log("INFO", f"AShareBroker initialized with account_id={self._account_id}")
+        GLOG.INFO(f"AShareBroker initialized with account_id={self._account_id}")
 
     def _get_default_commission_rate(self) -> Decimal:
         """获取A股默认手续费率"""
@@ -77,11 +77,11 @@ class AShareBroker(LiveBrokerBase):
             # self._api = ts.pro_api(self._api_key)
             # self._api.login(account_id=self._account_id)
 
-            self.log("INFO", "🔗 A股券商API连接成功（模拟）")
+            GLOG.INFO("🔗 A股券商API连接成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ A股券商API连接失败: {e}")
+            GLOG.ERROR(f"❌ A股券商API连接失败: {e}")
             return False
 
     def _disconnect_api(self) -> bool:
@@ -95,11 +95,11 @@ class AShareBroker(LiveBrokerBase):
             # TODO: 实现具体的断开逻辑
             # self._api.logout()
 
-            self.log("INFO", "🔌 A股券商API断开成功（模拟）")
+            GLOG.INFO("🔌 A股券商API断开成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ A股券商API断开失败: {e}")
+            GLOG.ERROR(f"❌ A股券商API断开失败: {e}")
             return False
 
     def _submit_to_exchange(self, order: Order) -> BrokerExecutionResult:
@@ -131,7 +131,7 @@ class AShareBroker(LiveBrokerBase):
                     error_message="Order violates A股交易规则"
                 )
 
-            self.log("INFO", f"📈 订单已提交到A股交易所: {broker_order_id}")
+            GLOG.INFO(f"📈 订单已提交到A股交易所: {broker_order_id}")
 
             # 实盘模式下，订单提交后立即返回SUBMITTED状态
             # 实际成交结果通过回调或查询获取
@@ -142,7 +142,7 @@ class AShareBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ A股订单提交失败: {e}")
+            GLOG.ERROR(f"❌ A股订单提交失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message=f"A股订单提交失败: {str(e)}"
@@ -163,7 +163,7 @@ class AShareBroker(LiveBrokerBase):
             # response = self._api.cancel_order(broker_order_id)
             # status = self._convert_exchange_status(response.get('status'))
 
-            self.log("INFO", f"🚫 A股撤单请求已发送: {broker_order_id}")
+            GLOG.INFO(f"🚫 A股撤单请求已发送: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.CANCELED,
@@ -172,7 +172,7 @@ class AShareBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ A股撤单失败: {e}")
+            GLOG.ERROR(f"❌ A股撤单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -197,7 +197,7 @@ class AShareBroker(LiveBrokerBase):
             # filled_price = response.get('filled_price', 0.0)
 
             # 模拟查询逻辑
-            self.log("DEBUG", f"🔍 查询A股订单状态: {broker_order_id}")
+            GLOG.DEBUG(f"🔍 查询A股订单状态: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,  # 模拟状态
@@ -208,7 +208,7 @@ class AShareBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ A股查单失败: {e}")
+            GLOG.ERROR(f"❌ A股查单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -261,18 +261,18 @@ class AShareBroker(LiveBrokerBase):
         # A股买入必须是100股的整数倍
         if order.direction == DIRECTION_TYPES.LONG:
             if order.volume % 100 != 0:
-                self.log("WARN", f"A股买入数量必须是100股的整数倍: {order.volume}")
+                GLOG.WARN(f"A股买入数量必须是100股的整数倍: {order.volume}")
                 return False
 
         # A股最小交易数量
         if order.volume < 100:
-            self.log("WARN", f"A股最小交易数量为100股: {order.volume}")
+            GLOG.WARN(f"A股最小交易数量为100股: {order.volume}")
             return False
 
         # 检查限价单的价格限制（这里简化处理）
         if hasattr(order, 'order_type') and order.order_type == ORDER_TYPES.LIMITORDER:
             if order.limit_price <= 0:
-                self.log("WARN", f"A股限价单价格必须大于0: {order.limit_price}")
+                GLOG.WARN(f"A股限价单价格必须大于0: {order.limit_price}")
                 return False
 
         return True

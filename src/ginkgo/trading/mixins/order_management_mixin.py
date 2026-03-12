@@ -18,6 +18,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from ginkgo.trading.entities.order import Order
+from ginkgo.libs import GLOG
 
 
 class OrderManagementMixin:
@@ -73,7 +74,7 @@ class OrderManagementMixin:
     def clear_pending_orders(self) -> None:
         """清空待处理订单队列"""
         if hasattr(self, 'log'):
-            self.log("DEBUG", f"Cleared {len(self._pending_orders)} pending orders")
+            GLOG.DEBUG(f"Cleared {len(self._pending_orders)} pending orders")
         self._pending_orders.clear()
 
     def track_order(self, broker_order_id: str, order_info: Dict[str, Any]) -> None:
@@ -92,7 +93,7 @@ class OrderManagementMixin:
         }
 
         if hasattr(self, 'log'):
-            self.log("DEBUG", f"Started tracking order: {broker_order_id}")
+            GLOG.DEBUG(f"Started tracking order: {broker_order_id}")
 
     def get_tracked_order(self, broker_order_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -119,7 +120,7 @@ class OrderManagementMixin:
         order_info = self._processing_orders.pop(broker_order_id, None)
 
         if order_info and hasattr(self, 'log'):
-            self.log("DEBUG", f"Stopped tracking order: {broker_order_id}")
+            GLOG.DEBUG(f"Stopped tracking order: {broker_order_id}")
 
         return order_info
 
@@ -190,7 +191,7 @@ class OrderManagementMixin:
         self._execution_history.clear()
 
         if hasattr(self, 'log'):
-            self.log("DEBUG", "Cleared execution history")
+            GLOG.DEBUG("Cleared execution history")
 
     def get_order_status_summary(self) -> Dict[str, int]:
         """

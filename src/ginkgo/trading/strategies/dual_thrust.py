@@ -12,6 +12,7 @@ from decimal import Decimal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data import get_bars
+from ginkgo.libs import GLOG
 import pandas as pd
 
 
@@ -48,7 +49,7 @@ class StrategyDualThrust(BaseStrategy):
         """
         Generates a signal for the given code and direction.
         """
-        self.log("INFO", f"Gen {direction.value} Signal about {code} from {self.name}")
+        GLOG.INFO(f"Gen {direction.value} Signal about {code} from {self.name}")
         return self.create_signal(
             code=code,
             direction=direction,

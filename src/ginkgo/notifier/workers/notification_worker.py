@@ -92,6 +92,9 @@ class NotificationWorker:
         self._auto_offset_reset = auto_offset_reset
         self._node_id = node_id or "notification_worker"
 
+        # 设置日志分类
+        GLOG.set_log_category("component")
+
         # Worker 状态
         self._status = WorkerStatus.STOPPED
         self._worker_thread: Optional[threading.Thread] = None
@@ -139,7 +142,7 @@ class NotificationWorker:
         """
         with self._lock:
             if self._status != WorkerStatus.STOPPED:
-                print(f"[WARN] Worker already running or starting, status: {self._status}")
+                GLOG.WARN(f"Worker already running or starting, status: {self._status}")
                 return False
 
             self._status = WorkerStatus.STARTING
@@ -155,7 +158,7 @@ class NotificationWorker:
 
             # 检查 Kafka 连接状态
             if not self._consumer.is_connected:
-                print(f"[ERROR] Failed to connect to Kafka for topic '{self.NOTIFICATIONS_TOPIC}'")
+                GLOG.ERROR(f"[ERROR] Failed to connect to Kafka for topic '{self.NOTIFICATIONS_TOPIC}'")
                 with self._lock:
                     self._status = WorkerStatus.ERROR
                 return False
@@ -172,11 +175,11 @@ class NotificationWorker:
                 self._status = WorkerStatus.RUNNING
                 self._stats["start_time"] = datetime.now()
 
-            print(f"NotificationWorker started (group_id: {self._group_id})")
+            GLOG.INFO(f"NotificationWorker started (group_id: {self._group_id})")
             return True
 
         except Exception as e:
-            print(f"[ERROR] Failed to start NotificationWorker: {e}")
+            GLOG.ERROR(f"[ERROR] Failed to start NotificationWorker: {e}")
             with self._lock:
                 self._status = WorkerStatus.ERROR
             return False
@@ -193,7 +196,7 @@ class NotificationWorker:
         """
         with self._lock:
             if self._status != WorkerStatus.RUNNING:
-                print(f"[WARN] Worker not running, status: {self._status}")
+                GLOG.WARN(f"Worker not running, status: {self._status}")
                 return False
 
             self._status = WorkerStatus.STOPPING
@@ -210,16 +213,16 @@ class NotificationWorker:
             try:
                 self._consumer.close()
             except Exception as e:
-                print(f"[ERROR] Error closing Kafka Consumer: {e}")
+                GLOG.ERROR(f"Errorclosing Kafka Consumer: {e}")
 
         with self._lock:
             if self._worker_thread and self._worker_thread.is_alive():
-                print("[WARN] Worker did not stop within timeout")
+                GLOG.WARN("Worker did not stop within timeout")
                 self._status = WorkerStatus.ERROR
                 return False
             else:
                 self._status = WorkerStatus.STOPPED
-                print("NotificationWorker stopped")
+                GLOG.INFO("NotificationWorker stopped")
                 return True
 
     def _run(self):
@@ -228,7 +231,7 @@ class NotificationWorker:
 
         在独立线程中运行，持续消费 Kafka 消息并处理。
         """
-        print("NotificationWorker thread started")
+        GLOG.INFO("NotificationWorker thread started")
 
         try:
             while not self._stop_event.is_set():
@@ -264,13 +267,13 @@ class NotificationWorker:
                                         self._stats["messages_failed"] += 1
 
                             except Exception as e:
-                                print(f"[ERROR] Error processing message: {e}")
+                                GLOG.ERROR(f"Errorprocessing message: {e}")
                                 # 不 commit offset，让 Kafka 重试
                                 with self._lock:
                                     self._stats["messages_retried"] += 1
 
                 except Exception as e:
-                    print(f"[ERROR] Error in worker loop: {e}")
+                    GLOG.ERROR(f"Errorin worker loop: {e}")
                     time.sleep(1)  # 避免紧密循环
 
         finally:
@@ -279,13 +282,13 @@ class NotificationWorker:
                 try:
                     self._consumer.close()
                 except Exception as e:
-                    print(f"[ERROR] Error closing consumer: {e}")
+                    GLOG.ERROR(f"Errorclosing consumer: {e}")
 
             with self._lock:
                 if self._status == WorkerStatus.RUNNING:
                     self._status = WorkerStatus.STOPPED
 
-            print("NotificationWorker thread stopped")
+            GLOG.INFO("NotificationWorker thread stopped")
 
     def _process_message(self, message: Dict[str, Any]) -> bool:
         """
@@ -305,10 +308,10 @@ class NotificationWorker:
             message_id = message.get("message_id")
 
             if not message_type:
-                print(f"[WARN] Missing message_type in {message_id}")
+                GLOG.WARN(f"Missing message_type in {message_id}")
                 return False
 
-            print(f"[DEBUG] Processing {message_type} message: {message_id}")
+            GLOG.DEBUG(f"Processing {message_type} message: {message_id}")
 
             # 根据 message_type 路由到对应的处理方法
             if message_type == "simple":
@@ -322,11 +325,11 @@ class NotificationWorker:
             elif message_type == "custom_fields":
                 return self._process_custom_fields_message(message)
             else:
-                print(f"[WARN] Unknown message_type: {message_type}")
+                GLOG.WARN(f"Unknown message_type: {message_type}")
                 return False
 
         except Exception as e:
-            print(f"[ERROR] Error processing message: {e}")
+            GLOG.ERROR(f"Errorprocessing message: {e}")
             return False
 
     def _process_simple_message(self, message: Dict[str, Any]) -> bool:
@@ -357,7 +360,7 @@ class NotificationWorker:
         priority = message.get("priority", 1)
 
         if not content:
-            print("[ERROR] Simple message missing content")
+            GLOG.ERROR("[ERROR] Simple message missing content")
             return False
 
         # 调用 NotificationService
@@ -387,7 +390,7 @@ class NotificationWorker:
                 priority=priority
             )
         else:
-            print("[ERROR] Simple message missing user_uuid/group_name/group_uuid")
+            GLOG.ERROR("[ERROR] Simple message missing user_uuid/group_name/group_uuid")
             return False
 
         return result.success
@@ -419,7 +422,7 @@ class NotificationWorker:
         priority = message.get("priority", 1)
 
         if not template_id:
-            print("[ERROR] Template message missing template_id")
+            GLOG.ERROR("[ERROR] Template message missing template_id")
             return False
 
         # 调用 NotificationService
@@ -445,7 +448,7 @@ class NotificationWorker:
                 priority=priority
             )
         else:
-            print("[ERROR] Template message missing user_uuid/group_name/group_uuid")
+            GLOG.ERROR("[ERROR] Template message missing user_uuid/group_name/group_uuid")
             return False
 
         return result.success
@@ -483,7 +486,7 @@ class NotificationWorker:
         reason = message.get("reason")
 
         if not all([direction, code]):
-            print("[ERROR] Trading signal message missing required fields")
+            GLOG.ERROR("[ERROR] Trading signal message missing required fields")
             return False
 
         # 调用 NotificationService
@@ -518,7 +521,7 @@ class NotificationWorker:
                 reason=reason
             )
         else:
-            print("[ERROR] Trading signal message missing user_uuid/group_name/group_uuid")
+            GLOG.ERROR("[ERROR] Trading signal message missing user_uuid/group_name/group_uuid")
             return False
 
         return result.success
@@ -548,7 +551,7 @@ class NotificationWorker:
         level = message.get("level", "INFO")
 
         if not content:
-            print("[ERROR] System notification message missing content")
+            GLOG.ERROR("[ERROR] System notification message missing content")
             return False
 
         # 调用 NotificationService
@@ -571,7 +574,7 @@ class NotificationWorker:
                 level=level
             )
         else:
-            print("[ERROR] System notification message missing user_uuid/group_name/group_uuid")
+            GLOG.ERROR("[ERROR] System notification message missing user_uuid/group_name/group_uuid")
             return False
 
         return result.success
@@ -606,11 +609,11 @@ class NotificationWorker:
         module = message.get("module", "System")
 
         if not content:
-            print("[ERROR] Custom fields message missing content")
+            GLOG.ERROR("[ERROR] Custom fields message missing content")
             return False
 
         if not fields:
-            print("[ERROR] Custom fields message missing fields")
+            GLOG.ERROR("[ERROR] Custom fields message missing fields")
             return False
 
         # 等级到颜色的映射
@@ -633,11 +636,11 @@ class NotificationWorker:
                 filters={"name": group_name}, page_size=1, as_dataframe=False
             )
         else:
-            print("[ERROR] Custom fields message missing group_name/group_uuid")
+            GLOG.ERROR("[ERROR] Custom fields message missing group_name/group_uuid")
             return False
 
         if not group:
-            print(f"[ERROR] Group not found: {group_name or group_uuid}")
+            GLOG.ERROR(f"[ERROR] Group not found: {group_name or group_uuid}")
             return False
 
         group_uuid = group[0].uuid
@@ -668,10 +671,10 @@ class NotificationWorker:
                     break  # 每个用户只发送一次
 
         if success_count > 0:
-            print(f"[{module}] Custom fields notification sent to {success_count} users")
+            GLOG.INFO(f"[{module}] Custom fields notification sent to {success_count} users")
             return True
         else:
-            print(f"[WARN] [{module}] No custom fields notifications sent")
+            GLOG.WARN(f"[{module}] No custom fields notifications sent")
             return False
 
     def get_health_status(self) -> Dict[str, Any]:

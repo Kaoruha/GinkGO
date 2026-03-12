@@ -14,6 +14,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import GLOG
 
 
 class LossLimitRisk(BaseRiskManagement):
@@ -87,16 +88,27 @@ class LossLimitRisk(BaseRiskManagement):
         current_price = getattr(event, "close", None) or getattr(event, "price", None)
 
         if current_price is None or cost <= 0:
-            self.log("WARN", f"LossLimitRisk: Invalid price data for {code}")
+            GLOG.WARN(f"LossLimitRisk: Invalid price data for {code}")
             return signals
 
         loss_ratio = (1 - current_price / cost) * 100  # 转换为百分比，正值表示亏损
 
-        self.log("DEBUG", f"LossLimitRisk: {code} loss ratio: {loss_ratio:.2f}%, limit: {self._loss_limit}%")
+        GLOG.DEBUG(f"LossLimitRisk: {code} loss ratio: {loss_ratio:.2f}%, limit: {self._loss_limit}%")
 
         # 如果亏损超过阈值，生成平仓信号
         if loss_ratio > self._loss_limit:
-            self.log("INFO", f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2f}%")
+            GLOG.INFO(f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2f}%")
+
+            # 记录风控事件到ClickHouse
+            GLOG.backtest.risk(
+                risk_type="DAILYLOSSLIMITEXCEEDED",
+                reason=f"Loss limit triggered: {loss_ratio:.2f}% > {self._loss_limit}%",
+                risk_actual_value=loss_ratio,
+                risk_limit_value=self._loss_limit,
+                symbol=code,
+                portfolio_id=portfolio_info.get("uuid"),
+                engine_id=self.engine_id,
+            )
 
             signal = Signal(
                 portfolio_id=portfolio_info["uuid"],
