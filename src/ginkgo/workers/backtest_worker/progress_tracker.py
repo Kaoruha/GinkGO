@@ -14,6 +14,7 @@ from threading import Lock
 from time import time
 from typing import Dict, Optional
 
+from ginkgo.libs import GLOG
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -24,6 +25,7 @@ class ProgressTracker:
 
     def __init__(self, worker_id: str, kafka_producer: GinkgoProducer,
                  task_service=None):
+        GLOG.set_log_category("component")
         self.worker_id = worker_id
         self.producer = kafka_producer
         self.task_service = task_service  # BacktestTaskService 实例
@@ -74,7 +76,7 @@ class ProgressTracker:
             "state": task.state.value,
             "timestamp": task.started_at.isoformat() if task.started_at else None,
         })
-        print(f"[{task.task_uuid[:8]}] Stage: {stage.value} - {message}")
+        GLOG.INFO(f"[{task.task_uuid[:8]}] Stage: {stage.value} - {message}")
 
         # 第一个阶段时，更新状态为 running 并设置 start_time
         if stage == EngineStage.DATA_PREPARING:
@@ -92,7 +94,7 @@ class ProgressTracker:
             "result": result,
             "timestamp": task.completed_at.isoformat() if task.completed_at else None,
         })
-        print(f"[{task.task_uuid[:8]}] Reported completion")
+        GLOG.INFO(f"[{task.task_uuid[:8]}] Reported completion")
 
         # 更新数据库状态为 completed
         self._write_status_to_db(task.task_uuid, "completed", result=result)
@@ -106,7 +108,7 @@ class ProgressTracker:
             "error": error,
             "timestamp": task.completed_at.isoformat() if task.completed_at else None,
         })
-        print(f"[{task.task_uuid[:8]}] Reported failure: {error}")
+        GLOG.ERROR(f"[{task.task_uuid[:8]}] Reported failure: {error}")
 
         # 更新数据库状态为 failed
         self._write_status_to_db(task.task_uuid, "failed", error_message=error)
@@ -119,7 +121,7 @@ class ProgressTracker:
             "worker_id": self.worker_id,
             "timestamp": task.completed_at.isoformat() if task.completed_at else None,
         })
-        print(f"[{task.task_uuid[:8]}] Reported cancellation")
+        GLOG.INFO(f"[{task.task_uuid[:8]}] Reported cancellation")
 
         # 更新数据库状态为 stopped
         self._write_status_to_db(task.task_uuid, "stopped")
@@ -134,7 +136,7 @@ class ProgressTracker:
             "error": error,
             "timestamp": None,
         })
-        print(f"[{short_uuid}] Reported failure by UUID: {error}")
+        GLOG.ERROR(f"[{short_uuid}] Reported failure by UUID: {error}")
 
         # 更新数据库状态为 failed（修复：之前缺少这步）
         self._write_status_to_db(task_uuid, "failed", error_message=error)
@@ -151,7 +153,7 @@ class ProgressTracker:
                 msg=json.dumps(message),
             )
         except Exception as e:
-            print(f"Failed to report progress: {e}")
+            GLOG.ERROR(f"Failed to report progress: {e}")
 
     def _write_progress_to_db(self, task_id: str, progress: float = None,
                                current_stage: str = None, current_date: str = None,
@@ -168,7 +170,7 @@ class ProgressTracker:
                 current_date=current_date
             )
             if not result.success:
-                print(f"Failed to write progress to DB: {result.message}")
+                GLOG.ERROR(f"Failed to write progress to DB: {result.message}")
 
             # 通知 WebSocket 客户端
             self._notify_ws_clients(
@@ -177,7 +179,7 @@ class ProgressTracker:
                 total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
             )
         except Exception as e:
-            print(f"Error writing progress to DB: {e}")
+            GLOG.ERROR(f"Error writing progress to DB: {e}")
 
     def _notify_ws_clients(self, task_id: str, event_type: str = "progress", progress: int = 0,
                             total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
@@ -240,7 +242,7 @@ class ProgressTracker:
                 **result_fields
             )
             if not result_obj.is_success():
-                print(f"Failed to write status to DB: {result_obj.message}")
+                GLOG.ERROR(f"Failed to write status to DB: {result_obj.message}")
 
             # 通知 WebSocket 客户端状态变化
             if result:
@@ -254,7 +256,7 @@ class ProgressTracker:
             else:
                 self._notify_ws_clients(task_id, status)
         except Exception as e:
-            print(f"Error writing status to DB: {e}")
+            GLOG.ERROR(f"Error writing status to DB: {e}")
 
     def get_task_status(self, task_uuid: str) -> Optional[str]:
         """
@@ -285,5 +287,5 @@ class ProgressTracker:
                     return task_obj.get("status")
             return None
         except Exception as e:
-            print(f"Error getting task status for {task_uuid[:8]}: {e}")
+            GLOG.ERROR(f"Error getting task status for {task_uuid[:8]}: {e}")
             return None

@@ -15,6 +15,8 @@ from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
 
+from ginkgo.libs import GLOG
+
 # Type-only imports for faster CLI startup
 if TYPE_CHECKING:
     import pandas as pd
@@ -36,7 +38,7 @@ class DisplayMode(str, Enum):
 
 @app.command(name="list")
 def list():
-    print("list results")
+    GLOG.INFO("list results")
 
 
 @app.command(name="show")
@@ -420,9 +422,9 @@ def _show_by_run_id(
 
 @app.command(name="export")
 def export():
-    print("export results")
+    GLOG.INFO("export results")
 
 
 @app.command(name="remove")
 def remove():
-    print("remove results")
+    GLOG.INFO("remove results")

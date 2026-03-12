@@ -18,7 +18,7 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.libs import cache_with_expiration, retry, time_logger
+from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -54,6 +54,7 @@ class BacktestTaskService(BaseService):
         self._analyzer_service = analyzer_service
         self._engine_service = engine_service
         self._portfolio_service = portfolio_service
+        GLOG.set_log_category("component")
 
     @time_logger
     @retry(max_try=3)
@@ -220,12 +221,12 @@ class BacktestTaskService(BaseService):
 
             task = self._crud_repo.create(**task_data)
 
-            print(f"[BacktestTaskService] Created backtest task: {task.uuid[:8]}...")
+            GLOG.INFO(f"Created backtest task: {task.uuid[:8]}...")
 
             return ServiceResult.success(task, f"Backtest task created successfully")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to create backtest task: {e}")
+            GLOG.ERROR(f"Failed to create backtest task: {e}")
             return ServiceResult.error(f"Failed to create backtest task: {str(e)}")
 
     @time_logger
@@ -253,13 +254,13 @@ class BacktestTaskService(BaseService):
             if updated_count == 0:
                 return ServiceResult.error(f"Failed to update backtest task: {uuid}")
 
-            print(f"[BacktestTaskService] Updated backtest task: {uuid[:8]}...")
+            GLOG.INFO(f"Updated backtest task: {uuid[:8]}...")
 
             return ServiceResult.success({"uuid": uuid, "updated_fields": list(updates.keys())},
                                          f"Backtest task updated successfully")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to update backtest task {uuid[:8]}...: {e}")
+            GLOG.ERROR(f"Failed to update backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to update backtest task: {str(e)}")
 
     @time_logger
@@ -302,13 +303,13 @@ class BacktestTaskService(BaseService):
             if updated_count == 0:
                 return ServiceResult.error(f"Backtest task not found: {real_uuid}")
 
-            print(f"[BacktestTaskService] Updated task {real_uuid[:8]}... status to: {status}")
+            GLOG.INFO(f"Updated task {real_uuid[:8]}... status to: {status}")
 
             return ServiceResult.success({"uuid": real_uuid, "run_id": task.run_id, "status": status},
                                          f"Task status updated to {status}")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to update task status: {e}")
+            GLOG.ERROR(f"Failed to update task status: {e}")
             return ServiceResult.error(f"Failed to update task status: {str(e)}")
 
     @time_logger
@@ -332,12 +333,12 @@ class BacktestTaskService(BaseService):
             # 执行软删除
             self._crud_repo.soft_remove(filters={"uuid": uuid})
 
-            print(f"[BacktestTaskService] Deleted backtest task: {uuid[:8]}...")
+            GLOG.INFO(f"Deleted backtest task: {uuid[:8]}...")
 
             return ServiceResult.success({"uuid": uuid}, f"Backtest task deleted successfully")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to delete backtest task {uuid[:8]}...: {e}")
+            GLOG.ERROR(f"Failed to delete backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to delete backtest task: {str(e)}")
 
     @time_logger
@@ -437,7 +438,7 @@ class BacktestTaskService(BaseService):
             return ServiceResult.success(comparison, "Comparison completed")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to compare tasks: {e}")
+            GLOG.ERROR(f"Failed to compare tasks: {e}")
             return ServiceResult.error(f"Failed to compare tasks: {str(e)}")
 
     @time_logger
@@ -520,7 +521,7 @@ class BacktestTaskService(BaseService):
             }, f"Task progress updated")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to update task progress: {e}")
+            GLOG.ERROR(f"Failed to update task progress: {e}")
             return ServiceResult.error(f"Failed to update task progress: {str(e)}")
 
     @time_logger
@@ -600,79 +601,79 @@ class BacktestTaskService(BaseService):
             from ginkgo.data.containers import container
             run_id = task.run_id
 
-            print(f"[BacktestTaskService] Cleaning old data for run_id: {run_id[:8]}...")
+            GLOG.INFO(f"Cleaning old data for run_id: {run_id[:8]}...")
 
             # 删除旧信号
             try:
                 signal_crud = container.cruds.signal()
                 signal_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old signals")
+                GLOG.DEBUG("Deleted old signals")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete signals: {e}")
+                GLOG.WARN(f"Failed to delete signals: {e}")
 
             # 删除旧订单
             try:
                 order_crud = container.cruds.order()
                 order_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old orders")
+                GLOG.DEBUG("Deleted old orders")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete orders: {e}")
+                GLOG.WARN(f"Failed to delete orders: {e}")
 
             # 删除旧持仓
             try:
                 position_crud = container.cruds.position()
                 position_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old positions")
+                GLOG.DEBUG("Deleted old positions")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete positions: {e}")
+                GLOG.WARN(f"Failed to delete positions: {e}")
 
             # 删除旧持仓记录
             try:
                 position_record_crud = container.cruds.position_record()
                 position_record_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old position records")
+                GLOG.DEBUG("Deleted old position records")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete position records: {e}")
+                GLOG.WARN(f"Failed to delete position records: {e}")
 
             # 删除旧分析器记录
             try:
                 analyzer_crud = container.cruds.analyzer_record()
                 analyzer_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old analyzer records")
+                GLOG.DEBUG("Deleted old analyzer records")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete analyzer records: {e}")
+                GLOG.WARN(f"Failed to delete analyzer records: {e}")
 
             # 删除旧订单记录（订单状态变更历史）
             try:
                 order_record_crud = container.cruds.order_record()
                 order_record_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old order records")
+                GLOG.DEBUG("Deleted old order records")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete order records: {e}")
+                GLOG.WARN(f"Failed to delete order records: {e}")
 
             # 删除旧转账记录
             try:
                 transfer_record_crud = container.cruds.transfer_record()
                 transfer_record_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old transfer records")
+                GLOG.DEBUG("Deleted old transfer records")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete transfer records: {e}")
+                GLOG.WARN(f"Failed to delete transfer records: {e}")
 
             # 删除旧转账（MySQL）
             try:
                 transfer_crud = container.cruds.transfer()
                 transfer_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old transfers")
+                GLOG.DEBUG("Deleted old transfers")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete transfers: {e}")
+                GLOG.WARN(f"Failed to delete transfers: {e}")
 
             # 删除旧信号追踪器
             try:
                 signal_tracker_crud = container.cruds.signal_tracker()
                 signal_tracker_crud.remove(filters={"run_id": run_id})
-                print(f"[BacktestTaskService] Deleted old signal trackers")
+                GLOG.DEBUG("Deleted old signal trackers")
             except Exception as e:
-                print(f"[BacktestTaskService] Warning: Failed to delete signal trackers: {e}")
+                GLOG.WARN(f"Failed to delete signal trackers: {e}")
 
             # 发送启动命令到Kafka（run_id 保持不变）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
@@ -690,7 +691,7 @@ class BacktestTaskService(BaseService):
             if not status_result.is_success():
                 return ServiceResult.error(f"Failed to update task status to pending: {status_result.error}")
 
-            print(f"[BacktestTaskService] Updated task {real_uuid} status to pending")
+            GLOG.DEBUG(f"Updated task {real_uuid} status to pending")
 
             producer = GinkgoProducer()
             assignment = {
@@ -710,11 +711,11 @@ class BacktestTaskService(BaseService):
             producer.flush(timeout=2.0)
             producer.close()
 
-            print(f"[BacktestTaskService] Started backtest task with run_id: {run_id}")
+            GLOG.INFO(f"Started backtest task with run_id: {run_id}")
             return ServiceResult.success({"uuid": real_uuid, "run_id": run_id}, "Backtest task started")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to start backtest task {uuid}: {e}")
+            GLOG.ERROR(f"Failed to start backtest task {uuid}: {e}")
             return ServiceResult.error(f"Failed to start backtest task: {str(e)}")
 
     @time_logger
@@ -763,11 +764,11 @@ class BacktestTaskService(BaseService):
             # 更新任务状态为stopped
             self.update_status(real_uuid, status="stopped")
 
-            print(f"[BacktestTaskService] Stopped backtest task: {run_id[:8]}...")
+            GLOG.INFO(f"Stopped backtest task: {run_id[:8]}...")
             return ServiceResult.success({"uuid": real_uuid, "run_id": run_id}, "Backtest task stopped")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to stop backtest task: {e}")
+            GLOG.ERROR(f"Failed to stop backtest task: {e}")
             return ServiceResult.error(f"Failed to stop backtest task: {str(e)}")
 
     @time_logger
@@ -817,11 +818,11 @@ class BacktestTaskService(BaseService):
             # 更新任务状态为stopped
             self.update_status(real_uuid, status="stopped")
 
-            print(f"[BacktestTaskService] Cancelled backtest task: {run_id[:8]}...")
+            GLOG.INFO(f"Cancelled backtest task: {run_id[:8]}...")
             return ServiceResult.success({"uuid": real_uuid, "run_id": run_id}, "Backtest task cancelled")
 
         except Exception as e:
-            print(f"[BacktestTaskService] ERROR: Failed to cancel backtest task: {e}")
+            GLOG.ERROR(f"Failed to cancel backtest task: {e}")
             return ServiceResult.error(f"Failed to cancel backtest task: {str(e)}")
 
 

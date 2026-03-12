@@ -137,7 +137,7 @@ class UserCRUD(BaseCRUD[MUser]):
         user_uuids = [u.uuid for u in users]
 
         if not user_uuids:
-            GLOG.WARNING(f"未找到匹配的用户: filters={filters}")
+            GLOG.WARN(f"未找到匹配的用户: filters={filters}")
             return 0
 
         GLOG.INFO(f"开始软删除用户及其相关记录: {len(user_uuids)} 个用户")
@@ -276,7 +276,7 @@ class UserCRUD(BaseCRUD[MUser]):
         """
         validated_type = USER_TYPES.validate_input(user_type)
         if validated_type is None:
-            GLOG.WARNING(f"无效的用户类型: {user_type}")
+            GLOG.WARN(f"无效的用户类型: {user_type}")
             return [] if not as_dataframe else pd.DataFrame()
 
         return self.find(filters={"user_type": validated_type}, as_dataframe=as_dataframe)

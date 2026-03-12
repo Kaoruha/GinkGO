@@ -54,6 +54,8 @@ from typing import Dict, Any, Optional, List
 import time
 from functools import wraps
 
+from ginkgo.libs import GLOG
+
 
 class ServiceHubError(Exception):
     """ServiceHub相关异常"""
@@ -81,12 +83,12 @@ class ServiceHub:
     def enable_debug(self) -> None:
         """启用调试模式以获取详细错误报告"""
         self._debug_mode = True
-        print(":magnifying_glass_tilted_left: ServiceHub调试模式已启用 - 详细错误报告现已激活")
+        GLOG.INFO("ServiceHub debug mode enabled - 详细错误报告现已激活")
 
     def disable_debug(self) -> None:
         """禁用调试模式"""
         self._debug_mode = False
-        print(":muted_speaker: ServiceHub调试模式已禁用")
+        GLOG.INFO("ServiceHub debug mode disabled")
 
     def get_uptime(self) -> float:
         """获取ServiceHub运行时间"""
@@ -134,15 +136,15 @@ class ServiceHub:
                 issues.append(f"{module_name}模块: {info['error']}")
 
         if issues:
-            print(":magnifying_glass_tilted_left: ServiceHub诊断报告:")
+            GLOG.INFO("ServiceHub diagnostic report:")
             for issue in issues:
-                print(f"  :x: {issue}")
-            print("\n建议:")
-            print("  1. 检查模块依赖和导入")
-            print("  2. 验证容器配置")
-            print("  3. 运行: service_hub.enable_debug() 获取详细错误信息")
+                GLOG.ERROR(f"  {issue}")
+            GLOG.INFO("Suggestions:")
+            GLOG.INFO("  1. Check module dependencies and imports")
+            GLOG.INFO("  2. Verify container configuration")
+            GLOG.INFO("  3. Run: service_hub.enable_debug() for detailed errors")
         else:
-            print(":white_check_mark: ServiceHub所有服务运行正常!")
+            GLOG.INFO("ServiceHub all services running normally!")
 
         return issues
 
@@ -175,10 +177,10 @@ class ServiceHub:
         """清理模块缓存"""
         if module_name and module_name in self._module_cache:
             del self._module_cache[module_name]
-            print(f":recycle: 已清理{module_name}模块缓存")
+            GLOG.INFO(f"Cleared {module_name} module cache")
         elif module_name is None:
             self._module_cache.clear()
-            print(":recycle: 已清理所有模块缓存")
+            GLOG.INFO("Cleared all module cache")
 
     def _measure_performance(self, module_name: str):
         """性能测量装饰器"""
@@ -225,7 +227,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['data'] = str(e)
             if self._debug_mode:
-                print(f":x: 数据模块错误: {e}")
+                GLOG.ERROR(f"Data module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -248,7 +250,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['trading'] = str(e)
             if self._debug_mode:
-                print(f":x: 交易模块错误: {e}")
+                GLOG.ERROR(f"Trading module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -271,7 +273,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['core'] = str(e)
             if self._debug_mode:
-                print(f":x: 核心模块错误: {e}")
+                GLOG.ERROR(f"Core module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -294,7 +296,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['ml'] = str(e)
             if self._debug_mode:
-                print(f":x: 机器学习模块错误: {e}")
+                GLOG.ERROR(f"ML module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -321,7 +323,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['features'] = str(e)
             if self._debug_mode:
-                print(f":x: 因子模块错误: {e}")
+                GLOG.ERROR(f"Features module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -344,7 +346,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['notifier'] = str(e)
             if self._debug_mode:
-                print(f":x: 通知模块错误: {e}")
+                GLOG.ERROR(f"Notifier module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -369,7 +371,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['research'] = str(e)
             if self._debug_mode:
-                print(f":x: 因子研究模块错误: {e}")
+                GLOG.ERROR(f"Research module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -392,7 +394,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['validation'] = str(e)
             if self._debug_mode:
-                print(f":x: 策略验证模块错误: {e}")
+                GLOG.ERROR(f"Validation module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -415,7 +417,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['paper'] = str(e)
             if self._debug_mode:
-                print(f":x: Paper Trading模块错误: {e}")
+                GLOG.ERROR(f"Paper Trading module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -438,7 +440,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['comparison'] = str(e)
             if self._debug_mode:
-                print(f":x: 回测对比模块错误: {e}")
+                GLOG.ERROR(f"Comparison module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -461,7 +463,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['optimization'] = str(e)
             if self._debug_mode:
-                print(f":x: 参数优化模块错误: {e}")
+                GLOG.ERROR(f"Optimization module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -484,7 +486,7 @@ class ServiceHub:
         except Exception as e:
             self._module_errors['logging'] = str(e)
             if self._debug_mode:
-                print(f":x: 日志服务模块错误: {e}")
+                GLOG.ERROR(f"Logging service module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None

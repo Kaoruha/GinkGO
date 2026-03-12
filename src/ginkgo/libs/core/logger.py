@@ -8,8 +8,12 @@ import contextvars
 import contextlib
 import platform
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
+
+# 导入 Number 类型用于类型提示
+from ginkgo.libs.data.number import Number, to_decimal
 
 
 # ==================== T029: 创建 contextvars.ContextVar ====================
@@ -398,6 +402,12 @@ class GinkgoLogger:
 
         self._setup_handlers(console_log)
 
+        # 初始化分组命名空间（简洁API）
+        self.backtest = _BacktestLogNamespace(self)
+        self.execution = _ExecutionLogNamespace(self)
+        self.component = _ComponentLogNamespace(self)
+        self.performance = _PerformanceLogNamespace(self)
+
     def _setup_handlers(self, console_log):
         # T037-T039: 文件日志支持
         # 文件日志统一使用 JSON 格式（供 Vector 采集）
@@ -516,6 +526,13 @@ class GinkgoLogger:
             # 创建 JSON 格式化器
             import json
 
+            class DecimalEncoder(json.JSONEncoder):
+                """处理 Decimal 类型的 JSON 编码器"""
+                def default(self, obj):
+                    if isinstance(obj, Decimal):
+                        return float(obj)
+                    return super().default(obj)
+
             class JsonFormatter(logging.Formatter):
                 """JSON 格式化器 - 输出单行 JSON 供 Vector 解析"""
 
@@ -544,16 +561,20 @@ class GinkgoLogger:
                     if log_category:
                         log_obj["log_category"] = log_category
 
-                    # 添加业务上下文
+                    # 添加业务上下文（转换 Decimal 为 float）
                     business_context = _business_context_ctx.get({})
                     if business_context:
-                        log_obj.update(business_context)
+                        for key, value in business_context.items():
+                            if isinstance(value, Decimal):
+                                log_obj[key] = float(value)
+                            else:
+                                log_obj[key] = value
 
                     # 异常信息
                     if record.exc_info:
                         log_obj["exception"] = self.formatException(record.exc_info)
 
-                    return json.dumps(log_obj, ensure_ascii=False)
+                    return json.dumps(log_obj, ensure_ascii=False, cls=DecimalEncoder)
 
             # 创建文件处理器
             file_handler = RotatingFileHandler(
@@ -715,7 +736,7 @@ class GinkgoLogger:
         # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
         if not self._is_container:
             # 本地模式：使用标准 logging（支持文件输出）
-            self.log("DEBUG", msg)
+            self.logger.debug(msg)
         else:
             # 容器模式：使用 structlog JSON 输出
             try:
@@ -723,10 +744,10 @@ class GinkgoLogger:
                 log = structlog.get_logger(self.logger_name)
                 log.debug(msg)
             except ImportError:
-                self.log("DEBUG", msg)
+                self.logger.debug(msg)
 
             # 同时写入文件（供 Vector 采集）
-            self.log("DEBUG", msg)
+            self.logger.debug(msg)
 
     def INFO(self, msg: str) -> None:
         """记录 INFO 级别日志"""
@@ -736,7 +757,7 @@ class GinkgoLogger:
         # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
         if not self._is_container:
             # 本地模式：使用标准 logging（支持文件输出）
-            self.log("INFO", msg)
+            self.logger.info(msg)
         else:
             # 容器模式：使用 structlog JSON 输出到 stdout/stderr
             try:
@@ -744,10 +765,10 @@ class GinkgoLogger:
                 log = structlog.get_logger(self.logger_name)
                 log.info(msg)
             except ImportError:
-                self.log("INFO", msg)
+                self.logger.info(msg)
 
             # 同时写入文件（供 Vector 采集）
-            self.log("INFO", msg)
+            self.logger.info(msg)
 
     def WARN(self, msg: str) -> None:
         """记录 WARNING 级别日志"""
@@ -757,7 +778,7 @@ class GinkgoLogger:
         # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
         if not self._is_container:
             # 本地模式：使用标准 logging（支持文件输出）
-            self.log("WARNING", msg)
+            self.logger.warning(msg)
         else:
             # 容器模式：使用 structlog JSON 输出
             try:
@@ -765,10 +786,14 @@ class GinkgoLogger:
                 log = structlog.get_logger(self.logger_name)
                 log.warning(msg)
             except ImportError:
-                self.log("WARNING", msg)
+                self.logger.warning(msg)
 
             # 同时写入文件（供 Vector 采集）
-            self.log("WARNING", msg)
+            self.logger.warning(msg)
+
+    def WARNING(self, msg: str) -> None:
+        """记录 WARNING 级别日志（WARN 方法的别名）"""
+        self.WARN(msg)
 
     def ERROR(self, msg: str) -> None:
         """记录 ERROR 级别日志（含智能流量控制）"""
@@ -781,7 +806,7 @@ class GinkgoLogger:
             # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
             if not self._is_container:
                 # 本地模式：使用标准 logging（支持文件输出）
-                self.log("ERROR", processed_msg)
+                self.logger.error(processed_msg)
             else:
                 # 容器模式：使用 structlog JSON 输出
                 try:
@@ -789,10 +814,10 @@ class GinkgoLogger:
                     log = structlog.get_logger(self.logger_name)
                     log.error(processed_msg)
                 except ImportError:
-                    self.log("ERROR", processed_msg)
+                    self.logger.error(processed_msg)
 
                 # 同时写入文件（供 Vector 采集）
-                self.log("ERROR", processed_msg)
+                self.logger.error(processed_msg)
 
     def CRITICAL(self, msg: str) -> None:
         """记录 CRITICAL 级别日志"""
@@ -802,7 +827,7 @@ class GinkgoLogger:
         # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
         if not self._is_container:
             # 本地模式：使用标准 logging（支持文件输出）
-            self.log("CRITICAL", msg)
+            self.logger.critical(msg)
         else:
             # 容器模式：使用 structlog JSON 输出
             try:
@@ -810,10 +835,10 @@ class GinkgoLogger:
                 log = structlog.get_logger(self.logger_name)
                 log.critical(msg)
             except ImportError:
-                self.log("CRITICAL", msg)
+                self.logger.critical(msg)
 
             # 同时写入文件（供 Vector 采集）
-            self.log("CRITICAL", msg)
+            self.logger.critical(msg)
 
     # ==================== T030-T033: trace_id 上下文管理 ====================
 
@@ -992,3 +1017,709 @@ class GinkgoLogger:
         """
         _business_context_ctx.set({})
         _log_category_ctx.set(None)
+
+    # ==================== 内部辅助方法 ====================
+
+    def _normalize_number(self, value: Union[Number, None]) -> Optional[float]:
+        """
+        统一数值类型为 float（用于 JSON 序列化）
+
+        支持: float, int, Decimal
+        返回: float 或 None
+        """
+        if value is None:
+            return None
+        if isinstance(value, float):
+            return value
+        if isinstance(value, (int, str)):
+            return float(value)
+        if isinstance(value, Decimal):
+            return float(value)
+        return float(value)
+
+    # ==================== 便捷方法：带字段提示的事件日志 ====================
+
+    def log_signal_event(self, symbol: str, direction: str, **kwargs):
+        """
+        记录信号事件
+
+        必需字段: symbol, direction
+        可选字段: signal_volume, signal_reason, signal_weight, signal_confidence, strategy_id
+
+        Example:
+            >>> GLOG.log_signal_event(
+            ...     symbol="000001.SZ",
+            ...     direction="LONG",
+            ...     signal_volume=1000,
+            ...     signal_reason="MA金叉",
+            ...     strategy_id=strategy.uuid
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="SIGNALGENERATION",
+            symbol=symbol,
+            direction=direction,
+            **kwargs
+        )
+        self.INFO(f"Signal generated: {direction} {symbol}")
+
+    def log_order_event(self, order_id: str, **kwargs):
+        """
+        记录订单事件
+
+        必需字段: order_id
+        可选字段: order_type, limit_price, frozen_money, symbol, direction
+
+        Example:
+            >>> GLOG.log_order_event(
+            ...     order_id=order.uuid,
+            ...     order_type="LIMIT",
+            ...     limit_price=10.50,
+            ...     symbol="000001.SZ",
+            ...     direction="LONG"
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(event_type="ORDERSUBMITTED", order_id=order_id, **kwargs)
+        self.INFO(f"Order submitted: {order_id}")
+
+    def log_order_fill_event(self, order_id: str, price: Number, volume: int, **kwargs):
+        """
+        记录成交事件
+
+        必需字段: order_id, transaction_price, transaction_volume
+        可选字段: trade_id, commission, slippage
+
+        Args:
+            order_id: 订单ID
+            price: 成交价格 (支持 float/int/Decimal)
+            volume: 成交数量
+            **kwargs: 其他字段，如 commission (支持 float/int/Decimal), slippage
+
+        Example:
+            >>> # 支持 float
+            >>> GLOG.log_order_fill_event(
+            ...     order_id=order.uuid,
+            ...     price=10.52,
+            ...     volume=1000,
+            ...     commission=5.26
+            ... )
+            >>> # 支持 Decimal
+            >>> GLOG.log_order_fill_event(
+            ...     order_id=order.uuid,
+            ...     price=Decimal("10.52"),
+            ...     volume=1000,
+            ...     commission=Decimal("5.26")
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ORDERFILLED",
+            order_id=order_id,
+            transaction_price=price,
+            transaction_volume=volume,
+            **kwargs
+        )
+        self.INFO(f"Order filled: {order_id} @ {price} x{volume}")
+
+    def log_position_event(self, symbol: str, volume: int, **kwargs):
+        """
+        记录持仓事件
+
+        必需字段: position_code, position_volume
+        可选字段: position_cost, position_price (支持 float/int/Decimal)
+
+        Example:
+            >>> GLOG.log_position_event(
+            ...     symbol="000001.SZ",
+            ...     volume=1000,
+            ...     position_cost=10520.00  # 支持 float
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="POSITIONUPDATE",
+            position_code=symbol,
+            position_volume=volume,
+            **kwargs
+        )
+        self.INFO(f"Position updated: {symbol} {volume} shares")
+
+    def log_capital_event(self, total_value: Number, available_cash: Number, **kwargs):
+        """
+        记录资金事件
+
+        必需字段: total_value, available_cash (支持 float/int/Decimal)
+        可选字段: net_value, drawdown, pnl (支持 float/int/Decimal)
+
+        Example:
+            >>> # 支持 float
+            >>> GLOG.log_capital_event(
+            ...     total_value=100000.00,
+            ...     available_cash=50000.00,
+            ...     pnl=5000.00
+            ... )
+            >>> # 支持 Decimal
+            >>> GLOG.log_capital_event(
+            ...     total_value=Decimal("100000.00"),
+            ...     available_cash=Decimal("50000.00"),
+            ...     pnl=Decimal("5000.00")
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="CAPITALUPDATE",
+            total_value=total_value,
+            available_cash=available_cash,
+            **kwargs
+        )
+        self.INFO(f"Capital updated: total={total_value}, cash={available_cash}")
+
+    def log_risk_event(self, risk_type: str, risk_reason: str, **kwargs):
+        """
+        记录风控事件
+
+        必需字段: risk_type, risk_reason
+        可选字段: risk_limit_value, risk_actual_value (支持 float/int/Decimal)
+
+        Example:
+            >>> GLOG.log_risk_event(
+            ...     risk_type="POSITION_LIMIT",
+            ...     risk_reason="单股持仓超限",
+            ...     risk_limit_value=0.2,  # 支持 float
+            ...     risk_actual_value=0.25
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="RISKBREACH",
+            risk_type=risk_type,
+            risk_reason=risk_reason,
+            **kwargs
+        )
+        self.WARN(f"Risk event: {risk_type} - {risk_reason}")
+
+    def log_component_event(self, component_name: str, message: str, **kwargs):
+        """
+        记录组件日志
+
+        必需字段: component_name
+        可选字段: component_version, component_instance, module_name
+
+        Example:
+            >>> GLOG.log_component_event(
+            ...     component_name="Strategy",
+            ...     component_version="1.0.0",
+            ...     message="策略初始化完成"
+            ... )
+        """
+        self.set_log_category("component")
+        self.bind_context(component_name=component_name, **kwargs)
+        self.INFO(message)
+
+    def log_performance_event(self, function_name: str, duration_ms: float, **kwargs):
+        """
+        记录性能日志
+
+        必需字段: function_name, duration_ms
+        可选字段: memory_mb, cpu_percent, throughput, module_name, call_site
+
+        Example:
+            >>> GLOG.log_performance_event(
+            ...     function_name="calculate_signals",
+            ...     duration_ms=125.5,
+            ...     memory_mb=256.8,
+            ...     module_name="ginkgo.trading.strategies"
+            ... )
+        """
+        self.set_log_category("performance")
+        self.bind_context(
+            function_name=function_name,
+            duration_ms=duration_ms,
+            **kwargs
+        )
+        self.INFO(f"Performance: {function_name} took {duration_ms}ms")
+
+    # ==================== 错误事件便捷方法 ====================
+
+    def log_order_rejected_event(self, order_id: str, reject_code: str, reject_reason: str, **kwargs):
+        """
+        记录订单拒绝事件
+
+        必需字段: order_id, reject_code, reject_reason
+        可选字段: symbol, direction, limit_price
+
+        Example:
+            >>> GLOG.log_order_rejected_event(
+            ...     order_id=order.uuid,
+            ...     reject_code="INSUFFICIENT_FUNDS",
+            ...     reject_reason="可用资金不足",
+            ...     symbol="000001.SZ"
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ORDERREJECTED",
+            order_id=order_id,
+            reject_code=reject_code,
+            reject_reason=reject_reason,
+            **kwargs
+        )
+        self.ERROR(f"Order rejected: {order_id} - {reject_code}: {reject_reason}")
+
+    def log_order_cancelled_event(self, order_id: str, cancel_reason: str, **kwargs):
+        """
+        记录订单取消事件
+
+        必需字段: order_id, cancel_reason
+        可选字段: cancelled_quantity
+
+        Example:
+            >>> GLOG.log_order_cancelled_event(
+            ...     order_id=order.uuid,
+            ...     cancel_reason="用户取消",
+            ...     cancelled_quantity=500
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ORDERCANCELACK",
+            order_id=order_id,
+            cancel_reason=cancel_reason,
+            **kwargs
+        )
+        self.WARN(f"Order cancelled: {order_id} - {cancel_reason}")
+
+    def log_order_ack_event(self, order_id: str, broker_order_id: str, **kwargs):
+        """
+        记录订单确认事件（实盘交易）
+
+        必需字段: order_id, broker_order_id
+        可选字段: symbol, direction, limit_price, ack_message, order_status
+
+        Example:
+            >>> GLOG.log_order_ack_event(
+            ...     order_id=order.uuid,
+            ...     broker_order_id="broker-12345",
+            ...     symbol="000001.SZ",
+            ...     order_status="ACCEPTED"
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ORDERACK",
+            order_id=order_id,
+            broker_order_id=broker_order_id,
+            **kwargs
+        )
+        self.INFO(f"Order acknowledged: {order_id} -> {broker_order_id}")
+
+    def log_order_expired_event(self, order_id: str, expire_reason: str, **kwargs):
+        """
+        记录订单过期事件
+
+        必需字段: order_id, expire_reason
+        可选字段: expired_quantity
+
+        Example:
+            >>> GLOG.log_order_expired_event(
+            ...     order_id=order.uuid,
+            ...     expire_reason="订单有效期已过",
+            ...     expired_quantity=1000
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ORDEREXPIRED",
+            order_id=order_id,
+            expire_reason=expire_reason,
+            **kwargs
+        )
+        self.WARN(f"Order expired: {order_id} - {expire_reason}")
+
+    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, **kwargs):
+        """
+        记录执行拒绝事件（实盘交易）
+
+        必需字段: tracking_id, reject_reason
+        可选字段: symbol, expected_volume, reject_code
+
+        Example:
+            >>> GLOG.log_execution_rejected_event(
+            ...     tracking_id="track-123",
+            ...     reject_reason="券商拒绝订单",
+            ...     symbol="000001.SZ"
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="EXECUTIONREJECTION",
+            tracking_id=tracking_id,
+            reject_reason=reject_reason,
+            **kwargs
+        )
+        self.ERROR(f"Execution rejected: {tracking_id} - {reject_reason}")
+
+    def log_execution_timeout_event(self, tracking_id: str, **kwargs):
+        """
+        记录执行超时事件（实盘交易）
+
+        必需字段: tracking_id
+        可选字段: symbol, expected_volume, delay_seconds
+
+        Example:
+            >>> GLOG.log_execution_timeout_event(
+            ...     tracking_id="track-123",
+            ...     symbol="000001.SZ",
+            ...     delay_seconds=30
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="EXECUTIONTIMEOUT",
+            tracking_id=tracking_id,
+            **kwargs
+        )
+        self.ERROR(f"Execution timeout: {tracking_id}")
+
+    def log_execution_confirm_event(
+        self,
+        tracking_id: str,
+        expected_price: Number,
+        actual_price: Number,
+        expected_volume: int,
+        actual_volume: int,
+        **kwargs
+    ):
+        """
+        记录执行确认事件（实盘交易）
+
+        必需字段: tracking_id, expected_price, actual_price, expected_volume, actual_volume
+        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation
+
+        Example:
+            >>> GLOG.log_execution_confirm_event(
+            ...     tracking_id="track-123",
+            ...     expected_price=10.50,
+            ...     actual_price=10.52,
+            ...     expected_volume=1000,
+            ...     actual_volume=1000,
+            ...     symbol="000001.SZ",
+            ...     slippage=0.02
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="EXECUTIONCONFIRMATION",
+            tracking_id=tracking_id,
+            expected_price=expected_price,
+            actual_price=actual_price,
+            expected_volume=expected_volume,
+            actual_volume=actual_volume,
+            **kwargs
+        )
+        self.INFO(f"Execution confirmed: {tracking_id}")
+
+    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, **kwargs):
+        """
+        记录执行取消事件（实盘交易）
+
+        必需字段: tracking_id, cancel_reason
+        可选字段: symbol, direction, cancel_time
+
+        Example:
+            >>> GLOG.log_execution_cancel_event(
+            ...     tracking_id="track-123",
+            ...     cancel_reason="策略停止",
+            ...     symbol="000001.SZ"
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="EXECUTIONCANCELLATION",
+            tracking_id=tracking_id,
+            cancel_reason=cancel_reason,
+            **kwargs
+        )
+        self.WARN(f"Execution cancelled: {tracking_id} - {cancel_reason}")
+
+    def log_engine_error_event(self, error_code: str, error_message: str, **kwargs):
+        """
+        记录引擎错误事件
+
+        必需字段: error_code, error_message
+        可选字段: engine_id, run_id, progress
+
+        Example:
+            >>> GLOG.log_engine_error_event(
+            ...     error_code="DATA_LOAD_FAILED",
+            ...     error_message="无法加载数据: 000001.SZ",
+            ...     engine_id=engine.uuid
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ENGINEERROR",
+            error_code=error_code,
+            error_message=error_message,
+            **kwargs
+        )
+        self.ERROR(f"Engine error: [{error_code}] {error_message}")
+
+    def log_engine_start_event(self, **kwargs):
+        """
+        记录引擎启动事件
+
+        可选字段: engine_id, run_id, portfolio_id, start_time, config
+
+        Example:
+            >>> GLOG.log_engine_start_event(
+            ...     engine_id=engine.uuid,
+            ...     run_id=run.uuid,
+            ...     portfolio_id=portfolio.uuid,
+            ...     start_time=datetime.now()
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ENGINESTART",
+            **kwargs
+        )
+        self.INFO("Engine started")
+
+    def log_engine_pause_event(self, reason: str = "", **kwargs):
+        """
+        记录引擎暂停事件
+
+        必需字段: reason (可选，为空表示正常暂停)
+        可选字段: engine_id, run_id, progress, pause_time
+
+        Example:
+            >>> GLOG.log_engine_pause_event(
+            ...     reason="用户暂停",
+            ...     engine_id=engine.uuid,
+            ...     progress=0.5
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ENGINEPAUSE",
+            pause_reason=reason,
+            **kwargs
+        )
+        self.WARN(f"Engine paused: {reason if reason else 'No reason'}")
+
+    def log_engine_resume_event(self, **kwargs):
+        """
+        记录引擎恢复事件
+
+        可选字段: engine_id, run_id, resume_time, paused_duration
+
+        Example:
+            >>> GLOG.log_engine_resume_event(
+            ...     engine_id=engine.uuid,
+            ...     run_id=run.uuid,
+            ...     resume_time=datetime.now()
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ENGINERESUME",
+            **kwargs
+        )
+        self.INFO("Engine resumed")
+
+    def log_engine_complete_event(self, **kwargs):
+        """
+        记录引擎完成事件
+
+        可选字段: engine_id, run_id, portfolio_id, end_time, duration_seconds,
+                  total_bars, total_orders, final_capital, total_return
+
+        Example:
+            >>> GLOG.log_engine_complete_event(
+            ...     engine_id=engine.uuid,
+            ...     run_id=run.uuid,
+            ...     duration_seconds=3600,
+            ...     total_bars=1000,
+            ...     final_capital=110000.0,
+            ...     total_return=0.1
+            ... )
+        """
+        self.set_log_category("backtest")
+        self.bind_context(
+            event_type="ENGINECOMPLETE",
+            **kwargs
+        )
+        self.INFO("Engine completed")
+
+
+# ==================== 简洁分组 API ====================
+# API分层设计：
+# 1. GLOG.backtest.*      - 回测业务日志（按事件性质分组）
+# 2. GLOG.execution.*     - 实盘执行日志（独立命名空间）
+# 3. GLOG.component.*     - 组件日志
+# 4. GLOG.performance.*   - 性能日志
+#
+# 使用示例:
+#   GLOG.backtest.trade.signal(symbol, direction)
+#   GLOG.backtest.order.reject(order_id, code, reason)
+#   GLOG.execution.confirm(tracking_id, expected_price, actual_price, ...)
+
+
+class _BacktestTradeNamespace:
+    """回测交易流程命名空间 - 正常交易流程事件"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    def signal(self, symbol: str, direction: str, **kwargs):
+        """记录信号事件"""
+        self._logger.log_signal_event(symbol, direction, **kwargs)
+
+    def order(self, order_id: str, **kwargs):
+        """记录订单提交事件"""
+        self._logger.log_order_event(order_id, **kwargs)
+
+    def fill(self, order_id: str, price: Number, volume: int, **kwargs):
+        """记录订单成交事件"""
+        self._logger.log_order_fill_event(order_id, price, volume, **kwargs)
+
+    def position(self, symbol: str, volume: int, **kwargs):
+        """记录持仓事件"""
+        self._logger.log_position_event(symbol, volume, **kwargs)
+
+    def capital(self, total: Number, cash: Number, **kwargs):
+        """记录资金事件"""
+        self._logger.log_capital_event(total, cash, **kwargs)
+
+
+class _BacktestOrderNamespace:
+    """回测订单异常命名空间 - 订单异常处理事件"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    def reject(self, order_id: str, code: str, reason: str, **kwargs):
+        """记录订单拒绝事件"""
+        self._logger.log_order_rejected_event(order_id, code, reason, **kwargs)
+
+    def cancel(self, order_id: str, reason: str, **kwargs):
+        """记录订单取消事件"""
+        self._logger.log_order_cancelled_event(order_id, reason, **kwargs)
+
+    def expire(self, order_id: str, reason: str, **kwargs):
+        """记录订单过期事件"""
+        self._logger.log_order_expired_event(order_id, reason, **kwargs)
+
+    def ack(self, order_id: str, broker_order_id: str, **kwargs):
+        """记录订单确认事件（实盘交易）"""
+        self._logger.log_order_ack_event(order_id, broker_order_id, **kwargs)
+
+
+class _BacktestSystemNamespace:
+    """回测系统事件命名空间 - 系统级事件"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    # ========== 引擎状态事件 ==========
+    def start(self, **kwargs):
+        """记录引擎启动事件"""
+        self._logger.log_engine_start_event(**kwargs)
+
+    def pause(self, reason: str = "", **kwargs):
+        """记录引擎暂停事件"""
+        self._logger.log_engine_pause_event(reason, **kwargs)
+
+    def resume(self, **kwargs):
+        """记录引擎恢复事件"""
+        self._logger.log_engine_resume_event(**kwargs)
+
+    def complete(self, **kwargs):
+        """记录引擎完成事件"""
+        self._logger.log_engine_complete_event(**kwargs)
+
+    # ========== 错误和风控事件 ==========
+    def error(self, code: str, message: str, **kwargs):
+        """记录引擎错误事件"""
+        self._logger.log_engine_error_event(code, message, **kwargs)
+
+    def risk(self, risk_type: str, reason: str, **kwargs):
+        """记录风控事件"""
+        self._logger.log_risk_event(risk_type, reason, **kwargs)
+
+
+class _BacktestLogNamespace:
+    """回测日志主命名空间 - 按事件性质分组访问"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+        # 交易流程事件
+        self.trade = _BacktestTradeNamespace(logger)
+        # 订单异常事件
+        self.order = _BacktestOrderNamespace(logger)
+        # 系统事件
+        self.system = _BacktestSystemNamespace(logger)
+
+    # ========== 快捷访问（最常用的方法直接暴露） ==========
+    def signal(self, symbol: str, direction: str, **kwargs):
+        """快捷访问：记录信号事件"""
+        self.trade.signal(symbol, direction, **kwargs)
+
+    def fill(self, order_id: str, price: Number, volume: int, **kwargs):
+        """快捷访问：记录订单成交事件"""
+        self.trade.fill(order_id, price, volume, **kwargs)
+
+    def risk(self, risk_type: str, reason: str, **kwargs):
+        """快捷访问：记录风控事件"""
+        self.system.risk(risk_type, reason, **kwargs)
+
+
+class _ExecutionLogNamespace:
+    """实盘执行日志命名空间 - 实盘交易执行事件"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    def confirm(self, tracking_id: str, expected_price: Number, actual_price: Number,
+                expected_volume: int, actual_volume: int, **kwargs):
+        """记录执行确认事件"""
+        self._logger.log_execution_confirm_event(
+            tracking_id, expected_price, actual_price, expected_volume, actual_volume, **kwargs
+        )
+
+    def reject(self, tracking_id: str, reason: str, **kwargs):
+        """记录执行拒绝事件"""
+        self._logger.log_execution_rejected_event(tracking_id, reason, **kwargs)
+
+    def timeout(self, tracking_id: str, **kwargs):
+        """记录执行超时事件"""
+        self._logger.log_execution_timeout_event(tracking_id, **kwargs)
+
+    def cancel(self, tracking_id: str, reason: str, **kwargs):
+        """记录执行取消事件"""
+        self._logger.log_execution_cancel_event(tracking_id, reason, **kwargs)
+
+
+class _ComponentLogNamespace:
+    """组件日志命名空间"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    def info(self, name: str, message: str, **kwargs):
+        """记录组件日志"""
+        self._logger.log_component_event(name, message, **kwargs)
+
+
+class _PerformanceLogNamespace:
+    """性能日志命名空间"""
+
+    def __init__(self, logger: GinkgoLogger):
+        self._logger = logger
+
+    def metric(self, func: str, duration_ms: Number, **kwargs):
+        """记录性能指标"""
+        self._logger.log_performance_event(func, duration_ms, **kwargs)

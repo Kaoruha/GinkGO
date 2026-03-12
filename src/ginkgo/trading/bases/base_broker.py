@@ -19,19 +19,18 @@ from typing import Optional, Dict, Any
 
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.trading.entities.position import Position
 from ginkgo.enums import DIRECTION_TYPES
+from ginkgo.libs import GLOG
 
 
-class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
+class BaseBroker(TimeMixin, ContextMixin):
     """
     Broker基础类
 
     通过Mixin组装提供Broker的基础功能：
     - TimeMixin: 时间管理和业务时间戳处理
     - ContextMixin: 引擎上下文管理
-    - LoggableMixin: 统一日志记录
 
     子类继承后只需要专注于具体的执行逻辑和业务规则。
     不包含OrderManagementMixin，因为：
@@ -50,7 +49,6 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
         # 按照Mixin依赖顺序初始化
         TimeMixin.__init__(self)
         ContextMixin.__init__(self)
-        LoggableMixin.__init__(self)
 
         # 设置名称
         self._broker_name = name
@@ -65,7 +63,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
         self._result_callback = None
 
         # 记录初始化完成
-        self.log("INFO", f"{self._broker_name} initialized")
+        GLOG.INFO(f"{self._broker_name} initialized")
 
     @property
     def name(self) -> str:
@@ -100,7 +98,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
             callback: 回调函数，用于处理异步执行结果
         """
         self._result_callback = callback
-        self.log("DEBUG", f"Result callback set for {self._broker_name}")
+        GLOG.DEBUG(f"Result callback set for {self._broker_name}")
 
     # 市场数据管理方法（主要用于回测）
     def set_market_data(self, code: str, data: Any) -> None:
@@ -114,7 +112,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
         self._current_market_data[code] = data
         # 可以添加数据验证逻辑
         if hasattr(self, 'log'):
-            self.log("DEBUG", f"Market data updated for {code}")
+            GLOG.DEBUG(f"Market data updated for {code}")
 
     def get_market_data(self, code: str) -> Optional[Any]:
         """
@@ -141,7 +139,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
         """清空市场数据缓存"""
         self._current_market_data.clear()
         if hasattr(self, 'log'):
-            self.log("DEBUG", "Market data cache cleared")
+            GLOG.DEBUG("Market data cache cleared")
 
     def update_price_data(self, price_data) -> None:
         """
@@ -188,7 +186,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
             del self._current_positions[code]
 
         if hasattr(self, 'log'):
-            self.log("DEBUG", f"Position updated: {code} volume={position.volume}")
+            GLOG.DEBUG(f"Position updated: {code} volume={position.volume}")
 
     def get_position(self, code: str) -> Optional[Position]:
         """
@@ -215,7 +213,7 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
         """清空所有持仓"""
         self._current_positions.clear()
         if hasattr(self, 'log'):
-            self.log("DEBUG", "All positions cleared")
+            GLOG.DEBUG("All positions cleared")
 
     # 通用辅助方法
     def _notify_result(self, result):
@@ -229,4 +227,4 @@ class BaseBroker(TimeMixin, ContextMixin, LoggableMixin):
             self._result_callback(result)
         else:
             if hasattr(self, 'log'):
-                self.log("WARN", "No result callback set, cannot notify result")
+                GLOG.WARN("No result callback set, cannot notify result")

@@ -27,6 +27,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import GLOG
 
 
 class LiquidityRisk(BaseRiskManagement):
@@ -118,28 +119,28 @@ class LiquidityRisk(BaseRiskManagement):
                 min_volume = max(1, int(original_volume * 0.1))
                 order.volume = max(order.volume, min_volume)
 
-                self.log("WARNING", f"LiquidityRisk: Low liquidity for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._min_avg_volume_ratio}, "
+                GLOG.WARN(f"LiquidityRisk: Low liquidity for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._min_avg_volume_ratio}, "
                          f"reducing order {original_volume} → {order.volume}")
             else:
                 # 流动性预警，适度减少订单
                 reduction_factor = 0.8  # 预警时减少20%
                 order.volume = int(order.volume * reduction_factor)
 
-                self.log("INFO", f"LiquidityRisk: Liquidity warning for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._warning_avg_volume_ratio}, "
+                GLOG.INFO(f"LiquidityRisk: Liquidity warning for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._warning_avg_volume_ratio}, "
                          f"adjusting order to {order.volume}")
 
         # 检查价格冲击影响
         price_impact = self._calculate_price_impact(order, liquidity_metrics)
         if price_impact > self._max_price_impact:
             # 价格冲击过大，拒绝订单
-            self.log("CRITICAL", f"LiquidityRisk: High price impact {price_impact:.2f}% > {self._max_price_impact}% for {order.code}, rejecting order")
+            GLOG.CRITICAL(f"LiquidityRisk: High price impact {price_impact:.2f}% > {self._max_price_impact}% for {order.code}, rejecting order")
             return None
         elif price_impact > self._warning_price_impact:
             # 价格冲击预警，减少订单
             reduction_factor = self._warning_price_impact / price_impact
             order.volume = int(order.volume * reduction_factor)
 
-            self.log("WARNING", f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
+            GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
                      f"adjusting order to {order.volume}")
 
         # 检查日成交额
@@ -149,7 +150,7 @@ class LiquidityRisk(BaseRiskManagement):
             reduction_factor = avg_turnover / self._min_turnover_ratio
             order.volume = int(order.volume * max(reduction_factor, 0.1))
 
-            self.log("WARNING", f"LiquidityRisk: Low turnover {avg_turnover:,.0f} < {self._min_turnover_ratio:,.0f} for {order.code}, "
+            GLOG.WARN(f"LiquidityRisk: Low turnover {avg_turnover:,.0f} < {self._min_turnover_ratio:,.0f} for {order.code}, "
                      f"reducing order to {order.volume}")
 
         return order
@@ -181,7 +182,7 @@ class LiquidityRisk(BaseRiskManagement):
 
         # 检查严重流动性不足
         if liquidity_metrics.get('avg_turnover', 0) < self._min_turnover_ratio:
-            self.log("CRITICAL", f"LiquidityRisk: CRITICAL low liquidity for {event.code}, turnover {liquidity_metrics.get('avg_turnover', 0):,.0f}")
+            GLOG.CRITICAL(f"LiquidityRisk: CRITICAL low liquidity for {event.code}, turnover {liquidity_metrics.get('avg_turnover', 0):,.0f}")
 
             # 生成减仓信号
             signal = Signal(

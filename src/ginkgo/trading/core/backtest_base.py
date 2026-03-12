@@ -27,8 +27,6 @@ class BacktestBase(Base):
 
         self._engine_put = None
         self.set_name(str(name))
-        self.loggers = []
-        self.add_logger(GLOG)
 
     
 
@@ -56,36 +54,6 @@ class BacktestBase(Base):
         """
         self._name = name
         return self.name
-
-
-    def add_logger(self, logger) -> None:
-        if logger in self.loggers:
-            return
-        self.loggers.append(logger)
-
-    def reset_logger(self) -> None:
-        self.loggers = []
-
-    def log(self, level: str, msg: str, *args, **kwargs) -> None:
-        level_up = level.upper()
-        if level_up == "DEBUG":
-            for i in self.loggers:
-                i.DEBUG(msg)
-        elif level_up == "INFO":
-            for i in self.loggers:
-                i.INFO(msg)
-        elif level_up == "WARNING":
-            for i in self.loggers:
-                i.WARN(msg)
-        elif level_up == "ERROR":
-            for i in self.loggers:
-                i.ERROR(msg)
-        elif level_up == "CRITICAL":
-            for i in self.loggers:
-                i.CRITICAL(msg)
-        else:
-            pass
-
 
     def __repr__(self) -> str:
         # Safe repr that avoids circular references

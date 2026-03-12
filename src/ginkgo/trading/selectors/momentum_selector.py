@@ -9,7 +9,7 @@
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.data.containers import container
-from ginkgo.libs import datetime_normalize
+from ginkgo.libs import datetime_normalize, GLOG
 import pandas as pd
 
 import datetime
@@ -70,7 +70,7 @@ class MomentumSelector(BaseSelector):
         for i, r in df.iterrows():
             code = r["code"]
             name = r["code_name"]
-            self.log("DEBUG", f"Pick {code} from {start_date} to {end_date}")
+            GLOG.DEBUG(f"Pick {code} from {start_date} to {end_date}")
             bar_crud = container.cruds.bar()
             df = bar_crud.get_page_filtered(code=code, start_date=start_date, end_date=end_date, as_dataframe=True)
             if df.shape[0] == 0:

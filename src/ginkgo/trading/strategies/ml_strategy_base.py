@@ -83,7 +83,7 @@ class StrategyMLBase(BaseStrategy):
         super(StrategyMLBase, self).__init__(name, *args, **kwargs)
         
         if not ML_AVAILABLE:
-            self.log("WARNING", "ML模块不可用，MLBaseStrategy 将以受限模式运行")
+            GLOG.WARN("ML模块不可用，MLBaseStrategy 将以受限模式运行")
             # 在ML模块不可用时，仍然可以创建策略实例，但功能受限
             self._model = None
             self._feature_processor = None
@@ -103,7 +103,7 @@ class StrategyMLBase(BaseStrategy):
             self._prediction_history = []
             self._performance_metrics = {}
             
-            self.log("INFO", f"初始化受限模式ML策略: {name}")
+            GLOG.INFO(f"初始化受限模式ML策略: {name}")
             return
         
         # 模型相关
@@ -138,7 +138,7 @@ class StrategyMLBase(BaseStrategy):
         if model_path:
             self.load_model(model_path)
         
-        self.log("INFO", f"初始化ML策略: {name}")
+        GLOG.INFO(f"初始化ML策略: {name}")
 
     def _initialize_components(self) -> None:
         """初始化特征工程组件"""
@@ -151,10 +151,10 @@ class StrategyMLBase(BaseStrategy):
             factors_config = self._feature_config.get('factors', {})
             self._alpha_factors = AlphaFactors(**factors_config)
             
-            self.log("DEBUG", "特征工程组件初始化完成")
+            GLOG.DEBUG("特征工程组件初始化完成")
             
         except Exception as e:
-            self.log("ERROR", f"特征工程组件初始化失败: {e}")
+            GLOG.ERROR(f"特征工程组件初始化失败: {e}")
             raise e
 
     def load_model(self, model_path: str) -> bool:
@@ -169,7 +169,7 @@ class StrategyMLBase(BaseStrategy):
         """
         try:
             if not os.path.exists(model_path):
-                self.log("ERROR", f"模型文件不存在: {model_path}")
+                GLOG.ERROR(f"模型文件不存在: {model_path}")
                 return False
             
             # 加载模型
@@ -177,21 +177,21 @@ class StrategyMLBase(BaseStrategy):
             self._model_path = model_path
             
             if not self._model.is_trained:
-                self.log("WARNING", "加载的模型尚未训练")
+                GLOG.WARN("加载的模型尚未训练")
                 return False
             
             # 获取模型信息
             self._model_info = self._model.get_metadata()
             
-            self.log("INFO", f"模型加载成功: {model_path}")
-            self.log("INFO", f"模型信息: {self._model_info.get('name', 'Unknown')}, "
+            GLOG.INFO(f"模型加载成功: {model_path}")
+            GLOG.INFO(f"模型信息: {self._model_info.get('name', 'Unknown')}, "
                            f"类型: {self._model_info.get('model_type', 'Unknown')}, "
                            f"特征数: {self._model_info.get('feature_count', 0)}")
             
             return True
             
         except Exception as e:
-            self.log("ERROR", f"模型加载失败: {e}")
+            GLOG.ERROR(f"模型加载失败: {e}")
             return False
 
     def reload_model(self) -> bool:
@@ -199,7 +199,7 @@ class StrategyMLBase(BaseStrategy):
         if self._model_path:
             return self.load_model(self._model_path)
         else:
-            self.log("WARNING", "没有指定模型路径，无法重新加载")
+            GLOG.WARN("没有指定模型路径，无法重新加载")
             return False
 
     def get_model_info(self) -> Dict[str, Any]:
@@ -237,14 +237,14 @@ class StrategyMLBase(BaseStrategy):
                 history_data = get_bars(code, start_date, current_time, as_dataframe=True)
             
             if history_data is None or len(history_data) == 0:
-                self.log("WARNING", f"无法获取 {code} 的历史数据")
+                GLOG.WARN(f"无法获取 {code} 的历史数据")
                 return None
             
             # 计算Alpha因子
             features_data = self._alpha_factors.calculate_all_factors(history_data)
             
             if len(features_data) == 0:
-                self.log("WARNING", f"特征计算失败: {code}")
+                GLOG.WARN(f"特征计算失败: {code}")
                 return None
             
             # 缓存特征数据
@@ -256,12 +256,12 @@ class StrategyMLBase(BaseStrategy):
                 oldest_key = min(self._feature_cache.keys())
                 del self._feature_cache[oldest_key]
             
-            self.log("DEBUG", f"特征提取完成: {code}, 特征数: {features_data.shape[1]}")
+            GLOG.DEBUG(f"特征提取完成: {code}, 特征数: {features_data.shape[1]}")
             
             return features_data.tail(1)  # 返回最新一行
             
         except Exception as e:
-            self.log("ERROR", f"特征提取失败: {code}, {e}")
+            GLOG.ERROR(f"特征提取失败: {code}, {e}")
             return None
 
     def predict(self, features: pd.DataFrame, code: str) -> Optional[Dict]:
@@ -277,7 +277,7 @@ class StrategyMLBase(BaseStrategy):
         """
         try:
             if not self.is_model_loaded():
-                self.log("WARNING", "模型未加载，无法进行预测")
+                GLOG.WARN("模型未加载，无法进行预测")
                 return None
             
             if features.empty:
@@ -308,12 +308,12 @@ class StrategyMLBase(BaseStrategy):
                 'code': code
             }
             
-            self.log("DEBUG", f"预测完成: {code}, 预测值: {pred_value:.4f}, 置信度: {confidence:.3f}")
+            GLOG.DEBUG(f"预测完成: {code}, 预测值: {pred_value:.4f}, 置信度: {confidence:.3f}")
             
             return result
             
         except Exception as e:
-            self.log("ERROR", f"预测失败: {code}, {e}")
+            GLOG.ERROR(f"预测失败: {code}, {e}")
             return None
 
     def generate_signals_from_prediction(self, portfolio_info, code: str, 
@@ -372,7 +372,7 @@ class StrategyMLBase(BaseStrategy):
             return signals
             
         except Exception as e:
-            self.log("ERROR", f"信号生成失败: {code}, {e}")
+            GLOG.ERROR(f"信号生成失败: {code}, {e}")
             return []
 
     def _create_signal(self, portfolio_info, code: str,
@@ -390,7 +390,7 @@ class StrategyMLBase(BaseStrategy):
         signal.strategy_name = self.name
         signal.model_type = self._model_info.get('model_type', 'Unknown')
 
-        self.log("INFO", f"生成ML信号: {code} {direction.value} - {reason}")
+        GLOG.INFO(f"生成ML信号: {code} {direction.value} - {reason}")
 
         return signal
 
@@ -426,7 +426,7 @@ class StrategyMLBase(BaseStrategy):
                 self._calculate_performance_metrics()
                 
         except Exception as e:
-            self.log("ERROR", f"性能监控更新失败: {e}")
+            GLOG.ERROR(f"性能监控更新失败: {e}")
 
     def _calculate_performance_metrics(self) -> None:
         """计算性能指标"""
@@ -455,10 +455,10 @@ class StrategyMLBase(BaseStrategy):
                 'last_update': __import__('ginkgo.trading.time.clock', fromlist=['now']).now()
             })
             
-            self.log("DEBUG", f"性能指标更新 - 方向准确率: {direction_accuracy:.3f}, IC: {ic:.3f}")
+            GLOG.DEBUG(f"性能指标更新 - 方向准确率: {direction_accuracy:.3f}, IC: {ic:.3f}")
             
         except Exception as e:
-            self.log("ERROR", f"性能指标计算失败: {e}")
+            GLOG.ERROR(f"性能指标计算失败: {e}")
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """获取性能指标"""
@@ -508,20 +508,20 @@ class StrategyMLBase(BaseStrategy):
             return signals
             
         except Exception as e:
-            self.log("ERROR", f"ML策略计算失败: {e}")
+            GLOG.ERROR(f"ML策略计算失败: {e}")
             return []
 
     def set_signal_threshold(self, threshold: float) -> None:
         """设置信号生成阈值"""
         self._signal_threshold = threshold
-        self.log("INFO", f"信号阈值更新为: {threshold}")
+        GLOG.INFO(f"信号阈值更新为: {threshold}")
 
     def set_feature_config(self, config: Dict) -> None:
         """设置特征配置"""
         self._feature_config = config
         # 重新初始化特征工程组件
         self._initialize_components()
-        self.log("INFO", "特征配置已更新")
+        GLOG.INFO("特征配置已更新")
 
     def get_strategy_summary(self) -> Dict[str, Any]:
         """获取策略摘要信息"""

@@ -260,7 +260,7 @@ def kafka_topic_set():
         client_id="admin",
     )
     if admin_client is None:
-        print("Can not connect to kafka now. Please try later.")
+        GLOG.ERROR("Cannot connect to Kafka. Please try later.")
         return
 
     # 定义 topic 配置：分区数和副本数
@@ -290,18 +290,18 @@ def kafka_topic_set():
     topics_to_delete.discard("__consumer_offsets")  # 保留内部 topic
 
     if topics_to_delete:
-        print(f"Deleting all {len(topics_to_delete)} topics for reset...")
+        GLOG.INFO(f"Deleting all {len(topics_to_delete)} topics for reset...")
         for topic in sorted(topics_to_delete):
             try:
                 admin_client.delete_topics(topics=[topic], timeout_ms=30000)
-                print(f"  ✓ Deleted topic: {topic}")
+                GLOG.INFO(f"  ✓ Deleted topic: {topic}")
                 sleep(0.5)
             except Exception as e:
-                print(f"  ✗ Failed to delete topic {topic}: {e}")
-        print()  # 空行分隔
+                GLOG.ERROR(f"  ✗ Failed to delete topic {topic}: {e}")
+        GLOG.INFO("")  # 空行分隔
 
     # 创建新 topics（逐个创建以避免部分失败导致整体失败）
-    print(f"\nCreating {len(topic_config)} topics...")
+    GLOG.INFO(f"\nCreating {len(topic_config)} topics...")
     for topic_name, (partitions, replication) in topic_config.items():
         try:
             result = admin_client.create_topics(
@@ -315,33 +315,33 @@ def kafka_topic_set():
             if isinstance(topic_errors, dict):
                 for topic, future in topic_errors.items():
                     if future.error_code == 0:
-                        print(f"  ✓ Created topic: {topic}")
+                        GLOG.INFO(f"  ✓ Created topic: {topic}")
                     elif future.error_code == 36:  # TopicAlreadyExistsError
-                        print(f"  ⊙ Topic already exists: {topic}")
+                        GLOG.WARN(f"  ⊙ Topic already exists: {topic}")
                     else:
-                        print(f"  ✗ Failed to create topic {topic}: {future.error_message}")
+                        GLOG.ERROR(f"  ✗ Failed to create topic {topic}: {future.error_message}")
             elif isinstance(topic_errors, list) and topic_errors:
                 # 格式: [(topic_name, error_code, error_message), ...]
                 for item in topic_errors:
                     if len(item) >= 2:
                         topic, error_code = item[0], item[1]
                         if error_code == 0:
-                            print(f"  ✓ Created topic: {topic}")
+                            GLOG.INFO(f"  ✓ Created topic: {topic}")
                         elif error_code == 36:
-                            print(f"  ⊙ Topic already exists: {topic}")
+                            GLOG.WARN(f"  ⊙ Topic already exists: {topic}")
                         else:
                             error_msg = item[2] if len(item) > 2 else "Unknown error"
-                            print(f"  ✗ Failed to create topic {topic}: {error_msg}")
+                            GLOG.ERROR(f"  ✗ Failed to create topic {topic}: {error_msg}")
             else:
                 # 未知格式，尝试检查异常
-                print(f"  ⚠ Topic {topic_name}: {topic_errors}")
+                GLOG.WARN(f"  ⚠ Topic {topic_name}: {topic_errors}")
 
         except Exception as e:
             error_msg = str(e)
             if "TopicAlreadyExistsError" in error_msg or "already exists" in error_msg.lower():
-                print(f"  ⊙ Topic already exists: {topic_name}")
+                GLOG.WARN(f"  ⊙ Topic already exists: {topic_name}")
             else:
-                print(f"  ✗ Failed to create topic {topic_name}: {e}")
+                GLOG.ERROR(f"  ✗ Failed to create topic {topic_name}: {e}")
 
     admin_client.close()
 
@@ -376,7 +376,7 @@ def kafka_topic_llen(topic: str):
         total_messages += end_offset - current_offset
 
     # 打印消息总数
-    print(f'The total number of messages in topic "{topic_name}" is: {total_messages}')
+    GLOG.INFO(f'The total number of messages in topic "{topic_name}" is: {total_messages}')
     return total_messages
 
 

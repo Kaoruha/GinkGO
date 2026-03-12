@@ -242,58 +242,58 @@ services:
         limits:
           cpus: '2.00'
           memory: 4096M
-  # Loki Stack - 分布式日志系统
-  loki:
-    image: grafana/loki:main-84ffd0d
-    container_name: ginkgo-loki
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    ports:
-      - "3100:3100"
-    command:
-      - -config.file=/etc/loki/local-config.yaml
-      - --validation.allow-structured-metadata=false
-    volumes:
-      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
-      - loki-storage:/loki
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1024M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+  # Loki Stack - 已弃用，改用 Vector + ClickHouse
+  # loki:
+  #   image: grafana/loki:main-84ffd0d
+  #   container_name: ginkgo-loki
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   ports:
+  #     - "3100:3100"
+  #   command:
+  #     - -config.file=/etc/loki/local-config.yaml
+  #     - --validation.allow-structured-metadata=false
+  #   volumes:
+  #     - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+  #     - loki-storage:/loki
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.00'
+  #         memory: 1024M
+  #       reservations:
+  #         cpus: '0.25'
+  #         memory: 256M
 
-  promtail:
-    image: grafana/promtail:main-84ffd0d
-    container_name: ginkgo-promtail
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    volumes:
-      - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./promtail-config.yml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
+  # promtail:
+  #   image: grafana/promtail:main-84ffd0d
+  #   container_name: ginkgo-promtail
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   volumes:
+  #     - /var/log:/var/log:ro
+  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./promtail-config.yml:/etc/promtail/config.yml:ro
+  #   command: -config.file=/etc/promtail/config.yml
+  #   depends_on:
+  #     - loki
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.50'
+  #         memory: 256M
+  #       reservations:
+  #         cpus: '0.10'
+  #         memory: 128M
 
   grafana:
     image: grafana/grafana:main-ubuntu
@@ -311,11 +311,13 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_INSTALL_PLUGINS=
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
       - grafana-storage:/var/lib/grafana
-    depends_on:
-      - loki
+      # Grafana provisioning 配置（自动添加数据源）
+      - ../.conf/grafana-provisioning:/etc/grafana/provisioning:ro
+    # depends_on:
+    #   - loki  # 已移除 Loki，改用 ClickHouse
     deploy:
       resources:
         limits:
@@ -910,12 +912,12 @@ services:
   #         cpus: '0.25'
   #         memory: 256M
 
-# Loki Stack 命名卷
+# 命名卷
 volumes:
   grafana-storage:
     driver: local
-  loki-storage:
-    driver: local
+  # loki-storage:  # 已移除 Loki
+  #   driver: local
   # Vector data directory for checkpoint positions
   vector-data:
     driver: local

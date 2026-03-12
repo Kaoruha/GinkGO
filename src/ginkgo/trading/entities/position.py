@@ -254,10 +254,10 @@ class Position(Base, TimeMixin):
         注意：总持仓 = volume(可用持仓) + frozen_volume(冻结持仓) + settlement_frozen_volume(结算冻结)
         """
         if self._volume < 0:
-            self.log("CRITICAL", f"Volume is less than 0: {self._volume}")
+            GLOG.CRITICAL(f"Volume is less than 0: {self._volume}")
             return 0
         if not isinstance(self._volume, (int, numpy.int64)):
-            self.log("CRITICAL", f"Volume is not a int: {self._volume}")
+            GLOG.CRITICAL(f"Volume is not a int: {self._volume}")
             return 0
         return self._volume
 
@@ -268,7 +268,7 @@ class Position(Base, TimeMixin):
     @property
     def frozen_money(self, *args, **kwargs) -> Decimal:
         if self._frozen_money < 0:
-            self.log("CRITICAL", f"Frozen money is less than 0: {self._frozen_money}")
+            GLOG.CRITICAL(f"Frozen money is less than 0: {self._frozen_money}")
             return 0
         return self._frozen_money
 
@@ -298,9 +298,9 @@ class Position(Base, TimeMixin):
         Current Price.
         """
         if self._price < 0:
-            self.log("CRITICAL", f"Price is less than 0: {self._price}")
+            GLOG.CRITICAL(f"Price is less than 0: {self._price}")
         if not isinstance(self._price, Decimal):
-            self.log("CRITICAL", f"Price is not a DECIMAL: {self._price}")
+            GLOG.CRITICAL(f"Price is not a DECIMAL: {self._price}")
             return Decimal('0')
         return self._price
 
@@ -317,16 +317,16 @@ class Position(Base, TimeMixin):
 
             # 验证价格非负
             if price_decimal < 0:
-                self.log("CRITICAL", f"Rejected negative price update: {price_decimal} for {self._code}")
+                GLOG.CRITICAL(f"Rejected negative price update: {price_decimal} for {self._code}")
                 return
 
             self._price = price_decimal
             self._update_last_update()
 
         except (ValueError, TypeError) as e:
-            self.log("ERROR", f"Error setting price to {value}: {e}")
+            GLOG.ERROR(f"Error setting price to {value}: {e}")
         except Exception as e:
-            self.log("ERROR", f"Unexpected error setting price: {e}")
+            GLOG.ERROR(f"Unexpected error setting price: {e}")
 
     @property
     def cost(self, *args, **kwargs) -> Decimal:
@@ -343,9 +343,9 @@ class Position(Base, TimeMixin):
         注意：总持仓 = volume(可用持仓) + frozen_volume(冻结持仓) + settlement_frozen_volume(结算冻结)
         """
         if self._frozen_volume < 0:
-            self.log("CRITICAL", f"Frozen is less than 0: {self._frozen_volume}")
+            GLOG.CRITICAL(f"Frozen is less than 0: {self._frozen_volume}")
         if not isinstance(self._frozen_volume, (int, numpy.int64)):
-            self.log("CRITICAL", f"Frozen is not a int: {self._frozen_volume}")
+            GLOG.CRITICAL(f"Frozen is not a int: {self._frozen_volume}")
             return 0
         return self._frozen_volume
 
@@ -358,7 +358,7 @@ class Position(Base, TimeMixin):
         这部分持仓在结算期间保存在settlement_frozen_volume中，无法用于交易
         """
         if self._settlement_frozen_volume < 0:
-            self.log("CRITICAL", f"Settlement frozen volume is less than 0: {self._settlement_frozen_volume}")
+            GLOG.CRITICAL(f"Settlement frozen volume is less than 0: {self._settlement_frozen_volume}")
             return 0
         return self._settlement_frozen_volume
 
@@ -388,16 +388,16 @@ class Position(Base, TimeMixin):
             bool: Success or failure.
         """
         if volume <= 0:
-            self.log("CRITICAL", f"Invalid freeze volume: {volume}")
+            GLOG.CRITICAL(f"Invalid freeze volume: {volume}")
             return False
         volume = int(volume)
         if volume > self.volume:
-            self.log("CRITICAL", f"Insufficient volume to freeze: {volume}, available: {self.volume}")
+            GLOG.CRITICAL(f"Insufficient volume to freeze: {volume}, available: {self.volume}")
             return False
 
         self._volume -= volume
         self._frozen_volume += volume
-        self.log("INFO", f"Freezed {volume} units. Remaining: {self.volume}, Frozen: {self.frozen_volume}")
+        GLOG.INFO(f"Freezed {volume} units. Remaining: {self.volume}, Frozen: {self.frozen_volume}")
         return True
 
     def unfreeze(self, volume: int, *args, **kwargs) -> bool:
@@ -413,23 +413,21 @@ class Position(Base, TimeMixin):
         try:
             volume = int(volume)
             if volume <= 0:
-                self.log("ERROR", f"Invalid unfreeze volume: {volume}")
+                GLOG.ERROR(f"Invalid unfreeze volume: {volume}")
                 return False
 
             if volume > self.frozen_volume:
-                self.log("CRITICAL", f"POS {self.code} just freezed {self.frozen_volume} cant afford {volume}.")
+                GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen_volume} cant afford {volume}.")
                 return False
 
             self._frozen_volume -= volume
             self._volume += volume  # 将冻结持仓恢复为可用持仓
-            self.log(
-                "INFO",
-                f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen_volume: {self.frozen_volume}",
+            GLOG.INFO(f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen_volume: {self.frozen_volume}",
             )
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Error during unfreeze operation: {e}")
+            GLOG.ERROR(f"Error during unfreeze operation: {e}")
             return False
 
     @property
@@ -438,9 +436,9 @@ class Position(Base, TimeMixin):
         Sum of fee.
         """
         if self._fee < 0:
-            self.log("CRITICAL", f"Fee is less than 0: {self._fee}")
+            GLOG.CRITICAL(f"Fee is less than 0: {self._fee}")
         if not isinstance(self._fee, Decimal):
-            self.log("CRITICAL", f"Fee is not a DECIMAL: {self._fee}")
+            GLOG.CRITICAL(f"Fee is not a DECIMAL: {self._fee}")
             return to_decimal("0")
         return self._fee
 
@@ -456,14 +454,14 @@ class Position(Base, TimeMixin):
         """
         try:
             if fee < 0:
-                self.log("CRITICAL", f"Can not add fee less than 0.")
+                GLOG.CRITICAL(f"Can not add fee less than 0.")
                 return False
 
             self._fee += to_decimal(fee)
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Error adding fee: {e}")
+            GLOG.ERROR(f"Error adding fee: {e}")
             return False
 
     @property
@@ -498,7 +496,7 @@ class Position(Base, TimeMixin):
             if price <= 0 or volume <= 0:
                 raise ValueError(f"Invalid price: {price} or volume: {volume}")
         except Exception as e:
-            self.log("ERROR", f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
             return False
         finally:
             pass
@@ -511,7 +509,7 @@ class Position(Base, TimeMixin):
             if self._settlement_days == 0:
                 # T+0市场：直接可用
                 self._volume += volume
-                self.log("DEBUG", f"T+0 mode: added {volume} to available volume")
+                GLOG.DEBUG(f"T+0 mode: added {volume} to available volume")
             else:
                 # T+N市场：进入结算冻结，待日终结算
                 self._settlement_frozen_volume += volume
@@ -523,7 +521,7 @@ class Position(Base, TimeMixin):
                     'settlement_date': settlement_date,
                     'buy_date': current_time
                 })
-                self.log("DEBUG", f"T+{self._settlement_days} mode: added {volume} to settlement frozen, settle on {settlement_date.date()}")
+                GLOG.DEBUG(f"T+{self._settlement_days} mode: added {volume} to settlement frozen, settle on {settlement_date.date()}")
 
             # 重新计算平均成本（基于总持仓）
             new_total_volume = self.total_position
@@ -532,14 +530,14 @@ class Position(Base, TimeMixin):
 
             # Check cost
             if self._cost < 0:
-                self.log("CRITICAL", f"Cost is less than 0: {self._cost}")
+                GLOG.CRITICAL(f"Cost is less than 0: {self._cost}")
                 return False
             if not isinstance(self._cost, Decimal):
-                self.log("CRITICAL", f"Cost is not a DECIMAL: {self._cost}")
+                GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
                 return False
 
-            self.log("DEBUG", f"POS {self.code} bought {volume} at ${price}. New cost: ${self._cost}")
-            self.log("DEBUG", f"Available: {self.volume}, Frozen: {self.frozen_volume}, Settlement: {self.settlement_frozen_volume}")
+            GLOG.DEBUG(f"POS {self.code} bought {volume} at ${price}. New cost: ${self._cost}")
+            GLOG.DEBUG(f"Available: {self.volume}, Frozen: {self.frozen_volume}, Settlement: {self.settlement_frozen_volume}")
             return True
         except Exception as e:
             print(e)
@@ -565,14 +563,13 @@ class Position(Base, TimeMixin):
             if price <= 0 or volume <= 0:
                 raise ValueError(f"Invalid price: {price} or volume: {volume}")
         except Exception as e:
-            self.log("ERROR", f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
             return False
         finally:
             pass
 
         if volume > self.frozen_volume:
-            self.log(
-                "CRITICAL", f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
+            GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return False
 
@@ -588,19 +585,16 @@ class Position(Base, TimeMixin):
             self.on_price_update(price)
 
             # 日志记录
-            self.log(
-                "DEBUG",
-                f"POS {self.code} sold {volume} at ${price}. "
+            GLOG.DEBUG(f"POS {self.code} sold {volume} at ${price}. "
                 f"Realized PnL: {realized_gain}, Total realized: {self._realized_pnl}. "
                 f"Final price: ${self._cost}, volume: {self.volume}, "
-                f"cost: ${self.cost}, frozen: {self.frozen_volume}",
-            )
+                f"cost: ${self.cost}, frozen: {self.frozen_volume}")
             return True
         except Exception as e:
             import pdb
 
             pdb.set_trace()
-            self.log("ERROR", f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
         finally:
             pass
 
@@ -626,7 +620,7 @@ class Position(Base, TimeMixin):
         elif direction == DIRECTION_TYPES.SHORT:
             success = self._sold(price, volume)
         else:
-            self.log("ERROR", f"Invalid direction: {direction}")
+            GLOG.ERROR(f"Invalid direction: {direction}")
             return False
 
         # 只有交易成功时才更新状态
@@ -652,7 +646,7 @@ class Position(Base, TimeMixin):
 
             # 验证价格非负
             if price_decimal < 0:
-                self.log("CRITICAL", f"Rejected negative price update: {price_decimal} for {self._code}")
+                GLOG.CRITICAL(f"Rejected negative price update: {price_decimal} for {self._code}")
                 return False
 
             # 更新价格
@@ -663,7 +657,7 @@ class Position(Base, TimeMixin):
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Error updating price: {e}")
+            GLOG.ERROR(f"Error updating price: {e}")
             return False
 
     @property
@@ -741,7 +735,7 @@ class Position(Base, TimeMixin):
                 self._volume += batch_volume
                 settled_volume += batch_volume
 
-                self.log("DEBUG", f"Settled {batch_volume} shares bought on {settlement_batch['buy_date'].date()}")
+                GLOG.DEBUG(f"Settled {batch_volume} shares bought on {settlement_batch['buy_date'].date()}")
             else:
                 # 未到期，保留在队列中
                 remaining_queue.append(settlement_batch)
@@ -750,7 +744,7 @@ class Position(Base, TimeMixin):
         self._settlement_queue = remaining_queue
 
         if settled_volume > 0:
-            self.log("INFO", f"Total settled volume: {settled_volume}, Available: {self.volume}, Settlement frozen: {self.settlement_frozen_volume}")
+            GLOG.INFO(f"Total settled volume: {settled_volume}, Available: {self.volume}, Settlement frozen: {self.settlement_frozen_volume}")
 
         # Update last_update timestamp after settlement processing (delegate to TimeRelated)
         self.last_update = new_time
@@ -765,7 +759,7 @@ class Position(Base, TimeMixin):
         Args:
             new_time(datetime.datetime): 新的当前时间
         """
-        self.log("DEBUG", f"Processing settlement queue for position {self.code} at time {new_time}")
+        GLOG.DEBUG(f"Processing settlement queue for position {self.code} at time {new_time}")
         return self._on_time_advance(new_time)
 
     def add_realized_pnl(self, pnl: Number) -> bool:
@@ -780,17 +774,17 @@ class Position(Base, TimeMixin):
         """
         try:
             if not isinstance(pnl, (int, float, Decimal)):
-                self.log("ERROR", f"pnl must be numeric, got {type(pnl).__name__}")
+                GLOG.ERROR(f"pnl must be numeric, got {type(pnl).__name__}")
                 return False
 
             self._realized_pnl += to_decimal(pnl)
             self._update_last_update()
 
-            self.log("INFO", f"Position {self._code} added realized PnL: {pnl}, total: {self._realized_pnl}")
+            GLOG.INFO(f"Position {self._code} added realized PnL: {pnl}, total: {self._realized_pnl}")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Error adding realized PnL: {e}")
+            GLOG.ERROR(f"Error adding realized PnL: {e}")
             return False
 
     def log(self, level: str, msg: str, *args, **kwargs) -> None:
@@ -929,7 +923,7 @@ class Position(Base, TimeMixin):
         try:
             ratio_decimal = to_decimal(ratio)
             if ratio_decimal <= 1:
-                self.log("ERROR", f"Stock split ratio must be > 1, got {ratio}")
+                GLOG.ERROR(f"Stock split ratio must be > 1, got {ratio}")
                 return False
 
             self.set(
@@ -938,10 +932,10 @@ class Position(Base, TimeMixin):
                 volume=int(self._volume * float(ratio_decimal)),
                 price=self._price / ratio_decimal
             )
-            self.log("INFO", f"Stock split {ratio}:1 applied to {self._code}")
+            GLOG.INFO(f"Stock split {ratio}:1 applied to {self._code}")
             return True
         except Exception as e:
-            self.log("ERROR", f"Stock split failed: {e}")
+            GLOG.ERROR(f"Stock split failed: {e}")
             return False
 
     def stock_consolidation(self, ratio: Number, *args, **kwargs) -> bool:
@@ -949,7 +943,7 @@ class Position(Base, TimeMixin):
         try:
             ratio_decimal = to_decimal(ratio)
             if ratio_decimal <= 1:
-                self.log("ERROR", f"Consolidation ratio must be > 1, got {ratio}")
+                GLOG.ERROR(f"Consolidation ratio must be > 1, got {ratio}")
                 return False
 
             self.set(
@@ -958,10 +952,10 @@ class Position(Base, TimeMixin):
                 volume=int(self._volume / float(ratio_decimal)),
                 price=self._price * ratio_decimal
             )
-            self.log("INFO", f"Stock consolidation {ratio}:1 applied to {self._code}")
+            GLOG.INFO(f"Stock consolidation {ratio}:1 applied to {self._code}")
             return True
         except Exception as e:
-            self.log("ERROR", f"Stock consolidation failed: {e}")
+            GLOG.ERROR(f"Stock consolidation failed: {e}")
             return False
 
     def stock_dividend(self, ratio: Number, *args, **kwargs) -> bool:
@@ -969,7 +963,7 @@ class Position(Base, TimeMixin):
         try:
             ratio = float(ratio)
             if ratio <= 0:
-                self.log("ERROR", f"Stock dividend ratio must be > 0, got {ratio}")
+                GLOG.ERROR(f"Stock dividend ratio must be > 0, got {ratio}")
                 return False
 
             old_volume = self._volume
@@ -981,10 +975,10 @@ class Position(Base, TimeMixin):
                 volume=new_volume,
                 price=self._price * old_volume / new_volume
             )
-            self.log("INFO", f"Stock dividend {ratio*100:.1f}% applied to {self._code}")
+            GLOG.INFO(f"Stock dividend {ratio*100:.1f}% applied to {self._code}")
             return True
         except Exception as e:
-            self.log("ERROR", f"Stock dividend failed: {e}")
+            GLOG.ERROR(f"Stock dividend failed: {e}")
             return False
 
     def cash_dividend(self, amount: Number, *args, **kwargs) -> bool:
@@ -992,7 +986,7 @@ class Position(Base, TimeMixin):
         try:
             amount = to_decimal(amount)
             if amount <= 0:
-                self.log("ERROR", f"Dividend amount must be > 0, got {amount}")
+                GLOG.ERROR(f"Dividend amount must be > 0, got {amount}")
                 return False
 
             total_dividend = amount * self._volume
@@ -1001,10 +995,10 @@ class Position(Base, TimeMixin):
                 price=self._price - amount,
                 realized_pnl=getattr(self, '_realized_pnl', 0) + total_dividend
             )
-            self.log("INFO", f"Cash dividend {amount}/share applied to {self._code}, total: {total_dividend}")
+            GLOG.INFO(f"Cash dividend {amount}/share applied to {self._code}, total: {total_dividend}")
             return True
         except Exception as e:
-            self.log("ERROR", f"Cash dividend failed: {e}")
+            GLOG.ERROR(f"Cash dividend failed: {e}")
             return False
 
 

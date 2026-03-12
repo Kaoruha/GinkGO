@@ -27,6 +27,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import GLOG
 
 
 class MaxDrawdownRisk(BaseRiskManagement):
@@ -96,13 +97,13 @@ class MaxDrawdownRisk(BaseRiskManagement):
         if order.direction == DIRECTION_TYPES.LONG:
             if current_drawdown > self._critical_drawdown:
                 # 严重回撤，停止新开仓
-                self.log("CRITICAL", f"MaxDrawdownRisk: Critical drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%, stopping new positions")
+                GLOG.CRITICAL(f"MaxDrawdownRisk: Critical drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%, stopping new positions")
                 return None
             elif current_drawdown > self._max_drawdown:
                 # 超过最大回撤，减少开仓规模
                 reduction_factor = (self._critical_drawdown - current_drawdown) / (self._critical_drawdown - self._max_drawdown)
                 order.volume = int(order.volume * max(reduction_factor, 0.1))
-                self.log("WARNING", f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
+                GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
 
         # 卖出订单允许通过（减仓）
         return order
@@ -131,7 +132,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
 
         # 严重回撤 - 强制减仓
         if current_drawdown > self._critical_drawdown:
-            self.log("CRITICAL", f"MaxDrawdownRisk: CRITICAL drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%")
+            GLOG.CRITICAL(f"MaxDrawdownRisk: CRITICAL drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%")
 
             # 为所有持仓生成减仓信号
             for code in portfolio_info.get("positions", {}):
@@ -150,7 +151,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
 
         # 超过最大回撤 - 警告减仓
         elif current_drawdown > self._max_drawdown:
-            self.log("WARNING", f"MaxDrawdownRisk: WARNING drawdown {current_drawdown:.1f}% > {self._max_drawdown}%")
+            GLOG.WARN(f"MaxDrawdownRisk: WARNING drawdown {current_drawdown:.1f}% > {self._max_drawdown}%")
 
             # 选择亏损最大的股票减仓
             worst_position = self._find_worst_performing_position(portfolio_info)
@@ -169,7 +170,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
 
         # 预警回撤 - 记录警告
         elif current_drawdown > self._warning_drawdown:
-            self.log("INFO", f"MaxDrawdownRisk: WARNING level drawdown {current_drawdown:.1f}% > {self._warning_drawdown}%")
+            GLOG.INFO(f"MaxDrawdownRisk: WARNING level drawdown {current_drawdown:.1f}% > {self._warning_drawdown}%")
 
         return signals
 
