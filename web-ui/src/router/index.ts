@@ -60,6 +60,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'live', name: 'LiveTrading', component: () => import('@/views/stage4/LiveTrading.vue'), meta: { title: '实盘监控' } },
       { path: 'live/orders', name: 'LiveOrders', component: () => import('@/views/stage4/LiveOrders.vue'), meta: { title: '订单管理' } },
       { path: 'live/positions', name: 'LivePositions', component: () => import('@/views/stage4/LivePositions.vue'), meta: { title: '持仓管理' } },
+      { path: 'live/account-config', name: 'LiveAccountConfig', component: () => import('@/views/live/AccountConfig.vue'), meta: { title: '实盘账号配置' } },
+      { path: 'live/account-info', name: 'LiveAccountInfo', component: () => import('@/views/live/AccountInfo.vue'), meta: { title: '账户信息' } },
+      { path: 'live/trade-history', name: 'LiveTradeHistory', component: () => import('@/views/live/TradeHistory.vue'), meta: { title: '交易历史' } },
+      { path: 'live/trading-control', name: 'TradingControl', component: () => import('@/views/live/TradingControl.vue'), meta: { title: '交易控制' } },
     ],
   },
 

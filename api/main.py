@@ -41,6 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ========== 实盘交易路由 ==========
+from routers.live_trading import router as live_trading_router
+app.include_router(live_trading_router, prefix="/api/v1")
+
 
 # ========== 认证相关 ==========
 
@@ -2709,6 +2713,252 @@ async def optimization_bayesian(request: dict):
             for i in range(1, 11)
         ]
     }
+
+
+# ========== 实盘账号管理 API ==========
+
+@app.get("/api/v1/accounts")
+async def list_accounts(
+    exchange: Optional[str] = Query(None, description="过滤交易所"),
+    environment: Optional[str] = Query(None, description="过滤环境"),
+    status: Optional[str] = Query(None, description="过滤状态")
+):
+    """获取实盘账号列表"""
+    try:
+        from ginkgo.data.containers import container
+
+        # TODO: 从认证中获取user_id
+        user_id = "default_user"
+
+        service = container.live_account_service()
+        result = service.get_user_accounts(
+            user_id=user_id,
+            page=1,
+            page_size=100,
+            exchange=exchange,
+            environment=environment,
+            status=status
+        )
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "success",
+                "data": result["data"]["accounts"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        print(f"[ERROR] Failed to list accounts: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/accounts")
+async def create_account(account_data: Dict):
+    """创建实盘账号"""
+    try:
+        from ginkgo.data.containers import container
+
+        # TODO: 从认证中获取user_id
+        user_id = "default_user"
+
+        service = container.live_account_service()
+        result = service.create_account(
+            user_id=user_id,
+            exchange=account_data.get("exchange"),
+            name=account_data.get("name"),
+            api_key=account_data.get("api_key"),
+            api_secret=account_data.get("api_secret"),
+            passphrase=account_data.get("passphrase"),
+            environment=account_data.get("environment", "testnet"),
+            description=account_data.get("description"),
+            auto_validate=account_data.get("auto_validate", False)
+        )
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Account created successfully",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        print(f"[ERROR] Failed to create account: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/accounts/{account_id}")
+async def get_account(account_id: str):
+    """获取实盘账号详情"""
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.get_account_by_uuid(account_id)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "success",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=404, detail=result.get("message", "Account not found"))
+
+    except Exception as e:
+        print(f"[ERROR] Failed to get account {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/v1/accounts/{account_id}")
+async def update_account(account_id: str, account_data: Dict):
+    """更新实盘账号信息"""
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.update_account(
+            account_uuid=account_id,
+            name=account_data.get("name"),
+            api_key=account_data.get("api_key"),
+            api_secret=account_data.get("api_secret"),
+            passphrase=account_data.get("passphrase"),
+            description=account_data.get("description")
+        )
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Account updated successfully",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        print(f"[ERROR] Failed to update account {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/v1/accounts/{account_id}")
+async def delete_account(account_id: str):
+    """删除实盘账号（软删除）"""
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.delete_account(account_id)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Account deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=result.get("message", "Account not found"))
+
+    except Exception as e:
+        print(f"[ERROR] Failed to delete account {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/accounts/{account_id}/validate")
+async def validate_account(account_id: str):
+    """验证实盘账号API凭证"""
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.validate_account(account_id)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Validation successful",
+                "data": {
+                    "valid": result.get("valid", False),
+                    "message": result.get("message", ""),
+                    "account_info": result.get("account_info")
+                }
+            }
+        else:
+            # 验证失败也返回200，但valid=false
+            return {
+                "code": 0,
+                "message": result.get("message", "Validation failed"),
+                "data": {
+                    "valid": False,
+                    "error": result.get("message", "")
+                }
+            }
+
+    except Exception as e:
+        print(f"[ERROR] Failed to validate account {account_id}: {e}")
+        return {
+            "code": 0,
+            "message": "Validation error",
+            "data": {
+                "valid": False,
+                "error": str(e)
+            }
+        }
+
+
+@app.get("/api/v1/accounts/{account_id}/balance")
+async def get_account_balance(account_id: str):
+    """获取账户余额信息"""
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.get_account_balance(account_id)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Balance retrieved successfully",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        print(f"[ERROR] Failed to get account balance {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/v1/accounts/{account_id}/status")
+async def update_account_status(account_id: str, status_data: Dict):
+    """更新账号状态"""
+    try:
+        from ginkgo.data.containers import container
+
+        status = status_data.get("status")
+        if not status:
+            raise HTTPException(status_code=400, detail="status is required")
+
+        service = container.live_account_service()
+        result = service.update_account_status(account_id, status)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Account status updated successfully",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        print(f"[ERROR] Failed to update account status {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ========== 启动入口 ==========
