@@ -159,6 +159,7 @@ class SOURCE_TYPES(EnumBase):
     LIVE = 16
     BROKERMATCHMAKING = 17
     MANUAL = 18
+    OKX = 19  # OKX 交易所
 
 
 class DIRECTION_TYPES(EnumBase):
