@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 /**
  * 核心请求封装 - 统一 axios 配置和拦截器

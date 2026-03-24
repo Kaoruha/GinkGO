@@ -11,7 +11,7 @@
 ```typescript
 import { useRequestCancelable } from '@/composables/useRequestCancelable'
 import * as portfolioApi from '@/api/modules/portfolio'
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 const { loading, error, execute, cancel } = useRequestCancelable()
 
@@ -46,7 +46,7 @@ async function loadData() {
 import { ref, onMounted } from 'vue'
 import { useRequestCancelable } from '@/composables/useRequestCancelable'
 import * as portfolioApi from '@/api/modules/portfolio'
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 const portfolios = ref([])
 
@@ -242,7 +242,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 import { ref, onMounted, watch } from 'vue'
 import { useRequestCancelable } from '@/composables/useRequestCancelable'
 import { portfolioApi } from '@/api/modules/portfolio'
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 const portfolios = ref([])
 const filterMode = ref('')

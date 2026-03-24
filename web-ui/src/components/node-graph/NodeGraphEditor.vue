@@ -2,68 +2,82 @@
   <div class="node-graph-editor">
     <!-- Custom -->
     <div class="toolbar">
-      <a-button-group>
-        <a-button
-          :loading="validating"
+      <div class="btn-group">
+        <button
+          class="btn-primary"
+          :disabled="validating"
           @click="validateGraph"
         >
-          <template #icon>
-            <CheckOutlined />
-          </template>
+          <svg v-if="!validating" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+          </svg>
           验证
-        </a-button>
-        <a-button
+        </button>
+        <button
+          class="btn-secondary"
           :disabled="!isValid"
           @click="saveGraph"
         >
-          <template #icon>
-            <SaveOutlined />
-          </template>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
           保存
-        </a-button>
-        <a-button
+        </button>
+        <button
+          class="btn-secondary"
           :disabled="!isValid"
           @click="compileGraph"
         >
-          <template #icon>
-            <CodeOutlined />
-          </template>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
           编译
-        </a-button>
-        <a-button
-          type="primary"
+        </button>
+        <button
+          class="btn-primary"
           :disabled="!compiledConfig"
           @click="createBacktest"
         >
-          <template #icon>
-            <PlayCircleOutlined />
-          </template>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+          </svg>
           创建回测任务
-        </a-button>
-      </a-button-group>
+        </button>
+      </div>
 
-      <div class="toolbar-spacer" />
+      <div class="toolbar-spacer"></div>
 
-      <a-button-group>
-        <a-button
+      <div class="btn-group">
+        <button
+          class="btn-secondary"
           :disabled="!canUndo"
           @click="undo"
         >
-          <template #icon>
-            <UndoOutlined />
-          </template>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7v6h6"></path>
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+          </svg>
           撤销
-        </a-button>
-        <a-button
+        </button>
+        <button
+          class="btn-secondary"
           :disabled="!canRedo"
           @click="redo"
         >
-          <template #icon>
-            <RedoOutlined />
-          </template>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 7v6h-6"></path>
+            <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+          </svg>
           重做
-        </a-button>
-      </a-button-group>
+        </button>
+      </div>
     </div>
 
     <!-- Custom -->
@@ -114,40 +128,36 @@
     </div>
 
     <!-- Custom -->
-    <a-modal
-      v-model:open="compileModalVisible"
-      title="编译结果"
-      width="800px"
-      :footer="null"
+    <div
+      v-if="compileModalVisible"
+      class="modal-overlay"
+      @click.self="compileModalVisible = false"
     >
-      <pre class="compile-preview">{{ JSON.stringify(compiledConfig, null, 2) }}</pre>
-      <template #footer>
-        <a-button @click="compileModalVisible = false">
-          关闭
-        </a-button>
-        <a-button
-          v-if="compiledConfig"
-          type="primary"
-          @click="createBacktest"
-        >
-          创建回测任务
-        </a-button>
-      </template>
-    </a-modal>
+      <div class="modal">
+        <div class="modal-header">
+          <h3>编译结果</h3>
+          <button class="modal-close" @click="compileModalVisible = false">×</button>
+        </div>
+        <div class="modal-body">
+          <pre class="compile-preview">{{ JSON.stringify(compiledConfig, null, 2) }}</pre>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" @click="compileModalVisible = false">关闭</button>
+          <button
+            v-if="compiledConfig"
+            class="btn-primary"
+            @click="createBacktest"
+          >
+            创建回测任务
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { message } from 'ant-design-vue'
-import {
-  CheckOutlined,
-  SaveOutlined,
-  CodeOutlined,
-  PlayCircleOutlined,
-  UndoOutlined,
-  RedoOutlined,
-} from '@ant-design/icons-vue'
 import NodeGraphCanvas from './NodeGraphCanvas.vue'
 import NodePalette from './NodePalette.vue'
 import NodePropertyPanel from './NodePropertyPanel.vue'
@@ -162,6 +172,11 @@ import {
 } from './types'
 import { useNodeGraph } from '@/composables/useNodeGraph'
 import { nodeGraphApi } from '@/api/modules/nodeGraph'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -249,9 +264,9 @@ const validateGraph = async () => {
     // 前端验证逻辑在 useNodeGraph 中实现
     const result = validateGraphInternal()
     if (result.is_valid) {
-      message.success('节点图配置有效')
+      showToast('节点图配置有效')
     } else {
-      message.warning(`发现 ${result.errors.length} 个错误`)
+      showToast(`发现 ${result.errors.length} 个错误`, 'warning')
     }
   } finally {
     validating.value = false
@@ -270,9 +285,9 @@ const saveGraph = async () => {
     if (response.data) {
       emit('update:graphUuid', response.data.uuid)
     }
-    message.success('节点图已保存')
+    showToast('节点图已保存')
   } catch (error: any) {
-    message.error(`保存失败: ${error.message}`)
+    showToast(`保存失败: ${error.message}`, 'error')
   }
 }
 
@@ -302,9 +317,9 @@ const compileGraph = async () => {
     })
     compiledConfig.value = response.data.backtest_config
     compileModalVisible.value = true
-    message.success('编译成功')
+    showToast('编译成功')
   } catch (error: any) {
-    message.error(`编译失败: ${error.message}`)
+    showToast(`编译失败: ${error.message}`, 'error')
   }
 }
 
@@ -322,93 +337,229 @@ const createBacktest = async () => {
     const response = await backtestApi.create(compiledConfig.value)
     const backtestUuid = response.data.uuid
 
-    message.success(`回测任务创建成功: ${backtestUuid}`)
+    showToast(`回测任务创建成功: ${backtestUuid}`)
     compileModalVisible.value = false
 
     // 跳转到回测详情页
     // TODO: 使用router跳转到详情页
     window.location.href = `/backtest/${backtestUuid}`
   } catch (error: any) {
-    message.error(`创建回测任务失败: ${error.message}`)
+    showToast(`创建回测任务失败: ${error.message}`, 'error')
   }
 }
 </script>
 
-<style scoped lang="less">
+<style scoped>
 .node-graph-editor {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f5f5;
+  background: #0f0f1a;
+}
 
-  .toolbar {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #fff;
-    border-bottom: 1px solid #e8e8e8;
-    gap: 12px;
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2a2a3e;
+}
 
-    .toolbar-spacer {
-      flex: 1;
-    }
-  }
+.toolbar-spacer {
+  flex: 1;
+}
 
-  .editor-content {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
+.btn-group {
+  display: flex;
+  gap: 4px;
+}
 
-    .node-palette {
-      width: 220px;
-      background: #fff;
-      border-right: 1px solid #e8e8e8;
-      overflow-y: auto;
-    }
+.btn-group button {
+  border-radius: 0;
+}
 
-    .canvas-container {
-      flex: 1;
-      position: relative;
-      background: #fafafa;
-    }
+.btn-group button:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
 
-    .property-panel {
-      width: 320px;
-      background: #fff;
-      border-left: 1px solid #e8e8e8;
-      overflow-y: auto;
+.btn-group button:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
 
-      .empty-hint {
-        padding: 40px 20px;
-        text-align: center;
-        color: #999;
-      }
-    }
-  }
+.editor-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
 
-  .validation-panel {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    max-height: 200px;
-    background: #fff;
-    border-top: 1px solid #e8e8e8;
-    transform: translateY(100%);
-    transition: transform 0.3s ease;
-    z-index: 100;
+.node-palette {
+  width: 220px;
+  background: #1a1a2e;
+  border-right: 1px solid #2a2a3e;
+  overflow-y: auto;
+}
 
-    &.show {
-      transform: translateY(0);
-    }
-  }
+.canvas-container {
+  flex: 1;
+  position: relative;
+  background: #0f0f1a;
+}
 
-  .compile-preview {
-    background: #f5f5f5;
-    padding: 16px;
-    border-radius: 4px;
-    max-height: 400px;
-    overflow: auto;
-  }
+.property-panel {
+  width: 320px;
+  background: #1a1a2e;
+  border-left: 1px solid #2a2a3e;
+  overflow-y: auto;
+}
+
+.property-panel .empty-hint {
+  padding: 40px 20px;
+  text-align: center;
+  color: #8a8a9a;
+}
+
+.validation-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  background: #1a1a2e;
+  border-top: 1px solid #2a2a3e;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 100;
+}
+
+.validation-panel.show {
+  transform: translateY(0);
+}
+
+.compile-preview {
+  background: #0f0f1a;
+  padding: 16px;
+  border-radius: 6px;
+  max-height: 400px;
+  overflow: auto;
+  color: #a0d911;
+  font-size: 12px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1890ff;
+  border: 1px solid #1890ff;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.modal-close {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #2a2a3e;
 }
 </style>

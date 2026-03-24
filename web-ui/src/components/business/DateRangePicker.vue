@@ -1,51 +1,51 @@
 <template>
   <div class="date-range-picker">
-    <a-card title="选择日期范围" size="small">
-      <!-- Custom -->
-      <div class="quick-select">
-        <a-space>
-          <a-button size="small" @click="setRange('recent1M')">最近1月</a-button>
-          <a-button size="small" @click="setRange('recent3M')">最近3月</a-button>
-          <a-button size="small" @click="setRange('ytd')">今年</a-button>
-          <a-button size="small" @click="setRange('lastYear')">去年</a-button>
-          <a-button size="small" @click="setRange('all')">全部</a-button>
-        </a-space>
+    <div class="card">
+      <div class="card-header">
+        <h4>选择日期范围</h4>
       </div>
+      <div class="card-body">
+        <!-- 快捷选择 -->
+        <div class="quick-select">
+          <div class="btn-group">
+            <button class="btn-small" @click="setRange('recent1M')">最近1月</button>
+            <button class="btn-small" @click="setRange('recent3M')">最近3月</button>
+            <button class="btn-small" @click="setRange('ytd')">今年</button>
+            <button class="btn-small" @click="setRange('lastYear')">去年</button>
+            <button class="btn-small" @click="setRange('all')">全部</button>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <a-divider />
+        <div class="divider"></div>
 
-      <a-form layout="inline">
-        <a-form-item label="开始日期">
-          <a-date-picker
-            v-model:value="startDate"
-            placeholder="选择开始日期"
-            format="YYYY-MM-DD"
-          />
-        </a-form-item>
-        <a-form-item label="结束日期">
-          <a-date-picker
-            v-model:value="endDate"
-            placeholder="选择结束日期"
-            format="YYYY-MM-DD"
-          />
-        </a-form-item>
-        <a-form-item>
-          <a-button type="primary" @click="handleConfirm" :disabled="!canConfirm">
-            确定
-          </a-button>
-          <a-button @click="handleCancel">
-            取消
-          </a-button>
-        </a-form-item>
-      </a-form>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">开始日期</label>
+            <input v-model="startDate" type="date" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">结束日期</label>
+            <input v-model="endDate" type="date" class="form-input" />
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <div v-if="startDate && endDate" class="range-stats">
-        <a-statistic title="天数" :value="daysCount" />
-        <a-statistic title="周数" :value="weeksCount" />
+        <div class="form-actions">
+          <button class="btn-primary" :disabled="!canConfirm" @click="handleConfirm">确定</button>
+          <button class="btn-secondary" @click="handleCancel">取消</button>
+        </div>
+
+        <div v-if="startDate && endDate" class="range-stats">
+          <div class="stat-item">
+            <span class="stat-label">天数</span>
+            <span class="stat-value">{{ daysCount }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">周数</span>
+            <span class="stat-value">{{ weeksCount }}</span>
+          </div>
+        </div>
       </div>
-    </a-card>
+    </div>
   </div>
 </template>
 
@@ -55,7 +55,7 @@ import dayjs from 'dayjs'
 
 /**
  * 日期范围选择器组件
- * 提供快捷选择和腊定义范围功能
+ * 提供快捷选择和自定义范围功能
  */
 
 interface Props {
@@ -143,13 +143,153 @@ const handleCancel = () => {
   width: 400px;
 }
 
-.quick-select {
-  margin-bottom: 12px;
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small:hover {
+  background: #3a3a4e;
+  border-color: #1890ff;
+}
+
+.divider {
+  height: 1px;
+  background: #2a2a3e;
+  margin: 16px 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  flex: 1;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
 }
 
 .range-stats {
-  margin-top: 16px;
   display: flex;
-  gap: 16px;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #2a2a3e;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
 }
 </style>

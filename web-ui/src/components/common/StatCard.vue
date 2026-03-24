@@ -1,10 +1,13 @@
 <template>
-  <a-card class="stat-card" :class="{ 'stat-card-clickable': clickable }">
-    <a-statistic :title="title" :value="displayValue" :suffix="suffix" :prefix="prefix" :value-style="valueStyle">
-      <template v-if="$slots.prefix" #prefix><slot name="prefix" /></template>
-      <template v-if="$slots.suffix" #suffix><slot name="suffix" /></template>
-    </a-statistic>
-  </a-card>
+  <div class="stat-card" :class="{ 'stat-card-clickable': clickable }">
+    <div class="stat-title">{{ title }}</div>
+    <div class="stat-value" :style="valueStyle">
+      <span v-if="$slots.prefix" class="stat-prefix"><slot name="prefix" /></span>
+      <span class="stat-number">{{ displayValue }}</span>
+      <span v-if="computedSuffix" class="stat-suffix">{{ computedSuffix }}</span>
+      <span v-if="suffix" class="stat-suffix"><slot name="suffix" /></span>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -15,7 +18,6 @@ const props = withDefaults(defineProps<{
   value: number | string | null | undefined
   type?: 'number' | 'percent' | 'money' | 'decimal'
   decimals?: number
-  prefix?: string
   suffix?: string
   color?: 'auto' | 'positive' | 'negative' | 'neutral'
   clickable?: boolean
@@ -47,7 +49,7 @@ const formatValue = (val: number | string | null | undefined): string | number =
 const displayValue = computed(() => formatValue(props.value))
 
 const computedSuffix = computed(() => {
-  if (props.suffix) return props.suffix
+  if (props.suffix) return undefined
   if (props.type === 'percent') return '%'
   return undefined
 })
@@ -57,7 +59,7 @@ const valueStyle = computed(() => {
     const colors: Record<string, string> = {
       positive: '#cf1322',
       negative: '#3f8600',
-      neutral: 'rgba(0, 0, 0, 0.85)',
+      neutral: '#ffffff',
     }
     return { color: colors[props.color] }
   }
@@ -68,19 +70,52 @@ const valueStyle = computed(() => {
 
   if (n > 0) return { color: '#cf1322' }
   if (n < 0) return { color: '#3f8600' }
-  return {}
+  return { color: '#ffffff' }
 })
 </script>
 
 <style scoped>
 .stat-card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  padding: 20px;
   height: 100%;
 }
+
 .stat-card-clickable {
   cursor: pointer;
   transition: box-shadow 0.2s;
 }
+
 .stat-card-clickable:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
+.stat-title {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 12px;
+}
+
+.stat-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+
+.stat-prefix {
+  font-size: 14px;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.stat-suffix {
+  font-size: 14px;
+  color: #8a8a9a;
 }
 </style>
