@@ -16,19 +16,18 @@ BaseTradeGateway基础类
 
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.trading.mixins.order_management_mixin import OrderManagementMixin
 from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
+from ginkgo.libs import GLOG
 
 
-class BaseTradeGateway(TimeMixin, ContextMixin, LoggableMixin, OrderManagementMixin, EngineBindableMixin):
+class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBindableMixin):
     """
     TradeGateway基础类
 
     通过Mixin组装提供TradeGateway的基础功能：
     - TimeMixin: 时间管理和业务时间戳处理
     - ContextMixin: 引擎上下文管理
-    - LoggableMixin: 统一日志记录
     - OrderManagementMixin: 内存订单管理
 
     子类继承后只需要专注于具体的路由逻辑。
@@ -44,14 +43,13 @@ class BaseTradeGateway(TimeMixin, ContextMixin, LoggableMixin, OrderManagementMi
         # 按照Mixin依赖顺序初始化
         TimeMixin.__init__(self)
         ContextMixin.__init__(self)
-        LoggableMixin.__init__(self)
         OrderManagementMixin.__init__(self)
 
         # 设置名称
         self._gateway_name = name
 
         # 记录初始化完成
-        self.log("INFO", f"{self._gateway_name} initialized")
+        GLOG.INFO(f"{self._gateway_name} initialized")
 
     @property
     def name(self) -> str:

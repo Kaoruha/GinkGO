@@ -95,8 +95,7 @@ class PortfolioManagementService:
             portfolio.set_portfolio_id(portfolio_id)
             
             if logger:
-                portfolio.add_logger(logger)
-            
+
             # Store in active portfolios
             self._active_portfolios[portfolio_id] = {
                 'instance': portfolio,
@@ -170,7 +169,7 @@ class PortfolioManagementService:
             
             for strategy in strategies:
                 if logger:
-                    strategy.add_logger(logger)
+
                 portfolio.add_strategy(strategy)
             
             self._logger.DEBUG(f"Bound {len(strategies)} strategies to portfolio")
@@ -212,7 +211,7 @@ class PortfolioManagementService:
             # Use the first sizer (typically only one per portfolio)
             sizer = sizers[0]
             if logger:
-                sizer.add_logger(logger)
+
             portfolio.bind_sizer(sizer)
             
             self._logger.DEBUG("Bound sizer to portfolio")
@@ -234,7 +233,7 @@ class PortfolioManagementService:
             
             for risk_manager in risk_managers:
                 if logger:
-                    risk_manager.add_logger(logger)
+
                 portfolio.add_risk_manager(risk_manager)
             
             self._logger.DEBUG(f"Bound {len(risk_managers)} risk managers to portfolio")
@@ -255,7 +254,7 @@ class PortfolioManagementService:
             
             for analyzer in analyzers:
                 if logger:
-                    analyzer.add_logger(logger)
+
                 portfolio.add_analyzer(analyzer)
             
             self._logger.DEBUG(f"Bound {len(analyzers)} analyzers to portfolio")

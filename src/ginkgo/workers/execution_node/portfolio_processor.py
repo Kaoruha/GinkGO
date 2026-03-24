@@ -110,12 +110,14 @@ class PortfolioProcessor(Thread):
         # Kafka控制命令消费者（订阅ginkgo.live.control.commands）
         self._control_consumer: Optional[GinkgoConsumer] = None
 
-        print(f"PortfolioProcessor {self.portfolio_id}: initialized")
+        # 设置日志分类
+        GLOG.set_log_category("component")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: initialized")
 
     def start(self):
         """启动Portfolio处理器"""
         if self.is_running:
-            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is already running")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is already running")
             return
 
         # 初始化Kafka控制命令消费者
@@ -126,16 +128,16 @@ class PortfolioProcessor(Thread):
                 group_id=f"portfolio_processor_{self.portfolio_id}"
             )
             self._control_consumer.subscribe([KafkaTopics.CONTROL_COMMANDS])
-            print(f"PortfolioProcessor {self.portfolio_id}: subscribed to {KafkaTopics.CONTROL_COMMANDS}")
+            GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: subscribed to {KafkaTopics.CONTROL_COMMANDS}")
         except Exception as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to subscribe to control commands: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to subscribe to control commands: {e}")
             # 即使Kafka订阅失败，也允许启动（控制命令功能将不可用）
 
         self.is_running = True
         self.is_active = True
         self.state = PortfolioState.RUNNING
         super().start()
-        print(f"PortfolioProcessor {self.portfolio_id}: started")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: started")
 
     def graceful_stop(self, timeout: float = 30.0):
         """
@@ -151,36 +153,36 @@ class PortfolioProcessor(Thread):
         4. 停止主循环
         """
         if not self.is_running:
-            print(f"[WARNING] PortfolioProcessor {self.portfolio_id} is not running")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is not running")
             return False
 
-        print(f"[INFO] Gracefully stopping PortfolioProcessor {self.portfolio_id}...")
+        GLOG.INFO(f"Gracefully stopping PortfolioProcessor {self.portfolio_id}...")
 
         # 1. 设置状态为STOPPING
         self.state = PortfolioState.STOPPING
-        print(f"[INFO] PortfolioProcessor {self.portfolio_id}: state = STOPPING")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: state = STOPPING")
 
         # 2. 等待input_queue清空（带超时）
         import time
         start_time = time.time()
         while self.input_queue.qsize() > 0:
             if time.time() - start_time > timeout:
-                print(f"[WARNING] PortfolioProcessor {self.portfolio_id}: timeout waiting for queue to empty, size={self.input_queue.qsize()}")
+                GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: timeout waiting for queue to empty, size={self.input_queue.qsize()}")
                 break
             time.sleep(0.1)
 
         remaining = self.input_queue.qsize()
         if remaining > 0:
-            print(f"[WARNING] PortfolioProcessor {self.portfolio_id}: {remaining} events remain in queue")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: {remaining} events remain in queue")
         else:
-            print(f"[INFO] PortfolioProcessor {self.portfolio_id}: queue empty")
+            GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: queue empty")
 
         # 3. 保存Portfolio状态到数据库
         try:
             self.save_state()
-            print(f"[INFO] PortfolioProcessor {self.portfolio_id}: state saved to database")
+            GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: state saved to database")
         except Exception as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to save state: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to save state: {e}")
             return False
 
         # 4. 停止主循环
@@ -190,7 +192,7 @@ class PortfolioProcessor(Thread):
 
         # 注意：不在这里 join，由 ExecutionNode 负责等待线程结束
 
-        print(f"[INFO] PortfolioProcessor {self.portfolio_id}: gracefully stopped")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: gracefully stopped")
         return True
 
     def save_state(self):
@@ -206,7 +208,7 @@ class PortfolioProcessor(Thread):
             if not success:
                 raise Exception("sync_state_to_db failed")
         else:
-            print(f"[WARN] Portfolio {self.portfolio_id} does not support state persistence")
+            GLOG.WARN(f"Portfolio {self.portfolio_id} does not support state persistence")
 
     def load_state(self):
         """
@@ -219,7 +221,7 @@ class PortfolioProcessor(Thread):
         # 1. 从数据库读取最新持仓状态
         # 2. 恢复Portfolio的cash、positions等
         # 3. 恢复Portfolio的时间戳
-        print(f"[WARN] PortfolioProcessor {self.portfolio_id}: load_state not implemented yet")
+        GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: load_state not implemented yet")
 
     def stop(self):
         """
@@ -228,18 +230,18 @@ class PortfolioProcessor(Thread):
         注意：如需优雅停止（处理完队列中消息），请使用graceful_stop()
         """
         if not self.is_running:
-            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is not running")
             return
 
-        print(f"Stopping PortfolioProcessor {self.portfolio_id}...")
+        GLOG.INFO(f"Stopping PortfolioProcessor {self.portfolio_id}...")
 
         # 关闭Kafka控制命令消费者
         if self._control_consumer:
             try:
                 self._control_consumer.close()
-                print(f"PortfolioProcessor {self.portfolio_id}: control consumer closed")
+                GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: control consumer closed")
             except Exception as e:
-                print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to close control consumer: {e}")
+                GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to close control consumer: {e}")
 
         self.is_running = False
         self.is_active = False
@@ -255,11 +257,11 @@ class PortfolioProcessor(Thread):
         Portfolio保持状态，可以随时恢复
         """
         if not self.is_running:
-            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is not running")
             return
 
         self.is_paused = True
-        print(f"PortfolioProcessor {self.portfolio_id}: paused")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: paused")
 
     def resume(self):
         """
@@ -268,11 +270,11 @@ class PortfolioProcessor(Thread):
         恢复后，继续从input_queue获取并处理事件
         """
         if not self.is_running:
-            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is not running")
             return
 
         self.is_paused = False
-        print(f"PortfolioProcessor {self.portfolio_id}: resumed")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: resumed")
 
     def run(self):
         """
@@ -294,7 +296,7 @@ class PortfolioProcessor(Thread):
         )
         from ginkgo.trading.events.signal_generation import EventSignalGeneration
 
-        print(f"PortfolioProcessor {self.portfolio_id}: main loop started")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: main loop started")
 
         while self.is_running:
             try:
@@ -323,11 +325,11 @@ class PortfolioProcessor(Thread):
             except Exception as e:
                 # 捕获异常，记录错误但不中断循环
                 self.error_count += 1
-                print(f"[ERROR] PortfolioProcessor {self.portfolio_id} error: {e}")
+                GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id} error: {e}")
                 continue
 
-        print(f"PortfolioProcessor {self.portfolio_id}: main loop stopped")
-        print(f"PortfolioProcessor {self.portfolio_id}: processed {self.processed_count} events, {self.error_count} errors")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: main loop stopped")
+        GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: processed {self.processed_count} events, {self.error_count} errors")
 
     def _route_event(self, event):
         """
@@ -360,10 +362,10 @@ class PortfolioProcessor(Thread):
                 if hasattr(self.portfolio, 'on_event'):
                     result = self.portfolio.on_event(event)
                 else:
-                    print(f"[WARNING] PortfolioProcessor {self.portfolio_id}: unhandled event type {type(event).__name__}")
+                    GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: unhandled event type {type(event).__name__}")
 
         except Exception as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to route event {type(event).__name__}: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to route event {type(event).__name__}: {e}")
 
         # 将返回值转发到output_queue（如果不为None）
         if result is not None:
@@ -376,10 +378,10 @@ class PortfolioProcessor(Thread):
                 for evt in result:
                     if evt is not None:
                         self.output_queue.put(evt, block=False)
-                        print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: event {type(evt).__name__} sent to output_queue")
+                        GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: event {type(evt).__name__} sent to output_queue")
 
             except Exception as e:
-                print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to put event to output_queue: {e}")
+                GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to put event to output_queue: {e}")
 
     # ========== 状态查询方法 ==========
 
@@ -438,10 +440,10 @@ class PortfolioProcessor(Thread):
         try:
             # 非阻塞放入output_queue
             self.output_queue.put(event, block=False)
-            print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: Portfolio event {type(event).__name__} sent to output_queue")
+            GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: Portfolio event {type(event).__name__} sent to output_queue")
         except Exception as e:
             # Queue满时记录警告，但不抛异常（避免中断Portfolio）
-            print(f"[WARN] PortfolioProcessor {self.portfolio_id}: failed to put Portfolio event to output_queue: {e}")
+            GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: failed to put Portfolio event to output_queue: {e}")
 
     # ========== Kafka控制命令处理 ==========
 
@@ -465,15 +467,17 @@ class PortfolioProcessor(Thread):
                         # 解析Kafka消息
                         self._handle_control_command(record.value)
                     except Exception as e:
-                        print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to handle control command: {e}")
+                        GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to handle control command: {e}")
 
         except Exception as e:
             # Kafka消费异常不中断主循环
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: Kafka poll error: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: Kafka poll error: {e}")
 
     def _handle_control_command(self, message: bytes) -> None:
         """
         处理控制命令
+
+        T070: 恢复 trace_id 和 span_id 到 GLOG 上下文，用于分布式追踪
 
         解析Kafka消息中的ControlCommandDTO，根据命令类型路由到对应处理方法。
 
@@ -494,23 +498,32 @@ class PortfolioProcessor(Thread):
             # 使用ControlCommandDTO解析
             command_dto = ControlCommandDTO(**command_data)
 
+            # T070: 恢复分布式追踪上下文到 GLOG
+            if command_dto.trace_id:
+                GLOG.set_trace_id(command_dto.trace_id)
+            if command_dto.span_id:
+                GLOG.set_span_id(command_dto.span_id)
+
+            # 现在所有后续日志都会带有 trace_id 和 span_id
+            GLOG.INFO(f"[PortfolioProcessor {self.portfolio_id}] 接收到控制命令: {command_dto.command}, trace_id={command_dto.trace_id}")
+
             # 路由命令到对应处理方法
             if command_dto.command == ControlCommandDTO.Commands.UPDATE_SELECTOR:
-                print(f"PortfolioProcessor {self.portfolio_id}: received update_selector command")
+                GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: received update_selector command")
                 self._update_selectors()
             elif command_dto.command == ControlCommandDTO.Commands.BAR_SNAPSHOT:
                 # bar_snapshot由DataManager处理，PortfolioProcessor忽略
-                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: ignoring bar_snapshot command (handled by DataManager)")
+                GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: ignoring bar_snapshot command (handled by DataManager)")
             elif command_dto.command == ControlCommandDTO.Commands.UPDATE_DATA:
                 # update_data由DataManager处理，PortfolioProcessor忽略
-                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: ignoring update_data command (handled by DataManager)")
+                GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: ignoring update_data command (handled by DataManager)")
             else:
-                print(f"[WARN] PortfolioProcessor {self.portfolio_id}: unknown command type: {command_dto.command}")
+                GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: unknown command type: {command_dto.command}")
 
         except json.JSONDecodeError as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: invalid JSON in control command: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: invalid JSON in control command: {e}")
         except Exception as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to parse control command: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to parse control command: {e}")
 
     def _update_selectors(self) -> None:
         """
@@ -544,14 +557,14 @@ class PortfolioProcessor(Thread):
 
                         if codes:
                             all_codes.extend(codes)
-                            print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__} picked {len(codes)} codes")
+                            GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__} picked {len(codes)} codes")
 
                     except Exception as e:
                         # selector异常不中断整体流程
-                        print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__}.pick() failed: {e}")
+                        GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__}.pick() failed: {e}")
                         continue
             else:
-                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: no selectors configured")
+                GLOG.DEBUG(f"PortfolioProcessor {self.portfolio_id}: no selectors configured")
 
             # 去重
             all_codes = list(dict.fromkeys(all_codes))
@@ -565,7 +578,7 @@ class PortfolioProcessor(Thread):
 
             # 发布到output_queue（由ExecutionNode转发到Kafka）
             self.output_queue.put(event, block=False)
-            print(f"PortfolioProcessor {self.portfolio_id}: EventInterestUpdate published with {len(all_codes)} codes")
+            GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: EventInterestUpdate published with {len(all_codes)} codes")
 
         except Exception as e:
-            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: _update_selectors failed: {e}")
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: _update_selectors failed: {e}")

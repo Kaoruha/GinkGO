@@ -159,7 +159,75 @@ portfolio.add_risk_manager(LossLimitRisk(loss_limit=10.0))  # 10%止损
 portfolio.add_risk_manager(ProfitLimitRisk(profit_limit=20.0))  # 20%止盈
 ```
 
-## 数据库设计约定
+## 分布式日志系统
+
+### 架构概述
+- **GLOG**: 基于 structlog 的结构化日志，支持 JSON 格式和 Rich 控制台
+- **三表存储**: ClickHouse 分别存储 backtest/component/performance 日志
+- **Vector 采集**: 文件日志采集并路由到 ClickHouse
+- **追踪支持**: trace_id/span_id 实现分布式链路追踪
+
+### 日志服务访问
+```python
+from ginkgo import services
+
+# 访问日志查询服务
+log_service = services.logging.log_service()
+
+# 查询回测日志
+logs = log_service.query_backtest_logs(
+    portfolio_id="portfolio-001",
+    level="ERROR",
+    limit=50
+)
+
+# 按 trace_id 跨表查询
+trace_logs = log_service.query_by_trace_id("trace-123")
+
+# 错误统计
+stats = log_service.get_error_stats(portfolio_id="portfolio-001", hours=24)
+```
+
+### 动态日志级别管理
+```bash
+# 查看白名单
+ginkgo logging whitelist
+
+# 设置模块日志级别
+ginkgo logging set-level backtest DEBUG
+
+# 查看所有级别
+ginkgo logging get-level
+
+# 重置为默认值
+ginkgo logging reset-level
+```
+
+### GLOG 追踪上下文
+```python
+from ginkgo.libs import GLOG
+
+# 设置追踪 ID
+GLOG.set_trace_id("trace-123")
+
+# 绑定业务上下文
+GLOG.bind_context(
+    portfolio_id=portfolio.uuid,
+    strategy_id=strategy.uuid
+)
+
+# 记录日志（自动包含 trace_id 和业务字段）
+GLOG.INFO("回测任务启动")
+
+# 使用 span_id 标记子操作
+with GLOG.with_span_id("span-456"):
+    GLOG.DEBUG("计算信号中...")
+
+# 清除上下文
+GLOG.clear_context()
+```
+
+### 数据库设计约定
 
 ### 模型命名约定
 - **`MBar`** - K线数据模型 (ClickHouse存储)

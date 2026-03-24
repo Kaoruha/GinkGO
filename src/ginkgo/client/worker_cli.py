@@ -8,6 +8,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+from ginkgo.libs import GLOG
+
 app = typer.Typer(help=":gear: Worker management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -33,7 +35,7 @@ def data_run(
         from ginkgo.libs.core.logger import GinkgoLogger
 
         if debug:
-            print("Starting worker in debug mode...")
+            GLOG.DEBUG("Starting worker in debug mode...")
 
         # 创建ThreadManager实例
         gtm = GinkgoThreadManager()

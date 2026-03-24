@@ -36,6 +36,7 @@ class BacktestProcessor(Thread):
             worker_id: 所属Worker ID
             progress_tracker: 进度上报器
         """
+        GLOG.set_log_category("component")
         super().__init__(daemon=True)
         self.task = task
         self.worker_id = worker_id
@@ -57,7 +58,7 @@ class BacktestProcessor(Thread):
         self.task.worker_id = self.worker_id
 
         try:
-            print(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
 
             # 阶段1: 数据准备
             self.task.state = BacktestTaskState.DATA_PREPARING
@@ -100,13 +101,13 @@ class BacktestProcessor(Thread):
             self.task.result = self._result
 
             self.progress_tracker.report_completed(self.task, self._result)
-            print(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
         except InterruptedError:
             self.task.state = BacktestTaskState.CANCELLED
             self.task.completed_at = datetime.utcnow()
             self.progress_tracker.report_cancelled(self.task)
-            print(f"[{self.task.task_uuid[:8]}] Backtest cancelled")
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest cancelled")
 
         except Exception as e:
             self._exception = e
@@ -115,9 +116,9 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
 
             self.progress_tracker.report_failed(self.task, str(e))
-            print(f"[{self.task.task_uuid[:8]}] Backtest failed: {e}")
+            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Backtest failed: {e}")
             import traceback
-            print(traceback.format_exc())
+            GLOG.ERROR(traceback.format_exc())
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """
@@ -132,24 +133,24 @@ class BacktestProcessor(Thread):
         # 获取引擎的主线程
         main_thread = getattr(self._engine, '_main_thread', None)
         if main_thread is None:
-            print(f"[{self.task.task_uuid[:8]}] Engine has no main thread, skipping wait")
+            GLOG.WARN(f"[{self.task.task_uuid[:8]}] Engine has no main thread, skipping wait")
             return
 
         # 检查线程是否已启动
         if not main_thread.is_alive():
-            print(f"[{self.task.task_uuid[:8]}] Engine main thread already completed")
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine main thread already completed")
             return
 
         # 等待线程完成
-        print(f"[{self.task.task_uuid[:8]}] Waiting for engine to complete...")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Waiting for engine to complete...")
         main_thread.join(timeout=timeout)
 
         if main_thread.is_alive():
-            print(f"[{self.task.task_uuid[:8]}] Engine did not complete within {timeout}s, forcing stop")
+            GLOG.WARN(f"[{self.task.task_uuid[:8]}] Engine did not complete within {timeout}s, forcing stop")
             self._engine.stop()
             main_thread.join(timeout=10.0)
         else:
-            print(f"[{self.task.task_uuid[:8]}] Engine completed successfully")
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine completed successfully")
 
     def _assemble_engine(self) -> TimeControlledEventEngine:
         """
@@ -157,7 +158,7 @@ class BacktestProcessor(Thread):
 
         将 BacktestTask 转换为 EngineAssemblyService 需要的参数格式
         """
-        print(f"[{self.task.task_uuid[:8]}] Assembling backtest engine...")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembling backtest engine...")
 
         # 1. 构建引擎配置
         engine_data = {
@@ -208,7 +209,7 @@ class BacktestProcessor(Thread):
             error_msg = result.error or "Unknown error"
             raise RuntimeError(f"Engine assembly failed for {self.task.task_uuid[:8]}: {error_msg}")
 
-        print(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
         return result.data
 
     def _get_portfolio_config_and_components(self) -> tuple:
@@ -244,7 +245,7 @@ class BacktestProcessor(Thread):
                 f"Please bind at least one strategy to the portfolio before running backtest."
             )
 
-        print(f"[{self.task.task_uuid[:8]}] Loaded portfolio {self.task.portfolio_uuid} from database")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Loaded portfolio {self.task.portfolio_uuid} from database")
         return config, components
 
     def _extract_portfolio_config_from_db(self, portfolio_data) -> Dict[str, Any]:
@@ -270,7 +271,7 @@ class BacktestProcessor(Thread):
                 filters={"portfolio_id": self.task.portfolio_uuid, "is_del": False}
             )
             if not mappings:
-                print(f"[{self.task.task_uuid[:8]}] No file mappings found for portfolio {self.task.portfolio_uuid}")
+                GLOG.WARN(f"[{self.task.task_uuid[:8]}] No file mappings found for portfolio {self.task.portfolio_uuid}")
                 return None
 
             components = {
@@ -305,7 +306,7 @@ class BacktestProcessor(Thread):
                         if file_records and len(file_records) > 0:
                             component_name = file_records[0].name
                     except Exception as e:
-                        print(f"[{self.task.task_uuid[:8]}] Failed to get file name: {e}")
+                        GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Failed to get file name: {e}")
 
                     components[category].append({
                         "file_id": mapping.file_id,
@@ -314,13 +315,13 @@ class BacktestProcessor(Thread):
                         "type": component_type,  # 🔧 添加组件类型（engine_assembly_service 需要此字段）
                     })
 
-            print(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
                   f"sizers={len(components['sizers'])}, risk_managers={len(components['risk_managers'])}")
 
             return components
 
         except Exception as e:
-            print(f"[{self.task.task_uuid[:8]}] Failed to get portfolio components: {e}")
+            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Failed to get portfolio components: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -417,7 +418,7 @@ class BacktestProcessor(Thread):
             return result
 
         except Exception as e:
-            print(f"Failed to calculate result: {e}")
+            GLOG.ERROR(f"Failed to calculate result: {e}")
             return {
                 "task_uuid": self.task.task_uuid,
                 "total_return": 0.0,
@@ -470,21 +471,21 @@ class BacktestProcessor(Thread):
             )
 
             if result.is_success():
-                print(f"[{self.task.task_uuid[:8]}] Results aggregated and saved successfully")
+                GLOG.INFO(f"[{self.task.task_uuid[:8]}] Results aggregated and saved successfully")
                 # 更新本地结果
                 self._result.update(result.data.get("metrics", {}))
                 self._result.update(result.data.get("stats", {}))
             else:
-                print(f"[{self.task.task_uuid[:8]}] Failed to aggregate results: {result.error}")
+                GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Failed to aggregate results: {result.error}")
 
         except Exception as e:
-            print(f"[{self.task.task_uuid[:8]}] Error in result aggregation: {e}")
+            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Error in result aggregation: {e}")
             import traceback
             traceback.print_exc()
 
     def cancel(self):
         """取消任务"""
-        print(f"[{self.task.task_uuid[:8]}] Cancelling task...")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Cancelling task...")
         self._stop_event.set()
 
         if self._engine and hasattr(self._engine, 'stop'):

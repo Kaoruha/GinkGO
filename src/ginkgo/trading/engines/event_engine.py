@@ -38,7 +38,7 @@ from queue import Queue, Empty
 
 from ginkgo.trading.engines.base_engine import BaseEngine
 from ginkgo.enums import EXECUTION_MODE
-from ginkgo.libs import GCONF
+from ginkgo.libs import GCONF, GLOG
 from ginkgo.trading.core.status import EngineStatus, EventStats, QueueInfo
 
 
@@ -179,7 +179,7 @@ class EventEngine(BaseEngine):
         # 绑定数据馈送器（如果存在）
         if self._datafeeder is not None:
             portfolio.bind_data_feeder(self._datafeeder)
-            self.log("DEBUG", f"Data feeder bound to portfolio {portfolio.name}")
+            GLOG.DEBUG(f"Data feeder bound to portfolio {portfolio.name}")
 
     def run(self) -> None:
         """实现BaseEngine的抽象方法"""
@@ -205,17 +205,17 @@ class EventEngine(BaseEngine):
                 event = self._event_queue.get(timeout=1.0)  # 1秒超时
                 event_id = id(event)
                 order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
-                self.log("INFO", f"🔍 [EVENT ENGINE MAIN LOOP] Got event from queue: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+                GLOG.INFO(f"🔍 [EVENT ENGINE MAIN LOOP] Got event from queue: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
                 self._process(event)
-                self.log("INFO", f"🔍 [EVENT ENGINE MAIN LOOP] Event processing completed: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+                GLOG.INFO(f"🔍 [EVENT ENGINE MAIN LOOP] Event processing completed: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             except Empty:
                 # 队列为空，继续循环
                 continue
             except Exception as e:
-                self.log("ERROR", f"Error processing event: {e}")
+                GLOG.ERROR(f"Error processing event: {e}")
                 continue
 
-        self.log("INFO", "Main loop END.")
+        GLOG.INFO("Main loop END.")
 
     def timer_loop(self, *args, **kwargs) -> None:
         """
@@ -227,7 +227,7 @@ class EventEngine(BaseEngine):
             if self.is_active:  # 使用父类的 is_active 状态
                 [handler() for handler in self._timer_handlers]
             time.sleep(self._timer_interval)
-        self.log("INFO", "Timer loop END.")
+        GLOG.INFO("Timer loop END.")
 
     def enable_timer(self) -> bool:
         """
@@ -237,11 +237,11 @@ class EventEngine(BaseEngine):
             bool: 操作是否成功
         """
         if self._timer_thread_started:
-            self.log("WARN", "Timer is running, cannot enable/disable.")
+            GLOG.WARN("Timer is running, cannot enable/disable.")
             return False
 
         self._enable_timer = True
-        self.log("INFO", "Timer enabled.")
+        GLOG.INFO("Timer enabled.")
         return True
 
     def disable_timer(self) -> bool:
@@ -252,11 +252,11 @@ class EventEngine(BaseEngine):
             bool: 操作是否成功
         """
         if self._timer_thread_started:
-            self.log("WARN", "Timer is running, cannot enable/disable.")
+            GLOG.WARN("Timer is running, cannot enable/disable.")
             return False
 
         self._enable_timer = False
-        self.log("INFO", "Timer disabled.")
+        GLOG.INFO("Timer disabled.")
         return True
 
     def start(self):
@@ -270,30 +270,41 @@ class EventEngine(BaseEngine):
         self._pause_flag.clear()
 
         # 启动已存在的线程对象（每个线程只能启动一次）
-        self.log("INFO", f"🔍 Before thread start: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
+        GLOG.INFO(f"🔍 Before thread start: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
         if not self._main_thread_started and not self._main_thread.is_alive():
-            self.log("INFO", f"🔄 Clearing main_flag before thread start: {not self._main_flag.is_set()}")
+            GLOG.INFO(f"🔄 Clearing main_flag before thread start: {not self._main_flag.is_set()}")
             self._main_flag.clear()  # 确保清除标志
-            self.log("INFO", f"🚀 Starting main thread...")
+            GLOG.INFO(f"🚀 Starting main thread...")
             self._main_thread.start()
             self._main_thread_started = True
-            self.log("INFO", f"✅ Main thread started, main_flag cleared: {not self._main_flag.is_set()}")
+            GLOG.INFO(f"✅ Main thread started, main_flag cleared: {not self._main_flag.is_set()}")
 
             # 🔍 检查线程启动后main_flag状态
             import time
             time.sleep(0.01)  # 给线程一点启动时间
-            self.log("INFO", f"🔍 After thread start delay: main_flag.is_set()={self._main_flag.is_set()}")
+            GLOG.INFO(f"🔍 After thread start delay: main_flag.is_set()={self._main_flag.is_set()}")
         else:
-            self.log("INFO", f"⚠️ Thread not started: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
+            GLOG.INFO(f"⚠️ Thread not started: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
 
         # 根据开关状态决定是否启动定时器线程
         if self._enable_timer and not self._timer_thread_started and not self._timer_thread.is_alive():
             self._timer_flag.clear()
             self._timer_thread.start()
             self._timer_thread_started = True
-            self.log("INFO", f"Timer thread started for engine {self.name}.")
+            GLOG.INFO(f"Timer thread started for engine {self.name}.")
 
-        self.log("INFO", f"Engine {self.name} {self.uuid} STARTED.")
+        GLOG.INFO(f"Engine {self.name} {self.uuid} STARTED.")
+
+        # 记录引擎启动事件到ClickHouse
+        try:
+            GLOG.backtest.system.start(
+                engine_id=self.uuid,
+                name=self.name,
+                mode=self.mode.value if hasattr(self.mode, 'value') else str(self.mode)
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to log engine start event: {e}")
+
         return True
 
     def pause(self) -> None:
@@ -306,7 +317,17 @@ class EventEngine(BaseEngine):
         # 设置暂停标志，通知主循环进入暂停状态
         self._pause_flag.set()
 
-        self.log("INFO", f"Engine {self.name} {self.uuid} PAUSED.")
+        GLOG.INFO(f"Engine {self.name} {self.uuid} PAUSED.")
+
+        # 记录引擎暂停事件到ClickHouse
+        try:
+            GLOG.backtest.system.pause(
+                engine_id=self.uuid,
+                reason="用户暂停"
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to log engine pause event: {e}")
+
         return True
 
     def stop(self) -> None:
@@ -314,9 +335,9 @@ class EventEngine(BaseEngine):
         Stop the Engine
         """
         import traceback
-        self.log("INFO", f"🔥 STOP() CALLED! Call stack:")
+        GLOG.INFO(f"🔥 STOP() CALLED! Call stack:")
         for line in traceback.format_stack()[-5:-1]:
-            self.log("INFO", f"    {line.strip()}")
+            GLOG.INFO(f"    {line.strip()}")
 
         if not super(EventEngine, self).stop():
             return False
@@ -343,19 +364,29 @@ class EventEngine(BaseEngine):
             self._timer_thread_started = False
 
         # 重置定时器状态，允许重新操作开关
-        self.log("INFO", f"Timer thread stopped for engine {self.name}.")
+        GLOG.INFO(f"Timer thread stopped for engine {self.name}.")
 
         # 优雅关闭撮合中心的异步循环（若存在）
         try:
             if self._matchmaking and hasattr(self._matchmaking, "shutdown_async_loop"):
                 self._matchmaking.shutdown_async_loop()
         except Exception as e:
-            self.log("WARN", f"Failed to shutdown matchmaking: {e}")
+            GLOG.WARN(f"Failed to shutdown matchmaking: {e}")
 
-        self.log("INFO", f"Engine {self.name} {self.uuid} Stop.")
-        self.log("INFO", "Each Portfolio status.")
+        GLOG.INFO(f"Engine {self.name} {self.uuid} Stop.")
+        GLOG.INFO("Each Portfolio status.")
         for i in self.portfolios:
-            self.log("INFO", f"Portfolio: {i.name} (ID: {i.uuid})")
+            GLOG.INFO(f"Portfolio: {i.name} (ID: {i.uuid})")
+
+        # 记录引擎完成事件到ClickHouse
+        try:
+            GLOG.backtest.system.complete(
+                engine_id=self.uuid,
+                name=self.name
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to log engine complete event: {e}")
+
         return True
 
     def put(self, event: "EventBase") -> None:
@@ -377,33 +408,33 @@ class EventEngine(BaseEngine):
         with self._queue_lock:
             event_id = id(enhanced_event)
             order_uuid = enhanced_event.order.uuid[:8] if hasattr(enhanced_event, 'order') and enhanced_event.order else 'NO_ORDER'
-            self.log("INFO", f"🔍 [EVENT ENGINE TRACKING] Putting event into queue: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+            GLOG.INFO(f"🔍 [EVENT ENGINE TRACKING] Putting event into queue: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             self._event_queue.put(enhanced_event)
-            self.log("INFO", f"🔍 [EVENT ENGINE TRACKING] Event put into queue successfully: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+            GLOG.INFO(f"🔍 [EVENT ENGINE TRACKING] Event put into queue successfully: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
 
-        self.log("DEBUG", f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
+        GLOG.DEBUG(f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
 
     def _process(self, event: "EventBase") -> None:
         """安全事件处理 - 默认启用统计"""
         event_id = id(event)
         order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
-        self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Processing event: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
-        self.log("DEBUG", f"Process {event.event_type}")
+        GLOG.INFO(f"🔍 [EVENT ENGINE PROCESSING] Processing event: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+        GLOG.DEBUG(f"Process {event.event_type}")
 
         try:
             # 具体事件处理器
             if event.event_type in self._handlers:
                 handlers_count = len(self._handlers[event.event_type])
-                self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Found {handlers_count} handlers for {event.event_type}")
+                GLOG.INFO(f"🔍 [EVENT ENGINE PROCESSING] Found {handlers_count} handlers for {event.event_type}")
                 for i, handler in enumerate(self._handlers[event.event_type]):
                     handler_id = id(handler)
                     handler_name = getattr(handler, '__name__', 'unknown')
-                    self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Calling handler {i+1}/{handlers_count}: {handler_name}, handler_id={handler_id}")
+                    GLOG.INFO(f"🔍 [EVENT ENGINE PROCESSING] Calling handler {i+1}/{handlers_count}: {handler_name}, handler_id={handler_id}")
                     result = handler(event)
-                    self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Handler {i+1} completed: result={type(result)}")
-                self.log("DEBUG", f"{self.name} Deal with {event.event_type}.")
+                    GLOG.INFO(f"🔍 [EVENT ENGINE PROCESSING] Handler {i+1} completed: result={type(result)}")
+                GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")
             else:
-                self.log("WARN", f"There is no handler for {event.event_type}")
+                GLOG.WARN(f"There is no handler for {event.event_type}")
 
             # 通用事件处理器
             [handler(event) for handler in self._general_handlers]
@@ -420,7 +451,7 @@ class EventEngine(BaseEngine):
             # 统计失败 - 强制执行
             with self._stats_lock:
                 self._event_stats['failed_events'] += 1
-            self.log("ERROR", f"Event processing failed: {e}")
+            GLOG.ERROR(f"Event processing failed: {e}")
             raise
 
     def handle_event(self, event) -> None:
@@ -441,13 +472,12 @@ class EventEngine(BaseEngine):
                 self._handlers[type].append(handler)
                 return True
             else:
-                self.log("WARN", f"handler Exists.")
+                GLOG.WARN(f"handler Exists.")
                 return False
         else:
             self._handlers[type] = []
             self._handlers[type].append(handler)
-            self.log(
-                "INFO", f"Register handler {type} : {handler.__name__}"
+            GLOG.INFO(f"Register handler {type} : {handler.__name__}"
             )  # handler.__func__ for method object, not support function object.
             return True
 
@@ -461,56 +491,56 @@ class EventEngine(BaseEngine):
             None
         """
         if type not in self._handlers:
-            self.log("WARN", f"Event {type} not exists. No need to unregister the handler.")
+            GLOG.WARN(f"Event {type} not exists. No need to unregister the handler.")
             return False
 
         if handler not in self._handlers[type]:
-            self.log("WARN", f"Event {type} do not own the handler.")
+            GLOG.WARN(f"Event {type} do not own the handler.")
             return False
 
         self._handlers[type].remove(handler)
-        self.log("DEBUG", f"Unregister handler {type} : {handler}")
+        GLOG.DEBUG(f"Unregister handler {type} : {handler}")
         return True
 
     def register_general(self, handler: callable) -> bool:
         if handler not in self._general_handlers:
             self._general_handlers.append(handler)
             msg = f"RegisterGeneral : {handler}"
-            self.log("DEBUG", msg)
+            GLOG.DEBUG(msg)
             return True
         else:
             msg = f"{handler} already exist."
-            self.log("WARN", msg)
+            GLOG.WARN(msg)
             return False
 
     def unregister_general(self, handler: callable) -> bool:
         if handler in self._general_handlers:
             self._general_handlers.remove(handler)
             msg = f"UnregisterGeneral : {handler}"
-            self.log("DEBUG", msg)
+            GLOG.DEBUG(msg)
             return True
         else:
             msg = f"{handler} not exist in Generalhandler"
-            self.log("WARN", msg)
+            GLOG.WARN(msg)
             return False
 
     def register_timer(self, handler: callable) -> bool:
         if handler not in self._timer_handlers:
             self._timer_handlers.append(handler)
-            self.log("DEBUG", f"Register Timer handler: {handler}")
+            GLOG.DEBUG(f"Register Timer handler: {handler}")
             return True
         else:
-            self.log("WARN", f"Timer handler Exists.")
+            GLOG.WARN(f"Timer handler Exists.")
             return False
 
     def unregister_timer(self, handler: callable) -> bool:
         if handler in self._timer_handlers:
             self._timer_handlers.remove(handler)
-            self.log("DEBUG", f"Unregister Timer handler: {handler}")
+            GLOG.DEBUG(f"Unregister Timer handler: {handler}")
             return True
         else:
             msg = f"Timerhandler {handler} not exists."
-            self.log("WARN", msg)
+            GLOG.WARN(msg)
             return False
 
     @property
@@ -562,7 +592,7 @@ class EventEngine(BaseEngine):
                 'completed_events': 0,
                 'failed_events': 0,
             }
-        self.log("INFO", "Event statistics reset")
+        GLOG.INFO("Event statistics reset")
 
     def _enhance_event(self, event: "EventBase") -> "EventBase":
         """
@@ -585,11 +615,11 @@ class EventEngine(BaseEngine):
             # 分配序列号
             event.sequence_number = self._get_next_sequence_number()
 
-            self.log("DEBUG", f"Event enhanced: {event.event_type} seq={event.sequence_number}")
+            GLOG.DEBUG(f"Event enhanced: {event.event_type} seq={event.sequence_number}")
             return event
 
         except Exception as e:
-            self.log("ERROR", f"Event enhancement failed: {e}")
+            GLOG.ERROR(f"Event enhancement failed: {e}")
             # 即使增强失败，也返回原始事件，确保事件流程不中断
             return event
 
@@ -614,7 +644,7 @@ class EventEngine(BaseEngine):
             int: 已注册的处理器总数
         """
         total_count = self.handler_count + self.general_count + self.timer_count
-        self.log("DEBUG", f"Registered handlers count: {total_count} (type-specific: {self.handler_count}, general: {self.general_count}, timer: {self.timer_count})")
+        GLOG.DEBUG(f"Registered handlers count: {total_count} (type-specific: {self.handler_count}, general: {self.general_count}, timer: {self.timer_count})")
         return total_count
 
     def get_handler_distribution(self) -> Dict[str, int]:
@@ -758,12 +788,12 @@ class EventEngine(BaseEngine):
 
         # 检查是否正在调整中
         if self._is_resizing:
-            self.log("WARN", f"Queue resize already in progress, cannot resize to {size}")
+            GLOG.WARN(f"Queue resize already in progress, cannot resize to {size}")
             return False
 
         # 获取调整锁，确保只有一个调整操作
         if not self._resize_lock.acquire(blocking=False):
-            self.log("WARN", f"Cannot acquire resize lock, resize in progress")
+            GLOG.WARN(f"Cannot acquire resize lock, resize in progress")
             return False
 
         try:
@@ -774,7 +804,7 @@ class EventEngine(BaseEngine):
             old_size = getattr(old_queue, 'maxsize', 0)
 
             if old_size == size:
-                self.log("INFO", f"Queue size already {size}, no resize needed")
+                GLOG.INFO(f"Queue size already {size}, no resize needed")
                 self._is_resizing = False
                 self._resize_lock.release()
                 return True
@@ -788,7 +818,7 @@ class EventEngine(BaseEngine):
                 # 原子性切换到临时队列，新事件将进入temp_queue
                 self._event_queue = temp_queue
 
-            self.log("INFO", f"Queue resize started: {old_size} -> {size}, using temporary buffer")
+            GLOG.INFO(f"Queue resize started: {old_size} -> {size}, using temporary buffer")
 
             # 在后台转移事件
             transfer_thread = threading.Thread(
@@ -803,7 +833,7 @@ class EventEngine(BaseEngine):
             # 异常时重置状态
             self._is_resizing = False
             self._resize_lock.release()
-            self.log("ERROR", f"Queue resize failed: {e}")
+            GLOG.ERROR(f"Queue resize failed: {e}")
             raise
 
     def _transfer_events_with_buffer(self, old_queue: Queue, temp_queue: Queue,
@@ -814,7 +844,7 @@ class EventEngine(BaseEngine):
 
         try:
             # 第一阶段：转移旧队列中的事件
-            self.log("DEBUG", "Phase 1: Transferring events from old queue")
+            GLOG.DEBUG("Phase 1: Transferring events from old queue")
             while not old_queue.empty():
                 try:
                     event = old_queue.get_nowait()
@@ -823,11 +853,11 @@ class EventEngine(BaseEngine):
                 except Empty:
                     break
                 except Exception as e:
-                    self.log("ERROR", f"Error transferring old event: {e}")
+                    GLOG.ERROR(f"Error transferring old event: {e}")
                     break
 
             # 第二阶段：转移临时队列中的事件（在调整期间到达的新事件）
-            self.log("DEBUG", "Phase 2: Transferring events from temporary buffer")
+            GLOG.DEBUG("Phase 2: Transferring events from temporary buffer")
             while True:
                 try:
                     # 短暂超时获取临时队列事件，避免无限等待
@@ -840,7 +870,7 @@ class EventEngine(BaseEngine):
                         break
                     continue
                 except Exception as e:
-                    self.log("ERROR", f"Error transferring buffered event: {e}")
+                    GLOG.ERROR(f"Error transferring buffered event: {e}")
                     break
 
             # 第三阶段：原子性替换到新队列
@@ -850,12 +880,12 @@ class EventEngine(BaseEngine):
                     self._event_queue = new_queue
 
             total_events = events_transferred + events_from_buffer
-            self.log("INFO", f"Queue resize completed: {old_size} -> {new_size}, "
+            GLOG.INFO(f"Queue resize completed: {old_size} -> {new_size}, "
                      f"transferred {events_transferred} old events, {events_from_buffer} new events, "
                      f"total {total_events} events")
 
         except Exception as e:
-            self.log("ERROR", f"Queue resize failed: {e}")
+            GLOG.ERROR(f"Queue resize failed: {e}")
             # 出错时恢复使用临时队列
             with self._queue_lock:
                 if self._event_queue is temp_queue:

@@ -14,7 +14,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES, ORDER_TYPES
-from ginkgo.libs import Number, to_decimal
+from ginkgo.libs import Number, to_decimal, GLOG
 
 
 class PositionRatioRisk(BaseRiskManagement):
@@ -62,23 +62,21 @@ class PositionRatioRisk(BaseRiskManagement):
         Returns:
             Order: 处理后的订单（可能被调整或拒绝）
         """
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Processing order - Code: {order.code}, Direction: {order.direction}, Volume: {order.volume}, Type: {order.order_type}, Limit Price: {order.limit_price}",
+        GLOG.INFO(f"PositionRatioRisk: Processing order - Code: {order.code}, Direction: {order.direction}, Volume: {order.volume}, Type: {order.order_type}, Limit Price: {order.limit_price}",
         )
 
         if order.direction != DIRECTION_TYPES.LONG:
             # 卖出订单不受持仓比例限制
-            self.log("INFO", f"PositionRatioRisk: Sell order for {order.code} passed through without restriction")
+            GLOG.INFO(f"PositionRatioRisk: Sell order for {order.code} passed through without restriction")
             return order
 
         # 计算当前总资产
         total_worth = to_decimal(portfolio_info.get("worth", 0))
         if total_worth <= 0:
-            self.log("WARN", f"PositionRatioRisk: Invalid total worth: {total_worth}")
+            GLOG.WARN(f"PositionRatioRisk: Invalid total worth: {total_worth}")
             return None
 
-        self.log("INFO", f"PositionRatioRisk: Portfolio total worth: {total_worth}")
+        GLOG.INFO(f"PositionRatioRisk: Portfolio total worth: {total_worth}")
 
         # 计算当前持仓总价值
         positions = portfolio_info.get("positions", {})
@@ -91,20 +89,15 @@ class PositionRatioRisk(BaseRiskManagement):
                 position_value = to_decimal(position.volume) * to_decimal(position.price)
                 total_position_value += position_value
                 position_count += 1
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Position {code} - Volume: {position.volume}, Price: {position.price}, Value: {position_value}",
+                GLOG.INFO(f"PositionRatioRisk: Position {code} - Volume: {position.volume}, Price: {position.price}, Value: {position_value}",
                 )
                 if code == order.code:
                     current_position_value = position_value
 
         # 计算当前总持仓比例
         current_total_ratio = total_position_value / total_worth
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Current positions - Count: {position_count}, Total value: {total_position_value}, Total ratio: {float(current_total_ratio):.2%}",
-        )
-        self.log("INFO", f"PositionRatioRisk: Current position value for {order.code}: {current_position_value}")
+        GLOG.INFO(f"PositionRatioRisk: Current positions - Count: {position_count}, Total value: {total_position_value}, Total ratio: {float(current_total_ratio):.2%}")
+        GLOG.INFO(f"PositionRatioRisk: Current position value for {order.code}: {current_position_value}")
 
         # 根据订单类型获取执行价格
         if order.order_type == ORDER_TYPES.MARKETORDER:
@@ -116,16 +109,11 @@ class PositionRatioRisk(BaseRiskManagement):
             # 限价订单：使用limit_price
             execution_price = to_decimal(order.limit_price)
 
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Order {order.code}, type: {order.order_type}, limit_price: {order.limit_price}, execution_price: {execution_price}",
+        GLOG.INFO(f"PositionRatioRisk: Order {order.code}, type: {order.order_type}, limit_price: {order.limit_price}, execution_price: {execution_price}",
         )
 
         if execution_price <= 0:
-            self.log(
-                "WARNING",
-                f"PositionRatioRisk: Invalid execution price {execution_price} for {order.code}, order type: {order.order_type}, limit_price: {order.limit_price}",
-            )
+            GLOG.WARN(f"PositionRatioRisk: Invalid execution price {execution_price} for {order.code}, order type: {order.order_type}, limit_price: {order.limit_price}")
             return None
 
         # 计算订单执行后的预期持仓价值
@@ -133,35 +121,34 @@ class PositionRatioRisk(BaseRiskManagement):
         expected_position_value = current_position_value + order_value
         expected_total_value = total_position_value + order_value
 
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Order value calculation - Volume: {order.volume}, Price: {execution_price}, Order value: {order_value}",
-        )
+        GLOG.INFO(f"PositionRatioRisk: Order value calculation - Volume: {order.volume}, Price: {execution_price}, Order value: {order_value}")
 
         # 检查单股持仓比例
         expected_position_ratio = expected_position_value / total_worth
         current_position_ratio = current_position_value / total_worth if current_position_value > 0 else 0
 
-        self.log("INFO", f"PositionRatioRisk: Single position ratio check for {order.code}")
-        self.log(
-            "INFO",
-            f"  Current ratio: {float(current_position_ratio):.2%}, Expected ratio: {float(expected_position_ratio):.2%}, Limit: {float(self._max_position_ratio):.2%}",
-        )
+        GLOG.INFO(f"PositionRatioRisk: Single position ratio check for {order.code}")
+        GLOG.INFO(f"  Current ratio: {float(current_position_ratio):.2%}, Expected ratio: {float(expected_position_ratio):.2%}, Limit: {float(self._max_position_ratio):.2%}")
 
         if expected_position_ratio > self._max_position_ratio:
             # 计算允许的最大订单价值
             max_allowed_position_value = total_worth * self._max_position_ratio
             max_allowed_order_value = max_allowed_position_value - current_position_value
 
-            self.log(
-                "INFO",
-                f"PositionRatioRisk: Single position limit exceeded - Max allowed position value: {max_allowed_position_value}, Max allowed order value: {max_allowed_order_value}",
+            GLOG.INFO(f"PositionRatioRisk: Single position limit exceeded - Max allowed position value: {max_allowed_position_value}, Max allowed order value: {max_allowed_order_value}",
             )
 
             if max_allowed_order_value <= 0:
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Single position ratio limit reached for {order.code} - current ratio: {float(current_position_ratio):.2%}, limit: {float(self._max_position_ratio):.2%}",
+                GLOG.INFO(f"PositionRatioRisk: Single position ratio limit reached for {order.code} - current ratio: {float(current_position_ratio):.2%}, limit: {float(self._max_position_ratio):.2%}")
+                # 记录风控事件到ClickHouse
+                GLOG.backtest.risk(
+                    risk_type="POSITIONLIMITEXCEEDED",
+                    reason=f"Single position ratio limit reached: {float(current_position_ratio):.2%} > {float(self._max_position_ratio):.2%}",
+                    risk_actual_value=float(current_position_ratio),
+                    risk_limit_value=float(self._max_position_ratio),
+                    symbol=order.code,
+                    portfolio_id=portfolio_info.get("uuid"),
+                    engine_id=self.engine_id,
                 )
                 return None
 
@@ -169,9 +156,7 @@ class PositionRatioRisk(BaseRiskManagement):
             adjusted_volume = max_allowed_order_value / execution_price
             original_volume = order.volume
             if adjusted_volume < to_decimal(order.volume):
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Adjusting order volume for single position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_position_ratio):.2%} to {float(self._max_position_ratio):.2%})",
+                GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for single position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_position_ratio):.2%} to {float(self._max_position_ratio):.2%})",
                 )
                 order.volume = int(adjusted_volume)
                 order.frozen = adjusted_volume * execution_price
@@ -180,10 +165,8 @@ class PositionRatioRisk(BaseRiskManagement):
         # 检查总持仓比例
         expected_total_ratio = expected_total_value / total_worth
 
-        self.log("INFO", f"PositionRatioRisk: Total position ratio check")
-        self.log(
-            "INFO",
-            f"  Current total ratio: {float(current_total_ratio):.2%}, Expected total ratio: {float(expected_total_ratio):.2%}, Limit: {float(self._max_total_position_ratio):.2%}",
+        GLOG.INFO(f"PositionRatioRisk: Total position ratio check")
+        GLOG.INFO(f"  Current total ratio: {float(current_total_ratio):.2%}, Expected total ratio: {float(expected_total_ratio):.2%}, Limit: {float(self._max_total_position_ratio):.2%}",
         )
 
         if expected_total_ratio > self._max_total_position_ratio:
@@ -191,15 +174,19 @@ class PositionRatioRisk(BaseRiskManagement):
             max_allowed_total_value = total_worth * self._max_total_position_ratio
             max_allowed_order_value = max_allowed_total_value - total_position_value
 
-            self.log(
-                "INFO",
-                f"PositionRatioRisk: Total position limit exceeded - Max allowed total value: {max_allowed_total_value}, Max allowed order value: {max_allowed_order_value}",
+            GLOG.INFO(f"PositionRatioRisk: Total position limit exceeded - Max allowed total value: {max_allowed_total_value}, Max allowed order value: {max_allowed_order_value}",
             )
 
             if max_allowed_order_value <= 0:
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Total position ratio limit reached - current ratio: {float(current_total_ratio):.2%}, limit: {float(self._max_total_position_ratio):.2%}",
+                GLOG.INFO(f"PositionRatioRisk: Total position ratio limit reached - current ratio: {float(current_total_ratio):.2%}, limit: {float(self._max_total_position_ratio):.2%}")
+                # 记录风控事件到ClickHouse
+                GLOG.backtest.risk(
+                    risk_type="POSITIONLIMITEXCEEDED",
+                    reason=f"Total position ratio limit reached: {float(current_total_ratio):.2%} > {float(self._max_total_position_ratio):.2%}",
+                    risk_actual_value=float(current_total_ratio),
+                    risk_limit_value=float(self._max_total_position_ratio),
+                    portfolio_id=portfolio_info.get("uuid"),
+                    engine_id=self.engine_id,
                 )
                 return None
 
@@ -207,9 +194,7 @@ class PositionRatioRisk(BaseRiskManagement):
             adjusted_volume = max_allowed_order_value / execution_price
             original_volume = order.volume
             if adjusted_volume < to_decimal(order.volume):
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Adjusting order volume for total position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_total_ratio):.2%} to {float(self._max_total_position_ratio):.2%})",
+                GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for total position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_total_ratio):.2%} to {float(self._max_total_position_ratio):.2%})",
                 )
                 order.volume = int(adjusted_volume)
                 order.frozen = adjusted_volume * execution_price
@@ -217,8 +202,7 @@ class PositionRatioRisk(BaseRiskManagement):
 
         # 如果调整后的订单量为0，则拒绝订单
         if order.volume <= 0:
-            self.log(
-                "INFO", f"PositionRatioRisk: Order rejected due to position ratio limits - final volume: {order.volume}"
+            GLOG.INFO(f"PositionRatioRisk: Order rejected due to position ratio limits - final volume: {order.volume}"
             )
             return None
 
@@ -227,10 +211,7 @@ class PositionRatioRisk(BaseRiskManagement):
         final_position_ratio = (current_position_value + final_order_value) / total_worth
         final_total_ratio = (total_position_value + final_order_value) / total_worth
 
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Order approved - Final volume: {order.volume}, Final position ratio: {float(final_position_ratio):.2%}, Final total ratio: {float(final_total_ratio):.2%}",
-        )
+        GLOG.INFO(f"PositionRatioRisk: Order approved - Final volume: {order.volume}, Final position ratio: {float(final_position_ratio):.2%}, Final total ratio: {float(final_total_ratio):.2%}")
 
         return order
 
@@ -262,10 +243,10 @@ class PositionRatioRisk(BaseRiskManagement):
                     if price and price > 0:
                         return to_decimal(price)
             except Exception as e:
-                self.log("WARNING", f"PositionRatioRisk: Failed to get current price from feeder: {e}")
+                GLOG.WARN(f"PositionRatioRisk: Failed to get current price from feeder: {e}")
 
         # 如果无法获取，记录警告并返回0
-        self.log("WARNING", f"PositionRatioRisk: Unable to get current price for {code}")
+        GLOG.WARN(f"PositionRatioRisk: Unable to get current price for {code}")
         return to_decimal(0)
 
     def generate_signals(self, portfolio_info: Dict, event) -> List[Signal]:
@@ -290,7 +271,7 @@ class PositionRatioRisk(BaseRiskManagement):
         if total_worth <= 0:
             return signals
 
-        self.log("INFO", f"PositionRatioRisk: Monitoring position ratios - Portfolio worth: {total_worth}")
+        GLOG.INFO(f"PositionRatioRisk: Monitoring position ratios - Portfolio worth: {total_worth}")
 
         positions = portfolio_info.get("positions", {})
         total_position_value = to_decimal(0)
@@ -313,16 +294,12 @@ class PositionRatioRisk(BaseRiskManagement):
                     }
                 )
 
-                self.log(
-                    "INFO",
-                    f"PositionRatioRisk: Position {code} - Volume: {position.volume}, Price: {position.price}, Value: {position_value}, Ratio: {float(position_ratio):.2%}",
+                GLOG.INFO(f"PositionRatioRisk: Position {code} - Volume: {position.volume}, Price: {position.price}, Value: {position_value}, Ratio: {float(position_ratio):.2%}",
                 )
 
         # 记录总持仓情况
         total_ratio = total_position_value / total_worth if total_worth > 0 else 0
-        self.log(
-            "INFO",
-            f"PositionRatioRisk: Total positions - Count: {len(position_details)}, Total value: {total_position_value}, Total ratio: {float(total_ratio):.2%}",
+        GLOG.INFO(f"PositionRatioRisk: Total positions - Count: {len(position_details)}, Total value: {total_position_value}, Total ratio: {float(total_ratio):.2%}",
         )
 
         # 检查每个持仓的比例并生成信号
@@ -338,10 +315,8 @@ class PositionRatioRisk(BaseRiskManagement):
                 warning_ratio_float = float(warning_ratio)
                 max_ratio_float = float(self._max_position_ratio)
 
-                self.log("INFO", f"PositionRatioRisk: Position ratio warning triggered for {code}")
-                self.log(
-                    "INFO",
-                    f"  Current ratio: {position_ratio_float:.2%}, Warning threshold: {warning_ratio_float:.2%}, Max allowed: {max_ratio_float:.2%}",
+                GLOG.INFO(f"PositionRatioRisk: Position ratio warning triggered for {code}")
+                GLOG.INFO(f"  Current ratio: {position_ratio_float:.2%}, Warning threshold: {warning_ratio_float:.2%}, Max allowed: {max_ratio_float:.2%}",
                 )
 
                 signal = Signal(
@@ -354,11 +329,11 @@ class PositionRatioRisk(BaseRiskManagement):
                     source=SOURCE_TYPES.STRATEGY,  # 风控生成的信号也标记为策略来源
                 )
                 signals.append(signal)
-                self.log("INFO", f"PositionRatioRisk: Generated reduction signal for {code}")
+                GLOG.INFO(f"PositionRatioRisk: Generated reduction signal for {code}")
 
         if signals:
-            self.log("INFO", f"PositionRatioRisk: Generated {len(signals)} position ratio warning signals")
+            GLOG.INFO(f"PositionRatioRisk: Generated {len(signals)} position ratio warning signals")
         else:
-            self.log("INFO", f"PositionRatioRisk: No position ratio warnings triggered")
+            GLOG.INFO(f"PositionRatioRisk: No position ratio warnings triggered")
 
         return signals

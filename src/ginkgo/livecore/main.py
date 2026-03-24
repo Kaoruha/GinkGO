@@ -65,6 +65,7 @@ import sys
 import typer
 from pathlib import Path
 from typing import Optional, List, Dict
+from ginkgo.libs import GLOG
 
 # Import LiveEngine for OKX live account trading
 try:
@@ -92,6 +93,7 @@ class LiveCore:
             config: 配置字典（可选），包含broker配置、Kafka配置等
             enable_live_engine: 是否启用LiveEngine（OKX实盘交易引擎）
         """
+        GLOG.set_log_category("component")
         self.threads = []
         self.is_running = False
         self.config = config or {}
@@ -121,11 +123,11 @@ class LiveCore:
         - Scheduler通过Redis心跳自动发现ExecutionNode
         """
         if self.is_running:
-            print("[WARNING] LiveCore is already running")
+            GLOG.WARN("LiveCore is already running")
             return
 
         self.is_running = True
-        print("Starting LiveCore Control Plane...")
+        GLOG.INFO("Starting LiveCore Control Plane...")
 
         # 启动LiveEngine（如果启用）
         if self.enable_live_engine and LIVE_ENGINE_AVAILABLE:
@@ -144,13 +146,13 @@ class LiveCore:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        print("LiveCore Control Plane started successfully")
-        print(f"Active components: {len(self.threads)}")
+        GLOG.INFO("LiveCore Control Plane started successfully")
+        GLOG.INFO(f"Active components: {len(self.threads)}")
         for i, thread in enumerate(self.threads, 1):
             thread_name = getattr(thread, 'name', thread.__class__.__name__)
             is_alive = thread.is_alive()
             status = "✅ Running" if is_alive else "❌ Stopped"
-            print(f"  [{i}] {thread_name}: {status}")
+            GLOG.INFO(f"  [{i}] {thread_name}: {status}")
 
     def stop(self):
         """
@@ -163,82 +165,82 @@ class LiveCore:
         4. 清理资源（Kafka、Redis、内存）
         """
         if not self.is_running:
-            print("[WARNING] LiveCore is not running")
+            GLOG.WARN("LiveCore is not running")
             return
 
-        print("")
-        print("═══════════════════════════════════════════════════════")
-        print("🛑 Stopping LiveCore Control Plane")
-        print("═══════════════════════════════════════════════════════")
+        GLOG.INFO("")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("🛑 Stopping LiveCore Control Plane")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
 
         # 0. 设置停止标志
-        print("[Step 1] Setting stop flag...")
+        GLOG.INFO("[Step 1] Setting stop flag...")
         self.is_running = False
         self._stop_event.set()
-        print("  ✅ Stop flag set")
+        GLOG.INFO("  ✅ Stop flag set")
 
         # 1. 停止 LiveEngine（如果启用）
-        print("[Step 2] Stopping LiveEngine...")
+        GLOG.INFO("[Step 2] Stopping LiveEngine...")
         if self.live_engine and self.enable_live_engine:
             self.live_engine.stop()
-            print("  ✅ LiveEngine stopped")
+            GLOG.INFO("  ✅ LiveEngine stopped")
         else:
-            print("  ℹ️  LiveEngine not running")
+            GLOG.INFO("  ℹ️  LiveEngine not running")
 
         # 2. 停止 TradeGatewayAdapter（优先级最高：处理订单）
-        print("[Step 2] Stopping TradeGatewayAdapter...")
+        GLOG.INFO("[Step 3] Stopping TradeGatewayAdapter...")
         if self.trade_gateway_adapter and hasattr(self.trade_gateway_adapter, 'stop'):
             self.trade_gateway_adapter.stop()
-            print("  ✅ TradeGatewayAdapter stopped")
+            GLOG.INFO("  ✅ TradeGatewayAdapter stopped")
         else:
-            print("  ℹ️  TradeGatewayAdapter not running")
+            GLOG.INFO("  ℹ️  TradeGatewayAdapter not running")
 
         # 3. 停止 DataFeeder（停止发布市场数据）
-        print("[Step 4] Stopping DataFeeder...")
+        GLOG.INFO("[Step 4] Stopping DataFeeder...")
         if self.data_manager and hasattr(self.data_manager, 'stop'):
             self.data_manager.stop()
-            print("  ✅ DataFeeder stopped")
+            GLOG.INFO("  ✅ DataFeeder stopped")
         else:
-            print("  ℹ️  DataFeeder not running")
+            GLOG.INFO("  ℹ️  DataFeeder not running")
 
         # 4. 停止 Scheduler（停止调度）
-        print("[Step 5] Stopping Scheduler...")
+        GLOG.INFO("[Step 5] Stopping Scheduler...")
         if self.scheduler and hasattr(self.scheduler, 'stop'):
             self.scheduler.stop()
-            print("  ✅ Scheduler stopped")
+            GLOG.INFO("  ✅ Scheduler stopped")
         else:
-            print("  ℹ️  Scheduler not running")
+            GLOG.INFO("  ℹ️  Scheduler not running")
 
         # 5. 等待所有线程完成清理
-        print(f"[Step 6] Waiting for {len(self.threads)} threads to finish...")
+        GLOG.INFO(f"[Step 6] Waiting for {len(self.threads)} threads to finish...")
         finished_count = 0
         timeout_count = 0
         for i, thread in enumerate(self.threads):
             if thread.is_alive():
-                print(f"  ⏳ Waiting for thread {i+1}/{len(self.threads)}...")
+                GLOG.INFO(f"  ⏳ Waiting for thread {i+1}/{len(self.threads)}...")
                 thread.join(timeout=5)
                 if thread.is_alive():
-                    print(f"  ⚠️  Thread {i+1} did not finish gracefully (timeout)")
+                    GLOG.WARN(f"  ⚠️  Thread {i+1} did not finish gracefully (timeout)")
                     timeout_count += 1
                 else:
-                    print(f"  ✅ Thread {i+1} finished")
+                    GLOG.INFO(f"  ✅ Thread {i+1} finished")
                     finished_count += 1
             else:
-                print(f"  ✅ Thread {i+1} already stopped")
+                GLOG.INFO(f"  ✅ Thread {i+1} already stopped")
                 finished_count += 1
 
-        print(f"  ✅ Threads finished: {finished_count}/{len(self.threads)}")
+        GLOG.INFO(f"  ✅ Threads finished: {finished_count}/{len(self.threads)}")
         if timeout_count > 0:
-            print(f"  ⚠️  Threads timeout: {timeout_count}/{len(self.threads)}")
+            GLOG.WARN(f"  ⚠️  Threads timeout: {timeout_count}/{len(self.threads)}")
 
         # 5. 清空线程列表
         self.threads.clear()
 
-        print("")
-        print("═══════════════════════════════════════════════════════")
-        print("✅ LiveCore Control Plane stopped gracefully")
-        print("═══════════════════════════════════════════════════════")
-        print("")
+        GLOG.INFO("")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("✅ LiveCore Control Plane stopped gracefully")
+        GLOG.INFO("═══════════════════════════════════════════════════════")
+        GLOG.INFO("")
 
     def wait(self):
         """
@@ -263,7 +265,7 @@ class LiveCore:
                 self._stop_event.wait(timeout=0.5)
 
         except KeyboardInterrupt:
-            print("\n[INFO] Received keyboard interrupt, shutting down...")
+            GLOG.INFO("\nReceived keyboard interrupt, shutting down...")
         finally:
             # 确保停止组件（无论是正常退出还是异常）
             if self.is_running:
@@ -282,7 +284,7 @@ class LiveCore:
         2. wait() 会调用 stop() 进行清理
         3. 避免在信号处理器中直接 join 线程
         """
-        print(f"\n[INFO] Received signal {signum}, initiating graceful shutdown...")
+        GLOG.INFO(f"\nReceived signal {signum}, initiating graceful shutdown...")
         self._stop_event.set()  # 设置事件，让 wait() 退出
 
     def _start_live_engine(self):
@@ -338,7 +340,7 @@ class LiveCore:
         self.threads.append(self.data_manager)
         ```
         """
-        print("DataManager thread starting...")
+        GLOG.INFO("DataManager thread starting...")
 
         # Phase 4集成：启动真实的 DataManager
         from ginkgo.livecore.data_manager import DataManager
@@ -346,7 +348,7 @@ class LiveCore:
         self.data_manager = DataManager()
         self.data_manager.start()
         self.threads.append(self.data_manager)
-        print("DataManager started successfully")
+        GLOG.INFO("DataManager started successfully")
 
     def _data_manager_placeholder(self):
         """
@@ -355,7 +357,7 @@ class LiveCore:
         Phase 3：使用占位符验证LiveCore容器框架
         Phase 4：替换为实际DataManager实例
         """
-        print("DataManager thread running (placeholder)")
+        GLOG.INFO("DataManager thread running (placeholder)")
         import time
         while self.is_running:
             time.sleep(1)
@@ -385,7 +387,7 @@ class LiveCore:
         self.threads.append(self.trade_gateway_adapter)
         ```
         """
-        print("TradeGatewayAdapter thread starting... (T028 completed, waiting for broker config)")
+        GLOG.INFO("TradeGatewayAdapter thread starting... (T028 completed, waiting for broker config)")
 
         # TODO: Phase 4 - 实际集成TradeGatewayAdapter（需要broker配置）
         # 当前使用占位符进行MVP测试
@@ -412,7 +414,7 @@ class LiveCore:
         Phase 3：使用占位符验证LiveCore容器框架
         Phase 4：替换为实际TradeGatewayAdapter实例
         """
-        print("TradeGatewayAdapter thread running (placeholder)")
+        GLOG.INFO("TradeGatewayAdapter thread running (placeholder)")
         import time
         while self.is_running:
             time.sleep(1)
@@ -455,15 +457,15 @@ class LiveCore:
             self.scheduler.start()
             self.threads.append(self.scheduler)
 
-            print(f"Scheduler started successfully (interval={scheduler_interval}s)")
+            GLOG.INFO(f"Scheduler started successfully (interval={scheduler_interval}s)")
 
         except ImportError as e:
-            print(f"[ERROR] Failed to import Scheduler: {e}")
-            print("[ERROR] Scheduler is a critical component for Phase 5, cannot continue")
+            GLOG.ERROR(f"Failed to import Scheduler: {e}")
+            GLOG.ERROR("Scheduler is a critical component for Phase 5, cannot continue")
             raise  # 重新抛出异常，阻止 LiveCore 启动
         except Exception as e:
-            print(f"[ERROR] Failed to start Scheduler: {e}")
-            print("[ERROR] Scheduler is a critical component for Phase 5, cannot continue")
+            GLOG.ERROR(f"Failed to start Scheduler: {e}")
+            GLOG.ERROR("Scheduler is a critical component for Phase 5, cannot continue")
             raise  # 重新抛出异常，阻止 LiveCore 启动
 
     def _load_brokers(self) -> List:
@@ -494,7 +496,7 @@ class LiveCore:
         # if os.path.exists(config_path):
         #     return load_brokers_from_yaml(config_path)
 
-        print("[DEBUG] No brokers configured")
+        GLOG.DEBUG("No brokers configured")
         return []
 
 
@@ -538,19 +540,19 @@ def start(
 
     try:
         livecore.start()
-        print("LiveCore is running. Press Ctrl+C to stop.")
+        GLOG.INFO("LiveCore is running. Press Ctrl+C to stop.")
         livecore.wait()
     except KeyboardInterrupt:
-        print("\n[INFO] Received keyboard interrupt, shutting down...")
+        GLOG.INFO("\nReceived keyboard interrupt, shutting down...")
     except Exception as e:
-        print(f"[ERROR] LiveCore error: {e}")
+        GLOG.ERROR(f"LiveCore error: {e}")
         import traceback
         traceback.print_exc()
     finally:
         if livecore.is_running:
-            print("[INFO] Cleaning up LiveCore resources...")
+            GLOG.INFO("Cleaning up LiveCore resources...")
             livecore.stop()
-        print("[INFO] LiveCore shutdown complete")
+        GLOG.INFO("LiveCore shutdown complete")
 
 
 @cli.command()
@@ -739,4 +741,4 @@ if __name__ == "__main__":
             if livecore.is_running:
                 print("[INFO] Cleaning up LiveCore resources...")
                 livecore.stop()
-            print("[INFO] LiveCore shutdown complete")
+            GLOG.INFO("LiveCore shutdown complete")

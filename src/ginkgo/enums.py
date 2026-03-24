@@ -601,6 +601,28 @@ class WORKER_STATUS_TYPES(EnumBase):
     ERROR = 4        # 错误状态
 
 
+# ==================== 日志系统枚举 (011-distributed-logging) ====================
+
+class LEVEL_TYPES(EnumBase):
+    """日志级别枚举 - 用于标识日志严重程度"""
+
+    VOID = -1
+    DEBUG = 0       # 调试级别
+    INFO = 1        # 信息级别
+    WARNING = 2     # 警告级别
+    ERROR = 3       # 错误级别
+    CRITICAL = 4    # 严重错误级别
+
+
+class LOG_CATEGORY_TYPES(EnumBase):
+    """日志类别枚举 - 用于区分日志类型"""
+
+    VOID = -1
+    BACKTEST = 0     # 回测业务日志
+    COMPONENT = 1    # 组件运行日志
+    PERFORMANCE = 2  # 性能监控日志
+
+
 # ==================== 导出所有枚举 ====================
 
 __all__ = [
@@ -648,4 +670,7 @@ __all__ = [
     "WORKER_STATUS_TYPES",
     # 默认分析器集合枚举
     "DEFAULT_ANALYZER_SET",
+    # 日志系统枚举 (011-distributed-logging)
+    "LEVEL_TYPES",
+    "LOG_CATEGORY_TYPES",
 ]

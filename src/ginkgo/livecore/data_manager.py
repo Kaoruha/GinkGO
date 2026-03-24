@@ -362,6 +362,21 @@ class DataManager(threading.Thread):
 
         except Exception as e:
             GLOG.ERROR(f"DataManager stop failed: {e}")
+
+            # 发送失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"DataManager停止失败: {e}",
+                    level="ERROR",
+                    module="DataManager",
+                    details={
+                        "组件": "DataManager",
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
             return False
 
     def run(self) -> None:
@@ -488,17 +503,17 @@ class DataManager(threading.Thread):
         """
         try:
             if dto.is_stockinfo():
-                GLOG.INFO("Received stockinfo command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received stockinfo command (handled by TaskTimer, ignoring)")
             elif dto.is_adjustfactor():
-                GLOG.INFO("Received adjustfactor command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received adjustfactor command (handled by TaskTimer, ignoring)")
             elif dto.is_bar_snapshot():
-                GLOG.INFO("Received bar_snapshot command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received bar_snapshot command (handled by TaskTimer, ignoring)")
             elif dto.is_tick():
-                GLOG.INFO("Received tick command (handled by TaskTimer, ignoring)")
+                GLOG.DEBUG("Received tick command (handled by TaskTimer, ignoring)")
             elif dto.is_update_selector():
-                GLOG.INFO("Received update_selector command (ignored by DataManager)")
+                GLOG.DEBUG("Received update_selector command (ignored by DataManager)")
             elif dto.is_update_data():
-                GLOG.INFO("Received update_data command (deprecated, use individual commands)")
+                GLOG.DEBUG("Received update_data command (deprecated, use individual commands)")
             else:
                 GLOG.WARNING(f"Unknown control command: {dto.command}")
 
@@ -522,13 +537,19 @@ class DataManager(threading.Thread):
         """
         实时数据接收回调
 
+        T069: 携带 trace_id 和 span_id 用于分布式追踪
+
         Args:
             event: EventPriceUpdate 事件
             source: 数据源类型
         """
         try:
-            # 转换为 DTO
+            # 转换为DTO（携带分布式追踪上下文）
             if hasattr(event, 'event_type') and event.event_type.value == 1:  # PRICE_UPDATE
+                # T069: 从 GLOG 获取当前 trace_id 和 span_id
+                trace_id = GLOG.get_trace_id()
+                span_id = GLOG.get_span_id()
+
                 dto = PriceUpdateDTO(
                     symbol=event.code,
                     timestamp=event.timestamp,
@@ -540,6 +561,8 @@ class DataManager(threading.Thread):
                     volume=getattr(event, 'volume', None),
                     amount=getattr(event, 'amount', None),
                     source=source,
+                    trace_id=trace_id,  # T069: 携带 trace_id
+                    span_id=span_id,    # T069: 携带 span_id
                 )
 
                 # 发布到 Kafka（带重试）
@@ -719,4 +742,3 @@ def get_data_manager(feeder_types: Optional[List[str]] = None) -> DataManager:
     if _data_manager is None:
         _data_manager = DataManager(feeder_types=feeder_types)
     return _data_manager
-

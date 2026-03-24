@@ -3174,6 +3174,128 @@ async def optimization_bayesian(request: dict):
         ]
     }
 
+
+
+# ========== 日志级别管理 API (T084-T086) ==========
+
+class SetLogLevelRequest(BaseModel):
+    """设置日志级别请求"""
+    module: str
+    level: str
+
+
+@app.get("/api/logging/level")
+async def get_log_level(module: Optional[str] = None):
+    """
+    获取日志级别 (T084)
+
+    Args:
+        module: 模块名称（可选），不传则返回所有模块的日志级别
+
+    Returns:
+        模块日志级别信息
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        if module:
+            # 获取单个模块的日志级别
+            result = level_service.get_level(module)
+            if result.is_success:
+                return {
+                    "module": module,
+                    "level": result.data,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=404, detail=result.message)
+        else:
+            # 获取所有模块的日志级别
+            result = level_service.get_all_levels()
+            if result.is_success:
+                return {
+                    "levels": result.data,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=500, detail=result.message)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get log level: {str(e)}")
+
+
+@app.post("/api/logging/level")
+async def set_log_level(request: SetLogLevelRequest):
+    """
+    设置日志级别 (T085)
+
+    Args:
+        request: 包含 module 和 level 的请求体
+
+    Returns:
+        设置结果
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        result = level_service.set_level(request.module, request.level)
+
+        if result.is_success:
+            return {
+                "status": "success",
+                "module": request.module,
+                "level": request.level,
+                "message": f"Log level for '{request.module}' set to '{request.level}'",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set log level: {str(e)}")
+
+
+@app.post("/api/logging/level/reset")
+async def reset_log_level(module: Optional[str] = None):
+    """
+    重置日志级别到配置文件默认值 (T086)
+
+    Args:
+        module: 模块名称（可选），不传则重置所有模块
+
+    Returns:
+        重置结果
+    """
+    try:
+        from ginkgo.services.logging import LevelService
+
+        level_service = service_hub.services.logging.level_service()
+
+        result = level_service.reset_levels(module)
+
+        if result.is_success:
+            return {
+                "status": "success",
+                "module": module or "all",
+                "message": f"Log level for '{module or 'all modules'}' reset to default",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reset log level: {str(e)}")
+
+
+
 # ========== 启动入口 ==========
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ import typer
 from typing_extensions import Annotated
 from rich.console import Console
 
+from ginkgo.libs import GLOG
+
 # All heavy imports moved to function level for faster CLI startup
 
 app = typer.Typer(
@@ -42,12 +44,12 @@ def dev_server(
                 check=True,  # throw CalledProcessError if command returns non-zero exit code
                 text=True,  # treat input and output as strings
             )
-            print(result)
-            print("Command executed successfully.")
+            GLOG.INFO(result)
+            GLOG.INFO("Command executed successfully.")
         except subprocess.CalledProcessError as e:
-            print(f"Error occurred: {e}")
+            GLOG.ERROR(f"Error occurred: {e}")
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            GLOG.ERROR(f"An unexpected error occurred: {e}")
             return
 
     import os
@@ -87,7 +89,7 @@ def dev_jupyter(
     from ginkgo.libs import GCONF
     
     if daemon:
-        print("Daemon mode is not supported for jupyter yet.")
+        GLOG.WARN("Daemon mode is not supported for jupyter yet.")
 
     jupyter_path = os.path.join(os.path.dirname(GCONF.PYTHONPATH), "jupyter")
     subprocess.run([jupyter_path, "lab"])
