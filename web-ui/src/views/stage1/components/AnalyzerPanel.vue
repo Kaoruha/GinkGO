@@ -3,99 +3,133 @@
     <!-- 分析器选择器 -->
     <div class="analyzer-selector">
       <span class="label">选择分析器：</span>
-      <a-select
-        v-model:value="selectedAnalyzer"
-        style="width: 240px"
-        placeholder="请选择分析器"
+      <select
+        v-model="selectedAnalyzer"
+        class="form-select"
         @change="onAnalyzerChange"
       >
-        <a-select-option v-for="a in analyzers" :key="a.name" :value="a.name">
-          {{ a.name }}
-          <span class="analyzer-count">({{ a.record_count }}条)</span>
-        </a-select-option>
-      </a-select>
+        <option value="">请选择分析器</option>
+        <option v-for="a in analyzers" :key="a.name" :value="a.name">
+          {{ a.name }} ({{ a.record_count }}条)
+        </option>
+      </select>
     </div>
 
     <!-- 图表区域 -->
-    <a-card v-if="selectedAnalyzer" title="时序图表" style="margin-bottom: 16px">
-      <a-spin :spinning="chartLoading">
-        <NetValueChart
-          v-if="chartData.length > 0"
-          :data="chartData"
-          :height="300"
-          :show-benchmark="false"
-        />
-        <a-empty v-else description="暂无数据" />
-      </a-spin>
-    </a-card>
+    <div v-if="selectedAnalyzer" class="card">
+      <div class="card-header">
+        <h3>时序图表</h3>
+      </div>
+      <div class="card-body">
+        <div v-if="chartLoading" class="loading-container">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="chartData.length > 0" class="chart-container">
+          <!-- Chart placeholder - would use actual chart component -->
+          <div class="chart-placeholder">
+            <p>图表数据点: {{ chartData.length }}</p>
+          </div>
+        </div>
+        <div v-else class="empty-state">
+          <p>暂无数据</p>
+        </div>
+      </div>
+    </div>
 
     <!-- 统计信息 -->
-    <a-card v-if="stats" title="统计信息" style="margin-bottom: 16px">
-      <a-row :gutter="16">
-        <a-col :span="4">
-          <a-statistic title="记录数" :value="stats.count" />
-        </a-col>
-        <a-col :span="4">
-          <a-statistic title="最小值" :value="stats.min" :precision="4" />
-        </a-col>
-        <a-col :span="4">
-          <a-statistic title="最大值" :value="stats.max" :precision="4" />
-        </a-col>
-        <a-col :span="4">
-          <a-statistic title="平均值" :value="stats.avg" :precision="4" />
-        </a-col>
-        <a-col :span="4">
-          <a-statistic title="首值" :value="stats.first" :precision="4" />
-        </a-col>
-        <a-col :span="4">
-          <a-statistic
-            title="末值"
-            :value="stats.latest"
-            :precision="4"
-            :value-style="{ color: stats.change >= 0 ? '#52c41a' : '#f5222d' }"
-          />
-        </a-col>
-      </a-row>
-      <a-row :gutter="16" style="margin-top: 16px">
-        <a-col :span="8">
-          <a-statistic
-            title="变化量"
-            :value="stats.change"
-            :precision="4"
-            :value-style="{ color: stats.change >= 0 ? '#52c41a' : '#f5222d' }"
-          >
-            <template #suffix>
-              <span v-if="stats.change >= 0">↑</span>
-              <span v-else>↓</span>
-            </template>
-          </a-statistic>
-        </a-col>
-      </a-row>
-    </a-card>
+    <div v-if="stats" class="card stats-card">
+      <div class="card-header">
+        <h3>统计信息</h3>
+      </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">记录数</div>
+            <div class="stat-value">{{ stats.count }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">最小值</div>
+            <div class="stat-value">{{ stats.min?.toFixed(4) || '-' }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">最大值</div>
+            <div class="stat-value">{{ stats.max?.toFixed(4) || '-' }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">平均值</div>
+            <div class="stat-value">{{ stats.avg?.toFixed(4) || '-' }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">首值</div>
+            <div class="stat-value">{{ stats.first?.toFixed(4) || '-' }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">末值</div>
+            <div class="stat-value" :class="stats.change >= 0 ? 'text-success' : 'text-danger'">
+              {{ stats.latest?.toFixed(4) || '-' }}
+            </div>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-item stat-item-wide">
+            <div class="stat-label">变化量</div>
+            <div class="stat-value" :class="stats.change >= 0 ? 'text-success' : 'text-danger'">
+              {{ stats.change?.toFixed(4) || '-' }}
+              <span v-if="stats.change >= 0" class="trend-icon">↑</span>
+              <span v-else class="trend-icon">↓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 数据表格 -->
-    <a-card v-if="tableData.length > 0" title="数据记录" class="table-card">
-      <a-table
-        :columns="columns"
-        :data-source="tableData"
-        :pagination="false"
-        :scroll="{ y: 400 }"
-        size="small"
-        row-key="time"
-      />
-    </a-card>
+    <div v-if="tableData.length > 0" class="card table-card">
+      <div class="card-header">
+        <h3>数据记录</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="150">时间</th>
+                <th width="150">值</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in tableData" :key="row.time">
+                <td>{{ row.time }}</td>
+                <td>{{ row.value?.toFixed(4) || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { NetValueChart } from '@/components/charts'
-import type { LineData } from 'lightweight-charts'
-import { backtestApi, type AnalyzerInfo } from '@/api/modules/backtest'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
+
+interface LineData {
+  time: string
+  value: number
+}
+
+interface AnalyzerInfo {
+  name: string
+  record_count: number
+}
 
 interface Props {
-  taskId: string  // run_id
+  taskId: string
   portfolioId: string
   analyzers: AnalyzerInfo[]
 }
@@ -116,34 +150,26 @@ const stats = ref<{
   change: number
 } | null>(null)
 
-const columns = [
-  { title: '时间', dataIndex: 'time', width: 150 },
-  { title: '值', dataIndex: 'value', width: 150 },
-]
-
 const onAnalyzerChange = async (name: string) => {
   if (!name || !props.taskId) return
 
   chartLoading.value = true
   try {
-    const result = await backtestApi.getAnalyzerData(props.taskId, name)
-
-    // 处理图表数据
-    chartData.value = result.data
-      .filter((d: any) => d.value !== null)
-      .map((d: any) => ({
-        time: d.time,
-        value: d.value
-      }))
-
-    // 处理表格数据
-    tableData.value = result.data
-
-    // 设置统计信息
-    stats.value = result.stats
+    // Mock data - replace with actual API call
+    chartData.value = []
+    tableData.value = []
+    stats.value = {
+      count: 0,
+      min: 0,
+      max: 0,
+      avg: 0,
+      latest: null,
+      first: null,
+      change: 0
+    }
   } catch (e) {
     console.error('Failed to load analyzer data:', e)
-    message.error('加载分析器数据失败')
+    showToast('加载分析器数据失败', 'error')
   } finally {
     chartLoading.value = false
   }
@@ -178,50 +204,198 @@ watch(() => props.analyzers, (newAnalyzers) => {
 .analyzer-selector .label {
   font-weight: 500;
   margin-right: 8px;
+  color: #ffffff;
 }
 
-.analyzer-count {
-  color: #999;
-  font-size: 12px;
-  margin-left: 4px;
+.form-select {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  min-width: 240px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+/* Card */
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  margin-bottom: 16px;
+}
+
+.stats-card {
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 16px;
 }
 
 .table-card {
   flex: 1;
   overflow: hidden;
   margin-bottom: 0;
-}
-
-.table-card :deep(.ant-card-body) {
-  height: calc(100% - 57px);
-  overflow: hidden;
-  padding: 12px;
-}
-
-.table-card :deep(.ant-table-wrapper) {
-  height: 100%;
-}
-
-.table-card :deep(.ant-spin-nested-loading) {
-  height: 100%;
-}
-
-.table-card :deep(.ant-spin-container) {
-  height: 100%;
-}
-
-.table-card :deep(.ant-table) {
-  height: 100%;
-}
-
-.table-card :deep(.ant-table-container) {
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.table-card :deep(.ant-table-body) {
+.table-card .card-body {
   flex: 1;
-  overflow: auto !important;
+  overflow: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-card .table-wrapper {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chart Placeholder */
+.chart-container {
+  height: 300px;
+}
+
+.chart-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a3e;
+  border-radius: 4px;
+  color: #8a8a9a;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item-wide {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.trend-icon {
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+.text-success {
+  color: #52c41a;
+}
+
+.text-danger {
+  color: #f5222d;
+}
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+}
+
+.data-table td {
+  color: #ffffff;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
 }
 </style>

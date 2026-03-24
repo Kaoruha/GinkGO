@@ -5,88 +5,100 @@
       <p class="page-subtitle">分析参数变化对策略表现的影响</p>
     </div>
 
-    <a-card class="config-card">
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="选择策略">
-            <a-select v-model:value="selectedStrategy" placeholder="选择要分析参数的策略">
-              <a-select-option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
-                {{ s.name }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="分析目标">
-            <a-select v-model:value="analyzeTarget">
-              <a-select-option value="sharpe">夏普比率</a-select-option>
-              <a-select-option value="total_return">总收益</a-select-option>
-              <a-select-option value="max_drawdown">最大回撤</a-select-option>
-              <a-select-option value="win_rate">胜率</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
+    <!-- 配置卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>分析配置</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">选择策略</label>
+            <select v-model="selectedStrategy" class="form-select">
+              <option value="">选择策略</option>
+              <option v-for="s in strategies" :key="s.uuid" :value="s.uuid">{{ s.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">分析目标</label>
+            <select v-model="analyzeTarget" class="form-select">
+              <option value="sharpe">夏普比率</option>
+              <option value="total_return">总收益</option>
+              <option value="max_drawdown">最大回撤</option>
+              <option value="win_rate">胜率</option>
+            </select>
+          </div>
+        </div>
 
-      <a-divider>敏感性参数配置</a-divider>
+        <div class="section-divider">
+          <h4>敏感性参数配置</h4>
+        </div>
 
-      <a-row :gutter="16">
-        <a-col :span="8">
-          <a-form-item label="要分析的参数">
-            <a-select v-model:value="sensitivityParam.name">
-              <a-select-option v-for="p in parameterList" :key="p.name" :value="p.name">
-                {{ p.label }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="最小值">
-            <a-input-number v-model:value="rangeConfig.min" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="最大值">
-            <a-input-number v-model:value="rangeConfig.max" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">要分析的参数</label>
+            <select v-model="sensitivityParam.name" class="form-select">
+              <option v-for="p in parameterList" :key="p.name" :value="p.name">{{ p.label }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最小值</label>
+            <input v-model.number="rangeConfig.min" type="number" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大值</label>
+            <input v-model.number="rangeConfig.max" type="number" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">步长</label>
+            <input v-model.number="rangeConfig.step" type="number" step="0.001" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">测试点数</label>
+            <input v-model.number="rangeConfig.points" type="number" min="5" max="100" class="form-input" />
+          </div>
+          <div class="form-group">
+            <button class="btn-primary" :disabled="analyzing" @click="runAnalysis">
+              {{ analyzing ? '分析中...' : '开始分析' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <a-row :gutter="16">
-        <a-col :span="8">
-          <a-form-item label="步长">
-            <a-input-number v-model:value="rangeConfig.step" :min="0.001" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="测试点数">
-            <a-input-number v-model:value="rangeConfig.points" :min="5" :max="100" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-button type="primary" :loading="analyzing" @click="runAnalysis">
-            开始分析
-          </a-button>
-        </a-col>
-      </a-row>
-    </a-card>
-
-    <a-card v-if="results.length > 0" class="result-card">
-      <template #title>分析结果</template>
-      <a-table :columns="resultColumns" :data-source="results" :pagination="false" size="small">
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'value'">
-            <span :class="getValueClass(record.target)">{{ record.target?.toFixed(4) }}</span>
-          </template>
-        </template>
-      </a-table>
-    </a-card>
+    <!-- 结果卡片 -->
+    <div v-if="results.length > 0" class="card">
+      <div class="card-header">
+        <h3>分析结果</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>参数值</th>
+                <th>目标值</th>
+                <th>变化率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in results" :key="record.key">
+                <td>{{ record.param_value }}</td>
+                <td>
+                  <span :class="getValueClass(record.target)">{{ record.target?.toFixed(4) }}</span>
+                </td>
+                <td>{{ record.change }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { message } from 'ant-design-vue'
 
 const selectedStrategy = ref('')
 const analyzeTarget = ref('sharpe')
@@ -117,12 +129,6 @@ const rangeConfig = reactive({
 
 const results = ref<any[]>([])
 
-const resultColumns = [
-  { title: '参数值', dataIndex: 'param_value', width: 150 },
-  { title: '目标值', dataIndex: 'value', width: 150 },
-  { title: '变化率', dataIndex: 'change', width: 150 }
-]
-
 const getValueClass = (value: number) => {
   if (value > 1) return 'value-up'
   if (value < 0.5) return 'value-down'
@@ -131,7 +137,7 @@ const getValueClass = (value: number) => {
 
 const runAnalysis = async () => {
   if (!selectedStrategy.value) {
-    message.warning('请选择策略')
+    console.warn('请选择策略')
     return
   }
 
@@ -147,9 +153,9 @@ const runAnalysis = async () => {
         change: (Math.random() * 20 - 10).toFixed(2) + '%'
       })
     }
-    message.success('分析完成')
+    console.log('分析完成')
   } catch (error: any) {
-    message.error(`分析失败: ${error.message}`)
+    console.error('分析失败:', error)
   } finally {
     analyzing.value = false
   }
@@ -159,7 +165,7 @@ const runAnalysis = async () => {
 <style scoped>
 .sensitivity-analysis-container {
   padding: 24px;
-  background: #f5f7fa;
+  background: #0f0f1e;
   min-height: calc(100vh - 64px);
 }
 
@@ -171,18 +177,134 @@ const runAnalysis = async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0 0 8px 0;
+  color: #ffffff;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #8c8c8c;
+  color: #8a8a9a;
   margin: 0;
 }
 
-.config-card,
-.result-card {
-  margin-bottom: 24px;
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
   border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.section-divider {
+  margin: 20px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.section-divider h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  align-self: flex-end;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
 }
 
 .value-up {
@@ -191,5 +313,11 @@ const runAnalysis = async () => {
 
 .value-down {
   color: #52c41a;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

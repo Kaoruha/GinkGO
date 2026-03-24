@@ -1,28 +1,68 @@
 <template>
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-lg font-semibold text-gray-900">
-        组件管理
-      </h1>
-      <p class="text-sm text-gray-500">
-        管理系统中的策略、分析器、风控等组件
-      </p>
+  <div class="component-list-header">
+    <div class="header-info">
+      <h1>组件管理</h1>
+      <p>管理系统中的策略、分析器、风控等组件</p>
     </div>
-    <a-button
-      type="primary"
-      @click="openCreateModal"
-    >
-      <template #icon>
-        <PlusOutlined />
-      </template>
+    <button class="btn btn-primary" @click="openCreateModal">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
       新建组件
-    </a-button>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { PlusOutlined } from '@ant-design/icons-vue'
 import { useComponentList } from '@/composables/useComponentList'
 
 const { openCreateModal } = useComponentList()
 </script>
+
+<style scoped>
+.component-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-info h1 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.header-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.btn-primary svg {
+  flex-shrink: 0;
+}
+</style>

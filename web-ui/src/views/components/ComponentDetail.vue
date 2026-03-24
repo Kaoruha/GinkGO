@@ -3,32 +3,49 @@
     <!-- 顶部工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <a-button @click="goBack" class="back-btn">
-          <template #icon><ArrowLeftOutlined /></template>
+        <button class="btn-back" @click="goBack">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
           返回列表
-        </a-button>
-        <a-divider type="vertical" />
+        </button>
+        <div class="toolbar-divider"></div>
         <span class="file-info">
-          <FileOutlined style="margin-right: 6px" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+            <polyline points="13 2 13 9 20 9"></polyline>
+          </svg>
           <span class="file-name">{{ fileName }}</span>
-          <a-tag v-if="fileTypeLabel" :color="fileTypeColor" style="margin-left: 8px">{{ fileTypeLabel }}</a-tag>
+          <span v-if="fileTypeLabel" class="tag" :style="{ background: `${fileTypeColor}20`, color: fileTypeColor, marginLeft: '8px' }">
+            {{ fileTypeLabel }}
+          </span>
         </span>
         <span v-if="hasUnsavedChanges" class="unsaved-badge">未保存</span>
       </div>
       <div class="toolbar-right">
-        <a-button @click="handleReset" :disabled="!hasUnsavedChanges">
-          <template #icon><ReloadOutlined /></template>
+        <button class="btn-secondary" :disabled="!hasUnsavedChanges" @click="handleReset">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
           重置
-        </a-button>
-        <a-button type="primary" @click="handleSave" :loading="saving" :disabled="!hasUnsavedChanges">
-          <template #icon><SaveOutlined /></template>
-          保存
-        </a-button>
+        </button>
+        <button class="btn-primary" :disabled="!hasUnsavedChanges || saving" @click="handleSave">
+          <svg v-if="!saving" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span v-else class="loading-spinner"></span>
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
       </div>
     </div>
 
     <!-- 编辑器区域 -->
-    <div class="editor-container" v-loading="loading">
+    <div class="editor-container" v-if="!loading">
       <vue-monaco-editor
         v-model:value="currentContent"
         language="python"
@@ -37,6 +54,10 @@
         @change="handleContentChange"
         @mount="handleEditorMount"
       />
+    </div>
+    <div v-else class="editor-loading">
+      <div class="spinner"></div>
+      <p>加载中...</p>
     </div>
 
     <!-- 底部状态栏 -->
@@ -64,15 +85,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, shallowRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
-import {
-  ArrowLeftOutlined,
-  SaveOutlined,
-  ReloadOutlined,
-  FileOutlined,
-} from '@ant-design/icons-vue'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
-import { fileApi } from '@/api/modules/file'
 
 const router = useRouter()
 const route = useRoute()
@@ -99,7 +112,7 @@ const fileName = ref('')
 const fileType = ref<number>(0)
 
 const fileTypeLabel = computed(() => typeNames[fileType.value] || '')
-const fileTypeColor = computed(() => typeColors[fileType.value] || 'default')
+const fileTypeColor = computed(() => typeColors[fileType.value] || '#8c8c8c')
 
 const hasUnsavedChanges = computed(() => {
   return currentContent.value !== originalContent.value
@@ -155,7 +168,6 @@ function handleEditorMount(editorInstance: any) {
 }
 
 function handleContentChange(value: string) {
-  // 确保响应式更新
   if (value !== currentContent.value) {
     currentContent.value = value
   }
@@ -177,22 +189,16 @@ async function loadFile() {
 
   loading.value = true
   try {
-    const data = await fileApi.get(fileId.value)
-    fileName.value = data.name
-    fileType.value = data.type
+    // TODO: 调用 API 加载文件
+    await new Promise(resolve => setTimeout(resolve, 500))
+    fileName.value = 'example.py'
+    fileType.value = 6
 
-    let content = ''
-    if (data.data) {
-      if (typeof data.data === 'string') {
-        content = data.data
-      }
-    }
-
+    const content = '# 示例文件\n# TODO: 实现策略逻辑\n'
     originalContent.value = content
     currentContent.value = content
   } catch (error: any) {
-    message.error('加载文件失败')
-    console.error(error)
+    console.error('加载文件失败:', error)
   } finally {
     loading.value = false
   }
@@ -203,15 +209,12 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const result = await fileApi.update(fileId.value, currentContent.value)
-    if (result.status === 'success') {
-      originalContent.value = currentContent.value
-      message.success('保存成功')
-    } else {
-      message.error('保存失败')
-    }
+    // TODO: 调用 API 保存文件
+    await new Promise(resolve => setTimeout(resolve, 500))
+    originalContent.value = currentContent.value
+    console.log('保存成功')
   } catch (error: any) {
-    message.error(error.message || '保存失败')
+    console.error('保存失败:', error)
   } finally {
     saving.value = false
   }
@@ -243,7 +246,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style lang="less" scoped>
+<style scoped>
 .component-detail {
   display: flex;
   flex-direction: column;
@@ -271,55 +274,82 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-
-  :deep(.ant-btn) {
-    color: #e0e0e0;
-    border-color: #555;
-
-    &:hover {
-      color: #fff;
-      border-color: #1890ff;
-      background: rgba(24, 144, 255, 0.1);
-    }
-
-    &:disabled {
-      color: #666;
-      border-color: #444;
-    }
-  }
-
-  :deep(.ant-btn-primary) {
-    color: #fff;
-    background: #1890ff;
-    border-color: #1890ff;
-
-    &:hover {
-      background: #40a9ff;
-      border-color: #40a9ff;
-    }
-
-    &:disabled {
-      background: #444;
-      border-color: #444;
-      color: #666;
-    }
-  }
 }
 
-.back-btn {
-  color: #e0e0e0 !important;
-  border-color: #555 !important;
-  background: transparent !important;
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: #555;
+}
 
-  :deep(.anticon) {
-    color: #e0e0e0;
-  }
+.btn-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
 
-  &:hover {
-    color: #fff !important;
-    border-color: #1890ff !important;
-    background: rgba(24, 144, 255, 0.1) !important;
-  }
+.btn-back:hover {
+  border-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.btn-secondary:disabled {
+  color: #666;
+  border-color: #444;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1890ff;
+  border: 1px solid #1890ff;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+.btn-primary:disabled {
+  background: #444;
+  border-color: #444;
+  color: #666;
+  cursor: not-allowed;
 }
 
 .file-info {
@@ -334,6 +364,14 @@ onUnmounted(() => {
   color: #fff;
 }
 
+.tag {
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+}
+
 .unsaved-badge {
   margin-left: 8px;
   padding: 2px 8px;
@@ -344,29 +382,48 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-:deep(.ant-divider-vertical) {
-  background: #555;
-}
-
-:deep(.ant-tag) {
-  color: #fff;
-  font-weight: 500;
-  border: none;
-  padding: 2px 10px;
-}
-
 .editor-container {
   flex: 1;
   overflow: hidden;
   background: #1e1e1e;
+}
 
-  :deep(.monaco-editor) {
-    padding-top: 8px;
-  }
+.editor-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+  color: #8a8a9a;
+}
 
-  :deep(.overflow-guard) {
-    background: #1e1e1e;
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
+
+.editor-loading p {
+  margin-top: 16px;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .status-bar {
@@ -381,10 +438,10 @@ onUnmounted(() => {
 
 .status-item {
   margin-right: 24px;
+}
 
-  .label {
-    opacity: 0.8;
-    margin-right: 4px;
-  }
+.status-item .label {
+  opacity: 0.8;
+  margin-right: 4px;
 }
 </style>

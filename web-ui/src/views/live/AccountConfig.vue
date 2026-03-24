@@ -219,10 +219,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import axios from 'axios'
-
-// API基础URL
-const API_BASE = '/api/v1'
+import request from '@/api/request'
 
 // 状态
 const loading = ref(false)
@@ -259,9 +256,9 @@ const columns = [
 const fetchAccounts = async () => {
   loading.value = true
   try {
-    const response = await axios.get(`${API_BASE}/accounts`)
-    if (response.data.code === 0) {
-      accounts.value = response.data.data || []
+    const response = await request.get('/api/v1/accounts')
+    if (response.code === 0) {
+      accounts.value = response.data || []
     } else {
       console.error('获取账号列表失败')
     }
@@ -276,12 +273,12 @@ const fetchAccounts = async () => {
 const testConnection = async (uuid) => {
   testing.value[uuid] = true
   try {
-    const response = await axios.post(`${API_BASE}/accounts/${uuid}/validate`)
-    if (response.data.code === 0) {
+    const response = await request.post(`/api/v1/accounts/${uuid}/validate`)
+    if (response.code === 0) {
       console.log('连接测试成功')
       await fetchAccounts()
     } else {
-      console.error('连接测试失败：' + response.data.message)
+      console.error('连接测试失败：' + response.message)
     }
   } catch (error) {
     console.error('网络错误：' + error.message)
@@ -324,12 +321,12 @@ const confirmDelete = (record) => {
 const confirmDeleteAccount = async () => {
   if (!recordToDelete.value) return
   try {
-    const response = await axios.delete(`${API_BASE}/accounts/${recordToDelete.value.uuid}`)
-    if (response.data.code === 0) {
+    const response = await request.delete(`/api/v1/accounts/${recordToDelete.value.uuid}`)
+    if (response.code === 0) {
       console.log('账号删除成功')
       await fetchAccounts()
     } else {
-      console.error('删除失败：' + response.data.message)
+      console.error('删除失败：' + response.message)
     }
   } catch (error) {
     console.error('网络错误：' + error.message)
@@ -357,22 +354,22 @@ const handleModalOk = async () => {
 
   try {
     if (isEditMode.value) {
-      const response = await axios.put(`${API_BASE}/accounts/${data.uuid}`, data)
-      if (response.data.code === 0) {
+      const response = await request.put(`/api/v1/accounts/${data.uuid}`, data)
+      if (response.code === 0) {
         console.log('账号更新成功')
         modalVisible.value = false
         await fetchAccounts()
       } else {
-        console.error('更新失败：' + response.data.message)
+        console.error('更新失败：' + response.message)
       }
     } else {
-      const response = await axios.post(`${API_BASE}/accounts`, data)
-      if (response.data.code === 0) {
+      const response = await request.post('/api/v1/accounts', data)
+      if (response.code === 0) {
         console.log('账号创建成功')
         modalVisible.value = false
         await fetchAccounts()
       } else {
-        console.error('创建失败：' + response.data.message)
+        console.error('创建失败：' + response.message)
       }
     }
   } catch (error) {

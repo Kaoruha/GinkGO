@@ -6,173 +6,210 @@
       <div class="page-header">
         <div class="header-left">
           <h1>投资组合</h1>
-          <a-tag color="purple">{{ total }} 个组合</a-tag>
+          <span class="tag tag-purple">{{ total }} 个组合</span>
         </div>
         <div class="header-right">
-          <a-input-search
-            v-model:value="searchKeyword"
-            placeholder="搜索组合名称..."
-            style="width: 240px"
-            allow-clear
-          />
-          <a-button type="primary" @click="showCreateModal">
-            <PlusOutlined /> 创建组合
-          </a-button>
+          <div class="search-box">
+            <input
+              v-model="searchKeyword"
+              type="search"
+              placeholder="搜索组合名称..."
+              class="search-input"
+            />
+            <button class="search-btn" @click="handleSearch">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+            </button>
+          </div>
+          <button class="btn-primary" @click="showCreateModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            创建组合
+          </button>
         </div>
       </div>
 
       <!-- 筛选栏 -->
       <div class="filter-bar">
-        <a-radio-group v-model:value="filterMode" button-style="solid" size="small" @change="handleFilterChange">
-          <a-radio-button value="">全部</a-radio-button>
-          <a-radio-button value="0">回测</a-radio-button>
-          <a-radio-button value="1">模拟</a-radio-button>
-          <a-radio-button value="2">实盘</a-radio-button>
-        </a-radio-group>
+        <div class="radio-group">
+          <button
+            v-for="option in filterOptions"
+            :key="option.value"
+            class="radio-button"
+            :class="{ active: filterMode === option.value }"
+            @click="setFilterMode(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </div>
 
       <!-- 统计卡片 -->
-      <a-row :gutter="16" class="stats-row">
-        <a-col :span="6">
-          <a-card class="stat-card" size="small">
-            <a-statistic title="总投资组合" :value="stats.total" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card class="stat-card" size="small">
-            <a-statistic title="运行中" :value="stats.running" :value-style="{ color: '#52c41a' }" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card class="stat-card" size="small">
-            <a-statistic title="平均净值" :value="stats.avgNetValue" :precision="3" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card class="stat-card" size="small">
-            <a-statistic title="总资产" :value="stats.totalAssets" />
-          </a-card>
-        </a-col>
-      </a-row>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">总投资组合</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value stat-success">{{ stats.running }}</div>
+          <div class="stat-label">运行中</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.avgNetValue?.toFixed(3) || '-' }}</div>
+          <div class="stat-label">平均净值</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ formatMoney(stats.totalAssets) }}</div>
+          <div class="stat-label">总资产</div>
+        </div>
+      </div>
     </div>
 
     <!-- 可滚动的内容区域 -->
     <div class="scrollable-content">
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-container">
-        <a-spin size="large" />
+        <div class="spinner"></div>
       </div>
 
       <!-- 空状态 -->
-      <a-empty v-else-if="displayPortfolios.length === 0" description="暂无投资组合">
-        <a-button type="primary" @click="showCreateModal">创建第一个组合</a-button>
-      </a-empty>
+      <div v-else-if="displayPortfolios.length === 0" class="empty-state">
+        <div class="empty-icon">📊</div>
+        <p class="empty-text">暂无投资组合</p>
+        <button class="btn-primary" @click="showCreateModal">创建第一个组合</button>
+      </div>
 
       <!-- 卡片列表 -->
       <div v-else class="portfolio-grid">
-      <a-card
-        v-for="portfolio in displayPortfolios"
-        :key="portfolio.uuid"
-        class="portfolio-card"
-        hoverable
-        @click="viewDetail(portfolio)"
-      >
-        <template #title>
-          <div class="card-title">
-            <span class="name">{{ portfolio.name }}</span>
-            <a-tag :color="getModeColor(portfolio.mode)" size="small">
-              {{ getModeLabel(portfolio.mode) }}
-            </a-tag>
-          </div>
-        </template>
-        <template #extra>
-          <a-dropdown @click.stop>
-            <a-button type="text" size="small">
-              <MoreOutlined />
-            </a-button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item @click.stop="viewDetail(portfolio)">
-                  <EyeOutlined /> 详情
-                </a-menu-item>
-                <a-menu-divider />
-                <a-menu-item danger @click.stop="confirmDelete(portfolio)">
-                  <DeleteOutlined /> 删除
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-        </template>
-
-        <div class="card-content">
-          <p class="desc">{{ portfolio.desc || '暂无描述' }}</p>
-
-          <!-- 回测模式指标 -->
-          <div v-if="portfolio.mode === 0" class="metrics">
-            <div class="metric">
-              <span class="label">回测次数</span>
-              <span class="value">{{ portfolio.backtest_count || 0 }}</span>
-            </div>
-            <div class="metric">
-              <span class="label">平均收益</span>
-              <span class="value" :class="{ positive: portfolio.avg_return >= 0, negative: portfolio.avg_return < 0 }">
-                {{ formatPercentValue(portfolio.avg_return) }}
+        <div
+          v-for="portfolio in displayPortfolios"
+          :key="portfolio.uuid"
+          class="portfolio-card"
+          @click="viewDetail(portfolio)"
+        >
+          <div class="card-header">
+            <div class="card-title">
+              <span class="name">{{ portfolio.name }}</span>
+              <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">
+                {{ getModeLabel(portfolio.mode) }}
               </span>
             </div>
+            <div class="card-actions" @click.stop>
+              <button class="btn-icon" @click="toggleMenu(portfolio.uuid)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="1"></circle>
+                  <circle cx="12" cy="5" r="1"></circle>
+                  <circle cx="12" cy="19" r="1"></circle>
+                </svg>
+              </button>
+              <div v-if="activeMenu === portfolio.uuid" class="dropdown-menu">
+                <button class="dropdown-item" @click="viewDetail(portfolio)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  详情
+                </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item danger" @click="confirmDelete(portfolio)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                  删除
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- 模拟/实盘模式指标 -->
-          <div v-else class="metrics">
-            <div class="metric">
-              <span class="label">净值</span>
-              <span class="value" :class="{ positive: portfolio.net_value >= 1, negative: portfolio.net_value < 1 }">
-                {{ (portfolio.net_value || 1).toFixed(4) }}
+          <div class="card-content">
+            <p class="desc">{{ portfolio.desc || '暂无描述' }}</p>
+
+            <!-- 回测模式指标 -->
+            <div v-if="portfolio.mode === 0" class="metrics">
+              <div class="metric">
+                <span class="label">回测次数</span>
+                <span class="value">{{ portfolio.backtest_count || 0 }}</span>
+              </div>
+              <div class="metric">
+                <span class="label">平均收益</span>
+                <span class="value" :class="{ positive: portfolio.avg_return >= 0, negative: portfolio.avg_return < 0 }">
+                  {{ formatPercentValue(portfolio.avg_return) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 模拟/实盘模式指标 -->
+            <div v-else class="metrics">
+              <div class="metric">
+                <span class="label">净值</span>
+                <span class="value" :class="{ positive: portfolio.net_value >= 1, negative: portfolio.net_value < 1 }">
+                  {{ (portfolio.net_value || 1).toFixed(4) }}
+                </span>
+              </div>
+              <div class="metric">
+                <span class="label">初始资金</span>
+                <span class="value">{{ formatMoney(portfolio.initial_cash) }}</span>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <span class="tag" :class="`tag-${getStateColorClass(portfolio.state)}`">
+                {{ getStateLabel(portfolio.state) }}
               </span>
+              <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
             </div>
-            <div class="metric">
-              <span class="label">初始资金</span>
-              <span class="value">{{ formatMoney(portfolio.initial_cash) }}</span>
-            </div>
-          </div>
-
-          <div class="card-footer">
-            <a-tag :color="getStateColor(portfolio.state)" size="small">
-              {{ getStateLabel(portfolio.state) }}
-            </a-tag>
-            <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
           </div>
         </div>
-      </a-card>
       </div>
 
       <!-- 滚动加载触发器 -->
       <div v-if="displayPortfolios.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
-        <a-spin v-if="loadingMore" size="small" />
+        <div v-if="loadingMore" class="spinner spinner-small"></div>
         <div v-else-if="!hasMore" class="no-more">没有更多了</div>
       </div>
     </div>
 
     <!-- 创建组合模态框 -->
-    <a-modal
-      v-model:open="createModalVisible"
-      title="创建投资组合"
-      width="1200px"
-      :footer="null"
-      :destroyOnClose="true"
-      @cancel="closeCreateModal"
-    >
-      <div class="modal-form-container">
-        <PortfolioFormEditor ref="formEditorRef" :is-modal-mode="true" @created="handleCreated" @cancel="closeCreateModal" />
+    <div v-if="createModalVisible" class="modal-overlay" @click.self="closeCreateModal">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h3>创建投资组合</h3>
+          <button class="btn-close" @click="closeCreateModal">×</button>
+        </div>
+        <div class="modal-body">
+          <PortfolioFormEditor ref="formEditorRef" :is-modal-mode="true" @created="handleCreated" @cancel="closeCreateModal" />
+        </div>
       </div>
-    </a-modal>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div v-if="deleteModalVisible" class="modal-overlay" @click.self="closeDeleteModal">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3>确认删除</h3>
+          <button class="btn-close" @click="closeDeleteModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要删除组合「{{ deletingPortfolio?.name }}」吗？此操作不可恢复。</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeDeleteModal">取消</button>
+          <button class="btn-danger" @click="handleDelete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, MoreOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
 import { usePortfolioMode, usePortfolioState } from '@/composables'
@@ -199,19 +236,52 @@ const { getColor: getStateColor, getLabel: getStateLabel } = usePortfolioState()
 
 const searchKeyword = ref('')
 const createModalVisible = ref(false)
+const deleteModalVisible = ref(false)
+const deletingPortfolio = ref<any>(null)
 const formEditorRef = ref()
 const loadMoreTrigger = ref<HTMLElement>()
+const activeMenu = ref<string | null>(null)
+
+// 筛选选项
+const filterOptions = [
+  { value: '', label: '全部' },
+  { value: '0', label: '回测' },
+  { value: '1', label: '模拟' },
+  { value: '2', label: '实盘' }
+]
 
 // 显示的投资组合（后端搜索，前端只做筛选过滤）
 const displayPortfolios = computed(() => {
   return filteredPortfolios.value
 })
 
+// 颜色类名映射
+const getModeColorClass = (mode: number) => {
+  const color = getModeColor(mode)
+  const colorMap: Record<string, string> = {
+    'purple': 'purple',
+    'blue': 'blue',
+    'green': 'green',
+    'orange': 'orange'
+  }
+  return colorMap[color] || 'blue'
+}
+
+const getStateColorClass = (state: number) => {
+  const color = getStateColor(state)
+  const colorMap: Record<string, string> = {
+    'green': 'green',
+    'red': 'red',
+    'orange': 'orange',
+    'blue': 'blue'
+  }
+  return colorMap[color] || 'blue'
+}
+
 // Intersection Observer 用于滚动加载
 let observer: IntersectionObserver | null = null
 
 const setupIntersectionObserver = () => {
-  // 等待 DOM 更新后设置 observer
   nextTick(() => {
     if (!loadMoreTrigger.value) {
       console.log('⚠️ loadMoreTrigger 元素不存在，跳过 observer 设置')
@@ -222,7 +292,6 @@ const setupIntersectionObserver = () => {
       observer.disconnect()
     }
 
-    // 获取滚动容器
     const scrollableContainer = document.querySelector('.scrollable-content')
     if (!scrollableContainer) {
       console.log('⚠️ .scrollable-content 元素不存在，跳过 observer 设置')
@@ -288,8 +357,21 @@ const formatShortDate = (dateStr: string) => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-const handleFilterChange = () => {
-  // filterMode 变化会触发 watch，这里不需要额外处理
+const handleSearch = () => {
+  fetchPortfolios({ page: 0, append: false, keyword: searchKeyword.value || undefined })
+}
+
+const setFilterMode = (value: string) => {
+  filterMode.value = value
+}
+
+const toggleMenu = (uuid: string) => {
+  activeMenu.value = activeMenu.value === uuid ? null : uuid
+}
+
+// 关闭下拉菜单（点击外部）
+const closeMenus = () => {
+  activeMenu.value = null
 }
 
 const showCreateModal = () => {
@@ -303,40 +385,51 @@ const closeCreateModal = () => {
 const handleCreated = (uuid: string) => {
   createModalVisible.value = false
   fetchPortfolios({ page: 0, append: false })
-  fetchStats()  // 刷新统计数据
+  fetchStats()
   router.push(`/portfolio/${uuid}`)
 }
 
-const viewDetail = (record: any) => router.push(`/portfolio/${record.uuid}`)
+const viewDetail = (record: any) => {
+  activeMenu.value = null
+  router.push(`/portfolio/${record.uuid}`)
+}
 
 const confirmDelete = (record: any) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除组合「${record.name}」吗？此操作不可恢复。`,
-    okText: '删除',
-    okType: 'danger',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await deletePortfolio(record.uuid)
-        message.success('删除成功')
-      } catch (e) {
-        message.error('删除失败')
-      }
-    }
-  })
+  deletingPortfolio.value = record
+  deleteModalVisible.value = true
+  activeMenu.value = null
+}
+
+const closeDeleteModal = () => {
+  deleteModalVisible.value = false
+  deletingPortfolio.value = null
+}
+
+const handleDelete = async () => {
+  if (!deletingPortfolio.value) return
+  try {
+    await deletePortfolio(deletingPortfolio.value.uuid)
+    deleteModalVisible.value = false
+    deletingPortfolio.value = null
+    fetchPortfolios({ page: 0, append: false })
+    fetchStats()
+  } catch (e) {
+    console.error('删除失败', e)
+  }
 }
 
 onMounted(() => {
   fetchPortfolios({ page: 0, append: false })
-  fetchStats()  // 获取统计数据
+  fetchStats()
   setupIntersectionObserver()
+  document.addEventListener('click', closeMenus)
 })
 
 onUnmounted(() => {
   if (observer) {
     observer.disconnect()
   }
+  document.removeEventListener('click', closeMenus)
 })
 </script>
 
@@ -358,6 +451,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .header-left {
@@ -370,25 +465,222 @@ onUnmounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: #ffffff;
 }
 
 .header-right {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
+/* 搜索框 */
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 240px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #8a8a9a;
+}
+
+.search-btn {
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-btn:hover {
+  color: #ffffff;
+}
+
+/* 按钮 */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-danger {
+  padding: 8px 16px;
+  background: #f5222d;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #ff4d4f;
+}
+
+.btn-icon {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+/* 标签 */
+.tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-purple {
+  background: #722ed1;
+  color: #ffffff;
+}
+
+.tag-blue {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.tag-green {
+  background: #52c41a;
+  color: #ffffff;
+}
+
+.tag-orange {
+  background: #fa8c16;
+  color: #ffffff;
+}
+
+.tag-red {
+  background: #f5222d;
+  color: #ffffff;
+}
+
+/* 筛选栏 */
 .filter-bar {
   margin-bottom: 20px;
 }
 
-.stats-row {
+.radio-group {
+  display: inline-flex;
+  background: #2a2a3e;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.radio-button {
+  padding: 6px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  color: #8a8a9a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-button:hover {
+  color: #ffffff;
+}
+
+.radio-button.active {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
 }
 
 .stat-card {
-  cursor: default;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
 }
 
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stat-success {
+  color: #52c41a;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+/* 滚动内容区 */
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
@@ -400,6 +692,45 @@ onUnmounted(() => {
   padding: 60px;
 }
 
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px;
+  color: #8a8a9a;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+  margin: 0 0 16px 0;
+}
+
+/* 组合卡片网格 */
 .portfolio-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -407,27 +738,91 @@ onUnmounted(() => {
 }
 
 .portfolio-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .portfolio-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transform: translateY(-2px);
+  border-color: #3a3a4e;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
 .card-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .card-title .name {
   font-weight: 500;
+  color: #ffffff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 180px;
+}
+
+.card-actions {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  min-width: 120px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #3a3a4e;
+}
+
+.dropdown-item.danger {
+  color: #f5222d;
+}
+
+.dropdown-item.danger:hover {
+  background: rgba(245, 34, 45, 0.1);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #3a3a4e;
+  margin: 4px 0;
 }
 
 .card-content {
@@ -437,7 +832,7 @@ onUnmounted(() => {
 }
 
 .card-content .desc {
-  color: #666;
+  color: #8a8a9a;
   font-size: 13px;
   margin: 0;
   overflow: hidden;
@@ -457,12 +852,13 @@ onUnmounted(() => {
 
 .metric .label {
   font-size: 12px;
-  color: #999;
+  color: #8a8a9a;
 }
 
 .metric .value {
   font-size: 16px;
   font-weight: 500;
+  color: #ffffff;
 }
 
 .metric .value.positive {
@@ -477,20 +873,102 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  padding-top: 12px;
+  border-top: 1px solid #2a2a3e;
 }
 
 .card-footer .date {
   font-size: 12px;
-  color: #999;
+  color: #8a8a9a;
 }
 
-.modal-form-container {
-  height: 70vh;
-  overflow: hidden;
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
+.modal-content {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.modal-large {
+  width: 1200px;
+}
+
+.modal-small {
+  width: 400px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  color: #8a8a9a;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.modal-body p {
+  color: #ffffff;
+  margin: 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #2a2a3e;
+}
+
+/* 加载更多触发器 */
 .load-more-trigger {
   display: flex;
   justify-content: center;
@@ -499,7 +977,7 @@ onUnmounted(() => {
 }
 
 .load-more-trigger .no-more {
-  color: #999;
+  color: #8a8a9a;
   font-size: 14px;
 }
 
@@ -508,19 +986,26 @@ onUnmounted(() => {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
   }
 
   .header-right {
     width: 100%;
   }
 
-  .header-right .ant-input-search {
-    flex: 1;
+  .search-box {
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .portfolio-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal-large {
+    width: 95%;
   }
 }
 </style>

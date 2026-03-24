@@ -15,7 +15,11 @@ import { useRoute } from 'vue-router'
 import NodeGraphEditor from '@/components/node-graph/NodeGraphEditor.vue'
 import type { GraphData } from '@/components/node-graph/types'
 import { useNodeGraphStore } from '@/stores/nodeGraph'
-import { message } from 'ant-design-vue'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const route = useRoute()
 const nodeGraphStore = useNodeGraphStore()
@@ -33,7 +37,7 @@ onMounted(async () => {
       await nodeGraphStore.loadGraph(graphUuid.value)
       graphData.value = nodeGraphStore.currentGraphData
     } catch (error: any) {
-      message.error(`加载节点图失败: ${error.message}`)
+      showToast(`加载节点图失败: ${error.message}`, 'error')
     }
   }
 })
@@ -42,9 +46,9 @@ onMounted(async () => {
 const handleSave = async (data: GraphData) => {
   try {
     await nodeGraphStore.saveGraph('回测配置', '通过节点图配置的回测任务')
-    message.success('保存成功')
+    showToast('保存成功')
   } catch (error: any) {
-    message.error(`保存失败: ${error.message}`)
+    showToast(`保存失败: ${error.message}`, 'error')
   }
 }
 
@@ -54,7 +58,7 @@ const handleCompile = async (data: GraphData) => {
     const result = await nodeGraphStore.compileGraph()
     return result
   } catch (error: any) {
-    message.error(`编译失败: ${error.message}`)
+    showToast(`编译失败: ${error.message}`, 'error')
     throw error
   }
 }

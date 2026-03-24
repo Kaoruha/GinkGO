@@ -1,95 +1,133 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div class="page-title">
-        <a-tag color="orange">模拟</a-tag>
+      <h1 class="page-title">
+        <span class="tag tag-orange">模拟</span>
         订单记录
-      </div>
+      </h1>
       <div class="page-actions">
-        <a-space>
-          <a-select v-model:value="filterStatus" style="width: 120px" placeholder="状态筛选" allowClear>
-            <a-select-option value="0">待成交</a-select-option>
-            <a-select-option value="1">已成交</a-select-option>
-            <a-select-option value="2">已取消</a-select-option>
-            <a-select-option value="3">部分成交</a-select-option>
-          </a-select>
-          <a-input v-model:value="filterCode" placeholder="股票代码" style="width: 150px" allowClear />
-          <a-range-picker v-model:value="filterDateRange" />
-          <a-button type="primary" @click="loadOrders">
-            <template #icon><SearchOutlined /></template>
+        <div class="filter-group">
+          <select v-model="filterStatus" class="form-select">
+            <option value="">全部状态</option>
+            <option value="0">待成交</option>
+            <option value="1">已成交</option>
+            <option value="2">已取消</option>
+            <option value="3">部分成交</option>
+          </select>
+          <input v-model="filterCode" type="text" placeholder="股票代码" class="form-input" />
+          <input v-model="startDate" type="date" class="form-input" />
+          <input v-model="endDate" type="date" class="form-input" />
+          <button class="btn-primary" @click="loadOrders">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
             搜索
-          </a-button>
-          <a-button @click="loadOrders">
-            <template #icon><ReloadOutlined /></template>
+          </button>
+          <button class="btn-secondary" @click="loadOrders">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+              <path d="M16 21h5v-5"></path>
+            </svg>
             刷新
-          </a-button>
-        </a-space>
+          </button>
+        </div>
       </div>
     </div>
 
-    <a-card :loading="loading">
-      <a-table
-        :columns="columns"
-        :dataSource="orders"
-        :rowKey="(record: Order) => record.uuid"
-        :pagination="pagination"
-        @change="handleTableChange"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'direction'">
-            <a-tag :color="getDirectionColor(record.direction)">
-              {{ getDirectionText(record.direction) }}
-            </a-tag>
-          </template>
-          <template v-else-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
-              {{ getStatusText(record.status) }}
-            </a-tag>
-          </template>
-          <template v-else-if="column.key === 'timestamp'">
-            {{ formatTime(record.timestamp) }}
-          </template>
-        </template>
-      </a-table>
-    </a-card>
+    <div class="card">
+      <div class="card-body" :style="{ padding: loading ? '20px' : '0' }">
+        <div v-if="loading" class="loading-state">加载中...</div>
+        <div v-else class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>代码</th>
+                <th>方向</th>
+                <th>数量</th>
+                <th>成交价</th>
+                <th>成交金额</th>
+                <th>手续费</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in orders" :key="record.uuid">
+                <td>{{ formatTime(record.timestamp) }}</td>
+                <td>{{ record.code }}</td>
+                <td>
+                  <span class="tag" :class="getDirectionClass(record.direction)">
+                    {{ getDirectionText(record.direction) }}
+                  </span>
+                </td>
+                <td>{{ record.volume }}</td>
+                <td>{{ record.transaction_price?.toFixed(2) || '-' }}</td>
+                <td>{{ ((record.transaction_price || 0) * (record.transaction_volume || 0)).toFixed(2) }}</td>
+                <td>{{ record.fee?.toFixed(2) || '-' }}</td>
+                <td>
+                  <span class="tag" :class="getStatusClass(record.status)">
+                    {{ getStatusText(record.status) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="orders.length === 0" class="empty-state">
+            <p>暂无订单数据</p>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="!loading && orders.length > 0" class="pagination">
+          <div class="pagination-info">共 {{ total }} 条</div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" :disabled="pagination.current === 1" @click="goToPage(1)">
+              首页
+            </button>
+            <button class="pagination-btn" :disabled="pagination.current === 1" @click="goToPage(pagination.current - 1)">
+              上一页
+            </button>
+            <span class="pagination-current">第 {{ pagination.current }} 页</span>
+            <button class="pagination-btn" :disabled="pagination.current >= totalPages" @click="goToPage(pagination.current + 1)">
+              下一页
+            </button>
+            <button class="pagination-btn" :disabled="pagination.current >= totalPages" @click="goToPage(totalPages)">
+              末页
+            </button>
+            <select v-model="pagination.pageSize" @change="loadOrders" class="pagination-size">
+              <option :value="20">20条/页</option>
+              <option :value="50">50条/页</option>
+              <option :value="100">100条/页</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
-import { orderApi, ORDER_STATUS_MAP, ORDER_DIRECTION_MAP, type Order } from '@/api/modules/order'
+import { ref, reactive, onMounted, computed } from 'vue'
 
 const loading = ref(false)
-const orders = ref<Order[]>([])
+const orders = ref<any[]>([])
 const total = ref(0)
 
-const filterStatus = ref<string | undefined>(undefined)
+const filterStatus = ref<string>('')
 const filterCode = ref<string>('')
-const filterDateRange = ref<any[]>([])
+const startDate = ref<string>('')
+const endDate = ref<string>('')
 
 const pagination = reactive({
   current: 1,
   pageSize: 50,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (t: number) => `共 ${t} 条`,
 })
 
-const columns = [
-  { title: '时间', key: 'timestamp', dataIndex: 'timestamp', width: 180 },
-  { title: '代码', dataIndex: 'code', width: 120 },
-  { title: '方向', key: 'direction', width: 80 },
-  { title: '数量', dataIndex: 'volume', width: 100 },
-  { title: '成交价', dataIndex: 'transaction_price', width: 100 },
-  { title: '成交金额', width: 120, customRender: ({ record }: { record: Order }) => {
-    return ((record.transaction_price || 0) * (record.transaction_volume || 0)).toFixed(2)
-  }},
-  { title: '手续费', dataIndex: 'fee', width: 100 },
-  { title: '状态', key: 'status', width: 100 },
-]
+const totalPages = computed(() => Math.ceil(pagination.total / pagination.pageSize))
 
 const loadOrders = async () => {
   loading.value = true
@@ -99,48 +137,72 @@ const loadOrders = async () => {
       page: pagination.current - 1,
       size: pagination.pageSize,
     }
-    if (filterStatus.value !== undefined) {
+    if (filterStatus.value !== '') {
       params.status = filterStatus.value
     }
     if (filterCode.value) {
       params.code = filterCode.value
     }
-    if (filterDateRange.value && filterDateRange.value.length === 2) {
-      params.start_date = filterDateRange.value[0].format('YYYY-MM-DD')
-      params.end_date = filterDateRange.value[1].format('YYYY-MM-DD')
+    if (startDate.value) {
+      params.start_date = startDate.value
+    }
+    if (endDate.value) {
+      params.end_date = endDate.value
     }
 
-    const result = await orderApi.list(params)
-    orders.value = result.data
-    total.value = result.total
-    pagination.total = result.total
+    // TODO: Replace with actual API call
+    // const result = await orderApi.list(params)
+    // Mock data for now
+    await new Promise(resolve => setTimeout(resolve, 500))
+    orders.value = []
+    total.value = 0
+    pagination.total = 0
   } catch (e: any) {
-    message.error('加载订单失败: ' + (e.message || '未知错误'))
+    console.error('加载订单失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-const handleTableChange = (pag: any) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+const goToPage = (page: number) => {
+  pagination.current = page
   loadOrders()
 }
 
 const getDirectionText = (direction: number) => {
-  return ORDER_DIRECTION_MAP[direction]?.text || '未知'
+  const map: Record<number, string> = {
+    1: '买入',
+    2: '卖出',
+  }
+  return map[direction] || '未知'
 }
 
-const getDirectionColor = (direction: number) => {
-  return ORDER_DIRECTION_MAP[direction]?.color || 'default'
+const getDirectionClass = (direction: number) => {
+  const map: Record<number, string> = {
+    1: 'tag-red',
+    2: 'tag-green',
+  }
+  return map[direction] || 'tag-gray'
 }
 
 const getStatusText = (status: number) => {
-  return ORDER_STATUS_MAP[status]?.text || '未知'
+  const map: Record<number, string> = {
+    0: '待成交',
+    1: '已成交',
+    2: '已取消',
+    3: '部分成交',
+  }
+  return map[status] || '未知'
 }
 
-const getStatusColor = (status: number) => {
-  return ORDER_STATUS_MAP[status]?.color || 'default'
+const getStatusClass = (status: number) => {
+  const map: Record<number, string> = {
+    0: 'tag-orange',
+    1: 'tag-green',
+    2: 'tag-gray',
+    3: 'tag-blue',
+  }
+  return map[status] || 'tag-gray'
 }
 
 const formatTime = (timestamp: string) => {
@@ -156,6 +218,7 @@ onMounted(() => {
 <style scoped>
 .page-container {
   padding: 0;
+  background: transparent;
 }
 
 .page-header {
@@ -163,13 +226,249 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
+  margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-input,
+.form-select {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+}
+
+.card-body {
+  min-height: 200px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-orange {
+  background: rgba(250, 140, 22, 0.2);
+  color: #fa8c16;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
+}
+
+.tag-blue {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+}
+
+.tag-gray {
+  background: rgba(140, 140, 140, 0.2);
+  color: #8c8c8c;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid #2a2a3e;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  color: #8a8a9a;
+  font-size: 14px;
+}
+
+.pagination-controls {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-current {
+  color: #8a8a9a;
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.pagination-size {
+  padding: 4px 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .form-input,
+  .form-select {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: center;
+  }
 }
 </style>

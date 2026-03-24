@@ -1,175 +1,209 @@
 <template>
   <div class="parameter-optimizer">
-    <a-card title="参数优化">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择策略</a-button>
-      </template>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="选择策略">
-            <a-select v-model:value="selectedStrategy" placeholder="选择要优化的策略">
-              <a-select-option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
+    <div class="card">
+      <div class="card-header">
+        <h4>参数优化</h4>
+        <button class="btn-secondary" @click="$router.push('/portfolio')">选择策略</button>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">选择策略</label>
+            <select v-model="selectedStrategy" class="form-select">
+              <option value="">选择要优化的策略</option>
+              <option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
                 {{ s.name }} - {{ s.strategy_type }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="优化目标">
-            <a-select v-model:value="optimizeTarget">
-              <a-select-option value="sharpe">夏普比率</a-select-option>
-              <a-select-option value="total_return">总收益</a-select-option>
-              <a-select-option value="max_drawdown">最大回撤</a-select-option>
-              <a-select-option value="calmar">卡玛比率</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-divider>参数范围配置</a-divider>
-      <div class="params-config">
-        <a-row :gutter="16" v-for="(param, index) in parameters" :key="param.name" class="mb-3">
-          <a-col :span="6">
-            <a-form-item :label="`${param.label} 最小值`">
-              <a-input-number v-model:value="param.min" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item :label="`${param.label} 最大值`">
-              <a-input-number v-model:value="param.max" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="步长">
-              <a-input-number v-model:value="param.step" :min="0.001" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="类型">
-              <a-select v-model:value="param.type">
-                <a-select-option value="int">整数</a-select-option>
-                <a-select-option value="float">浮点数</a-select-option>
-                <a-select-option value="categorical">分类</a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- Custom -->
-      <a-divider>优化方法</a-divider>
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="优化算法">
-            <a-select v-model:value="optimizeMethod">
-              <a-select-option value="grid">网格搜索</a-select-option>
-              <a-select-option value="genetic">遗传算法</a-select-option>
-              <a-select-option value="bayesian">贝叶斯优化</a-select-option>
-              <a-select-option value="random">随机搜索</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="6">
-          <a-form-item label="最大迭代次数">
-            <a-input-number v-model:value="maxIterations" :min="10" :max="1000" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="6">
-          <a-form-item label="并行任务数">
-            <a-input-number v-model:value="nJobs" :min="1" :max="10" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="训练数据范围">
-            <a-range-picker v-model:value="trainDateRange" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="验证数据范围">
-            <a-range-picker v-model:value="valDateRange" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="optimizing" @click="startOptimization">
-            开始优化
-          </a-button>
-          <a-button @click="resetConfig">重置</a-button>
-        </a-space>
-      </div>
-    </a-card>
-
-    <!-- Custom -->
-    <a-card v-if="optimizing" title="优化进度" class="mt-4">
-      <a-progress :percent="progress" :status="progressStatus">
-        <template #format="percent">
-          <span>{{ percent }}%</span>
-          <span class="ml-2">{{ progressText }}</span>
-        </template>
-      </a-progress>
-      <div class="progress-detail mt-3">
-        <a-statistic title="已完成" :value="completedIterations" suffix="/ {{ maxIterations }}" />
-        <a-statistic title="最优目标值" :value="bestObjectiveValue.toFixed(4)" class="ml-4" />
-        <a-statistic title="剩余时间" :value="estimatedTime" class="ml-4" />
-      </div>
-    </a-card>
-
-    <!-- Custom -->
-    <a-card v-if="results && results.length > 0" title="优化结果" class="mt-4">
-      <template #extra>
-        <a-button @click="exportResults">导出结果</a-button>
-      </template>
-
-      <!-- Custom -->
-      <a-alert type="success" show-icon class="mb-4">
-        <template #message>
-          <div>最优参数组合</div>
-          <div class="mt-2">
-            <span style="font-size: 16px; font-weight: 600;">
-              {{ optimizeTarget.toUpperCase() }} = {{ bestObjectiveValue.toFixed(4) }}
-            </span>
+              </option>
+            </select>
           </div>
-        </template>
-      </a-alert>
+          <div class="form-group">
+            <label class="form-label">优化目标</label>
+            <select v-model="optimizeTarget" class="form-select">
+              <option value="sharpe">夏普比率</option>
+              <option value="total_return">总收益</option>
+              <option value="max_drawdown">最大回撤</option>
+              <option value="calmar">卡玛比率</option>
+            </select>
+          </div>
+        </div>
 
-      <a-table :columns="resultColumns" :data-source="results" :pagination="{ pageSize: 20 }" size="small">
-        <template #bodyCell="{ column, record }">
-          <a-tag v-if="column.dataIndex === 'rank'" :color="getRankColor(record.rank)">
-            #{{ record.rank }}
-          </a-tag>
-          <span v-else-if="column.dataIndex === 'objective_value'" :style="{ color: getValueColor(record.objective_value) }">
-            {{ record.objective_value.toFixed(4) }}
-          </span>
-        </template>
-      </a-table>
+        <div class="divider">参数范围配置</div>
+        <div class="params-config">
+          <div v-for="(param, index) in parameters" :key="param.name" class="param-row">
+            <div class="form-group">
+              <label class="form-label">{{ param.label }} 最小值</label>
+              <input v-model.number="param.min" type="number" step="any" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">{{ param.label }} 最大值</label>
+              <input v-model.number="param.max" type="number" step="any" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">步长</label>
+              <input v-model.number="param.step" type="number" :min="0.001" step="any" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">类型</label>
+              <select v-model="param.type" class="form-select">
+                <option value="int">整数</option>
+                <option value="float">浮点数</option>
+                <option value="categorical">分类</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <div class="heatmap-section mt-4">
-        <h4>参数空间热力图</h4>
-        <div ref="heatmapRef" class="heatmap-container" style="height: 400px"></div>
+        <div class="divider">优化方法</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">优化算法</label>
+            <select v-model="optimizeMethod" class="form-select">
+              <option value="grid">网格搜索</option>
+              <option value="genetic">遗传算法</option>
+              <option value="bayesian">贝叶斯优化</option>
+              <option value="random">随机搜索</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大迭代次数</label>
+            <input v-model.number="maxIterations" type="number" :min="10" :max="1000" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">并行任务数</label>
+            <input v-model.number="nJobs" type="number" :min="1" :max="10" class="form-input" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">训练数据范围</label>
+            <div class="date-range-inputs">
+              <input v-model="trainStartDate" type="date" class="form-input" />
+              <input v-model="trainEndDate" type="date" class="form-input" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">验证数据范围</label>
+            <div class="date-range-inputs">
+              <input v-model="valStartDate" type="date" class="form-input" />
+              <input v-model="valEndDate" type="date" class="form-input" />
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-primary" :disabled="optimizing" @click="startOptimization">
+            {{ optimizing ? '优化中...' : '开始优化' }}
+          </button>
+          <button class="btn-secondary" @click="resetConfig">重置</button>
+        </div>
       </div>
-    </a-card>
+    </div>
+
+    <!-- 优化进度卡片 -->
+    <div v-if="optimizing" class="card mt-4">
+      <div class="card-header">
+        <h4>优化进度</h4>
+      </div>
+      <div class="card-body">
+        <div class="progress-wrapper">
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :class="getProgressStatus()"
+              :style="{ width: progress + '%' }"
+            ></div>
+          </div>
+          <div class="progress-text">
+            <span>{{ progress }}%</span>
+            <span class="ml-2">{{ progressText }}</span>
+          </div>
+        </div>
+        <div class="progress-detail">
+          <div class="stat-item">
+            <span class="stat-label">已完成</span>
+            <span class="stat-value">{{ completedIterations }} / {{ maxIterations }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">最优目标值</span>
+            <span class="stat-value">{{ bestObjectiveValue.toFixed(4) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">剩余时间</span>
+            <span class="stat-value">{{ estimatedTime }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 优化结果卡片 -->
+    <div v-if="results && results.length > 0" class="card mt-4">
+      <div class="card-header">
+        <h4>优化结果</h4>
+        <button class="btn-secondary" @click="exportResults">导出结果</button>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-success">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <div class="alert-content">
+            <div class="alert-title">最优参数组合</div>
+            <div class="best-value">{{ optimizeTarget.toUpperCase() }} = {{ bestObjectiveValue.toFixed(4) }}</div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>参数组合</th>
+                <th>训练集{{ optimizeTarget.toUpperCase() }}</th>
+                <th>验证集{{ optimizeTarget.toUpperCase() }}</th>
+                <th>过拟合检测</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in results" :key="record.rank">
+                <td>
+                  <span class="tag" :class="getRankClass(record.rank)">
+                    #{{ record.rank }}
+                  </span>
+                </td>
+                <td>{{ record.params_str }}</td>
+                <td>{{ record.train_value?.toFixed(4) }}</td>
+                <td>{{ record.val_value?.toFixed(4) }}</td>
+                <td>
+                  <span class="tag" :class="record.overfit === '正常' ? 'tag-green' : 'tag-orange'">
+                    {{ record.overfit }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="heatmap-section">
+          <h4>参数空间热力图</h4>
+          <div ref="heatmapRef" class="heatmap-container"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
 import * as echarts from 'echarts'
-import dayjs from 'dayjs'
 
 const router = useRouter()
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 // 策略列表（模拟数据）
 const strategies = ref([
@@ -184,8 +218,10 @@ const optimizeTarget = ref('sharpe')
 const optimizeMethod = ref('grid')
 const maxIterations = ref(100)
 const nJobs = ref(4)
-const trainDateRange = ref<any[]>([])
-const valDateRange = ref<any[]>([])
+const trainStartDate = ref('')
+const trainEndDate = ref('')
+const valStartDate = ref('')
+const valEndDate = ref('')
 
 // 参数配置（根据策略动态生成）
 const parameters = ref<any[]>([])
@@ -193,7 +229,6 @@ const parameters = ref<any[]>([])
 // 优化状态
 const optimizing = ref(false)
 const progress = ref(0)
-const progressStatus = ref<'normal' | 'active' | 'success' | 'exception'>('normal')
 const progressText = ref('')
 const completedIterations = ref(0)
 const bestObjectiveValue = ref(0)
@@ -203,19 +238,17 @@ const estimatedTime = ref('0分钟')
 const results = ref<any[]>([])
 const heatmapRef = ref<HTMLDivElement>()
 
-// 结果表格列
-const resultColumns = [
-  { title: '排名', dataIndex: 'rank', width: 80, fixed: 'left' },
-  { title: '参数组合', dataIndex: 'params_str', width: 300 },
-  { title: '训练集' + optimizeTarget.value.toUpperCase(), dataIndex: 'train_value', width: 120 },
-  { title: '验证集' + optimizeTarget.value.toUpperCase(), dataIndex: 'val_value', width: 120 },
-  { title: '过拟合检测', dataIndex: 'overfit', width: 100 },
-]
-
 // 计算属性
 const bestResult = computed(() => {
   return results.value.length > 0 ? results.value[0] : null
 })
+
+// 获取进度状态
+const getProgressStatus = () => {
+  if (progress.value >= 100) return 'progress-success'
+  if (progress.value > 0) return 'progress-active'
+  return ''
+}
 
 // 根据策略更新参数配置
 const updateParameters = () => {
@@ -240,13 +273,17 @@ const updateParameters = () => {
     ],
   }
 
-  parameters.value = paramMap[selectedStrategy.value] || []
+  // 通过策略名称获取参数
+  const strategy = strategies.value.find(s => s.uuid === selectedStrategy.value)
+  if (strategy) {
+    parameters.value = paramMap[strategy.strategy_type] || []
+  }
 }
 
 // 开始优化
 const startOptimization = async () => {
   if (!selectedStrategy.value) {
-    message.warning('请先选择策略')
+    showToast('请先选择策略', 'warning')
     return
   }
 
@@ -256,13 +293,11 @@ const startOptimization = async () => {
   results.value = []
 
   try {
-    // TODO: 调用后端优化API
-    // const res = await optimizeParameters({ ... })
     await simulateOptimization()
-    message.success('优化完成')
+    showToast('优化完成')
     renderHeatmap()
-  } catch (e) {
-    message.error('优化失败')
+  } catch {
+    showToast('优化失败', 'error')
   } finally {
     optimizing.value = false
   }
@@ -295,7 +330,6 @@ const simulateOptimization = async () => {
 
     estimatedTime.value = Math.ceil((total - i - 1) * 0.1) + '分钟'
   }
-  progressStatus.value = 'success'
   progressText.value = '优化完成'
 
   // 排序结果
@@ -330,7 +364,7 @@ const renderHeatmap = () => {
     tooltip: {
       position: 'top',
       formatter: (params: any) => {
-        return `${params.mark}[0].params_str}<br/>目标值: ${params.mark}[0].data.toFixed(4)}`
+        return `${params.data[2]}<br/>目标值: ${(params.data[2] || 0).toFixed(4)}`
       }
     },
     grid: {
@@ -352,15 +386,11 @@ const renderHeatmap = () => {
       max: Math.max(...topResults.map(r => r.objective_value)),
       calculable: true,
       orient: 'horizontal',
-      inRange: { color: '#313695' },
-      outOfRange: { color: '#eee' }
+      inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8'] },
     },
     series: [{
       type: 'heatmap',
-      data: topResults.map((r, i) => ({
-        value: [i, i],
-        objective_value: r.objective_value
-      })),
+      data: topResults.map((r, i) => [i, i, r.objective_value]),
       label: {
         show: false
       }
@@ -368,17 +398,12 @@ const renderHeatmap = () => {
   })
 }
 
-// 获取排名颜色
-const getRankColor = (rank: number) => {
-  if (rank === 1) return 'gold'
-  if (rank === 2) return 'silver'
-  if (rank === 3) return '#cd7f32'
-  return 'default'
-}
-
-// 获取数值颜色
-const getValueColor = (value: number) => {
-  return value >= 0 ? '#52c41a' : '#f5222d'
+// 获取排名颜色类
+const getRankClass = (rank: number) => {
+  if (rank === 1) return 'tag-gold'
+  if (rank === 2) return 'tag-silver'
+  if (rank === 3) return 'tag-bronze'
+  return 'tag-gray'
 }
 
 // 重置配置
@@ -393,16 +418,13 @@ const resetConfig = () => {
 // 导出结果
 const exportResults = () => {
   if (results.value.length === 0) {
-    message.warning('没有可导出的结果')
+    showToast('没有可导出的结果', 'warning')
     return
   }
-
-  // TODO: 实现CSV导出
-  message.info('导出优化结果...')
+  showToast('导出优化结果...')
 }
 
 // 监听策略选择
-import { watch } from 'vue'
 watch(selectedStrategy, updateParameters)
 
 onMounted(() => {
@@ -415,43 +437,206 @@ onMounted(() => {
   padding: 16px;
 }
 
-.mb-3 {
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
-.mb-4 {
-  margin-bottom: 24px;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
 }
 
-.mt-2 {
-  margin-top: 8px;
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
 }
 
-.mt-3 {
-  margin-top: 12px;
+.card-body {
+  padding: 20px;
 }
 
-.mt-4 {
-  margin-top: 16px;
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.ml-2 {
-  margin-left: 8px;
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.ml-4 {
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.date-range-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.date-range-inputs .form-input {
+  flex: 1;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  color: #8a8a9a;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 20px 0 16px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a3e;
+}
+
+.divider::before {
+  margin-right: 16px;
+}
+
+.divider::after {
   margin-left: 16px;
 }
 
 .params-config {
-  background: #fafafa;
+  background: #2a2a3e;
   padding: 16px;
   border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.param-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.param-row:last-child {
+  margin-bottom: 0;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
 }
 
 .action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
   margin-top: 24px;
-  text-align: center;
+}
+
+/* 进度条 */
+.progress-wrapper {
+  margin-bottom: 16px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #2a2a3e;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #1890ff;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.progress-active {
+  background: #1890ff;
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.progress-fill.progress-success {
+  background: #52c41a;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-text {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.ml-2 {
+  margin-left: 8px;
 }
 
 .progress-detail {
@@ -459,13 +644,168 @@ onMounted(() => {
   justify-content: space-around;
 }
 
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Alert */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.alert-success {
+  background: rgba(82, 196, 26, 0.1);
+  border: 1px solid #52c41a;
+}
+
+.alert svg {
+  flex-shrink: 0;
+  color: #52c41a;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.best-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #52c41a;
+}
+
+/* 表格 */
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tr:hover {
+  background: #2a2a3e;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-orange {
+  background: rgba(250, 173, 20, 0.2);
+  color: #faad14;
+}
+
+.tag-gold {
+  background: rgba(250, 204, 21, 0.2);
+  color: #facc15;
+}
+
+.tag-silver {
+  background: rgba(192, 192, 192, 0.2);
+  color: #c0c0c0;
+}
+
+.tag-bronze {
+  background: rgba(205, 127, 50, 0.2);
+  color: #cd7f32;
+}
+
+.tag-gray {
+  background: #2a2a3e;
+  color: #8a8a9a;
+}
+
+/* 热力图 */
+.heatmap-section {
+  margin-top: 20px;
+}
+
 .heatmap-section h4 {
-  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 12px 0;
 }
 
 .heatmap-container {
   width: 100%;
-  border: 1px solid #e8e8e8;
+  height: 400px;
+  background: #2a2a3e;
   border-radius: 8px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .param-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .progress-detail {
+    flex-direction: column;
+    gap: 16px;
+  }
 }
 </style>

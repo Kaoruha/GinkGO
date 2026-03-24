@@ -2,133 +2,155 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">
-        <a-tag color="green">K线</a-tag>
+        <span class="tag tag-green">K线</span>
         K线数据
-        <a-tag v-if="isLoadingMore" color="blue" style="margin-left: 8px">
-          <LoadingOutlined spin /> 加载历史数据...
-        </a-tag>
+        <span v-if="isLoadingMore" class="tag tag-blue" style="margin-left: 8px">
+          <span class="spin">↻</span> 加载历史数据...
+        </span>
       </div>
-      <a-space>
-        <a-select
-          v-model:value="selectedCode"
-          show-search
-          placeholder="选择股票"
-          style="width: 180px"
-          :options="stockOptions"
-          :filter-option="filterOption"
-          @change="handleCodeChange"
+      <div class="header-controls">
+        <select v-model="selectedCode" class="form-select" @change="handleCodeChange">
+          <option value="">选择股票</option>
+          <option v-for="opt in stockOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <input
+          type="date"
+          :value="dateRange[0]?.format('YYYY-MM-DD') || ''"
+          @change="onStartDateChange"
+          class="form-input"
         />
-        <a-range-picker
-          v-model:value="dateRange"
-          format="YYYY-MM-DD"
-          @change="loadBars"
+        <input
+          type="date"
+          :value="dateRange[1]?.format('YYYY-MM-DD') || ''"
+          @change="onEndDateChange"
+          class="form-input"
         />
-        <a-select v-model:value="frequency" style="width: 100px" @change="loadBars">
-          <a-select-option value="day">日线</a-select-option>
-          <a-select-option value="week">周线</a-select-option>
-          <a-select-option value="month">月线</a-select-option>
-        </a-select>
-        <a-select v-model:value="adjustment" style="width: 100px" @change="loadBars">
-          <a-select-option value="fore">前复权</a-select-option>
-          <a-select-option value="back">后复权</a-select-option>
-          <a-select-option value="none">不复权</a-select-option>
-        </a-select>
-        <a-button :loading="loading" @click="loadBars">
-          <template #icon><ReloadOutlined /></template>
+        <select v-model="frequency" class="form-select" @change="loadBars">
+          <option value="day">日线</option>
+          <option value="week">周线</option>
+          <option value="month">月线</option>
+        </select>
+        <select v-model="adjustment" class="form-select" @change="loadBars">
+          <option value="fore">前复权</option>
+          <option value="back">后复权</option>
+          <option value="none">不复权</option>
+        </select>
+        <button class="btn-primary" :disabled="loading" @click="loadBars">
+          <span v-if="loading" class="spin">↻</span>
           刷新
-        </a-button>
-      </a-space>
+        </button>
+      </div>
     </div>
 
-    <!-- K线图表 - TradingView 风格 -->
-    <a-card title="K线图" style="margin-bottom: 16px" :body-style="{ padding: '12px' }">
-      <div ref="chartContainer" class="chart-container">
-        <!-- 加载更多指示器 -->
-        <div v-if="isLoadingMore" class="loading-more-indicator">
-          <LoadingOutlined spin />
-          <span>正在加载历史数据...</span>
+    <!-- K线图表 -->
+    <div class="card">
+      <h3 class="card-title">K线图</h3>
+      <div class="chart-wrapper">
+        <div ref="chartContainer" class="chart-container">
+          <div v-if="isLoadingMore" class="loading-more-indicator">
+            <span class="spin">↻</span>
+            <span>正在加载历史数据...</span>
+          </div>
+        </div>
+        <div v-if="!selectedCode" class="chart-empty">
+          <p>请选择股票查看K线图</p>
+        </div>
+        <div v-if="selectedCode && !hasMoreHistory" class="no-more-data">
+          已加载全部历史数据 (共 {{ barData.length }} 条)
         </div>
       </div>
-      <div v-if="!selectedCode" class="chart-empty">
-        <a-empty description="请选择股票查看K线图" />
-      </div>
-      <!-- 数据加载状态提示 -->
-      <div v-if="selectedCode && !hasMoreHistory" class="no-more-data">
-        已加载全部历史数据 (共 {{ barData.length }} 条)
-      </div>
-    </a-card>
+    </div>
 
     <!-- 数据统计 -->
-    <a-row :gutter="16" style="margin-bottom: 16px">
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic title="数据条数" :value="barData.length" />
-        </a-card>
-      </a-col>
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic title="最新价" :value="latestBar?.close" :precision="2" />
-        </a-card>
-      </a-col>
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic
-            title="涨跌幅"
-            :value="priceChange"
-            :precision="2"
-            suffix="%"
-            :value-style="{ color: priceChange >= 0 ? '#ef5350' : '#26a69a' }"
-          />
-        </a-card>
-      </a-col>
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic title="最高" :value="priceStats.high" :precision="2" />
-        </a-card>
-      </a-col>
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic title="最低" :value="priceStats.low" :precision="2" />
-        </a-card>
-      </a-col>
-      <a-col :span="4">
-        <a-card size="small">
-          <a-statistic title="成交量" :value="priceStats.totalVolume" />
-        </a-card>
-      </a-col>
-    </a-row>
+    <div class="stats-grid">
+      <div class="stat-card-small">
+        <div class="stat-value-small">{{ barData.length }}</div>
+        <div class="stat-label-small">数据条数</div>
+      </div>
+      <div class="stat-card-small">
+        <div class="stat-value-small">{{ latestBar?.close?.toFixed(2) || '-' }}</div>
+        <div class="stat-label-small">最新价</div>
+      </div>
+      <div class="stat-card-small">
+        <div class="stat-value-small" :class="priceChange >= 0 ? 'text-up' : 'text-down'">
+          {{ priceChange >= 0 ? '+' : '' }}{{ priceChange.toFixed(2) }}%
+        </div>
+        <div class="stat-label-small">涨跌幅</div>
+      </div>
+      <div class="stat-card-small">
+        <div class="stat-value-small">{{ priceStats.high.toFixed(2) || '-' }}</div>
+        <div class="stat-label-small">最高</div>
+      </div>
+      <div class="stat-card-small">
+        <div class="stat-value-small">{{ priceStats.low.toFixed(2) || '-' }}</div>
+        <div class="stat-label-small">最低</div>
+      </div>
+      <div class="stat-card-small">
+        <div class="stat-value-small">{{ formatNumber(priceStats.totalVolume) }}</div>
+        <div class="stat-label-small">成交量</div>
+      </div>
+    </div>
 
     <!-- K线数据表格 -->
-    <a-card title="数据明细">
-      <a-table
-        :columns="columns"
-        :data-source="barData"
-        :loading="loading"
-        :pagination="pagination"
-        row-key="timestamp"
-        size="small"
-        :scroll="{ x: 800 }"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'timestamp'">
-            {{ formatDate(record.timestamp) }}
-          </template>
-          <template v-if="column.dataIndex === 'change'">
-            <span :style="{ color: record.change >= 0 ? '#ef5350' : '#26a69a' }">
-              {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
-            </span>
-          </template>
-        </template>
-      </a-table>
-    </a-card>
+    <div class="card">
+      <h3 class="card-title">数据明细</h3>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>开盘</th>
+              <th>最高</th>
+              <th>最低</th>
+              <th>收盘</th>
+              <th>涨跌幅</th>
+              <th>成交量</th>
+              <th>成交额</th>
+            </tr>
+          </thead>
+          <tbody v-if="!loading && barData.length > 0">
+            <tr v-for="(bar, idx) in paginatedBars" :key="idx">
+              <td>{{ formatDate(bar.timestamp) }}</td>
+              <td>{{ bar.open?.toFixed(2) }}</td>
+              <td>{{ bar.high?.toFixed(2) }}</td>
+              <td>{{ bar.low?.toFixed(2) }}</td>
+              <td>{{ bar.close?.toFixed(2) }}</td>
+              <td :class="bar.change >= 0 ? 'text-up' : 'text-down'">
+                {{ bar.change >= 0 ? '+' : '' }}{{ bar.change?.toFixed(2) }}%
+              </td>
+              <td>{{ formatNumber(bar.volume) }}</td>
+              <td>{{ formatNumber(bar.amount) }}</td>
+            </tr>
+          </tbody>
+          <tbody v-else-if="loading">
+            <tr>
+              <td colspan="8" class="text-center">加载中...</td>
+            </tr>
+          </tbody>
+          <tbody v-else>
+            <tr>
+              <td colspan="8" class="text-center">暂无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="barData.length > 0" class="pagination">
+        <button @click="prevPage" :disabled="pagination.current === 1" class="btn-small">上一页</button>
+        <span class="pagination-info">
+          {{ (pagination.current - 1) * pagination.pageSize + 1 }} -
+          {{ Math.min(pagination.current * pagination.pageSize, pagination.total) }} / {{ pagination.total }}
+        </span>
+        <button @click="nextPage" :disabled="pagination.current * pagination.pageSize >= pagination.total" class="btn-small">下一页</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { ReloadOutlined, LoadingOutlined } from '@ant-design/icons-vue'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   createChart,
@@ -158,22 +180,20 @@ const barData = ref<any[]>([])
 // 懒加载状态
 const hasMoreHistory = ref(true)
 const earliestDate = ref<Dayjs | null>(null)
-const BATCH_SIZE = 300 // 每次加载的数据条数（增大减少加载频率）
-const LOAD_THRESHOLD = 0.4 // 当滚动到左边40%时提前触发加载
-const MAX_DATA_POINTS = 3000 // 最大数据点限制
+const BATCH_SIZE = 300
+const LOAD_THRESHOLD = 0.4
+const MAX_DATA_POINTS = 3000
 
 // 图表相关
 let chart: IChartApi | null = null
 let candlestickSeries: ISeriesApi<'Candlestick'> | null = null
 let volumeSeries: ISeriesApi<'Histogram'> | null = null
-let isLoadingLocked = false // 防止重复加载
+let isLoadingLocked = false
 
 const pagination = reactive({
   current: 1,
   pageSize: 50,
-  total: 0,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`
+  total: 0
 })
 
 const stockOptions = [
@@ -182,16 +202,11 @@ const stockOptions = [
   { value: '600519.SH', label: '600519.SH 贵州茅台' },
 ]
 
-const columns = [
-  { title: '日期', dataIndex: 'timestamp', width: 120 },
-  { title: '开盘', dataIndex: 'open', width: 100 },
-  { title: '最高', dataIndex: 'high', width: 100 },
-  { title: '最低', dataIndex: 'low', width: 100 },
-  { title: '收盘', dataIndex: 'close', width: 100 },
-  { title: '涨跌幅', dataIndex: 'change', width: 100 },
-  { title: '成交量', dataIndex: 'volume', width: 120 },
-  { title: '成交额', dataIndex: 'amount', width: 120 }
-]
+const paginatedBars = computed(() => {
+  const start = (pagination.current - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return barData.value.slice(start, end)
+})
 
 const latestBar = computed(() => barData.value[barData.value.length - 1])
 const prevBar = computed(() => barData.value[barData.value.length - 2])
@@ -212,17 +227,43 @@ const priceStats = computed(() => {
   }
 })
 
-const filterOption = (input: string, option: any) => {
-  return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
-}
-
 const formatDate = (date: string) => {
   return dayjs(date).format('YYYY-MM-DD')
 }
 
-// 模拟 API 获取数据（实际应调用后端 API）
+const formatNumber = (num: number): string => {
+  if (!num) return '-'
+  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
+  if (num >= 10000) return (num / 10000).toFixed(2) + '万'
+  return num.toString()
+}
+
+const onStartDateChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  dateRange.value[0] = dayjs(target.value)
+  loadBars()
+}
+
+const onEndDateChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  dateRange.value[1] = dayjs(target.value)
+  loadBars()
+}
+
+const prevPage = () => {
+  if (pagination.current > 1) {
+    pagination.current--
+  }
+}
+
+const nextPage = () => {
+  if (pagination.current * pagination.pageSize < pagination.total) {
+    pagination.current++
+  }
+}
+
+// 模拟 API 获取数据
 const fetchBarsFromAPI = async (code: string, startDate: Dayjs, count: number): Promise<any[]> => {
-  // 模拟网络延迟
   await new Promise(resolve => setTimeout(resolve, 500))
 
   const mockData = []
@@ -230,7 +271,6 @@ const fetchBarsFromAPI = async (code: string, startDate: Dayjs, count: number): 
 
   for (let i = 0; i < count; i++) {
     const currentDate = startDate.add(i, 'day')
-    // 跳过周末
     if (currentDate.day() === 0 || currentDate.day() === 6) continue
 
     const change = (Math.random() - 0.5) * 5
@@ -247,12 +287,11 @@ const fetchBarsFromAPI = async (code: string, startDate: Dayjs, count: number): 
       close: +close.toFixed(2),
       volume: Math.floor(Math.random() * 10000000),
       amount: Math.floor(Math.random() * 1000000000),
-      change: 0 // 稍后计算
+      change: 0
     })
     price = close
   }
 
-  // 计算涨跌幅
   for (let i = 1; i < mockData.length; i++) {
     mockData[i].change = ((mockData[i].close - mockData[i-1].close) / mockData[i-1].close * 100)
   }
@@ -264,7 +303,6 @@ const fetchBarsFromAPI = async (code: string, startDate: Dayjs, count: number): 
 const initChart = () => {
   if (!chartContainer.value) return
 
-  // 清理旧图表
   if (chart) {
     chart.remove()
     chart = null
@@ -277,43 +315,29 @@ const initChart = () => {
     width: containerWidth,
     height: containerHeight,
     layout: {
-      background: { type: ColorType.Solid, color: '#ffffff' },
-      textColor: '#333',
+      background: { type: ColorType.Solid, color: '#1a1a2e' },
+      textColor: '#ffffff',
     },
     grid: {
-      vertLines: { color: '#f0f0f0' },
-      horzLines: { color: '#f0f0f0' },
+      vertLines: { color: '#2a2a3e' },
+      horzLines: { color: '#2a2a3e' },
     },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: {
-        color: '#758696',
-        width: 1,
-        style: 3,
-        labelBackgroundColor: '#2962ff',
-      },
-      horzLine: {
-        color: '#758696',
-        width: 1,
-        style: 3,
-        labelBackgroundColor: '#2962ff',
-      },
+      vertLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
+      horzLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
     },
     rightPriceScale: {
-      borderColor: '#ddd',
-      scaleMargins: {
-        top: 0.1,
-        bottom: 0.25,
-      },
+      borderColor: '#2a2a3e',
+      scaleMargins: { top: 0.1, bottom: 0.25 },
     },
     timeScale: {
-      borderColor: '#ddd',
+      borderColor: '#2a2a3e',
       timeVisible: true,
       secondsVisible: false,
     },
   })
 
-  // 创建K线图（蜡烛图）
   candlestickSeries = chart.addCandlestickSeries({
     upColor: '#ef5350',
     downColor: '#26a69a',
@@ -323,54 +347,37 @@ const initChart = () => {
     wickDownColor: '#26a69a',
   })
 
-  // 创建成交量图
   volumeSeries = chart.addHistogramSeries({
     color: '#26a69a',
-    priceFormat: {
-      type: 'volume',
-    },
+    priceFormat: { type: 'volume' },
     priceScaleId: 'volume',
   })
 
-  // 设置成交量图的价格轴
   chart.priceScale('volume').applyOptions({
-    scaleMargins: {
-      top: 0.8,
-      bottom: 0,
-    },
+    scaleMargins: { top: 0.8, bottom: 0 },
   })
 
-  // 监听可见范围变化，实现懒加载
   chart.timeScale().subscribeVisibleTimeRangeChange((range: Range<Time> | null) => {
     if (!range || isLoadingLocked) return
     handleVisibleRangeChange(range)
   })
 
-  // 响应窗口大小变化
   const handleResize = () => {
     if (chart && chartContainer.value) {
-      chart.applyOptions({
-        width: chartContainer.value.clientWidth,
-      })
+      chart.applyOptions({ width: chartContainer.value.clientWidth })
     }
   }
   window.addEventListener('resize', handleResize)
 }
 
-// 处理可见范围变化
 const handleVisibleRangeChange = async (range: Range<Time>) => {
   if (!chart || isLoadingLocked || !hasMoreHistory.value || isLoadingMore.value) return
 
   const logicalRange = chart.timeScale().getVisibleLogicalRange()
   if (!logicalRange) return
 
-  // 计算可见区域相对于总数据的位置
-  // barsInLogicalRange 返回可见区域内的数据条数信息
   const totalBars = barData.value.length
   const visibleFrom = Math.max(0, Math.floor(logicalRange.from as number))
-  const visibleBars = Math.ceil((logicalRange.to as number) - (logicalRange.from as number))
-
-  // 当可见区域的左边缘距离数据起点小于阈值时，加载更多
   const positionRatio = totalBars > 0 ? visibleFrom / totalBars : 0
 
   if (positionRatio < LOAD_THRESHOLD) {
@@ -378,7 +385,6 @@ const handleVisibleRangeChange = async (range: Range<Time>) => {
   }
 }
 
-// 加载更多历史数据
 const loadMoreHistory = async () => {
   if (!selectedCode.value || isLoadingLocked || !hasMoreHistory.value || !earliestDate.value) return
 
@@ -386,20 +392,14 @@ const loadMoreHistory = async () => {
   isLoadingMore.value = true
 
   try {
-    // 计算新的起始日期（往前推）
     const newStartDate = earliestDate.value.subtract(BATCH_SIZE, 'day')
-
-    // 检查是否超过合理范围（例如：不超过10年）
     const minDate = dayjs().subtract(10, 'year')
     if (newStartDate.isBefore(minDate)) {
       hasMoreHistory.value = false
       return
     }
 
-    // 记录当前可视位置（用于恢复）
     const scrollPosition = chart?.timeScale().scrollPosition()
-
-    // 获取历史数据
     const historicalData = await fetchBarsFromAPI(selectedCode.value, newStartDate, BATCH_SIZE)
 
     if (historicalData.length === 0) {
@@ -407,16 +407,10 @@ const loadMoreHistory = async () => {
       return
     }
 
-    // 将新数据前置到现有数据
     barData.value = [...historicalData, ...barData.value]
-
-    // 更新最早日期
     earliestDate.value = dayjs(historicalData[0].timestamp)
-
-    // 更新图表数据（使用优化版本）
     updateChartDataPrepend(historicalData)
 
-    // 恢复滚动位置，保持用户当前视图
     if (chart && scrollPosition !== undefined) {
       requestAnimationFrame(() => {
         chart?.timeScale().scrollToPosition(scrollPosition, false)
@@ -424,28 +418,19 @@ const loadMoreHistory = async () => {
     }
 
     pagination.total = barData.value.length
-
-    // 仅在首次加载大量数据时提示
-    if (barData.value.length === historicalData.length + BATCH_SIZE) {
-      message.success(`已加载 ${historicalData.length} 条历史数据`)
-    }
-
   } catch (error: any) {
-    message.error(`加载历史数据失败: ${error.message}`)
+    console.error(`加载历史数据失败: ${error.message}`)
   } finally {
     isLoadingMore.value = false
-    // 延迟解锁，防止连续触发（增大延迟时间）
     setTimeout(() => {
       isLoadingLocked = false
     }, 800)
   }
 }
 
-// 缓存已转换的数据，避免重复计算
 let cachedCandleData: CandlestickData[] = []
 let cachedVolumeData: HistogramData[] = []
 
-// 转换数据格式
 const convertToChartData = (data: any[]): { candles: CandlestickData[], volumes: HistogramData[] } => {
   const candles: CandlestickData[] = []
   const volumes: HistogramData[] = []
@@ -469,38 +454,30 @@ const convertToChartData = (data: any[]): { candles: CandlestickData[], volumes:
   return { candles, volumes }
 }
 
-// 前置更新图表数据（优化版）
 const updateChartDataPrepend = (newData: any[]) => {
   if (!candlestickSeries || !volumeSeries || newData.length === 0) return
 
-  // 转换新数据
   const { candles: newCandles, volumes: newVolumes } = convertToChartData(newData)
 
-  // 使用 requestAnimationFrame 避免阻塞 UI
   requestAnimationFrame(() => {
     if (!candlestickSeries || !volumeSeries) return
 
-    // 合并数据（新数据在前）
     cachedCandleData = [...newCandles, ...cachedCandleData]
     cachedVolumeData = [...newVolumes, ...cachedVolumeData]
 
-    // 限制最大数据点数量，防止内存过大
     if (cachedCandleData.length > MAX_DATA_POINTS) {
       cachedCandleData = cachedCandleData.slice(0, MAX_DATA_POINTS)
       cachedVolumeData = cachedVolumeData.slice(0, MAX_DATA_POINTS)
     }
 
-    // 批量更新
     candlestickSeries.setData(cachedCandleData)
     volumeSeries.setData(cachedVolumeData)
   })
 }
 
-// 更新图表数据
 const updateChartData = () => {
   if (!candlestickSeries || !volumeSeries || barData.value.length === 0) return
 
-  // 转换并缓存数据
   const { candles, volumes } = convertToChartData(barData.value)
   cachedCandleData = candles
   cachedVolumeData = volumes
@@ -508,14 +485,12 @@ const updateChartData = () => {
   candlestickSeries.setData(cachedCandleData)
   volumeSeries.setData(cachedVolumeData)
 
-  // 自动缩放到最新数据
   if (chart) {
     chart.timeScale().scrollToRealTime()
   }
 }
 
 const handleCodeChange = () => {
-  // 切换股票时重置状态和缓存
   hasMoreHistory.value = true
   earliestDate.value = null
   isLoadingLocked = false
@@ -540,26 +515,23 @@ const loadBars = async () => {
     barData.value = data
     pagination.total = data.length
 
-    // 记录最早日期
     if (data.length > 0) {
       earliestDate.value = dayjs(data[0].timestamp)
     }
 
-    // 更新图表
     await nextTick()
     if (!chart) {
       initChart()
     }
     updateChartData()
   } catch (error: any) {
-    message.error(`加载失败: ${error.message}`)
+    console.error(`加载失败: ${error.message}`)
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => {
-  // 从URL参数获取股票代码
   if (route.query.code) {
     selectedCode.value = route.query.code as string
     loadBars()
@@ -567,7 +539,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // 清理图表
   if (chart) {
     chart.remove()
     chart = null
@@ -578,21 +549,116 @@ onUnmounted(() => {
 <style scoped>
 .page-container {
   padding: 0;
+  background: transparent;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
+  color: #ffffff;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.header-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-green {
+  background: #52c41a;
+  color: #ffffff;
+}
+
+.tag-blue {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.form-select,
+.form-input {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.form-select:focus,
+.form-input:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.btn-primary {
+  padding: 8px 20px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 16px 0;
+}
+
+.chart-wrapper {
+  position: relative;
 }
 
 .chart-container {
@@ -610,8 +676,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
+  background: #2a2a3e;
   z-index: 10;
+  color: #8a8a9a;
 }
 
 .loading-more-indicator {
@@ -628,15 +695,124 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   z-index: 20;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .no-more-data {
   text-align: center;
   padding: 8px;
-  color: #999;
+  color: #8a8a9a;
   font-size: 12px;
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
+  background: #2a2a3e;
+  border-top: 1px solid #3a3a4e;
+  margin-top: 8px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card-small {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value-small {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.stat-label-small {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.text-up {
+  color: #ef5350 !important;
+}
+
+.text-down {
+  color: #26a69a !important;
+}
+
+.text-center {
+  text-align: center;
+  color: #8a8a9a;
+  padding: 20px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.pagination-info {
+  color: #8a8a9a;
+  font-size: 13px;
+}
+
+.btn-small {
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

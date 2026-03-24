@@ -1,74 +1,92 @@
 <template>
   <div class="factor-decay">
-    <a-card title="因子衰减分析">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择因子</a-button>
-      </template>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="选择因子">
-            <a-select v-model:value="selectedFactor" placeholder="选择要分析的因子">
-              <a-select-option v-for="f in factors" :key="f.name" :value="f.name">
-                {{ f.label }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="最大滞后期">
-            <a-input-number v-model:value="maxLag" :min="1" :max="60" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="analyzing" @click="startAnalysis">
-            开始分析
-          </a-button>
-        </a-space>
+    <div class="card">
+      <div class="card-header">
+        <h4>因子衰减分析</h4>
+        <button class="btn-secondary" @click="$router.push('/portfolio')">选择因子</button>
       </div>
-    </a-card>
 
-    <!-- Custom -->
-    <a-card v-if="decayData.length > 0" title="衰减曲线" class="mt-4">
-      <div ref="decayChartRef" class="chart-container" style="height: 350px"></div>
-    </a-card>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">选择因子</label>
+            <select v-model="selectedFactor" class="form-select">
+              <option value="">选择要分析的因子</option>
+              <option v-for="f in factors" :key="f.name" :value="f.name">
+                {{ f.label }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大滞后期</label>
+            <input v-model.number="maxLag" type="number" min="1" max="60" class="form-input" />
+          </div>
+        </div>
 
-    <!-- Custom -->
-    <a-card v-if="halfLife" title="半衰期" class="mt-4">
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-card title="半衰期（天）" size="small">
-            <a-statistic :value="halfLife" />
-          </a-card>
-        </a-col>
-        <a-col :span="12">
-          <a-card title="最佳滞后期" size="small">
-            <a-statistic :value="bestLag" :precision="1" suffix="天" />
-          </a-card>
-        </a-col>
-      </a-row>
-    </a-card>
+        <div class="action-buttons">
+          <button class="btn-primary" :disabled="analyzing" @click="startAnalysis">
+            {{ analyzing ? '分析中...' : '开始分析' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <!-- Custom -->
-    <a-card title="各期IC值" class="mt-4">
-      <a-table
-        :columns="lagColumns"
-        :data-source="lagData"
-        :pagination="false"
-        size="small"
-      >
-        <template #bodyCell="{ column, record }">
-          <span v-if="column.dataIndex === 'ic'" :style="{ color: record.ic > 0 ? '#52c41a' : '#f5222d' }">
-            {{ record.ic.toFixed(3) }}
-          </span>
-        </template>
-      </a-table>
-    </a-card>
+    <div v-if="decayData.length > 0" class="card mt-4">
+      <div class="card-header">
+        <h4>衰减曲线</h4>
+      </div>
+      <div class="card-body">
+        <div ref="decayChartRef" class="chart-container"></div>
+      </div>
+    </div>
+
+    <div v-if="halfLife" class="card mt-4">
+      <div class="card-header">
+        <h4>半衰期</h4>
+      </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value">{{ halfLife }}</span>
+            <span class="stat-label">半衰期（天）</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{{ bestLag }}</span>
+            <span class="stat-label">最佳滞后期</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h4>各期IC值</h4>
+      </div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>滞后期(天)</th>
+                <th>IC</th>
+                <th>|IC|</th>
+                <th>t统计量</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in lagData" :key="record.lag">
+                <td>{{ record.lag }}</td>
+                <td :style="{ color: record.ic > 0 ? '#52c41a' : '#f5222d' }">
+                  {{ record.ic.toFixed(3) }}
+                </td>
+                <td>{{ record.abs_ic?.toFixed(3) }}</td>
+                <td>{{ record.t_stat?.toFixed(3) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -76,10 +94,14 @@
 import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
-import { message } from 'ant-design-vue'
 import { analyzeDecay } from '@/api/modules/research'
 
 const router = useRouter()
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 // 监听衰减数据变化，自动渲染图表
 watch(() => decayData.value.length, async (newLen) => {
@@ -106,17 +128,10 @@ const decayChartRef = ref<HTMLDivElement>()
 // 滞后数据
 const lagData = ref<any[]>([])
 
-const lagColumns = [
-  { title: '滞后期(天)', dataIndex: 'lag', width: 120 },
-  { title: 'IC', dataIndex: 'ic', width: 100 },
-  { title: '|IC|', dataIndex: 'abs_ic', width: 100 },
-  { title: 't统计量', dataIndex: 't_stat', width: 100 }
-]
-
 // 开始分析
 const startAnalysis = async () => {
   if (!selectedFactor.value) {
-    message.warning('请先选择因子')
+    showToast('请先选择因子', 'error')
     return
   }
 
@@ -147,7 +162,12 @@ const startAnalysis = async () => {
         bestLag.value = lag
       }
 
-      await new Promise(resolve => setTimeout(resolve, 50))
+      lagData.value.push({
+        lag: lag,
+        ic: ic,
+        abs_ic: Math.abs(ic),
+        t_stat: tStat
+      })
     }
 
     // 计算半衰期（IC值降到最大值的一半时的滞后期）
@@ -161,9 +181,9 @@ const startAnalysis = async () => {
     )
     bestLag.value = bestICData.lag
 
-    message.success('衰减分析完成')
+    showToast('衰减分析完成')
   } catch (e) {
-    message.error('衰减分析失败')
+    showToast('衰减分析失败', 'error')
   } finally {
     analyzing.value = false
   }
@@ -188,14 +208,14 @@ const renderChart = () => {
       data: decayData.value.map(d => d.lag),
       name: '滞后期(天)',
       axisLabel: {
-        formatter: (v) => v + '天'
+        formatter: (v: string) => v + '天'
       }
     },
     yAxis: {
       type: 'value',
       name: 'IC值',
       axisLabel: {
-        formatter: (v) => v.toFixed(2)
+        formatter: (v: string) => parseFloat(v).toFixed(2)
       }
     },
     series: [{
@@ -204,10 +224,7 @@ const renderChart = () => {
       smooth: true,
       markLine: {
         data: [{ value: 0 }],
-        lineStyle: { color: '#999', type: 'dashed' }
-      },
-      markArea: {
-        silent: true
+        lineStyle: { color: '#8a8a9a', type: 'dashed' }
       }
     }],
     visualMap: {
@@ -215,7 +232,7 @@ const renderChart = () => {
       max: 0.15,
       calculable: true,
       inRange: { color: '#52c41a' },
-      outOfRange: { color: '#eee' }
+      outOfRange: { color: '#f5222d' }
     }
   })
 }
@@ -226,11 +243,186 @@ const renderChart = () => {
   padding: 16px;
 }
 
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 10px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
 .action-buttons {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
 }
 
 .chart-container {
+  height: 350px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
   width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tr:hover {
+  background: #2a2a3e;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
