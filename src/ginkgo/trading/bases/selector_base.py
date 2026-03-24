@@ -19,10 +19,10 @@ from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
+from ginkgo.libs import GLOG
 
 
-class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, LoggableMixin, Base):
+class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
     """
     选股组件基类
 
@@ -30,7 +30,6 @@ class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Log
     - 时间戳管理 (timestamp, business_timestamp)
     - 上下文管理 (engine_id, run_id, portfolio_id)
     - 名称管理 (name)
-    - 日志管理 (log, add_logger)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
 
@@ -47,7 +46,6 @@ class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Log
         ContextMixin.__init__(self, **kwargs)
         EngineBindableMixin.__init__(self, **kwargs)
         NamedMixin.__init__(self, name=name, **kwargs)
-        LoggableMixin.__init__(self, **kwargs)
         Base.__init__(self)
         self._data_feeder = None
 
@@ -117,10 +115,10 @@ class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Log
             # 直接通过engine_put推送事件到引擎
             self.engine_put(event)
 
-            self.log("INFO", f"Published interest update for {len(selected_codes)} symbols: {selected_codes}")
+            GLOG.INFO(f"Published interest update for {len(selected_codes)} symbols: {selected_codes}")
 
         except Exception as e:
-            self.log("ERROR", f"Failed to publish interest update: {e}")
+            GLOG.ERROR(f"Failed to publish interest update: {e}")
             return False
 
         return True

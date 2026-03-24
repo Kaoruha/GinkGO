@@ -295,6 +295,18 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
 
             print(f"[MA_STRATEGY] {code} {signal.reason}")
 
+            # 记录信号事件到ClickHouse（使用快捷访问）
+            GLOG.backtest.signal(
+                symbol=code,
+                direction=direction.value if hasattr(direction, 'value') else str(direction),
+                signal_reason=signal.reason,
+                strategy_id=self.uuid,
+                portfolio_id=portfolio_info.get("uuid"),
+                engine_id=self.engine_id,
+                run_id=self.run_id,
+                business_timestamp=business_timestamp,
+            )
+
         return [signal] if signal else None
 
     def reset_state(self) -> None:

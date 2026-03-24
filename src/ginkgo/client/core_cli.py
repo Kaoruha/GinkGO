@@ -25,7 +25,9 @@ from typing import Optional, List
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
-from rich import print
+from rich import print as rich_print
+
+from ginkgo.libs import GLOG
 
 # All Ginkgo module imports moved to function level for faster CLI startup
 console = Console()
@@ -543,7 +545,7 @@ def show(
                     console.print(f":warning: No bars data found for {code}")
                     return
                 console.print(f":white_check_mark: Found {len(df)} bars for {code}")
-                print(df.tail(10))  # Show last 10 bars
+                GLOG.DEBUG(df.tail(10).to_string())  # Show last 10 bars
             except Exception as e:
                 console.print(f":warning: Could not fetch bars for {code}: {e}")
 
@@ -569,7 +571,7 @@ def show(
                     console.print(f":warning: No ticks data found for {code}")
                     return
                 console.print(f":white_check_mark: Found {len(df)} ticks for {code}")
-                print(df.tail(10))  # Show last 10 ticks
+                GLOG.DEBUG(df.tail(10).to_string())  # Show last 10 ticks
             except Exception as e:
                 console.print(f":warning: Could not fetch ticks for {code}: {e}")
             

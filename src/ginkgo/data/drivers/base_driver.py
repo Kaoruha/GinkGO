@@ -139,7 +139,7 @@ class DatabaseDriverBase(ABC):
     @retry(max_try=3)
     def initialize(self):
         """初始化数据库连接"""
-        self.log("INFO", f"Initializing {self.driver_name} driver...")
+        GLOG.INFO(f"Initializing {self.driver_name} driver...")
 
         try:
             self._engine = self._create_engine()
@@ -148,10 +148,10 @@ class DatabaseDriverBase(ABC):
             if not self.health_check():
                 raise RuntimeError(f"{self.driver_name} health check failed")
 
-            self.log("INFO", f"{self.driver_name} driver initialized successfully")
+            GLOG.INFO(f"{self.driver_name} driver initialized successfully")
 
         except Exception as e:
-            self.log("ERROR", f"Failed to initialize {self.driver_name}: {e}")
+            GLOG.ERROR(f"Failed to initialize {self.driver_name}: {e}")
             raise
 
     # ==================== 🆕 流式查询连接池管理 ====================
@@ -160,7 +160,7 @@ class DatabaseDriverBase(ABC):
     @retry(max_try=3)
     def initialize_streaming(self):
         """初始化流式查询专用连接池"""
-        self.log("INFO", f"Initializing {self.driver_name} streaming connection pool...")
+        GLOG.INFO(f"Initializing {self.driver_name} streaming connection pool...")
         
         try:
             self._streaming_engine = self._create_streaming_engine()
@@ -172,10 +172,10 @@ class DatabaseDriverBase(ABC):
             if not self.health_check_streaming():
                 raise RuntimeError(f"{self.driver_name} streaming health check failed")
                 
-            self.log("INFO", f"{self.driver_name} streaming connection pool initialized successfully")
+            GLOG.INFO(f"{self.driver_name} streaming connection pool initialized successfully")
             
         except Exception as e:
-            self.log("ERROR", f"Failed to initialize {self.driver_name} streaming pool: {e}")
+            GLOG.ERROR(f"Failed to initialize {self.driver_name} streaming pool: {e}")
             self._streaming_enabled = False
             raise
     
@@ -204,14 +204,14 @@ class DatabaseDriverBase(ABC):
                 self._connection_stats["streaming_sessions_active"] += 1
                 
             session = self._streaming_session_factory()
-            self.log("DEBUG", f"Created streaming session for {self.driver_name}")
+            GLOG.DEBUG(f"Created streaming session for {self.driver_name}")
             yield session
             session.commit()
             
         except Exception as e:
             if session:
                 session.rollback()
-            self.log("ERROR", f"{self.driver_name} streaming session error: {e}")
+            GLOG.ERROR(f"{self.driver_name} streaming session error: {e}")
             raise
         finally:
             if session:
@@ -238,7 +238,7 @@ class DatabaseDriverBase(ABC):
                 self._connection_stats["active_streaming_connections"] += 1
             return connection
         except Exception as e:
-            self.log("ERROR", f"Failed to get streaming connection for {self.driver_name}: {e}")
+            GLOG.ERROR(f"Failed to get streaming connection for {self.driver_name}: {e}")
             raise
 
     # ==================== 健康检查 ====================
@@ -254,7 +254,7 @@ class DatabaseDriverBase(ABC):
                 self._connection_stats["last_health_check"] = time.time()
                 self._connection_stats["health_check_failures"] = 0
 
-            self.log("DEBUG", f"{self.driver_name} health check passed")
+            GLOG.DEBUG(f"{self.driver_name} health check passed")
             return True
 
         except Exception as e:
@@ -274,7 +274,7 @@ class DatabaseDriverBase(ABC):
             with self.get_streaming_session() as session:
                 session.execute(text(self._health_check_query()))
                 
-            self.log("DEBUG", f"{self.driver_name} streaming health check passed")
+            GLOG.DEBUG(f"{self.driver_name} streaming health check passed")
             return True
             
         except Exception as e:
@@ -302,7 +302,7 @@ class DatabaseDriverBase(ABC):
         except Exception as e:
             if session:
                 session.rollback()
-            self.log("ERROR", f"{self.driver_name} session error: {e}")
+            GLOG.ERROR(f"{self.driver_name} session error: {e}")
             raise
         finally:
             if session:

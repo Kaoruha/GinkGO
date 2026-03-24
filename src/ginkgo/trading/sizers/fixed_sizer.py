@@ -17,7 +17,7 @@ from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
-from ginkgo.libs import to_decimal
+from ginkgo.libs import to_decimal, GLOG
 from ginkgo.data.containers import container
 
 
@@ -62,25 +62,25 @@ class FixedSizer(BaseSizer):
         """
         # 改进1：Signal验证
         if signal is None:
-            self.log("ERROR", f"Sizer:{self.name} received None signal")
+            GLOG.ERROR(f"Sizer:{self.name} received None signal")
             return None
             
         if not signal.is_valid():
-            self.log("ERROR", f"Sizer:{self.name} received invalid signal: {signal}")
+            GLOG.ERROR(f"Sizer:{self.name} received invalid signal: {signal}")
             return None
         
         # 改进2：Portfolio信息验证
         if portfolio_info is None:
-            self.log("ERROR", f"Sizer:{self.name} received None portfolio_info")
+            GLOG.ERROR(f"Sizer:{self.name} received None portfolio_info")
             return None
             
         required_fields = ["positions", "cash"]
         for field in required_fields:
             if field not in portfolio_info:
-                self.log("ERROR", f"Sizer:{self.name} missing required portfolio field: {field}")
+                GLOG.ERROR(f"Sizer:{self.name} missing required portfolio field: {field}")
                 return None
         
-        self.log("DEBUG", f"Sizer:{self.name} processing signal for {signal.code}")
+        GLOG.DEBUG(f"Sizer:{self.name} processing signal for {signal.code}")
         
         try:
             code = signal.code
@@ -88,10 +88,10 @@ class FixedSizer(BaseSizer):
 
             # Check if the position exists
             if direction == DIRECTION_TYPES.SHORT and code not in portfolio_info["positions"].keys():
-                self.log("DEBUG", f"Position {code} does not exist. Skip short signal. {self.get_time_provider().now()}")
+                GLOG.DEBUG(f"Position {code} does not exist. Skip short signal. {self.get_time_provider().now()}")
                 return None
         except Exception as e:
-            self.log("ERROR", f"Sizer:{self.name} error processing signal: {e}")
+            GLOG.ERROR(f"Sizer:{self.name} error processing signal: {e}")
             return None
 
         # 改进2：Order创建错误处理
@@ -104,27 +104,22 @@ class FixedSizer(BaseSizer):
                 # 使用BarService的get方法
                 result = container.bar_service().get(code=code, start_date=last_month_day, end_date=yester_day)
                 if not result.success or len(result.data) == 0:
-                    self.log(
-                        "CRITICAL",
-                        f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}",
+                    GLOG.CRITICAL(f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}",
                     )
                     return None
                 # 转换为DataFrame
                 past_price = result.data.to_dataframe()
                 if past_price.shape[0] == 0:
-                    self.log(
-                        "CRITICAL",
-                        f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}",
-                    )
+                    GLOG.CRITICAL(f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}")
                     return None
                 last_price = past_price.iloc[-1]["close"]
                 last_price = to_decimal(last_price)
                 cash = portfolio_info["cash"]
                 planned_size, planned_cost = self.calculate_order_size(self._volume, last_price, cash)
-                self.log("DEBUG", f"planned_size: {planned_size}, planned_cost: {planned_cost}.")
+                GLOG.DEBUG(f"planned_size: {planned_size}, planned_cost: {planned_cost}.")
 
                 if planned_size == 0:
-                    self.log("DEBUG", f"No order generated. {current_time}")
+                    GLOG.DEBUG(f"No order generated. {current_time}")
                     return None
 
                 o = Order(
@@ -149,10 +144,10 @@ class FixedSizer(BaseSizer):
                 pos = portfolio_info["positions"].get(code)
 
                 if pos is None:
-                    self.log("DEBUG", f"Position {code} does not exist. Skip short signal. {current_time}")
+                    GLOG.DEBUG(f"Position {code} does not exist. Skip short signal. {current_time}")
                     return None
 
-                self.log("WARN", f"Try Generate SHORT ORDER. {current_time}")
+                GLOG.WARN(f"Try Generate SHORT ORDER. {current_time}")
 
                 o = Order(
                     portfolio_id=portfolio_info["portfolio_id"],
@@ -175,5 +170,5 @@ class FixedSizer(BaseSizer):
                 )
             return o
         except Exception as e:
-            self.log("ERROR", f"Sizer:{self.name} failed to create order: {e}")
+            GLOG.ERROR(f"Sizer:{self.name} failed to create order: {e}")
             return None

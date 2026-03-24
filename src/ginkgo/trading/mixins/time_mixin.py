@@ -145,12 +145,12 @@ class TimeMixin:
         except (ValueError, TypeError):
             # Invalid time format, log error and return without updating time
             if has_log:
-                self.log("ERROR", "Time format not support, can not update time")
+                GLOG.ERROR("Time format not support, can not update time")
             return False
 
         if time is None:
             if has_log:
-                self.log("ERROR", "Time format not support, can not update time")
+                GLOG.ERROR("Time format not support, can not update time")
             return False
 
         # 关键：完全以TimeProvider为准
@@ -161,14 +161,14 @@ class TimeMixin:
                     component_info += f" (name: {getattr(self, 'name', 'Unknown')})"
                 if hasattr(self, 'uuid'):
                     component_info += f" (uuid: {getattr(self, 'uuid', 'Unknown')[:8]})"
-                self.log("ERROR", f"TimeProvider not set. Call set_time_provider() first. {component_info}")
+                GLOG.ERROR(f"TimeProvider not set. Call set_time_provider() first. {component_info}")
             return False
 
         # 使用TimeProvider的时间推进逻辑（包含时间倒退检查等）
         success = self._time_provider.set_current_time(time)
         if not success:
             if has_log:
-                self.log("ERROR", "TimeProvider rejected time advancement")
+                GLOG.ERROR("TimeProvider rejected time advancement")
             return False
 
         # 同步更新current_timestamp（用于兼容性）

@@ -713,8 +713,6 @@ class EngineAssemblyService(BaseService):
             self._logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.run_id = {engine_context.run_id}")
             self._logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.engine_id = {engine_context.engine_id}")
 
-            engine.add_logger(logger)
-
             # 设置时间范围 - 使用引擎数据库中的时间配置
             if "backtest_start_date" in engine_data and "backtest_end_date" in engine_data:
                 from ginkgo.libs import datetime_normalize
@@ -739,7 +737,7 @@ class EngineAssemblyService(BaseService):
         try:
             # Set up data feeder
             feeder = BacktestFeeder("ExampleFeeder")
-            feeder.add_logger(logger)
+
             # 使用时间控制引擎的数据馈送接入，以确保 advance_time_to 能触发数据更新
             if hasattr(engine, "set_data_feeder"):
                 engine.set_data_feeder(feeder)
@@ -771,7 +769,7 @@ class EngineAssemblyService(BaseService):
 
             # Set up data feeder
             feeder = BacktestFeeder("ExampleFeeder")
-            feeder.add_logger(logger)
+
             # 使用时间控制引擎的数据馈送接入，以确保 advance_time_to 能触发数据更新
             if hasattr(engine, "set_data_feeder"):
                 engine.set_data_feeder(feeder)
@@ -878,18 +876,18 @@ class EngineAssemblyService(BaseService):
 
             # 🔥 延迟查找设计：先绑定组件到Portfolio，此时Portfolio还没有context
             # 但组件会在调用 run_id 等属性时，通过 _bound_portfolio 延迟查找获取
-            print(f"[BIND PORTFOLIO] Calling _bind_components_to_portfolio_with_ids for {portfolio_id}")
+            GLOG.DEBUG(f"[BIND PORTFOLIO] Calling _bind_components_to_portfolio_with_ids for {portfolio_id}")
             success = self._bind_components_to_portfolio_with_ids(portfolio, components, logger)
-            print(f"[BIND PORTFOLIO] _bind_components_to_portfolio_with_ids returned: {success}")
+            GLOG.DEBUG(f"[BIND PORTFOLIO] _bind_components_to_portfolio_with_ids returned: {success}")
             if not success:
                 self._logger.ERROR(f"[BIND PORTFOLIO] Failed to bind components for portfolio {portfolio_id}")
                 return False
 
             # 然后绑定Portfolio到Engine，Portfolio获得context
             # 组件后续通过 _bound_portfolio 延迟查找即可获取到 run_id
-            print(f"[BIND PORTFOLIO] About to call _register_portfolio_with_engine for {portfolio_id}")
+            GLOG.DEBUG(f"[BIND PORTFOLIO] About to call _register_portfolio_with_engine for {portfolio_id}")
             self._register_portfolio_with_engine(engine, portfolio)
-            print(f"[BIND PORTFOLIO] _register_portfolio_with_engine completed for {portfolio_id}")
+            GLOG.DEBUG(f"[BIND PORTFOLIO] _register_portfolio_with_engine completed for {portfolio_id}")
 
             # 调试：验证 Portfolio 绑定后的 context
             if hasattr(portfolio, '_context') and portfolio._context:
@@ -946,7 +944,7 @@ class EngineAssemblyService(BaseService):
         """Create a portfolio instance with proper configuration."""
         try:
             portfolio = PortfolioT1Backtest()
-            portfolio.add_logger(logger)
+
             portfolio.set_portfolio_name(portfolio_config["name"])
             portfolio.set_portfolio_id(portfolio_config["uuid"])
 
@@ -968,16 +966,16 @@ class EngineAssemblyService(BaseService):
         """绑定组件到Portfolio（简化版：移除ID注入，保留动态实例化）"""
         try:
             # 直接执行组件绑定逻辑，不进行ID注入
-            print(f"[BIND COMPONENTS] Calling _perform_component_binding")
+            GLOG.DEBUG(f"[BIND COMPONENTS] Calling _perform_component_binding")
             result = self._perform_component_binding(portfolio, components, logger)
-            print(f"[BIND COMPONENTS] _perform_component_binding returned: {result} (type: {type(result).__name__})")
+            GLOG.DEBUG(f"[BIND COMPONENTS] _perform_component_binding returned: {result}")
             return result
 
         except Exception as e:
             self._logger.ERROR(f"Failed to bind components with ID injection: {e}")
             import traceback
-            print(f"[BIND COMPONENTS] Exception: {e}")
-            print(traceback.format_exc())
+            GLOG.ERROR(f"[BIND COMPONENTS] Exception: {e}")
+            import traceback; traceback.print_exc()
             return False
 
     def _instantiate_component_from_dict(
@@ -1086,26 +1084,26 @@ class EngineAssemblyService(BaseService):
             try:
                 from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
 
-                print(f"[ENGINE_ASSEMBLY] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
+                GLOG.INFO(f"Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
                 basic_loaded = 0
 
                 for analyzer_class in BASIC_ANALYZERS:
                     try:
                         analyzer = analyzer_class()
-                        analyzer.add_logger(logger)
+
                         portfolio.add_analyzer(analyzer)
                         basic_loaded += 1
-                        print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer_class.__name__} loaded")
+                        GLOG.DEBUG(f"  {analyzer_class.__name__} loaded")
                     except Exception as e:
                         self._logger.ERROR(f"Failed to load {analyzer_class.__name__}: {e}")
-                        print(f"[ENGINE_ASSEMBLY]   ❌ {analyzer_class.__name__} failed: {e}")
+                        GLOG.ERROR(f"  {analyzer_class.__name__} failed: {e}")
 
-                print(f"[ENGINE_ASSEMBLY] ✅ BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
+                GLOG.INFO(f"BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
                 self._logger.INFO(f"✅ [ANALYZER] BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
 
             except Exception as e:
                 self._logger.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
-                print(f"[ENGINE_ASSEMBLY] ❌ Failed to load BASIC_ANALYZERS: {e}")
+                GLOG.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
 
             def _instantiate_component_from_file(file_id: str, component_type: int, mapping_uuid: str):
                 """从文件内容实例化组件"""
@@ -1429,7 +1427,6 @@ class EngineAssemblyService(BaseService):
                     self._logger.ERROR(f"Failed to instantiate strategy: {error}")
                     return False
 
-                strategy.add_logger(logger)
                 portfolio.add_strategy(strategy)
                 self._logger.DEBUG(f"✅ Added strategy: {strategy.__class__.__name__}")
 
@@ -1455,7 +1452,6 @@ class EngineAssemblyService(BaseService):
                 self._logger.ERROR(f"Failed to instantiate selector: {error}")
                 return False
 
-            selector.add_logger(logger)
             portfolio.bind_selector(selector)
             self._logger.DEBUG(f"✅ Bound selector: {selector.__class__.__name__}")
 
@@ -1494,7 +1490,6 @@ class EngineAssemblyService(BaseService):
                 self._logger.ERROR(f"Failed to instantiate sizer: {error}")
                 return False
 
-            sizer.add_logger(logger)
             portfolio.bind_sizer(sizer)
             self._logger.DEBUG(f"✅ Bound sizer: {sizer.__class__.__name__}")
 
@@ -1519,7 +1514,6 @@ class EngineAssemblyService(BaseService):
                         self._logger.ERROR(f"Failed to instantiate risk manager: {error}")
                         continue
 
-                    risk_manager.add_logger(logger)
                     portfolio.add_risk_manager(risk_manager)
                     self._logger.DEBUG(f"✅ Added risk manager: {risk_manager.__class__.__name__}")
 
@@ -1530,7 +1524,7 @@ class EngineAssemblyService(BaseService):
                 user_loaded = 0
                 user_skipped = 0
 
-                print(f"[ENGINE_ASSEMBLY] 📊 Loading user analyzers (existing: {len(existing_names)})...")
+                GLOG.INFO(f"Loading user analyzers (existing: {len(existing_names)})...")
 
                 for idx, analyzer_mapping in enumerate(analyzers):
                     # 支持两种格式：dict 或 ORM 对象
@@ -1544,32 +1538,31 @@ class EngineAssemblyService(BaseService):
                         )
                     if analyzer is None:
                         self._logger.ERROR(f"Failed to instantiate analyzer: {error}")
-                        print(f"[ENGINE_ASSEMBLY]   ❌ Analyzer failed: {error}")
+                        GLOG.ERROR(f"  Analyzer failed: {error}")
                         continue
 
                     analyzer_name = analyzer.name
                     if analyzer_name in existing_names:
-                        print(f"[ENGINE_ASSEMBLY]   ⏭️ {analyzer.__class__.__name__} ({analyzer_name}) already exists, skipping")
+                        GLOG.DEBUG(f"  {analyzer.__class__.__name__} ({analyzer_name}) already exists, skipping")
                         user_skipped += 1
                         continue
 
-                    analyzer.add_logger(logger)
                     portfolio.add_analyzer(analyzer)
                     user_loaded += 1
-                    print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer.__class__.__name__} ({analyzer_name}) added")
+                    GLOG.DEBUG(f"  {analyzer.__class__.__name__} ({analyzer_name}) added")
                     self._logger.INFO(f"✅ [ANALYZER] Added: {analyzer.__class__.__name__}")
 
-                print(f"[ENGINE_ASSEMBLY] ✅ User analyzers: {user_loaded} added, {user_skipped} skipped (duplicate)")
+                GLOG.INFO(f"User analyzers: {user_loaded} added, {user_skipped} skipped")
                 self._logger.INFO(f"✅ [ANALYZER] User analyzers: {user_loaded} added, {user_skipped} skipped")
 
-            print(f"[BIND COMPONENTS] _perform_component_binding completed successfully, returning True")
+            GLOG.DEBUG("_perform_component_binding completed successfully")
             return True
 
         except Exception as e:
             self._logger.ERROR(f"Failed to perform component binding: {e}")
             import traceback
-            print(f"[BIND COMPONENTS] Exception in _perform_component_binding: {e}")
-            print(traceback.format_exc())
+            GLOG.ERROR(f"Exception in _perform_component_binding: {e}")
+            import traceback; traceback.print_exc()
             return False
 
     def _bind_components_to_portfolio(

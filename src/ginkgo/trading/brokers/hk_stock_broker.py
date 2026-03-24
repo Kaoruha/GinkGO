@@ -21,7 +21,7 @@ from ginkgo.trading.brokers.live_broker_base import LiveBrokerBase
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import to_decimal
+from ginkgo.libs import to_decimal, GLOG
 
 
 class HKStockBroker(LiveBrokerBase):
@@ -56,7 +56,7 @@ class HKStockBroker(LiveBrokerBase):
         # 港股特有配置
         self._currency = config.get("currency", "HKD")  # 结算货币
 
-        self.log("INFO", f"HKStockBroker initialized with account_id={self._account_id}, "
+        GLOG.INFO(f"HKStockBroker initialized with account_id={self._account_id}, "
                         f"currency={self._currency}")
 
     def _get_default_commission_rate(self) -> Decimal:
@@ -83,11 +83,11 @@ class HKStockBroker(LiveBrokerBase):
             # if ret != RET_OK:
             #     raise Exception("Failed to connect to Futu API")
 
-            self.log("INFO", "🔗 港股券商API连接成功（模拟）")
+            GLOG.INFO("🔗 港股券商API连接成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 港股券商API连接失败: {e}")
+            GLOG.ERROR(f"❌ 港股券商API连接失败: {e}")
             return False
 
     def _disconnect_api(self) -> bool:
@@ -101,11 +101,11 @@ class HKStockBroker(LiveBrokerBase):
             # TODO: 实现具体的断开逻辑
             # self._api.close()
 
-            self.log("INFO", "🔌 港股券商API断开成功（模拟）")
+            GLOG.INFO("🔌 港股券商API断开成功（模拟）")
             return True
 
         except Exception as e:
-            self.log("ERROR", f"❌ 港股券商API断开失败: {e}")
+            GLOG.ERROR(f"❌ 港股券商API断开失败: {e}")
             return False
 
     def _submit_to_exchange(self, order: Order) -> BrokerExecutionResult:
@@ -136,7 +136,7 @@ class HKStockBroker(LiveBrokerBase):
                     error_message="Order violates 港股交易规则"
                 )
 
-            self.log("INFO", f"📈 订单已提交到港股交易所: {broker_order_id}")
+            GLOG.INFO(f"📈 订单已提交到港股交易所: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,
@@ -145,7 +145,7 @@ class HKStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 港股订单提交失败: {e}")
+            GLOG.ERROR(f"❌ 港股订单提交失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message=f"港股订单提交失败: {str(e)}"
@@ -163,7 +163,7 @@ class HKStockBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的港股撤单逻辑
-            self.log("INFO", f"🚫 港股撤单请求已发送: {broker_order_id}")
+            GLOG.INFO(f"🚫 港股撤单请求已发送: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.CANCELED,
@@ -172,7 +172,7 @@ class HKStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 港股撤单失败: {e}")
+            GLOG.ERROR(f"❌ 港股撤单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -191,7 +191,7 @@ class HKStockBroker(LiveBrokerBase):
         """
         try:
             # TODO: 实现具体的港股查单逻辑
-            self.log("DEBUG", f"🔍 查询港股订单状态: {broker_order_id}")
+            GLOG.DEBUG(f"🔍 查询港股订单状态: {broker_order_id}")
 
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.SUBMITTED,  # 模拟状态
@@ -202,7 +202,7 @@ class HKStockBroker(LiveBrokerBase):
             )
 
         except Exception as e:
-            self.log("ERROR", f"❌ 港股查单失败: {e}")
+            GLOG.ERROR(f"❌ 港股查单失败: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -257,26 +257,26 @@ class HKStockBroker(LiveBrokerBase):
         min_lot_size = 100
 
         if order.volume < min_lot_size:
-            self.log("WARN", f"港股最小交易数量为{min_lot_size}股: {order.volume}")
+            GLOG.WARN(f"港股最小交易数量为{min_lot_size}股: {order.volume}")
             return False
 
         # 港股支持零股买卖，但通常需要通过特定渠道
         # 这里简化处理，要求必须整手交易
         if order.volume % min_lot_size != 0:
-            self.log("WARN", f"港股交易数量必须是整手: {order.volume}")
+            GLOG.WARN(f"港股交易数量必须是整手: {order.volume}")
             return False
 
         # 检查限价单价格
         if hasattr(order, 'order_type') and order.order_type == ORDER_TYPES.LIMITORDER:
             if order.limit_price <= 0:
-                self.log("WARN", f"港股限价单价格必须大于0: {order.limit_price}")
+                GLOG.WARN(f"港股限价单价格必须大于0: {order.limit_price}")
                 return False
 
             # 港股价格精度检查（通常是2位小数）
             if isinstance(order.limit_price, float):
                 price_str = f"{order.limit_price:.4f}"
                 if len(price_str.split('.')[-1]) > 4:
-                    self.log("WARN", f"港股价格精度过高: {order.limit_price}")
+                    GLOG.WARN(f"港股价格精度过高: {order.limit_price}")
                     return False
 
         return True

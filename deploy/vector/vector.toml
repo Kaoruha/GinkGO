@@ -1,0 +1,99 @@
+# Vector Configuration for Ginkgo Distributed Logging
+# Compatible with Vector 0.39.0
+#
+# 数据流：
+# 1. 读取 /var/log/ginkgo/**/*.log 文件
+# 2. 解析 JSON 格式日志
+# 3. 添加字段映射（log_category → event_category）
+# 4. 根据 log_category 路由到不同表
+# 5. 写入 ClickHouse 对应表
+
+# ============================================================================
+# Input Sources
+# ============================================================================
+
+[sources.ginkgo_logs]
+type = "file"
+include = ["/var/log/ginkgo/**/*.log"]
+
+# Read from the beginning on first start
+read_from = "beginning"
+
+# ============================================================================
+# Transforms
+# ============================================================================
+
+[transforms.parse_json]
+inputs = ["ginkgo_logs"]
+type = "remap"
+source = '''
+# File source puts line content in .message field
+# Parse it as JSON
+. = parse_json!(.message)
+'''
+
+[transforms.normalize_fields]
+inputs = ["parse_json"]
+type = "remap"
+source = '''
+# 字段映射：log_category → event_category
+if exists(.log_category) {
+  .event_category = .log_category
+  # 保留 log_category 用于路由
+}
+
+# 确保必需字段存在（使用默认值）
+if !exists(.level) { .level = "INFO" }
+if !exists(.message) { .message = "" }
+if !exists(.logger_name) { .logger_name = "ginkgo" }
+if !exists(.timestamp) { .timestamp = now() }
+
+# 将 timestamp 转换为 ClickHouse DateTime64(3) 兼容格式
+# ClickHouse 期望 ISO 8601 格式或 Unix 时间戳
+'''
+
+[transforms.route_by_category]
+inputs = ["normalize_fields"]
+type = "route"
+
+# Route logs by log_category field
+route.backtest = '.log_category == "backtest"'
+route.component = '.log_category == "component"'
+route.performance = '.log_category == "performance"'
+
+# ============================================================================
+# Sinks - ClickHouse
+# ============================================================================
+
+[sinks.clickhouse_backtest]
+type = "clickhouse"
+inputs = ["route_by_category.backtest"]
+database = "ginkgo"
+table = "ginkgo_logs_backtest"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_backtest.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_component]
+type = "clickhouse"
+inputs = ["route_by_category.component"]
+database = "ginkgo"
+table = "ginkgo_logs_component"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_component.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_performance]
+type = "clickhouse"
+inputs = ["route_by_category.performance"]
+database = "ginkgo"
+table = "ginkgo_logs_performance"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_performance.batch]
+max_events = 100
+timeout_secs = 5

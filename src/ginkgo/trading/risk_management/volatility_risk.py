@@ -27,6 +27,7 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import GLOG
 
 import math
 
@@ -68,7 +69,7 @@ class VolatilityRisk(BaseRiskManagement):
         self._price_history = {}  # code: [price_list]
         self._volatility_cache = {}  # code: current_volatility
 
-        self.set_name(f"{name}_max{self._max_volatility}%_warn{self._warning_volatility%}_period{self._lookback_period}")
+        self.set_name(f"{name}_max{self._max_volatility}%_warn{self._warning_volatility}%_period{self._lookback_period}")
 
     @property
     def max_volatility(self) -> float:
@@ -108,7 +109,7 @@ class VolatilityRisk(BaseRiskManagement):
             min_volume = max(1, int(original_volume * 0.1))
             order.volume = max(order.volume, min_volume)
 
-            self.log("WARNING", f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
+            GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
                      f"reducing order {original_volume} → {order.volume}")
 
         elif current_volatility > self._warning_volatility:
@@ -116,7 +117,7 @@ class VolatilityRisk(BaseRiskManagement):
             reduction_factor = (self._max_volatility / current_volatility) ** 1.5
             order.volume = int(order.volume * reduction_factor)
 
-            self.log("INFO", f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
+            GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
                      f"adjusting order to {order.volume}")
 
         return order
@@ -148,7 +149,7 @@ class VolatilityRisk(BaseRiskManagement):
 
         # 检查波动率是否超标
         if current_volatility > self._max_volatility:
-            self.log("WARNING", f"VolatilityRisk: EXTREME volatility {current_volatility:.1f}% > {self._max_volatility}% for {event.code}")
+            GLOG.WARN(f"VolatilityRisk: EXTREME volatility {current_volatility:.1f}% > {self._max_volatility}% for {event.code}")
 
             # 生成减仓或暂停交易信号
             signal = Signal(
@@ -164,7 +165,7 @@ class VolatilityRisk(BaseRiskManagement):
             signals.append(signal)
 
         elif current_volatility > self._warning_volatility:
-            self.log("INFO", f"VolatilityRisk: HIGH volatility {current_volatility:.1f}% > {self._warning_volatility}% for {event.code}")
+            GLOG.INFO(f"VolatilityRisk: HIGH volatility {current_volatility:.1f}% > {self._warning_volatility}% for {event.code}")
 
             # 生成预警信号
             signal = Signal(

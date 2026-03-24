@@ -22,7 +22,7 @@ from ginkgo.trading.bases.base_broker import BaseBroker
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES
-from ginkgo.libs import to_decimal, Number
+from ginkgo.libs import to_decimal, Number, GLOG
 
 
 class LiveBrokerBase(BaseBroker, IBroker, ABC):
@@ -72,7 +72,7 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         # 计数器用于生成broker_order_id
         self._order_counter = 1
 
-        self.log("INFO", f"LiveBrokerBase initialized for {market}, "
+        GLOG.INFO(f"LiveBrokerBase initialized for {market}, "
                         f"dry_run={self._dry_run}, "
                         f"commission_rate={self._commission_rate}")
 
@@ -122,11 +122,11 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         Returns:
             BrokerExecutionResult: 提交结果（异步执行）
         """
-        self.log("INFO", f"📝 ORDER RECEIVED: {order.direction.name} {order.volume} {order.code}")
+        GLOG.INFO(f"📝 ORDER RECEIVED: {order.direction.name} {order.volume} {order.code}")
 
         # 基础验证
         if not self.validate_order(order):
-            self.log("WARN", f"❌ Order validation failed: {order.uuid[:8]}")
+            GLOG.WARN(f"❌ Order validation failed: {order.uuid[:8]}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message="Order validation failed by LiveBroker"
@@ -134,7 +134,7 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
 
         # API连接检查
         if not self._api_connected:
-            self.log("ERROR", f"❌ API not connected for {self.market}")
+            GLOG.ERROR(f"❌ API not connected for {self.market}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message=f"API not connected for {self.market}"
@@ -151,11 +151,11 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
             else:
                 result = self._submit_to_exchange(order)
 
-            self.log("INFO", f"📤 SUBMITTED TO EXCHANGE: {broker_order_id} - {result.status.name}")
+            GLOG.INFO(f"📤 SUBMITTED TO EXCHANGE: {broker_order_id} - {result.status.name}")
             return result
 
         except Exception as e:
-            self.log("ERROR", f"❌ Submit to exchange failed: {e}")
+            GLOG.ERROR(f"❌ Submit to exchange failed: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -204,7 +204,7 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         Returns:
             BrokerExecutionResult: 撤销结果
         """
-        self.log("INFO", f"🚫 CANCEL REQUESTED: {broker_order_id}")
+        GLOG.INFO(f"🚫 CANCEL REQUESTED: {broker_order_id}")
 
         if not self._api_connected:
             return BrokerExecutionResult(
@@ -222,11 +222,11 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
             else:
                 result = self._cancel_from_exchange(broker_order_id)
 
-            self.log("INFO", f"🚫 CANCEL RESULT: {broker_order_id} - {result.status.name}")
+            GLOG.INFO(f"🚫 CANCEL RESULT: {broker_order_id} - {result.status.name}")
             return result
 
         except Exception as e:
-            self.log("ERROR", f"❌ Cancel from exchange failed: {e}")
+            GLOG.ERROR(f"❌ Cancel from exchange failed: {e}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 broker_order_id=broker_order_id,
@@ -258,7 +258,7 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         Returns:
             BrokerExecutionResult: 模拟执行结果
         """
-        self.log("INFO", f"🔄 DRY RUN MODE: Simulating execution for {broker_order_id}")
+        GLOG.INFO(f"🔄 DRY RUN MODE: Simulating execution for {broker_order_id}")
 
         # 模拟异步提交流程
         result = BrokerExecutionResult(
@@ -299,19 +299,19 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         try:
             if self._dry_run:
                 self._api_connected = True
-                self.log("INFO", f"✅ DRY RUN MODE: Connected to {self.market}")
+                GLOG.INFO(f"✅ DRY RUN MODE: Connected to {self.market}")
                 return True
 
             self._api_connected = self._connect_api()
             if self._api_connected:
-                self.log("INFO", f"✅ Connected to {self.market} API")
+                GLOG.INFO(f"✅ Connected to {self.market} API")
             else:
-                self.log("ERROR", f"❌ Failed to connect to {self.market} API")
+                GLOG.ERROR(f"❌ Failed to connect to {self.market} API")
 
             return self._api_connected
 
         except Exception as e:
-            self.log("ERROR", f"❌ Connection error: {e}")
+            GLOG.ERROR(f"❌ Connection error: {e}")
             self._api_connected = False
             return False
 
@@ -320,21 +320,21 @@ class LiveBrokerBase(BaseBroker, IBroker, ABC):
         try:
             if self._dry_run:
                 self._api_connected = False
-                self.log("INFO", f"✅ DRY RUN MODE: Disconnected from {self.market}")
+                GLOG.INFO(f"✅ DRY RUN MODE: Disconnected from {self.market}")
                 return True
 
             success = self._disconnect_api()
             self._api_connected = False
 
             if success:
-                self.log("INFO", f"✅ Disconnected from {self.market} API")
+                GLOG.INFO(f"✅ Disconnected from {self.market} API")
             else:
-                self.log("ERROR", f"❌ Failed to disconnect from {self.market} API")
+                GLOG.ERROR(f"❌ Failed to disconnect from {self.market} API")
 
             return success
 
         except Exception as e:
-            self.log("ERROR", f"❌ Disconnection error: {e}")
+            GLOG.ERROR(f"❌ Disconnection error: {e}")
             return False
 
     # ============= 状态查询方法 =============

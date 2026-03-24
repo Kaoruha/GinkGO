@@ -17,11 +17,10 @@ from ginkgo.libs import base_repr, datetime_normalize, GLOG
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.trading.core.base import Base
 
 
-class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
+class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
     """
     Signal Class.
     """
@@ -56,8 +55,6 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         # NamedMixin初始化 - 传递name参数
         NamedMixin.__init__(self, name=name, **kwargs)
 
-        # LoggableMixin初始化
-        LoggableMixin.__init__(self, **kwargs)
 
         # Base初始化
         from ginkgo.enums import COMPONENT_TYPES

@@ -10,7 +10,7 @@
 from abc import ABC, abstractmethod
 import threading
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
+from ginkgo.libs import GLOG
 # EngineStatus相关功能已移动到具体的Engine实现中
 from typing import Dict, Any, Optional, List
 from ginkgo.enums import ENGINESTATUS_TYPES, COMPONENT_TYPES, EXECUTION_MODE
@@ -18,7 +18,7 @@ from ginkgo.enums import ENGINESTATUS_TYPES, COMPONENT_TYPES, EXECUTION_MODE
 import time
 
 
-class BaseEngine(NamedMixin, LoggableMixin, ABC):
+class BaseEngine(NamedMixin, ABC):
     """
     Enhanced Base Engine with Unified ID Management
     
@@ -51,6 +51,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._run_id = None
         self._run_sequence: int = 0
         self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
+        self._trace_id_token = None  # 用于清理 GLOG trace_id
 
         # === 创建 EngineContext 实例 ===
         from ..context.engine_context import EngineContext
@@ -125,7 +126,12 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             self._run_id = IdentityUtils.generate_run_id()
             # 同时更新 EngineContext
             self._engine_context.set_run_id(self._run_id)
-            self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
+
+            # 设置 trace_id 到 GLOG（用于分布式日志追踪）
+            from ginkgo.libs import GLOG
+            self._trace_id_token = GLOG.set_trace_id(self._run_id)
+
+            GLOG.INFO(f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
 
         return self._run_id
 
@@ -151,7 +157,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._engine_id = engine_id
         # 同步更新 EngineContext
         self._engine_context.set_engine_id(engine_id)
-        self.log("INFO", f"Engine ID updated to: {engine_id}")
+        GLOG.INFO(f"Engine ID updated to: {engine_id}")
 
     def set_run_id(self, run_id: str) -> None:
         """
@@ -166,7 +172,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._run_id = run_id
         # 同步更新 EngineContext
         self._engine_context.set_run_id(run_id)
-        self.log("INFO", f"Run ID updated to: {run_id}")
+        GLOG.INFO(f"Run ID updated to: {run_id}")
 
     def start(self) -> bool:
         """
@@ -178,7 +184,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         # 验证状态转换合法性
         valid_states = [ENGINESTATUS_TYPES.IDLE, ENGINESTATUS_TYPES.PAUSED, ENGINESTATUS_TYPES.STOPPED]
         if self._state not in valid_states:
-            self.log("ERROR", f"Cannot start from {self.status} state")
+            GLOG.ERROR(f"Cannot start from {self.status} state")
             return False
 
         from ..core.identity import IdentityUtils
@@ -188,16 +194,16 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             if self._run_id is None or self._state == ENGINESTATUS_TYPES.STOPPED:
                 # 生成新会话
                 self.generate_run_id()
-                self.log("INFO", f"Engine '{self.name}' started new session: engine_id={self.engine_id}, run_id={self.run_id}")
+                GLOG.INFO(f"Engine '{self.name}' started new session: engine_id={self.engine_id}, run_id={self.run_id}")
             else:
                 # 从暂停状态恢复，保持原有run_id
-                self.log("INFO", f"Engine '{self.name}' resumed: engine_id={self.engine_id}, run_id={self.run_id}")
+                GLOG.INFO(f"Engine '{self.name}' resumed: engine_id={self.engine_id}, run_id={self.run_id}")
 
             self._state = ENGINESTATUS_TYPES.RUNNING
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Failed to start engine: {str(e)}")
+            GLOG.ERROR(f"Failed to start engine: {str(e)}")
             return False
 
     def pause(self) -> bool:
@@ -209,15 +215,15 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         """
         # 验证状态转换合法性
         if self._state != ENGINESTATUS_TYPES.RUNNING:
-            self.log("ERROR", f"Cannot pause from {self.status} state")
+            GLOG.ERROR(f"Cannot pause from {self.status} state")
             return False
 
         try:
             self._state = ENGINESTATUS_TYPES.PAUSED
-            self.log("INFO", f"Engine {self.name} {self.engine_id} paused.")
+            GLOG.INFO(f"Engine {self.name} {self.engine_id} paused.")
             return True
         except Exception as e:
-            self.log("ERROR", f"Failed to pause engine: {str(e)}")
+            GLOG.ERROR(f"Failed to pause engine: {str(e)}")
             return False
 
     def stop(self) -> bool:
@@ -230,15 +236,22 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         # 验证状态转换合法性
         valid_states = [ENGINESTATUS_TYPES.RUNNING, ENGINESTATUS_TYPES.PAUSED]
         if self._state not in valid_states:
-            self.log("ERROR", f"Cannot stop from {self.status} state")
+            GLOG.ERROR(f"Cannot stop from {self.status} state")
             return False
 
         try:
             self._state = ENGINESTATUS_TYPES.STOPPED
-            self.log("INFO", f"Engine '{self.name}' stopped: engine_id={self.engine_id}, run_id={self.run_id}")
+            GLOG.INFO(f"Engine '{self.name}' stopped: engine_id={self.engine_id}, run_id={self.run_id}")
+
+            # 清理 GLOG trace_id
+            if self._trace_id_token is not None:
+                from ginkgo.libs import GLOG
+                GLOG.clear_trace_id(self._trace_id_token)
+                self._trace_id_token = None
+
             return True
         except Exception as e:
-            self.log("ERROR", f"Failed to stop engine: {str(e)}")
+            GLOG.ERROR(f"Failed to stop engine: {str(e)}")
             return False
 
       # === 队列相关功能已移动到EventEngine ===
@@ -273,7 +286,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         """
         # 重复检查
         if portfolio in self._portfolios:
-            self.log("DEBUG", f"Portfolio {portfolio.name} already exists in engine {self.name}")
+            GLOG.DEBUG(f"Portfolio {portfolio.name} already exists in engine {self.name}")
             return
 
         # 基础验证
@@ -286,13 +299,13 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._portfolios.append(portfolio)
         portfolio.bind_engine(self)
 
-        self.log("INFO", f"Portfolio {portfolio.name} added to engine {self.name}")
+        GLOG.INFO(f"Portfolio {portfolio.name} added to engine {self.name}")
 
     def remove_portfolio(self, portfolio) -> None:
         """移除投资组合"""
         if portfolio in self._portfolios:
             self._portfolios.remove(portfolio)
-            self.log("INFO", f"Portfolio {portfolio.name} removed from engine {self.name}")
+            GLOG.INFO(f"Portfolio {portfolio.name} removed from engine {self.name}")
 
     @abstractmethod
     def run(self) -> Any:
@@ -359,146 +372,149 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
 
         在引擎启动前调用，用于诊断组件绑定问题
         """
-        print(f"\n🔍 引擎运行前综合检查: {self.name}")
-        print("=" * 70)
+        from ginkgo.libs import GLOG
+        GLOG.set_log_category("backtest")
+
+        GLOG.INFO(f"\n🔍 引擎运行前综合检查: {self.name}")
+        GLOG.INFO("=" * 70)
 
         # 1. 检查引擎基本状态
-        print(f"📊 1️⃣ 引擎基本信息:")
-        print(f"  模式: {self.mode}")
-        print(f"  状态: {self.status}")
-        print(f"  当前时间: {self.now}")
-        print(f"  引擎ID: {getattr(self, 'engine_id', 'Not set')}")
-        print(f"  运行ID: {getattr(self, 'run_id', 'Not set')}")
+        GLOG.INFO(f"📊 1️⃣ 引擎基本信息:")
+        GLOG.INFO(f"  模式: {self.mode}")
+        GLOG.INFO(f"  状态: {self.status}")
+        GLOG.INFO(f"  当前时间: {self.now}")
+        GLOG.INFO(f"  引擎ID: {getattr(self, 'engine_id', 'Not set')}")
+        GLOG.INFO(f"  运行ID: {getattr(self, 'run_id', 'Not set')}")
 
         # 2. 检查TimeProvider
-        print(f"\n📊 2️⃣ TimeProvider状态:")
+        GLOG.INFO(f"\n📊 2️⃣ TimeProvider状态:")
         if hasattr(self, '_time_provider') and self._time_provider:
-            print(f"  ✅ 类型: {type(self._time_provider).__name__}")
-            print(f"  ✅ 当前时间: {self._time_provider.now()}")
+            GLOG.INFO(f"  ✅ 类型: {type(self._time_provider).__name__}")
+            GLOG.INFO(f"  ✅ 当前时间: {self._time_provider.now()}")
         else:
-            print(f"  ❌ TimeProvider未设置")
+            GLOG.WARN(f"  ❌ TimeProvider未设置")
 
         # 3. 检查DataFeeder
-        print(f"\n📊 3️⃣ DataFeeder状态:")
+        GLOG.INFO(f"\n📊 3️⃣ DataFeeder状态:")
         if hasattr(self, '_datafeeder') and self._datafeeder:
             feeder = self._datafeeder
-            print(f"  ✅ 名称: {feeder.name}")
-            print(f"  ✅ 类型: {type(feeder).__name__}")
+            GLOG.INFO(f"  ✅ 名称: {feeder.name}")
+            GLOG.INFO(f"  ✅ 类型: {type(feeder).__name__}")
 
             # 检查TimeProvider绑定
             tp_status = "✅" if hasattr(feeder, 'time_controller') and feeder.time_controller else "❌"
             tp_name = type(feeder.time_controller).__name__ if hasattr(feeder, 'time_controller') and feeder.time_controller else "None"
-            print(f"  {tp_status} TimeProvider: {tp_name}")
+            GLOG.INFO(f"  {tp_status} TimeProvider: {tp_name}")
 
             # 检查EventPublisher绑定
             pub_status = "✅" if hasattr(feeder, 'event_publisher') and feeder.event_publisher else "❌"
-            print(f"  {pub_status} EventPublisher: {'已设置' if hasattr(feeder, 'event_publisher') and feeder.event_publisher else '未设置'}")
+            GLOG.INFO(f"  {pub_status} EventPublisher: {'已设置' if hasattr(feeder, 'event_publisher') and feeder.event_publisher else '未设置'}")
 
             # 检查BarService
             if hasattr(feeder, 'bar_service'):
                 bar_status = "✅" if feeder.bar_service else "❌"
-                print(f"  {bar_status} BarService: {'已设置' if feeder.bar_service else '未设置'}")
+                GLOG.INFO(f"  {bar_status} BarService: {'已设置' if feeder.bar_service else '未设置'}")
 
             # 检查感兴趣的股票
             codes = getattr(feeder, '_interested_codes', [])
-            print(f"  ℹ️  感兴趣的股票: {codes}")
+            GLOG.INFO(f"  ℹ️  感兴趣的股票: {codes}")
 
             # 检查engine绑定
             engine_bound = hasattr(feeder, '_bound_engine') and feeder._bound_engine is not None
             engine_status = "✅" if engine_bound else "❌"
-            print(f"  {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
+            GLOG.INFO(f"  {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
 
         else:
-            print(f"  ❌ DataFeeder未设置")
+            GLOG.WARN(f"  ❌ DataFeeder未设置")
 
         # 4. 检查Portfolio及其所有组件
-        print(f"\n📊 4️⃣ Portfolio及组件状态:")
+        GLOG.INFO(f"\n📊 4️⃣ Portfolio及组件状态:")
         if self.portfolios:
             for i, portfolio in enumerate(self.portfolios):
-                print(f"  📦 Portfolio {i+1}: {portfolio.name}")
-                print(f"    ✅ 类型: {type(portfolio).__name__}")
-                print(f"    ✅ Portfolio ID: {getattr(portfolio, 'portfolio_id', 'Not set')}")
+                GLOG.INFO(f"  📦 Portfolio {i+1}: {portfolio.name}")
+                GLOG.INFO(f"    ✅ 类型: {type(portfolio).__name__}")
+                GLOG.INFO(f"    ✅ Portfolio ID: {getattr(portfolio, 'portfolio_id', 'Not set')}")
 
                 # 检查Portfolio的TimeProvider
                 tp_status = "✅" if hasattr(portfolio, '_time_provider') and portfolio._time_provider else "❌"
                 tp_name = type(portfolio._time_provider).__name__ if hasattr(portfolio, '_time_provider') and portfolio._time_provider else "None"
-                print(f"    {tp_status} TimeProvider: {tp_name}")
+                GLOG.INFO(f"    {tp_status} TimeProvider: {tp_name}")
 
                 # 检查Portfolio的engine_put
                 put_status = "✅" if hasattr(portfolio, '_engine_put') and portfolio._engine_put else "❌"
-                print(f"    {put_status} Engine事件发布: {'已设置' if hasattr(portfolio, '_engine_put') and portfolio._engine_put else '未设置'}")
+                GLOG.INFO(f"    {put_status} Engine事件发布: {'已设置' if hasattr(portfolio, '_engine_put') and portfolio._engine_put else '未设置'}")
 
                 # 检查Portfolio的engine绑定
                 engine_bound = hasattr(portfolio, '_bound_engine') and portfolio._bound_engine is not None
                 engine_status = "✅" if engine_bound else "❌"
-                print(f"    {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
+                GLOG.INFO(f"    {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
 
-                print(f"    💰 现金: {portfolio.cash}")
-                print(f"    💎 价值: {portfolio.worth}")
+                GLOG.INFO(f"    💰 现金: {portfolio.cash}")
+                GLOG.INFO(f"    💎 价值: {portfolio.worth}")
 
                 # 检查策略组件
                 strategies = getattr(portfolio, 'strategies', [])
-                print(f"    🎯 策略数量: {len(strategies)}")
+                GLOG.INFO(f"    🎯 策略数量: {len(strategies)}")
                 for j, strategy in enumerate(strategies):
-                    print(f"      策略 {j+1}: {strategy.name}")
-                    print(f"        类型: {type(strategy).__name__}")
+                    GLOG.INFO(f"      策略 {j+1}: {strategy.name}")
+                    GLOG.INFO(f"        类型: {type(strategy).__name__}")
                     signal_count = getattr(strategy, 'signal_count', 'Unknown')
-                    print(f"        信号数: {signal_count}")
+                    GLOG.INFO(f"        信号数: {signal_count}")
 
                     # 检查策略的engine绑定
                     strategy_engine_bound = hasattr(strategy, '_bound_engine') and strategy._bound_engine is not None
                     strategy_engine_status = "✅" if strategy_engine_bound else "❌"
-                    print(f"        {strategy_engine_status} Engine绑定: {'已绑定' if strategy_engine_bound else '未绑定'}")
+                    GLOG.INFO(f"        {strategy_engine_status} Engine绑定: {'已绑定' if strategy_engine_bound else '未绑定'}")
 
                     # 检查策略的TimeProvider
                     strategy_tp = hasattr(strategy, '_time_provider') and strategy._time_provider
                     strategy_tp_status = "✅" if strategy_tp else "❌"
-                    print(f"        {strategy_tp_status} TimeProvider: {'已设置' if strategy_tp else '未设置'}")
+                    GLOG.INFO(f"        {strategy_tp_status} TimeProvider: {'已设置' if strategy_tp else '未设置'}")
 
                 # 检查Selector组件
                 selectors = getattr(portfolio, '_selectors', [])
-                print(f"    🔍 Selector数量: {len(selectors)}")
+                GLOG.INFO(f"    🔍 Selector数量: {len(selectors)}")
                 for j, selector in enumerate(selectors):
-                    print(f"      Selector {j+1}: {selector.name}")
-                    print(f"        类型: {type(selector).__name__}")
+                    GLOG.INFO(f"      Selector {j+1}: {selector.name}")
+                    GLOG.INFO(f"        类型: {type(selector).__name__}")
                     selected = getattr(selector, '_interested', [])
-                    print(f"        选择股票: {selected}")
+                    GLOG.INFO(f"        选择股票: {selected}")
 
                     # 检查selector的engine绑定
                     selector_engine_bound = hasattr(selector, '_bound_engine') and selector._bound_engine is not None
                     selector_engine_status = "✅" if selector_engine_bound else "❌"
-                    print(f"        {selector_engine_status} Engine绑定: {'已绑定' if selector_engine_bound else '未绑定'}")
+                    GLOG.INFO(f"        {selector_engine_status} Engine绑定: {'已绑定' if selector_engine_bound else '未绑定'}")
 
                     # 检查selector的TimeProvider
                     selector_tp = hasattr(selector, '_time_provider') and selector._time_provider
                     selector_tp_status = "✅" if selector_tp else "❌"
-                    print(f"        {selector_tp_status} TimeProvider: {'已设置' if selector_tp else '未设置'}")
+                    GLOG.INFO(f"        {selector_tp_status} TimeProvider: {'已设置' if selector_tp else '未设置'}")
 
                     # 检查selector的engine_put
                     selector_put = hasattr(selector, '_engine_put') and selector._engine_put
                     selector_put_status = "✅" if selector_put else "❌"
-                    print(f"        {selector_put_status} Engine事件发布: {'已设置' if selector_put else '未设置'}")
+                    GLOG.INFO(f"        {selector_put_status} Engine事件发布: {'已设置' if selector_put else '未设置'}")
 
                 # 检查Sizer组件
                 sizer = getattr(portfolio, '_sizer', None)
-                print(f"    📏 Sizer: {'已设置' if sizer else '未设置'}")
+                GLOG.INFO(f"    📏 Sizer: {'已设置' if sizer else '未设置'}")
                 if sizer:
-                    print(f"      类型: {type(sizer).__name__}")
+                    GLOG.INFO(f"      类型: {type(sizer).__name__}")
 
                     # 检查sizer的engine绑定
                     sizer_engine_bound = hasattr(sizer, '_bound_engine') and sizer._bound_engine is not None
                     sizer_engine_status = "✅" if sizer_engine_bound else "❌"
-                    print(f"      {sizer_engine_status} Engine绑定: {'已绑定' if sizer_engine_bound else '未绑定'}")
+                    GLOG.INFO(f"      {sizer_engine_status} Engine绑定: {'已绑定' if sizer_engine_bound else '未绑定'}")
 
                     # 检查sizer的TimeProvider
                     sizer_tp = hasattr(sizer, '_time_provider') and sizer._time_provider
                     sizer_tp_status = "✅" if sizer_tp else "❌"
-                    print(f"      {sizer_tp_status} TimeProvider: {'已设置' if sizer_tp else '未设置'}")
+                    GLOG.INFO(f"      {sizer_tp_status} TimeProvider: {'已设置' if sizer_tp else '未设置'}")
         else:
-            print(f"  ❌ 没有Portfolio")
+            GLOG.WARN(f"  ❌ 没有Portfolio")
 
         # 5. 检查事件处理器注册
-        print(f"\n📊 5️⃣ 事件处理器注册状态:")
+        GLOG.INFO(f"\n📊 5️⃣ 事件处理器注册状态:")
         if hasattr(self, '_handlers') and self._handlers:
             from ginkgo.enums import EVENT_TYPES
 
@@ -517,28 +533,28 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
                 handlers = self._handlers.get(event_type, [])
                 status = "✅" if handlers else "❌"
                 event_name = getattr(event_type, 'name', str(event_type))
-                print(f"  {status} {event_name}: {len(handlers)} 个处理器")
+                GLOG.INFO(f"  {status} {event_name}: {len(handlers)} 个处理器")
 
                 # 显示处理器详情（仅有关键事件）
                 if handlers and event_type in [EVENT_TYPES.PRICEUPDATE, EVENT_TYPES.SIGNALGENERATION]:
                     for j, handler in enumerate(handlers):
-                        print(f"    处理器 {j+1}: {handler}")
+                        GLOG.INFO(f"    处理器 {j+1}: {handler}")
         else:
-            print(f"  ❌ 事件处理器未初始化")
+            GLOG.WARN(f"  ❌ 事件处理器未初始化")
 
         # 6. 检查队列状态
-        print(f"\n📊 6️⃣ 事件队列状态:")
+        GLOG.INFO(f"\n📊 6️⃣ 事件队列状态:")
         queue_info = self.get_queue_info()
-        print(f"  队列大小: {queue_info.queue_size}/{queue_info.max_size}")
+        GLOG.INFO(f"  队列大小: {queue_info.queue_size}/{queue_info.max_size}")
         queue_status = "正常"
         if queue_info.is_full:
             queue_status = "满"
         elif queue_info.is_empty:
             queue_status = "空"
-        print(f"  队列状态: {queue_status}")
+        GLOG.INFO(f"  队列状态: {queue_status}")
 
         # 7. 总结
-        print(f"\n📋 7️⃣ 综合检查总结:")
+        GLOG.INFO(f"\n📋 7️⃣ 综合检查总结:")
         issues = []
 
         # 检查关键组件
@@ -564,17 +580,17 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
                 issues.append(f"❌ 缺少 {event_type.name} 事件处理器")
 
         if issues:
-            print(f"  发现问题:")
+            GLOG.WARN(f"  发现问题:")
             for issue in issues:
-                print(f"    {issue}")
-            print(f"  ⚠️  请在启动引擎前修复上述问题")
+                GLOG.WARN(f"    {issue}")
+            GLOG.WARN(f"  ⚠️  请在启动引擎前修复上述问题")
         else:
-            print(f"  ✅ 所有关键组件和事件处理器都已正确设置")
-            print(f"  🚀 引擎可以安全启动")
+            GLOG.INFO(f"  ✅ 所有关键组件和事件处理器都已正确设置")
+            GLOG.INFO(f"  🚀 引擎可以安全启动")
 
-        print(f"\n" + "=" * 70)
-        print(f"✅ 引擎运行前综合检查完成")
-        print(f"🚀 引擎准备启动\n")
+        GLOG.INFO(f"\n" + "=" * 70)
+        GLOG.INFO(f"✅ 引擎运行前综合检查完成")
+        GLOG.INFO(f"🚀 引擎准备启动\n")
 
         # 3秒倒数已取消，直接启动引擎
         # import time
@@ -593,26 +609,26 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         """
         # 统一使用_datafeeder字段名
         self._datafeeder = feeder
-        self.log("INFO", f"Data feeder {feeder.name} bound to engine")
+        GLOG.INFO(f"Data feeder {feeder.name} bound to engine")
 
         # 绑定引擎到feeder
         if hasattr(feeder, 'bind_engine'):
             try:
                 feeder.bind_engine(self)
-                self.log("INFO", f"Engine bound for feeder {feeder.name}")
+                GLOG.INFO(f"Engine bound for feeder {feeder.name}")
             except Exception as e:
-                self.log("ERROR", f"Failed to bind engine for feeder {feeder.name}: {e}")
+                GLOG.ERROR(f"Failed to bind engine for feeder {feeder.name}: {e}")
                 raise
 
         # 传播 data_feeder 给所有 portfolio 的子组件（strategies, sizer, selectors）
-        self.log("INFO", f"Propagating data_feeder to {len(self.portfolios)} portfolios")
+        GLOG.INFO(f"Propagating data_feeder to {len(self.portfolios)} portfolios")
         for portfolio in self.portfolios:
             if hasattr(portfolio, 'bind_data_feeder'):
                 try:
                     portfolio.bind_data_feeder(feeder)
-                    self.log("INFO", f"Data feeder propagated to portfolio {portfolio.name} and its components")
+                    GLOG.INFO(f"Data feeder propagated to portfolio {portfolio.name} and its components")
                 except Exception as e:
-                    self.log("ERROR", f"Failed to propagate data_feeder to portfolio {portfolio.name}: {e}")
+                    GLOG.ERROR(f"Failed to propagate data_feeder to portfolio {portfolio.name}: {e}")
 
     def __repr__(self) -> str:
         # Safe repr that avoids circular references

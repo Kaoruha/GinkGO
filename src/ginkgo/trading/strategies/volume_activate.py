@@ -13,6 +13,7 @@ from ginkgo.trading.events import EventSignalGeneration
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
+from ginkgo.libs import GLOG
 
 
 class StrategyVolumeActivate(BaseStrategy):
@@ -37,7 +38,7 @@ class StrategyVolumeActivate(BaseStrategy):
         std = df["volume"].std()
         r = df["volume"].iloc[-1] / mean
         if r < 0.67 and r > 0.6:
-            self.log("INFO", f"Gen Signal about {event.code} from {self.name}")
+            GLOG.INFO(f"Gen Signal about {event.code} from {self.name}")
             s = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.LONG,

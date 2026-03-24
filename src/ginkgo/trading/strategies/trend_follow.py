@@ -65,7 +65,7 @@ class StrategyTrendFollow(BaseStrategy):
         """
         生成交易信号
         """
-        self.log("INFO", f"Generate {direction.value} signal for {code} from {self.name}")
+        GLOG.INFO(f"Generate {direction.value} signal for {code} from {self.name}")
         return Signal(
             portfolio_id=portfolio_info["uuid"],
             engine_id=self.engine_id,
@@ -90,12 +90,12 @@ class StrategyTrendFollow(BaseStrategy):
         
         # 止损检查
         if ratio <= (Decimal('1') - self._loss_limit):
-            self.log("INFO", f"Stop loss triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
+            GLOG.INFO(f"Stop loss triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
             return True
             
         # 止盈检查
         if ratio >= (Decimal('1') + self._profit_target):
-            self.log("INFO", f"Take profit triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
+            GLOG.INFO(f"Take profit triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
             return True
             
         return False

@@ -19,14 +19,13 @@ from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
 from ginkgo.trading.mixins.named_mixin import NamedMixin
-from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 
 if TYPE_CHECKING:
     from ginkgo.trading.entities.signal import Signal
     from ginkgo.trading.entities.order import Order
 
 
-class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, LoggableMixin, Base):
+class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
     """
     资金管理组件基类
 
@@ -35,7 +34,6 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Loggab
     - 上下文管理 (engine_id, run_id, portfolio_id)
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
-    - 日志管理 (log, add_logger)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
 
@@ -53,7 +51,6 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Loggab
         ContextMixin.__init__(self, **kwargs)
         EngineBindableMixin.__init__(self, engine=engine, **kwargs)
         NamedMixin.__init__(self, name=name, **kwargs)
-        LoggableMixin.__init__(self, **kwargs)
         Base.__init__(self)
         self._data_feeder = None
 

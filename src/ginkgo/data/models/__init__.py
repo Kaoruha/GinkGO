@@ -48,6 +48,7 @@ from ginkgo.data.models.model_user_group_mapping import MUserGroupMapping
 from ginkgo.data.models.model_notification_template import MNotificationTemplate
 from ginkgo.data.models.model_notification_record import MNotificationRecord
 from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
+from ginkgo.data.models.model_logs import MBacktestLog, MComponentLog, MPerformanceLog
 
 
 __all__ = [
@@ -92,4 +93,8 @@ __all__ = [
     "MNotificationTemplate",
     "MNotificationRecord",
     "MNotificationRecipient",
+    # 日志系统模型 (011-distributed-logging)
+    "MBacktestLog",
+    "MComponentLog",
+    "MPerformanceLog",
 ]

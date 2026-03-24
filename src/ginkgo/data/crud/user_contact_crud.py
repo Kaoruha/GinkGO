@@ -177,7 +177,7 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         """
         validated_type = CONTACT_TYPES.validate_input(contact_type)
         if validated_type is None:
-            GLOG.WARNING(f"无效的联系方式类型: {contact_type}")
+            GLOG.WARN(f"无效的联系方式类型: {contact_type}")
             return [] if not as_dataframe else pd.DataFrame()
 
         return self.find(filters={"contact_type": validated_type}, as_dataframe=as_dataframe)
