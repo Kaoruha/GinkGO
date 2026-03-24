@@ -155,98 +155,98 @@ export const backtestApi = {
    * 获取回测任务列表
    */
   list(params?: BacktestListParams): Promise<BacktestListResponse> {
-    return request.get('/v1/backtest', { params })
+    return request.get('/api/v1/backtest', { params })
   },
 
   /**
    * 获取单个回测任务
    */
   get(uuid: string): Promise<BacktestTask> {
-    return request.get(`/v1/backtest/${uuid}`)
+    return request.get(`/api/v1/backtest/${uuid}`)
   },
 
   /**
    * 创建回测任务
    */
   create(data: BacktestCreateRequest): Promise<BacktestTask> {
-    return request.post('/v1/backtest', data)
+    return request.post('/api/v1/backtest', data)
   },
 
   /**
    * 删除回测任务
    */
   delete(uuid: string): Promise<{ success: boolean; message: string }> {
-    return request.delete(`/v1/backtest/${uuid}`)
+    return request.delete(`/api/v1/backtest/${uuid}`)
   },
 
   /**
    * 获取回测净值数据
    */
   getNetValue(uuid: string): Promise<BacktestNetValue> {
-    return request.get(`/v1/backtest/${uuid}/netvalue`)
+    return request.get(`/api/v1/backtest/${uuid}/netvalue`)
   },
 
   /**
    * 对比多个回测
    */
   compare(ids: string[]): Promise<{ data: Record<string, any> }> {
-    return request.get('/v1/backtest/compare', { params: { ids: ids.join(',') } })
+    return request.get('/api/v1/backtest/compare', { params: { ids: ids.join(',') } })
   },
 
   /**
    * 获取回测任务的分析器列表
    */
   getAnalyzers(uuid: string): Promise<BacktestAnalyzersResponse> {
-    return request.get(`/v1/backtest/${uuid}/analyzers`)
+    return request.get(`/api/v1/backtest/${uuid}/analyzers`)
   },
 
   /**
    * 启动回测任务
    */
   start(uuid: string, data?: BacktestStartRequest): Promise<{ success: boolean; run_id: string; message: string }> {
-    return request.post(`/v1/backtest/${uuid}/start`, data || {})
+    return request.post(`/api/v1/backtest/${uuid}/start`, data || {})
   },
 
   /**
    * 停止回测任务
    */
   stop(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
-    return request.post(`/v1/backtest/${uuid}/stop`)
+    return request.post(`/api/v1/backtest/${uuid}/stop`)
   },
 
   /**
    * 取消回测任务
    */
   cancel(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
-    return request.post(`/v1/backtest/${uuid}/cancel`)
+    return request.post(`/api/v1/backtest/${uuid}/cancel`)
   },
 
   /**
    * 获取分析器时序数据
    */
   getAnalyzerData(uuid: string, analyzerName: string): Promise<AnalyzerTimeseriesResponse> {
-    return request.get(`/v1/backtest/${uuid}/analyzer/${analyzerName}`)
+    return request.get(`/api/v1/backtest/${uuid}/analyzer/${analyzerName}`)
   },
 
   /**
    * 获取回测信号记录
    */
   getSignals(uuid: string, page: number = 0, size: number = 100): Promise<{ data: SignalRecord[]; total: number; page: number; size: number }> {
-    return request.get(`/v1/backtest/${uuid}/signals`, { params: { page, size } })
+    return request.get(`/api/v1/backtest/${uuid}/signals`, { params: { page, size } })
   },
 
   /**
    * 获取回测订单记录
    */
   getOrders(uuid: string): Promise<{ data: OrderRecord[]; total: number }> {
-    return request.get(`/v1/backtest/${uuid}/orders`)
+    return request.get(`/api/v1/backtest/${uuid}/orders`)
   },
 
   /**
    * 获取回测持仓记录
    */
   getPositions(uuid: string): Promise<{ data: PositionRecord[]; total: number }> {
-    return request.get(`/v1/backtest/${uuid}/positions`)
+    return request.get(`/api/v1/backtest/${uuid}/positions`)
   },
 
 }

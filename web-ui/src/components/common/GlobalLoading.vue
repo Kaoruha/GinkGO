@@ -2,19 +2,22 @@
   <teleport to="body">
     <transition name="loading-fade">
       <div v-if="hasActiveLoading" class="global-loading">
-        <div v-if="showOverlay" class="overlay" />
+        <div v-if="showOverlay" class="overlay"></div>
         <div class="loading-container">
-          <a-spin :spinning="true" size="large">
-            <div class="loading-content">
-              <LoadingOutlined class="loading-icon" />
-              <span v-if="loadingMessage" class="loading-message">
-                {{ loadingMessage }}
-              </span>
-              <span v-if="activeLoadings.length > 1" class="loading-count">
-                ({{ activeLoadings.length }} 项任务)
-              </span>
+          <div class="loading-content">
+            <div class="loading-spinner">
+              <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10"></path>
+              </svg>
             </div>
-          </a-spin>
+            <span v-if="loadingMessage" class="loading-message">
+              {{ loadingMessage }}
+            </span>
+            <span v-if="activeLoadings.length > 1" class="loading-count">
+              ({{ activeLoadings.length }} 项任务)
+            </span>
+          </div>
         </div>
       </div>
     </transition>
@@ -23,7 +26,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LoadingOutlined } from '@ant-design/icons-vue'
 import { useLoadingStore } from '@/stores/loading'
 
 interface Props {
@@ -92,7 +94,7 @@ const loadingMessage = computed(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
 }
 
@@ -106,15 +108,32 @@ const loadingMessage = computed(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: white;
+  color: #ffffff;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.8);
+  background: #1a1a2e;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #2a2a3e;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.loading-icon {
-  font-size: 32px;
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-icon {
+  animation: spin 1s linear infinite;
+  color: #1890ff;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-message {
@@ -125,6 +144,7 @@ const loadingMessage = computed(() => {
 .loading-count {
   font-size: 12px;
   opacity: 0.8;
+  color: #8a8a9a;
 }
 
 /* 过渡动画 */

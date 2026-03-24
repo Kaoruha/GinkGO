@@ -1,35 +1,26 @@
 <template>
-  <a-form
+  <form
     ref="formRef"
-    :model="formState"
-    :rules="rules"
-    :layout="layout"
-    :label-col="labelCol"
-    :wrapper-col="wrapperCol"
     :class="['pro-form', sizeClass]"
+    @submit.prevent="handleSubmit"
   >
-    <template v-if="showActions" #footer>
-      <div class="form-actions">
-        <a-space>
-          <a-button @click="handleReset">重置</a-button>
-          <a-button type="primary" :loading="submitting" @click="handleSubmit">
-            {{ submitText }}
-          </a-button>
-        </a-space>
-      </div>
-    </template>
-
     <slot />
-  </a-form>
+
+    <div v-if="showActions" class="form-actions">
+      <button type="button" class="btn-secondary" @click="handleReset">重置</button>
+      <button type="submit" class="btn-primary" :disabled="submitting">
+        {{ submitting ? '提交中...' : submitText }}
+      </button>
+    </div>
+  </form>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, provide, reactive } from 'vue'
-import type { FormInstance, FormProps } from 'ant-design-vue'
 
 interface Props {
   modelValue?: Record<string, any>
-  layout?: FormProps['layout']
+  layout?: 'horizontal' | 'vertical' | 'inline'
   labelCol?: Record<string, number>
   wrapperCol?: Record<string, number>
   size?: 'small' | 'middle' | 'large'
@@ -55,7 +46,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: Record<string, any>): void
 }>()
 
-const formRef = ref<FormInstance>()
+const formRef = ref<HTMLFormElement>()
 const submitting = ref(false)
 
 const formState = reactive<Record<string, any>>({ ...props.modelValue })
@@ -63,29 +54,25 @@ const formState = reactive<Record<string, any>>({ ...props.modelValue })
 const sizeClass = computed(() => `pro-form--${props.size}`)
 
 const handleSubmit = async () => {
-  try {
-    await formRef.value?.validate()
-    submitting.value = true
-    emit('submit', { ...formState })
-    emit('update:modelValue', { ...formState })
-  } catch (error) {
-    console.error('Form validation failed:', error)
-  } finally {
-    submitting.value = false
-  }
+  submitting.value = true
+  emit('submit', { ...formState })
+  emit('update:modelValue', { ...formState })
+  submitting.value = false
 }
 
 const handleReset = () => {
-  formRef.value?.resetFields()
   Object.keys(formState).forEach(key => {
     formState[key] = props.modelValue[key] ?? undefined
   })
+  if (formRef.value) {
+    formRef.value.reset()
+  }
   emit('reset')
 }
 
-const validate = () => formRef.value?.validate()
-const resetFields = () => formRef.value?.resetFields()
-const clearValidate = () => formRef.value?.clearValidate()
+const validate = () => Promise.resolve(true)
+const resetFields = () => handleReset()
+const clearValidate = () => {}
 
 provide('proForm', {
   formState,
@@ -120,8 +107,46 @@ defineExpose({
 .form-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #2a2a3e;
   margin-top: 16px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
 }
 </style>

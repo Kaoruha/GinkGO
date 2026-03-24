@@ -146,6 +146,55 @@ export const liveAccountApi = {
       }>
     }>>(`/api/v1/accounts/${uuid}/balance`)
   },
+
+  /**
+   * 获取账号持仓
+   */
+  getPositions: (uuid: string) => {
+    return request.get<APIResponse<{
+      positions: Array<{
+        symbol: string
+        side: 'long' | 'short'
+        size: string
+        avg_price: string
+        current_price: string
+        unrealized_pnl: string
+        unrealized_pnl_percentage: string
+        margin: string
+      }>
+    }>>(`/api/v1/accounts/${uuid}/positions`)
+  },
+
+  /**
+   * 获取完整账户信息（余额 + 持仓）
+   */
+  getAccountInfo: (uuid: string) => {
+    return Promise.all([
+      request.get<APIResponse<{
+        total_equity: string
+        available_balance: string
+        frozen_balance: string
+        currency_balances: Array<{
+          currency: string
+          available: string
+          frozen: string
+          balance: string
+        }>
+      }>>(`/api/v1/accounts/${uuid}/balance`),
+      request.get<APIResponse<{
+        positions: Array<{
+          symbol: string
+          side: 'long' | 'short'
+          size: string
+          avg_price: string
+          current_price: string
+          unrealized_pnl: string
+          unrealized_pnl_percentage: string
+          margin: string
+        }>
+      }>>(`/api/v1/accounts/${uuid}/positions`)
+    ])
+  },
 }
 
 export default liveAccountApi

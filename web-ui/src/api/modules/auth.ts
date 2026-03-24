@@ -30,35 +30,35 @@ export const authApi = {
    * 用户登录
    */
   login(data: LoginRequest): Promise<LoginResponse> {
-    return request.post('/v1/auth/login', data)
+    return request.post('/api/v1/auth/login', data)
   },
 
   /**
    * 用户登出
    */
   logout(): Promise<void> {
-    return request.post('/v1/auth/logout')
+    return request.post('/api/v1/auth/logout')
   },
 
   /**
    * 验证 Token
    */
   verifyToken(): Promise<{ valid: boolean; user?: UserInfo }> {
-    return request.get('/v1/auth/verify')
+    return request.get('/api/v1/auth/verify')
   },
 
   /**
    * 获取当前用户信息
    */
   getCurrentUser(): Promise<UserInfo> {
-    return request.get('/v1/auth/me')
+    return request.get('/api/v1/auth/me')
   },
 
   /**
    * 修改密码
    */
   changePassword(data: { old_password: string; new_password: string }): Promise<void> {
-    return request.post('/v1/auth/change-password', data)
+    return request.post('/api/v1/auth/change-password', data)
   },
 }
 

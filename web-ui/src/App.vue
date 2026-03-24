@@ -1,161 +1,159 @@
 <template>
   <!-- 登录页等全屏页面 -->
-  <template v-if="isFullPage">
+  <div v-if="isFullPage" class="full-page">
     <router-view />
-  </template>
+  </div>
 
   <!-- 带布局的主页面（需要登录） -->
-  <template v-else-if="authStore.isLoggedIn">
-    <div class="app-layout">
-      <!-- 侧边栏 -->
-      <div class="sider" :class="{ collapsed }">
-        <div class="logo">
-          <img src="/favicon.svg" alt="Ginkgo" />
-          <span v-if="!collapsed">Ginkgo</span>
-        </div>
-        <nav class="menu">
-          <div
-            v-for="item in menuItems"
-            :key="item.key"
-            class="menu-group"
-          >
-            <div
-              v-if="item.type === 'divider'"
-              class="menu-divider"
-            ></div>
-            <template v-else>
-              <div
-                v-if="item.children && item.children.length > 0"
-                class="menu-item has-submenu"
-                :class="{ active: openKeys.includes(item.key), selected: selectedKeys.includes(item.key) }"
-                @click="toggleSubMenu(item.key)"
-              >
-                <div class="menu-item-content">
-                  <span class="menu-icon" v-html="item.icon"></span>
-                  <span class="menu-label">{{ item.label }}</span>
-                  <span class="submenu-arrow">{{ openKeys.includes(item.key) ? '▼' : '▶' }}</span>
-                </div>
-              </div>
-              <router-link
-                v-else
-                :to="getRouteForKey(item.key)"
-                class="menu-item"
-                :class="{ selected: selectedKeys.includes(item.key) }"
-                @click="handleMenuClick(item.key)"
-              >
-                <div class="menu-item-content">
-                  <span class="menu-icon" v-html="item.icon"></span>
-                  <span class="menu-label">{{ item.label }}</span>
-                </div>
-              </router-link>
-              <div
-                v-if="item.children && openKeys.includes(item.key)"
-                class="submenu"
-              >
-                <router-link
-                  v-for="child in item.children"
-                  :key="child.key"
-                  :to="getRouteForKey(child.key)"
-                  class="submenu-item"
-                  :class="{ selected: selectedKeys.includes(child.key) }"
-                  @click="handleMenuClick(child.key)"
-                >
-                  {{ child.label }}
-                </router-link>
-              </div>
-            </template>
-          </div>
-        </nav>
+  <div v-else-if="authStore.isLoggedIn" class="app-layout">
+    <!-- 侧边栏 -->
+    <div class="sider" :class="{ collapsed }">
+      <div class="logo">
+        <img src="/favicon.svg" alt="Ginkgo" />
+        <span v-if="!collapsed">Ginkgo</span>
       </div>
+      <nav class="menu">
+        <div
+          v-for="item in menuItems"
+          :key="item.key"
+          class="menu-group"
+        >
+          <div
+            v-if="item.type === 'divider'"
+            class="menu-divider"
+          ></div>
+          <template v-else>
+            <div
+              v-if="item.children && item.children.length > 0"
+              class="menu-item has-submenu"
+              :class="{ active: openKeys.includes(item.key), selected: selectedKeys.includes(item.key) }"
+              @click="toggleSubMenu(item.key)"
+            >
+              <div class="menu-item-content">
+                <span class="menu-icon" v-html="item.icon"></span>
+                <span class="menu-label">{{ item.label }}</span>
+                <span class="submenu-arrow">{{ openKeys.includes(item.key) ? '▼' : '▶' }}</span>
+              </div>
+            </div>
+            <router-link
+              v-else
+              :to="getRouteForKey(item.key)"
+              class="menu-item"
+              :class="{ selected: selectedKeys.includes(item.key) }"
+              @click="handleMenuClick(item.key)"
+            >
+              <div class="menu-item-content">
+                <span class="menu-icon" v-html="item.icon"></span>
+                <span class="menu-label">{{ item.label }}</span>
+              </div>
+            </router-link>
+            <div
+              v-if="item.children && openKeys.includes(item.key)"
+              class="submenu"
+            >
+              <router-link
+                v-for="child in item.children"
+                :key="child.key"
+                :to="getRouteForKey(child.key)"
+                class="submenu-item"
+                :class="{ selected: selectedKeys.includes(child.key) }"
+                @click="handleMenuClick(child.key)"
+              >
+                {{ child.label }}
+              </router-link>
+            </div>
+          </template>
+        </div>
+      </nav>
+    </div>
 
-      <!-- 主内容区 -->
-      <div class="main">
-        <!-- 头部 -->
-        <header class="header">
-          <div class="header-left">
-            <button
-              class="trigger"
-              @click="collapsed = !collapsed"
-            >
-              <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
+    <!-- 主内容区 -->
+    <div class="main">
+      <!-- 头部 -->
+      <header class="header">
+        <div class="header-left">
+          <button
+            class="trigger"
+            @click="collapsed = !collapsed"
+          >
+            <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="15" y1="3" x2="15" y2="21"></line>
+            </svg>
+          </button>
+          <nav class="breadcrumb">
+            <span v-for="(item, index) in breadcrumbs" :key="item.path" class="breadcrumb-item">
+              {{ item.title }}
+            </span>
+          </nav>
+        </div>
+        <div class="header-right">
+          <button
+            class="notification-btn"
+            @click="showNotifications"
+          >
+            <span class="notification-badge" :class="{ 'has-count': notificationCount > 0 }">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
+              <span v-if="notificationCount > 0" class="count">{{ notificationCount }}</span>
+            </span>
+          </button>
+          <div class="user-dropdown">
+            <button class="avatar-btn" @click="toggleUserMenu">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </button>
-            <nav class="breadcrumb">
-              <span v-for="(item, index) in breadcrumbs" :key="item.path" class="breadcrumb-item">
-                {{ item.title }}
-              </span>
-            </nav>
-          </div>
-          <div class="header-right">
-            <button
-              class="notification-btn"
-              @click="showNotifications"
-            >
-              <span class="notification-badge" :class="{ 'has-count': notificationCount > 0 }">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <span v-if="notificationCount > 0" class="count">{{ notificationCount }}</span>
-              </span>
-            </button>
-            <div class="user-dropdown">
-              <button class="avatar-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="dropdown-menu" :class="{ show: showUserMenu }">
+              <div class="dropdown-item user-info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-              </button>
-              <div class="dropdown-menu">
-                <div class="dropdown-item user-info">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                  {{ authStore.displayName }}
-                </div>
-                <div class="dropdown-divider"></div>
-                <button class="dropdown-item" @click="router.push('/system/status')">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M12 1v6m0 6v6"></path>
-                    <path d="m19 21-7-5 7-5"></path>
-                  </svg>
-                  系统设置
-                </button>
-                <button class="dropdown-item text-danger" @click="handleLogout">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
-                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                  </svg>
-                  退出登录
-                </button>
+                {{ authStore.displayName || authStore.username || '用户' }}
               </div>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" @click="router.push('/system/status'); showUserMenu = false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 1v6m0 6v6"></path>
+                  <path d="m19 21-7-5 7-5"></path>
+                </svg>
+                系统设置
+              </button>
+              <button class="dropdown-item text-danger" @click="handleLogout">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                退出登录
+              </button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <!-- 内容区 -->
-        <main class="content" :class="{ 'content-fullscreen': isEditorPage }">
-          <router-view />
-        </main>
-      </div>
+      <!-- 内容区 -->
+      <main class="content" :class="{ 'content-fullscreen': isEditorPage }">
+        <router-view />
+      </main>
     </div>
-  </template>
+  </div>
 
   <!-- Fallback - 让路由守卫处理重定向 -->
   <router-view v-else />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -172,6 +170,29 @@ const collapsed = ref(false)
 const selectedKeys = ref<string[]>(['dashboard'])
 const openKeys = ref<string[]>([])
 const notificationCount = ref(0)
+const showUserMenu = ref(false)  // 用户下拉菜单显示状态
+
+// 切换用户菜单
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+}
+
+// 点击外部关闭用户菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const dropdown = document.querySelector('.user-dropdown')
+  if (dropdown && !dropdown.contains(event.target as Node)) {
+    showUserMenu.value = false
+  }
+}
+
+// 监听点击外部
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 // SVG 图标定义
 const icons: Record<string, string> = {
@@ -236,7 +257,12 @@ const menuItems = computed<MenuItem[]>(() => [
       { key: 'live-trading', label: '实盘监控', icon: '' },
       { key: 'live-orders', label: '订单管理', icon: '' },
       { key: 'live-positions', label: '持仓管理', icon: '' },
+      { key: 'live-market', label: '市场数据', icon: '' },
       { key: 'live-account-config', label: '账号配置', icon: '' },
+      { key: 'live-account-info', label: '账户信息', icon: '' },
+      { key: 'live-broker-mgmt', label: 'Broker 管理', icon: '' },
+      { key: 'live-trade-history', label: '交易历史', icon: '' },
+      { key: 'live-trading-control', label: '交易控制', icon: '' },
     ],
   },
   { type: 'divider', key: 'divider1', label: '', icon: '' },
@@ -294,6 +320,7 @@ const menuItems = computed<MenuItem[]>(() => [
     children: [
       { key: 'system-status', label: '系统状态', icon: '' },
       { key: 'system-workers', label: 'Worker 管理', icon: '' },
+      { key: 'system-api-keys', label: 'API Key 管理', icon: '' },
       { key: 'system-users', label: '用户管理', icon: '' },
       { key: 'system-groups', label: '用户组管理', icon: '' },
       { key: 'system-notifications', label: '通知管理', icon: '' },
@@ -318,17 +345,23 @@ const routeToKeyMap: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/portfolio': 'portfolio',
   '/portfolio/create': 'portfolio',
-  '/stage1/backtest': 'backtest-list',
-  '/stage1/backtest/create': 'backtest-list',
-  '/stage1/backtest/compare': 'backtest-compare',
-  '/stage2/walkforward': 'validation-walkforward',
-  '/stage2/montecarlo': 'validation-montecarlo',
-  '/stage2/sensitivity': 'validation-sensitivity',
-  '/stage3/paper': 'paper-trading',
-  '/stage3/paper/orders': 'paper-orders',
-  '/stage4/live': 'live-trading',
-  '/stage4/live/orders': 'live-orders',
-  '/stage4/live/positions': 'live-positions',
+  '/backtest': 'backtest-list',
+  '/backtest/create': 'backtest-list',
+  '/backtest/compare': 'backtest-compare',
+  '/validation/walkforward': 'validation-walkforward',
+  '/validation/montecarlo': 'validation-montecarlo',
+  '/validation/sensitivity': 'validation-sensitivity',
+  '/paper': 'paper-trading',
+  '/paper/orders': 'paper-orders',
+  '/live': 'live-trading',
+  '/live/orders': 'live-orders',
+  '/live/positions': 'live-positions',
+  '/live/account-config': 'live-account-config',
+  '/live/account-info': 'live-account-info',
+  '/live/broker-management': 'live-broker-mgmt',
+  '/live/trade-history': 'live-trade-history',
+  '/live/trading-control': 'live-trading-control',
+  '/live/market': 'live-market',
   '/research/ic': 'research-ic',
   '/research/layering': 'research-layering',
   '/research/orthogonal': 'research-orthogonal',
@@ -349,6 +382,7 @@ const routeToKeyMap: Record<string, string> = {
   '/data/sync': 'data-sync',
   '/system/status': 'system-status',
   '/system/workers': 'system-workers',
+  '/system/api-keys': 'system-api-keys',
   '/system/users': 'system-users',
   '/system/groups': 'system-groups',
   '/system/notifications': 'system-notifications',
@@ -368,6 +402,10 @@ const keyToParentMap: Record<string, string> = {
   'live-orders': 'live',
   'live-positions': 'live',
   'live-account-config': 'live',
+  'live-account-info': 'live',
+  'live-broker-mgmt': 'live',
+  'live-trade-history': 'live',
+  'live-trading-control': 'live',
   'research-ic': 'research',
   'research-layering': 'research',
   'research-orthogonal': 'research',
@@ -396,7 +434,27 @@ const keyToParentMap: Record<string, string> = {
 
 // 监听路由变化，更新菜单选中状态
 watch(() => route.path, (path) => {
-  const key = routeToKeyMap[path]
+  // 精确匹配
+  let key = routeToKeyMap[path]
+
+  // 如果没有精确匹配，尝试模式匹配（处理动态路由如 /portfolio/:id）
+  if (!key) {
+    // Portfolio 相关路由
+    if (path.startsWith('/portfolio/') && path !== '/portfolio/create') {
+      key = 'portfolio'
+    }
+    // Backtest 详情路由
+    else if (path.match(/^\/backtest\/[^/]+$/) && path !== '/backtest/create' && path !== '/backtest/compare') {
+      key = 'backtest-list'
+    }
+    // 组件详情路由 (如 /components/strategies/abc123)
+    else if (path.match(/^\/components\/(strategies|risks|sizers|selectors|analyzers|handlers)\/[^/]+$/)) {
+      const segments = path.split('/')
+      const type = segments[2] || ''  // 'strategies'
+      key = `components-${type.slice(0, -1)}` // strategies -> components-strategies
+    }
+  }
+
   if (key) {
     selectedKeys.value = [key]
     // 同时展开父菜单
@@ -430,17 +488,23 @@ const getRouteForKey = (key: string): string => {
   const routeMap: Record<string, string> = {
     'dashboard': '/dashboard',
     'portfolio': '/portfolio',
-    'backtest-list': '/stage1/backtest',
-    'backtest-compare': '/stage1/backtest/compare',
-    'validation-walkforward': '/stage2/walkforward',
-    'validation-montecarlo': '/stage2/montecarlo',
-    'validation-sensitivity': '/stage2/sensitivity',
-    'paper-trading': '/stage3/paper',
-    'paper-orders': '/stage3/paper/orders',
-    'live-trading': '/stage4/live',
-    'live-orders': '/stage4/live/orders',
-    'live-positions': '/stage4/live/positions',
-    'live-account-config': '/stage4/live/account-config',
+    'backtest-list': '/backtest',
+    'backtest-compare': '/backtest/compare',
+    'validation-walkforward': '/validation/walkforward',
+    'validation-montecarlo': '/validation/montecarlo',
+    'validation-sensitivity': '/validation/sensitivity',
+    'paper-trading': '/paper',
+    'paper-orders': '/paper/orders',
+    'live-trading': '/live',
+    'live-orders': '/live/orders',
+    'live-positions': '/live/positions',
+    'live-market': '/live/market',
+    'live-api-keys': '/system/api-keys',
+    'live-account-config': '/live/account-config',
+    'live-account-info': '/live/account-info',
+    'live-broker-mgmt': '/live/broker-management',
+    'live-trade-history': '/live/trade-history',
+    'live-trading-control': '/live/trading-control',
     'research-ic': '/research/ic',
     'research-layering': '/research/layering',
     'research-orthogonal': '/research/orthogonal',
@@ -461,6 +525,7 @@ const getRouteForKey = (key: string): string => {
     'data-sync': '/data/sync',
     'system-status': '/system/status',
     'system-workers': '/system/workers',
+    'system-api-keys': '/system/api-keys',
     'system-users': '/system/users',
     'system-groups': '/system/groups',
     'system-notifications': '/system/notifications',
@@ -759,7 +824,7 @@ const handleLogout = async () => {
   z-index: 100;
 }
 
-.user-dropdown:hover .dropdown-menu {
+.dropdown-menu.show {
   display: block;
 }
 
