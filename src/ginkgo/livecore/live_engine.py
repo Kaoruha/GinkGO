@@ -207,16 +207,27 @@ class LiveEngine:
                     except Exception as e:
                         GLOG.ERROR(f"Error stopping heartbeat monitor: {e}")
 
-                # 2. 停止数据同步
+                # 2. 停止数据同步（包括WebSocket连接）
                 if self._data_sync_service:
                     try:
-                        self._data_sync_service.stop_all_sync()
+                        # 停止所有同步并关闭WebSocket
+                        broker_crud = container.broker_instance()
+                        active_brokers = broker_crud.get_active_brokers()
+                        for broker in active_brokers:
+                            self._data_sync_service.stop_sync_for_broker(broker.uuid)
+
                         self._component_status["data_sync"] = False
                         GLOG.info("Data sync service stopped")
                     except Exception as e:
                         GLOG.ERROR(f"Error stopping data sync service: {e}")
 
-                # 3. 停止所有Broker
+                # 3. 停止WebSocket管理器
+                try:
+                    self._shutdown_websocket_manager()
+                except Exception as e:
+                    GLOG.ERROR(f"Error stopping WebSocket manager: {e}")
+
+                # 4. 停止所有Broker
                 if self._broker_manager:
                     try:
                         stopped_count = self._broker_manager.stop_all_brokers()
@@ -366,6 +377,19 @@ class LiveEngine:
 
         except Exception as e:
             GLOG.ERROR(f"Error in timeout callback for {broker_uuid}: {e}")
+
+    def _shutdown_websocket_manager(self) -> None:
+        """关闭WebSocket管理器"""
+        try:
+            from ginkgo.livecore.websocket_manager import get_websocket_manager
+            ws_manager = get_websocket_manager()
+            ws_manager.shutdown()
+            GLOG.info("WebSocket manager shutdown complete")
+        except ImportError:
+            # WebSocket不可用，跳过
+            pass
+        except Exception as e:
+            GLOG.ERROR(f"Error shutting down WebSocket manager: {e}")
 
     def get_component_status(self) -> Dict[str, bool]:
         """获取组件状态"""

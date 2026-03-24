@@ -263,6 +263,9 @@ class DataManager(threading.Thread):
 
                     GLOG.INFO(f"Feeder {feeder_type} started")
 
+            # 恢复订阅（从数据库）
+            self.restore_subscriptions()
+
             # 启动主线程
             self._running.set()
             self.start()
@@ -588,6 +591,87 @@ class DataManager(threading.Thread):
         except Exception as e:
             GLOG.ERROR(f"Failed to subscribe live data: {e}")
 
+    def unsubscribe_live_data(self, symbols: List[str], source: Optional[str] = None) -> None:
+        """
+        取消订阅实时数据
+
+        Args:
+            symbols: 股票代码列表
+            source: 指定数据源（可选），如果为 None 则自动检测
+        """
+        try:
+            with self._symbol_lock:
+                symbols_to_remove = []
+                for symbol in symbols:
+                    # 确定数据源
+                    if source:
+                        target_source = source
+                    else:
+                        target_source = self._symbol_to_source.get(symbol)
+
+                    if not target_source or target_source not in self._feeders:
+                        GLOG.WARNING(f"No subscription found for symbol: {symbol}")
+                        continue
+
+                    # 移除订阅记录
+                    if symbol in self._symbol_to_source:
+                        del self._symbol_to_source[symbol]
+
+                    if symbol in self._symbols_by_source[target_source]:
+                        self._symbols_by_source[target_source].discard(symbol)
+                        symbols_to_remove.append((target_source, symbol))
+
+            # 更新 feeder 订阅
+            with self._feeder_lock:
+                for feeder_type, feeder in self._feeders.items():
+                    symbols_for_feeder = [s for t, s in symbols_to_remove if t == feeder_type]
+                    if symbols_for_feeder:
+                        feeder.unsubscribe_symbols(symbols_for_feeder)
+
+            total_symbols = sum(len(s) for s in self._symbols_by_source.values())
+            GLOG.INFO(f"Unsubscribed from {len(symbols)} symbols, {total_symbols} symbols remaining")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to unsubscribe live data: {e}")
+
+    def restore_subscriptions(self) -> None:
+        """
+        从数据库恢复订阅
+
+        启动时自动恢复所有活跃的订阅
+        """
+        try:
+            from ginkgo.data.containers import container
+
+            subscription_crud = container.market_subscription_crud()
+
+            # 获取所有活跃订阅
+            active_subscriptions = subscription_crud.get_all_active_symbols()
+
+            if not active_subscriptions:
+                GLOG.INFO("No active subscriptions to restore")
+                return
+
+            # 按交易所分组
+            symbols_by_exchange = {}
+            for sub in active_subscriptions:
+                exchange = sub["exchange"]
+                if exchange not in symbols_by_exchange:
+                    symbols_by_exchange[exchange] = []
+                symbols_by_exchange[exchange].append(sub["symbol"])
+
+            # 恢复订阅
+            for exchange, symbols in symbols_by_exchange.items():
+                if exchange in self._feeders:
+                    self.subscribe_live_data(symbols, source=exchange)
+                    GLOG.INFO(f"Restored {len(symbols)} subscriptions for {exchange}")
+
+            total_symbols = sum(len(symbols) for symbols in symbols_by_exchange.values())
+            GLOG.INFO(f"Total subscriptions restored: {total_symbols}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to restore subscriptions: {e}")
+
     def get_status(self) -> Dict[str, Any]:
         """
         获取 DataManager 状态
@@ -612,3 +696,27 @@ class DataManager(threading.Thread):
                 },
                 "total_symbols": sum(len(s) for s in self._symbols_by_source.values()),
             }
+
+
+# ============================================================================
+# 全局 DataManager 单例
+# ============================================================================
+
+_data_manager = None
+
+
+def get_data_manager(feeder_types: Optional[List[str]] = None) -> DataManager:
+    """
+    获取 DataManager 单例
+
+    Args:
+        feeder_types: 要启动的数据源列表
+
+    Returns:
+        DataManager: DataManager 实例
+    """
+    global _data_manager
+    if _data_manager is None:
+        _data_manager = DataManager(feeder_types=feeder_types)
+    return _data_manager
+

@@ -75,10 +75,12 @@ from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 from ginkgo.data.services.encryption_service import EncryptionService, get_encryption_service
 from ginkgo.data.services.live_account_service import LiveAccountService
+from ginkgo.data.services.api_key_service import ApiKeyService
 
 # Live trading CRUDs
 from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
+from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
 
 # User management services
 from ginkgo.user.services.user_service import UserService
@@ -150,6 +152,8 @@ class Container(containers.DeclarativeContainer):
     live_account_crud = providers.Singleton(get_crud, "live_account")
     broker_instance_crud = providers.Singleton(get_crud, "broker_instance")
     trade_record_crud = providers.Singleton(get_crud, "trade_record")
+    market_subscription_crud = providers.Singleton(get_crud, "market_subscription")
+    api_key_crud = providers.Singleton(get_crud, "api_key")
 
     # Backtest task CRUD
     backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
@@ -276,6 +280,11 @@ class Container(containers.DeclarativeContainer):
     live_account_service = providers.Singleton(
         LiveAccountService,
         live_account_crud=providers.Singleton(get_crud, "live_account")
+    )
+
+    # API Key service for API key management
+    api_key_service = providers.Singleton(
+        ApiKeyService
     )
 
     # Backtest task service

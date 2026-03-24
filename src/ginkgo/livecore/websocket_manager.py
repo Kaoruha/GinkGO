@@ -116,7 +116,8 @@ class WebSocketConnection:
         # 心跳配置
         self._last_ping = None
         self._last_pong = None
-        self._ping_interval = 30  # 秒
+        self._ping_interval = 20  # 秒（降低频率以匹配OKX服务器要求）
+        self._ping_timeout = 25  # 秒（增加超时时间，避免网络延迟导致超时）
 
         GLOG.INFO(f"WebSocketConnection created: {self.connection_id}")
 
@@ -146,7 +147,7 @@ class WebSocketConnection:
         """
         try:
             if self._state in [ConnectionState.CONNECTING, ConnectionState.CONNECTED]:
-                GLOG.WARNING(f"WebSocket already connected or connecting: {self.connection_id}")
+                GLOG.WARN(f"WebSocket already connected or connecting: {self.connection_id}")
                 return True
 
             self._state = ConnectionState.CONNECTING
@@ -158,7 +159,7 @@ class WebSocketConnection:
             self._websocket = await websockets.connect(
                 endpoint,
                 ping_interval=self._ping_interval,
-                ping_timeout=10,
+                ping_timeout=self._ping_timeout,
                 close_timeout=10
             )
 
@@ -290,6 +291,8 @@ class WebSocketConnection:
                 }]
             }
 
+            # 调试：打印订阅消息
+            GLOG.INFO(f"[OKX WS] 发送订阅: {json.dumps(subscribe_msg)}")
             await self._websocket.send(json.dumps(subscribe_msg))
 
             # 注册回调
@@ -317,7 +320,7 @@ class WebSocketConnection:
             unsubscribe_key = f"{channel}:{inst_id}"
 
             if unsubscribe_key not in self._subscriptions:
-                GLOG.WARNING(f"No subscription found for {unsubscribe_key}")
+                GLOG.WARN(f"No subscription found for {unsubscribe_key}")
                 return False
 
             unsubscribe_msg = {
@@ -374,7 +377,7 @@ class WebSocketConnection:
                     GLOG.ERROR(f"Error handling message: {e}")
 
         except ConnectionClosed:
-            GLOG.WARNING(f"WebSocket connection closed: {self.connection_id}")
+            GLOG.WARN(f"WebSocket connection closed: {self.connection_id}")
             await self._handle_disconnect()
         except Exception as e:
             GLOG.ERROR(f"Receive loop error: {e}")
@@ -399,14 +402,17 @@ class WebSocketConnection:
                 return
 
             # 处理业务消息
-            arg = data.get("data", {}).get("arg", {})
+            # OKX 消息格式: {"arg": {"channel": "tickers", "instId": "BTC-USDT"}, "data": [...]}
+            arg = data.get("arg", {})
             channel = arg.get("channel", "")
 
             if channel:
+                GLOG.DEBUG(f"[WS Manager] Received {channel} message: {data.get('arg', {}).get('instId', 'unknown')}")
                 # 查找并调用回调
                 for subscribe_key, callback in self._subscriptions.items():
                     sub_channel = subscribe_key.split(":", 1)[0]
                     if sub_channel == channel:
+                        GLOG.DEBUG(f"[WS Manager] Calling callback for {subscribe_key}")
                         # 在线程池中执行回调，避免阻塞异步循环
                         asyncio.get_event_loop().run_in_executor(
                             None, callback, data
