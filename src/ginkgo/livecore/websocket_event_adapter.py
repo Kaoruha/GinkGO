@@ -68,7 +68,11 @@ def adapt_ticker(message: dict) -> Optional[Dict[str, Any]]:
         last_price = float(data.get("last", 0))
         bid_price = float(data.get("bidPx", 0))
         ask_price = float(data.get("askPx", 0))
+        open_24h = float(data.get("open24h", 0))
+        high_24h = float(data.get("high24h", 0))
+        low_24h = float(data.get("low24h", 0))
         volume_24h = float(data.get("vol24h", 0))
+        volume_ccy_24h = float(data.get("volCcy24h", 0))
         timestamp_ms = int(data.get("ts", 0))
 
         return {
@@ -77,6 +81,10 @@ def adapt_ticker(message: dict) -> Optional[Dict[str, Any]]:
             "bid_price": bid_price,
             "ask_price": ask_price,
             "volume_24h": volume_24h,
+            "open_24h": open_24h,
+            "high_24h": high_24h,
+            "low_24h": low_24h,
+            "volume_ccy_24h": volume_ccy_24h,
             "timestamp": datetime.fromtimestamp(timestamp_ms / 1000)
         }
 

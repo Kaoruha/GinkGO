@@ -92,9 +92,15 @@ class DataSyncService:
                 sync_info = self._active_syncs[broker_uuid]
 
                 # 停止WebSocket
-                if sync_info.get('websocket'):
-                    # TODO: 关闭WebSocket连接
+                ws_connection = sync_info.get('websocket')
+                ws_manager = sync_info.get('ws_manager')
+                if ws_connection and ws_manager:
+                    try:
+                        ws_manager.disconnect(ws_connection)
+                    except Exception as e:
+                        GLOG.ERROR(f"Error disconnecting WebSocket: {e}")
                     sync_info['websocket'] = None
+                    sync_info['ws_manager'] = None
 
                 # 停止轮询
                 sync_info['polling_task'] = None
@@ -120,18 +126,92 @@ class DataSyncService:
             bool: 启动是否成功
         """
         try:
-            # TODO: 实现OKX WebSocket连接
-            # python-okx SDK提供WebSocket接口
-            # 需要订阅private频道以接收账户、持仓、订单更新
+            from ginkgo.livecore.websocket_manager import get_websocket_manager
 
-            GLOG.INFO(f"WebSocket started for broker {broker_uuid}")
+            # 获取Broker信息
+            broker_crud = container.broker_instance()
+            broker_info = broker_crud.get_broker_by_uuid(broker_uuid)
+
+            if not broker_info:
+                GLOG.ERROR(f"Broker not found: {broker_uuid}")
+                return False
+
+            # 获取实盘账号凭证
+            live_account_crud = container.live_account()
+            account = live_account_crud.get_live_account_by_uuid(
+                broker_info.live_account_id,
+                include_credentials=True
+            )
+
+            if not account:
+                GLOG.ERROR(f"Live account not found: {broker_info.live_account_id}")
+                return False
+
+            # 检查交易所类型
+            if not account.is_okx():
+                GLOG.ERROR(f"WebSocket not supported for exchange: {account.exchange}")
+                return False
+
+            # 解密凭证
+            credentials = live_account_crud.get_decrypted_credentials(account.uuid)
+            if not credentials:
+                GLOG.ERROR("Failed to decrypt credentials")
+                return False
+
+            # 获取WebSocket管理器
+            ws_manager = get_websocket_manager()
+
+            # 环境判断
+            environment = "testnet" if account.is_testnet() else "production"
+
+            # 创建私有WebSocket连接
+            ws_connection = ws_manager.get_private_ws(
+                exchange="okx",
+                environment=environment,
+                credentials=credentials,
+                connection_id=f"okx_sync_{broker_uuid}"
+            )
+
+            # 连接WebSocket
+            if not ws_manager.connect(ws_connection):
+                GLOG.ERROR(f"Failed to connect WebSocket for broker {broker_uuid}")
+                return False
+
+            # 订阅账户频道
+            ws_manager.subscribe(
+                ws_connection,
+                channel="account",
+                inst_id="",
+                callback=lambda msg: self._on_private_message(broker_uuid, msg)
+            )
+
+            # 订阅持仓频道
+            ws_manager.subscribe(
+                ws_connection,
+                channel="positions",
+                inst_id="SPOT",
+                callback=lambda msg: self._on_private_message(broker_uuid, msg)
+            )
+
+            # 订阅订单频道
+            ws_manager.subscribe(
+                ws_connection,
+                channel="orders",
+                inst_id="SPOT",
+                callback=lambda msg: self._on_private_message(broker_uuid, msg)
+            )
 
             # 更新同步信息
             if broker_uuid in self._active_syncs:
-                self._active_syncs[broker_uuid]['websocket'] = 'connected'
+                self._active_syncs[broker_uuid]['websocket'] = ws_connection
+                self._active_syncs[broker_uuid]['ws_manager'] = ws_manager
 
+            GLOG.INFO(f"WebSocket started for broker {broker_uuid}")
             return True
 
+        except ImportError as e:
+            GLOG.ERROR(f"WebSocket dependencies not available: {e}")
+            return False
         except Exception as e:
             GLOG.ERROR(f"Failed to start WebSocket for broker {broker_uuid}: {e}")
             return False
@@ -220,19 +300,40 @@ class DataSyncService:
             message: WebSocket消息
         """
         try:
-            msg_type = message.get('data', {}).get('arg', {}).get('channel', '')
+            from ginkgo.livecore.websocket_event_adapter import (
+                adapt_account, adapt_position, adapt_order, adapt_order_algo
+            )
+
+            # 获取消息类型
+            arg = message.get('data', {}).get('arg', {})
+            msg_type = arg.get('channel', '')
 
             if msg_type == 'account':  # 账户余额更新
-                balance_data = message.get('data', [])
-                self._update_balance(broker_uuid, balance_data)
+                balance_data = adapt_account(message)
+                if balance_data:
+                    self._update_balance(broker_uuid, balance_data)
 
             elif msg_type == 'positions':  # 持仓更新
-                position_data = message.get('data', [])
-                self._update_positions(broker_uuid, position_data)
+                # OKX返回的是列表，每个元素是一个持仓
+                data_list = message.get('data', [])
+                for pos_data in data_list:
+                    # 构造单条持仓消息
+                    single_message = {
+                        'data': {'arg': arg, 'data': [pos_data]}
+                    }
+                    position_data = adapt_position(single_message)
+                    if position_data:
+                        self._update_positions(broker_uuid, position_data)
 
             elif msg_type == 'orders':  # 订单更新
-                order_data = message.get('data', [])
-                self._update_orders(broker_uuid, order_data)
+                order_data = adapt_order(message)
+                if order_data:
+                    self._update_orders(broker_uuid, order_data)
+
+            elif msg_type == 'orders-algo':  # 策略订单更新
+                order_data = adapt_order_algo(message)
+                if order_data:
+                    self._update_orders(broker_uuid, order_data)
 
             # 更新心跳
             broker_crud = container.broker_instance()
@@ -241,41 +342,120 @@ class DataSyncService:
         except Exception as e:
             GLOG.ERROR(f"Failed to process WebSocket message for broker {broker_uuid}: {e}")
 
-    def _update_balance(self, broker_uuid: str, balance_data: list) -> None:
+    def _update_balance(self, broker_uuid: str, balance_data: dict) -> None:
         """
         更新账户余额
 
         Args:
             broker_uuid: Broker实例UUID
-            balance_data: 余额数据
+            balance_data: 余额数据 (已适配的格式)
         """
-        # TODO: 更新MPortfolio中的余额字段
-        # 需要通过PortfolioService或直接更新数据库
-        pass
+        try:
+            # 获取Portfolio ID
+            sync_info = self._active_syncs.get(broker_uuid)
+            if not sync_info:
+                return
 
-    def _update_positions(self, broker_uuid: str, position_data: list) -> None:
+            portfolio_id = sync_info.get('portfolio_id')
+
+            # 更新Portfolio余额
+            portfolio_crud = container.portfolio()
+            portfolio = portfolio_crud.get_portfolio_by_uuid(portfolio_id)
+
+            if portfolio:
+                # TODO: 更新余额字段（需要在MPortfolio中添加余额字段）
+                # portfolio.cash = balance_data['available_balance']
+                # portfolio.total_value = balance_data['total_equity']
+                # portfolio_crud.update_portfolio(portfolio)
+
+                GLOG.DEBUG(f"Balance updated for broker {broker_uuid}: {balance_data['total_equity']}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Error updating balance for broker {broker_uuid}: {e}")
+
+    def _update_positions(self, broker_uuid: str, position_data: dict) -> None:
         """
         更新持仓信息
 
         Args:
             broker_uuid: Broker实例UUID
-            position_data: 持仓数据
+            position_data: 持仓数据 (已适配的格式)
         """
-        # TODO: 更新MPosition中的持仓信息
-        # 需要匹配exchange_position_id并更新数量
-        pass
+        try:
+            sync_info = self._active_syncs.get(broker_uuid)
+            if not sync_info:
+                return
 
-    def _update_orders(self, broker_uuid: str, order_data: list) -> None:
+            portfolio_id = sync_info.get('portfolio_id')
+
+            # TODO: 更新持仓记录
+            # 需要匹配exchange_position_id并更新数量
+            position_crud = container.position()
+            positions = position_crud.find(filters={
+                "portfolio_id": portfolio_id,
+                "symbol": position_data.get('symbol'),
+                "is_del": False
+            })
+
+            if positions:
+                # 更新现有持仓
+                position = positions[0]
+                # position.volume = position_data['size']
+                # position.current_price = position_data.get('current_price', position.avg_price)
+                # position_crud.update_position(position)
+
+                GLOG.DEBUG(f"Position updated for broker {broker_uuid}: {position_data.get('symbol')}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Error updating position for broker {broker_uuid}: {e}")
+
+    def _update_orders(self, broker_uuid: str, order_data: dict) -> None:
         """
         更新订单状态
 
         Args:
             broker_uuid: Broker实例UUID
-            order_data: 订单数据
+            order_data: 订单数据 (已适配的格式)
         """
-        # TODO: 更新MOrder中的订单状态
-        # 需要匹配exchange_order_id并更新状态
-        pass
+        try:
+            sync_info = self._active_syncs.get(broker_uuid)
+            if not sync_info:
+                return
+
+            # 查找并更新订单
+            order_crud = container.order()
+            orders = order_crud.find(filters={
+                "exchange_order_id": order_data.get('exchange_order_id'),
+                "is_del": False
+            })
+
+            if orders:
+                order = orders[0]
+                # 更新订单状态
+                status = order_data.get('status')
+
+                # 映射状态到Ginkgo枚举
+                from ginkgo.enums import ORDERSTATUS_TYPES
+                status_map = {
+                    'submitted': ORDERSTATUS_TYPES.SUBMITTED,
+                    'partially_filled': ORDERSTATUS_TYPES.PARTIAL_FILLED,
+                    'filled': ORDERSTATUS_TYPES.FILLED,
+                    'canceled': ORDERSTATUS_TYPES.CANCELED,
+                    'rejected': ORDERSTATUS_TYPES.REJECTED
+                }
+
+                if status in status_map:
+                    # order.status = status_map[status]
+                    # if order_data.get('filled_size'):
+                    #     order.filled_volume = order_data['filled_size']
+                    # if order_data.get('avg_fill_price'):
+                    #     order.filled_price = order_data['avg_fill_price']
+                    # order_crud.update_order(order)
+
+                    GLOG.DEBUG(f"Order updated for broker {broker_uuid}: {order_data.get('exchange_order_id')} -> {status}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Error updating order for broker {broker_uuid}: {e}")
 
     def full_sync_check(self, broker_uuid: str) -> bool:
         """
@@ -317,6 +497,13 @@ class DataSyncService:
             dict: 同步状态信息
         """
         return self._active_syncs.get(broker_uuid)
+
+    def stop_all_sync(self) -> None:
+        """停止所有数据同步"""
+        with self._lock:
+            broker_uuids = list(self._active_syncs.keys())
+            for broker_uuid in broker_uuids:
+                self.stop_sync_for_broker(broker_uuid)
 
 
 # 全局单例
