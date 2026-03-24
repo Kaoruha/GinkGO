@@ -36,6 +36,9 @@ coverage/
 logs/
 *.log
 
+# E2E screenshots
+tests/e2e/screenshots/
+
 # OS
 Thumbs.db
 .DS_Store
