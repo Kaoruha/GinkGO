@@ -1,0 +1,341 @@
+openapi: 3.0.3
+info:
+  title: Ginkgo Broker Control API
+  description: Broker实例控制API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 开发环境
+
+tags:
+  - name: Broker
+    description: Broker实例控制
+
+paths:
+  /brokers:
+    get:
+      tags: [Broker]
+      summary: 获取Broker实例列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [running, paused, stopped, error]
+          description: 按状态过滤
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrokerInstance'
+
+  /brokers/{instance_id}:
+    get:
+      tags: [Broker]
+      summary: 获取Broker实例详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    $ref: '#/components/schemas/BrokerInstance'
+
+  /brokers/{instance_id}/start:
+    post:
+      tags: [Broker]
+      summary: 启动Broker实例
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 启动成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "Broker实例启动成功"
+
+  /brokers/{instance_id}/stop:
+    post:
+      tags: [Broker]
+      summary: 停止Broker实例
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 停止成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "Broker实例已停止"
+
+  /brokers/{instance_id}/pause:
+    post:
+      tags: [Broker]
+      summary: 暂停Broker实例（保持连接，停止新订单）
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 暂停成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "Broker实例已暂停"
+
+  /brokers/{instance_id}/resume:
+    post:
+      tags: [Broker]
+      summary: 恢复Broker实例
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 恢复成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "Broker实例已恢复运行"
+
+  /brokers/{instance_id}/restart:
+    post:
+      tags: [Broker]
+      summary: 重启Broker实例（先停止再启动，会重新同步数据）
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InstanceId'
+      responses:
+        '200':
+          description: 重启成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "Broker实例重启成功"
+
+  /brokers/emergency-stop:
+    post:
+      tags: [Broker]
+      summary: 紧急停止所有Broker实例（全局紧急停止）
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 所有实例已停止
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "已紧急停止所有实盘交易"
+                  data:
+                    type: object
+                    properties:
+                      stopped_count:
+                        type: integer
+                        example: 5
+
+  /portfolios/{portfolio_id}/bind-account:
+    post:
+      tags: [Broker]
+      summary: 为Portfolio绑定实盘账号
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PortfolioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - live_account_id
+              properties:
+                live_account_id:
+                  type: string
+                  format: uuid
+                  description: 要绑定的实盘账号ID
+                auto_start_broker:
+                  type: boolean
+                  default: true
+                  description: 是否自动启动Broker实例
+      responses:
+        '200':
+          description: 绑定成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    type: object
+                    properties:
+                      broker_instance_id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "running"
+
+  /portfolios/{portfolio_id}/unbind-account:
+    post:
+      tags: [Broker]
+      summary: 解除Portfolio的实盘账号绑定
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PortfolioId'
+      responses:
+        '200':
+          description: 解绑成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "已解除实盘账号绑定"
+
+components:
+  schemas:
+    BrokerInstance:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        portfolio_name:
+          type: string
+          example: "我的BTC策略"
+        live_account_id:
+          type: string
+          format: uuid
+        account_name:
+          type: string
+          example: "我的OKX主账号"
+        status:
+          type: string
+          enum: [uninitialized, initializing, running, paused, stopped, error, recovering]
+          example: "running"
+        last_heartbeat_at:
+          type: string
+          format: date-time
+        uptime_seconds:
+          type: integer
+          example: 3600
+        total_orders_submitted:
+          type: integer
+          example: 150
+        total_orders_filled:
+          type: integer
+          example: 145
+        last_error_message:
+          type: string
+          nullable: true
+
+  parameters:
+    InstanceId:
+      name: instance_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Broker实例UUID
+
+    PortfolioId:
+      name: portfolio_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Portfolio UUID
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

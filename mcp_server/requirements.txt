@@ -1,0 +1,13 @@
+# Ginkgo MCP Server Dependencies
+
+# MCP SDK
+mcp>=0.9.0
+
+# SSE/HTTP mode dependencies (optional, for --transport sse)
+uvicorn>=0.24.0
+starlette>=0.27.0
+sse-starlette>=1.6.0
+
+# Ginkgo dependencies (already installed in main project)
+# - ginkgo (core)
+# - python-okx (OKX API)
