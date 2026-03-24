@@ -39,6 +39,10 @@ class MPortfolio(MMysqlBase):
     # Portfolio state: INITIALIZED(0), RUNNING(1), PAUSED(2), STOPPING(3), STOPPED(4), RELOADING(5), MIGRATING(6)
     state: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行状态: 0=已初始化, 1=运行中, 2=已暂停, 3=停止中, 4=已停止, 5=重载中, 6=迁移中")
 
+    # 实盘交易字段 (当mode=LIVE时使用)
+    live_account_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, comment="关联的实盘账号ID (仅实盘模式)")
+    live_status: Mapped[Optional[int]] = mapped_column(TINYINT, nullable=True, comment="实盘连接状态: 0=未连接, 1=已连接, 2=连接中, 3=错误")
+
     # 投资组合核心业务字段
     initial_capital: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=100000.00)
     current_capital: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=100000.00)
