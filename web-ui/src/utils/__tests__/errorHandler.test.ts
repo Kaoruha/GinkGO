@@ -11,8 +11,8 @@ import {
   ErrorCode
 } from '../errorHandler'
 
-// Mock ant-design-vue message
-vi.mock('ant-design-vue', () => ({
+// Mock toast utility
+vi.mock('@/utils/toast', () => ({
   message: {
     error: vi.fn(),
     warning: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('ant-design-vue', () => ({
   }
 }))
 
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 describe('errorHandler', () => {
   beforeEach(() => {

@@ -73,6 +73,14 @@ from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
+from ginkgo.data.services.encryption_service import EncryptionService, get_encryption_service
+from ginkgo.data.services.live_account_service import LiveAccountService
+from ginkgo.data.services.api_key_service import ApiKeyService
+
+# Live trading CRUDs
+from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
+from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
+from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
 
 # User management services
 from ginkgo.user.services.user_service import UserService
@@ -139,6 +147,13 @@ class Container(containers.DeclarativeContainer):
     notification_template_crud = providers.Singleton(get_crud, "notification_template")
     notification_record_crud = providers.Singleton(get_crud, "notification_record")
     notification_recipient_crud = providers.Singleton(get_crud, "notification_recipient")
+
+    # Live trading CRUDs
+    live_account_crud = providers.Singleton(get_crud, "live_account")
+    broker_instance_crud = providers.Singleton(get_crud, "broker_instance")
+    trade_record_crud = providers.Singleton(get_crud, "trade_record")
+    market_subscription_crud = providers.Singleton(get_crud, "market_subscription")
+    api_key_crud = providers.Singleton(get_crud, "api_key")
 
     # Backtest task CRUD
     backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
@@ -256,6 +271,20 @@ class Container(containers.DeclarativeContainer):
             user_contact_crud=get_crud("user_contact"),
             user_group_mapping_crud=get_crud("user_group_mapping")
         )
+    )
+
+    # Encryption service for API credentials
+    encryption_service = providers.Singleton(get_encryption_service)
+
+    # Live account service for live trading
+    live_account_service = providers.Singleton(
+        LiveAccountService,
+        live_account_crud=providers.Singleton(get_crud, "live_account")
+    )
+
+    # API Key service for API key management
+    api_key_service = providers.Singleton(
+        ApiKeyService
     )
 
     # Backtest task service

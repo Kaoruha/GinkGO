@@ -163,8 +163,8 @@ async def trigger_rebalance() -> Dict:
 @router.post("/migrate")
 async def migrate_portfolio(
     portfolio_id: str,
-    source_node: Optional[str] = None,
-    target_node: str
+    target_node: str,
+    source_node: Optional[str] = None
 ) -> Dict:
     """
     手动迁移Portfolio

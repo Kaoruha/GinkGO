@@ -51,42 +51,67 @@
         </div>
       </div>
 
-      <a-form :model="formState" layout="vertical" @finish="handleLogin" class="login-form">
+      <form @submit.prevent="handleLogin" class="login-form">
         <div class="input-group">
-          <label class="input-label">&gt; username</label>
-          <a-form-item name="username" :rules="[{ required: true, message: 'required' }]">
-            <div class="pixel-input-wrapper">
-              <a-input
-                v-model:value="formState.username"
-                placeholder="enter username"
-                autocomplete="off"
-              />
-            </div>
-          </a-form-item>
+          <label class="input-label" for="username">&gt; username</label>
+          <div class="pixel-input-wrapper">
+            <input
+              id="username"
+              v-model="formState.username"
+              type="text"
+              placeholder="enter username"
+              autocomplete="off"
+              :class="{ 'has-error': errors.username }"
+            />
+          </div>
+          <span v-if="errors.username" class="error-message">{{ errors.username }}</span>
         </div>
 
         <div class="input-group">
-          <label class="input-label">&gt; password</label>
-          <a-form-item name="password" :rules="[{ required: true, message: 'required' }]">
-            <div class="pixel-input-wrapper">
-              <a-input-password
-                v-model:value="formState.password"
-                placeholder="enter password"
-              />
-            </div>
-          </a-form-item>
+          <label class="input-label" for="password">&gt; password</label>
+          <div class="pixel-input-wrapper password-wrapper">
+            <input
+              id="password"
+              v-model="formState.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="enter password"
+              :class="{ 'has-error': errors.password }"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+            >
+              <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                <line x1="2" x2="22" y1="2" y2="22"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <span v-if="errors.password" class="error-message">{{ errors.password }}</span>
         </div>
 
-        <a-button
-          type="primary"
-          html-type="submit"
+        <button
+          type="submit"
           class="login-btn"
-          :loading="loading"
+          :disabled="loading"
         >
           <span v-if="!loading">[ EXECUTE ]</span>
           <span v-else>LOADING...</span>
-        </a-button>
-      </a-form>
+        </button>
+      </form>
+
+      <!-- Toast 消息 -->
+      <div v-if="toastMessage" class="toast-message" :class="toastType">
+        {{ toastMessage }}
+      </div>
 
       <div class="card-footer">
         <div class="terminal-output">
@@ -107,7 +132,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -115,10 +139,29 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const loading = ref(false)
+const showPassword = ref(false)
 const formState = reactive({
   username: '',
   password: ''
 })
+const errors = reactive({
+  username: '',
+  password: ''
+})
+
+// Toast 消息
+const toastMessage = ref('')
+const toastType = ref<'success' | 'error'>('success')
+let toastTimer: number | null = null
+
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  toastMessage.value = message
+  toastType.value = type
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toastMessage.value = ''
+  }, 3000)
+}
 
 // 卡片鼠标追踪
 const mouseX = ref(50)
@@ -137,7 +180,6 @@ function handleCardMouseMove(e: MouseEvent) {
   const xPercent = ((e.clientX - rect.left) / rect.width) * 100
   mouseX.value = xPercent
   mouseY.value = ((e.clientY - rect.top) / rect.height) * 100
-  // 光条偏移：-15px 到 +15px
   lightOffset.value = (xPercent - 50) * 0.3
 }
 
@@ -154,7 +196,6 @@ let pendingLines: string[] = []
 let bootTimer: number | null = null
 let isBootComplete = false
 
-// 初始启动序列
 const bootSequence = [
   '> BIOS v2.0.11 initialized',
   '> Memory check: 65536KB OK',
@@ -165,7 +206,6 @@ const bootSequence = [
   '> System ready.',
 ]
 
-// 随机事件池
 const randomEvents = [
   () => `> Heartbeat OK [${timestamp()}]`,
   () => `> Market data stream: ${rand(800, 1500)} msg/s`,
@@ -205,7 +245,6 @@ function typeNextLine() {
     if (!isBootComplete) {
       isBootComplete = true
     }
-    // 开机完成或事件完成后，调度下一个随机事件
     scheduleRandomEvent()
     return
   }
@@ -218,17 +257,14 @@ function typeNextLine() {
 
 function typeCurrentLine() {
   if (currentCharIndex < currentLine.length) {
-    // 逐字打出
     const lineIndex = displayLines.value.length - 1
     displayLines.value[lineIndex] = currentLine.slice(0, currentCharIndex + 1)
     currentCharIndex++
     bootTimer = window.setTimeout(typeCurrentLine, 8 + Math.random() * 17)
   } else {
-    // 当前行完成，保持最多 8 行
     if (displayLines.value.length > 8) {
       displayLines.value.shift()
     }
-    // 等待后打下一行
     bootTimer = window.setTimeout(typeNextLine, isBootComplete ? 1500 + Math.random() * 3000 : 100 + Math.random() * 200)
   }
 }
@@ -274,7 +310,6 @@ const stocks = [
 ]
 
 const stockList = computed(() => {
-  // 复制三份用于无缝滚动
   return [...stocks, ...stocks, ...stocks].map(s => ({
     ...s,
     price: s.price + (Math.random() - 0.5) * 2,
@@ -356,15 +391,39 @@ function getParticleStyle(index: number) {
   }
 }
 
+function validateForm(): boolean {
+  let isValid = true
+  errors.username = ''
+  errors.password = ''
+
+  if (!formState.username.trim()) {
+    errors.username = 'required'
+    isValid = false
+  }
+
+  if (!formState.password) {
+    errors.password = 'required'
+    isValid = false
+  }
+
+  return isValid
+}
+
 async function handleLogin() {
+  if (!validateForm()) {
+    return
+  }
+
   loading.value = true
   try {
     await authStore.login(formState)
-    message.success('Login successful!')
+    showToast('Login successful!', 'success')
     const redirect = (route.query.redirect as string) || '/'
-    router.push(redirect)
+    setTimeout(() => {
+      router.push(redirect)
+    }, 500)
   } catch (error: any) {
-    message.error(error.message || 'Authentication failed')
+    showToast(error.message || 'Authentication failed', 'error')
   } finally {
     loading.value = false
   }
@@ -381,6 +440,7 @@ onUnmounted(() => {
   if (typewriterTimer) clearTimeout(typewriterTimer)
   if (pauseTimer) clearTimeout(pauseTimer)
   if (glitchTimer) clearTimeout(glitchTimer)
+  if (toastTimer) clearTimeout(toastTimer)
 })
 </script>
 
@@ -709,6 +769,7 @@ onUnmounted(() => {
 /* ========== 表单 ========== */
 .login-form {
   margin-top: 24px;
+  position: relative;
 }
 
 .input-group {
@@ -725,11 +786,8 @@ onUnmounted(() => {
   letter-spacing: 1px;
 }
 
-.login-form :deep(.ant-form-item) {
-  margin-bottom: 0;
-}
-
-.login-form :deep(.ant-form-item-explain-error) {
+.error-message {
+  display: block;
   color: #ff4757;
   font-family: 'Silkscreen', monospace;
   font-size: 10px;
@@ -737,75 +795,110 @@ onUnmounted(() => {
 }
 
 /* ========== 输入框 ========== */
-.pixel-input-wrapper :deep(.ant-input) {
-  background: #0d0d15 !important;
-  border: 1px solid #3a3a4e !important;
-  color: #ffffff !important;
+.pixel-input-wrapper {
+  position: relative;
+}
+
+.pixel-input-wrapper input {
+  width: 100%;
+  background: #0d0d15;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
   height: 40px;
   padding: 0 12px;
   border-radius: 4px;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
-.pixel-input-wrapper :deep(.ant-input::placeholder) {
-  color: #8a8a9a !important;
+.pixel-input-wrapper input::placeholder {
+  color: #8a8a9a;
 }
 
-.pixel-input-wrapper :deep(.ant-input:focus) {
-  border-color: #00ff88 !important;
-  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.1) !important;
+.pixel-input-wrapper input:focus {
+  outline: none;
+  border-color: #00ff88;
+  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.1);
 }
 
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper),
-.pixel-input-wrapper :deep(.ant-input-password),
-.pixel-input-wrapper :deep(span.ant-input-affix-wrapper) {
-  background: #0d0d15 !important;
-  border: 1px solid #3a3a4e !important;
-  border-radius: 4px !important;
-  padding: 0 10px 0 12px !important;
-  height: 40px !important;
-  line-height: 40px !important;
-  transition: all 0.2s;
-  display: flex !important;
-  align-items: center !important;
-  box-sizing: border-box !important;
+.pixel-input-wrapper input.has-error {
+  border-color: #ff4757;
 }
 
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper:hover),
-.pixel-input-wrapper :deep(.ant-input-password:hover) {
-  border-color: #00ff88 !important;
+.pixel-input-wrapper input.has-error:focus {
+  box-shadow: 0 0 0 2px rgba(255, 71, 87, 0.1);
 }
 
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper-focused),
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper-focused .ant-input) {
-  border-color: #00ff88 !important;
-  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.1) !important;
+/* 密码输入框 */
+.pixel-input-wrapper.password-wrapper {
+  display: flex;
+  align-items: center;
 }
 
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper .ant-input),
-.pixel-input-wrapper :deep(.ant-input-password .ant-input) {
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  color: #ffffff !important;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  height: auto !important;
-  line-height: normal !important;
-  padding: 0 !important;
+.pixel-input-wrapper.password-wrapper input {
   flex: 1;
+  padding-right: 40px;
 }
 
-.pixel-input-wrapper :deep(.ant-input-affix-wrapper .ant-input::placeholder),
-.pixel-input-wrapper :deep(.ant-input-password .ant-input::placeholder) {
-  color: #8a8a9a !important;
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #8a8a9a;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.pixel-input-wrapper :deep(.anticon-eye),
-.pixel-input-wrapper :deep(.anticon-eye-invisible) {
-  color: #8a8a9a !important;
+.password-toggle:hover {
+  color: #00ff88;
+}
+
+.password-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ========== Toast 消息 ========== */
+.toast-message {
+  position: absolute;
+  top: -60px;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-family: 'Silkscreen', monospace;
+  font-size: 12px;
+  text-align: center;
+  animation: slideDown 0.3s ease;
+  z-index: 10;
+}
+
+.toast-message.success {
+  background: rgba(0, 255, 136, 0.9);
+  color: #0a0a0f;
+}
+
+.toast-message.error {
+  background: rgba(255, 71, 87, 0.9);
+  color: #ffffff;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ========== 登录按钮 ========== */
@@ -825,14 +918,19 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #00cc6a, #00aa55);
   transform: translateY(-1px);
   box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
 }
 
-.login-btn:active {
+.login-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* ========== 底部 ========== */

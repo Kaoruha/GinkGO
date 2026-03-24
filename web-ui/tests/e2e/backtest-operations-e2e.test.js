@@ -17,7 +17,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
 
     try {
       // 查找已完成状态的任务
-      const completedTasks = page.locator('.ant-tag:has-text("已完成")')
+      const completedTasks = page.locator('.status-tag:has-text("已完成")')
       const count = await completedTasks.count()
 
       if (count === 0) {
@@ -42,7 +42,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
       await page.waitForTimeout(2000)
 
       // 验证消息提示
-      const messageElement = page.locator('.ant-message-notice-content')
+      const messageElement = page.locator('.toast-notification')
       const hasSuccessMessage = await messageElement.count() > 0
       if (hasSuccessMessage) {
         const messageText = await messageElement.textContent()
@@ -67,7 +67,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
         const uuidText = await uuidCell.textContent()
 
         if (uuidText?.trim() === firstTaskUUID?.trim()) {
-          const statusTag = row.locator('.ant-tag').first()
+          const statusTag = row.locator('.status-tag').first()
           newStatus = await statusTag.textContent()
           foundUpdatedTask = true
           console.log(`新状态: ${newStatus}`)
@@ -94,7 +94,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
 
     try {
       // 查找待调度状态的任务
-      const createdTasks = page.locator('.ant-tag:has-text("待调度")')
+      const createdTasks = page.locator('.status-tag:has-text("待调度")')
       const count = await createdTasks.count()
 
       if (count === 0) {
@@ -119,7 +119,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
       await page.waitForTimeout(2000)
 
       // 验证消息提示
-      const messageElement = page.locator('.ant-message-notice-content')
+      const messageElement = page.locator('.toast-notification')
       const hasMessage = await messageElement.count() > 0
       if (hasMessage) {
         const messageText = await messageElement.textContent()
@@ -143,7 +143,7 @@ test.describe('回测任务操作 - 端到端状态变化验证', () => {
         const uuidText = await uuidCell.textContent()
 
         if (uuidText?.trim() === firstTaskUUID?.trim()) {
-          const statusTag = row.locator('.ant-tag').first()
+          const statusTag = row.locator('.status-tag').first()
           newStatus = await statusTag.textContent()
           foundUpdatedTask = true
           console.log(`新状态: ${newStatus}`)
@@ -187,7 +187,7 @@ test.describe('回测任务批量操作 - 端到端验证', () => {
       for (let i = 0; i < Math.min(3, count); i++) {
         const row = checkboxes.nth(i).locator('xpath=ancestor::tr')
         const uuidText = await row.locator('.task-uuid').textContent()
-        const statusTag = row.locator('.ant-tag').first()
+        const statusTag = row.locator('.status-tag').first()
         const statusText = await statusTag.textContent()
 
         selectedUUIDs.push(uuidText?.trim())
@@ -214,11 +214,11 @@ test.describe('回测任务批量操作 - 端到端验证', () => {
       await batchStartButton.click()
 
       // 等待批量操作完成（消息提示出现）
-      await page.waitForSelector('.ant-message-notice-content', { timeout: 10000 })
+      await page.waitForSelector('.toast-notification', { timeout: 10000 })
       await page.waitForTimeout(2000)
 
       // 验证消息提示
-      const messageElement = page.locator('.ant-message-notice-content')
+      const messageElement = page.locator('.toast-notification')
       const hasMessage = await messageElement.count() > 0
       if (hasMessage) {
         const messageText = await messageElement.textContent()
@@ -242,7 +242,7 @@ test.describe('回测任务批量操作 - 端到端验证', () => {
 
         const uuidIndex = selectedUUIDs.indexOf(uuidText?.trim())
         if (uuidIndex >= 0) {
-          const statusTag = row.locator('.ant-tag').first()
+          const statusTag = row.locator('.status-tag').first()
           const newStatus = await statusTag.textContent()
 
           if (newStatus !== initialStates[uuidIndex]) {
@@ -266,7 +266,7 @@ test.describe('回测任务操作 - 错误处理验证', () => {
 
     try {
       // 尝试对待调度任务执行启动操作（应该失败或没有按钮）
-      const createdTasks = page.locator('.ant-tag:has-text("待调度")')
+      const createdTasks = page.locator('.status-tag:has-text("待调度")')
       const count = await createdTasks.count()
 
       if (count > 0) {
@@ -280,7 +280,7 @@ test.describe('回测任务操作 - 错误处理验证', () => {
           await page.waitForTimeout(2000)
 
           // 检查是否有错误消息
-          const errorElement = page.locator('.ant-message-error, .ant-message-type-error')
+          const errorElement = page.locator('.toast-notification-error, .toast-notification-type-error')
           const hasError = await errorElement.count() > 0
 
           if (hasError) {

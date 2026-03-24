@@ -3,16 +3,20 @@
     <div class="chart-header">
       <div class="header-left">
         <h4>持仓分析</h4>
-        <a-radio-group v-model:value="chartType" size="small" style="margin-right: 16px">
-          <a-radio-button value="pie">饼图</a-radio-button>
-          <a-radio-button value="bar">柱状图</a-radio-button>
-        </a-radio-group>
+        <div class="radio-group">
+          <button class="radio-button" :class="{ active: chartType === 'pie' }" @click="chartType = 'pie'">
+            饼图
+          </button>
+          <button class="radio-button" :class="{ active: chartType === 'bar' }" @click="chartType = 'bar'">
+            柱状图
+          </button>
+        </div>
       </div>
       <div class="header-right">
-        <a-select v-model:value="dateField" size="small" style="width: 150px">
-          <a-select-option value="amount">按市值</a-select-option>
-          <a-select-option value="count">按数量</a-select-option>
-        </a-select>
+        <select v-model="dateField" class="form-select">
+          <option value="amount">按市值</option>
+          <option value="count">按数量</option>
+        </select>
       </div>
     </div>
     <div ref="chartRef" class="chart-content"></div>
@@ -20,9 +24,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts/core'
-import dayjs from 'dayjs'
 
 /**
  * 持仓图表组件
@@ -73,6 +76,7 @@ const initChart = () => {
       height: 400,
       renderer: 'canvas'
     })
+    updateChart()
   }
 }
 
@@ -134,6 +138,11 @@ const getBarOption = () => ({
   }]
 })
 
+// 监听变化
+watch([chartType, dateField, () => props.positions], () => {
+  updateChart()
+}, { deep: true })
+
 onMounted(() => {
   initChart()
 })
@@ -146,8 +155,9 @@ onUnmounted(() => {
 <style scoped>
 .position-chart {
   height: 480px;
-  background: white;
+  background: #1a1a2e;
   border-radius: 8px;
+  border: 1px solid #2a2a3e;
   padding: 16px;
 }
 
@@ -156,6 +166,59 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.chart-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.radio-group {
+  display: flex;
+  gap: 8px;
+}
+
+.radio-button {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #8a8a9a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-button:hover {
+  border-color: #1890ff;
+}
+
+.radio-button.active {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #ffffff;
+}
+
+.form-select {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
 }
 
 .chart-content {

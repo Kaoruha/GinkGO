@@ -2,312 +2,349 @@
   <div class="page-container">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-container">
-      <a-spin size="large" />
+      <div class="spinner"></div>
     </div>
 
     <!-- 详情内容 -->
     <div v-else-if="backtest" class="detail-content">
       <div class="page-header">
         <div class="page-title">
-          <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
-          <span style="font-family: monospace; font-size: 13px; margin-left: 8px;">{{ backtest.run_id?.substring(0, 16) }}...</span>
+          <span class="tag" :class="`tag-${getStatusColor(backtest.status)}`">{{ getStatusLabel(backtest.status) }}</span>
+          <span class="run-id">{{ backtest.run_id?.substring(0, 16) }}...</span>
         </div>
-        <a-space>
+        <div class="header-actions">
           <!-- 重新运行按钮：已完成/失败/已停止状态显示 -->
-          <a-tooltip v-if="canReRun" :title="reRunTooltip">
-            <a-button
-              type="primary"
-              :disabled="!hasPermission"
-              @click="handleReRun"
-            >
-              重新运行
-            </a-button>
-          </a-tooltip>
+          <button
+            v-if="canReRun"
+            class="btn btn-primary"
+            :disabled="!hasPermission"
+            :title="reRunTooltip"
+            @click="handleReRun"
+          >
+            重新运行
+          </button>
           <!-- 停止按钮：进行中状态显示 -->
-          <a-tooltip v-if="canStop" :title="stopTooltip">
-            <a-button
-              type="primary"
-              danger
-              :disabled="!hasPermission"
-              @click="stopBacktest"
-            >
-              停止回测
-            </a-button>
-          </a-tooltip>
+          <button
+            v-if="canStop"
+            class="btn btn-danger"
+            :disabled="!hasPermission"
+            :title="stopTooltip"
+            @click="stopBacktest"
+          >
+            停止回测
+          </button>
           <!-- 删除按钮 -->
-          <a-tooltip v-if="canDelete" :title="deleteTooltip">
-            <a-button
-              danger
-              :disabled="!hasPermission"
-              @click="handleDelete"
-            >
-              删除
-            </a-button>
-          </a-tooltip>
-          <a-button @click="goBack">返回列表</a-button>
-        </a-space>
+          <button
+            v-if="canDelete"
+            class="btn btn-danger"
+            :disabled="!hasPermission"
+            :title="deleteTooltip"
+            @click="handleDelete"
+          >
+            删除
+          </button>
+          <button class="btn btn-secondary" @click="goBack">返回列表</button>
+        </div>
       </div>
 
       <!-- Tab 标签页 -->
-      <a-tabs v-model:activeKey="activeTab">
+      <div class="tabs-container">
+        <div class="tabs-header">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            class="tab-button"
+            :class="{ active: activeTab === tab.key }"
+            @click="activeTab = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
         <!-- 概览 -->
-        <a-tab-pane key="overview" tab="概览">
+        <div v-show="activeTab === 'overview'" class="tab-panel">
           <!-- 基本信息 -->
-          <a-card title="基本信息" style="margin-bottom: 16px">
-            <a-descriptions :column="3" bordered size="small">
-              <a-descriptions-item label="UUID">
-                <a-typography-text copyable :copy-text="backtest.uuid" style="font-size: 12px;">
-                  {{ backtest.uuid?.substring(0, 8) }}...
-                </a-typography-text>
-              </a-descriptions-item>
-              <a-descriptions-item label="状态">
-                <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
-              </a-descriptions-item>
-              <a-descriptions-item label="投资组合">{{ backtest.portfolio_id || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="运行时长">{{ formatDuration(backtest) }}</a-descriptions-item>
-              <a-descriptions-item label="开始时间">{{ formatDateTime(backtest.start_time) }}</a-descriptions-item>
-              <a-descriptions-item label="结束时间">{{ formatDateTime(backtest.end_time) }}</a-descriptions-item>
-              <a-descriptions-item label="创建时间">{{ formatDateTime(backtest.create_at) }}</a-descriptions-item>
-            </a-descriptions>
-          </a-card>
+          <div class="card">
+            <h3 class="card-title">基本信息</h3>
+            <div class="descriptions">
+              <div class="desc-item">
+                <span class="desc-label">UUID</span>
+                <span class="desc-value">{{ backtest.uuid?.substring(0, 8) }}...</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">状态</span>
+                <span class="desc-value">
+                  <span class="tag" :class="`tag-${getStatusColor(backtest.status)}`">{{ getStatusLabel(backtest.status) }}</span>
+                </span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">投资组合</span>
+                <span class="desc-value">{{ backtest.portfolio_id || '-' }}</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">运行时长</span>
+                <span class="desc-value">{{ formatDuration(backtest) }}</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">开始时间</span>
+                <span class="desc-value">{{ formatDateTime(backtest.start_time) }}</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">结束时间</span>
+                <span class="desc-value">{{ formatDateTime(backtest.end_time) }}</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">创建时间</span>
+                <span class="desc-value">{{ formatDateTime(backtest.create_at) }}</span>
+              </div>
+            </div>
+          </div>
 
           <!-- 回测进度 -->
-          <a-card v-if="backtest.status === 'running' || backtest.status === 'pending'" title="回测进度" style="margin-bottom: 16px">
+          <div v-if="backtest.status === 'running' || backtest.status === 'pending'" class="card">
+            <h3 class="card-title">回测进度</h3>
             <div class="progress-section">
               <div class="progress-header">
                 <span class="progress-label">{{ backtest.current_stage || '处理中' }}</span>
                 <span class="progress-value">{{ ((backtest.progress || 0)).toFixed(1) }}%</span>
               </div>
-              <a-progress
-                :percent="backtest.progress || 0"
-                :status="backtest.status === 'running' ? 'active' : 'normal'"
-                size="large"
-                :stroke-color="backtest.status === 'running' ? '#1890ff' : '#52c41a'"
-              />
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  :class="backtest.status === 'running' ? 'active' : 'normal'"
+                  :style="{ width: `${backtest.progress || 0}%` }"
+                ></div>
+              </div>
             </div>
-          </a-card>
+          </div>
 
           <!-- 配置快照 -->
-          <a-card title="配置快照" style="margin-bottom: 16px">
-            <a-descriptions :column="3" bordered size="small">
-              <a-descriptions-item label="配置名称">{{ configSnapshot.name || backtest.uuid }}</a-descriptions-item>
-              <a-descriptions-item label="初始资金">{{ formatMoney(configSnapshot.initial_cash) }}</a-descriptions-item>
-              <a-descriptions-item label="回测区间" :span="3">
-                {{ configSnapshot.start_date || '-' }} 至 {{ configSnapshot.end_date || '-' }}
-              </a-descriptions-item>
-            </a-descriptions>
+          <div class="card">
+            <h3 class="card-title">配置快照</h3>
+            <div class="descriptions">
+              <div class="desc-item">
+                <span class="desc-label">配置名称</span>
+                <span class="desc-value">{{ configSnapshot.name || backtest.uuid }}</span>
+              </div>
+              <div class="desc-item">
+                <span class="desc-label">初始资金</span>
+                <span class="desc-value">{{ formatMoney(configSnapshot.initial_cash) }}</span>
+              </div>
+              <div class="desc-item full-width">
+                <span class="desc-label">回测区间</span>
+                <span class="desc-value">{{ configSnapshot.start_date || '-' }} 至 {{ configSnapshot.end_date || '-' }}</span>
+              </div>
+            </div>
 
             <!-- Portfolio 组件配置 -->
-            <div v-if="configSnapshot.portfolio_snapshot" style="margin-top: 16px;">
-              <a-divider style="margin: 12px 0;" />
-              <a-descriptions title="Portfolio 组件" :column="1" bordered size="small">
-                <a-descriptions-item label="Portfolio">
-                  {{ configSnapshot.portfolio_snapshot.name }} ({{ configSnapshot.portfolio_snapshot.uuid?.substring(0, 8) }}...)
-                </a-descriptions-item>
-              </a-descriptions>
+            <div v-if="configSnapshot.portfolio_snapshot" class="portfolio-snapshot">
+              <div class="divider"></div>
+              <h4 class="section-title">Portfolio 组件</h4>
+              <div class="descriptions">
+                <div class="desc-item">
+                  <span class="desc-label">Portfolio</span>
+                  <span class="desc-value">{{ configSnapshot.portfolio_snapshot.name }} ({{ configSnapshot.portfolio_snapshot.uuid?.substring(0, 8) }}...)</span>
+                </div>
+              </div>
 
               <!-- Selectors -->
-              <div v-if="configSnapshot.portfolio_snapshot.components?.selectors?.length" style="margin-top: 12px;">
-                <a-typography-text strong style="color: #1890ff;">选股器 ({{ configSnapshot.portfolio_snapshot.components.selectors.length }})</a-typography-text>
-                <div v-for="(selector, idx) in configSnapshot.portfolio_snapshot.components.selectors" :key="idx" style="margin-left: 16px; margin-top: 4px;">
-                  <a-tag color="blue">{{ getComponentName(selector) }}</a-tag>
-                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
-                    {{ formatConfigParams(selector.config) }}
-                  </span>
+              <div v-if="configSnapshot.portfolio_snapshot.components?.selectors?.length" class="component-section">
+                <span class="component-label text-blue">选股器 ({{ configSnapshot.portfolio_snapshot.components.selectors.length }})</span>
+                <div v-for="(selector, idx) in configSnapshot.portfolio_snapshot.components.selectors" :key="idx" class="component-item">
+                  <span class="tag tag-blue">{{ getComponentName(selector) }}</span>
+                  <span class="component-config">{{ formatConfigParams(selector.config) }}</span>
                 </div>
               </div>
 
               <!-- Sizer -->
-              <div v-if="configSnapshot.portfolio_snapshot.components?.sizer" style="margin-top: 12px;">
-                <a-typography-text strong style="color: #52c41a;">仓位管理</a-typography-text>
-                <div style="margin-left: 16px; margin-top: 4px;">
-                  <a-tag color="green">{{ getComponentName(configSnapshot.portfolio_snapshot.components.sizer) }}</a-tag>
-                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
-                    {{ formatConfigParams(configSnapshot.portfolio_snapshot.components.sizer.config) }}
-                  </span>
+              <div v-if="configSnapshot.portfolio_snapshot.components?.sizer" class="component-section">
+                <span class="component-label text-green">仓位管理</span>
+                <div class="component-item">
+                  <span class="tag tag-green">{{ getComponentName(configSnapshot.portfolio_snapshot.components.sizer) }}</span>
+                  <span class="component-config">{{ formatConfigParams(configSnapshot.portfolio_snapshot.components.sizer.config) }}</span>
                 </div>
               </div>
 
               <!-- Strategies -->
-              <div v-if="configSnapshot.portfolio_snapshot.components?.strategies?.length" style="margin-top: 12px;">
-                <a-typography-text strong style="color: #fa8c16;">策略 ({{ configSnapshot.portfolio_snapshot.components.strategies.length }})</a-typography-text>
-                <div v-for="(strategy, idx) in configSnapshot.portfolio_snapshot.components.strategies" :key="idx" style="margin-left: 16px; margin-top: 4px;">
-                  <a-tag color="orange">{{ getComponentName(strategy) }}</a-tag>
-                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
-                    {{ formatConfigParams(strategy.config) }}
-                  </span>
+              <div v-if="configSnapshot.portfolio_snapshot.components?.strategies?.length" class="component-section">
+                <span class="component-label text-orange">策略 ({{ configSnapshot.portfolio_snapshot.components.strategies.length }})</span>
+                <div v-for="(strategy, idx) in configSnapshot.portfolio_snapshot.components.strategies" :key="idx" class="component-item">
+                  <span class="tag tag-orange">{{ getComponentName(strategy) }}</span>
+                  <span class="component-config">{{ formatConfigParams(strategy.config) }}</span>
                 </div>
               </div>
             </div>
-          </a-card>
+          </div>
 
           <!-- 统计指标 -->
-          <a-card title="回测指标" style="margin-bottom: 16px">
-            <a-row :gutter="16">
-              <a-col :span="4">
-                <a-statistic
-                  title="最终资产"
-                  :value="parseFloat(backtest.final_portfolio_value || '0')"
-                  :precision="2"
-                  prefix="¥"
-                />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic
-                  title="总盈亏"
-                  :value="parseFloat(backtest.total_pnl || '0')"
-                  :precision="2"
-                  :value-style="{ color: pnlColor }"
-                />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic
-                  title="年化收益"
-                  :value="parseFloat(backtest.annual_return || '0') * 100"
-                  :precision="2"
-                  suffix="%"
-                  :value-style="{ color: parseFloat(backtest.annual_return || '0') >= 0 ? '#52c41a' : '#f5222d' }"
-                />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="夏普比率" :value="parseFloat(backtest.sharpe_ratio || '0')" :precision="2" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic
-                  title="最大回撤"
-                  :value="parseFloat(backtest.max_drawdown || '0') * 100"
-                  :precision="2"
-                  suffix="%"
-                  :value-style="{ color: parseFloat(backtest.max_drawdown || '0') <= 0.1 ? '#52c41a' : '#f5222d' }"
-                />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="胜率" :value="parseFloat(backtest.win_rate || '0') * 100" :precision="1" suffix="%" />
-              </a-col>
-            </a-row>
-          </a-card>
+          <div class="card">
+            <h3 class="card-title">回测指标</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">最终资产</div>
+                <div class="stat-value">¥{{ parseFloat(backtest.final_portfolio_value || '0').toFixed(2) }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">总盈亏</div>
+                <div class="stat-value" :style="{ color: pnlColor }">{{ parseFloat(backtest.total_pnl || '0').toFixed(2) }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">年化收益</div>
+                <div class="stat-value" :style="{ color: parseFloat(backtest.annual_return || '0') >= 0 ? '#52c41a' : '#f5222d' }">
+                  {{ (parseFloat(backtest.annual_return || '0') * 100).toFixed(2) }}%
+                </div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">夏普比率</div>
+                <div class="stat-value">{{ parseFloat(backtest.sharpe_ratio || '0').toFixed(2) }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">最大回撤</div>
+                <div class="stat-value" :style="{ color: parseFloat(backtest.max_drawdown || '0') <= 0.1 ? '#52c41a' : '#f5222d' }">
+                  {{ (parseFloat(backtest.max_drawdown || '0') * 100).toFixed(2) }}%
+                </div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">胜率</div>
+                <div class="stat-value">{{ (parseFloat(backtest.win_rate || '0') * 100).toFixed(1) }}%</div>
+              </div>
+            </div>
+          </div>
 
           <!-- 执行统计 -->
-          <a-card title="执行统计" style="margin-bottom: 16px">
-            <a-row :gutter="24">
-              <a-col :span="4">
-                <a-statistic title="订单数" :value="backtest.total_orders || 0" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="信号数" :value="backtest.total_signals || 0" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="持仓记录" :value="backtest.total_positions || 0" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="事件数" :value="backtest.total_events || 0" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="平均处理" :value="parseFloat(backtest.avg_event_processing_ms || '0')" :precision="1" suffix="ms" />
-              </a-col>
-              <a-col :span="4">
-                <a-statistic title="峰值内存" :value="parseFloat(backtest.peak_memory_mb || '0')" :precision="1" suffix="MB" />
-              </a-col>
-            </a-row>
-          </a-card>
+          <div class="card">
+            <h3 class="card-title">执行统计</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">订单数</div>
+                <div class="stat-value">{{ backtest.total_orders || 0 }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">信号数</div>
+                <div class="stat-value">{{ backtest.total_signals || 0 }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">持仓记录</div>
+                <div class="stat-value">{{ backtest.total_positions || 0 }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">事件数</div>
+                <div class="stat-value">{{ backtest.total_events || 0 }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">平均处理</div>
+                <div class="stat-value">{{ parseFloat(backtest.avg_event_processing_ms || '0').toFixed(1) }} ms</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">峰值内存</div>
+                <div class="stat-value">{{ parseFloat(backtest.peak_memory_mb || '0').toFixed(1) }} MB</div>
+              </div>
+            </div>
+          </div>
 
           <!-- 分析器列表 -->
-          <a-card title="分析器" style="margin-bottom: 16px">
-            <a-spin :spinning="analyzersLoading">
-              <a-table
-                v-if="analyzers.length > 0"
-                :columns="analyzerColumns"
-                :data-source="analyzers"
-                :pagination="false"
-                size="small"
-                row-key="name"
-              >
-                <template #bodyCell="{ column, record }">
-                  <template v-if="column.key === 'name'">
-                    <a-tag color="blue">{{ record.name }}</a-tag>
-                  </template>
-                  <template v-else-if="column.key === 'latest_value'">
+          <div class="card">
+            <h3 class="card-title">分析器</h3>
+            <div v-if="analyzersLoading" class="loading-inline">
+              <div class="spinner spinner-small"></div>
+            </div>
+            <table v-else-if="analyzers.length > 0" class="data-table">
+              <thead>
+                <tr>
+                  <th>分析器名称</th>
+                  <th>最新值</th>
+                  <th>记录数</th>
+                  <th>变化趋势</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in analyzers" :key="record.name">
+                  <td><span class="tag tag-blue">{{ record.name }}</span></td>
+                  <td>
                     <span :style="{ color: getAnalyzerValueColor(record.name, record.latest_value) }">
                       {{ formatAnalyzerValue(record.name, record.latest_value) }}
                     </span>
-                  </template>
-                  <template v-else-if="column.key === 'stats' && record.stats">
-                    <a-tooltip>
-                      <template #title>
-                        <div>最小: {{ formatAnalyzerValue(record.name, record.stats.min) }}</div>
-                        <div>最大: {{ formatAnalyzerValue(record.name, record.stats.max) }}</div>
-                        <div>平均: {{ formatAnalyzerValue(record.name, record.stats.avg) }}</div>
-                        <div>变化: {{ formatAnalyzerValue(record.name, record.stats.change) }}</div>
-                      </template>
-                      <span class="stats-detail">
-                        {{ record.stats.count }} 条记录
-                      </span>
-                    </a-tooltip>
-                  </template>
-                  <template v-else-if="column.key === 'trend' && record.stats">
-                    <a-tooltip :title="`首: ${formatAnalyzerValue(record.name, record.stats.first)} → 末: ${formatAnalyzerValue(record.name, record.stats.latest)}`">
-                      <span :style="{ color: record.stats.change >= 0 ? '#52c41a' : '#f5222d' }">
-                        {{ record.stats.change >= 0 ? '↑' : '↓' }} {{ formatAnalyzerValue(record.name, Math.abs(record.stats.change)) }}
-                      </span>
-                    </a-tooltip>
-                  </template>
-                </template>
-              </a-table>
-              <a-empty v-else description="暂无分析器数据（回测完成后生成）" />
-            </a-spin>
-          </a-card>
+                  </td>
+                  <td>
+                    <span class="stats-detail" :title="`最小: ${formatAnalyzerValue(record.name, record.stats?.min)}\n最大: ${formatAnalyzerValue(record.name, record.stats?.max)}\n平均: ${formatAnalyzerValue(record.name, record.stats?.avg)}`">
+                      {{ record.stats?.count }} 条记录
+                    </span>
+                  </td>
+                  <td>
+                    <span :style="{ color: record.stats?.change >= 0 ? '#52c41a' : '#f5222d' }">
+                      {{ record.stats?.change >= 0 ? '↑' : '↓' }} {{ formatAnalyzerValue(record.name, Math.abs(record.stats?.change || 0)) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p>暂无分析器数据（回测完成后生成）</p>
+            </div>
+          </div>
 
           <!-- 净值曲线 -->
-          <a-card title="净值曲线">
+          <div class="card">
+            <h3 class="card-title">净值曲线</h3>
             <NetValueChart v-if="netValueData.length > 0" :data="netValueData" :benchmark-data="benchmarkData" :height="350" />
-            <a-empty v-else description="暂无净值数据（回测完成后生成）" />
-          </a-card>
+            <div v-else class="empty-state">
+              <p>暂无净值数据（回测完成后生成）</p>
+            </div>
+          </div>
 
           <!-- 错误信息 -->
-          <a-card v-if="backtest.error_message" title="错误信息" style="margin-top: 16px">
-            <a-alert type="error" :message="backtest.error_message" show-icon />
-          </a-card>
+          <div v-if="backtest.error_message" class="card">
+            <h3 class="card-title">错误信息</h3>
+            <div class="alert alert-error">{{ backtest.error_message }}</div>
+          </div>
 
           <!-- 环境信息 -->
-          <a-card v-if="environmentInfo && Object.keys(environmentInfo).length > 0" title="环境信息" style="margin-top: 16px">
+          <div v-if="environmentInfo && Object.keys(environmentInfo).length > 0" class="card">
+            <h3 class="card-title">环境信息</h3>
             <pre class="env-info">{{ JSON.stringify(environmentInfo, null, 2) }}</pre>
-          </a-card>
-        </a-tab-pane>
+          </div>
+        </div>
 
         <!-- 分析器详情 -->
-        <a-tab-pane key="analyzers" tab="分析器">
+        <div v-show="activeTab === 'analyzers'" class="tab-panel">
           <AnalyzerPanel
             :taskId="backtest.run_id"
             :portfolioId="backtest.portfolio_id"
             :analyzers="analyzers"
           />
-        </a-tab-pane>
+        </div>
 
         <!-- 交易记录 -->
-        <a-tab-pane key="trades" tab="交易记录">
+        <div v-show="activeTab === 'trades'" class="tab-panel">
           <TradeRecordsPanel :taskId="backtest.run_id" />
-        </a-tab-pane>
+        </div>
 
         <!-- 日志 -->
-        <a-tab-pane key="logs" tab="日志">
-          <a-empty description="日志功能开发中" />
-        </a-tab-pane>
-      </a-tabs>
+        <div v-show="activeTab === 'logs'" class="tab-panel">
+          <div class="empty-state">
+            <p>日志功能开发中</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 错误状态 -->
-    <a-result v-else status="404" title="回测任务不存在" sub-title="请检查任务ID是否正确">
-      <template #extra>
-        <a-button type="primary" @click="goBack">返回列表</a-button>
-      </template>
-    </a-result>
+    <div v-else class="result-page">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+      <h2>回测任务不存在</h2>
+      <p>请检查任务ID是否正确</p>
+      <button class="btn btn-primary" @click="goBack">返回列表</button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
 import { useBacktestStore, useAuthStore } from '@/stores'
@@ -316,6 +353,17 @@ import { BACKTEST_STATES, canStartByState, canStopByState } from '@/constants/ba
 import AnalyzerPanel from './components/AnalyzerPanel.vue'
 import TradeRecordsPanel from './components/TradeRecordsPanel.vue'
 import dayjs from 'dayjs'
+
+// 简化的通知和确认函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
+
+const confirm = (message: string, onOk: () => void) => {
+  if (window.confirm(message)) {
+    onOk()
+  }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -330,37 +378,18 @@ const netValueData = ref<LineData[]>([])
 const benchmarkData = ref<LineData[]>([])
 const activeTab = ref('overview')
 
+const tabs = [
+  { key: 'overview', label: '概览' },
+  { key: 'analyzers', label: '分析器' },
+  { key: 'trades', label: '交易记录' },
+  { key: 'logs', label: '日志' },
+]
+
 // ========== 计算属性（从 Store 获取） ==========
 const loading = computed(() => backtestStore.detailLoading)
 const backtest = computed(() => backtestStore.currentTask)
 const analyzers = computed(() => backtestStore.currentAnalyzers)
 const analyzersLoading = ref(false)
-
-// 分析器表格列定义
-const analyzerColumns = [
-  {
-    title: '分析器名称',
-    key: 'name',
-    dataIndex: 'name',
-    width: 180,
-  },
-  {
-    title: '最新值',
-    key: 'latest_value',
-    dataIndex: 'latest_value',
-    width: 120,
-  },
-  {
-    title: '记录数',
-    key: 'stats',
-    width: 100,
-  },
-  {
-    title: '变化趋势',
-    key: 'trend',
-    width: 120,
-  },
-]
 
 // 解析配置快照
 const configSnapshot = computed(() => {
@@ -433,7 +462,7 @@ const deleteTooltip = computed(() => {
 const loadBacktest = async () => {
   const uuid = route.params.id as string
   if (!uuid) {
-    message.error('缺少任务ID')
+    showToast('缺少任务ID', 'error')
     return
   }
 
@@ -459,7 +488,7 @@ const loadBacktest = async () => {
     loadAnalyzers(uuid)
   } catch (e: any) {
     console.error('Failed to load backtest:', e)
-    message.error('加载回测详情失败')
+    showToast('加载回测详情失败', 'error')
   }
 }
 
@@ -484,16 +513,12 @@ const goBack = () => {
 const stopBacktest = async () => {
   if (!backtest.value?.uuid) return
 
-  Modal.confirm({
-    title: '确认停止',
-    content: '确定要停止此回测任务吗？',
-    onOk: async () => {
-      try {
-        await backtestStore.stopTask(backtest.value.uuid)
-        message.success('回测已停止')
-      } catch (e) {
-        message.error('停止失败')
-      }
+  confirm('确定要停止此回测任务吗？', async () => {
+    try {
+      await backtestStore.stopTask(backtest.value.uuid)
+      showToast('回测已停止')
+    } catch (e) {
+      showToast('停止失败', 'error')
     }
   })
 }
@@ -510,43 +535,32 @@ const handleReRun = async () => {
 
     // 调用启动接口，会创建新任务
     const result = await backtestStore.startTask(backtest.value.uuid, params)
-    message.success('已创建新回测任务')
+    showToast('已创建新回测任务')
 
     // 跳转到新任务详情页
     if (result?.task_uuid) {
       router.push(`/stage1/backtest/${result.task_uuid}`)
     }
   } catch (e: any) {
-    message.error(e.response?.data?.detail || '重新运行失败')
+    showToast(e.response?.data?.detail || '重新运行失败', 'error')
   }
 }
 
 const handleDelete = async () => {
   if (!backtest.value?.uuid) return
 
-  Modal.confirm({
-    title: '确认删除',
-    content: '删除后无法恢复，确定要删除此回测任务吗？',
-    okText: '删除',
-    okType: 'danger',
-    onOk: async () => {
-      try {
-        await backtestStore.deleteTask(backtest.value.uuid)
-        message.success('删除成功')
-        goBack()
-      } catch (e: any) {
-        message.error(e.response?.data?.detail || '删除失败')
-      }
+  confirm('删除后无法恢复，确定要删除此回测任务吗？', async () => {
+    try {
+      await backtestStore.deleteTask(backtest.value.uuid)
+      showToast('删除成功')
+      goBack()
+    } catch (e: any) {
+      showToast(e.response?.data?.detail || '删除失败', 'error')
     }
   })
 }
 
 // 工具函数
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return '-'
-  return dayjs(dateStr).format('YYYY-MM-DD')
-}
-
 const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '-'
   return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
@@ -599,12 +613,6 @@ const formatConfigParams = (config: Record<string, any>) => {
   if (paramKeys.length === 0) return '-'
 
   return paramKeys.map(k => `${k}: ${config[k]}`).join(', ')
-}
-
-// 格式化组件配置
-const formatConfig = (config: Record<string, any>) => {
-  if (!config) return '-'
-  return formatConfigParams(config)
 }
 
 // 格式化分析器值
@@ -699,6 +707,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #0f0f1a;
 }
 
 .detail-content {
@@ -721,8 +730,21 @@ onUnmounted(() => {
   gap: 12px;
   font-size: 20px;
   font-weight: 600;
+  color: #ffffff;
 }
 
+.run-id {
+  font-family: monospace;
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Loading */
 .loading-container {
   display: flex;
   justify-content: center;
@@ -731,25 +753,194 @@ onUnmounted(() => {
   flex: 1;
 }
 
-.env-info {
-  background: #f5f5f5;
-  padding: 12px;
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+}
+
+.loading-inline {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Button */
+.btn {
+  padding: 8px 16px;
   border-radius: 4px;
-  font-size: 12px;
-  overflow: auto;
-  max-height: 200px;
-}
-
-.stats-detail {
-  color: #666;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
+  border: none;
 }
 
-.stats-detail:hover {
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
   color: #1890ff;
 }
 
+.btn-danger {
+  background: #f5222d;
+  color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ff4d4f;
+}
+
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
+.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
+.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
+.tag-red { background: rgba(245, 34, 45, 0.2); color: #f5222d; }
+.tag-gray { background: #2a2a3e; color: #8a8a9a; }
+.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
+
+/* Tabs */
+.tabs-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tabs-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #2a2a3e;
+  flex-shrink: 0;
+}
+
+.tab-button {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #ffffff;
+}
+
+.tab-button.active {
+  color: #1890ff;
+  border-bottom-color: #1890ff;
+}
+
+.tab-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+/* Card */
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 16px 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 16px 0 12px 0;
+}
+
+/* Descriptions */
+.descriptions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 24px;
+}
+
+.desc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.desc-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.desc-label {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.desc-value {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: #2a2a3e;
+  margin: 16px 0;
+}
+
+/* Progress */
 .progress-section {
   padding: 8px 0;
 }
@@ -764,12 +955,201 @@ onUnmounted(() => {
 .progress-label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #ffffff;
 }
 
 .progress-value {
   font-size: 16px;
   font-weight: 600;
   color: #1890ff;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #2a2a3e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #1890ff;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.active {
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.progress-fill.normal {
+  background: #52c41a;
+}
+
+@keyframes progress-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Portfolio Snapshot */
+.portfolio-snapshot {
+  margin-top: 16px;
+}
+
+.component-section {
+  margin-top: 12px;
+}
+
+.component-label {
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.component-label.text-blue { color: #1890ff; }
+.component-label.text-green { color: #52c41a; }
+.component-label.text-orange { color: #faad14; }
+
+.component-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  margin-top: 4px;
+}
+
+.component-config {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.data-table td {
+  color: #ffffff;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.stats-detail {
+  color: #1890ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.stats-detail:hover {
+  color: #40a9ff;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* Alert */
+.alert {
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.alert-error {
+  background: rgba(245, 34, 45, 0.1);
+  border: 1px solid #f5222d;
+  color: #f5222d;
+}
+
+/* Result Page */
+.result-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  color: #8a8a9a;
+}
+
+.result-page svg {
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+.result-page h2 {
+  font-size: 20px;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+}
+
+.result-page p {
+  margin: 0 0 24px 0;
+}
+
+/* Env Info */
+.env-info {
+  background: #0f0f1a;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  overflow: auto;
+  max-height: 200px;
+  color: #a0d911;
 }
 </style>

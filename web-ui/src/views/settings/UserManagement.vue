@@ -2,77 +2,137 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">
-        <a-tag color="blue">系统</a-tag>
+        <span class="tag tag-blue">系统</span>
         用户管理
       </div>
-      <a-button type="primary" @click="showCreateModal = true">添加用户</a-button>
+      <button class="btn btn-primary" @click="showCreateModal = true">添加用户</button>
     </div>
 
-    <a-card>
-      <a-row :gutter="16" style="margin-bottom: 16px">
-        <a-col :span="8">
-          <a-input-search v-model:value="searchText" placeholder="搜索用户名" @search="handleSearch" />
-        </a-col>
-        <a-col :span="6">
-          <a-select v-model:value="statusFilter" placeholder="状态筛选" style="width: 100%" allow-clear @change="handleSearch">
-            <a-select-option value="active">启用</a-select-option>
-            <a-select-option value="disabled">禁用</a-select-option>
-          </a-select>
-        </a-col>
-      </a-row>
+    <div class="card">
+      <div class="filter-row">
+        <div class="search-input-wrapper">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input
+            v-model="searchText"
+            type="text"
+            placeholder="搜索用户名"
+            class="search-input"
+            @keyup.enter="handleSearch"
+          />
+          <button class="search-btn" @click="handleSearch">搜索</button>
+        </div>
+        <select v-model="statusFilter" class="form-select" @change="handleSearch">
+          <option value="">全部状态</option>
+          <option value="active">启用</option>
+          <option value="disabled">禁用</option>
+        </select>
+      </div>
 
-      <a-table :columns="columns" :data-source="users" :loading="loading" row-key="uuid">
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'status'">
-            <a-tag :color="record.status === 'active' ? 'success' : 'default'">
-              {{ record.status === 'active' ? '启用' : '禁用' }}
-            </a-tag>
-          </template>
-          <template v-if="column.key === 'roles'">
-            <a-space wrap>
-              <a-tag v-for="role in record.roles" :key="role" color="blue">{{ role }}</a-tag>
-            </a-space>
-          </template>
-          <template v-if="column.key === 'action'">
-            <a-space>
-              <a @click="editUser(record)">编辑</a>
-              <a @click="resetPassword(record)">重置密码</a>
-              <a-popconfirm title="确定删除?" @confirm="deleteUser(record)">
-                <a style="color: #f5222d">删除</a>
-              </a-popconfirm>
-            </a-space>
-          </template>
-        </template>
-      </a-table>
-    </a-card>
+      <div v-if="loading" class="loading-container">
+        <div class="spinner"></div>
+      </div>
+      <div v-else class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>邮箱</th>
+              <th>状态</th>
+              <th>角色</th>
+              <th>最后登录</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="record in users" :key="record.uuid">
+              <td>{{ record.username }}</td>
+              <td>{{ record.email }}</td>
+              <td>
+                <span class="tag" :class="record.status === 'active' ? 'tag-green' : 'tag-gray'">
+                  {{ record.status === 'active' ? '启用' : '禁用' }}
+                </span>
+              </td>
+              <td>
+                <span v-for="role in record.roles" :key="role" class="tag tag-blue" style="margin-right: 4px">
+                  {{ role }}
+                </span>
+              </td>
+              <td>{{ record.last_login }}</td>
+              <td>
+                <div class="action-links">
+                  <a @click="editUser(record)">编辑</a>
+                  <a @click="resetPassword(record)">重置密码</a>
+                  <a class="danger-link" @click="deleteUserWithConfirm(record)">删除</a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <a-modal v-model:open="showCreateModal" :title="editingUser ? '编辑用户' : '添加用户'" @ok="handleSubmit" @cancel="resetForm">
-      <a-form :model="userForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="用户名" required>
-          <a-input v-model:value="userForm.username" placeholder="输入用户名" :disabled="!!editingUser" />
-        </a-form-item>
-        <a-form-item v-if="!editingUser" label="密码" required>
-          <a-input-password v-model:value="userForm.password" placeholder="输入密码" />
-        </a-form-item>
-        <a-form-item label="邮箱" required>
-          <a-input v-model:value="userForm.email" placeholder="输入邮箱" />
-        </a-form-item>
-        <a-form-item label="用户组">
-          <a-select v-model:value="userForm.groups" mode="multiple" placeholder="选择用户组">
-            <a-select-option v-for="group in userGroups" :key="group.uuid" :value="group.uuid">{{ group.name }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="状态">
-          <a-switch v-model:checked="userForm.active" checked-children="启用" un-checked-children="禁用" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+    <!-- Modal -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="resetForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{{ editingUser ? '编辑用户' : '添加用户' }}</h3>
+          <button class="modal-close" @click="resetForm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">用户名 <span class="required">*</span></label>
+            <input v-model="userForm.username" type="text" class="form-input" placeholder="输入用户名" :disabled="!!editingUser" />
+          </div>
+          <div v-if="!editingUser" class="form-group">
+            <label class="form-label">密码 <span class="required">*</span></label>
+            <input v-model="userForm.password" type="password" class="form-input" placeholder="输入密码" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">邮箱 <span class="required">*</span></label>
+            <input v-model="userForm.email" type="email" class="form-input" placeholder="输入邮箱" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">用户组</label>
+            <div class="multi-select">
+              <label v-for="group in userGroups" :key="group.uuid" class="checkbox-label">
+                <input type="checkbox" :value="group.uuid" v-model="userForm.groups" />
+                <span>{{ group.name }}</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">状态</label>
+            <label class="switch-label">
+              <input type="checkbox" v-model="userForm.active" class="switch-input" />
+              <span class="switch-slider"></span>
+              <span class="switch-text">{{ userForm.active ? '启用' : '禁用' }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="resetForm">取消</button>
+          <button class="btn btn-primary" @click="handleSubmit">确定</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const loading = ref(false)
 const showCreateModal = ref(false)
@@ -100,34 +160,41 @@ const userForm = reactive({
   active: true,
 })
 
-const columns = [
-  { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '邮箱', dataIndex: 'email', key: 'email' },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '角色', dataIndex: 'roles', key: 'roles' },
-  { title: '最后登录', dataIndex: 'last_login', key: 'last_login' },
-  { title: '操作', key: 'action', width: 200 },
-]
-
-const handleSearch = () => { message.info('搜索功能') }
+const handleSearch = () => { showToast('搜索功能', 'info') }
 const editUser = (record: any) => {
   editingUser.value = record
   Object.assign(userForm, { username: record.username, email: record.email, groups: [], active: record.status === 'active' })
   showCreateModal.value = true
 }
-const resetPassword = (record: any) => { message.success(`已发送重置密码邮件到 ${record.email}`) }
-const deleteUser = (record: any) => { users.value = users.value.filter(u => u.uuid !== record.uuid); message.success('用户已删除') }
+const resetPassword = (record: any) => { showToast(`已发送重置密码邮件到 ${record.email}`) }
+
+const deleteUserWithConfirm = (record: any) => {
+  if (confirm(`确定删除用户 "${record.username}" 吗？`)) {
+    deleteUser(record)
+  }
+}
+
+const deleteUser = (record: any) => {
+  users.value = users.value.filter(u => u.uuid !== record.uuid)
+  showToast('用户已删除')
+}
 
 const handleSubmit = () => {
-  if (!userForm.username || !userForm.email) { message.warning('请填写必填项'); return }
-  if (!editingUser.value && !userForm.password) { message.warning('请输入密码'); return }
+  if (!userForm.username || !userForm.email) {
+    showToast('请填写必填项', 'warning')
+    return
+  }
+  if (!editingUser.value && !userForm.password) {
+    showToast('请输入密码', 'warning')
+    return
+  }
   if (editingUser.value) {
     editingUser.value.email = userForm.email
     editingUser.value.status = userForm.active ? 'active' : 'disabled'
-    message.success('用户已更新')
+    showToast('用户已更新')
   } else {
     users.value.push({ uuid: Date.now().toString(), username: userForm.username, email: userForm.email, status: userForm.active ? 'active' : 'disabled', roles: ['新用户'], last_login: '-' })
-    message.success('用户已创建')
+    showToast('用户已创建')
   }
   showCreateModal.value = false
   resetForm()
@@ -136,7 +203,399 @@ const handleSubmit = () => {
 const resetForm = () => {
   editingUser.value = null
   Object.assign(userForm, { username: '', password: '', email: '', groups: [], active: true })
+  showCreateModal.value = false
 }
 
 onMounted(() => {})
 </script>
+
+<style scoped>
+.page-container {
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+}
+
+/* Card */
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  padding: 20px;
+}
+
+/* Filter Row */
+.filter-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 6px 12px;
+  flex: 1;
+  max-width: 400px;
+}
+
+.search-input-wrapper svg {
+  color: #8a8a9a;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  padding: 0;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.search-btn {
+  padding: 4px 12px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.data-table td {
+  color: #ffffff;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
+.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
+.tag-gray { background: #2a2a3e; color: #8a8a9a; }
+
+/* Action Links */
+.action-links {
+  display: flex;
+  gap: 12px;
+}
+
+.action-links a {
+  color: #1890ff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.action-links a:hover {
+  text-decoration: underline;
+}
+
+.danger-link {
+  color: #f5222d !important;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: #ffffff;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #2a2a3e;
+}
+
+/* Form */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Multi Select Checkbox */
+.multi-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  color: #ffffff;
+}
+
+/* Switch */
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.switch-input {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  appearance: none;
+  background: #3a3a4e;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.switch-input:checked {
+  background: #1890ff;
+}
+
+.switch-input::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.switch-input:checked::before {
+  transform: translateX(22px);
+}
+
+.switch-text {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+</style>

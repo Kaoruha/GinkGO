@@ -1,88 +1,127 @@
 <template>
   <div class="backtest-result-container">
     <div class="page-header">
-      <a-button type="text" @click="goBack">
-        <ArrowLeftOutlined /> 返回
-      </a-button>
+      <button class="btn-text" @click="goBack">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        返回
+      </button>
       <div class="title-section">
         <h1 class="page-title">回测报告</h1>
         <p class="page-subtitle">{{ backtestName || '加载中...' }}</p>
       </div>
       <div class="header-actions">
-        <a-tag v-if="backtestState" :color="getStateColor(backtestState)">
+        <span v-if="backtestState" class="tag" :class="getStateTagClass(backtestState)">
           {{ getStateLabel(backtestState) }}
-        </a-tag>
+        </span>
       </div>
     </div>
 
     <div v-if="loading" class="loading-container">
-      <a-spin size="large" tip="正在加载报告..." />
+      <div class="spinner"></div>
+      <p>正在加载报告...</p>
     </div>
 
     <div v-else class="result-content">
-      <a-card title="回测配置" class="config-card">
-        <a-descriptions :column="3" bordered size="small">
-          <a-descriptions-item label="回测周期">
-            {{ config.startDate }} ~ {{ config.endDate }}
-          </a-descriptions-item>
-          <a-descriptions-item label="交易日数">
-            {{ config.tradingDays }} 天
-          </a-descriptions-item>
-          <a-descriptions-item label="手续费率">
-            {{ (config.commissionRate * 100).toFixed(4) }}%
-          </a-descriptions-item>
-        </a-descriptions>
-      </a-card>
-
-      <a-card title="关键指标" class="metrics-card">
-        <a-row :gutter="16">
-          <a-col :span="6" v-for="metric in displayMetrics" :key="metric.key">
-            <div class="metric-item">
-              <div class="metric-label">{{ metric.label }}</div>
-              <div class="metric-value" :class="metric.class">
-                {{ formatMetricValue(metric) }}
-              </div>
+      <div class="card">
+        <div class="card-header">
+          <h4>回测配置</h4>
+        </div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-item">
+              <span class="config-label">回测周期</span>
+              <span class="config-value">{{ config.startDate }} ~ {{ config.endDate }}</span>
             </div>
-          </a-col>
-        </a-row>
-      </a-card>
+            <div class="config-item">
+              <span class="config-label">交易日数</span>
+              <span class="config-value">{{ config.tradingDays }} 天</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">手续费率</span>
+              <span class="config-value">{{ (config.commissionRate * 100).toFixed(4) }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <a-row :gutter="16">
-        <a-col :span="16">
-          <a-card title="净值曲线" class="chart-card">
-            <div ref="netValueChartRef" class="chart-container" style="height: 400px"></div>
-          </a-card>
-        </a-col>
-        <a-col :span="8">
-          <a-card title="回撤分析" class="chart-card">
-            <div ref="drawdownChartRef" class="chart-container" style="height: 400px"></div>
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <a-card title="交易记录" class="trades-card">
-        <a-table
-          :columns="tradeColumns"
-          :data-source="trades"
-          :pagination="{ pageSize: 20 }"
-          :scroll="{ x: 1000 }"
-          size="small"
-          row-key="uuid"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.dataIndex === 'direction'">
-              <a-tag :color="record.direction === 'LONG' ? 'red' : 'green'">
-                {{ record.direction === 'LONG' ? '做多' : '做空' }}
-              </a-tag>
-            </template>
-            <template v-if="column.dataIndex === 'profit'">
-              <span :style="{ color: record.profit >= 0 ? '#f5222d' : '#52c41a' }">
-                {{ record.profit?.toFixed(2) }}
+      <div class="card">
+        <div class="card-header">
+          <h4>关键指标</h4>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid">
+            <div v-for="metric in displayMetrics" :key="metric.key" class="metric-item">
+              <span class="metric-label">{{ metric.label }}</span>
+              <span class="metric-value" :class="metric.class">
+                {{ formatMetricValue(metric) }}
               </span>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-header">
+            <h4>净值曲线</h4>
+          </div>
+          <div class="card-body">
+            <div ref="netValueChartRef" class="chart-container"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>回撤分析</h4>
+          </div>
+          <div class="card-body">
+            <div ref="drawdownChartRef" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h4>交易记录</h4>
+        </div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>代码</th>
+                  <th>方向</th>
+                  <th>数量</th>
+                  <th>买入价</th>
+                  <th>卖出价</th>
+                  <th>买入时间</th>
+                  <th>卖出时间</th>
+                  <th>收益</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in trades" :key="record.uuid">
+                  <td>{{ record.code }}</td>
+                  <td>
+                    <span class="tag" :class="record.direction === 'LONG' ? 'tag-red' : 'tag-green'">
+                      {{ record.direction === 'LONG' ? '做多' : '做空' }}
+                    </span>
+                  </td>
+                  <td class="text-right">{{ record.volume }}</td>
+                  <td class="text-right">{{ record.buyPrice?.toFixed(2) }}</td>
+                  <td class="text-right">{{ record.sellPrice?.toFixed(2) }}</td>
+                  <td>{{ record.buyTime }}</td>
+                  <td>{{ record.sellTime }}</td>
+                  <td class="text-right" :style="{ color: record.profit >= 0 ? '#f5222d' : '#52c41a' }">
+                    {{ record.profit?.toFixed(2) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -90,14 +129,17 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { ArrowLeftOutlined } from '@ant-design/icons-vue'
 import * as echarts from 'echarts'
-import { backtestApiExtended, type BacktestReport } from '@/api/modules/backtest'
+import { backtestApiExtended } from '@/api/modules/backtest'
 
 const route = useRoute()
 const router = useRouter()
 const backtestId = route.params.uuid as string
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 // 状态
 const loading = ref(true)
@@ -148,18 +190,6 @@ const displayMetrics = computed(() => [
   { key: 'volatility', label: '波动率', value: metrics.volatility, class: '', format: 'percent' }
 ])
 
-// 表格列
-const tradeColumns = [
-  { title: '代码', dataIndex: 'code', width: 100, fixed: 'left' },
-  { title: '方向', dataIndex: 'direction', width: 80 },
-  { title: '数量', dataIndex: 'volume', width: 100, align: 'right' },
-  { title: '买入价', dataIndex: 'buyPrice', width: 100, align: 'right' },
-  { title: '卖出价', dataIndex: 'sellPrice', width: 100, align: 'right' },
-  { title: '买入时间', dataIndex: 'buyTime', width: 150 },
-  { title: '卖出时间', dataIndex: 'sellTime', width: 150 },
-  { title: '收益', dataIndex: 'profit', width: 100, align: 'right' }
-]
-
 const goBack = () => {
   router.back()
 }
@@ -175,15 +205,15 @@ const getStateLabel = (state: string) => {
   return labels[state] || state
 }
 
-const getStateColor = (state: string) => {
-  const colors: Record<string, string> = {
-    PENDING: 'default',
-    RUNNING: 'processing',
-    COMPLETED: 'success',
-    FAILED: 'error',
-    CANCELLED: 'default'
+const getStateTagClass = (state: string) => {
+  const classes: Record<string, string> = {
+    PENDING: 'tag-gray',
+    RUNNING: 'tag-blue',
+    COMPLETED: 'tag-green',
+    FAILED: 'tag-red',
+    CANCELLED: 'tag-gray'
   }
-  return colors[state] || 'default'
+  return classes[state] || 'tag-gray'
 }
 
 const getValueClass = (value: number) => {
@@ -248,7 +278,7 @@ const loadReport = async () => {
       }
     }
   } catch (error: any) {
-    message.error(`加载报告失败: ${error.message}`)
+    showToast(`加载报告失败: ${error.message}`, 'error')
   } finally {
     loading.value = false
   }
@@ -323,7 +353,7 @@ onUnmounted(() => {
 <style scoped>
 .backtest-result-container {
   padding: 24px;
-  background: #f5f7fa;
+  background: #0f0f1a;
   min-height: calc(100vh - 64px);
 }
 
@@ -332,6 +362,25 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.btn-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-text:hover {
+  background: #2a2a3e;
 }
 
 .title-section {
@@ -341,21 +390,42 @@ onUnmounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #ffffff;
   margin: 0;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #8c8c8c;
+  color: #8a8a9a;
   margin: 8px 0 0 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .loading-container {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 400px;
+  gap: 16px;
+  color: #8a8a9a;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .result-content {
@@ -364,31 +434,76 @@ onUnmounted(() => {
   gap: 24px;
 }
 
-.config-card,
-.metrics-card,
-.chart-card,
-.trades-card {
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-label {
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.config-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
 }
 
 .metric-item {
   text-align: center;
   padding: 16px;
-  background: #fafafa;
+  background: #2a2a3e;
   border-radius: 8px;
 }
 
 .metric-label {
+  display: block;
   font-size: 14px;
-  color: #8c8c8c;
+  color: #8a8a9a;
   margin-bottom: 8px;
 }
 
 .metric-value {
+  display: block;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #ffffff;
 }
 
 .value-up {
@@ -399,7 +514,109 @@ onUnmounted(() => {
   color: #52c41a;
 }
 
+.charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
 .chart-container {
   width: 100%;
+  height: 400px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tr:hover {
+  background: #2a2a3e;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-gray {
+  background: #2a2a3e;
+  color: #8a8a9a;
+}
+
+.tag-blue {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
+}
+
+.tag-orange {
+  background: rgba(250, 140, 22, 0.2);
+  color: #fa8c16;
+}
+
+.tag-cyan {
+  background: rgba(19, 194, 194, 0.2);
+  color: #13c2c2;
+}
+
+@media (max-width: 1200px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

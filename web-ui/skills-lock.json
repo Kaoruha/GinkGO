@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "skills": {
+    "baseline-ui": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "b116f65e872443b2b61e5495fee43f755ae83faf967c7e8750300b4976f27241"
+    },
+    "complexity-guardrails": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "605bd6ba82dc4ed3d6186324a0be6211d7d6955016bce7cf7a22d6ceb7269030"
+    },
+    "laravel-api": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "937abbd95989ae714d1a02eb097b91fcc958e04e6733f92cd37e0a629fbb3eae"
+    },
+    "laravel-api-resources-and-pagination": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "eb1f9fab936b63f5939568a39cd0539cd79a40dfa323fdcc40f08551e5fcab29"
+    },
+    "laravel-config-env-storage": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "4c63cdf30601e5c8cbe859e88bbedcbc289bbf43a25f68a9914779cf15ee3b9c"
+    },
+    "laravel-constants-and-configuration": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "31868644e595327f108fd8aad340e13410f1b121547034a6b8c57c8aae4eaa38"
+    },
+    "laravel-controller-cleanup": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "26e16d9481dccacd3e7da9833a02daba944591ba303e2d1d25e36ce44b7ec44c"
+    },
+    "laravel-controller-tests": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "85b61c9f2e1de291608d72a012272159007c73d90f3b296bc057796fca6d9161"
+    },
+    "laravel-custom-helpers": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "514feb08443a436959caa13b0eec5230c38597ca9a8d1eb883727ad2927c0b8f"
+    },
+    "laravel-data-chunking-large-datasets": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "0900ceb11027a048232c8a28acd4f263880bb7391e02a6c1a92b7ea5a59c77a2"
+    },
+    "laravel-debugging-prompts": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "f121e92325cc68aa4c9e290bbb4a68848bf3b0f553caae6e38ff8ddaa2b96e0f"
+    },
+    "laravel-dependencies-trim-packages": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "d37c046a29b3981e405fb35f53e59170559c08b99b835924ae359f4be2c69eb1"
+    },
+    "laravel-filesystem-uploads": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "60e270104e98787d485cf11ff08d37f1832cf65097da069d07468c87110ae84a"
+    },
+    "laravel-interfaces-and-di": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "c259eefe507a669318fe60dfeb7557a3d702e234d49c0bdc171bc7bc4a412724"
+    },
+    "laravel-internationalization-and-translation": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "16018332c047755f605cb27895856ddf889b705c7341370294fe76335d2111dc"
+    },
+    "laravel-iterating-on-code": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "a03bf1e2f8c415d6022f40240986f4d65413a759a52a0353d3364ca0c20218b9"
+    },
+    "laravel-laravel-prompting-patterns": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "372e08f17c4babfb627049aaabe70f7f76772b432cac03f93d1a34d7b9411988"
+    },
+    "laravel-migrations-and-factories": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "c80ab4b6b2b53d80b82071631b9b458abafc2ba61324e4413634b8cd820f36ba"
+    },
+    "laravel-performance-caching": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "57a41472d66e687b020e2e1db6e2e01c0c05f843fda64475daae94a978660d71"
+    },
+    "laravel-performance-eager-loading": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "1faabee9fcb3651f18422a366b9d6a8d1175bc4e9d3cfbed5c1cc5a63be70fe7"
+    },
+    "laravel-performance-select-columns": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "55a55aa886d881b085d1df28f48199c9d3130e6667ef535ea376d598657b1092"
+    },
+    "laravel-policies-and-authorization": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "c762967c436de44a13d15a9c5f77d86b14394c5e739536507add6daff0f12589"
+    },
+    "laravel-quality-checks": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "a33379928ce9a51b1c2ec6e4ddf7a44c5d973446fb450139db17b4cefe6c7eb3"
+    },
+    "laravel-rate-limiting": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "4c279409e80130872ca718d4f410bd73a18a2c0f7ad1380269714facf127788d"
+    },
+    "laravel-routes-best-practices": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "2b9f822f601a49ea852155e7e4e64ef7ee5e4f38fa231149cc104ea9b347b6b7"
+    },
+    "laravel-strategy-pattern": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "52a9f0d36882654a390714a9e039d6f1886911fea1446c39e0131cdc9f152394"
+    },
+    "laravel-task-scheduling": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "728e0bc791a84190775c49b82857bc92a011cf8362c35b617b56dbb3ec40e866"
+    },
+    "laravel-template-method-and-plugins": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "80cbb5689d3b30def26f4e1064c0c72e75352fd069d8d1a801a9d34839e0a40d"
+    },
+    "laravel-transactions-and-consistency": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "f6cb13a5a65515cdbdb9a3cf045ec30bc5478754d7da8e6ea397dff7e6988256"
+    },
+    "shadcn-vue": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "be51072c8a02539c500dcb81a60680f36778ba9064fa2ea95181e40eb9564073"
+    },
+    "vue3-component-decomposition": {
+      "source": "noartem/laravel-vue-skills",
+      "sourceType": "github",
+      "computedHash": "db159e33451193841a5bdad35187a487798ab41739f45297c3f8c85b50abfec8"
+    }
+  }
+}

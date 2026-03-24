@@ -1,42 +1,52 @@
-# Repository Guidelines
+# AGENT.md
 
-## Project Structure & Module Organization
-- Source: `src/ginkgo/` (core packages: `core/`, `libs/`, `trading/`, `data/`, `features/`, `notifier/`, `quant_ml/`).
-- CLI/API entry points: `main.py`, `api/main.py`.
-- Tests: `test/` (unit tests under `test/unit/...`, utilities under `test/utils/...`, templates in `test/templates/`).
-- Docs & assets: `docs/` (notebooks, guides); configs and tooling in `.conf/`, `feast_repo/`.
+## 核心沟通原则
 
-## Build, Test, and Development Commands
-- Install (editable + dev tools): `pip install -e .[dev]` or `python ./install.py`.
-- Lint/format: `ruff check .`, `black .` (line length 120).
-- Type check: `mypy src` (strict mode; add types for new code).
-- Run tests: `pytest -m "unit and not slow"` (fast unit set) or `pytest --cov=src/ginkgo --cov-report=term-missing`.
-- CLI quick check: `ginkgo version`, `ginkgo dev server` (after install, CLI is globally available).
+**一屏原则**: 输出内容控制在一屏内，不要滚动。反复滚动影响效率。
 
-## Coding Style & Naming Conventions
-- Python 3.8+; use 4‑space indents and type hints everywhere.
-- Format with Black (120 cols). Keep imports clean; fix with Ruff.
-- Naming: `snake_case` for functions/vars, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants, module names lowercase.
-- Keep functions small, side‑effect free where possible; log via `ginkgo.libs.core.logger`.
+## 简洁输出指南
 
-## Testing Guidelines
-- Framework: Pytest. File patterns: `test_*.py`, `*_test.py`; classes `Test*`, funcs `test_*`.
-- Markers: `unit`, `integration`, `slow`, `performance`, `database`, `network`. Example: `pytest -m "unit and not slow"`.
-- Coverage: maintain or improve; check `htmlcov/`. Place tests near domain (e.g., `test/unit/core/…`). See `test/templates/unit_test_template.py` for structure.
+### DO
+- 直接回答问题，先给结论
+- 代码只改必要部分
+- 错误只显示关键行
+- 列表用简洁格式
 
-## Commit & Pull Request Guidelines
-- Use Conventional Commits: `feat: …`, `fix: …`, `docs: …`, `refactor: …`, `test: …`, `chore: …`. Example: `feat(core): add DI container health checks`.
-- PRs must include: clear description, rationale, test coverage, updated docs/CHANGELOG for user‑visible changes, and steps to validate.
-- Before opening PR: run `ruff`, `black`, `mypy`, and `pytest` locally; no new warnings or type errors.
+### DON'T
+- 长篇铺垫解释
+- 重复用户已知信息
+- 粘贴大段代码
+- 过度解释概念
 
-## Security & Configuration Tips
-- Never commit secrets. Configure via `~/.ginkgo/config.yaml` and `~/.ginkgo/secure.yml` (use base64‑encoded credentials as in README).
-- For tests that touch external systems, scope with `database`/`network` markers and provide opt‑in flags.
+## 项目快速参考
 
+### 核心结构
+```
+src/ginkgo/
+├── core/       # 核心基础
+├── trading/    # 交易引擎
+├── data/       # 数据层
+└── livecore/   # 实盘交易
+```
 
-## Active Technologies
-- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic (006-notification-system)
-- ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
+### 常用命令
+```bash
+ginkgo system config set --debug on   # 数据库操作必须
+ginkgo serve api                      # API服务器
+ginkgo serve webui                    # Web界面
+```
 
-## Recent Changes
-- 006-notification-system: Added Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic
+### 关键文件
+- `CLAUDE.md` - 完整项目指南
+- `docs/entity-relationships.md` - 实体关系
+- `MEMORY.md` - 上下文记忆
+
+## 编码规范
+- Python 3.12.8 + 类型提示
+- Black格式化 (120列)
+- 测试优先: `pytest -m "unit and not slow"`
+
+## 重要提醒
+- 数据库操作前必须开debug模式
+- 修改BaseCRUD等基础组件需谨慎
+- 验证修复从前端最终结果判断

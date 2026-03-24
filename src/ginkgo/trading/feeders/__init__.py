@@ -9,5 +9,6 @@
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
 from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
+from ginkgo.trading.feeders.okx_data_feeder import OKXDataFeeder, DataFetchMode
 
-__all__ = ["BaseFeeder", "BacktestFeeder"]
+__all__ = ["BaseFeeder", "BacktestFeeder", "OKXDataFeeder", "DataFetchMode"]

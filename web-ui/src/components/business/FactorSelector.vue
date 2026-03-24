@@ -1,51 +1,55 @@
 <template>
   <div class="factor-selector">
-    <a-card title="因子选择" size="small">
-      <template #extra>
-        <a-input-search
-          v-model:value="searchText"
-          placeholder="搜索因子"
-          style="width: 200px"
-          allow-clear
-          @search="handleSearch"
-        />
-      </template>
+    <div class="card">
+      <div class="card-header">
+        <h4>因子选择</h4>
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input
+            v-model="searchText"
+            type="text"
+            placeholder="搜索因子"
+            class="search-input"
+            @input="handleSearch"
+          />
+        </div>
+      </div>
 
-      <a-tabs v-model:active-tab="categoryTab" size="small">
-        <a-tab-pane key="all" tab="全部因子">
-          <factor-list
-            :factors="filteredFactors"
-            :multiple="multiple"
-            :selected="selectedFactors"
-            @update:selected="handleSelect"
-          />
-        </a-tab-pane>
-        <a-tab-pane key="technical" tab="技术因子">
-          <factor-list
-            :factors="technicalFactors"
-            :multiple="multiple"
-            :selected="selectedFactors"
-            @update:selected="handleSelect"
-          />
-        </a-tab-pane>
-        <a-tab-pane key="fundamental" tab="基本面因子">
-          <factor-list
-            :factors="fundamentalFactors"
-            :multiple="multiple"
-            :selected="selectedFactors"
-            @update:selected="handleSelect"
-          />
-        </a-tab-pane>
-        <a-tab-pane key="alternative" tab="另类因子">
-          <factor-list
-            :factors="alternativeFactors"
-            :multiple="multiple"
-            :selected="selectedFactors"
-            @update:selected="handleSelect"
-          />
-        </a-tab-pane>
-      </a-tabs>
-    </a-card>
+      <div class="card-body">
+        <div class="tabs-header">
+          <button
+            v-for="tab in categoryTabs"
+            :key="tab.key"
+            class="tab-button"
+            :class="{ active: categoryTab === tab.key }"
+            @click="categoryTab = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div class="tab-content">
+          <div class="factor-list">
+            <div
+              v-for="factor in currentFactors"
+              :key="factor.name"
+              class="factor-item"
+              :class="{ selected: selectedFactors.includes(factor.name) }"
+              @click="toggleFactor(factor.name)"
+            >
+              <span class="factor-name">{{ factor.label || factor.name }}</span>
+              <span class="factor-category">{{ getCategoryLabel(factor.category) }}</span>
+            </div>
+            <div v-if="currentFactors.length === 0" class="empty-state">
+              <p>暂无因子</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -86,6 +90,19 @@ const searchText = ref('')
 
 const categoryTab = ref('all')
 
+const categoryTabs = [
+  { key: 'all', label: '全部因子' },
+  { key: 'technical', label: '技术因子' },
+  { key: 'fundamental', label: '基本面因子' },
+  { key: 'alternative', label: '另类因子' }
+]
+
+const categoryLabels: Record<string, string> = {
+  technical: '技术',
+  fundamental: '基本面',
+  alternative: '另类'
+}
+
 // 按类别分组
 const technicalFactors = computed(() =>
   props.factors.filter(f => f.category === 'technical')
@@ -99,16 +116,13 @@ const alternativeFactors = computed(() =>
   props.factors.filter(f => f.category === 'alternative')
 )
 
-// 所有因子
-const allFactors = computed(() => props.factors)
-
-// 过滤后的因子列表
-const filteredFactors = computed(() => {
+// 当前显示的因子列表
+const currentFactors = computed(() => {
   let factors: Factor[] = []
 
   switch (categoryTab.value) {
     case 'all':
-      factors = allFactors.value
+      factors = props.factors
       break
     case 'technical':
       factors = technicalFactors.value
@@ -139,18 +153,26 @@ const selectedFactors = computed({
   set: (val: string[]) => emit('update:modelValue', val)
 })
 
-// 搜索处理
-const handleSearch = (value: string) => {
-  searchText.value = value
+const getCategoryLabel = (category: string) => {
+  return categoryLabels[category] || category
 }
 
-// 选择因子
-const handleSelect = (selected: string[]) => {
-  if (props.multiple) {
-    if (selected.length > (props.maxCount || 10)) {
-      message.warning(`最多只能选择${props.maxCount}个因子`)
+// 搜索处理
+const handleSearch = () => {
+  // 触发计算属性更新
+}
+
+// 切换因子选择
+const toggleFactor = (name: string) => {
+  const idx = selectedFactors.value.indexOf(name)
+  if (idx > -1) {
+    selectedFactors.value.splice(idx, 1)
+  } else {
+    if (props.multiple && selectedFactors.value.length >= (props.maxCount || 10)) {
+      console.warn(`最多只能选择${props.maxCount}个因子`)
       return
     }
+    selectedFactors.value.push(name)
   }
 }
 </script>
@@ -160,36 +182,131 @@ const handleSelect = (selected: string[]) => {
   min-width: 300px;
 }
 
-.factor-selector :deep(.ant-card-head-title) {
-  font-size: 14px;
-  font-weight: 600;
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
 }
 
-.factor-selector :deep(.ant-card-body) {
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 6px 12px;
+  width: 200px;
+}
+
+.search-box svg {
+  color: #8a8a9a;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  padding: 0;
+  margin-left: 8px;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.card-body {
+  padding: 0;
+}
+
+.tabs-header {
+  display: flex;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.tab-button {
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #ffffff;
+}
+
+.tab-button.active {
+  color: #1890ff;
+  border-bottom-color: #1890ff;
+}
+
+.tab-content {
   padding: 12px;
+}
+
+.factor-list {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .factor-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .factor-item:hover {
-  background: #f0f7fa;
+  background: #2a2a3e;
 }
 
-.factor-item-name {
+.factor-item.selected {
+  background: rgba(24, 144, 255, 0.1);
+  border: 1px solid #1890ff;
+}
+
+.factor-name {
   font-size: 13px;
-  color: #1a1a1a;
+  color: #ffffff;
 }
 
-.factor-item-category {
+.factor-category {
   font-size: 11px;
-  color: #8c8c8;
+  color: #8a8a9a;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 13px;
 }
 </style>

@@ -7,26 +7,37 @@
   >
     <div class="menu-header">
       <span class="menu-title">选择组件类型</span>
-      <a-button
-        type="text"
-        size="small"
-        @click="close"
-      >
-        <CloseOutlined />
-      </a-button>
+      <button class="btn-icon" @click="close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
 
     <div class="menu-search">
-      <a-input
-        v-model:value="searchKeyword"
-        placeholder="搜索组件..."
-        size="small"
-        allow-clear
-      >
-        <template #prefix>
-          <SearchOutlined />
-        </template>
-      </a-input>
+      <div class="search-input-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="搜索组件..."
+          class="search-input"
+        />
+        <button
+          v-if="searchKeyword"
+          class="clear-btn"
+          @click="searchKeyword = ''"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="menu-content">
@@ -36,9 +47,9 @@
         class="menu-section"
       >
         <div class="section-header" @click="toggleSection(section.type)">
-          <a-tag :color="section.color">
+          <span class="tag" :class="`tag-${section.color}`">
             {{ section.label }}
-          </a-tag>
+          </span>
           <span class="section-count">({{ section.items.length }})</span>
           <span class="collapse-icon" :class="{ expanded: expandedSections[section.type] }">
             ‹
@@ -51,8 +62,11 @@
             class="menu-item"
             @click="selectComponent(item, section.type)"
           >
-            <div class="item-icon">
-              <component :is="getSectionIcon(section.type)" />
+            <div class="item-icon" :class="`icon-${section.color}`">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6"></path>
+              </svg>
             </div>
             <div class="item-info">
               <div class="item-name">{{ item.name }}</div>
@@ -77,7 +91,6 @@
     </div>
   </div>
 
-  <!-- Custom -->
   <div
     v-if="visible"
     class="menu-overlay"
@@ -87,19 +100,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { message, Tag, Input, Button } from 'ant-design-vue'
-import { CloseOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import {
-  BulbOutlined,
-  FilterOutlined,
-  PartitionOutlined,
-  SafetyOutlined,
-  BarChartOutlined,
-  DatabaseOutlined,
-  BankOutlined,
-  SettingOutlined,
-} from '@ant-design/icons-vue'
-import type { ComponentSummary } from '@/api/modules/components'
+
+interface ComponentSummary {
+  uuid: string
+  name: string
+  type: string
+  description?: string
+  component_type: string
+}
 
 interface Props {
   visible: boolean
@@ -130,18 +138,15 @@ const expandedSections = ref({
 
 // 根据端口类型过滤可用的组件类型
 const availableTypes = computed(() => {
-  // 根据端口数据类型判断可以连接的组件类型
   const portDataType = props.sourcePort?.port
 
   // 定义端口数据类型到组件类型的映射
   const typeMapping: Record<string, string[]> = {
-    // Portfolio 的输出端口可以连接的组件
     'strategy': ['strategy'],
     'selector': ['selector'],
     'sizer': ['sizer'],
     'risk': ['risk'],
     'analyzer': ['analyzer'],
-    // 其他端口类型...
   }
 
   return typeMapping[portDataType || ''] || ['strategy', 'selector', 'sizer', 'risk']
@@ -154,28 +159,24 @@ const menuSections = computed(() => {
       type: 'strategy',
       label: '策略',
       color: 'cyan',
-      icon: BulbOutlined,
       items: props.availableComponents.strategies
     },
     {
       type: 'selector',
       label: '选股器',
       color: 'lime',
-      icon: FilterOutlined,
       items: props.availableComponents.selectors
     },
     {
       type: 'sizer',
       label: '仓位管理',
       color: 'gold',
-      icon: PartitionOutlined,
       items: props.availableComponents.sizers
     },
     {
       type: 'risk',
       label: '风控',
       color: 'red',
-      icon: SafetyOutlined,
       items: props.availableComponents.risks
     },
   ]
@@ -209,17 +210,6 @@ const toggleSection = (type: string) => {
     !expandedSections.value[type as keyof typeof expandedSections.value]
 }
 
-// 获取区域图标
-const getSectionIcon = (type: string) => {
-  const icons: Record<string, any> = {
-    strategy: BulbOutlined,
-    selector: FilterOutlined,
-    sizer: PartitionOutlined,
-    risk: SafetyOutlined,
-  }
-  return icons[type] || SettingOutlined
-}
-
 // 选择组件
 const selectComponent = (component: ComponentSummary, nodeType: string) => {
   emit('select', {
@@ -246,140 +236,251 @@ watch(searchKeyword, (newVal) => {
 })
 </script>
 
-<style scoped lang="less">
+<style scoped>
 .node-create-menu {
   position: fixed;
   width: 320px;
   max-height: 480px;
-  background: #fff;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
 
-  .menu-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid #f0f0f0;
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a3e;
+}
 
-    .menu-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #1a1a1a;
-    }
-  }
+.menu-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
 
-  .menu-search {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
-  }
+.btn-icon {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  .menu-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-  }
+.btn-icon:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
 
-  .menu-section {
-    margin-bottom: 8px;
+.menu-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid #2a2a3e;
+}
 
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
 
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px;
-    cursor: pointer;
-    user-select: none;
-    border-radius: 6px;
-    transition: background 0.2s;
+.search-input-wrapper svg {
+  color: #8a8a9a;
+  flex-shrink: 0;
+}
 
-    &:hover {
-      background: #f5f5f5;
-    }
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  padding: 0;
+  outline: none;
+}
 
-    .section-count {
-      margin-left: 2px;
-      font-size: 11px;
-      color: #999;
-    }
+.search-input::placeholder {
+  color: #8a8a9a;
+}
 
-    .collapse-icon {
-      margin-left: auto;
-      font-size: 14px;
-      color: #999;
-      transition: transform 0.2s;
+.clear-btn {
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
 
-      &.expanded {
-        transform: rotate(90deg);
-      }
-    }
-  }
+.clear-btn:hover {
+  color: #ffffff;
+  background: #3a3a4e;
+}
 
-  .section-list {
-    padding: 4px 0 8px 4px;
-  }
+.menu-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
 
-  .menu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+.menu-section {
+  margin-bottom: 8px;
+}
 
-    &:hover {
-      background: #f0f9ff;
-    }
+.menu-section:last-child {
+  margin-bottom: 0;
+}
 
-    .item-icon {
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #e6f7ff;
-      border-radius: 6px;
-      color: #1890ff;
-      flex-shrink: 0;
-    }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
 
-    .item-info {
-      flex: 1;
-      min-width: 0;
+.section-header:hover {
+  background: #2a2a3e;
+}
 
-      .item-name {
-        font-size: 13px;
-        font-weight: 500;
-        color: #1a1a1a;
-        margin-bottom: 2px;
-      }
+.section-count {
+  margin-left: 2px;
+  font-size: 11px;
+  color: #8a8a9a;
+}
 
-      .item-desc {
-        font-size: 11px;
-        color: #999;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-  }
+.collapse-icon {
+  margin-left: auto;
+  font-size: 14px;
+  color: #8a8a9a;
+  transition: transform 0.2s;
+}
 
-  .empty-hint {
-    padding: 24px;
-    text-align: center;
-    font-size: 13px;
-    color: #999;
-  }
+.collapse-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.section-list {
+  padding: 4px 0 8px 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-item:hover {
+  background: #2a2a3e;
+}
+
+.item-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.item-icon.icon-cyan {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+}
+
+.item-icon.icon-lime {
+  background: rgba(153, 204, 51, 0.2);
+  color: #99cc33;
+}
+
+.item-icon.icon-gold {
+  background: rgba(250, 204, 21, 0.2);
+  color: #face15;
+}
+
+.item-icon.icon-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.item-desc {
+  font-size: 11px;
+  color: #8a8a9a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-hint {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-cyan {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+}
+
+.tag-lime {
+  background: rgba(153, 204, 51, 0.2);
+  color: #99cc33;
+}
+
+.tag-gold {
+  background: rgba(250, 204, 21, 0.2);
+  color: #face15;
+}
+
+.tag-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
 }
 
 .menu-overlay {

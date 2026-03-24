@@ -1,7 +1,7 @@
 <template>
   <div v-if="visible" class="loading-overlay" @click="handleMaskClick">
     <div class="loading-spinner">
-      <a-spin size="large" />
+      <div class="spinner-icon"></div>
       <span class="loading-text">{{ text }}</span>
     </div>
   </div>
@@ -47,8 +47,21 @@ const handleMaskClick = () => {
   gap: 16px;
 }
 
+.spinner-icon {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .loading-text {
-  margin-top: 12px;
-  color: white;
+  color: #ffffff;
+  font-size: 14px;
 }
 </style>

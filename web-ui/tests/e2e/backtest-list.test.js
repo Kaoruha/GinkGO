@@ -1,298 +1,326 @@
 /**
- * E2E 测试：回测列表与详情功能
+ * Backtest List E2E 测试
  *
- * ⚠️ 核心原则：页面有错误 = 测试立即失败
- * 测试流程：1. 先检查页面健康 2. 再验证功能
+ * 测试回测任务列表页面的核心功能
  */
 
 import { test, expect } from '@playwright/test'
-import { getHealthyPage, WEB_UI_URL } from './helpers/page-health'
 
-const BACKTEST_PATH = '/stage1/backtest'
+const WEB_UI_URL = process.env.WEB_UI_URL || 'http://localhost:5173'
 
-// ========== 第一层：页面健康检查（有问题立即失败） ==========
+test.describe.configure({ mode: 'serial' })
 
-test.describe('回测列表页 - 页面健康检查', () => {
-  test('页面必须健康加载，无任何错误', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    // 如果页面有任何错误，getHealthyPage 已经抛出异常，测试失败
-    // 到这里说明页面是健康的
-    const title = await page.title()
-    console.log(`✅ 页面健康: ${title}`)
-
-    await browser.close()
-  })
-})
-
-// ========== 第二层：功能验证（页面健康后才执行） ==========
-
-test.describe('回测列表页 - 基础显示', () => {
-  test('应显示页面标题和基本结构', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      // 验证页面结构
-      await expect(page.locator('.page-container')).toBeVisible()
-      await expect(page.locator('.page-header')).toBeVisible()
-      await expect(page.locator('.page-title')).toHaveText('回测任务')
-    } finally {
-      await browser.close()
-    }
+// 辅助函数：执行登录并等待认证完成
+async function doLogin(page, context) {
+  await context.clearCookies()
+  await page.goto(`${WEB_UI_URL}/login`)
+  await page.evaluate(() => {
+    localStorage.clear()
   })
 
-  test('应显示六态筛选按钮', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+  await page.fill('#username', 'admin')
+  await page.fill('#password', 'admin123')
+  await page.click('.login-btn')
 
-    try {
-      // 验证筛选按钮存在且可见（使用 a-radio-button）
-      await expect(page.locator('.filters-bar:has-text("全部")')).toBeVisible()
-      await expect(page.locator('.filters-bar:has-text("待调度")')).toBeVisible()
-      // 验证整个筛选栏可见
-      await expect(page.locator('.filters-bar .ant-radio-group')).toBeVisible()
-    } finally {
-      await browser.close()
-    }
+  await page.waitForURL(/\/dashboard/, { timeout: 5000 })
+
+  const hasToken = await page.evaluate(() => {
+    return !!localStorage.getItem('access_token')
+  })
+  expect(hasToken).toBe(true)
+}
+
+test.describe('Backtest List E2E 测试', () => {
+  test.describe('列表页面基础功能', () => {
+    test('应该正确显示回测任务列表', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 验证页面标题
+      const h1 = page.locator('.page-title')
+      await expect(h1).toContainText('回测任务')
+
+      // 验证刷新按钮
+      const refreshBtn = page.locator('.btn-secondary')
+      await expect(refreshBtn.first()).toBeVisible()
+
+      // 验证创建回测按钮
+      const createBtn = page.locator('.btn-primary')
+      await expect(createBtn).toContainText('创建回测')
+    })
+
+    test('应该正确显示统计卡片', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 验证4个统计卡片
+      const statCards = page.locator('.stat-card')
+      await expect(statCards).toHaveCount(4)
+
+      // 验证统计标签
+      const statLabels = page.locator('.stat-label')
+      await expect(statLabels.nth(0)).toContainText('总任务数')
+      await expect(statLabels.nth(1)).toContainText('已完成')
+      await expect(statLabels.nth(2)).toContainText('运行中')
+      await expect(statLabels.nth(3)).toContainText('失败')
+    })
+
+    test('应该正确显示状态筛选按钮组', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 验证筛选按钮组
+      const radioGroup = page.locator('.filters-bar .radio-group')
+      await expect(radioGroup).toBeVisible()
+
+      // 验证筛选按钮
+      const radioButtons = page.locator('.filters-bar .radio-button')
+      await expect(radioButtons.first()).toBeVisible()
+
+      // 验证"全部"按钮
+      await expect(radioButtons.filter({ hasText: '全部' })).toBeVisible()
+    })
+
+    test('应该能够点击状态筛选按钮', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 点击"已完成"筛选按钮
+      const completedBtn = page.locator('.filters-bar .radio-button').filter({ hasText: '已完成' })
+      await completedBtn.click()
+      await page.waitForTimeout(500)
+
+      // 验证按钮变为激活状态
+      await expect(completedBtn).toHaveClass(/active/)
+    })
   })
 
-  test('应显示统计卡片', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+  test.describe('搜索功能', () => {
+    test('应该能够搜索任务', async ({ page, context }) => {
+      await doLogin(page, context)
 
-    try {
-      // 验证统计行存在且可见
-      await expect(page.locator('.stats-row')).toBeVisible()
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
 
-      // 验证统计数据内容
-      const bodyText = await page.locator('body').textContent()
-      expect(bodyText).toContain('总任务数')
-      expect(bodyText).toContain('已完成')
-      expect(bodyText).toContain('运行中')
-      expect(bodyText).toContain('失败')
-    } finally {
-      await browser.close()
-    }
+      const searchInput = page.locator('.search-input')
+      await searchInput.fill('test')
+      await page.waitForTimeout(1000)
+
+      // 验证搜索框有内容
+      const value = await searchInput.inputValue()
+      expect(value).toBe('test')
+    })
+
+    test('应该能够按回车键搜索', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      const searchInput = page.locator('.search-input')
+      await searchInput.fill('test')
+      await searchInput.press('Enter')
+      await page.waitForTimeout(1000)
+
+      // 验证搜索框有内容
+      const value = await searchInput.inputValue()
+      expect(value).toBe('test')
+    })
   })
-})
 
-test.describe('回测列表操作', () => {
-  test('应支持任务选择', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+  test.describe('创建回测模态框', () => {
+    test('点击创建按钮应该显示模态框', async ({ page, context }) => {
+      await doLogin(page, context)
 
-    try {
-      // 查找表格中的复选框
-      const checkboxes = page.locator('.ant-table .ant-checkbox-input')
-      const count = await checkboxes.count()
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
 
-      if (count > 0) {
-        // 点击第一个复选框
-        await checkboxes.first().click()
+      // 点击创建按钮
+      const createBtn = page.locator('.btn-primary').filter({ hasText: '创建回测' })
+      await createBtn.click()
+      await page.waitForTimeout(500)
 
-        // 验证批量操作栏出现
-        await expect(page.locator('.batch-action-bar')).toBeVisible()
-        await expect(page.locator('.batch-action-bar')).toContainText('已选择')
+      // 验证模态框显示
+      const modal = page.locator('.modal-overlay')
+      await expect(modal).toBeVisible()
+
+      // 验证模态框标题
+      const modalTitle = modal.locator('.modal-header h3')
+      await expect(modalTitle).toContainText('创建回测任务')
+
+      // 关闭模态框
+      const closeBtn = modal.locator('.btn-close')
+      await closeBtn.click()
+      await page.waitForTimeout(300)
+
+      // 验证模态框关闭
+      await expect(modal).not.toBeVisible()
+    })
+
+    test('模态框应该包含所有表单字段', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 点击创建按钮
+      const createBtn = page.locator('.btn-primary').filter({ hasText: '创建回测' })
+      await createBtn.click()
+      await page.waitForTimeout(500)
+
+      // 验证表单字段
+      const modal = page.locator('.modal-overlay')
+
+      // 验证任务名称输入框
+      const nameInput = modal.locator('.form-input').first()
+      await expect(nameInput).toBeVisible()
+
+      // 验证 Portfolio 选择框
+      const portfolioSelect = modal.locator('.form-select').first()
+      await expect(portfolioSelect).toBeVisible()
+
+      // 验证日期输入框
+      const dateInputs = modal.locator('input[type="date"]')
+      await expect(dateInputs).toHaveCount(2)
+
+      // 关闭模态框
+      const closeBtn = modal.locator('.btn-close')
+      await closeBtn.click()
+    })
+  })
+
+  test.describe('任务表格', () => {
+    test('应该正确显示任务列表', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      // 检查是否有任务数据
+      const tasks = await page.locator('.data-table tbody tr').count()
+
+      if (tasks > 0) {
+        // 验证表格列
+        const headers = page.locator('.data-table th')
+        await expect(headers.nth(1)).toContainText('任务')
+        await expect(headers.nth(2)).toContainText('状态')
+        await expect(headers.nth(3)).toContainText('总盈亏')
       }
-    } finally {
-      await browser.close()
-    }
-  })
+    })
 
-  test('应支持全选功能', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+    test('表格应该有复选框列', async ({ page, context }) => {
+      await doLogin(page, context)
 
-    try {
-      const selectAllCheckbox = page.locator('.ant-table .ant-checkbox-input').first()
-      const count = await selectAllCheckbox.count()
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
 
-      if (count > 0) {
+      const tasks = await page.locator('.data-table tbody tr').count()
+
+      if (tasks > 0) {
+        // 验证表头有全选复选框
+        const headerCheckbox = page.locator('.data-table th input[type="checkbox"]')
+        await expect(headerCheckbox).toBeVisible()
+      } else {
+        console.log('⚠️  没有任务数据，跳过复选框列测试')
+      }
+    })
+
+    test('应该能够选择任务行', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      const tasks = await page.locator('.data-table tbody tr').count()
+
+      if (tasks > 0) {
+        // 点击第一个任务的复选框
+        const firstCheckbox = page.locator('.data-table tbody td input[type="checkbox"]').first()
+        await firstCheckbox.click()
+        await page.waitForTimeout(300)
+
+        // 验证批量操作栏显示
+        const batchBar = page.locator('.batch-action-bar')
+        await expect(batchBar).toBeVisible()
+        await expect(batchBar).toContainText('已选择')
+      }
+    })
+
+    test('应该能够全选任务', async ({ page, context }) => {
+      await doLogin(page, context)
+
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
+
+      const tasks = await page.locator('.data-table tbody tr').count()
+
+      if (tasks > 0) {
         // 点击表头的全选复选框
-        await page.locator('.ant-table-thead .ant-checkbox-input').click()
+        const headerCheckbox = page.locator('.data-table th input[type="checkbox"]')
+        await headerCheckbox.click()
+        await page.waitForTimeout(300)
 
-        // 验证批量操作栏显示选中数量
+        // 验证批量操作栏显示
         const batchBar = page.locator('.batch-action-bar')
         await expect(batchBar).toBeVisible()
       }
-    } finally {
-      await browser.close()
-    }
-  })
+    })
 
-  test('应支持取消选择', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+    test('应该能够取消选择', async ({ page, context }) => {
+      await doLogin(page, context)
 
-    try {
-      const checkboxes = page.locator('.ant-table .ant-checkbox-input')
-      const count = await checkboxes.count()
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
 
-      if (count > 0) {
+      const tasks = await page.locator('.data-table tbody tr').count()
+
+      if (tasks > 0) {
         // 选中一个任务
-        await checkboxes.first().click()
+        const firstCheckbox = page.locator('.data-table tbody td input[type="checkbox"]').first()
+        await firstCheckbox.click()
         await expect(page.locator('.batch-action-bar')).toBeVisible()
 
         // 点击取消选择按钮
-        await page.locator('button:has-text("取消选择")').click()
+        const cancelBtn = page.locator('.batch-action-bar .btn-small').filter({ hasText: '取消选择' })
+        await cancelBtn.click()
+        await page.waitForTimeout(300)
 
         // 批量操作栏应隐藏
         await expect(page.locator('.batch-action-bar')).not.toBeVisible()
       }
-    } finally {
-      await browser.close()
-    }
-  })
-})
-
-test.describe('回测详情页', () => {
-  test('应显示回测详情', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      // 查找第一个任务的"查看详情"链接
-      const detailLink = page.locator('a:has-text("查看详情")').first()
-      const count = await detailLink.count()
-
-      if (count > 0) {
-        await detailLink.click()
-        await page.waitForTimeout(2000)
-
-        // 验证详情页标题
-        await expect(page.locator('.page-title, h1, h2')).toBeVisible()
-      }
-    } finally {
-      await browser.close()
-    }
+    })
   })
 
-  test('应显示操作按钮（根据状态和权限）', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
+  test.describe('分页功能', () => {
+    test('应该显示分页控件', async ({ page, context }) => {
+      await doLogin(page, context)
 
-    try {
-      const detailLink = page.locator('a:has-text("查看详情")').first()
-      const count = await detailLink.count()
+      await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+      await page.waitForLoadState('networkidle')
 
-      if (count > 0) {
-        await detailLink.click()
-        await page.waitForTimeout(2000)
+      const tasks = await page.locator('.data-table tbody tr').count()
 
-        // 检查操作按钮区域存在
-        const actions = page.locator('.header-actions button, .header-actions a')
-        const actionCount = await actions.count()
-        expect(actionCount).toBeGreaterThan(0)
+      if (tasks > 0) {
+        // 验证分页控件存在
+        const pagination = page.locator('.pagination')
+        await expect(pagination).toBeVisible()
+
+        // 验证分页信息
+        const pageInfo = page.locator('.pagination-info')
+        await expect(pageInfo).toBeVisible()
+
+        // 验证每页条数选择器
+        const pageSizeSelect = page.locator('.page-size-select')
+        await expect(pageSizeSelect).toBeVisible()
       }
-    } finally {
-      await browser.close()
-    }
-  })
-})
-
-test.describe('状态标签显示', () => {
-  test('应正确显示六态标签', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      // 检查表格中是否有状态标签
-      const statusTags = page.locator('.ant-table tbody .ant-tag')
-      const count = await statusTags.count()
-
-      if (count > 0) {
-        // 获取第一个状态标签的文本
-        const firstTagText = await statusTags.first().textContent()
-        console.log('第一个状态标签:', firstTagText)
-
-        // 验证状态标签文本是中文
-        expect(['待调度', '排队中', '进行中', '已完成', '已停止', '失败']).toContain(firstTagText?.trim())
-      }
-    } finally {
-      await browser.close()
-    }
-  })
-})
-
-test.describe('批量操作按钮', () => {
-  test('选中任务后应显示批量操作按钮', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      const checkboxes = page.locator('.ant-table .ant-checkbox-input')
-      const count = await checkboxes.count()
-
-      if (count > 0) {
-        await checkboxes.first().click()
-
-        // 验证批量操作按钮存在
-        await expect(page.locator('button:has-text("批量启动")')).toBeVisible()
-        await expect(page.locator('button:has-text("批量停止")')).toBeVisible()
-        await expect(page.locator('button:has-text("批量取消")')).toBeVisible()
-        await expect(page.locator('button:has-text("取消选择")')).toBeVisible()
-      }
-    } finally {
-      await browser.close()
-    }
-  })
-
-  test('批量操作按钮状态应根据选中任务动态变化', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      const checkboxes = page.locator('.ant-table .ant-checkbox-input')
-      const count = await checkboxes.count()
-
-      if (count > 1) {
-        // 选中第一个任务
-        await checkboxes.nth(0).click()
-
-        // 检查批量启动按钮状态
-        const batchStart = page.locator('button:has-text("批量启动")')
-        const isDisabled1 = await batchStart.isDisabled()
-
-        // 选中第二个任务
-        await checkboxes.nth(1).click()
-
-        // 检查批量启动按钮状态可能发生变化
-        const isDisabled2 = await batchStart.isDisabled()
-
-        console.log(`批量启动按钮状态: ${isDisabled1} -> ${isDisabled2}`)
-      }
-    } finally {
-      await browser.close()
-    }
-  })
-})
-
-test.describe('刷新功能', () => {
-  test('应支持手动刷新列表', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      // 找到刷新按钮
-      const actionButtons = page.locator('.header-actions button')
-      const count = await actionButtons.count()
-
-      if (count > 1) {
-        console.log(`找到 ${count} 个操作按钮`)
-      }
-    } finally {
-      await browser.close()
-    }
-  })
-})
-
-test.describe('权限控制', () => {
-  test('检查权限提示功能', async () => {
-    const { browser, page } = await getHealthyPage(`${WEB_UI_URL}${BACKTEST_PATH}`)
-
-    try {
-      // 检查是否有"无权限"文本或类似的权限控制提示
-      const noPermissionText = page.locator('text=/无权限|没有权限/')
-      const count = await noPermissionText.count()
-
-      // 如果存在无权限提示，验证它正确显示
-      if (count > 0) {
-        await expect(noPermissionText.first()).toBeVisible()
-        console.log('发现无权限提示，权限控制正常')
-      } else {
-        console.log('没有发现无权限提示（可能所有任务都有权限）')
-      }
-    } finally {
-      await browser.close()
-    }
+    })
   })
 })

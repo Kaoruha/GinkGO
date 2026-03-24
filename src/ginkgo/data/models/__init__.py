@@ -31,6 +31,9 @@ from ginkgo.data.models.model_position import MPosition
 from ginkgo.data.models.model_position_record import MPositionRecord
 from ginkgo.data.models.model_signal import MSignal
 from ginkgo.data.models.model_stock_info import MStockInfo
+from ginkgo.data.models.model_live_account import MLiveAccount
+from ginkgo.data.models.model_broker_instance import MBrokerInstance
+from ginkgo.data.models.model_trade_record import MTradeRecord
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.data.models.model_tick_summary import MTickSummary
 from ginkgo.data.models.model_trade_day import MTradeDay
@@ -62,6 +65,8 @@ __all__ = [
     "MFactor",
     "MFile",
     "MHandler",
+    "MLiveAccount",
+    "MBrokerInstance",
     "MParam",
     "MMysqlBase",
     "MMongoBase",
@@ -73,6 +78,7 @@ __all__ = [
     "MPositionRecord",
     "MSignal",
     "MStockInfo",
+    "MTradeRecord",
     "MTick",
     "MTickSummary",
     "MTradeDay",

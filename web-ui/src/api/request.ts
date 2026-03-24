@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { message } from 'ant-design-vue'
+import { message as toast } from '@/utils/toast'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
 const service: AxiosInstance = axios.create({
   baseURL,
@@ -13,6 +13,13 @@ const service: AxiosInstance = axios.create({
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('access_token')
+    // 调试日志
+    console.log('[Request Interceptor]', {
+      url: config.url,
+      method: config.method,
+      hasToken: !!token,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : null
+    })
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
@@ -58,13 +65,13 @@ service.interceptors.response.use(
 
     // 403 禁止访问
     if (status === 403) {
-      message.error('没有权限执行此操作')
+      toast.error('没有权限执行此操作')
       return Promise.reject(error)
     }
 
     // 其他错误
     const errorMsg = (error.response?.data as any)?.message || error.message || '请求失败'
-    message.error(errorMsg)
+    toast.error(errorMsg)
     return Promise.reject(error)
   }
 )

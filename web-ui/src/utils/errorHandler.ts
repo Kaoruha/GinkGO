@@ -4,7 +4,7 @@
  * 提供 API 错误的统一处理机制，包括错误分类、友好消息映射和自动化错误处理。
  */
 
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 import type { AxiosError } from 'axios'
 
 /**

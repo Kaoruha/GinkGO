@@ -1,314 +1,271 @@
 <template>
-  <div class="component-editor flex flex-col bg-white text-gray-900 h-full">
-    <!-- Custom -->
-    <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-      <div class="flex items-center space-x-2">
-        <span class="text-lg font-semibold">{{ componentInfo?.name || '加载中...' }}</span>
-        <a-tag :color="getComponentTypeColor(componentInfo?.component_type)">
+  <div class="component-editor">
+    <!-- Header -->
+    <div class="editor-header">
+      <div class="header-left">
+        <span class="component-name">{{ componentInfo?.name || '加载中...' }}</span>
+        <span class="tag" :class="`tag-${getComponentTypeColor(componentInfo?.component_type)}`">
           {{ getComponentTypeLabel(componentInfo?.component_type) }}
-        </a-tag>
+        </span>
       </div>
-      <div class="flex items-center">
-        <!-- Custom -->
+      <div class="header-right">
       </div>
     </div>
 
-    <!-- Custom -->
-    <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <!-- Custom -->
-      <div class="flex-1 flex overflow-hidden min-h-0">
-        <!-- Custom -->
-        <div class="w-60 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0">
-          <div class="p-3">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">
-              组件信息
-            </h3>
-            <div class="space-y-2">
-              <div>
-                <label class="text-xs text-gray-500">组件名称</label>
-                <a-input
-                  v-model:value="componentForm.name"
-                  size="small"
-                  class="mt-1"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500">描述</label>
-                <a-textarea
-                  v-model:value="componentForm.description"
-                  :rows="2"
-                  size="small"
-                  class="mt-1"
-                />
-              </div>
+    <!-- Main Content -->
+    <div class="editor-content">
+      <div class="editor-main">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="sidebar-section">
+            <h3 class="section-title">组件信息</h3>
+            <div class="form-group">
+              <label class="form-label">组件名称</label>
+              <input
+                v-model="componentForm.name"
+                type="text"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">描述</label>
+              <textarea
+                v-model="componentForm.description"
+                :rows="2"
+                class="form-textarea"
+              ></textarea>
             </div>
           </div>
 
-          <!-- Custom -->
-          <div class="p-3 border-t border-gray-200">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">
-              参数配置
-            </h3>
-            <div class="space-y-2">
-              <div
-                v-for="(param, key) in parameters"
-                :key="key"
-                class="text-xs"
-              >
-                <label class="text-gray-500">{{ key }}</label>
-                <a-input
-                  v-model:value="param.value"
-                  size="small"
-                />
-              </div>
+          <div class="sidebar-section">
+            <h3 class="section-title">参数配置</h3>
+            <div
+              v-for="(param, key) in parameters"
+              :key="key"
+              class="form-group"
+            >
+              <label class="form-label">{{ key }}</label>
+              <input
+                v-model="param.value"
+                type="text"
+                class="form-input"
+              />
             </div>
           </div>
 
-          <!-- Custom -->
-          <div class="p-3 border-t border-gray-200">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">
-              测试配置
-            </h3>
-            <div class="space-y-2">
-              <div>
-                <label class="text-xs text-gray-500">测试股票代码</label>
-                <a-select
-                  v-model:value="testConfig.code"
-                  size="small"
-                  class="w-full mt-1"
-                  show-search
-                >
-                  <a-select-option
-                    v-for="stock in testStocks"
-                    :key="stock.code"
-                    :value="stock.code"
-                  >
-                    {{ stock.code }} - {{ stock.name || '未知' }}
-                  </a-select-option>
-                </a-select>
-              </div>
-              <div>
-                <label class="text-xs text-gray-500">测试日期范围</label>
-                <a-range-picker
-                  v-model:value="testConfig.dateRange"
-                  size="small"
-                  class="w-full mt-1"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500">初始资金</label>
-                <a-input-number
-                  v-model:value="testConfig.initialCash"
-                  :min="10000"
-                  :step="10000"
-                  size="small"
-                  class="w-full mt-1"
-                />
-              </div>
-              <a-button
-                :loading="testing"
-                type="primary"
-                class="w-full mt-2"
-                block
-                @click="runTest"
-              >
-                <template #icon>
-                  <PlayCircleOutlined />
-                </template>
-                运行测试
-              </a-button>
+          <div class="sidebar-section">
+            <h3 class="section-title">测试配置</h3>
+            <div class="form-group">
+              <label class="form-label">测试股票代码</label>
+              <select v-model="testConfig.code" class="form-select">
+                <option v-for="stock in testStocks" :key="stock.code" :value="stock.code">
+                  {{ stock.code }} - {{ stock.name || '未知' }}
+                </option>
+              </select>
             </div>
+            <div class="form-group">
+              <label class="form-label">测试日期范围</label>
+              <div class="date-range">
+                <input
+                  v-model="testConfig.startDate"
+                  type="date"
+                  class="form-input"
+                />
+                <span>至</span>
+                <input
+                  v-model="testConfig.endDate"
+                  type="date"
+                  class="form-input"
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">初始资金</label>
+              <input
+                v-model.number="testConfig.initialCash"
+                type="number"
+                :min="10000"
+                :step="10000"
+                class="form-input"
+              />
+            </div>
+            <button
+              class="btn btn-primary btn-block"
+              :disabled="testing"
+              @click="runTest"
+            >
+              <svg v-if="!testing" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 12 12 12 5 21 5 21 12"></polygon>
+              </svg>
+              {{ testing ? '测试中...' : '运行测试' }}
+            </button>
           </div>
         </div>
 
-        <!-- Custom -->
-        <div class="flex-1 flex flex-col min-w-0">
-          <div class="flex-1 relative bg-white min-h-0">
-            <!-- Custom -->
-            <div class="absolute top-3 right-3 z-10">
-              <a-button
-                :loading="saving"
-                type="primary"
-                @click="saveComponent"
-              >
-                <template #icon>
-                  <SaveOutlined />
-                </template>
-                保存
-              </a-button>
-            </div>
-            <!-- CodeMirror  -->
-            <codemirror
-              v-model="code"
-              :style="{ height: '100%' }"
-              :extensions="extensions"
-              :autofocus="true"
-            />
+        <!-- Editor Area -->
+        <div class="editor-area">
+          <div class="editor-toolbar">
+            <button
+              class="btn btn-primary"
+              :disabled="saving"
+              @click="saveComponent"
+            >
+              <svg v-if="!saving" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              {{ saving ? '保存中...' : '保存' }}
+            </button>
           </div>
+          <codemirror
+            v-model="code"
+            :style="{ height: '100%' }"
+            :extensions="extensions"
+            :autofocus="true"
+          />
         </div>
       </div>
 
-      <!-- Custom -->
+      <!-- Bottom Panel -->
       <div
-        class="border-t border-gray-200 bg-gray-50 flex-shrink-0 transition-all duration-300"
+        class="bottom-panel"
         :style="{ height: panelHeight }"
       >
-        <!-- / -->
-        <div
-          class="flex items-center justify-between px-3 py-1 border-b border-gray-200 bg-white cursor-pointer"
-          @click="togglePanel"
-        >
-          <span class="text-xs font-medium text-gray-600">测试结果</span>
-          <div class="flex items-center space-x-2">
-            <!-- Custom -->
+        <div class="panel-header" @click="togglePanel">
+          <span class="panel-title">测试结果</span>
+          <div class="panel-actions">
             <span
               v-if="testResult"
-              class="text-xs text-gray-500"
+              class="panel-stat"
+              :class="testResult.returnRate >= 0 ? 'text-green' : 'text-red'"
             >
-              收益率: <span :class="testResult.returnRate >= 0 ? 'text-green-600' : 'text-red-600'">{{ testResult.returnRate?.toFixed(2) }}%</span>
+              收益率: {{ testResult.returnRate?.toFixed(2) }}%
             </span>
-            <a-button
-              size="small"
-              type="text"
-              class="p-0 h-6 w-6 flex items-center justify-center"
-            >
-              <template #icon>
-                <DownOutlined v-if="!isPanelCollapsed" />
-                <UpOutlined v-else />
-              </template>
-            </a-button>
+            <button class="btn-icon">
+              <svg v-if="!isPanelCollapsed" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 15 15"></polyline>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="18 15 12 9 9 9"></polyline>
+              </svg>
+            </button>
           </div>
         </div>
 
-        <!-- Custom -->
         <div
           v-show="!isPanelCollapsed"
-          class="overflow-hidden"
-          style="height: calc(100% - 32px)"
+          class="panel-content"
         >
-          <a-tabs
-            v-model:active-key="activeTab"
-            class="h-full"
-          >
-            <template #rightExtra>
-              <a-button
-                size="small"
-                type="text"
-                @click.stop="clearLogs"
+          <div class="tabs-header">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              class="tab-button"
+              :class="{ active: activeTab === tab.key }"
+              @click="activeTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+            <button class="tab-clear" @click="clearLogs">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Logs Tab -->
+          <div v-show="activeTab === 'logs'" class="tab-panel">
+            <div class="logs-container">
+              <div
+                v-if="logs.length === 0"
+                class="empty-hint"
               >
-                <template #icon>
-                  <ClearOutlined />
-                </template>
-              </a-button>
-            </template>
-
-            <!-- Custom -->
-            <a-tab-pane
-              key="logs"
-              tab="日志"
-            >
-              <div class="h-48 overflow-y-auto p-2 font-mono text-xs bg-white">
-                <div
-                  v-if="logs.length === 0"
-                  class="text-gray-400 text-center py-4"
-                >
-                  运行测试后查看日志
-                </div>
-                <div
-                  v-for="(log, index) in logs"
-                  :key="index"
-                  class="mb-1"
-                >
-                  <span :class="getLogClass(log.level)">[{{ log.level }}]</span>
-                  <span class="text-gray-400">{{ log.time }}</span>
-                  <span :class="getLogClass(log.level)">{{ log.message }}</span>
-                </div>
+                运行测试后查看日志
               </div>
-            </a-tab-pane>
-
-            <!-- Custom -->
-            <a-tabPane
-              key="charts"
-              tab="图表"
-            >
-              <div class="h-48 overflow-y-auto p-2 bg-white">
-                <div
-                  v-if="!testResult"
-                  class="text-gray-400 text-center py-4"
-                >
-                  运行测试后查看图表
-                </div>
-                <div
-                  v-else
-                  ref="chartContainer"
-                  class="w-full h-40"
-                />
+              <div
+                v-for="(log, index) in logs"
+                :key="index"
+                class="log-line"
+                :class="`log-${log.level.toLowerCase()}`"
+              >
+                <span class="log-level">[{{ log.level }}]</span>
+                <span class="log-time">{{ log.time }}</span>
+                <span class="log-message">{{ log.message }}</span>
               </div>
-            </a-tabPane>
+            </div>
+          </div>
 
-            <!-- Custom -->
-            <a-tabPane
-              key="output"
-              tab="输出"
+          <!-- Charts Tab -->
+          <div v-show="activeTab === 'charts'" class="tab-panel">
+            <div
+              v-if="!testResult"
+              class="empty-hint"
             >
-              <div class="h-48 overflow-y-auto p-2 bg-white">
-                <pre
-                  v-if="testOutput"
-                  class="text-xs text-gray-700 whitespace-pre-wrap"
-                >{{ testOutput }}</pre>
-                <div
-                  v-else
-                  class="text-gray-400 text-center py-4"
-                >
-                  运行测试后查看输出
-                </div>
-              </div>
-            </a-tabPane>
+              运行测试后查看图表
+            </div>
+            <div
+              v-else
+              ref="chartContainer"
+              class="chart-container"
+            ></div>
+          </div>
 
-            <!-- Custom -->
-            <a-tabPane
-              key="stats"
-              tab="统计"
-            >
-              <div class="h-48 overflow-y-auto p-3 bg-white">
-                <div
-                  v-if="testResult"
-                  class="space-y-2 text-xs"
-                >
-                  <div class="flex justify-between py-1 border-b border-gray-100">
-                    <span class="text-gray-500">初始资金:</span>
-                    <span class="text-gray-900">¥{{ testResult.initialCash?.toFixed(2) }}</span>
-                  </div>
-                  <div class="flex justify-between py-1 border-b border-gray-100">
-                    <span class="text-gray-500">最终净值:</span>
-                    <span :class="testResult.finalValue >= testResult.initialCash ? 'text-green-600' : 'text-red-600'">
-                      ¥{{ testResult.finalValue?.toFixed(2) || '0.00' }}
-                    </span>
-                  </div>
-                  <div class="flex justify-between py-1 border-b border-gray-100">
-                    <span class="text-gray-500">收益率:</span>
-                    <span :class="testResult.returnRate >= 0 ? 'text-green-600' : 'text-red-600'">
-                      {{ testResult.returnRate?.toFixed(2) || '0.00' }}%
-                    </span>
-                  </div>
-                  <div class="flex justify-between py-1 border-b border-gray-100">
-                    <span class="text-gray-500">交易次数:</span>
-                    <span class="text-gray-900">{{ testResult.tradeCount || 0 }}</span>
-                  </div>
-                  <div class="flex justify-between py-1">
-                    <span class="text-gray-500">胜率:</span>
-                    <span class="text-gray-900">{{ testResult.winRate?.toFixed(2) || '0.00' }}%</span>
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="text-gray-400 text-center py-4"
-                >
-                  点击"运行测试"查看统计
-                </div>
+          <!-- Output Tab -->
+          <div v-show="activeTab === 'output'" class="tab-panel">
+            <div class="output-container">
+              <pre
+                v-if="testOutput"
+                class="output-text"
+              >{{ testOutput }}</pre>
+              <div
+                v-else
+                class="empty-hint"
+              >
+                运行测试后查看输出
               </div>
-            </a-tabPane>
-          </a-tabs>
+            </div>
+          </div>
+
+          <!-- Stats Tab -->
+          <div v-show="activeTab === 'stats'" class="tab-panel">
+            <div
+              v-if="testResult"
+              class="stats-container"
+            >
+              <div class="stat-row">
+                <span class="stat-label">初始资金:</span>
+                <span class="stat-value">¥{{ testResult.initialCash?.toFixed(2) }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">最终净值:</span>
+                <span class="stat-value" :class="testResult.finalValue >= testResult.initialCash ? 'text-green' : 'text-red'">
+                  ¥{{ testResult.finalValue?.toFixed(2) || '0.00' }}
+                </span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">收益率:</span>
+                <span class="stat-value" :class="testResult.returnRate >= 0 ? 'text-green' : 'text-red'">
+                  {{ testResult.returnRate?.toFixed(2) || '0.00' }}%
+                </span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">交易次数:</span>
+                <span class="stat-value">{{ testResult.tradeCount || 0 }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">胜率:</span>
+                <span class="stat-value">{{ testResult.winRate?.toFixed(2) || '0.00' }}%</span>
+              </div>
+            </div>
+            <div
+              v-else
+              class="empty-hint"
+            >
+              点击"运行测试"查看统计
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -316,16 +273,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, shallowRef } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import {
-  SaveOutlined,
-  PlayCircleOutlined,
-  ClearOutlined,
-  DownOutlined,
-  UpOutlined
-} from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import { componentsApi, dataApi, type ComponentDetail } from '@/api/modules/components'
 import * as echarts from 'echarts'
@@ -335,37 +284,10 @@ import { autocompletion } from '@codemirror/autocomplete'
 import { EditorView } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
-// 浅色主题配置
-const lightTheme = EditorView.theme({
-  '&': {
-    backgroundColor: '#ffffff',
-    color: '#1f2937'
-  },
-  '.cm-gutters': {
-    backgroundColor: '#f3f4f6',
-    color: '#6b7280',
-    border: 'none'
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: '#e5e7eb',
-    color: '#374151'
-  },
-  '.cm-activeLine': {
-    backgroundColor: '#f9fafb'
-  },
-  '.cm-line': {
-    padding: '0 4px'
-  },
-  '&.cm-focused': {
-    outline: 'none'
-  },
-  '.cm-selectionBackground': {
-    backgroundColor: '#d1d5db'
-  },
-  '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: '#bfdbfe'
-  }
-}, { dark: false })
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -381,7 +303,36 @@ const componentForm = reactive({
 // 代码编辑器
 const code = ref('')
 const extensions = [
-  lightTheme,
+  EditorView.theme({
+    '&': {
+      backgroundColor: '#1a1a2e',
+      color: '#ffffff'
+    },
+    '.cm-gutters': {
+      backgroundColor: '#0f0f1a',
+      color: '#8a8a9a',
+      border: 'none'
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: '#2a2a3e',
+      color: '#ffffff'
+    },
+    '.cm-activeLine': {
+      backgroundColor: '#2a2a3e'
+    },
+    '.cm-line': {
+      padding: '0 4px'
+    },
+    '&.cm-focused': {
+      outline: 'none'
+    },
+    '.cm-selectionBackground': {
+      backgroundColor: '#3a4a5e'
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: '#3a4a5e'
+    }
+  }, { dark: true }),
   python(),
   autocompletion(),
   EditorView.lineWrapping,
@@ -399,7 +350,8 @@ const parameters = ref<Record<string, { value: any }>>({})
 // 测试配置
 const testConfig = reactive({
   code: '000001.SZ',
-  dateRange: [dayjs().subtract(1, 'year'), dayjs()],
+  startDate: dayjs().subtract(1, 'year').format('YYYY-MM-DD'),
+  endDate: dayjs().format('YYYY-MM-DD'),
   initialCash: 100000
 })
 
@@ -411,6 +363,13 @@ const testResult = ref<any>(null)
 const testOutput = ref('')
 const logs = ref<Array<{ level: string; time: string; message: string }>>([])
 const activeTab = ref('logs')
+
+const tabs = [
+  { key: 'logs', label: '日志' },
+  { key: 'charts', label: '图表' },
+  { key: 'output', label: '输出' },
+  { key: 'stats', label: '统计' }
+]
 
 // 图表
 const chartContainer = ref<HTMLElement | null>(null)
@@ -444,7 +403,7 @@ const getComponentTypeColor = (type?: string) => {
     sizer: 'purple',
     selector: 'cyan'
   }
-  return colors[type || ''] || 'default'
+  return colors[type || ''] || 'gray'
 }
 
 // 获取组件类型标签
@@ -459,17 +418,6 @@ const getComponentTypeLabel = (type?: string) => {
   return labels[type || ''] || type || ''
 }
 
-// 获取日志样式
-const getLogClass = (level: string) => {
-  const classes: Record<string, string> = {
-    INFO: 'text-blue-600',
-    WARNING: 'text-yellow-600',
-    ERROR: 'text-red-600',
-    DEBUG: 'text-gray-400'
-  }
-  return classes[level] || 'text-gray-600'
-}
-
 // 加载组件详情
 const loadComponent = async () => {
   try {
@@ -480,7 +428,7 @@ const loadComponent = async () => {
     code.value = detail.code || ''
     originalCode.value = detail.code || ''
   } catch (error: any) {
-    message.error('加载组件失败')
+    showToast('加载组件失败', 'error')
   }
 }
 
@@ -504,10 +452,10 @@ const saveComponent = async () => {
       code: code.value
     })
     originalCode.value = code.value
-    message.success('保存成功')
+    showToast('保存成功')
     await loadComponent()
   } catch (error: any) {
-    message.error(`保存失败: ${error?.response?.data?.detail || error?.message}`)
+    showToast(`保存失败: ${error?.response?.data?.detail || error?.message}`, 'error')
   } finally {
     saving.value = false
   }
@@ -539,7 +487,7 @@ const runTest = async () => {
 const simulateTest = async () => {
   addLog('INFO', `加载测试数据: ${testConfig.code}`)
   await delay(500)
-  addLog('INFO', `日期范围: ${dayjs(testConfig.dateRange[0]).format('YYYY-MM-DD')} ~ ${dayjs(testConfig.dateRange[1]).format('YYYY-MM-DD')}`)
+  addLog('INFO', `日期范围: ${testConfig.startDate} ~ ${testConfig.endDate}`)
   await delay(300)
   addLog('INFO', '初始化策略...')
   await delay(500)
@@ -589,35 +537,35 @@ const renderChart = () => {
     backgroundColor: 'transparent',
     title: {
       text: '净值曲线',
-      textStyle: { color: '#374151' }
+      textStyle: { color: '#ffffff' }
     },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(255,255,255,0.95)',
-      borderColor: '#e5e7eb',
-      textStyle: { color: '#1f2937' }
+      backgroundColor: 'rgba(26, 26, 46, 0.95)',
+      borderColor: '#2a2a3e',
+      textStyle: { color: '#ffffff' }
     },
     xAxis: {
       type: 'category',
       data: dates,
-      axisLine: { lineStyle: { color: '#e5e7eb' } },
-      axisLabel: { color: '#6b7280' }
+      axisLine: { lineStyle: { color: '#2a2a3e' } },
+      axisLabel: { color: '#8a8a9a' }
     },
     yAxis: {
       type: 'value',
-      axisLine: { lineStyle: { color: '#e5e7eb' } },
-      axisLabel: { color: '#6b7280' },
-      splitLine: { lineStyle: { color: '#f3f4f6' } }
+      axisLine: { lineStyle: { color: '#2a2a3e' } },
+      axisLabel: { color: '#8a8a9a' },
+      splitLine: { lineStyle: { color: '#2a2a3e', type: 'dashed' } }
     },
     series: [{
       data: values,
       type: 'line',
       smooth: true,
-      lineStyle: { color: '#3b82f6', width: 2 },
+      lineStyle: { color: '#1890ff', width: 2 },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
-          { offset: 1, color: 'rgba(59, 130, 246, 0.05)' }
+          { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
+          { offset: 1, color: 'rgba(24, 144, 255, 0.05)' }
         ])
       }
     }],
@@ -640,7 +588,7 @@ const addLog = (level: string, message: string) => {
     message
   })
   nextTick(() => {
-    const container = document.querySelector('.overflow-y-auto')
+    const container = document.querySelector('.logs-container')
     if (container) {
       container.scrollTop = container.scrollHeight
     }
@@ -681,7 +629,206 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .component-editor {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0f0f1a;
+  color: #ffffff;
+}
+
+/* Header */
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2a2a3e;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.component-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
+.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
+.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
+.tag-purple { background: rgba(114, 46, 209, 0.2); color: #722ed1; }
+.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
+.tag-gray { background: #2a2a3e; color: #8a8a9a; }
+
+/* Content */
+.editor-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: #1a1a2e;
+  border-right: 1px solid #2a2a3e;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a8a9a;
+  text-transform: uppercase;
+  margin: 0 0 12px 0;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-bottom: 4px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 40px;
+  font-family: 'Fira Code', monospace;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range span {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-icon {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+/* Editor Area */
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.editor-toolbar {
+  padding: 8px 16px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2a2a3e;
 }
 
 /* CodeMirror 自定义样式 */
@@ -696,5 +843,189 @@ onBeforeUnmount(() => {
 
 :deep(.cm-focused) {
   outline: none !important;
+}
+
+/* Bottom Panel */
+.bottom-panel {
+  background: #1a1a2e;
+  border-top: 1px solid #2a2a3e;
+  transition: height 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid #2a2a3e;
+  background: #2a2a3e;
+  cursor: pointer;
+}
+
+.panel-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-stat {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.text-green { color: #52c41a; }
+.text-red { color: #f5222d; }
+
+.panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tabs */
+.tabs-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #2a2a3e;
+  background: #1a1a2e;
+}
+
+.tab-button {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #ffffff;
+}
+
+.tab-button.active {
+  color: #1890ff;
+  border-bottom-color: #1890ff;
+}
+
+.tab-clear {
+  margin-left: auto;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+}
+
+.tab-clear:hover {
+  color: #ffffff;
+}
+
+.tab-panel {
+  flex: 1;
+  overflow-y: auto;
+  background: #0f0f1a;
+}
+
+/* Logs */
+.logs-container {
+  padding: 12px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-line {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.log-level {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.log-time {
+  color: #8a8a9a;
+  flex-shrink: 0;
+}
+
+.log-message {
+  flex: 1;
+}
+
+.log-info .log-level { color: #1890ff; }
+.log-warning .log-level { color: #faad14; }
+.log-error .log-level { color: #f5222d; }
+.log-debug .log-level { color: #8a8a9a; }
+
+/* Chart */
+.chart-container {
+  width: 100%;
+  height: 160px;
+}
+
+/* Output */
+.output-container {
+  padding: 12px;
+}
+
+.output-text {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: #a0d911;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Stats */
+.stats-container {
+  padding: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #2a2a3e;
+  font-size: 13px;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #8a8a9a;
+}
+
+.stat-value {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Empty State */
+.empty-hint {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  color: #8a8a9a;
+  font-size: 13px;
 }
 </style>

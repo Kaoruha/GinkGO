@@ -157,3 +157,92 @@ class IBroker(ABC):
             status=ORDERSTATUS_TYPES.NEW,
             error_message="Cancel order not implemented"
         )
+
+    # ==================== 账户信息查询接口 ====================
+
+    def get_account_balance(self) -> dict:
+        """
+        获取账户余额信息
+
+        Returns:
+            dict: 余额信息
+            {
+                "total_equity": str,      # 总权益
+                "available_balance": str,  # 可用余额
+                "frozen_balance": str,     # 冻结余额
+                "currency_balances": [     # 币种余额列表
+                    {
+                        "currency": str,
+                        "available": str,
+                        "frozen": str,
+                        "balance": str
+                    }
+                ]
+            }
+        """
+        return {}
+
+    def get_positions(self) -> list:
+        """
+        获取持仓信息
+
+        Returns:
+            list: 持仓列表
+            [
+                {
+                    "symbol": str,              # 交易标的
+                    "side": str,                # long/short
+                    "size": str,                # 持仓数量
+                    "avg_price": str,           # 开仓均价
+                    "current_price": str,       # 当前价格
+                    "unrealized_pnl": str,      # 未实现盈亏
+                    "unrealized_pnl_percentage": str,  # 未实现盈亏百分比
+                    "margin": str               # 保证金
+                }
+            ]
+        """
+        return []
+
+    def get_open_orders(self) -> list:
+        """
+        获取挂单信息
+
+        Returns:
+            list: 挂单列表
+            [
+                {
+                    "order_id": str,           # 订单ID
+                    "symbol": str,             # 交易标的
+                    "side": str,               # buy/sell
+                    "order_type": str,         # 订单类型
+                    "size": str,               # 数量
+                    "price": str,              # 价格
+                    "filled_size": str,        # 已成交数量
+                    "status": str,             # 订单状态
+                    "created_at": str          # 创建时间
+                }
+            ]
+        """
+        return []
+
+    def is_connected(self) -> bool:
+        """
+        检查是否已连接
+
+        Returns:
+            bool: 是否已连接
+        """
+        return False
+
+    def connect(self) -> bool:
+        """
+        连接交易所API
+
+        Returns:
+            bool: 连接是否成功
+        """
+        return False
+
+    def disconnect(self) -> None:
+        """断开交易所API连接"""
+        pass

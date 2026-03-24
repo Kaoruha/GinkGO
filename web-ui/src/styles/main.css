@@ -1,3 +1,6 @@
+/* shadcn-vue 设计令牌 */
+@import './design-tokens.css';
+
 /* Tailwind CSS 指令 */
 @tailwind base;
 @tailwind components;

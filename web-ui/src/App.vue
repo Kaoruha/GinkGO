@@ -1,114 +1,166 @@
 <template>
-  <a-config-provider :locale="zhCN">
-    <!-- 登录页等全屏页面 -->
-    <template v-if="isFullPage">
-      <router-view />
-    </template>
+  <!-- 登录页等全屏页面 -->
+  <div v-if="isFullPage" class="full-page">
+    <router-view />
+  </div>
 
-    <!-- 带布局的主页面（需要登录） -->
-    <template v-else-if="authStore.isLoggedIn">
-      <a-layout class="app-layout">
-        <a-layout-sider
-          v-model:collapsed="collapsed"
-          :trigger="null"
-          collapsible
-          theme="light"
-          width="220"
+  <!-- 带布局的主页面（需要登录） -->
+  <div v-else-if="authStore.isLoggedIn" class="app-layout">
+    <!-- 侧边栏 -->
+    <div class="sider" :class="{ collapsed }">
+      <div class="logo">
+        <img src="/favicon.svg" alt="Ginkgo" />
+        <span v-if="!collapsed">Ginkgo</span>
+      </div>
+      <nav class="menu">
+        <div
+          v-for="item in menuItems"
+          :key="item.key"
+          class="menu-group"
         >
-          <div class="logo">
-            <img src="/favicon.svg" alt="Ginkgo" />
-            <span v-if="!collapsed">Ginkgo</span>
-          </div>
-          <a-menu
-            v-model:selectedKeys="selectedKeys"
-            v-model:openKeys="openKeys"
-            mode="inline"
-            :items="menuItems"
-            @click="handleMenuClick"
-          />
-        </a-layout-sider>
-        <a-layout>
-          <a-layout-header class="header">
-            <div class="header-left">
-              <menu-unfold-outlined
-                v-if="collapsed"
-                class="trigger"
-                @click="collapsed = !collapsed"
-              />
-              <menu-fold-outlined
-                v-else
-                class="trigger"
-                @click="collapsed = !collapsed"
-              />
-              <a-breadcrumb class="breadcrumb">
-                <a-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
-                  {{ item.title }}
-                </a-breadcrumb-item>
-              </a-breadcrumb>
+          <div
+            v-if="item.type === 'divider'"
+            class="menu-divider"
+          ></div>
+          <template v-else>
+            <div
+              v-if="item.children && item.children.length > 0"
+              class="menu-item has-submenu"
+              :class="{ active: openKeys.includes(item.key), selected: selectedKeys.includes(item.key) }"
+              @click="toggleSubMenu(item.key)"
+            >
+              <div class="menu-item-content">
+                <span class="menu-icon" v-html="item.icon"></span>
+                <span class="menu-label">{{ item.label }}</span>
+                <span class="submenu-arrow">{{ openKeys.includes(item.key) ? '▼' : '▶' }}</span>
+              </div>
             </div>
-            <div class="header-right">
-              <a-badge :count="notificationCount" class="notification-badge">
-                <bell-outlined @click="showNotifications" />
-              </a-badge>
-              <a-dropdown>
-                <a-avatar style="background-color: #1890ff">
-                  <template #icon><UserOutlined /></template>
-                </a-avatar>
-                <template #overlay>
-                  <a-menu @click="handleUserMenuClick">
-                    <a-menu-item key="profile">
-                      <UserOutlined /> {{ authStore.displayName }}
-                    </a-menu-item>
-                    <a-menu-divider />
-                    <a-menu-item key="settings">
-                      <SettingOutlined /> 系统设置
-                    </a-menu-item>
-                    <a-menu-item key="logout">
-                      <LogoutOutlined /> 退出登录
-                    </a-menu-item>
-                  </a-menu>
-                </template>
-              </a-dropdown>
+            <router-link
+              v-else
+              :to="getRouteForKey(item.key)"
+              class="menu-item"
+              :class="{ selected: selectedKeys.includes(item.key) }"
+              @click="handleMenuClick(item.key)"
+            >
+              <div class="menu-item-content">
+                <span class="menu-icon" v-html="item.icon"></span>
+                <span class="menu-label">{{ item.label }}</span>
+              </div>
+            </router-link>
+            <div
+              v-if="item.children && openKeys.includes(item.key)"
+              class="submenu"
+            >
+              <router-link
+                v-for="child in item.children"
+                :key="child.key"
+                :to="getRouteForKey(child.key)"
+                class="submenu-item"
+                :class="{ selected: selectedKeys.includes(child.key) }"
+                @click="handleMenuClick(child.key)"
+              >
+                {{ child.label }}
+              </router-link>
             </div>
-          </a-layout-header>
-          <a-layout-content class="content" :class="{ 'content-fullscreen': isEditorPage }">
-            <router-view />
-          </a-layout-content>
-        </a-layout>
-      </a-layout>
-    </template>
+          </template>
+        </div>
+      </nav>
+    </div>
 
-    <!-- Fallback - 让路由守卫处理重定向 -->
-    <router-view v-else />
-  </a-config-provider>
+    <!-- 主内容区 -->
+    <div class="main">
+      <!-- 头部 -->
+      <header class="header">
+        <div class="header-left">
+          <button
+            class="trigger"
+            @click="collapsed = !collapsed"
+          >
+            <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="15" y1="3" x2="15" y2="21"></line>
+            </svg>
+          </button>
+          <nav class="breadcrumb">
+            <span v-for="(item, index) in breadcrumbs" :key="item.path" class="breadcrumb-item">
+              {{ item.title }}
+            </span>
+          </nav>
+        </div>
+        <div class="header-right">
+          <button
+            class="notification-btn"
+            @click="showNotifications"
+          >
+            <span class="notification-badge" :class="{ 'has-count': notificationCount > 0 }">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span v-if="notificationCount > 0" class="count">{{ notificationCount }}</span>
+            </span>
+          </button>
+          <div class="user-dropdown">
+            <button class="avatar-btn" @click="toggleUserMenu">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </button>
+            <div class="dropdown-menu" :class="{ show: showUserMenu }">
+              <div class="dropdown-item user-info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                {{ authStore.displayName || authStore.username || '用户' }}
+              </div>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" @click="router.push('/system/status'); showUserMenu = false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 1v6m0 6v6"></path>
+                  <path d="m19 21-7-5 7-5"></path>
+                </svg>
+                系统设置
+              </button>
+              <button class="dropdown-item text-danger" @click="handleLogout">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                退出登录
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 内容区 -->
+      <main class="content" :class="{ 'content-fullscreen': isEditorPage }">
+        <router-view />
+      </main>
+    </div>
+  </div>
+
+  <!-- Fallback - 让路由守卫处理重定向 -->
+  <router-view v-else />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import zhCN from 'ant-design-vue/es/locale/zh_CN'
-import { message } from 'ant-design-vue'
 import { useAuthStore } from '@/stores/auth'
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  UserOutlined,
-  BellOutlined,
-  SettingOutlined,
-  LogoutOutlined,
-  RocketOutlined,
-  LineChartOutlined,
-  ExperimentOutlined,
-  ThunderboltOutlined,
-  ToolOutlined,
-  DatabaseOutlined,
-  FunctionOutlined,
-  BarChartOutlined,
-  FileSearchOutlined,
-  DashboardOutlined,
-  WalletOutlined,
-} from '@ant-design/icons-vue'
-import type { MenuProps } from 'ant-design-vue'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -118,6 +170,164 @@ const collapsed = ref(false)
 const selectedKeys = ref<string[]>(['dashboard'])
 const openKeys = ref<string[]>([])
 const notificationCount = ref(0)
+const showUserMenu = ref(false)  // 用户下拉菜单显示状态
+
+// 切换用户菜单
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+}
+
+// 点击外部关闭用户菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const dropdown = document.querySelector('.user-dropdown')
+  if (dropdown && !dropdown.contains(event.target as Node)) {
+    showUserMenu.value = false
+  }
+}
+
+// 监听点击外部
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// SVG 图标定义
+const icons: Record<string, string> = {
+  dashboard: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`,
+  wallet: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4Z"></path></svg>`,
+  rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91 2.64-2.97 5.18-5.1 7.25-6.63-.22-.77-.22-1.63.09-2.09-.78-.8-2.07-.81-2.91-.09Z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>`,
+  experiment: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31"></path><path d="M14 2v7.31"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path></svg>`,
+  linechart: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="21" y2="3"></line><path d="m19 9-5 5-4-4-3 3"></path></svg>`,
+  lightning: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+  tool: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
+  database: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`,
+  function: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31"></path><path d="M14 2v7.31"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><line x1="5.52" y1="16.58" x2="9.3" y2="20.36"></line><line x1="18.48" y1="16.58" x2="14.7" y2="20.36"></line></svg>`,
+  barchart: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>`,
+  filesearch: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M5 17a3 3 0 0 0 0-6"></path><path d="M9 17h4"></path><path d="M5 21a3 3 0 0 0 6 0"></path><path d="M9 21h4"></path></svg>`,
+}
+
+// 菜单定义
+interface MenuItem {
+  key: string
+  label: string
+  icon: string
+  type?: 'divider'
+  children?: MenuItem[]
+}
+
+const menuItems = computed<MenuItem[]>(() => [
+  { key: 'dashboard', label: '概览', icon: icons.dashboard },
+  { key: 'portfolio', label: '投资组合', icon: icons.wallet },
+  {
+    key: 'backtest',
+    label: '策略回测',
+    icon: icons.rocket,
+    children: [
+      { key: 'backtest-list', label: '回测列表', icon: '' },
+      { key: 'backtest-compare', label: '回测对比', icon: '' },
+    ],
+  },
+  {
+    key: 'validation',
+    label: '样本验证',
+    icon: icons.experiment,
+    children: [
+      { key: 'validation-walkforward', label: '走步验证', icon: '' },
+      { key: 'validation-montecarlo', label: '蒙特卡洛', icon: '' },
+      { key: 'validation-sensitivity', label: '敏感性分析', icon: '' },
+    ],
+  },
+  {
+    key: 'paper',
+    label: '模拟交易',
+    icon: icons.linechart,
+    children: [
+      { key: 'paper-trading', label: '模拟监控', icon: '' },
+      { key: 'paper-orders', label: '订单记录', icon: '' },
+    ],
+  },
+  {
+    key: 'live',
+    label: '实盘交易',
+    icon: icons.lightning,
+    children: [
+      { key: 'live-trading', label: '实盘监控', icon: '' },
+      { key: 'live-orders', label: '订单管理', icon: '' },
+      { key: 'live-positions', label: '持仓管理', icon: '' },
+      { key: 'live-market', label: '市场数据', icon: '' },
+      { key: 'live-account-config', label: '账号配置', icon: '' },
+      { key: 'live-account-info', label: '账户信息', icon: '' },
+      { key: 'live-broker-mgmt', label: 'Broker 管理', icon: '' },
+      { key: 'live-trade-history', label: '交易历史', icon: '' },
+      { key: 'live-trading-control', label: '交易控制', icon: '' },
+    ],
+  },
+  { type: 'divider', key: 'divider1', label: '', icon: '' },
+  {
+    key: 'research',
+    label: '因子研究',
+    icon: icons.filesearch,
+    children: [
+      { key: 'research-ic', label: 'IC 分析', icon: '' },
+      { key: 'research-layering', label: '因子分层', icon: '' },
+      { key: 'research-orthogonal', label: '因子正交化', icon: '' },
+      { key: 'research-comparison', label: '因子比较', icon: '' },
+      { key: 'research-decay', label: '因子衰减', icon: '' },
+    ],
+  },
+  {
+    key: 'optimization',
+    label: '参数优化',
+    icon: icons.barchart,
+    children: [
+      { key: 'optimization-grid', label: '网格搜索', icon: '' },
+      { key: 'optimization-genetic', label: '遗传算法', icon: '' },
+      { key: 'optimization-bayesian', label: '贝叶斯优化', icon: '' },
+    ],
+  },
+  { type: 'divider', key: 'divider2', label: '', icon: '' },
+  {
+    key: 'components',
+    label: '组件管理',
+    icon: icons.function,
+    children: [
+      { key: 'components-strategies', label: '策略组件', icon: '' },
+      { key: 'components-risks', label: '风控组件', icon: '' },
+      { key: 'components-sizers', label: '仓位组件', icon: '' },
+      { key: 'components-selectors', label: '选股器', icon: '' },
+      { key: 'components-analyzers', label: '分析器', icon: '' },
+      { key: 'components-handlers', label: '事件处理器', icon: '' },
+    ],
+  },
+  {
+    key: 'data',
+    label: '数据管理',
+    icon: icons.database,
+    children: [
+      { key: 'data-overview', label: '数据概览', icon: '' },
+      { key: 'data-stocks', label: '股票信息', icon: '' },
+      { key: 'data-bars', label: 'K线数据', icon: '' },
+      { key: 'data-sync', label: '数据同步', icon: '' },
+    ],
+  },
+  {
+    key: 'system',
+    label: '系统管理',
+    icon: icons.tool,
+    children: [
+      { key: 'system-status', label: '系统状态', icon: '' },
+      { key: 'system-workers', label: 'Worker 管理', icon: '' },
+      { key: 'system-api-keys', label: 'API Key 管理', icon: '' },
+      { key: 'system-users', label: '用户管理', icon: '' },
+      { key: 'system-groups', label: '用户组管理', icon: '' },
+      { key: 'system-notifications', label: '通知管理', icon: '' },
+      { key: 'system-alerts', label: '告警中心', icon: '' },
+    ],
+  },
+])
 
 // 全屏页面（不需要侧边栏布局）
 const isFullPage = computed(() => {
@@ -127,149 +337,31 @@ const isFullPage = computed(() => {
 
 // 编辑器详情页（需要全屏 content）
 const isEditorPage = computed(() => {
-  // 组件管理详情页使用全屏布局
   return route.path.match(/\/components\/(strategies|risks|sizers|selectors|analyzers|handlers)\/[a-f0-9-]+/)
 })
-
-// 4阶段策略生命周期菜单
-const menuItems = computed<MenuProps['items']>(() => [
-  {
-    key: 'dashboard',
-    icon: () => h(DashboardOutlined),
-    label: '概览',
-    title: 'Dashboard',
-  },
-  {
-    key: 'portfolio',
-    icon: () => h(WalletOutlined),
-    label: '投资组合',
-    title: '投资组合管理',
-  },
-  {
-    key: 'backtest',
-    icon: () => h(RocketOutlined),
-    label: '策略回测',
-    title: '策略回测验证',
-    children: [
-      { key: 'backtest-list', label: '回测列表' },
-      { key: 'backtest-compare', label: '回测对比' },
-    ],
-  },
-  {
-    key: 'validation',
-    icon: () => h(ExperimentOutlined),
-    label: '样本验证',
-    title: '样本外验证',
-    children: [
-      { key: 'validation-walkforward', label: '走步验证' },
-      { key: 'validation-montecarlo', label: '蒙特卡洛' },
-      { key: 'validation-sensitivity', label: '敏感性分析' },
-    ],
-  },
-  {
-    key: 'paper',
-    icon: () => h(LineChartOutlined),
-    label: '模拟交易',
-    title: 'Paper Trading',
-    children: [
-      { key: 'paper-trading', label: '模拟监控' },
-      { key: 'paper-orders', label: '订单记录' },
-    ],
-  },
-  {
-    key: 'live',
-    icon: () => h(ThunderboltOutlined),
-    label: '实盘交易',
-    title: '实盘交易',
-    children: [
-      { key: 'live-trading', label: '实盘监控' },
-      { key: 'live-orders', label: '订单管理' },
-      { key: 'live-positions', label: '持仓管理' },
-    ],
-  },
-  {
-    type: 'divider',
-  },
-  {
-    key: 'research',
-    icon: () => h(FileSearchOutlined),
-    label: '因子研究',
-    children: [
-      { key: 'research-ic', label: 'IC 分析' },
-      { key: 'research-layering', label: '因子分层' },
-      { key: 'research-orthogonal', label: '因子正交化' },
-      { key: 'research-comparison', label: '因子比较' },
-      { key: 'research-decay', label: '因子衰减' },
-    ],
-  },
-  {
-    key: 'optimization',
-    icon: () => h(BarChartOutlined),
-    label: '参数优化',
-    children: [
-      { key: 'optimization-grid', label: '网格搜索' },
-      { key: 'optimization-genetic', label: '遗传算法' },
-      { key: 'optimization-bayesian', label: '贝叶斯优化' },
-    ],
-  },
-  {
-    type: 'divider',
-  },
-  {
-    key: 'components',
-    icon: () => h(FunctionOutlined),
-    label: '组件管理',
-    children: [
-      { key: 'components-strategies', label: '策略组件' },
-      { key: 'components-risks', label: '风控组件' },
-      { key: 'components-sizers', label: '仓位组件' },
-      { key: 'components-selectors', label: '选股器' },
-      { key: 'components-analyzers', label: '分析器' },
-      { key: 'components-handlers', label: '事件处理器' },
-    ],
-  },
-  {
-    key: 'data',
-    icon: () => h(DatabaseOutlined),
-    label: '数据管理',
-    children: [
-      { key: 'data-overview', label: '数据概览' },
-      { key: 'data-stocks', label: '股票信息' },
-      { key: 'data-bars', label: 'K线数据' },
-      { key: 'data-sync', label: '数据同步' },
-    ],
-  },
-  {
-    key: 'system',
-    icon: () => h(ToolOutlined),
-    label: '系统管理',
-    children: [
-      { key: 'system-status', label: '系统状态' },
-      { key: 'system-workers', label: 'Worker 管理' },
-      { key: 'system-users', label: '用户管理' },
-      { key: 'system-groups', label: '用户组管理' },
-      { key: 'system-notifications', label: '通知管理' },
-      { key: 'system-alerts', label: '告警中心' },
-    ],
-  },
-])
 
 // 路由路径到菜单 key 的映射
 const routeToKeyMap: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/portfolio': 'portfolio',
   '/portfolio/create': 'portfolio',
-  '/stage1/backtest': 'backtest-list',
-  '/stage1/backtest/create': 'backtest-list',
-  '/stage1/backtest/compare': 'backtest-compare',
-  '/stage2/walkforward': 'validation-walkforward',
-  '/stage2/montecarlo': 'validation-montecarlo',
-  '/stage2/sensitivity': 'validation-sensitivity',
-  '/stage3/paper': 'paper-trading',
-  '/stage3/paper/orders': 'paper-orders',
-  '/stage4/live': 'live-trading',
-  '/stage4/live/orders': 'live-orders',
-  '/stage4/live/positions': 'live-positions',
+  '/backtest': 'backtest-list',
+  '/backtest/create': 'backtest-list',
+  '/backtest/compare': 'backtest-compare',
+  '/validation/walkforward': 'validation-walkforward',
+  '/validation/montecarlo': 'validation-montecarlo',
+  '/validation/sensitivity': 'validation-sensitivity',
+  '/paper': 'paper-trading',
+  '/paper/orders': 'paper-orders',
+  '/live': 'live-trading',
+  '/live/orders': 'live-orders',
+  '/live/positions': 'live-positions',
+  '/live/account-config': 'live-account-config',
+  '/live/account-info': 'live-account-info',
+  '/live/broker-management': 'live-broker-mgmt',
+  '/live/trade-history': 'live-trade-history',
+  '/live/trading-control': 'live-trading-control',
+  '/live/market': 'live-market',
   '/research/ic': 'research-ic',
   '/research/layering': 'research-layering',
   '/research/orthogonal': 'research-orthogonal',
@@ -290,6 +382,7 @@ const routeToKeyMap: Record<string, string> = {
   '/data/sync': 'data-sync',
   '/system/status': 'system-status',
   '/system/workers': 'system-workers',
+  '/system/api-keys': 'system-api-keys',
   '/system/users': 'system-users',
   '/system/groups': 'system-groups',
   '/system/notifications': 'system-notifications',
@@ -308,6 +401,11 @@ const keyToParentMap: Record<string, string> = {
   'live-trading': 'live',
   'live-orders': 'live',
   'live-positions': 'live',
+  'live-account-config': 'live',
+  'live-account-info': 'live',
+  'live-broker-mgmt': 'live',
+  'live-trade-history': 'live',
+  'live-trading-control': 'live',
   'research-ic': 'research',
   'research-layering': 'research',
   'research-orthogonal': 'research',
@@ -336,7 +434,27 @@ const keyToParentMap: Record<string, string> = {
 
 // 监听路由变化，更新菜单选中状态
 watch(() => route.path, (path) => {
-  const key = routeToKeyMap[path]
+  // 精确匹配
+  let key = routeToKeyMap[path]
+
+  // 如果没有精确匹配，尝试模式匹配（处理动态路由如 /portfolio/:id）
+  if (!key) {
+    // Portfolio 相关路由
+    if (path.startsWith('/portfolio/') && path !== '/portfolio/create') {
+      key = 'portfolio'
+    }
+    // Backtest 详情路由
+    else if (path.match(/^\/backtest\/[^/]+$/) && path !== '/backtest/create' && path !== '/backtest/compare') {
+      key = 'backtest-list'
+    }
+    // 组件详情路由 (如 /components/strategies/abc123)
+    else if (path.match(/^\/components\/(strategies|risks|sizers|selectors|analyzers|handlers)\/[^/]+$/)) {
+      const segments = path.split('/')
+      const type = segments[2] || ''  // 'strategies'
+      key = `components-${type.slice(0, -1)}` // strategies -> components-strategies
+    }
+  }
+
   if (key) {
     selectedKeys.value = [key]
     // 同时展开父菜单
@@ -355,22 +473,38 @@ const breadcrumbs = computed(() => {
   }))
 })
 
-const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-  const keyPath = key as string
-  // 将菜单 key 转换为路由路径
+// 切换子菜单展开/收起
+const toggleSubMenu = (key: string) => {
+  const index = openKeys.value.indexOf(key)
+  if (index > -1) {
+    openKeys.value = openKeys.value.filter(k => k !== key)
+  } else {
+    openKeys.value = [...openKeys.value, key]
+  }
+}
+
+// 菜单 key 到路由的映射
+const getRouteForKey = (key: string): string => {
   const routeMap: Record<string, string> = {
     'dashboard': '/dashboard',
     'portfolio': '/portfolio',
-    'backtest-list': '/stage1/backtest',
-    'backtest-compare': '/stage1/backtest/compare',
-    'validation-walkforward': '/stage2/walkforward',
-    'validation-montecarlo': '/stage2/montecarlo',
-    'validation-sensitivity': '/stage2/sensitivity',
-    'paper-trading': '/stage3/paper',
-    'paper-orders': '/stage3/paper/orders',
-    'live-trading': '/stage4/live',
-    'live-orders': '/stage4/live/orders',
-    'live-positions': '/stage4/live/positions',
+    'backtest-list': '/backtest',
+    'backtest-compare': '/backtest/compare',
+    'validation-walkforward': '/validation/walkforward',
+    'validation-montecarlo': '/validation/montecarlo',
+    'validation-sensitivity': '/validation/sensitivity',
+    'paper-trading': '/paper',
+    'paper-orders': '/paper/orders',
+    'live-trading': '/live',
+    'live-orders': '/live/orders',
+    'live-positions': '/live/positions',
+    'live-market': '/live/market',
+    'live-api-keys': '/system/api-keys',
+    'live-account-config': '/live/account-config',
+    'live-account-info': '/live/account-info',
+    'live-broker-mgmt': '/live/broker-management',
+    'live-trade-history': '/live/trade-history',
+    'live-trading-control': '/live/trading-control',
     'research-ic': '/research/ic',
     'research-layering': '/research/layering',
     'research-orthogonal': '/research/orthogonal',
@@ -391,14 +525,19 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     'data-sync': '/data/sync',
     'system-status': '/system/status',
     'system-workers': '/system/workers',
+    'system-api-keys': '/system/api-keys',
     'system-users': '/system/users',
     'system-groups': '/system/groups',
     'system-notifications': '/system/notifications',
     'system-alerts': '/system/alerts',
   }
+  return routeMap[key] || '/'
+}
 
-  if (routeMap[keyPath]) {
-    router.push(routeMap[keyPath])
+const handleMenuClick = (key: string) => {
+  const routePath = getRouteForKey(key)
+  if (routePath && routePath !== route.path) {
+    router.push(routePath)
   }
 }
 
@@ -406,30 +545,34 @@ const showNotifications = () => {
   // TODO: 显示通知面板
 }
 
-const handleUserMenuClick = async ({ key }: { key: string }) => {
-  if (key === 'logout') {
-    await authStore.logout()
-    message.success('已退出登录')
-    router.push('/login')
-  } else if (key === 'settings') {
-    router.push('/system/status')
-  }
+const handleLogout = async () => {
+  await authStore.logout()
+  showToast('已退出登录')
+  router.push('/login')
 }
 </script>
 
-<style lang="less" scoped>
-.init-loading {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f2f5;
-}
-
+<style scoped>
 .app-layout {
   height: 100vh;
   overflow: hidden;
-  background: #f0f2f5;
+  background: #0f0f1a;
+  display: flex;
+}
+
+/* Sider */
+.sider {
+  width: 220px;
+  background: #1a1a2e;
+  border-right: 1px solid #2a2a3e;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s;
+  flex-shrink: 0;
+}
+
+.sider.collapsed {
+  width: 64px;
 }
 
 .logo {
@@ -441,64 +584,287 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
   font-size: 18px;
   font-weight: bold;
   color: #1890ff;
-  border-bottom: 1px solid #f0f0f0;
-
-  img {
-    width: 32px;
-    height: 32px;
-  }
+  border-bottom: 1px solid #2a2a3e;
 }
 
+.logo img {
+  width: 32px;
+  height: 32px;
+}
+
+.logo span {
+  white-space: nowrap;
+}
+
+.sider.collapsed .logo span {
+  display: none;
+}
+
+/* Menu */
+.menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.menu-group {
+  margin-bottom: 4px;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #2a2a3e;
+  margin: 8px 12px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  color: #8a8a9a;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  position: relative;
+}
+
+.menu-item:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.menu-item.selected {
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+}
+
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.menu-icon :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+.menu-label {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sider.collapsed .menu-label,
+.sider.collapsed .submenu-arrow {
+  display: none;
+}
+
+.submenu-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.menu-item.active .submenu-arrow {
+  transform: rotate(90deg);
+}
+
+.submenu {
+  background: #141422;
+}
+
+.submenu-item {
+  display: block;
+  padding: 8px 16px 8px 42px;
+  color: #8a8a9a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.submenu-item:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.submenu-item.selected {
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
 .header {
-  background: #fff;
+  height: 64px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2a2a3e;
   padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-
-    .trigger {
-      font-size: 18px;
-      cursor: pointer;
-      transition: color 0.3s;
-
-      &:hover {
-        color: #1890ff;
-      }
-    }
-
-    .breadcrumb {
-      margin-left: 8px;
-    }
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-
-    .notification-badge {
-      cursor: pointer;
-
-      :deep(.anticon) {
-        font-size: 18px;
-      }
-    }
-
-    .ant-avatar {
-      cursor: pointer;
-    }
-  }
+  flex-shrink: 0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trigger {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8a8a9a;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.trigger:hover {
+  background: #2a2a3e;
+  color: #1890ff;
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  color: #8a8a9a;
+}
+
+.breadcrumb-item:not(:last-child)::after {
+  content: '/';
+  margin-left: 8px;
+  color: #3a3a4e;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.notification-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #8a8a9a;
+}
+
+.notification-badge {
+  position: relative;
+  display: block;
+}
+
+.notification-badge .count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: #f5222d;
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.avatar-btn {
+  width: 32px;
+  height: 32px;
+  background: #1890ff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ffffff;
+}
+
+.user-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: none;
+  z-index: 100;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  color: #ffffff;
+  font-size: 13px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #2a2a3e;
+}
+
+.dropdown-item.user-info {
+  cursor: default;
+}
+
+.dropdown-item.text-danger {
+  color: #f5222d;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #2a2a3e;
+  margin: 4px 0;
+}
+
+/* Content */
 .content {
   padding: 24px;
-  background: #fff;
+  background: #0f0f1a;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -506,26 +872,6 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
 
 .content-fullscreen {
   padding: 0;
-  background: #1e1e1e;
-  border-radius: 8px;
-  flex: 1;
-}
-
-:deep(.ant-menu) {
-  border-right: none !important;
-}
-
-:deep(.ant-layout-sider) {
-  box-shadow: 2px 0 8px rgba(0, 21, 41, 0.05);
-  height: 100vh;
-  overflow-y: auto;
-}
-
-:deep(.ant-layout) {
-  height: 100%;
-}
-
-:deep(.ant-layout) {
-  height: 100%;
+  overflow: hidden;
 }
 </style>

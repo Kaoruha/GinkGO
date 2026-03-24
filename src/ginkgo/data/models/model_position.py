@@ -39,6 +39,10 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
+    # 实盘交易字段
+    live_account_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, comment="实盘账号ID")
+    exchange_position_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, comment="交易所持仓ID")
+
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
         raise NotImplementedError("Unsupported type")
