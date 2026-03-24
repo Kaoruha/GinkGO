@@ -10,6 +10,7 @@ LiveCore是实盘交易的控制节点，负责管理以下控制平面组件：
 - Scheduler: 调度器，负责Portfolio在ExecutionNode间的分配（Phase 5实现）
 - DataFeeder: 数据源管理器，发布市场数据到Kafka（Phase 4实现）
 - TradeGatewayAdapter: 交易网关适配器，订阅Kafka订单并执行（Phase 3已实现）
+- LiveEngine: 实盘交易引擎，负责OKX实盘账号管理和Broker生命周期（014-okx-live-account）
 
 注意：
 - ExecutionNode是独立工作节点，不归LiveCore管理
@@ -37,9 +38,14 @@ Phase 5扩展：
 - 优雅重启机制
 - 故障恢复机制
 
+014-okx-live-account扩展：
+- LiveEngine集成（OKX实盘账号管理、Broker生命周期）
+- 心跳监控和恢复服务
+- 数据同步服务
+
 使用方式：
 ```python
-# 方式1：直接运行
+# 方式1：直接运行（控制平面模式）
 python -m ginkgo.livecore.main
 
 # 方式2：代码启动
@@ -47,14 +53,26 @@ from ginkgo.livecore.main import LiveCore
 livecore = LiveCore()
 livecore.start()
 livecore.wait()
+
+# 方式3：实盘交易引擎模式
+python -m ginkgo.livecore.main live start
 ```
 """
 
 from threading import Thread, Event
 import signal
 import sys
+import typer
+from pathlib import Path
 from typing import Optional, List, Dict
 from ginkgo.libs import GLOG
+
+# Import LiveEngine for OKX live account trading
+try:
+    from ginkgo.livecore import get_live_engine
+    LIVE_ENGINE_AVAILABLE = True
+except ImportError:
+    LIVE_ENGINE_AVAILABLE = False
 
 class LiveCore:
     """
@@ -67,17 +85,19 @@ class LiveCore:
     - 集成DataFeeder、TradeGatewayAdapter、Scheduler等控制平面组件
     """
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: Optional[dict] = None, enable_live_engine: bool = False):
         """
         初始化LiveCore控制节点
 
         Args:
             config: 配置字典（可选），包含broker配置、Kafka配置等
+            enable_live_engine: 是否启用LiveEngine（OKX实盘交易引擎）
         """
         GLOG.set_log_category("component")
         self.threads = []
         self.is_running = False
         self.config = config or {}
+        self.enable_live_engine = enable_live_engine
 
         # 停止事件（用于信号处理）
         self._stop_event = Event()
@@ -86,15 +106,17 @@ class LiveCore:
         self.data_manager = None
         self.trade_gateway_adapter = None
         self.scheduler = None
+        self.live_engine = None
 
     def start(self):
         """
         启动控制平面组件线程
 
         启动顺序：
-        1. DataFeeder（发布市场数据到Kafka）
-        2. TradeGatewayAdapter（订阅Kafka订单并执行）
-        3. Scheduler（调度器，发现ExecutionNode并分配Portfolio）
+        1. LiveEngine（如果启用，初始化实盘交易环境）
+        2. DataFeeder（发布市场数据到Kafka）
+        3. TradeGatewayAdapter（订阅Kafka订单并执行）
+        4. Scheduler（调度器，发现ExecutionNode并分配Portfolio）
 
         注意：
         - ExecutionNode是独立工作节点，需要单独启动
@@ -106,6 +128,10 @@ class LiveCore:
 
         self.is_running = True
         GLOG.INFO("Starting LiveCore Control Plane...")
+
+        # 启动LiveEngine（如果启用）
+        if self.enable_live_engine and LIVE_ENGINE_AVAILABLE:
+            self._start_live_engine()
 
         # 启动DataFeeder线程（Phase 4实现）
         self._start_data_manager()
@@ -153,32 +179,40 @@ class LiveCore:
         self._stop_event.set()
         GLOG.INFO("  ✅ Stop flag set")
 
-        # 1. 停止 TradeGatewayAdapter（优先级最高：处理订单）
-        GLOG.INFO("[Step 2] Stopping TradeGatewayAdapter...")
+        # 1. 停止 LiveEngine（如果启用）
+        GLOG.INFO("[Step 2] Stopping LiveEngine...")
+        if self.live_engine and self.enable_live_engine:
+            self.live_engine.stop()
+            GLOG.INFO("  ✅ LiveEngine stopped")
+        else:
+            GLOG.INFO("  ℹ️  LiveEngine not running")
+
+        # 2. 停止 TradeGatewayAdapter（优先级最高：处理订单）
+        GLOG.INFO("[Step 3] Stopping TradeGatewayAdapter...")
         if self.trade_gateway_adapter and hasattr(self.trade_gateway_adapter, 'stop'):
             self.trade_gateway_adapter.stop()
             GLOG.INFO("  ✅ TradeGatewayAdapter stopped")
         else:
             GLOG.INFO("  ℹ️  TradeGatewayAdapter not running")
 
-        # 2. 停止 DataFeeder（停止发布市场数据）
-        GLOG.INFO("[Step 3] Stopping DataFeeder...")
+        # 3. 停止 DataFeeder（停止发布市场数据）
+        GLOG.INFO("[Step 4] Stopping DataFeeder...")
         if self.data_manager and hasattr(self.data_manager, 'stop'):
             self.data_manager.stop()
             GLOG.INFO("  ✅ DataFeeder stopped")
         else:
             GLOG.INFO("  ℹ️  DataFeeder not running")
 
-        # 3. 停止 Scheduler（停止调度）
-        GLOG.INFO("[Step 4] Stopping Scheduler...")
+        # 4. 停止 Scheduler（停止调度）
+        GLOG.INFO("[Step 5] Stopping Scheduler...")
         if self.scheduler and hasattr(self.scheduler, 'stop'):
             self.scheduler.stop()
             GLOG.INFO("  ✅ Scheduler stopped")
         else:
             GLOG.INFO("  ℹ️  Scheduler not running")
 
-        # 4. 等待所有线程完成清理
-        GLOG.INFO(f"[Step 5] Waiting for {len(self.threads)} threads to finish...")
+        # 5. 等待所有线程完成清理
+        GLOG.INFO(f"[Step 6] Waiting for {len(self.threads)} threads to finish...")
         finished_count = 0
         timeout_count = 0
         for i, thread in enumerate(self.threads):
@@ -252,6 +286,42 @@ class LiveCore:
         """
         GLOG.INFO(f"\nReceived signal {signum}, initiating graceful shutdown...")
         self._stop_event.set()  # 设置事件，让 wait() 退出
+
+    def _start_live_engine(self):
+        """
+        启动LiveEngine实盘交易引擎
+
+        LiveEngine负责：
+        - 初始化实盘Portfolio并创建Broker实例
+        - 启动数据同步服务
+        - 启动心跳监控
+        - 启动恢复服务
+
+        这是014-okx-live-account特性的核心组件
+        """
+        try:
+            print("LiveEngine starting...")
+
+            self.live_engine = get_live_engine()
+
+            # 初始化LiveEngine
+            if not self.live_engine.initialize():
+                print("[WARNING] LiveEngine initialization failed, continuing without live trading")
+                self.live_engine = None
+                return
+
+            # 启动LiveEngine
+            if not self.live_engine.start():
+                print("[WARNING] LiveEngine start failed, continuing without live trading")
+                self.live_engine = None
+                return
+
+            print("LiveEngine started successfully")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to start LiveEngine: {e}")
+            print("[WARNING] Continuing without live trading")
+            self.live_engine = None
 
     def _start_data_manager(self):
         """
@@ -430,28 +500,43 @@ class LiveCore:
         return []
 
 
-if __name__ == "__main__":
+# ============================================================================
+# CLI 命令接口（使用 Typer）
+# ============================================================================
+
+# 创建 CLI 应用
+cli = typer.Typer(
+    name="ginkgo-live",
+    help="Ginkgo 实盘交易控制节点",
+    add_completion=False
+)
+
+
+@cli.command()
+def start(
+    debug: bool = typer.Option(False, "--debug", "-d", help="启用调试模式"),
+    enable_live_engine: bool = typer.Option(False, "--live-engine", help="启用LiveEngine实盘交易"),
+) -> None:
     """
-    LiveCore主入口
+    启动LiveCore控制节点
 
-    启动方式：
-    1. 直接运行：python -m ginkgo.livecore.main
-    2. 代码调用：from ginkgo.livecore.main import LiveCore
-
-    信号处理：
-    - SIGINT (Ctrl+C): 优雅关闭
-    - SIGTERM: 优雅关闭
+    示例:
+        ginkgo-live start                          # 标准模式启动
+        ginkgo-live start --live-engine            # 启用实盘交易引擎
+        ginkgo-live start --debug                  # 启用调试模式
     """
     import logging
+    from ginkgo.libs import GLOG
 
-    # 配置日志
+    # 设置日志级别
+    log_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
     # 创建并启动LiveCore
-    livecore = LiveCore()
+    livecore = LiveCore(enable_live_engine=enable_live_engine)
 
     try:
         livecore.start()
@@ -464,8 +549,196 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
     finally:
-        # 确保清理资源（即使启动失败或运行时出错）
         if livecore.is_running:
             GLOG.INFO("Cleaning up LiveCore resources...")
             livecore.stop()
         GLOG.INFO("LiveCore shutdown complete")
+
+
+@cli.command()
+def live_start(
+    debug: bool = typer.Option(False, "--debug", "-d", help="启用调试模式"),
+) -> None:
+    """
+    启动LiveEngine实盘交易引擎（独立模式）
+
+    这是专门用于实盘交易的命令，专注于OKX实盘账号管理
+
+    示例:
+        ginkgo-live live-start              # 启动实盘交易引擎
+        ginkgo-live live-start --debug      # 启用调试模式
+    """
+    import logging
+    from ginkgo.libs import GLOG, GCONF
+
+    if not LIVE_ENGINE_AVAILABLE:
+        print("[ERROR] LiveEngine is not available. Please check dependencies.")
+        sys.exit(1)
+
+    # 设置日志级别
+    log_level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    if debug:
+        GCONF.set_debug(True)
+
+    # 获取LiveEngine实例
+    engine = get_live_engine()
+
+    try:
+        # 初始化引擎
+        if not engine.initialize():
+            print("[ERROR] Failed to initialize LiveEngine")
+            sys.exit(1)
+
+        # 启动引擎
+        if not engine.start():
+            print("[ERROR] Failed to start LiveEngine")
+            sys.exit(1)
+
+        print("=" * 60)
+        print("LiveEngine is running")
+        print("Press Ctrl+C to stop")
+        print("=" * 60)
+
+        # 等待退出信号
+        engine.wait()
+
+        sys.exit(0)
+
+    except KeyboardInterrupt:
+        print("\n[INFO] Received keyboard interrupt")
+        sys.exit(0)
+    except Exception as e:
+        print(f"[ERROR] Error in live engine: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        if engine.is_running():
+            engine.stop()
+
+
+@cli.command()
+def live_status() -> None:
+    """
+    显示LiveEngine状态
+
+    示例:
+        ginkgo-live live-status
+    """
+    if not LIVE_ENGINE_AVAILABLE:
+        print("[ERROR] LiveEngine is not available")
+        sys.exit(1)
+
+    engine = get_live_engine()
+
+    if engine.is_running():
+        print("LiveEngine status: RUNNING")
+
+        # 显示组件状态
+        component_status = engine.get_component_status()
+        print("Component Status:")
+        for component, active in component_status.items():
+            status_icon = "✓" if active else "✗"
+            print(f"  [{status_icon}] {component}: {'ACTIVE' if active else 'INACTIVE'}")
+    else:
+        print("LiveEngine status: STOPPED")
+
+
+@cli.command()
+def live_init(
+    force: bool = typer.Option(False, "--force", "-f", help="强制重新初始化"),
+) -> None:
+    """
+    初始化实盘交易环境
+
+    示例:
+        ginkgo-live live-init                    # 初始化（跳过已存在）
+        ginkgo-live live-init --force            # 强制重新初始化
+    """
+    if not LIVE_ENGINE_AVAILABLE:
+        print("[ERROR] LiveEngine is not available")
+        sys.exit(1)
+
+    engine = get_live_engine()
+
+    if not force:
+        # 检查是否已初始化
+        from ginkgo.data.containers import container
+        broker_crud = container.broker_instance()
+        existing = broker_crud.find(filters={"is_del": False})
+
+        if existing:
+            print(f"Found {len(existing)} existing broker(s)")
+            print("Use --force to reinitialize")
+            return
+
+    # 执行初始化
+    if engine.initialize():
+        print("LiveEngine initialized successfully")
+    else:
+        print("[ERROR] Failed to initialize LiveEngine")
+        sys.exit(1)
+
+
+def main_cli():
+    """CLI 主入口点"""
+    cli()
+
+
+if __name__ == "__main__":
+    """
+    LiveCore主入口
+
+    启动方式：
+    1. 直接运行（兼容旧版本）：python -m ginkgo.livecore.main
+    2. CLI命令（新方式）：python -m ginkgo.livecore.main [COMMAND]
+       - python -m ginkgo.livecore.main start
+       - python -m ginkgo.livecore.main live-start
+       - python -m ginkgo.livecore.main live-status
+       - python -m ginkgo.livecore.main live-init
+    3. 代码调用：from ginkgo.livecore.main import LiveCore
+
+    信号处理：
+    - SIGINT (Ctrl+C): 优雅关闭
+    - SIGTERM: 优雅关闭
+    """
+    import sys
+
+    # 检查是否有命令行参数
+    if len(sys.argv) > 1 and sys.argv[1] in ['start', 'live-start', 'live-status', 'live-init', '--help']:
+        # 使用 CLI 模式
+        main_cli()
+    else:
+        # 使用兼容模式（默认启动LiveCore）
+        import logging
+
+        # 配置日志
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+
+        # 创建并启动LiveCore
+        livecore = LiveCore()
+
+        try:
+            livecore.start()
+            print("LiveCore is running. Press Ctrl+C to stop.")
+            livecore.wait()
+        except KeyboardInterrupt:
+            print("\n[INFO] Received keyboard interrupt, shutting down...")
+        except Exception as e:
+            print(f"[ERROR] LiveCore error: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # 确保清理资源（即使启动失败或运行时出错）
+            if livecore.is_running:
+                print("[INFO] Cleaning up LiveCore resources...")
+                livecore.stop()
+            GLOG.INFO("LiveCore shutdown complete")

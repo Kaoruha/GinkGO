@@ -607,3 +607,97 @@ def sync(
     except Exception as e:
         console.print(f":x: Error updating data: {e}")
         raise typer.Exit(1)
+
+
+@app.command()
+def migrate(
+    database: str = typer.Option("mysql", "--database", "-d", help="Database type (mysql/clickhouse/mongodb)"),
+    message: Optional[str] = typer.Option(None, "--message", "-m", help="Migration message/description"),
+    autogenerate: bool = typer.Option(False, "--autogenerate", "-a", help="Auto-generate migration from model changes"),
+    revision: Optional[str] = typer.Option(None, "--revision", "-r", help="Specific revision to upgrade/downgrade"),
+    action: str = typer.Option("upgrade", "--action", help="Action: upgrade/downgrade/heads/history/current"),
+):
+    """
+    :page_facing_up: Database migration management.
+
+    Examples:
+        ginkgo data migrate                              # Show migration status
+        ginkgo data migrate --autogenerate -m "Add users table"
+        ginkgo data migrate --action upgrade
+        ginkgo data migrate --action heads
+        ginkgo data migrate --action revision -r <revision_id>
+    """
+    try:
+        if database == "mysql":
+            import subprocess
+            import os
+
+            migrations_dir = "/home/kaoru/Ginkgo/migrations/mysql"
+            alembic_ini = os.path.join(migrations_dir, "alembic.ini")
+
+            if autogenerate:
+                # Auto-generate migration
+                console.print(f":memo: Generating migration for MySQL database...")
+                if message:
+                    cmd = ["alembic", "revision", "--autogenerate", "-m", message]
+                else:
+                    cmd = ["alembic", "revision", "--autogenerate"]
+                subprocess.run(cmd, cwd=migrations_dir, check=True)
+                console.print(f":white_check_mark: Migration generated successfully")
+
+            elif action == "upgrade":
+                console.print(f":arrow_up: Upgrading MySQL database to latest version...")
+                if revision:
+                    subprocess.run(["alembic", "upgrade", revision], cwd=migrations_dir, check=True)
+                else:
+                    subprocess.run(["alembic", "upgrade", "head"], cwd=migrations_dir, check=True)
+                console.print(f":white_check_mark: Database upgraded successfully")
+
+            elif action == "downgrade":
+                if not revision:
+                    console.print(":x: --revision is required for downgrade")
+                    raise typer.Exit(1)
+                console.print(f":arrow_down: Downgrading MySQL database to {revision}...")
+                subprocess.run(["alembic", "downgrade", revision], cwd=migrations_dir, check=True)
+                console.print(f":white_check_mark: Database downgraded successfully")
+
+            elif action == "heads":
+                subprocess.run(["alembic", "heads"], cwd=migrations_dir)
+            elif action == "history":
+                subprocess.run(["alembic", "history"], cwd=migrations_dir)
+            elif action == "current":
+                subprocess.run(["alembic", "current"], cwd=migrations_dir)
+            else:
+                # Show current status
+                console.print(f":information: MySQL Database Migration Status")
+                console.print(f"Migrations directory: {migrations_dir}")
+                console.print(f"\nAvailable actions:")
+                console.print(f"  --autogenerate    Generate migration from model changes")
+                console.print(f"  --action upgrade  Upgrade to latest revision")
+                console.print(f"  --action heads    Show available heads")
+                console.print(f"  --action history  Show migration history")
+                console.print(f"  --action current  Show current revision")
+
+        elif database == "clickhouse":
+            console.print(":information: ClickHouse migrations use SQL scripts in migrations/clickhouse/")
+            console.print("Manual execution required:")
+            console.print("  1. Create SQL migration file in migrations/clickhouse/")
+            console.print("  2. Execute: clickhouse-client --query=$(cat migration.sql)")
+
+        elif database == "mongodb":
+            console.print(":information: MongoDB migrations use JavaScript scripts in migrations/mongodb/")
+            console.print("Manual execution required:")
+            console.print("  1. Create JS migration file in migrations/mongodb/")
+            console.print("  2. Execute: mongo <migration.js>")
+
+        else:
+            console.print(f":x: Unknown database type: {database}")
+            console.print("Available types: mysql, clickhouse, mongodb")
+            raise typer.Exit(1)
+
+    except subprocess.CalledProcessError as e:
+        console.print(f":x: Migration command failed: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)

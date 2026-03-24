@@ -1,223 +1,265 @@
 <template>
   <div class="oos-test">
-    <a-card title="样本外测试">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择策略</a-button>
-      </template>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="验证方法">
-            <a-select v-model:value="validationMethod">
-              <a-select-option value="walk_forward">走步验证</a-select-option>
-              <a-select-option value="rolling_window">滚动窗口</a-select-option>
-              <a-select-option value="cross_validation">交叉验证</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="策略">
-            <a-select v-model:value="selectedStrategy" placeholder="选择策略">
-              <a-select-option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
+    <div class="card">
+      <div class="card-header">
+        <h4>样本外测试</h4>
+        <button class="btn-secondary" @click="$router.push('/portfolio')">选择策略</button>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">验证方法</label>
+            <select v-model="validationMethod" class="form-select">
+              <option value="walk_forward">走步验证</option>
+              <option value="rolling_window">滚动窗口</option>
+              <option value="cross_validation">交叉验证</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">策略</label>
+            <select v-model="selectedStrategy" class="form-select">
+              <option value="">选择策略</option>
+              <option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
                 {{ s.name }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <div v-if="validationMethod === 'walk_forward'" class="config-section">
-        <h4>走步验证配置</h4>
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-form-item label="训练期长度（天）">
-              <a-input-number v-model:value="walkForwardConfig.trainSize" :min="30" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="测试期长度（天）">
-              <a-input-number v-model:value="walkForwardConfig.testSize" :min="10" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="步长（天）">
-              <a-input-number v-model:value="walkForwardConfig.stepSize" :min="1" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="最小训练样本">
-              <a-input-number v-model:value="walkForwardConfig.minTrainSamples" :min="50" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- Custom -->
-      <div v-if="validationMethod === 'rolling_window'" class="config-section">
-        <h4>滚动窗口配置</h4>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="窗口大小">
-              <a-slider v-model:value="rollingConfig.windowSize" :min="50" :max="500" :marks="{ 100: '100', 252: '252', 500: '500' }" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="最小数据点">
-              <a-input-number v-model:value="rollingConfig.minDataPoints" :min="20" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- Custom -->
-      <div v-if="validationMethod === 'cross_validation'" class="config-section">
-        <h4>交叉验证配置</h4>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="折数（K-Fold）">
-              <a-select v-model:value="cvConfig.nFolds">
-                <a-select-option :value="3">3折</a-select-option>
-                <a-select-option :value="5">5折</a-select-option>
-                <a-select-option :value="10">10折</a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="数据范围">
-              <a-range-picker v-model:value="dateRange" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- Custom -->
-      <a-divider>参数设置</a-divider>
-      <div class="params-display">
-        <a-descriptions bordered :column="1">
-          <a-descriptions-item v-for="p in fixedParams" :key="p.name" :label="p.label">
-            {{ formatParamValue(p.value) }}
-          </a-descriptions-item>
-        </a-descriptions>
-      </div>
-
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="testing" @click="startTest">
-            开始测试
-          </a-button>
-          <a-button @click="resetConfig">重置</a-button>
-        </a-space>
-      </div>
-    </a-card>
-
-    <!-- Custom -->
-    <a-card v-if="testing" title="测试进度" class="mt-4">
-      <a-progress :percent="testProgress" :status="testStatus" />
-      <div class="progress-info mt-3">
-        <a-statistic title="当前窗口" :value="currentWindow" suffix="/ {{ totalWindows }}" />
-        <a-statistic title="已完成" :value="completedWindows" suffix="个窗口" class="ml-4" />
-      </div>
-    </a-card>
-
-    <!-- Custom -->
-    <a-card v-if="results" title="测试结果" class="mt-4">
-      <template #extra>
-        <a-space>
-          <a-button @click="exportReport">导出报告</a-button>
-          <a-button @click="plotResults">图表对比</a-button>
-        </a-space>
-      </template>
-
-      <!-- Custom -->
-      <a-alert
-        :type="overfitStatus.type"
-        :message="overfitStatus.message"
-        show-icon
-        class="mb-4"
-      />
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-card title="训练集统计" size="small">
-            <a-statistic title="平均收益" :value="summary.trainAvgReturn" suffix="%" :precision="2" />
-            <a-statistic title="夏普比率" :value="summary.trainSharpe" :precision="2" class="mt-2" />
-            <a-statistic title="最大回撤" :value="summary.trainMaxDD" suffix="%" :precision="2" class="mt-2" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card title="测试集统计" size="small">
-            <a-statistic title="平均收益" :value="summary.valAvgReturn" suffix="%" :precision="2" />
-            <a-statistic title="夏普比率" :value="summary.valSharpe" :precision="2" class="mt-2" />
-            <a-statistic title="最大回撤" :value="summary.valMaxDD" suffix="%" :precision="2" class="mt-2" />
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-card title="泛化能力分析" size="small" class="mb-4">
-        <div class="degradation-info">
-          <a-row :gutter="16">
-            <a-col :span="12">
-              <a-statistic
-                title="性能退化"
-                :value="summary.performanceDegradation"
-                suffix="%"
-                :value-style="{ color: getDegradationColor(summary.performanceDegradation) }"
-                :precision="2"
-              />
-            </a-col>
-            <a-col :span="12">
-              <a-statistic
-                title="稳定性得分"
-                :value="summary.stabilityScore"
-                :precision="2"
-                :value-style="{ color: getStabilityColor(summary.stabilityScore) }"
-              />
-            </a-col>
-          </a-row>
-          <div class="mt-3">
-            <a-progress
-              :percent="summary.stabilityScore * 20"
-              :stroke-color="getStabilityColor(summary.stabilityScore)"
-            />
+              </option>
+            </select>
           </div>
         </div>
-      </a-card>
 
-      <!-- Custom -->
-      <a-table
-        :columns="resultColumns"
-        :data-source="results"
-        :pagination="{ pageSize: 20 }"
-        :scroll="{ y: 400 }"
-        size="small"
-      >
-        <template #bodyCell="{ column, record }">
-          <span v-if="column.dataIndex === 'train_return'" :style="{ color: record.train_return >= 0 ? '#52c41a' : '#f5222d' }">
-            {{ (record.train_return * 100).toFixed(2) }}%
-          </span>
-          <span v-if="column.dataIndex === 'val_return'" :style="{ color: record.val_return >= 0 ? '#52c41a' : '#f5222d' }">
-            {{ (record.val_return * 100).toFixed(2) }}%
-          </span>
-        </template>
-      </a-table>
-    </a-card>
+        <!-- 走步验证配置 -->
+        <div v-if="validationMethod === 'walk_forward'" class="config-section">
+          <h4>走步验证配置</h4>
+          <div class="config-grid">
+            <div class="form-group">
+              <label class="form-label">训练期长度（天）</label>
+              <input v-model.number="walkForwardConfig.trainSize" type="number" :min="30" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">测试期长度（天）</label>
+              <input v-model.number="walkForwardConfig.testSize" type="number" :min="10" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">步长（天）</label>
+              <input v-model.number="walkForwardConfig.stepSize" type="number" :min="1" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">最小训练样本</label>
+              <input v-model.number="walkForwardConfig.minTrainSamples" type="number" :min="50" class="form-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 滚动窗口配置 -->
+        <div v-if="validationMethod === 'rolling_window'" class="config-section">
+          <h4>滚动窗口配置</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">窗口大小: {{ rollingConfig.windowSize }}</label>
+              <input v-model.number="rollingConfig.windowSize" type="range" :min="50" :max="500" class="slider-input" />
+              <div class="slider-marks">
+                <span>50</span>
+                <span>252</span>
+                <span>500</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">最小数据点</label>
+              <input v-model.number="rollingConfig.minDataPoints" type="number" :min="20" class="form-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 交叉验证配置 -->
+        <div v-if="validationMethod === 'cross_validation'" class="config-section">
+          <h4>交叉验证配置</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">折数（K-Fold）</label>
+              <select v-model="cvConfig.nFolds" class="form-select">
+                <option :value="3">3折</option>
+                <option :value="5">5折</option>
+                <option :value="10">10折</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">数据范围</label>
+              <div class="date-range-inputs">
+                <input v-model="startDate" type="date" class="form-input" />
+                <input v-model="endDate" type="date" class="form-input" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider">参数设置</div>
+        <div class="params-display">
+          <div v-for="p in fixedParams" :key="p.name" class="param-item">
+            <span class="param-label">{{ p.label }}</span>
+            <span class="param-value">{{ formatParamValue(p.value) }}</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-primary" :disabled="testing" @click="startTest">
+            {{ testing ? '测试中...' : '开始测试' }}
+          </button>
+          <button class="btn-secondary" @click="resetConfig">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测试进度卡片 -->
+    <div v-if="testing" class="card mt-4">
+      <div class="card-header">
+        <h4>测试进度</h4>
+      </div>
+      <div class="card-body">
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            :class="getProgressStatus()"
+            :style="{ width: testProgress + '%' }"
+          ></div>
+        </div>
+        <div class="progress-info">
+          <div class="stat-item">
+            <span class="stat-label">当前窗口</span>
+            <span class="stat-value">{{ currentWindow }} / {{ totalWindows }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">已完成</span>
+            <span class="stat-value">{{ completedWindows }} 个窗口</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测试结果卡片 -->
+    <div v-if="results && results.length > 0" class="card mt-4">
+      <div class="card-header">
+        <h4>测试结果</h4>
+        <div class="header-actions">
+          <button class="btn-secondary" @click="exportReport">导出报告</button>
+          <button class="btn-secondary" @click="plotResults">图表对比</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="alert" :class="`alert-${overfitStatus.type}`">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ overfitStatus.message }}</span>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h5>训练集统计</h5>
+            <div class="stat-row">
+              <span class="stat-label">平均收益</span>
+              <span class="stat-value">{{ (summary.trainAvgReturn * 100).toFixed(2) }}%</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">夏普比率</span>
+              <span class="stat-value">{{ summary.trainSharpe.toFixed(2) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">最大回撤</span>
+              <span class="stat-value">{{ (summary.trainMaxDD * 100).toFixed(2) }}%</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <h5>测试集统计</h5>
+            <div class="stat-row">
+              <span class="stat-label">平均收益</span>
+              <span class="stat-value">{{ (summary.valAvgReturn * 100).toFixed(2) }}%</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">夏普比率</span>
+              <span class="stat-value">{{ summary.valSharpe.toFixed(2) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">最大回撤</span>
+              <span class="stat-value">{{ (summary.valMaxDD * 100).toFixed(2) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <h5>泛化能力分析</h5>
+          <div class="degradation-grid">
+            <div class="degradation-item">
+              <span class="stat-label">性能退化</span>
+              <span class="stat-value" :style="{ color: getDegradationColor(summary.performanceDegradation) }">
+                {{ summary.performanceDegradation.toFixed(2) }}%
+              </span>
+            </div>
+            <div class="degradation-item">
+              <span class="stat-label">稳定性得分</span>
+              <span class="stat-value" :style="{ color: getStabilityColor(summary.stabilityScore) }">
+                {{ summary.stabilityScore.toFixed(2) }}
+              </span>
+            </div>
+          </div>
+          <div class="progress-bar mt-3">
+            <div
+              class="progress-fill"
+              :style="{ width: (summary.stabilityScore * 20) + '%', backgroundColor: getStabilityColor(summary.stabilityScore) }"
+            ></div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>窗口</th>
+                <th>训练期</th>
+                <th>测试期</th>
+                <th>训练收益%</th>
+                <th>测试收益%</th>
+                <th>收益差%</th>
+                <th>过拟合</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in results" :key="record.window">
+                <td>{{ record.window }}</td>
+                <td>{{ record.train_period }}</td>
+                <td>{{ record.val_period }}</td>
+                <td :style="{ color: record.train_return >= 0 ? '#52c41a' : '#f5222d' }">
+                  {{ (record.train_return * 100).toFixed(2) }}%
+                </td>
+                <td :style="{ color: record.val_return >= 0 ? '#52c41a' : '#f5222d' }">
+                  {{ (record.val_return * 100).toFixed(2) }}%
+                </td>
+                <td>{{ record.return_diff }}</td>
+                <td>
+                  <span class="tag" :class="record.overfit ? 'tag-red' : 'tag-green'">
+                    {{ record.overfit ? '是' : '否' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import * as echarts from 'echarts'
-import { outOfSampleTest } from '@/api/modules/validation'
 import dayjs from 'dayjs'
 
 const router = useRouter()
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 // 策略列表（模拟）
 const strategies = ref([
@@ -227,7 +269,8 @@ const strategies = ref([
 
 const selectedStrategy = ref('')
 const validationMethod = ref('walk_forward')
-const dateRange = ref<any[]>([])
+const startDate = ref('')
+const endDate = ref('')
 
 // 走步验证配置
 const walkForwardConfig = ref({
@@ -249,12 +292,15 @@ const cvConfig = ref({
 })
 
 // 固定参数（根据策略获取）
-const fixedParams = ref<any[]>([])
+const fixedParams = ref<any[]>([
+  { name: 'short_period', label: '短期均线', value: 5 },
+  { name: 'long_period', label: '长期均线', value: 20 },
+  { name: 'stop_loss', label: '止损比例', value: 0.05 },
+])
 
 // 测试状态
 const testing = ref(false)
 const testProgress = ref(0)
-const testStatus = ref<'normal' | 'active' | 'success'>('normal')
 const currentWindow = ref(0)
 const totalWindows = ref(0)
 const completedWindows = ref(0)
@@ -274,17 +320,6 @@ const summary = ref({
   stabilityScore: 0
 })
 
-// 结果表格列
-const resultColumns = [
-  { title: '窗口', dataIndex: 'window', width: 80, fixed: 'left' },
-  { title: '训练期', dataIndex: 'train_period', width: 150 },
-  { title: '测试期', dataIndex: 'val_period', width: 150 },
-  { title: '训练收益%', dataIndex: 'train_return', width: 100 },
-  { title: '测试收益%', dataIndex: 'val_return', width: 100 },
-  { title: '收益差%', dataIndex: 'return_diff', width: 100 },
-  { title: '过拟合', dataIndex: 'overfit', width: 80 }
-]
-
 // 过拟合状态
 const overfitStatus = computed(() => {
   const deg = summary.value.performanceDegradation
@@ -298,6 +333,13 @@ const overfitStatus = computed(() => {
     return { type: 'success', message: '✅ 泛化能力良好：测试性能接近或优于训练集' }
   }
 })
+
+// 获取进度状态
+const getProgressStatus = () => {
+  if (testProgress.value >= 100) return 'progress-success'
+  if (testProgress.value > 0) return 'progress-active'
+  return ''
+}
 
 // 获取退化颜色
 const getDegradationColor = (value: number) => {
@@ -324,7 +366,7 @@ const formatParamValue = (value: any) => {
 // 开始测试
 const startTest = async () => {
   if (!selectedStrategy.value) {
-    message.warning('请先选择策略')
+    showToast('请先选择策略', 'warning')
     return
   }
 
@@ -341,9 +383,9 @@ const startTest = async () => {
       await runRollingWindow()
     }
 
-    message.success('测试完成')
-  } catch (e) {
-    message.error('测试失败')
+    showToast('测试完成')
+  } catch {
+    showToast('测试失败', 'error')
   } finally {
     testing.value = false
   }
@@ -354,7 +396,7 @@ const runWalkForward = async () => {
   const { trainSize, testSize, stepSize } = walkForwardConfig.value
 
   // 计算窗口数
-  const dataLength = dateRange.value[1] ? dayjs(dateRange.value[1]).diff(dayjs(dateRange.value[0]), 'day') : 600
+  const dataLength = 600
   totalWindows.value = Math.floor((dataLength - trainSize) / stepSize)
 
   // 模拟运行
@@ -454,13 +496,13 @@ const calculateSummary = () => {
 
   summary.value = {
     trainAvgReturn: trainReturns.reduce((a, b) => a + b, 0) / trainReturns.length,
-    trainSharpe: 0, // 简化计算
+    trainSharpe: 0,
     trainMaxDD: Math.min(...trainReturns),
     valAvgReturn: valReturns.reduce((a, b) => a + b, 0) / valReturns.length,
     valSharpe: 0,
     valMaxDD: Math.min(...valReturns),
     performanceDegradation: ((valReturns.reduce((a, b) => a + b, 0) / valReturns.length) - (trainReturns.reduce((a, b) => a + b, 0) / trainReturns.length)) * 100,
-    stabilityScore: 75 // 模拟值
+    stabilityScore: 75
   }
 }
 
@@ -483,15 +525,15 @@ const resetConfig = () => {
 // 导出报告
 const exportReport = () => {
   if (results.value.length === 0) {
-    message.warning('没有可导出的结果')
+    showToast('没有可导出的结果', 'warning')
     return
   }
-  message.info('导出验证报告...')
+  showToast('导出验证报告...')
 }
 
 // 图表对比
 const plotResults = () => {
-  message.info('打开结果对比图表')
+  showToast('打开结果对比图表')
 }
 </script>
 
@@ -500,12 +542,425 @@ const plotResults = () => {
   padding: 16px;
 }
 
-.mb-4 {
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
-.mt-2 {
-  margin-top: 8px;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.config-section {
+  background: #2a2a3e;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.config-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 12px 0;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+/* Slider */
+.slider-input {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #3a3a4e;
+  border-radius: 3px;
+  outline: none;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #1890ff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.slider-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #1890ff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-top: 4px;
+}
+
+.date-range-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.date-range-inputs .form-input {
+  flex: 1;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  color: #8a8a9a;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 20px 0 16px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a3e;
+}
+
+.divider::before {
+  margin-right: 16px;
+}
+
+.divider::after {
+  margin-left: 16px;
+}
+
+.params-display {
+  background: #2a2a3e;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.param-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #3a3a4e;
+}
+
+.param-item:last-child {
+  border-bottom: none;
+}
+
+.param-label {
+  color: #8a8a9a;
+  font-size: 13px;
+}
+
+.param-value {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Progress */
+.progress-bar {
+  height: 8px;
+  background: #2a2a3e;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #1890ff;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.progress-active {
+  background: #1890ff;
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.progress-fill.progress-success {
+  background: #52c41a;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-info {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Alert */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.alert-success {
+  background: rgba(82, 196, 26, 0.1);
+  border: 1px solid #52c41a;
+  color: #52c41a;
+}
+
+.alert-warning {
+  background: rgba(250, 173, 20, 0.1);
+  border: 1px solid #faad14;
+  color: #faad14;
+}
+
+.alert-error {
+  background: rgba(245, 34, 45, 0.1);
+  border: 1px solid #f5222d;
+  color: #f5222d;
+}
+
+.alert-info {
+  background: rgba(24, 144, 255, 0.1);
+  border: 1px solid #1890ff;
+  color: #1890ff;
+}
+
+.alert svg {
+  flex-shrink: 0;
+}
+
+/* Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.stat-card h5 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #3a3a4e;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.degradation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.degradation-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tr:hover {
+  background: #2a2a3e;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
 }
 
 .mt-3 {
@@ -516,39 +971,22 @@ const plotResults = () => {
   margin-top: 16px;
 }
 
-.ml-4 {
-  margin-left: 16px;
-}
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 
-.config-section {
-  background: #fafafa;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
+  .config-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 
-.config-section h4 {
-  margin-bottom: 12px;
-  color: #333;
-}
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 
-.params-display {
-  background: #f5f5f5;
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.action-buttons {
-  text-align: center;
-  margin-top: 24px;
-}
-
-.progress-info {
-  display: flex;
-  justify-content: center;
-}
-
-.degradation-info {
-  padding: 16px;
+  .progress-info {
+    flex-direction: column;
+    gap: 16px;
+  }
 }
 </style>

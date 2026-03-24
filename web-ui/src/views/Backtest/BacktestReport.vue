@@ -1,188 +1,259 @@
 <template>
   <div class="backtest-report">
-    <a-card :title="`回测报告 - ${backtestName || ''}`">
-      <template #extra>
-        <a-space>
-          <a-button @click="$router.back()">返回</a-button>
-          <a-button type="primary" @click="exportReport">导出报告</a-button>
-        </a-space>
-      </template>
+    <div class="card">
+      <div class="card-header">
+        <h3>回测报告 - {{ backtestName || '' }}</h3>
+        <div class="header-actions">
+          <button class="btn-secondary" @click="$router.back()">返回</button>
+          <button class="btn-primary" @click="exportReport">导出报告</button>
+        </div>
+      </div>
 
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-card title="收益指标" size="small">
-            <a-row>
-              <a-col :span="12">
-                <a-statistic title="总收益率" :value="summary.total_return" suffix="%" :precision="2" />
-              </a-col>
-              <a-col :span="12">
-                <a-statistic title="年化收益率" :value="summary.annual_return" suffix="%" :precision="2" />
-              </a-col>
-            </a-row>
-            <a-row class="mt-3">
-              <a-col :span="12">
-                <a-statistic title="夏普比率" :value="summary.sharpe_ratio" :precision="2" />
-              </a-col>
-              <a-col :span="12">
-                <a-statistic title="卡玛比率" :value="summary.calmar_ratio" :precision="2" />
-              </a-col>
-            </a-row>
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card title="风险指标" size="small">
-            <a-row>
-              <a-col :span="12">
-                <a-statistic title="最大回撤" :value="summary.max_drawdown" suffix="%" :precision="2" />
-              </a-col>
-              <a-col :span="12">
-                <a-statistic title="胜率" :value="summary.win_rate" suffix="%" :precision="2" />
-              </a-col>
-            </a-row>
-            <a-row class="mt-3">
-              <a-col :span="12">
-                <a-statistic title="盈亏比" :value="summary.profit_loss_ratio" :precision="2" />
-              </a-col>
-              <a-col :span="12">
-                <a-statistic title="最大连续亏损" :value="summary.max_consecutive_losses" />
-              </a-col>
-            </a-row>
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-card title="交易统计" size="small">
-            <a-statistic title="总交易次数" :value="summary.total_trades" />
-            <a-statistic title="盈利交易" :value="summary.winning_trades" />
-            <a-statistic title="亏损交易" :value="summary.losing_trades" />
-            <a-statistic title="平均持仓天数" :value="summary.avg_holding_days" :precision="1" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card title="资金分析" size="small">
-            <a-statistic title="初始资金" :value="summary.initial_capital" />
-            <a-statistic title="最终权益" :value="summary.final_capital" />
-            <a-statistic title="总手续费" :value="summary.total_commission" />
-            <a-statistic title="总滑点成本" :value="summary.total_slippage" />
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="16">
-          <a-card title="净值曲线" size="small">
-            <div ref="netValueChartRef" class="chart-container" style="height: 350px"></div>
-          </a-card>
-        </a-col>
-        <a-col :span="8">
-          <a-card title="回撤曲线" size="small">
-            <div ref="drawdownChartRef" class="chart-container" style="height: 250px"></div>
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-card title="交易记录" class="mb-4">
-        <template #extra>
-          <a-input-search v-model:value="searchText" placeholder="搜索股票代码" style="width: 200px" allow-clear />
-        </template>
-        <a-table
-          :columns="tradeColumns"
-          :data-source="filteredTrades"
-          :pagination="{ pageSize: 20, showSizeChanger: true }"
-          :scroll="{ y: 400 }"
-          size="small"
-        >
-          <template #bodyCell="{ column, record }">
-            <span v-if="column.dataIndex === 'pnl'" :style="{ color: record.pnl >= 0 ? '#f5222d' : '#52c41a' }">
-              {{ record.pnl.toFixed(2) }}
-            </span>
-            <span v-else-if="column.dataIndex === 'return'" :style="{ color: record.return >= 0 ? '#f5222d' : '#52c41a' }">
-              {{ (record.return * 100).toFixed(2) }}%
-            </span>
-          </template>
-        </a-table>
-      </a-card>
-
-      <!-- Custom -->
-      <a-card title="分析器数据">
-        <a-table
-          :columns="analyzerColumns"
-          :data-source="analyzerData"
-          :pagination="{ pageSize: 10 }"
-          size="small"
-          :default-expand-all-rows="false"
-        >
-          <template #expandedRowRender="{ record }">
-            <div style="padding: 16px">
-              <h4>{{ record.name }}</h4>
-              <p>{{ record.description }}</p>
-              <a-table
-                :columns="['timestamp', 'value']"
-                :data-source="record.data"
-                :pagination="false"
-                size="small"
-                :scroll="{ y: 200 }"
-              />
+      <div class="card-body">
+        <!-- 指标卡片 -->
+        <div class="metrics-grid">
+          <!-- 收益指标 -->
+          <div class="metric-card">
+            <h4 class="metric-title">收益指标</h4>
+            <div class="metric-stats">
+              <div class="metric-stat">
+                <span class="stat-label">总收益率</span>
+                <span class="stat-value" :class="getChangeClass(summary.total_return)">
+                  {{ summary.total_return.toFixed(2) }}%
+                </span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">年化收益率</span>
+                <span class="stat-value" :class="getChangeClass(summary.annual_return)">
+                  {{ summary.annual_return.toFixed(2) }}%
+                </span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">夏普比率</span>
+                <span class="stat-value">{{ summary.sharpe_ratio.toFixed(2) }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">卡玛比率</span>
+                <span class="stat-value">{{ summary.calmar_ratio.toFixed(2) }}</span>
+              </div>
             </div>
-          </template>
-        </a-table>
-      </a-card>
-    </a-card>
+          </div>
+
+          <!-- 风险指标 -->
+          <div class="metric-card">
+            <h4 class="metric-title">风险指标</h4>
+            <div class="metric-stats">
+              <div class="metric-stat">
+                <span class="stat-label">最大回撤</span>
+                <span class="stat-value value-down">{{ summary.max_drawdown.toFixed(2) }}%</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">胜率</span>
+                <span class="stat-value">{{ summary.win_rate.toFixed(2) }}%</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">盈亏比</span>
+                <span class="stat-value">{{ summary.profit_loss_ratio.toFixed(2) }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">最大连续亏损</span>
+                <span class="stat-value">{{ summary.max_consecutive_losses }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 交易统计 -->
+          <div class="metric-card">
+            <h4 class="metric-title">交易统计</h4>
+            <div class="metric-stats">
+              <div class="metric-stat">
+                <span class="stat-label">总交易次数</span>
+                <span class="stat-value">{{ summary.total_trades }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">盈利交易</span>
+                <span class="stat-value stat-success">{{ summary.winning_trades }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">亏损交易</span>
+                <span class="stat-value stat-danger">{{ summary.losing_trades }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">平均持仓天数</span>
+                <span class="stat-value">{{ summary.avg_holding_days.toFixed(1) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 资金分析 -->
+          <div class="metric-card">
+            <h4 class="metric-title">资金分析</h4>
+            <div class="metric-stats">
+              <div class="metric-stat">
+                <span class="stat-label">初始资金</span>
+                <span class="stat-value">¥{{ formatNumber(summary.initial_capital) }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">最终权益</span>
+                <span class="stat-value">¥{{ formatNumber(summary.final_capital) }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">总手续费</span>
+                <span class="stat-value">¥{{ formatNumber(summary.total_commission) }}</span>
+              </div>
+              <div class="metric-stat">
+                <span class="stat-label">总滑点成本</span>
+                <span class="stat-value">¥{{ formatNumber(summary.total_slippage) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h4 class="chart-title">净值曲线</h4>
+            <div ref="netValueChartRef" class="chart-container"></div>
+          </div>
+          <div class="chart-card chart-small">
+            <h4 class="chart-title">回撤曲线</h4>
+            <div ref="drawdownChartRef" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- 交易记录 -->
+        <div class="table-section">
+          <div class="section-header">
+            <h4>交易记录</h4>
+            <input v-model="searchText" type="text" placeholder="搜索股票代码" class="form-input" />
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>代码</th>
+                  <th>名称</th>
+                  <th>方向</th>
+                  <th>买入价</th>
+                  <th>卖出价</th>
+                  <th>数量</th>
+                  <th>买入时间</th>
+                  <th>卖出时间</th>
+                  <th>收益率%</th>
+                  <th>盈亏</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in filteredTrades" :key="record.code">
+                  <td>{{ record.code }}</td>
+                  <td>{{ record.name }}</td>
+                  <td>{{ record.direction }}</td>
+                  <td>{{ record.buy_price.toFixed(2) }}</td>
+                  <td>{{ record.sell_price.toFixed(2) }}</td>
+                  <td>{{ record.volume }}</td>
+                  <td>{{ record.buy_time }}</td>
+                  <td>{{ record.sell_time }}</td>
+                  <td :class="getChangeClass(record.return)">
+                    {{ (record.return * 100).toFixed(2) }}%
+                  </td>
+                  <td :class="getChangeClass(record.pnl)">
+                    {{ record.pnl.toFixed(2) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 分析器数据 -->
+        <div class="table-section">
+          <h4>分析器数据</h4>
+          <div class="table-wrapper">
+            <table class="data-table expandable">
+              <thead>
+                <tr>
+                  <th>分析器名称</th>
+                  <th>描述</th>
+                  <th>数据点数</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in analyzerData" :key="record.name">
+                  <td>{{ record.name }}</td>
+                  <td>{{ record.description }}</td>
+                  <td>{{ record.data_count }}</td>
+                  <td>
+                    <button class="btn-link" @click="toggleExpand(record.name)">
+                      {{ expandedAnalyzers[record.name] ? '收起' : '展开' }}
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="expandedAnalyzers[record.name]" :key="`${record.name}-expanded`">
+                  <td colspan="4" class="expanded-row">
+                    <div class="expanded-content">
+                      <h5>{{ record.name }}</h5>
+                      <p>{{ record.description }}</p>
+                      <table class="data-table data-table-small">
+                        <thead>
+                          <tr>
+                            <th>时间戳</th>
+                            <th>值</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(data, i) in record.data" :key="`data-${i}`">
+                            <td>{{ data.timestamp }}</td>
+                            <td>{{ data.value }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
 import * as echarts from 'echarts'
-import { NetValueChart, DrawdownChart } from '@/components/charts/backtest'
 
 const route = useRoute()
 const backtestId = route.params.uuid || ''
 
 const backtestName = ref('')
 const searchText = ref('')
+const expandedAnalyzers = ref<Record<string, boolean>>({})
 
 // 报告摘要数据
 const summary = ref({
-  total_return: 0,
-  annual_return: 0,
-  sharpe_ratio: 0,
-  calmar_ratio: 0,
-  max_drawdown: 0,
-  win_rate: 0,
-  profit_loss_ratio: 0,
-  max_consecutive_losses: 0,
-  total_trades: 0,
-  winning_trades: 0,
-  losing_trades: 0,
-  avg_holding_days: 0,
-  initial_capital: 0,
-  final_capital: 0,
-  total_commission: 0,
-  total_slippage: 0
+  total_return: 25.6,
+  annual_return: 18.3,
+  sharpe_ratio: 1.25,
+  calmar_ratio: 0.85,
+  max_drawdown: -12.5,
+  win_rate: 58.3,
+  profit_loss_ratio: 1.45,
+  max_consecutive_losses: 5,
+  total_trades: 156,
+  winning_trades: 92,
+  losing_trades: 64,
+  avg_holding_days: 8.5,
+  initial_capital: 1000000,
+  final_capital: 1256000,
+  total_commission: 8900,
+  total_slippage: 3500
 })
 
 // 交易记录
 const trades = ref<any[]>([])
-const tradeColumns = [
-  { title: '代码', dataIndex: 'code', width: 100, fixed: 'left' },
-  { title: '名称', dataIndex: 'name', width: 120 },
-  { title: '方向', dataIndex: 'direction', width: 80 },
-  { title: '买入价', dataIndex: 'buy_price', width: 100 },
-  { title: '卖出价', dataIndex: 'sell_price', width: 100 },
-  { title: '数量', dataIndex: 'volume', width: 80 },
-  { title: '买入时间', dataIndex: 'buy_time', width: 150 },
-  { title: '卖出时间', dataIndex: 'sell_time', width: 150 },
-  { title: '收益率%', dataIndex: 'return', width: 100 },
-  { title: '盈亏', dataIndex: 'pnl', width: 100, align: 'right' },
-]
 
 const filteredTrades = computed(() => {
   if (!searchText.value) return trades.value
@@ -191,41 +262,28 @@ const filteredTrades = computed(() => {
 
 // 分析器数据
 const analyzerData = ref<any[]>([])
-const analyzerColumns = [
-  { title: '分析器名称', dataIndex: 'name', width: 150 },
-  { title: '描述', dataIndex: 'description', width: 200 },
-  { title: '数据点数', dataIndex: 'data_count', width: 100 },
-]
 
 const netValueChartRef = ref<HTMLDivElement>()
 const drawdownChartRef = ref<HTMLDivElement>()
 
+// 辅助函数
+const formatNumber = (num: number) => {
+  return num.toLocaleString('zh-CN')
+}
+
+const getChangeClass = (value: number) => {
+  if (value > 0) return 'value-up'
+  if (value < 0) return 'value-down'
+  return ''
+}
+
+const toggleExpand = (name: string) => {
+  expandedAnalyzers.value[name] = !expandedAnalyzers.value[name]
+}
+
 // 加载回测报告数据
 const loadReport = async () => {
   try {
-    // TODO: 调用API获取回测报告
-    // const res = await getBacktestReport(backtestId)
-
-    // 模拟数据
-    summary.value = {
-      total_return: 25.6,
-      annual_return: 18.3,
-      sharpe_ratio: 1.25,
-      calmar_ratio: 0.85,
-      max_drawdown: -12.5,
-      win_rate: 58.3,
-      profit_loss_ratio: 1.45,
-      max_consecutive_losses: 5,
-      total_trades: 156,
-      winning_trades: 92,
-      losing_trades: 64,
-      avg_holding_days: 8.5,
-      initial_capital: 1000000,
-      final_capital: 1256000,
-      total_commission: 8900,
-      total_slippage: 3500
-    }
-
     // 模拟交易记录
     trades.value = Array.from({ length: 20 }, (_, i) => ({
       code: `00000${i + 1}.SZ`,
@@ -246,7 +304,7 @@ const loadReport = async () => {
         name: '净值分析器',
         description: '记录投资组合净值变化',
         data_count: 252,
-        data: Array.from({ length: 252 }, (_, i) => ({
+        data: Array.from({ length: 50 }, (_, i) => ({
           timestamp: `2024-01-${String(i + 1).padStart(2, '0')} 09:30:00`,
           value: 1000000 + i * 1000
         }))
@@ -270,9 +328,9 @@ const loadReport = async () => {
     renderDrawdownChart()
 
     backtestName.value = '双均线策略回测'
-    message.success('报告加载完成')
+    console.log('报告加载完成')
   } catch (e) {
-    message.error('加载报告失败')
+    console.error('加载报告失败')
   }
 }
 
@@ -280,12 +338,8 @@ const loadReport = async () => {
 const renderNetValueChart = () => {
   if (!netValueChartRef.value) return
 
-  const chart = echarts.init(netValueChartRef.value, {
-    height: 350,
-    width: netValueChartRef.value.clientWidth
-  })
+  const chart = echarts.init(netValueChartRef.value)
 
-  // TODO: 使用真实数据
   const dates = Array.from({ length: 100 }, (_, i) => `2024-${String(i + 1).padStart(2, '0')}`)
   const values = Array.from({ length: 100 }, () => 1000000 + Math.random() * 50000)
 
@@ -297,9 +351,9 @@ const renderNetValueChart = () => {
       type: 'line',
       data: values,
       smooth: true,
-      areaStyle: { color: '#2196F3' }
+      areaStyle: { color: '#1890ff' }
     }],
-    grid: { left: { show: true }, right: { show: false } }
+    grid: { left: 60, right: 20, top: 20, bottom: 40 }
   })
 }
 
@@ -307,10 +361,7 @@ const renderNetValueChart = () => {
 const renderDrawdownChart = () => {
   if (!drawdownChartRef.value) return
 
-  const chart = echarts.init(drawdownChartRef.value, {
-    height: 250,
-    width: drawdownChartRef.value.clientWidth
-  })
+  const chart = echarts.init(drawdownChartRef.value)
 
   const dates = Array.from({ length: 100 }, (_, i) => `2024-${String(i + 1).padStart(2, '0')}`)
   const values = Array.from({ length: 100 }, () => -(Math.random() * 15))
@@ -323,21 +374,21 @@ const renderDrawdownChart = () => {
       type: 'line',
       data: values,
       smooth: true,
-      areaStyle: { color: '#ef5350' }
+      areaStyle: { color: '#f5222d' }
     }],
     visualMap: {
       min: -20,
       max: 0,
       inRange: { color: '#52c41a' },
       outOfRange: { color: '#ef5350' }
-    }
+    },
+    grid: { left: 60, right: 20, top: 20, bottom: 40 }
   })
 }
 
 // 导出报告
 const exportReport = async () => {
-  // TODO: 实现报告导出
-  message.info('导出回测报告...')
+  console.log('导出回测报告...')
 }
 
 onMounted(() => {
@@ -350,11 +401,301 @@ onMounted(() => {
   padding: 16px;
 }
 
-.mb-4 {
-  margin-bottom: 16px;
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #1890ff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.metric-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.metric-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.metric-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-success {
+  color: #52c41a;
+}
+
+.stat-danger {
+  color: #f5222d;
+}
+
+.value-up {
+  color: #f5222d;
+}
+
+.value-down {
+  color: #52c41a;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.chart-small {
+  grid-column: span 1;
+}
+
+.chart-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 .chart-container {
   width: 100%;
+  height: 300px;
+}
+
+.table-section {
+  margin-bottom: 24px;
+}
+
+.table-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.form-input {
+  padding: 6px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  width: 200px;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table.expandable {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.expanded-row {
+  padding: 0;
+}
+
+.expanded-content {
+  padding: 16px;
+  background: #1a1a2e;
+}
+
+.expanded-content h5 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.expanded-content p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+.data-table-small {
+  margin-top: 12px;
+  background: #1a1a2e;
+  border-radius: 4px;
+}
+
+.data-table-small th,
+.data-table-small td {
+  padding: 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .form-input {
+    width: 100%;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

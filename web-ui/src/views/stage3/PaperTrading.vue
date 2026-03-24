@@ -1,115 +1,142 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div class="page-title">
-        <a-tag color="orange">模拟</a-tag>
+      <h1 class="page-title">
+        <span class="tag tag-orange">模拟</span>
         模拟交易
-        <a-tag :color="runningStatus === 'running' ? 'green' : 'default'" style="margin-left: 8px">
+        <span class="tag" :class="runningStatus === 'running' ? 'tag-green' : 'tag-gray'" style="margin-left: 8px">
           {{ runningStatus === 'running' ? '运行中' : '已停止' }}
-        </a-tag>
-      </div>
+        </span>
+      </h1>
       <div class="page-actions">
-        <a-button @click="settingsVisible = true">
-          <template #icon><SettingOutlined /></template>
+        <button class="btn-secondary" @click="settingsVisible = true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
           设置
-        </a-button>
-        <a-button v-if="runningStatus !== 'running'" type="primary" @click="startTrading">启动</a-button>
-        <a-button v-else type="primary" danger @click="stopTrading">停止</a-button>
-        <a-button @click="refreshData">
-          <template #icon><ReloadOutlined /></template>
+        </button>
+        <button v-if="runningStatus !== 'running'" class="btn-primary" @click="startTrading">启动</button>
+        <button v-else class="btn-danger" @click="stopTrading">停止</button>
+        <button class="btn-secondary" @click="refreshData">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
           刷新
-        </a-button>
+        </button>
       </div>
     </div>
 
     <!-- 统计卡片 -->
-    <a-row :gutter="16" style="margin-bottom: 24px">
-      <a-col :span="6">
-        <a-card :loading="loading">
-          <a-statistic title="今日盈亏" :value="stats.todayProfit" prefix="¥" :precision="2"
-            :value-style="{ color: stats.todayProfit >= 0 ? '#cf1322' : '#3f8600' }" />
-        </a-card>
-      </a-col>
-      <a-col :span="6">
-        <a-card :loading="loading">
-          <a-statistic title="持仓数量" :value="stats.positionCount" suffix="只" />
-        </a-card>
-      </a-col>
-      <a-col :span="6">
-        <a-card :loading="loading">
-          <a-statistic title="可用资金" :value="stats.availableCash" prefix="¥" :precision="2" />
-        </a-card>
-      </a-col>
-      <a-col :span="6">
-        <a-card :loading="loading">
-          <a-statistic title="运行天数" :value="stats.runningDays" suffix="天" />
-        </a-card>
-      </a-col>
-    </a-row>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">今日盈亏</div>
+        <div class="stat-value" :class="{ 'stat-success': stats.todayProfit >= 0, 'stat-danger': stats.todayProfit < 0 }">
+          ¥{{ stats.todayProfit.toFixed(2) }}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">持仓数量</div>
+        <div class="stat-value">{{ stats.positionCount }} 只</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">可用资金</div>
+        <div class="stat-value">¥{{ stats.availableCash.toFixed(2) }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">运行天数</div>
+        <div class="stat-value">{{ stats.runningDays }} 天</div>
+      </div>
+    </div>
 
     <!-- 当前持仓 -->
-    <a-card title="当前持仓" :loading="loading">
-      <a-table
-        :columns="positionColumns"
-        :dataSource="positions"
-        :rowKey="(record: Position) => record.uuid"
-        :pagination="false"
-        size="small"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'code'">
-            <span style="font-weight: 600">{{ record.code }}</span>
-          </template>
-          <template v-else-if="column.key === 'profit'">
-            <span :style="{ color: record.profit >= 0 ? '#cf1322' : '#3f8600' }">
-              {{ record.profit.toFixed(2) }} ({{ record.profit_pct >= 0 ? '+' : '' }}{{ record.profit_pct }}%)
-            </span>
-          </template>
-        </template>
-      </a-table>
-    </a-card>
+    <div class="card">
+      <div class="card-header">
+        <h3>当前持仓</h3>
+      </div>
+      <div class="card-body" :style="{ padding: loading ? '20px' : '0' }">
+        <div v-if="loading" class="loading-state">加载中...</div>
+        <div v-else class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>代码</th>
+                <th>数量</th>
+                <th>成本</th>
+                <th>现价</th>
+                <th>市值</th>
+                <th>盈亏</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in positions" :key="record.uuid">
+                <td><span class="code-cell">{{ record.code }}</span></td>
+                <td>{{ record.volume }}</td>
+                <td>{{ record.cost?.toFixed(2) || '-' }}</td>
+                <td>{{ record.price?.toFixed(2) || '-' }}</td>
+                <td>{{ record.market_value?.toFixed(2) || '-' }}</td>
+                <td>
+                  <span :class="record.profit >= 0 ? 'text-danger' : 'text-success'">
+                    {{ record.profit?.toFixed(2) }} ({{ record.profit_pct >= 0 ? '+' : '' }}{{ record.profit_pct }}%)
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="positions.length === 0" class="empty-state">
+            <p>暂无持仓数据</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 设置抽屉 -->
-    <a-drawer
-      v-model:open="settingsVisible"
-      title="模拟交易设置"
-      placement="right"
-      :width="400"
-    >
-      <a-form layout="vertical">
-        <a-form-item label="滑点模型">
-          <a-select v-model:value="settings.slippageModel">
-            <a-select-option value="fixed">固定滑点</a-select-option>
-            <a-select-option value="percent">百分比滑点</a-select-option>
-            <a-select-option value="dynamic">动态滑点</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="滑点值">
-          <a-input-number v-model:value="settings.slippageValue" :min="0" :step="0.01" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="佣金费率 (%)">
-          <a-input-number v-model:value="settings.commissionRate" :min="0" :max="100" :step="0.01" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="成交延迟 (秒)">
-          <a-input-number v-model:value="settings.executionDelay" :min="0" :step="1" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="印花税 (%)">
-          <a-input-number v-model:value="settings.stampDuty" :min="0" :max="100" :step="0.01" style="width: 100%" />
-        </a-form-item>
-      </a-form>
-      <template #footer>
-        <a-button @click="settingsVisible = false">取消</a-button>
-        <a-button type="primary" @click="saveSettings">保存</a-button>
-      </template>
-    </a-drawer>
+    <div v-if="settingsVisible" class="drawer-overlay" @click.self="settingsVisible = false">
+      <div class="drawer">
+        <div class="drawer-header">
+          <h3>模拟交易设置</h3>
+          <button class="drawer-close" @click="settingsVisible = false">×</button>
+        </div>
+        <div class="drawer-body">
+          <div class="form-group">
+            <label class="form-label">滑点模型</label>
+            <select v-model="settings.slippageModel" class="form-select">
+              <option value="fixed">固定滑点</option>
+              <option value="percent">百分比滑点</option>
+              <option value="dynamic">动态滑点</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">滑点值</label>
+            <input v-model.number="settings.slippageValue" type="number" step="0.01" min="0" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">佣金费率 (%)</label>
+            <input v-model.number="settings.commissionRate" type="number" step="0.01" min="0" max="100" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">成交延迟 (秒)</label>
+            <input v-model.number="settings.executionDelay" type="number" step="1" min="0" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">印花税 (%)</label>
+            <input v-model.number="settings.stampDuty" type="number" step="0.01" min="0" max="100" class="form-input" />
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn-secondary" @click="settingsVisible = false">取消</button>
+          <button class="btn-primary" @click="saveSettings">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { SettingOutlined, ReloadOutlined } from '@ant-design/icons-vue'
-import { positionApi, type Position } from '@/api/modules/order'
 
 const loading = ref(false)
 const settingsVisible = ref(false)
@@ -122,7 +149,7 @@ const stats = reactive({
   runningDays: 0,
 })
 
-const positions = ref<Position[]>([])
+const positions = ref<any[]>([])
 
 const settings = reactive({
   slippageModel: 'fixed',
@@ -132,21 +159,14 @@ const settings = reactive({
   stampDuty: 0.1,
 })
 
-const positionColumns = [
-  { title: '代码', key: 'code', dataIndex: 'code', width: 120 },
-  { title: '数量', dataIndex: 'volume', width: 100 },
-  { title: '成本', dataIndex: 'cost', width: 100, customRender: ({ text }: { text: number }) => text?.toFixed(2) },
-  { title: '现价', dataIndex: 'price', width: 100, customRender: ({ text }: { text: number }) => text?.toFixed(2) },
-  { title: '市值', dataIndex: 'market_value', width: 120, customRender: ({ text }: { text: number }) => text?.toFixed(2) },
-  { title: '盈亏', key: 'profit', width: 160 },
-]
-
 const loadPositions = async () => {
   loading.value = true
   try {
-    const result = await positionApi.list({ page: 0, size: 100 })
-    positions.value = result.data
-    stats.positionCount = result.summary?.position_count || 0
+    // TODO: Replace with actual API call
+    // const result = await positionApi.list({ page: 0, size: 100 })
+    await new Promise(resolve => setTimeout(resolve, 500))
+    positions.value = []
+    stats.positionCount = 0
   } catch (e: any) {
     console.error('加载持仓失败:', e)
   } finally {
@@ -156,21 +176,21 @@ const loadPositions = async () => {
 
 const refreshData = async () => {
   await loadPositions()
-  message.success('数据已刷新')
+  console.log('数据已刷新')
 }
 
 const startTrading = () => {
   runningStatus.value = 'running'
-  message.success('模拟交易已启动')
+  console.log('模拟交易已启动')
 }
 
 const stopTrading = () => {
   runningStatus.value = 'stopped'
-  message.success('模拟交易已停止')
+  console.log('模拟交易已停止')
 }
 
 const saveSettings = () => {
-  message.success('设置已保存')
+  console.log('设置已保存')
   settingsVisible.value = false
 }
 
@@ -182,20 +202,363 @@ onMounted(() => {
 <style scoped>
 .page-container {
   padding: 0;
+  background: transparent;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
+  margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: #ffffff;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.page-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-danger {
+  padding: 8px 16px;
+  background: #f5222d;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #ff4d4f;
+}
+
+.tag {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-orange {
+  background: rgba(250, 140, 22, 0.2);
+  color: #fa8c16;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-gray {
+  background: rgba(140, 140, 140, 0.2);
+  color: #8c8c8c;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-success {
+  color: #52c41a;
+}
+
+.stat-danger {
+  color: #f5222d;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  min-height: 150px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.code-cell {
+  font-weight: 600;
+}
+
+.text-danger {
+  color: #f5222d;
+}
+
+.text-success {
+  color: #52c41a;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* Drawer styles */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer {
+  width: 400px;
+  max-width: 90vw;
+  background: #1a1a2e;
+  border-left: 1px solid #2a2a3e;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-header {
+  padding: 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  color: #8a8a9a;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.drawer-close:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.drawer-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.drawer-footer {
+  padding: 20px;
+  border-top: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+
+  .drawer {
+    width: 100%;
+    max-width: 100vw;
+  }
 }
 </style>

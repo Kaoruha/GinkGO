@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: Ginkgo Live Account API
+  description: OKX实盘账号管理API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 开发环境
+
+tags:
+  - name: Accounts
+    description: 实盘账号管理
+  - name: Broker
+    description: Broker实例管理
+
+paths:
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: 获取实盘账号列表
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "success"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LiveAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Accounts]
+      summary: 创建实盘账号
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLiveAccountRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/LiveAccount'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /accounts/{account_id}:
+    get:
+      tags: [Accounts]
+      summary: 获取实盘账号详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    $ref: '#/components/schemas/LiveAccount'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Accounts]
+      summary: 更新实盘账号
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLiveAccountRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    $ref: '#/components/schemas/LiveAccount'
+
+    delete:
+      tags: [Accounts]
+      summary: 删除实盘账号
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "deleted"
+
+  /accounts/{account_id}/validate:
+    post:
+      tags: [Accounts]
+      summary: 验证API凭证
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    type: object
+                    properties:
+                      valid:
+                        type: boolean
+                      status:
+                        type: string
+                        example: "success"
+                      message:
+                        type: string
+                        example: "API凭证验证成功"
+                      account_info:
+                        type: object
+                        properties:
+                          balance:
+                            type: string
+                            example: "10000.00 USDT"
+
+components:
+  schemas:
+    LiveAccount:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          format: uuid
+        exchange:
+          type: string
+          enum: [okx, binance]
+          example: "okx"
+        environment:
+          type: string
+          enum: [production, testnet]
+          example: "production"
+        name:
+          type: string
+          example: "我的OKX主账号"
+        description:
+          type: string
+          example: "用于BTC/ETH交易"
+        status:
+          type: string
+          enum: [enabled, disabled, connecting, disconnected]
+          example: "enabled"
+        last_validated_at:
+          type: string
+          format: date-time
+          example: "2026-03-13T10:30:00Z"
+        validation_status:
+          type: string
+          example: "success"
+        create_at:
+          type: string
+          format: date-time
+
+    CreateLiveAccountRequest:
+      type: object
+      required:
+        - exchange
+        - name
+        - api_key
+        - api_secret
+      properties:
+        exchange:
+          type: string
+          enum: [okx, binance]
+          example: "okx"
+        environment:
+          type: string
+          enum: [production, testnet]
+          default: "production"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "我的OKX主账号"
+        description:
+          type: string
+          maxLength: 500
+        api_key:
+          type: string
+          example: "your-api-key"
+        api_secret:
+          type: string
+          example: "your-api-secret"
+        passphrase:
+          type: string
+          description: OKX需要passphrase，Binance不需要
+          example: "your-passphrase"
+
+    UpdateLiveAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        status:
+          type: string
+          enum: [enabled, disabled]
+
+  parameters:
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: 账号UUID
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 400
+              message:
+                type: string
+                example: "参数验证失败"
+
+    Unauthorized:
+      description: 未授权
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 401
+              message:
+                type: string
+                example: "未授权访问"
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 404
+              message:
+                type: string
+                example: "账号不存在"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

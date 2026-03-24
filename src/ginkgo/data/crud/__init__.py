@@ -44,9 +44,14 @@ from ginkgo.data.crud.user_contact_crud import UserContactCRUD
 from ginkgo.data.crud.user_credential_crud import UserCredentialCRUD
 from ginkgo.data.crud.user_group_crud import UserGroupCRUD
 from ginkgo.data.crud.user_group_mapping_crud import UserGroupMappingCRUD
+from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
+from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
+from ginkgo.data.crud.trade_record_crud import TradeRecordCRUD
 from ginkgo.data.crud.notification_template_crud import NotificationTemplateCRUD
 from ginkgo.data.crud.notification_record_crud import NotificationRecordCRUD
 from ginkgo.data.crud.notification_recipient_crud import NotificationRecipientCRUD
+from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
+from ginkgo.data.crud.api_key_crud import ApiKeyCRUD
 from ginkgo.data.crud.validation import ValidationError
 
 __all__ = [
@@ -85,8 +90,13 @@ __all__ = [
     "UserCredentialCRUD",
     "UserGroupCRUD",
     "UserGroupMappingCRUD",
+    "LiveAccountCRUD",
+    "BrokerInstanceCRUD",
+    "TradeRecordCRUD",
     "NotificationTemplateCRUD",
     "NotificationRecordCRUD",
     "NotificationRecipientCRUD",
+    "MarketSubscriptionCRUD",
+    "ApiKeyCRUD",
     "ValidationError",
 ]

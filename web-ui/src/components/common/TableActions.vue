@@ -1,52 +1,51 @@
 <template>
-  <a-space @click.stop>
+  <div class="table-actions" @click.stop>
     <template v-for="action in visibleActions" :key="action.key">
       <!-- 详情按钮 -->
-      <router-link v-if="action.key === 'detail' && action.to" :to="action.to">
-        <a-button type="link" size="small">{{ action.label || '详情' }}</a-button>
-      </router-link>
-      <a-button v-else-if="action.key === 'detail'" type="link" size="small" @click="emit('action', 'detail', record)">
+      <router-link v-if="action.key === 'detail' && action.to" :to="action.to" class="action-link">
         {{ action.label || '详情' }}
-      </a-button>
+      </router-link>
+      <a v-else-if="action.key === 'detail'" class="action-link" @click="emit('action', 'detail', record)">
+        {{ action.label || '详情' }}
+      </a>
 
       <!-- 编辑按钮 -->
-      <router-link v-if="action.key === 'edit' && action.to" :to="action.to">
-        <a-button type="link" size="small">{{ action.label || '编辑' }}</a-button>
-      </router-link>
-      <a-button v-else-if="action.key === 'edit'" type="link" size="small" @click="emit('action', 'edit', record)">
+      <router-link v-if="action.key === 'edit' && action.to" :to="action.to" class="action-link">
         {{ action.label || '编辑' }}
-      </a-button>
+      </router-link>
+      <a v-else-if="action.key === 'edit'" class="action-link" @click="emit('action', 'edit', record)">
+        {{ action.label || '编辑' }}
+      </a>
 
       <!-- 删除按钮（带确认） -->
-      <a-popconfirm
+      <a
         v-if="action.key === 'delete'"
-        :title="action.confirm || '确定删除？'"
-        @confirm="emit('action', 'delete', record)"
+        class="action-link action-danger"
+        @click="handleConfirm(action)"
       >
-        <a-button type="link" size="small" danger>{{ action.label || '删除' }}</a-button>
-      </a-popconfirm>
+        {{ action.label || '删除' }}
+      </a>
 
       <!-- 停止按钮（带确认） -->
-      <a-popconfirm
+      <a
         v-if="action.key === 'stop'"
-        :title="action.confirm || '确定停止？'"
-        @confirm="emit('action', 'stop', record)"
+        class="action-link action-danger"
+        @click="handleConfirm(action)"
       >
-        <a-button type="link" size="small" danger>{{ action.label || '停止' }}</a-button>
-      </a-popconfirm>
+        {{ action.label || '停止' }}
+      </a>
 
       <!-- 自定义按钮 -->
-      <a-button
+      <a
         v-if="!['detail', 'edit', 'delete', 'stop'].includes(action.key)"
-        type="link"
-        size="small"
-        :danger="action.danger"
+        class="action-link"
+        :class="{ 'action-danger': action.danger }"
         @click="emit('action', action.key, record)"
       >
         {{ action.label }}
-      </a-button>
+      </a>
     </template>
-  </a-space>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -90,4 +89,38 @@ const visibleActions = computed(() => {
     })
     .filter(action => action.show !== false)
 })
+
+const handleConfirm = (action: TableAction) => {
+  const message = action.confirm || `确定要${action.label || action.key}吗？`
+  if (confirm(message)) {
+    emit('action', action.key, props.record)
+  }
+}
 </script>
+
+<style scoped>
+.table-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.action-link {
+  color: #1890ff;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+
+.action-danger {
+  color: #f5222d;
+}
+
+.action-danger:hover {
+  text-decoration: underline;
+}
+</style>

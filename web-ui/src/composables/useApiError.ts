@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 
 /**
  * 简化的 API 错误处理 composable

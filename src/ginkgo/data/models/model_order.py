@@ -13,7 +13,7 @@ from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
-from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime
+from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime, Text
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,6 +43,12 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
 
     # 业务时间戳 - 订单对应的业务时间（如信号触发的市场时间）
     business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
+
+    # 实盘交易字段
+    live_account_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, comment="实盘账号ID")
+    exchange_order_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, comment="交易所订单ID")
+    submit_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="提交到交易所的时间")
+    exchange_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="交易所响应信息")
 
     def __init__(self,
                  portfolio_id=None, engine_id=None, run_id=None,

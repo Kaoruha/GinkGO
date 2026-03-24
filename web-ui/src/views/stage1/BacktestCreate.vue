@@ -2,86 +2,102 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">
-        <a-tag color="blue">回测</a-tag>
+        <span class="tag tag-blue">回测</span>
         {{ isCopyMode ? '复制回测' : '创建回测' }}
       </div>
     </div>
 
-    <a-card>
-      <a-form :model="form" layout="vertical" @finish="handleSubmit">
-        <a-row :gutter="24">
-          <a-col :span="12">
-            <a-form-item label="任务名称" name="name" :rules="[{ required: true, message: '请输入任务名称' }]">
-              <a-input v-model:value="form.name" placeholder="请输入任务名称" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="投资组合" name="portfolio_id" :rules="[{ required: true, message: '请选择投资组合' }]">
-              <a-select
-                v-model:value="form.portfolio_id"
-                placeholder="请选择投资组合"
-                show-search
-                :filter-option="filterPortfolio"
-                :loading="portfolioLoading"
-                :options="portfolioOptions"
-                :field-names="{ label: 'label', value: 'value' }"
+    <div class="card">
+      <form @submit.prevent="handleSubmit">
+        <div class="form-row">
+          <div class="form-col">
+            <div class="form-group">
+              <label class="form-label">任务名称 <span class="required">*</span></label>
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="请输入任务名称"
+                class="form-input"
+                required
               />
-            </a-form-item>
-          </a-col>
-        </a-row>
+            </div>
+          </div>
+          <div class="form-col">
+            <div class="form-group">
+              <label class="form-label">投资组合 <span class="required">*</span></label>
+              <select
+                v-model="form.portfolio_id"
+                class="form-select"
+                required
+                :disabled="portfolioLoading"
+              >
+                <option value="">请选择投资组合</option>
+                <option v-for="option in portfolioOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-        <a-row :gutter="24">
-          <a-col :span="8">
-            <a-form-item label="开始日期" name="start_date" :rules="[{ required: true, message: '请选择开始日期' }]">
-              <a-date-picker
-                v-model:value="form.start_date"
-                style="width: 100%"
-                value-format="YYYY-MM-DD"
+        <div class="form-row">
+          <div class="form-col">
+            <div class="form-group">
+              <label class="form-label">开始日期 <span class="required">*</span></label>
+              <input
+                v-model="form.start_date"
+                type="date"
+                class="form-input"
+                required
               />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="结束日期" name="end_date" :rules="[{ required: true, message: '请选择结束日期' }]">
-              <a-date-picker
-                v-model:value="form.end_date"
-                style="width: 100%"
-                value-format="YYYY-MM-DD"
+            </div>
+          </div>
+          <div class="form-col">
+            <div class="form-group">
+              <label class="form-label">结束日期 <span class="required">*</span></label>
+              <input
+                v-model="form.end_date"
+                type="date"
+                class="form-input"
+                required
               />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="初始资金">
-              <a-input-number
-                v-model:value="form.initial_cash"
+            </div>
+          </div>
+          <div class="form-col">
+            <div class="form-group">
+              <label class="form-label">初始资金</label>
+              <input
+                v-model.number="form.initial_cash"
+                type="number"
                 :min="10000"
                 :step="10000"
-                :formatter="value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
-                style="width: 100%"
+                class="form-input"
               />
-            </a-form-item>
-          </a-col>
-        </a-row>
+            </div>
+          </div>
+        </div>
 
-        <a-form-item>
-          <a-space>
-            <a-button type="primary" html-type="submit" :loading="submitting">
-              {{ isCopyMode ? '创建副本' : '创建回测' }}
-            </a-button>
-            <a-button @click="$router.back()">取消</a-button>
-          </a-space>
-        </a-form-item>
-      </a-form>
-    </a-card>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" :disabled="submitting">
+            {{ submitting ? '提交中...' : (isCopyMode ? '创建副本' : '创建回测') }}
+          </button>
+          <button type="button" class="btn btn-secondary" @click="$router.back()">取消</button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
 import { portfolioApi, type Portfolio } from '@/api/modules/portfolio'
 import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
-import type { Dayjs } from 'dayjs'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -123,15 +139,10 @@ const loadPortfolios = async () => {
       value: p.uuid
     }))
   } catch (error: any) {
-    message.error(`加载投资组合失败: ${error.message || '未知错误'}`)
+    showToast(`加载投资组合失败: ${error.message || '未知错误'}`, 'error')
   } finally {
     portfolioLoading.value = false
   }
-}
-
-// 投资组合搜索过滤
-const filterPortfolio = (input: string, option: { label: string; value: string }) => {
-  return option.label.toLowerCase().includes(input.toLowerCase())
 }
 
 // 提交表单
@@ -148,11 +159,11 @@ const handleSubmit = async () => {
       }
     }) as BacktestTask
 
-    message.success(isCopyMode.value ? '回测任务已复制' : '回测任务创建成功')
+    showToast(isCopyMode.value ? '回测任务已复制' : '回测任务创建成功')
     // 跳转到回测详情页
     router.push(`/stage1/backtest/${result.uuid}`)
   } catch (error: any) {
-    message.error(`创建失败: ${error.message || '未知错误'}`)
+    showToast(`创建失败: ${error.message || '未知错误'}`, 'error')
   } finally {
     submitting.value = false
   }
@@ -179,5 +190,121 @@ onMounted(() => {
   gap: 12px;
   font-size: 20px;
   font-weight: 600;
+  color: #ffffff;
+}
+
+/* Card */
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  padding: 24px;
+}
+
+/* Form */
+.form-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 0;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-input:disabled,
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Button */
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-blue {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
 }
 </style>

@@ -34,7 +34,7 @@ export const dataApi = {
    * 获取数据统计
    */
   getStats(): Promise<DataStats> {
-    return request.get('/v1/data/stats')
+    return request.get('/api/v1/data/stats')
   },
 
   // ===== 股票信息 =====
@@ -42,14 +42,14 @@ export const dataApi = {
    * 获取股票列表
    */
   listStocks(params?: { query?: string; page?: number; page_size?: number }): Promise<{ data: StockInfo[]; total: number }> {
-    return request.get('/v1/data/stockinfo', { params })
+    return request.get('/api/v1/data/stockinfo', { params })
   },
 
   /**
    * 获取单个股票信息
    */
   getStock(code: string): Promise<StockInfo> {
-    return request.get(`/v1/data/stockinfo/${code}`)
+    return request.get(`/api/v1/data/stockinfo/${code}`)
   },
 
   // ===== K线数据 =====
@@ -66,7 +66,7 @@ export const dataApi = {
     size?: number
   }): Promise<{ data: BarData[]; total: number }> {
     const { code, ...queryParams } = params
-    return request.get(`/v1/data/bars/${code}`, { params: queryParams })
+    return request.get(`/api/v1/data/bars/${code}`, { params: queryParams })
   },
 
   // ===== 数据同步 =====
@@ -79,7 +79,7 @@ export const dataApi = {
     full?: boolean
     overwrite?: boolean
   }): Promise<{ status: string }> {
-    return request.post('/v1/data/sync', {
+    return request.post('/api/v1/data/sync', {
       type: params.type,
       codes: params.codes,
       full: params.full,
@@ -96,27 +96,27 @@ export const dataApi = {
     stock_count: number
     last_sync: string
   }> {
-    return request.get('/v1/data/status')
+    return request.get('/api/v1/data/status')
   },
 
   /**
    * 同步股票信息
    */
   syncStockInfo(): Promise<{ run_id: string }> {
-    return request.post('/v1/data/sync/stockinfo')
+    return request.post('/api/v1/data/sync/stockinfo')
   },
 
   /**
    * 同步 K 线数据
    */
   syncBars(codes: string[]): Promise<{ run_id: string }> {
-    return request.post('/v1/data/sync/bars', { codes })
+    return request.post('/api/v1/data/sync/bars', { codes })
   },
 
   /**
    * 获取同步任务状态
    */
   getSyncStatus(taskId: string): Promise<{ status: string; progress: number; message: string }> {
-    return request.get(`/v1/data/sync/status/${taskId}`)
+    return request.get(`/api/v1/data/sync/status/${taskId}`)
   },
 }

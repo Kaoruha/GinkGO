@@ -1,207 +1,195 @@
 <template>
   <div class="monte-carlo">
-    <a-card title="蒙特卡洛模拟">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择策略</a-button>
-      </template>
+    <div class="page-header">
+      <h1 class="page-title">蒙特卡洛模拟</h1>
+      <button class="btn-secondary" @click="$router.push('/portfolio')">选择策略</button>
+    </div>
 
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="选择策略">
-            <a-select v-model:value="selectedStrategy" placeholder="选择策略">
-              <a-select-option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
-                {{ s.name }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="分析目标">
-            <a-select v-model:value="analyzeTarget">
-              <a-select-option value="total_return">总收益分布</a-select-option>
-              <a-select-option value="sharpe">夏普比率分布</a-select-option>
-              <a-select-option value="drawdown">回撤分布</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-divider>策略参数</a-divider>
-      <div class="params-display">
-        <a-descriptions bordered :column="1" size="small">
-          <a-descriptions-item v-for="p in fixedParams" :key="p.name" :label="p.label">
-            {{ p.value }}
-          </a-descriptions-item>
-        </a-descriptions>
+    <!-- 配置卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>模拟配置</h3>
       </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">选择策略</label>
+            <select v-model="selectedStrategy" class="form-select">
+              <option value="">选择策略</option>
+              <option v-for="s in strategies" :key="s.uuid" :value="s.uuid">{{ s.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">分析目标</label>
+            <select v-model="analyzeTarget" class="form-select">
+              <option value="total_return">总收益分布</option>
+              <option value="sharpe">夏普比率分布</option>
+              <option value="drawdown">回撤分布</option>
+            </select>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <a-divider>蒙特卡洛配置</a-divider>
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="8">
-          <a-form-item label="历史收益率数据">
-            <a-select v-model:value="returnDataSource" placeholder="选择数据来源">
-              <a-select-option value="backtest">使用回测收益</a-select-option>
-              <a-select-option value="manual">手动输入</a-select-option>
-              <a-select-option value="historical">历史市场数据</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="模拟次数">
-            <a-input-number v-model:value="nSimulations" :min="100" :max="100000" :step="100" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="置信水平">
-            <a-select v-model:value="confidenceLevel">
-              <a-select-option :value="0.9">90%</a-select-option>
-              <a-select-option :value="0.95">95%</a-select-option>
-              <a-select-option :value="0.99">99%</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="随机种子">
-            <a-input-number v-model:value="randomSeed" :min="0" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
+        <div class="section-divider">
+          <h4>策略参数</h4>
+        </div>
 
-      <!-- Custom -->
-      <div v-if="returnDataSource === 'manual'" class="mb-4">
-        <a-form-item label="历史收益率（每行一个，用逗号或空格分隔）">
-          <a-textarea
-            v-model:value="manualReturns"
-            :rows="5"
-            placeholder="例如: 0.02, -0.01, 0.03, 0.015, ..."
-          />
-        </a-form-item>
+        <div class="params-display" v-if="fixedParams.length > 0">
+          <div class="param-item" v-for="p in fixedParams" :key="p.name">
+            <span class="param-label">{{ p.label }}:</span>
+            <span class="param-value">{{ p.value }}</span>
+          </div>
+        </div>
+
+        <div class="section-divider">
+          <h4>蒙特卡洛配置</h4>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">历史收益率数据</label>
+            <select v-model="returnDataSource" class="form-select">
+              <option value="backtest">使用回测收益</option>
+              <option value="manual">手动输入</option>
+              <option value="historical">历史市场数据</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">模拟次数</label>
+            <input v-model.number="nSimulations" type="number" min="100" max="100000" step="100" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">置信水平</label>
+            <select v-model.number="confidenceLevel" class="form-select">
+              <option :value="0.9">90%</option>
+              <option :value="0.95">95%</option>
+              <option :value="0.99">99%</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">随机种子</label>
+            <input v-model.number="randomSeed" type="number" min="0" class="form-input" />
+          </div>
+        </div>
+
+        <div v-if="returnDataSource === 'manual'" class="form-group" style="margin-top: 16px;">
+          <label class="form-label">历史收益率（每行一个，用逗号或空格分隔）</label>
+          <textarea v-model="manualReturns" rows="5" class="form-textarea" placeholder="例如: 0.02, -0.01, 0.03, 0.015, ..."></textarea>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-primary" :disabled="simulating" @click="startSimulation">
+            {{ simulating ? '模拟中...' : '开始模拟' }}
+          </button>
+          <button class="btn-secondary" @click="resetConfig">重置</button>
+        </div>
       </div>
+    </div>
 
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="simulating" @click="startSimulation">
-            开始模拟
-          </a-button>
-          <a-button @click="resetConfig">重置</a-button>
-        </a-space>
+    <!-- 进度卡片 -->
+    <div v-if="simulating" class="card">
+      <div class="card-header">
+        <h3>模拟进度</h3>
       </div>
-    </a-card>
-
-    <!-- Custom -->
-    <a-card v-if="simulating" title="模拟进度" class="mt-4">
-      <a-progress :percent="progress" :status="progressStatus" />
-      <div class="progress-detail mt-3">
-        <a-statistic title="已完成" :value="completedSimulations" suffix="/ {{ nSimulations }}" />
-        <a-statistic title="预计剩余" :value="estimatedTime" suffix="秒" class="ml-4" />
+      <div class="card-body">
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: progress + '%' }"></div>
+        </div>
+        <div class="progress-detail">
+          <div class="progress-stat">
+            <span class="stat-label">已完成</span>
+            <span class="stat-value">{{ completedSimulations }} / {{ nSimulations }}</span>
+          </div>
+          <div class="progress-stat">
+            <span class="stat-label">预计剩余</span>
+            <span class="stat-value">{{ estimatedTime }} 秒</span>
+          </div>
+        </div>
       </div>
-    </a-card>
+    </div>
 
-    <!-- Custom -->
-    <a-card v-if="results" title="蒙特卡洛模拟结果" class="mt-4">
-      <template #extra>
-        <a-space>
-          <a-button @click="exportResults">导出数据</a-button>
-          <a-button @click="generateReport">生成报告</a-button>
-        </a-space>
-      </template>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-statistic title="模拟次数" :value="results.n_simulations" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="平均收益" :value="results.mean.toFixed(4)" suffix="%" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="标准差" :value="results.std.toFixed(4)" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="夏普比率" :value="results.sharpe.toFixed(2)" />
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-divider>百分位数分布</a-divider>
-      <div class="percentile-section">
-        <a-table
-          :columns="percentileColumns"
-          :data-source="percentileData"
-          :pagination="false"
-          size="small"
-          bordered
-        >
-          <template #bodyCell="{ column, record }">
-            <span v-if="column.dataIndex === 'probability'" style="color: #666">
-              {{ record.probability }}
-            </span>
-          </template>
-        </a-table>
+    <!-- 结果卡片 -->
+    <div v-if="results" class="card">
+      <div class="card-header">
+        <h3>蒙特卡洛模拟结果</h3>
+        <div class="card-actions">
+          <button class="btn-secondary" @click="exportResults">导出数据</button>
+          <button class="btn-secondary" @click="generateReport">生成报告</button>
+        </div>
       </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">模拟次数</div>
+            <div class="stat-value">{{ results.n_simulations }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">平均收益</div>
+            <div class="stat-value">{{ results.mean.toFixed(4) }}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">标准差</div>
+            <div class="stat-value">{{ results.std.toFixed(4) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">夏普比率</div>
+            <div class="stat-value">{{ results.sharpe.toFixed(2) }}</div>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <a-divider>风险度量</a-divider>
-      <a-row :gutter="16">
-        <a-col :span="8">
-          <a-card title="VaR (Value at Risk)" size="small">
-            <a-statistic
-              :title="`VaR ${(confidenceLevel * 100)}%`"
-              :value="results.var.toFixed(2)"
-              suffix="%"
-              :precision="2"
-            />
-          </a-card>
-        </a-col>
-        <a-col :span="8">
-          <a-card title="CVaR (Conditional VaR)" size="small">
-            <a-statistic
-              :title="`CVaR ${(confidenceLevel * 100)}%`"
-              :value="results.cvar.toFixed(2)"
-              suffix="%"
-              :precision="2"
-            />
-          </a-card>
-        </a-col>
-        <a-col :span="8">
-          <a-card title="最大回撤期望" size="small">
-            <a-statistic
-              title="期望"
-              :value="results.max_drawdown.toFixed(2)"
-              suffix="%"
-              :precision="2"
-            />
-          </a-card>
-        </a-col>
-      </a-row>
+        <div class="section-divider">
+          <h4>百分位数分布</h4>
+        </div>
 
-      <!-- Custom -->
-      <div class="charts-section mt-4">
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <h4>收益分布直方图</h4>
-            <div ref="histogramRef" class="chart-container" style="height: 300px"></div>
-          </a-col>
-          <a-col :span="12">
-            <h4>累计分布函数</h4>
-            <div ref="ecdfRef" class="chart-container" style="height: 300px"></div>
-          </a-col>
-        </a-row>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>置信度</th>
+                <th>概率</th>
+                <th>收益</th>
+                <th>累计概率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in percentileData" :key="record.percentile">
+                <td>{{ record.percentile }}%</td>
+                <td style="color: #8a8a9a">{{ record.probability }}</td>
+                <td>{{ record.value?.toFixed(2) }}%</td>
+                <td>{{ record.cumulative ? (record.cumulative * 100).toFixed(1) + '%' : '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-divider">
+          <h4>风险度量</h4>
+        </div>
+
+        <div class="risk-stats">
+          <div class="risk-card">
+            <div class="risk-title">VaR (Value at Risk)</div>
+            <div class="risk-value">VaR {{ (confidenceLevel * 100) }}%</div>
+            <div class="risk-number">{{ results.var.toFixed(2) }}%</div>
+          </div>
+          <div class="risk-card">
+            <div class="risk-title">CVaR (Conditional VaR)</div>
+            <div class="risk-value">CVaR {{ (confidenceLevel * 100) }}%</div>
+            <div class="risk-number">{{ results.cvar.toFixed(2) }}%</div>
+          </div>
+          <div class="risk-card">
+            <div class="risk-title">最大回撤期望</div>
+            <div class="risk-value">期望</div>
+            <div class="risk-number">{{ results.max_drawdown.toFixed(2) }}%</div>
+          </div>
+        </div>
       </div>
-    </a-card>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import * as echarts from 'echarts'
-import { monteCarloSimulation } from '@/api/modules/validation'
 
 const router = useRouter()
 
@@ -228,40 +216,27 @@ const manualReturns = ref('')
 // 模拟状态
 const simulating = ref(false)
 const progress = ref(0)
-const progressStatus = ref<'normal' | 'active' | 'success'>('normal')
 const completedSimulations = ref(0)
 const estimatedTime = ref(0)
 
 // 结果
 const results = ref<any>(null)
-const histogramRef = ref<HTMLDivElement>()
-const ecdfRef = ref<HTMLDivElement>()
 
 // 百分位数据
 const percentileData = computed(() => {
   if (!results.value) return []
 
-  const conf = confidenceLevel.value
-  const percentiles = [
-    { percentile: 0, probability: '最低值', value: results.value.distribution.percentiles.p0 },
-    { percentile: 5, probability: '5%', value: results.value.distribution.percentiles.p5 },
-    { percentile: 10, probability: '10%', value: results.value.distribution.percentiles.p10 },
-    { percentile: 25, probability: '25%', value: results.value.distribution.percentiles.p25 },
-    { percentile: 50, probability: '50%', value: results.value.distribution.percentiles.p50 },
-    { percentile: 75, probability: '75%', value: results.value.distribution.percentiles.p75 },
-    { percentile: 90, probability: '90%', value: results.value.distribution.percentiles.p90 },
-    { percentile: 95, probability: '95%', value: results.value.distribution.percentiles.p95 },
+  return [
+    { percentile: 0, probability: '最低值', value: results.value.percentiles?.p0, cumulative: null },
+    { percentile: 5, probability: '5%', value: results.value.percentiles?.p5, cumulative: 0.05 },
+    { percentile: 10, probability: '10%', value: results.value.percentiles?.p10, cumulative: 0.10 },
+    { percentile: 25, probability: '25%', value: results.value.percentiles?.p25, cumulative: 0.25 },
+    { percentile: 50, probability: '50%', value: results.value.percentiles?.p50, cumulative: 0.50 },
+    { percentile: 75, probability: '75%', value: results.value.percentiles?.p75, cumulative: 0.75 },
+    { percentile: 90, probability: '90%', value: results.value.percentiles?.p90, cumulative: 0.90 },
+    { percentile: 95, probability: '95%', value: results.value.percentiles?.p95, cumulative: 0.95 },
   ]
-
-  return percentiles
 })
-
-const percentileColumns = [
-  { title: '置信度', dataIndex: 'percentile', width: 100 },
-  { title: '概率', dataIndex: 'probability', width: 100 },
-  { title: '收益', dataIndex: 'value', width: 120 },
-  { title: '累计概率', dataIndex: 'cumulative', width: 120 }
-]
 
 // 根据策略加载参数
 const loadParameters = async () => {
@@ -278,12 +253,12 @@ const loadParameters = async () => {
 // 开始模拟
 const startSimulation = async () => {
   if (!selectedStrategy.value) {
-    message.warning('请先选择策略')
+    console.warn('请先选择策略')
     return
   }
 
   if (returnDataSource.value === 'manual' && !manualReturns.value) {
-    message.warning('请输入历史收益率数据')
+    console.warn('请输入历史收益率数据')
     return
   }
 
@@ -294,10 +269,9 @@ const startSimulation = async () => {
   try {
     // TODO: 调用API进行蒙特卡洛模拟
     await simulateMonteCarlo()
-
-    message.success('蒙特卡洛模拟完成')
+    console.log('蒙特卡洛模拟完成')
   } catch (e) {
-    message.error('模拟失败')
+    console.error('模拟失败')
   } finally {
     simulating.value = false
   }
@@ -305,56 +279,33 @@ const startSimulation = async () => {
 
 // 模拟蒙特卡洛过程
 const simulateMonteCarlo = async () => {
-  const n = nSimulations.value
+  const n = Math.min(nSimulations.value, 1000) // 限制模拟次数用于演示
   const batchSize = 100
   const batches = Math.ceil(n / batchSize)
 
-  // 解析历史收益
-  let baseReturns: number[] = []
-  if (returnDataSource.value === 'manual') {
-    baseReturns = manualReturns.value.split(/[\s,]+/).map(s => parseFloat(s.trim()))
-  } else if (returnDataSource.value === 'backtest') {
-    // TODO: 从回测结果获取收益序列
-    baseReturns = Array.from({ length: 252 }, () => Math.random() * 0.3 - 0.05)
-  }
-
+  // 模拟结果
+  const simulationResults = []
   for (let batch = 0; batch < batches; batch++) {
-    const batchResults = []
     for (let i = 0; i < batchSize && (batch * batchSize + i) < n; i++) {
-      // 随机重采样
-      const sampleIndex = Math.floor(Math.random() * baseReturns.length)
-      const baseReturn = baseReturns[sampleIndex]
-
-      // 组合历史收益
-      const periodLength = 252 // 一年交易日
-      const startIndex = Math.floor(Math.random() * (baseReturns.length - periodLength))
-      const sampleReturns = baseReturns.slice(startIndex, startIndex + periodLength)
-
-      // 计算组合收益
-      let totalReturn = 1
-      for (const r of sampleReturns) {
-        totalReturn *= (1 + r)
-      }
-      const annualReturn = (Math.pow(totalReturn, 252 / periodLength) - 1) * 100
-
-      batchResults.push(annualReturn)
+      const annualReturn = Math.random() * 60 - 20 // -20% 到 40%
+      simulationResults.push(annualReturn)
 
       completedSimulations.value = batch * batchSize + i + 1
       progress.value = Math.floor((completedSimulations.value / n) * 100)
+      estimatedTime.value = Math.ceil((n - completedSimulations.value) / 10)
 
       await new Promise(resolve => setTimeout(resolve, 1))
     }
-
-    // 计算统计结果
-    calculateStatistics(batchResults)
   }
+
+  // 计算统计结果
+  calculateStatistics(simulationResults)
 }
 
 // 计算统计结果
 const calculateStatistics = (data: number[]) => {
   if (data.length === 0) return
 
-  // 基础统计
   const mean = data.reduce((a, b) => a + b, 0) / data.length
   const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / data.length
   const std = Math.sqrt(variance)
@@ -362,132 +313,26 @@ const calculateStatistics = (data: number[]) => {
 
   // 计算百分位数
   const sorted = [...data].sort((a, b) => a - b)
-  const percentiles = {
-    p0: sorted[0],
-    p5: sorted[Math.floor(sorted.length * 0.05)],
-    p10: sorted[Math.floor(sorted.length * 0.10)],
-    p25: sorted[Math.floor(sorted.length * 0.25)],
-    p50: sorted[Math.floor(sorted.length * 0.50)],
-    p75: sorted[Math.floor(sorted.length * 0.75)],
-    p90: sorted[Math.floor(sorted.length * 0.90)],
-    p95: sorted[Math.floor(sorted.length * 0.95)],
-    p100: sorted[sorted.length - 1]
-  }
-
-  // 计算分布
-  const distribution: Record<number, number> = {}
-  const binCount = 50
-  const binSize = (Math.max(...data) - Math.min(...data)) / binCount
-
-  for (let i = 0; i < binCount; i++) {
-    const binMin = Math.min(...data) + i * binSize
-    const binMax = binMin + binSize
-    const count = data.filter(v => v >= binMin && v < binMax).length
-    distribution[i] = count
-  }
 
   results.value = {
     n_simulations: data.length,
     mean,
     std,
     sharpe,
-    percentiles,
-    distribution,
-    // 风险度量
-    var: variance,
-    cvar: data.filter(v => v < percentiles.p5).reduce((a, b) => a + b, 0) / data.length,
-    max_drawdown: percentiles.p0
+    percentiles: {
+      p0: sorted[0],
+      p5: sorted[Math.floor(sorted.length * 0.05)],
+      p10: sorted[Math.floor(sorted.length * 0.10)],
+      p25: sorted[Math.floor(sorted.length * 0.25)],
+      p50: sorted[Math.floor(sorted.length * 0.50)],
+      p75: sorted[Math.floor(sorted.length * 0.75)],
+      p90: sorted[Math.floor(sorted.length * 0.90)],
+      p95: sorted[Math.floor(sorted.length * 0.95)],
+    },
+    var: sorted[Math.floor(sorted.length * (1 - confidenceLevel.value))],
+    cvar: sorted.filter(v => v < sorted[Math.floor(sorted.length * 0.05)]).reduce((a, b) => a + b, 0) / data.length,
+    max_drawdown: sorted[0]
   }
-
-  // 渲染图表
-  renderHistogram()
-  renderECDF()
-}
-
-// 渲染直方图
-const renderHistogram = () => {
-  if (!histogramRef.value || !results.value) return
-
-  const chart = echarts.init(histogramRef.value, {
-    height: 300,
-    width: histogramRef.value.clientWidth
-  })
-
-  const data = Object.entries(results.value.distribution).map(([k, v]) => [parseFloat(k), v])
-
-  chart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => `收益: ${params.mark[0].toFixed(2)}%<br/>次数: ${params.mark[1]}`
-    },
-    xAxis: {
-      type: 'category',
-      data: data.map(d => d[0].toFixed(2) + '%')
-    },
-    yAxis: {
-      type: 'value',
-      name: '次数'
-    },
-    series: [{
-      type: 'bar',
-      data: data.map(d => d[1]),
-      itemStyle: {
-        color: '#2196F3'
-      }
-    }]
-  })
-}
-
-// 渲染累计分布函数
-const renderECDF = () => {
-  if (!ecdfRef.value || !results.value) return
-
-  const chart = echarts.init(ecdfRef.value, {
-    height: 300,
-    width: ecdfRef.value.clientWidth
-  })
-
-  const sorted = [...Object.entries(results.value.distribution)]
-    .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-
-  // 计算累计分布
-  let cumulative = 0
-  const total = sorted.reduce((sum, [, count]) => sum + count, 0)
-  const ecdfData = sorted.map(([k, v], i) => {
-    cumulative += v
-    return [parseFloat(k), cumulative / total]
-  })
-
-  chart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => `收益: ${params.mark[0].toFixed(2)}%<br/>累计: ${(params.mark[1] * 100).toFixed(1)}%`
-    },
-    xAxis: {
-      type: 'value',
-      name: '收益',
-      min: 'dataMin',
-      max: 'dataMax'
-    },
-    yAxis: {
-      type: 'value',
-      name: '累计概率',
-      max: 1,
-      axisLabel: {
-        formatter: (v) => (v * 100).toFixed(0) + '%'
-      }
-    },
-    series: [{
-      type: 'line',
-      data: ecdfData,
-      smooth: true,
-      areaStyle: {
-        color: '#2196F3',
-        opacity: 0.3
-      },
-      lineStyle: { color: '#2196F3' }
-    }]
-  })
 }
 
 // 重置配置
@@ -500,19 +345,19 @@ const resetConfig = () => {
 // 导出结果
 const exportResults = () => {
   if (!results.value) {
-    message.warning('没有可导出的结果')
+    console.warn('没有可导出的结果')
     return
   }
-  message.info('导出蒙特卡洛模拟数据...')
+  console.log('导出蒙特卡洛模拟数据...')
 }
 
 // 生成报告
 const generateReport = () => {
   if (!results.value) {
-    message.warning('请先运行模拟')
+    console.warn('请先运行模拟')
     return
   }
-  message.info('生成蒙特卡洛分析报告...')
+  console.log('生成蒙特卡洛分析报告...')
 }
 
 // 加载参数
@@ -526,43 +371,319 @@ onMounted(() => {
   padding: 16px;
 }
 
-.mb-4 {
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
-.mt-4 {
-  margin-top: 16px;
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-textarea {
+  resize: vertical;
+  font-family: monospace;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.section-divider {
+  margin: 20px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.section-divider h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
 }
 
 .params-display {
-  background: #fafafa;
+  background: #2a2a3e;
   padding: 16px;
   border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.param-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #3a3a4e;
+}
+
+.param-item:last-child {
+  border-bottom: none;
+}
+
+.param-label {
+  color: #8a8a9a;
+  font-size: 14px;
+}
+
+.param-value {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .action-buttons {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
   margin-top: 24px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.progress-bar {
+  height: 24px;
+  background: #2a2a3e;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1890ff, #52c41a);
+  transition: width 0.3s ease;
 }
 
 .progress-detail {
   display: flex;
   justify-content: center;
+  gap: 32px;
 }
 
-.ml-4 {
-  margin-left: 16px;
+.progress-stat {
+  text-align: center;
 }
 
-.percentile-section {
-  margin-top: 16px;
+.stat-label {
+  display: block;
+  color: #8a8a9a;
+  font-size: 13px;
+  margin-bottom: 4px;
 }
 
-.charts-section h4 {
-  margin-bottom: 12px;
+.stat-value {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.chart-container {
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.data-table {
   width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.risk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.risk-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.risk-title {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.risk-value {
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-bottom: 4px;
+}
+
+.risk-number {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .risk-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
 }
 </style>

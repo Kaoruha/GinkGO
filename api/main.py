@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from ginkgo import service_hub
 from ginkgo.libs import GCONF, datetime_normalize
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES, DIRECTION_TYPES, ORDER_TYPES
+import asyncio
 
 app = FastAPI(
     title="Ginkgo API",
@@ -42,16 +43,89 @@ app.add_middleware(
 )
 
 
+# ========== 认证 Middleware ==========
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """
+    认证中间件 - 从 token 中提取 user_id 并存入 request.state
+    """
+    # 跳过认证的路径
+    skip_auth_paths = ["/api/v1/auth/login", "/docs", "/openapi.json", "/api/v1/debug"]
+    if any(request.url.path.startswith(path) for path in skip_auth_paths):
+        return await call_next(request)
+
+    # 尝试从 Authorization header 提取 user_id
+    auth_header = request.headers.get("Authorization", "")
+
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        # 调试：打印 token 和 active_tokens 状态
+        print(f"[AUTH] Token={token[:20]}..., active_tokens={list(active_tokens.keys())}")
+        token_data = active_tokens.get(token)
+        if token_data:
+            # 将 user_uuid 存入 request.state
+            request.state.user_id = token_data.get("user_uuid")
+            request.state.username = token_data.get("username")
+            print(f"[AUTH] ✓ Extracted user_id: {request.state.user_id}")
+        else:
+            print(f"[AUTH] ✗ Token not found in active_tokens - returning 401")
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or expired token. Please login again."}
+            )
+    else:
+        # 没有提供 Authorization header
+        print(f"[AUTH] ✗ No Authorization header - returning 401")
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Authorization header required. Please login first."}
+        )
+
+    response = await call_next(request)
+    return response
+
+# ========== 启动事件 ==========
+@app.on_event("startup")
+async def startup_event():
+    """API Server 启动时初始化 OKX WebSocket"""
+    print("[Startup] 正在初始化 OKX WebSocket...")
+    await init_okx_websocket()
+    print("[Startup] OKX WebSocket 初始化完成")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """API Server 关闭时清理资源"""
+    global okx_feeder
+    if okx_feeder:
+        print("[Shutdown] 正在关闭 OKX WebSocket...")
+        okx_feeder.close()
+        print("[Shutdown] OKX WebSocket 已关闭")
+
+# ========== 实盘交易路由 ==========
+from api.routers.live_trading import router as live_trading_router
+app.include_router(live_trading_router)
+
+# ========== 市场数据路由 ==========
+from api.routers.market_data import router as market_data_router
+app.include_router(market_data_router)
+
+# ========== API Key 管理路由 ==========
+from api.routers.api_keys import router as api_keys_router
+app.include_router(api_keys_router)
+
+
 # ========== 认证相关 ==========
 
 # 简单的内存存储（生产环境应使用数据库）
 active_tokens: Dict[str, Dict] = {}
 
 # 模拟用户数据（生产环境应从数据库获取）
+# 注意：UUID 必须与数据库中 MUser 表的 uuid 一致
+# 当前 admin 用户的数据库 UUID: 444906f8a9f54f768233339d327fd3dc
 MOCK_USERS = {
     "admin": {
         "password_hash": hashlib.sha256("admin123".encode()).hexdigest(),
-        "uuid": "user-admin-001",
+        "uuid": "444906f8a9f54f768233339d327fd3dc",  # 与数据库 MUser.uuid 一致
         "username": "admin",
         "display_name": "Administrator",
         "is_admin": True,
@@ -166,6 +240,46 @@ async def get_current_user(request: Request):
         "display_name": user["display_name"],
         "is_admin": user["is_admin"],
     }
+
+
+@app.get("/api/v1/debug/tokens")
+async def debug_tokens():
+    """调试：查看活跃的 tokens"""
+    return {
+        "count": len(active_tokens),
+        "tokens": [
+            {
+                "token": t[:20] + "...",
+                "user_uuid": data.get("user_uuid"),
+                "username": data.get("username"),
+            }
+            for t, data in active_tokens.items()
+        ]
+    }
+
+
+async def get_current_user_id(request: Request) -> str:
+    """
+    从请求中提取当前用户 ID (用于依赖注入)
+
+    Returns:
+        str: 用户 UUID
+
+    Raises:
+        HTTPException: 未认证或 token 无效
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = auth_header[7:]
+    token_data = active_tokens.get(token)
+
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # 返回 user_uuid
+    return token_data["user_uuid"]
 
 
 # ========== 辅助函数 ==========
@@ -681,20 +795,159 @@ async def stream_backtest_progress(backtest_id: str):
 
 # ========== WebSocket 实时通知 ==========
 
+# 全局订阅符号集合（所有客户端的并集）
+market_subscriptions: Dict[str, set] = {"ticker": set(), "candlesticks": set(), "orderbook": set(), "trades": set()}
+
+# OKX WebSocket Feeder（全局单例）
+okx_feeder = None
+okx_feeder_lock = asyncio.Lock()
+
+# 保存主事件循环的引用（用于跨线程调度）
+_main_event_loop = None
+
+async def init_okx_websocket():
+    """初始化 OKX WebSocket 连接（API Server 启动时调用）"""
+    global okx_feeder, _main_event_loop
+
+    async with okx_feeder_lock:
+        if okx_feeder is not None:
+            return okx_feeder
+
+        # 保存主事件循环引用
+        _main_event_loop = asyncio.get_event_loop()
+
+        print("[OKX WS] 正在初始化 OKX WebSocket 连接...")
+
+        # 在线程中启动 OKXDataFeeder（它是阻塞的）
+        import threading
+        from ginkgo.trading.feeders.okx_data_feeder import OKXDataFeeder
+
+        def start_feeder():
+            global okx_feeder
+            # OKX testnet 没有独立的 public WebSocket，使用 production
+            # 但环境设为 testnet 以便后续扩展
+            okx_feeder = OKXDataFeeder(environment="production")
+
+            # 设置 ticker 回调，推送到前端 WebSocket
+            original_callback = okx_feeder._on_ticker_message
+            def wrapped_ticker_callback(message: dict):
+                # 先执行原始回调
+                original_callback(message)
+
+                # 推送到前端 WebSocket
+                from ginkgo.livecore.websocket_event_adapter import adapt_ticker
+                data = adapt_ticker(message)
+                if data and data.get('symbol'):
+                    try:
+                        # 使用 run_coroutine_threadsafe 从不同线程安全调度
+                        if _main_event_loop and not _main_event_loop.is_closed():
+                            ticker_data = {
+                                "symbol": data['symbol'],
+                                "price": float(data.get('price', 0)),
+                                "bid_price": float(data.get('bid_price', 0)),
+                                "ask_price": float(data.get('ask_price', 0)),
+                                "volume_24h": float(data.get('volume_24h', 0)),
+                                "open_24h": float(data.get('open_24h', 0)),
+                                "high_24h": float(data.get('high_24h', 0)),
+                                "low_24h": float(data.get('low_24h', 0))
+                            }
+                            print(f"[OKX WS] 推送 ticker: {data['symbol']} = ${ticker_data['price']}")
+                            print(f"[OKX WS] ticker_data 详细: {ticker_data}")
+                            asyncio.run_coroutine_threadsafe(
+                                ws_manager.send_market_data(data['symbol'], ticker_data, "ticker"),
+                                _main_event_loop
+                            )
+                    except Exception as e:
+                        print(f"[OKX WS] 推送数据失败: {e}")
+
+            okx_feeder._on_ticker_message = wrapped_ticker_callback
+
+            # 启动 feeder（阻塞）
+            okx_feeder.start()
+            print("[OKX WS] OKX DataFeeder 已启动")
+
+        # 在新线程中启动（避免阻塞 API 启动）
+        thread = threading.Thread(target=start_feeder, daemon=True)
+        thread.start()
+
+        # 等待 feeder 初始化
+        await asyncio.sleep(2)
+        print("[OKX WS] OKX WebSocket 初始化完成")
+        return okx_feeder
+
+def get_okx_feeder():
+    """获取 OKX Feeder 实例"""
+    return okx_feeder
+
 class ConnectionManager:
     """WebSocket 连接管理器"""
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        # 按客户端存储订阅信息（用于发送消息和管理连接）
+        self.subscriptions: Dict[str, Dict] = {}
+        # 按交易对存储订阅者 {symbol: {data_type: {conn_id1, conn_id2, ...}}}
+        self.symbol_subscribers: Dict[str, Dict[str, set]] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> str:
         await websocket.accept()
         self.active_connections.append(websocket)
+        conn_id = id(websocket)
+        self.subscriptions[conn_id] = {"symbols": set(), "data_types": set()}
         print(f"[WS] Client connected, total: {len(self.active_connections)}")
+        return conn_id
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        print(f"[WS] Client disconnected, total: {len(self.active_connections)}")
+            conn_id = id(websocket)
+
+            # 获取该客户端订阅的交易对（用于清理订阅索引）
+            unsubscribed_symbols = set()
+            if conn_id in self.subscriptions:
+                unsubscribed_symbols = self.subscriptions[conn_id].get("symbols", set()).copy()
+                del self.subscriptions[conn_id]
+
+            print(f"[WS] Client disconnected, total: {len(self.active_connections)}")
+
+            # 从订阅索引中移除该客户端，并检查是否需要取消 OKX 订阅
+            global okx_feeder, market_subscriptions
+            for symbol in unsubscribed_symbols:
+                if symbol not in self.symbol_subscribers:
+                    continue
+
+                # 遍历该交易对的所有数据类型订阅
+                for data_type, subscribers in list(self.symbol_subscribers[symbol].items()):
+                    # 移除该客户端
+                    subscribers.discard(conn_id)
+
+                    # 如果没有订阅者了，取消 OKX 订阅
+                    if not subscribers:
+                        del self.symbol_subscribers[symbol][data_type]
+
+                        # 取消 OKX 订阅
+                        if okx_feeder:
+                            try:
+                                if data_type == "ticker":
+                                    okx_feeder._unsubscribe_ticker_ws(symbol)
+                                elif data_type == "candlesticks":
+                                    okx_feeder._unsubscribe_candlesticks_ws(symbol)
+                                elif data_type == "trades":
+                                    okx_feeder._unsubscribe_trades_ws(symbol)
+                                elif data_type == "orderbook":
+                                    okx_feeder._unsubscribe_orderbook_ws(symbol)
+                                print(f"[OKX WS] Auto-unsubscribed: {symbol} ({data_type})")
+                            except Exception as e:
+                                print(f"[OKX WS] Error auto-unsubscribing {symbol}: {e}")
+
+                        # 从全局订阅集合中移除
+                        if data_type in market_subscriptions and symbol in market_subscriptions[data_type]:
+                            market_subscriptions[data_type].discard(symbol)
+
+                # 如果该交易对没有任何订阅者了，删除整个条目
+                if not self.symbol_subscribers[symbol]:
+                    del self.symbol_subscribers[symbol]
+
+            print(f"[WS] Cleanup: symbol_subscribers count: {len(self.symbol_subscribers)}")
 
     async def broadcast(self, message: dict):
         """广播消息给所有连接的客户端"""
@@ -707,20 +960,207 @@ class ConnectionManager:
         for conn in disconnected:
             self.disconnect(conn)
 
+    async def send_market_data(self, symbol: str, data: dict, data_type: str = "ticker"):
+        """发送市场数据给订阅了该交易对的客户端（O(1)查询）"""
+        disconnected = []
+        sent_count = 0
+        message = {
+            "type": "market_data",
+            "data_type": data_type,
+            "symbol": symbol,
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # 直接通过索引找到订阅了该交易对的客户端
+        subscribers = self.symbol_subscribers.get(symbol, {}).get(data_type, set())
+
+        if subscribers:
+            print(f"[WS推送] symbol={symbol}, data_type={data_type}, subscribers={len(subscribers)}")
+        else:
+            return  # 没有订阅者，直接返回
+
+        # 创建 conn_id 到 connection 的映射（用于快速查找）
+        conn_map = {id(conn): conn for conn in self.active_connections}
+
+        # 只向订阅的客户端发送
+        for conn_id in subscribers:
+            connection = conn_map.get(conn_id)
+            if not connection:
+                # 连接已不存在，清理
+                disconnected.append(conn_id)
+                continue
+
+            try:
+                await connection.send_json(message)
+                sent_count += 1
+            except Exception as e:
+                print(f"[WS推送] 发送失败 conn_id={conn_id}: {e}")
+                disconnected.append(conn_id)
+
+        if sent_count > 0:
+            print(f"[WS] Sent {data_type} for {symbol} to {sent_count} client(s)")
+
+        # 清理断开的连接
+        for conn_id in disconnected:
+            # 通过 conn_id 找到对应的 connection（如果还在 active_connections 中）
+            for conn in self.active_connections:
+                if id(conn) == conn_id:
+                    self.disconnect(conn)
+                    break
+
 ws_manager = ConnectionManager()
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket 实时通知端点"""
-    await ws_manager.connect(websocket)
+    """
+    WebSocket 实时通知端点
+
+    支持消息类型：
+    - ping/pong: 心跳
+    - subscribe: 订阅市场数据
+    - unsubscribe: 取消订阅
+
+    订阅消息格式：
+    {
+        "action": "subscribe",
+        "symbols": ["BTC-USDT", "ETH-USDT"],
+        "data_types": ["ticker", "candlesticks", "orderbook", "trades"]
+    }
+    """
+    conn_id = await ws_manager.connect(websocket)
     try:
         while True:
-            # 保持连接，等待客户端消息（心跳或订阅）
+            # 接收客户端消息
             data = await websocket.receive_text()
-            # 可以处理订阅特定任务等逻辑
-            if data == "ping":
-                await websocket.send_json({"type": "pong"})
+
+            try:
+                message = json.loads(data)
+
+                # 处理心跳
+                if message.get("action") == "ping":
+                    await websocket.send_json({"type": "pong"})
+
+                # 处理订阅
+                elif message.get("action") == "subscribe":
+                    symbols = message.get("symbols", [])
+                    data_types = message.get("data_types", ["ticker"])
+
+                    print(f"[WS API] 收到订阅请求: conn_id={conn_id}, symbols={symbols}, data_types={data_types}")
+
+                    # 更新订阅（按客户端维度）
+                    if conn_id in ws_manager.subscriptions:
+                        ws_manager.subscriptions[conn_id]["symbols"].update(symbols)
+                        ws_manager.subscriptions[conn_id]["data_types"].update(data_types)
+
+                    # 更新订阅索引（按交易对维度）
+                    for symbol in symbols:
+                        if symbol not in ws_manager.symbol_subscribers:
+                            ws_manager.symbol_subscribers[symbol] = {}
+                        for data_type in data_types:
+                            if data_type not in ws_manager.symbol_subscribers[symbol]:
+                                ws_manager.symbol_subscribers[symbol][data_type] = set()
+                            ws_manager.symbol_subscribers[symbol][data_type].add(conn_id)
+
+                    # 更新全局订阅集合
+                    for data_type in data_types:
+                        if data_type not in market_subscriptions:
+                            market_subscriptions[data_type] = set()
+                        market_subscriptions[data_type].update(symbols)
+
+                    print(f"[WS API] 全局订阅: {market_subscriptions}")
+
+                    # 订阅 OKX WebSocket（只订阅尚未订阅的）
+                    feeder = get_okx_feeder()
+                    for symbol in symbols:
+                        for data_type in data_types:
+                            # 检查是否已经有客户端订阅（避免重复订阅）
+                            already_subscribed = len(ws_manager.symbol_subscribers.get(symbol, {}).get(data_type, set())) > 1
+
+                            if not already_subscribed:
+                                if data_type == "ticker":
+                                    feeder._subscribe_ticker_ws(symbol)
+                                elif data_type == "candlesticks":
+                                    feeder._subscribe_candlesticks_ws(symbol)
+                                elif data_type == "trades":
+                                    feeder._subscribe_trades_ws(symbol)
+                                elif data_type == "orderbook":
+                                    feeder._subscribe_orderbook_ws(symbol)
+
+                    print(f"[OKX WS] Subscribed: {symbols}")
+
+                    # 确认订阅
+                    await websocket.send_json({
+                        "type": "subscription_confirmed",
+                        "symbols": symbols,
+                        "data_types": data_types
+                    })
+                    print(f"[WS API] 发送订阅确认")
+
+                # 处理取消订阅
+                elif message.get("action") == "unsubscribe":
+                    symbols = message.get("symbols", [])
+
+                    # 获取该客户端订阅的数据类型（用于索引更新）
+                    subscribed_data_types = ws_manager.subscriptions.get(conn_id, {}).get("data_types", set()).copy()
+
+                    # 更新客户端订阅
+                    if conn_id in ws_manager.subscriptions:
+                        for symbol in symbols:
+                            ws_manager.subscriptions[conn_id]["symbols"].discard(symbol)
+
+                    # 更新订阅索引并检查是否需要取消 OKX 订阅
+                    for symbol in symbols:
+                        if symbol in ws_manager.symbol_subscribers:
+                            for data_type in subscribed_data_types:
+                                if data_type in ws_manager.symbol_subscribers[symbol]:
+                                    # 移除该客户端
+                                    ws_manager.symbol_subscribers[symbol][data_type].discard(conn_id)
+
+                                    # 如果没有订阅者了，删除并取消 OKX 订阅
+                                    if not ws_manager.symbol_subscribers[symbol][data_type]:
+                                        del ws_manager.symbol_subscribers[symbol][data_type]
+
+                                        if okx_feeder:
+                                            if data_type == "ticker":
+                                                okx_feeder._unsubscribe_ticker_ws(symbol)
+                                            elif data_type == "candlesticks":
+                                                okx_feeder._unsubscribe_candlesticks_ws(symbol)
+                                            elif data_type == "trades":
+                                                okx_feeder._unsubscribe_trades_ws(symbol)
+                                            elif data_type == "orderbook":
+                                                okx_feeder._unsubscribe_orderbook_ws(symbol)
+                                            print(f"[OKX WS] Unsubscribed: {symbol} ({data_type})")
+
+                                        # 从全局订阅集合中移除
+                                        if data_type in market_subscriptions and symbol in market_subscriptions[data_type]:
+                                            market_subscriptions[data_type].discard(symbol)
+
+                            # 如果该交易对没有任何订阅者了，删除整个条目
+                            if not ws_manager.symbol_subscribers[symbol]:
+                                del ws_manager.symbol_subscribers[symbol]
+
+                    # 确认取消订阅
+                    await websocket.send_json({
+                        "type": "unsubscription_confirmed",
+                        "symbols": symbols
+                    })
+
+                # 获取当前订阅
+                elif message.get("action") == "get_subscriptions":
+                    sub = ws_manager.subscriptions.get(conn_id, {})
+                    await websocket.send_json({
+                        "type": "subscriptions",
+                        "symbols": list(sub.get("symbols", set())),
+                        "data_types": list(sub.get("data_types", set()))
+                    })
+
+            except json.JSONDecodeError:
+                # 处理纯文本心跳
+                if data == "ping":
+                    await websocket.send_json({"type": "pong"})
+
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
     except Exception as e:
@@ -743,6 +1183,25 @@ def notify_backtest_update(task_id: str, event_type: str = "progress"):
     except RuntimeError:
         # 如果没有事件循环，使用 asyncio.run
         asyncio.run(ws_manager.broadcast(message))
+
+
+def notify_market_data(symbol: str, data: dict, data_type: str = "ticker"):
+    """
+    通知前端市场数据更新（从 DataManager 调用）
+
+    Args:
+        symbol: 交易对代码
+        data: 市场数据
+        data_type: 数据类型 (ticker, candlesticks, orderbook, trades)
+    """
+    import asyncio
+    # 在事件循环中发送
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(ws_manager.send_market_data(symbol, data, data_type))
+    except RuntimeError:
+        # 如果没有事件循环，忽略（WebSocket未连接）
+        pass
 
 
 @app.post("/api/v1/backtest/{backtest_id}/notify")
@@ -1674,21 +2133,26 @@ async def get_portfolio_stats():
 
         total_assets = 0
         avg_net_value = 1.0
+        running = 0
 
         if result.success and result.data:
             portfolios = result.data
             total_assets = sum(float(p.initial_capital or 0) for p in portfolios)
 
-            # 计算平均净值
+            # 计算平均净值和运行中数量
             net_values = []
             for p in portfolios:
+                # 统计运行中的投资组合 (state = 1 = RUNNING)
+                if p.state == 1:
+                    running += 1
+
                 if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
                     net_values.append(float(p.current_capital) / float(p.initial_capital))
             avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
 
         return {
             "total": total,
-            "running": 0,  # state 不是数据库字段，无法直接统计
+            "running": running,
             "avg_net_value": round(avg_net_value, 4),
             "total_assets": total_assets,
         }
@@ -2711,6 +3175,7 @@ async def optimization_bayesian(request: dict):
     }
 
 
+
 # ========== 日志级别管理 API (T084-T086) ==========
 
 class SetLogLevelRequest(BaseModel):
@@ -2828,6 +3293,7 @@ async def reset_log_level(module: Optional[str] = None):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to reset log level: {str(e)}")
+
 
 
 # ========== 启动入口 ==========

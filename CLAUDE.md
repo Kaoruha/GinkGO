@@ -280,7 +280,7 @@ ginkgo version
 ginkgo status                              # Quick system status
 ginkgo system config set --debug on       # Enable debug mode (REQUIRED for database operations)
 
-# Data management  
+# Data management
 ginkgo data init                           # Initialize database tables
 ginkgo data update --stockinfo             # Update stock information
 ginkgo data update day --code 000001.SZ    # Update daily bar data
@@ -294,7 +294,45 @@ ginkgo backtest component list strategy    # List strategies
 ginkgo worker status                       # Show worker processes (detailed table)
 ginkgo worker start --count 4              # Start 4 workers
 ginkgo worker run --debug                  # Run single worker in foreground
+
+# Live Trading (OKX)
+python -m ginkgo.livecore.main live-start  # Start live trading engine
+python -m ginkgo.livecore.main live-status # Show live engine status
+python -m ginkgo.livecore.main live-init   # Initialize live trading environment
 ```
+
+## Development Servers
+
+**IMPORTANT: When debugging issues, always check these logs first:**
+
+### API Server
+```bash
+# 启动
+ginkgo serve api 2>&1 | tee /tmp/ginkgo-api.log
+
+# 查看日志
+tail -f /tmp/ginkgo-api.log
+tail -100 /tmp/ginkgo-api.log | grep -i "error\|exception"
+```
+**日志位置：** `/tmp/ginkgo-api.log`
+**端口：** 8000
+
+### Web UI Dev Server
+```bash
+# 启动
+ginkgo serve webui 2>&1 | tee /tmp/webui.log
+
+# 查看日志
+tail -f /tmp/webui.log
+```
+**日志位置：** `/tmp/webui.log`
+**端口：** 5173
+
+### 常见问题排查流程
+1. **前端页面报错** → 先看 `/tmp/webui.log`
+2. **API 请求失败** → 先看 `/tmp/ginkgo-api.log`
+3. **回测任务问题** → 先看 `/tmp/ginkgo-backtest.log`
+4. **实盘交易问题** → 检查三个日志中的相关错误
 
 ### Testing Requirements
 **CRITICAL**: Always enable debug mode before database operations:
@@ -330,6 +368,88 @@ ginkgo system config set --debug off   # Disable after operations
 - **风控扩展**: 继承 `BaseRiskManagement` 实现双重风控机制
 - **分析器扩展**: 继承 `BaseAnalyzer` 实现 `_do_activate()` 和 `_do_record()` 模板方法
 - **CRUD扩展**: 继承 `BaseCRUD` 自动获得装饰器支持和服务容器注册
+
+## 实盘交易架构
+
+### 组件说明
+- **LiveEngine**: 实盘交易引擎，统一生命周期管理
+- **OKXBroker**: OKX交易所适配器，实现IBroker接口
+- **BrokerManager**: Broker实例管理器，负责创建/销毁/启动/停止
+- **HeartbeatMonitor**: 心跳监控，检测Broker超时并触发恢复
+- **BrokerRecoveryService**: Broker恢复服务，处理崩溃恢复
+- **DataSyncService**: 数据同步服务，同步账户余额、持仓、订单
+
+### Broker状态机
+```
+uninitialized → initializing → running → paused → stopped
+                     ↓             ↓
+                   error      recovering
+```
+
+### 实盘账号管理
+```python
+from ginkgo.data.containers import container
+
+# 创建实盘账号
+service = container.live_account_service()
+result = service.create_account(
+    user_id="user123",
+    exchange="okx",
+    name="我的OKX账号",
+    api_key="...",
+    api_secret="...",
+    passphrase="...",  # OKX需要
+    environment="testnet",  # or "production"
+    auto_validate=True
+)
+
+# 验证账号
+result = service.validate_account(account_uuid)
+
+# 获取余额
+result = service.get_account_balance(account_uuid)
+```
+
+### Broker控制
+```python
+from ginkgo.trading.brokers.broker_manager import get_broker_manager
+
+manager = get_broker_manager()
+
+# 启动Broker
+manager.start_broker(portfolio_id)
+
+# 暂停Broker
+manager.pause_broker(portfolio_id)
+
+# 恢复Broker
+manager.resume_broker(portfolio_id)
+
+# 停止Broker
+manager.stop_broker(portfolio_id)
+
+# 紧急停止全部
+manager.emergency_stop_all()
+```
+
+### LiveEngine使用
+```python
+from ginkgo.livecore import get_live_engine
+
+engine = get_live_engine()
+
+# 初始化（创建Broker实例）
+engine.initialize()
+
+# 启动（启动监控和同步服务）
+engine.start()
+
+# 等待退出信号
+engine.wait()
+
+# 停止（优雅关闭）
+engine.stop()
+```
 
 ## Configuration
 

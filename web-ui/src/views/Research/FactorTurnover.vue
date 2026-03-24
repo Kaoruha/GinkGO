@@ -1,121 +1,131 @@
 <template>
   <div class="factor-turnover">
-    <a-card title="因子换手率分析">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择因子</a-button>
-      </template>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="选择因子">
-            <a-select
-              v-model:value="selectedFactor"
-              placeholder="选择要分析的因子"
-              style="width: 100%"
-            >
-              <a-select-option v-for="f in factors" :key="f.name" :value="f.name">
+    <div class="card">
+      <div class="card-header">
+        <h3>因子换手率分析</h3>
+        <button class="btn-secondary" @click="$router.push('/portfolio')">选择因子</button>
+      </div>
+      <div class="card-body">
+        <!-- 配置区域 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">选择因子</label>
+            <select v-model="selectedFactor" class="form-select">
+              <option value="">选择要分析的因子</option>
+              <option v-for="f in factors" :key="f.name" :value="f.name">
                 {{ f.label }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="基准指数">
-            <a-select v-model:value="benchmarkIndex" style="width: 150px">
-              <a-select-option :value="0">沪深300</a-select-option>
-              <a-select-option :value="1">中证500</a-select-option>
-              <a-select-option :value="2">中证800</a-select-option>
-              <a-select-option :value="3">中证1000</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">基准指数</label>
+            <select v-model="benchmarkIndex" class="form-select">
+              <option :value="0">沪深300</option>
+              <option :value="1">中证500</option>
+              <option :value="2">中证800</option>
+              <option :value="3">中证1000</option>
+            </select>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="8">
-          <a-form-item label="再平衡频率（天）">
-            <a-input-number
-              v-model:value="rebalanceFreq"
-              :min="1"
-              :max="60"
-              style="width: 100%"
-            />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="分析周期">
-            <a-range-picker v-model:value="dateRange" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-        <a-col :span="8">
-          <a-form-item label="换手率计算方式">
-            <a-radio-group v-model:value="calcMethod">
-              <a-radio value="count">计数法</a-radio>
-              <a-radio value="amount">金额法</a-radio>
-            </a-radio-group>
-          </a-form-item>
-        </a-col>
-      </a-row>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">再平衡频率（天）</label>
+            <input v-model.number="rebalanceFreq" type="number" min="1" max="60" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">分析周期</label>
+            <input v-model="dateRangeText" type="text" placeholder="选择日期范围" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">换手率计算方式</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" v-model="calcMethod" value="count" />
+                计数法
+              </label>
+              <label class="radio-label">
+                <input type="radio" v-model="calcMethod" value="amount" />
+                金额法
+              </label>
+            </div>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="analyzing" @click="startAnalysis">
-            开始分析
-          </a-button>
-          <a-button @click="resetConfig">重置</a-button>
-        </a-space>
+        <div class="form-actions">
+          <button class="btn-primary" :disabled="analyzing" @click="startAnalysis">
+            {{ analyzing ? '分析中...' : '开始分析' }}
+          </button>
+          <button class="btn-secondary" @click="resetConfig">重置</button>
+        </div>
       </div>
-    </a-card>
+    </div>
 
-    <!-- Custom -->
-    <a-card v-if="results" title="换手率统计" class="mt-4">
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-statistic title="平均换手率" :value="avgTurnover.toFixed(2)" suffix="%" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="最大换手率" :value="maxTurnover.toFixed(2)" suffix="%" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="最小换手率" :value="minTurnover.toFixed(2)" suffix="%" />
-        </a-col>
-        <a-col :span="6">
-          <a-statistic title="换手率标准差" :value="stdTurnover.toFixed(2)" />
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <div class="chart-section mt-4">
-        <h4>换手率时序图</h4>
-        <div ref="turnoverChartRef" class="chart-container" style="height: 300px"></div>
+    <!-- 结果卡片 -->
+    <div v-if="results.length > 0" class="card">
+      <div class="card-header">
+        <h3>换手率统计</h3>
       </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">平均换手率</div>
+            <div class="stat-value">{{ avgTurnover.toFixed(2) }}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">最大换手率</div>
+            <div class="stat-value">{{ maxTurnover.toFixed(2) }}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">最小换手率</div>
+            <div class="stat-value">{{ minTurnover.toFixed(2) }}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">换手率标准差</div>
+            <div class="stat-value">{{ stdTurnover.toFixed(2) }}</div>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <div class="distribution-section mt-4">
-        <h4>换手率分布直方图</h4>
-        <div ref="distributionRef" class="chart-container" style="height: 300px"></div>
+        <div class="chart-section">
+          <h4>换手率时序图</h4>
+          <div ref="turnoverChartRef" class="chart-container"></div>
+        </div>
+
+        <div class="distribution-section">
+          <h4>换手率分布直方图</h4>
+          <div ref="distributionRef" class="chart-container"></div>
+        </div>
+
+        <div v-if="detailData.length > 0" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>组合市值</th>
+                <th>换出金额</th>
+                <th>换入金额</th>
+                <th>换手率%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(record, i) in detailData" :key="`detail-${i}`">
+                <td>{{ record.date }}</td>
+                <td>{{ record.portfolio_value }}</td>
+                <td>{{ record.turnover_amount }}</td>
+                <td>{{ record.turnover_in }}</td>
+                <td>{{ record.turnover_rate }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <!-- Custom -->
-      <a-table
-        :columns="columns"
-        :data-source="detailData"
-        :pagination="{ pageSize: 20 }"
-        size="small"
-        :scroll="{ y: 400 }"
-      >
-      </a-table>
-    </a-card>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
 import * as echarts from 'echarts'
 
 const router = useRouter()
@@ -139,7 +149,7 @@ const factors = ref([
 const selectedFactor = ref('')
 const benchmarkIndex = ref(0)
 const rebalanceFreq = ref(5)
-const dateRange = ref<any[]>([])
+const dateRangeText = ref('')
 const calcMethod = ref('count')
 const analyzing = ref(false)
 
@@ -153,17 +163,7 @@ const stdTurnover = ref(0)
 const turnoverChartRef = ref<HTMLDivElement>()
 const distributionRef = ref<HTMLDivElement>()
 
-// 表格列
-const columns = [
-  { title: '日期', dataIndex: 'date', width: 120 },
-  { title: '组合市值', dataIndex: 'portfolio_value', width: 120 },
-  { title: '换出金额', dataIndex: 'turnover_amount', width: 120 },
-  { title: '换入金额', dataIndex: 'turnover_in', width: 120 },
-  { title: '换手率%', dataIndex: 'turnover_rate', width: 100 }
-]
-
 const detailData = computed(() => {
-  // TODO: 获取详细数据
   return results.value.map((r, i) => ({
     date: r.date,
     portfolio_value: (1000000 + Math.random() * 50000).toFixed(0),
@@ -176,19 +176,17 @@ const detailData = computed(() => {
 // 开始分析
 const startAnalysis = async () => {
   if (!selectedFactor.value) {
-    message.warning('请先选择因子')
+    console.warn('请先选择因子')
     return
   }
 
   analyzing.value = true
 
   try {
-    // TODO: 调用换手率分析API
     await simulateAnalysis()
-
-    message.success('换手率分析完成')
+    console.log('换手率分析完成')
   } catch (e) {
-    message.error('分析失败')
+    console.error('分析失败')
   } finally {
     analyzing.value = false
   }
@@ -209,7 +207,7 @@ const simulateAnalysis = async () => {
       turnover_rate: turnover
     })
 
-    avgTurnover.value = results.value.reduce((a, b) => a + b, 0) / results.value.length
+    avgTurnover.value = results.value.reduce((a, b) => a + b.turnover_rate, 0) / results.value.length
     maxTurnover.value = Math.max(...results.value.map(r => r.turnover_rate))
     minTurnover.value = Math.min(...results.value.map(r => r.turnover_rate))
     stdTurnover.value = 0 // 简化计算
@@ -223,10 +221,7 @@ const simulateAnalysis = async () => {
 const renderTurnoverChart = () => {
   if (!turnoverChartRef.value) return
 
-  const chart = echarts.init(turnoverChartRef.value, {
-    height: 300,
-    width: turnoverChartRef.value.clientWidth
-  })
+  const chart = echarts.init(turnoverChartRef.value)
 
   chart.setOption({
     tooltip: { trigger: 'axis' },
@@ -252,25 +247,15 @@ const renderTurnoverChart = () => {
 const renderDistribution = () => {
   if (!distributionRef.value) return
 
-  const chart = echarts.init(distributionRef.value, {
-    height: 300,
-    width: distributionRef.value.clientWidth
-  })
+  const chart = echarts.init(distributionRef.value)
 
   const bins = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 5.0]
-  const data = bins.map(bin => {
-    const count = results.value.filter(r => r.turnover_rate < bin).length
-    return `${bin * 10}-${(bin + 1) * 10}%: ${count}`
-  })
 
   chart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: bins,
-      axisLabel: {
-        formatter: (v) => v
-      }
+      data: bins
     },
     yAxis: {
       type: 'value',
@@ -279,11 +264,12 @@ const renderDistribution = () => {
     series: [{
       type: 'bar',
       data: bins.map(bin => {
-        value: results.value.filter(r => {
+        const value = results.value.filter(r => {
           const lower = bin * 0.1
           const upper = (bin + 1) * 0.1
           return r.turnover_rate >= lower && r.turnover_rate < upper
         }).length
+        return value
       })
     }]
   })
@@ -301,11 +287,211 @@ const resetConfig = () => {
   padding: 16px;
 }
 
-.chart-section {
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  height: 100%;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.chart-section,
+.distribution-section {
+  margin-bottom: 20px;
+}
+
+.chart-section h4,
+.distribution-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
 }
 
 .chart-container {
   width: 100%;
+  height: 300px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

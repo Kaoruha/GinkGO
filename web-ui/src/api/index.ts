@@ -35,3 +35,16 @@ export type { ICAnalysisConfig, ICAnalysisResult, FactorLayeringConfig, FactorLa
 // 参数优化模块
 export { optimizationApi } from './modules/optimization'
 export type { GridSearchConfig, GridSearchResult, GeneticOptimizerConfig, GeneticOptimizerResult, BayesianOptimizerConfig, BayesianOptimizerResult } from './modules/optimization'
+
+// 实盘账号模块
+export { liveAccountApi } from './modules/live'
+export type {
+  LiveAccount,
+  CreateLiveAccountRequest,
+  UpdateLiveAccountRequest,
+  ValidateAccountResponse,
+  ExchangeType,
+  EnvironmentType,
+  AccountStatusType,
+  PaginationResponse
+} from './modules/live'

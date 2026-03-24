@@ -5,7 +5,7 @@
  */
 
 import { ref } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { message } from '@/utils/toast'
 import {
   useErrorHandler,
   useFormErrorHandler,
@@ -13,6 +13,23 @@ import {
 } from '@/composables/useErrorHandler'
 import { handleApiError, withErrorHandling } from '@/utils/errorHandler'
 import { portfolioApi } from '@/api/modules/portfolio'
+
+/**
+ * 简单确认对话框
+ */
+function confirm(options: { title: string; content: string; onOk: () => void }) {
+  const result = window.confirm(`${options.title}\n\n${options.content}`)
+  if (result) {
+    options.onOk()
+  }
+}
+
+/**
+ * 错误对话框
+ */
+function errorModal(options: { title: string; content: string }) {
+  window.alert(`${options.title}\n\n${options.content}`)
+}
 
 // ============================================================================
 // 示例 1: 基础数据加载
@@ -82,11 +99,9 @@ export function example3_DeleteWithConfirmation() {
   const { loading, execute } = useErrorHandler()
 
   function handleDelete(portfolio: { uuid: string; name: string }) {
-    Modal.confirm({
+    confirm({
       title: '确认删除',
       content: `确定要删除投资组合"${portfolio.name}"吗？此操作不可恢复。`,
-      okText: '删除',
-      okType: 'danger',
       onOk: async () => {
         const result = await execute(async () => {
           return await portfolioApi.delete(portfolio.uuid)
@@ -172,7 +187,7 @@ export function example6_CustomErrorHandling() {
 
     if (!result) {
       // 自定义错误处理
-      Modal.error({
+      errorModal({
         title: '操作失败',
         content: '关键操作失败，请联系管理员'
       })
