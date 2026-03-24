@@ -5,11 +5,12 @@ API Gateway - Live Trading Router
 - 实盘账号CRUD操作
 - API凭证验证
 - 账号余额查询
+- Broker管理
 
 使用FastAPI实现RESTful API接口
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Dict, List, Optional
 from datetime import datetime
 import logging
@@ -21,13 +22,47 @@ router = APIRouter(
     tags=["accounts"]
 )
 
+# 测试端点 - 验证代码是否被重新加载
+@router.get("/test")
+async def test_endpoint() -> Dict:
+    """测试端点"""
+    return {
+        "code": 0,
+        "message": "test endpoint v2 - cache cleared",
+        "data": {"timestamp": str(datetime.now())}
+    }
+
+
+async def get_user_id(request: Request) -> str:
+    """
+    从 request.state 中获取 user_id
+    由 auth_middleware 中间件提取并存储
+    """
+    # 先检查 request.state 中所有可用的属性
+    print(f"[get_user_id] request.state attributes: {dir(request.state)}", flush=True)
+
+    # FastAPI 的 request.state 是一个 State 对象，直接访问属性
+    try:
+        user_id = request.state.user_id
+    except AttributeError:
+        user_id = None
+
+    print(f"[get_user_id] 读取到的 user_id = {user_id}", flush=True)
+
+    if user_id:
+        return user_id
+
+    print(f"[get_user_id] 没有找到 user_id，返回 'default_user'", flush=True)
+    return "default_user"
+
 
 # ============================================================================
 # 实盘账号CRUD接口
 # ============================================================================
 
-@router.get("/")
+@router.get("")
 async def list_accounts(
+    request: Request,
     exchange: Optional[str] = Query(None, description="过滤交易所"),
     environment: Optional[str] = Query(None, description="过滤环境"),
     status: Optional[str] = Query(None, description="过滤状态")
@@ -38,11 +73,14 @@ async def list_accounts(
     Returns:
         Dict: 账号列表
     """
+    print(f"[list_accounts] CALLED - exchange={exchange}, environment={environment}, status={status}", flush=True)
+
     try:
         from ginkgo.data.containers import container
 
-        # TODO: 从认证中获取user_id
-        user_id = "default_user"  # 需要从JWT中提取
+        # 从认证中获取 user_id (由 auth_middleware 提取)
+        user_id = await get_user_id(request)
+        print(f"[list_accounts] Got user_id: {user_id}", flush=True)
 
         service = container.live_account_service()
         result = service.get_user_accounts(
@@ -54,22 +92,29 @@ async def list_accounts(
             status=status
         )
 
+        print(f"[list_accounts] Service result: {result}", flush=True)
+
         if result["success"]:
+            accounts = result["data"]["accounts"]
+            print(f"[list_accounts] Returning {len(accounts)} accounts", flush=True)
             return {
                 "code": 0,
                 "message": "success",
-                "data": result["data"]["accounts"]
+                "data": accounts
             }
         else:
+            print(f"[list_accounts] Service failed: {result['message']}", flush=True)
             raise HTTPException(status_code=400, detail=result["message"])
 
     except Exception as e:
-        logger.error(f"Failed to list accounts: {e}")
+        print(f"[list_accounts] ERROR: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/")
-async def create_account(account_data: Dict) -> Dict:
+async def create_account(request: Request, account_data: Dict) -> Dict:
     """
     创建实盘账号
 
@@ -91,8 +136,8 @@ async def create_account(account_data: Dict) -> Dict:
     try:
         from ginkgo.data.containers import container
 
-        # TODO: 从认证中获取user_id
-        user_id = "default_user"  # 需要从JWT中提取
+        # 从认证中获取 user_id (由 auth_middleware 提取)
+        user_id = await get_user_id(request)
 
         service = container.live_account_service()
         result = service.create_account(
@@ -122,6 +167,267 @@ async def create_account(account_data: Dict) -> Dict:
         logger.error(f"Failed to create account: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# Broker管理端点 (必须在 /{account_id} 之前定义)
+# ============================================================================
+
+@router.get("/brokers")
+async def list_brokers(
+    portfolio_id: Optional[str] = None,
+    state: Optional[str] = None
+) -> Dict:
+    """
+    获取Broker实例列表
+
+    Args:
+        portfolio_id: 过滤Portfolio ID
+        state: 过滤状态
+
+    Returns:
+        Dict: Broker实例列表
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        broker_crud = container.broker_instance_crud()
+
+        filters = {"is_del": False}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if state:
+            filters["state"] = state
+
+        brokers = broker_crud.find(filters=filters)
+
+        # 为每个Broker加载实盘账号信息
+        live_account_crud = container.live_account_crud()
+        for broker in brokers:
+            try:
+                live_account = live_account_crud.get(broker.live_account_id)
+                if live_account:
+                    broker.live_account = {
+                        "uuid": live_account.uuid,
+                        "name": live_account.name,
+                        "exchange": live_account.exchange,
+                        "environment": live_account.environment
+                    }
+            except:
+                pass
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": brokers
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list brokers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/brokers/{broker_uuid}/start")
+async def start_broker(broker_uuid: str) -> Dict:
+    """
+    启动Broker实例
+
+    Args:
+        broker_uuid: Broker实例UUID
+
+    Returns:
+        Dict: 启动结果
+    """
+    try:
+        from ginkgo.trading.brokers.broker_manager import get_broker_manager
+        from ginkgo.data.containers import container
+
+        broker_manager = get_broker_manager()
+
+        # 获取Broker信息
+        broker_crud = container.broker_instance_crud()
+        broker = broker_crud.get(broker_uuid)
+        if not broker:
+            raise HTTPException(status_code=404, detail="Broker not found")
+
+        # 启动Broker
+        success = broker_manager.start_broker(broker.portfolio_id)
+
+        if success:
+            return {
+                "code": 0,
+                "message": "Broker started successfully",
+                "data": {"broker_uuid": broker_uuid, "state": "running"}
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to start broker")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to start broker {broker_uuid}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/brokers/{broker_uuid}/pause")
+async def pause_broker(broker_uuid: str) -> Dict:
+    """
+    暂停Broker实例
+
+    Args:
+        broker_uuid: Broker实例UUID
+
+    Returns:
+        Dict: 暂停结果
+    """
+    try:
+        from ginkgo.trading.brokers.broker_manager import get_broker_manager
+        from ginkgo.data.containers import container
+
+        broker_manager = get_broker_manager()
+
+        # 获取Broker信息
+        broker_crud = container.broker_instance_crud()
+        broker = broker_crud.get(broker_uuid)
+        if not broker:
+            raise HTTPException(status_code=404, detail="Broker not found")
+
+        # 暂停Broker
+        success = broker_manager.pause_broker(broker.portfolio_id)
+
+        if success:
+            return {
+                "code": 0,
+                "message": "Broker paused successfully",
+                "data": {"broker_uuid": broker_uuid, "state": "paused"}
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to pause broker")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to pause broker {broker_uuid}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/brokers/{broker_uuid}/resume")
+async def resume_broker(broker_uuid: str) -> Dict:
+    """
+    恢复Broker实例
+
+    Args:
+        broker_uuid: Broker实例UUID
+
+    Returns:
+        Dict: 恢复结果
+    """
+    try:
+        from ginkgo.trading.brokers.broker_manager import get_broker_manager
+        from ginkgo.data.containers import container
+
+        broker_manager = get_broker_manager()
+
+        # 获取Broker信息
+        broker_crud = container.broker_instance_crud()
+        broker = broker_crud.get(broker_uuid)
+        if not broker:
+            raise HTTPException(status_code=404, detail="Broker not found")
+
+        # 恢复Broker
+        success = broker_manager.resume_broker(broker.portfolio_id)
+
+        if success:
+            return {
+                "code": 0,
+                "message": "Broker resumed successfully",
+                "data": {"broker_uuid": broker_uuid, "state": "running"}
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to resume broker")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to resume broker {broker_uuid}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/brokers/{broker_uuid}/stop")
+async def stop_broker(broker_uuid: str) -> Dict:
+    """
+    停止Broker实例
+
+    Args:
+        broker_uuid: Broker实例UUID
+
+    Returns:
+        Dict: 停止结果
+    """
+    try:
+        from ginkgo.trading.brokers.broker_manager import get_broker_manager
+        from ginkgo.data.containers import container
+
+        broker_manager = get_broker_manager()
+
+        # 获取Broker信息
+        broker_crud = container.broker_instance_crud()
+        broker = broker_crud.get(broker_uuid)
+        if not broker:
+            raise HTTPException(status_code=404, detail="Broker not found")
+
+        # 停止Broker
+        success = broker_manager.stop_broker(broker.portfolio_id)
+
+        if success:
+            return {
+                "code": 0,
+                "message": "Broker stopped successfully",
+                "data": {"broker_uuid": broker_uuid, "state": "stopped"}
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to stop broker")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stop broker {broker_uuid}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/brokers/emergency-stop")
+async def emergency_stop_all() -> Dict:
+    """
+    紧急停止所有Broker实例
+
+    Returns:
+        Dict: 停止结果
+    """
+    try:
+        from ginkgo.trading.brokers.broker_manager import get_broker_manager
+
+        broker_manager = get_broker_manager()
+
+        # 紧急停止所有Broker
+        stopped_count = broker_manager.emergency_stop_all()
+
+        return {
+            "code": 0,
+            "message": f"Emergency stop completed: {stopped_count} brokers stopped",
+            "data": {"stopped_count": stopped_count}
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to emergency stop brokers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# 账号详情接口 (必须在 /brokers 之后定义)
+# ============================================================================
 
 @router.get("/{account_id}")
 async def get_account(account_id: str) -> Dict:
@@ -329,6 +635,51 @@ async def get_account_balance(account_id: str) -> Dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{account_id}/positions")
+async def get_account_positions(account_id: str) -> Dict:
+    """
+    获取账户持仓信息
+
+    Args:
+        account_id: 账号UUID
+
+    Returns:
+        Dict: 持仓信息
+        {
+            "positions": [
+                {
+                    "symbol": str,
+                    "side": str,
+                    "size": str,
+                    "avg_price": str,
+                    "current_price": str,
+                    "unrealized_pnl": str,
+                    "unrealized_pnl_percentage": str,
+                    "margin": str
+                }
+            ]
+        }
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.live_account_service()
+        result = service.get_account_positions(account_id)
+
+        if result["success"]:
+            return {
+                "code": 0,
+                "message": "Positions retrieved successfully",
+                "data": result["data"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except Exception as e:
+        logger.error(f"Failed to get account positions {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/{account_id}/status")
 async def update_account_status(account_id: str, status_data: Dict) -> Dict:
     """
@@ -366,259 +717,6 @@ async def update_account_status(account_id: str, status_data: Dict) -> Dict:
 
     except Exception as e:
         logger.error(f"Failed to update account status {account_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============================================================================
-# Broker管理端点
-# ============================================================================
-
-@router.get("/brokers")
-async def list_brokers(
-    portfolio_id: Optional[str] = None,
-    state: Optional[str] = None
-) -> Dict:
-    """
-    获取Broker实例列表
-
-    Args:
-        portfolio_id: 过滤Portfolio ID
-        state: 过滤状态
-
-    Returns:
-        Dict: Broker实例列表
-    """
-    try:
-        from ginkgo.data.containers import container
-
-        broker_crud = container.broker_instance()
-
-        filters = {"is_del": False}
-        if portfolio_id:
-            filters["portfolio_id"] = portfolio_id
-        if state:
-            filters["state"] = state
-
-        brokers = broker_crud.find(filters=filters)
-
-        # 为每个Broker加载实盘账号信息
-        live_account_crud = container.live_account()
-        for broker in brokers:
-            try:
-                live_account = live_account_crud.get(broker.live_account_id)
-                if live_account:
-                    broker.live_account = {
-                        "uuid": live_account.uuid,
-                        "name": live_account.name,
-                        "exchange": live_account.exchange,
-                        "environment": live_account.environment
-                    }
-            except:
-                pass
-
-        return {
-            "code": 0,
-            "message": "success",
-            "data": brokers
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to list brokers: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/brokers/{broker_uuid}/start")
-async def start_broker(broker_uuid: str) -> Dict:
-    """
-    启动Broker实例
-
-    Args:
-        broker_uuid: Broker实例UUID
-
-    Returns:
-        Dict: 启动结果
-    """
-    try:
-        from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-        broker_manager = get_broker_manager()
-
-        # 获取Broker信息
-        broker_crud = container.broker_instance()
-        broker = broker_crud.get_broker_by_uuid(broker_uuid)
-        if not broker:
-            raise HTTPException(status_code=404, detail="Broker not found")
-
-        # 启动Broker
-        success = broker_manager.start_broker(broker.portfolio_id)
-
-        if success:
-            return {
-                "code": 0,
-                "message": "Broker started successfully",
-                "data": {"broker_uuid": broker_uuid, "state": "running"}
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to start broker")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to start broker {broker_uuid}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/brokers/{broker_uuid}/pause")
-async def pause_broker(broker_uuid: str) -> Dict:
-    """
-    暂停Broker实例
-
-    Args:
-        broker_uuid: Broker实例UUID
-
-    Returns:
-        Dict: 暂停结果
-    """
-    try:
-        from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-        broker_manager = get_broker_manager()
-
-        # 获取Broker信息
-        broker_crud = container.broker_instance()
-        broker = broker_crud.get_broker_by_uuid(broker_uuid)
-        if not broker:
-            raise HTTPException(status_code=404, detail="Broker not found")
-
-        # 暂停Broker
-        success = broker_manager.pause_broker(broker.portfolio_id)
-
-        if success:
-            return {
-                "code": 0,
-                "message": "Broker paused successfully",
-                "data": {"broker_uuid": broker_uuid, "state": "paused"}
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to pause broker")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to pause broker {broker_uuid}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/brokers/{broker_uuid}/resume")
-async def resume_broker(broker_uuid: str) -> Dict:
-    """
-    恢复Broker实例
-
-    Args:
-        broker_uuid: Broker实例UUID
-
-    Returns:
-        Dict: 恢复结果
-    """
-    try:
-        from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-        broker_manager = get_broker_manager()
-
-        # 获取Broker信息
-        broker_crud = container.broker_instance()
-        broker = broker_crud.get_broker_by_uuid(broker_uuid)
-        if not broker:
-            raise HTTPException(status_code=404, detail="Broker not found")
-
-        # 恢复Broker
-        success = broker_manager.resume_broker(broker.portfolio_id)
-
-        if success:
-            return {
-                "code": 0,
-                "message": "Broker resumed successfully",
-                "data": {"broker_uuid": broker_uuid, "state": "running"}
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to resume broker")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to resume broker {broker_uuid}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/brokers/{broker_uuid}/stop")
-async def stop_broker(broker_uuid: str) -> Dict:
-    """
-    停止Broker实例
-
-    Args:
-        broker_uuid: Broker实例UUID
-
-    Returns:
-        Dict: 停止结果
-    """
-    try:
-        from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-        broker_manager = get_broker_manager()
-
-        # 获取Broker信息
-        broker_crud = container.broker_instance()
-        broker = broker_crud.get_broker_by_uuid(broker_uuid)
-        if not broker:
-            raise HTTPException(status_code=404, detail="Broker not found")
-
-        # 停止Broker
-        success = broker_manager.stop_broker(broker.portfolio_id)
-
-        if success:
-            return {
-                "code": 0,
-                "message": "Broker stopped successfully",
-                "data": {"broker_uuid": broker_uuid, "state": "stopped"}
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to stop broker")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to stop broker {broker_uuid}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/brokers/emergency-stop")
-async def emergency_stop_all() -> Dict:
-    """
-    紧急停止所有Broker实例
-
-    Returns:
-        Dict: 停止结果
-    """
-    try:
-        from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-        broker_manager = get_broker_manager()
-
-        # 紧急停止所有Broker
-        stopped_count = broker_manager.emergency_stop_all()
-
-        return {
-            "code": 0,
-            "message": f"Emergency stop completed: {stopped_count} brokers stopped",
-            "data": {"stopped_count": stopped_count}
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to emergency stop brokers: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -821,4 +919,3 @@ async def export_trades_csv(
     except Exception as e:
         logger.error(f"Failed to export trades for account {account_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

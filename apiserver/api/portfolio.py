@@ -103,6 +103,71 @@ async def list_portfolios(
         raise BusinessError(f"Error listing portfolios: {str(e)}")
 
 
+@router.get("/stats", response_model=APIResponse[dict])
+async def get_portfolio_stats():
+    """获取 Portfolio 统计数据"""
+    try:
+        # 获取 PortfolioService
+        portfolio_service = get_portfolio_service()
+
+        # 使用 count 方法获取总数
+        total_result = portfolio_service.count()
+        total = total_result.data.get("count", 0) if total_result.is_success() else 0
+
+        # 获取所有数据用于计算资产和净值
+        result = portfolio_service.get(page=0, page_size=10000)
+
+        total_assets = 0
+        avg_net_value = 1.0
+        running = 0
+
+        if result.is_success() and result.data:
+            portfolios = result.data
+            total_assets = sum(float(p.initial_capital) for p in portfolios if p.initial_capital)
+
+            # 计算平均净值和运行中数量
+            net_values = []
+            for p in portfolios:
+                # 统计运行中的投资组合
+                # 注意：旧版MPortfolio使用is_running字段
+                is_running = getattr(p, 'is_running', None)
+
+                if is_running == 1:
+                    running += 1
+
+                if p.initial_capital and p.cash and float(p.initial_capital) > 0:
+                    net_values.append(float(p.cash) / float(p.initial_capital))
+
+            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
+
+        return {
+            "success": True,
+            "data": {
+                "total": total,
+                "running": running,
+                "avg_net_value": round(avg_net_value, 4),
+                "total_assets": total_assets,
+            },
+            "error": None,
+            "message": "Stats retrieved successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting portfolio stats: {str(e)}")
+        # 发生错误时返回默认值
+        return {
+            "success": True,
+            "data": {
+                "total": 0,
+                "running": 0,
+                "avg_net_value": 1.0,
+                "total_assets": 0,
+            },
+            "error": None,
+            "message": "Stats retrieved successfully"
+        }
+
+
 @router.get("/{uuid}", response_model=APIResponse[PortfolioDetail])
 async def get_portfolio(uuid: str):
     """获取Portfolio详情（包含组件配置和参数）"""
@@ -356,3 +421,70 @@ async def delete_portfolio(uuid: str):
     except Exception as e:
         logger.error(f"Error deleting portfolio {uuid}: {str(e)}")
         raise BusinessError(f"Error deleting portfolio: {str(e)}")
+
+
+@router.get("/stats", response_model=APIResponse[dict])
+async def get_portfolio_stats():
+    """获取 Portfolio 统计数据"""
+    try:
+        # 获取 PortfolioService
+        portfolio_service = get_portfolio_service()
+
+        # 使用 count 方法获取总数
+        total_result = portfolio_service.count()
+        total = total_result.data.get("count", 0) if total_result.is_success() else 0
+
+        # 获取所有数据用于计算资产和净值
+        result = portfolio_service.get(page=0, page_size=10000)
+
+        total_assets = 0
+        avg_net_value = 1.0
+        running = 0
+
+        if result.is_success() and result.data:
+            portfolios = result.data
+            total_assets = sum(float(p.initial_capital) for p in portfolios if p.initial_capital)
+
+            # 计算平均净值和运行中数量
+            net_values = []
+            for p in portfolios:
+                # 统计运行中的投资组合
+                # 注意：旧版MPortfolio使用is_live和is_running字段
+                # 新版可能使用state字段
+                is_running = getattr(p, 'is_running', None)
+                state = getattr(p, 'state', None)
+
+                if is_running == 1 or state == 1:
+                    running += 1
+
+                if p.initial_capital and p.cash and float(p.initial_capital) > 0:
+                    net_values.append(float(p.cash) / float(p.initial_capital))
+
+            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
+
+        return {
+            "success": True,
+            "data": {
+                "total": total,
+                "running": running,
+                "avg_net_value": round(avg_net_value, 4),
+                "total_assets": total_assets,
+            },
+            "error": None,
+            "message": "Stats retrieved successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting portfolio stats: {str(e)}")
+        # 发生错误时返回默认值
+        return {
+            "success": True,
+            "data": {
+                "total": 0,
+                "running": 0,
+                "avg_net_value": 1.0,
+                "total_assets": 0,
+            },
+            "error": None,
+            "message": "Stats retrieved successfully"
+        }
