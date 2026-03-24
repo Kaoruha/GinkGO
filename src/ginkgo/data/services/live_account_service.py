@@ -104,7 +104,24 @@ class LiveAccountService(BaseService):
             if exchange == ExchangeType.OKX and not passphrase:
                 return self._error_result("passphrase is required for OKX")
 
-            # 创建账号
+            # 方案1：验证前置 - 先验证凭证，再创建账号
+            validation_result = None
+            if auto_validate:
+                GLOG.INFO(f"Pre-validating credentials before creating account...")
+                validation_result = self._validate_credentials_temporarily(
+                    exchange=exchange,
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    passphrase=passphrase,
+                    environment=environment
+                )
+                if not validation_result["success"]:
+                    # 验证失败，直接返回错误，不创建账号
+                    error_msg = validation_result.get("error", "Validation failed")
+                    GLOG.WARN(f"Account creation rejected due to validation failure: {error_msg}")
+                    return self._error_result(f"API validation failed: {error_msg}")
+
+            # 验证通过后，创建账号
             account = self._crud.add_live_account(
                 user_id=user_id,
                 exchange=exchange,
@@ -118,14 +135,6 @@ class LiveAccountService(BaseService):
 
             GLOG.INFO(f"Live account created: {account.uuid} (user={user_id}, exchange={exchange})")
 
-            # 自动验证API凭证
-            validation_result = None
-            if auto_validate:
-                validation_result = self.validate_account(account.uuid)
-                if not validation_result["success"]:
-                    # 验证失败，记录警告但不删除账号
-                    GLOG.WARN(f"Account created but validation failed: {validation_result['error']}")
-
             return {
                 "success": True,
                 "data": {
@@ -138,6 +147,116 @@ class LiveAccountService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"Failed to create live account: {e}")
             return self._error_result(f"Failed to create live account: {str(e)}")
+
+    def _validate_credentials_temporarily(
+        self,
+        exchange: str,
+        api_key: str,
+        api_secret: str,
+        passphrase: Optional[str],
+        environment: str
+    ) -> Dict[str, Any]:
+        """
+        临时验证API凭证（不创建数据库记录）
+
+        这是 create_account 方法的前置验证步骤，确保凭证有效后才创建账号。
+
+        Args:
+            exchange: 交易所类型 (okx/binance)
+            api_key: API Key
+            api_secret: API Secret
+            passphrase: Passphrase (OKX需要)
+            environment: 环境 (production/testnet)
+
+        Returns:
+            Dict: {
+                "success": bool,
+                "message": str,
+                "error": str (if failed)
+            }
+        """
+        try:
+            if exchange == ExchangeType.OKX:
+                return self._temp_validate_okx(api_key, api_secret, passphrase, environment)
+            elif exchange == ExchangeType.BINANCE:
+                return self._temp_validate_binance(api_key, api_secret, environment)
+            else:
+                return self._error_result(f"Unsupported exchange: {exchange}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Temporary validation error: {e}")
+            return self._error_result(f"Validation error: {str(e)}")
+
+    def _temp_validate_okx(
+        self,
+        api_key: str,
+        api_secret: str,
+        passphrase: str,
+        environment: str
+    ) -> Dict[str, Any]:
+        """临时验证OKX凭证（不涉及数据库）"""
+        try:
+            from okx.Account import AccountAPI as OKXAccount
+
+            # 确定API端点
+            domain = "https://www.okx.com"
+            flag = "1" if environment == "testnet" else "0"
+
+            if not passphrase:
+                return self._error_result("Passphrase is required for OKX")
+
+            # 创建API实例并验证
+            account_api = OKXAccount(
+                api_key=api_key,
+                api_secret_key=api_secret,
+                passphrase=passphrase,
+                domain=domain,
+                flag=flag,
+                debug=False  # 生产模式关闭调试
+            )
+
+            # 调用API验证凭证
+            result = account_api.get_account_balance()
+
+            if result and result.get("code") == "0":
+                balance_data = result.get("data", [{}])[0] if result.get("data") else {}
+                total_equity = balance_data.get("totalEq", "0")
+
+                GLOG.INFO(f"OKX credentials validation successful (environment={environment})")
+
+                return {
+                    "success": True,
+                    "message": "API validation successful",
+                    "account_info": {
+                        "balance": total_equity,
+                        "environment": environment,
+                        "exchange": "okx"
+                    }
+                }
+            else:
+                error_msg = result.get("msg", "Unknown error") if result else "No response"
+                error_code = result.get("code", "Unknown") if result else "Unknown"
+
+                GLOG.WARN(f"OKX credentials validation failed: {error_msg} (code: {error_code})")
+
+                return {
+                    "success": False,
+                    "error": f"API validation failed: {error_msg} (code: {error_code})"
+                }
+
+        except Exception as e:
+            GLOG.ERROR(f"OKX temporary validation error: {e}")
+            return self._error_result(f"OKX validation error: {str(e)}")
+
+    def _temp_validate_binance(
+        self,
+        api_key: str,
+        api_secret: str,
+        environment: str
+    ) -> Dict[str, Any]:
+        """临时验证Binance凭证（待实现）"""
+        # TODO: 实现Binance临时验证逻辑
+        return self._error_result("Binance validation not yet implemented")
 
     @time_logger
     @retry(max_try=3)
@@ -194,8 +313,7 @@ class LiveAccountService(BaseService):
         try:
             # 动态导入python-okx（避免硬依赖）
             try:
-                from okx import Account as OKXAccount
-                from okx import PublicData as OKXPublicData
+                from okx.Account import AccountAPI as OKXAccount
             except ImportError:
                 return self._error_result("python-okx package not installed. Run: pip install python-okx")
 
@@ -219,7 +337,7 @@ class LiveAccountService(BaseService):
             # 验证API凭证 - 获取账户余额
             account_api = OKXAccount(
                 api_key=api_key,
-                secret_key=api_secret,
+                api_secret_key=api_secret,
                 passphrase=passphrase,
                 domain=domain,
                 flag=flag,
@@ -227,7 +345,7 @@ class LiveAccountService(BaseService):
             )
 
             # 尝试获取余额来验证凭证
-            result = account_api.get_balance()
+            result = account_api.get_account_balance()
 
             if result and result.get("code") == "0":
                 # 验证成功
@@ -393,9 +511,10 @@ class LiveAccountService(BaseService):
         account: MLiveAccount,
         credentials: Dict[str, str]
     ) -> Dict[str, Any]:
-        """获取OKX账户余额"""
+        """获取OKX账户余额，包含币种涨跌信息"""
         try:
-            from okx import Account as OKXAccount
+            from okx.Account import AccountAPI as OKXAccount
+            from okx.PublicData import PublicAPI
 
             # 配置API
             domain = "https://www.okx.com"
@@ -408,33 +527,143 @@ class LiveAccountService(BaseService):
             # 创建API实例
             account_api = OKXAccount(
                 api_key=api_key,
-                secret_key=api_secret,
+                api_secret_key=api_secret,
                 passphrase=passphrase,
                 domain=domain,
                 flag=flag,
-                debug=True
+                debug=False
             )
 
+            # 创建公共API实例（获取涨跌数据）
+            public_api = PublicAPI(domain=domain, flag=flag, debug=False)
+
             # 获取余额
-            result = account_api.get_balance()
+            result = account_api.get_account_balance()
 
             if result and result.get("code") == "0":
                 data = result.get("data", [{}])[0] if result.get("data") else {}
                 details = data.get("details", [])
 
-                total_equity = data.get("totalEq", "0")
-                available = data.get("availBal", "0")
-                frozen = data.get("frozenBal", "0")
+                # OKX API字段映射
+                total_equity = data.get("totalEq") or "0"
 
-                # 解析币种余额
+                # 计算可用余额（使用USD价值，不是直接加币种数量）
+                available_sum_usd = 0.0
+                frozen_sum_usd = 0.0
+
+                # 解析币种余额，同时获取涨跌数据
                 currency_balances = []
+                spot_positions = []  # 现货持仓（币种余额）
+
                 for detail in details:
-                    currency_balances.append({
-                        "currency": detail.get("ccy", ""),
-                        "available": detail.get("availBal", "0"),
-                        "frozen": detail.get("frozenBal", "0"),
-                        "balance": detail.get("bal", "0")
-                    })
+                    ccy = detail.get("ccy", "")
+                    avail_bal = float(detail.get("availBal", "0") or "0")
+                    frozen_bal = float(detail.get("frozenBal", "0") or "0")
+                    # OKX API 使用 cashBal 或 eq 字段
+                    cash_bal = float(detail.get("cashBal", "0") or "0")
+                    eq = float(detail.get("eq", "0") or "0")
+                    bal = eq if eq > 0 else cash_bal  # 使用 eq 或 cashBal
+
+                    # 获取 USD 价值（用于计算总余额）
+                    eq_usd = float(detail.get("eqUsd", "0") or "0")
+
+                    # 获取现货盈亏数据（自买入后的盈亏）
+                    spot_upl = float(detail.get("spotUpl", "0") or "0")  # 未实现盈亏
+                    spot_upl_ratio = float(detail.get("spotUplRatio", "0") or "0")  # 盈亏比例
+                    open_avg_px = detail.get("openAvgPx", "")  # 平均开仓价
+
+                    # 累加可用余额（仅 USDT 和 USDC 稳定币）
+                    if ccy in ["USDT", "USDC"]:
+                        available_sum_usd += avail_bal  # 直接加稳定币数量
+
+                    # 只显示有余额的币种
+                    if bal > 0:
+                        currency_item = {
+                            "currency": ccy,
+                            "available": str(avail_bal),
+                            "frozen": str(frozen_bal),
+                            "balance": str(bal)
+                        }
+                        currency_balances.append(currency_item)
+
+                        # 作为现货持仓显示（使用自买入后的盈亏）
+                        if avail_bal > 0:
+                            try:
+                                # 获取当前价格
+                                if ccy == "USDT":
+                                    current_price = "1.0"
+                                    avg_price = "1.0"
+                                elif open_avg_px:
+                                    # OKX 提供了平均开仓价，使用它
+                                    avg_price = open_avg_px
+                                    # 获取当前价格
+                                    import requests
+                                    ticker_url = f"{domain}/api/v5/market/ticker"
+                                    response = requests.get(ticker_url, params={"instId": f"{ccy}-USDT"}, timeout=5)
+                                    if response.status_code == 200:
+                                        ticker_result = response.json()
+                                        if ticker_result.get("code") == "0" and ticker_result.get("data"):
+                                            current_price = ticker_result["data"][0].get("last", avg_price)
+                                        else:
+                                            current_price = avg_price
+                                    else:
+                                        current_price = avg_price
+                                else:
+                                    # 没有平均开仓价，获取当前价格
+                                    import requests
+                                    ticker_url = f"{domain}/api/v5/market/ticker"
+                                    response = requests.get(ticker_url, params={"instId": f"{ccy}-USDT"}, timeout=5)
+                                    if response.status_code == 200:
+                                        ticker_result = response.json()
+                                        if ticker_result.get("code") == "0" and ticker_result.get("data"):
+                                            current_price = ticker_result["data"][0].get("last", "0")
+                                            avg_price = current_price  # 没有历史数据，用当前价
+                                        else:
+                                            current_price = "0"
+                                            avg_price = "0"
+                                    else:
+                                        current_price = "0"
+                                        avg_price = "0"
+
+                                # 使用 OKX 提供的盈亏数据（自买入后）
+                                unrealized_pnl = str(spot_upl)
+                                unrealized_pnl_pct = str(spot_upl_ratio * 100)  # 转换为百分比
+
+                                spot_positions.append({
+                                    "symbol": f"{ccy}-USDT",
+                                    "side": "long",
+                                    "size": str(avail_bal),
+                                    "avg_price": avg_price,
+                                    "current_price": current_price,
+                                    "unrealized_pnl": unrealized_pnl,  # 自买入后的盈亏
+                                    "unrealized_pnl_percentage": unrealized_pnl_pct,
+                                    "margin": "0",
+                                    "is_spot": True
+                                })
+                            except Exception as e:
+                                # 如果获取数据失败，仍然显示为持仓
+                                GLOG.DEBUG(f"Failed to get spot position data for {ccy}: {e}")
+                                spot_positions.append({
+                                    "symbol": f"{ccy}-USDT",
+                                    "side": "long",
+                                    "size": str(avail_bal),
+                                    "avg_price": "0",
+                                    "current_price": "0",
+                                    "unrealized_pnl": "0",
+                                    "unrealized_pnl_percentage": "0",
+                                    "margin": "0",
+                                    "is_spot": True
+                                })
+
+                # 使用 OKX 返回的可用余额，如果为空则用计算值
+                avail_eq = data.get("availEq")
+                if not avail_eq or avail_eq == "":
+                    available = str(available_sum_usd)
+                else:
+                    available = avail_eq
+
+                # 冻结余额（OKX 可能不提供此数据的 USD 价值）
+                frozen = "0"
 
                 return {
                     "success": True,
@@ -443,7 +672,8 @@ class LiveAccountService(BaseService):
                         "total_equity": total_equity,
                         "available_balance": available,
                         "frozen_balance": frozen,
-                        "currency_balances": currency_balances
+                        "currency_balances": currency_balances,
+                        "spot_positions": spot_positions  # 新增：现货持仓列表
                     }
                 }
             else:
@@ -462,6 +692,127 @@ class LiveAccountService(BaseService):
         """获取Binance账户余额（待实现）"""
         # TODO: 实现Binance余额查询
         return self._error_result("Binance balance query not yet implemented")
+
+    @time_logger
+    @retry(max_try=2)
+    def get_account_positions(self, account_uuid: str) -> Dict[str, Any]:
+        """
+        获取账户持仓信息
+
+        Args:
+            account_uuid: 账号UUID
+
+        Returns:
+            Dict: {
+                "success": bool,
+                "message": str,
+                "data": {
+                    "positions": list
+                } or None
+            }
+        """
+        try:
+            # 获取账号
+            account = self._crud.get_live_account_by_uuid(account_uuid, include_credentials=True)
+            if not account:
+                return self._error_result(f"Account not found: {account_uuid}")
+
+            # 检查账号状态
+            if not account.is_enabled():
+                return self._error_result(f"Account is not enabled: {account.status}")
+
+            # 解密凭证
+            credentials = self._crud.get_decrypted_credentials(account_uuid)
+            if not credentials:
+                return self._error_result("Failed to decrypt credentials")
+
+            # 根据交易所获取持仓
+            if account.is_okx():
+                return self._get_okx_positions(account, credentials)
+            elif account.is_binance():
+                return self._get_binance_positions(account, credentials)
+            else:
+                return self._error_result(f"Unsupported exchange: {account.exchange}")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get account positions: {e}")
+            return self._error_result(f"Failed to get account positions: {str(e)}")
+
+    def _get_okx_positions(
+        self,
+        account: MLiveAccount,
+        credentials: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """获取OKX账户持仓"""
+        try:
+            from okx.Account import AccountAPI as OKXAccount
+
+            # 配置API
+            domain = "https://www.okx.com"
+            flag = "1" if account.is_testnet() else "0"
+
+            api_key = credentials["api_key"]
+            api_secret = credentials["api_secret"]
+            passphrase = credentials.get("passphrase", "")
+
+            # 创建API实例
+            account_api = OKXAccount(
+                api_key=api_key,
+                api_secret_key=api_secret,
+                passphrase=passphrase,
+                domain=domain,
+                flag=flag,
+                debug=True
+            )
+
+            # 获取持仓
+            # 注意：OKX的positions端点不支持instType="SPOT"
+            # 现货交易没有"持仓"概念，只有余额
+            # 这里获取所有衍生品持仓（期货、永续合约、期权等）
+            result = account_api.get_positions()
+
+            if result and result.get("code") == "0":
+                positions_data = result.get("data", [])
+
+                # 转换为统一格式
+                positions = []
+                for pos in positions_data:
+                    # 只返回有持仓的
+                    if float(pos.get("pos", "0")) != 0:
+                        positions.append({
+                            "symbol": pos.get("instId", ""),
+                            "side": "long" if pos.get("posSide") == "long" else "short",
+                            "size": pos.get("pos", "0"),
+                            "avg_price": pos.get("avgPx", "0"),
+                            "current_price": pos.get("markPx", "0"),
+                            "unrealized_pnl": pos.get("upl", "0"),
+                            "unrealized_pnl_percentage": pos.get("uplRatio", "0"),
+                            "margin": pos.get("margin", "0")
+                        })
+
+                return {
+                    "success": True,
+                    "message": "Positions retrieved successfully",
+                    "data": {
+                        "positions": positions
+                    }
+                }
+            else:
+                error_msg = result.get("msg", "Unknown error") if result else "No response"
+                return self._error_result(f"Failed to get positions: {error_msg}")
+
+        except Exception as e:
+            GLOG.ERROR(f"OKX positions query error: {e}")
+            return self._error_result(f"OKX positions query error: {str(e)}")
+
+    def _get_binance_positions(
+        self,
+        account: MLiveAccount,
+        credentials: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """获取Binance账户持仓（待实现）"""
+        # TODO: 实现Binance持仓查询
+        return self._error_result("Binance positions query not yet implemented")
 
     def get_user_accounts(
         self,

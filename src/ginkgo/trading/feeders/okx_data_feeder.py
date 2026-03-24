@@ -144,7 +144,7 @@ class OKXDataFeeder(ILiveDataFeeder):
                     GLOG.INFO("OKXDataFeeder started with WebSocket mode")
                     return True
                 else:
-                    GLOG.WARNING("WebSocket connection failed, falling back to REST API")
+                    GLOG.WARN("WebSocket connection failed, falling back to REST API")
                     self._fetch_mode = DataFetchMode.REST_API
                     self._ws_enabled = False
 
@@ -588,21 +588,13 @@ class OKXDataFeeder(ILiveDataFeeder):
             # 更新缓存
             self._ticker_cache[data['symbol']] = data
 
-            # 创建 EventPriceUpdate (Tick)
-            tick = Tick(
-                code=data['symbol'],
-                timestamp=data['timestamp'],
-                price=float(data['price']),
-                volume=int(data.get('volume_24h', 0)),
-                source=self.source
-            )
+            # 打印日志
+            symbol = data.get('symbol', 'unknown')
+            price = data.get('price', 0)
+            GLOG.INFO(f"[OKX Ticker] {symbol}: ${price}")
 
-            event = EventPriceUpdate(payload=tick)
-            event.set_source(self.source)
-            event.timestamp = datetime.now()
-
-            # 发布事件
-            self._publish_event(event)
+            # 注意：ticker 是快照数据，不创建 Tick 对象或发布事件
+            # 数据直接通过 wrapped callback 推送到前端
 
         except Exception as e:
             GLOG.ERROR(f"Error processing ticker message: {e}")

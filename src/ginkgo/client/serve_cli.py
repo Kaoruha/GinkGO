@@ -795,3 +795,130 @@ def serve_worker_notify(
     except Exception as e:
         console.print(f"[red]:x: Error starting NotificationWorker: {e}[/red]")
         raise typer.Exit(1)
+
+
+@app.command("mcp")
+def serve_mcp(
+    transport: str = typer.Option("stdio", "--transport", "-t", help="传输模式: stdio (默认) 或 sse"),
+    port: int = typer.Option(8001, "--port", "-p", help="SSE模式端口号 (默认: 8001)"),
+    host: str = typer.Option("localhost", "--host", "-H", help="SSE模式主机 (默认: localhost)")
+):
+    """
+    :robot: Start Ginkgo MCP Server for AI agents.
+
+    Provides OKX trading capabilities to AI agents like OpenClaw.
+
+    环境变量:
+        GINKGO_API_KEY: Ginkgo API Key (stdio模式必需，SSE模式可选)
+
+    传输模式:
+        stdio - 标准输入输出 (默认，需要GINKGO_API_KEY环境变量)
+        sse   - HTTP/SSE (API KEY通过HTTP Header传递，推荐用于生产环境)
+
+    Examples:
+      # stdio模式 (需要环境变量)
+      ginkgo serve mcp
+      GINKGO_API_KEY=xxx ginkgo serve mcp
+
+      # SSE模式 (推荐，独立服务器)
+      ginkgo serve mcp --transport sse --port 8001
+
+    SSE模式API KEY传递方式:
+      1. HTTP Header: X-API-Key: your-api-key
+      2. Bearer Token: Authorization: Bearer your-api-key
+
+    OpenClaw配置 (stdio模式):
+      {
+        "name": "ginkgo-okx",
+        "transport": "stdio",
+        "command": "ginkgo",
+        "args": ["serve", "mcp"],
+        "env": {"GINKGO_API_KEY": "your-api-key"}
+      }
+
+    OpenClaw配置 (SSE模式，推荐):
+      {
+        "name": "ginkgo-okx",
+        "transport": "http",
+        "url": "http://localhost:8001/sse",
+        "headers": {
+          "X-API-Key": "your-api-key"
+        }
+      }
+
+    SSE模式端点:
+      GET /health - 健康检查
+      GET /tools  - 获取工具列表 (需要API KEY)
+      POST /tools/{tool_name} - 调用工具 (需要API KEY)
+    """
+    import signal
+    import os
+    import sys
+    import asyncio
+
+    # 检查环境变量
+    api_key = os.getenv("GINKGO_API_KEY")
+
+    # stdio模式需要API KEY
+    if transport == "stdio":
+        if not api_key:
+            console.print("[red]:x: GINKGO_API_KEY environment variable is required for stdio mode[/red]")
+            console.print("\n[bold]Get API Key:[/bold]")
+            console.print("  ginkgo api keys create --name \"MCP Key\" --permissions trade")
+            console.print("\n[bold]Usage:[/bold]")
+            console.print("  GINKGO_API_KEY=xxx ginkgo serve mcp")
+            raise typer.Exit(1)
+
+    default_account = os.getenv("GINKGO_LIVE_ACCOUNT_ID", "(use default)")
+
+    # 根据传输模式显示不同信息
+    if transport == "sse":
+        console.print(Panel.fit(
+            f"[bold magenta]:robot: MCP Server[/bold magenta]\n"
+            f"[dim]Mode:[/dim] [bold yellow]SSE/HTTP[/bold yellow]\n"
+            f"[dim]URL:[/dim] http://{host}:{port}/sse\n"
+            f"[dim]API Key:[/dim] 通过HTTP Header传递 (X-API-Key 或 Authorization: Bearer)",
+            title="[bold]Ginkgo OKX Trading[/bold]",
+            border_style="magenta"
+        ))
+    else:
+        console.print(Panel.fit(
+            f"[bold magenta]:robot: MCP Server[/bold magenta]\n"
+            f"[dim]Mode:[/dim] [bold cyan]stdio[/bold cyan]\n"
+            f"[dim]API Key:[/dim] {api_key[:10]}...\n"
+            f"[dim]Default Account:[/dim] {default_account}",
+            title="[bold]Ginkgo OKX Trading[/bold]",
+            border_style="magenta"
+        ))
+
+    console.print(f"\n:rocket: [bold green]Starting MCP Server ({transport} mode)...[/bold green]")
+    console.print(":information: Press Ctrl+C to stop\n")
+
+    try:
+        from mcp_server.server import main as mcp_main
+
+        def signal_handler(sig, frame):
+            console.print("\n\n:stop_button: [yellow]Stopping MCP Server...[/yellow]")
+            console.print("[green]:white_check_mark: MCP Server stopped[/green]")
+            os._exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        # 设置sys.argv传递参数给main函数
+        sys.argv = ["mcp_server", "--transport", transport]
+        if transport == "sse":
+            sys.argv.extend(["--port", str(port), "--host", host])
+
+        # 运行MCP Server
+        asyncio.run(mcp_main())
+
+    except ImportError as e:
+        console.print(f"[red]:x: Failed to import MCP Server: {e}[/red]")
+        console.print("[yellow]Make sure mcp package is installed: pip install mcp[/yellow]")
+        raise typer.Exit(1)
+    except KeyboardInterrupt:
+        console.print("\n\n:stop_button: [yellow]MCP Server stopped[/yellow]")
+    except Exception as e:
+        console.print(f"[red]:x: Error starting MCP Server: {e}[/red]")
+        raise typer.Exit(1)
