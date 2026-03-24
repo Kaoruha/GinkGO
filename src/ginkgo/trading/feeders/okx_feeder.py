@@ -163,6 +163,50 @@ class OKXMarketDataFeeder(BaseFeeder):
 
     # ==================== OKX 特定功能 ====================
 
+    def get_all_tickers(self, inst_type: str = "SPOT") -> Dict[str, Dict[str, Any]]:
+        """
+        批量获取所有交易对实时行情
+
+        Args:
+            inst_type: 产品类型 (SPOT 现货, SWAP 永续合约等)
+
+        Returns:
+            dict: 所有交易对行情数据 {symbol: ticker_data}
+        """
+        try:
+            url = f"{self.domain}/api/v5/market/tickers"
+            params = {"instType": inst_type}
+
+            response = self.session.get(url, params=params, timeout=10)
+            result = response.json()
+
+            if result.get("code") != "0":
+                GLOG.ERROR(f"OKX all tickers API error: {result.get('msg')}")
+                return {}
+
+            tickers = {}
+            for item in result.get("data", []):
+                symbol = item.get("instId", "")
+                tickers[symbol] = {
+                    "symbol": symbol,
+                    "last_price": item.get("last", "0"),
+                    "bid_price": item.get("bidPx", "0"),
+                    "ask_price": item.get("askPx", "0"),
+                    "open_24h": item.get("open24h", "0"),
+                    "high_24h": item.get("high24h", "0"),
+                    "low_24h": item.get("low24h", "0"),
+                    "volume_24h": item.get("vol24h", "0"),
+                    "volume_ccy_24h": item.get("volCcy24h", "0"),
+                    "timestamp": item.get("ts", "0")
+                }
+
+            GLOG.INFO(f"获取到 {len(tickers)} 个交易对行情")
+            return tickers
+
+        except Exception as e:
+            GLOG.ERROR(f"获取所有 ticker 失败: {e}")
+            return {}
+
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """
         获取交易标的实时行情
