@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
-  Dialog,
+  DialogRoot,
+  DialogPortal,
+  DialogOverlay,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -59,7 +61,7 @@ const stateLabels: Record<string, { label: string; color: 'success' | 'info' | '
 const loadBrokers = async () => {
   loading.value = true
   try {
-    const response = await fetch('/api/v1/brokers')
+    const response = await fetch('/api/v1/accounts/brokers')
     if (response.ok) {
       const result = await response.json()
       brokers.value = result.data || []
@@ -75,7 +77,7 @@ const loadBrokers = async () => {
 const startBroker = async (broker: BrokerInstance) => {
   processingAction.value = true
   try {
-    const response = await fetch(`/api/v1/brokers/${broker.uuid}/start`, {
+    const response = await fetch(`/api/v1/accounts/brokers/${broker.uuid}/start`, {
       method: 'POST'
     })
     if (response.ok) {
@@ -90,7 +92,7 @@ const startBroker = async (broker: BrokerInstance) => {
 const pauseBroker = async (broker: BrokerInstance) => {
   processingAction.value = true
   try {
-    const response = await fetch(`/api/v1/brokers/${broker.uuid}/pause`, {
+    const response = await fetch(`/api/v1/accounts/brokers/${broker.uuid}/pause`, {
       method: 'POST'
     })
     if (response.ok) {
@@ -105,7 +107,7 @@ const pauseBroker = async (broker: BrokerInstance) => {
 const resumeBroker = async (broker: BrokerInstance) => {
   processingAction.value = true
   try {
-    const response = await fetch(`/api/v1/brokers/${broker.uuid}/resume`, {
+    const response = await fetch(`/api/v1/accounts/brokers/${broker.uuid}/resume`, {
       method: 'POST'
     })
     if (response.ok) {
@@ -120,7 +122,7 @@ const resumeBroker = async (broker: BrokerInstance) => {
 const stopBroker = async (broker: BrokerInstance) => {
   processingAction.value = true
   try {
-    const response = await fetch(`/api/v1/brokers/${broker.uuid}/stop`, {
+    const response = await fetch(`/api/v1/accounts/brokers/${broker.uuid}/stop`, {
       method: 'POST'
     })
     if (response.ok) {
@@ -169,7 +171,7 @@ const requestConfirm = (type: string, broker: BrokerInstance) => {
 const emergencyStopAll = async () => {
   processingAction.value = true
   try {
-    const response = await fetch('/api/v1/brokers/emergency-stop', {
+    const response = await fetch('/api/v1/accounts/brokers/emergency-stop', {
       method: 'POST'
     })
     if (response.ok) {
@@ -390,35 +392,38 @@ onMounted(() => {
     </Card>
 
     <!-- 确认对话框 -->
-    <Dialog :open="showConfirmDialog" @update:open="showConfirmDialog = false">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>确认操作</DialogTitle>
-          <DialogDescription>
-            <span v-if="confirmAction?.type === 'emergency_stop_all'">
-              确定要紧急停止所有Broker实例吗？此操作将立即停止所有正在运行的交易。
-            </span>
-            <span v-else-if="confirmAction?.broker">
-              <span v-if="confirmAction.type === 'stop'">
-                确定要停止Broker {{ confirmAction.broker.portfolio_id.slice(0, 8) }}... 吗？
+    <DialogRoot :open="showConfirmDialog" @update:open="showConfirmDialog = false">
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认操作</DialogTitle>
+            <DialogDescription>
+              <span v-if="confirmAction?.type === 'emergency_stop_all'">
+                确定要紧急停止所有Broker实例吗？此操作将立即停止所有正在运行的交易。
               </span>
-              <span v-else-if="confirmAction.type === 'pause'">
-                确定要暂停Broker {{ confirmAction.broker.portfolio_id.slice(0, 8) }}... 吗？
+              <span v-else-if="confirmAction?.broker">
+                <span v-if="confirmAction.type === 'stop'">
+                  确定要停止Broker {{ confirmAction.broker.portfolio_id.slice(0, 8) }}... 吗？
+                </span>
+                <span v-else-if="confirmAction.type === 'pause'">
+                  确定要暂停Broker {{ confirmAction.broker.portfolio_id.slice(0, 8) }}... 吗？
+                </span>
+                <span v-else>
+                  确定要{{ confirmAction.type === 'start' ? '启动' : '恢复' }}Broker吗？
+                </span>
               </span>
-              <span v-else>
-                确定要{{ confirmAction.type === 'start' ? '启动' : '恢复' }}Broker吗？
-              </span>
-            </span>
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
-          <Button variant="destructive" @click="confirmDialogAction">
-            确认
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
+            <Button variant="destructive" @click="confirmDialogAction">
+              确认
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
   </div>
 </template>
 

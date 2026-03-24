@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Download, Filter } from 'lucide-vue-next'
 import {
-  Dialog,
+  DialogRoot,
+  DialogPortal,
+  DialogOverlay,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -331,38 +333,41 @@ onMounted(() => {
     </Card>
 
     <!-- 筛选对话框 -->
-    <Dialog :open="showFilterDialog" @update:open="showFilterDialog = false">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>日期筛选</DialogTitle>
-          <DialogDescription>选择交易记录的时间范围</DialogDescription>
-        </DialogHeader>
+    <DialogRoot :open="showFilterDialog" @update:open="showFilterDialog = false">
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>日期筛选</DialogTitle>
+            <DialogDescription>选择交易记录的时间范围</DialogDescription>
+          </DialogHeader>
 
-        <div class="space-y-4 py-4">
-          <div>
-            <label class="text-sm font-medium">开始日期</label>
-            <input
-              type="date"
-              v-model="dateFilter.start_date"
-              class="w-full mt-1 px-3 py-2 border rounded-md"
-            />
+          <div class="space-y-4 py-4">
+            <div>
+              <label class="text-sm font-medium">开始日期</label>
+              <input
+                type="date"
+                v-model="dateFilter.start_date"
+                class="w-full mt-1 px-3 py-2 border rounded-md"
+              />
+            </div>
+            <div>
+              <label class="text-sm font-medium">结束日期</label>
+              <input
+                type="date"
+                v-model="dateFilter.end_date"
+                class="w-full mt-1 px-3 py-2 border rounded-md"
+              />
+            </div>
           </div>
-          <div>
-            <label class="text-sm font-medium">结束日期</label>
-            <input
-              type="date"
-              v-model="dateFilter.end_date"
-              class="w-full mt-1 px-3 py-2 border rounded-md"
-            />
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" @click="showFilterDialog = false">取消</Button>
-          <Button @click="applyDateFilter">应用</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" @click="showFilterDialog = false">取消</Button>
+            <Button @click="applyDateFilter">应用</Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
   </div>
 </template>
 

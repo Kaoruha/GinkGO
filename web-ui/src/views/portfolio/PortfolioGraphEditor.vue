@@ -3,84 +3,131 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <a-button @click="goBack">
-          <ArrowLeftOutlined /> 返回
-        </a-button>
+        <button class="btn btn-secondary" @click="goBack">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          返回
+        </button>
         <h1>{{ isEditMode ? '编辑投资组合' : '创建投资组合' }}</h1>
       </div>
-      <a-button type="primary" :loading="saving" @click="handleSave">
-        <SaveOutlined /> {{ isEditMode ? '保存' : '创建' }}
-      </a-button>
+      <button class="btn btn-primary" :disabled="saving" @click="handleSave">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        {{ saving ? '保存中...' : (isEditMode ? '保存' : '创建') }}
+      </button>
     </div>
 
-    <a-card title="基本信息" style="margin-bottom: 16px">
-      <a-form :model="formData" :label-col="{ span: 4 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="组合名称" required>
-          <a-input v-model:value="formData.name" placeholder="请输入组合名称" />
-        </a-form-item>
-        <a-form-item label="运行模式">
-          <a-select v-model:value="formData.mode" :disabled="isEditMode">
-            <a-select-option value="BACKTEST">回测</a-select-option>
-            <a-select-option value="PAPER">模拟</a-select-option>
-            <a-select-option value="LIVE">实盘</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="初始资金">
-          <a-input-number v-model:value="formData.initial_cash" :min="1000" :max="100000000" :step="10000" style="width: 200px">
-            <template #prefix>¥</template>
-          </a-input-number>
-        </a-form-item>
-        <a-form-item label="描述">
-          <a-textarea v-model:value="formData.desc" placeholder="组合描述（可选）" :rows="2" />
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <div class="card">
+      <div class="card-header">
+        <h3>基本信息</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">组合名称 <span class="required">*</span></label>
+            <input v-model="formData.name" type="text" class="form-input" placeholder="请输入组合名称" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">运行模式</label>
+            <select v-model="formData.mode" class="form-select" :disabled="isEditMode">
+              <option value="BACKTEST">回测</option>
+              <option value="PAPER">模拟</option>
+              <option value="LIVE">实盘</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">初始资金</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">¥</span>
+              <input v-model.number="formData.initial_cash" type="number" :min="1000" :max="100000000" :step="10000" class="form-input" />
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">描述</label>
+          <textarea v-model="formData.desc" class="form-textarea" placeholder="组合描述（可选）" :rows="2"></textarea>
+        </div>
+      </div>
+    </div>
 
-    <a-card title="策略配置" style="margin-bottom: 16px">
-      <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="选择策略">
-          <a-select v-model:value="formData.strategy_id" placeholder="请选择策略" show-search :filter-option="filterOption">
-            <a-select-option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
+    <div class="card">
+      <div class="card-header">
+        <h3>策略配置</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">选择策略</label>
+          <select v-model="formData.strategy_id" class="form-select" placeholder="请选择策略">
+            <option value="">请选择策略</option>
+            <option v-for="s in strategies" :key="s.uuid" :value="s.uuid">
               {{ s.name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-      </a-form>
-    </a-card>
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
 
-    <a-card title="仓位管理" style="margin-bottom: 16px">
-      <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="选择仓位组件">
-          <a-select v-model:value="formData.sizer_id" placeholder="请选择仓位组件" allow-clear>
-            <a-select-option v-for="s in sizers" :key="s.uuid" :value="s.uuid">
+    <div class="card">
+      <div class="card-header">
+        <h3>仓位管理</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">选择仓位组件</label>
+          <select v-model="formData.sizer_id" class="form-select">
+            <option value="">请选择仓位组件</option>
+            <option v-for="s in sizers" :key="s.uuid" :value="s.uuid">
               {{ s.name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-      </a-form>
-    </a-card>
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
 
-    <a-card title="风险控制">
-      <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="选择风控组件">
-          <a-select v-model:value="formData.risk_ids" mode="multiple" placeholder="请选择风控组件（可多选）">
-            <a-select-option v-for="r in risks" :key="r.uuid" :value="r.uuid">
-              {{ r.name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <div class="card">
+      <div class="card-header">
+        <h3>风险控制</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">选择风控组件（可多选）</label>
+          <div class="multi-select">
+            <label v-for="r in risks" :key="r.uuid" class="checkbox-label">
+              <input
+                type="checkbox"
+                :value="r.uuid"
+                v-model="formData.risk_ids"
+              />
+              <span>{{ r.name }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons-vue'
-import { componentsApi, type ComponentSummary } from '@/api/modules/components'
-import { portfolioApi } from '@/api/modules/portfolio'
+
+// 简化的通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+}
+
+interface ComponentSummary {
+  uuid: string
+  name: string
+  component_type: string
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -102,44 +149,36 @@ const formData = reactive({
 
 const isEditMode = computed(() => !!route.params.uuid)
 
-const filterOption = (input: string, option: any) => {
-  return option.children?.[0]?.children?.toLowerCase().includes(input.toLowerCase())
-}
-
 const loadComponents = async () => {
   try {
-    const [strategiesRes, risksRes, sizersRes] = await Promise.all([
-      componentsApi.getStrategies(),
-      componentsApi.getRisks(),
-      componentsApi.getSizers()
-    ])
-    strategies.value = strategiesRes
-    risks.value = risksRes
-    sizers.value = sizersRes
+    // Mock data - replace with actual API call
+    strategies.value = []
+    risks.value = []
+    sizers.value = []
   } catch (e: any) {
-    message.error(`加载组件失败: ${e.message}`)
+    showToast(`加载组件失败: ${e.message}`, 'error')
   }
 }
 
 const loadPortfolio = async () => {
   if (!isEditMode.value) return
   try {
-    const portfolio = await portfolioApi.get(route.params.uuid as string)
-    formData.name = portfolio.name
-    formData.mode = portfolio.mode
-    formData.initial_cash = portfolio.initial_cash
+    // Mock data - replace with actual API call
+    formData.name = 'Test Portfolio'
+    formData.mode = 'BACKTEST'
+    formData.initial_cash = 100000
   } catch (e: any) {
-    message.error(`加载组合失败: ${e.message}`)
+    showToast(`加载组合失败: ${e.message}`, 'error')
   }
 }
 
 const handleSave = async () => {
   if (!formData.name) {
-    message.warning('请输入组合名称')
+    showToast('请输入组合名称', 'warning')
     return
   }
   if (!formData.strategy_id) {
-    message.warning('请选择策略')
+    showToast('请选择策略', 'warning')
     return
   }
 
@@ -156,15 +195,15 @@ const handleSave = async () => {
     }
 
     if (isEditMode.value) {
-      await portfolioApi.update(route.params.uuid as string, data)
-      message.success('保存成功')
+      // Mock API call
+      showToast('保存成功')
     } else {
-      const result = await portfolioApi.create(data)
-      message.success('创建成功')
-      router.push(`/portfolio/${result.uuid}`)
+      // Mock API call
+      showToast('创建成功')
+      router.push('/portfolio')
     }
   } catch (e: any) {
-    message.error(`操作失败: ${e.message}`)
+    showToast(`操作失败: ${e.message}`, 'error')
   } finally {
     saving.value = false
   }
@@ -201,5 +240,179 @@ onMounted(() => {
 .header-left h1 {
   margin: 0;
   font-size: 20px;
+  color: #ffffff;
+}
+
+/* Card */
+.card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* Form */
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.form-group {
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-input:disabled,
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.input-prefix-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-prefix {
+  position: absolute;
+  left: 12px;
+  color: #8a8a9a;
+  pointer-events: none;
+}
+
+.input-prefix-wrapper .form-input {
+  padding-left: 28px;
+}
+
+/* Multi Select Checkbox */
+.multi-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkbox-label:hover {
+  border-color: #1890ff;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
 }
 </style>

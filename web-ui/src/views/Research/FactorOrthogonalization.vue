@@ -1,129 +1,111 @@
 <template>
   <div class="factor-orthogonalization">
-    <a-card title="因子正交化">
-      <template #extra>
-        <a-button @click="$router.push('/portfolio')">选择因子</a-button>
-      </template>
+    <div class="page-header">
+      <h1 class="page-title">因子正交化</h1>
+      <button class="btn-secondary" @click="$router.push('/portfolio')">选择因子</button>
+    </div>
 
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="24">
-          <a-form-item label="选择要正交化的因子">
-            <a-select
-              v-model:value="selectedFactors"
-              mode="multiple"
-              placeholder="选择2个以上因子"
-              style="width: 100%"
-            >
-              <a-select-option v-for="f in availableFactors" :key="f.name" :value="f.name">
-                {{ f.label }} ({{ f.category }})
-              </a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
-          <a-form-item label="正交化方法">
-            <a-select v-model:value="method">
-              <a-select-option value="gram-schmidt">Gram-Schmidt</a-select-option>
-              <a-select-option value="symmetric-orthogonalize">对称正交化</a-select-option>
-              <a-select-option value="residual">残差正交化</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="保留因子数">
-            <a-input-number v-model:value="keepFactors" :min="1" style="width: 100%" />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="24">
-          <a-range-picker v-model:value="dateRange" style="width: 100%" />
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <div class="action-buttons">
-        <a-space>
-          <a-button type="primary" :loading="processing" @click="startOrthogonalize">
-            开始正交化
-          </a-button>
-          <a-button @click="resetConfig">重置</a-button>
-        </a-space>
+    <!-- 配置卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>正交化配置</h3>
       </div>
-    </a-card>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label class="form-label">选择要正交化的因子</label>
+            <select v-model="selectedFactorsList" multiple class="form-select" style="width: 100%">
+              <option v-for="f in availableFactors" :key="f.name" :value="f.name">
+                {{ f.label }} ({{ f.category }})
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">正交化方法</label>
+            <select v-model="method" class="form-select">
+              <option value="gram-schmidt">Gram-Schmidt</option>
+              <option value="symmetric-orthogonalize">对称正交化</option>
+              <option value="residual">残差正交化</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">保留因子数</label>
+            <input v-model.number="keepFactors" type="number" min="1" class="form-input" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" :disabled="processing" @click="startOrthogonalize">
+            {{ processing ? '处理中...' : '开始正交化' }}
+          </button>
+          <button class="btn-secondary" @click="resetConfig">重置</button>
+        </div>
+      </div>
+    </div>
 
-    <!-- Custom -->
-    <a-card v-if="results" title="正交化结果" class="mt-4">
-      <template #extra>
-        <a-button @click="exportResults">导出结果</a-button>
-      </template>
+    <!-- 结果卡片 -->
+    <div v-if="results" class="card">
+      <div class="card-header">
+        <h3>正交化结果</h3>
+        <button class="btn-secondary" @click="exportResults">导出结果</button>
+      </div>
+      <div class="card-body">
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">去相关效果</div>
+            <div class="stat-value">平均相关系数 -{{ avgCorrReduction.toFixed(3) }}</div>
+            <div class="stat-sub">最大相关系数 -{{ maxCorrReduction.toFixed(3) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">因子保留统计</div>
+            <div class="stat-value">保留 {{ results?.kept_factors || 0 }} 个</div>
+            <div class="stat-sub">剔除 {{ results?.removed_factors || 0 }} 个</div>
+          </div>
+        </div>
 
-      <!-- Custom -->
-      <a-descriptions title="原始因子相关性" bordered :column="2" size="small" class="mb-4">
-        <a-descriptions-item v-for="(corr, idx) in originalCorr" :key="idx">
-          <span>{{ corr.factor1 }} × {{ corr.factor2 }}</span>
-          <span :style="{ color: getCorrColor(corr.value) }">{{ corr.value.toFixed(3) }}</span>
-        </a-descriptions-item>
-      </a-descriptions>
-
-      <!-- Custom -->
-      <a-descriptions title="正交化后相关性" bordered :column="2" size="small" class="mb-4">
-        <a-descriptions-item v-for="(corr, idx) in orthogonalizedCorr" :key="idx">
-          <span>{{ corr.factor1 }} × {{ corr.factor2 }}</span>
-          <span :style="{ color: getCorrColor(corr.value) }">{{ corr.value.toFixed(3) }}</span>
-        </a-descriptions-item>
-      </a-descriptions>
-
-      <!-- Custom -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="6">
-          <a-card title="去相关效果" size="small">
-            <a-statistic title="平均相关系数" :value="avgCorrReduction" :precision="3" />
-            <a-statistic title="最大相关系数" :value="maxCorrReduction" :precision="3" />
-          </a-card>
-        </a-col>
-        <a-col :span="6">
-          <a-card title="因子保留统计" size="small">
-            <a-statistic title="保留因子数" :value="results?.kept_factors || 0" />
-            <a-statistic title="剔除因子数" :value="results?.removed_factors || 0" />
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Custom -->
-      <a-table
-        :columns="columns"
-        :data-source="factorList"
-        :pagination="false"
-        size="small"
-        class="mt-4"
-      >
-        <template #bodyCell="{ column, record }">
-          <span v-if="column.dataIndex === 'ic_preserve'" :style="{ color: record.ic_preserve > 0 ? '#52c41a' : '#f5222d' }">
-            {{ record.ic_preserve > 0 ? '+' : '' }}{{ (record.ic_preserve * 100).toFixed(2) }}%
-          </span>
-          <span v-if="column.dataIndex === 'ic_post' && getIcChangeStatus(record.ic_post)">
-            <a-tag :color="getIcChangeColor(record.ic_post)">
-              {{ Math.abs(record.ic_post) > 0.05 ? '显著提升' : '下降' }}
-            </a-tag>
-          </span>
-        </template>
-      </a-table>
-    </a-card>
+        <!-- 因子表格 -->
+        <div v-if="factorList.length > 0" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>因子名称</th>
+                <th>IC保留</th>
+                <th>IC下降</th>
+                <th>相关后</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in factorList" :key="record.name">
+                <td>{{ record.label }}</td>
+                <td>
+                  <span :class="record.ic_preserve > 0 ? 'text-success' : 'text-danger'">
+                    {{ record.ic_preserve > 0 ? '+' : '' }}{{ (record.ic_preserve * 100).toFixed(2) }}%
+                  </span>
+                </td>
+                <td>
+                  <span v-if="getIcChangeStatus(record.ic_post)" class="tag" :class="getIcChangeClass(record.ic_post)">
+                    {{ getIcChangeStatus(record.ic_post) }}
+                  </span>
+                </td>
+                <td>{{ record.correlation_after?.toFixed(3) || '-' }}</td>
+                <td>{{ record.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+
+const router = useRouter()
 
 // 可用因子（模拟）
 const availableFactors = ref([
@@ -136,9 +118,9 @@ const availableFactors = ref([
 ])
 
 const selectedFactors = ref<string[]>([])
+const selectedFactorsList = ref<any[]>([])
 const method = ref('gram-schmidt')
 const keepFactors = ref(2)
-const dateRange = ref<any[]>([])
 
 const processing = ref(false)
 const results = ref(null)
@@ -146,10 +128,14 @@ const results = ref(null)
 const originalCorr = ref<any[]>([])
 const orthogonalizedCorr = ref<any[]>([])
 
+// 计算属性：多选列表
+watch(() => selectedFactors.value, (newVal) => {
+  selectedFactorsList.value = newVal
+})
+
 const factorList = computed(() => {
   if (!results.value) return []
-
-  return results.value.factors.map(f => ({
+  return results.value.factors.map((f: any) => ({
     name: f.name,
     label: f.label,
     ic_preserve: f.ic_preserve,
@@ -159,18 +145,8 @@ const factorList = computed(() => {
   }))
 })
 
-const columns = [
-  { title: '因子名称', dataIndex: 'name', width: 150 },
-  { title: '类别', dataIndex: 'category', width: 100 },
-  { title: 'IC保留', dataIndex: 'ic_preserve', width: 100 },
-  { title: 'IC下降', dataIndex: 'ic_post', width: 100 },
-  { title: '相关后', dataIndex: 'correlation_after', width: 100 },
-  { title: '状态', dataIndex: 'status', width: 100 }
-]
-
 const avgCorrReduction = computed(() => {
   if (!results.value) return 0
-
   const avgOriginal = results.value.avg_correlation_original || 0
   const avgAfter = results.value.avg_correlation_orthogonalized || 0
   return avgOriginal - avgAfter
@@ -178,66 +154,33 @@ const avgCorrReduction = computed(() => {
 
 const maxCorrReduction = computed(() => {
   if (!results.value) return 0
-
-  const maxOriginal = Math.max(...originalCorr.value.map(c => Math.abs(c.value)))
-  const maxAfter = Math.max(...orthogonalizedCorr.value.map(c => Math.abs(c.value)))
+  const maxOriginal = Math.max(...originalCorr.value.map((c: any) => Math.abs(c.value)))
+  const maxAfter = Math.max(...orthogonalizedCorr.value.map((c: any) => Math.abs(c.value)))
   return maxOriginal - maxAfter
 })
 
 const startOrthogonalize = async () => {
-  if (selectedFactors.value.length < 2) {
-    message.warning('请至少选择2个因子进行正交化')
+  if (selectedFactorsList.value.length < 2) {
+    console.warn('请至少选择2个因子进行正交化')
     return
   }
 
   processing.value = true
-
   try {
-    // TODO: 调用API进行因子正交化
-    // const res = await orthogonalizeFactors({
-    //   factor_names: selectedFactors.value,
-    //   method: method.value,
-    //   keep_factors: keepFactors.value,
-    //   date_range: dateRange.value
-    // })
-
     await simulateOrthogonalization()
-
-    message.success('正交化完成')
+    console.log('正交化完成')
   } catch (e) {
-    message.error('正交化失败')
+    console.error('正交化失败')
   } finally {
     processing.value = false
   }
 }
 
-// 模拟正交化过程
 const simulateOrthogonalization = async () => {
-  const n = selectedFactors.value.length
-
-  // 原始相关性矩阵（模拟）
-  originalCorr.value = []
-  for (let i = 0; i < n; i++) {
-    const row: any = {}
-    for (let j = 0; j < n; j++) {
-      row[`f${j + 1}`] = Math.random() * 2 - 1
-    }
-    originalCorr.value.push(row)
-  }
-
-  // 正交化后相关性矩阵（模拟）
-  orthogonalizedCorr.value = originalCorr.value.map(row => {
-    const newRow: any = {}
-    for (let j = 0; j < n; j++) {
-      newRow[`f${j + 1}`] = row[`f${j + 1}`]
-    }
-    return newRow
-  })
-
-  // 计算IC保留率（模拟因子列表）
-  const icPreserveResults = selectedFactors.value.map((fName, idx) => ({
+  // 模拟正交化结果
+  const icPreserveResults = selectedFactorsList.value.map((fName, idx) => ({
     name: fName,
-    label: availableFactors.value.find(f => f.name === fName)?.label || fName,
+    label: availableFactors.value.find((f: any) => f.name === fName)?.label || fName,
     ic_preserve: Math.random() * 0.1 - 0.05,
     ic_post: Math.random() * 0.15 - 0.1,
     correlation_after: Math.random() * 0.1,
@@ -247,10 +190,8 @@ const simulateOrthogonalization = async () => {
   results.value = {
     avg_correlation_original: Math.random() * 0.6,
     avg_correlation_orthogonalized: Math.random() * 0.2,
-    std_correlation_original: Math.random() * 0.3,
-    std_correlation_orthogonalized: Math.random() * 0.15,
-    kept_factors: icPreserveResults.filter(f => f.kept).length,
-    removed_factors: icPreserveResults.filter(f => !f.kept).length,
+    kept_factors: icPreserveResults.filter((f: any) => f.kept).length,
+    removed_factors: icPreserveResults.filter((f: any) => !f.kept).length,
     factors: icPreserveResults
   }
 }
@@ -264,13 +205,16 @@ const getCorrColor = (value: number) => {
 
 const getIcChangeStatus = (value: number) => {
   const absValue = Math.abs(value)
-  if (absValue > 0.1) return { status: '提升', color: 'green' }
-  if (absValue > 0.05) return { status: '稳定', color: 'orange' }
-  return { status: '下降', color: 'red' }
+  if (absValue > 0.1) return '显著提升'
+  if (absValue > 0.05) return '稳定'
+  return '下降'
 }
 
-const getIcChangeColor = (status: any) => {
-  return status?.color || '#999'
+const getIcChangeClass = (value: number) => {
+  const absValue = Math.abs(value)
+  if (absValue > 0.1) return 'tag-green'
+  if (absValue > 0.05) return 'tag-orange'
+  return 'tag-red'
 }
 
 const resetConfig = () => {
@@ -280,10 +224,10 @@ const resetConfig = () => {
 
 const exportResults = () => {
   if (!results.value) {
-    message.warning('没有可导出的结果')
+    console.warn('没有可导出的结果')
     return
   }
-  message.info('导出正交化结果...')
+  console.log('导出正交化结果...')
 }
 </script>
 
@@ -292,8 +236,224 @@ const exportResults = () => {
   padding: 16px;
 }
 
-.action-buttons {
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full-width {
+  flex: 1;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
   text-align: center;
-  margin-top: 24px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: #8a8a9a;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.text-success {
+  color: #52c41a;
+}
+
+.text-danger {
+  color: #f5222d;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.tag-orange {
+  background: rgba(250, 140, 22, 0.2);
+  color: #fa8c16;
+}
+
+.tag-red {
+  background: rgba(245, 34, 45, 0.2);
+  color: #f5222d;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -2,16 +2,24 @@
   <div class="page-container">
     <!-- 页面头部 -->
     <div class="page-header">
-      <div class="page-title">回测任务</div>
+      <h1 class="page-title">回测任务</h1>
       <div class="header-actions">
-        <a-button @click="loadBacktests">
-          <template #icon><ReloadOutlined /></template>
+        <button class="btn-secondary" @click="loadBacktests">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
           刷新
-        </a-button>
-        <a-button type="primary" @click="showCreateModal = true">
-          <template #icon><PlusOutlined /></template>
+        </button>
+        <button class="btn-primary" @click="showCreateModal = true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
           创建回测
-        </a-button>
+        </button>
       </div>
     </div>
 
@@ -19,210 +27,250 @@
     <div v-if="selectedIds.size > 0" class="batch-action-bar">
       <div class="batch-info">已选择 {{ selectedIds.size }} 个任务</div>
       <div class="batch-buttons">
-        <a-button size="small" :disabled="!canBatchStart" @click="handleBatchStart">批量启动</a-button>
-        <a-button size="small" :disabled="!canBatchStop" @click="handleBatchStop">批量停止</a-button>
-        <a-button size="small" :disabled="!canBatchCancel" @click="handleBatchCancel">批量取消</a-button>
-        <a-button size="small" @click="clearSelection">取消选择</a-button>
+        <button class="btn-small" :disabled="!canBatchStart" @click="handleBatchStart">批量启动</button>
+        <button class="btn-small" :disabled="!canBatchStop" @click="handleBatchStop">批量停止</button>
+        <button class="btn-small" :disabled="!canBatchCancel" @click="handleBatchCancel">批量取消</button>
+        <button class="btn-small btn-secondary" @click="clearSelection">取消选择</button>
       </div>
     </div>
 
     <!-- 统计卡片 -->
-    <a-row :gutter="16" class="stats-row">
-      <a-col :span="6">
-        <a-statistic title="总任务数" :value="backtestStore.total" />
-      </a-col>
-      <a-col :span="6">
-        <a-statistic title="已完成" :value="completedCount" />
-      </a-col>
-      <a-col :span="6">
-        <a-statistic title="运行中" :value="backtestStore.runningCount" />
-      </a-col>
-      <a-col :span="6">
-        <a-statistic title="失败" :value="failedCount" />
-      </a-col>
-    </a-row>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">{{ backtestStore.total }}</div>
+        <div class="stat-label">总任务数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ completedCount }}</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-running">{{ backtestStore.runningCount }}</div>
+        <div class="stat-label">运行中</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-failed">{{ failedCount }}</div>
+        <div class="stat-label">失败</div>
+      </div>
+    </div>
 
     <!-- 筛选器 -->
     <div v-show="selectedIds.size === 0" class="filters-bar">
-      <a-space>
-        <span>状态:</span>
-        <a-radio-group v-model:value="filterStatus" button-style="solid" size="small" @change="loadBacktests">
-          <a-radio-button value="">全部</a-radio-button>
-          <a-radio-button value="created">待调度</a-radio-button>
-          <a-radio-button value="pending">排队中</a-radio-button>
-          <a-radio-button value="running">进行中</a-radio-button>
-          <a-radio-button value="completed">已完成</a-radio-button>
-          <a-radio-button value="stopped">已停止</a-radio-button>
-          <a-radio-button value="failed">失败</a-radio-button>
-        </a-radio-group>
-      </a-space>
-      <a-input-search
-        v-model:value="searchKeyword"
-        placeholder="搜索任务..."
-        style="width: 200px; margin-left: auto"
-        allow-clear
-        @search="handleSearch"
-      />
+      <div class="filter-group">
+        <span class="filter-label">状态:</span>
+        <div class="radio-group">
+          <button
+            v-for="option in statusOptions"
+            :key="option.value"
+            class="radio-button"
+            :class="{ active: filterStatus === option.value }"
+            @click="setStatusFilter(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+      <div class="search-box">
+        <input
+          v-model="searchKeyword"
+          type="search"
+          placeholder="搜索任务..."
+          class="search-input"
+          @keyup.enter="handleSearch"
+        />
+        <button class="search-btn" @click="handleSearch">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- 任务列表 -->
     <div class="table-container">
-      <a-table
-        :columns="columns"
-        :data-source="backtestStore.tasks"
-        :loading="backtestStore.loading"
-        :pagination="pagination"
-        :row-selection="rowSelection"
-        row-key="uuid"
-        @change="handleTableChange"
-      >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'task_info'">
-          <div class="task-info">
-            <div class="task-name">{{ record.name || '(未命名)' }}</div>
-            <div class="task-uuid">{{ record.uuid }}</div>
-          </div>
-        </template>
-        <template v-else-if="column.key === 'status'">
-          <div class="status-cell">
-            <StatusTag :status="record.status" type="backtest" />
-            <a-progress
-              v-if="record.status === 'running' || record.status === 'pending'"
-              :percent="record.progress || 0"
-              :show-info="false"
-              :stroke-color="record.status === 'running' ? '#1890ff' : '#52c41a'"
-              size="small"
-              style="margin-top: 4px; max-width: 100px;"
-            />
-            <span
-              v-if="record.status === 'running' || record.status === 'pending'"
-              class="progress-text"
+      <div v-if="backtestStore.loading" class="loading-container">
+        <div class="spinner"></div>
+      </div>
+      <div v-else-if="backtestStore.tasks.length === 0" class="empty-state">
+        <p>暂无回测任务</p>
+      </div>
+      <div v-else class="custom-table">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="checkbox-col">
+                <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
+              </th>
+              <th>任务</th>
+              <th>状态</th>
+              <th>总盈亏</th>
+              <th>订单数</th>
+              <th>信号数</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="record in backtestStore.tasks"
+              :key="record.uuid"
+              :class="{ selected: selectedIds.has(record.uuid) }"
+              @click="handleRowClick(record)"
             >
-              {{ (record.progress || 0).toFixed(1) }}%
-            </span>
+              <td class="checkbox-col" @click.stop>
+                <input type="checkbox" :checked="selectedIds.has(record.uuid)" @change="toggleSelect(record.uuid)" />
+              </td>
+              <td>
+                <div class="task-info">
+                  <div class="task-name">{{ record.name || '(未命名)' }}</div>
+                  <div class="task-uuid">{{ record.uuid }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="status-cell">
+                  <StatusTag :status="record.status" type="backtest" />
+                  <div v-if="record.status === 'running' || record.status === 'pending'" class="progress-wrapper">
+                    <div class="progress-bar">
+                      <div class="progress-fill" :style="{ width: (record.progress || 0) + '%' }"></div>
+                    </div>
+                    <span class="progress-text">{{ (record.progress || 0).toFixed(1) }}%</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span :style="{ color: getPNLColor(record.total_pnl) }">
+                  {{ formatDecimal(record.total_pnl) }}
+                </span>
+              </td>
+              <td>{{ record.total_orders || 0 }}</td>
+              <td>{{ record.total_signals || 0 }}</td>
+              <td>{{ formatDateTime(record.create_at) }}</td>
+              <td @click.stop>
+                <div class="action-buttons">
+                  <button
+                    v-if="canStartTask(record)"
+                    class="link-button"
+                    :title="getStartTooltip(record)"
+                    :disabled="!backtestStore.canStartTask(record)"
+                    @click="handleStart(record)"
+                  >
+                    启动
+                  </button>
+                  <button
+                    v-if="canStopTask(record)"
+                    class="link-button link-danger"
+                    :title="getStopTooltip(record)"
+                    :disabled="!backtestStore.canStopTask(record)"
+                    @click="handleStop(record)"
+                  >
+                    停止
+                  </button>
+                  <button
+                    v-if="canCancelTask(record)"
+                    class="link-button"
+                    :title="getCancelTooltip(record)"
+                    :disabled="!backtestStore.canCancelTask(record)"
+                    @click="handleCancel(record)"
+                  >
+                    取消
+                  </button>
+                  <button class="link-button" @click="router.push(`/stage1/backtest/${record.uuid}`)">
+                    查看详情
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="backtestStore.tasks.length > 0" class="pagination">
+        <button class="btn-small" :disabled="page.value === 0" @click="prevPage">上一页</button>
+        <span class="pagination-info">
+          {{ page.value * size.value + 1 }} - {{ Math.min((page.value + 1) * size.value, backtestStore.total) }} / {{ backtestStore.total }}
+        </span>
+        <button class="btn-small" :disabled="(page.value + 1) * size.value >= backtestStore.total" @click="nextPage">下一页</button>
+        <select v-model="size.value" @change="loadBacktests" class="page-size-select">
+          <option :value="10">10条/页</option>
+          <option :value="20">20条/页</option>
+          <option :value="50">50条/页</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 创建回测模态框 -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="resetForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>创建回测任务</h3>
+          <button class="btn-close" @click="resetForm">×</button>
+        </div>
+        <div class="modal-body">
+          <form class="form" @submit.prevent="handleCreate">
+            <div class="form-item">
+              <label class="form-label">任务名称 <span class="required">*</span></label>
+              <input v-model="createForm.name" type="text" placeholder="请输入任务名称" class="form-input" />
+            </div>
+            <div class="form-item">
+              <label class="form-label">选择 Portfolio <span class="required">*</span></label>
+              <select v-model="createForm.portfolio_id" class="form-select" placeholder="请选择 Portfolio">
+                <option value="">请选择 Portfolio</option>
+                <option v-for="p in portfolios" :key="p.uuid" :value="p.uuid">
+                  {{ p.name }} ({{ p.mode === 0 ? '回测' : p.mode === 1 ? '模拟' : '实盘' }}) - ¥{{ (p.initial_cash || 0).toLocaleString() }}
+                </option>
+              </select>
+            </div>
+            <div class="form-item">
+              <label class="form-label">开始日期 <span class="required">*</span></label>
+              <input v-model="createForm.startDate" type="date" class="form-input" />
+            </div>
+            <div class="form-item">
+              <label class="form-label">结束日期 <span class="required">*</span></label>
+              <input v-model="createForm.endDate" type="date" class="form-input" />
+            </div>
+            <div class="form-item">
+              <label class="form-label">初始资金</label>
+              <input v-model.number="createForm.initialCapital" type="number" min="10000" step="10000" class="form-input" />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="resetForm">取消</button>
+          <button class="btn-primary" :disabled="creating" @click="handleCreate">
+            {{ creating ? '创建中...' : '确定' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 净值曲线模态框 -->
+    <div v-if="showNetValueModal" class="modal-overlay" @click.self="showNetValueModal = false">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h3>{{ currentTask?.run_id || '' }} 净值曲线</h3>
+          <button class="btn-close" @click="showNetValueModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="netValueLoading" class="loading-container">
+            <div class="spinner"></div>
           </div>
-        </template>
-        <template v-else-if="column.key === 'total_pnl'">
-          <span :style="{ color: getPNLColor(record.total_pnl) }">
-            {{ formatDecimal(record.total_pnl) }}
-          </span>
-        </template>
-        <template v-else-if="column.key === 'max_drawdown'">
-          <span :style="{ color: getDrawdownColor(record.max_drawdown) }">
-            {{ formatPercent(record.max_drawdown) }}
-          </span>
-        </template>
-        <template v-else-if="column.key === 'sharpe_ratio'">
-          <span :style="{ color: getSharpeColor(record.sharpe_ratio) }">
-            {{ formatDecimal(record.sharpe_ratio) }}
-          </span>
-        </template>
-        <template v-else-if="column.key === 'create_at'">
-          {{ formatDateTime(record.create_at) }}
-        </template>
-        <template v-else-if="column.key === 'action'">
-          <a-space>
-            <!-- 启动按钮：已完成/失败/已停止状态显示 -->
-            <a-tooltip v-if="canStartTask(record)" :title="getStartTooltip(record)">
-              <a-button
-                type="link"
-                size="small"
-                :disabled="!backtestStore.canStartTask(record)"
-                @click="handleStart(record)"
-              >
-                启动
-              </a-button>
-            </a-tooltip>
-            <!-- 停止按钮：进行中状态显示 -->
-            <a-tooltip v-if="canStopTask(record)" :title="getStopTooltip(record)">
-              <a-button
-                type="link"
-                size="small"
-                danger
-                :disabled="!backtestStore.canStopTask(record)"
-                @click="handleStop(record)"
-              >
-                停止
-              </a-button>
-            </a-tooltip>
-            <!-- 取消按钮：created/pending 状态显示 -->
-            <a-tooltip v-if="canCancelTask(record)" :title="getCancelTooltip(record)">
-              <a-button
-                type="link"
-                size="small"
-                :disabled="!backtestStore.canCancelTask(record)"
-                @click="handleCancel(record)"
-              >
-                取消
-              </a-button>
-            </a-tooltip>
-            <a-button type="link" size="small" @click="router.push(`/stage1/backtest/${record.uuid}`)">
-              查看详情
-            </a-button>
-          </a-space>
-        </template>
-      </template>
-    </a-table>
+          <div v-else-if="netValueData" class="chart-container" ref="chartRef">
+            <p style="text-align: center; padding: 40px; color: #999;">净值曲线图表</p>
+          </div>
+          <div v-else class="empty-state">
+            <p>暂无净值数据</p>
+          </div>
+        </div>
+      </div>
     </div>
-
-  <!-- 创建回测模态框 -->
-  <a-modal
-    v-model:open="showCreateModal"
-    title="创建回测任务"
-    width="600px"
-    :confirm-loading="creating"
-    @ok="handleCreate"
-    @cancel="resetForm"
-  >
-    <a-form :model="createForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
-      <a-form-item label="任务名称" required>
-        <a-input v-model:value="createForm.name" placeholder="请输入任务名称" />
-      </a-form-item>
-      <a-form-item label="选择 Portfolio" required>
-        <a-select
-          v-model:value="createForm.portfolio_id"
-          placeholder="请选择 Portfolio"
-          show-search
-          :filter-option="filterPortfolio"
-          :options="portfolioOptions"
-        >
-        </a-select>
-      </a-form-item>
-      <a-form-item label="开始日期" required>
-        <a-date-picker v-model:value="createForm.startDate" style="width: 100%" />
-      </a-form-item>
-      <a-form-item label="结束日期" required>
-        <a-date-picker v-model:value="createForm.endDate" style="width: 100%" />
-      </a-form-item>
-      <a-form-item label="初始资金">
-        <a-input-number v-model:value="createForm.initialCapital" :min="10000" :step="10000" style="width: 100%" />
-      </a-form-item>
-    </a-form>
-  </a-modal>
-
-  <!-- 净值曲线模态框 -->
-  <a-modal
-    v-model:open="showNetValueModal"
-    :title="`${currentTask?.run_id || ''} 净值曲线`"
-    width="800px"
-    :footer="null"
-  >
-    <div v-if="netValueLoading" class="loading-container">
-      <a-spin />
-    </div>
-    <div v-else-if="netValueData" class="net-value-chart">
-      <div ref="chartRef" style="height: 400px;"></div>
-    </div>
-    <a-empty v-else description="暂无净值数据" />
-  </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { useBacktestStore, usePortfolioStore } from '@/stores'
 import { useWebSocket } from '@/composables'
 import { formatPercent, formatDateTime } from '@/utils/format'
@@ -266,54 +314,24 @@ const size = ref(20)
 const createForm = reactive({
   name: '',
   portfolio_id: '',
-  startDate: null as any,
-  endDate: null as any,
+  startDate: '',
+  endDate: '',
   initialCapital: 1000000,
 })
 
-// ========== 计算属性 ==========
-const pagination = computed(() => ({
-  current: page.value + 1,
-  pageSize: size.value,
-  total: backtestStore.total,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (t: number) => `共 ${t} 条`,
-}))
-
-const portfolios = computed(() => portfolioStore.portfolios)
-
-// Portfolio 选择器选项（带格式化标签）
-const portfolioOptions = computed(() =>
-  portfolioStore.portfolios.map(p => ({
-    label: `${p.name} (${p.mode === 0 ? '回测' : p.mode === 1 ? '模拟' : '实盘'}) - ¥${(p.initial_cash || 0).toLocaleString()}`,
-    value: p.uuid
-  }))
-)
-
-// Portfolio 搜索过滤
-const filterPortfolio = (input: string, option: { label: string; value: string }) => {
-  return option.label.toLowerCase().includes(input.toLowerCase())
-}
-
-// 表格列
-const columns = [
-  { title: '任务', key: 'task_info', width: 220 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 120 },
-  { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 100 },
-  { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 70 },
-  { title: '信号数', dataIndex: 'total_signals', key: 'total_signals', width: 70 },
-  { title: '创建时间', dataIndex: 'create_at', key: 'create_at', width: 160 },
-  { title: '操作', key: 'action', width: 200, fixed: 'right' },
+// 状态选项
+const statusOptions = [
+  { value: '', label: '全部' },
+  { value: 'created', label: '待调度' },
+  { value: 'pending', label: '排队中' },
+  { value: 'running', label: '进行中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'stopped', label: '已停止' },
+  { value: 'failed', label: '失败' },
 ]
 
-// 行选择配置
-const rowSelection = computed(() => ({
-  selectedRowKeys: Array.from(selectedIds.value),
-  onChange: (keys: any[]) => {
-    selectedIds.value = new Set(keys)
-  },
-}))
+// ========== 计算属性 ==========
+const portfolios = computed(() => portfolioStore.portfolios)
 
 // 批量操作权限计算
 const canBatchStart = computed(() => {
@@ -335,6 +353,10 @@ const canBatchCancel = computed(() => {
     const task = backtestStore.tasks.find(t => t.uuid === id)
     return task && canCancelByState(task.status) && backtestStore.canCancelTask(task)
   })
+})
+
+const isAllSelected = computed(() => {
+  return backtestStore.tasks.length > 0 && selectedIds.value.size === backtestStore.tasks.length
 })
 
 // ========== 方法 ==========
@@ -374,17 +396,53 @@ const getCancelTooltip = (task: BacktestTask) => {
   return '取消排队中的任务'
 }
 
-// 批量操作
+// 选择操作
+const toggleSelect = (id: string) => {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+}
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedIds.value.clear()
+  } else {
+    backtestStore.tasks.forEach(t => selectedIds.value.add(t.uuid))
+  }
+}
+
 const clearSelection = () => {
   selectedIds.value.clear()
 }
 
+const handleRowClick = (record: BacktestTask) => {
+  router.push(`/stage1/backtest/${record.uuid}`)
+}
+
+// 分页操作
+const prevPage = () => {
+  if (page.value > 0) {
+    page.value--
+    loadBacktests()
+  }
+}
+
+const nextPage = () => {
+  if ((page.value + 1) * size.value < backtestStore.total) {
+    page.value++
+    loadBacktests()
+  }
+}
+
+// 批量操作
 const handleBatchStart = async () => {
   const selectedTasks = backtestStore.tasks.filter(t =>
     selectedIds.value.has(t.uuid) && canStartByState(t.status)
   )
   if (selectedTasks.length === 0) {
-    message.warning('没有可启动的任务')
+    console.warn('没有可启动的任务')
     return
   }
 
@@ -392,11 +450,7 @@ const handleBatchStart = async () => {
   const succeeded = results.filter(r => r.success).length
   const failed = results.length - succeeded
 
-  if (failed > 0) {
-    message.warning(`批量启动完成：成功 ${succeeded} 个，失败 ${failed} 个`)
-  } else {
-    message.success(`成功启动 ${succeeded} 个任务`)
-  }
+  console.log(failed > 0 ? `批量启动完成：成功 ${succeeded} 个，失败 ${failed} 个` : `成功启动 ${succeeded} 个任务`)
   clearSelection()
   loadBacktests()
 }
@@ -406,7 +460,7 @@ const handleBatchStop = async () => {
     selectedIds.value.has(t.uuid) && canStopByState(t.status)
   )
   if (selectedTasks.length === 0) {
-    message.warning('没有可停止的任务')
+    console.warn('没有可停止的任务')
     return
   }
 
@@ -414,11 +468,7 @@ const handleBatchStop = async () => {
   const succeeded = results.filter(r => r.success).length
   const failed = results.length - succeeded
 
-  if (failed > 0) {
-    message.warning(`批量停止完成：成功 ${succeeded} 个，失败 ${failed} 个`)
-  } else {
-    message.success(`成功停止 ${succeeded} 个任务`)
-  }
+  console.log(failed > 0 ? `批量停止完成：成功 ${succeeded} 个，失败 ${failed} 个` : `成功停止 ${succeeded} 个任务`)
   clearSelection()
   loadBacktests()
 }
@@ -428,7 +478,7 @@ const handleBatchCancel = async () => {
     selectedIds.value.has(t.uuid) && canCancelByState(t.status)
   )
   if (selectedTasks.length === 0) {
-    message.warning('没有可取消的任务')
+    console.warn('没有可取消的任务')
     return
   }
 
@@ -436,11 +486,7 @@ const handleBatchCancel = async () => {
   const succeeded = results.filter(r => r.success).length
   const failed = results.length - succeeded
 
-  if (failed > 0) {
-    message.warning(`批量取消完成：成功 ${succeeded} 个，失败 ${failed} 个`)
-  } else {
-    message.success(`成功取消 ${succeeded} 个任务`)
-  }
+  console.log(failed > 0 ? `批量取消完成：成功 ${succeeded} 个，失败 ${failed} 个` : `成功取消 ${succeeded} 个任务`)
   clearSelection()
   loadBacktests()
 }
@@ -448,7 +494,6 @@ const handleBatchCancel = async () => {
 // 单个任务操作
 const handleStart = async (task: BacktestTask) => {
   try {
-    // 从配置快照中解析日期参数
     let params: { start_date?: string; end_date?: string } = {}
     if (task.config_snapshot) {
       try {
@@ -465,30 +510,30 @@ const handleStart = async (task: BacktestTask) => {
     }
 
     await backtestStore.startTask(task.uuid, params)
-    message.success('任务已启动')
+    console.log('任务已启动')
     loadBacktests()
   } catch (e: any) {
-    message.error(e.response?.data?.detail || '启动失败')
+    console.error(e.response?.data?.detail || '启动失败')
   }
 }
 
 const handleStop = async (task: BacktestTask) => {
   try {
     await backtestStore.stopTask(task.uuid)
-    message.success('任务已停止')
+    console.log('任务已停止')
     loadBacktests()
   } catch (e: any) {
-    message.error(e.response?.data?.detail || '停止失败')
+    console.error(e.response?.data?.detail || '停止失败')
   }
 }
 
 const handleCancel = async (task: BacktestTask) => {
   try {
     await backtestStore.cancelTask(task.uuid)
-    message.success('任务已取消')
+    console.log('任务已取消')
     loadBacktests()
   } catch (e: any) {
-    message.error(e.response?.data?.detail || '取消失败')
+    console.error(e.response?.data?.detail || '取消失败')
   }
 }
 
@@ -520,82 +565,36 @@ const handleSearch = () => {
   loadBacktests()
 }
 
+const setStatusFilter = (value: string) => {
+  filterStatus.value = value
+  loadBacktests()
+}
+
 const loadPortfolios = async () => {
   if (portfolioStore.portfolios.length === 0) {
     await portfolioStore.fetchPortfolios()
   }
 }
 
-const handleTableChange = (pag: any) => {
-  page.value = pag.current - 1
-  size.value = pag.pageSize
-  loadBacktests()
-}
-
-// 从回测任务中提取日期参数（用于复制功能）
-const extractStartDate = (task: BacktestTask): string => {
-  if (task.config_snapshot) {
-    try {
-      const config = JSON.parse(task.config_snapshot)
-      return config.start_date || config.backtest_start_date || ''
-    } catch {
-      return task.start_time ? task.start_time.split('T')[0] : ''
-    }
-  }
-  return task.start_time ? task.start_time.split('T')[0] : ''
-}
-
-const extractEndDate = (task: BacktestTask): string => {
-  if (task.config_snapshot) {
-    try {
-      const config = JSON.parse(task.config_snapshot)
-      return config.end_date || config.backtest_end_date || ''
-    } catch {
-      return task.end_time ? task.end_time.split('T')[0] : ''
-    }
-  }
-  return task.end_time ? task.end_time.split('T')[0] : ''
-}
-
-const extractInitialCash = (task: BacktestTask): number => {
-  if (task.config_snapshot) {
-    try {
-      const config = JSON.parse(task.config_snapshot)
-      return config.initial_cash || config.initial_capital || 100000
-    } catch {
-      return 100000
-    }
-  }
-  return 100000
-}
-
 const handleCreate = async () => {
   if (!createForm.name || !createForm.portfolio_id || !createForm.startDate || !createForm.endDate) {
-    message.warning('请填写必填项')
+    console.warn('请填写必填项')
     return
   }
   creating.value = true
   try {
-    // 格式化日期为 YYYY-MM-DD
-    const formatDate = (date: any) => {
-      if (!date) return ''
-      if (typeof date === 'string') return date
-      if (date.format) return date.format('YYYY-MM-DD')
-      return new Date(date).toISOString().split('T')[0]
-    }
-
     await backtestStore.createTask({
       name: createForm.name,
       portfolio_id: createForm.portfolio_id,
-      start_date: formatDate(createForm.startDate),
-      end_date: formatDate(createForm.endDate),
+      start_date: createForm.startDate,
+      end_date: createForm.endDate,
     })
-    message.success('回测任务创建成功')
+    console.log('回测任务创建成功')
     showCreateModal.value = false
     resetForm()
     loadBacktests()
   } catch (e: any) {
-    message.error(e.response?.data?.detail || '创建失败')
+    console.error(e.response?.data?.detail || '创建失败')
   } finally {
     creating.value = false
   }
@@ -613,7 +612,7 @@ const viewNetValue = async (record: BacktestTask) => {
     await nextTick()
     renderChart()
   } catch {
-    message.error('加载净值数据失败')
+    console.error('加载净值数据失败')
   } finally {
     netValueLoading.value = false
   }
@@ -625,10 +624,11 @@ const renderChart = () => {
 }
 
 const resetForm = () => {
+  showCreateModal.value = false
   createForm.name = ''
   createForm.portfolio_id = ''
-  createForm.startDate = null
-  createForm.endDate = null
+  createForm.startDate = ''
+  createForm.endDate = ''
   createForm.initialCapital = 1000000
 }
 
@@ -636,11 +636,6 @@ const formatDecimal = (val: string) => {
   const num = parseFloat(val)
   return isNaN(num) ? '-' : num.toFixed(2)
 }
-
-const customRow = (record: BacktestTask) => ({
-  style: { cursor: 'pointer' },
-  onClick: () => router.push(`/stage1/backtest/${record.uuid}`),
-})
 
 // ========== 生命周期 ==========
 onMounted(() => {
@@ -672,9 +667,9 @@ onUnmounted(() => {
 .page-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: 100%;
   padding: 24px;
-  background: #f0f2f5;
+  background: transparent;
   overflow: hidden;
 }
 
@@ -683,12 +678,15 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
+  margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #262626;
+  color: #ffffff;
 }
 
 .header-actions {
@@ -696,14 +694,106 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+/* 按钮 */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-small {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #1890ff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+
+.link-button:hover:not(:disabled) {
+  color: #40a9ff;
+}
+
+.link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link-danger {
+  color: #f5222d;
+}
+
+.link-danger:hover:not(:disabled) {
+  color: #ff4d4f;
+}
+
+/* 批量操作栏 */
 .batch-action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
   margin-bottom: 16px;
-  background: #e6f7ff;
-  border: 1px solid #91d5ff;
+  background: rgba(24, 144, 255, 0.1);
+  border: 1px solid #1890ff;
   border-radius: 8px;
 }
 
@@ -718,23 +808,218 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.stats-row {
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 16px;
 }
 
-.stats-row :deep(.ant-statistic) {
-  background: white;
-  padding: 16px;
+.stat-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
   border-radius: 8px;
+  padding: 16px;
+  text-align: center;
 }
 
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stat-running {
+  color: #52c41a;
+}
+
+.stat-failed {
+  color: #f5222d;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+}
+
+/* 筛选栏 */
 .filters-bar {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
   margin-bottom: 16px;
-  background: white;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
   border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #8a8a9a;
+}
+
+.radio-group {
+  display: inline-flex;
+  background: #2a2a3e;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.radio-button {
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  color: #8a8a9a;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-button:hover {
+  color: #ffffff;
+}
+
+.radio-button.active {
+  background: #1890ff;
+  color: #ffffff;
+}
+
+/* 搜索框 */
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.search-input {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  width: 180px;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #8a8a9a;
+}
+
+.search-btn {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: #8a8a9a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-btn:hover {
+  color: #ffffff;
+}
+
+/* 表格容器 */
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #2a2a3e;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+  color: #8a8a9a;
+}
+
+/* 自定义表格 */
+.custom-table {
+  width: 100%;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.data-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.data-table tbody tr.selected {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.checkbox-col {
+  width: 40px;
+  text-align: center;
 }
 
 .task-info {
@@ -745,20 +1030,40 @@ onUnmounted(() => {
 
 .task-name {
   font-weight: 500;
-  color: #262626;
+  color: #ffffff;
 }
 
 .task-uuid {
   font-size: 11px;
-  color: #8c8c8c;
+  color: #8a8a9a;
   font-family: monospace;
 }
 
 .status-cell {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 4px;
+}
+
+.progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #2a2a3e;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #1890ff;
+  transition: width 0.3s;
 }
 
 .progress-text {
@@ -767,31 +1072,177 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.loading-container {
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* 分页 */
+.pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 60px;
-}
-
-.net-value-chart {
-  padding: 16px 0;
-}
-
-.table-container {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-:deep(.ant-table-wrapper) {
-  background: white;
-  border-radius: 8px;
+  gap: 16px;
   padding: 16px;
+  margin-top: 16px;
 }
 
-:deep(.ant-table-tbody > tr:hover) {
-  background-color: #e6f4ff;
+.pagination-info {
+  color: #8a8a9a;
+  font-size: 13px;
+}
+
+.page-size-select {
+  padding: 4px 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  width: 90%;
+  max-width: 500px;
+}
+
+.modal-large {
+  max-width: 800px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  color: #8a8a9a;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #2a2a3e;
+}
+
+/* 表单 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: #1890ff;
+}
+
+.form-input::placeholder {
+  color: #8a8a9a;
+}
+
+.chart-container {
+  padding: 16px 0;
+  height: 400px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .radio-group {
+    flex-wrap: wrap;
+  }
 }
 </style>

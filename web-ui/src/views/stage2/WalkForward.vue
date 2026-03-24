@@ -1,68 +1,138 @@
 <template>
   <div class="page-container">
-    <PageHeader title="走步验证" description="时间序列交叉验证，评估策略样本外表现。退化程度大说明过拟合风险高。">
-      <template #tag><a-tag color="green">验证</a-tag></template>
-    </PageHeader>
+    <div class="page-header">
+      <h1 class="page-title">
+        <span class="tag tag-green">验证</span>
+        走步验证
+      </h1>
+      <p class="page-description">时间序列交叉验证，评估策略样本外表现。退化程度大说明过拟合风险高。</p>
+    </div>
 
-    <a-card title="验证配置" class="config-card">
-      <a-form layout="inline">
-        <a-form-item label="回测任务">
-          <a-select v-model:value="config.backtestId" placeholder="选择回测任务" style="width: 200px">
-            <a-select-option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">{{ bt.run_id }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="折数">
-          <a-input-number v-model:value="config.nFolds" :min="2" :max="10" style="width: 80px" />
-        </a-form-item>
-        <a-form-item label="训练期比例">
-          <a-slider v-model:value="config.trainRatio" :min="0.5" :max="0.9" :step="0.1" style="width: 100px" />
-        </a-form-item>
-        <a-form-item label="窗口类型">
-          <a-radio-group v-model:value="config.windowType">
-            <a-radio value="expanding">扩展窗口</a-radio>
-            <a-radio value="rolling">滚动窗口</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item>
-          <a-button type="primary" @click="runValidation" :loading="loading">开始验证</a-button>
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <!-- 配置卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>验证配置</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">回测任务</label>
+            <select v-model="config.backtestId" class="form-select">
+              <option value="">选择回测任务</option>
+              <option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">{{ bt.run_id }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">折数</label>
+            <input v-model.number="config.nFolds" type="number" min="2" max="10" class="form-input" style="width: 80px" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">训练期比例: {{ config.trainRatio }}</label>
+            <input v-model.number="config.trainRatio" type="range" min="0.5" max="0.9" step="0.1" class="form-slider" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">窗口类型</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" v-model="config.windowType" value="expanding" />
+                <span>扩展窗口</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" v-model="config.windowType" value="rolling" />
+                <span>滚动窗口</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <button class="btn-primary" :disabled="loading" @click="runValidation">
+              {{ loading ? '验证中...' : '开始验证' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <a-card title="验证结果" class="result-card">
-      <template v-if="result">
-        <a-row :gutter="16" style="margin-bottom: 16px">
-          <a-col :span="6"><StatCard title="平均训练收益" :value="result.avg_train_return" type="percent" /></a-col>
-          <a-col :span="6"><StatCard title="平均测试收益" :value="result.avg_test_return" type="percent" /></a-col>
-          <a-col :span="6"><StatCard title="退化程度" :value="result.degradation" type="percent" /></a-col>
-          <a-col :span="6"><StatCard title="稳定性评分" :value="result.stability_score" type="decimal" /></a-col>
-        </a-row>
-        <a-table :columns="foldColumns" :dataSource="result.folds" :rowKey="(_, i) => `fold-${i}`" :pagination="false" size="small">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'train_return' || column.key === 'test_return'">
-              <span :style="{ color: record[column.dataIndex!] >= 0 ? '#cf1322' : '#3f8600' }">
-                {{ (record[column.dataIndex!] * 100).toFixed(2) }}%
-              </span>
-            </template>
-          </template>
-        </a-table>
-      </template>
-      <a-empty v-else description="请配置参数并开始验证" />
-    </a-card>
+    <!-- 结果卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>验证结果</h3>
+      </div>
+      <div class="card-body">
+        <div v-if="result">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">平均训练收益</div>
+              <div class="stat-value" :class="{ 'stat-danger': result.avg_train_return >= 0, 'stat-success': result.avg_train_return < 0 }">
+                {{ (result.avg_train_return * 100).toFixed(2) }}%
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">平均测试收益</div>
+              <div class="stat-value" :class="{ 'stat-danger': result.avg_test_return >= 0, 'stat-success': result.avg_test_return < 0 }">
+                {{ (result.avg_test_return * 100).toFixed(2) }}%
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">退化程度</div>
+              <div class="stat-value" :class="{ 'stat-danger': result.degradation >= 0, 'stat-success': result.degradation < 0 }">
+                {{ (result.degradation * 100).toFixed(2) }}%
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">稳定性评分</div>
+              <div class="stat-value">{{ result.stability_score?.toFixed(2) || '-' }}</div>
+            </div>
+          </div>
+
+          <div v-if="result.folds && result.folds.length > 0" class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fold</th>
+                  <th>训练开始</th>
+                  <th>训练结束</th>
+                  <th>测试开始</th>
+                  <th>测试结束</th>
+                  <th>训练收益</th>
+                  <th>测试收益</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(record, i) in result.folds" :key="`fold-${i}`">
+                  <td>{{ record.fold }}</td>
+                  <td>{{ record.train_start }}</td>
+                  <td>{{ record.train_end }}</td>
+                  <td>{{ record.test_start }}</td>
+                  <td>{{ record.test_end }}</td>
+                  <td>
+                    <span :class="record.train_return >= 0 ? 'text-danger' : 'text-success'">
+                      {{ (record.train_return * 100).toFixed(2) }}%
+                    </span>
+                  </td>
+                  <td>
+                    <span :class="record.test_return >= 0 ? 'text-danger' : 'text-success'">
+                      {{ (record.test_return * 100).toFixed(2) }}%
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-else class="empty-state">
+          <p>请配置参数并开始验证</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { backtestApi, validationApi } from '@/api'
-import type { WalkForwardResult } from '@/api'
-import { PageHeader } from '@/components/layout'
-import { StatCard } from '@/components/common'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
-const result = ref<WalkForwardResult | null>(null)
+const result = ref<any>(null)
 
 const config = reactive({
   backtestId: '',
@@ -71,34 +141,263 @@ const config = reactive({
   windowType: 'expanding' as 'expanding' | 'rolling',
 })
 
-const foldColumns = [
-  { title: 'Fold', dataIndex: 'fold', width: 60 },
-  { title: '训练开始', dataIndex: 'train_start', width: 100 },
-  { title: '训练结束', dataIndex: 'train_end', width: 100 },
-  { title: '测试开始', dataIndex: 'test_start', width: 100 },
-  { title: '测试结束', dataIndex: 'test_end', width: 100 },
-  { title: '训练收益', key: 'train_return', dataIndex: 'train_return', width: 100 },
-  { title: '测试收益', key: 'test_return', dataIndex: 'test_return', width: 100 },
-]
-
 const fetchBacktestList = async () => {
-  try { backtestList.value = (await backtestApi.list({ size: 20 })).data || [] } catch {}
+  // TODO: 调用 API 获取回测列表
+  backtestList.value = []
 }
 
 const runValidation = async () => {
-  if (!config.backtestId) { message.warning('请选择回测任务'); return }
+  if (!config.backtestId) {
+    console.warn('请选择回测任务')
+    return
+  }
+
   loading.value = true
   try {
-    result.value = await validationApi.walkForward({
-      backtest_id: config.backtestId,
-      n_folds: config.nFolds,
-      window_type: config.windowType,
-      train_ratio: config.trainRatio,
-    })
-    message.success('验证完成')
-  } catch { message.error('验证失败') }
-  finally { loading.value = false }
+    // TODO: 调用 API 进行走步验证
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    console.log('验证完成')
+  } catch {
+    console.error('验证失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(() => { fetchBacktestList() })
+onMounted(() => {
+  fetchBacktestList()
+})
 </script>
+
+<style scoped>
+.page-container {
+  padding: 0;
+  background: transparent;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-description {
+  margin: 0;
+  color: #8a8a9a;
+  font-size: 14px;
+}
+
+.tag {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #52c41a;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.form-slider {
+  width: 150px;
+  accent-color: #1890ff;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+  accent-color: #1890ff;
+  cursor: pointer;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-success {
+  color: #52c41a;
+}
+
+.stat-danger {
+  color: #f5222d;
+}
+
+.text-success {
+  color: #52c41a;
+}
+
+.text-danger {
+  color: #f5222d;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

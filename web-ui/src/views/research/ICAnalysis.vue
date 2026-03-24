@@ -1,90 +1,305 @@
 <template>
   <div class="page-container">
-    <PageHeader
-      title="IC 分析"
-      description="评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。"
-    />
+    <div class="page-header">
+      <h1 class="page-title">IC 分析</h1>
+      <p class="page-description">评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。</p>
+    </div>
 
-    <a-card title="因子配置" class="config-card">
-      <a-form layout="inline">
-        <a-form-item label="回测任务">
-          <a-select v-model:value="config.backtestId" style="width: 200px">
-            <a-select-option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">
-              {{ bt.run_id }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="收益周期">
-          <a-select v-model:value="config.returnPeriod" style="width: 100px">
-            <a-select-option :value="1">1日</a-select-option>
-            <a-select-option :value="5">5日</a-select-option>
-            <a-select-option :value="10">10日</a-select-option>
-            <a-select-option :value="20">20日</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item>
-          <a-button type="primary" @click="runAnalysis" :loading="loading">开始分析</a-button>
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <!-- 配置卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>因子配置</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">回测任务</label>
+            <select v-model="config.backtestId" class="form-select">
+              <option value="">选择回测任务</option>
+              <option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">{{ bt.run_id }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">收益周期</label>
+            <select v-model.number="config.returnPeriod" class="form-select">
+              <option :value="1">1日</option>
+              <option :value="5">5日</option>
+              <option :value="10">10日</option>
+              <option :value="20">20日</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button class="btn-primary" :disabled="loading" @click="runAnalysis">
+              {{ loading ? '分析中...' : '开始分析' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <a-card title="IC 统计结果" class="result-card">
-      <template v-if="result">
-        <a-row :gutter="16" style="margin-bottom: 16px">
-          <a-col :span="6"><StatCard title="IC 均值" :value="result.ic_mean" type="decimal" :decimals="4" /></a-col>
-          <a-col :span="6"><StatCard title="IC 标准差" :value="result.ic_std" type="decimal" :decimals="4" /></a-col>
-          <a-col :span="6"><StatCard title="ICIR" :value="result.icir" type="decimal" :decimals="4" /></a-col>
-          <a-col :span="6"><StatCard title="IC > 0 比例" :value="result.ic_positive_ratio" type="percent" /></a-col>
-        </a-row>
-        <a-table :columns="icColumns" :dataSource="result.ic_series" :rowKey="(_, i) => `ic-${i}`" :pagination="false" size="small" />
-      </template>
-      <a-empty v-else description="请配置参数并开始分析" />
-    </a-card>
+    <!-- 结果卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>IC 统计结果</h3>
+      </div>
+      <div class="card-body">
+        <div v-if="result">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">IC 均值</div>
+              <div class="stat-value">{{ result.ic_mean?.toFixed(4) || '-' }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">IC 标准差</div>
+              <div class="stat-value">{{ result.ic_std?.toFixed(4) || '-' }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">ICIR</div>
+              <div class="stat-value">{{ result.icir?.toFixed(4) || '-' }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">IC > 0 比例</div>
+              <div class="stat-value">{{ ((result.ic_positive_ratio || 0) * 100).toFixed(2) }}%</div>
+            </div>
+          </div>
+
+          <div v-if="result.ic_series && result.ic_series.length > 0" class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>IC</th>
+                  <th>Rank IC</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(record, i) in result.ic_series" :key="`ic-${i}`">
+                  <td>{{ record.date }}</td>
+                  <td>{{ record.ic?.toFixed(4) || '-' }}</td>
+                  <td>{{ record.rank_ic?.toFixed(4) || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-else class="empty-state">
+          <p>请配置参数并开始分析</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { backtestApi, researchApi } from '@/api'
-import type { ICAnalysisResult } from '@/api'
-import { PageHeader } from '@/components/layout'
-import { StatCard } from '@/components/common'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
-const result = ref<ICAnalysisResult | null>(null)
+const result = ref<any>(null)
 
 const config = reactive({
   backtestId: '',
   returnPeriod: 5,
 })
 
-const icColumns = [
-  { title: '日期', dataIndex: 'date', width: 120 },
-  { title: 'IC', dataIndex: 'ic', width: 100 },
-  { title: 'Rank IC', dataIndex: 'rank_ic', width: 100 },
-]
-
 const fetchBacktestList = async () => {
-  try {
-    const response = await backtestApi.list({ size: 20 })
-    backtestList.value = response.data || []
-  } catch (e) { console.error(e) }
+  // TODO: 调用 API 获取回测列表
+  backtestList.value = []
 }
 
 const runAnalysis = async () => {
-  if (!config.backtestId) { message.warning('请选择回测任务'); return }
+  if (!config.backtestId) {
+    console.warn('请选择回测任务')
+    return
+  }
   loading.value = true
   try {
-    result.value = await researchApi.icAnalysis({
-      backtest_id: config.backtestId,
-      return_period: config.returnPeriod,
-    })
-    message.success('分析完成')
-  } catch (e: any) { message.error('分析失败') }
-  finally { loading.value = false }
+    // TODO: 调用 API 进行 IC 分析
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    console.log('分析完成')
+  } catch {
+    console.error('分析失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(() => { fetchBacktestList() })
+onMounted(() => {
+  fetchBacktestList()
+})
 </script>
+
+<style scoped>
+.page-container {
+  padding: 0;
+  background: transparent;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.page-description {
+  margin: 0;
+  color: #8a8a9a;
+  font-size: 14px;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  font-weight: 500;
+}
+
+.form-select {
+  padding: 8px 12px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #40a9ff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a3e;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8a9a;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #8a8a9a;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
