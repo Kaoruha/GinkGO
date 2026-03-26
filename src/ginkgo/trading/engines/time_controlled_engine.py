@@ -182,6 +182,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
     def _initialize_components(self):
         """初始化引擎组件"""
 
+        # 初始化多数据馈送器列表
+        self._data_feeders: list = []
+
         # 根据模式初始化时间提供者
         if self.mode == EXECUTION_MODE.BACKTEST:
             # 回测模式：使用逻辑时间
@@ -812,10 +815,29 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         GLOG.INFO(f"Auto-registered {registered_count} event handlers for {component.name} ({component_type})")
 
     def set_data_feeder(self, feeder) -> None:
-        """设置数据馈送器"""
-        # 统一使用_datafeeder字段名
+        """设置数据馈送器（向后兼容接口）
+
+        清空现有feeders并设置单个feeder，保持向后兼容性。
+        推荐使用 add_data_feeder() 支持多feeder场景。
+        """
+        self._data_feeders = []
+        self.add_data_feeder(feeder)
+
+    def add_data_feeder(self, feeder) -> None:
+        """添加数据馈送器到引擎
+
+        支持添加多个数据馈送器，每个feeder都会：
+        1. 绑定到引擎
+        2. 设置事件发布器
+        3. 传播时间提供者
+        4. 自动注册事件处理器
+        5. 传播给所有portfolio
+        """
+        self._data_feeders.append(feeder)
+        # 保持向后兼容：设置最后一个添加的feeder为主feeder
         self._datafeeder = feeder
-        GLOG.INFO(f"Data feeder {feeder.name} bound to engine")
+
+        GLOG.INFO(f"Data feeder {feeder.name} bound to engine (total: {len(self._data_feeders)})")
 
         # 绑定引擎到feeder
         feeder.bind_engine(self)
