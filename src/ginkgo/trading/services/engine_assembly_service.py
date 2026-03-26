@@ -23,11 +23,16 @@ from pathlib import Path
 from datetime import date
 
 from ginkgo.libs import GLOG, GinkgoLogger, datetime_normalize
-from ginkgo.enums import FILE_TYPES, EVENT_TYPES, ENGINESTATUS_TYPES
+from ginkgo.enums import FILE_TYPES, EVENT_TYPES, ENGINESTATUS_TYPES, EXECUTION_MODE
 from ginkgo.trading.engines import BaseEngine, BacktestEngine
 from ginkgo.trading.gateway import TradeGateway
 from ginkgo.trading.feeders import BacktestFeeder
 from ginkgo.trading.brokers.sim_broker import SimBroker
+
+try:
+    from ginkgo.trading.feeders import OKXDataFeeder
+except ImportError:
+    OKXDataFeeder = None  # Optional dependency
 
 try:
     from ginkgo.trading.brokers.okx_broker import OKXBroker as OkxBroker
@@ -666,7 +671,7 @@ class EngineAssemblyService(BaseService):
             self._logger.INFO(f"🔍 [STATE] After portfolio binding: {engine.status} (state: {engine.state}), bound_portfolios={bound_portfolio_count}")
 
             # Setup data feeder AFTER all portfolios are bound (matching Example order)
-            self._setup_data_feeder_for_engine(engine, logger)
+            self._setup_data_feeder_for_engine(engine, logger, engine_data)
 
             # 监控：feeder设置后的状态
             self._logger.INFO(f"🔍 [STATE] After feeder setup: {engine.status} (state: {engine.state})")
@@ -685,6 +690,70 @@ class EngineAssemblyService(BaseService):
             self._current_engine_id = None
             self._current_run_id = None
 
+    def _resolve_execution_mode(self, engine_data: Dict[str, Any]) -> EXECUTION_MODE:
+        """
+        从 engine_data 中解析执行模式
+
+        支持以下格式：
+        - EXECUTION_MODE 枚举值（直接传入）
+        - 整数值（0=BACKTEST, 1=LIVE, 2=PAPER, ...）
+        - 字符串（"backtest", "live", "paper", ...）
+        - 默认 BACKTEST
+        """
+        if engine_data is None:
+            return EXECUTION_MODE.BACKTEST
+
+        raw = engine_data.get("execution_mode") or engine_data.get("broker") or engine_data.get("broker_mode")
+
+        if raw is None:
+            return EXECUTION_MODE.BACKTEST
+
+        # 已经是枚举值
+        if isinstance(raw, EXECUTION_MODE):
+            return raw
+
+        # 字符串映射
+        if isinstance(raw, str):
+            mode_map = {
+                "backtest": EXECUTION_MODE.BACKTEST,
+                "live": EXECUTION_MODE.LIVE,
+                "paper": EXECUTION_MODE.PAPER,
+                "paper_manual": EXECUTION_MODE.PAPER_MANUAL,
+                "paper_auto": EXECUTION_MODE.PAPER_AUTO,
+                "live_manual": EXECUTION_MODE.LIVE_MANUAL,
+                "live_auto": EXECUTION_MODE.LIVE_AUTO,
+                "semi_auto": EXECUTION_MODE.SEMI_AUTO,
+            }
+            mapped = mode_map.get(raw.lower().strip())
+            if mapped is not None:
+                return mapped
+
+        # 整数值映射
+        try:
+            return EXECUTION_MODE(int(raw))
+        except (ValueError, TypeError):
+            pass
+
+        self._logger.WARN(f"Unknown execution_mode '{raw}', falling back to BACKTEST")
+        return EXECUTION_MODE.BACKTEST
+
+    def _create_feeder_for_mode(self, mode: EXECUTION_MODE) -> Any:
+        """
+        根据执行模式创建对应的 DataFeeder
+
+        - BACKTEST: BacktestFeeder（从数据库读取历史K线）
+        - PAPER / LIVE: OKXDataFeeder（实时数据推送）
+        """
+        if mode == EXECUTION_MODE.BACKTEST:
+            return BacktestFeeder("ExampleFeeder")
+
+        # PAPER / LIVE 及其他非回测模式使用 OKXDataFeeder
+        if OKXDataFeeder is not None:
+            return OKXDataFeeder()
+
+        self._logger.WARN(f"OKXDataFeeder not available for mode={mode.name}, falling back to BacktestFeeder")
+        return BacktestFeeder("ExampleFeeder")
+
     def _create_base_engine(
         self, engine_data: Dict[str, Any], engine_id: str, logger: GinkgoLogger,
         progress_callback: Optional[callable] = None,
@@ -693,11 +762,13 @@ class EngineAssemblyService(BaseService):
         try:
             # 默认使用TimeControlledEventEngine，它支持时间控制
             from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
-            from ginkgo.enums import EXECUTION_MODE
+
+            # 根据 engine_data 中的 execution_mode 决定引擎运行模式
+            exec_mode = self._resolve_execution_mode(engine_data)
 
             engine = TimeControlledEventEngine(
                 name=engine_data["name"],
-                mode=EXECUTION_MODE.BACKTEST,
+                mode=exec_mode,
                 timer_interval=0.01,  # 与示例保持一致，提高性能
                 progress_callback=progress_callback,
             )
@@ -732,11 +803,12 @@ class EngineAssemblyService(BaseService):
             self._logger.ERROR(f"Failed to create base engine: {e}")
             return None
 
-    def _setup_data_feeder_for_engine(self, engine: Any, logger: GinkgoLogger) -> bool:
+    def _setup_data_feeder_for_engine(self, engine: Any, logger: GinkgoLogger, engine_data: Dict[str, Any] = None) -> bool:
         """Setup data feeder after all portfolios are bound (matching Example order)"""
         try:
-            # Set up data feeder
-            feeder = BacktestFeeder("ExampleFeeder")
+            # 根据 execution_mode 选择合适的 DataFeeder
+            exec_mode = self._resolve_execution_mode(engine_data) if engine_data else EXECUTION_MODE.BACKTEST
+            feeder = self._create_feeder_for_mode(exec_mode)
 
             # 使用时间控制引擎的数据馈送接入，以确保 advance_time_to 能触发数据更新
             if hasattr(engine, "set_data_feeder"):
@@ -748,12 +820,12 @@ class EngineAssemblyService(BaseService):
             # 同时确保 Feeder 能够直接回注事件（可选）
             if hasattr(feeder, "set_event_publisher"):
                 feeder.set_event_publisher(engine.put)
-            # 注册兴趣更新事件给Feeder
-            from ginkgo.trading.events import EventInterestUpdate
+            # 注册兴趣更新事件给Feeder（仅 BacktestFeeder 支持）
+            if hasattr(feeder, "on_interest_update"):
+                from ginkgo.trading.events import EventInterestUpdate
+                engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
 
-            engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
-
-            self._logger.DEBUG("✅ Data feeder setup completed after portfolio binding")
+            self._logger.DEBUG(f"✅ Data feeder setup completed after portfolio binding (mode={exec_mode.name})")
             return True
         except Exception as e:
             self._logger.ERROR(f"Failed to setup data feeder: {e}")
@@ -845,8 +917,8 @@ class EngineAssemblyService(BaseService):
         cfg = default_cfg
 
         # Map mode to broker implementation
-        if mode in ("backtest", "simulation", "sim"):
-            # 🔧 修复：SimBroker需要关键字参数而不是config字典
+        if mode in ("backtest", "simulation", "sim", "paper"):
+            # SimBroker 用于回测和模拟盘（PAPER）
             return SimBroker(**cfg)
         if mode in ("okx", "okx_live", "live") and OkxBroker is not None:
             return OkxBroker(cfg)
