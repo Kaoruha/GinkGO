@@ -27,6 +27,7 @@ Usage:
     engine.stop()
 """
 
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Union
@@ -82,6 +83,11 @@ class PaperTradingEngine:
             commission_rate: 佣金率 (默认 0.03%)
             commission_min: 最低佣金 (默认 5 元)
         """
+        warnings.warn(
+            "PaperTradingEngine is deprecated. Use TimeControlledEventEngine(mode=EXECUTION_MODE.PAPER) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.portfolio_id = portfolio_id or ""
         self._portfolio = None
 
