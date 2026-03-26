@@ -250,7 +250,14 @@ class SimBroker(BaseBroker, IBroker):
 
             # 4. 涨跌停检查
             GLOG.DEBUG(f"🚫 [SIMBROKER] Step 4: Checking price limits...")
-            if self._is_limit_blocked(order, market_data):
+            # 获取订单价格（限价单使用限价，市价单使用当前价）
+            if hasattr(order, "order_type") and order.order_type == ORDER_TYPES.LIMITORDER:
+                check_price = to_decimal(order.limit_price)
+            else:
+                check_price = to_decimal(getattr(market_data, 'close', 0))
+
+            direction_str = "buy" if order.direction == DIRECTION_TYPES.LONG else "sell"
+            if self._is_limit_blocked(order.code, check_price, direction_str):
                 GLOG.ERROR(f"❌ [SIMBROKER] Price limit blocked for {order.code}")
                 return BrokerExecutionResult(
                     status=ORDERSTATUS_TYPES.CANCELED,
@@ -312,7 +319,7 @@ class SimBroker(BaseBroker, IBroker):
                 order=order  # 传入完整的Order对象，用于生成事件的payload
             )
 
-            GLOG.INFO(f"🎉 [SIMBROKER] SIMULATION SUCCESS: FILLED {transaction_volume} {order.code} @ {transaction_price}")
+            GLOG.INFO(f"[SIMBROKER] FILLED {transaction_volume} {order.code} @ {transaction_price}")
             return result
 
         except Exception as e:
@@ -544,9 +551,20 @@ class SimBroker(BaseBroker, IBroker):
         else:  # RANDOM
             return random.random() > 0.2  # 随机态度，80%成交概率
 
-    def _is_limit_blocked(self, order: Order, price_data: Any) -> bool:
-        """检查是否因涨跌停无法成交（简化版本）"""
-        # 简化版本，不实现涨跌停逻辑
+    def _is_limit_blocked(self, code: str, price: Decimal, direction: str) -> bool:
+        """检查是否触发涨跌停限制"""
+        market_data = self._current_market_data.get(code)
+        if not market_data:
+            return False
+
+        limit_up = market_data.get("limit_up")
+        limit_down = market_data.get("limit_down")
+
+        if direction == "buy" and limit_up is not None:
+            return price >= limit_up
+        elif direction == "sell" and limit_down is not None:
+            return price <= limit_down
+
         return False
 
     # ============= 状态查询方法 =============
