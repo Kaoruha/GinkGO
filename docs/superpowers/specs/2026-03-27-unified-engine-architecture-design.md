@@ -19,72 +19,85 @@
 问题：
 1. Strategy/Portfolio 代码无法在三种模式间复用
 2. Engine 内部有 16 处 `== BACKTEST` / `!= BACKTEST` 二元分支，无法支持 PAPER
-3. Portfolio 与 LiveAccount 无关联，无法同步实盘资金
-4. DataFeeder 和 Broker 是硬编码的，不支持动态切换
+3. DataFeeder 和 Broker 是单绑定的（1:1），不支持多市场
 
 ### 1.2 设计目标
 
 **核心公式**: `一个策略，三种运行模式，零代码修改`
 
 ```
-PAPER = LiveDataFeeder + SimBroker    (真实数据 + 虚拟成交)
-LIVE  = LiveDataFeeder + RealBroker   (真实数据 + 真实成交)
-BACKTEST = HistoricalFeeder + SimBroker (历史数据 + 虚拟成交)
+PAPER    = LiveDataFeeder + SimBroker     (真实数据 + 虚拟成交)
+LIVE     = LiveDataFeeder + RealBroker    (真实数据 + 真实成交)
+BACKTEST = HistoricalFeeder + SimBroker   (历史数据 + 虚拟成交)
 ```
+
+**设计原则**: 在现有框架上尽可能少改造，不引入新架构层。
 
 ---
 
-## 2. 架构总览
+## 2. 架构
 
-### 2.1 分层架构
+### 2.1 Engine 类统一（现状问题）
+
+当前存在三套独立 Engine 实现，接口不统一：
 
 ```
-┌─────────────────────────────────────────────┐
-│              Orchestrator                    │  ← 跨市场协调层
-│  (多市场组合策略、套利、资金分配)              │
-├─────────────────────────────────────────────┤
-│    Engine(A股)  │  Engine(Crypto)  │  ...    │  ← 每市场一个引擎
-│  ┌───────────┐  │  ┌───────────┐  │         │
-│  │ DataFeeder│  │  │ DataFeeder│  │         │
-│  │(LiveData) │  │  │(LiveData) │  │         │
-│  ├───────────┤  │  ├───────────┤  │         │
-│  │  Broker   │  │  │  Broker   │  │         │
-│  │(Sim/Real) │  │  │(Sim/Real) │  │         │
-│  └───────────┘  │  └───────────┘  │         │
-│  ┌───────────┐  │  ┌───────────┐  │         │
-│  │ Strategy  │  │  │ Strategy  │  │         │
-│  │ Portfolio │  │  │ Portfolio │  │         │
-│  │ RiskMgr   │  │  │ RiskMgr   │  │         │
-│  └───────────┘  │  └───────────┘  │         │
-└─────────────────────────────────────────────┘
+BaseEngine → EventEngine → TimeControlledEventEngine  ← 核心，有 BACKTEST/LIVE 分支
+LiveEngine                  (独立，不继承 BaseEngine)   ← 实盘，管理 Broker/心跳/恢复
+PaperTradingEngine          (独立，不继承 BaseEngine)   ← 模拟盘，独立实现
 ```
 
-### 2.2 两个正交维度
+**问题**：
+- `LiveEngine` 和 `PaperTradingEngine` 不走 `BaseEngine` 体系
+- `TimeControlledEventEngine` 的 LIVE 分支实际没被使用（实盘走 `LiveEngine`）
+- 三套 Engine 做类似的事情，Strategy/Portfolio 无法复用
+
+### 2.2 Engine 类统一（目标）
+
+统一为一条继承链，废弃独立的 `LiveEngine` 和 `PaperTradingEngine`：
+
+```
+BaseEngine → EventEngine → TimeControlledEventEngine
+                               ├── mode=BACKTEST: HistoricalFeeder + SimBroker
+                               ├── mode=PAPER:    LiveDataFeeder  + SimBroker
+                               └── mode=LIVE:     LiveDataFeeder  + RealBroker
+```
+
+`LiveEngine` 中的 Broker 管理、心跳监控等功能降级为 `TimeControlledEventEngine` 的可选组件。
+`PaperTradingEngine` 完全废弃，功能由 PAPER 模式覆盖。
+
+### 2.3 改造范围
+
+在 `TimeControlledEventEngine` 上扩展，**不引入新架构层**：
+
+```
+TimeControlledEventEngine (现有，扩展)
+  ├── DataFeeders: [feeder_1, feeder_2, ...]   ← 从 1→N
+  ├── TradeGateway: 多 Broker 路由               ← 复用现有
+  ├── Portfolio (不变)
+  ├── Strategies (不变)
+  └── RiskManagers (不变)
+  └── 可选组件（仅 PAPER/LIVE）:
+        ├── HeartbeatMonitor                     ← 从 LiveEngine 迁移
+        └── BrokerRecoveryService               ← 从 LiveEngine 迁移
+```
+
+### 2.4 正交维度
 
 | | HistoricalFeeder | LiveDataFeeder |
 |---|---|---|
 | **SimBroker** | BACKTEST | **PAPER** |
 | **RealBroker** | N/A | LIVE |
 
+### 2.5 多市场支持
+
+多个 DataFeeder 往同一个事件队列 push 事件，事件循环照常串行处理。订单提交时通过 BrokerRouter 路由到对应 Broker。
+
 ---
 
 ## 3. 核心设计决策
 
-### 3.1 引擎分层：Engine-per-Market + Orchestrator
-
-**决策**: 底层每个市场一个独立 Engine，上层 Orchestrator 协调跨市场策略。
-
-**理由**:
-- 单市场策略是主要场景，保持简单
-- 跨市场套利策略通过 Orchestrator 层组合多个 Engine
-- Orchestrator 是未来扩展，本次不实现
-
-**市场识别**: 通过 symbol pattern 动态路由，不依赖配置文件写死：
-- `BTC/USDT` → Crypto Engine → OKXDataFeeder + OKXBroker
-- `000001.SZ` → A-Share Engine → EastMoneyFeeder + SimBroker
-- `AAPL` → US Stock Engine → AlpacaFeeder + AlpacaBroker
-
-### 3.2 时间模式：三态切换
+### 3.1 三态切换
 
 当前 `time_controlled_engine.py` 有 16 处二元判断，需改为三态：
 
@@ -104,152 +117,110 @@ else:  # LIVE
     # 系统时间、阻塞队列、实时数据、真实成交
 ```
 
-### 3.3 资金管理模式
+### 3.2 资金管理
 
 ```
-BACKTEST: Portfolio 内部虚拟资金（现有逻辑不变）
-PAPER:    Portfolio 内部虚拟资金（与 BACKTEST 相同逻辑）
+BACKTEST: Portfolio 内部虚拟资金（不变）
+PAPER:    Portfolio 内部虚拟资金（与 BACKTEST 相同）
 LIVE:     Portfolio 从 Broker 查询真实余额（需要同步机制）
 ```
 
-**PAPER vs LIVE 的关键差异只在 Broker 层**，Portfolio 层面 PAPER 与 BACKTEST 行为一致。
+PAPER 与 BACKTEST 的差异只在 DataFeeder 数据来源，Portfolio 行为一致。
 
-### 3.4 DataFeeder 路由
+### 3.3 Broker 路由
 
-DataFeeder 不做聚合，每个 Engine 绑定一个 DataFeeder。路由规则：
+复用现有 `TradeGateway`（`src/ginkgo/trading/gateway/trade_gateway.py`），不做新建：
 
-```python
-class DataFeederRouter:
-    """根据 symbol pattern 选择 DataFeeder"""
+- `TradeGateway` 已实现多 Broker 注册和按 symbol 路由
+- `get_broker_for_order()` 根据订单 symbol 自动选择 Broker
+- 需要改进：`_code_market_mapping` 当前写死示例 symbol，改为动态 pattern 匹配（见 3.4）
 
-    ROUTES = [
-        (r'^BTC/.*|ETH/.*|SOL/.*', OKXDataFeeder),
-        (r'\.SZ$|\.SH$', EastMoneyFeeder),
-        (r'^[A-Z]+$', AlpacaFeeder),  # 纯字母 → 美股
-    ]
+### 3.4 Symbol 市场识别
 
-    def resolve(self, symbol: str) -> type:
-        for pattern, feeder_class in self.ROUTES:
-            if re.match(pattern, symbol):
-                return feeder_class
-        raise ValueError(f"No feeder for symbol: {symbol}")
-```
+`TradeGateway._get_market_by_code()` 当前写死示例 symbol，需改为动态 pattern 匹配：
 
-### 3.5 Broker 路由
-
-类似 DataFeeder，根据 symbol 的市场选择 Broker：
-
-```python
-class BrokerRouter:
-    """根据 execution_mode + symbol 选择 Broker"""
-
-    def resolve(self, symbol: str, mode: EXECUTION_MODE):
-        market = self._detect_market(symbol)
-        if mode in (EXECUTION_MODE.BACKTEST, EXECUTION_MODE.PAPER):
-            return SimBroker  # 所有市场共用模拟撮合
-        else:
-            return REAL_BROKERS[market]  # OKXBroker / AlpacaBroker / ...
-```
+- `BTC/USDT` → Crypto → OKXBroker
+- `000001.SZ` → A-Share → SimBroker（PAPER）或 实盘券商（LIVE）
+- `AAPL` → US Stock → AlpacaBroker
 
 ---
 
-## 4. 模块重构清单
+## 4. 重构清单
 
 ### 4.1 Phase 1: Engine 三态支持
 
 **文件**: `src/ginkgo/trading/engines/time_controlled_engine.py`
 
-将 16 处二元分支改为三态，按影响分组：
+16 处二元分支改为三态：
 
 | 位置 | 功能 | BACKTEST | PAPER | LIVE |
 |------|------|----------|-------|------|
-| `main_loop()` L248 | 队列等待 | timeout=0.01 | blocking wait | blocking wait |
-| `_initialize_components()` L182 | 时间提供者 | LogicalTime | SystemTime | SystemTime |
-| `_initialize_components()` L202 | 线程池 | 无 | ThreadPoolExecutor | ThreadPoolExecutor |
-| `main_loop()` L304 | 空队列处理 | 推进时间 | 继续等待 | 继续等待 |
-| `_setup_data_feeder()` L735 | DataFeeder | BacktestFeeder | LiveDataFeeder | LiveDataFeeder |
+| `main_loop()` | 队列等待 | timeout=0.01 | blocking wait | blocking wait |
+| `_initialize_components()` | 时间提供者 | LogicalTime | SystemTime | SystemTime |
+| `_initialize_components()` | 线程池 | 无 | ThreadPoolExecutor | ThreadPoolExecutor |
+| `main_loop()` | 空队列处理 | 推进时间 | 继续等待 | 继续等待 |
+| `_setup_data_feeder()` | DataFeeder | BacktestFeeder | LiveDataFeeder | LiveDataFeeder |
 
-### 4.2 Phase 2: EngineAssemblyService PAPER 模式
+### 4.2 Phase 2: 多 DataFeeder / TradeGateway 集成
+
+**文件**: `src/ginkgo/trading/engines/time_controlled_engine.py`
+
+- `self._data_feeder` → `self._data_feeders: List[IDataFeeder]`
+- 接入现有 `TradeGateway`（多 Broker 路由），不新建 BrokerRouter
+- 各 feeder 独立启动，事件统一入队
+- 改进 `TradeGateway._get_market_by_code()` 为动态 pattern 匹配
+
+### 4.3 Phase 3: EngineAssemblyService PAPER 模式
 
 **文件**: `src/ginkgo/trading/services/engine_assembly_service.py`
 
-新增 `assemble_paper_engine()` 方法：
+- 修改 `assemble_backtest_engine()` 支持 PAPER 模式
+- PAPER: 组装 LiveDataFeeder + SimBroker
+- LIVE: 组装 LiveDataFeeder + RealBroker
 
-```python
-def assemble_paper_engine(self, config: EngineConfig) -> EngineHistoric:
-    """组装模拟盘引擎: LiveDataFeeder + SimBroker"""
-    engine = EngineHistoric(execution_mode=EXECUTION_MODE.PAPER)
-    engine.set_data_feeder(OKXDataFeeder(...))  # 或其他 LiveDataFeeder
-    engine.set_broker(SimBroker(...))
-    return engine
-```
+### 4.4 Phase 4: 废弃独立 Engine，迁移功能
 
-修改 `_setup_data_feeder_for_engine()` 支持根据 execution_mode 选择 feeder。
+**废弃文件**:
+- `src/ginkgo/livecore/live_engine.py` — 功能迁移到 `TimeControlledEventEngine` 可选组件
+- `src/ginkgo/trading/paper/paper_engine.py` — 完全废弃，功能由 PAPER 模式覆盖
 
-### 4.3 Phase 3: SimBroker 增强
+**迁移内容**:
+- `HeartbeatMonitor` → `TimeControlledEventEngine` 可选组件（PAPER/LIVE 启用）
+- `BrokerRecoveryService` → `TimeControlledEventEngine` 可选组件（仅 LIVE 启用）
+- `DataSyncService`（余额/持仓同步）→ LIVE 模式下由 Portfolio 调用
+
+### 4.5 Phase 5: SimBroker 增强
 
 **文件**: `src/ginkgo/trading/brokers/sim_broker.py`
 
 - 实现 `_is_limit_blocked()` — 当前是 stub，返回 False
-- 新增 `match_on_tick` 模式 — Tick 级别订单匹配（PAPER 精确撮合）
-
-### 4.4 Phase 4: Orchestrator 层（未来）
-
-**新增文件**: `src/ginkgo/trading/orchestrator/`
-
-跨市场策略协调，暂不实现。本次设计预留接口：
-
-```python
-class IOrchestrator(ABC):
-    """跨市场引擎协调器接口"""
-
-    @abstractmethod
-    def register_engine(self, market: str, engine: EngineBase) -> None: ...
-
-    @abstractmethod
-    def start_all(self) -> None: ...
-
-    @abstractmethod
-    def stop_all(self) -> None: ...
-```
+- 新增 `match_on_tick` 模式 — Tick 级别订单匹配
 
 ---
 
 ## 5. 不变的部分
 
-以下模块在本次重构中**不需要修改**：
-
-- **Strategy**: 已有 `BaseStrategy.cal()` 接口，与数据源无关
-- **RiskManagement**: 已有 `BaseRiskManagement` 双重机制，与执行模式无关
+- **Strategy**: `BaseStrategy.cal()` 接口与数据源无关
 - **PortfolioBase**: 内部资金管理，BACKTEST/PAPER 共用
-- **Analyzer**: 分析器与运行模式无关
-- **MLiveAccount**: 仅存储 API 凭证，不涉及资金/持仓同步
-- **Event 系统**: 事件链路 `PriceUpdate → Strategy → Signal → Portfolio → Order → Fill` 不变
+- **RiskManagement**: `BaseRiskManagement` 双重机制与执行模式无关
+- **Analyzer**: 与运行模式无关
+- **Event 系统**: 事件链路不变
 
 ---
 
 ## 6. 执行顺序
 
 ```
-Phase 1 (Engine 三态)  ─→  Phase 2 (Assembly PAPER)  ─→  Phase 3 (SimBroker 增强)
-     ↓                                                              ↓
-  单元测试覆盖                                                    E2E 验证
-                                                               (PAPER 模式完整流程)
-
-Phase 4 (Orchestrator) — 未来迭代，本次不实现
+Phase 1 (三态分支) → Phase 2 (多 feeder/broker) → Phase 3 (Assembly PAPER) → Phase 4 (废弃独立Engine) → Phase 5 (SimBroker增强)
+       ↓                        ↓                          ↓                            ↓                          ↓
+    单元测试                 单元测试                    集成测试                     集成测试                    E2E 验证
 ```
-
-**估计改动量**:
-- Phase 1: ~16 处分支修改 + 测试
-- Phase 2: ~50 行新增 + 测试
-- Phase 3: ~100 行（涨跌停实现 + Tick 撮合）
-- 总计: ~3 个文件核心修改，预计新增 ~300 行代码
 
 ---
 
 ## 7. 风险与约束
 
-1. **向后兼容**: 所有改动不破坏现有 BACKTEST 模式的行为
-2. **SimBroker 涨跌停**: `_is_limit_blocked()` 需要接入实时行情数据判断涨跌停
-3. **LiveDataFeeder 超时**: PAPER 模式下 DataFeeder 断连时的容错处理
-4. **Broker 路由精度**: symbol pattern 匹配需要覆盖所有支持的 symbol 格式
+1. **向后兼容**: 所有改动不破坏现有 BACKTEST 模式
+2. **多 feeder 并发**: 多个 LiveDataFeeder 同时 push 事件，队列线程安全
+3. **SimBroker 涨跌停**: `_is_limit_blocked()` 需要接入实时行情数据
+4. **LiveDataFeeder 超时**: PAPER 模式下断连时的容错处理
