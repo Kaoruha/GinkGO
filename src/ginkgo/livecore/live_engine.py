@@ -6,6 +6,7 @@
 import signal
 import threading
 import time
+import warnings
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -26,6 +27,11 @@ class LiveEngine:
 
     def __init__(self):
         """初始化LiveEngine"""
+        warnings.warn(
+            "LiveEngine is deprecated. Use TimeControlledEventEngine(mode=EXECUTION_MODE.LIVE) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._running = False
         self._data_sync_service = None
         self._heartbeat_monitor = None
