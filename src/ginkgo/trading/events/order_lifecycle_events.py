@@ -26,7 +26,7 @@ from decimal import Decimal
 
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.order_related import EventOrderRelated
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 from ginkgo.enums import EVENT_TYPES
 
 

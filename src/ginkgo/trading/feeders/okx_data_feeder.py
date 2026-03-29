@@ -27,8 +27,8 @@ from ginkgo.enums import SOURCE_TYPES
 from ginkgo.trading.feeders.okx_feeder import OKXMarketDataFeeder
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.tick import Tick
+from ginkgo.entities import Bar
+from ginkgo.entities import Tick
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.libs import GLOG
 

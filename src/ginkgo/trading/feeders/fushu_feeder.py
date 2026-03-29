@@ -2,6 +2,8 @@
 # Downstream: DataManager (数据管理)
 # Role: 港股实时Tick数据适配器（HTTP轮询模式）
 
+import os
+
 import asyncio
 import json
 import threading
@@ -36,7 +38,7 @@ class FuShuFeeder(LiveDataFeeder):
     """
 
     # 写死的配置
-    API_BASE_URL = "https://api.fushu.com/v1"
+    API_BASE_URL = "https://api.fushu.com/v1"  # fallback，由 __init__ 从 GCONF 覆盖
     POLL_INTERVAL = 5  # 轮询间隔（秒）
     TICK_ENDPOINT = "/tick"  # Tick数据端点
 
@@ -44,6 +46,9 @@ class FuShuFeeder(LiveDataFeeder):
         """初始化FuShuFeeder（配置写死）"""
         # 从secure.yml读取API密钥
         api_key = GCONF.FUSHU_API_KEY
+
+        # 从 GCONF 覆盖默认 URL
+        self.API_BASE_URL = GCONF.FUSHU_API_BASE_URL
 
         # HTTP轮询模式，不需要host/port
         super().__init__(

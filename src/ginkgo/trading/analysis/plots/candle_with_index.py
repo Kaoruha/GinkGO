@@ -26,7 +26,7 @@ class CandleWithIndexPlot(BasePlot):
     __abstract__ = False
 
     def __init__(self, title: str = "", *args, **kwargs) -> None:
-        super(CandleWithIndexPlot, self).__init__(title, args, kwargs)
+        super().__init__(title, args, kwargs)
         self.ax1 = None
         self._indecies = []
         self._independente_indecies = []

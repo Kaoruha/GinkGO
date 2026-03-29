@@ -4,26 +4,25 @@
 
 
 
-
-
-
 """
 Ginkgo 工具库统一入口
 重构后的模块化导入接口，保持向后兼容性
+
+注意：GLOG/GCONF 必须在导入依赖它们的子模块（如 threading、health_check）
+之前创建，以避免循环导入。
 """
 
-# 核心模块导入
+# 第一步：导入不依赖 GLOG/GCONF 的基础类
 from ginkgo.libs.core.config import GinkgoConfig
 from ginkgo.libs.core.logger import GinkgoLogger
-from ginkgo.libs.core.threading import GinkgoThreadManager
 
-# 数据处理模块导入
+# 第二步：导入数据处理模块（不依赖 GLOG）
 from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.libs.data.number import Number, to_decimal
 from ginkgo.libs.data.statistics import t_test, chi2_test
 from ginkgo.libs.data.math import cal_fee
 
-# 工具模块导入
+# 第三步：导入工具函数（不依赖 GLOG）
 from ginkgo.libs.utils.common import (
     try_wait_counter,
     str2bool,
@@ -33,21 +32,22 @@ from ginkgo.libs.utils.common import (
     retry,
     cache_with_expiration,
     RichProgress,
-    ensure_tick_table,
 )
 from ginkgo.libs.utils.display import pretty_repr, base_repr, fix_string_length, chinese_count, GinkgoColor
+
+# 第四步：创建全局实例（必须在导入依赖 GLOG/GCONF 的子模块之前）
+GLOG = GinkgoLogger(logger_name="ginkgo", file_names=["ginkgo.log"], console_log=True)
+GCONF = GinkgoConfig()
+
+# 第五步：导入依赖 GLOG/GCONF 的子模块
+from ginkgo.libs.core.threading import GinkgoThreadManager
+GTM = GinkgoThreadManager()
 
 # 尝试导入其他工具模块的内容
 try:
     from ginkgo.libs.utils.codes import cn_index
 except ImportError:
     cn_index = None
-
-try:
-    from ginkgo.libs.utils.links import GinkgoSingleLinkedNode, GinkgoSingleLinkedList
-except ImportError:
-    GinkgoSingleLinkedNode = None
-    GinkgoSingleLinkedList = None
 
 try:
     from ginkgo.libs.utils.process import find_process_by_keyword
@@ -72,11 +72,6 @@ except ImportError:
     check_redis_ready = None
     check_kafka_ready = None
     check_docker_containers_running = None
-
-# 创建全局实例（保持向后兼容）
-GLOG = GinkgoLogger(logger_name="ginkgo", file_names=["ginkgo.log"], console_log=True)
-GCONF = GinkgoConfig()
-GTM = GinkgoThreadManager()
 
 # 尝试导入校验器模块
 try:
@@ -140,8 +135,6 @@ __all__ = [
     "cache_with_expiration",
     # 其他工具（如果存在）
     "cn_index",
-    "GinkgoSingleLinkedNode",
-    "GinkgoSingleLinkedList",
     "find_process_by_keyword",
     # 健康检查工具
     "ensure_services_ready",

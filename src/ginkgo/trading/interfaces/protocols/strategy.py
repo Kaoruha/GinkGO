@@ -32,7 +32,7 @@ class IStrategy(Protocol):
     4. 数据更新 - 响应数据更新事件
 
     使用示例：
-        class MyStrategy(BaseStrategy):
+        class MyStrategy(StrategyBase):
             def cal(self, portfolio_info: Dict[str, Any], event: Any) -> List[Signal]:
                 # 实现策略逻辑
                 return signals

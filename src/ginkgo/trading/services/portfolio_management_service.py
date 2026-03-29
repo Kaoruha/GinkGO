@@ -22,7 +22,7 @@ from ginkgo.libs import GLOG, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES
 from ginkgo.trading.portfolios import PortfolioT1Backtest
-from ginkgo.trading.entities.position import Position
+from ginkgo.entities import Position
 from ginkgo.trading.events.execution_confirmation import (
     EventExecutionConfirmed,
     EventExecutionRejected,

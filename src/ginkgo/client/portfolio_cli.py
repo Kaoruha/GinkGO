@@ -18,6 +18,8 @@ from rich.table import Table
 from rich.tree import Tree
 from rich import print as rprint
 
+from ginkgo.libs import GLOG
+
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -100,7 +102,8 @@ def collect_portfolio_components(portfolio_id: str, container) -> dict:
                                 try:
                                     # 尝试解析JSON值
                                     display_value = json.loads(param.value) if param.value and param.value.startswith('[') else param.value
-                                except:
+                                except Exception as e:
+                                    GLOG.ERROR(f"Failed to parse JSON param value: {e}")
                                     display_value = param.value
 
                                 component['parameters'].append({

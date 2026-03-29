@@ -269,7 +269,7 @@ class ASTAnalyzer:
 
     def find_strategy_classes(self, analysis: FileAnalysis) -> List[ClassInfo]:
         """
-        Find all classes that inherit from BaseStrategy.
+        Find all classes that inherit from StrategyBase.
 
         Args:
             analysis: The file analysis result
@@ -279,7 +279,7 @@ class ASTAnalyzer:
         """
         strategies = []
         for class_info in analysis.classes.values():
-            if "BaseStrategy" in class_info.bases:
+            if "StrategyBase" in class_info.bases:
                 strategies.append(class_info)
         return strategies
 

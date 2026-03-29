@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import datetime_normalize, GLOG, to_decimal, cache_with_expiration
 

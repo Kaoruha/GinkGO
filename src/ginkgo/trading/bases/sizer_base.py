@@ -14,15 +14,15 @@
 """
 
 from typing import Optional, Dict, Any, TYPE_CHECKING
-from ginkgo.trading.core.base import Base
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
-from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
-from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.entities.mixins import NamedMixin
 
 if TYPE_CHECKING:
-    from ginkgo.trading.entities.signal import Signal
-    from ginkgo.trading.entities.order import Order
+    from ginkgo.entities import Signal
+    from ginkgo.entities import Order
 
 
 class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
@@ -46,12 +46,7 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
             engine: 可选的引擎实例，如果提供则直接绑定
             **kwargs: 传递给父类的参数
         """
-        # 显式初始化各个Mixin，确保正确的初始化顺序
-        TimeMixin.__init__(self, **kwargs)
-        ContextMixin.__init__(self, **kwargs)
-        EngineBindableMixin.__init__(self, engine=engine, **kwargs)
-        NamedMixin.__init__(self, name=name, **kwargs)
-        Base.__init__(self)
+        super().__init__(name=name, engine=engine, **kwargs)
         self._data_feeder = None
 
     def bind_data_feeder(self, feeder: Any, *args, **kwargs) -> None:

@@ -19,6 +19,8 @@ from typing import List, Dict, Tuple, Optional
 from scipy import stats
 from decimal import Decimal
 
+from ginkgo.libs import GLOG
+
 
 def calculate_rolling_statistics(values: List[float], 
                                window_size: int) -> Dict[str, List[float]]:
@@ -177,7 +179,8 @@ def test_normality(values: List[float]) -> Dict:
                 'p_value': sw_pvalue,
                 'is_normal': sw_pvalue > 0.05
             }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Shapiro-Wilk test failed: {e}")
             results['shapiro_wilk'] = {'error': 'test_failed'}
             
     # Kolmogorov-Smirnov检验
@@ -191,7 +194,8 @@ def test_normality(values: List[float]) -> Dict:
                 'p_value': ks_pvalue,
                 'is_normal': ks_pvalue > 0.05
             }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Kolmogorov-Smirnov normality test failed: {e}")
             results['kolmogorov_smirnov'] = {'error': 'test_failed'}
             
     # Anderson-Darling检验
@@ -206,7 +210,8 @@ def test_normality(values: List[float]) -> Dict:
                 'significance_levels': ad_significance,
                 'is_normal': is_normal
             }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Anderson-Darling test failed: {e}")
             results['anderson_darling'] = {'error': 'test_failed'}
             
     # 综合判断
@@ -321,7 +326,8 @@ def compare_distributions(values1: List[float], values2: List[float]) -> Dict:
                 'p_value': t_pvalue,
                 'means_equal': t_pvalue > 0.05
             }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Independent t-test failed: {e}")
             results['t_test'] = {'error': 'test_failed'}
             
     # F检验（方差比较）
@@ -341,7 +347,8 @@ def compare_distributions(values1: List[float], values2: List[float]) -> Dict:
                     'p_value': f_pvalue,
                     'variances_equal': f_pvalue > 0.05
                 }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"F-test (variance comparison) failed: {e}")
             results['f_test'] = {'error': 'test_failed'}
             
     # Kolmogorov-Smirnov检验（分布形状比较）
@@ -353,7 +360,8 @@ def compare_distributions(values1: List[float], values2: List[float]) -> Dict:
                 'p_value': ks_pvalue,
                 'distributions_equal': ks_pvalue > 0.05
             }
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Kolmogorov-Smirnov two-sample test failed: {e}")
             results['ks_test'] = {'error': 'test_failed'}
             
     return results

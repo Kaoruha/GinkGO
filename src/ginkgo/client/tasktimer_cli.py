@@ -18,6 +18,8 @@ TaskTimer 是定时任务调度器，负责：
 import typer
 from typing import Optional
 from rich.console import Console
+
+from ginkgo.libs import GLOG
 from rich.table import Table
 from rich.panel import Panel
 import signal
@@ -190,7 +192,8 @@ def status(
                 console.print(f"[dim]PID: {heartbeat_data.get('pid', 'N/A')}[/dim]")
                 console.print(f"[dim]Jobs: {heartbeat_data.get('jobs_count', 'N/A')}[/dim]")
                 console.print(f"[dim]Last Heartbeat: {heartbeat_data.get('timestamp', 'N/A')}[/dim]")
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"Failed to parse heartbeat JSON data: {e}")
                 console.print(f"[dim]Last Heartbeat: {heartbeat_value}[/dim]")
         else:
             console.print(f"[red]:x: TaskTimer is [bold]DEAD[/bold] or not running[/red]")
@@ -332,7 +335,8 @@ def heartbeat(
                             last_time = heartbeat_data.get("timestamp", "N/A")
                             host = heartbeat_data.get("host", "N/A")
                             pid = heartbeat_data.get("pid", "N/A")
-                        except:
+                        except Exception as e:
+                            GLOG.ERROR(f"Failed to parse heartbeat data for key '{key}': {e}")
                             last_time = value
                             host = "N/A"
                             pid = "N/A"

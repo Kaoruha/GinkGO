@@ -582,5 +582,5 @@ class KafkaCRUD:
         """析构函数，确保资源清理"""
         try:
             self.close_all_consumers()
-        except:
-            pass
+        except Exception as e:
+            GLOG.ERROR(f"Failed to close all consumers during __del__: {e}")

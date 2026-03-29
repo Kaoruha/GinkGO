@@ -11,19 +11,21 @@ from typing import TYPE_CHECKING, Callable, Optional
 import pandas as pd
 
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
-from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import NamedMixin
 from ginkgo.trading.events.base_event import EventBase
 
 
-class BaseFeeder(BacktestBase, TimeMixin):
+class BaseFeeder(TimeMixin, NamedMixin, Base):
     """
     Feed something like price info, news...
     """
 
     def __init__(self, name="basic_feeder", timestamp=None, bar_service=None, *args, **kwargs):
-        BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
+        if timestamp is not None:
+            self.set_business_timestamp(timestamp)
         self._engine_put = None
 
         # 依赖注入：数据服务（支持测试Mock）

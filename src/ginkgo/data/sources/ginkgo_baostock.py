@@ -22,7 +22,7 @@ console = Console()
 
 class GinkgoBaoStock(GinkgoSourceBase):
     def __init__(self, *args, **kwargs):
-        super(GinkgoBaoStock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._updated = {}
         self.max_try = 5
 

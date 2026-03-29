@@ -15,7 +15,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MSignal
-from ginkgo.trading import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 

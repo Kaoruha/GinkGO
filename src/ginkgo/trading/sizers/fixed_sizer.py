@@ -14,8 +14,8 @@ from typing import Tuple, Optional
 
 
 from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
-from ginkgo.trading.entities.order import Order
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Order
+from ginkgo.entities import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.libs import to_decimal, GLOG
 from ginkgo.data.containers import container
@@ -34,7 +34,7 @@ class FixedSizer(BaseSizer):
         Args:
             volume(str): The volume of each order.
         """
-        super(FixedSizer, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._volume = self._convert_to_int(volume, 150)
 
     @property

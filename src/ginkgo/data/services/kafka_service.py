@@ -22,6 +22,7 @@ import uuid
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs.utils.common import time_logger, retry
+from ginkgo.libs import GLOG
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
@@ -1027,5 +1028,5 @@ class KafkaService(BaseService):
         """Destructor, ensure resource cleanup"""
         try:
             self.shutdown()
-        except:
-            pass
+        except Exception as e:
+            GLOG.ERROR(f"KafkaService析构时关闭失败: {e}")

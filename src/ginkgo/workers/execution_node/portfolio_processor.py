@@ -42,7 +42,7 @@ from datetime import datetime
 from enum import Enum
 
 from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
-from ginkgo.messaging import GinkgoConsumer
+from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.interfaces.dtos import ControlCommandDTO
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.libs import GLOG, GCONF

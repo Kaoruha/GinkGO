@@ -19,7 +19,7 @@ class UnderwaterTime(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "underwater_time", *args, **kwargs):
-        super(UnderwaterTime, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 在每天开始时激活水下时间计算
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         # 在每天结束时记录到数据库

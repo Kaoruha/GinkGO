@@ -17,6 +17,7 @@ from typing import Optional, Any
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
+from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":gear: Configuration Management", rich_markup_mode="rich")
 console = Console()
@@ -186,7 +187,8 @@ def workers(
                         console.print(f"  {status_emoji} {worker_id}: {status}")
                 else:
                     console.print("  :clipboard: No active workers")
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"Failed to get worker status: {e}")
                 console.print("  :clipboard: Worker status not available")
 
         elif action == "start":
@@ -296,8 +298,8 @@ def containers(
                 else:
                     console.print(":memo: Creating default compose file...")
                     console.print(":bulb: Consider creating docker-compose.worker.yml")
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"Failed to check compose file: {e}")
 
             console.print(":white_check_mark: Deployment completed")
 

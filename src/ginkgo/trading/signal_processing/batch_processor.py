@@ -20,8 +20,8 @@ from ginkgo.trading.time.clock import now as clock_now
 from enum import Enum
 from collections import defaultdict
 
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.libs import GLOG
 
 

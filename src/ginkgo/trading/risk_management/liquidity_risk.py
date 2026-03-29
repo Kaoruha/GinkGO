@@ -23,8 +23,8 @@
 from typing import List, Dict, Optional
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
@@ -63,7 +63,7 @@ class LiquidityRisk(BaseRiskManagement):
             warning_turnover_ratio(float): 预警日成交额阈值
             liquidity_lookback_days(int): 流动性数据回看天数
         """
-        super(LiquidityRisk, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._min_avg_volume_ratio = float(min_avg_volume_ratio)
         self._warning_avg_volume_ratio = float(warning_avg_volume_ratio)
         self._max_price_impact = float(max_price_impact)

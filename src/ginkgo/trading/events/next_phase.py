@@ -14,7 +14,7 @@ from ginkgo.libs import base_repr
 
 class EventNextPhase(EventBase):
     def __init__(self, *args, **kwargs) -> None:
-        super(EventNextPhase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.NEXTPHASE)
         self.set_name("EventNextPhase")
 

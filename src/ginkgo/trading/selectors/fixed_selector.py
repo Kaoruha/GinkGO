@@ -19,7 +19,7 @@ class FixedSelector(BaseSelector):
     __abstract__ = False
 
     def __init__(self, name: str = "FixedSelector", codes: Union[str, List[str]] = "", *args, **kwargs) -> None:
-        super(FixedSelector, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
 
         self._interested = []
 

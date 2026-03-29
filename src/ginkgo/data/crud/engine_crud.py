@@ -337,8 +337,8 @@ class EngineCRUD(BaseCRUD[MEngine]):
                 enum_value = ENGINESTATUS_TYPES.validate_input(clean_query.upper())
                 if enum_value is not None:
                     status_matches.append(enum_value.value)
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"Failed to parse engine status query '{query_lower}': {e}")
 
             # Search for each matching status
             if status_matches:

@@ -28,7 +28,7 @@ class PopularitySelector(BaseSelector):
         *args,
         **kwargs,
     ) -> None:
-        super(PopularitySelector, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.rank = rank
         self.span = span
         self._interested = []

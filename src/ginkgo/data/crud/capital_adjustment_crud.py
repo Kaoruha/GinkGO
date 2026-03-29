@@ -15,7 +15,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MCapitalAdjustment
-from ginkgo.trading.entities import CapitalAdjustment
+from ginkgo.entities import CapitalAdjustment
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
 

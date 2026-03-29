@@ -199,7 +199,8 @@ class MetricStabilityCalculator:
             statistic, p_value = stats.shapiro(values)
             # p_value越大，越接近正态分布
             return min(p_value, 1.0)
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Failed to compute Shapiro-Wilk normality test: {e}")
             return 0.0
             
     def get_comprehensive_stability_score(self, values: List[float], weights: Dict[str, float] = None) -> Dict:

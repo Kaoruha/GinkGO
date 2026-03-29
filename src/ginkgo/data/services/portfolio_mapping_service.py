@@ -414,7 +414,8 @@ class PortfolioMappingService(BaseService):
                         # 尝试解析 JSON 值
                         try:
                             value = json.loads(p.value) if p.value else {}
-                        except:
+                        except Exception as e:
+                            GLOG.ERROR(f"解析参数JSON值失败: {e}")
                             value = p.value
                         params_dict[f"param_{p.index}"] = value
 
@@ -450,7 +451,8 @@ class PortfolioMappingService(BaseService):
             for p in params:
                 try:
                     value = json.loads(p.value) if p.value else {}
-                except:
+                except Exception as e:
+                    GLOG.ERROR(f"解析参数JSON值失败: {e}")
                     value = p.value
                 params_dict[f"param_{p.index}"] = value
 
@@ -705,7 +707,8 @@ class PortfolioMappingService(BaseService):
             # 尝试将值序列化为 JSON
             try:
                 value_str = json.dumps(value, ensure_ascii=False)
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"序列化参数值失败: {e}")
                 value_str = str(value)
 
             param_list.append({
@@ -829,7 +832,8 @@ class PortfolioMappingService(BaseService):
         for p in params:
             try:
                 value = json.loads(p.value) if p.value else {}
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"解析参数JSON值失败: {e}")
                 value = p.value
             params_dict[f"param_{p.index}"] = value
 

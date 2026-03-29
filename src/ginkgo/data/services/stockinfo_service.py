@@ -25,7 +25,7 @@ from ginkgo.libs import RichProgress, cache_with_expiration, retry, time_logger
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.trading.entities import StockInfo
+from ginkgo.entities import StockInfo
 from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GCONF
 
@@ -60,7 +60,9 @@ class StockinfoService(BaseService):
             try:
                 count_result = self.count()
                 total_count = count_result.data if count_result.success else 0
-            except:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.ERROR(f"获取股票总数失败: {e}")
                 total_count = 0
 
             health_data = {

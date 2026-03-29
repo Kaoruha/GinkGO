@@ -107,7 +107,7 @@ class RuleRegistry:
 
         Example:
             >>> registry.get_rules(ComponentType.STRATEGY)
-            [BaseStrategyInheritanceRule, CalMethodRequiredRule, ...]
+            [StrategyBaseInheritanceRule, CalMethodRequiredRule, ...]
         """
         if component_type in self._rules:
             return self._rules[component_type].copy()

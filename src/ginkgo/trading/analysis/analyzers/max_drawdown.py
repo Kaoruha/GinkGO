@@ -18,7 +18,7 @@ class MaxDrawdown(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "max_drawdown", *args, **kwargs):
-        super(MaxDrawdown, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 在每天开始时激活回撤计算
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         # 在每天结束时记录到数据库

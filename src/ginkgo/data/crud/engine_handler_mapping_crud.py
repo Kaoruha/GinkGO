@@ -92,7 +92,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         Returns:
             List of Mapping business objects
         """
-        from ginkgo.trading.entities.mapping import Mapping
+        from ginkgo.entities import Mapping
 
         business_objects = []
         for model in models:

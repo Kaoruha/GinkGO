@@ -152,21 +152,20 @@ class BaseValidator(ABC):
         # 合并所有结果
         return self._merge_results(results)
     
-    def validate_component(self, component_id: str) -> ValidationResult:
+    def validate_component(self, component_id: str, loader) -> ValidationResult:
         """
         校验已存储的组件
-        
+
         Args:
             component_id(str): 组件ID
-            
+            loader(callable): 组件加载函数，接受 component_id 返回 DataFrame
+
         Returns:
             ValidationResult: 校验结果
         """
         try:
-            from ginkgo.data.operations import get_file
-            
             # 获取组件信息
-            file_df = get_file(component_id)
+            file_df = loader(component_id)
             if file_df.shape[0] == 0:
                 return ValidationResult(
                     is_valid=False,

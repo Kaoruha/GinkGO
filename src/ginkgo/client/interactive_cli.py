@@ -83,7 +83,8 @@ def chunk_print(response):
 def ask_ollama(msg: str):
     global mem
     mem += msg
-    url = "http://localhost:11434/api/generate"
+    from ginkgo.libs import GCONF
+    url = f"{GCONF.OLLAMA_HOST}:{GCONF.OLLAMA_PORT}/api/generate"
     payload = {"model": "mistral:latest", "prompt": mem}
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, json=payload, headers=headers, stream=True)

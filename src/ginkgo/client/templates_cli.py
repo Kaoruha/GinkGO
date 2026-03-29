@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich import print as rprint
 from rich.syntax import Syntax
 import json
+from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":memo: Notification template management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -380,7 +381,8 @@ def render_template(
                     # Try to parse as JSON for complex values
                     try:
                         context[key] = json.loads(value)
-                    except:
+                    except Exception as e:
+                        GLOG.ERROR(f"解析模板变量JSON失败: {e}")
                         context[key] = value
 
         # Render template

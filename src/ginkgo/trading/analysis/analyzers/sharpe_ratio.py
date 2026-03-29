@@ -21,7 +21,7 @@ class SharpeRatio(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "sharpe_ratio", *args, **kwargs):
-        super(SharpeRatio, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._base_value = None

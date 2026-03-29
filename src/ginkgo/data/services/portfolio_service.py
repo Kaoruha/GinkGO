@@ -873,7 +873,8 @@ class PortfolioService(BaseService):
                 else:
                     try:
                         comp_type_int = FILE_TYPES[comp_type].value
-                    except:
+                    except Exception as e:
+                        GLOG.ERROR(f"解析组件类型'{comp_type}'失败: {e}")
                         continue
             else:
                 comp_type_int = int(comp_type)
@@ -1005,7 +1006,7 @@ class PortfolioService(BaseService):
                                 base_name = base.__name__
                                 if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
                                    base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
-                                   base_name == "BaseStrategy" or base_name == "BaseSelector" or \
+                                   base_name == "StrategyBase" or base_name == "BaseSelector" or \
                                    base_name == "BaseSizer" or base_name == "BaseRiskManagement":
                                     is_component = True
                                     break
@@ -1028,8 +1029,8 @@ class PortfolioService(BaseService):
             finally:
                 try:
                     os.unlink(temp_file_path)
-                except:
-                    pass
+                except Exception as e:
+                    GLOG.ERROR(f"清理临时文件失败: {e}")
 
         except Exception as e:
             GLOG.ERROR(f"实例化组件失败: {e}")
