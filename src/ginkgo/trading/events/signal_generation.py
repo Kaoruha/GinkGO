@@ -9,13 +9,13 @@
 
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.libs import base_repr
 
 
 class EventSignalGeneration(EventBase):
     def __init__(self, signal, name: str = "EventSignalGen", *args, **kwargs):
-        super(EventSignalGeneration, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.set_type(EVENT_TYPES.SIGNALGENERATION)
         # 统一使用payload
         self.payload = signal

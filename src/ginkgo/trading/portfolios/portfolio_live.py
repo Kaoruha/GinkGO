@@ -16,10 +16,12 @@ from typing import Dict, List, Optional, Any
 from queue import Queue
 import threading
 
+from ginkgo.libs import GLOG
+
 from ginkgo.trading.bases.portfolio_base import PortfolioBase
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.position import Position
+from ginkgo.entities import Bar
+from ginkgo.entities import Signal
+from ginkgo.entities import Position
 from ginkgo.trading.events import (
     EventOrderAck,
     EventOrderPartiallyFilled,
@@ -38,7 +40,7 @@ from ginkgo.enums import (
 from ginkgo.data.models import MOrder
 from ginkgo.data.drivers import add
 
-from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize, to_decimal, GLOG
+from ginkgo.libs import datetime_normalize, to_decimal, GLOG
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.utils.display import base_repr
 
@@ -58,7 +60,7 @@ class PortfolioLive(PortfolioBase):
     __abstract__ = False
 
     def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
-        super(PortfolioLive, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # 使用依赖注入的通知服务，如果没有提供则自动创建
         self._notification_service = notification_service or NotificationServiceFactory.create_service()
 
@@ -86,7 +88,8 @@ class PortfolioLive(PortfolioBase):
         if args or kwargs:
             try:
                 formatted_msg = msg.format(*args, **kwargs)
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"Failed to format log message: {e}")
                 formatted_msg = msg
         else:
             formatted_msg = msg

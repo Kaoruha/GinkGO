@@ -14,10 +14,10 @@ BaseTradeGateway基础类
 组装TimeMixin、ContextMixin、LoggableMixin、OrderManagementMixin等基础功能。
 """
 
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
 from ginkgo.trading.mixins.order_management_mixin import OrderManagementMixin
-from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
+from ginkgo.entities.mixins import EngineBindableMixin
 from ginkgo.libs import GLOG
 
 
@@ -40,10 +40,7 @@ class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBind
         Args:
             name: TradeGateway名称
         """
-        # 按照Mixin依赖顺序初始化
-        TimeMixin.__init__(self)
-        ContextMixin.__init__(self)
-        OrderManagementMixin.__init__(self)
+        super().__init__()
 
         # 设置名称
         self._gateway_name = name

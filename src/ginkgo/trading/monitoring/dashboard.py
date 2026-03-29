@@ -178,7 +178,8 @@ class AlertManager:
         # 格式化消息
         try:
             message = rule.message_template.format(**system_state.get('metrics', {}))
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"Failed to format alert message for rule {rule.rule_name}: {e}")
             message = rule.message_template
         
         alert = Alert(

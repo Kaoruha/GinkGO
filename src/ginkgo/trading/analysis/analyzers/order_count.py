@@ -19,7 +19,7 @@ class OrderCount(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "order_count", *args, **kwargs):
-        super(OrderCount, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 激活阶段：订单发送时
         self.add_active_stage(RECORDSTAGE_TYPES.ORDERSEND)
         # 记录阶段：每天结束时

@@ -22,10 +22,10 @@ except ImportError:
     OKXException = Exception
 
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Order
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.data.models.model_live_account import ExchangeType, EnvironmentType
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, GCONF
 from ginkgo.data.services.encryption_service import get_encryption_service
 from ginkgo.data.containers import container
 
@@ -55,6 +55,7 @@ class RetryConfig:
         self.max_delay = max_delay
         self.exponential_base = exponential_base
         self.jitter = jitter
+        self.OKX_DOMAIN = GCONF.OKX_DOMAIN
 
 
 class OKXBroker(IBroker):
@@ -67,6 +68,9 @@ class OKXBroker(IBroker):
     - 自动处理API重试和限流
     - 记录API调用日志
     """
+
+    # OKX API 域名，从 GCONF 统一管理
+    OKX_DOMAIN = "https://www.okx.com"  # fallback，由 _load_config 从 GCONF 覆盖
 
     # 可重试的错误关键字
     RETRYABLE_ERRORS = [
@@ -331,11 +335,8 @@ class OKXBroker(IBroker):
             bool: 连接是否成功
         """
         def _do_connect():
-            # 确定API域名
-            if self._environment == EnvironmentType.TESTNET:
-                domain = 'https://www.okx.com'  # OKX测试网
-            else:
-                domain = 'https://www.okx.com'  # OKX实盘
+            # 确定API域名（测试网和实盘当前使用相同域名）
+            domain = self.OKX_DOMAIN
 
             # 初始化API客户端
             flag = '0'  # '0'=实盘, '1'=模拟盘
@@ -731,7 +732,7 @@ class OKXBroker(IBroker):
             try:
                 from okx.PublicData import PublicAPI
                 public_api = PublicAPI(
-                    domain=self._account_api.domain if self._account_api else 'https://www.okx.com',
+                    domain=self._account_api.domain if self._account_api else self.OKX_DOMAIN,
                     debug=False,
                     timeout=10
                 )
@@ -772,7 +773,7 @@ class OKXBroker(IBroker):
             try:
                 from okx.PublicData import PublicAPI
                 public_api = PublicAPI(
-                    domain=self._account_api.domain if self._account_api else 'https://www.okx.com',
+                    domain=self._account_api.domain if self._account_api else self.OKX_DOMAIN,
                     debug=False,
                     timeout=10
                 )
@@ -1113,11 +1114,8 @@ try:
             self.sandbox = broker_config.get('sandbox', True)
             self.inst_type = broker_config.get('instType', 'SPOT')
 
-            # API端点
-            if self.sandbox:
-                self.base_url = "https://www.okx.com"  # 沙盒环境
-            else:
-                self.base_url = "https://www.okx.com"  # 生产环境
+            # API端点（沙盒和生产环境当前使用相同域名）
+            self.base_url = self.OKX_DOMAIN
 
             # 订单映射
             self._order_mapping = {}

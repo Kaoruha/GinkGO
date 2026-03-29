@@ -424,13 +424,12 @@ class TestEmailChannelConvenienceFunctions:
 
         # 设置配置环境变量
         with patch('ginkgo.notifier.channels.email_channel.GCONF') as mock_gconf:
-            mock_gconf.get.side_effect = lambda key, default=None: {
-                "email.smtp_host": "smtp.example.com",
-                "email.smtp_port": 587,
-                "email.smtp_user": "user@example.com",
-                "email.smtp_password": "password",
-                "notifications.timeouts": {"email": 10.0}
-            }.get(key, default)
+            # _load_config 通过属性访问 GCONF，不是 .get()
+            mock_gconf.EMAIL_SMTP_HOST = "smtp.example.com"
+            mock_gconf.EMAIL_SMTP_PORT = 587
+            mock_gconf.EMAIL_SMTP_USER = "user@example.com"
+            mock_gconf.EMAIL_SMTP_PASSWORD = "password"
+            mock_gconf.NOTIFICATION_EMAIL_TIMEOUT = 10.0
 
             from ginkgo.notifier.channels.email_channel import send_email
 

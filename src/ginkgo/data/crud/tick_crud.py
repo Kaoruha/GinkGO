@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTick
-from ginkgo.trading import Tick
+from ginkgo.entities import Tick
 from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
 from ginkgo.data.drivers import drop_table
@@ -497,7 +497,7 @@ class TickCRUD:
     def _convert_to_model(self, item, model_class):
         """将item转换为指定的Model类 - 优先处理Tick业务对象"""
         # 优先处理Tick业务对象
-        from ginkgo.trading.entities import Tick
+        from ginkgo.entities import Tick
         if isinstance(item, Tick):
             # 获取source信息，如果业务对象有设置的话
             source = getattr(item, '_source', SOURCE_TYPES.TDX)

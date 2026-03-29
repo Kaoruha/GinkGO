@@ -15,6 +15,8 @@ from rich.panel import Panel
 from rich import print as rprint
 import json
 
+from ginkgo.libs import GLOG
+
 app = typer.Typer(help=":bell: Notification sending", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -256,7 +258,8 @@ def send_template_notification(
                     key, value = var.split("=", 1)
                     try:
                         context[key] = json.loads(value)
-                    except:
+                    except Exception as e:
+                        GLOG.ERROR(f"Failed to parse variable '{key}' as JSON, using raw string: {e}")
                         context[key] = value
 
         # 收集所有唯一的用户 UUID
@@ -602,7 +605,8 @@ def notification_history(
                     else:
                         ts = datetime.fromtimestamp(timestamp)
                     timestamp_str = ts.strftime("%Y-%m-%d %H:%M")
-                except:
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to parse timestamp '{timestamp}': {e}")
                     timestamp_str = str(timestamp)[:16]
             else:
                 timestamp_str = "N/A"

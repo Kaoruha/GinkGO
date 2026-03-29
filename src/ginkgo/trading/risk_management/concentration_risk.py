@@ -23,8 +23,8 @@
 from typing import List, Dict, Optional
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
@@ -65,7 +65,7 @@ class ConcentrationRisk(BaseRiskManagement):
             max_top5_ratio(float): 前5大持仓最大比例，百分比
             warning_top5_ratio(float): 前5大持仓预警比例，百分比
         """
-        super(ConcentrationRisk, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._max_single_position_ratio = float(max_single_position_ratio)
         self._warning_single_position_ratio = float(warning_single_position_ratio)
         self._max_industry_ratio = float(max_industry_ratio)

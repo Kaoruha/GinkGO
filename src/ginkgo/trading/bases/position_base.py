@@ -13,9 +13,9 @@
 组合时间和上下文管理能力，为所有持仓组件提供基础功能
 """
 
-from ginkgo.trading.core.base import Base
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
 
 
 class PositionBase(TimeMixin, ContextMixin, Base):
@@ -36,7 +36,4 @@ class PositionBase(TimeMixin, ContextMixin, Base):
         Args:
             **kwargs: 传递给父类的参数
         """
-        # 显式初始化各个父类，确保正确的初始化顺序
-        TimeMixin.__init__(self, **kwargs)
-        ContextMixin.__init__(self, **kwargs)
-        Base.__init__(self)
+        super().__init__(**kwargs)

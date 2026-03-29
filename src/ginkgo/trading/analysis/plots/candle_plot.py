@@ -25,7 +25,7 @@ class CandlePlot(BasePlot):
     __abstract__ = False
 
     def __init__(self, title: str = "", *args, **kwargs) -> None:
-        super(CandlePlot, self).__init__(title, args, kwargs)
+        super().__init__(title, args, kwargs)
         self.ax1 = None
         self.ax2 = None
         self.infotips = None

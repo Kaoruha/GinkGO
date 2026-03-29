@@ -27,7 +27,7 @@ from ginkgo.libs import (
     RichProgress,
 )
 from ginkgo.data.models import MAdjustfactor, MBar, MStockInfo
-from ginkgo.trading import Tick
+from ginkgo.entities import Tick
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES, TICKDIRECTION_TYPES
 
 # --- Adjustfactor --- #

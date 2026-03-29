@@ -22,7 +22,8 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 
-from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, ensure_tick_table, time_logger, GLOG
+from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, time_logger, GLOG
+from ginkgo.data.decorators import ensure_tick_table
 from ginkgo.data import mappers
 from ginkgo.enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult

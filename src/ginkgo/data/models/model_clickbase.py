@@ -69,12 +69,22 @@ class MClickBase(Base, MBase):
             self.source = -1
 
     def __init__(self, **kwargs):
-        """初始化MClickBase实例，自动处理枚举字段转换"""
+        """初始化MClickBase实例，自动处理枚举字段转换和默认值"""
         super().__init__()
+        # 使用 __dict__ 检查避免 SQLAlchemy MappedColumn 描述符干扰
+        if 'uuid' not in self.__dict__:
+            self.__dict__['uuid'] = str(uuid.uuid4().hex)
+        if 'meta' not in self.__dict__:
+            self.__dict__['meta'] = "{}"
+        if 'desc' not in self.__dict__:
+            self.__dict__['desc'] = "This man is lazy, there is no description."
+        if 'timestamp' not in self.__dict__:
+            self.__dict__['timestamp'] = datetime.datetime.now()
+        if 'source' not in self.__dict__:
+            self.__dict__['source'] = -1
         # 处理source字段的枚举转换
         if 'source' in kwargs:
             self.set_source(kwargs['source'])
-            # 从kwargs中移除source，避免重复赋值
             del kwargs['source']
         # 设置其他字段
         for key, value in kwargs.items():

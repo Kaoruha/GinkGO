@@ -18,13 +18,13 @@ import time
 
 from ginkgo.workers.execution_node.node import ExecutionNode
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.entities.bar import Bar
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.trading.bases.sizer_base import SizerBase
 from ginkgo.trading.bases.risk_base import RiskBase
 from ginkgo.trading.bases.selector_base import SelectorBase
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities.signal import Signal
+from ginkgo.entities.order import Order
 from ginkgo.enums import DIRECTION_TYPES, FREQUENCY_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
 

@@ -17,7 +17,7 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTradeDay
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
-from ginkgo.trading.entities.tradeday import TradeDay
+from ginkgo.entities import TradeDay
 from ginkgo.data.crud.model_conversion import ModelList
 
 

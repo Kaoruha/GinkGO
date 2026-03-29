@@ -10,8 +10,8 @@
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
@@ -36,7 +36,7 @@ class LossLimitRisk(BaseRiskManagement):
         Args:
             loss_limit(float): 止损阈值，百分比（例如：10.0表示10%）
         """
-        super(LossLimitRisk, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._loss_limit = float(loss_limit)
         self.set_name(f"{name}_{self._loss_limit}%")
 

@@ -131,8 +131,8 @@ class BrokerRecoveryService:
                     "error",
                     error_message=f"Recovery failed: {str(e)}"
                 )
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"Failed to update broker {broker_uuid} status to error during recovery: {e}")
             return False
 
     def _check_data_consistency(self, broker) -> bool:

@@ -54,7 +54,7 @@ def evaluate_strategy(
     from ginkgo.trading.evaluation.evaluators.base_evaluator import SimpleEvaluator
     from ginkgo.trading.evaluation.rules.rule_registry import get_global_registry
     from ginkgo.trading.evaluation.rules.structural_rules import (
-        BaseStrategyInheritanceRule,
+        StrategyBaseInheritanceRule,
         CalMethodRequiredRule,
         CalSignatureValidationRule,
         SuperInitCallRule,
@@ -94,7 +94,7 @@ def evaluate_strategy(
 
     # Basic level rules
     registry.register_rule_class(
-        BaseStrategyInheritanceRule,
+        StrategyBaseInheritanceRule,
         ComponentType.STRATEGY,
         EvaluationLevel.BASIC,
     )

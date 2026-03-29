@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (调用cal方法)
-# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)、StrategyDataMixin (提供数据访问能力)
-# Role: MovingAverageCrossover均线交叉策略继承BaseStrategy基于均线金叉死叉
+# Downstream: StrategyBase (继承提供cal/initialize/finalize等核心能力)、StrategyDataMixin (提供数据访问能力)
+# Role: MovingAverageCrossover均线交叉策略继承StrategyBase基于均线金叉死叉
 
 
 
@@ -27,15 +27,15 @@ Moving Average Crossover Strategy (金叉死叉策略)
 from typing import List, Dict, Optional
 from datetime import datetime
 
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.strategy_base import StrategyBase
 from ginkgo.trading.interfaces.mixins.strategy_data_mixin import StrategyDataMixin
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.trading.events.price_update import EventPriceUpdate
 
 
-class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
+class MovingAverageCrossover(StrategyBase, StrategyDataMixin):
     """
     金叉死叉策略 (Moving Average Crossover Strategy)
 

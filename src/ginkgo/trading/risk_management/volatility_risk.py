@@ -23,8 +23,8 @@
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
@@ -59,7 +59,7 @@ class VolatilityRisk(BaseRiskManagement):
             lookback_period(int): 历史数据回看期，天数
             volatility_window(int): 波动率计算窗口，天数
         """
-        super(VolatilityRisk, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._max_volatility = float(max_volatility)
         self._warning_volatility = float(warning_volatility)
         self._lookback_period = lookback_period

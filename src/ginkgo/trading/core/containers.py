@@ -208,7 +208,7 @@ def _get_live_feeder_class():
 
 def _get_event_routing_center_class():
     """Lazy import for EventRoutingCenter class."""
-    from ginkgo.trading.routing.center import EventRoutingCenter
+    from ginkgo.trading.gateway.center import EventRoutingCenter
     return EventRoutingCenter
 
 # Execution services

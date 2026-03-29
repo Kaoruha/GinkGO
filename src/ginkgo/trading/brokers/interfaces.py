@@ -31,7 +31,7 @@ from ginkgo.libs import GLOG
 # 注意：这里采用TYPE_CHECKING避免循环导入
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from ginkgo.trading.entities.order import Order
+    from ginkgo.entities import Order
 
 
 class BrokerType(Enum):

@@ -17,6 +17,7 @@ import inspect
 import re
 from typing import List, Any
 
+from ginkgo.libs import GLOG
 from ginkgo.libs.validators.base_validator import BaseValidator, ValidationResult, ValidationLevel
 from ginkgo.libs.validators.validation_rules import ValidationRules
 
@@ -361,8 +362,8 @@ class SizerValidator(BaseValidator):
                             ]
                         )
                         
-                except:
-                    pass  # 无法获取源代码时忽略
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to get source code for risk management check: {e}")
             
             return ValidationResult(
                 is_valid=True,

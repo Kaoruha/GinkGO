@@ -16,7 +16,7 @@ from ginkgo.data.models import MStockInfo
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
-from ginkgo.trading.entities import StockInfo
+from ginkgo.entities import StockInfo
 from ginkgo.data.crud.model_conversion import ModelList
 
 
@@ -149,7 +149,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         Hook method: Convert StockInfo business objects to MStockInfo data models.
         只处理StockInfo业务对象，符合架构设计原则。
         """
-        from ginkgo.trading.entities import StockInfo
+        from ginkgo.entities import StockInfo
 
         # 只处理StockInfo业务对象
         if isinstance(item, StockInfo):

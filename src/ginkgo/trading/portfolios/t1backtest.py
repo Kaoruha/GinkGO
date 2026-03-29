@@ -24,9 +24,9 @@ from rich.console import Console
 from typing import List
 from decimal import Decimal
 from ginkgo.trading.bases.portfolio_base import PortfolioBase
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.position import Position
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Bar
+from ginkgo.entities import Position
+from ginkgo.entities import Signal
 from ginkgo.trading.events import (
     EventOrderAck,
     EventOrderPartiallyFilled,
@@ -35,7 +35,7 @@ from ginkgo.trading.events import (
     EventOrderCancelAck,
 )
 
-from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize, base_repr, to_decimal, GLOG
+from ginkgo.libs import datetime_normalize, base_repr, to_decimal, GLOG
 from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
 from ginkgo.data.models import MOrder
 from ginkgo.enums import (
@@ -56,7 +56,7 @@ class PortfolioT1Backtest(PortfolioBase):
     __abstract__ = False
 
     def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
-        super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # 使用依赖注入的通知服务，如果没有提供则自动创建
         self._notification_service = notification_service or NotificationServiceFactory.create_service()
         self._signals: List[Signal] = []  # 存储Signal对象，用于T+1延迟执行
@@ -165,7 +165,7 @@ class PortfolioT1Backtest(PortfolioBase):
         self.update_profit()
 
         GLOG.INFO("🔧 About to call super().advance_time")
-        super(PortfolioT1Backtest, self).advance_time(time, *args, **kwargs)
+        super().advance_time(time, *args, **kwargs)
         GLOG.INFO("✅ super().advance_time completed")
 
         # ===== 步骤3: 批处理模式处理 =====

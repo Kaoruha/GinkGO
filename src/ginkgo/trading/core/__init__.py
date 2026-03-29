@@ -17,9 +17,10 @@ Core Module - 核心基础设施
 - 公共工具和配置
 """
 
-from ginkgo.trading.core.base import Base
+from ginkgo.entities.base import Base
+from ginkgo.entities.identity import IdentityUtils
+from ginkgo.entities.file_info import FileInfo
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.core.file_info import FileInfo
 from ginkgo.trading.core.containers import Container
 
 __all__ = [

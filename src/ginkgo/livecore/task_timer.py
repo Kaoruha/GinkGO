@@ -15,7 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.interfaces.dtos import ControlCommandDTO
-from ginkgo.messaging import GinkgoProducer
+from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.libs import GCONF, GLOG
 from ginkgo.livecore.utils.decorators import safe_job_wrapper
 from ginkgo.libs.utils.common import retry

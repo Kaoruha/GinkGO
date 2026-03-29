@@ -20,15 +20,17 @@ from decimal import Decimal
 from ginkgo.libs import datetime_normalize, to_decimal, Number, GLOG
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
-from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import NamedMixin
 from ginkgo.trading.engines.base_engine import BaseEngine
 
 
-class MatchMakingBase(BacktestBase, TimeMixin):
+class MatchMakingBase(TimeMixin, NamedMixin, Base):
     def __init__(self, name: str = "MatchMaking", timestamp=None, *args, **kwargs):
-        BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
+        if timestamp is not None:
+            self.set_business_timestamp(timestamp)
         self._price_cache = pd.DataFrame()
         self._order_book: Dict[str, List] = {}
         self._commission_rate = Decimal("0.0003")
@@ -117,8 +119,8 @@ class MatchMakingBase(BacktestBase, TimeMixin):
         Returns:
             bool: 时间推进是否成功
         """
-        # 先调用TimeRelated的advance_time
-        result = TimeRelated.advance_time(self, time, *args, **kwargs)
+        # 先调用TimeMixin的advance_time
+        result = super().advance_time(time, *args, **kwargs)
 
         if result:
             # 撮合引擎专有逻辑：清理价格缓存和订单簿

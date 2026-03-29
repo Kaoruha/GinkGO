@@ -381,7 +381,7 @@ class EXECUTION_MODE(EnumBase):
     VOID = -1
     BACKTEST = 0                # 历史回测
     LIVE = 1                    # 实盘模式（简化）
-    SIMULATION = 2              # 模拟模式（简化）
+    PAPER = 2                   # 模拟盘模式
     PAPER_MANUAL = 3            # 模拟盘-人工确认
     LIVE_MANUAL = 4             # 实盘-人工确认
     PAPER_AUTO = 5              # 模拟盘-自动执行

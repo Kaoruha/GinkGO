@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import datetime_normalize, GLOG, to_decimal, cache_with_expiration
 
@@ -100,7 +100,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             engine_id=kwargs.get("engine_id", ""),
             run_id=kwargs.get("run_id", ""),
             account_type=ACCOUNT_TYPE.validate_input(kwargs.get("account_type", ACCOUNT_TYPE.PAPER)),
-            execution_mode=EXECUTION_MODE.validate_input(kwargs.get("execution_mode", EXECUTION_MODE.SIMULATION)),
+            execution_mode=EXECUTION_MODE.validate_input(kwargs.get("execution_mode", EXECUTION_MODE.PAPER)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MSignalTracker]:
@@ -129,7 +129,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 engine_id=getattr(item, 'engine_id', ''),
                 run_id=getattr(item, 'run_id', ''),
                 account_type=ACCOUNT_TYPE.validate_input(getattr(item, 'account_type', ACCOUNT_TYPE.PAPER)),
-                execution_mode=EXECUTION_MODE.validate_input(getattr(item, 'execution_mode', EXECUTION_MODE.SIMULATION)),
+                execution_mode=EXECUTION_MODE.validate_input(getattr(item, 'execution_mode', EXECUTION_MODE.PAPER)),
             )
         elif isinstance(item, dict):
             # 从字典创建追踪记录，使用模型构造函数

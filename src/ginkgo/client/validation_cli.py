@@ -84,7 +84,7 @@ def validate(
     from ginkgo.trading.evaluation.evaluators.base_evaluator import SimpleEvaluator
     from ginkgo.trading.evaluation.rules.rule_registry import get_global_registry
     from ginkgo.trading.evaluation.rules.structural_rules import (
-        BaseStrategyInheritanceRule,
+        StrategyBaseInheritanceRule,
         CalMethodRequiredRule,
         CalSignatureValidationRule,
         SuperInitCallRule,
@@ -246,7 +246,7 @@ def _validate_single_strategy(
     from ginkgo.trading.evaluation.evaluators.base_evaluator import SimpleEvaluator
     from ginkgo.trading.evaluation.rules.rule_registry import get_global_registry
     from ginkgo.trading.evaluation.rules.structural_rules import (
-        BaseStrategyInheritanceRule,
+        StrategyBaseInheritanceRule,
         CalMethodRequiredRule,
         CalSignatureValidationRule,
         SuperInitCallRule,
@@ -270,7 +270,7 @@ def _validate_single_strategy(
     registry = get_global_registry()
 
     # Register all validation rules
-    registry.register_rule_class(BaseStrategyInheritanceRule, ComponentType.STRATEGY)
+    registry.register_rule_class(StrategyBaseInheritanceRule, ComponentType.STRATEGY)
     registry.register_rule_class(CalMethodRequiredRule, ComponentType.STRATEGY)
     registry.register_rule_class(SuperInitCallRule, ComponentType.STRATEGY)
     registry.register_rule_class(CalSignatureValidationRule, ComponentType.STRATEGY)
@@ -536,12 +536,12 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
         sys.modules["strategy_module"] = module
         spec.loader.exec_module(module)
 
-        # Find strategy class (class that inherits from BaseStrategy)
-        from ginkgo.trading.strategies.base_strategy import BaseStrategy
+        # Find strategy class (class that inherits from StrategyBase)
+        from ginkgo.trading.strategies.strategy_base import StrategyBase
         strategy_class = None
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
-            if isinstance(attr, type) and issubclass(attr, BaseStrategy) and attr != BaseStrategy:
+            if isinstance(attr, type) and issubclass(attr, StrategyBase) and attr != StrategyBase:
                 strategy_class = attr
                 break
 
@@ -639,7 +639,7 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
 
                     # Create event from bar data
                     # Need to convert MBar to Bar entity first for EventPriceUpdate.set() to work
-                    from ginkgo.trading.entities.bar import Bar as BarEntity
+                    from ginkgo.entities import Bar as BarEntity
                     bar_entity = BarEntity.from_model(bar)
                     event = EventPriceUpdate(payload=bar_entity, name="PriceUpdate")
 

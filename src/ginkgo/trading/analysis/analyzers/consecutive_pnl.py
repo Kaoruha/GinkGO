@@ -19,7 +19,7 @@ class ConsecutivePnL(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "consecutive_pnl", *args, **kwargs):
-        super(ConsecutivePnL, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 在每天结束时激活计算
         self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
         # 在每天结束时记录到数据库

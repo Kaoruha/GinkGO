@@ -20,7 +20,7 @@ from typing import List, Dict, Optional
 from decimal import Decimal
 
 from ginkgo.trading.strategies.ml_strategy_base import StrategyMLBase
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
@@ -75,7 +75,7 @@ class StrategyMLPredictor(StrategyMLBase):
             'min_confidence': confidence_threshold
         })
         
-        super(StrategyMLPredictor, self).__init__(
+        super().__init__(
             name=name,
             model_path=model_path,
             signal_threshold=return_threshold,

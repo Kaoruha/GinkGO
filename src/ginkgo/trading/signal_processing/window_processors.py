@@ -18,7 +18,7 @@ from ginkgo.trading.time.clock import now as clock_now
 from typing import List
 
 from .batch_processor import TimeWindowBatchProcessor, WindowType, ProcessingMode
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 
 
 class DailyWindowProcessor(TimeWindowBatchProcessor):

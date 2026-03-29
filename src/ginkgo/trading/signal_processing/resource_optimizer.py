@@ -19,8 +19,8 @@ from enum import Enum
 from dataclasses import dataclass
 import math
 
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 

@@ -19,7 +19,7 @@ import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.strategy_interface import IStrategy
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
 

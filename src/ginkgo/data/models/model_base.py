@@ -9,7 +9,7 @@
 
 import pandas as pd
 from types import FunctionType, MethodType
-from sqlalchemy import Enum
+from enum import Enum
 
 
 class MBase:

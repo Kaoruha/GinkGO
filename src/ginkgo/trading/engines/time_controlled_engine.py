@@ -84,7 +84,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         Args:
             name: 引擎名称
-            mode: 运行模式（BACKTEST/LIVE/PAPER等）
+            mode: 运行模式（BACKTEST/LIVE等）
             timer_interval: 定时器间隔（秒）
             max_event_queue_size: 事件队列最大大小
             event_timeout_seconds: 事件超时时间（秒）
@@ -149,7 +149,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         self._start_date = start_date
         self._end_date = end_date
 
-        # 如果时间提供者已存在且是LogicalTimeProvider，直接设置时间范围
+        # 根据模式设置时间范围
         if self.mode == EXECUTION_MODE.BACKTEST and self._time_provider:
             if start_date:
                 self._time_provider.set_start_time(start_date)
@@ -182,11 +182,15 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
     def _initialize_components(self):
         """初始化引擎组件"""
 
+        # 初始化多数据馈送器列表
+        self._data_feeders: list = []
+
         # 根据模式初始化时间提供者
         if self.mode == EXECUTION_MODE.BACKTEST:
             # 回测模式：使用逻辑时间
             self._time_provider = LogicalTimeProvider(self._logical_time_start)
         else:
+            # LIVE模式：使用系统时间
             self._time_provider = SystemTimeProvider()
 
         # 注册为时间感知组件
@@ -199,8 +203,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             pass
 
         # 初始化并发控制（实盘模式）
-        if self.mode != EXECUTION_MODE.BACKTEST:
-            # 实盘模式：使用多线程
+        if self.mode == EXECUTION_MODE.BACKTEST:
+            pass
+        else:
+            # LIVE模式：使用多线程
             self._executor = ThreadPoolExecutor(
                 max_workers=self._max_concurrent_handlers, thread_name_prefix="EventHandler"
             )
@@ -282,7 +288,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                     # 回测：短超时，如果队列为空会抛出Empty异常
                     event = self._event_queue.get(timeout=0.01)
                 else:
-                    # 实盘：阻塞等待，事件驱动
+                    # LIVE：阻塞等待，事件驱动
                     event = self._event_queue.get(block=True)
 
                 if event:
@@ -292,7 +298,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                         self._process_backtest_event(event)
                         GLOG.INFO(f"{self.name}: ✅ Event processed, continuing loop...")
                     else:
-                        # 实盘模式：支持并发处理
+                        # LIVE模式：支持并发处理
                         if self._executor and self._concurrent_semaphore:
                             self._concurrent_semaphore.acquire()
                             self._executor.submit(self._process_live_event_safe, event)
@@ -300,8 +306,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                             self._process(event)
 
             except Empty:
-                # 回测模式：队列空闲，自动推进时间
+                # 根据模式处理队列空闲
                 if self.mode == EXECUTION_MODE.BACKTEST:
+                    # 回测模式：队列空闲，自动推进时间
                     GLOG.DEBUG(f"{self.name}: Queue empty, checking time advance")
 
                     # 统一检查回测是否结束
@@ -331,7 +338,6 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                         # 调用进度回调
                         self._report_progress(next_time)
                     # else: _get_next_time返回None的情况不会发生，因为_is_backtest_finished已经处理了
-                # 实盘模式：继续等待（由timer_loop定时推送事件）
                 continue
 
             except Exception as e:
@@ -348,8 +354,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             if not isinstance(time_provider, LogicalTimeProvider):
                 raise ValueError(f"BACKTEST mode requires LogicalTimeProvider, got {type(time_provider).__name__}")
         else:
+            # LIVE模式
             if not isinstance(time_provider, SystemTimeProvider):
-                raise ValueError(f"LIVE/PAPER mode requires SystemTimeProvider, got {type(time_provider).__name__}")
+                raise ValueError(f"LIVE mode requires SystemTimeProvider, got {type(time_provider).__name__}")
 
         self._time_provider = time_provider
         GLOG.INFO(f"Time provider set: {type(time_provider).__name__}")
@@ -540,7 +547,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
     def advance_time_to(self, target_time: datetime) -> bool:
         """推进时间到目标时间 - 简化版本（依赖Empty异常保证完成）"""
-        if self.mode != EXECUTION_MODE.BACKTEST:
+        if self.mode == EXECUTION_MODE.BACKTEST:
+            pass  # continue below
+        else:
+            # LIVE mode: no manual time advance
             return False
 
         try:
@@ -812,10 +822,29 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         GLOG.INFO(f"Auto-registered {registered_count} event handlers for {component.name} ({component_type})")
 
     def set_data_feeder(self, feeder) -> None:
-        """设置数据馈送器"""
-        # 统一使用_datafeeder字段名
+        """设置数据馈送器（向后兼容接口）
+
+        清空现有feeders并设置单个feeder，保持向后兼容性。
+        推荐使用 add_data_feeder() 支持多feeder场景。
+        """
+        self._data_feeders = []
+        self.add_data_feeder(feeder)
+
+    def add_data_feeder(self, feeder) -> None:
+        """添加数据馈送器到引擎
+
+        支持添加多个数据馈送器，每个feeder都会：
+        1. 绑定到引擎
+        2. 设置事件发布器
+        3. 传播时间提供者
+        4. 自动注册事件处理器
+        5. 传播给所有portfolio
+        """
+        self._data_feeders.append(feeder)
+        # 保持向后兼容：设置最后一个添加的feeder为主feeder
         self._datafeeder = feeder
-        GLOG.INFO(f"Data feeder {feeder.name} bound to engine")
+
+        GLOG.INFO(f"Data feeder {feeder.name} bound to engine (total: {len(self._data_feeders)})")
 
         # 绑定引擎到feeder
         feeder.bind_engine(self)
@@ -959,12 +988,15 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             # 回测：检查是否到达结束时间
             return not self._is_backtest_finished()
         else:
-            # 实盘：总是推进
+            # LIVE：总是推进
             return True
 
     def _is_backtest_finished(self) -> bool:
         """统一的回测结束检查"""
-        if self.mode != EXECUTION_MODE.BACKTEST:
+        if self.mode == EXECUTION_MODE.BACKTEST:
+            pass  # continue below
+        else:
+            # LIVE mode: never "finished" (runs indefinitely)
             return False
 
         _, end_time = self._time_provider.get_time_range()
@@ -1054,7 +1086,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             current_time = self._time_provider.now()
             return current_time + self._backtest_interval
         else:
-            # 实盘：返回当前系统时间
+            # LIVE：返回当前系统时间
             return datetime.now(timezone.utc)
 
     # === Timer任务实现 ===
@@ -1087,6 +1119,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         if self.mode == EXECUTION_MODE.BACKTEST:
             time_mode = TIME_MODE.LOGICAL
         else:
+            # LIVE模式
             time_mode = TIME_MODE.SYSTEM
 
         # 确定时间提供者类型

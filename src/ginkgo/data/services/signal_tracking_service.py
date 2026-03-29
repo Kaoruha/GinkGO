@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Signal
 from ginkgo.enums import EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import GLOG, time_logger, retry, to_decimal, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, List, Optional, Dict, Any
 
 if TYPE_CHECKING:
     from ginkgo.trading.bases.portfolio_base import PortfolioBase
-    from ginkgo.trading.routing import MatchMakingBase
+    from ginkgo.trading.gateway.base_matchmaking import MatchMakingBase
     from ginkgo.trading.events.base_event import EventBase
     from ginkgo.trading.feeders.base_feeder import BaseFeeder as BaseFeed
     from ginkgo.enums import EVENT_TYPES
@@ -58,7 +58,7 @@ class EventEngine(BaseEngine):
             timer_interval: 定时器间隔（秒）
         """
         # 调用父类构造
-        super(EventEngine, self).__init__(name=name, mode=mode, *args, **kwargs)
+        super().__init__(name=name, mode=mode, *args, **kwargs)
 
         # === 初始化事件处理核心组件 ===
         self._init_event_processing()
@@ -99,6 +99,10 @@ class EventEngine(BaseEngine):
         # 序列号管理
         self._sequence_number = 0
         self._sequence_lock = threading.Lock()
+
+        # 事件处理统计（公共查询接口使用）
+        self._processed_events_count: int = 0
+        self._processing_start_time = None
 
         # 统计信息 - 默认启用
         self._event_stats = {
@@ -263,7 +267,7 @@ class EventEngine(BaseEngine):
         """
         Start the engine
         """
-        if not super(EventEngine, self).start():
+        if not super().start():
             return False
 
         # 清除暂停标志，允许主循环继续运行
@@ -311,7 +315,7 @@ class EventEngine(BaseEngine):
         """
         Pause the Engine
         """
-        if not super(EventEngine, self).pause():
+        if not super().pause():
             return False
 
         # 设置暂停标志，通知主循环进入暂停状态
@@ -339,7 +343,7 @@ class EventEngine(BaseEngine):
         for line in traceback.format_stack()[-5:-1]:
             GLOG.INFO(f"    {line.strip()}")
 
-        if not super(EventEngine, self).stop():
+        if not super().stop():
             return False
 
         # 设置停止标志
@@ -442,10 +446,9 @@ class EventEngine(BaseEngine):
             # 统计成功 - 强制执行
             with self._stats_lock:
                 self._event_stats['completed_events'] += 1
-
-            # 调用父类的事件计数机制（如果存在）
-            if hasattr(super(), '_increment_event_count'):
-                super()._increment_event_count()
+                self._processed_events_count += 1
+                if self._processing_start_time is None:
+                    self._processing_start_time = time.time()
 
         except Exception as e:
             # 统计失败 - 强制执行
@@ -591,7 +594,10 @@ class EventEngine(BaseEngine):
                 'total_events': 0,
                 'completed_events': 0,
                 'failed_events': 0,
+                'processing_start_time': None,
             }
+            self._processed_events_count = 0
+            self._processing_start_time = None
         GLOG.INFO("Event statistics reset")
 
     def _enhance_event(self, event: "EventBase") -> "EventBase":

@@ -19,8 +19,8 @@ import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.strategy_interface import IStrategy, IMLStrategy
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.entities import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
 
@@ -35,7 +35,7 @@ class StrategyAdapter(BaseAdapter):
     def can_adapt(self, source: Any, target_type: Type = None) -> bool:
         """检查是否可以适配"""
         # 检查源对象类型
-        if not (isinstance(source, BaseStrategy) or isinstance(source, IStrategy)):
+        if not (isinstance(source, StrategyBase) or isinstance(source, IStrategy)):
             return False
         
         # 检查目标类型
@@ -65,7 +65,7 @@ class StrategyAdapter(BaseAdapter):
                 return source
             
             # 根据源策略类型选择适配方法
-            if isinstance(source, BaseStrategy):
+            if isinstance(source, StrategyBase):
                 return self._adapt_base_strategy(source, target_type, **kwargs)
             elif hasattr(source, 'strategy_type') and source.strategy_type == STRATEGY_TYPES.ML:
                 return self._adapt_ml_strategy(source, target_type, **kwargs)
@@ -75,9 +75,9 @@ class StrategyAdapter(BaseAdapter):
         except Exception as e:
             raise AdapterError(f"策略适配失败: {e}")
     
-    def _adapt_base_strategy(self, strategy: BaseStrategy, target_type: Type = None, **kwargs) -> IStrategy:
+    def _adapt_base_strategy(self, strategy: StrategyBase, target_type: Type = None, **kwargs) -> IStrategy:
         """
-        适配传统BaseStrategy策略
+        适配传统StrategyBase策略
         
         Args:
             strategy: 传统策略对象
@@ -87,7 +87,7 @@ class StrategyAdapter(BaseAdapter):
         Returns:
             IStrategy: 适配后的策略
         """
-        return BaseStrategyAdapter(strategy, **kwargs)
+        return StrategyBaseAdapter(strategy, **kwargs)
     
     def _adapt_ml_strategy(self, strategy: Any, target_type: Type = None, **kwargs) -> IStrategy:
         """
@@ -137,11 +137,11 @@ class StrategyAdapter(BaseAdapter):
         }
 
 
-class BaseStrategyAdapter(IStrategy):
+class StrategyBaseAdapter(IStrategy):
     """传统策略适配器"""
     
-    def __init__(self, base_strategy: BaseStrategy, **kwargs):
-        super().__init__(name=getattr(base_strategy, 'name', 'AdaptedBaseStrategy'))
+    def __init__(self, base_strategy: StrategyBase, **kwargs):
+        super().__init__(name=getattr(base_strategy, 'name', 'AdaptedStrategyBase'))
         self.base_strategy = base_strategy
         self._strategy_type = STRATEGY_TYPES.TRADITIONAL
         self._supports_vectorization = kwargs.get('supports_vectorization', False)

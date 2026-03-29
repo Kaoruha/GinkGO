@@ -26,22 +26,23 @@ Ginkgo Backtest Module - 量化回测框架
 """
 
 # === 核心基础设施 ===
-from ginkgo.trading.core.base import Base
+from ginkgo.entities.base import Base
+from ginkgo.entities.identity import IdentityUtils
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.core.file_info import FileInfo
+from ginkgo.entities.file_info import FileInfo
 from ginkgo.trading.core.containers import Container
 
 # === 业务实体对象 ===
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.order import Order
-from ginkgo.trading.entities.position import Position
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.stockinfo import StockInfo
-from ginkgo.trading.entities.tick import Tick
-from ginkgo.trading.entities.tradeday import TradeDay
-from ginkgo.trading.entities.transfer import Transfer
-from ginkgo.trading.entities.adjustfactor import Adjustfactor
-from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.entities.bar import Bar
+from ginkgo.entities.order import Order
+from ginkgo.entities.position import Position
+from ginkgo.entities.signal import Signal
+from ginkgo.entities.stockinfo import StockInfo
+from ginkgo.entities.tick import Tick
+from ginkgo.entities.tradeday import TradeDay
+from ginkgo.entities.transfer import Transfer
+from ginkgo.entities.adjustfactor import Adjustfactor
+from ginkgo.entities.mixins import TimeMixin, ContextMixin, NamedMixin, EngineBindableMixin
 
 # === 计算模块（向后兼容） ===
 # 从computation模块导入所有技术指标
@@ -62,7 +63,7 @@ __all__ = [
     
     # 引擎和核心组件（暂时注释，等修复后启用）
     # "HistoricEngine", "LiveEngine", "BasePortfolio", 
-    # "BaseStrategy", "BaseAnalyzer",
+    # "StrategyBase", "BaseAnalyzer",
     
     # 技术指标（从computation导入）
     "BaseIndicator", "SimpleMovingAverage", "ExponentialMovingAverage",

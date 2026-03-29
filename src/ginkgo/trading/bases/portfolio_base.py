@@ -24,18 +24,18 @@ from datetime import timedelta
 
 if TYPE_CHECKING:
     from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-    from ginkgo.trading.strategies import BaseStrategy
+    from ginkgo.trading.strategies import StrategyBase
     from ginkgo.trading.signal_processing.batch_processor import TimeWindowBatchProcessor
     from ginkgo.trading.engines.base_engine import BaseEngine
 else:
     # 运行时导入，避免循环依赖
     from ginkgo.trading.engines.base_engine import BaseEngine
 
-from ginkgo.trading.core.base import Base
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
-from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
-from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.entities.mixins import NamedMixin
 from ginkgo.trading.bases.selector_base import SelectorBase
 from ginkgo.trading.bases.risk_base import RiskBase
 from ginkgo.trading.bases.sizer_base import SizerBase
@@ -49,8 +49,8 @@ from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderExpired,
     EventOrderCancelAck,
 )
-from ginkgo.trading.entities.position import Position
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Position
+from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES, DEFAULT_ANALYZER_SET
 from ginkgo.libs import GCONF, GLOG, to_decimal
 
@@ -97,23 +97,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             default_analyzer_set: 默认分析器集合类型
             **kwargs: 传递给父类的参数
         """
-        # 显式初始化各个Mixin，确保正确的初始化顺序
-
-        # TimeMixin初始化
-        TimeMixin.__init__(self, **kwargs)
-
-        # ContextMixin初始化
-        ContextMixin.__init__(self, **kwargs)
-
-        # EngineBindableMixin初始化
-        EngineBindableMixin.__init__(self, **kwargs)
-
-        # NamedMixin初始化 - 传递name参数
-        NamedMixin.__init__(self, name=name, **kwargs)
-
-
-        # Base初始化 - 传递kwargs（包括uuid参数）
-        Base.__init__(self, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
 
         # 标记为 Portfolio 组件（用于 ContextMixin 识别）
         self._is_portfolio = True
@@ -129,7 +113,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._frozen: Decimal = Decimal("0")
         self._fee = Decimal("0")
         self._positions: dict = {}
-        self._strategies: List["BaseStrategy"] = []
+        self._strategies: List["StrategyBase"] = []
         self._sizer: SizerBase = None
         self._risk_managers: List[RiskBase] = []
         self._selectors = []  # 支持多个selector
@@ -517,8 +501,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         if not isinstance(engine, BaseEngine):
             raise TypeError(f"Expected BaseEngine, got {type(engine)}")
 
-        # 绑定引擎到portfolio自身 - 使用统一的ContextMixin
-        ContextMixin.bind_engine(self, engine)
+        # 绑定引擎到portfolio自身 - ContextMixin.bind_engine在MRO中
+        super().bind_engine(engine)
 
         # 如果引擎有TimeProvider，设置给Portfolio
         if engine._time_provider is not None:
@@ -574,7 +558,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         if risk not in self.risk_managers:
             self.risk_managers.append(risk)
 
-    def add_strategy(self, strategy: "BaseStrategy") -> None:
+    def add_strategy(self, strategy: "StrategyBase") -> None:
         if strategy not in self.strategies:
             self.strategies.append(strategy)
             # 绑定portfolio引用给strategy

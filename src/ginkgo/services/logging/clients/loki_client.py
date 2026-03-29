@@ -4,6 +4,8 @@
 import requests
 from typing import Dict, List, Any, Optional
 
+from ginkgo.libs import GCONF
+
 
 class LokiClient:
     """Grafana Loki HTTP 客户端
@@ -14,13 +16,13 @@ class LokiClient:
         base_url: Loki API endpoint URL
     """
 
-    def __init__(self, base_url: str = "http://localhost:3100"):
+    def __init__(self, base_url: str = None):
         """初始化 Loki 客户端
 
         Args:
-            base_url: Loki API endpoint URL
+            base_url: Loki API endpoint URL，默认从 GCONF 读取
         """
-        self.base_url = base_url
+        self.base_url = base_url or GCONF.LOKI_BASE_URL
 
     # T042: 查询日志（调用 Loki HTTP API）
     def query(self, logql: str, limit: int = 100) -> List[Dict]:

@@ -16,6 +16,8 @@ import termios
 import tty
 from typing import Optional, Tuple
 
+from ginkgo.libs import GLOG
+
 
 class TerminalLine:
     """
@@ -209,7 +211,8 @@ class TerminalLine:
         finally:
             try:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            except:
+            except Exception as e:
+                GLOG.ERROR(f"Failed to restore terminal settings: {e}")
                 pass
     
     def _paginate_display(self, data: pd.DataFrame):

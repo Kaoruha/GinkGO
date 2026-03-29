@@ -16,4 +16,4 @@ class NoRiskManagement(BaseRiskManagement):
     __abstract__ = False
 
     def __init__(self, name: str = "norisk", *args, **kwargs):
-        super(NoRiskManagement, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)

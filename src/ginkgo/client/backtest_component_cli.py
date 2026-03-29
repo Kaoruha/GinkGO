@@ -308,7 +308,8 @@ def validate(
             console.print(
                 f":mag: [bold blue]Validating component[/bold blue] [cyan]{component}[/cyan] as [green]{type}[/green]..."
             )
-            result = validate_component(type, component_id=component)
+            from ginkgo.data.operations import get_file
+            result = validate_component(type, component_id=component, loader=get_file)
         else:
             console.print(
                 f":mag: [bold blue]Validating file[/bold blue] [cyan]{file_path}[/cyan] as [green]{type}[/green]..."

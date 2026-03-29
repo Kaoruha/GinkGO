@@ -60,7 +60,7 @@ class EventComponentTimeAdvance(EventBase):
             target_time: 目标时间
             component_type: 组件类型 ("portfolio" | "feeder")
         """
-        super(EventComponentTimeAdvance, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # 创建信息载体并封装到payload中
         info = ComponentTimeAdvanceInfo(target_time, component_type)

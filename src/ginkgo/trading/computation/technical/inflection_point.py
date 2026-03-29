@@ -19,7 +19,7 @@ class InflectionPoint(BaseIndicator):
     """
 
     def __init__(self, name: str = "ip", window: int = 4, *args, **kwargs):
-        super(InflectionPoint, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._window = window
 
     def cal(self, raw: pd.DataFrame, *args, **kwargs) -> None:
