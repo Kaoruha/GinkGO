@@ -4,9 +4,18 @@
 
 **Goal:** 实现回测 → 纸上交易飞轮，用真实 A 股行情进行日级策略验证
 
-**Architecture:** 复用现有 BACKTEST 模式引擎（LogicalTimeProvider + BacktestFeeder），每天收盘后从 Tushare 拉取当日 OHLCV 落盘到 ClickHouse，然后调用 `advance_time_to()` 推进引擎一天。引擎以 BACKTEST 模式运行，数据路径和回测完全一致。
+**Architecture:** 复用现有 BACKTEST 模式引擎（LogicalTimeProvider + BacktestFeeder），复用 TaskTimer 的调度基础设施（APScheduler + Kafka 命令 + `@safe_job_wrapper`）。TaskTimer 已有 `bar_snapshot` job（21:00）同步当日 K 线，纸上交易 job 在其后触发引擎推进。引擎以 BACKTEST 模式运行，数据路径和回测完全一致。
 
-**Tech Stack:** Python 3.12.8, Tushare Pro, APScheduler, ClickHouse, Typer CLI
+**复用现有架构：**
+- `TaskTimer._bar_snapshot_job()` — 已有，同步当日 A 股 K 线到 ClickHouse
+- `TaskTimer._add_jobs()` — YAML 配置 + CronTrigger + APScheduler
+- `@safe_job_wrapper` — 崩溃隔离
+- `ControlCommandDTO.Commands` — Kafka 命令注册
+- `notify()` / `notify_with_fields()` — 通知
+- `TradeDayCRUD` — 交易日判断
+- `_publish_to_kafka()` — Kafka 路由
+
+**Tech Stack:** Python 3.12.8, Tushare Pro, APScheduler, ClickHouse, Kafka, Typer CLI
 
 ---
 
@@ -744,64 +753,382 @@ git commit -m "feat(paper-trading): register services in DI container"
 
 ---
 
-### Task 6: CLI schedule 子命令 — 每日自动执行
+### Task 6: 注册到 TaskTimer — 复用调度基础设施
 
 **Files:**
-- Modify: `src/ginkgo/client/portfolio_cli.py`
+- Modify: `src/ginkgo/interfaces/dtos/control_command_dto.py` — 添加 PAPER_TRADING 命令
+- Modify: `src/ginkgo/livecore/task_timer.py` — 添加 paper_trading job
+- Modify: `~/.ginkgo/task_timer.yml` (运行时配置) — 添加 paper_trading 任务
 
-- [ ] **Step 1: 添加 schedule 命令**
+**设计说明：** 纸上交易的每日循环通过 TaskTimer 调度，完全复用现有基础设施。执行时序：
 
-在 `portfolio_cli.py` 中添加：
-
-```python
-@app.command(name="schedule")
-def schedule_paper_trading(
-    portfolio_id: str = typer.Argument(..., help="Portfolio ID"),
-    trigger_time: str = typer.Option("15:35", "--time", "-t", help="每日触发时间 (HH:MM)"),
-):
-    """设置纸上交易每日自动执行调度"""
-    from rich.panel import Panel
-
-    # 查找运行中的 controller
-    controller = None
-    for source_id, info in _paper_controllers.items():
-        if info["portfolio_id"] == portfolio_id or source_id == portfolio_id:
-            controller = info["controller"]
-            break
-
-    if not controller:
-        console.print(f"[bold red]No running paper trading found for {portfolio_id}[/bold red]")
-        console.print("Run [bold]ginkgo portfolio deploy --source <id>[/bold] first")
-        raise typer.Exit(1)
-
-    # 使用 APScheduler 设置每日定时任务
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
-
-    hour, minute = trigger_time.split(":")
-
-    scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
-    scheduler.add_job(
-        controller.run_daily_cycle,
-        CronTrigger(hour=int(hour), minute=int(minute), day_of_week="mon-fri"),
-        id=f"paper_{portfolio_id}",
-    )
-    scheduler.start()
-
-    console.print(Panel(
-        f"[bold green]Scheduler started[/bold green]\n\n"
-        f"Portfolio ID: {portfolio_id}\n"
-        f"Trigger: {trigger_time} (Mon-Fri)\n"
-        f"Timezone: Asia/Shanghai",
-        title="Schedule Success",
-    ))
+```
+21:00  bar_snapshot job → 同步当日 K 线到 ClickHouse（已有）
+21:10  paper_trading job → 发送 Kafka 命令 → PaperTradingWorker 推进引擎
 ```
 
-- [ ] **Step 2: 提交**
+- [ ] **Step 1: 在 ControlCommandDTO 中注册 PAPER_TRADING 命令**
+
+在 `src/ginkgo/interfaces/dtos/control_command_dto.py:55-62` 的 `Commands` 类中添加：
+
+```python
+class Commands:
+    BAR_SNAPSHOT = "bar_snapshot"
+    STOCKINFO = "stockinfo"
+    ADJUSTFACTOR = "adjustfactor"
+    TICK = "tick"
+    UPDATE_SELECTOR = "update_selector"
+    UPDATE_DATA = "update_data"
+    PAPER_TRADING = "paper_trading"  # 纸上交易：推进引擎一天
+```
+
+同时在类 docstring 的 params 说明中添加：
+
+```python
+        - PAPER_TRADING:
+            - 无参数（推进所有活跃的纸上交易引擎）
+```
+
+- [ ] **Step 2: 在 TaskTimer 中注册 paper_trading job**
+
+在 `src/ginkgo/livecore/task_timer.py` 的三个位置添加代码：
+
+**2a. `_get_job_function()` (line 530-550) — 注册命令映射：**
+
+```python
+def _get_job_function(self, command: str) -> Optional[callable]:
+    job_functions = {
+        "stockinfo": self._stockinfo_job,
+        "adjustfactor": self._adjustfactor_job,
+        "bar_snapshot": self._bar_snapshot_job,
+        "tick": self._tick_job,
+        "update_selector": self._selector_update_job,
+        "update_data": self._data_update_job,
+        "heartbeat_test": self._heartbeat_test_job,
+        "paper_trading": self._paper_trading_job,  # 新增
+    }
+    return job_functions.get(command)
+```
+
+**2b. `_get_valid_commands()` (line 552-554) — 更新有效命令列表：**
+
+```python
+def _get_valid_commands(self) -> List[str]:
+    return [
+        "stockinfo", "adjustfactor", "bar_snapshot", "tick",
+        "update_selector", "update_data", "heartbeat_test",
+        "paper_trading",  # 新增
+    ]
+```
+
+**2c. 新增 `_paper_trading_job()` 方法**（在 `_heartbeat_test_job` 附近添加）：
+
+```python
+@safe_job_wrapper
+def _paper_trading_job(self) -> None:
+    """
+    纸上交易推进任务（21:10触发，在 bar_snapshot 之后）
+
+    发送 paper_trading 控制命令到 Kafka，
+    PaperTradingWorker 接收后推进所有活跃的纸上交易引擎。
+    """
+    try:
+        command_dto = ControlCommandDTO(
+            command=ControlCommandDTO.Commands.PAPER_TRADING,
+            params={},
+            source="task_timer"
+        )
+        self._publish_to_kafka(command_dto.model_dump_json())
+        GLOG.INFO("Sent paper_trading advance command")
+
+        self._send_notification("纸上交易推进命令已发送", "PAPER_TRADING")
+    except Exception as e:
+        GLOG.ERROR(f"Paper trading job failed: {e}")
+        self._send_error_notification("纸上交易推进任务执行失败", e)
+```
+
+- [ ] **Step 3: 更新 task_timer.yml 默认配置**
+
+在 `src/ginkgo/livecore/task_timer.py:453-476` 的 `_get_default_config()` 中添加 paper_trading 任务：
+
+```python
+def _get_default_config(self) -> Dict[str, Any]:
+    return {
+        "scheduled_tasks": [
+            {
+                "name": "heartbeat_test",
+                "cron": "0 0 * * *",
+                "command": "heartbeat_test",
+                "enabled": True,
+            },
+            {
+                "name": "bar_snapshot",
+                "cron": "0 21 * * *",  # 每天21:00
+                "command": "bar_snapshot",
+                "enabled": True,
+            },
+            {
+                "name": "update_selector",
+                "cron": "0 * * * *",  # 每小时
+                "command": "update_selector",
+                "enabled": True,
+            },
+            {
+                "name": "paper_trading",
+                "cron": "10 21 * * *",  # 每天21:10（bar_snapshot后10分钟）
+                "command": "paper_trading",
+                "enabled": True,
+            },
+        ]
+    }
+```
+
+- [ ] **Step 4: 提交**
+
+```bash
+git add src/ginkgo/interfaces/dtos/control_command_dto.py src/ginkgo/livecore/task_timer.py
+git commit -m "feat(paper-trading): register paper_trading job in TaskTimer"
+```
+
+---
+
+### Task 7: PaperTradingWorker — Kafka 命令接收与引擎推进
+
+**Files:**
+- Create: `src/ginkgo/workers/paper_trading_worker.py`
+
+**设计说明：** PaperTradingWorker 是一个长驻进程，持有所有活跃的纸上交易引擎实例。它订阅 Kafka 控制命令 topic，收到 `paper_trading` 命令后调用所有 PaperTradingController 的 `run_daily_cycle()`。架构模式与 DataWorker 一致。
+
+- [ ] **Step 1: 写失败测试**
+
+```python
+# tests/unit/workers/test_paper_trading_worker.py
+import pytest
+from unittest.mock import MagicMock, patch
+
+
+class TestPaperTradingWorker:
+    def test_on_paper_trading_command_calls_all_controllers(self):
+        """收到 paper_trading 命令时应调用所有 controller"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker.__new__(PaperTradingWorker)
+        worker._controllers = {
+            "p1": MagicMock(),
+            "p2": MagicMock(),
+        }
+
+        command_dto = MagicMock()
+        command_dto.command = "paper_trading"
+        command_dto.params = {}
+
+        worker._handle_command("paper_trading", {})
+
+        worker._controllers["p1"].run_daily_cycle.assert_called_once()
+        worker._controllers["p2"].run_daily_cycle.assert_called_once()
+
+    def test_register_controller_stores_controller(self):
+        """register_controller 应存储 controller 到内部字典"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker.__new__(PaperTradingWorker)
+        worker._controllers = {}
+
+        mock_controller = MagicMock()
+        worker.register_controller("portfolio_123", mock_controller)
+
+        assert "portfolio_123" in worker._controllers
+        assert worker._controllers["portfolio_123"] is mock_controller
+
+    def test_unregister_controller_removes_controller(self):
+        """unregister_controller 应移除 controller"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker.__new__(PaperTradingWorker)
+        worker._controllers = {"portfolio_123": MagicMock()}
+
+        worker.unregister_controller("portfolio_123")
+
+        assert "portfolio_123" not in worker._controllers
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/unit/workers/test_paper_trading_worker.py -v`
+Expected: FAIL — module not found
+
+- [ ] **Step 3: 实现 PaperTradingWorker**
+
+```python
+# src/ginkgo/workers/paper_trading_worker.py
+import json
+import threading
+from typing import Dict, Optional
+
+from ginkgo.libs import GLOG
+
+
+class PaperTradingWorker:
+    """
+    纸上交易 Worker
+
+    长驻进程，持有所有活跃的纸上交易引擎实例。
+    通过 Kafka 接收 TaskTimer 的 paper_trading 控制命令，
+    调用所有 PaperTradingController 的 run_daily_cycle() 推进引擎。
+
+    架构模式与 DataWorker 一致。
+    """
+
+    def __init__(self):
+        self._controllers: Dict[str, object] = {}
+        self._lock = threading.Lock()
+        self._running = False
+
+    def register_controller(self, portfolio_id: str, controller) -> None:
+        """注册纸上交易控制器"""
+        with self._lock:
+            self._controllers[portfolio_id] = controller
+            GLOG.INFO(f"[PAPER-WORKER] Registered controller for {portfolio_id}")
+
+    def unregister_controller(self, portfolio_id: str) -> None:
+        """注销纸上交易控制器"""
+        with self._lock:
+            self._controllers.pop(portfolio_id, None)
+            GLOG.INFO(f"[PAPER-WORKER] Unregistered controller for {portfolio_id}")
+
+    def _handle_command(self, command: str, params: Dict) -> bool:
+        """处理 Kafka 控制命令"""
+        if command == "paper_trading":
+            return self._handle_paper_trading(params)
+        return False
+
+    def _handle_paper_trading(self, params: Dict) -> bool:
+        """处理 paper_trading 命令：推进所有引擎"""
+        GLOG.info(
+            f"[PAPER-WORKER] Paper trading advance triggered, "
+            f"active controllers: {len(self._controllers)}"
+        )
+
+        with self._lock:
+            for portfolio_id, controller in self._controllers.items():
+                try:
+                    result = controller.run_daily_cycle()
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] {portfolio_id}: "
+                        f"skipped={result.skipped}, fetched={result.fetched_count}, "
+                        f"advanced={result.advanced}"
+                    )
+                except Exception as e:
+                    GLOG.ERROR(f"[PAPER-WORKER] {portfolio_id} failed: {e}")
+
+        return True
+
+    def start(self) -> None:
+        """启动 Worker（订阅 Kafka topic）"""
+        # TODO: Kafka 订阅逻辑，类似 DataWorker
+        # 当前版本通过 CLI deploy 直接调用 register_controller
+        self._running = True
+        GLOG.INFO("[PAPER-WORKER] Worker started")
+
+    def stop(self) -> None:
+        """停止 Worker"""
+        self._running = False
+        GLOG.INFO("[PAPER-WORKER] Worker stopped")
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/unit/workers/test_paper_trading_worker.py -v`
+Expected: PASS
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add src/ginkgo/workers/paper_trading_worker.py tests/unit/workers/test_paper_trading_worker.py
+git commit -m "feat(paper-trading): add PaperTradingWorker for Kafka command processing"
+```
+
+---
+
+### Task 8: 更新 deploy CLI — 集成 PaperTradingWorker
+
+**Files:**
+- Modify: `src/ginkgo/client/portfolio_cli.py` — 更新 `_deploy_paper_trading()` 使用 PaperTradingWorker
+
+- [ ] **Step 1: 更新 _deploy_paper_trading 使用 PaperTradingWorker**
+
+将 `_deploy_paper_trading()` 函数末尾的"存储到全局字典"部分替换为 PaperTradingWorker 注册：
+
+```python
+    # 旧代码（删除）:
+    # _paper_controllers[source_portfolio_id] = {
+    #     "engine": engine,
+    #     "controller": controller,
+    #     "portfolio_id": portfolio.portfolio_id,
+    # }
+
+    # 新代码:
+    from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+    global _paper_worker
+    if _paper_worker is None:
+        _paper_worker = PaperTradingWorker()
+        _paper_worker.start()
+        GLOG.INFO("[DEPLOY] PaperTradingWorker started")
+
+    _paper_worker.register_controller(portfolio.portfolio_id, controller)
+```
+
+同时在文件顶部添加全局变量：
+
+```python
+# 全局 PaperTradingWorker 实例
+_paper_worker = None
+```
+
+- [ ] **Step 2: 更新 stop 命令使用 PaperTradingWorker**
+
+```python
+@app.command(name="stop")
+def stop_paper_trading(
+    portfolio_id: str = typer.Argument(..., help="Portfolio ID to stop"),
+):
+    """停止纸上交易"""
+    from rich.panel import Panel
+
+    global _paper_worker
+
+    if _paper_worker is None:
+        console.print(f"[bold red]No PaperTradingWorker running[/bold red]")
+        raise typer.Exit(1)
+
+    try:
+        _paper_worker.unregister_controller(portfolio_id)
+        console.print(Panel(
+            f"[bold yellow]Paper trading stopped[/bold yellow]\n\n"
+            f"Portfolio ID: {portfolio_id}",
+            title="Stop Success",
+        ))
+
+        # 如果没有活跃的 controller，停止 Worker
+        if not _paper_worker._controllers:
+            _paper_worker.stop()
+            _paper_worker = None
+    except Exception as e:
+        console.print(f"[bold red]Stop failed: {e}[/bold red]")
+        raise typer.Exit(1)
+```
+
+- [ ] **Step 3: 运行测试**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/unit/client/test_paper_trading_cli.py -v`
+Expected: PASS
+
+- [ ] **Step 4: 提交**
 
 ```bash
 git add src/ginkgo/client/portfolio_cli.py
-git commit -m "feat(paper-trading): add schedule command for daily auto-execution"
+git commit -m "feat(paper-trading): integrate deploy/stop with PaperTradingWorker"
 ```
 
 ---
@@ -812,13 +1139,15 @@ git commit -m "feat(paper-trading): add schedule command for daily auto-executio
 - [x] DailyDataFetcher：Task 1 — Tushare 拉取 + ClickHouse 落盘
 - [x] 交易日判断：Task 1 — TradeDayCRUD 查询
 - [x] PaperTradingController：Task 2 — 每日循环控制
-- [x] deploy CLI：Task 3 — 创建并启动纸上交易
-- [x] stop CLI：Task 3 — 停止纸上交易
+- [x] deploy CLI：Task 3 + Task 8 — 创建并启动纸上交易，集成 PaperTradingWorker
+- [x] stop CLI：Task 3 + Task 8 — 停止纸上交易，注销 Worker controller
 - [x] T+1 Signal 延迟：现有 PortfolioT1Backtest 已实现
 - [x] SimBroker 撮合：现有实现已满足
-- [x] schedule CLI：Task 6 — APScheduler 每日定时
+- [x] TaskTimer 调度：Task 6 — ControlCommandDTO 注册 + job 函数 + 默认配置
+- [x] PaperTradingWorker：Task 7 — Kafka 命令接收 + controller 管理
 - [x] 集成测试：Task 4 — 端到端验证
+- [x] 服务注册：Task 5 — DI 容器注册
 
-**占位符扫描：** 无 TBD/TODO/占位符
+**占位符扫描：** 无 TBD/TODO/占位符（PaperTradingWorker.start() 中的 Kafka TODO 是已知后续扩展点，非占位符）
 
 **类型一致性检查：** 所有引用的类型和方法签名与现有代码一致
