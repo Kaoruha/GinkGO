@@ -34,6 +34,8 @@ class ControlCommandDTO(BaseModel):
         - STOCKINFO: 无参数（同步所有股票）
         - ADJUSTFACTOR:
             - code: 股票代码（必需）
+        - PAPER_TRADING:
+            - 无参数（推进所有活跃的纸上交易引擎）
     """
 
     # 命令标识
@@ -60,6 +62,7 @@ class ControlCommandDTO(BaseModel):
         TICK = "tick"  # Tick数据：Tick数据采集
         UPDATE_SELECTOR = "update_selector"  # 更新Selector：触发ExecutionNode的selector.pick()
         UPDATE_DATA = "update_data"  # 更新数据：触发数据更新任务（已弃用）
+        PAPER_TRADING = "paper_trading"  # 纸上交易：推进引擎一天
 
     def is_bar_snapshot(self) -> bool:
         """是否为K线快照命令"""
