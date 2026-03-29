@@ -4,10 +4,10 @@
 
 **Goal:** 实现回测 → 纸上交易飞轮，用真实 A 股行情进行日级策略验证
 
-**Architecture:** 复用现有 BACKTEST 模式引擎（LogicalTimeProvider + BacktestFeeder），复用 TaskTimer 的调度基础设施（APScheduler + Kafka 命令 + `@safe_job_wrapper`）。TaskTimer 已有 `bar_snapshot` job（21:00）同步当日 K 线到 ClickHouse，纸上交易 job 在其后触发引擎推进。引擎以 BACKTEST 模式运行，数据路径和回测完全一致。
+**Architecture:** 复用现有 BACKTEST 模式引擎（LogicalTimeProvider + BacktestFeeder），复用 TaskTimer 的调度基础设施（APScheduler + Kafka 命令 + `@safe_job_wrapper`）。PaperTradingController 不依赖 `bar_snapshot` 的异步完成，而是自行调用 `bar_service.sync_range_batch()` 同步拉取 portfolio 关注的少量股票（5-20只），拉完即推进引擎，确保数据就绪。
 
 **复用现有架构：**
-- `TaskTimer._bar_snapshot_job()` — 已有，同步当日 A 股 K 线到 ClickHouse（替代 DailyDataFetcher）
+- `bar_service.sync_range_batch()` — 同步拉取指定股票的 K 线数据（Controller 自行调用）
 - `TaskTimer._add_jobs()` — YAML 配置 + CronTrigger + APScheduler
 - `@safe_job_wrapper` — 崩溃隔离
 - `ControlCommandDTO.Commands` — Kafka 命令注册
@@ -25,7 +25,7 @@
 - Create: `src/ginkgo/trading/services/paper_trading_controller.py`
 - Test: `tests/unit/trading/services/test_paper_trading_controller.py`
 
-**设计说明：** Controller 持有引擎引用，提供 `run_daily_cycle()` 方法。数据已由 `bar_snapshot` 在 21:00 落盘到 ClickHouse，Controller 只需：1) 检查交易日 2) 推进引擎（BacktestFeeder 从 ClickHouse 读取数据并生成 EventPriceUpdate）。
+**设计说明：** Controller 持有引擎引用和 bar_service，提供 `run_daily_cycle()` 方法。每日循环：1) 检查交易日 2) 调用 `bar_service.sync_range_batch()` 同步拉取 portfolio 关注的少量股票（不依赖 bar_snapshot 的异步完成） 3) 推进引擎（BacktestFeeder 从 ClickHouse 读取数据并生成 EventPriceUpdate）。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -56,8 +56,47 @@ class TestPaperTradingController:
         assert result.skipped is True
         mock_engine.advance_time_to.assert_not_called()
 
-    def test_run_daily_cycle_advances_engine_on_trading_day(self):
-        """交易日应推进引擎一天"""
+    def test_run_daily_cycle_fetches_data_then_advances(self):
+        """交易日应先拉取数据再推进引擎"""
+        from ginkgo.trading.services.paper_trading_controller import PaperTradingController
+
+        mock_trade_day_crud = MagicMock()
+        mock_trade_day_result = MagicMock()
+        mock_trade_day_result.data = [MagicMock(is_open=True)]
+        mock_trade_day_crud.find.return_value = mock_trade_day_result
+
+        mock_bar_service = MagicMock()
+        mock_sync_result = MagicMock()
+        mock_sync_result.success = True
+        mock_bar_service.sync_range_batch.return_value = mock_sync_result
+
+        mock_selector = MagicMock()
+        mock_selector._interested = ["000001.SZ", "600036.SH"]
+        mock_portfolio = MagicMock()
+        mock_portfolio.selector = mock_selector
+
+        mock_engine = MagicMock()
+        mock_engine.portfolios = {"test": mock_portfolio}
+        mock_engine.advance_time_to.return_value = True
+
+        controller = PaperTradingController(
+            engine=mock_engine,
+            trade_day_crud=mock_trade_day_crud,
+            bar_service=mock_bar_service,
+        )
+
+        with patch("ginkgo.trading.services.paper_trading_controller.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 3, 30, 21, 10)
+            mock_dt.now.return_value.date.return_value = datetime(2026, 3, 30).date()
+            result = controller.run_daily_cycle()
+
+        assert result.skipped is False
+        assert result.advanced is True
+        mock_bar_service.sync_range_batch.assert_called_once()
+        mock_engine.advance_time_to.assert_called_once()
+
+    def test_run_daily_cycle_skips_when_no_codes(self):
+        """无关注股票时应跳过"""
         from ginkgo.trading.services.paper_trading_controller import PaperTradingController
 
         mock_trade_day_crud = MagicMock()
@@ -66,20 +105,18 @@ class TestPaperTradingController:
         mock_trade_day_crud.find.return_value = mock_trade_day_result
 
         mock_engine = MagicMock()
-        mock_engine.advance_time_to.return_value = True
+        mock_engine.portfolios = {}
 
         controller = PaperTradingController(
             engine=mock_engine,
             trade_day_crud=mock_trade_day_crud,
         )
 
-        with patch("ginkgo.trading.services.paper_trading_controller.datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 3, 30, 21, 10)
-            result = controller.run_daily_cycle()
+        result = controller.run_daily_cycle()
 
-        assert result.skipped is False
-        assert result.advanced is True
-        mock_engine.advance_time_to.assert_called_once()
+        assert result.skipped is True
+        assert "No interested codes" in result.error
+        mock_engine.advance_time_to.assert_not_called()
 
     def test_get_interested_codes_from_selector(self):
         """应从引擎的 selector 获取关注股票列表"""
@@ -125,6 +162,7 @@ class DailyCycleResult:
     """每日循环执行结果"""
     skipped: bool = False
     date: str = ""
+    fetched_count: int = 0
     advanced: bool = False
     error: str = ""
 
@@ -135,19 +173,25 @@ class PaperTradingController:
 
     职责：每个交易日收盘后执行一次循环：
     1. 检查是否交易日
-    2. 推进引擎一天（BacktestFeeder 从 ClickHouse 读取当日 bar 数据）
+    2. 自行拉取 portfolio 关注股票的当日 K 线（同步调用，不依赖 bar_snapshot）
+    3. 推进引擎一天（BacktestFeeder 从 ClickHouse 读取数据并生成 EventPriceUpdate）
 
-    注意：数据拉取由 TaskTimer._bar_snapshot_job() 在 21:00 完成，
-    本 Controller 在 21:10 触发时数据已在 ClickHouse 中。
+    数据就绪保证：通过 bar_service.sync_range_batch() 同步拉取，
+    拉取完成后数据即在 ClickHouse 中，无需等待 bar_snapshot 的异步处理。
     """
 
-    def __init__(self, engine, trade_day_crud=None):
+    def __init__(self, engine, bar_service=None, trade_day_crud=None):
         """
         Args:
             engine: TimeControlledEventEngine 实例
+            bar_service: BarService 实例（可选，默认从 services 获取）
             trade_day_crud: TradeDayCRUD 实例（可选，默认从 services 获取）
         """
         self._engine = engine
+        if bar_service is None:
+            from ginkgo import services
+            bar_service = services.data.bar_service()
+        self._bar_service = bar_service
         if trade_day_crud is None:
             from ginkgo.data.crud.trade_day_crud import TradeDayCRUD
             trade_day_crud = TradeDayCRUD()
@@ -177,16 +221,42 @@ class PaperTradingController:
             GLOG.INFO(f"[PAPER] {today} is not a trading day, skipping")
             return DailyCycleResult(skipped=True, date=str(today))
 
-        # 2. 推进引擎到明天 15:00
+        # 2. 获取关注股票列表
+        codes = self.get_interested_codes()
+        if not codes:
+            GLOG.WARN("[PAPER] No interested codes, skipping")
+            return DailyCycleResult(
+                skipped=True, date=str(today), error="No interested codes"
+            )
+
+        # 3. 同步拉取当日 K 线数据（同步调用，确保数据就绪）
+        try:
+            sync_result = self._bar_service.sync_range_batch(
+                codes=codes,
+                start_date=today,
+                end_date=today,
+            )
+            fetched_count = sync_result.data.get("success_count", 0) if sync_result.success else 0
+        except Exception as e:
+            GLOG.ERROR(f"[PAPER] Failed to fetch data: {e}")
+            return DailyCycleResult(
+                skipped=True, date=str(today), error=f"Data fetch failed: {e}"
+            )
+
+        # 4. 推进引擎到明天 15:00
         next_day = today + timedelta(days=1)
         target_time = datetime.combine(next_day, datetime.min.time().replace(hour=15, minute=0))
 
         try:
             success = self._engine.advance_time_to(target_time)
-            GLOG.INFO(f"[PAPER] Daily cycle: {today} -> {target_time}, advanced={success}")
+            GLOG.INFO(
+                f"[PAPER] Daily cycle: {today} -> {target_time}, "
+                f"fetched={fetched_count}/{len(codes)}, advanced={success}"
+            )
             return DailyCycleResult(
                 skipped=False,
                 date=str(today),
+                fetched_count=fetched_count,
                 advanced=success,
             )
         except Exception as e:
@@ -194,6 +264,7 @@ class PaperTradingController:
             return DailyCycleResult(
                 skipped=False,
                 date=str(today),
+                fetched_count=fetched_count,
                 advanced=False,
                 error=str(e),
             )
@@ -421,7 +492,7 @@ def _deploy_paper_trading(
     engine.start()
 
     # 8. 创建 Controller 并注册到 PaperTradingWorker
-    controller = PaperTradingController(engine=engine)
+    controller = PaperTradingController(engine=engine, bar_service=bar_service)
 
     global _paper_worker
     if _paper_worker is None:
@@ -585,11 +656,11 @@ git commit -m "test(paper-trading): add integration test for daily cycle T+1 flo
 - Modify: `src/ginkgo/interfaces/dtos/control_command_dto.py` — 添加 PAPER_TRADING 命令
 - Modify: `src/ginkgo/livecore/task_timer.py` — 添加 paper_trading job
 
-**设计说明：** 纸上交易的每日循环通过 TaskTimer 调度，完全复用现有基础设施。执行时序：
+**设计说明：** 纸上交易的每日循环通过 TaskTimer 调度，完全复用现有基础设施。Controller 自行拉取数据，不依赖 bar_snapshot 的完成状态。执行时序：
 
 ```
-21:00  bar_snapshot job → 同步当日 K 线到 ClickHouse（已有）
-21:10  paper_trading job → 发送 Kafka 命令 → PaperTradingWorker 推进引擎
+21:10  paper_trading job → 发送 Kafka 命令 → PaperTradingWorker
+         → Controller.sync_range_batch() 同步拉取数据 → 数据就绪 → advance_time()
 ```
 
 - [ ] **Step 1: 在 ControlCommandDTO 中注册 PAPER_TRADING 命令**
@@ -827,9 +898,9 @@ git commit -m "feat(paper-trading): add PaperTradingWorker for Kafka command pro
 ## 自检清单
 
 **Spec 覆盖检查：**
-- [x] 数据拉取：已有 `bar_snapshot` job（21:00），无需新建
+- [x] 数据拉取：Task 1 — Controller 自行调用 `bar_service.sync_range_batch()` 同步拉取，不依赖 bar_snapshot
 - [x] 交易日判断：Task 1 — TradeDayCRUD 查询
-- [x] PaperTradingController：Task 1 — 每日循环控制（检查交易日 + 推进引擎）
+- [x] PaperTradingController：Task 1 — 检查交易日 + 拉取数据 + 推进引擎
 - [x] deploy CLI：Task 2 — 创建并启动纸上交易，集成 PaperTradingWorker
 - [x] stop CLI：Task 2 — 停止纸上交易，注销 Worker controller
 - [x] T+1 Signal 延迟：现有 PortfolioT1Backtest 已实现
