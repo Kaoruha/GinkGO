@@ -1004,6 +1004,192 @@ git commit -m "feat(paper-trading): add PaperTradingWorker for Kafka command pro
 
 ---
 
+### Task 6: 修复引擎组件推进顺序 — feeder 先于 portfolio
+
+**Files:**
+- Modify: `src/ginkgo/trading/engines/time_controlled_engine.py`
+- Test: `tests/unit/trading/engines/test_component_advance_order.py`
+
+**问题：** 当前 `_handle_time_advance_event` 的组件推进顺序是 `portfolio → feeder`。T+1 信号在 portfolio.advance_time() 中发出，此时 Broker 仍持有 T0 的市场数据。feeder.advance_time() 在之后才更新 Broker 为 T1 数据。导致 T+1 信号用 T0 价格成交。
+
+**修复：** 将顺序改为 `feeder → portfolio`，确保 T1 价格数据先到达 Broker，再处理 T+1 信号。
+
+- [ ] **Step 1: 写失败测试**
+
+```python
+# tests/unit/trading/engines/test_component_advance_order.py
+import pytest
+from unittest.mock import MagicMock, patch
+from datetime import datetime
+
+
+class TestComponentAdvanceOrder:
+    def test_feeder_advances_before_portfolio(self):
+        """验证 feeder 在 portfolio 之前推进"""
+        from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
+        from ginkgo.enums import EXECUTION_MODE
+
+        engine = TimeControledEventEngine(
+            name="test_order",
+            mode=EXECUTION_MODE.BACKTEST,
+            logical_time_start=datetime(2026, 3, 30, 9, 30),
+            timer_interval=0.01,
+        )
+
+        call_order = []
+
+        mock_feeder = MagicMock()
+        mock_feeder.advance_time = MagicMock(side_effect=lambda t: call_order.append("feeder"))
+
+        mock_portfolio = MagicMock()
+        mock_portfolio.advance_time = MagicMock(side_effect=lambda t: call_order.append("portfolio"))
+
+        engine._datafeeder = mock_feeder
+        engine.portfolios = {"test": mock_portfolio}
+
+        engine.start()
+        engine.advance_time_to(datetime(2026, 3, 31, 15, 0))
+
+        import time
+        time.sleep(0.5)
+
+        # feeder 必须在 portfolio 之前被调用
+        assert len(call_order) >= 2
+        feeder_idx = call_order.index("feeder")
+        portfolio_idx = call_order.index("portfolio")
+        assert feeder_idx < portfolio_idx, (
+            f"Expected feeder before portfolio, got order: {call_order}"
+        )
+
+        engine.stop()
+
+    def test_portfolio_signals_execute_with_new_market_data(self):
+        """验证 T+1 信号执行时 Broker 已有 T1 市场数据"""
+        from ginkgo.trading.engines.time_controlled_engine import TimeControlledEngine
+        from ginkgo.enums import EXECUTION_MODE, EVENT_TYPES
+
+        engine = TimeControlledEventEngine(
+            name="test_market_data",
+            mode=EXECUTION_MODE.BACKTEST,
+            logical_time_start=datetime(2026, 3, 30, 9, 30),
+            timer_interval=0.01,
+        )
+
+        broker_market_data = {}
+
+        class TrackingBroker:
+            def __init__(self):
+                self.data_updates = []
+            def update_price_data(self, data):
+                code = getattr(data, 'code', 'unknown')
+                self.data_updates.append(code)
+            def supports_immediate_execution(self):
+                return True
+            def get_market_data(self, code):
+                return broker_market_data.get(code)
+            def submit_order_event(self, event):
+                pass
+            def validate_order(self, order):
+                return True
+
+        broker = TrackingBroker()
+        from ginkgo.trading.gateway.trade_gateway import TradeGateway
+        gateway = TradeGateway(name="test_gateway", brokers=[broker])
+        engine.bind_router(gateway)
+
+        # 注册 price_received 观察者
+        price_update_codes = []
+        original_handler = gateway.on_price_received
+
+        def tracking_price_handler(event, *args, **kwargs):
+            price_update_codes.append(getattr(event, 'code', 'unknown'))
+            original_handler(event, *args, **kwargs)
+
+        engine.register(EVENT_TYPES.PRICEUPDATE, tracking_price_handler)
+
+        engine.start()
+        engine.advance_time_to(datetime(2026, 3, 31, 15, 0))
+
+        import time
+        time.sleep(0.5)
+
+        # Broker 应该在 T+1 信号发出前就已经收到 T1 的价格更新
+        # （ feeder 先推进 → Broker 获得市场数据 → portfolio 再发出 T+1 信号）
+        assert len(broker.data_updates) > 0, "Broker should have received price data"
+
+        engine.stop()
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/unit/trading/engines/test_component_advance_order.py -v`
+Expected: FAIL — feeder 在 portfolio 之后被调用
+
+- [ ] **Step 3: 修改引擎组件推进顺序**
+
+**3a. `_handle_time_advance_event` (line 474-478) — 改为先发 feeder：**
+
+```python
+            # 3. 发送Feeder时间推进事件（先获取新价格数据）
+            from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
+
+            print(f"[TIME ADVANCE] Putting EventComponentTimeAdvance for feeder at {target_time}")
+            self.put(EventComponentTimeAdvance(target_time, "feeder"))
+
+            # 4. Portfolio.advance_time在Feeder完成后通过事件驱动机制处理
+            #    统一由事件队列保证时序：Feeder → Portfolio处理T+1信号（此时已有新价格）
+```
+
+**3b. `_handle_component_time_advance` (line 502-521) — feeder 分支完成后发 portfolio：**
+
+将 `if component_type == "portfolio"` 分支改为 `elif component_type == "feeder"` 的子逻辑，并在 feeder 完成后发 portfolio 事件：
+
+```python
+            if component_type == "feeder":
+                # 阶段1：推进Feeder时间（先获取新价格数据）
+                if self._datafeeder:
+                    try:
+                        self._datafeeder.advance_time(target_time)
+                        GLOG.DEBUG(f"{self.name}: Feeder advanced to {target_time}")
+                    except Exception as e:
+                        GLOG.ERROR(f"{self.name}: Feeder time advance error: {e}")
+
+                # Feeder完成，发送Portfolio时间推进事件
+                from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
+                self.put(EventComponentTimeAdvance(target_time, "portfolio"))
+                GLOG.DEBUG(f"{self.name}: Feeder stage completed, Portfolio stage queued")
+
+            elif component_type == "portfolio":
+                # 阶段2：推进Portfolio时间（此时Broker已有新价格数据）
+                for portfolio in self.portfolios.values():
+                    try:
+                        portfolio.advance_time(target_time)
+                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
+                    except Exception as e:
+                        GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
+
+                GLOG.DEBUG(f"{self.name}: Component time advance sequence completed for {target_time}")
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/unit/trading/engines/test_component_advance_order.py -v`
+Expected: PASS
+
+- [ ] **Step 5: 跑现有回测确保不破坏**
+
+Run: `cd /home/kaoru/Ginkgo && python -m pytest tests/ -v --timeout=60 -x`
+Expected: 现有测试通过（可能需要微调依赖新顺序的断言）
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/ginkgo/trading/engines/time_controlled_engine.py tests/unit/trading/engines/test_component_advance_order.py
+git commit -m "fix: swap component advance order to feeder→portfolio for correct T+1 pricing"
+```
+
+---
+
 ## 自检清单
 
 **Spec 覆盖检查：**
@@ -1017,10 +1203,11 @@ git commit -m "feat(paper-trading): add PaperTradingWorker for Kafka command pro
 - [x] stop CLI：Task 2 — 停止纸上交易，注销 Worker controller
 - [x] T+1 Signal 延迟：现有 PortfolioT1Backtest 已实现
 - [x] SimBroker 撮合：现有实现已满足
-- [x] TaskTimer 调度：Task 4 — ControlCommandDTO + Kafka 路由到 `ginkgo.live.control.commands`
-- [x] PaperTradingWorker：Task 5 — Kafka 命令接收 + controller 管理
+- [x] TaskTimer 调度：Task 5 — ControlCommandDTO + Kafka 路由到 `ginkgo.live.control.commands`
+- [x] PaperTradingWorker：Task 6 — Kafka 命令接收 + controller 管理
 - [x] 集成测试：Task 3 — 端到端验证
 - [x] 无 selector：skip with warning（已有处理）
+- [x] T+1 成交价格：Task 6 — 修改引擎组件推进顺序为 feeder→portfolio，确保 Broker 先获得 T1 价格数据
 
 **V1 后续优化（不阻塞当前实现）：**
 - 状态持久化：LogicalTime 持久化 + Signal 表重建 + MPortfolio.cash/frozen 恢复
