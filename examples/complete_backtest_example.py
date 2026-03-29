@@ -78,7 +78,7 @@ class SimpleBacktest:
         print(f"   - random_seed: {self.strategy.random_seed}")
         print(f"   - name: {self.strategy.name}")
         sizer = FixedSizer(volume=1000)
-        selector = FixedSelector(name="stock_selector", codes=["000001.SZ", "000002.SZ"])
+        selector = FixedSelector(name="stock_selector", codes=["000004.SZ", "000032.SZ"])
 
         # 4. 创建数据源
         self.feeder = BacktestFeeder(name="example_feeder")
@@ -260,8 +260,8 @@ class SimpleBacktest:
 
         # 检查所有创建的Position
         print(f"  检查股票代码是否在Portfolio.positions中:")
-        print(f"    000001.SZ: {'✅ 存在' if '000001.SZ' in self.portfolio.positions else '❌ 缺失'}")
-        print(f"    000002.SZ: {'✅ 存在' if '000002.SZ' in self.portfolio.positions else '❌ 缺失'}")
+        print(f"    000004.SZ: {'✅ 存在' if '000004.SZ' in self.portfolio.positions else '❌ 缺失'}")
+        print(f"    000032.SZ: {'✅ 存在' if '000032.SZ' in self.portfolio.positions else '❌ 缺失'}")
 
         # 显示所有Position的详细信息
         for code, position in self.portfolio.positions.items():
@@ -399,8 +399,8 @@ def main():
     backtest = SimpleBacktest(initial_cash=100000)
 
     # 设置回测参数 (使用数据库中实际有数据的日期)
-    start_date = datetime.datetime(2023, 12, 1)
-    end_date = datetime.datetime(2023, 12, 5)
+    start_date = datetime.datetime(2024, 1, 2)
+    end_date = datetime.datetime(2024, 1, 31)
 
     # 设置组件
     backtest.setup(start_date, end_date)

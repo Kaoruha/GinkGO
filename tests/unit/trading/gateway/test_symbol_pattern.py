@@ -76,3 +76,36 @@ class TestSymbolPatternMatching:
         gw = TradeGateway(brokers=self._make_brokers())
         result = gw._get_market_by_code("")
         assert result == "A股"
+
+    def test_none_code_returns_default(self):
+        """测试 None 输入返回默认市场"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        result = gw._get_market_by_code(None)
+        assert result == "A股"
+
+    def test_pattern_priority_crypto_over_us_stock(self):
+        """BTC/USDT 不应被美股模式匹配（Crypto优先级更高）"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        assert gw._get_market_by_code("BTC/USDT") == "Crypto"
+        # 美股模式 [A-Z]{1,5} 不应匹配含 / 的符号
+
+    def test_pattern_priority_futures_over_us_stock(self):
+        """IF2312 不应被美股模式匹配（期货优先级更高）"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        assert gw._get_market_by_code("IF2312") == "期货"
+
+    def test_us_stock_boundary_1char(self):
+        """美股模式：1位字母"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        assert gw._get_market_by_code("A") == "美股"
+
+    def test_us_stock_boundary_5chars(self):
+        """美股模式：5位字母"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        assert gw._get_market_by_code("GOOGL") == "美股"
+
+    def test_us_stock_lowercase_not_matched(self):
+        """美股模式不匹配小写字母（正则区分大小写）"""
+        gw = TradeGateway(brokers=self._make_brokers())
+        result = gw._get_market_by_code("aapl")
+        assert result == "A股"  # 小写不匹配美股模式，回退到默认

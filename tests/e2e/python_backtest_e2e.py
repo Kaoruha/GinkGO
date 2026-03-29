@@ -26,7 +26,7 @@ from ginkgo.trading.gateway.trade_gateway import TradeGateway
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.enums import ATTITUDE_TYPES
 from ginkgo.trading.analysis.analyzers.net_value import NetValue
-from ginkgo.trading.core.identity import IdentityUtils
+from ginkgo.entities import IdentityUtils
 
 # 开启调试模式
 GCONF.set_debug(True)

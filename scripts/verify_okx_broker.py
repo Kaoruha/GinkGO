@@ -27,7 +27,7 @@ from datetime import datetime
 sys.path.insert(0, '/home/kaoru/Ginkgo')
 
 from ginkgo.trading.brokers.okx_broker import OKXBroker
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities.order import Order
 from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.containers import container
