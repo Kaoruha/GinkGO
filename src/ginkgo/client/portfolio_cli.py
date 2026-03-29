@@ -653,3 +653,157 @@ def unbind_component(
     except Exception as e:
         console.print(f":x: Error: {e}")
         raise typer.Exit(1)
+
+
+# ========== Paper Trading ==========
+
+_paper_worker = None
+
+
+@app.command(name="deploy")
+def deploy_portfolio(
+    source: str = typer.Option(..., "--source", "-s", help="源 Portfolio ID（回测）"),
+    capital: float = typer.Option(100000.0, "--capital", "-c", help="初始资金"),
+):
+    """从回测 Portfolio 创建纸上交易实例"""
+    from rich.panel import Panel
+
+    GLOG.INFO(f"[DEPLOY] Creating paper trading from {source}")
+
+    try:
+        portfolio_id = _deploy_paper_trading(
+            source_portfolio_id=source,
+            capital=capital,
+        )
+
+        console.print(Panel(
+            f"[bold green]Paper trading started[/bold green]\n\n"
+            f"Portfolio ID: {portfolio_id}\n"
+            f"Source: {source}\n"
+            f"Capital: ¥{capital:,.0f}\n"
+            f"Schedule: 21:10 daily (after bar_snapshot)",
+            title="Deploy Success",
+        ))
+    except Exception as e:
+        console.print(f"[bold red]Deploy failed: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command(name="stop")
+def stop_paper_trading(
+    portfolio_id: str = typer.Argument(..., help="Portfolio ID to stop"),
+):
+    """停止纸上交易"""
+    from rich.panel import Panel
+
+    global _paper_worker
+
+    if _paper_worker is None:
+        console.print(f"[bold red]No PaperTradingWorker running[/bold red]")
+        raise typer.Exit(1)
+
+    try:
+        _paper_worker.unregister_controller(portfolio_id)
+        console.print(Panel(
+            f"[bold yellow]Paper trading stopped[/bold yellow]\n\n"
+            f"Portfolio ID: {portfolio_id}",
+            title="Stop Success",
+        ))
+
+        if not _paper_worker._controllers:
+            _paper_worker.stop()
+            _paper_worker = None
+    except Exception as e:
+        console.print(f"[bold red]Stop failed: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+def _deploy_paper_trading(
+    source_portfolio_id: str,
+    capital: float,
+) -> str:
+    """
+    执行纸上交易部署
+
+    流程：
+    1. 从源 Portfolio 读取 Mapping 配置
+    2. 创建新 Portfolio + Engine（PAPER 模式 + 真实数据）
+    3. 组装组件（策略/风控/分析器/选择器）
+    4. 注册到 PaperTradingWorker
+
+    Args:
+        source_portfolio_id: 源回测 Portfolio ID
+        capital: 初始资金
+
+    Returns:
+        str: 新 Portfolio ID
+    """
+    from decimal import Decimal
+    from datetime import datetime
+
+    from ginkgo import services
+    from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
+    from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
+    from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
+    from ginkgo.trading.gateway.trade_gateway import TradeGateway
+    from ginkgo.trading.brokers.sim_broker import SimBroker
+    from ginkgo.enums import EXECUTION_MODE, ATTITUDE_TYPES
+    from ginkgo.trading.services.paper_trading_controller import PaperTradingController
+    from ginkgo.trading.services._assembly.component_loader import ComponentLoader
+
+    # 1. 获取源 Portfolio 配置
+    container = services.data.container()
+    components = collect_portfolio_components(source_portfolio_id, container)
+
+    # 2. 创建引擎（PAPER 模式，用真实数据）
+    today = datetime.now()
+    engine = TimeControlledEventEngine(
+        name=f"paper_{source_portfolio_id[:8]}",
+        mode=EXECUTION_MODE.PAPER,
+        logical_time_start=datetime(today.year, today.month, today.day, 9, 30),
+        timer_interval=0.01,
+    )
+
+    # 3. 创建 Portfolio
+    portfolio = PortfolioT1Backtest(f"paper_{source_portfolio_id[:8]}")
+    portfolio.add_cash(Decimal(str(capital)))
+
+    # 4. 创建数据源和 Broker
+    feeder = BacktestFeeder(name="paper_feeder")
+    bar_service = services.data.bar_service()
+    feeder.bar_service = bar_service
+
+    broker = SimBroker(
+        name="PaperSimBroker",
+        attitude=ATTITUDE_TYPES.OPTIMISTIC,
+        commission_rate=0.0003,
+        commission_min=5,
+    )
+    gateway = TradeGateway(name="PaperGateway", brokers=[broker])
+
+    # 5. 绑定组件
+    engine.add_portfolio(portfolio)
+    engine.bind_router(gateway)
+    engine.set_data_feeder(feeder)
+
+    # 6. 加载策略/风控/分析器/选择器（通过 ComponentLoader）
+    loader = ComponentLoader(file_service=container.file_service(), logger=GLOG)
+    loader.perform_component_binding(portfolio, components, GLOG)
+
+    # 7. 启动引擎
+    engine.start()
+
+    # 8. 创建 Controller 并注册到 PaperTradingWorker
+    controller = PaperTradingController(engine=engine, bar_service=bar_service)
+
+    global _paper_worker
+    if _paper_worker is None:
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        _paper_worker = PaperTradingWorker()
+        _paper_worker.start()
+        GLOG.INFO("[DEPLOY] PaperTradingWorker started")
+
+    _paper_worker.register_controller(portfolio.portfolio_id, controller)
+
+    GLOG.INFO(f"[DEPLOY] Paper trading started: {portfolio.portfolio_id}")
+    return portfolio.portfolio_id
