@@ -29,7 +29,7 @@ class MomentumSelector(BaseSelector):
         *args,
         **kwargs,
     ) -> None:
-        super(MomentumSelector, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._interested = []
         self._interval = interval
         self._rank = rank

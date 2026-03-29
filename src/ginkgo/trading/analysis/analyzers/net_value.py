@@ -18,7 +18,7 @@ class NetValue(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "net_value", *args, **kwargs):
-        super(NetValue, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 在每天开始时和结束时都激活净值记录
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)

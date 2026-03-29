@@ -175,7 +175,7 @@ class TradeGatewayAdapter(Thread):
         Args:
             order_data: 订单数据（字典）
         """
-        from ginkgo.trading.entities.order import Order
+        from ginkgo.entities import Order
         from ginkgo.enums import ORDERSTATUS_TYPES
 
         # ORDER IDEMPOTENCY: 检查订单是否已存在 - order_crud.get_order_by_uuid(order_id)

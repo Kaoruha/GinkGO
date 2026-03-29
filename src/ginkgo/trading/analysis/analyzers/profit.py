@@ -19,7 +19,7 @@ class Profit(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "ProfitAna", *args, **kwargs):
-        super(Profit, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)

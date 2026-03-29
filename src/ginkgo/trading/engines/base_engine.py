@@ -9,7 +9,7 @@
 
 from abc import ABC, abstractmethod
 import threading
-from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.entities.mixins import NamedMixin
 from ginkgo.libs import GLOG
 # EngineStatus相关功能已移动到具体的Engine实现中
 from typing import Dict, Any, Optional, List
@@ -38,7 +38,7 @@ class BaseEngine(NamedMixin, ABC):
             mode: 运行模式（BACKTEST/LIVE/PAPER等）
             engine_id: 引擎ID（可选，不提供则自动生成）
         """
-        from ..core.identity import IdentityUtils
+        from ginkgo.entities import IdentityUtils
 
         # === 唯一标识符 ===
         import uuid as uuid_lib
@@ -68,7 +68,7 @@ class BaseEngine(NamedMixin, ABC):
     def _generate_engine_id(self) -> str:
         """生成引擎ID"""
         try:
-            from ..core.identity import IdentityUtils
+            from ginkgo.entities import IdentityUtils
             return IdentityUtils.generate_component_uuid("engine")
         except ImportError:
             # 如果IdentityUtils不可用，使用简单UUID
@@ -118,7 +118,7 @@ class BaseEngine(NamedMixin, ABC):
         Returns:
             str: 生成的run_id（32位UUID格式）
         """
-        from ..core.identity import IdentityUtils
+        from ginkgo.entities import IdentityUtils
 
         # 只有在强制生成或当前run_id为空时才生成新的
         if force or self._run_id is None:
@@ -187,7 +187,7 @@ class BaseEngine(NamedMixin, ABC):
             GLOG.ERROR(f"Cannot start from {self.status} state")
             return False
 
-        from ..core.identity import IdentityUtils
+        from ginkgo.entities import IdentityUtils
 
         try:
             # 判断是否需要生成新会话
@@ -245,7 +245,6 @@ class BaseEngine(NamedMixin, ABC):
 
             # 清理 GLOG trace_id
             if self._trace_id_token is not None:
-                from ginkgo.libs import GLOG
                 GLOG.clear_trace_id(self._trace_id_token)
                 self._trace_id_token = None
 

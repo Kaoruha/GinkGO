@@ -10,8 +10,8 @@
 from typing import Dict, Optional
 from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.trading.entities.order import Order
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.entities import Order
+from ginkgo.entities import Signal
 from ginkgo.libs import GLOG
 # from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # Temporarily disabled
 from ginkgo.data.containers import container
@@ -28,7 +28,7 @@ class ATRSizer(BaseSizer):
     def __init__(
         self, name: str = "ATRSizer", period: int = 14, risk: float = 0.01, risk_ratio: float = 2, *args, **kwargs
     ):
-        super(ATRSizer, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.period = period
         self.risk = risk
         self.risk_ratio = risk_ratio

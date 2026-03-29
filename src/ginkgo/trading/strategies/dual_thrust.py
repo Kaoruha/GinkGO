@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (调用cal方法)
-# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)
-# Role: Dual Thrust策略继承BaseStrategy实现DualThrust Dual Thrust交易逻辑
+# Downstream: StrategyBase (继承提供cal/initialize/finalize等核心能力)
+# Role: Dual Thrust策略继承StrategyBase实现DualThrust Dual Thrust交易逻辑
 
 
 
@@ -9,14 +9,14 @@
 
 import datetime
 from decimal import Decimal
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.strategy_base import StrategyBase
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data import get_bars
 from ginkgo.libs import GLOG
 import pandas as pd
 
 
-class StrategyDualThrust(BaseStrategy):
+class StrategyDualThrust(StrategyBase):
     __abstract__ = False
 
     def __init__(
@@ -28,7 +28,7 @@ class StrategyDualThrust(BaseStrategy):
         *args,
         **kwargs,
     ):
-        super(StrategyDualThrust, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._spans = spans
         self._k_buy = Decimal(str(k_buy))
         self._k_sell = Decimal(str(k_sell))
@@ -58,7 +58,7 @@ class StrategyDualThrust(BaseStrategy):
         )
 
     def cal(self, portfolio_info, event, *args, **kwargs):
-        super(StrategyDualThrust, self).cal(portfolio_info, event)
+        super().cal(portfolio_info, event)
         date_start = self.now - datetime.timedelta(days=(self._spans + 1))
         df = get_bars(event.code, date_start, self.now, as_dataframe=True)
 

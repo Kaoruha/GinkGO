@@ -18,7 +18,7 @@ from ginkgo.data.crud.validation import ValidationError
 from ginkgo.data.models import MOrderRecord
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.trading import Order
+from ginkgo.entities import Order
 
 
 @restrict_crud_access

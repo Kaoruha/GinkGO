@@ -530,6 +530,45 @@ class GinkgoConfig(object):
         self._ensure_env_vars()
         return os.environ.get("GINKGO_REDIS_PORT", "6379")
 
+    # ========================================================================
+    # 外部服务配置
+    # ========================================================================
+
+    @property
+    def OKX_DOMAIN(self) -> str:
+        """OKX 交易所域名"""
+        return os.environ.get("GINKGO_OKX_DOMAIN", "https://www.okx.com")
+
+    @property
+    def OLLAMA_HOST(self) -> str:
+        """Ollama LLM 服务主机"""
+        return os.environ.get("GINKGO_OLLAMA_HOST", "localhost")
+
+    @property
+    def OLLAMA_PORT(self) -> str:
+        """Ollama LLM 服务端口"""
+        return os.environ.get("GINKGO_OLLAMA_PORT", "11434")
+
+    @property
+    def FUSHU_API_BASE_URL(self) -> str:
+        """富数 API 基础 URL"""
+        return os.environ.get("GINKGO_FUSHU_API_BASE_URL", "https://api.fushu.com/v1")
+
+    @property
+    def LOKI_BASE_URL(self) -> str:
+        """Loki 日志服务基础 URL"""
+        return os.environ.get("GINKGO_LOKI_BASE_URL", "http://localhost:3100")
+
+    @property
+    def API_HOST(self) -> str:
+        """Ginkgo API 服务主机"""
+        return os.environ.get("GINKGO_API_HOST", "localhost")
+
+    @property
+    def API_PORT(self) -> str:
+        """Ginkgo API 服务端口"""
+        return os.environ.get("GINKGO_API_PORT", "8000")
+
     @property
     def HEARTBEAT(self) -> float:
         """心跳间隔（环境标识，有默认值）"""

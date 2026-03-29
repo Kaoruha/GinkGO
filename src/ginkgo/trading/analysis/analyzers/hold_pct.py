@@ -17,7 +17,7 @@ class HoldPCT(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "hold_pct", *args, **kwargs):
-        super(HoldPCT, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 在每天开始时激活持仓比例计算
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         # 在每天结束时记录到数据库

@@ -12,12 +12,15 @@ Notification Service
 - 模板渲染和变量替换
 - 通知记录管理
 - 用户和用户组批量通知
+
+注意：Webhook 相关方法已提取到 webhook_dispatcher.py
+      全局通知函数已提取到 notify.py
+      常量已提取到 notification_constants.py
 """
 
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from datetime import datetime
 import uuid as uuid_lib
-import json
 
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -27,37 +30,12 @@ from ginkgo.notifier.channels.base_channel import INotificationChannel, ChannelR
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES, SOURCE_TYPES, CONTACT_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
+# 从提取的模块导入常量和全局函数，保持向后兼容
+from .notification_constants import *
+from .notify import notify, notify_with_fields
 
-# ============================================================================
-# Discord 颜色方案（十进制整数）
-# ============================================================================
-
-# 交易信号颜色（鲜亮醒目）
-DISCORD_COLOR_LONG = 5797806      # 🟢 鲜绿色 - 做多信号
-DISCORD_COLOR_SHORT = 16711735    # 🔴 鲜红色 - 做空信号
-DISCORD_COLOR_VOID = 34886848     # 🔷 鲜蓝色 - 平仓信号
-
-# 系统级别通知颜色
-DISCORD_COLOR_WHITE = 16777215    # ⚪ 白色 - 普通系统通知
-DISCORD_COLOR_ORANGE = 16744272   # 🟠 橙色 - 警告
-DISCORD_COLOR_YELLOW = 16776960   # 🟡 黄色 - 异常
-
-# 颜色映射表
-TRADING_SIGNAL_COLORS = {
-    "LONG": DISCORD_COLOR_LONG,
-    "SHORT": DISCORD_COLOR_SHORT,
-    "VOID": DISCORD_COLOR_VOID,
-}
-
-SYSTEM_LEVEL_COLORS = {
-    "INFO": DISCORD_COLOR_WHITE,       # 白色 - 普通信息
-    "SUCCESS": DISCORD_COLOR_WHITE,    # 白色 - 成功操作
-    "UPDATE": DISCORD_COLOR_WHITE,     # 白色 - 数据更新
-    "WARNING": DISCORD_COLOR_ORANGE,   # 橙色 - 警告提醒
-    "ERROR": DISCORD_COLOR_YELLOW,     # 黄色 - 错误信息
-    "ALERT": DISCORD_COLOR_ORANGE,     # 橙色 - 紧急告警
-}
-
+# 导入 WebhookDispatcher
+from .webhook_dispatcher import WebhookDispatcher
 
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
@@ -120,6 +98,9 @@ class NotificationService(BaseService):
 
         # 注册的通知渠道 {channel_name: channel_instance}
         self._channels: Dict[str, INotificationChannel] = {}
+
+        # 创建 Webhook 调度器实例
+        self._webhook = WebhookDispatcher(self)
 
     def register_channel(self, channel: INotificationChannel) -> None:
         """
@@ -240,7 +221,7 @@ class NotificationService(BaseService):
             for channel_name in channels:
                 # 处理 webhook 通道：需要动态创建 WebhookChannel 实例
                 if channel_name == "webhook" and user_uuid:
-                    channel = self._get_webhook_channel_for_user(user_uuid)
+                    channel = self._webhook._get_webhook_channel_for_user(user_uuid)
                     if channel is None:
                         error_msg = f"No webhook contact found for user {user_uuid}"
                         channel_results[channel_name] = {
@@ -935,8 +916,10 @@ class NotificationService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"Errorsending group template notification: {e}")
             return ServiceResult.error(
-                f"Group template notification failed: {str(e)}"
+                f"Group notification failed: {str(e)}"
             )
+
+    # ==================== 查询方法 ====================
 
     def get_notification_history(
         self,
@@ -1002,42 +985,81 @@ class NotificationService(BaseService):
                 f"Failed to get failed notifications: {str(e)}"
             )
 
-    def _get_webhook_channel_for_user(self, user_uuid: str) -> Optional[INotificationChannel]:
+    def get_records_by_user(
+        self,
+        user_uuid: str,
+        limit: int = 100,
+        status: Optional[int] = None
+    ) -> ServiceResult:
         """
-        为用户获取 webhook 通道（动态创建 WebhookChannel 实例）
+        查询用户的通知记录
 
         Args:
             user_uuid: 用户 UUID
+            limit: 最大返回数量
+            status: 可选的状态过滤
 
         Returns:
-            INotificationChannel: WebhookChannel 实例，如果没有找到 webhook 联系方式则返回 None
+            ServiceResult with list of notification records
         """
         try:
-            from ginkgo.notifier.channels.webhook_channel import WebhookChannel
+            records = self.record_crud.get_by_user(
+                user_uuid=user_uuid,
+                limit=limit,
+                status=status
+            )
 
-            # 获取用户的 webhook 联系方式
-            contacts = self.contact_crud.get_by_user(user_uuid, is_active=True)
-
-            # 查找 webhook 类型的联系方式
-            webhook_contact = None
-            for contact in contacts:
-                contact_type = CONTACT_TYPES.from_int(contact.contact_type)
-                if contact_type == CONTACT_TYPES.WEBHOOK:
-                    webhook_contact = contact
-                    break
-
-            if not webhook_contact:
-                return None
-
-            # 创建 WebhookChannel 实例
-            return WebhookChannel(webhook_url=webhook_contact.address)
+            return ServiceResult.success(
+                data={
+                    "records": records,
+                    "count": len(records)
+                },
+                message=f"Found {len(records)} records for user {user_uuid}"
+            )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorcreating webhook channel for user {user_uuid}: {e}")
-            return None
+            GLOG.ERROR(f"Errorgetting records for user '{user_uuid}': {e}")
+            return ServiceResult.error(
+                f"Failed to get records: {str(e)}"
+            )
+
+    def get_records_by_template_id(
+        self,
+        template_id: str,
+        limit: int = 100
+    ) -> ServiceResult:
+        """
+        根据模板 ID 查询通知记录
+
+        Args:
+            template_id: 模板 ID
+            limit: 最大返回数量
+
+        Returns:
+            ServiceResult with list of notification records
+        """
+        try:
+            records = self.record_crud.get_by_template_id(
+                template_id=template_id,
+                limit=limit
+            )
+
+            return ServiceResult.success(
+                data={
+                    "records": records,
+                    "count": len(records)
+                },
+                message=f"Found {len(records)} records for template {template_id}"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"Errorgetting records for template '{template_id}': {e}")
+            return ServiceResult.error(
+                f"Failed to get records: {str(e)}"
+            )
 
     # ============================================================================
-    # 便捷方法 - 直接发送 Webhook 消息（无需用户UUID）
+    # 委托方法 - 转发到 WebhookDispatcher（保持外部 API 兼容）
     # ============================================================================
 
     def send_webhook_direct(
@@ -1052,65 +1074,18 @@ class NotificationService(BaseService):
         url: Optional[str] = None,
         **kwargs
     ) -> ServiceResult:
-        """
-        直接发送 Webhook 消息（底层方法）
-
-        适用于需要直接向指定 Webhook URL 发送通知的场景，无需预先在系统中配置用户。
-
-        Args:
-            webhook_url: Webhook URL
-            content: 消息内容
-            title: 消息标题
-            color: 嵌入消息颜色
-            fields: 嵌入字段数组，格式：[{"name": "字段名", "value": "字段值", "inline": True}]
-            footer: 页脚信息，格式：{"text": "页脚文本", "icon_url": "图标URL"}
-            author: 作者信息，格式：{"name": "作者名", "url": "链接", "icon_url": "图标URL"}
-            url: 标题链接（点击标题跳转的URL）
-            **kwargs: 其他参数
-
-        Returns:
-            ServiceResult: 包含发送结果
-        """
-        try:
-            from ginkgo.notifier.channels.webhook_channel import WebhookChannel
-
-            # 创建 WebhookChannel 实例
-            channel = WebhookChannel(webhook_url=webhook_url)
-
-            # 发送消息
-            result = channel.send(
-                content=content,
-                title=title,
-                color=color,
-                fields=fields,
-                footer=footer,
-                author=author,
-                url=url,
-                **kwargs
-            )
-
-            if result.success:
-                return ServiceResult.success(
-                    data={
-                        "message_id": result.message_id,
-                        "timestamp": result.timestamp,
-                        "webhook_url": webhook_url
-                    }
-                )
-            else:
-                return ServiceResult.error(
-                    f"Webhook send failed: {result.error}"
-                )
-
-        except Exception as e:
-            GLOG.ERROR(f"Errorsending direct webhook: {e}")
-            return ServiceResult.error(
-                f"Direct webhook failed: {str(e)}"
-            )
-
-    # ============================================================================
-    # Discord Webhook 封装方法
-    # ============================================================================
+        """委托到 WebhookDispatcher.send_webhook_direct"""
+        return self._webhook.send_webhook_direct(
+            webhook_url=webhook_url,
+            content=content,
+            title=title,
+            color=color,
+            fields=fields,
+            footer=footer,
+            author=author,
+            url=url,
+            **kwargs
+        )
 
     def send_discord_webhook(
         self,
@@ -1126,45 +1101,8 @@ class NotificationService(BaseService):
         avatar_url: Optional[str] = None,
         **kwargs
     ) -> ServiceResult:
-        """
-        发送 Discord Webhook 消息（基础方法，支持所有Discord参数）
-
-        Discord Webhook 完整功能封装，footer等参数支持完整的Discord原生格式。
-
-        Args:
-            webhook_url: Discord Webhook URL
-            content: 消息内容（支持Markdown）
-            title: 嵌入消息标题
-            color: 嵌入消息颜色（十进制，如3066993=绿色）
-            fields: 嵌入字段数组，格式：[{"name": "字段名", "value": "字段值", "inline": True}]
-            footer: 页脚信息，完整格式：{"text": "页脚", "icon_url": "图标URL"}
-            author: 作者信息，格式：{"name": "作者名", "url": "链接", "icon_url": "图标URL"}
-            url: 标题链接（点击标题跳转）
-            username: 覆盖Webhook默认用户名
-            avatar_url: 覆盖Webhook默认头像URL
-            **kwargs: 其他参数
-
-        Returns:
-            ServiceResult: 包含发送结果
-
-        Examples:
-            >>> service = container.notification_service()
-            >>>
-            >>> # 简单文本消息
-            >>> service.send_discord_webhook(
-            ...     webhook_url="https://...",
-            ...     content="Hello World"
-            ... )
-            >>>
-            >>> # 完整footer格式
-            >>> service.send_discord_webhook(
-            ...     webhook_url="https://...",
-            ...     content="订单已成交",
-            ...     title="交易通知",
-            ...     footer={"text": "LiveBot", "icon_url": "https://..."}
-            ... )
-        """
-        return self.send_webhook_direct(
+        """委托到 WebhookDispatcher.send_discord_webhook"""
+        return self._webhook.send_discord_webhook(
             webhook_url=webhook_url,
             content=content,
             title=title,
@@ -1178,10 +1116,6 @@ class NotificationService(BaseService):
             **kwargs
         )
 
-    # ============================================================================
-    # 交易信号封装方法
-    # ============================================================================
-
     def send_trading_signal_webhook(
         self,
         webhook_url: str,
@@ -1194,95 +1128,18 @@ class NotificationService(BaseService):
         footer: Optional[str] = None,
         **kwargs
     ) -> ServiceResult:
-        """
-        发送交易信号到 Discord Webhook（基于 Webhook 直接发送）
-
-        面向业务的交易信号发送方法，参数简洁直观。
-
-        Args:
-            webhook_url: Discord Webhook URL
-            direction: 交易方向 (LONG/SHORT)
-            code: 股票代码
-            price: 价格
-            volume: 数量
-            strategy: 策略名称（可选）
-            reason: 信号原因（可选）
-            footer: 页脚文本，如 "LiveBot"（可选，内部自动转换为Discord格式）
-            **kwargs: 其他参数
-
-        Returns:
-            ServiceResult: 包含发送结果
-
-        Examples:
-            >>> service = container.notification_service()
-            >>>
-            >>> # 简单信号
-            >>> service.send_trading_signal_webhook(
-            ...     webhook_url="https://...",
-            ...     direction="LONG",
-            ...     code="000001.SZ",
-            ...     price=12.50,
-            ...     volume=1000,
-            ...     footer="LiveBot"
-            ... )
-            >>>
-            >>> # 带策略和原因
-            >>> service.send_trading_signal_webhook(
-            ...     webhook_url="https://...",
-            ...     direction="SHORT",
-            ...     code="600000.SH",
-            ...     price=15.80,
-            ...     volume=500,
-            ...     strategy="双均线策略",
-            ...     reason="金叉死叉",
-            ...     footer="TradeBot"
-            ... )
-        """
-        try:
-            # 根据交易方向设置颜色和标题
-            direction_upper = direction.upper()
-            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_VOID)
-
-            # 中文方向文本和图标
-            direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
-            direction_text = direction_text_map.get(direction_upper, direction_upper)
-            icon = "📈" if direction_upper == "LONG" else "📉" if direction_upper == "SHORT" else "📊"
-            title = f"{icon} {direction_text}信号"
-
-            # 构建字段
-            fields = [
-                {"name": "代码", "value": code, "inline": True},
-                {"name": "价格", "value": str(price), "inline": True},
-                {"name": "数量", "value": str(volume), "inline": True}
-            ]
-
-            # 添加策略字段
-            if strategy:
-                fields.append({"name": "策略", "value": strategy, "inline": True})
-
-            # 添加原因字段
-            if reason:
-                fields.append({"name": "原因", "value": reason, "inline": False})
-
-            # 转换footer为Discord格式
-            footer_obj = {"text": footer} if footer else None
-
-            # 发送消息
-            return self.send_discord_webhook(
-                webhook_url=webhook_url,
-                content=f"交易信号触发: {direction_upper}",
-                title=title,
-                color=color,
-                fields=fields,
-                footer=footer_obj,
-                **kwargs
-            )
-
-        except Exception as e:
-            GLOG.ERROR(f"Errorsending trading signal webhook: {e}")
-            return ServiceResult.error(
-                f"Trading signal webhook failed: {str(e)}"
-            )
+        """委托到 WebhookDispatcher.send_trading_signal_webhook"""
+        return self._webhook.send_trading_signal_webhook(
+            webhook_url=webhook_url,
+            direction=direction,
+            code=code,
+            price=price,
+            volume=volume,
+            strategy=strategy,
+            reason=reason,
+            footer=footer,
+            **kwargs
+        )
 
     def send_system_notification_webhook(
         self,
@@ -1293,86 +1150,15 @@ class NotificationService(BaseService):
         footer: Optional[str] = None,
         **kwargs
     ) -> ServiceResult:
-        """
-        发送系统通知到 Discord Webhook（基于 Webhook 直接发送）
-
-        面向业务的系统通知发送方法，参数简洁直观。
-
-        Args:
-            webhook_url: Discord Webhook URL
-            message_type: 消息类型 (info/success/warning/error/update)
-            content: 通知内容
-            details: 详细信息字典，格式：{"字段名": "字段值"}
-            footer: 页脚文本，如 "DataBot"（可选，内部自动转换为Discord格式）
-            **kwargs: 其他参数
-
-        Returns:
-            ServiceResult: 包含发送结果
-
-        Examples:
-            >>> service = container.notification_service()
-            >>>
-            >>> # 数据更新通知
-            >>> service.send_system_notification_webhook(
-            ...     webhook_url="https://...",
-            ...     message_type="update",
-            ...     content="K线数据更新完成",
-            ...     details={"代码": "000001.SZ", "日期": "2026-01-01", "记录数": "5000"},
-            ...     footer="DataBot"
-            ... )
-            >>>
-            >>> # 系统错误通知
-            >>> service.send_system_notification_webhook(
-            ...     webhook_url="https://...",
-            ...     message_type="error",
-            ...     content="数据库连接失败",
-            ...     details={"错误": "Connection timeout", "重试次数": "3"},
-            ...     footer="SystemMonitor"
-            ... )
-        """
-        try:
-            # 根据消息类型设置标题和颜色
-            type_upper = message_type.upper()
-
-            # 使用 SYSTEM_LEVEL_COLORS 映射获取颜色
-            color = SYSTEM_LEVEL_COLORS.get(type_upper, DISCORD_COLOR_WHITE)
-
-            # 设置标题
-            title_map = {
-                "INFO": "系统消息",
-                "SUCCESS": "操作成功",
-                "WARNING": "系统警告",
-                "ERROR": "系统错误",
-                "UPDATE": "数据更新",
-                "ALERT": "系统告警",
-            }
-            title = title_map.get(type_upper, f"系统通知: {message_type}")
-
-            # 构建字段
-            fields = []
-            if details:
-                for key, value in details.items():
-                    fields.append({"name": key, "value": str(value), "inline": True})
-
-            # 转换footer为Discord格式
-            footer_obj = {"text": footer} if footer else None
-
-            # 发送消息
-            return self.send_discord_webhook(
-                webhook_url=webhook_url,
-                content=content,
-                title=title,
-                color=color,
-                fields=fields if fields else None,
-                footer=footer_obj,
-                **kwargs
-            )
-
-        except Exception as e:
-            print(f"Errorsending system notification webhook: {e}")
-            return ServiceResult.error(
-                f"System notification webhook failed: {str(e)}"
-            )
+        """委托到 WebhookDispatcher.send_system_notification_webhook"""
+        return self._webhook.send_system_notification_webhook(
+            webhook_url=webhook_url,
+            message_type=message_type,
+            content=content,
+            details=details,
+            footer=footer,
+            **kwargs
+        )
 
     def send_trading_signal(
         self,
@@ -1387,118 +1173,19 @@ class NotificationService(BaseService):
         priority: int = 2,
         **kwargs
     ) -> ServiceResult:
-        """
-        发送交易信号（基于模板）
-
-        使用 simple_signal 模板发送格式化的交易信号通知。
-        优先级默认为2（HIGH），确保交易信号及时送达。
-
-        Args:
-            user_uuid: 用户 UUID（与 group_name/group_uuid 二选一）
-            group_name: 用户组名称（与 user_uuid 二选一）
-            group_uuid: 用户组 UUID（与 user_uuid 二选一）
-            direction: 交易方向 (LONG/SHORT)
-            code: 股票代码
-            price: 价格
-            volume: 数量
-            strategy_name: 策略名称（可选）
-            priority: 优先级（默认2=HIGH）
-            **kwargs: 其他参数
-
-        Returns:
-            ServiceResult: 包含发送结果
-
-        Examples:
-            >>> service = container.notification_service()
-            >>>
-            >>> # 发送给用户
-            >>> service.send_trading_signal(
-            ...     user_uuid="xxx",
-            ...     direction="LONG",
-            ...     code="000001.SZ",
-            ...     price=12.50,
-            ...     volume=1000
-            ... )
-            >>>
-            >>> # 发送给用户组
-            >>> service.send_trading_signal(
-            ...     group_name="traders",
-            ...     direction="SHORT",
-            ...     code="600000.SH",
-            ...     price=15.80,
-            ...     volume=500,
-            ...     strategy_name="趋势策略"
-            ... )
-        """
-        try:
-            # 获取交易方向对应的颜色和文本
-            direction_upper = direction.upper()
-            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_VOID)
-
-            # 中文方向文本
-            direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
-            direction_text = direction_text_map.get(direction_upper, direction_upper)
-
-            # 构建标题
-            title = f"{'📈' if direction_upper == 'LONG' else '📉' if direction_upper == 'SHORT' else '📊'} {direction_text}信号 - {code}"
-
-            # 准备模板变量（匹配 simple_signal 模板需求）
-            context = {
-                "title": title,
-                "content": f"**{direction_text}信号**\n\n{f'策略: {strategy_name}' if strategy_name else ''}",
-                "color": color,
-                "symbol": code,
-                "price": str(price),
-                "direction": direction_text,
-                "footer_text": "Ginkgo 交易系统"
-            }
-
-            if strategy_name:
-                context["strategy_name"] = strategy_name
-
-            # 根据接收者类型发送
-            if user_uuid:
-                return self.send_template_to_user(
-                    user_uuid=user_uuid,
-                    template_id="simple_signal",
-                    context=context,
-                    priority=priority,
-                    **kwargs
-                )
-            elif group_name:
-                return self.send_template_to_group(
-                    group_name=group_name,
-                    template_id="simple_signal",
-                    context=context,
-                    priority=priority,
-                    **kwargs
-                )
-            elif group_uuid:
-                # 如果提供的是 group_uuid，需要先查找 group_name
-                if self.group_crud is None:
-                    return ServiceResult.error("Group CRUD not initialized")
-
-                group = self.group_crud.get_by_uuid(group_uuid)
-                if group is None:
-                    return ServiceResult.error(f"Group not found: {group_uuid}")
-
-                return self.send_template_to_group(
-                    group_name=group.name,
-                    template_id="simple_signal",
-                    context=context,
-                    priority=priority,
-                    **kwargs
-                )
-            else:
-                return ServiceResult.error(
-                    "Either user_uuid or group_name/group_uuid is required"
-                )
-
-        except Exception as e:
-            GLOG.ERROR(f"Errorsending trading signal: {e}")
-            return ServiceResult.error(
-                f"Trading signal failed: {str(e)}"
-            )
+        """委托到 WebhookDispatcher.send_trading_signal"""
+        return self._webhook.send_trading_signal(
+            user_uuid=user_uuid,
+            group_name=group_name,
+            group_uuid=group_uuid,
+            direction=direction,
+            code=code,
+            price=price,
+            volume=volume,
+            strategy_name=strategy_name,
+            priority=priority,
+            **kwargs
+        )
 
     # ============================================================================
     # Kafka 异步通知和降级逻辑 (FR-019a)
@@ -1773,464 +1460,3 @@ class NotificationService(BaseService):
             "should_degrade": self._kafka_health_checker.should_degrade(),
             "health_summary": self._kafka_health_checker.get_health_summary()
         }
-
-    # ==================== 查询方法 ====================
-
-    def get_records_by_user(
-        self,
-        user_uuid: str,
-        limit: int = 100,
-        status: Optional[int] = None
-    ) -> ServiceResult:
-        """
-        查询用户的通知记录
-
-        Args:
-            user_uuid: 用户 UUID
-            limit: 最大返回数量
-            status: 可选的状态过滤
-
-        Returns:
-            ServiceResult with list of notification records
-        """
-        try:
-            records = self.record_crud.get_by_user(
-                user_uuid=user_uuid,
-                limit=limit,
-                status=status
-            )
-
-            return ServiceResult.success(
-                data={
-                    "records": records,
-                    "count": len(records)
-                },
-                message=f"Found {len(records)} records for user {user_uuid}"
-            )
-
-        except Exception as e:
-            GLOG.ERROR(f"Errorgetting records for user '{user_uuid}': {e}")
-            return ServiceResult.error(
-                f"Failed to get records: {str(e)}"
-            )
-
-    def get_records_by_template_id(
-        self,
-        template_id: str,
-        limit: int = 100
-    ) -> ServiceResult:
-        """
-        根据模板 ID 查询通知记录
-
-        Args:
-            template_id: 模板 ID
-            limit: 最大返回数量
-
-        Returns:
-            ServiceResult with list of notification records
-        """
-        try:
-            records = self.record_crud.get_by_template_id(
-                template_id=template_id,
-                limit=limit
-            )
-
-            return ServiceResult.success(
-                data={
-                    "records": records,
-                    "count": len(records)
-                },
-                message=f"Found {len(records)} records for template {template_id}"
-            )
-
-        except Exception as e:
-            GLOG.ERROR(f"Errorgetting records for template '{template_id}': {e}")
-            return ServiceResult.error(
-                f"Failed to get records: {str(e)}"
-            )
-
-
-# ============================================================================
-# 简化的全局通知函数
-# ============================================================================
-
-_notification_service_instance = None
-
-def _get_notification_service() -> NotificationService:
-    """获取NotificationService单例"""
-    global _notification_service_instance
-    
-    if _notification_service_instance is not None:
-        return _notification_service_instance
-    
-    try:
-        from ginkgo.data.containers import container
-        from ginkgo.user.services.user_service import UserService
-        from ginkgo.user.services.user_group_service import UserGroupService
-        from ginkgo.notifier.core.template_engine import TemplateEngine
-        
-        template_crud = container.notification_template_crud()
-        record_crud = container.notification_record_crud()
-        template_engine = TemplateEngine(template_crud=template_crud)
-        
-        user_service = UserService(
-            user_crud=container.user_crud(),
-            user_contact_crud=container.user_contact_crud()
-        )
-        
-        group_service = UserGroupService(
-            user_group_crud=container.user_group_crud(),
-            user_group_mapping_crud=container.user_group_mapping_crud()
-        )
-        
-        _notification_service_instance = NotificationService(
-            user_service=user_service,
-            user_group_service=group_service,
-            template_crud=template_crud,
-            record_crud=record_crud,
-            template_engine=template_engine,
-            group_crud=container.user_group_crud(),
-            group_mapping_crud=container.user_group_mapping_crud(),
-            contact_crud=container.user_contact_crud()
-        )
-        
-        return _notification_service_instance
-        
-    except Exception as e:
-        GLOG.ERROR(f"Failed to initialize NotificationService: {e}")
-        return None
-
-
-def notify(
-    content: str,
-    level: str = "INFO",
-    details: Optional[Dict[str, Any]] = None,
-    module: str = "System",
-    async_mode: bool = True
-) -> bool:
-    """
-    发送系统通知（简化版，内部调用）
-
-    根据等级自动选择颜色和模板，自动发送到系统通知接收人。
-    支持同步和异步模式。
-
-    Args:
-        content: 通知内容
-        level: 等级 (INFO/WARN/ERROR/ALERT)，默认 INFO
-        details: 详细信息字典
-        module: 模块名称，默认 "System"
-        async_mode: 异步模式（通过Kafka Worker），默认 True
-
-    Returns:
-        bool: 是否发送成功
-
-    Examples:
-        >>> # 异步发送（默认，不阻塞）
-        >>> notify("任务完成")
-        True
-        >>>
-        >>> # 同步发送（阻塞，等待结果）
-        >>> notify("系统警告", level="WARN", async_mode=False)
-        True
-        >>>
-        >>> # 错误通知
-        >>> notify("连接失败", level="ERROR", details={"重试": "3次"})
-        True
-    """
-    try:
-        service = _get_notification_service()
-        if service is None:
-            GLOG.ERROR("NotificationService not available")
-            return False
-
-        # 等级到模板ID的映射
-        level_templates = {
-            "INFO": "system_info",
-            "WARN": "system_warn",
-            "ERROR": "system_error",
-            "ALERT": "system_alert"
-        }
-
-        # 构建通知内容（不使用模板，直接发送）
-        # 清理内容中的换行符，避免 Markdown 渲染问题
-        clean_content = content.replace('\n', ' ').replace('\r', '')
-
-        # 构建字段列表
-        fields = []
-        if details:
-            for key, value in details.items():
-                fields.append({
-                    "name": str(key),
-                    "value": str(value),
-                    "inline": True
-                })
-
-        # 添加模块和时间字段
-        fields.append({"name": "模块", "value": module, "inline": True})
-        fields.append({"name": "时间", "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "inline": True})
-
-        # 获取所有系统通知接收人
-        from ginkgo.data.containers import container
-        from ginkgo.enums import RECIPIENT_TYPES
-
-        recipient_crud = container.notification_recipient_crud()
-        group_mapping_crud = container.user_group_mapping_crud()
-
-        # 获取所有启用的通知接收人
-        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
-
-        if not recipients:
-            GLOG.WARN("No notification recipients found, notification not sent")
-            return False
-
-        # 收集所有需要通知的用户UUID（去重）
-        user_uuids_set = set()
-
-        for recipient in recipients:
-            recipient_type = recipient.get_recipient_type_enum()
-
-            if recipient_type == RECIPIENT_TYPES.USER:
-                # 单个用户类型
-                if recipient.user_id:
-                    user_uuids_set.add(recipient.user_id)
-
-            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
-                # 用户组类型 - 获取组内所有用户
-                if recipient.user_group_id and group_mapping_crud:
-                    mappings = group_mapping_crud.find_by_group(
-                        recipient.user_group_id,
-                        as_dataframe=False
-                    )
-                    for mapping in mappings:
-                        user_uuids_set.add(mapping.user_uuid)
-
-        user_uuids = list(user_uuids_set)
-
-        if not user_uuids:
-            GLOG.WARN("No users found from notification recipients")
-            return False
-
-        # 构建标题
-        level_upper = level.upper()
-        title_map = {
-            "INFO": "ℹ️ 系统消息",
-            "SUCCESS": "✅ 操作成功",
-            "WARNING": "⚠️ 系统警告",
-            "ERROR": "❌ 系统错误",
-            "ALERT": "🚨 系统告警",
-        }
-        title = title_map.get(level_upper, f"系统通知: {level}")
-
-        # 获取颜色
-        color = SYSTEM_LEVEL_COLORS.get(level_upper, DISCORD_COLOR_WHITE)
-
-        success_count = 0
-
-        # 根据async_mode选择发送方式
-        if async_mode:
-            # 异步模式：向每个用户异步发送（不阻塞）
-            for user_uuid in user_uuids:
-                result = service.send_async(
-                    content=clean_content,
-                    channels=["webhook"],
-                    user_uuid=user_uuid,
-                    priority=2 if level_upper in ("ERROR", "ALERT") else 1,
-                    title=title,
-                    color=color,
-                    fields=fields if fields else None,
-                    footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
-                )
-                if result.is_success:
-                    success_count += 1
-
-            GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {clean_content}")
-            return success_count > 0
-        else:
-            # 同步模式：直接发送（阻塞，等待结果）
-            for user_uuid in user_uuids:
-                result = service.send_to_user(
-                    user_uuid=user_uuid,
-                    content=clean_content,
-                    title=title,
-                    channels=["webhook"],
-                    priority=2 if level_upper in ("ERROR", "ALERT") else 1
-                )
-
-                # 如果发送成功，发送带格式的 Discord 消息
-                if result.is_success:
-                    success_count += 1
-
-            # 额外发送格式化的 Discord webhook 消息
-            for user_uuid in user_uuids:
-                try:
-                    contacts = service.contact_crud.get_by_user(user_uuid, is_active=True) if service.contact_crud else []
-                    for contact in contacts:
-                        contact_type = CONTACT_TYPES.from_int(contact.contact_type)
-                        if contact_type == CONTACT_TYPES.WEBHOOK and contact.is_primary:
-                            service.send_discord_webhook(
-                                webhook_url=contact.address,
-                                content=clean_content,
-                                title=title,
-                                color=color,
-                                fields=fields if fields else None,
-                                footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
-                            )
-                            break
-                except:
-                    pass
-
-            GLOG.INFO(f"Notification sent to {success_count}/{len(user_uuids)} users: {clean_content}")
-            return success_count > 0
-
-    except Exception as e:
-        GLOG.ERROR(f"Failed to send notification: {e}")
-        return False
-
-
-def notify_with_fields(
-    content: str,
-    fields: List[Dict[str, Any]],
-    title: Optional[str] = None,
-    level: str = "INFO",
-    module: str = "System",
-    async_mode: bool = True,  # 默认异步模式
-) -> bool:
-    """
-    发送系统通知（支持自定义字段）
-
-    支持异步（Kafka）和同步（直接Discord webhook）两种模式。
-    使用系统通知接收人配置。
-
-    Args:
-        content: 通知内容（支持Markdown）
-        fields: Discord字段数组，格式：[{"name": "字段名", "value": "字段值", "inline": False}]
-        title: 消息标题（可选）
-        level: 等级 (INFO/WARN/ERROR/ALERT)，用于自动选择颜色，默认 INFO
-        module: 模块名称，默认 "System"（仅用于日志）
-        async_mode: 异步模式（需要Kafka），默认 True
-
-    Returns:
-        bool: 是否发送成功
-
-    Examples:
-        >>> # 发送带多个字段的通知
-        >>> notify_with_fields(
-        ...     content="TaskTimer启动成功",
-        ...     title="TaskTimer",
-        ...     fields=[
-        ...         {"name": "节点ID", "value": "task_timer_1", "inline": True},
-        ...         {"name": "任务数量", "value": "3", "inline": True},
-        ...     ]
-        ... )
-        True
-    """
-    try:
-        service = _get_notification_service()
-        if service is None:
-            GLOG.ERROR(f"[{module}] NotificationService not available")
-            return False
-
-        # 获取所有系统通知接收人
-        from ginkgo.data.containers import container
-        from ginkgo.enums import RECIPIENT_TYPES
-
-        recipient_crud = container.notification_recipient_crud()
-        group_mapping_crud = container.user_group_mapping_crud()
-
-        # 获取所有启用的通知接收人
-        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
-
-        if not recipients:
-            GLOG.WARN(f"[{module}] No notification recipients found")
-            return False
-
-        # 收集所有需要通知的用户UUID（去重）
-        user_uuids_set = set()
-
-        for recipient in recipients:
-            recipient_type = recipient.get_recipient_type_enum()
-
-            if recipient_type == RECIPIENT_TYPES.USER:
-                # 单个用户类型
-                if recipient.user_id:
-                    user_uuids_set.add(recipient.user_id)
-
-            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
-                # 用户组类型 - 获取组内所有用户
-                if recipient.user_group_id and group_mapping_crud:
-                    mappings = group_mapping_crud.find_by_group(
-                        recipient.user_group_id,
-                        as_dataframe=False
-                    )
-                    for mapping in mappings:
-                        user_uuids_set.add(mapping.user_uuid)
-
-        user_uuids = list(user_uuids_set)
-
-        if not user_uuids:
-            GLOG.WARN(f"[{module}] No users found from notification recipients")
-            return False
-
-        # 异步模式：通过 Kafka 发送
-        if async_mode:
-            try:
-                # 构建自定义字段消息
-                message = {
-                    "message_type": "custom_fields",
-                    "user_uuids": user_uuids,  # 发送给这些用户
-                    "content": content,
-                    "title": title,
-                    "level": level,
-                    "fields": fields,
-                    "module": module,
-                }
-
-                # 发送到 Kafka
-                if service._kafka_producer:
-                    success = service._kafka_producer.send_async(KafkaTopics.NOTIFICATIONS, message)
-                    if success:
-                        service._kafka_producer.flush(timeout=2.0)
-                        GLOG.INFO(f"[{module}] Notification queued for {len(user_uuids)} users (async)")
-                        return True
-                    else:
-                        GLOG.WARN(f"[{module}] Kafka send_async failed, falling back to sync mode")
-                else:
-                    GLOG.WARN(f"[{module}] Kafka producer not available, falling back to sync mode")
-
-            except Exception as e:
-                GLOG.WARN(f"[{module}] Async send failed: {e}, falling back to sync mode")
-
-        # 同步模式：直接发送到 Discord webhook
-        color = SYSTEM_LEVEL_COLORS.get(level.upper(), DISCORD_COLOR_WHITE)
-
-        success_count = 0
-        for user_uuid in user_uuids:
-            # 获取用户的webhook联系方式
-            if service.contact_crud:
-                contacts = service.contact_crud.find_by_user_id(user_uuid, as_dataframe=False)
-                for contact in contacts:
-                    contact_type_enum = contact.get_contact_type_enum()
-                    if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
-                        # 直接发送到 Discord webhook
-                        result = service.send_discord_webhook(
-                            webhook_url=contact.address,
-                            content=content,
-                            title=title,
-                            color=color,
-                            fields=fields,
-                            footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
-                        )
-                        if result.is_success:
-                            success_count += 1
-                        break  # 每个用户只发送一次
-
-        if success_count > 0:
-            GLOG.INFO(f"[{module}] Notification sent to {success_count}/{len(user_uuids)} users (sync mode)")
-            return True
-        else:
-            GLOG.WARN(f"[{module}] No notifications sent")
-            return False
-
-    except Exception as e:
-        GLOG.ERROR(f"[{module}] Failed to send notification with fields: {e}")
-        return False

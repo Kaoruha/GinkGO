@@ -100,7 +100,7 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
 
 def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[Any]:
     """Maps a DataFrame from Tushare to a list of Bar business entities."""
-    from ginkgo.trading.entities import Bar
+    from ginkgo.entities import Bar
 
     items = []
     for _, r in df.iterrows():
@@ -127,7 +127,7 @@ def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_
 
 def dataframe_to_tick_entities(df: pd.DataFrame, code: str) -> List[Any]:
     """Maps a DataFrame from TDX to a list of Tick business entities."""
-    from ginkgo.trading.entities import Tick
+    from ginkgo.entities import Tick
 
     items = []
     for _, r in df.iterrows():

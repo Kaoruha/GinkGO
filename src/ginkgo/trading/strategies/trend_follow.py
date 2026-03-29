@@ -1,6 +1,6 @@
-# Upstream: Portfolio Manager (添加趋势跟踪策略)、BaseStrategy (继承提供策略基础能力)
+# Upstream: Portfolio Manager (添加趋势跟踪策略)、StrategyBase (继承提供策略基础能力)
 # Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、get_bars (数据获取工具)
-# Role: Trend Follow策略继承BaseStrategy实现TrendFollow趋势跟踪交易逻辑支持相关功能
+# Role: Trend Follow策略继承StrategyBase实现TrendFollow趋势跟踪交易逻辑支持相关功能
 
 
 
@@ -10,8 +10,8 @@
 import datetime
 from decimal import Decimal
 import pandas as pd
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.entities import Signal
+from ginkgo.trading.strategies.strategy_base import StrategyBase
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import container
 
@@ -21,7 +21,7 @@ def get_bars(code, start=None, end=None, **kwargs):
     return container.bar_service().get(code=code, start=start, end=end, **kwargs)
 
 
-class StrategyTrendFollow(BaseStrategy):
+class StrategyTrendFollow(StrategyBase):
     """
     趋势跟踪策略
     
@@ -42,7 +42,7 @@ class StrategyTrendFollow(BaseStrategy):
         *args,
         **kwargs,
     ):
-        super(StrategyTrendFollow, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._fast_ma_period = fast_ma_period
         self._slow_ma_period = slow_ma_period
         self._momentum_period = momentum_period
@@ -101,7 +101,7 @@ class StrategyTrendFollow(BaseStrategy):
         return False
 
     def cal(self, portfolio_info, event, *args, **kwargs):
-        super(StrategyTrendFollow, self).cal(portfolio_info, event)
+        super().cal(portfolio_info, event)
         
         # 获取历史数据
         date_start = self.business_timestamp - datetime.timedelta(days=(self._slow_ma_period + 10))

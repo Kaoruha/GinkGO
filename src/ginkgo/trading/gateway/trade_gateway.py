@@ -20,11 +20,12 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import re
+import traceback
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderAck, EventOrderPartiallyFilled, EventOrderRejected,
@@ -296,7 +297,7 @@ class TradeGateway(BaseTradeGateway):
             self._handle_execution_result(result)
 
         except Exception as e:
-            GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}")
+            GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}\n{traceback.format_exc()}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
@@ -909,9 +910,7 @@ class TradeGateway(BaseTradeGateway):
 
             GLOG.DEBUG(f"ORDERPARTIALLYFILLED event routed to portfolio {portfolio_id}")
         except Exception as e:
-            GLOG.ERROR(f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}")
-            import traceback
-            GLOG.ERROR(f"🔥 [ROUTER] 异常堆栈: {traceback.format_exc()}")
+            GLOG.ERROR(f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}\n{traceback.format_exc()}")
 
         GLOG.INFO(f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
 

@@ -13,7 +13,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MBar
-from ginkgo.trading import Bar
+from ginkgo.entities import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 from ginkgo.libs.utils.error_handler import unified_error_handler

@@ -61,7 +61,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         设计原则：会话实体的 uuid = run_id（主键就是会话ID）
         """
-        from ginkgo.trading.core.identity import IdentityUtils
+        from ginkgo.entities import IdentityUtils
 
         source_value = kwargs.get("source", SOURCE_TYPES.SIM)
         if isinstance(source_value, SOURCE_TYPES):

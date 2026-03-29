@@ -17,7 +17,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Order
 from ginkgo.libs import GLOG
 
 

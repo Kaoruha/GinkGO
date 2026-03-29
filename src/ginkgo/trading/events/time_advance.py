@@ -28,7 +28,7 @@ class EventTimeAdvance(EventBase):
     """
 
     def __init__(self, target_time: datetime.datetime, phase_id: str = None, *args, **kwargs) -> None:
-        super(EventTimeAdvance, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.TIME_ADVANCE)
         self.set_name("EventTimeAdvance")
         

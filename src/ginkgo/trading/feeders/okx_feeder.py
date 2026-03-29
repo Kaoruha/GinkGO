@@ -16,6 +16,8 @@ OKX 市场数据馈送器
 """
 
 import requests
+
+from ginkgo.libs import GCONF
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -62,11 +64,13 @@ class OKXMarketDataFeeder(BaseFeeder):
         super().__init__(name=name, *args, **kwargs)
 
         # OKX API 配置
+        self.OKX_DOMAIN = GCONF.OKX_DOMAIN
+
         if environment == "testnet":
-            self.domain = "https://www.okx.com"
+            self.domain = self.OKX_DOMAIN
             self.flag = "1"
         else:
-            self.domain = "https://www.okx.com"
+            self.domain = self.OKX_DOMAIN
             self.flag = "0"
 
         self.environment = environment

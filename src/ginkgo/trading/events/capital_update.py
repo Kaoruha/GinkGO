@@ -41,7 +41,7 @@ class EventCapitalUpdate(EventBase):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(EventCapitalUpdate, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.CAPITALUPDATE)
 
     def __repr__(self):

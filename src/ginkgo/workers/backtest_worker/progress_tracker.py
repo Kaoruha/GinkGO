@@ -14,7 +14,7 @@ from threading import Lock
 from time import time
 from typing import Dict, Optional
 
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, GCONF
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -138,9 +138,6 @@ class ProgressTracker:
         })
         GLOG.ERROR(f"[{short_uuid}] Reported failure by UUID: {error}")
 
-        # 更新数据库状态为 failed（修复：之前缺少这步）
-        self._write_status_to_db(task_uuid, "failed", error_message=error)
-
         # 更新数据库状态为 failed
         self._write_status_to_db(task_uuid, "failed", error_message=error)
 
@@ -188,7 +185,7 @@ class ProgressTracker:
             import requests
             # 异步发送通知，不阻塞主流程
             requests.post(
-                f"http://localhost:8000/api/v1/backtest/{task_id}/notify",
+                f"{GCONF.API_HOST}:{GCONF.API_PORT}/api/v1/backtest/{task_id}/notify",
                 params={
                     "event_type": event_type,
                     "progress": progress,

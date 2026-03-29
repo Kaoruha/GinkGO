@@ -13,7 +13,7 @@ from ginkgo.trading.computation.technical.base_indicator import BaseIndicator
 
 class PinBar(BaseIndicator):
     def __init__(self, name: str = "pb", *args, **kwargs) -> None:
-        super(PinBar, self).__init__(name=name, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
 
     def cal(self, raw: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
         df = raw.copy()

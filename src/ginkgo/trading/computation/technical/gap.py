@@ -14,7 +14,7 @@ from ginkgo.trading.computation.technical.base_indicator import BaseIndicator
 class Gap(BaseIndicator):
     # Need Optimize , so many gap, need to filter
     def __init__(self, name: str = "gap", *args, **kwargs) -> None:
-        super(Gap, self).__init__(name=name, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
         self._filter = 0.5
 
     def cal(self, raw: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:

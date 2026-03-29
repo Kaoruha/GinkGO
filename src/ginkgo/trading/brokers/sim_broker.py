@@ -16,13 +16,14 @@ SimBroker - 回测模拟撮合Broker
 
 import pandas as pd
 import random
+import traceback
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from scipy import stats
 
 from ginkgo.trading.bases.base_broker import BaseBroker
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
 
@@ -58,13 +59,23 @@ class SimBroker(BaseBroker, IBroker):
         # 模拟交易配置
         self._attitude = config.get("attitude", ATTITUDE_TYPES.RANDOM)
         self._commission_rate = Decimal(str(config.get("commission_rate", 0.0003)))
-        self._commission_min = config.get("commission_min", 5)
+        self._commission_min = Decimal(str(config.get("commission_min", 5)))
         self._slip_base = config.get("slip_base", 0.01)
+        self._slippage_tolerance = Decimal(str(config.get("slippage_tolerance", 0.05)))
 
         # 设置市场属性（用于Router市场映射）
         self.market = "SIM"  # 通用模拟市场，支持所有品种
 
         GLOG.INFO(f"SimBroker initialized with attitude={self._attitude.name}, commission_rate={self._commission_rate}")
+
+    @staticmethod
+    def _get_field(data: Any, field: str, default=None):
+        """从 Bar 对象或 dict 中提取字段值"""
+        if hasattr(data, field):
+            return getattr(data, field)
+        if isinstance(data, dict):
+            return data.get(field, default)
+        return default
 
     # ============= IBroker接口实现 =============
     def submit_order_event(self, event) -> BrokerExecutionResult:
@@ -115,7 +126,7 @@ class SimBroker(BaseBroker, IBroker):
             GLOG.WARN(f"🔍 [SIMBROKER] BROKER_ORDER_ID: {result.broker_order_id}, TRADE_ID: {result.trade_id}")
             return result
         except Exception as e:
-            GLOG.ERROR(f"❌ [SIMBROKER] Execution error: {e}")
+            GLOG.ERROR(f"❌ [SIMBROKER] Execution error: {e}\n{traceback.format_exc()}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                 broker_order_id=broker_order_id,
@@ -323,9 +334,7 @@ class SimBroker(BaseBroker, IBroker):
             return result
 
         except Exception as e:
-            GLOG.ERROR(f"❌ [SIMBROKER] Simulation execution error: {e}")
-            import traceback
-            GLOG.ERROR(f"❌ [SIMBROKER] Traceback: {traceback.format_exc()}")
+            GLOG.ERROR(f"❌ [SIMBROKER] Simulation execution error: {e}\n{traceback.format_exc()}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                 broker_order_id=broker_order_id,
@@ -482,11 +491,12 @@ class SimBroker(BaseBroker, IBroker):
 
         # 计算实际需要的资金（包含手续费）
         required_funds = price * order.volume
-        commission = max(required_funds * self._commission_rate, Decimal(str(self._commission_min)))
+        commission = max(required_funds * self._commission_rate, self._commission_min)
         total_required = required_funds + commission
 
-        # 检查冻结的资金是否足够
-        if frozen_funds < total_required:
+        # 检查冻结的资金是否足够（撮合滑点容差）
+        tolerance = total_required * self._slippage_tolerance
+        if frozen_funds < (total_required - tolerance):
             GLOG.WARN(f"❌ [FUNDS CHECK] Insufficient frozen funds: have {frozen_funds}, need {total_required}")
             GLOG.DEBUG(f"💰 [FUNDS CHECK] Order details: {order.code} {order.volume} shares @ {price}")
             GLOG.DEBUG(f"💰 [FUNDS CHECK] Commission calculation: {required_funds} * {self._commission_rate} = {commission}")
@@ -524,13 +534,9 @@ class SimBroker(BaseBroker, IBroker):
             return True
 
         # 获取价格数据
-        if hasattr(price_data, 'low'):
-            low_price = float(price_data.low)
-            high_price = float(price_data.high)
-        elif isinstance(price_data, dict):
-            low_price = float(price_data.get("low", 0))
-            high_price = float(price_data.get("high", 0))
-        else:
+        low_price = float(self._get_field(price_data, 'low', 0))
+        high_price = float(self._get_field(price_data, 'high', 0))
+        if low_price == 0 and high_price == 0:
             return True  # 无法获取价格数据，默认可成交
 
         limit_price = float(order.limit_price)
@@ -557,8 +563,9 @@ class SimBroker(BaseBroker, IBroker):
         if not market_data:
             return False
 
-        limit_up = market_data.get("limit_up")
-        limit_down = market_data.get("limit_down")
+        # 获取涨跌停价格
+        limit_up = self._get_field(market_data, 'limit_up', None)
+        limit_down = self._get_field(market_data, 'limit_down', None)
 
         if direction == "buy" and limit_up is not None:
             return price >= limit_up

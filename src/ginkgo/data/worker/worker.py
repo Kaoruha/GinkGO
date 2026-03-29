@@ -217,8 +217,8 @@ class DataWorker(threading.Thread):
             if self._producer:
                 try:
                     self._producer.close()
-                except:
-                    pass
+                except Exception as e:
+                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to close Kafka producer: {e}")
 
             GLOG.INFO(f"[DataWorker:{self._node_id}] DataWorker stopped successfully")
             return True

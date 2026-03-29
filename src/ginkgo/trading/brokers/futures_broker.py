@@ -20,7 +20,7 @@ from datetime import datetime
 
 from ginkgo.trading.brokers.live_broker_base import LiveBrokerBase
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs import to_decimal, GLOG
 

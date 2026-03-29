@@ -43,7 +43,7 @@ from ginkgo.trading.feeders.okx_data_feeder import OKXDataFeeder
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.libs import GLOG, GCONF
 from ginkgo.libs.utils.common import retry
-from ginkgo.messaging import GinkgoProducer, GinkgoConsumer
+from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
 
 
 class DataManager(threading.Thread):

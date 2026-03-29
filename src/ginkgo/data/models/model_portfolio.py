@@ -17,7 +17,7 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
 

@@ -17,9 +17,9 @@ BaseBroker基础类
 
 from typing import Optional, Dict, Any
 
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
-from ginkgo.trading.entities.position import Position
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities import Position
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
@@ -46,9 +46,7 @@ class BaseBroker(TimeMixin, ContextMixin):
         Args:
             name: Broker名称
         """
-        # 按照Mixin依赖顺序初始化
-        TimeMixin.__init__(self)
-        ContextMixin.__init__(self)
+        super().__init__()
 
         # 设置名称
         self._broker_name = name

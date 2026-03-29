@@ -150,7 +150,9 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
             data_with_defaults[field_name] = field_spec['default']
 
     # 2. 必填字段检查 - 配置中的所有字段都必须存在（有默认值除外）
-    for field_name in field_config.keys():
+    for field_name, field_spec in field_config.items():
+        if not field_spec.get('required', True):
+            continue
         if field_name not in data_with_defaults:
             raise ValidationError(
                 f"Missing required field: {field_name}",
@@ -160,6 +162,8 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
 
     # 3. 逐字段验证和转换
     for field_name, field_spec in field_config.items():
+        if not field_spec.get('required', True) and field_name not in data_with_defaults:
+            continue
         field_value = data_with_defaults[field_name]
         
         try:
@@ -378,7 +382,9 @@ def _convert_single_type(value: Any, type_name: str) -> Any:
         for numeric_type in ['int', 'float', 'decimal']:
             try:
                 return _convert_single_type(value, numeric_type)
-            except:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.ERROR(f"Failed to convert '{value}' to {numeric_type}: {e}")
                 continue
         raise ValueError(f"Cannot convert '{value}' to any numeric type")
     
