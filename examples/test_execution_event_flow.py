@@ -19,7 +19,7 @@ import time
 
 from ginkgo.workers.execution_node.node import ExecutionNode
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.trading.entities.bar import Bar
+from ginkgo.entities.bar import Bar
 from ginkgo.enums import DIRECTION_TYPES, FREQUENCY_TYPES
 
 

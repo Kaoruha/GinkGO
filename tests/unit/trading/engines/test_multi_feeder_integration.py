@@ -98,3 +98,20 @@ class TestMultiFeederIntegration:
 
         assert len(engine._data_feeders) == 1
         assert engine._data_feeders[0] == feeder3
+
+    def test_portfolio_added_after_feeder_auto_propagated(self):
+        """后添加的 portfolio 自动获得当前主 feeder"""
+        engine = TimeControlledEventEngine(name="LatePortfolio", mode=EXECUTION_MODE.BACKTEST)
+
+        feeder = MagicMock()
+        feeder.name = "EarlyFeeder"
+        engine.add_data_feeder(feeder)
+
+        # 后添加的 portfolio
+        late_portfolio = MagicMock()
+        late_portfolio.name = "LatePortfolio"
+        late_portfolio.bind_data_feeder = MagicMock()
+        engine.add_portfolio(late_portfolio)
+
+        # EventEngine.add_portfolio 会自动传播当前 _datafeeder
+        late_portfolio.bind_data_feeder.assert_called_once_with(feeder)

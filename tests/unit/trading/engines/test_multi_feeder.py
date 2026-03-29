@@ -36,7 +36,7 @@ class TestMultiDataFeeder:
         feeder.name = "BoundFeeder"
         engine.add_data_feeder(feeder)
         feeder.bind_engine.assert_called_once_with(engine)
-        feeder.set_event_publisher.assert_called_once()
+        feeder.set_event_publisher.assert_called_once_with(engine.put)
 
     def test_add_data_feeder_propagates_to_portfolios(self):
         """Test that add_data_feeder propagates feeder to portfolios"""
@@ -62,3 +62,11 @@ class TestMultiDataFeeder:
         engine.set_data_feeder(feeder1)
         assert len(engine._data_feeders) == 1
         assert engine._data_feeders[0] == feeder1
+
+    def test_add_data_feeder_propagates_time_provider(self):
+        """Test that add_data_feeder propagates _time_provider to feeder"""
+        engine = TimeControlledEventEngine(name="TestTime", mode=EXECUTION_MODE.PAPER)
+        feeder = MagicMock(name="TimeFeeder")
+        feeder.name = "TimeFeeder"
+        engine.add_data_feeder(feeder)
+        feeder.set_time_provider.assert_called_once_with(engine._time_provider)
