@@ -471,26 +471,26 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 except Exception as e:
                     GLOG.ERROR(f"{self.name}: Matchmaking time advance error: {e}")
 
-            # 3. 发送Portfolio时间推进事件（异步，通过事件队列）
+            # 3. 发送Feeder时间推进事件（先获取新价格数据）
             from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
-            print(f"[TIME ADVANCE] Putting EventComponentTimeAdvance for portfolio at {target_time}")
-            self.put(EventComponentTimeAdvance(target_time, "portfolio"))
+            print(f"[TIME ADVANCE] Putting EventComponentTimeAdvance for feeder at {target_time}")
+            self.put(EventComponentTimeAdvance(target_time, "feeder"))
 
-            # 4. Feeder.advance_time通过EventComponentTimeAdvance事件驱动机制处理
-            #    统一由事件队列保证时序：Portfolio → Selector更新兴趣集 → Feeder生成价格事件
+            # 4. Portfolio.advance_time在Feeder完成后通过事件驱动机制处理
+            #    统一由事件队列保证时序：Feeder → Portfolio处理T+1信号（此时已有新价格）
 
         except Exception as e:
             GLOG.ERROR(f"{self.name}: Error in time advance event handler: {e}")
             raise
 
     def _handle_component_time_advance(self, event: "EventComponentTimeAdvance") -> None:
-        """处理组件时间推进事件 - 分阶段推进Portfolio和Feeder
+        """处理组件时间推进事件 - 分阶段推进Feeder和Portfolio
 
         分阶段顺序：
-        1. Portfolio推进 → 发送EventInterestUpdate → 队列EventComponentTimeAdvance("feeder")
-        2. mainloop处理EventInterestUpdate，Feeder更新interested_codes
-        3. Feeder推进 → 为interested_codes生成EventPriceUpdate
+        1. Feeder推进 → 为interested_codes生成EventPriceUpdate（Broker获得新价格数据）
+        2. mainloop处理EventPriceUpdate，Broker更新市场数据
+        3. Portfolio推进 → 发送T+1 Signal → Broker用新价格成交
         """
         try:
             info = event.payload  # 从payload中获取信息
@@ -499,36 +499,29 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             print(f"[COMPONENT TIME ADVANCE] Handling component_type={component_type}, target_time={target_time}")
 
-            if component_type == "portfolio":
-                # 阶段1：推进Portfolio时间
-                print(f"[COMPONENT TIME ADVANCE] Found {len(self.portfolios)} portfolios")
-                GLOG.DEBUG(f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
-                for i, portfolio in enumerate(self.portfolios):
-                    try:
-                        print(f"[COMPONENT TIME ADVANCE] Calling advance_time on portfolio #{i+1}: {portfolio.name}")
-                        GLOG.DEBUG(f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
-                        portfolio.advance_time(target_time)
-                        # Portfolio内部会发送EventInterestUpdate（如果兴趣集有变化）
-                        print(f"[COMPONENT TIME ADVANCE] Portfolio {portfolio.name} advanced to {target_time}")
-                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
-                    except Exception as e:
-                        GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
-
-                # Portfolio完成，发送Feeder时间推进事件（通过队列FIFO保证EventInterestUpdate先被处理）
-                from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
-
-                self.put(EventComponentTimeAdvance(target_time, "feeder"))
-                GLOG.DEBUG(f"{self.name}: Portfolio stage completed, Feeder stage queued")
-
-            elif component_type == "feeder":
-                # 阶段2：推进Feeder时间（此时EventInterestUpdate已被mainloop处理）
+            if component_type == "feeder":
+                # 阶段1：推进Feeder时间（先获取新价格数据）
                 if self._datafeeder:
                     try:
                         self._datafeeder.advance_time(target_time)
-                        # Feeder内部会为interested_codes生成EventPriceUpdate
                         GLOG.DEBUG(f"{self.name}: Feeder advanced to {target_time}")
                     except Exception as e:
                         GLOG.ERROR(f"{self.name}: Feeder time advance error: {e}")
+
+                # Feeder完成，发送Portfolio时间推进事件
+                from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
+
+                self.put(EventComponentTimeAdvance(target_time, "portfolio"))
+                GLOG.DEBUG(f"{self.name}: Feeder stage completed, Portfolio stage queued")
+
+            elif component_type == "portfolio":
+                # 阶段2：推进Portfolio时间（此时Broker已有新价格数据）
+                for portfolio in self.portfolios:
+                    try:
+                        portfolio.advance_time(target_time)
+                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
+                    except Exception as e:
+                        GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
 
                 GLOG.DEBUG(f"{self.name}: Component time advance sequence completed for {target_time}")
 
@@ -546,11 +539,11 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         return self._time_provider
 
     def advance_time_to(self, target_time: datetime) -> bool:
-        """推进时间到目标时间 - 简化版本（依赖Empty异常保证完成）"""
-        if self.mode == EXECUTION_MODE.BACKTEST:
+        """推进时间到目标时间 - 支持回测和纸上交易"""
+        if self.mode in (EXECUTION_MODE.BACKTEST, EXECUTION_MODE.PAPER,
+                         EXECUTION_MODE.PAPER_AUTO, EXECUTION_MODE.PAPER_MANUAL):
             pass  # continue below
         else:
-            # LIVE mode: no manual time advance
             return False
 
         try:
