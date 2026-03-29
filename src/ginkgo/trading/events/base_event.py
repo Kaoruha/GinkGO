@@ -20,8 +20,8 @@ from abc import abstractmethod, ABCMeta
 from typing import Optional
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
 
 
 class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
@@ -40,7 +40,7 @@ class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
         # Extract EventBase-specific parameters before calling super()
         uuid_value = kwargs.pop("uuid", None)
 
-        super(EventBase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._name = ""
         self.set_name(name)
 

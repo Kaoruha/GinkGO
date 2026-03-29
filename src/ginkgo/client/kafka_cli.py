@@ -11,6 +11,8 @@ import typer
 from typing import Optional
 from rich.console import Console
 
+from ginkgo.libs import GLOG
+
 app = typer.Typer(
     help=":satellite: Module for [bold medium_spring_green]KAFKA[/]. [grey62]Kafka queue management commands.[/grey62]",
     no_args_is_help=True,
@@ -537,8 +539,8 @@ def _run_health_check():
                     topic_info = kafka_service.get_topic_status(topic)
                     if topic_info.get("exists", False):
                         healthy_topics += 1
-                except:
-                    pass
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to check Kafka topic '{topic}' status: {e}")
             
             if healthy_topics == len(topics_to_check):
                 health_table.add_row("Kafka Topics", ":white_check_mark: All Healthy", f"{healthy_topics}/{len(topics_to_check)} topics available")

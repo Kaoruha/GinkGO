@@ -24,13 +24,13 @@ from typing import List, Dict, Any, Callable, Optional
 from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
-from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
+from ginkgo.entities.mixins import EngineBindableMixin
 from ginkgo.trading.feeders.interfaces import (
     IBacktestDataFeeder, DataFeedStatus
 )
 from ginkgo.trading.events import EventPriceUpdate, EventBase
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.entities import Bar
+from ginkgo.entities.mixins import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
@@ -48,10 +48,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
     __abstract__ = False
 
     def __init__(self, name="backtest_feeder", bar_service=None, *args, **kwargs):
-        # 初始化EngineBindableMixin
-        EngineBindableMixin.__init__(self, *args, **kwargs)
-        # 初始化父类
-        super(BacktestFeeder, self).__init__(name=name, bar_service=bar_service, *args, **kwargs)
+        super().__init__(name=name, bar_service=bar_service, *args, **kwargs)
 
         self.status = DataFeedStatus.IDLE
 
@@ -228,7 +225,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
     def get_daybar(self, code: str, date: any, *args, **kwargs) -> pd.DataFrame:
         """保持接口，委托父类统一实现；时间边界由本类的 validate_time_access 生效。"""
-        return super(BacktestFeeder, self).get_daybar(code, date, *args, **kwargs)
+        return super().get_daybar(code, date, *args, **kwargs)
 
         
     # === 内部实现方法 ===

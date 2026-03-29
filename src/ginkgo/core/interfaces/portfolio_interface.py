@@ -21,9 +21,9 @@ from enum import Enum
 
 from ginkgo.core.interfaces.strategy_interface import IStrategy
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.trading.sizers.base_sizer import BaseSizer
-from ginkgo.trading.selectors.base_selector import BaseSelector
-from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
+from ginkgo.trading.sizers import BaseSizer
+from ginkgo.trading.selectors import BaseSelector
+from ginkgo.trading.risk_management import BaseRiskManagement
 
 
 class PortfolioStatus(Enum):

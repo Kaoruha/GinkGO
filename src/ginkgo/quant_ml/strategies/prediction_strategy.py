@@ -18,14 +18,14 @@ import pandas as pd
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime, timedelta
 
-from ginkgo.quant_ml.strategies.ml_strategy_base import MLBaseStrategy
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.bar import Bar
+from ginkgo.quant_ml.strategies.ml_strategy_base import MLStrategyBase
+from ginkgo.entities import Signal
+from ginkgo.entities import Bar
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
 
-class PredictionStrategy(MLBaseStrategy):
+class PredictionStrategy(MLStrategyBase):
     """
     预测策略
     

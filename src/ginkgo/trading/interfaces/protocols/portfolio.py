@@ -226,7 +226,7 @@ class IPortfolio(Protocol):
         策略列表 (Strategies List)
 
         Returns:
-            List[BaseStrategy]: 策略列表
+            List[StrategyBase]: 策略列表
 
         Note:
             - 返回所有策略的引用

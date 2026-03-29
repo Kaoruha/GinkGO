@@ -36,6 +36,7 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
+from ginkgo.libs import GLOG
 
 console = Console()
 
@@ -556,8 +557,8 @@ def edit(
             # 清理临时文件
             try:
                 os.unlink(temp_file)
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"清理临时文件失败: {e}")
 
     except Exception as e:
         console.print(f"[red]❌[/red] Error editing component: {str(e)}")

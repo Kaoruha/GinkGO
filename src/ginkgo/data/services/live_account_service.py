@@ -10,7 +10,7 @@ from ginkgo.data.services.base_service import BaseService
 from ginkgo.data.services.encryption_service import get_encryption_service
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
 from ginkgo.data.models.model_live_account import MLiveAccount, AccountStatusType, ExchangeType
-from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs import GLOG, time_logger, retry, GCONF
 
 
 class LiveAccountService(BaseService):
@@ -24,6 +24,9 @@ class LiveAccountService(BaseService):
     - 获取账户余额信息
     """
 
+    # OKX API 域名，从 GCONF 统一管理
+    OKX_DOMAIN = "https://www.okx.com"  # fallback，由 __init__ 从 GCONF 覆盖
+
     def __init__(self, live_account_crud: Optional[LiveAccountCRUD] = None):
         """
         初始化LiveAccountService
@@ -34,6 +37,7 @@ class LiveAccountService(BaseService):
         super().__init__()
         self._crud = live_account_crud or LiveAccountCRUD()
         self._encryption_service = get_encryption_service()
+        self.OKX_DOMAIN = GCONF.OKX_DOMAIN
 
     @time_logger
     def create_account(
@@ -199,7 +203,7 @@ class LiveAccountService(BaseService):
             from okx.Account import AccountAPI as OKXAccount
 
             # 确定API端点
-            domain = "https://www.okx.com"
+            domain = self.OKX_DOMAIN
             flag = "1" if environment == "testnet" else "0"
 
             if not passphrase:
@@ -320,10 +324,10 @@ class LiveAccountService(BaseService):
             # 确定API端点
             if account.is_testnet():
                 # OKX测试网配置
-                domain = "https://www.okx.com"  # OKX使用相同域名，通过flag区分
+                domain = self.OKX_DOMAIN  # OKX使用相同域名，通过flag区分
                 flag = "1"  # 测试网标记
             else:
-                domain = "https://www.okx.com"
+                domain = self.OKX_DOMAIN
                 flag = "0"  # 生产环境标记
 
             # 创建API实例
@@ -517,7 +521,7 @@ class LiveAccountService(BaseService):
             from okx.PublicData import PublicAPI
 
             # 配置API
-            domain = "https://www.okx.com"
+            domain = self.OKX_DOMAIN
             flag = "1" if account.is_testnet() else "0"
 
             api_key = credentials["api_key"]
@@ -748,7 +752,7 @@ class LiveAccountService(BaseService):
             from okx.Account import AccountAPI as OKXAccount
 
             # 配置API
-            domain = "https://www.okx.com"
+            domain = self.OKX_DOMAIN
             flag = "1" if account.is_testnet() else "0"
 
             api_key = credentials["api_key"]

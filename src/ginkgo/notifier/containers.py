@@ -91,7 +91,8 @@ def _create_kafka_producer():
 def _create_kafka_health_checker():
     """Factory function to create KafkaHealthChecker with lazy import."""
     from ginkgo.libs.utils.kafka_health_checker import KafkaHealthChecker
-    return KafkaHealthChecker()
+    from ginkgo.data.crud import KafkaCRUD
+    return KafkaHealthChecker(KafkaCRUD())
 
 
 class Container(containers.DeclarativeContainer):

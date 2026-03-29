@@ -19,7 +19,7 @@ class SignalCount(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str = "signal_count", *args, **kwargs):
-        super(SignalCount, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         # 激活阶段：信号生成时
         self.add_active_stage(RECORDSTAGE_TYPES.SIGNALGENERATION)
         # 记录阶段：每天结束时

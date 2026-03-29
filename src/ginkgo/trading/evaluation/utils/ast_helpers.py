@@ -456,7 +456,7 @@ def get_imports(tree: ast.Module) -> Dict[str, List[str]]:
         {
             'module': ['os', 'sys'],  # import os, sys
             'from': {                   # from x import y
-                'ginkgo': ['BaseStrategy', 'Signal'],
+                'ginkgo': ['StrategyBase', 'Signal'],
                 ...
             }
         }

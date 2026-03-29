@@ -30,8 +30,7 @@ from multiprocessing import Process
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.utils.common import retry
 from ginkgo.libs.core.logger import GinkgoLogger
-from ginkgo.notifier.notifier_beep import beep
-from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.libs import GLOG
 
 
 console = Console()
@@ -41,24 +40,31 @@ worker_logger = GinkgoLogger("dataworker", file_names=["data_worker.log"], conso
 
 class GinkgoThreadManager:
     """
+    线程/进程管理器，支持任务分发、Worker管理、实时引擎启停。
+
     Args:
-        None
-    Return:
-        None
+        redis_service: 可选的Redis服务实例，不传则延迟从 data.containers 获取
+        kafka_service: 可选的Kafka服务实例，不传则延迟从 data.containers 获取
+        on_task_complete: 可选回调 callable(task_name, detail)，任务成功时触发
+        on_task_error: 可选回调 callable(task_name, error)，任务失败时触发
     """
 
-    def __init__(self, *args, **kwargs):
-        super(GinkgoThreadManager, self).__init__()
+    def __init__(self, *args, redis_service=None, kafka_service=None,
+                 on_task_complete=None, on_task_error=None, **kwargs):
+        super().__init__()
         self.thread_pool_name = "ginkgo_thread_pool"
         self.dataworker_pool_name = "ginkgo_dataworker"
         self.lock = threading.Lock()  # TODO
         self.watchdog_name = "watch_dog"  # Watchdog ensures the operation of the main control.
         self.maincontrol_name = "main_control"
-        
-        # 使用RedisService统一管理Redis操作
-        self._redis_service = None
-        # KafkaService延迟初始化，避免循环导入
-        self._kafka_service = None
+
+        # 依赖注入的服务实例
+        self._redis_service = redis_service
+        self._kafka_service = kafka_service
+
+        # 通知回调（由业务层注入，如 beep 提示音）
+        self._on_task_complete = on_task_complete
+        self._on_task_error = on_task_error
     
     @property
     def redis_service(self):
@@ -75,6 +81,22 @@ class GinkgoThreadManager:
             from ginkgo.data.containers import container
             self._kafka_service = container.kafka_service()
         return self._kafka_service
+
+    def _notify_complete(self, task_name: str, detail: str = ""):
+        """任务完成通知（由业务层注入回调，如 beep 提示音）"""
+        if self._on_task_complete:
+            try:
+                self._on_task_complete(task_name, detail)
+            except Exception:
+                pass
+
+    def _notify_error(self, task_name: str, error: str = ""):
+        """任务失败通知"""
+        if self._on_task_error:
+            try:
+                self._on_task_error(task_name, error)
+            except Exception:
+                pass
 
     def get_redis_key_about_worker_status(self, pid: str, *args, **kwargs) -> str:
         return f"{str(pid)}_status"
@@ -138,9 +160,14 @@ class GinkgoThreadManager:
                     worker_logger.ERROR(f"❌ Stock information sync failed: {result.error}")
 
                 self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="COMPLETE" if result.success else "ERROR")
+                if result.success:
+                    self._notify_complete("update_stock_info")
+                else:
+                    self._notify_error("update_stock_info", result.error)
             except Exception as e:
                 worker_logger.ERROR(f"💥 Stock information sync error: {str(e)}")
                 self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="ERROR")
+                self._notify_error("update_stock_info", str(e))
         elif type == "calender":
             # 使用container CRUD方法（TradeDay目前没有专门的Service）
             worker_logger.INFO("🔄 Updating trading calendar (placeholder)")
@@ -158,9 +185,11 @@ class GinkgoThreadManager:
 
                 worker_logger.INFO("✅ Trading calendar update completed (placeholder)")
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="COMPLETE")
+                self._notify_complete("update_calender")
             except Exception as e:
                 worker_logger.ERROR(f"💥 Trading calendar update error: {str(e)}")
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="ERROR")
+                self._notify_error("update_calender", str(e))
         elif type == "adjust":
             # 使用container service方法
             worker_logger.INFO(
@@ -203,6 +232,10 @@ class GinkgoThreadManager:
                     task_name=f"update_adjustfactor_{code}_full_{force}",
                     status="COMPLETE" if result.success else "ERROR",
                 )
+                if result.success:
+                    self._notify_complete(f"update_adjustfactor_{code}")
+                else:
+                    self._notify_error(f"update_adjustfactor_{code}", result.error)
             except Exception as e:
                 worker_logger.ERROR(f"💥 Adjustfactor sync error for {code}: {str(e)}")
                 self.upsert_worker_status(
@@ -210,6 +243,7 @@ class GinkgoThreadManager:
                     task_name=f"update_adjustfactor_{code}_full_{force}",
                     status="ERROR",
                 )
+                self._notify_error(f"update_adjustfactor_{code}", str(e))
         elif type == "bar":
             # 使用container service方法
             worker_logger.INFO(
@@ -249,6 +283,10 @@ class GinkgoThreadManager:
                     task_name=f"update_daybar_{code}_full_{force}",
                     status="COMPLETE" if result.success else "ERROR",
                 )
+                if result.success:
+                    self._notify_complete(f"update_daybar_{code}")
+                else:
+                    self._notify_error(f"update_daybar_{code}", result.error)
             except Exception as e:
                 worker_logger.ERROR(f"💥 Bar sync error for {code}: {str(e)}")
                 self.upsert_worker_status(
@@ -256,6 +294,7 @@ class GinkgoThreadManager:
                     task_name=f"update_daybar_{code}_full_{force}",
                     status="ERROR",
                 )
+                self._notify_error(f"update_daybar_{code}", str(e))
         elif type == "tick":
             # 根据full/force参数映射到实际的同步策略
             if full:
@@ -288,6 +327,10 @@ class GinkgoThreadManager:
                         task_name=task_name,
                         status="COMPLETE" if result.success else "ERROR",
                     )
+                    if result.success:
+                        self._notify_complete(task_name)
+                    else:
+                        self._notify_error(task_name, result.message)
                 except Exception as e:
                     worker_logger.ERROR(f"💥 Tick backfill sync error for {code}: {str(e)}")
                     self.upsert_worker_status(
@@ -295,6 +338,7 @@ class GinkgoThreadManager:
                         task_name=task_name,
                         status="ERROR",
                     )
+                    self._notify_error(task_name, str(e))
             else:
                 # 增量同步模式：使用container service方法
                 sync_mode = f"incremental_{'force' if force else 'skip'}"
@@ -332,6 +376,10 @@ class GinkgoThreadManager:
                         task_name=task_name,
                         status="COMPLETE" if result.success else "ERROR",
                     )
+                    if result.success:
+                        self._notify_complete(task_name)
+                    else:
+                        self._notify_error(task_name, result.error)
                 except Exception as e:
                     worker_logger.ERROR(f"💥 Tick incremental sync error for {code}: {str(e)}")
                     self.upsert_worker_status(
@@ -339,6 +387,7 @@ class GinkgoThreadManager:
                         task_name=task_name,
                         status="ERROR",
                     )
+                    self._notify_error(task_name, str(e))
         elif type == "other":
             worker_logger.WARN(f"Got the command no in list. {value}")
             self.upsert_worker_status(
@@ -697,8 +746,8 @@ if __name__ == "__main__":
             try:
                 self.kafka_service.unsubscribe_topic(topic_name)
                 console.print("[bold yellow]Main control topic unsubscribed.[/bold yellow]")
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"Failed to unsubscribe main control topic '{topic_name}': {e}")
 
     def run_main_control(self, *args, **kwargs) -> None:
 

@@ -1,6 +1,6 @@
-# Upstream: Portfolio Manager (测试验证使用随机策略)、BaseStrategy (继承提供策略基础能力)
+# Upstream: Portfolio Manager (测试验证使用随机策略)、StrategyBase (继承提供策略基础能力)
 # Downstream: Signal实体(交易信号生成)、EventPriceUpdate (价格更新事件)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、random (随机数生成)
-# Role: Random Signal Strategy策略继承BaseStrategy实现RandomSignalStrategy随机信号交易逻辑
+# Role: Random Signal Strategy策略继承StrategyBase实现RandomSignalStrategy随机信号交易逻辑
 
 
 
@@ -23,13 +23,13 @@ import datetime
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.trading.entities.signal import Signal
+from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.entities import Signal
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
-class RandomSignalStrategy(BaseStrategy):
+class RandomSignalStrategy(StrategyBase):
     """
     随机信号生成策略
 

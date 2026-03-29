@@ -22,7 +22,7 @@ from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderAck, EventOrderPartiallyFilled, EventOrderRejected,
     EventOrderExpired, EventOrderCancelAck
 )
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 
 
 class BrokerExecutionResult:
@@ -87,6 +87,9 @@ class BrokerExecutionResult:
                 engine_id=engine_id,
                 run_id=run_id
             )
+            # FILLED 状态使用 ORDERFILLED 事件类型，确保触发 on_order_filled 处理器
+            if self.status == ORDERSTATUS_TYPES.FILLED:
+                event.set_type(EVENT_TYPES.ORDERFILLED)
         elif self.status == ORDERSTATUS_TYPES.CANCELED:
             event = EventOrderCancelAck(
                 order=self.order,

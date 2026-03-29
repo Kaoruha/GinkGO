@@ -16,6 +16,8 @@ logging, and threading utilities.
 
 from ginkgo.libs.core.config import GinkgoConfig
 from ginkgo.libs.core.logger import GinkgoLogger
-from ginkgo.libs.core.threading import GinkgoThreadManager
+
+# GinkgoThreadManager 通过 ginkgo.libs 顶层导入（依赖 GLOG，需延迟加载）
+# from ginkgo.libs.core.threading import GinkgoThreadManager
 
 __all__ = ["GinkgoConfig", "GinkgoLogger", "GinkgoThreadManager"]

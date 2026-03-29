@@ -15,7 +15,7 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MFile
 from ginkgo.enums import SOURCE_TYPES, FILE_TYPES
 from ginkgo.libs import GLOG
-from ginkgo.trading.core.file_info import FileInfo
+from ginkgo.entities import FileInfo
 from ginkgo.data.access_control import restrict_crud_access
 
 

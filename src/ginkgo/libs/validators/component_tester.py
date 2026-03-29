@@ -26,9 +26,15 @@ from ginkgo.libs.validators.validation_rules import ValidationRules
 
 class ComponentTester:
     """组件集成测试器"""
-    
-    def __init__(self):
+
+    def __init__(self, loader=None):
+        """
+        Args:
+            loader(callable): 组件加载函数，接受 component_id 返回 Dict 或 None。
+                不传则后续调用 test 方法时需传入 loader。
+        """
         self.test_data = ValidationRules.get_standard_test_data()
+        self._loader = loader
         
     def run_unit_tests(self, component_id: str) -> ValidationResult:
         """
@@ -186,11 +192,12 @@ class ComponentTester:
             )
     
     def _get_component_info(self, component_id: str) -> Dict[str, Any]:
-        """获取组件信息"""
+        """获取组件信息（通过构造时注入的 loader）"""
+        if self._loader is None:
+            raise ValueError("ComponentTester requires a loader. Pass loader= to constructor.")
+
         try:
-            from ginkgo.data.operations import get_file
-            
-            file_df = get_file(component_id)
+            file_df = self._loader(component_id)
             if file_df.shape[0] == 0:
                 return None
             
@@ -228,7 +235,7 @@ class ComponentTester:
                     obj = getattr(module, name)
                     if (hasattr(obj, '__bases__') and 
                         len(obj.__bases__) > 0 and
-                        obj.__bases__[0].__name__ in ['BaseStrategy', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
+                        obj.__bases__[0].__name__ in ['StrategyBase', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
                         return obj
                 
                 return None

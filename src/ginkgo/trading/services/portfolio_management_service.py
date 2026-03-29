@@ -22,7 +22,7 @@ from ginkgo.libs import GLOG, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES
 from ginkgo.trading.portfolios import PortfolioT1Backtest
-from ginkgo.trading.entities.position import Position
+from ginkgo.entities import Position
 from ginkgo.trading.events.execution_confirmation import (
     EventExecutionConfirmed,
     EventExecutionRejected,
@@ -95,6 +95,7 @@ class PortfolioManagementService:
             portfolio.set_portfolio_id(portfolio_id)
             
             if logger:
+                pass  # logger placeholder for future use
 
             # Store in active portfolios
             self._active_portfolios[portfolio_id] = {
@@ -169,6 +170,7 @@ class PortfolioManagementService:
             
             for strategy in strategies:
                 if logger:
+                    pass  # logger placeholder
 
                 portfolio.add_strategy(strategy)
             
@@ -211,6 +213,7 @@ class PortfolioManagementService:
             # Use the first sizer (typically only one per portfolio)
             sizer = sizers[0]
             if logger:
+                pass  # logger placeholder
 
             portfolio.bind_sizer(sizer)
             
@@ -233,6 +236,7 @@ class PortfolioManagementService:
             
             for risk_manager in risk_managers:
                 if logger:
+                    pass  # logger placeholder
 
                 portfolio.add_risk_manager(risk_manager)
             
@@ -254,6 +258,7 @@ class PortfolioManagementService:
             
             for analyzer in analyzers:
                 if logger:
+                    pass  # logger placeholder
 
                 portfolio.add_analyzer(analyzer)
             

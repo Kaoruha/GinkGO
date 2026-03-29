@@ -19,11 +19,13 @@
 
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import re
+import traceback
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
-from ginkgo.trading.entities import Order
+from ginkgo.entities import Order
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderAck, EventOrderPartiallyFilled, EventOrderRejected,
@@ -67,7 +69,7 @@ class TradeGateway(BaseTradeGateway):
 
         # 建立市场到Broker的映射
         self._market_mapping: Dict[str, IBroker] = {}
-        self._code_market_mapping: Dict[str, str] = {}
+        self._symbol_patterns: List = []  # 符号模式列表 [(regex_pattern, market_name), ...]
 
         # 设置市场映射
         self._setup_market_mapping()
@@ -91,24 +93,25 @@ class TradeGateway(BaseTradeGateway):
                 self._market_mapping[broker.market] = broker
                 GLOG.INFO(f"Registered {broker.market} broker: {broker.__class__.__name__}")
 
-        # 建立股票代码到市场的映射规则
-        self._code_market_mapping.update({
-            # A股
-            '000001.SZ': 'A股', '000002.SZ': 'A股', '000001.SH': 'A股', '600000.SH': 'A股',
-            '300001.SZ': 'A股', '002594.SZ': 'A股',
-            # 港股
-            '00700.HK': '港股', '00941.HK': '港股', '03690.HK': '港股',
-            # 美股（示例）
-            'AAPL': '美股', 'TSLA': '美股', 'MSFT': '美股', 'GOOG': '美股',
-            # 期货（示例）
-            'IF2312': '期货', 'IC2312': '期货', 'IH2312': '期货',
-        })
+        # 建立符号模式匹配规则（按优先级排序）
+        self._symbol_patterns = [
+            # 加密货币：字母/USDT格式
+            (re.compile(r'^[A-Z]+/USDT$'), 'Crypto'),
+            # 港股：5位数字.HK
+            (re.compile(r'^\d{5}\.HK$'), '港股'),
+            # A股：6位数字.SZ或.SH
+            (re.compile(r'^\d{6}\.(SZ|SH)$'), 'A股'),
+            # 期货：IF/IC/IH/IM/MO + 4位数字
+            (re.compile(r'^(IF|IC|IH|IM|MO)\d{4}$'), '期货'),
+            # 美股：1-5位纯字母
+            (re.compile(r'^[A-Z]{1,5}$'), '美股'),
+        ]
 
         # 如果有SIM市场的broker，让它作为所有市场的默认broker
         if "SIM" in self._market_mapping:
             sim_broker = self._market_mapping["SIM"]
             # 为所有没有专门broker的市场设置SIM broker作为默认
-            default_markets = ['A股', '港股', '美股', '期货']
+            default_markets = ['A股', '港股', '美股', '期货', 'Crypto']
             for market in default_markets:
                 if market not in self._market_mapping:
                     self._market_mapping[market] = sim_broker
@@ -134,22 +137,14 @@ class TradeGateway(BaseTradeGateway):
             return "live"      # 实盘模式
 
     def _get_market_by_code(self, code: str) -> Optional[str]:
-        """根据股票代码判断市场"""
-        # 1. 直接查找映射
-        if code in self._code_market_mapping:
-            return self._code_market_mapping[code]
-
-        # 2. 根据代码格式判断
-        if code.endswith(('.SZ', '.SH')):
+        """根据股票代码判断市场（使用动态模式匹配）"""
+        if not code:
             return 'A股'
-        elif code.endswith('.HK'):
-            return '港股'
-        elif '.' not in code and code.replace('-', '').isalpha():
-            # 纯字母代码，可能是美股
-            return '美股'
-        elif code.startswith(('IF', 'IC', 'IH')) and len(code) >= 6:
-            # 期货合约代码
-            return '期货'
+
+        # 按优先级匹配符号模式
+        for pattern, market in self._symbol_patterns:
+            if pattern.match(code):
+                return market
 
         return 'A股'  # 默认为A股
 
@@ -302,7 +297,7 @@ class TradeGateway(BaseTradeGateway):
             self._handle_execution_result(result)
 
         except Exception as e:
-            GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}")
+            GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}\n{traceback.format_exc()}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
@@ -915,9 +910,7 @@ class TradeGateway(BaseTradeGateway):
 
             GLOG.DEBUG(f"ORDERPARTIALLYFILLED event routed to portfolio {portfolio_id}")
         except Exception as e:
-            GLOG.ERROR(f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}")
-            import traceback
-            GLOG.ERROR(f"🔥 [ROUTER] 异常堆栈: {traceback.format_exc()}")
+            GLOG.ERROR(f"Error routing ORDERPARTIALLYFILLED to portfolio {portfolio_id}: {e}\n{traceback.format_exc()}")
 
         GLOG.INFO(f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
 

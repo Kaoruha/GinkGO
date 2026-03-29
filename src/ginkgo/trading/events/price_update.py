@@ -12,8 +12,8 @@ import pandas as pd
 from functools import singledispatchmethod
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
-from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.tick import Tick
+from ginkgo.entities import Bar
+from ginkgo.entities import Tick
 from ginkgo.libs import pretty_repr, GLOG
 from ginkgo.libs.utils.display import base_repr
 
@@ -24,7 +24,7 @@ class EventPriceUpdate(EventBase):
     """
 
     def __init__(self, payload: Bar or Tick = None, *args, **kwargs) -> None:
-        super(EventPriceUpdate, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.PRICEUPDATE)
         self._price_type = None
 

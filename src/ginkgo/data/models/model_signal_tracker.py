@@ -87,7 +87,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
 
         # 执行模式 - 自动转换枚举
         if execution_mode is not None:
-            self.execution_mode = EXECUTION_MODE.validate_input(execution_mode) or EXECUTION_MODE.SIMULATION.value
+            self.execution_mode = EXECUTION_MODE.validate_input(execution_mode) or EXECUTION_MODE.PAPER.value
         if account_type is not None:
             self.account_type = ACCOUNT_TYPE.validate_input(account_type) or ACCOUNT_TYPE.PAPER.value
 

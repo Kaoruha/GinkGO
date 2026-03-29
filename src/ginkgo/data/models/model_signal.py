@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
 

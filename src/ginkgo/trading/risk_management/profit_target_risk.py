@@ -22,8 +22,8 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG

@@ -10,8 +10,8 @@
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
-from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Signal
+from ginkgo.entities import Order
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES, ORDER_TYPES
 from ginkgo.libs import Number, to_decimal, GLOG
@@ -38,7 +38,7 @@ class PositionRatioRisk(BaseRiskManagement):
             max_position_ratio(Number): 单个股票最大持仓比例，小数形式（例如：0.2表示20%）
             max_total_position_ratio(Number): 总持仓比例上限，小数形式（例如：0.8表示80%）
         """
-        super(PositionRatioRisk, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self._max_position_ratio = to_decimal(max_position_ratio)
         self._max_total_position_ratio = to_decimal(max_total_position_ratio)
         ratio_percent = float(self._max_position_ratio * 100)

@@ -15,7 +15,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTransferRecord
-from ginkgo.trading import Transfer
+from ginkgo.entities import Transfer
 from ginkgo.enums import (
     CAPITALADJUSTMENT_TYPES,
     MARKET_TYPES,

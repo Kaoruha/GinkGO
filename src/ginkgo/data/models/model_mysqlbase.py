@@ -74,23 +74,26 @@ class MMysqlBase(Base, MBase):
         self.is_del = False
 
     def __init__(self, **kwargs):
-        """初始化MMysqlBase实例，自动处理枚举字段转换"""
+        """初始化MMysqlBase实例，自动处理枚举字段转换和默认值"""
         super().__init__()
-        # 确保基础字段被初始化（对单元测试很重要）
-        if self.uuid is None:
-            self.uuid = str(uuid.uuid4().hex)
-        if self.create_at is None:
-            self.create_at = datetime.datetime.now()
-        if self.update_at is None:
-            self.update_at = datetime.datetime.now()
-        if self.is_del is None:
-            self.is_del = False
-        if self.source is None:
-            self.source = -1
+        # 使用 __dict__ 检查避免 SQLAlchemy MappedColumn 描述符干扰
+        if 'uuid' not in self.__dict__:
+            self.__dict__['uuid'] = str(uuid.uuid4().hex)
+        if 'meta' not in self.__dict__:
+            self.__dict__['meta'] = "{}"
+        if 'desc' not in self.__dict__:
+            self.__dict__['desc'] = "This man is lazy, there is no description."
+        if 'create_at' not in self.__dict__:
+            self.__dict__['create_at'] = datetime.datetime.now()
+        if 'update_at' not in self.__dict__:
+            self.__dict__['update_at'] = datetime.datetime.now()
+        if 'is_del' not in self.__dict__:
+            self.__dict__['is_del'] = False
+        if 'source' not in self.__dict__:
+            self.__dict__['source'] = -1
         # 处理source字段的枚举转换
         if 'source' in kwargs:
             self.set_source(kwargs['source'])
-            # 从kwargs中移除source，避免重复赋值
             del kwargs['source']
         # 设置其他字段
         for key, value in kwargs.items():

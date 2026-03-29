@@ -18,23 +18,24 @@ from typing import TYPE_CHECKING, List
 from decimal import Decimal
 
 
-from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.mixins.time_mixin import TimeMixin
-from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.entities.base import Base
+from ginkgo.entities.mixins import TimeMixin
+from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities.mixins import NamedMixin
 from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize, to_decimal, Number, GLOG
 from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
 
 
-class BaseAnalyzer(BacktestBase, TimeMixin, ContextMixin):
+class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
     # 类级别的监控统计（所有实例共享）
     _execution_stats = {}
     _performance_log = []
 
     def __init__(self, name: str, timestamp=None, *args, **kwargs):
-        BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
-        ContextMixin.__init__(self, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
+        if timestamp is not None:
+            self.set_business_timestamp(timestamp)
         self._active_stage = []
         self._record_stage = RECORDSTAGE_TYPES.NEWDAY
         self._analyzer_id = ""

@@ -18,6 +18,8 @@ from typing import Any, Optional, Dict, Type
 from functools import wraps
 import weakref
 
+from ginkgo.libs import GLOG
+
 from .exceptions import ServiceNotFoundError, ContainerNotRegisteredError
 
 
@@ -184,7 +186,8 @@ class CrossContainerProxy:
                     fresh_service = self._resolve_service()
                     fresh_method = getattr(fresh_service, method.__name__)
                     return fresh_method(*args, **kwargs)
-                except:
+                except Exception as e2:
+                    GLOG.ERROR(f"CrossContainerProxy: failed to re-resolve service '{self._service_name}' method '{method.__name__}': {e2}")
                     # If re-resolution also fails, raise original error
                     raise e
         
@@ -217,7 +220,8 @@ class CrossContainerProxy:
             if not service:
                 service = self._resolve_service()
             return service is not None
-        except:
+        except Exception as e:
+            GLOG.ERROR(f"CrossContainerProxy: failed to check service availability for '{self._service_name}': {e}")
             return False
     
     def __repr__(self) -> str:

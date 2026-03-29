@@ -11,7 +11,7 @@
 机器学习策略基类
 
 提供ML模型与回测系统的桥接，支持模型加载、特征工程、
-预测和信号生成的完整流程，继承自BaseStrategy以保持
+预测和信号生成的完整流程，继承自StrategyBase以保持
 与现有回测架构的兼容性。
 """
 
@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from decimal import Decimal
 from abc import abstractmethod
 
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.strategy_base import StrategyBase
 from ginkgo.enums import DIRECTION_TYPES, MODEL_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data import get_bars
@@ -41,7 +41,7 @@ except ImportError as e:
     AlphaFactors = None
 
 
-class StrategyMLBase(BaseStrategy):
+class StrategyMLBase(StrategyBase):
     """
     机器学习策略基类
     
@@ -80,10 +80,10 @@ class StrategyMLBase(BaseStrategy):
             feature_config: 特征工程配置
             enable_monitoring: 是否启用模型监控
         """
-        super(StrategyMLBase, self).__init__(name, *args, **kwargs)
+        super().__init__(name, *args, **kwargs)
         
         if not ML_AVAILABLE:
-            GLOG.WARN("ML模块不可用，MLBaseStrategy 将以受限模式运行")
+            GLOG.WARN("ML模块不可用，MLStrategyBase 将以受限模式运行")
             # 在ML模块不可用时，仍然可以创建策略实例，但功能受限
             self._model = None
             self._feature_processor = None
@@ -475,7 +475,7 @@ class StrategyMLBase(BaseStrategy):
         Returns:
             List[Signal]: 生成的信号列表
         """
-        super(StrategyMLBase, self).cal(portfolio_info, event)
+        super().cal(portfolio_info, event)
         
         try:
             # 检查模型是否可用

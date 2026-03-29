@@ -15,7 +15,7 @@ EventOrderRelated 模块
 """
 
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
-from ginkgo.trading.entities.order import Order
+from ginkgo.entities import Order
 from ginkgo.libs import base_repr
 from ginkgo.trading.events.base_event import EventBase
 
@@ -30,7 +30,7 @@ class EventOrderRelated(EventBase):
     def __init__(self, order: Order, *args, **kwargs) -> None:
         if not isinstance(order, Order):
             raise ValueError("Order must be an instance of Order.")
-        super(EventOrderRelated, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.OTHER)
         self._order = order
         self._order_id = order.uuid

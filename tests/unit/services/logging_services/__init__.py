@@ -1,3 +1,0 @@
-"""
-Logging Service Tests Package
-"""

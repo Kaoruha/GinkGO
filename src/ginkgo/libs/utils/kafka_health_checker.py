@@ -31,17 +31,13 @@ class KafkaHealthChecker:
     CHECK_TIMEOUT = 10  # 连接超时 10 秒
     RETRY_THRESHOLD = 3  # Producer 初始化连续失败 3 次判定为不可用
 
-    def __init__(self, kafka_crud=None):
+    def __init__(self, kafka_crud):
         """
         初始化健康检查器
 
         Args:
-            kafka_crud: KafkaCRUD 实例
+            kafka_crud: KafkaCRUD 实例（必须由调用方传入）
         """
-        if kafka_crud is None:
-            from ginkgo.data.crud import KafkaCRUD
-            kafka_crud = KafkaCRUD()
-
         self.kafka_crud = kafka_crud
         self._is_healthy = None  # None = 未检查, True = 健康, False = 不健康
         self._last_check_time: Optional[datetime] = None
@@ -383,12 +379,12 @@ def is_kafka_available(kafka_crud=None) -> bool:
     return checker.is_healthy
 
 
-def should_degrade_to_sync(kafka_crud=None) -> bool:
+def should_degrade_to_sync(kafka_crud) -> bool:
     """
     是否应该降级为同步发送模式（便捷函数）
 
     Args:
-        kafka_crud: KafkaCRUD 实例
+        kafka_crud: KafkaCRUD 实例（必须由调用方传入）
 
     Returns:
         bool: 是否应该降级

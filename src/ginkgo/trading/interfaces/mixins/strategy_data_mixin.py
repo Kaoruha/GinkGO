@@ -20,7 +20,7 @@ StrategyDataMixin - 策略数据混入类
 4. 当前价格快速获取
 
 使用示例：
-    class MyStrategy(BaseStrategy, StrategyDataMixin):
+    class MyStrategy(StrategyBase, StrategyDataMixin):
         def cal(self, portfolio_info, event):
             # 获取缓存的K线数据
             bars = self.get_bars_cached(event.symbol, count=50)

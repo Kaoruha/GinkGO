@@ -283,8 +283,8 @@ class BrokerManager:
                     "error",
                     error_message=str(e)
                 )
-            except:
-                pass
+            except Exception as e:
+                GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
             return False
 
     def stop_broker(self, portfolio_id: str) -> bool:

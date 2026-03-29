@@ -26,7 +26,7 @@ from ginkgo.trading.evaluation.rules.rule_registry import (
     get_global_registry,
 )
 from ginkgo.trading.evaluation.rules.structural_rules import (
-    BaseStrategyInheritanceRule,
+    StrategyBaseInheritanceRule,
     CalMethodRequiredRule,
     CalSignatureValidationRule,
     SuperInitCallRule,
@@ -50,7 +50,7 @@ __all__ = [
     "RuleRegistry",
     "get_global_registry",
     # Structural rules
-    "BaseStrategyInheritanceRule",
+    "StrategyBaseInheritanceRule",
     "CalMethodRequiredRule",
     "CalSignatureValidationRule",
     "SuperInitCallRule",
