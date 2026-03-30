@@ -472,6 +472,12 @@ class TaskTimer:
                     "command": "update_selector",
                     "enabled": True,
                 },
+                {
+                    "name": "paper_trading",
+                    "cron": "10 21 * * *",  # 每天21:10（bar_snapshot后10分钟）
+                    "command": "paper_trading",
+                    "enabled": True,
+                },
             ]
         }
 
@@ -545,13 +551,14 @@ class TaskTimer:
             "update_selector": self._selector_update_job,
             "update_data": self._data_update_job,
             "heartbeat_test": self._heartbeat_test_job,
+            "paper_trading": self._paper_trading_job,
         }
 
         return job_functions.get(command)
 
     def _get_valid_commands(self) -> List[str]:
         """获取有效的命令列表"""
-        return ["stockinfo", "adjustfactor", "bar_snapshot", "tick", "update_selector", "update_data", "heartbeat_test"]
+        return ["stockinfo", "adjustfactor", "bar_snapshot", "tick", "update_selector", "update_data", "heartbeat_test", "paper_trading"]
 
     @safe_job_wrapper
     def _stockinfo_job(self) -> None:
@@ -822,6 +829,28 @@ class TaskTimer:
         except Exception as e:
             GLOG.ERROR(f"Heartbeat test job failed: {e}")
             self._send_error_notification("心跳测试任务执行失败", e)
+
+    @safe_job_wrapper
+    def _paper_trading_job(self) -> None:
+        """
+        纸上交易推进任务（21:10触发，在 bar_snapshot 之后）
+
+        发送 paper_trading 控制命令到 Kafka，
+        PaperTradingWorker 接收后推进所有活跃的纸上交易引擎。
+        """
+        try:
+            command_dto = ControlCommandDTO(
+                command=ControlCommandDTO.Commands.PAPER_TRADING,
+                params={},
+                source="task_timer"
+            )
+            self._publish_to_kafka(command_dto.model_dump_json())
+            GLOG.INFO("Sent paper_trading advance command")
+
+            self._send_notification("纸上交易推进命令已发送", "PAPER_TRADING")
+        except Exception as e:
+            GLOG.ERROR(f"Paper trading job failed: {e}")
+            self._send_error_notification("纸上交易推进任务执行失败", e)
 
     def _get_all_stock_codes(self) -> list:
         """
