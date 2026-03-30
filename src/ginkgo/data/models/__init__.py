@@ -42,6 +42,7 @@ from ginkgo.data.models.model_transfer_record import MTransferRecord
 from ginkgo.data.models.model_run_record import MRunRecord
 from ginkgo.data.models.model_user import MUser
 from ginkgo.data.models.model_user_contact import MUserContact
+from ginkgo.data.models.model_deployment import MDeployment
 from ginkgo.data.models.model_user_credential import MUserCredential
 from ginkgo.data.models.model_user_group import MUserGroup
 from ginkgo.data.models.model_user_group_mapping import MUserGroupMapping
@@ -87,6 +88,7 @@ __all__ = [
     "MRunRecord",
     "MUser",
     "MUserContact",
+    "MDeployment",
     "MUserCredential",
     "MUserGroup",
     "MUserGroupMapping",
