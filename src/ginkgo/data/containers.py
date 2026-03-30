@@ -81,6 +81,7 @@ from ginkgo.data.services.api_key_service import ApiKeyService
 from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
 from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
+from ginkgo.data.crud.deployment_crud import DeploymentCRUD
 
 # User management services
 from ginkgo.user.services.user_service import UserService
@@ -154,6 +155,7 @@ class Container(containers.DeclarativeContainer):
     trade_record_crud = providers.Singleton(get_crud, "trade_record")
     market_subscription_crud = providers.Singleton(get_crud, "market_subscription")
     api_key_crud = providers.Singleton(get_crud, "api_key")
+    deployment_crud = providers.Singleton(get_crud, "deployment")
 
     # Backtest task CRUD
     backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
@@ -302,9 +304,37 @@ class Container(containers.DeclarativeContainer):
         param_crud=param_crud,
     )
 
+    # Deployment service for one-click deploy (placeholder, set after Container instantiation)
+    deployment_service = providers.Singleton(object)
+
 
 # A singleton instance of the container, accessible throughout the application
 container = Container()
+
+# Lazy-init deployment service to avoid circular import (trading.services → containers)
+_deployment_service_instance = None
+
+
+def _get_deployment_service():
+    """Lazy factory for DeploymentService to break circular import."""
+    global _deployment_service_instance
+    if _deployment_service_instance is None:
+        from ginkgo.trading.services.deployment_service import DeploymentService
+        _deployment_service_instance = DeploymentService(
+            task_service=container.backtest_task_service(),
+            portfolio_service=container.portfolio_service(),
+            mapping_service=container.portfolio_mapping_service(),
+            file_service=container.file_service(),
+            deployment_crud=container.deployment_crud(),
+            broker_instance_crud=container.broker_instance_crud(),
+            live_account_service=container.live_account_service(),
+            mongo_driver=container.mongo_driver(),
+        )
+    return _deployment_service_instance
+
+
+# Override the placeholder with the lazy factory
+container.deployment_service.override(providers.Singleton(_get_deployment_service))
 
 
 # Add special methods to the container instance for special cases

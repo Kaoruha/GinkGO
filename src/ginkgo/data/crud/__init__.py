@@ -41,6 +41,7 @@ from ginkgo.data.crud.transfer_crud import TransferCRUD
 from ginkgo.data.crud.transfer_record_crud import TransferRecordCRUD
 from ginkgo.data.crud.user_crud import UserCRUD
 from ginkgo.data.crud.user_contact_crud import UserContactCRUD
+from ginkgo.data.crud.deployment_crud import DeploymentCRUD
 from ginkgo.data.crud.user_credential_crud import UserCredentialCRUD
 from ginkgo.data.crud.user_group_crud import UserGroupCRUD
 from ginkgo.data.crud.user_group_mapping_crud import UserGroupMappingCRUD
@@ -87,6 +88,7 @@ __all__ = [
     "TransferRecordCRUD",
     "UserCRUD",
     "UserContactCRUD",
+    "DeploymentCRUD",
     "UserCredentialCRUD",
     "UserGroupCRUD",
     "UserGroupMappingCRUD",

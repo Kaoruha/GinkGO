@@ -113,6 +113,10 @@ app.include_router(market_data_router)
 from api.routers.api_keys import router as api_keys_router
 app.include_router(api_keys_router)
 
+# ========== 部署路由 ==========
+from api.routers.deployment import router as deployment_router
+app.include_router(deployment_router)
+
 
 # ========== 认证相关 ==========
 
