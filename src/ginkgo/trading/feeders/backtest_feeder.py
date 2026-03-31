@@ -145,8 +145,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             if not success:
                 return False
 
-            print(f"📅 DATAFEEDER ADVANCE_TIME: {target_time.date()}")
-            print(f"📅 DATAFEEDER CURRENT INTERESTED ({len(self._interested_codes)}): {self._interested_codes}")
+            GLOG.DEBUG(f"ADVANCE_TIME: {target_time.date()}, interested={self._interested_codes}")
 
             # 使用事件更新的兴趣集
             if len(self._interested_codes) == 0:
@@ -162,8 +161,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                         self.event_publisher(event)
                         event_count += 1
 
-            print(f"📅 DATAFEEDER GENERATED {event_count} price events for {len(self._interested_codes)} symbols")
-            GLOG.INFO(f"Published {event_count} events for time {target_time}")
+            GLOG.INFO(f"Generated {event_count} price events for {len(self._interested_codes)} symbols at {target_time}")
             return True
 
         except Exception as e:
@@ -236,32 +234,18 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
         try:
             # 通过注入的bar_service获取MBar模型数据
-            print(f"🔍 DATAFEEDER DEBUG: Querying data for {code} at {target_time.date()}")
-            print(f"🔍 DATAFEEDER DEBUG: bar_service type: {type(self.bar_service)}")
-            print(f"🔍 DATAFEEDER DEBUG: bar_service bound: {self.bar_service is not None}")
-
             result = self.bar_service.get(
                 code=code,
                 start_date=target_time.date(),
                 end_date=target_time.date()
             )
 
-            print(f"🔍 DATAFEEDER DEBUG: result.success: {result.success}")
-            if hasattr(result, 'data'):
-                print(f"🔍 DATAFEEDER DEBUG: result.data type: {type(result.data)}")
-                if hasattr(result.data, 'empty'):
-                    print(f"🔍 DATAFEEDER DEBUG: result.data.empty: {result.data.empty()}")
-
             if not result.success or result.data.empty():
-                GLOG.WARN(f"❌ No data found for {code} at {target_time}")
-                print(f"❌ DATAFEEDER WARNING: No data found for {code} at {target_time}")
+                GLOG.WARN(f"No data found for {code} at {target_time}")
                 return events
 
             # 转换ModelList → 业务对象列表
             bar_entities = result.data.to_entities()
-
-            # 🔍 [DEBUG] 检查返回的Bar数量
-            print(f"🔍 [BAR COUNT] {code}: Found {len(bar_entities)} bars for {target_time.date()}")
 
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None
@@ -290,9 +274,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             merged = set(self._interested_codes)
             merged.update(codes)
             self._interested_codes = sorted(list(merged))
-            print(f"📅 DATAFEEDER INTEREST UPDATE: Received {len(codes)} codes: {codes}")
-            print(f"📅 DATAFEEDER TOTAL INTERESTED: {len(self._interested_codes)} codes: {self._interested_codes}")
-            GLOG.INFO(f"Updated interested codes: {len(self._interested_codes)} symbols")
+            GLOG.INFO(f"Interest update: received {len(codes)} codes, total {len(self._interested_codes)} symbols: {self._interested_codes}")
         except Exception as e:
             GLOG.ERROR(f"Failed to update interested codes: {e}")
     

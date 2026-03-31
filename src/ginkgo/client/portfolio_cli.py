@@ -11,6 +11,9 @@
 Ginkgo Portfolio CLI - 投资组合管理命令
 """
 
+import json
+from datetime import datetime
+
 import typer
 from typing import Optional, List
 from rich.console import Console
@@ -655,17 +658,15 @@ def unbind_component(
         raise typer.Exit(1)
 
 
-# ========== Paper Trading ==========
-
-_paper_worker = None
+# ========== Paper Trading (Deploy/Unload) ==========
 
 
 @app.command(name="deploy")
 def deploy_portfolio(
     source: str = typer.Option(..., "--source", "-s", help="源 Portfolio ID（回测）"),
-    capital: float = typer.Option(100000.0, "--capital", "-c", help="初始资金"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="新 Portfolio 名称"),
 ):
-    """从回测 Portfolio 创建纸上交易实例"""
+    """从回测 Portfolio 创建纸上交易实例（纯 DB + Kafka 通知）"""
     from rich.panel import Panel
 
     GLOG.INFO(f"[DEPLOY] Creating paper trading from {source}")
@@ -673,137 +674,154 @@ def deploy_portfolio(
     try:
         portfolio_id = _deploy_paper_trading(
             source_portfolio_id=source,
-            capital=capital,
+            name=name,
         )
 
         console.print(Panel(
-            f"[bold green]Paper trading started[/bold green]\n\n"
+            f"[bold green]Paper trading deployed[/bold green]\n\n"
             f"Portfolio ID: {portfolio_id}\n"
             f"Source: {source}\n"
-            f"Capital: ¥{capital:,.0f}\n"
-            f"Schedule: 21:10 daily (after bar_snapshot)",
+            f"Mode: PAPER\n"
+            f"Notification sent to PaperTradingWorker via Kafka",
             title="Deploy Success",
         ))
     except Exception as e:
+        GLOG.ERROR(f"[DEPLOY] Deploy failed: {e}")
         console.print(f"[bold red]Deploy failed: {e}[/bold red]")
         raise typer.Exit(1)
 
 
-@app.command(name="stop")
-def stop_paper_trading(
-    portfolio_id: str = typer.Argument(..., help="Portfolio ID to stop"),
+@app.command(name="unload")
+def unload_portfolio(
+    portfolio_id: str = typer.Argument(..., help="Paper Portfolio ID to unload"),
 ):
-    """停止纸上交易"""
+    """卸载纸上交易实例（Kafka 通知 Worker）"""
     from rich.panel import Panel
 
-    global _paper_worker
-
-    if _paper_worker is None:
-        console.print(f"[bold red]No PaperTradingWorker running[/bold red]")
-        raise typer.Exit(1)
+    GLOG.INFO(f"[UNLOAD] Unloading paper trading {portfolio_id}")
 
     try:
-        _paper_worker.unregister_controller(portfolio_id)
-        console.print(Panel(
-            f"[bold yellow]Paper trading stopped[/bold yellow]\n\n"
-            f"Portfolio ID: {portfolio_id}",
-            title="Stop Success",
-        ))
+        success = _send_unload_command(portfolio_id)
 
-        if not _paper_worker._controllers:
-            _paper_worker.stop()
-            _paper_worker = None
+        if success:
+            console.print(Panel(
+                f"[bold yellow]Unload command sent[/bold yellow]\n\n"
+                f"Portfolio ID: {portfolio_id}\n"
+                f"Notification sent to PaperTradingWorker via Kafka",
+                title="Unload Success",
+            ))
+        else:
+            console.print(f"[bold red]Failed to send unload command via Kafka[/bold red]")
+            raise typer.Exit(1)
     except Exception as e:
-        console.print(f"[bold red]Stop failed: {e}[/bold red]")
+        GLOG.ERROR(f"[UNLOAD] Unload failed: {e}")
+        console.print(f"[bold red]Unload failed: {e}[/bold red]")
         raise typer.Exit(1)
 
 
 def _deploy_paper_trading(
     source_portfolio_id: str,
-    capital: float,
+    name: Optional[str] = None,
 ) -> str:
     """
-    执行纸上交易部署
+    执行纸上交易部署（纯 DB 操作 + Kafka 通知）
 
     流程：
-    1. 从源 Portfolio 读取 Mapping 配置
-    2. 创建新 Portfolio + Engine（PAPER 模式 + 真实数据）
-    3. 组装组件（策略/风控/分析器/选择器）
-    4. 注册到 PaperTradingWorker
+    1. 从源 Portfolio 读取配置
+    2. 创建新 Portfolio（mode=PAPER）
+    3. 复制组件文件映射到新 Portfolio
+    4. 发送 Kafka deploy 通知
 
     Args:
         source_portfolio_id: 源回测 Portfolio ID
-        capital: 初始资金
+        name: 新 Portfolio 名称（可选）
 
     Returns:
-        str: 新 Portfolio ID
+        str: 新 Portfolio UUID
     """
-    from decimal import Decimal
-    from datetime import datetime
-
     from ginkgo import services
-    from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
-    from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
-    from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
-    from ginkgo.trading.gateway.trade_gateway import TradeGateway
-    from ginkgo.trading.brokers.sim_broker import SimBroker
-    from ginkgo.enums import EXECUTION_MODE, ATTITUDE_TYPES
-    from ginkgo.trading.services.paper_trading_controller import PaperTradingController
-    from ginkgo.trading.services._assembly.component_loader import ComponentLoader
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
-    # 1. 获取源 Portfolio 配置
-    container = services.data.container()
-    components = collect_portfolio_components(source_portfolio_id, container)
+    portfolio_service = services.data.portfolio_service()
+    mapping_crud = services.data.cruds.portfolio_file_mapping()
 
-    # 2. 创建引擎（PAPER 模式，用真实数据）
-    today = datetime.now()
-    engine = TimeControlledEventEngine(
-        name=f"paper_{source_portfolio_id[:8]}",
-        mode=EXECUTION_MODE.PAPER,
-        logical_time_start=datetime(today.year, today.month, today.day, 9, 30),
-        timer_interval=0.01,
+    # 1. 读取源 Portfolio 信息
+    source_result = portfolio_service.get(portfolio_id=source_portfolio_id)
+    if not source_result.success or not source_result.data:
+        raise ValueError(f"Source portfolio not found: {source_portfolio_id}")
+
+    source_data = source_result.data
+    if hasattr(source_data, '__len__') and not isinstance(source_data, dict):
+        source_portfolio = source_data[0]
+    else:
+        source_portfolio = source_data
+
+    # 2. 创建新 Portfolio（PAPER 模式）
+    new_name = name or f"paper_{source_portfolio.name}"
+    description = f"Paper trading from {source_portfolio_id}"
+    create_result = portfolio_service.add(
+        name=new_name,
+        mode=PORTFOLIO_MODE_TYPES.PAPER,
+        description=description,
     )
 
-    # 3. 创建 Portfolio
-    portfolio = PortfolioT1Backtest(f"paper_{source_portfolio_id[:8]}")
-    portfolio.add_cash(Decimal(str(capital)))
+    if not create_result.success:
+        raise ValueError(f"Failed to create paper portfolio: {create_result.error}")
 
-    # 4. 创建数据源和 Broker
-    feeder = BacktestFeeder(name="paper_feeder")
-    bar_service = services.data.bar_service()
-    feeder.bar_service = bar_service
+    new_portfolio_id = create_result.data["uuid"]
+    GLOG.INFO(f"[DEPLOY] Created paper portfolio: {new_portfolio_id} ({new_name})")
 
-    broker = SimBroker(
-        name="PaperSimBroker",
-        attitude=ATTITUDE_TYPES.OPTIMISTIC,
-        commission_rate=0.0003,
-        commission_min=5,
-    )
-    gateway = TradeGateway(name="PaperGateway", brokers=[broker])
+    # 3. 复制组件文件映射
+    mappings = mapping_crud.find(filters={"portfolio_id": source_portfolio_id, "is_del": False})
+    for mapping in mappings:
+        mapping_type = mapping.type.value if hasattr(mapping.type, 'value') else mapping.type
+        mapping_crud.add(
+            portfolio_id=new_portfolio_id,
+            file_id=mapping.file_id,
+            name=mapping.name,
+            type=mapping_type,
+        )
 
-    # 5. 绑定组件
-    engine.add_portfolio(portfolio)
-    engine.bind_router(gateway)
-    engine.set_data_feeder(feeder)
+    GLOG.INFO(f"[DEPLOY] Copied {len(mappings)} component mapping(s) to {new_portfolio_id}")
 
-    # 6. 加载策略/风控/分析器/选择器（通过 ComponentLoader）
-    loader = ComponentLoader(file_service=container.file_service(), logger=GLOG)
-    loader.perform_component_binding(portfolio, components, GLOG)
+    # 4. 发送 Kafka deploy 通知
+    _send_deploy_notification(new_portfolio_id)
 
-    # 7. 启动引擎
-    engine.start()
+    return new_portfolio_id
 
-    # 8. 创建 Controller 并注册到 PaperTradingWorker
-    controller = PaperTradingController(engine=engine, bar_service=bar_service)
 
-    global _paper_worker
-    if _paper_worker is None:
-        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
-        _paper_worker = PaperTradingWorker()
-        _paper_worker.start()
-        GLOG.INFO("[DEPLOY] PaperTradingWorker started")
+def _send_deploy_notification(portfolio_id: str) -> None:
+    """发送 deploy 命令到 Kafka"""
+    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+    from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-    _paper_worker.register_controller(portfolio.portfolio_id, controller)
+    producer = GinkgoProducer()
+    msg = {
+        "command": "deploy",
+        "portfolio_id": portfolio_id,
+        "timestamp": datetime.now().isoformat(),
+    }
+    success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
+    if success:
+        GLOG.INFO(f"[DEPLOY] Kafka notification sent for {portfolio_id}")
+    else:
+        GLOG.ERROR(f"[DEPLOY] Failed to send Kafka notification for {portfolio_id}")
 
-    GLOG.INFO(f"[DEPLOY] Paper trading started: {portfolio.portfolio_id}")
-    return portfolio.portfolio_id
+
+def _send_unload_command(portfolio_id: str) -> bool:
+    """发送 unload 命令到 Kafka"""
+    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+    from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+    producer = GinkgoProducer()
+    msg = {
+        "command": "unload",
+        "portfolio_id": portfolio_id,
+        "timestamp": datetime.now().isoformat(),
+    }
+    success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
+    if success:
+        GLOG.INFO(f"[UNLOAD] Kafka notification sent for {portfolio_id}")
+    else:
+        GLOG.ERROR(f"[UNLOAD] Failed to send Kafka notification for {portfolio_id}")
+    return success

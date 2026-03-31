@@ -694,6 +694,74 @@ def serve_worker_backtest(
         raise typer.Exit(1)
 
 
+@app.command("worker-paper")
+def serve_worker_paper(
+    node_id: Optional[str] = typer.Option(None, "--id", help="Worker unique identifier"),
+):
+    """
+    :scroll: Start PaperTradingWorker in foreground.
+
+    长驻进程，持有纸上交易引擎，消费 Kafka 命令执行每日循环。
+
+    Examples:
+      ginkgo serve worker-paper
+      ginkgo serve worker-paper --id paper_worker_1
+    """
+    import signal
+    import time
+    import os
+    import socket
+
+    if node_id is None:
+        node_id = os.getenv("GINKGO_PAPER_WORKER_ID")
+    if node_id is None:
+        node_id = f"paper_worker_{socket.gethostname()}"
+
+    try:
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        console.print(Panel.fit(
+            f"[bold cyan]:scroll: PaperTradingWorker[/bold cyan]\n"
+            f"[dim]Node ID:[/dim] {node_id}",
+            title="[bold]Paper Trading Engine[/bold]",
+            border_style="cyan"
+        ))
+
+        console.print(f"\n:rocket: [bold green]Creating PaperTradingWorker '{node_id}'...[/bold green]")
+        worker = PaperTradingWorker(worker_id=node_id)
+
+        def signal_handler(sig, frame):
+            console.print("\n\n[yellow]:warning: Stopping...[/yellow]")
+            worker.stop()
+            console.print("[green]:white_check_mark: PaperTradingWorker stopped[/green]")
+            os._exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        console.print(f"\n:rocket: [bold green]Starting PaperTradingWorker...[/bold green]")
+        console.print(":information: Press Ctrl+C to stop\n")
+
+        worker.start()
+
+        console.print(":white_check_mark: [green]PaperTradingWorker started[/green]")
+        console.print(f":information: Node ID: {worker.worker_id}\n")
+
+        while worker.is_running:
+            time.sleep(1)
+
+    except ImportError as e:
+        console.print(f"[red]:x: Failed to import PaperTradingWorker: {e}[/red]")
+        raise typer.Exit(1)
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]:warning: Stopping...[/yellow]")
+        worker.stop()
+        console.print("[green]:white_check_mark: PaperTradingWorker stopped[/green]")
+    except Exception as e:
+        console.print(f"[red]:x: Error starting PaperTradingWorker: {e}[/red]")
+        raise typer.Exit(1)
+
+
 @app.command("worker-notify")
 def serve_worker_notify(
     node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
