@@ -117,6 +117,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._sizer: SizerBase = None
         self._risk_managers: List[RiskBase] = []
         self._selectors = []  # 支持多个selector
+        self._data_feeder = None
         self._analyzers: Dict[str, "BaseAnalyzer"] = {}
         self._analyzer_activate_hook: Dict[RECORDSTAGE_TYPES, List] = {i: [] for i in RECORDSTAGE_TYPES}
         self._analyzer_record_hook: Dict[RECORDSTAGE_TYPES, List] = {i: [] for i in RECORDSTAGE_TYPES}
@@ -201,6 +202,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
     def bind_data_feeder(self, feeder, *args, **kwargs):
         """传播 data_feeder 给所有子组件"""
+        self._data_feeder = feeder
         if self._sizer is not None:
             self._sizer.bind_data_feeder(feeder)
         for selector in self._selectors:
@@ -493,6 +495,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # 如果portfolio有TimeProvider，也设置给selector
         if self._time_provider is not None:
             selector.set_time_provider(self._time_provider)
+        # 如果portfolio已有data_feeder，也传播给selector
+        if self._data_feeder is not None:
+            selector.bind_data_feeder(self._data_feeder)
 
     def bind_engine(self, engine: BaseEngine):
         """
@@ -569,6 +574,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             # 如果portfolio有TimeProvider，也设置给strategy
             if self._time_provider is not None:
                 strategy.set_time_provider(self._time_provider)
+            # 如果portfolio已有data_feeder，也传播给strategy
+            if self._data_feeder is not None:
+                strategy.bind_data_feeder(self._data_feeder)
 
     def add_position(self, position: Position) -> None:
         code = position.code
@@ -593,6 +601,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # 传递时间提供者给sizer
         if self.get_time_provider() is not None:
             sizer.set_time_provider(self.get_time_provider())
+        # 如果portfolio已有data_feeder，也传播给sizer
+        if self._data_feeder is not None:
+            sizer.bind_data_feeder(self._data_feeder)
 
     def freeze(self, money: any) -> bool:
         """

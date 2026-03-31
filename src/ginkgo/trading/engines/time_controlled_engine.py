@@ -474,7 +474,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             # 3. 发送Feeder时间推进事件（先获取新价格数据）
             from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
-            print(f"[TIME ADVANCE] Putting EventComponentTimeAdvance for feeder at {target_time}")
+            GLOG.DEBUG(f"Putting EventComponentTimeAdvance for feeder at {target_time}")
             self.put(EventComponentTimeAdvance(target_time, "feeder"))
 
             # 4. Portfolio.advance_time在Feeder完成后通过事件驱动机制处理
@@ -497,7 +497,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             target_time = info.target_time
             component_type = info.component_type
 
-            print(f"[COMPONENT TIME ADVANCE] Handling component_type={component_type}, target_time={target_time}")
+            GLOG.DEBUG(f"Handling component_type={component_type}, target_time={target_time}")
 
             if component_type == "feeder":
                 # 阶段1：推进Feeder时间（先获取新价格数据）
