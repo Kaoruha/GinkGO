@@ -21,7 +21,7 @@ import pandas as pd
 from typing import List, Any, Union, Dict, Optional
 from datetime import datetime
 
-from ginkgo.libs import RichProgress, cache_with_expiration, retry, time_logger
+from ginkgo.libs import RichProgress, cache_with_expiration, retry
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
@@ -82,7 +82,6 @@ class StockinfoService(BaseService):
             return ServiceResult.error(error_msg)
 
     @retry(max_try=3)
-    @time_logger
     def sync(self) -> ServiceResult:
         """
         Sync all stock basic information data from data source to database.
@@ -327,7 +326,6 @@ class StockinfoService(BaseService):
             )
 
     
-    @time_logger
     def get(self, code: str = None, name: str = None, exchange: str = None,
             industry: str = None, market: str = None, status: str = None,
             limit: int = None, offset: int = None, order_by: str = None,
@@ -393,7 +391,6 @@ class StockinfoService(BaseService):
                 message=f"Failed to get stock information: {str(e)}"
             )
 
-    @time_logger
     def count(self, code: str = None, name: str = None, exchange: str = None,
               industry: str = None, market: str = None, status: str = None) -> ServiceResult:
         """
@@ -440,7 +437,6 @@ class StockinfoService(BaseService):
                 message=f"Failed to count stock information: {str(e)}"
             )
 
-    @time_logger
     def validate(self, *args, **kwargs) -> ServiceResult:
         """
         Validate stock information data quality, checking required fields and data integrity.
@@ -514,7 +510,6 @@ class StockinfoService(BaseService):
                 data=validation_result
             )
 
-    @time_logger
     def check_integrity(self, *args, **kwargs) -> ServiceResult:
         """
         Check stock information data integrity, finding duplicate records and missing fields.

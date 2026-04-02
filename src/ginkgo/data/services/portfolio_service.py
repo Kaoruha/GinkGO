@@ -24,7 +24,7 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
+from ginkgo.libs import cache_with_expiration, retry, GLOG
 from ginkgo.enums import FILE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
@@ -43,7 +43,6 @@ class PortfolioService(BaseService):
             crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
         )
 
-    @time_logger
     @retry(max_try=3)
     def add(
         self,
@@ -111,7 +110,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"创建投资组合失败 '{name}': {str(e)}")
             return ServiceResult.error(f"创建投资组合失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update(
         self,
@@ -197,7 +195,6 @@ class PortfolioService(BaseService):
         }
         return ServiceResult.success(result_data, f"Portfolio updated successfully")
 
-    @time_logger
     @retry(max_try=3)
     def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
         """
@@ -276,7 +273,6 @@ class PortfolioService(BaseService):
 
     # ==================== 投资组合组件管理方法 ====================
 
-    @time_logger
     @retry(max_try=3)
     def mount_component(
         self, portfolio_id: str, component_id: str, component_name: str, component_type: FILE_TYPES
@@ -349,7 +345,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"挂载组件失败 {component_name}: {str(e)}")
             return ServiceResult.error(f"挂载组件失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def unmount_component(self, mount_id: str) -> ServiceResult:
         """
@@ -382,7 +377,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"卸载组件失败 {mount_id}: {str(e)}")
             return ServiceResult.error(f"卸载组件失败: {str(e)}")
 
-    @time_logger
     def get_components(self, portfolio_id: str = None, component_type: FILE_TYPES = None) -> ServiceResult:
         """
         获取投资组合的组件列表
@@ -427,8 +421,6 @@ class PortfolioService(BaseService):
   
     # ==================== 标准接口方法 ====================
 
-    @time_logger
-    @retry(max_try=3)
     def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, as_dataframe: bool = False, **kwargs) -> ServiceResult:
         """
         获取投资组合数据
@@ -475,8 +467,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"获取投资组合失败: {str(e)}")
             return ServiceResult.error(f"获取投资组合失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def count(self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         统计投资组合数量
@@ -512,8 +502,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"统计投资组合失败: {str(e)}")
             return ServiceResult.error(f"统计投资组合失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def exists(self, portfolio_id: str = None, name: str = None, **kwargs) -> ServiceResult:
         """
         检查投资组合是否存在
@@ -544,8 +532,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"检查投资组合存在性失败: {str(e)}")
             return ServiceResult.error(f"检查投资组合存在性失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def health_check(self) -> ServiceResult:
         """
         服务健康检查
@@ -595,8 +581,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"PortfolioService健康检查失败: {str(e)}")
             return ServiceResult.error(f"健康检查失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def validate(self, portfolio_data: Dict[str, Any]) -> ServiceResult:
         """
         验证投资组合数据有效性
@@ -666,8 +650,6 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"投资组合数据验证失败: {str(e)}")
             return ServiceResult.error(f"数据验证失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def check_integrity(self, portfolio_id: str = None) -> ServiceResult:
         """
         检查投资组合数据完整性
@@ -731,8 +713,6 @@ class PortfolioService(BaseService):
 
     # ==================== Portfolio完整加载方法 ====================
 
-    @time_logger
-    @retry(max_try=3)
     def load_portfolio_with_components(self, portfolio_id: str) -> ServiceResult:
         """
         加载完整的Portfolio实例（包含所有实例化的组件）

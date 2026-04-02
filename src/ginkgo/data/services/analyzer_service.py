@@ -18,7 +18,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
 from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
-from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 
 
@@ -42,8 +42,6 @@ class AnalyzerService(BaseService):
         super().__init__(crud_repo=analyzer_crud)
         self._crud_repo = analyzer_crud
 
-    @time_logger
-    @retry(max_try=3)
     def add_record(
         self,
         portfolio_id: str,
@@ -94,8 +92,6 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"添加 analyzer 记录失败: {e}")
             return ServiceResult.error(f"添加 analyzer 记录失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_by_run_id(
         self,
         run_id: str,
@@ -133,8 +129,6 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"按 run_id 查询失败: {e}")
             return ServiceResult.error(f"按 run_id 查询失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_latest_by_portfolio(
         self,
         portfolio_id: str,

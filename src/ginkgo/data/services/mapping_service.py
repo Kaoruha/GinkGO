@@ -20,7 +20,7 @@ Mapping Service - 统一管理所有映射关系
 """
 
 from typing import List, Dict, Any, Optional
-from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.models.model_engine_portfolio_mapping import MEnginePortfolioMapping
 from ginkgo.data.models.model_portfolio_file_mapping import MPortfolioFileMapping
@@ -47,7 +47,6 @@ class MappingService(BaseService):
         self._param_crud = param_crud
 
     # 清理方法 - 当关联对象不存在时自动清理
-    @time_logger
     def cleanup_orphaned_mappings(self) -> ServiceResult:
         """清理孤立的映射关系（关联对象不存在的映射）"""
         try:
@@ -143,7 +142,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"清理孤立映射失败: {str(e)}")
 
-    @time_logger
     def cleanup_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
         """根据名称模式清理相关的所有映射关系"""
         try:
@@ -202,7 +200,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"根据名称模式清理映射失败: {str(e)}")
 
-    @time_logger
     def cleanup_orphaned_handler_mappings(self) -> ServiceResult:
         """清理孤立的Engine-Handler映射关系（关联对象不存在的映射）
 
@@ -254,7 +251,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"清理孤立Engine-Handler映射失败: {str(e)}")
 
-    @time_logger
     def cleanup_handler_mappings_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
         """根据名称模式清理Engine-Handler映射关系
 
@@ -291,7 +287,6 @@ class MappingService(BaseService):
             return ServiceResult.error(f"根据名称模式清理Engine-Handler映射失败: {str(e)}")
 
     # Engine-Portfolio映射方法
-    @time_logger
     @retry(max_try=3)
     def create_engine_portfolio_mapping(self, engine_uuid: str, portfolio_uuid: str,
                                        engine_name: str = None, portfolio_name: str = None) -> ServiceResult:
@@ -327,7 +322,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"创建Engine-Portfolio映射失败: {str(e)}")
 
-    @time_logger
     def get_engine_portfolio_mapping(self, engine_uuid: str = None, portfolio_uuid: str = None) -> ServiceResult:
         """获取Engine-Portfolio映射关系"""
         try:
@@ -343,7 +337,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取Engine-Portfolio映射失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete_engine_portfolio_mapping(self, engine_uuid: str, portfolio_uuid: str) -> ServiceResult:
         """删除Engine-Portfolio映射关系"""
@@ -363,7 +356,6 @@ class MappingService(BaseService):
             return ServiceResult.error(f"删除Engine-Portfolio映射失败: {str(e)}")
 
     # Portfolio-File组件映射方法
-    @time_logger
     @retry(max_try=3)
     def create_portfolio_file_binding(self, portfolio_uuid: str, file_uuid: str,
                                       file_name: str, file_type: FILE_TYPES) -> ServiceResult:
@@ -399,7 +391,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"创建Portfolio-File绑定失败: {str(e)}")
 
-    @time_logger
     def get_portfolio_file_bindings(self, portfolio_uuid: str, file_type: FILE_TYPES = None) -> ServiceResult:
         """获取Portfolio的File绑定关系"""
         try:
@@ -413,7 +404,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取Portfolio-File绑定失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete_portfolio_file_binding(self, portfolio_uuid: str, file_uuid: str) -> ServiceResult:
         """删除Portfolio-File组件绑定关系"""
@@ -433,7 +423,6 @@ class MappingService(BaseService):
             return ServiceResult.error(f"删除Portfolio-File绑定失败: {str(e)}")
 
     # 批量绑定方法
-    @time_logger
     def create_preset_bindings(self, engine_uuid: str, portfolio_uuid: str,
                                 binding_rules: Dict[str, List[Dict]]) -> ServiceResult:
         """根据规则创建预设绑定关系
@@ -525,7 +514,6 @@ class MappingService(BaseService):
             return ServiceResult.error(f"创建预设绑定失败: {str(e)}")
 
     # 参数管理方法
-    @time_logger
     @retry(max_try=3)
     def create_component_parameters(self, mapping_uuid: str, file_uuid: str,
                                       parameters: Dict[int, str]) -> ServiceResult:
@@ -568,7 +556,6 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"创建组件参数失败: {str(e)}")
 
-    @time_logger
     def get_portfolio_parameters(self, portfolio_uuid: str) -> ServiceResult:
         """获取Portfolio的所有参数"""
         try:
