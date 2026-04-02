@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Dict
 import pandas as pd
 
-from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal, time_logger
+from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, to_decimal
 from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -34,8 +34,6 @@ class AdjustfactorService(BaseService):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo, data_source=data_source, stockinfo_service=stockinfo_service)
 
-    @time_logger
-    @retry(max_try=3)
     def sync(self, code: str, start_date: datetime = None, end_date: datetime = None, fast_mode: bool = True) -> ServiceResult:
         """
         Sync adjustment factor data for a single stock code, supporting incremental and full sync.
@@ -538,7 +536,6 @@ class AdjustfactorService(BaseService):
 
         return batch_result
 
-    @time_logger
     def calculate(self, code: str) -> ServiceResult:
         """
         Calculate fore and back adjustment factors for a single stock using DataFrame vectorized computation.

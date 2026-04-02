@@ -30,7 +30,7 @@ import pandas as pd
 import numpy as np
 from decimal import Decimal
 
-from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, time_logger, cache_with_expiration
+from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, cache_with_expiration
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
@@ -70,7 +70,6 @@ class FactorService(BaseService):
     # Factor Data Storage and Query
     # ============================================================================
 
-    @time_logger
     @retry(max_try=3)
     def add_factor_batch(
         self,
@@ -134,7 +133,6 @@ class FactorService(BaseService):
         
         return result
 
-    @time_logger
     def get_factors_by_entity(
         self,
         entity_type: Union[ENTITY_TYPES, str, int],
@@ -185,7 +183,6 @@ class FactorService(BaseService):
             
         return result
 
-    @time_logger
     def get_latest_factors_by_entity(
         self,
         entity_type: Union[ENTITY_TYPES, str, int],
@@ -234,7 +231,6 @@ class FactorService(BaseService):
     # Factor Analysis Functions
     # ============================================================================
 
-    @time_logger
     def calculate_factor_correlation(
         self,
         entity_type: Union[ENTITY_TYPES, str, int],
@@ -310,7 +306,6 @@ class FactorService(BaseService):
             
         return result
 
-    @time_logger
     def analyze_factor_distribution(
         self,
         entity_type: Union[ENTITY_TYPES, str, int],
@@ -471,7 +466,6 @@ class FactorService(BaseService):
             
         return result
 
-    @time_logger
     def delete_factors_by_entity(
         self,
         entity_type: Union[ENTITY_TYPES, str, int],

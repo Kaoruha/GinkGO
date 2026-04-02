@@ -15,7 +15,7 @@ from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
 from ginkgo.entities import Signal
 from ginkgo.enums import EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
-from ginkgo.libs import GLOG, time_logger, retry, to_decimal, datetime_normalize
+from ginkgo.libs import GLOG, retry, to_decimal, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 
 
@@ -38,7 +38,6 @@ class SignalTrackingService(BaseService):
         super().__init__(crud_repo=tracker_crud)
         self._crud_repo = tracker_crud
 
-    @time_logger
     @retry(max_try=3)
     def create(
         self,
@@ -99,7 +98,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to create signal tracking: {e}")
             return ServiceResult.error(f"Failed to create signal tracking: {e}")
 
-    @time_logger
     @retry(max_try=3)
     def set_confirmed(
         self,
@@ -159,7 +157,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to confirm execution: {e}")
             return ServiceResult.error(f"Failed to confirm execution: {e}")
 
-    @time_logger
     @retry(max_try=3)
     def set_timeout(
         self,
@@ -192,8 +189,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to mark timeout: {e}")
             return ServiceResult.error(f"Timeout marking failed: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_pending(
         self,
         engine_id: Optional[str] = None,
@@ -225,8 +220,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to get pending signals: {e}")
             return ServiceResult.error(f"获取待确认信号失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_timeouts(
         self,
         engine_id: Optional[str] = None,
@@ -262,7 +255,6 @@ class SignalTrackingService(BaseService):
             return ServiceResult.error(f"获取超时信号失败: {e}")
     
         
-    @time_logger
     @retry(max_try=3)
     def set_status(
         self,
@@ -317,7 +309,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to update tracking status: {e}")
             return ServiceResult.error(f"更新追踪状态失败: {e}")
 
-    @time_logger
     @retry(max_try=3)
     def batch_mark_timeout(
         self,
@@ -355,8 +346,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to batch mark timeout: {e}")
             return ServiceResult.error(f"批量标记超时失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_statistics_summary(
         self,
         engine_id: Optional[str] = None,
@@ -429,7 +418,6 @@ class SignalTrackingService(BaseService):
             return ServiceResult.error(f"获取执行统计失败: {e}")
 
     
-    @time_logger
     @retry(max_try=3)
     def cleanup(self, days_to_keep: int = 30) -> ServiceResult:
         """
@@ -475,8 +463,6 @@ class SignalTrackingService(BaseService):
 
     # ==================== 标准接口方法 ====================
 
-    @time_logger
-    @retry(max_try=3)
     def get(self, **filters) -> ServiceResult:
         """
         标准获取方法 - 根据过滤条件获取信号追踪记录
@@ -510,8 +496,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to get signal tracking records: {e}")
             return ServiceResult.error(f"获取信号追踪记录失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def count(self, **filters) -> ServiceResult:
         """
         标准计数方法 - 根据过滤条件统计记录数量
@@ -539,8 +523,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to count signal tracking records: {e}")
             return ServiceResult.error(f"统计信号追踪记录失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def validate(self, data: Dict[str, Any]) -> ServiceResult:
         """
         标准验证方法 - 验证信号追踪数据的有效性
@@ -610,8 +592,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to validate signal tracking data: {e}")
             return ServiceResult.error(f"数据验证失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def check_integrity(self, **filters) -> ServiceResult:
         """
         标准完整性检查方法 - 检查信号追踪数据的完整性
@@ -696,8 +676,6 @@ class SignalTrackingService(BaseService):
 
     # 从CRUD层移动过来的业务逻辑方法
 
-    @time_logger
-    @retry(max_try=3)
     def find_pending(
         self,
         account_type: Optional[ACCOUNT_TYPE] = None,
@@ -726,8 +704,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"查找待执行信号失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_timeouts_by_account(
         self,
         timeout_hours: int = 24,
@@ -759,8 +735,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"查找超时信号失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_statistics(
         self,
         portfolio_id: Optional[str] = None,
@@ -834,7 +808,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取执行统计失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def batch_update_execution_status(
         self,
@@ -888,7 +861,6 @@ class SignalTrackingService(BaseService):
             return ServiceResult.error(f"批量更新执行状态失败: {str(e)}")
 
     
-    @time_logger
     @retry(max_try=3)
     def batch_update_paper_trade_execution(
         self,
@@ -960,8 +932,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"批量更新PaperTrade执行结果失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_all_signal_ids(self) -> ServiceResult:
         """
         获取所有信号ID
@@ -976,8 +946,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取信号ID列表失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_portfolio_ids(self) -> ServiceResult:
         """
         获取所有投资组合ID
@@ -992,8 +960,6 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取投资组合ID列表失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def find_by_business_time(
         self,
         portfolio_id: str,
@@ -1033,8 +999,6 @@ class SignalTrackingService(BaseService):
             return ServiceResult.error(f"根据业务时间查找信号失败: {str(e)}")
 
     
-    @time_logger
-    @retry(max_try=3)
     def exists(self, **filters) -> ServiceResult:
         """
         标准存在性检查方法 - 检查信号追踪记录是否存在
@@ -1069,8 +1033,6 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to check signal tracking existence: {e}")
             return ServiceResult.error(f"存在性检查失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def health_check(self) -> ServiceResult:
         """
         服务健康检查方法 - 检查SignalTrackingService运行状态

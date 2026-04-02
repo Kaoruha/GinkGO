@@ -21,7 +21,7 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
+from ginkgo.libs import cache_with_expiration, retry, GLOG
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.enums import ENGINESTATUS_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -46,8 +46,6 @@ class EngineService(BaseService):
         self._mapping_repo = engine_portfolio_mapping_crud
 
     # Standard interface methods
-    @time_logger
-    @retry(max_try=3)
     def get(self, engine_id: str = None, name: str = None, is_live: bool = None,
             status: ENGINESTATUS_TYPES = None) -> ServiceResult:
         """
@@ -85,8 +83,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get engine data: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def count(self, name: str = None, is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
         """
         Count engine quantity
@@ -120,7 +116,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to count engines: {str(e)}")
 
-    @time_logger
     def validate(self, engine_id: str = None, engine_data: dict = None) -> ServiceResult:
         """
         Validate engine data
@@ -166,7 +161,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Error occurred while validating engine data: {str(e)}")
 
-    @time_logger
     def check_integrity(self, engine_id: str = None) -> ServiceResult:
         """
         Check engine data integrity
@@ -214,7 +208,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"检查引擎数据完整性时发生错误: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def add(self, name: str, is_live: bool = False, description: str = None, **kwargs) -> ServiceResult:
         """
@@ -293,7 +286,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"创建引擎失败 '{name}': {e}")
             return ServiceResult.error(f"创建引擎失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update(self, engine_id: str, name: str = None, is_live: bool = None,
                description: str = None, status: ENGINESTATUS_TYPES = None, **kwargs) -> ServiceResult:
@@ -391,7 +383,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"更新引擎失败 {engine_id}: {str(e)}")
             return ServiceResult.error(f"更新引擎失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def set_status(self, engine_id: str, status) -> ServiceResult:
         """
@@ -456,7 +447,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"更新引擎状态失败 {engine_id}: {str(e)}")
             return ServiceResult.error(f"更新引擎状态失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete(self, engine_id: str, **kwargs) -> ServiceResult:
         """
@@ -512,7 +502,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"删除引擎失败 {engine_id}: {str(e)}")
             return ServiceResult.error(f"删除引擎失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete_batch(self, engine_ids: List[str], **kwargs) -> ServiceResult:
         """
@@ -612,7 +601,6 @@ class EngineService(BaseService):
 
     # engine_exists方法已删除，使用标准exists方法替代
 
-    @time_logger
     @retry(max_try=3)
     def add_portfolio(
         self, engine_id: str, portfolio_id: str, engine_name: str = None, portfolio_name: str = None, **kwargs
@@ -681,7 +669,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"添加映射失败 引擎 {engine_id} - 投资组合 {portfolio_id}: {str(e)}")
             return ServiceResult.error(f"添加映射失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def remove_portfolio(self, engine_id: str, portfolio_id: str) -> ServiceResult:
         """
@@ -733,8 +720,6 @@ class EngineService(BaseService):
             GLOG.ERROR(f"移除投资组合关联失败 {engine_id} - {portfolio_id}: {str(e)}")
             return ServiceResult.error(f"移除投资组合关联失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_portfolios(
         self, engine_id: str = None, **kwargs
     ) -> ServiceResult:
@@ -787,7 +772,6 @@ class EngineService(BaseService):
 
     # get_engines_for_portfolio方法已删除，功能可以通过get_portfolios方法实现
 
-    @time_logger
     def exists(self, engine_id: str = None, name: str = None, **kwargs) -> ServiceResult:
         """
         检查引擎是否存在（标准化存在性检查）
@@ -820,7 +804,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"检查引擎存在性失败: {str(e)}")
 
-    @time_logger
     def health_check(self) -> ServiceResult:
         """
         服务健康检查
@@ -855,8 +838,6 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"健康检查失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def assemble(self, engine_id: str, **kwargs) -> ServiceResult:
         """
         通过EngineID装配回测引擎实例 - 数据库直接装配模式

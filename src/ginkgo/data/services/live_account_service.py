@@ -10,7 +10,7 @@ from ginkgo.data.services.base_service import BaseService
 from ginkgo.data.services.encryption_service import get_encryption_service
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
 from ginkgo.data.models.model_live_account import MLiveAccount, AccountStatusType, ExchangeType
-from ginkgo.libs import GLOG, time_logger, retry, GCONF
+from ginkgo.libs import GLOG, retry, GCONF
 
 
 class LiveAccountService(BaseService):
@@ -39,7 +39,6 @@ class LiveAccountService(BaseService):
         self._encryption_service = get_encryption_service()
         self.OKX_DOMAIN = GCONF.OKX_DOMAIN
 
-    @time_logger
     def create_account(
         self,
         user_id: str,
@@ -262,7 +261,6 @@ class LiveAccountService(BaseService):
         # TODO: 实现Binance临时验证逻辑
         return self._error_result("Binance validation not yet implemented")
 
-    @time_logger
     @retry(max_try=3)
     def validate_account(self, account_uuid: str) -> Dict[str, Any]:
         """
@@ -413,7 +411,6 @@ class LiveAccountService(BaseService):
         # TODO: 实现Binance验证逻辑
         return self._error_result("Binance validation not yet implemented")
 
-    @time_logger
     def update_account_status(
         self,
         account_uuid: str,
@@ -462,7 +459,6 @@ class LiveAccountService(BaseService):
             GLOG.ERROR(f"Failed to update account status: {e}")
             return self._error_result(f"Failed to update account status: {str(e)}")
 
-    @time_logger
     @retry(max_try=2)
     def get_account_balance(self, account_uuid: str) -> Dict[str, Any]:
         """
@@ -697,7 +693,6 @@ class LiveAccountService(BaseService):
         # TODO: 实现Binance余额查询
         return self._error_result("Binance balance query not yet implemented")
 
-    @time_logger
     @retry(max_try=2)
     def get_account_positions(self, account_uuid: str) -> Dict[str, Any]:
         """

@@ -19,7 +19,7 @@ import pandas as pd
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
 from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
-from ginkgo.libs import GLOG, time_logger, retry, datetime_normalize
+from ginkgo.libs import GLOG, retry, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 
 
@@ -43,8 +43,6 @@ class ResultService(BaseService):
         super().__init__(crud_repo=analyzer_crud)
         self._crud_repo = analyzer_crud
 
-    @time_logger
-    @retry(max_try=3)
     def get_run_summary(self, run_id: str) -> ServiceResult:
         """
         获取某次运行会话的摘要信息
@@ -94,8 +92,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取运行摘要失败: {e}")
             return ServiceResult.error(f"获取运行摘要失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_analyzer_values(
         self,
         run_id: str,
@@ -132,8 +128,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取 analyzer 值失败: {e}")
             return ServiceResult.error(f"获取 analyzer 值失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_multi_analyzer_data(
         self,
         run_id: str,
@@ -175,8 +169,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取多 analyzer 数据失败: {e}")
             return ServiceResult.error(f"获取多 analyzer 数据失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def list_runs(
         self,
         engine_id: Optional[str] = None,
@@ -265,8 +257,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"列出运行会话失败: {e}")
             return ServiceResult.error(f"列出运行会话失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_portfolio_analyzers(
         self,
         run_id: str,
@@ -298,8 +288,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取 analyzer 列表失败: {e}")
             return ServiceResult.error(f"获取 analyzer 列表失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_analyzer_stats(
         self,
         run_id: str,
@@ -354,8 +342,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取统计信息失败: {e}")
             return ServiceResult.error(f"获取统计信息失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_signals(
         self,
         run_id: str,
@@ -403,8 +389,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取信号记录失败: {e}")
             return ServiceResult.error(f"获取信号记录失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_orders(
         self,
         run_id: str,
@@ -446,8 +430,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取订单记录失败: {e}")
             return ServiceResult.error(f"获取订单记录失败: {e}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_positions(
         self,
         run_id: str,
@@ -489,7 +471,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取持仓记录失败: {e}")
             return ServiceResult.error(f"获取持仓记录失败: {e}")
 
-    @time_logger
     @retry(max_try=3)
     def create_order_record(self, **kwargs) -> ServiceResult:
         """
@@ -528,7 +509,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"创建订单记录失败: {e}")
             return ServiceResult.error(f"创建订单记录失败: {e}")
 
-    @time_logger
     @retry(max_try=3)
     def create_position_record(self, **kwargs) -> ServiceResult:
         """

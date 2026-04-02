@@ -4,7 +4,7 @@ import pandas as pd
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.param_crud import ParamCRUD
 from ginkgo.data.models.model_param import MParam
-from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs import GLOG, retry
 
 
 class ParamService(BaseService):
@@ -35,7 +35,6 @@ class ParamService(BaseService):
         # ParamService通常不需要额外依赖，如果有可以在这里添加
         pass
 
-    @time_logger
     @retry(max_try=3)
     def add(self, mapping_id: str, index: int, value: str, **kwargs) -> ServiceResult:
         """
@@ -93,7 +92,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"添加参数失败: {str(e)}")
             return ServiceResult.error(f"添加参数失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update(self, param_id: str = None, mapping_id: str = None, index: int = None,
                value: str = None, **kwargs) -> ServiceResult:
@@ -157,7 +155,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"更新参数失败: {str(e)}")
             return ServiceResult.error(f"更新参数失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete(self, param_id: str = None, mapping_id: str = None, index: int = None, **kwargs) -> ServiceResult:
         """
@@ -198,7 +195,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"删除参数失败: {str(e)}")
             return ServiceResult.error(f"删除参数失败: {str(e)}")
 
-    @time_logger
     def get(self, param_id: str = None, mapping_id: str = None, index: int = None,
             as_dataframe: bool = True, **kwargs) -> ServiceResult:
         """
@@ -240,7 +236,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"获取参数失败: {str(e)}")
             return ServiceResult.error(f"获取参数失败: {str(e)}")
 
-    @time_logger
     def count(self, mapping_id: str = None, **kwargs) -> ServiceResult:
         """
         统计参数总数，支持按映射ID过滤
@@ -269,7 +264,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"统计参数失败: {str(e)}")
             return ServiceResult.error(f"统计参数失败: {str(e)}")
 
-    @time_logger
     def exists(self, param_id: str = None, mapping_id: str = None, index: int = None, **kwargs) -> ServiceResult:
         """
         检查指定参数是否存在，支持多种定位方式
@@ -306,8 +300,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"检查参数存在性失败: {str(e)}")
             return ServiceResult.error(f"检查参数存在性失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def health_check(self) -> ServiceResult:
         """
         检查ParamService及其依赖组件的健康状态
@@ -334,8 +326,6 @@ class ParamService(BaseService):
 
     # ==================== 业务方法 ====================
 
-    @time_logger
-    @retry(max_try=3)
     def get_by_mapping(self, mapping_id: str, as_dataframe: bool = True, **kwargs) -> ServiceResult:
         """
         获取指定映射的所有参数，按索引顺序排序
@@ -372,7 +362,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"获取映射参数失败: {str(e)}")
             return ServiceResult.error(f"获取映射参数失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update_batch(self, mapping_id: str, params: Dict[int, str], **kwargs) -> ServiceResult:
         """
@@ -448,7 +437,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"批量更新参数失败: {str(e)}")
             return ServiceResult.error(f"批量更新参数失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def copy(self, source_mapping: str, target_mapping: str, **kwargs) -> ServiceResult:
         """
@@ -540,7 +528,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"复制参数失败: {str(e)}")
             return ServiceResult.error(f"复制参数失败: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete_batch_by_mapping(self, mapping_id: str, **kwargs) -> ServiceResult:
         """
@@ -571,7 +558,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"删除映射参数失败: {str(e)}")
             return ServiceResult.error(f"删除映射参数失败: {str(e)}")
 
-    @time_logger
     def get_summary(self, mapping_id: str = None, **kwargs) -> ServiceResult:
         """
         获取参数统计汇总信息，支持全局或特定映射分析
@@ -631,8 +617,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"获取参数汇总失败: {str(e)}")
             return ServiceResult.error(f"获取参数汇总失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def validate(self, mapping_id: str, **kwargs) -> ServiceResult:
         """
         验证映射参数的完整性和有效性，检查重复索引等问题
@@ -709,7 +693,6 @@ class ParamService(BaseService):
 
     # ==================== 清理方法 ====================
 
-    @time_logger
     def cleanup_orphaned_params(self) -> ServiceResult:
         """清理孤立的参数（关联对象不存在的参数）
 
@@ -759,7 +742,6 @@ class ParamService(BaseService):
             GLOG.ERROR(f"清理孤立参数失败: {str(e)}")
             return ServiceResult.error(f"清理孤立参数失败: {str(e)}")
 
-    @time_logger
     def cleanup_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
         """根据名称模式清理相关的所有参数
 

@@ -18,7 +18,7 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
+from ginkgo.libs import cache_with_expiration, retry, GLOG
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -56,8 +56,6 @@ class BacktestTaskService(BaseService):
         self._portfolio_service = portfolio_service
         GLOG.set_log_category("component")
 
-    @time_logger
-    @retry(max_try=3)
     def get(self, run_id: str = None, engine_id: str = None, portfolio_id: str = None,
             status: str = None, task_id: str = None) -> ServiceResult:
         """
@@ -94,8 +92,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get backtest tasks: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_by_id(self, backtest_id: str) -> ServiceResult:
         """
         通过 ID 获取单个任务（支持 uuid 或 run_id）
@@ -119,8 +115,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get backtest task: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
     def get_by_run_id(self, run_id: str) -> ServiceResult:
         """
         通过 run_id 获取单个任务
@@ -145,8 +139,6 @@ class BacktestTaskService(BaseService):
         """向后兼容方法，调用 get_by_run_id"""
         return self.get_by_run_id(task_id)
 
-    @time_logger
-    @retry(max_try=3)
     def list(self, page: int = 0, page_size: int = 20, engine_id: str = None,
              portfolio_id: str = None, status: str = None) -> ServiceResult:
         """
@@ -192,7 +184,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to list backtest tasks: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def create(self, name: str = "", engine_id: str = "", portfolio_id: str = "",
                config_snapshot: dict = None, **kwargs) -> ServiceResult:
@@ -229,7 +220,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to create backtest task: {e}")
             return ServiceResult.error(f"Failed to create backtest task: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update(self, uuid: str, **updates) -> ServiceResult:
         """
@@ -263,7 +253,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to update backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to update backtest task: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def update_status(self, uuid: str, status: str, error_message: str = "",
                       **result_fields) -> ServiceResult:
@@ -312,7 +301,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to update task status: {e}")
             return ServiceResult.error(f"Failed to update task status: {str(e)}")
 
-    @time_logger
     @retry(max_try=3)
     def delete(self, uuid: str) -> ServiceResult:
         """
@@ -341,7 +329,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to delete backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to delete backtest task: {str(e)}")
 
-    @time_logger
     def get_statistics(self) -> ServiceResult:
         """
         获取回测任务统计信息
@@ -371,7 +358,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get statistics: {str(e)}")
 
-    @time_logger
     def get_netvalue_data(self, task_id: str, portfolio_id: str = "") -> ServiceResult:
         """
         获取任务的净值曲线数据
@@ -397,7 +383,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get net value data: {str(e)}")
 
-    @time_logger
     def compare(self, task_ids: List[str]) -> ServiceResult:
         """
         对比多个回测任务
@@ -441,7 +426,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to compare tasks: {e}")
             return ServiceResult.error(f"Failed to compare tasks: {str(e)}")
 
-    @time_logger
     def exists(self, run_id: str = None, uuid: str = None, task_id: str = None) -> ServiceResult:
         """
         检查任务是否存在
@@ -468,7 +452,6 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to check existence: {str(e)}")
 
-    @time_logger
     def update_progress(self, uuid: str, progress: float = None,
                         current_stage: str = None, current_date: str = None) -> ServiceResult:
         """
@@ -524,7 +507,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to update task progress: {e}")
             return ServiceResult.error(f"Failed to update task progress: {str(e)}")
 
-    @time_logger
     def health_check(self) -> ServiceResult:
         """
         服务健康检查
@@ -545,7 +527,6 @@ class BacktestTaskService(BaseService):
 
     # ===== 任务控制方法 =====
 
-    @time_logger
     def start_task(self, uuid: str, portfolio_uuid: str = None, name: str = None,
                    start_date: str = "", end_date: str = "",
                    initial_cash: float = 100000.0,
@@ -718,7 +699,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to start backtest task {uuid}: {e}")
             return ServiceResult.error(f"Failed to start backtest task: {str(e)}")
 
-    @time_logger
     def stop_task(self, uuid: str) -> ServiceResult:
         """
         停止回测任务（发送停止命令到Kafka）
@@ -771,7 +751,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to stop backtest task: {e}")
             return ServiceResult.error(f"Failed to stop backtest task: {str(e)}")
 
-    @time_logger
     def cancel_task(self, uuid: str) -> ServiceResult:
         """
         取消回测任务（发送取消命令到Kafka）

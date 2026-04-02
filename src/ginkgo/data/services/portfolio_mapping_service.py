@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 import json
 import uuid
 
-from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
 from ginkgo.data.crud.param_crud import ParamCRUD
@@ -71,7 +71,6 @@ class PortfolioMappingService(BaseService):
 
     # ==================== 方向 1: 图编辑器 → Mapping + Param ====================
 
-    @time_logger
     @retry
     def create_from_graph_editor(
         self,
@@ -156,7 +155,6 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"从图编辑器创建配置失败: {e}")
             return ServiceResult.error(f"从图编辑器创建配置失败: {str(e)}")
 
-    @time_logger
     @retry
     def update_from_graph_editor(
         self,
@@ -219,7 +217,6 @@ class PortfolioMappingService(BaseService):
 
     # ==================== 方向 2: Mapping → 图结构 + Param ====================
 
-    @time_logger
     @retry
     def add_file(
         self,
@@ -277,7 +274,6 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"添加文件失败: {e}")
             return ServiceResult.error(f"添加文件失败: {str(e)}")
 
-    @time_logger
     @retry
     def remove_file(
         self,
@@ -325,7 +321,6 @@ class PortfolioMappingService(BaseService):
 
     # ==================== 查询方法 ====================
 
-    @time_logger
     def get_portfolio_graph(
         self,
         portfolio_uuid: str,
@@ -375,7 +370,6 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"获取图数据失败: {e}")
             return ServiceResult.error(f"获取图数据失败: {str(e)}")
 
-    @time_logger
     def get_portfolio_mappings(
         self,
         portfolio_uuid: str,
@@ -429,7 +423,6 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"获取映射失败: {e}")
             return ServiceResult.error(f"获取映射失败: {str(e)}")
 
-    @time_logger
     def get_mapping_params(
         self,
         mapping_uuid: str,

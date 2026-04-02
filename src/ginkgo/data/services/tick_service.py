@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 
-from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, time_logger, GLOG
+from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, GLOG
 from ginkgo.data.decorators import ensure_tick_table
 from ginkgo.data import mappers
 from ginkgo.enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES, SOURCE_TYPES
@@ -53,7 +53,6 @@ class TickService(BaseService):
             )
         self._adjustfactor_service = adjustfactor_service
 
-    @time_logger
     @retry(max_try=3)
     def sync_date(self, code: str, date: Union[datetime, str, Any], fast_mode: bool = False) -> ServiceResult:
         """
@@ -605,7 +604,6 @@ class TickService(BaseService):
                                message=f"Failed to check tick data integrity: {e}",
                                data=None)
 
-    @time_logger
     @retry(max_try=3)
     def sync_range(self, code: str, start_date: datetime, end_date: datetime, **kwargs) -> ServiceResult:
         """
@@ -732,7 +730,6 @@ class TickService(BaseService):
             sync_result.add_error(0, f"Unexpected error: {e}")
             return ServiceResult(success=False, message=f"Unexpected error during tick range sync: {e}", data=sync_result)
 
-    @time_logger
     @retry(max_try=3)
     def sync_smart(self, code: str, max_backtrack_days: int = 7, **kwargs) -> ServiceResult:
         """
@@ -829,7 +826,6 @@ class TickService(BaseService):
 
         return trading_days
 
-    @time_logger
     def sync_batch(self, codes: List[str], start_date: Union[datetime, str], end_date: Union[datetime, str], **kwargs) -> ServiceResult:
         """
         批量同步多个股票的tick数据
@@ -891,7 +887,6 @@ class TickService(BaseService):
             message=f"批量同步完成: {total_success}/{len(codes)} 成功，成功率 {success_rate:.1%}"
         )
 
-    @time_logger
     @retry(max_try=3)
     def sync_backfill_by_date(self, code: str, force_overwrite: bool = False, **kwargs) -> ServiceResult:
         """
