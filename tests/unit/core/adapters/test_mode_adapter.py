@@ -12,14 +12,14 @@ from unittest.mock import MagicMock, patch
 
 from ginkgo.core.adapters.base_adapter import AdapterError
 from ginkgo.core.adapters.mode_adapter import ModeAdapter, EventAdapter, VectorizedWrapper
-from ginkgo.core.interfaces.strategy_interface import IStrategy
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
 # ── Mock 策略 ───────────────────────────────────────────────────────
 
 
-class MockStrategy(IStrategy):
+class MockStrategy(BaseStrategy):
     """Mock 策略用于测试"""
 
     def __init__(self, name="MockStrategy", supports_vectorization=False):
@@ -100,7 +100,7 @@ class TestModeAdapterAdapt:
     def test_adapt_non_strategy_raises(self):
         """非策略对象抛出异常"""
         adapter = ModeAdapter()
-        # can_adapt 会先检查 isinstance(source, IStrategy)，非策略会返回 False
+        # can_adapt 会先检查 isinstance(source, BaseStrategy)，非策略会返回 False
         assert adapter.can_adapt("not_a_strategy") is False
 
     def test_adapt_event_to_matrix_auto(self):

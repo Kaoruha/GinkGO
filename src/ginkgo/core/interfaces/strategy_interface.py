@@ -23,7 +23,7 @@ from ginkgo.entities import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES
 
 
-class IStrategy(ABC):
+class BaseStrategy(ABC):
     """策略统一接口"""
     
     def __init__(self, name: str = "UnknownStrategy"):
@@ -166,7 +166,7 @@ class IStrategy(ABC):
         return self.__str__()
 
 
-class IMLStrategy(IStrategy):
+class BaseMLStrategy(BaseStrategy):
     """机器学习策略接口（继承自统一策略接口）"""
     
     def __init__(self, name: str = "MLStrategy"):

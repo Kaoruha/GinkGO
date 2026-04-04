@@ -1,7 +1,7 @@
 """
 组合接口单元测试
 
-测试 IPortfolio、IMultiStrategyPortfolio 接口定义，
+测试 BasePortfolio、BaseMultiStrategyPortfolio 接口定义，
 验证构造、组件管理、仓位计算、权重归一化、验证逻辑等功能。
 """
 
@@ -12,16 +12,16 @@ from unittest.mock import MagicMock
 from ginkgo.core.interfaces.portfolio_interface import (
     PortfolioStatus,
     RebalanceFrequency,
-    IPortfolio,
-    IMultiStrategyPortfolio,
+    BasePortfolio,
+    BaseMultiStrategyPortfolio,
 )
 
 
 # ── 具体实现用于测试抽象类 ──────────────────────────────────────────
 
 
-class ConcretePortfolio(IPortfolio):
-    """IPortfolio 的具体实现"""
+class ConcretePortfolio(BasePortfolio):
+    """BasePortfolio 的具体实现"""
 
     def add_strategy(self, strategy, weight=1.0):
         if strategy not in self._strategies:
@@ -51,8 +51,8 @@ class ConcretePortfolio(IPortfolio):
         return {"rebalanced": True}
 
 
-class ConcreteMultiStrategyPortfolio(IMultiStrategyPortfolio):
-    """IMultiStrategyPortfolio 的具体实现"""
+class ConcreteMultiStrategyPortfolio(BaseMultiStrategyPortfolio):
+    """BaseMultiStrategyPortfolio 的具体实现"""
 
     def add_strategy(self, strategy, weight=1.0):
         if strategy not in self._strategies:
@@ -110,12 +110,12 @@ class TestRebalanceFrequency:
         assert RebalanceFrequency.CUSTOM.value == "custom"
 
 
-# ── IPortfolio 构造测试 ─────────────────────────────────────────────
+# ── BasePortfolio 构造测试 ─────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioConstruction:
-    """IPortfolio 构造测试"""
+class TestBasePortfolioConstruction:
+    """BasePortfolio 构造测试"""
 
     def test_default_construction(self):
         """默认参数构造"""
@@ -155,12 +155,12 @@ class TestIPortfolioConstruction:
         assert portfolio.total_value == 500000.0
 
 
-# ── IPortfolio 组件管理测试 ─────────────────────────────────────────
+# ── BasePortfolio 组件管理测试 ─────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioComponentManagement:
-    """IPortfolio 组件管理测试"""
+class TestBasePortfolioComponentManagement:
+    """BasePortfolio 组件管理测试"""
 
     def test_add_analyzer(self):
         """添加分析器"""
@@ -199,12 +199,12 @@ class TestIPortfolioComponentManagement:
         assert risk in portfolio.risk_managementss
 
 
-# ── IPortfolio 策略权重测试 ─────────────────────────────────────────
+# ── BasePortfolio 策略权重测试 ─────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioWeights:
-    """IPortfolio 策略权重测试"""
+class TestBasePortfolioWeights:
+    """BasePortfolio 策略权重测试"""
 
     def test_set_strategy_weight(self):
         """设置策略权重"""
@@ -228,12 +228,12 @@ class TestIPortfolioWeights:
         assert portfolio.get_strategy_weight("nonexistent") == 0.0
 
 
-# ── IPortfolio 仓位管理测试 ─────────────────────────────────────────
+# ── BasePortfolio 仓位管理测试 ─────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioPositionManagement:
-    """IPortfolio 仓位管理测试"""
+class TestBasePortfolioPositionManagement:
+    """BasePortfolio 仓位管理测试"""
 
     def test_update_position_buy(self):
         """买入更新仓位"""
@@ -302,12 +302,12 @@ class TestIPortfolioPositionManagement:
         assert weight == 0.0
 
 
-# ── IPortfolio 配置和验证测试 ───────────────────────────────────────
+# ── BasePortfolio 配置和验证测试 ───────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioConfig:
-    """IPortfolio 配置和验证测试"""
+class TestBasePortfolioConfig:
+    """BasePortfolio 配置和验证测试"""
 
     def test_set_rebalance_frequency(self):
         """设置再平衡频率"""
@@ -373,12 +373,12 @@ class TestIPortfolioConfig:
         assert not any("策略" in e or "资金" in e or "大于0" in e for e in errors)
 
 
-# ── IPortfolio 生命周期测试 ─────────────────────────────────────────
+# ── BasePortfolio 生命周期测试 ─────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioLifecycle:
-    """IPortfolio 生命周期测试"""
+class TestBasePortfolioLifecycle:
+    """BasePortfolio 生命周期测试"""
 
     def test_activate_success(self):
         """成功激活组合"""
@@ -421,12 +421,12 @@ class TestIPortfolioLifecycle:
         assert portfolio.positions == {}
 
 
-# ── IPortfolio 性能和概要测试 ───────────────────────────────────────
+# ── BasePortfolio 性能和概要测试 ───────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIPortfolioPerformance:
-    """IPortfolio 性能指标测试"""
+class TestBasePortfolioPerformance:
+    """BasePortfolio 性能指标测试"""
 
     def test_calculate_performance_metrics_empty(self):
         """空组合性能指标"""
@@ -467,11 +467,11 @@ class TestIPortfolioPerformance:
         assert "TestPortfolio" in s
 
 
-# ── IMultiStrategyPortfolio 测试 ────────────────────────────────────
+# ── BaseMultiStrategyPortfolio 测试 ────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIMultiStrategyPortfolio:
+class TestBaseMultiStrategyPortfolio:
     """多策略组合接口测试"""
 
     def test_default_construction(self):
@@ -513,5 +513,5 @@ class TestIMultiStrategyPortfolio:
         assert best == "strategy_b"
 
     def test_inherits_from_iportfolio(self):
-        """继承 IPortfolio"""
-        assert issubclass(IMultiStrategyPortfolio, IPortfolio)
+        """继承 BasePortfolio"""
+        assert issubclass(BaseMultiStrategyPortfolio, BasePortfolio)

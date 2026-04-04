@@ -19,7 +19,7 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 from enum import Enum
 
-from ginkgo.core.interfaces.strategy_interface import IStrategy
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.trading.sizers import BaseSizer
 from ginkgo.trading.selectors import BaseSelector
@@ -44,7 +44,7 @@ class RebalanceFrequency(Enum):
     CUSTOM = "custom"
 
 
-class IPortfolio(ABC):
+class BasePortfolio(ABC):
     """投资组合统一接口"""
     
     def __init__(self, name: str = "UnknownPortfolio", initial_capital: float = 1000000.0):
@@ -76,7 +76,7 @@ class IPortfolio(ABC):
         self._cash = initial_capital
         
     @property
-    def strategies(self) -> List[IStrategy]:
+    def strategies(self) -> List[BaseStrategy]:
         """策略列表"""
         return self._strategies
     
@@ -121,7 +121,7 @@ class IPortfolio(ABC):
         return self._strategy_weights
     
     @abstractmethod
-    def add_strategy(self, strategy: IStrategy, weight: float = 1.0) -> None:
+    def add_strategy(self, strategy: BaseStrategy, weight: float = 1.0) -> None:
         """
         添加策略
         
@@ -132,7 +132,7 @@ class IPortfolio(ABC):
         pass
     
     @abstractmethod
-    def remove_strategy(self, strategy: Union[IStrategy, str]) -> bool:
+    def remove_strategy(self, strategy: Union[BaseStrategy, str]) -> bool:
         """
         移除策略
         
@@ -359,7 +359,7 @@ class IPortfolio(ABC):
         return self.__str__()
 
 
-class IMultiStrategyPortfolio(IPortfolio):
+class BaseMultiStrategyPortfolio(BasePortfolio):
     """多策略组合接口"""
     
     def __init__(self, name: str = "MultiStrategyPortfolio", initial_capital: float = 1000000.0):
