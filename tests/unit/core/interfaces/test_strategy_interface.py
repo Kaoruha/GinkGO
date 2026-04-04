@@ -1,22 +1,22 @@
 """
 策略接口单元测试
 
-测试 IStrategy、IMLStrategy 接口定义，
+测试 BaseStrategy、BaseMLStrategy 接口定义，
 验证构造、参数管理、向量化支持、回调机制等功能。
 """
 
 import pytest
 from unittest.mock import MagicMock
 
-from ginkgo.core.interfaces.strategy_interface import IStrategy, IMLStrategy
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy, BaseMLStrategy
 from ginkgo.enums import STRATEGY_TYPES
 
 
 # ── 具体实现用于测试抽象类 ──────────────────────────────────────────
 
 
-class ConcreteStrategy(IStrategy):
-    """IStrategy 的具体实现"""
+class ConcreteStrategy(BaseStrategy):
+    """BaseStrategy 的具体实现"""
 
     def initialize(self, **kwargs):
         self._initialized = True
@@ -28,8 +28,8 @@ class ConcreteStrategy(IStrategy):
         self._parameters.update(parameters)
 
 
-class ConcreteMLStrategy(IMLStrategy):
-    """IMLStrategy 的具体实现"""
+class ConcreteMLStrategy(BaseMLStrategy):
+    """BaseMLStrategy 的具体实现"""
 
     def initialize(self, **kwargs):
         self._initialized = True
@@ -48,12 +48,12 @@ class ConcreteMLStrategy(IMLStrategy):
         return pd.DataFrame({"prediction": [1.0]})
 
 
-# ── IStrategy 构造测试 ──────────────────────────────────────────────
+# ── BaseStrategy 构造测试 ──────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIStrategyConstruction:
-    """IStrategy 构造测试"""
+class TestBaseStrategyConstruction:
+    """BaseStrategy 构造测试"""
 
     def test_default_construction(self):
         """默认参数构造"""
@@ -71,12 +71,12 @@ class TestIStrategyConstruction:
         assert strategy.name == "MyStrategy"
 
 
-# ── IStrategy 参数管理测试 ──────────────────────────────────────────
+# ── BaseStrategy 参数管理测试 ──────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIStrategyParameters:
-    """IStrategy 参数管理测试"""
+class TestBaseStrategyParameters:
+    """BaseStrategy 参数管理测试"""
 
     def test_set_parameters(self):
         """设置参数"""
@@ -102,12 +102,12 @@ class TestIStrategyParameters:
         assert strategy.validate_parameters() is True
 
 
-# ── IStrategy 向量化测试 ────────────────────────────────────────────
+# ── BaseStrategy 向量化测试 ────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIStrategyVectorization:
-    """IStrategy 向量化支持测试"""
+class TestBaseStrategyVectorization:
+    """BaseStrategy 向量化支持测试"""
 
     def test_cal_vectorized_not_supported_raises(self):
         """不支持向量化时调用抛出异常"""
@@ -128,12 +128,12 @@ class TestIStrategyVectorization:
         assert strategy.get_warmup_period() == 0
 
 
-# ── IStrategy 回调和重置测试 ────────────────────────────────────────
+# ── BaseStrategy 回调和重置测试 ────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIStrategyCallbacks:
-    """IStrategy 回调和重置测试"""
+class TestBaseStrategyCallbacks:
+    """BaseStrategy 回调和重置测试"""
 
     def test_on_market_update_default_noop(self):
         """市场更新回调默认无操作"""
@@ -162,11 +162,11 @@ class TestIStrategyCallbacks:
         assert repr(strategy) == str(strategy)
 
 
-# ── IMLStrategy 测试 ────────────────────────────────────────────────
+# ── BaseMLStrategy 测试 ────────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIMLStrategy:
+class TestBaseMLStrategy:
     """ML策略接口测试"""
 
     def test_default_type_is_ml(self):
@@ -224,10 +224,10 @@ class TestIMLStrategy:
         strategy.load_model("/tmp/model.pkl")  # 不应抛出异常
 
     def test_inherits_from_istrategy(self):
-        """继承 IStrategy"""
-        assert issubclass(IMLStrategy, IStrategy)
+        """继承 BaseStrategy"""
+        assert issubclass(BaseMLStrategy, BaseStrategy)
 
     def test_cannot_instantiate_abstract(self):
         """不能直接实例化抽象类"""
         with pytest.raises(TypeError):
-            IStrategy()
+            BaseStrategy()

@@ -13,14 +13,14 @@
 定义系统中所有组件的统一接口，确保不同模块间的兼容性。
 """
 
-from ginkgo.core.interfaces.strategy_interface import IStrategy
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy
 from ginkgo.core.interfaces.model_interface import BaseModel
 from ginkgo.core.interfaces.engine_interface import IEngine
-from ginkgo.core.interfaces.portfolio_interface import IPortfolio
+from ginkgo.core.interfaces.portfolio_interface import BasePortfolio
 
 __all__ = [
-    'IStrategy',
+    'BaseStrategy',
     'BaseModel',
     'IEngine',
-    'IPortfolio'
+    'BasePortfolio'
 ]

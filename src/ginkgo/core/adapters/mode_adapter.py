@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
-from ginkgo.core.interfaces.strategy_interface import IStrategy
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
@@ -34,7 +34,7 @@ class ModeAdapter(BaseAdapter):
     def can_adapt(self, source: Any, target_type: Type = None) -> bool:
         """检查是否可以适配"""
         # 检查是否为策略对象
-        if not isinstance(source, IStrategy):
+        if not isinstance(source, BaseStrategy):
             return False
             
         # 检查目标模式
@@ -81,7 +81,7 @@ class ModeAdapter(BaseAdapter):
         except Exception as e:
             raise AdapterError(f"模式适配失败: {e}")
     
-    def _adapt_event_to_matrix(self, strategy: IStrategy, **kwargs) -> pd.DataFrame:
+    def _adapt_event_to_matrix(self, strategy: BaseStrategy, **kwargs) -> pd.DataFrame:
         """
         将事件驱动策略适配为矩阵模式
         
@@ -139,7 +139,7 @@ class ModeAdapter(BaseAdapter):
         
         return signal_matrix
     
-    def _adapt_matrix_to_event(self, strategy: IStrategy, **kwargs) -> 'EventAdapter':
+    def _adapt_matrix_to_event(self, strategy: BaseStrategy, **kwargs) -> 'EventAdapter':
         """
         将矩阵策略适配为事件驱动模式
         
@@ -242,7 +242,7 @@ class ModeAdapter(BaseAdapter):
 class EventAdapter:
     """事件驱动适配器包装类"""
     
-    def __init__(self, matrix_strategy: IStrategy, **kwargs):
+    def __init__(self, matrix_strategy: BaseStrategy, **kwargs):
         self.matrix_strategy = matrix_strategy
         self.name = f"EventAdapter({matrix_strategy.name})"
         self._data_buffer = {}
@@ -342,7 +342,7 @@ class EventAdapter:
 class VectorizedWrapper:
     """向量化包装器 - 为不支持向量化的策略提供向量化能力"""
     
-    def __init__(self, strategy: IStrategy):
+    def __init__(self, strategy: BaseStrategy):
         self.strategy = strategy
         self.name = f"Vectorized({strategy.name})"
     
