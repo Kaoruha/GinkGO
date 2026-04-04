@@ -1,5 +1,5 @@
 # Upstream: CLI Commands (ginkgo notify 命令)、Kafka Worker (通知消费)
-# Downstream: BaseService (继承提供服务基础能力)、NotificationTemplateCRUD (模板CRUD)、NotificationRecordCRUD (记录CRUD)、INotificationChannel (通知渠道接口)
+# Downstream: BaseService (继承提供服务基础能力)、NotificationTemplateCRUD (模板CRUD)、NotificationRecordCRUD (记录CRUD)、BaseNotificationChannel (通知渠道接口)
 # Role: NotificationService通知业务服务提供通知发送/模板渲染/渠道选择/记录管理等业务逻辑支持通知系统功能
 
 from __future__ import annotations  # 启用延迟注解评估，避免循环导入
@@ -26,7 +26,7 @@ from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud import NotificationTemplateCRUD, NotificationRecordCRUD, UserContactCRUD, UserGroupCRUD, UserGroupMappingCRUD
 from ginkgo.data.models import MNotificationRecord
-from ginkgo.notifier.channels.base_channel import INotificationChannel, ChannelResult
+from ginkgo.notifier.channels.base_channel import BaseNotificationChannel, ChannelResult
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES, SOURCE_TYPES, CONTACT_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -97,12 +97,12 @@ class NotificationService(BaseService):
         self._kafka_health_checker = kafka_health_checker
 
         # 注册的通知渠道 {channel_name: channel_instance}
-        self._channels: Dict[str, INotificationChannel] = {}
+        self._channels: Dict[str, BaseNotificationChannel] = {}
 
         # 创建 Webhook 调度器实例
         self._webhook = WebhookDispatcher(self)
 
-    def register_channel(self, channel: INotificationChannel) -> None:
+    def register_channel(self, channel: BaseNotificationChannel) -> None:
         """
         注册通知渠道
 
@@ -113,7 +113,7 @@ class NotificationService(BaseService):
         self._channels[channel_name] = channel
         GLOG.INFO(f"Registered notification channel: {channel_name}")
 
-    def get_channel(self, channel_name: str) -> Optional[INotificationChannel]:
+    def get_channel(self, channel_name: str) -> Optional[BaseNotificationChannel]:
         """
         获取通知渠道
 
@@ -121,7 +121,7 @@ class NotificationService(BaseService):
             channel_name: 渠道名称
 
         Returns:
-            INotificationChannel: 渠道实例，不存在返回 None
+            BaseNotificationChannel: 渠道实例，不存在返回 None
         """
         return self._channels.get(channel_name)
 

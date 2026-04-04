@@ -16,7 +16,7 @@ Provides notification system functionality including:
 # 延迟导入以避免循环依赖
 __all__ = [
     "TemplateEngine",
-    "INotificationChannel",
+    "BaseNotificationChannel",
     "WebhookChannel",
     "NotificationService",
     "NotificationWorker",
@@ -27,9 +27,9 @@ def __getattr__(name):
     if name == "TemplateEngine":
         from ginkgo.notifier.core.template_engine import TemplateEngine
         return TemplateEngine
-    if name == "INotificationChannel":
-        from ginkgo.notifier.channels.base_channel import INotificationChannel
-        return INotificationChannel
+    if name == "BaseNotificationChannel":
+        from ginkgo.notifier.channels.base_channel import BaseNotificationChannel
+        return BaseNotificationChannel
     if name == "WebhookChannel":
         from ginkgo.notifier.channels.webhook_channel import WebhookChannel
         return WebhookChannel

@@ -1,5 +1,5 @@
 # Upstream: Kafka Consumer, NotificationService
-# Downstream: INotificationChannel (WebhookChannel, EmailChannel)
+# Downstream: BaseNotificationChannel (WebhookChannel, EmailChannel)
 # Role: Notifier Workers Module Worker模块提供Kafka消费者Worker支持通知系统功能
 
 
