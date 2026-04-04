@@ -7,7 +7,7 @@
 Notification Channels Module
 
 提供各种通知渠道的实现：
-- INotificationChannel: 通知渠道接口
+- BaseNotificationChannel: 通知渠道接口
 - WebhookChannel: Webhook 渠道（Discord/钉钉/企业微信等）
 - EmailChannel: 邮件渠道
 - KafkaChannel: Kafka 消息队列渠道
@@ -16,7 +16,7 @@ Notification Channels Module
 
 # 延迟导入以避免循环依赖
 __all__ = [
-    "INotificationChannel",
+    "BaseNotificationChannel",
     "WebhookChannel",
     "EmailChannel",
     "ConsoleChannel",
@@ -24,9 +24,9 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name == "INotificationChannel":
-        from ginkgo.notifier.channels.base_channel import INotificationChannel
-        return INotificationChannel
+    if name == "BaseNotificationChannel":
+        from ginkgo.notifier.channels.base_channel import BaseNotificationChannel
+        return BaseNotificationChannel
     if name == "WebhookChannel":
         from ginkgo.notifier.channels.webhook_channel import WebhookChannel
         return WebhookChannel

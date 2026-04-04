@@ -48,7 +48,7 @@ class WebhookDispatcher:
         """
         self._service = notification_service
 
-    def _get_webhook_channel_for_user(self, user_uuid: str) -> Optional['INotificationChannel']:
+    def _get_webhook_channel_for_user(self, user_uuid: str) -> Optional['BaseNotificationChannel']:
         """
         为用户获取 webhook 通道（动态创建 WebhookChannel 实例）
 
@@ -56,7 +56,7 @@ class WebhookDispatcher:
             user_uuid: 用户 UUID
 
         Returns:
-            INotificationChannel: WebhookChannel 实例，如果没有找到 webhook 联系方式则返回 None
+            BaseNotificationChannel: WebhookChannel 实例，如果没有找到 webhook 联系方式则返回 None
         """
         try:
             from ginkgo.notifier.channels.webhook_channel import WebhookChannel

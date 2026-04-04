@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)、INotificationChannel (渠道接口)
+# Upstream: NotificationService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
 # Downstream: Discord Webhook API (外部服务)
 # Role: WebhookChannel Webhook通知渠道实现通过Webhook发送消息到Discord/钉钉/企业微信等支持Markdown和嵌入消息支持通知系统功能
 
@@ -19,11 +19,11 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-from ginkgo.notifier.channels.base_channel import INotificationChannel, ChannelResult
+from ginkgo.notifier.channels.base_channel import BaseNotificationChannel, ChannelResult
 from ginkgo.libs import GLOG
 
 
-class WebhookChannel(INotificationChannel):
+class WebhookChannel(BaseNotificationChannel):
     """
     Webhook 通知渠道
 
