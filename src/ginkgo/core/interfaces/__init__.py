@@ -14,13 +14,13 @@
 """
 
 from ginkgo.core.interfaces.strategy_interface import IStrategy
-from ginkgo.core.interfaces.model_interface import IModel  
+from ginkgo.core.interfaces.model_interface import BaseModel
 from ginkgo.core.interfaces.engine_interface import IEngine
 from ginkgo.core.interfaces.portfolio_interface import IPortfolio
 
 __all__ = [
     'IStrategy',
-    'IModel', 
+    'BaseModel',
     'IEngine',
     'IPortfolio'
 ]

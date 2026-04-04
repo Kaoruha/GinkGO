@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
-from ginkgo.core.interfaces.model_interface import IModel
+from ginkgo.core.interfaces.model_interface import BaseModel
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG
 
@@ -51,12 +51,12 @@ class ModelAdapter(BaseAdapter):
             return True
         elif 'lightgbm' in source_type:
             return True
-        elif isinstance(source, IModel):
+        elif isinstance(source, BaseModel):
             return True
         
         return False
     
-    def adapt(self, source: Any, target_type: Type = None, **kwargs) -> IModel:
+    def adapt(self, source: Any, target_type: Type = None, **kwargs) -> BaseModel:
         """
         模型适配主方法
         
@@ -66,14 +66,14 @@ class ModelAdapter(BaseAdapter):
             **kwargs: 适配参数
             
         Returns:
-            IModel: 适配后的模型对象
+            BaseModel: 适配后的模型对象
         """
         if not self.can_adapt(source, target_type):
             raise AdapterError(f"无法适配模型: {type(source).__name__}")
         
         try:
-            # 如果已经是IModel接口，直接返回
-            if isinstance(source, IModel):
+            # 如果已经是BaseModel接口，直接返回
+            if isinstance(source, BaseModel):
                 return source
             
             # 检测模型框架并选择适配器
@@ -111,7 +111,7 @@ class ModelAdapter(BaseAdapter):
         self._framework_adapters[framework] = adapter_class
 
 
-class SklearnModelAdapter(IModel):
+class SklearnModelAdapter(BaseModel):
     """Sklearn模型适配器"""
     
     def __init__(self, sklearn_model: Any = None, name: str = "SklearnModel"):
@@ -217,7 +217,7 @@ class SklearnModelAdapter(IModel):
             self.sklearn_model.set_params(**hyperparams)
 
 
-class XGBoostModelAdapter(IModel):
+class XGBoostModelAdapter(BaseModel):
     """XGBoost模型适配器"""
     
     def __init__(self, xgb_model: Any = None, name: str = "XGBoostModel"):
@@ -279,7 +279,7 @@ class XGBoostModelAdapter(IModel):
                     setattr(self.xgb_model, key, value)
 
 
-class LightGBMModelAdapter(IModel):
+class LightGBMModelAdapter(BaseModel):
     """LightGBM模型适配器"""
     
     def __init__(self, lgb_model: Any = None, name: str = "LightGBMModel"):
@@ -335,7 +335,7 @@ class LightGBMModelAdapter(IModel):
         self._hyperparameters.update(hyperparams)
 
 
-class PyTorchModelAdapter(IModel):
+class PyTorchModelAdapter(BaseModel):
     """PyTorch模型适配器"""
     
     def __init__(self, torch_model: Any = None, name: str = "PyTorchModel"):
@@ -403,7 +403,7 @@ class PyTorchModelAdapter(IModel):
         # PyTorch模型的超参数设置需要自定义实现
 
 
-class TensorFlowModelAdapter(IModel):
+class TensorFlowModelAdapter(BaseModel):
     """TensorFlow模型适配器"""
     
     def __init__(self, tf_model: Any = None, name: str = "TensorFlowModel"):
@@ -475,7 +475,7 @@ class TensorFlowModelAdapter(IModel):
         # TensorFlow模型的超参数设置需要重新编译模型
 
 
-class GenericModelAdapter(IModel):
+class GenericModelAdapter(BaseModel):
     """通用模型适配器"""
     
     def __init__(self, model: Any, name: str = "GenericModel"):

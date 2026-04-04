@@ -10,7 +10,7 @@
 """
 XGBoost模型实现
 
-基于qlib的XGBoost设计，适配ginkgo的IModel接口。
+基于qlib的XGBoost设计，适配ginkgo的BaseModel接口。
 支持回归和分类任务，包含早停、特征重要性分析等功能。
 """
 
@@ -26,12 +26,12 @@ except ImportError:
     XGBOOST_AVAILABLE = False
     xgb = None
 
-from ginkgo.core.interfaces.model_interface import IModel, ModelStatus
+from ginkgo.core.interfaces.model_interface import BaseModel, ModelStatus
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG
 
 
-class XGBoostModel(IModel):
+class XGBoostModel(BaseModel):
     """
     XGBoost模型实现
     

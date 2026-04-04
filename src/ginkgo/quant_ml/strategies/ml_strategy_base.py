@@ -23,7 +23,7 @@ from abc import abstractmethod
 from ginkgo.trading.strategies.strategy_base import StrategyBase
 from ginkgo.entities import Signal
 from ginkgo.entities import Bar
-from ginkgo.core.interfaces.model_interface import IModel
+from ginkgo.core.interfaces.model_interface import BaseModel
 from ginkgo.enums import DIRECTION_TYPES, STRATEGY_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.quant_ml.features import FeatureProcessor, AlphaFactors
@@ -42,7 +42,7 @@ class MLStrategyBase(StrategyBase):
     
     def __init__(self, 
                  name: str = "MLStrategy",
-                 model: Optional[IModel] = None,
+                 model: Optional[BaseModel] = None,
                  feature_processor: Optional[FeatureProcessor] = None,
                  lookback_period: int = 252,
                  retrain_frequency: int = 60,

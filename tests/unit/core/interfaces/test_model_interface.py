@@ -1,7 +1,7 @@
 """
 模型接口单元测试
 
-测试 IModel、ITimeSeriesModel、IEnsembleModel 接口定义，
+测试 BaseModel、BaseTimeSeriesModel、BaseEnsembleModel 接口定义，
 验证构造、状态管理、超参数、训练记录、克隆等功能。
 """
 
@@ -13,9 +13,9 @@ import numpy as np
 
 from ginkgo.core.interfaces.model_interface import (
     ModelStatus,
-    IModel,
-    ITimeSeriesModel,
-    IEnsembleModel,
+    BaseModel,
+    BaseTimeSeriesModel,
+    BaseEnsembleModel,
 )
 from ginkgo.enums import MODEL_TYPES
 
@@ -23,8 +23,8 @@ from ginkgo.enums import MODEL_TYPES
 # ── 具体实现用于测试抽象类 ──────────────────────────────────────────
 
 
-class ConcreteModel(IModel):
-    """IModel 的具体实现"""
+class ConcreteModel(BaseModel):
+    """BaseModel 的具体实现"""
 
     def fit(self, X, y=None, **kwargs):
         self.status = ModelStatus.TRAINED
@@ -37,8 +37,8 @@ class ConcreteModel(IModel):
         self._hyperparameters.update(hyperparams)
 
 
-class ConcreteTimeSeriesModel(ITimeSeriesModel):
-    """ITimeSeriesModel 的具体实现"""
+class ConcreteTimeSeriesModel(BaseTimeSeriesModel):
+    """BaseTimeSeriesModel 的具体实现"""
 
     def fit(self, X, y=None, **kwargs):
         self.status = ModelStatus.TRAINED
@@ -54,8 +54,8 @@ class ConcreteTimeSeriesModel(ITimeSeriesModel):
         return pd.DataFrame({"prediction": [1.0, 2.0, 3.0]})
 
 
-class ConcreteEnsembleModel(IEnsembleModel):
-    """IEnsembleModel 的具体实现"""
+class ConcreteEnsembleModel(BaseEnsembleModel):
+    """BaseEnsembleModel 的具体实现"""
 
     def fit(self, X, y=None, **kwargs):
         self.status = ModelStatus.TRAINED
@@ -88,12 +88,12 @@ class TestModelStatus:
         assert len(ModelStatus) == 5
 
 
-# ── IModel 构造测试 ─────────────────────────────────────────────────
+# ── BaseModel 构造测试 ─────────────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelConstruction:
-    """IModel 构造测试"""
+    """BaseModel 构造测试"""
 
     def test_default_construction(self):
         """默认参数构造"""
@@ -141,12 +141,12 @@ class TestIModelConstruction:
         assert model.target_names == []
 
 
-# ── IModel 属性测试 ─────────────────────────────────────────────────
+# ── BaseModel 属性测试 ─────────────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelProperties:
-    """IModel 属性测试"""
+    """BaseModel 属性测试"""
 
     def test_is_trained_when_trained(self):
         """训练后 is_trained 为 True"""
@@ -172,12 +172,12 @@ class TestIModelProperties:
         assert model.is_trained is False
 
 
-# ── IModel 超参数测试 ───────────────────────────────────────────────
+# ── BaseModel 超参数测试 ───────────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelHyperparameters:
-    """IModel 超参数管理测试"""
+    """BaseModel 超参数管理测试"""
 
     def test_set_hyperparameters(self):
         """设置超参数"""
@@ -203,12 +203,12 @@ class TestIModelHyperparameters:
         assert model.validate_hyperparameters() is True
 
 
-# ── IModel 训练和预测测试 ───────────────────────────────────────────
+# ── BaseModel 训练和预测测试 ───────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelTraining:
-    """IModel 训练和预测测试"""
+    """BaseModel 训练和预测测试"""
 
     def test_fit_sets_trained_status(self):
         """训练后状态变为 TRAINED"""
@@ -239,12 +239,12 @@ class TestIModelTraining:
             model.predict_proba(X)
 
 
-# ── IModel 状态和记录测试 ───────────────────────────────────────────
+# ── BaseModel 状态和记录测试 ───────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelStateManagement:
-    """IModel 状态管理测试"""
+    """BaseModel 状态管理测试"""
 
     def test_update_status(self):
         """更新模型状态"""
@@ -282,12 +282,12 @@ class TestIModelStateManagement:
         assert model.get_feature_importance() is None
 
 
-# ── IModel 克隆测试 ─────────────────────────────────────────────────
+# ── BaseModel 克隆测试 ─────────────────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelClone:
-    """IModel 克隆测试"""
+    """BaseModel 克隆测试"""
 
     def test_clone_creates_new_instance(self):
         """克隆创建新实例"""
@@ -312,12 +312,12 @@ class TestIModelClone:
         assert model.hyperparameters["lr"] == 0.01
 
 
-# ── IModel 元数据和字符串测试 ───────────────────────────────────────
+# ── BaseModel 元数据和字符串测试 ───────────────────────────────────────
 
 
 @pytest.mark.unit
 class TestIModelMetadata:
-    """IModel 元数据测试"""
+    """BaseModel 元数据测试"""
 
     def test_get_metadata_keys(self):
         """元数据包含必要字段"""
@@ -347,7 +347,7 @@ class TestIModelMetadata:
         assert repr(model) == str(model)
 
 
-# ── ITimeSeriesModel 测试 ───────────────────────────────────────────
+# ── BaseTimeSeriesModel 测试 ───────────────────────────────────────────
 
 
 @pytest.mark.unit
@@ -384,11 +384,11 @@ class TestITimeSeriesModel:
         assert isinstance(result, pd.DataFrame)
 
     def test_inherits_from_imodel(self):
-        """继承 IModel"""
-        assert issubclass(ITimeSeriesModel, IModel)
+        """继承 BaseModel"""
+        assert issubclass(BaseTimeSeriesModel, BaseModel)
 
 
-# ── IEnsembleModel 测试 ─────────────────────────────────────────────
+# ── BaseEnsembleModel 测试 ─────────────────────────────────────────────
 
 
 @pytest.mark.unit
@@ -456,5 +456,5 @@ class TestIEnsembleModel:
         assert model.weights == [0.0]
 
     def test_inherits_from_imodel(self):
-        """继承 IModel"""
-        assert issubclass(IEnsembleModel, IModel)
+        """继承 BaseModel"""
+        assert issubclass(BaseEnsembleModel, BaseModel)
