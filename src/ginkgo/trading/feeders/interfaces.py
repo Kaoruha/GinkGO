@@ -191,7 +191,7 @@ class ILiveDataFeeder(IDataFeeder):
     """
     
     @abstractmethod
-    def subscribe_symbols(self, symbols: List[str], data_types: List[str] = None) -> bool:
+    def subscribe_symbols(self, symbols: List[str], data_types: Optional[List[str]] = None) -> bool:
         """
         订阅股票数据
         
@@ -205,7 +205,7 @@ class ILiveDataFeeder(IDataFeeder):
         pass
     
     @abstractmethod
-    def unsubscribe_symbols(self, symbols: List[str], data_types: List[str] = None) -> bool:
+    def unsubscribe_symbols(self, symbols: List[str], data_types: Optional[List[str]] = None) -> bool:
         """
         取消订阅股票数据
         
