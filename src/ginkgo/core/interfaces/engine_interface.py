@@ -33,7 +33,7 @@ class EngineMode(Enum):
 
 
 
-class IEngine(ABC):
+class BaseEngine(ABC):
     """回测引擎统一接口"""
     
     def __init__(self, name: str = "UnknownEngine", mode: EngineMode = EngineMode.AUTO):
@@ -255,7 +255,7 @@ class IEngine(ABC):
         return self.__str__()
 
 
-class IEventDrivenEngine(IEngine):
+class BaseEventDrivenEngine(BaseEngine):
     """事件驱动引擎接口"""
     
     def __init__(self, name: str = "EventDrivenEngine"):
@@ -299,7 +299,7 @@ class IEventDrivenEngine(IEngine):
         return [EngineMode.EVENT_DRIVEN, EngineMode.HYBRID]
 
 
-class IMatrixEngine(IEngine):
+class BaseMatrixEngine(BaseEngine):
     """矩阵引擎接口"""
     
     def __init__(self, name: str = "MatrixEngine"):
@@ -348,7 +348,7 @@ class IMatrixEngine(IEngine):
         return [EngineMode.MATRIX, EngineMode.HYBRID]
 
 
-class IHybridEngine(IEngine):
+class BaseHybridEngine(BaseEngine):
     """混合引擎接口"""
     
     def __init__(self, name: str = "HybridEngine"):

@@ -1,7 +1,7 @@
 """
 引擎接口单元测试
 
-测试 IEngine、IEventDrivenEngine、IMatrixEngine、IHybridEngine 接口定义，
+测试 BaseEngine、BaseEventDrivenEngine、BaseMatrixEngine、BaseHybridEngine 接口定义，
 验证构造、状态管理、回调机制、模式切换等行为。
 """
 
@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 from ginkgo.core.interfaces.engine_interface import (
     EngineMode,
-    IEngine,
-    IEventDrivenEngine,
-    IMatrixEngine,
-    IHybridEngine,
+    BaseEngine,
+    BaseEventDrivenEngine,
+    BaseMatrixEngine,
+    BaseHybridEngine,
 )
 from ginkgo.enums import ENGINESTATUS_TYPES
 
@@ -32,8 +32,8 @@ if not hasattr(ENGINESTATUS_TYPES, "ERROR"):
 # ── 具体实现用于测试抽象类 ──────────────────────────────────────────
 
 
-class ConcreteEngine(IEngine):
-    """IEngine 的具体实现，用于测试"""
+class ConcreteEngine(BaseEngine):
+    """BaseEngine 的具体实现，用于测试"""
 
     def initialize(self, config=None):
         pass
@@ -42,8 +42,8 @@ class ConcreteEngine(IEngine):
         return {"result": "ok"}
 
 
-class ConcreteEventEngine(IEventDrivenEngine):
-    """IEventDrivenEngine 的具体实现"""
+class ConcreteEventEngine(BaseEventDrivenEngine):
+    """BaseEventDrivenEngine 的具体实现"""
 
     def process_event(self, event):
         pass
@@ -58,8 +58,8 @@ class ConcreteEventEngine(IEventDrivenEngine):
         return {"result": "event_driven"}
 
 
-class ConcreteMatrixEngine(IMatrixEngine):
-    """IMatrixEngine 的具体实现"""
+class ConcreteMatrixEngine(BaseMatrixEngine):
+    """BaseMatrixEngine 的具体实现"""
 
     def load_data(self, start_date, end_date):
         return {"data": "loaded"}
@@ -74,8 +74,8 @@ class ConcreteMatrixEngine(IMatrixEngine):
         return {"result": "matrix"}
 
 
-class ConcreteHybridEngine(IHybridEngine):
-    """IHybridEngine 的具体实现"""
+class ConcreteHybridEngine(BaseHybridEngine):
+    """BaseHybridEngine 的具体实现"""
 
     def select_optimal_mode(self, context):
         return EngineMode.EVENT_DRIVEN
@@ -109,12 +109,12 @@ class TestEngineMode:
         assert len(EngineMode) == 4
 
 
-# ── IEngine 基础测试 ────────────────────────────────────────────────
+# ── BaseEngine 基础测试 ────────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIEngineConstruction:
-    """IEngine 构造测试"""
+class TestBaseEngineConstruction:
+    """BaseEngine 构造测试"""
 
     def test_default_construction(self):
         """默认参数构造"""
@@ -155,8 +155,8 @@ class TestIEngineConstruction:
 
 
 @pytest.mark.unit
-class TestIEngineProperties:
-    """IEngine 属性测试"""
+class TestBaseEngineProperties:
+    """BaseEngine 属性测试"""
 
     def test_is_running_when_running(self):
         """运行状态下 is_running 为 True"""
@@ -182,8 +182,8 @@ class TestIEngineProperties:
 
 
 @pytest.mark.unit
-class TestIEngineLifecycle:
-    """IEngine 生命周期管理测试"""
+class TestBaseEngineLifecycle:
+    """BaseEngine 生命周期管理测试"""
 
     def test_start_from_idle(self):
         """从空闲状态启动"""
@@ -272,8 +272,8 @@ class TestIEngineLifecycle:
 
 
 @pytest.mark.unit
-class TestIEngineConfig:
-    """IEngine 配置管理测试"""
+class TestBaseEngineConfig:
+    """BaseEngine 配置管理测试"""
 
     def test_set_config(self):
         """设置配置"""
@@ -312,8 +312,8 @@ class TestIEngineConfig:
 
 
 @pytest.mark.unit
-class TestIEngineModeSwitching:
-    """IEngine 模式切换测试"""
+class TestBaseEngineModeSwitching:
+    """BaseEngine 模式切换测试"""
 
     def test_get_supported_modes_default(self):
         """默认支持模式列表"""
@@ -353,8 +353,8 @@ class TestIEngineModeSwitching:
 
 
 @pytest.mark.unit
-class TestIEngineCallbacks:
-    """IEngine 回调机制测试"""
+class TestBaseEngineCallbacks:
+    """BaseEngine 回调机制测试"""
 
     def test_add_on_start_callback(self):
         """添加启动回调"""
@@ -426,8 +426,8 @@ class TestIEngineCallbacks:
 
 
 @pytest.mark.unit
-class TestIEngineErrorHandling:
-    """IEngine 错误处理测试"""
+class TestBaseEngineErrorHandling:
+    """BaseEngine 错误处理测试"""
 
     def test_log_error_increments_count(self):
         """记录错误递增计数"""
@@ -466,8 +466,8 @@ class TestIEngineErrorHandling:
 
 
 @pytest.mark.unit
-class TestIEngineStatusReport:
-    """IEngine 状态报告测试"""
+class TestBaseEngineStatusReport:
+    """BaseEngine 状态报告测试"""
 
     def test_status_report_structure(self):
         """状态报告结构完整"""
@@ -504,11 +504,11 @@ class TestIEngineStatusReport:
         assert repr(engine) == str(engine)
 
 
-# ── IEventDrivenEngine 测试 ─────────────────────────────────────────
+# ── BaseEventDrivenEngine 测试 ─────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIEventDrivenEngine:
+class TestBaseEventDrivenEngine:
     """事件驱动引擎接口测试"""
 
     def test_default_mode_is_event_driven(self):
@@ -553,11 +553,11 @@ class TestIEventDrivenEngine:
         assert EngineMode.HYBRID in modes
 
 
-# ── IMatrixEngine 测试 ──────────────────────────────────────────────
+# ── BaseMatrixEngine 测试 ──────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIMatrixEngine:
+class TestBaseMatrixEngine:
     """矩阵引擎接口测试"""
 
     def test_default_mode_is_matrix(self):
@@ -598,11 +598,11 @@ class TestIMatrixEngine:
         assert EngineMode.HYBRID in modes
 
 
-# ── IHybridEngine 测试 ──────────────────────────────────────────────
+# ── BaseHybridEngine 测试 ──────────────────────────────────────────────
 
 
 @pytest.mark.unit
-class TestIHybridEngine:
+class TestBaseHybridEngine:
     """混合引擎接口测试"""
 
     def test_default_mode_is_hybrid(self):
@@ -639,24 +639,24 @@ class TestIHybridEngine:
 class TestInheritanceHierarchy:
     """接口继承关系测试"""
 
-    def test_event_engine_inherits_iengine(self):
-        """IEventDrivenEngine 继承 IEngine"""
-        assert issubclass(IEventDrivenEngine, IEngine)
+    def test_event_engine_inherits_baseengine(self):
+        """BaseEventDrivenEngine 继承 BaseEngine"""
+        assert issubclass(BaseEventDrivenEngine, BaseEngine)
 
-    def test_matrix_engine_inherits_iengine(self):
-        """IMatrixEngine 继承 IEngine"""
-        assert issubclass(IMatrixEngine, IEngine)
+    def test_matrix_engine_inherits_baseengine(self):
+        """BaseMatrixEngine 继承 BaseEngine"""
+        assert issubclass(BaseMatrixEngine, BaseEngine)
 
-    def test_hybrid_engine_inherits_iengine(self):
-        """IHybridEngine 继承 IEngine"""
-        assert issubclass(IHybridEngine, IEngine)
+    def test_hybrid_engine_inherits_baseengine(self):
+        """BaseHybridEngine 继承 BaseEngine"""
+        assert issubclass(BaseHybridEngine, BaseEngine)
 
     def test_concrete_engine_is_instance(self):
-        """具体引擎是 IEngine 实例"""
+        """具体引擎是 BaseEngine 实例"""
         engine = ConcreteEngine()
-        assert isinstance(engine, IEngine)
+        assert isinstance(engine, BaseEngine)
 
     def test_cannot_instantiate_abstract(self):
         """不能直接实例化抽象类"""
         with pytest.raises(TypeError):
-            IEngine()
+            BaseEngine()
