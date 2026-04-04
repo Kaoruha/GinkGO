@@ -65,7 +65,7 @@ def _make_signal(code="TEST001", direction=DIRECTION_TYPES.LONG, reason="test_si
 # ========== Construction Tests ==========
 
 class TestStrategyConstruction:
-    """Test StrategyBase construction and initialization."""
+    """Test BaseStrategy construction and initialization."""
 
     def test_strategy_init(self):
         """Test base strategy initialization."""

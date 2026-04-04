@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines, Portfolio Manager
 # Downstream: Data Layer, Event System
-# Role: Volume Activate策略继承StrategyBase实现VolumeActivate成交量激活交易逻辑
+# Role: Volume Activate策略继承BaseStrategy实现VolumeActivate成交量激活交易逻辑
 
 
 
@@ -10,13 +10,13 @@
 import time
 import datetime
 from ginkgo.trading.events import EventSignalGeneration
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 from ginkgo.libs import GLOG
 
 
-class StrategyVolumeActivate(StrategyBase):
+class StrategyVolumeActivate(BaseStrategy):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False

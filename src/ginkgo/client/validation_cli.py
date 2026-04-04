@@ -536,12 +536,12 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
         sys.modules["strategy_module"] = module
         spec.loader.exec_module(module)
 
-        # Find strategy class (class that inherits from StrategyBase)
-        from ginkgo.trading.strategies.strategy_base import StrategyBase
+        # Find strategy class (class that inherits from BaseStrategy)
+        from ginkgo.trading.strategies.strategy_base import BaseStrategy
         strategy_class = None
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
-            if isinstance(attr, type) and issubclass(attr, StrategyBase) and attr != StrategyBase:
+            if isinstance(attr, type) and issubclass(attr, BaseStrategy) and attr != BaseStrategy:
                 strategy_class = attr
                 break
 

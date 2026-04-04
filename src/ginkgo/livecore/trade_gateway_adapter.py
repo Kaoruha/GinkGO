@@ -41,7 +41,7 @@ from datetime import datetime
 import time
 
 from ginkgo.trading.gateway.trade_gateway import TradeGateway
-from ginkgo.trading.interfaces.broker_interface import IBroker
+from ginkgo.trading.bases.base_broker import BaseBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -51,7 +51,7 @@ from ginkgo.libs import GLOG
 class TradeGatewayAdapter(Thread):
     """交易网关适配器，订阅Kafka订单并执行"""
 
-    def __init__(self, brokers: List[IBroker], order_timeout: int = 30):
+    def __init__(self, brokers: List[BaseBroker], order_timeout: int = 30):
         """
         初始化TradeGatewayAdapter
 

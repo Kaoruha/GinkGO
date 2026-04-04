@@ -235,7 +235,7 @@ class ComponentTester:
                     obj = getattr(module, name)
                     if (hasattr(obj, '__bases__') and 
                         len(obj.__bases__) > 0 and
-                        obj.__bases__[0].__name__ in ['StrategyBase', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
+                        obj.__bases__[0].__name__ in ['BaseStrategy', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
                         return obj
                 
                 return None

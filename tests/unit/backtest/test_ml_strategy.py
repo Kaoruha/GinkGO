@@ -418,10 +418,10 @@ class TestMLStrategyIntegration(unittest.TestCase):
     def test_strategy_inheritance(self):
         """测试策略继承关系"""
         if ML_STRATEGIES_AVAILABLE:
-            from ginkgo.trading.strategies import StrategyMLBase, StrategyMLPredictor, StrategyBase
-            
+            from ginkgo.trading.strategies import StrategyMLBase, StrategyMLPredictor, BaseStrategy
+
             # 检查继承关系
-            self.assertTrue(issubclass(StrategyMLBase, StrategyBase))
+            self.assertTrue(issubclass(StrategyMLBase, BaseStrategy))
             self.assertTrue(issubclass(StrategyMLPredictor, StrategyMLBase))
 
 

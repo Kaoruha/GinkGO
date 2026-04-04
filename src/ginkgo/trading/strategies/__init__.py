@@ -8,7 +8,7 @@
 
 
 # from ginkgo.trading.strategies.volume_activate import StrategyVolumeActivate  # Temporarily disabled due to import issues
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
 
 # Machine Learning Strategies

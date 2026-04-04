@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
 
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities import Signal
 from ginkgo.entities import Bar
 from ginkgo.trading.portfolios import PortfolioT1Backtest
@@ -36,7 +36,7 @@ class StrategyIntegrationTest(unittest.TestCase):
         self.test_time = datetime(2024, 1, 1, 10, 0, 0)
 
         # 创建基础策略
-        self.strategy = StrategyBase("test_strategy")
+        self.strategy = BaseStrategy("test_strategy")
         self.strategy.set_business_timestamp(self.test_time)
 
         # 创建投资组合
@@ -50,7 +50,7 @@ class StrategyIntegrationTest(unittest.TestCase):
 
     def test_strategy_base_initialization(self):
         """测试策略基类初始化"""
-        strategy = StrategyBase("init_test")
+        strategy = BaseStrategy("init_test")
 
         # 验证基本属性
         self.assertEqual(strategy.name, "init_test")
@@ -65,7 +65,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_concrete_strategy_implementation(self):
         """测试具体策略实现"""
 
-        class TestStrategy(StrategyBase):
+        class TestStrategy(BaseStrategy):
             def __init__(self, name):
                 super().__init__(name)
                 self.signals_generated = []
@@ -91,7 +91,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_strategy_portfolio_integration(self):
         """测试策略与投资组合的集成"""
 
-        class IntegrationStrategy(StrategyBase):
+        class IntegrationStrategy(BaseStrategy):
             def cal(self, portfolio_info, event):
                 return [_make_signal()]
 
@@ -145,7 +145,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_full_strategy_workflow(self):
         """测试完整的策略工作流程"""
 
-        class WorkflowStrategy(StrategyBase):
+        class WorkflowStrategy(BaseStrategy):
             def __init__(self, name):
                 super().__init__(name)
                 self.execution_count = 0
@@ -208,7 +208,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_strategy_error_propagation(self):
         """测试策略错误传播机制"""
 
-        class ErrorStrategy(StrategyBase):
+        class ErrorStrategy(BaseStrategy):
             def __init__(self, name):
                 super().__init__(name)
                 self.should_error = False
@@ -260,7 +260,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_strategy_performance_tracking(self):
         """测试策略性能跟踪"""
 
-        class PerformanceStrategy(StrategyBase):
+        class PerformanceStrategy(BaseStrategy):
             def __init__(self, name):
                 super().__init__(name)
                 self.call_count = 0
@@ -299,7 +299,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_strategy_data_dependency(self):
         """测试策略数据依赖管理"""
 
-        class DataDependentStrategy(StrategyBase):
+        class DataDependentStrategy(BaseStrategy):
             def __init__(self, name):
                 super().__init__(name)
                 self.required_data_fields = ["close", "volume", "high", "low"]
@@ -343,7 +343,7 @@ class StrategyIntegrationTest(unittest.TestCase):
 
         # 创建多个策略实例
         for i in range(10):
-            strategy = StrategyBase(f"cleanup_test_{i}")
+            strategy = BaseStrategy(f"cleanup_test_{i}")
             strategy.set_business_timestamp(self.test_time)
             strategies.append(strategy)
 
@@ -362,11 +362,11 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_strategy_inheritance_and_polymorphism(self):
         """测试策略继承和多态性"""
 
-        class LongOnlyStrategy(StrategyBase):
+        class LongOnlyStrategy(BaseStrategy):
             def cal(self, portfolio_info, event):
                 return [_make_signal(direction=DIRECTION_TYPES.LONG)]
 
-        class ShortOnlyStrategy(StrategyBase):
+        class ShortOnlyStrategy(BaseStrategy):
             def cal(self, portfolio_info, event):
                 return [_make_signal(direction=DIRECTION_TYPES.SHORT)]
 
@@ -392,7 +392,7 @@ class StrategyIntegrationTest(unittest.TestCase):
     def test_portfolio_complete_workflow(self):
         """测试投资组合完整工作流程"""
 
-        class CompleteWorkflowStrategy(StrategyBase):
+        class CompleteWorkflowStrategy(BaseStrategy):
             def cal(self, portfolio_info, event):
                 return [_make_signal()]
 

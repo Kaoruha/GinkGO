@@ -24,7 +24,8 @@ import traceback
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
-from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
+from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
+from ginkgo.trading.bases.base_broker import BaseBroker
 from ginkgo.entities import Order
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.trading.events.order_lifecycle_events import (
@@ -45,7 +46,7 @@ class TradeGateway(BaseTradeGateway):
     - 纯内存操作，高性能
     """
 
-    def __init__(self, brokers: List[IBroker], name: str = "MultiMarketTradeGateway"):
+    def __init__(self, brokers: List[BaseBroker], name: str = "MultiMarketTradeGateway"):
         """
         初始化TradeGateway
 
@@ -57,18 +58,18 @@ class TradeGateway(BaseTradeGateway):
         super().__init__(name=name)
 
         # 支持单个Broker或Broker列表
-        if isinstance(brokers, IBroker):
+        if isinstance(brokers, BaseBroker):
             self.brokers = [brokers]
         elif isinstance(brokers, list):
             self.brokers = brokers
         else:
-            raise ValueError("brokers must be IBroker instance or list of IBroker instances")
+            raise ValueError("brokers must be BaseBroker instance or list of BaseBroker instances")
 
         # 为兼容性保留self.broker属性（默认使用第一个）
         self.broker = self.brokers[0] if self.brokers else None
 
         # 建立市场到Broker的映射
-        self._market_mapping: Dict[str, IBroker] = {}
+        self._market_mapping: Dict[str, BaseBroker] = {}
         self._symbol_patterns: List = []  # 符号模式列表 [(regex_pattern, market_name), ...]
 
         # 设置市场映射
@@ -127,7 +128,7 @@ class TradeGateway(BaseTradeGateway):
         for market, broker in self._market_mapping.items():
             GLOG.DEBUG(f"Market '{market}' -> Broker '{broker.__class__.__name__}'")
 
-    def _detect_execution_mode(self, broker: IBroker) -> str:
+    def _detect_execution_mode(self, broker: BaseBroker) -> str:
         """检测Broker执行模式"""
         if broker.supports_immediate_execution():
             return "backtest"  # 回测模式
@@ -148,7 +149,7 @@ class TradeGateway(BaseTradeGateway):
 
         return 'A股'  # 默认为A股
 
-    def get_broker_for_order(self, order: Order) -> Optional[IBroker]:
+    def get_broker_for_order(self, order: Order) -> Optional[BaseBroker]:
         """
         根据订单选择合适的Broker
 
@@ -156,7 +157,7 @@ class TradeGateway(BaseTradeGateway):
             order: 订单对象
 
         Returns:
-            Optional[IBroker]: 选择的Broker，如果找不到返回None
+            Optional[BaseBroker]: 选择的Broker，如果找不到返回None
         """
         # 1. 根据股票代码判断市场
         market = self._get_market_by_code(order.code)
@@ -275,7 +276,7 @@ class TradeGateway(BaseTradeGateway):
         if GCONF.DEBUGMODE:
             GLOG.DEBUG(f"🔥 [ROUTER] on_price_received completed")
 
-    def _handle_sync_execution(self, order: Order, broker: IBroker, event) -> None:
+    def _handle_sync_execution(self, order: Order, broker: BaseBroker, event) -> None:
         """
         处理同步执行（回测模式）
 
@@ -356,7 +357,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
             GLOG.ERROR(f"Failed to save SUBMITTED order record: {e}")
 
-    def _handle_async_execution(self, order: Order, broker: IBroker, execution_mode: str) -> None:
+    def _handle_async_execution(self, order: Order, broker: BaseBroker, execution_mode: str) -> None:
         """
         处理异步执行（模拟盘/实盘模式）
 
@@ -459,7 +460,7 @@ class TradeGateway(BaseTradeGateway):
                     GLOG.DEBUG(f"🔥 [ROUTER] Submitting pending order to broker: {order.direction.name} {order.volume} {order.code}")
                 self._submit_order_to_broker(order, selected_broker)
 
-    def _submit_order_to_broker(self, order: Order, broker: IBroker):
+    def _submit_order_to_broker(self, order: Order, broker: BaseBroker):
         """提交订单到指定Broker"""
         execution_mode = self._detect_execution_mode(broker)
 
@@ -770,7 +771,7 @@ class TradeGateway(BaseTradeGateway):
                 pending[broker_name] = []
         return pending
 
-    def _get_tracked_orders_for_broker(self, broker: IBroker) -> List[str]:
+    def _get_tracked_orders_for_broker(self, broker: BaseBroker) -> List[str]:
         """获取特定Broker的跟踪订单"""
         if not hasattr(broker, 'get_pending_orders'):
             return []
@@ -795,7 +796,7 @@ class TradeGateway(BaseTradeGateway):
                     GLOG.INFO(f"Manual execution confirmed: {broker_order_id}")
                 break
 
-    def add_broker(self, broker: IBroker):
+    def add_broker(self, broker: BaseBroker):
         """动态添加Broker"""
         self.brokers.append(broker)
 
@@ -805,7 +806,7 @@ class TradeGateway(BaseTradeGateway):
 
         GLOG.INFO(f"Added broker: {broker.__class__.__name__}")
 
-    def remove_broker(self, broker: IBroker):
+    def remove_broker(self, broker: BaseBroker):
         """移除Broker"""
         if broker in self.brokers:
             self.brokers.remove(broker)

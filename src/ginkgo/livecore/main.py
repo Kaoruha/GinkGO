@@ -368,13 +368,13 @@ class LiveCore:
 
         Phase 3状态：
         - TradeGatewayAdapter类已实现（T028完成）
-        - 需要配置broker实例（IBroker接口）
+        - 需要配置broker实例（BaseBroker基类）
         - 当前使用占位符，等待broker配置
 
         集成方式（Phase 4完成broker配置后启用）：
         ```python
         from ginkgo.livecore.trade_gateway_adapter import TradeGatewayAdapter
-        from ginkgo.trading.interfaces import IBroker
+        from ginkgo.trading.bases.base_broker import BaseBroker
 
         # 1. 从config或环境变量加载broker配置
         brokers = self._load_brokers()
@@ -473,7 +473,7 @@ class LiveCore:
         加载broker配置
 
         Returns:
-            List[IBroker]: broker实例列表
+            List[BaseBroker]: broker实例列表
 
         配置来源（按优先级）：
         1. self.config['brokers'] - 构造函数传入

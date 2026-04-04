@@ -23,7 +23,7 @@ from unit.backtest.test_component_contracts import (
 )
 
 try:
-    from ginkgo.trading.strategy.strategies.base_strategy import StrategyBase
+    from ginkgo.trading.strategies.strategy_base import BaseStrategy
     from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer  
     from ginkgo.trading.strategy.risk_managements.base_risk import BaseRiskManagement
     from ginkgo.trading.strategy.sizers.base_sizer import BaseSizer
@@ -39,7 +39,7 @@ class ComponentValidator:
     """组件验证器"""
     
     BASE_CLASSES = {
-        'strategy': StrategyBase,
+        'strategy': BaseStrategy,
         'analyzer': BaseAnalyzer,
         'risk': BaseRiskManagement,
         'sizer': BaseSizer,

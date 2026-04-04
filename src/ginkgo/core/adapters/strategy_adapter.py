@@ -18,8 +18,8 @@ import pandas as pd
 import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
-from ginkgo.core.interfaces.strategy_interface import BaseStrategy, BaseMLStrategy
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.core.interfaces.strategy_interface import BaseStrategy as BaseStrategyInterface, BaseMLStrategy
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
@@ -35,16 +35,16 @@ class StrategyAdapter(BaseAdapter):
     def can_adapt(self, source: Any, target_type: Type = None) -> bool:
         """检查是否可以适配"""
         # 检查源对象类型
-        if not (isinstance(source, StrategyBase) or isinstance(source, BaseStrategy)):
+        if not (isinstance(source, BaseStrategy) or isinstance(source, BaseStrategyInterface)):
             return False
-        
+
         # 检查目标类型
         if target_type:
-            return issubclass(target_type, BaseStrategy)
+            return issubclass(target_type, BaseStrategyInterface)
         
         return True
     
-    def adapt(self, source: Any, target_type: Type = None, **kwargs) -> BaseStrategy:
+    def adapt(self, source: Any, target_type: Type = None, **kwargs) -> BaseStrategyInterface:
         """
         策略适配主方法
 
@@ -54,7 +54,7 @@ class StrategyAdapter(BaseAdapter):
             **kwargs: 适配参数
 
         Returns:
-            BaseStrategy: 适配后的策略对象
+            BaseStrategyInterface: 适配后的策略对象
         """
         if not self.can_adapt(source, target_type):
             raise AdapterError(f"无法适配策略: {type(source).__name__}")
@@ -65,7 +65,7 @@ class StrategyAdapter(BaseAdapter):
                 return source
             
             # 根据源策略类型选择适配方法
-            if isinstance(source, StrategyBase):
+            if isinstance(source, BaseStrategy):
                 return self._adapt_base_strategy(source, target_type, **kwargs)
             elif hasattr(source, 'strategy_type') and source.strategy_type == STRATEGY_TYPES.ML:
                 return self._adapt_ml_strategy(source, target_type, **kwargs)
@@ -75,9 +75,9 @@ class StrategyAdapter(BaseAdapter):
         except Exception as e:
             raise AdapterError(f"策略适配失败: {e}")
     
-    def _adapt_base_strategy(self, strategy: StrategyBase, target_type: Type = None, **kwargs) -> BaseStrategy:
+    def _adapt_base_strategy(self, strategy: BaseStrategy, target_type: Type = None, **kwargs) -> BaseStrategyInterface:
         """
-        适配传统StrategyBase策略
+        适配传统BaseStrategy策略
 
         Args:
             strategy: 传统策略对象
@@ -85,11 +85,11 @@ class StrategyAdapter(BaseAdapter):
             **kwargs: 适配参数
 
         Returns:
-            BaseStrategy: 适配后的策略
+            BaseStrategyInterface: 适配后的策略
         """
         return StrategyBaseAdapter(strategy, **kwargs)
     
-    def _adapt_ml_strategy(self, strategy: Any, target_type: Type = None, **kwargs) -> BaseStrategy:
+    def _adapt_ml_strategy(self, strategy: Any, target_type: Type = None, **kwargs) -> BaseStrategyInterface:
         """
         适配ML策略
 
@@ -99,11 +99,11 @@ class StrategyAdapter(BaseAdapter):
             **kwargs: 适配参数
 
         Returns:
-            BaseStrategy: 适配后的策略
+            BaseStrategyInterface: 适配后的策略
         """
         return MLStrategyAdapter(strategy, **kwargs)
     
-    def _adapt_generic_strategy(self, strategy: Any, target_type: Type = None, **kwargs) -> BaseStrategy:
+    def _adapt_generic_strategy(self, strategy: Any, target_type: Type = None, **kwargs) -> BaseStrategyInterface:
         """
         适配通用策略
 
@@ -113,7 +113,7 @@ class StrategyAdapter(BaseAdapter):
             **kwargs: 适配参数
 
         Returns:
-            BaseStrategy: 适配后的策略
+            BaseStrategyInterface: 适配后的策略
         """
         return GenericStrategyAdapter(strategy, **kwargs)
     
@@ -137,10 +137,10 @@ class StrategyAdapter(BaseAdapter):
         }
 
 
-class StrategyBaseAdapter(BaseStrategy):
+class StrategyBaseAdapter(BaseStrategyInterface):
     """传统策略适配器"""
-    
-    def __init__(self, base_strategy: StrategyBase, **kwargs):
+
+    def __init__(self, base_strategy: BaseStrategy, **kwargs):
         super().__init__(name=getattr(base_strategy, 'name', 'AdaptedStrategyBase'))
         self.base_strategy = base_strategy
         self._strategy_type = STRATEGY_TYPES.TRADITIONAL
@@ -391,7 +391,7 @@ class MLStrategyAdapter(BaseMLStrategy):
         raise AttributeError(f"'{self.__class__.__name__}' 和 '{type(self.ml_strategy).__name__}' 都没有属性 '{name}'")
 
 
-class GenericStrategyAdapter(BaseStrategy):
+class GenericStrategyAdapter(BaseStrategyInterface):
     """通用策略适配器"""
     
     def __init__(self, strategy: Any, **kwargs):

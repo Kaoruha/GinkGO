@@ -11,7 +11,7 @@
 Structural evaluation rules for strategy validation.
 
 These rules check the basic structure of strategy classes:
-- StrategyBaseInheritanceRule: Checks if the class inherits from StrategyBase
+- StrategyBaseInheritanceRule: Checks if the class inherits from BaseStrategy
 - CalMethodRequiredRule: Checks if the cal() method is implemented
 - SuperInitCallRule: Checks if __init__ calls super().__init__()
 - CalSignatureValidationRule: Validates the cal() method signature
@@ -28,23 +28,23 @@ from ginkgo.trading.evaluation.rules.base_rule import ASTBasedRule
 
 class StrategyBaseInheritanceRule(ASTBasedRule):
     """
-    Rule to check if a class inherits from StrategyBase.
+    Rule to check if a class inherits from BaseStrategy.
 
     Attributes:
         rule_id: UNIQUE-001
         name: Base Strategy Inheritance
-        description: Checks that the strategy class inherits from StrategyBase
+        description: Checks that the strategy class inherits from BaseStrategy
     """
 
     rule_id = "BASE_STRATEGY_INHERITANCE"
     name = "Base Strategy Inheritance"
-    description = "Checks that the strategy class inherits from StrategyBase"
+    description = "Checks that the strategy class inherits from BaseStrategy"
     severity = EvaluationSeverity.ERROR
     level = EvaluationLevel.BASIC
 
     def check_ast(self, tree: ast.Module, file_path: Path, source_code: str) -> Optional["EvaluationIssue"]:
         """
-        Check if any class in the file inherits from StrategyBase.
+        Check if any class in the file inherits from BaseStrategy.
 
         Args:
             tree: The parsed AST tree
@@ -52,22 +52,22 @@ class StrategyBaseInheritanceRule(ASTBasedRule):
             source_code: Original source code string
 
         Returns:
-            EvaluationIssue if no class inherits from StrategyBase, None otherwise
+            EvaluationIssue if no class inherits from BaseStrategy, None otherwise
         """
-        from ginkgo.trading.strategies.strategy_base import StrategyBase
+        from ginkgo.trading.strategies.strategy_base import BaseStrategy
 
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                # Check if this class inherits from StrategyBase
+                # Check if this class inherits from BaseStrategy
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase" or base_name == StrategyBase.__name__:
+                    if base_name == "BaseStrategy" or base_name == BaseStrategy.__name__:
                         return None  # Found a valid strategy class
 
-        # No class inherits from StrategyBase
+        # No class inherits from BaseStrategy
         return self.get_issue(
-            message="Strategy class must inherit from StrategyBase",
-            suggestion='Change class definition to: class MyStrategy(StrategyBase):',
+            message="Strategy class must inherit from BaseStrategy",
+            suggestion='Change class definition to: class MyStrategy(BaseStrategy):',
             file_path=file_path,
         )
 
@@ -128,13 +128,13 @@ class CalMethodRequiredRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -190,19 +190,19 @@ class SuperInitCallRule(ASTBasedRule):
                         line=init_method.lineno,
                     )
             else:
-                # No __init__ method is fine, StrategyBase will handle it
+                # No __init__ method is fine, BaseStrategy will handle it
                 pass
 
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -315,13 +315,13 @@ class CalSignatureValidationRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -392,13 +392,13 @@ class AbstractMarkerRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes

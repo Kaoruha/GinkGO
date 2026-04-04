@@ -1,6 +1,6 @@
-# Upstream: Portfolio Manager (添加趋势跟踪策略)、StrategyBase (继承提供策略基础能力)
+# Upstream: Portfolio Manager (添加趋势跟踪策略)、BaseStrategy (继承提供策略基础能力)
 # Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、get_bars (数据获取工具)
-# Role: Trend Follow策略继承StrategyBase实现TrendFollow趋势跟踪交易逻辑支持相关功能
+# Role: Trend Follow策略继承BaseStrategy实现TrendFollow趋势跟踪交易逻辑支持相关功能
 
 
 
@@ -11,7 +11,7 @@ import datetime
 from decimal import Decimal
 import pandas as pd
 from ginkgo.entities import Signal
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import container
 
@@ -21,7 +21,7 @@ def get_bars(code, start=None, end=None, **kwargs):
     return container.bar_service().get(code=code, start=start, end=end, **kwargs)
 
 
-class StrategyTrendFollow(StrategyBase):
+class StrategyTrendFollow(BaseStrategy):
     """
     趋势跟踪策略
     

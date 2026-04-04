@@ -276,7 +276,7 @@ class ComponentLoader:
                                             or base_name.endswith("Sizer")
                                             or base_name.endswith("RiskManagement")
                                             or base_name.endswith("Analyzer")
-                                            or base_name == "StrategyBase"
+                                            or base_name == "BaseStrategy"
                                             or base_name == "BaseSelector"
                                             or base_name == "BaseSizer"
                                             or base_name == "BaseRiskManagement"
@@ -292,7 +292,7 @@ class ComponentLoader:
                                     or attr_name.endswith("Sizer")
                                     or attr_name.endswith("RiskManagement")
                                     or attr_name.endswith("Analyzer")
-                                ) and attr_name not in ["StrategyBase", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer"]:
+                                ) and attr_name not in ["BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer"]:
                                     is_component = True
 
                                 if is_component:
@@ -409,7 +409,7 @@ class ComponentLoader:
                                         base_name = base.__name__
                                         if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
                                            base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
-                                           base_name.endswith("Analyzer") or base_name == "StrategyBase" or \
+                                           base_name.endswith("Analyzer") or base_name == "BaseStrategy" or \
                                            base_name == "BaseSelector" or base_name == "BaseSizer" or \
                                            base_name == "BaseRiskManagement" or base_name == "BaseAnalyzer":
                                             is_component = True

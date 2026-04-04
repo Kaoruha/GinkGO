@@ -24,7 +24,7 @@ from datetime import timedelta
 
 if TYPE_CHECKING:
     from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-    from ginkgo.trading.strategies import StrategyBase
+    from ginkgo.trading.strategies import BaseStrategy
     from ginkgo.trading.signal_processing.batch_processor import TimeWindowBatchProcessor
     from ginkgo.trading.engines.base_engine import BaseEngine
 else:
@@ -113,7 +113,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._frozen: Decimal = Decimal("0")
         self._fee = Decimal("0")
         self._positions: dict = {}
-        self._strategies: List["StrategyBase"] = []
+        self._strategies: List["BaseStrategy"] = []
         self._sizer: SizerBase = None
         self._risk_managers: List[RiskBase] = []
         self._selectors = []  # 支持多个selector
@@ -563,7 +563,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         if risk not in self.risk_managers:
             self.risk_managers.append(risk)
 
-    def add_strategy(self, strategy: "StrategyBase") -> None:
+    def add_strategy(self, strategy: "BaseStrategy") -> None:
         if strategy not in self.strategies:
             self.strategies.append(strategy)
             # 绑定portfolio引用给strategy
