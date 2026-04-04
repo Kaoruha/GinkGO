@@ -84,13 +84,13 @@ class DecoratorUsageRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -177,13 +177,13 @@ class ExceptionHandlingRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -265,13 +265,13 @@ class LoggingRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -362,13 +362,13 @@ class ResetStateRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes
@@ -457,13 +457,13 @@ class ParameterValidationRule(ASTBasedRule):
         return None
 
     def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from StrategyBase."""
+        """Find all classes that inherit from BaseStrategy."""
         strategy_classes = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     base_name = self._get_name(base)
-                    if base_name == "StrategyBase":
+                    if base_name == "BaseStrategy":
                         strategy_classes.append((node, node.name))
                         break
         return strategy_classes

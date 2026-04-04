@@ -11,7 +11,7 @@
 机器学习策略基类
 
 提供ML策略的统一框架，集成模型训练、预测和信号生成。
-继承自ginkgo的StrategyBase，支持事件驱动和矩阵模式。
+继承自ginkgo的BaseStrategy，支持事件驱动和矩阵模式。
 """
 
 import numpy as np
@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime, timedelta
 from abc import abstractmethod
 
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities import Signal
 from ginkgo.entities import Bar
 from ginkgo.core.interfaces.model_interface import BaseModel
@@ -29,7 +29,7 @@ from ginkgo.libs import GLOG
 from ginkgo.quant_ml.features import FeatureProcessor, AlphaFactors
 
 
-class MLStrategyBase(StrategyBase):
+class MLStrategyBase(BaseStrategy):
     """
     机器学习策略基类
     

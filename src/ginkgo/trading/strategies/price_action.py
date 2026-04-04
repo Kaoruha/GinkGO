@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines, Portfolio Manager
 # Downstream: Data Layer, Event System
-# Role: Price Action策略继承StrategyBase实现PriceAction价格行为交易逻辑支持相关功能
+# Role: Price Action策略继承BaseStrategy实现PriceAction价格行为交易逻辑支持相关功能
 
 
 

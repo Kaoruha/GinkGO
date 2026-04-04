@@ -986,7 +986,7 @@ class PortfolioService(BaseService):
                                 base_name = base.__name__
                                 if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
                                    base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
-                                   base_name == "StrategyBase" or base_name == "BaseSelector" or \
+                                   base_name == "BaseStrategy" or base_name == "BaseSelector" or \
                                    base_name == "BaseSizer" or base_name == "BaseRiskManagement":
                                     is_component = True
                                     break

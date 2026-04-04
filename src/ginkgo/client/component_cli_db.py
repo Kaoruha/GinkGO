@@ -81,12 +81,12 @@ def get_template_code(component_type: str, template: str, name: str) -> str:
 import datetime
 from ginkgo.backtest.execution.events import EventSignalGeneration
 from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
 
-class {name}(StrategyBase):
+class {name}(BaseStrategy):
     """
     {name} 策略
     """
@@ -276,7 +276,7 @@ class {name}(BaseAnalyzer):
 """
 
 # 请根据组件类型实现相应的逻辑
-# Strategy: 继承 StrategyBase
+# Strategy: 继承 BaseStrategy
 # RiskManager: 继承 BaseRiskManagement
 # Selector: 继承 BaseSelector
 # Sizer: 继承 BaseSizer
@@ -713,10 +713,10 @@ def validate(
 
         # 结构检查
         if component.type.name == "STRATEGY":
-            if "class " in code_str and "StrategyBase" in code_str:
+            if "class " in code_str and "BaseStrategy" in code_str:
                 console.print("[green]✅[/green] Strategy structure: Valid")
             else:
-                console.print("[yellow]⚠️[/yellow] Strategy structure: Should inherit from StrategyBase")
+                console.print("[yellow]⚠️[/yellow] Strategy structure: Should inherit from BaseStrategy")
 
         elif component.type.name == "RISKMANAGER":
             if "class " in code_str and "BaseRiskManagement" in code_str:

@@ -11,7 +11,7 @@
 机器学习策略基类
 
 提供ML模型与回测系统的桥接，支持模型加载、特征工程、
-预测和信号生成的完整流程，继承自StrategyBase以保持
+预测和信号生成的完整流程，继承自BaseStrategy以保持
 与现有回测架构的兼容性。
 """
 
@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from decimal import Decimal
 from abc import abstractmethod
 
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, MODEL_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data import get_bars
@@ -41,7 +41,7 @@ except ImportError as e:
     AlphaFactors = None
 
 
-class StrategyMLBase(StrategyBase):
+class StrategyMLBase(BaseStrategy):
     """
     机器学习策略基类
     

@@ -125,11 +125,11 @@ class BaseEvaluator(ABC):
             True if this is a component class of the expected type
         """
         # This is a basic check - subclasses should override for specific logic
-        from ginkgo.trading.strategies.strategy_base import StrategyBase
+        from ginkgo.trading.strategies.strategy_base import BaseStrategy
 
         if self.component_type == ComponentType.STRATEGY:
             try:
-                return issubclass(cls, StrategyBase) and cls is not StrategyBase
+                return issubclass(cls, BaseStrategy) and cls is not BaseStrategy
             except TypeError:
                 return False
         return False

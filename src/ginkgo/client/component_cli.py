@@ -31,8 +31,8 @@ console = Console()
 COMPONENT_TYPES = {
     "strategy": {
         "directory": "strategies",
-        "base_class": "StrategyBase",
-        "base_module": "ginkgo.backtest.strategy.strategies.base_strategy",
+        "base_class": "BaseStrategy",
+        "base_module": "ginkgo.trading.strategies.strategy_base",
         "file_types": ["basic", "ma", "rsi", "momentum", "bollinger", "volume"]
     },
     "riskmanager": {

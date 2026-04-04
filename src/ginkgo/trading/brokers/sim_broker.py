@@ -22,13 +22,13 @@ from typing import Dict, List, Optional, Any
 from scipy import stats
 
 from ginkgo.trading.bases.base_broker import BaseBroker
-from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
+from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
 
 
-class SimBroker(BaseBroker, IBroker):
+class SimBroker(BaseBroker):
     """
     回测模拟撮合Broker
 

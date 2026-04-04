@@ -34,7 +34,7 @@ class ValidationRules:
     
     # 策略组件规则
     STRATEGY_RULES = {
-        'required_base_class': 'StrategyBase',
+        'required_base_class': 'BaseStrategy',
         'required_methods': [
             MethodSignature(
                 name='cal',
@@ -269,7 +269,7 @@ class ValidationRules:
         """
         patterns = {
             'strategy': [
-                r'class\s+\w+\s*\(\s*StrategyBase\s*\)',
+                r'class\s+\w+\s*\(\s*BaseStrategy\s*\)',
                 r'def\s+cal\s*\(',
                 r'return\s+.*Signal.*'
             ],

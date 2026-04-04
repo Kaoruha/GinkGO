@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (调用cal方法)
-# Downstream: StrategyBase (继承提供cal/initialize/finalize等核心能力)
-# Role: Dual Thrust策略继承StrategyBase实现DualThrust Dual Thrust交易逻辑
+# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)
+# Role: Dual Thrust策略继承BaseStrategy实现DualThrust Dual Thrust交易逻辑
 
 
 
@@ -9,14 +9,14 @@
 
 import datetime
 from decimal import Decimal
-from ginkgo.trading.strategies.strategy_base import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data import get_bars
 from ginkgo.libs import GLOG
 import pandas as pd
 
 
-class StrategyDualThrust(StrategyBase):
+class StrategyDualThrust(BaseStrategy):
     __abstract__ = False
 
     def __init__(

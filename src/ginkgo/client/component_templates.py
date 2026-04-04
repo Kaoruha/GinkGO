@@ -19,12 +19,12 @@ def _get_basic_strategy_template(name: str, class_name: str) -> str:
 import datetime
 from ginkgo.backtest.execution.events import EventSignalGeneration
 from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
 
-class {class_name}(StrategyBase):
+class {class_name}(BaseStrategy):
     """
     {name} 策略
     """
@@ -84,12 +84,12 @@ def _get_ma_strategy_template(name: str, class_name: str) -> str:
 import datetime
 from ginkgo.backtest.execution.events import EventSignalGeneration
 from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
 
-class {class_name}(StrategyBase):
+class {class_name}(BaseStrategy):
     """
     {name} 移动平均策略
     当短期均线上穿长期均线时买入，下穿时卖出
@@ -446,12 +446,12 @@ RSI超买超卖策略模板
 import datetime
 from ginkgo.backtest.execution.events import EventSignalGeneration
 from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
 
-class {class_name}(StrategyBase):
+class {class_name}(BaseStrategy):
     """
     {name} RSI策略
     """
@@ -522,12 +522,12 @@ def _get_momentum_strategy_template(name: str, class_name: str) -> str:
 import datetime
 from ginkgo.backtest.execution.events import EventSignalGeneration
 from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
 
-class {class_name}(StrategyBase):
+class {class_name}(BaseStrategy):
     """
     {name} 动量策略
     """

@@ -19,13 +19,13 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
 from ginkgo.trading.bases.base_broker import BaseBroker
-from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
+from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
 
 
-class LiveBrokerBase(BaseBroker, IBroker, ABC):
+class LiveBrokerBase(BaseBroker, ABC):
     """
     实盘交易基础类
 

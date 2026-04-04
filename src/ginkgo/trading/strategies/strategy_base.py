@@ -17,7 +17,7 @@ from ginkgo.entities.mixins import ContextMixin
 from ginkgo.entities.mixins import NamedMixin
 
 
-class StrategyBase(ContextMixin, TimeMixin, NamedMixin, Base):
+class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
     def __init__(self, name: str = "Strategy", **kwargs):
         super().__init__(name=name, **kwargs)
         self._raw = {}

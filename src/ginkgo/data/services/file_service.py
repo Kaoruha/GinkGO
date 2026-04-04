@@ -91,7 +91,7 @@ class FileService(FileSearchMixin, BaseService):
             >>> service = FileService(crud_repo)
             >>> # 添加策略文件
             >>> strategy_code = b'''
-            ... class MyStrategy(StrategyBase):
+            ... class MyStrategy(BaseStrategy):
             ...     def cal(self, portfolio_info, event):
             ...         return [Signal(code="000001.SZ", direction=1)]
             ... '''
