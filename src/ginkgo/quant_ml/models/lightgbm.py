@@ -10,7 +10,7 @@
 """
 LightGBM模型实现
 
-基于qlib的LGBModel设计，适配ginkgo的IModel接口。
+基于qlib的LGBModel设计，适配ginkgo的BaseModel接口。
 支持回归和分类任务，包含早停、特征重要性分析等功能。
 """
 
@@ -26,12 +26,12 @@ except ImportError:
     LIGHTGBM_AVAILABLE = False
     lgb = None
 
-from ginkgo.core.interfaces.model_interface import IModel, ModelStatus
+from ginkgo.core.interfaces.model_interface import BaseModel, ModelStatus
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG
 
 
-class LightGBMModel(IModel):
+class LightGBMModel(BaseModel):
     """
     LightGBM模型实现
     

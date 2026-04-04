@@ -119,7 +119,7 @@ class TestStrategyMLBase(unittest.TestCase):
             self.test_data['low']
         )
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_ml_strategy_initialization(self):
@@ -135,7 +135,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertTrue(strategy._enable_monitoring)
         self.assertFalse(strategy.is_model_loaded())
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)  
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     @patch('os.path.exists')
@@ -155,7 +155,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertIn('name', model_info)
         self.assertIn('model_type', model_info)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     @patch('ginkgo.data.get_bars')
@@ -172,7 +172,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertIsInstance(features, pd.DataFrame)
         self.assertGreater(features.shape[1], self.test_data.shape[1])  # 应该有更多特征
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     @patch('os.path.exists')
@@ -194,7 +194,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertIn('confidence', result)
         self.assertIn('code', result)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     @patch('os.path.exists')
@@ -220,7 +220,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertIsInstance(signals[0], Signal)
         self.assertEqual(signals[0].direction, DIRECTION_TYPES.LONG)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_performance_monitoring(self):
@@ -241,7 +241,7 @@ class TestStrategyMLBase(unittest.TestCase):
         self.assertIn('information_coefficient', metrics)
         self.assertIn('prediction_count', metrics)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     @patch('ginkgo.data.get_bars')
@@ -275,7 +275,7 @@ class TestStrategyMLPredictor(unittest.TestCase):
         
         self.test_event = MockEvent()
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_ml_predictor_initialization(self):
@@ -294,7 +294,7 @@ class TestStrategyMLPredictor(unittest.TestCase):
         self.assertEqual(strategy._return_threshold, 0.03)
         self.assertTrue(strategy._risk_management)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_signal_generation_with_thresholds(self):
@@ -328,7 +328,7 @@ class TestStrategyMLPredictor(unittest.TestCase):
         
         self.assertEqual(len(signals), 0)  # 应该没有信号
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_risk_management(self):
@@ -357,7 +357,7 @@ class TestStrategyMLPredictor(unittest.TestCase):
         self.assertEqual(risk_signals[0].direction, DIRECTION_TYPES.SHORT)
         self.assertIn("STOP_LOSS", risk_signals[0].reason)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_position_tracking(self):
@@ -377,7 +377,7 @@ class TestStrategyMLPredictor(unittest.TestCase):
         self.assertEqual(position_info["000001.SZ"]["direction"], DIRECTION_TYPES.LONG)
         self.assertGreaterEqual(position_info["000001.SZ"]["duration"], 5)
 
-    @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.IModel', MockModel)
+    @patch('ginkgo.trading.strategies.ml_strategy_base.BaseModel', MockModel)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.FeatureProcessor', MockFeatureProcessor)
     @patch('ginkgo.backtest.strategy.strategies.ml_strategy_base.AlphaFactors', MockAlphaFactors)
     def test_strategy_summary(self):

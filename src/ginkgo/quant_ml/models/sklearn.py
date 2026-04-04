@@ -11,7 +11,7 @@
 Sklearn模型实现
 
 基于scikit-learn的机器学习模型，包括随机森林、线性模型等。
-所有模型都适配ginkgo的IModel接口。
+所有模型都适配ginkgo的BaseModel接口。
 """
 
 import numpy as np
@@ -30,12 +30,12 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
 
-from ginkgo.core.interfaces.model_interface import IModel, ModelStatus
+from ginkgo.core.interfaces.model_interface import BaseModel, ModelStatus
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG
 
 
-class SklearnModelBase(IModel):
+class SklearnModelBase(BaseModel):
     """Sklearn模型基类"""
     
     def __init__(self, name: str, sklearn_model, task: str = "regression", **kwargs):

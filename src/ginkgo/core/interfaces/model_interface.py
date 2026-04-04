@@ -33,7 +33,7 @@ class ModelStatus(Enum):
     DEPRECATED = "deprecated"
 
 
-class IModel(ABC):
+class BaseModel(ABC):
     """ML模型统一接口"""
     
     def __init__(self, name: str = "UnknownModel", model_type: MODEL_TYPES = MODEL_TYPES.UNKNOWN):
@@ -92,7 +92,7 @@ class IModel(ABC):
         return self.status in [ModelStatus.TRAINED, ModelStatus.DEPLOYED]
     
     @abstractmethod
-    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None, **kwargs) -> 'IModel':
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None, **kwargs) -> 'BaseModel':
         """
         训练模型
         
@@ -102,7 +102,7 @@ class IModel(ABC):
             **kwargs: 训练参数
             
         Returns:
-            IModel: 训练后的模型实例
+            BaseModel: 训练后的模型实例
         """
         pass
     
@@ -239,7 +239,7 @@ class IModel(ABC):
             pickle.dump(model_data, f)
     
     @classmethod
-    def load(cls, filepath: str, **kwargs) -> 'IModel':
+    def load(cls, filepath: str, **kwargs) -> 'BaseModel':
         """
         加载模型
         
@@ -248,7 +248,7 @@ class IModel(ABC):
             **kwargs: 加载参数
             
         Returns:
-            IModel: 加载的模型实例
+            BaseModel: 加载的模型实例
         """
         import pickle
         
@@ -258,7 +258,7 @@ class IModel(ABC):
         model = model_data['model_object']
         return model
     
-    def clone(self) -> 'IModel':
+    def clone(self) -> 'BaseModel':
         """克隆模型（保持相同配置但未训练状态）"""
         cloned = self.__class__(name=f"{self.name}_clone", model_type=self.model_type)
         cloned._config = self._config.copy()
@@ -312,7 +312,7 @@ class IModel(ABC):
         return self.__str__()
 
 
-class ITimeSeriesModel(IModel):
+class BaseTimeSeriesModel(BaseModel):
     """时序模型接口"""
     
     def __init__(self, name: str = "TimeSeriesModel", model_type: MODEL_TYPES = MODEL_TYPES.TIME_SERIES):
@@ -350,7 +350,7 @@ class ITimeSeriesModel(IModel):
         pass
 
 
-class IEnsembleModel(IModel):
+class BaseEnsembleModel(BaseModel):
     """集成模型接口"""
     
     def __init__(self, name: str = "EnsembleModel", model_type: MODEL_TYPES = MODEL_TYPES.ENSEMBLE):
@@ -359,7 +359,7 @@ class IEnsembleModel(IModel):
         self._weights = []
         
     @property
-    def base_models(self) -> List[IModel]:
+    def base_models(self) -> List[BaseModel]:
         """基础模型列表"""
         return self._base_models
     
@@ -368,7 +368,7 @@ class IEnsembleModel(IModel):
         """模型权重"""
         return self._weights
     
-    def add_base_model(self, model: IModel, weight: float = 1.0) -> None:
+    def add_base_model(self, model: BaseModel, weight: float = 1.0) -> None:
         """添加基础模型"""
         self._base_models.append(model)
         self._weights.append(weight)

@@ -30,13 +30,13 @@ from ginkgo.data import get_bars
 
 # 尝试导入ML模块
 try:
-    from ginkgo.core.interfaces.model_interface import IModel
+    from ginkgo.core.interfaces.model_interface import BaseModel
     from ginkgo.quant_ml.features import FeatureProcessor, AlphaFactors
     ML_AVAILABLE = True
 except ImportError as e:
     GLOG.WARN(f"ML模块不可用: {e}")
     ML_AVAILABLE = False
-    IModel = None
+    BaseModel = None
     FeatureProcessor = None
     AlphaFactors = None
 
@@ -107,7 +107,7 @@ class StrategyMLBase(StrategyBase):
             return
         
         # 模型相关
-        self._model: Optional[IModel] = None
+        self._model: Optional[BaseModel] = None
         self._model_path: Optional[str] = model_path
         self._model_info: Dict[str, Any] = {}
         
@@ -173,7 +173,7 @@ class StrategyMLBase(StrategyBase):
                 return False
             
             # 加载模型
-            self._model = IModel.load(model_path)
+            self._model = BaseModel.load(model_path)
             self._model_path = model_path
             
             if not self._model.is_trained:

@@ -267,8 +267,8 @@ def predict_with_model(
         console.print(f":crystal_ball: 加载模型: {model_path}")
         
         # 加载模型
-        from ginkgo.core.interfaces.model_interface import IModel
-        model = IModel.load(model_path)
+        from ginkgo.core.interfaces.model_interface import BaseModel
+        model = BaseModel.load(model_path)
         
         if not model.is_trained:
             console.print(":x: [red]模型未训练[/red]")
@@ -496,8 +496,8 @@ def test_ml_strategy(
         console.print(f"股票: {code}, 时间: {start_date} - {end_date}")
         
         # 加载模型
-        from ginkgo.core.interfaces.model_interface import IModel
-        model = IModel.load(model_path)
+        from ginkgo.core.interfaces.model_interface import BaseModel
+        model = BaseModel.load(model_path)
         
         # 创建策略
         strategy = PredictionStrategy(
