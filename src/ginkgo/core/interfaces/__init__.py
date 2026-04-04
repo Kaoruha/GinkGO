@@ -15,12 +15,12 @@
 
 from ginkgo.core.interfaces.strategy_interface import BaseStrategy
 from ginkgo.core.interfaces.model_interface import BaseModel
-from ginkgo.core.interfaces.engine_interface import IEngine
+from ginkgo.core.interfaces.engine_interface import BaseEngine
 from ginkgo.core.interfaces.portfolio_interface import BasePortfolio
 
 __all__ = [
     'BaseStrategy',
     'BaseModel',
-    'IEngine',
+    'BaseEngine',
     'BasePortfolio'
 ]
