@@ -50,9 +50,10 @@ class ConcentrationTopN:
     params: {"n": 3}
     """
 
+    name: str = "concentration_top_n"
+    requires: List[str] = ["position"]
+
     def __init__(self, n: int = 3):
-        self.name = "concentration_top_n"
-        self.requires: List[str] = ["position"]
         self.params: Dict[str, Any] = {"n": n}
         self._n = n
 
