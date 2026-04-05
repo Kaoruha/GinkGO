@@ -306,7 +306,7 @@ class AnalysisEngine:
         return SegmentReport(run_id=run_id, registry=self._registry, data=dp, freq=freq)
 
     def rolling(
-        self, run_id: str, portfolio_id: str = None, window: int = 60
+        self, run_id: str, portfolio_id: str = None, window: int = 60, step: int = 1
     ) -> RollingReport:
         """滚动窗口分析
 
@@ -314,12 +314,13 @@ class AnalysisEngine:
             run_id: 运行标识
             portfolio_id: 组合标识 (可选)
             window: 窗口大小 (天数)
+            step: 滑动步长 (默认 1)
 
         Returns:
             RollingReport 实例
         """
         dp = self._load_data(run_id, portfolio_id)
-        return RollingReport(run_id=run_id, registry=self._registry, data=dp, window=window)
+        return RollingReport(run_id=run_id, registry=self._registry, data=dp, window=window, step=step)
 
     def register_metric(self, metric_cls) -> None:
         """注册自定义指标
