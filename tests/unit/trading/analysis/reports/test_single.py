@@ -17,10 +17,64 @@ import pandas as pd
 from ginkgo.trading.analysis.reports.base import AnalysisReport
 from ginkgo.trading.analysis.reports.single import SingleReport
 from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
-from ginkgo.trading.analysis.metrics.portfolio import AnnualizedReturn, MaxDrawdown
-from ginkgo.trading.analysis.metrics.signal import SignalCount
-from ginkgo.trading.analysis.metrics.order import FillRate
-from ginkgo.trading.analysis.metrics.position import MaxPositions
+
+
+# ============================================================
+# 兼容指标 — 替代已删除的 portfolio/signal/order/position 指标
+# ============================================================
+
+class AnnualizedReturn:
+    name = "annualized_return"
+    requires = ["net_value"]
+    params = {}
+
+    def compute(self, data):
+        df = data["net_value"]
+        v = df["value"]
+        if len(v) < 2:
+            return 0.0
+        total = v.iloc[-1] / v.iloc[0] - 1
+        return float(total * 252 / max(len(v) - 1, 1))
+
+
+class MaxDrawdown:
+    name = "max_drawdown"
+    requires = ["net_value"]
+    params = {}
+
+    def compute(self, data):
+        df = data["net_value"]
+        v = df["value"]
+        peak = v.cummax()
+        dd = (v - peak) / peak
+        return float(dd.min())
+
+
+class SignalCount:
+    name = "signal_count"
+    requires = ["signal"]
+    params = {}
+
+    def compute(self, data):
+        return len(data["signal"])
+
+
+class FillRate:
+    name = "fill_rate"
+    requires = ["order"]
+    params = {}
+
+    def compute(self, data):
+        return 0.8
+
+
+class MaxPositions:
+    name = "max_positions"
+    requires = ["position"]
+    params = {}
+
+    def compute(self, data):
+        return len(data["position"])
 
 
 # ============================================================

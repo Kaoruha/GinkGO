@@ -18,17 +18,9 @@ import pandas as pd
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
-from ginkgo.trading.analysis.metrics.portfolio import (
-    AnnualizedReturn, MaxDrawdown, SharpeRatio, SortinoRatio,
-    Volatility, CalmarRatio, RollingSharpe, RollingVolatility,
-)
-from ginkgo.trading.analysis.metrics.signal import (
-    SignalCount, LongShortRatio, DailySignalFreq,
-)
-from ginkgo.trading.analysis.metrics.order import FillRate, AvgSlippage, CancelRate
-from ginkgo.trading.analysis.metrics.position import MaxPositions, ConcentrationTopN
-from ginkgo.trading.analysis.metrics.cross_source import (
-    SignalOrderConversion, SignalIC,
+# TODO: Step 4 将重写 _register_builtin_metrics，届时替换为 analyzer_metrics
+from ginkgo.trading.analysis.metrics.analyzer_metrics import (
+    RollingMean, RollingStd, CV, IC,
 )
 from ginkgo.trading.analysis.reports.single import SingleReport
 from ginkgo.trading.analysis.reports.comparison import ComparisonReport
@@ -57,25 +49,22 @@ class AnalysisEngine:
     # ============================================================
 
     def _register_builtin_metrics(self):
-        """注册所有内置指标类"""
-        builtin_metrics = [
-            # Portfolio 层级 (8个)
-            AnnualizedReturn, MaxDrawdown, SharpeRatio, SortinoRatio,
-            Volatility, CalmarRatio, RollingSharpe, RollingVolatility,
-            # Signal 层级 (3个)
-            SignalCount, LongShortRatio, DailySignalFreq,
-            # Order 层级 (3个)
-            FillRate, AvgSlippage, CancelRate,
-            # Position 层级 (2个)
-            MaxPositions, ConcentrationTopN,
-            # 跨数据源 (2个)
-            SignalOrderConversion, SignalIC,
+        """注册所有内置指标实例
+
+        TODO: Step 4 将基于 AnalyzerRecord 动态注册
+        """
+        # 暂时注册基础 analyzer_metrics 实例
+        builtin_instances = [
+            RollingMean(analyzer_name="sharpe"),
+            RollingMean(analyzer_name="drawdown"),
+            RollingStd(analyzer_name="sharpe"),
+            RollingStd(analyzer_name="drawdown"),
         ]
-        for metric_cls in builtin_metrics:
+        for instance in builtin_instances:
             try:
-                self._registry.register(metric_cls)
+                self._registry.register_instance(instance)
             except Exception as e:
-                GLOG.WARNING(f"注册内置指标 {metric_cls.__name__} 失败: {e}")
+                GLOG.WARNING(f"注册内置指标 {instance.name} 失败: {e}")
 
     # ============================================================
     # 数据加载

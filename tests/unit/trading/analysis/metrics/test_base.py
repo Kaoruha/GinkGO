@@ -256,3 +256,104 @@ class TestMetricRegistry:
         data = {"daily_pnl": pd.DataFrame()}
         available, missing = registry.check_availability(data)
         assert "total_return" in available
+
+
+# ============================================================
+# MetricRegistry 实例级别注册测试 (Step 1 扩展)
+# ============================================================
+
+class ParametricMetric:
+    """模拟参数化指标 — name 在 __init__ 中动态设置"""
+
+    def __init__(self, base: str, window: int = 10):
+        self.name = f"{base}.w{window}"
+        self.requires = [base]
+        self.params = {"base": base, "window": window}
+
+    def compute(self, data):
+        return data[self.requires[0]]["value"].rolling(self.params["window"]).mean()
+
+
+@pytest.mark.unit
+class TestMetricRegistryInstances:
+    """MetricRegistry 实例级别注册 (register_instance / get_instance) 测试"""
+
+    def test_register_instance_and_get(self):
+        """注册实例并通过 get_instance 获取"""
+        registry = MetricRegistry()
+        m = ParametricMetric(base="sharpe", window=20)
+        registry.register_instance(m)
+        retrieved = registry.get_instance("sharpe.w20")
+        assert retrieved is m
+        assert retrieved.name == "sharpe.w20"
+
+    def test_get_instance_nonexistent_returns_none(self):
+        """获取不存在的实例返回 None"""
+        registry = MetricRegistry()
+        assert registry.get_instance("nonexistent") is None
+
+    def test_register_instance_replaces_existing(self):
+        """同名实例注册时覆盖旧的"""
+        registry = MetricRegistry()
+        m1 = ParametricMetric(base="sharpe", window=10)
+        m2 = ParametricMetric(base="sharpe", window=20)
+        # m1 和 m2 的 name 相同
+        m2.name = m1.name  # 强制同名
+        registry.register_instance(m1)
+        registry.register_instance(m2)
+        assert registry.get_instance(m1.name) is m2
+
+    def test_register_instance_requires_name_attribute(self):
+        """注册没有 name 属性的实例抛出 AttributeError"""
+        registry = MetricRegistry()
+        bad = type("Bad", (), {"requires": []})()
+        with pytest.raises(AttributeError, match="must have a 'name' attribute"):
+            registry.register_instance(bad)
+
+    def test_list_metrics_includes_instances(self):
+        """list_metrics 同时返回类级别和实例级别的名称"""
+        registry = MetricRegistry()
+        registry.register(TotalReturnMetric)
+        m = ParametricMetric(base="sharpe", window=10)
+        registry.register_instance(m)
+        names = registry.list_metrics()
+        assert "total_return" in names
+        assert "sharpe.w10" in names
+
+    def test_list_metrics_empty_instances(self):
+        """没有实例注册时 list_metrics 仍返回类级别名称"""
+        registry = MetricRegistry()
+        registry.register(TotalReturnMetric)
+        names = registry.list_metrics()
+        assert "total_return" in names
+
+    def test_check_availability_includes_instances(self):
+        """check_availability 同时检查实例级别注册的指标"""
+        registry = MetricRegistry()
+        m = ParametricMetric(base="sharpe", window=10)
+        registry.register_instance(m)
+        # 数据包含 "sharpe" → 实例可用
+        dp = DataProvider(sharpe=pd.DataFrame({"value": [1.0, 2.0, 3.0]}))
+        available, missing = registry.check_availability(dp)
+        assert "sharpe.w10" in available
+
+    def test_check_availability_instance_missing_data(self):
+        """实例依赖数据缺失时出现在 missing 列表"""
+        registry = MetricRegistry()
+        m = ParametricMetric(base="sharpe", window=10)
+        registry.register_instance(m)
+        dp = DataProvider()
+        available, missing = registry.check_availability(dp)
+        assert "sharpe.w10" in missing
+
+    def test_check_availability_mixed_class_and_instance(self):
+        """类级别和实例级别指标混合检查可用性"""
+        registry = MetricRegistry()
+        registry.register(TotalReturnMetric)
+        m = ParametricMetric(base="sharpe", window=10)
+        registry.register_instance(m)
+        # 只提供 daily_pnl → TotalReturnMetric 可用, ParametricMetric 缺失
+        dp = DataProvider(daily_pnl=pd.DataFrame())
+        available, missing = registry.check_availability(dp)
+        assert "total_return" in available
+        assert "sharpe.w10" in missing
