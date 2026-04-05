@@ -16,7 +16,38 @@ import pandas as pd
 from ginkgo.trading.analysis.reports.base import AnalysisReport
 from ginkgo.trading.analysis.reports.comparison import ComparisonReport
 from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
-from ginkgo.trading.analysis.metrics.portfolio import AnnualizedReturn, MaxDrawdown
+from ginkgo.trading.analysis.metrics.analyzer_metrics import RollingMean, RollingStd, CV, IC
+
+
+# ============================================================
+# 兼容指标 — 替代已删除的 portfolio/signal/order/position 指标
+# ============================================================
+
+class AnnualizedReturn:
+    name = "annualized_return"
+    requires = ["net_value"]
+    params = {}
+
+    def compute(self, data):
+        df = data["net_value"]
+        v = df["value"]
+        if len(v) < 2:
+            return 0.0
+        total = v.iloc[-1] / v.iloc[0] - 1
+        return float(total * 252 / max(len(v) - 1, 1))
+
+
+class MaxDrawdown:
+    name = "max_drawdown"
+    requires = ["net_value"]
+    params = {}
+
+    def compute(self, data):
+        df = data["net_value"]
+        v = df["value"]
+        peak = v.cummax()
+        dd = (v - peak) / peak
+        return float(dd.min())
 
 
 # ============================================================

@@ -1,5 +1,5 @@
 # Upstream: AnalysisEngine, 分析报告模块
-# Downstream: 具体指标实现 (Portfolio/Position/Signal/Order 层级)
+# Downstream: 具体指标实现 (analyzer_metrics 等参数化指标)
 # Role: 定义 Metric Protocol、DataProvider 数据容器、MetricRegistry 注册中心
 
 
@@ -82,22 +82,32 @@ class DataProvider:
 class MetricRegistry:
     """指标注册中心 (Metric Registry)
 
-    管理所有已注册的指标类，支持按名称查找、实例化和依赖检查。
+    管理所有已注册的指标类和实例，支持按名称查找、实例化和依赖检查。
+    同时支持类级别注册 (register) 和实例级别注册 (register_instance)。
 
     用法：
         registry = MetricRegistry()
         registry.register(TotalReturnMetric)
         registry.register(SharpeMetric)
 
+        # 参数化指标通过实例注册
+        registry.register_instance(RollingMean(analyzer_name="sharpe", window=10))
+
         # 检查依赖
         available, missing = registry.check_availability(data_provider)
 
-        # 实例化
+        # 实例化类级别指标
         sharpe = registry.instantiate("sharpe_ratio", risk_free_rate=0.05)
+
+        # 获取已注册的实例
+        rm = registry.get_instance("rolling_mean.sharpe")
     """
 
     def __init__(self):
+        # 类级别注册（向后兼容）
         self._registry: Dict[str, type] = {}
+        # 实例级别注册（参数化指标）
+        self._instances: Dict[str, Any] = {}
 
     def register(self, metric_cls: type) -> None:
         """注册指标类，以 name 属性为键
@@ -121,14 +131,37 @@ class MetricRegistry:
         """按名称获取指标类"""
         return self._registry.get(name)
 
+    def register_instance(self, instance: Any) -> None:
+        """注册指标实例，以 instance.name 为键
+
+        用于参数化指标（如不同 window 的 RollingMean），
+        同名实例会覆盖旧的。
+
+        Args:
+            instance: 必须有 name 和 requires 属性
+        """
+        if not hasattr(instance, 'name') or not isinstance(instance.name, str):
+            raise AttributeError(
+                f"Instance {type(instance).__name__} must have a 'name' attribute"
+            )
+        self._instances[instance.name] = instance
+
+    def get_instance(self, name: str) -> Optional[Any]:
+        """按名称获取已注册的指标实例"""
+        return self._instances.get(name)
+
     def list_metrics(self) -> List[str]:
-        """列出所有已注册的指标名称"""
-        return list(self._registry.keys())
+        """列出所有已注册的指标名称（类级别 + 实例级别）"""
+        class_names = list(self._registry.keys())
+        instance_names = list(self._instances.keys())
+        return class_names + instance_names
 
     def check_availability(
         self, data: Union[DataProvider, Dict[str, pd.DataFrame]]
     ) -> tuple:
         """检查指标依赖数据的可用性。
+
+        同时检查类级别注册和实例级别注册的指标。
 
         Args:
             data: DataProvider 实例或普通字典
@@ -143,9 +176,16 @@ class MetricRegistry:
 
         available = []
         missing = []
+        # 检查类级别注册
         for name, cls in self._registry.items():
-            # requires 可能是类属性或实例属性
             reqs = getattr(cls, 'requires', [])
+            if all(req in available_keys for req in reqs):
+                available.append(name)
+            else:
+                missing.append(name)
+        # 检查实例级别注册
+        for name, instance in self._instances.items():
+            reqs = getattr(instance, 'requires', [])
             if all(req in available_keys for req in reqs):
                 available.append(name)
             else:
