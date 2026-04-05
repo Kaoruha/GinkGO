@@ -7,18 +7,18 @@
 AnalysisEngine — 回测分析统一入口
 
 编排数据加载、指标计算和报告生成的全流程：
-- 加载 net_value (必需) + signal/order/position (可选)
+- 加载 ALL 分析器记录 (必需) + signal/order/position (可选)
+- 基于已加载的分析器名称自动注册 RollingMean/RollingStd/CV/IC 指标
 - 通过 MetricRegistry 检查可用指标并计算
 - 生成 SingleReport / ComparisonReport / SegmentReport / RollingReport
 """
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
-# TODO: Step 4 将重写 _register_builtin_metrics，届时替换为 analyzer_metrics
 from ginkgo.trading.analysis.metrics.analyzer_metrics import (
     RollingMean, RollingStd, CV, IC,
 )
@@ -42,63 +42,78 @@ class AnalysisEngine:
         self._result_service = result_service
         self._analyzer_service = analyzer_service
         self._registry = MetricRegistry()
-        self._register_builtin_metrics()
 
     # ============================================================
-    # 内置指标注册
+    # 分析器记录加载
     # ============================================================
 
-    def _register_builtin_metrics(self):
-        """注册所有内置指标实例
+    def _load_analyzer_records(self, run_id: str, portfolio_id: str = None) -> Dict[str, pd.DataFrame]:
+        """加载所有分析器记录，按 name 分组返回
 
-        TODO: Step 4 将基于 AnalyzerRecord 动态注册
-        """
-        # 暂时注册基础 analyzer_metrics 实例
-        builtin_instances = [
-            RollingMean(analyzer_name="sharpe"),
-            RollingMean(analyzer_name="drawdown"),
-            RollingStd(analyzer_name="sharpe"),
-            RollingStd(analyzer_name="drawdown"),
-        ]
-        for instance in builtin_instances:
-            try:
-                self._registry.register_instance(instance)
-            except Exception as e:
-                GLOG.WARNING(f"注册内置指标 {instance.name} 失败: {e}")
-
-    # ============================================================
-    # 数据加载
-    # ============================================================
-
-    def _load_net_value(self, run_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
-        """加载 net_value 分析器记录，转换为 DataFrame
+        不使用 analyzer_name 过滤，加载该 run 下的全部分析器记录。
 
         Args:
             run_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
-            包含 timestamp, value 列的 DataFrame，加载失败返回 None
+            Dict[str, pd.DataFrame]，每个 DataFrame 包含 ["timestamp", "value"] 列，
+            按 timestamp 排序。无数据时返回空字典。
         """
         result = self._analyzer_service.get_by_run_id(
             run_id=run_id,
             portfolio_id=portfolio_id,
-            analyzer_name="net_value",
-            limit=10000,
+            limit=100000,
         )
-        if not result.is_success() or result.data is None:
-            return None
+        if not result.is_success() or not result.data:
+            return {}
 
         records = result.data
-        if not records:
-            return None
+        grouped: Dict[str, list] = {}
+        for obj in records:
+            name = getattr(obj, "name", None) or obj.__dict__.get("name")
+            if name is None:
+                continue
+            d = {k: v for k, v in vars(obj).items() if not k.startswith("_")}
+            grouped.setdefault(name, []).append(d)
 
-        df = self._entities_to_dataframe(records)
-        if df is not None and len(df) > 0 and "timestamp" in df.columns and "value" in df.columns:
-            df = df.sort_values("timestamp").reset_index(drop=True)
-            df["value"] = pd.to_numeric(df["value"], errors="coerce")
-            return df
-        return None
+        dataframes: Dict[str, pd.DataFrame] = {}
+        for name, rows in grouped.items():
+            df = pd.DataFrame(rows)
+            if "timestamp" in df.columns and "value" in df.columns:
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
+                df["value"] = pd.to_numeric(df["value"], errors="coerce")
+                df = df.sort_values("timestamp").reset_index(drop=True)
+                df = df[["timestamp", "value"]]
+                dataframes[name] = df
+
+        return dataframes
+
+    def _auto_register_metrics(self, analyzer_names: List[str]):
+        """基于已加载的分析器名称自动注册指标实例
+
+        为每个分析器注册 RollingMean/RollingStd/CV (window=20)，
+        并为非 net_value 的分析器注册 IC 指标。
+
+        Args:
+            analyzer_names: 分析器名称列表
+        """
+        self._registry = MetricRegistry()  # fresh registry
+        window = 20
+        for name in analyzer_names:
+            for metric_cls in [RollingMean, RollingStd, CV]:
+                try:
+                    self._registry.register_instance(metric_cls(analyzer_name=name, window=window))
+                except Exception as e:
+                    GLOG.WARNING(f"注册 {metric_cls.__name__}({name}) 失败: {e}")
+        # IC: each analyzer vs future returns (net_value changes)
+        for name in analyzer_names:
+            if name == "net_value":
+                continue
+            try:
+                self._registry.register_instance(IC(analyzer_name=name, method="spearman", lag=1))
+            except Exception as e:
+                GLOG.WARNING(f"注册 IC({name}) 失败: {e}")
 
     def _load_signals(self, run_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
         """加载 Signal 记录，转换为 DataFrame
@@ -195,8 +210,9 @@ class AnalysisEngine:
     def _load_data(self, run_id: str, portfolio_id: str = None) -> DataProvider:
         """加载所有数据源到 DataProvider
 
-        net_value 为必需数据，缺失时抛出 ValueError。
+        分析器记录为必需数据，缺失时抛出 ValueError。
         signal/order/position 为可选数据，加载失败时跳过并记录警告。
+        加载完成后自动注册与已加载分析器对应的指标实例。
 
         Args:
             run_id: 运行标识
@@ -206,20 +222,24 @@ class AnalysisEngine:
             填充了数据的 DataProvider
 
         Raises:
-            ValueError: net_value 数据不可用时抛出
+            ValueError: 分析器记录不可用时抛出
         """
         dp = DataProvider()
 
-        # 1. 加载 net_value (必需)
-        nv_df = self._load_net_value(run_id, portfolio_id)
-        if nv_df is None:
+        # 1. 加载全部分析器记录 (必需)
+        analyzer_dfs = self._load_analyzer_records(run_id, portfolio_id)
+        if not analyzer_dfs:
             raise ValueError(
-                f"无法加载 net_value 数据 (run_id={run_id}, "
+                f"无法加载分析器记录 (run_id={run_id}, "
                 f"portfolio_id={portfolio_id})"
             )
-        dp.add("net_value", nv_df)
+        for name, df in analyzer_dfs.items():
+            dp.add(name, df)
 
-        # 2. 加载 signal (可选)
+        # 2. 自动注册指标
+        self._auto_register_metrics(list(analyzer_dfs.keys()))
+
+        # 3. 加载 signal (可选)
         try:
             sig_df = self._load_signals(run_id, portfolio_id)
             if sig_df is not None and len(sig_df) > 0:
@@ -227,7 +247,7 @@ class AnalysisEngine:
         except Exception as e:
             GLOG.WARNING(f"加载 signal 数据失败，跳过: {e}")
 
-        # 3. 加载 order (可选)
+        # 4. 加载 order (可选)
         try:
             ord_df = self._load_orders(run_id, portfolio_id)
             if ord_df is not None and len(ord_df) > 0:
@@ -235,7 +255,7 @@ class AnalysisEngine:
         except Exception as e:
             GLOG.WARNING(f"加载 order 数据失败，跳过: {e}")
 
-        # 4. 加载 position (可选)
+        # 5. 加载 position (可选)
         try:
             pos_df = self._load_positions(run_id, portfolio_id)
             if pos_df is not None and len(pos_df) > 0:
@@ -310,11 +330,3 @@ class AnalysisEngine:
         """
         dp = self._load_data(run_id, portfolio_id)
         return RollingReport(run_id=run_id, registry=self._registry, data=dp, window=window, step=step)
-
-    def register_metric(self, metric_cls) -> None:
-        """注册自定义指标
-
-        Args:
-            metric_cls: 指标类，需满足 Metric Protocol
-        """
-        self._registry.register(metric_cls)
