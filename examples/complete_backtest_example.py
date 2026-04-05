@@ -413,8 +413,10 @@ def main():
 
     print(f"\n✅ 示例执行成功！")
     print(f"📈 关键指标: 收益率 {results['total_return_pct']}, 信号数 {results['signal_count']}")
-    print(f"💡 这个示例验证了事件驱动架构的完整工作流程")
+    print(f"📋 Run ID: {backtest.run_id}")
+    print(f"💡 使用 AnalysisEngine.analyze('{backtest.run_id}') 进行分析")
 
+    results["run_id"] = backtest.run_id
     return results
 
 
