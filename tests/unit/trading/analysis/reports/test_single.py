@@ -1,4 +1,4 @@
-# TDD Red阶段 - AnalysisReport + SingleReport 测试用例
+# AnalysisReport + SingleReport 测试用例
 #
 # 测试范围:
 #   - AnalysisReport 构造与指标分类
@@ -8,14 +8,14 @@
 #   - 缺失指标 N/A 处理
 #   - 自定义分析器数据分类
 #   - SingleReport 别名/元数据
-#
-# 标记: @pytest.mark.tdd
 
 
 import pytest
 
 import pandas as pd
 
+from ginkgo.trading.analysis.reports.base import AnalysisReport
+from ginkgo.trading.analysis.reports.single import SingleReport
 from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
 from ginkgo.trading.analysis.metrics.portfolio import AnnualizedReturn, MaxDrawdown
 from ginkgo.trading.analysis.metrics.signal import SignalCount
@@ -280,10 +280,3 @@ class TestTimeSeries:
         d = report.to_dict()
         assert "time_series" in d
         assert "net_value" in d["time_series"]
-
-
-# ============================================================
-# Imports — 实现后取消注释
-# ============================================================
-from ginkgo.trading.analysis.reports.base import AnalysisReport
-from ginkgo.trading.analysis.reports.single import SingleReport
