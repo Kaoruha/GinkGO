@@ -151,6 +151,11 @@ class StockInfo(Base):
         self._delist_date = datetime_normalize(row["delist_date"])
 
     @property
+    def symbol(self) -> str:
+        """Alias for code. 金融行业标准术语。"""
+        return self._code
+
+    @property
     def code(self) -> str:
         return self._code
 

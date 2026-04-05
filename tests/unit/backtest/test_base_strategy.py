@@ -79,11 +79,14 @@ class TestStrategyConstruction:
         """Test name property."""
         assert base_strategy.name == "test_strategy"
 
-    def test_inheritance_from_backtest_base(self, base_strategy):
-        """Test inheritance from BacktestBase."""
-        from ginkgo.trading.core.backtest_base import BacktestBase
+    def test_inheritance_from_base(self, base_strategy):
+        """Test inheritance from Base and Mixins."""
+        from ginkgo.entities.base import Base
+        from ginkgo.entities.mixins import TimeMixin, NamedMixin
 
-        assert isinstance(base_strategy, BacktestBase)
+        assert isinstance(base_strategy, Base)
+        assert isinstance(base_strategy, TimeMixin)
+        assert isinstance(base_strategy, NamedMixin)
 
         # Verify inherited attributes and methods
         assert hasattr(base_strategy, "advance_time")

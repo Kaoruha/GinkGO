@@ -285,6 +285,11 @@ class Position(TimeMixin, Base):
         self._last_update = self.get_current_time()
 
     @property
+    def symbol(self) -> str:
+        """Alias for code. 金融行业标准术语。"""
+        return self._code
+
+    @property
     def code(self) -> str:
         """
         Position Code.

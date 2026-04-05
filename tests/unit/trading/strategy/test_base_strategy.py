@@ -12,7 +12,7 @@ from pathlib import Path
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities.signal import Signal
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.entities.mixins import TimeMixin as TimeRelated, ContextMixin
+from ginkgo.entities.mixins import TimeMixin, ContextMixin
 from ginkgo.enums import DIRECTION_TYPES
 from datetime import datetime
 
@@ -97,17 +97,7 @@ class TestBaseStrategyConstruction:
 
     def test_args_kwargs_handling(self):
         """测试参数传递处理"""
-        # 创建避免参数验证的测试策略子类
-        class SimpleStrategy(BaseStrategy):
-            def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
-
-        # 测试传递额外参数（避免参数验证问题）
-        strategy = SimpleStrategy(name="TestStrategy", test_param="test_value")
+        strategy = BaseStrategy(name="TestStrategy")
 
         # 验证name参数正确传递
         assert strategy.name == "TestStrategy"
@@ -942,12 +932,7 @@ class TestBaseStrategyDataFeederIntegration:
         """测试数据接口访问"""
         # 创建避免参数验证的测试策略子类
         class SimpleDataStrategy(BaseStrategy):
-            def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+            pass
 
         strategy = SimpleDataStrategy(name="DataAccessTest")
 
@@ -1632,11 +1617,7 @@ class TestBaseStrategyParameterization:
         # 创建简化的参数化策略子类，避免ParameterValidationMixin
         class SimpleParameterStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 # 手动设置参数系统
                 self._parameters = {
@@ -1678,11 +1659,7 @@ class TestBaseStrategyParameterization:
         # 创建简化的参数化策略子类
         class SimpleParameterStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),
@@ -1719,11 +1696,7 @@ class TestBaseStrategyParameterization:
         # 创建带验证的参数化策略子类
         class ValidatedParameterStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),
@@ -1768,11 +1741,7 @@ class TestBaseStrategyParameterization:
         # 创建带类型转换的参数化策略子类
         class TypeConversionStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {}
                 # 应用类型转换
@@ -1819,11 +1788,7 @@ class TestBaseStrategyParameterization:
         # 创建可序列化的参数化策略子类
         class SerializableStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),
@@ -1862,11 +1827,7 @@ class TestBaseStrategyParameterization:
         # 创建可优化的参数化策略子类
         class OptimizableStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),
@@ -1908,11 +1869,7 @@ class TestBaseStrategyParameterization:
         # 创建敏感性分析策略子类
         class SensitivityStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),
@@ -1961,11 +1918,7 @@ class TestBaseStrategyParameterization:
         # 创建支持继承的参数化策略子类
         class CustomParameterStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 # 默认参数
                 default_params = {
@@ -1997,11 +1950,7 @@ class TestBaseStrategyParameterization:
         # 创建默认参数处理策略子类
         class DefaultParameterStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 # 固定默认参数
                 self._parameters = {
@@ -2042,11 +1991,7 @@ class TestBaseStrategyParameterization:
         # 创建带约束验证的参数化策略子类
         class ConstrainedStrategy(BaseStrategy):
             def __init__(self, name="Strategy", **kwargs):
-                ContextMixin.__init__(self)
-                TimeRelated.__init__(self)
-                BacktestBase.__init__(self, name=name)
-                self._raw = {}
-                self._data_feeder = None
+                super().__init__(name=name, **kwargs)
 
                 self._parameters = {
                     'period': kwargs.get('period', 20),

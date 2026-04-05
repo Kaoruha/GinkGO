@@ -109,6 +109,11 @@ class Bar(Base):
         self._timestamp = datetime_normalize(df["timestamp"])
 
     @property
+    def symbol(self) -> str:
+        """Alias for code. 金融行业标准术语。"""
+        return self._code
+
+    @property
     def code(self) -> str:
         """
         The Code of the Bar.
