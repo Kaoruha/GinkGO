@@ -83,8 +83,14 @@ class RollingReport:
                 {"net_value": window_df}
             )
 
+            # 只计算组合级指标（requires 仅为 net_value）
+            net_value_only = [
+                n for n in available_names
+                if set(getattr(self._registry.get(n), "requires", [])) == {"net_value"}
+            ]
+
             metrics: Dict[str, Any] = {}
-            for name in available_names:
+            for name in net_value_only:
                 try:
                     instance = self._registry.instantiate(name)
                     value = instance.compute({"net_value": window_df})
@@ -151,6 +157,8 @@ class RollingReport:
                 val = metrics.get(name, "")
                 if isinstance(val, float):
                     values.append(f"{val:.6f}")
+                elif isinstance(val, (pd.Series, pd.DataFrame)):
+                    values.append(str(type(val).__name__))
                 elif val == "":
                     values.append("")
                 else:
