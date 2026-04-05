@@ -6,179 +6,110 @@
 #   - to_dataframe() 以 run_id 为列、指标名为 index
 #   - to_rich() Rich Table 多列输出
 #   - 空报告列表处理
-#   - 单个报告处理
 
 
 import pytest
 
 import pandas as pd
+from rich.table import Table
 
+from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
 from ginkgo.trading.analysis.reports.base import AnalysisReport
 from ginkgo.trading.analysis.reports.comparison import ComparisonReport
-from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
-from ginkgo.trading.analysis.metrics.analyzer_metrics import RollingMean, RollingStd, CV, IC
 
 
 # ============================================================
-# 兼容指标 — 替代已删除的 portfolio/signal/order/position 指标
+# Helpers
 # ============================================================
 
-class AnnualizedReturn:
-    name = "annualized_return"
-    requires = ["net_value"]
-    params = {}
-
-    def compute(self, data):
-        df = data["net_value"]
-        v = df["value"]
-        if len(v) < 2:
-            return 0.0
-        total = v.iloc[-1] / v.iloc[0] - 1
-        return float(total * 252 / max(len(v) - 1, 1))
+def _make_df(values, start="2024-01-01"):
+    dates = pd.date_range(start, periods=len(values), freq="D")
+    return pd.DataFrame({"timestamp": dates, "value": values})
 
 
-class MaxDrawdown:
-    name = "max_drawdown"
-    requires = ["net_value"]
-    params = {}
-
-    def compute(self, data):
-        df = data["net_value"]
-        v = df["value"]
-        peak = v.cummax()
-        dd = (v - peak) / peak
-        return float(dd.min())
+def _make_report(run_id, *data_pairs):
+    dp = DataProvider()
+    for name, df in data_pairs:
+        if df is not None:
+            dp.add(name, df)
+    return AnalysisReport(run_id=run_id, registry=MetricRegistry(), data=dp)
 
 
 # ============================================================
-# 辅助函数
+# Construction
 # ============================================================
 
-def _make_report(run_id: str, values: list) -> AnalysisReport:
-    """创建一个带有 AnnualizedReturn 指标的 AnalysisReport"""
-    reg = MetricRegistry()
-    reg.register(AnnualizedReturn)
-    reg.register(MaxDrawdown)
-    dp = DataProvider(net_value=pd.DataFrame({"value": values}))
-    return AnalysisReport(run_id=run_id, registry=reg, data=dp)
+class TestConstruction:
+    def test_accepts_list_of_reports(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
+        report = ComparisonReport([r1, r2])
+        assert len(report.reports) == 2
 
-
-# ============================================================
-# 1. 构造与基础属性
-# ============================================================
-
-class TestComparisonConstruction:
-    """ComparisonReport 构造测试"""
-
-    def test_comparison_stores_reports(self):
-        """应正确存储传入的报告列表"""
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        cr = ComparisonReport(reports=[r1, r2])
-        assert len(cr.reports) == 2
-
-    def test_comparison_empty_reports(self):
-        """空报告列表应创建空的 ComparisonReport"""
-        cr = ComparisonReport(reports=[])
-        assert len(cr.reports) == 0
-        d = cr.to_dict()
-        assert d == {}
-
-    def test_comparison_single_report(self):
-        """单个报告也应正常工作"""
-        r1 = _make_report("run_a", [100, 105])
-        cr = ComparisonReport(reports=[r1])
-        d = cr.to_dict()
-        assert "run_a" in d
+    def test_empty_reports_list(self):
+        report = ComparisonReport([])
+        assert report.to_dict() == {}
+        assert report.to_dataframe().empty
 
 
 # ============================================================
-# 2. to_dict() 输出
+# to_dict
 # ============================================================
 
-class TestComparisonToDict:
-    """to_dict() 多 run 并排对比测试"""
+class TestToDict:
+    def test_run_ids_as_keys(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
+        report = ComparisonReport([r1, r2])
+        d = report.to_dict()
+        assert "run-a" in d
+        assert "run-b" in d
+        assert "run_id" not in d.get("run-a", {})
+        assert "run_id" not in d.get("run-b", {})
 
-    def test_to_dict_has_run_ids_as_keys(self):
-        """to_dict 应以 run_id 为 key"""
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        cr = ComparisonReport(reports=[r1, r2])
-        d = cr.to_dict()
-        assert "run_a" in d
-        assert "run_b" in d
-
-    def test_to_dict_contains_summary_metrics(self):
-        """每个 run 的 value 应包含 summary 指标"""
-        r1 = _make_report("run_a", [100, 105])
-        cr = ComparisonReport(reports=[r1])
-        d = cr.to_dict()
-        assert "summary" in d["run_a"]
-        assert "annualized_return" in d["run_a"]["summary"]
-
-    def test_to_dict_three_runs(self):
-        """三个 run 应正确输出"""
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        r3 = _make_report("run_c", [100, 95])
-        cr = ComparisonReport(reports=[r1, r2, r3])
-        d = cr.to_dict()
-        assert len(d) == 3
+    def test_contains_analyzer_summary(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        report = ComparisonReport([r1])
+        d = report.to_dict()
+        assert "analyzer_summary" in d["run-a"]
 
 
 # ============================================================
-# 3. to_dataframe() 输出
+# to_dataframe
 # ============================================================
 
-class TestComparisonToDataFrame:
-    """to_dataframe() DataFrame 输出测试"""
+class TestToDataFrame:
+    def test_non_empty_dataframe(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
+        report = ComparisonReport([r1, r2])
+        df = report.to_dataframe()
+        assert not df.empty
 
-    def test_to_dataframe_returns_dataframe(self):
-        """to_dataframe 应返回 DataFrame"""
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        cr = ComparisonReport(reports=[r1, r2])
-        df = cr.to_dataframe()
-        assert isinstance(df, pd.DataFrame)
-
-    def test_to_dataframe_columns_are_run_ids(self):
-        """DataFrame 的列应为 run_id"""
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        cr = ComparisonReport(reports=[r1, r2])
-        df = cr.to_dataframe()
-        assert "run_a" in df.columns
-        assert "run_b" in df.columns
-
-    def test_to_dataframe_empty_reports(self):
-        """空报告列表应返回空 DataFrame"""
-        cr = ComparisonReport(reports=[])
-        df = cr.to_dataframe()
-        assert isinstance(df, pd.DataFrame)
-        assert df.empty
+    def test_has_run_id_columns(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
+        report = ComparisonReport([r1, r2])
+        df = report.to_dataframe()
+        assert "run-a" in df.columns
+        assert "run-b" in df.columns
 
 
 # ============================================================
-# 4. to_rich() 输出
+# to_rich
 # ============================================================
 
-class TestComparisonToRich:
-    """to_rich() Rich Table 输出测试"""
-
-    def test_to_rich_returns_table(self):
-        """to_rich 应返回 rich.table.Table 实例"""
-        from rich.table import Table
-
-        r1 = _make_report("run_a", [100, 105])
-        r2 = _make_report("run_b", [100, 110])
-        cr = ComparisonReport(reports=[r1, r2])
-        table = cr.to_rich()
+class TestToRich:
+    def test_returns_rich_table(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        report = ComparisonReport([r1])
+        table = report.to_rich()
         assert isinstance(table, Table)
 
-    def test_to_rich_empty_reports(self):
-        """空报告列表应仍返回 Table"""
-        from rich.table import Table
-
-        cr = ComparisonReport(reports=[])
-        table = cr.to_rich()
-        assert isinstance(table, Table)
+    def test_table_has_run_id_columns(self):
+        r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
+        r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
+        report = ComparisonReport([r1, r2])
+        table = report.to_rich()
+        # Table should have Metric + run_id columns
+        assert len(table.columns) == 3  # Metric, run-a, run-b

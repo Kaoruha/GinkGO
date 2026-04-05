@@ -195,9 +195,15 @@ class MetricRegistry:
     def instantiate(self, name: str, **params) -> Any:
         """实例化指定指标，支持参数覆盖。
 
+        优先返回已注册的实例（参数化指标），其次尝试类级别实例化。
+
         Raises:
             KeyError: 指标名称不存在时抛出
         """
+        # 实例级别（参数化指标）
+        if name in self._instances:
+            return self._instances[name]
+        # 类级别
         cls = self._registry.get(name)
         if cls is None:
             raise KeyError(f"Metric '{name}' not registered")

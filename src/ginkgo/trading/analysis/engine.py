@@ -299,7 +299,11 @@ class AnalysisEngine:
         return ComparisonReport(reports)
 
     def time_segments(
-        self, run_id: str, portfolio_id: str = None, freq: str = "M"
+        self,
+        run_id: str,
+        portfolio_id: str = None,
+        freq: str = "M",
+        analyzers: Optional[List[str]] = None,
     ) -> SegmentReport:
         """按时间分段分析
 
@@ -307,15 +311,21 @@ class AnalysisEngine:
             run_id: 运行标识
             portfolio_id: 组合标识 (可选)
             freq: 分段频率 ("M"=月, "Q"=季, "Y"=年)
+            analyzers: 可选的分析器名称列表，None = 处理所有分析器
 
         Returns:
             SegmentReport 实例
         """
         dp = self._load_data(run_id, portfolio_id)
-        return SegmentReport(run_id=run_id, registry=self._registry, data=dp, freq=freq)
+        return SegmentReport(run_id=run_id, data=dp, freq=freq, analyzers=analyzers)
 
     def rolling(
-        self, run_id: str, portfolio_id: str = None, window: int = 60, step: int = 1
+        self,
+        run_id: str,
+        portfolio_id: str = None,
+        window: int = 60,
+        step: int = 1,
+        analyzers: Optional[List[str]] = None,
     ) -> RollingReport:
         """滚动窗口分析
 
@@ -324,9 +334,12 @@ class AnalysisEngine:
             portfolio_id: 组合标识 (可选)
             window: 窗口大小 (天数)
             step: 滑动步长 (默认 1)
+            analyzers: 可选的分析器名称列表，None = 处理所有分析器
 
         Returns:
             RollingReport 实例
         """
         dp = self._load_data(run_id, portfolio_id)
-        return RollingReport(run_id=run_id, registry=self._registry, data=dp, window=window, step=step)
+        return RollingReport(
+            run_id=run_id, data=dp, window=window, step=step, analyzers=analyzers
+        )

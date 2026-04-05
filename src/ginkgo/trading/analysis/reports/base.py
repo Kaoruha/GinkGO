@@ -1,5 +1,5 @@
 # Upstream: MetricRegistry, DataProvider, 各层级 Metric 实现
-# Downstream: SingleReport, CLI/API/Web UI 消费方
+# Downstream: SingleReport, ComparisonReport, CLI/API/Web UI 消费方
 # Role: 分析报告基类 - 构造时自动计算所有可用指标并按类别组织
 
 
@@ -21,45 +21,6 @@ from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
 
 
 # ============================================================
-# 标准数据源分类映射
-# ============================================================
-
-# requires 精确匹配 → 对应分类
-_STANDARD_CATEGORIES: Dict[tuple, str] = {
-    ("net_value",): "summary",
-    ("signal",): "signal_analysis",
-    ("order",): "order_analysis",
-    ("position",): "position_analysis",
-}
-
-
-def _categorize_metric(requires: List[str]) -> Optional[str]:
-    """根据 requires 列表确定指标分类。
-
-    规则:
-    - requires 精确匹配标准列表 → 对应分类
-    - requires 包含多个标准数据源 (跨数据源指标) → summary
-    - 其他 (非标准 requires) → None (custom)
-
-    Args:
-        requires: 指标的数据依赖列表
-
-    Returns:
-        分类名称，None 表示自定义分类
-    """
-    req_tuple = tuple(sorted(requires))
-    if req_tuple in _STANDARD_CATEGORIES:
-        return _STANDARD_CATEGORIES[req_tuple]
-
-    # 跨数据源指标：requires 包含多个标准 key
-    standard_keys = {item for pair in _STANDARD_CATEGORIES for item in pair}
-    if len(req_tuple) > 1 and all(k in standard_keys for k in req_tuple):
-        return "summary"
-
-    return None
-
-
-# ============================================================
 # AnalysisReport
 # ============================================================
 
@@ -70,11 +31,12 @@ class AnalysisReport:
     将结果按类别组织，并提供多种输出适配。
 
     分类规则:
-    - summary: requires=["net_value"] 或跨数据源指标
-    - signal_analysis: requires=["signal"]
-    - order_analysis: requires=["order"]
-    - position_analysis: requires=["position"]
-    - custom_metrics: 非标准 requires 的指标 + 未被注册指标消耗的 DataProvider key
+    - analyzer_summary: DataProvider 中每个含 "value" 列的 DataFrame 的统计摘要
+    - stability_analysis: 名称不以 "ic." 开头的注册指标
+    - ic_analysis: 名称以 "ic." 开头的注册指标
+    - signal_analysis: signal 数据的计数统计
+    - order_analysis: order 数据的计数统计
+    - position_analysis: position 数据的计数统计
 
     Args:
         run_id: 回测运行标识
@@ -82,7 +44,7 @@ class AnalysisReport:
         data: 数据容器
 
     Raises:
-        ValueError: data 中不包含 net_value 时抛出
+        ValueError: data 中无任何可用数据时抛出
     """
 
     def __init__(
@@ -92,77 +54,83 @@ class AnalysisReport:
         data: DataProvider,
     ):
         # --- 前置校验 ---
-        if "net_value" not in data:
-            raise ValueError("DataProvider 必须包含 'net_value' 数据")
+        if len(data.available) == 0:
+            raise ValueError("DataProvider 中无任何可用数据")
 
         self.run_id = run_id
         self._data = data
         self._registry = registry
 
-        # --- 计算所有指标 ---
-        available_names, missing_names = registry.check_availability(data)
-        available_instances: Dict[str, Any] = {}
-        for name in available_names:
-            try:
-                instance = registry.instantiate(name)
-                available_instances[name] = instance
-            except Exception:
-                GLOG.WARNING(f"Failed to instantiate metric '{name}'")
-                available_instances[name] = None
-
-        # --- 按类别组织指标结果 ---
-        self.summary: Dict[str, Any] = {}
-        self.signal_analysis: Dict[str, Any] = {}
-        self.order_analysis: Dict[str, Any] = {}
-        self.position_analysis: Dict[str, Any] = {}
-        self.custom_metrics: Dict[str, Any] = {}
-
-        # 计算可用指标并分类
+        # --- 构建数据字典 ---
         data_dict: Dict[str, pd.DataFrame] = {}
         for key in data.available:
             data_dict[key] = data.get(key)
 
-        consumed_keys: set = set()
-        for name, instance in available_instances.items():
-            if instance is None:
+        # --- analyzer_summary: 对每个含 "value" 列的 DataFrame 计算统计量 ---
+        self.analyzer_summary: Dict[str, Dict[str, float]] = {}
+        for key, df in data_dict.items():
+            if isinstance(df, pd.DataFrame) and "value" in df.columns:
+                series = df["value"].dropna()
+                if len(series) > 0:
+                    self.analyzer_summary[key] = {
+                        "final": float(series.iloc[-1]),
+                        "mean": float(series.mean()),
+                        "std": float(series.std()),
+                        "min": float(series.min()),
+                        "max": float(series.max()),
+                    }
+
+        # 向后兼容别名
+        self.summary = self.analyzer_summary
+
+        # --- 通过 MetricRegistry 计算已注册指标 ---
+        available_names, missing_names = registry.check_availability(data)
+
+        self.stability_analysis: Dict[str, Any] = {}
+        self.ic_analysis: Dict[str, Any] = {}
+
+        for name in available_names:
+            try:
+                # 优先获取实例级注册（参数化指标）
+                instance = registry.get_instance(name)
+                if instance is None:
+                    instance = registry.instantiate(name)
+            except Exception:
+                GLOG.WARNING(f"指标 '{name}' 实例化失败")
                 continue
-            requires = getattr(instance, "requires", [])
-            consumed_keys.update(requires)
-            category = _categorize_metric(requires)
+
             try:
                 value = instance.compute(data_dict)
             except Exception:
-                GLOG.WARNING(f"Failed to compute metric '{name}'")
+                GLOG.WARNING(f"指标 '{name}' 计算失败")
                 value = "ERROR"
 
-            if category == "summary":
-                self.summary[name] = value
-            elif category == "signal_analysis":
-                self.signal_analysis[name] = value
-            elif category == "order_analysis":
-                self.order_analysis[name] = value
-            elif category == "position_analysis":
-                self.position_analysis[name] = value
+            if name.startswith("ic."):
+                self.ic_analysis[name] = value
             else:
-                self.custom_metrics[name] = value
+                self.stability_analysis[name] = value
 
-        # 不可用指标 → N/A
+        # --- signal / order / position 基本计数 ---
+        self.signal_analysis: Dict[str, Any] = {}
+        self.order_analysis: Dict[str, Any] = {}
+        self.position_analysis: Dict[str, Any] = {}
+
+        count_map = {
+            "signal": (self.signal_analysis, "signal"),
+            "order": (self.order_analysis, "order"),
+            "position": (self.position_analysis, "position"),
+        }
+        for attr_name, (section_dict, data_key) in count_map.items():
+            df = data_dict.get(attr_name)
+            if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
+                section_dict[f"{data_key}_count"] = len(df)
+
+        # --- 不可用指标 ---
         self._na_metrics: Dict[str, str] = {}
         for name in missing_names:
             self._na_metrics[name] = "N/A"
 
-        # 自定义数据：DataProvider 中未被任何注册指标消耗的 key
-        all_registered_requires: set = set()
-        for name in registry.list_metrics():
-            cls = registry.get(name)
-            if cls:
-                reqs = getattr(cls, "requires", [])
-                all_registered_requires.update(reqs)
-        for key in data.available:
-            if key not in all_registered_requires:
-                self.custom_metrics[key] = data.get(key)
-
-        # 原始时间序列
+        # --- 原始时间序列 ---
         self.time_series: Dict[str, pd.DataFrame] = dict(data_dict)
 
     # ============================================================
@@ -173,15 +141,18 @@ class AnalysisReport:
         """转换为字典 (API 消费)
 
         Returns:
-            包含所有 section 的扁平字典
+            包含所有 section 的字典
         """
         return {
             "run_id": self.run_id,
-            "summary": dict(self.summary),
+            "analyzer_summary": {
+                k: dict(v) for k, v in self.analyzer_summary.items()
+            },
+            "stability_analysis": dict(self.stability_analysis),
+            "ic_analysis": dict(self.ic_analysis),
             "signal_analysis": dict(self.signal_analysis),
             "order_analysis": dict(self.order_analysis),
             "position_analysis": dict(self.position_analysis),
-            "custom_metrics": self._serialize_custom(),
             "metrics": dict(self._na_metrics),
             "time_series": {
                 k: v.to_dict(orient="records") if isinstance(v, pd.DataFrame) else v
@@ -189,26 +160,25 @@ class AnalysisReport:
             },
         }
 
-    def _serialize_custom(self) -> dict:
-        """序列化 custom_metrics 中的 DataFrame"""
-        result = {}
-        for k, v in self.custom_metrics.items():
-            if isinstance(v, pd.DataFrame):
-                result[k] = v.to_dict(orient="records")
-            else:
-                result[k] = v
-        return result
-
     def to_dataframe(self) -> pd.DataFrame:
         """转换为 DataFrame (Python 消费)
 
         Returns:
-            以指标名为 index、值为 value 列的 DataFrame
+            以 metric 为 index、section 为分组列的 DataFrame
         """
         rows = []
 
-        for name, value in self.summary.items():
-            rows.append({"section": "summary", "metric": name, "value": value})
+        for analyzer_name, stats in self.analyzer_summary.items():
+            for stat_name, value in stats.items():
+                rows.append({
+                    "section": "analyzer_summary",
+                    "metric": f"{analyzer_name}.{stat_name}",
+                    "value": value,
+                })
+        for name, value in self.stability_analysis.items():
+            rows.append({"section": "stability_analysis", "metric": name, "value": value})
+        for name, value in self.ic_analysis.items():
+            rows.append({"section": "ic_analysis", "metric": name, "value": value})
         for name, value in self.signal_analysis.items():
             rows.append({"section": "signal_analysis", "metric": name, "value": value})
         for name, value in self.order_analysis.items():
@@ -227,29 +197,49 @@ class AnalysisReport:
         """转换为 Rich Table (CLI/TUI 消费)
 
         Returns:
-            Rich Table 实例，包含 metric 和 value 两列
+            Rich Table 实例，包含各分区的指标和值
         """
         table = Table(title=f"Analysis Report — {self.run_id}")
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="green")
 
-        sections = [
-            ("Summary", self.summary),
+        # Analyzer Summary
+        table.add_section()
+        table.add_row("[bold]Analyzer Summary[/bold]", "")
+        if not self.analyzer_summary:
+            table.add_row("  (empty)", "")
+        for analyzer_name, stats in self.analyzer_summary.items():
+            for stat_name, value in stats.items():
+                table.add_row(f"  {analyzer_name}.{stat_name}", self._format_value(value))
+
+        # Stability Analysis（仅非空时显示）
+        if self.stability_analysis:
+            table.add_section()
+            table.add_row("[bold]Stability Analysis[/bold]", "")
+            for name, value in self.stability_analysis.items():
+                table.add_row(f"  {name}", self._format_value(value))
+
+        # IC Analysis（仅非空时显示）
+        if self.ic_analysis:
+            table.add_section()
+            table.add_row("[bold]IC Analysis[/bold]", "")
+            for name, value in self.ic_analysis.items():
+                table.add_row(f"  {name}", self._format_value(value))
+
+        # Signal / Order / Position Analysis（始终显示段落标题）
+        for section_label, section_data in [
             ("Signal Analysis", self.signal_analysis),
             ("Order Analysis", self.order_analysis),
             ("Position Analysis", self.position_analysis),
-        ]
-
-        for section_name, section_data in sections:
+        ]:
             table.add_section()
-            table.add_row(f"[bold]{section_name}[/bold]", "")
+            table.add_row(f"[bold]{section_label}[/bold]", "")
             if not section_data:
                 table.add_row("  (empty)", "")
             for name, value in section_data.items():
-                display_value = self._format_value(value)
-                table.add_row(f"  {name}", display_value)
+                table.add_row(f"  {name}", self._format_value(value))
 
-        # 不可用指标
+        # 不可用指标（仅非空时显示）
         if self._na_metrics:
             table.add_section()
             table.add_row("[bold]Unavailable[/bold]", "")

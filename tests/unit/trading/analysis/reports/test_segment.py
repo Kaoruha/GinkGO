@@ -1,201 +1,158 @@
 # SegmentReport 测试用例
 #
 # 测试范围:
-#   - 构造与基础属性
-#   - 频率参数 (M/Q/Y)
+#   - 构造与基础属性 (空数据/无效频率/分析器过滤/缺失处理)
+#   - 分段计算 (月/季/年分段数量与统计结构)
 #   - to_dict() 按分段输出指标
 #   - to_dataframe() 以分段为 index
-#   - to_rich() Rich Table 分段行
-#   - 时间戳列分组逻辑
+#   - to_rich() Rich Table 输出
 
 
 import pytest
 
 import pandas as pd
+import numpy as np
 
+from rich.table import Table
+
+from ginkgo.trading.analysis.metrics.base import DataProvider
 from ginkgo.trading.analysis.reports.segment import SegmentReport
-from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
 
 
 # ============================================================
-# 兼容指标 — 替代已删除的 portfolio/signal/order/position 指标
+# Helpers
 # ============================================================
 
-class AnnualizedReturn:
-    name = "annualized_return"
-    requires = ["net_value"]
-    params = {}
-
-    def compute(self, data):
-        df = data["net_value"]
-        v = df["value"]
-        if len(v) < 2:
-            return 0.0
-        total = v.iloc[-1] / v.iloc[0] - 1
-        return float(total * 252 / max(len(v) - 1, 1))
-
-
-# ============================================================
-# 辅助函数
-# ============================================================
-
-def _make_net_value_with_timestamp(days: int = 90) -> pd.DataFrame:
-    """创建带有 timestamp 列的 net_value DataFrame
-
-    生成 90 天的净值数据，跨 3 个月，用于分段测试。
-    """
-    dates = pd.date_range(start="2024-01-01", periods=days, freq="D")
-    import numpy as np
-    np.random.seed(42)
-    values = 100 * (1 + np.random.randn(days).cumsum() * 0.01)
+def _make_df(values, start="2024-01-01"):
+    dates = pd.date_range(start, periods=len(values), freq="D")
     return pd.DataFrame({"timestamp": dates, "value": values})
 
 
-# ============================================================
-# 1. 构造与基础属性
-# ============================================================
-
-class TestSegmentConstruction:
-    """SegmentReport 构造测试"""
-
-    def test_segment_stores_run_id(self):
-        """run_id 应被正确存储"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp)
-        assert sr.run_id == "seg_test"
-
-    def test_segment_default_freq_monthly(self):
-        """默认频率应为月度 ('M')"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp)
-        assert sr.freq == "M"
-
-    def test_segment_custom_freq(self):
-        """应支持自定义频率 Q/Y"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="Q")
-        assert sr.freq == "Q"
+def _make_dp(*data_pairs):
+    dp = DataProvider()
+    for name, df in data_pairs:
+        dp.add(name, df)
+    return dp
 
 
 # ============================================================
-# 2. 频率映射
+# Construction
 # ============================================================
 
-class TestSegmentFrequency:
-    """分段频率测试"""
+class TestConstruction:
+    def test_empty_data_raises(self):
+        with pytest.raises(ValueError, match="无任何可用"):
+            SegmentReport(run_id="test", data=DataProvider())
 
+    def test_invalid_freq_raises(self):
+        dp = _make_dp(("net_value", _make_df([1.0, 2.0, 3.0])))
+        with pytest.raises(ValueError, match="不支持的频率"):
+            SegmentReport(run_id="test", data=dp, freq="W")
+
+    def test_accepts_analyzers_filter(self):
+        dp = _make_dp(
+            ("net_value", _make_df(list(range(90)))),
+            ("sharpe", _make_df([0.5] * 90)),
+        )
+        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=["net_value"])
+        d = report.to_dict()
+        for segment_metrics in d.values():
+            assert "net_value" in segment_metrics
+            assert "sharpe" not in segment_metrics
+
+    def test_analyzers_none_processes_all(self):
+        dp = _make_dp(
+            ("net_value", _make_df(list(range(90)))),
+            ("sharpe", _make_df([0.5] * 90)),
+        )
+        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=None)
+        d = report.to_dict()
+        for segment_metrics in d.values():
+            assert "net_value" in segment_metrics
+            assert "sharpe" in segment_metrics
+
+    def test_missing_analyzer_skipped(self):
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=["nonexistent"])
+        assert report.to_dict() == {}
+
+    def test_no_timestamp_skipped(self):
+        dp = DataProvider()
+        dp.add("bad", pd.DataFrame({"value": [1.0, 2.0, 3.0]}))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        assert report.to_dict() == {}
+
+
+# ============================================================
+# Segment computation
+# ============================================================
+
+class TestSegmentComputation:
     def test_monthly_segment_count(self):
-        """月度分段应产生约 3 个分段 (90天跨3月)"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        d = sr.to_dict()
-        # 2024-01, 2024-02, 2024-03 共 3 个月
+        """90 days from 2024-01-01 -> 3 monthly segments (Jan, Feb, Mar)."""
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        d = report.to_dict()
         assert len(d) == 3
 
     def test_quarterly_segment_count(self):
-        """季度分段应产生 1 个分段 (90天约1个季度)"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="Q")
-        d = sr.to_dict()
+        """90 days -> 1 quarterly segment."""
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="Q")
+        d = report.to_dict()
         assert len(d) == 1
 
+    def test_yearly_segment_count(self):
+        """400 days -> 2 yearly segments (2024, 2025)."""
+        dp = _make_dp(("net_value", _make_df(list(range(400)))))
+        report = SegmentReport(run_id="test", data=dp, freq="Y")
+        d = report.to_dict()
+        assert len(d) == 2
 
-# ============================================================
-# 3. to_dict() 输出
-# ============================================================
-
-class TestSegmentToDict:
-    """to_dict() 分段输出测试"""
-
-    def test_to_dict_keys_are_segment_labels(self):
-        """to_dict 的 key 应为分段标签"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        d = sr.to_dict()
-        # 分段标签格式如 "2024-01"
-        for key in d:
-            assert isinstance(key, str)
-
-    def test_to_dict_each_segment_has_summary(self):
-        """每个分段应包含 summary 指标"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        d = sr.to_dict()
-        for segment_label, metrics in d.items():
-            assert "annualized_return" in metrics
+    def test_segment_stats_structure(self):
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        d = report.to_dict()
+        first_key = list(d.keys())[0]
+        stats = d[first_key]["net_value"]
+        assert set(stats.keys()) == {"mean", "std", "min", "max", "final"}
+        assert isinstance(stats["mean"], float)
 
 
 # ============================================================
-# 4. to_dataframe() 输出
+# to_dataframe
 # ============================================================
 
-class TestSegmentToDataFrame:
-    """to_dataframe() DataFrame 输出测试"""
+class TestToDataFrame:
+    def test_index_is_segment(self):
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        df = report.to_dataframe()
+        assert df.index.name == "segment"
+        assert not df.empty
 
-    def test_to_dataframe_returns_dataframe(self):
-        """to_dataframe 应返回 DataFrame"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        df = sr.to_dataframe()
-        assert isinstance(df, pd.DataFrame)
-
-    def test_to_dataframe_index_is_segments(self):
-        """DataFrame 的 index 应为分段标签"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        df = sr.to_dataframe()
-        # index 应包含分段标签
-        assert len(df) == 3
+    def test_columns_are_analyzer_stat(self):
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        df = report.to_dataframe()
+        assert "net_value.mean" in df.columns
+        assert "net_value.std" in df.columns
+        assert "net_value.final" in df.columns
 
 
 # ============================================================
-# 5. to_rich() 输出
+# to_rich
 # ============================================================
 
-class TestSegmentToRich:
-    """to_rich() Rich Table 输出测试"""
-
-    def test_to_rich_returns_table(self):
-        """to_rich 应返回 rich.table.Table 实例"""
-        from rich.table import Table
-
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(90))
-        sr = SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
-        table = sr.to_rich()
+class TestToRich:
+    def test_returns_rich_table(self):
+        dp = _make_dp(("net_value", _make_df(list(range(90)))))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        table = report.to_rich()
         assert isinstance(table, Table)
 
-
-# ============================================================
-# 6. 无 timestamp 列的处理
-# ============================================================
-
-class TestSegmentNoTimestamp:
-    """无 timestamp 列时的处理"""
-
-    def test_no_timestamp_raises_error(self):
-        """net_value 没有 timestamp 列时应抛出 ValueError"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=pd.DataFrame({"value": [100, 105, 110]}))
-        with pytest.raises(ValueError, match="timestamp"):
-            SegmentReport(run_id="seg_test", registry=reg, data=dp, freq="M")
+    def test_empty_data_returns_table_with_message(self):
+        dp = _make_dp(("net_value", _make_df([1.0])))
+        report = SegmentReport(run_id="test", data=dp, freq="M")
+        table = report.to_rich()
+        assert isinstance(table, Table)
