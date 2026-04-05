@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from rich.table import Table
 
+from ginkgo.libs import GLOG
 from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
 
 
@@ -106,6 +107,7 @@ class AnalysisReport:
                 instance = registry.instantiate(name)
                 available_instances[name] = instance
             except Exception:
+                GLOG.WARNING(f"Failed to instantiate metric '{name}'")
                 available_instances[name] = None
 
         # --- 按类别组织指标结果 ---
@@ -130,6 +132,7 @@ class AnalysisReport:
             try:
                 value = instance.compute(data_dict)
             except Exception:
+                GLOG.WARNING(f"Failed to compute metric '{name}'")
                 value = "ERROR"
 
             if category == "summary":

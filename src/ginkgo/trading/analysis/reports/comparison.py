@@ -122,16 +122,15 @@ class ComparisonReport:
                 current_section = section_label
 
             values = []
+            attr_map = {
+                "Summary": "summary",
+                "Signal Analysis": "signal_analysis",
+                "Order Analysis": "order_analysis",
+                "Position Analysis": "position_analysis",
+            }
+            section_attr = attr_map[section_label]
             for report in self.reports:
-                section_data = getattr(report, section_attr, {})
-                # 找到对应的 section attr
-                attr_map = {
-                    "Summary": "summary",
-                    "Signal Analysis": "signal_analysis",
-                    "Order Analysis": "order_analysis",
-                    "Position Analysis": "position_analysis",
-                }
-                data = getattr(report, attr_map[section_label], {})
+                data = getattr(report, section_attr, {})
                 val = data.get(metric_name, "")
                 values.append(AnalysisReport._format_value(val) if val != "" else "")
 

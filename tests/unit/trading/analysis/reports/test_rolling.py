@@ -80,7 +80,7 @@ class TestRollingToDict:
         dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
         rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
         d = rr.to_dict()
-        # 120 天 / 60 步长 → 约 2 个窗口
+        # 120 天, window=60, step=1 → 61 个滑动窗口
         assert len(d) > 0
         for key in d:
             assert isinstance(key, str)
@@ -98,14 +98,32 @@ class TestRollingToDict:
             assert "volatility" in metrics
 
     def test_to_dict_window_count(self):
-        """窗口数量应为 (总天数 - window) / step + 1"""
+        """滑动窗口(step=1)数量应为 total_len - window + 1"""
         reg = MetricRegistry()
         reg.register(AnnualizedReturn)
         dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
         rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
         d = rr.to_dict()
-        # 120 天, window=60, step=60 → 2 个窗口
+        # 120 天, window=60, step=1 → 61 个窗口
+        assert len(d) == 61
+
+    def test_to_dict_tumbling_window_count(self):
+        """设置 step=window 退化为滚动窗口"""
+        reg = MetricRegistry()
+        reg.register(AnnualizedReturn)
+        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
+        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=60)
+        d = rr.to_dict()
+        # 120 天, window=60, step=60 → 2 个非重叠窗口
         assert len(d) == 2
+
+    def test_step_parameter_stored(self):
+        """step 参数应被正确存储"""
+        reg = MetricRegistry()
+        reg.register(AnnualizedReturn)
+        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
+        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=5)
+        assert rr.step == 5
 
 
 # ============================================================
@@ -129,7 +147,7 @@ class TestRollingToDataFrame:
         reg = MetricRegistry()
         reg.register(AnnualizedReturn)
         dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
+        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=60)
         df = rr.to_dataframe()
         assert len(df) == 2
 

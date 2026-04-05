@@ -34,6 +34,7 @@ class RollingReport:
         registry: 指标注册中心
         data: 数据容器 (net_value 必须包含 timestamp 和 value 列)
         window: 窗口大小 (天数)
+        step: 滑动步长 (默认 1 = 真正的滑动窗口; 设为 window 则退化为滚动窗口)
 
     Raises:
         ValueError: data 中不包含 net_value 或 net_value 无 timestamp 列时抛出
@@ -45,6 +46,7 @@ class RollingReport:
         registry: MetricRegistry,
         data: DataProvider,
         window: int = 60,
+        step: int = 1,
     ):
         if "net_value" not in data:
             raise ValueError("DataProvider 必须包含 'net_value' 数据")
@@ -57,6 +59,7 @@ class RollingReport:
         self._registry = registry
         self._data = data
         self.window = window
+        self.step = step
 
         # --- 滚动窗口计算 ---
         self._results: Dict[str, Dict[str, Any]] = {}
@@ -68,9 +71,7 @@ class RollingReport:
         if total_len < self.window:
             return
 
-        step = self.window  # 非重叠窗口
-
-        for start in range(0, total_len - self.window + 1, step):
+        for start in range(0, total_len - self.window + 1, self.step):
             window_df = nv_df.iloc[start: start + self.window].copy()
             window_df = window_df[["value", "timestamp"]].reset_index(drop=True)
 

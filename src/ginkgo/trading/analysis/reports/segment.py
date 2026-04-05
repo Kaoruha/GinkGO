@@ -17,7 +17,7 @@ from rich.table import Table
 
 from ginkgo.libs import GLOG
 from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
-from ginkgo.trading.analysis.reports.base import AnalysisReport, _categorize_metric
+from ginkgo.trading.analysis.reports.base import AnalysisReport
 
 
 # ============================================================
