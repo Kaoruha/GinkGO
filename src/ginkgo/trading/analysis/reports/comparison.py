@@ -132,7 +132,7 @@ class ComparisonReport:
             for report in self.reports:
                 data = getattr(report, section_attr, {})
                 val = data.get(metric_name, "")
-                values.append(AnalysisReport._format_value(val) if val != "" else "")
+                values.append(AnalysisReport._format_value(val) if not (isinstance(val, str) and val == "") else "")
 
             table.add_row(f"  {metric_name}", *values)
 
