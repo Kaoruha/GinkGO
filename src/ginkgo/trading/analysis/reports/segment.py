@@ -176,6 +176,8 @@ class SegmentReport:
                 val = metrics.get(name, "")
                 if isinstance(val, float):
                     values.append(f"{val:.6f}")
+                elif isinstance(val, (pd.Series, pd.DataFrame)):
+                    values.append(str(type(val).__name__))
                 elif val == "":
                     values.append("")
                 else:
