@@ -96,20 +96,18 @@ class AnalysisEngine:
             portfolio_id=portfolio_id,
             analyzer_name="net_value",
             limit=10000,
-            as_dataframe=True,
         )
         if not result.is_success() or result.data is None:
             return None
 
-        df = result.data
-        if isinstance(df, pd.DataFrame) and len(df) > 0:
-            # 确保 timestamp 和 value 列存在
-            if "timestamp" not in df.columns and "value" not in df.columns:
-                # 尝试从 analyzer_record 字段映射
-                if "name" in df.columns and "timestamp" in df.columns:
-                    pass  # 原始格式，需要转换
-                else:
-                    return None
+        records = result.data
+        if not records:
+            return None
+
+        df = self._entities_to_dataframe(records)
+        if df is not None and len(df) > 0 and "timestamp" in df.columns and "value" in df.columns:
+            df = df.sort_values("timestamp").reset_index(drop=True)
+            df["value"] = pd.to_numeric(df["value"], errors="coerce")
             return df
         return None
 
