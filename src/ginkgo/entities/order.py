@@ -272,6 +272,11 @@ class Order(TimeMixin, Base):
         self.set(row)
 
     @property
+    def symbol(self) -> str:
+        """Alias for code. 金融行业标准术语。"""
+        return self._code
+
+    @property
     def code(self) -> str:
         """
         Get the code of the order.
@@ -280,6 +285,13 @@ class Order(TimeMixin, Base):
             str: The code.
         """
         return self._code
+
+    @symbol.setter
+    def symbol(self, value: str) -> None:
+        """Set the symbol (alias for code)."""
+        if not isinstance(value, str):
+            raise TypeError(f"symbol must be str, got {type(value).__name__}")
+        self._code = value
 
     @code.setter
     def code(self, value) -> None:

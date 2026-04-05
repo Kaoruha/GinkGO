@@ -54,13 +54,13 @@ class TestBaseAnalyzerConstruction:
 
     def test_dual_inheritance(self):
         """测试双继承"""
-        from ginkgo.trading.core.backtest_base import BacktestBase
+        from ginkgo.entities.base import Base
         from ginkgo.entities.mixins import TimeMixin
 
         analyzer = ConcreteAnalyzer(name="DualTest")
 
-        # 验证继承BacktestBase
-        assert isinstance(analyzer, BacktestBase)
+        # 验证继承Base
+        assert isinstance(analyzer, Base)
 
         # 验证继承TimeMixin
         assert isinstance(analyzer, TimeMixin)

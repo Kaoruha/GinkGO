@@ -368,7 +368,6 @@ class TestRealTimeOrderHandling:
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
-            order_status=ORDERSTATUS_TYPES.FILLED,
             portfolio_id=p.uuid, engine_id="eid", run_id="rid",
         )
         with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \
@@ -389,7 +388,6 @@ class TestRealTimeOrderHandling:
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
-            order_status=ORDERSTATUS_TYPES.FILLED,
             portfolio_id=p.uuid, engine_id="eid", run_id="rid",
         )
         with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \

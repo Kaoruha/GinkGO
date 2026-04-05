@@ -7,23 +7,21 @@ import pytest
 from decimal import Decimal
 import pandas as pd
 
+from unittest.mock import Mock
+
 from ginkgo.trading.gateway.base_matchmaking import MatchMakingBase
-
-
-# Known source bug: advance_time references undefined TimeRelated.
-# Tests that call advance_time must expect NameError until source is fixed.
-_SKIP_ADVANCE_TIME = pytest.mark.xfail(
-    reason="Source bug: MatchMakingBase.advance_time references undefined 'TimeRelated'",
-    raises=NameError,
-)
 
 
 # ========== Fixtures ==========
 
 @pytest.fixture
 def matchmaker():
-    """Create a MatchMakingBase instance for testing."""
-    return MatchMakingBase()
+    """Create a MatchMakingBase instance for testing with a TimeProvider."""
+    mm = MatchMakingBase()
+    mock_tp = Mock()
+    mock_tp.set_current_time = Mock(return_value=True)
+    mm.set_time_provider(mock_tp)
+    return mm
 
 
 @pytest.fixture
@@ -113,7 +111,6 @@ class TestEventHandling:
 class TestTimeManagement:
     """Test time management functionality."""
 
-    @_SKIP_ADVANCE_TIME
     def test_on_time_goes_by(self, matchmaker):
         """Test on_time_goes_by clears caches."""
         matchmaker._price_cache = pd.DataFrame({"a": [1, 2, 3]})
@@ -132,7 +129,6 @@ class TestOrderBook:
         """Test order book initial state."""
         assert matchmaker.order_book == {}
 
-    @_SKIP_ADVANCE_TIME
     def test_order_book_after_time_update(self, matchmaker):
         """Test order book cleared after time update."""
         # Add some orders to order book
@@ -152,7 +148,6 @@ class TestPriceCache:
         assert isinstance(matchmaker.price_cache, pd.DataFrame)
         assert matchmaker.price_cache.empty
 
-    @_SKIP_ADVANCE_TIME
     def test_price_cache_after_time_update(self, matchmaker):
         """Test price cache cleared after time update."""
         # Add some data to cache

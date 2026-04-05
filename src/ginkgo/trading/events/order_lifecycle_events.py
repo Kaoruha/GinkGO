@@ -42,6 +42,7 @@ class EventOrderAck(EventBase):
                  order: Order,
                  timestamp: Optional[datetime.datetime] = None,
                  ack_message: str = "Order accepted",
+                 broker_order_id: str = "",
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
                  run_id: Optional[str] = None,
@@ -58,7 +59,7 @@ class EventOrderAck(EventBase):
             self.run_id = run_id
 
         self._order = order
-        self._broker_order_id = ""  # 初始化为空，后续设置
+        self._broker_order_id = broker_order_id
         self._ack_message = ack_message
 
         # 统一使用payload

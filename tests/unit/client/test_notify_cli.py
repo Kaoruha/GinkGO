@@ -25,10 +25,13 @@ import ginkgo.service_hub as service_hub_module
 
 def _patch_notifier_service(mock_service):
     """Patch service_hub.notifier to return mock_service from notification_service()."""
+    # service_hub_module 实际是 ServiceHub 实例（由 ginkgo.__init__ 导出导致）
+    # 触发懒加载，让 __getattr__ 缓存到实例上
+    _ = service_hub_module.notifier
     mock_notifier = MagicMock()
     mock_notifier.notification_service.return_value = mock_service
     return patch.object(
-        type(service_hub_module), "notifier",
+        service_hub_module, "notifier",
         new_callable=PropertyMock, return_value=mock_notifier,
     )
 
@@ -336,7 +339,7 @@ class TestNotifyCLIExceptions:
         mock_notifier.notification_service.side_effect = Exception("service down")
 
         with patch.object(
-            type(service_hub_module), "notifier",
+            service_hub_module, "notifier",
             new_callable=PropertyMock, return_value=mock_notifier,
         ):
             result = cli_runner.invoke(notify_cli.app, ["send", "-u", "Alice", "-c", "Hello"])
