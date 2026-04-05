@@ -44,12 +44,6 @@ class AnnualizedReturn(BaseAnalyzer):
                 total_return = current_worth / self._initial_worth
                 # 使用252个交易日作为一年
                 annualized_return = math.pow(total_return, 252.0 / self._days) - 1
-
-                # 限制极端值
-                if annualized_return > 10.0:  # 1000%
-                    annualized_return = 10.0
-                elif annualized_return < -1.0:  # -100%
-                    annualized_return = -1.0
             else:
                 annualized_return = 0.0
 

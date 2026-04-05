@@ -1,13 +1,14 @@
-# Upstream: MetricRegistry, DataProvider, 各层级 Metric 实现
+# Upstream: DataProvider (分析器时间序列数据)
 # Downstream: CLI/API/Web UI 消费方
-# Role: 分段分析报告 — 按时间频率分段计算指标
+# Role: 分段分析报告 — 按时间频率分段对任意分析器计算基本统计量
 
 
 """
 分段分析报告 (SegmentReport)
 
-将 net_value 时间序列按频率 (月/季/年) 分段，
-对每个分段独立计算组合指标，支持 dict/DataFrame/Rich 三种输出。
+将任意分析器的时间序列按频率 (月/季/年) 分段，
+对每个分段独立计算基本统计量 (mean, std, min, max, final)，
+支持 dict/DataFrame/Rich 三种输出。
 """
 
 from typing import Any, Dict, List, Optional
@@ -16,8 +17,7 @@ import pandas as pd
 from rich.table import Table
 
 from ginkgo.libs import GLOG
-from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
-from ginkgo.trading.analysis.reports.base import AnalysisReport
+from ginkgo.trading.analysis.metrics.base import DataProvider
 
 
 # ============================================================
@@ -38,87 +38,85 @@ _FREQ_LABELS: Dict[str, str] = {
 class SegmentReport:
     """分段分析报告
 
-    按时间频率将 net_value 分段，对每段独立计算指标。
+    按时间频率将任意分析器的时间序列分段，对每段独立计算基本统计量。
+    不再依赖 MetricRegistry，直接在 value 列上计算。
 
     Args:
         run_id: 回测运行标识
-        registry: 指标注册中心
-        data: 数据容器 (net_value 必须包含 timestamp 和 value 列)
+        data: 数据容器 (DataProvider，每个分析器必须包含 timestamp 和 value 列)
         freq: 分段频率，"M"=月, "Q"=季, "Y"=年
+        analyzers: 可选的分析器名称列表，None = 处理 DataProvider 中所有分析器
 
     Raises:
-        ValueError: data 中不包含 net_value 或 net_value 无 timestamp 列时抛出
+        ValueError: data 中无任何可用分析器时抛出
     """
 
     def __init__(
         self,
         run_id: str,
-        registry: MetricRegistry,
         data: DataProvider,
         freq: str = "M",
+        analyzers: Optional[List[str]] = None,
     ):
-        if "net_value" not in data:
-            raise ValueError("DataProvider 必须包含 'net_value' 数据")
+        if len(data.available) == 0:
+            raise ValueError("DataProvider 中无任何可用数据")
 
-        nv_df = data.get("net_value")
-        if nv_df is None or "timestamp" not in nv_df.columns:
-            raise ValueError("net_value 必须包含 'timestamp' 列")
+        if freq not in _FREQ_LABELS:
+            raise ValueError(f"不支持的频率 '{freq}'，支持: M, Q, Y")
 
         self.run_id = run_id
-        self._registry = registry
         self._data = data
         self.freq = freq
+        self.analyzers = analyzers
 
         # --- 分段 ---
-        self._segments: Dict[str, pd.DataFrame] = {}
-        self._compute_segments(nv_df)
-
-        # --- 对每个分段计算指标 ---
-        self._results: Dict[str, Dict[str, Any]] = {}
+        self._results: Dict[str, Dict[str, Dict[str, float]]] = {}
         self._compute_all_segments()
 
-    def _compute_segments(self, nv_df: pd.DataFrame) -> None:
-        """按频率分段 net_value"""
-        df = nv_df.copy()
+    def _compute_all_segments(self) -> None:
+        """对所有分析器按时间分段计算统计量"""
+        # 确定要处理的分析器列表
+        analyzer_names = self.analyzers or [
+            k for k in self._data.available
+            if self._data.get(k) is not None
+        ]
 
-        # 根据 freq 确定 groupby key
-        if self.freq == "M":
-            df["segment_key"] = df["timestamp"].dt.to_period("M").astype(str)
-        elif self.freq == "Q":
-            df["segment_key"] = df["timestamp"].dt.to_period("Q").astype(str)
-        elif self.freq == "Y":
-            df["segment_key"] = df["timestamp"].dt.to_period("Y").astype(str)
-        else:
-            raise ValueError(f"不支持的频率 '{self.freq}'，支持: M, Q, Y")
+        for name in analyzer_names:
+            df = self._data.get(name)
+            if df is None or not isinstance(df, pd.DataFrame) or "value" not in df.columns:
+                GLOG.WARNING(f"SegmentReport: 分析器 '{name}' 无可用数据，跳过")
+                continue
+
+            if "timestamp" not in df.columns:
+                GLOG.WARNING(f"SegmentReport: 分析器 '{name}' 缺少 'timestamp' 列，跳过")
+                continue
+
+            self._compute_segments_for_analyzer(name, df)
+
+    def _compute_segments_for_analyzer(
+        self, analyzer_name: str, df: pd.DataFrame
+    ) -> None:
+        """对单个分析器按时间分段并计算统计量"""
+        df = df.copy()
+
+        # 根据 freq 确定 segment_key
+        df["segment_key"] = df["timestamp"].dt.to_period(self.freq).astype(str)
 
         for label, group in df.groupby("segment_key"):
-            segment_nv = group[["value"]].reset_index(drop=True)
-            # 将原始 timestamp 保留在时间序列中
-            segment_nv["timestamp"] = group["timestamp"].values
-            self._segments[label] = segment_nv
+            values = group["value"].dropna()
+            if len(values) == 0:
+                continue
 
-    def _compute_all_segments(self) -> None:
-        """对每个分段计算所有可用指标"""
-        for label, segment_df in self._segments.items():
-            self._results[label] = self._compute_segment_metrics(segment_df)
+            if label not in self._results:
+                self._results[label] = {}
 
-    def _compute_segment_metrics(self, segment_df: pd.DataFrame) -> Dict[str, Any]:
-        """对单个分段计算指标"""
-        available_names, _ = self._registry.check_availability(
-            {"net_value": segment_df}
-        )
-
-        results: Dict[str, Any] = {}
-        for name in available_names:
-            try:
-                instance = self._registry.instantiate(name)
-                value = instance.compute({"net_value": segment_df})
-                results[name] = value
-            except Exception:
-                GLOG.WARNING(f"SegmentReport: 计算分段指标 '{name}' 失败")
-                results[name] = "ERROR"
-
-        return results
+            self._results[label][analyzer_name] = {
+                "mean": float(values.mean()),
+                "std": float(values.std()),
+                "min": float(values.min()),
+                "max": float(values.max()),
+                "final": float(values.iloc[-1]),
+            }
 
     # ============================================================
     # 输出适配
@@ -128,22 +126,33 @@ class SegmentReport:
         """转换为字典
 
         Returns:
-            {segment_label: {metric_name: value, ...}, ...}
+            {segment_label: {analyzer_name: {mean, std, min, max, final}, ...}, ...}
         """
         return {
-            label: dict(metrics) for label, metrics in self._results.items()
+            label: {name: dict(stats) for name, stats in analyzers.items()}
+            for label, analyzers in self._results.items()
         }
 
     def to_dataframe(self) -> pd.DataFrame:
         """转换为 DataFrame
 
         Returns:
-            以分段标签为 index、指标名为列的 DataFrame
+            以分段标签为 index，以 analyzer.stat 为列的 DataFrame
+            例如: columns = ["net_value.mean", "net_value.std", "sharpe.mean", ...]
         """
         if not self._results:
             return pd.DataFrame()
 
-        df = pd.DataFrame(self._results).T
+        # 构建扁平字典
+        flat: Dict[str, Dict[str, float]] = {}
+        for label, analyzers in self._results.items():
+            row: Dict[str, float] = {}
+            for name, stats in analyzers.items():
+                for stat_name, value in stats.items():
+                    row[f"{name}.{stat_name}"] = value
+            flat[label] = row
+
+        df = pd.DataFrame(flat).T
         df.index.name = "segment"
         return df
 
@@ -151,37 +160,42 @@ class SegmentReport:
         """转换为 Rich Table
 
         Returns:
-            以分段为行、指标为列的 Rich Table
+            以分段为行、每个分析器一列的 Rich Table。
+            每个单元格显示 "mean=X, std=Y, final=Z" 格式。
         """
         table = Table(title=f"[Segment] Analysis Report — {self.run_id} (freq={self.freq})")
 
-        # 收集所有指标名
-        all_metric_names: List[str] = []
+        # 收集所有分析器名
+        all_analyzer_names: List[str] = []
         seen: set = set()
-        for metrics in self._results.values():
-            for name in metrics:
+        for analyzers in self._results.values():
+            for name in analyzers:
                 if name not in seen:
-                    all_metric_names.append(name)
+                    all_analyzer_names.append(name)
                     seen.add(name)
+
+        if not all_analyzer_names:
+            table.add_column("Segment", style="cyan")
+            table.add_row("(无可用数据)", "")
+            return table
 
         # 列定义
         table.add_column("Segment", style="cyan")
-        for name in all_metric_names:
+        for name in all_analyzer_names:
             table.add_column(name, style="green")
 
         # 行数据
-        for label, metrics in self._results.items():
+        for label, analyzers in self._results.items():
             values = []
-            for name in all_metric_names:
-                val = metrics.get(name, "")
-                if isinstance(val, float):
-                    values.append(f"{val:.6f}")
-                elif isinstance(val, (pd.Series, pd.DataFrame)):
-                    values.append(str(type(val).__name__))
-                elif val == "":
+            for name in all_analyzer_names:
+                stats = analyzers.get(name)
+                if stats is None:
                     values.append("")
                 else:
-                    values.append(str(val))
+                    values.append(
+                        f"mean={stats['mean']:.4f}, std={stats['std']:.4f}, "
+                        f"final={stats['final']:.4f}"
+                    )
             table.add_row(label, *values)
 
         return table

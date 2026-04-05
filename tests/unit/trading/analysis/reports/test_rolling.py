@@ -1,225 +1,150 @@
-# RollingReport 测试用例
-#
-# 测试范围:
-#   - 构造与基础属性
-#   - 滑动窗口参数
-#   - to_dict() 以窗口起始日期为 key
-#   - to_dataframe() 以窗口起始日期为 index
-#   - to_rich() Rich Table 滚动指标行
-#   - 无 timestamp 列的处理
-
-
 import pytest
-
 import pandas as pd
+import numpy as np
+from rich.table import Table
 
+from ginkgo.trading.analysis.metrics.base import DataProvider
 from ginkgo.trading.analysis.reports.rolling import RollingReport
-from ginkgo.trading.analysis.metrics.base import MetricRegistry, DataProvider
 
 
 # ============================================================
-# 兼容指标 — 替代已删除的 portfolio/signal/order/position 指标
+# Helpers
 # ============================================================
 
-class AnnualizedReturn:
-    name = "annualized_return"
-    requires = ["net_value"]
-    params = {}
-
-    def compute(self, data):
-        df = data["net_value"]
-        v = df["value"]
-        if len(v) < 2:
-            return 0.0
-        total = v.iloc[-1] / v.iloc[0] - 1
-        return float(total * 252 / max(len(v) - 1, 1))
-
-
-class Volatility:
-    name = "volatility"
-    requires = ["net_value"]
-    params = {}
-
-    def compute(self, data):
-        df = data["net_value"]
-        v = df["value"]
-        returns = v.pct_change().dropna()
-        return float(returns.std() * (252 ** 0.5)) if len(returns) > 0 else 0.0
-
-
-# ============================================================
-# 辅助函数
-# ============================================================
-
-def _make_net_value_with_timestamp(days: int = 120) -> pd.DataFrame:
-    """创建带有 timestamp 列的 net_value DataFrame
-
-    生成 120 天的净值数据，用于滚动窗口测试。
-    """
-    dates = pd.date_range(start="2024-01-01", periods=days, freq="D")
-    import numpy as np
-    np.random.seed(42)
-    values = 100 * (1 + np.random.randn(days).cumsum() * 0.005)
+def _make_df(values, start="2024-01-01"):
+    dates = pd.date_range(start, periods=len(values), freq="D")
     return pd.DataFrame({"timestamp": dates, "value": values})
 
 
-# ============================================================
-# 1. 构造与基础属性
-# ============================================================
-
-class TestRollingConstruction:
-    """RollingReport 构造测试"""
-
-    def test_rolling_stores_run_id(self):
-        """run_id 应被正确存储"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp)
-        assert rr.run_id == "roll_test"
-
-    def test_rolling_default_window(self):
-        """默认窗口大小应为 60"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp)
-        assert rr.window == 60
-
-    def test_rolling_custom_window(self):
-        """应支持自定义窗口大小"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp())
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=30)
-        assert rr.window == 30
+def _make_dp(*data_pairs):
+    dp = DataProvider()
+    for name, df in data_pairs:
+        dp.add(name, df)
+    return dp
 
 
 # ============================================================
-# 2. to_dict() 输出
+# Construction
 # ============================================================
 
-class TestRollingToDict:
-    """to_dict() 滚动窗口输出测试"""
+class TestConstruction:
+    def test_empty_data_raises(self):
+        with pytest.raises(ValueError, match="无任何可用数据"):
+            RollingReport(run_id="test", data=DataProvider())
 
-    def test_to_dict_keys_are_dates(self):
-        """to_dict 的 key 应为窗口起始日期"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        d = rr.to_dict()
-        # 120 天, window=60, step=1 → 61 个滑动窗口
-        assert len(d) > 0
-        for key in d:
-            assert isinstance(key, str)
+    def test_data_shorter_than_window(self):
+        dp = _make_dp(("net_value", _make_df(list(range(10)))))
+        report = RollingReport(run_id="test", data=dp, window=60)
+        assert report.to_dict() == {}
 
-    def test_to_dict_each_window_has_metrics(self):
-        """每个窗口应包含 summary 指标"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        reg.register(Volatility)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        d = rr.to_dict()
-        for window_label, metrics in d.items():
-            assert "annualized_return" in metrics
-            assert "volatility" in metrics
+    def test_accepts_analyzers_filter(self):
+        dp = _make_dp(
+            ("net_value", _make_df(list(range(120)))),
+            ("sharpe", _make_df([0.5] * 120)),
+        )
+        report = RollingReport(run_id="test", data=dp, window=60, analyzers=["net_value"])
+        d = report.to_dict()
+        for date_metrics in d.values():
+            assert "net_value" in date_metrics
+            assert "sharpe" not in date_metrics
 
-    def test_to_dict_window_count(self):
-        """滑动窗口(step=1)数量应为 total_len - window + 1"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        d = rr.to_dict()
-        # 120 天, window=60, step=1 → 61 个窗口
+    def test_analyzers_none_processes_all(self):
+        dp = _make_dp(
+            ("net_value", _make_df(list(range(120)))),
+            ("sharpe", _make_df([0.5] * 120)),
+        )
+        report = RollingReport(run_id="test", data=dp, window=60, analyzers=None)
+        d = report.to_dict()
+        for date_metrics in d.values():
+            assert "net_value" in date_metrics
+            assert "sharpe" in date_metrics
+
+    def test_missing_analyzer_skipped(self):
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60, analyzers=["nonexistent"])
+        assert report.to_dict() == {}
+
+    def test_no_timestamp_skipped(self):
+        dp = DataProvider()
+        dp.add("bad", pd.DataFrame({"value": [1.0, 2.0, 3.0]}))
+        report = RollingReport(run_id="test", data=dp, window=2)
+        assert report.to_dict() == {}
+
+
+# ============================================================
+# Window computation
+# ============================================================
+
+class TestWindowComputation:
+    def test_sliding_window_count(self):
+        """120 data points, window=60, step=1 -> 61 windows."""
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60, step=1)
+        d = report.to_dict()
         assert len(d) == 61
 
-    def test_to_dict_tumbling_window_count(self):
-        """设置 step=window 退化为滚动窗口"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=60)
-        d = rr.to_dict()
-        # 120 天, window=60, step=60 → 2 个非重叠窗口
+    def test_tumbling_window_count(self):
+        """120 data points, window=60, step=60 -> 2 windows."""
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60, step=60)
+        d = report.to_dict()
         assert len(d) == 2
 
-    def test_step_parameter_stored(self):
-        """step 参数应被正确存储"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=5)
-        assert rr.step == 5
+    def test_window_stats_structure(self):
+        dp = _make_dp(("net_value", _make_df(list(range(100)))))
+        report = RollingReport(run_id="test", data=dp, window=10)
+        d = report.to_dict()
+        first_key = list(d.keys())[0]
+        stats = d[first_key]["net_value"]
+        assert set(stats.keys()) == {"mean", "std", "min", "max", "final"}
+        assert isinstance(stats["mean"], float)
+
+    def test_window_values_correct(self):
+        """First window of [0,1,...,9] should have final=9, min=0, max=9."""
+        dp = _make_dp(("net_value", _make_df(list(range(100)))))
+        report = RollingReport(run_id="test", data=dp, window=10, step=1)
+        d = report.to_dict()
+        first_key = list(d.keys())[0]
+        stats = d[first_key]["net_value"]
+        assert stats["min"] == 0.0
+        assert stats["max"] == 9.0
+        assert stats["final"] == 9.0
 
 
 # ============================================================
-# 3. to_dataframe() 输出
+# to_dataframe
 # ============================================================
 
-class TestRollingToDataFrame:
-    """to_dataframe() DataFrame 输出测试"""
+class TestToDataFrame:
+    def test_index_is_window_start(self):
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60)
+        df = report.to_dataframe()
+        assert df.index.name == "window_start"
+        assert not df.empty
 
-    def test_to_dataframe_returns_dataframe(self):
-        """to_dataframe 应返回 DataFrame"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        df = rr.to_dataframe()
-        assert isinstance(df, pd.DataFrame)
-
-    def test_to_dataframe_index_is_window_dates(self):
-        """DataFrame 的 index 应为窗口起始日期"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60, step=60)
-        df = rr.to_dataframe()
-        assert len(df) == 2
-
-    def test_to_dataframe_empty_with_short_data(self):
-        """数据长度小于窗口时应返回空 DataFrame"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(30))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        df = rr.to_dataframe()
-        assert df.empty
+    def test_columns_are_analyzer_stat(self):
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60)
+        df = report.to_dataframe()
+        assert "net_value.mean" in df.columns
+        assert "net_value.std" in df.columns
+        assert "net_value.final" in df.columns
 
 
 # ============================================================
-# 4. to_rich() 输出
+# to_rich
 # ============================================================
 
-class TestRollingToRich:
-    """to_rich() Rich Table 输出测试"""
-
-    def test_to_rich_returns_table(self):
-        """to_rich 应返回 rich.table.Table 实例"""
-        from rich.table import Table
-
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=_make_net_value_with_timestamp(120))
-        rr = RollingReport(run_id="roll_test", registry=reg, data=dp, window=60)
-        table = rr.to_rich()
+class TestToRich:
+    def test_returns_rich_table(self):
+        dp = _make_dp(("net_value", _make_df(list(range(120)))))
+        report = RollingReport(run_id="test", data=dp, window=60)
+        table = report.to_rich()
         assert isinstance(table, Table)
 
-
-# ============================================================
-# 5. 无 timestamp 列的处理
-# ============================================================
-
-class TestRollingNoTimestamp:
-    """无 timestamp 列时的处理"""
-
-    def test_no_timestamp_raises_error(self):
-        """net_value 没有 timestamp 列时应抛出 ValueError"""
-        reg = MetricRegistry()
-        reg.register(AnnualizedReturn)
-        dp = DataProvider(net_value=pd.DataFrame({"value": [100, 105, 110]}))
-        with pytest.raises(ValueError, match="timestamp"):
-            RollingReport(run_id="roll_test", registry=reg, data=dp, window=30)
+    def test_empty_data_returns_table_with_message(self):
+        dp = _make_dp(("net_value", _make_df(list(range(10)))))
+        report = RollingReport(run_id="test", data=dp, window=60)
+        table = report.to_rich()
+        assert isinstance(table, Table)
