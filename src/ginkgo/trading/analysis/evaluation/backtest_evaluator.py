@@ -166,12 +166,14 @@ class BacktestEvaluator:
         
         baseline_stats = monitoring_baseline.get('baseline_stats', {})
         slice_period = monitoring_baseline.get('slice_period_days', 30)
-        
+        daily_curves = monitoring_baseline.get('daily_curves', {})
+
         monitor = LiveDeviationDetector(
             baseline_stats=baseline_stats,
             slice_period_days=slice_period,
             confidence_levels=confidence_levels
         )
+        monitor._daily_curves = daily_curves
         
         GLOG.info(f"实盘监控器创建完成，切片周期: {slice_period}天")
         return monitor

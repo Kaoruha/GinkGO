@@ -56,6 +56,9 @@ class LiveDeviationDetector:
         
         # 历史偏离记录
         self.deviation_history = []
+
+        # 每日曲线数据（用于点时对比）
+        self._daily_curves: Dict[str, Dict[int, List[float]]] = {}
         
     def accumulate_live_data(self, 
                            analyzer_records: List[Dict] = None,
@@ -151,6 +154,66 @@ class LiveDeviationDetector:
             'metrics': current_metrics,
             'deviations': deviation_results,
             'slice_period': self.slice_period_days
+        }
+
+    def check_point_in_time(self, day_index: int, current_metrics: Dict[str, float]) -> Dict:
+        """
+        点时偏差检测：比较当前天的指标与回测同日分布
+
+        Args:
+            day_index: 当前切片内的天数（从 1 开始）
+            current_metrics: 当前指标值，如 {"net_value": 1.05, "profit": 0.03}
+
+        Returns:
+            Dict: 偏差结果
+        """
+        if not self._daily_curves:
+            return {"status": "no_data"}
+
+        if not current_metrics:
+            return {"status": "no_data"}
+
+        deviation_results = {}
+        overall_level = "NORMAL"
+
+        for metric_name, current_value in current_metrics.items():
+            if metric_name not in self._daily_curves:
+                continue
+
+            day_map = self._daily_curves[metric_name]
+            if day_index not in day_map:
+                continue
+
+            ref_values = day_map[day_index]
+            if not ref_values:
+                continue
+
+            ref_mean = np.mean(ref_values)
+            ref_std = np.std(ref_values, ddof=1) if len(ref_values) > 1 else 0
+
+            if ref_std == 0:
+                continue
+
+            deviation_info = self._calculate_metric_deviation(
+                metric_name, current_value,
+                {"mean": ref_mean, "std": ref_std, "values": ref_values}
+            )
+            deviation_results[metric_name] = deviation_info
+
+            if deviation_info["level"] == "SEVERE":
+                overall_level = "SEVERE"
+            elif deviation_info["level"] == "MODERATE" and overall_level == "NORMAL":
+                overall_level = "MODERATE"
+
+        if not deviation_results:
+            return {"status": "no_data"}
+
+        return {
+            "status": "completed",
+            "overall_level": overall_level,
+            "metrics": current_metrics,
+            "deviations": deviation_results,
+            "day_index": day_index,
         }
         
     def _calculate_slice_metrics(self, slice_data: Dict) -> Dict:
