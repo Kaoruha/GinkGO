@@ -116,7 +116,7 @@ class BacktestEvaluator:
             
             # 7. 生成基准数据
             GLOG.info("步骤6: 生成监控基准")
-            monitoring_baseline = self._create_monitoring_baseline(slice_metrics, optimal_period)
+            monitoring_baseline = self._create_monitoring_baseline(slice_metrics, optimal_period, balanced_slices)
             
             # 8. 生成综合评估报告
             evaluation_result = {
@@ -282,21 +282,23 @@ class BacktestEvaluator:
             'cross_metric_comparison': comparison_result
         }
         
-    def _create_monitoring_baseline(self, 
+    def _create_monitoring_baseline(self,
                                   slice_metrics: Dict[str, List[float]],
-                                  slice_period_days: int) -> Dict:
+                                  slice_period_days: int,
+                                  slices: List[Dict] = None) -> Dict:
         """
         创建监控基准数据
-        
+
         Args:
             slice_metrics: 切片指标数据
             slice_period_days: 切片周期
-            
+            slices: 原始切片数据，用于提取每日曲线
+
         Returns:
             Dict: 监控基准数据
         """
         baseline_stats = {}
-        
+
         for metric_name, values in slice_metrics.items():
             if values:
                 baseline_stats[metric_name] = {
@@ -308,13 +310,65 @@ class BacktestEvaluator:
                     'max': max(values),
                     'count': len(values)
                 }
-                
-        return {
+
+        result = {
             'slice_period_days': slice_period_days,
             'baseline_stats': baseline_stats,
             'creation_time': clock_now().isoformat(),
             'total_slices': len(next(iter(slice_metrics.values()))) if slice_metrics else 0
         }
+
+        if slices is not None:
+            daily_curves = self._extract_daily_curves(slices)
+            result['daily_curves'] = daily_curves
+
+        return result
+
+    def _extract_daily_curves(self, slices: List[Dict]) -> Dict[str, Dict[int, List[float]]]:
+        """
+        从切片中提取每日曲线数据
+
+        Args:
+            slices: 切片列表，每个切片包含 analyzer_data DataFrame
+
+        Returns:
+            Dict[str, Dict[int, List[float]]]: 按指标名和天数索引的每日值
+            例如 {"net_value": {1: [1.00, 1.10], 2: [1.01, 1.11], ...}}
+        """
+        if not slices:
+            return {}
+
+        daily_curves: Dict[str, Dict[int, List[float]]] = {}
+
+        for slice_data in slices:
+            analyzer_data = slice_data.get('analyzer_data', pd.DataFrame())
+            if analyzer_data.empty:
+                continue
+
+            if 'timestamp' not in analyzer_data.columns:
+                continue
+
+            # Find the slice start timestamp
+            slice_start = analyzer_data['timestamp'].min()
+
+            # Group records by metric name
+            for metric_name, group in analyzer_data.groupby('name'):
+                if metric_name not in daily_curves:
+                    daily_curves[metric_name] = {}
+
+                # Sort by timestamp to ensure correct day ordering
+                group = group.sort_values('timestamp')
+
+                for _, row in group.iterrows():
+                    ts = row['timestamp']
+                    day_offset = (ts - slice_start).days + 1  # 1-indexed
+
+                    if day_offset not in daily_curves[metric_name]:
+                        daily_curves[metric_name][day_offset] = []
+
+                    daily_curves[metric_name][day_offset].append(float(row['value']))
+
+        return daily_curves
         
     def _get_time_span(self, backtest_data: Dict[str, pd.DataFrame]) -> Dict:
         """
