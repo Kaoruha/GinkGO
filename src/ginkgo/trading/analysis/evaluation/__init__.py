@@ -15,6 +15,7 @@ It includes slice analysis, stability metrics calculation, and deviation detecti
 """
 
 from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
+from ginkgo.trading.analysis.evaluation.deviation_checker import DeviationChecker
 from ginkgo.trading.analysis.evaluation.slice_period_optimizer import SlicePeriodOptimizer
 from ginkgo.trading.analysis.evaluation.live_deviation_detector import LiveDeviationDetector
 from ginkgo.trading.analysis.evaluation.metric_stability_calculator import MetricStabilityCalculator
@@ -22,8 +23,9 @@ from ginkgo.trading.analysis.evaluation.slice_data_manager import SliceDataManag
 
 __all__ = [
     "BacktestEvaluator",
-    "SlicePeriodOptimizer", 
+    "DeviationChecker",
+    "SlicePeriodOptimizer",
     "LiveDeviationDetector",
     "MetricStabilityCalculator",
-    "SliceDataManager"
+    "SliceDataManager",
 ]
