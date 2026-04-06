@@ -89,11 +89,12 @@ livecore/scheduler/
 
 **每日收盘检查：**
 - `DeviationScheduler` 使用 APScheduler 注册定时任务
-- 收盘后（A股 15:05）调用 `DeviationChecker.run_deviation_check()`
+- 检查时间可配置（通过 `deviation:config:{id}` 的 `check_time` 字段，默认 `"20:30"`），不硬编码市场收盘时间
 - 遍历所有 `status=active` 的 LIVE portfolio
 
 **异常触发：**
-- 当单日 P&L 跌幅超过阈值（默认 -5%）时立即触发
+- 从 portfolio 实时 worth 与 initial_capital 计算当日 P&L
+- 当单日 P&L 跌幅超过阈值（默认 -5%）时立即触发偏差检查
 - 阈值通过 `deviation:config:{id}` Redis key 配置
 - 异常触发仅在交易时段（09:30-15:00）生效
 
@@ -193,11 +194,10 @@ POST /api/portfolios/{id}/online
   "portfolio_id": "uuid",
   "mode": "paper | live",
   "severity": "MODERATE | SEVERE",
-  "deviation_details": {
-    "metric": "sharpe_ratio",
-    "z_score": 2.3,
-    "threshold": 2.0
-  },
+  "deviation_details": [
+    { "metric": "sharpe_ratio", "z_score": 2.3, "threshold": 2.0 },
+    { "metric": "max_drawdown", "z_score": 1.8, "threshold": 2.0 }
+  ],
   "timestamp": "2026-04-06T15:05:00+08:00"
 }
 ```
