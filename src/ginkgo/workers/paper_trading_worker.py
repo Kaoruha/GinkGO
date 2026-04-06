@@ -286,18 +286,31 @@ class PaperTradingWorker:
         return self.deviation_checker.get_deviation_config(portfolio_id)
 
     def _run_deviation_check(self) -> None:
-        """遍历所有 portfolio 执行偏差检测"""
+        """遍历所有 portfolio 执行偏差检测（点时 + 切片完成）"""
         if not self.deviation_checker._detectors:
             return
 
         for portfolio in self._engine.portfolios:
             try:
                 records = self._load_today_records(portfolio.portfolio_id)
+
+                # Mode A: 每日点时对比
+                try:
+                    day_index = self._get_day_index(portfolio)
+                    current_metrics = self._extract_current_metrics(records)
+                    if day_index and current_metrics:
+                        self.deviation_checker.run_daily_point_check(
+                            portfolio.portfolio_id, day_index, current_metrics
+                        )
+                except Exception as e:
+                    GLOG.ERROR(f"[PAPER-WORKER] Daily point check error: {e}")
+
+                # Mode B: 切片完成深度对比
                 result = self.deviation_checker.run_deviation_check(
                     portfolio.portfolio_id, records
                 )
                 if result:
-                    config = self._get_deviation_config(portfolio.portfolio_id)
+                    config = self._get_deviation_config(portfolio_id)
                     self.deviation_checker.handle_deviation_result(
                         portfolio.portfolio_id, result,
                         auto_takedown=config.get("auto_takedown", False),
@@ -308,6 +321,26 @@ class PaperTradingWorker:
                     f"{portfolio.portfolio_id[:8]}: {e}"
                 )
 
+    def _get_day_index(self, portfolio) -> Optional[int]:
+        """计算当前 portfolio 在切片周期内的天数"""
+        try:
+            detector = self.deviation_checker._detectors.get(portfolio.portfolio_id)
+            if not detector or not detector.current_slice_data.get("start_date"):
+                return None
+            start = detector.current_slice_data["start_date"]
+            now = datetime.now()
+            return (now - start).days + 1
+        except Exception:
+            return None
+
+    def _extract_current_metrics(self, records: Dict) -> Dict[str, float]:
+        """从当日记录中提取最新指标值"""
+        metrics = {}
+        for record in records.get("analyzers", []):
+            name = record.get("name", "")
+            value = record.get("value", 0)
+            metrics[name] = float(value)
+        return metrics
     def _load_today_records(self, portfolio_id: str) -> Dict:
         """查询当日 analyzer/signal/order records（ClickHouse, run_id="paper"）"""
         from ginkgo import services
@@ -333,8 +366,37 @@ class PaperTradingWorker:
         except Exception as e:
             GLOG.DEBUG(f"[PAPER-WORKER] Failed to load analyzer records: {e}")
 
-        return records
+        # 补充 signal 记录
+        try:
+            signal_crud = services.data.cruds.signal()
+            signal_records = signal_crud.find(filters={"portfolio_id": portfolio_id})
+            for r in (signal_records or []):
+                ts = str(getattr(r, 'timestamp', ''))[:10]
+                if ts == today:
+                    records["signals"].append({
+                        "code": getattr(r, 'code', ''),
+                        "direction": getattr(r, 'direction', 0),
+                        "volume": getattr(r, 'volume', 0),
+                    })
+        except Exception as e:
+            GLOG.DEBUG(f"[PAPER-WORKER] Failed to load signal records: {e}")
 
+        # 补充 order 记录
+        try:
+            order_crud = services.data.cruds.order_record()
+            order_records = order_crud.find(filters={"portfolio_id": portfolio_id})
+            for r in (order_records or []):
+                ts = str(getattr(r, 'timestamp', ''))[:10]
+                if ts == today:
+                    records["orders"].append({
+                        "code": getattr(r, 'code', ''),
+                        "volume": getattr(r, 'volume', 0),
+                        "price": float(getattr(r, 'transaction_price', 0)),
+                    })
+        except Exception as e:
+            GLOG.DEBUG(f"[PAPER-WORKER] Failed to load order records: {e}")
+
+        return records
     def _handle_deviation_result(self, portfolio, result: Dict) -> None:
         """处理偏差检测结果：告警 + 可选自动下线"""
         level = result.get("overall_level", "NORMAL")

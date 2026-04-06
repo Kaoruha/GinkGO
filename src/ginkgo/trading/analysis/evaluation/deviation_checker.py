@@ -120,6 +120,36 @@ class DeviationChecker:
 
         return None
 
+    def run_daily_point_check(self, portfolio_id: str, day_index: int,
+                               current_metrics: Dict[str, float]) -> Optional[Dict]:
+        """
+        每日点时偏差检测（不依赖切片完成）
+
+        Args:
+            portfolio_id: 组合ID
+            day_index: 当前切片内的天数（从 1 开始）
+            current_metrics: 当前指标值
+
+        Returns:
+            检测结果或 None
+        """
+        detector = self._detectors.get(portfolio_id)
+        if not detector:
+            return None
+
+        try:
+            result = detector.check_point_in_time(day_index, current_metrics)
+            if result and result.get("status") == "completed":
+                config = self.get_deviation_config(portfolio_id)
+                self.handle_deviation_result(
+                    portfolio_id, result,
+                    auto_takedown=config.get("auto_takedown", False),
+                )
+            return result
+        except Exception as e:
+            GLOG.ERROR(f"[DEV-CHECKER] Daily point check error for {portfolio_id[:8]}: {e}")
+            return None
+
     def handle_deviation_result(self, portfolio_id: str, result: Dict, auto_takedown: bool = False) -> None:
         """Handle deviation result: alert + optional auto takedown."""
         level = result.get("overall_level", "NORMAL")
