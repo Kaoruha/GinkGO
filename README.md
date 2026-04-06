@@ -12,6 +12,7 @@ Ginkgo is a comprehensive quantitative trading framework featuring event-driven 
 - 📊 **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX integration
 - ⚡ **High-Performance Architecture**: Dependency injection, lazy loading, caching optimization
 - 🛡️ **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
+- 📈 **Deviation Detection**: Live/paper trading vs backtest baseline comparison with daily point-in-time checks
 - 🔧 **Rich CLI Interface**: Beautiful terminal UI with comprehensive management commands
 - 🧠 **ML Integration**: Machine learning strategies and factor engineering support
 
@@ -25,6 +26,7 @@ Core Components:
 ├── Strategy Layer    # Trading strategies with risk control
 ├── Execution Layer   # Order matching and portfolio management
 ├── Analysis Layer    # Performance analysis and visualization
+├── Monitoring Layer  # Deviation detection, alerting, auto-takedown
 └── Service Layer     # Dependency injection and global utilities
 ```
 
@@ -58,6 +60,35 @@ Core Components:
 - `reset_time()`: Reset time state for testing/restarting
 
 This design ensures clean separation between **data time** (when something happened) and **processing time** (current system state), critical for accurate backtesting.
+
+### 📈 Deviation Detection Architecture
+
+**Design Goal**: Detect when live/paper trading performance deviates from backtest baseline.
+
+**Dual-Mode Detection (Mode C)**:
+- **Daily Point-in-Time**: Compare live day-N metrics against backtest day-N distribution using z-scores — lightweight, runs every day
+- **Slice-Complete Check**: Full slice comparison when a monitoring period ends — deep analysis
+
+**Data Flow**:
+```
+BacktestEvaluator.evaluate_backtest_stability()
+  → extracts daily_curves from slices  →  monitoring_baseline (with daily_curves)
+
+PaperTradingWorker (daily loop)
+  → loads today's analyzer/signal/order records
+  → run_daily_point_check(day_index, metrics)
+    → DeviationChecker → LiveDeviationDetector.check_point_in_time()
+      → z-score against daily curve distribution
+      → NORMAL / MODERATE / SEVERE
+      → auto-takedown on SEVERE (if configured)
+      → alert to Kafka SYSTEM_EVENTS topic
+```
+
+**Key Components**:
+- `BacktestEvaluator` — orchestrates backtest evaluation, extracts daily curves per metric/day
+- `LiveDeviationDetector` — z-score based deviation detection against baseline
+- `DeviationChecker` — shared logic for Paper/Live modes (alerting, takedown)
+- `PaperTradingWorker` — daily loop that runs point-in-time + slice-complete checks
 
 ## 🚀 Quick Start
 
