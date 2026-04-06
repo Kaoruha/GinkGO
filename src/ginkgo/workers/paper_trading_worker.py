@@ -16,11 +16,12 @@ PaperTradingWorker — A股日级纸上交易长驻进程
 import threading
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from ginkgo.enums import (
     EXECUTION_MODE,
     PORTFOLIO_MODE_TYPES,
+    PORTFOLIO_RUNSTATE_TYPES,
     MARKET_TYPES,
     FREQUENCY_TYPES,
 )
@@ -61,6 +62,20 @@ class PaperTradingWorker:
         self._producer = None
         self._running = False
         self._lock = threading.Lock()
+        self._deviation_detectors: Dict[str, object] = {}  # portfolio_id → LiveDeviationDetector
+        self._deviation_checker = None
+
+    @property
+    def deviation_checker(self):
+        """Lazy-init DeviationChecker to avoid triggering evaluation module imports at load time."""
+        if self._deviation_checker is None:
+            from ginkgo.trading.analysis.evaluation.deviation_checker import DeviationChecker
+            self._deviation_checker = DeviationChecker(
+                producer=self._producer,
+                source=f"paper-trading-{self.worker_id}",
+                takedown_callback=lambda pid: self._handle_unload({"portfolio_id": pid}),
+            )
+        return self._deviation_checker
 
     @property
     def is_running(self) -> bool:
@@ -156,8 +171,66 @@ class PaperTradingWorker:
                     f"{portfolio.code}: {e}"
                 )
 
-        # 8. 启动引擎
+        # 8. 固定 run_id（模拟盘唯一确定性标识）
+        engine.set_run_id("paper")
+
+        # 9. 启动引擎
         engine.start()
+
+        # 9. 恢复状态 / 首次初始化
+        portfolio_service = container.portfolio_service()
+        for portfolio in engine.portfolios:
+            try:
+                state_result = portfolio_service.load_persisted_state(portfolio.portfolio_id)
+                if state_result.is_success() and state_result.data.get("has_state", False):
+                    portfolio.restore_state(state_result.data)
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] Restored state for portfolio "
+                        f"{portfolio.code}: cash={state_result.data['cash']}"
+                    )
+                else:
+                    # 首次运行，从 initial_capital 开始
+                    db_rec = next(
+                        (p for p in db_portfolios if p.uuid == portfolio.portfolio_id), None
+                    )
+                    init_capital = float(db_rec.initial_capital) if db_rec else 100000.0
+                    portfolio.add_cash(init_capital)
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] First run for portfolio "
+                        f"{portfolio.code}: initial_capital={init_capital}"
+                    )
+            except Exception as e:
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] State restore failed for "
+                    f"{portfolio.portfolio_id}: {e}"
+                )
+
+        # 10. 初始化偏差检测器
+        self._deviation_detectors = {}
+        for portfolio in engine.portfolios:
+            try:
+                baseline = self._get_baseline(portfolio.portfolio_id)
+                if baseline:
+                    from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
+                    evaluator = BacktestEvaluator()
+                    config = self._get_deviation_config(portfolio.portfolio_id)
+                    confidence_levels = config.get("confidence_levels", [0.68, 0.95, 0.99])
+                    detector = evaluator.create_live_monitor(baseline, confidence_levels)
+                    self._deviation_detectors[portfolio.portfolio_id] = detector
+                    self.deviation_checker.set_detector(portfolio.portfolio_id, detector)
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] Deviation detector initialized for {portfolio.code}"
+                    )
+                else:
+                    GLOG.WARN(
+                        f"[PAPER-WORKER] No baseline for {portfolio.portfolio_id[:8]}, "
+                        f"deviation check disabled"
+                    )
+            except Exception as e:
+                GLOG.WARN(
+                    f"[PAPER-WORKER] Failed to init deviation detector for "
+                    f"{portfolio.portfolio_id[:8]}: {e}"
+                )
 
         self._engine = engine
         GLOG.INFO(
@@ -196,6 +269,8 @@ class PaperTradingWorker:
 
         codes = []
         for portfolio in self._engine.portfolios:
+            if portfolio.state == PORTFOLIO_RUNSTATE_TYPES.OFFLINE:
+                continue
             if hasattr(portfolio, "_selectors"):
                 for selector in portfolio._selectors:
                     if hasattr(selector, "_interested"):
@@ -203,6 +278,158 @@ class PaperTradingWorker:
 
         # 去重
         return list(set(codes))
+
+    def _get_baseline(self, portfolio_id: str) -> Optional[dict]:
+        return self.deviation_checker.get_baseline(portfolio_id)
+
+    def _get_deviation_config(self, portfolio_id: str) -> dict:
+        return self.deviation_checker.get_deviation_config(portfolio_id)
+
+    def _run_deviation_check(self) -> None:
+        """遍历所有 portfolio 执行偏差检测"""
+        if not self.deviation_checker._detectors:
+            return
+
+        for portfolio in self._engine.portfolios:
+            try:
+                records = self._load_today_records(portfolio.portfolio_id)
+                result = self.deviation_checker.run_deviation_check(
+                    portfolio.portfolio_id, records
+                )
+                if result:
+                    config = self._get_deviation_config(portfolio.portfolio_id)
+                    self.deviation_checker.handle_deviation_result(
+                        portfolio.portfolio_id, result,
+                        auto_takedown=config.get("auto_takedown", False),
+                    )
+            except Exception as e:
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Deviation check error for "
+                    f"{portfolio.portfolio_id[:8]}: {e}"
+                )
+
+    def _load_today_records(self, portfolio_id: str) -> Dict:
+        """查询当日 analyzer/signal/order records（ClickHouse, run_id="paper"）"""
+        from ginkgo import services
+        from datetime import datetime
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        records = {"analyzers": [], "signals": [], "orders": []}
+
+        try:
+            analyzer_service = services.data.services.analyzer_service()
+            result = analyzer_service.get_by_run_id(
+                run_id="paper",
+                portfolio_id=portfolio_id,
+            )
+            if result.is_success() and result.data:
+                for r in result.data:
+                    ts = str(getattr(r, 'timestamp', ''))[:10]
+                    if ts == today:
+                        records["analyzers"].append({
+                            "name": getattr(r, 'name', ''),
+                            "value": float(getattr(r, 'value', 0)),
+                        })
+        except Exception as e:
+            GLOG.DEBUG(f"[PAPER-WORKER] Failed to load analyzer records: {e}")
+
+        return records
+
+    def _handle_deviation_result(self, portfolio, result: Dict) -> None:
+        """处理偏差检测结果：告警 + 可选自动下线"""
+        level = result.get("overall_level", "NORMAL")
+
+        if level == "NORMAL":
+            GLOG.DEBUG(
+                f"[PAPER-WORKER] {portfolio.code}: deviation NORMAL"
+            )
+            return
+
+        deviations = result.get("deviations", {})
+        severity_metrics = [
+            f"{k} (z={v['z_score']:.1f})"
+            for k, v in deviations.items()
+            if v.get("level") != "NORMAL"
+        ]
+
+        if level == "MODERATE":
+            GLOG.WARN(
+                f"[PAPER-WORKER] {portfolio.code}: MODERATE deviation - "
+                f"{', '.join(severity_metrics)}"
+            )
+        elif level == "SEVERE":
+            GLOG.ERROR(
+                f"[PAPER-WORKER] {portfolio.code}: SEVERE deviation - "
+                f"{', '.join(severity_metrics)}"
+            )
+
+        # 发送通知
+        self._send_deviation_alert(portfolio, level, result)
+
+        # SEVERE + auto_takedown → 卸载
+        if level == "SEVERE":
+            config = self._get_deviation_config(portfolio.portfolio_id)
+            if config.get("auto_takedown", False):
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Auto-takedown triggered for "
+                    f"{portfolio.portfolio_id[:8]}"
+                )
+                self._handle_unload({"portfolio_id": portfolio.portfolio_id})
+
+    def _send_deviation_alert(self, portfolio, level: str, result: Dict) -> None:
+        """发送偏差告警到 Kafka SYSTEM_EVENTS"""
+        if not self._producer:
+            return
+
+        deviations = result.get("deviations", {})
+        severity_metrics = {
+            k: {"level": v.get("level"), "z_score": v.get("z_score", 0)}
+            for k, v in deviations.items()
+            if v.get("level") != "NORMAL"
+        }
+
+        try:
+            self._producer.send(
+                KafkaTopics.SYSTEM_EVENTS,
+                {
+                    "source": f"paper-trading-{self.worker_id}",
+                    "type": "deviation_alert",
+                    "level": level,
+                    "portfolio_id": portfolio.portfolio_id,
+                    "portfolio_code": portfolio.code,
+                    "metrics": severity_metrics,
+                    "risk_score": result.get("risk_score", 0),
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+        except Exception as e:
+            GLOG.ERROR(f"[PAPER-WORKER] Failed to send deviation alert: {e}")
+
+    def _persist_all_portfolios(self) -> None:
+        """遍历所有 portfolio 执行 snapshot → persist"""
+        if not self._engine:
+            return
+
+        from ginkgo import services
+
+        portfolio_service = services.data.container.portfolio_service()
+        for portfolio in self._engine.portfolios:
+            try:
+                state = portfolio.snapshot_state()
+                result = portfolio_service.persist_portfolio_state(portfolio.portfolio_id, state)
+                if result.is_success():
+                    GLOG.DEBUG(
+                        f"[PAPER-WORKER] Persisted state for {portfolio.code}"
+                    )
+                else:
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] Persist failed for {portfolio.code}: "
+                        f"{result.error_message}"
+                    )
+            except Exception as e:
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Error persisting {portfolio.code}: {e}"
+                )
 
     def run_daily_cycle(self) -> DailyCycleResult:
         """
@@ -238,13 +465,26 @@ class PaperTradingWorker:
             GLOG.INFO(f"[PAPER-WORKER] {today.date()} is not a trading day, skipping")
             return DailyCycleResult(skipped=True, advanced=False)
 
-        # 2. 收集 interested codes
+        # 2. 过滤 OFFLINE portfolio
+        active_portfolios = [
+            p for p in self._engine.portfolios
+            if p.state != PORTFOLIO_RUNSTATE_TYPES.OFFLINE
+        ]
+        if not active_portfolios:
+            GLOG.DEBUG("[PAPER-WORKER] All portfolios offline, skipping daily cycle")
+            return DailyCycleResult(skipped=True, advanced=False)
+
+        for p in self._engine.portfolios:
+            if p.state == PORTFOLIO_RUNSTATE_TYPES.OFFLINE:
+                GLOG.DEBUG(f"[PAPER-WORKER] Skipping offline portfolio {p.portfolio_id[:8]}")
+
+        # 3. 收集 interested codes
         codes = self._get_interested_codes()
         if not codes:
             GLOG.WARN("[PAPER-WORKER] No interested codes, skipping daily cycle")
             return DailyCycleResult(skipped=True, advanced=False)
 
-        # 3. 同步拉取当日数据
+        # 4. 同步拉取当日数据
         try:
             bar_service = services.data.services.bar_service()
             sync_result = bar_service.sync_range_batch(
@@ -272,7 +512,7 @@ class PaperTradingWorker:
             GLOG.ERROR(f"[PAPER-WORKER] Data sync error: {e}")
             # 同步失败仍尝试推进引擎
 
-        # 4. 推进引擎到下一个交易日
+        # 5. 推进引擎到下一个交易日
         try:
             next_day = trade_day_crud.get_next_trading_day(today)
             if next_day is None:
@@ -281,6 +521,16 @@ class PaperTradingWorker:
 
             GLOG.INFO(f"[PAPER-WORKER] Advancing engine to {next_day.date()}")
             self._engine.advance_time_to(next_day)
+
+            # 偏差检查
+            try:
+                self._run_deviation_check()
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] Deviation check error: {e}")
+
+            # 持久化所有 portfolio 状态
+            self._persist_all_portfolios()
+
             return DailyCycleResult(skipped=False, advanced=True)
 
         except Exception as e:
@@ -418,9 +668,9 @@ class PaperTradingWorker:
 
     def start(self) -> None:
         """
-        启动 Worker（订阅 Kafka topic）
+        启动 Worker（订阅 Kafka topic，进入消费循环）
 
-        连接 Kafka，开始消费控制命令。
+        连接 Kafka，消费控制命令直到收到停止信号。
         """
         if self._running:
             GLOG.WARN(f"[PAPER-WORKER] {self.worker_id} is already running")
@@ -449,11 +699,90 @@ class PaperTradingWorker:
             f"{KafkaTopics.CONTROL_COMMANDS}"
         )
 
+        # 进入消费循环
+        self._consume_loop()
+
+    def _consume_loop(self) -> None:
+        """
+        Kafka 消费主循环
+
+        持续从 CONTROL_COMMANDS topic 消费消息并分发处理。
+        """
+        while self._running:
+            try:
+                messages = self._consumer.consumer.poll(timeout_ms=2000)
+
+                if not messages:
+                    continue
+
+                for tp, records in messages.items():
+                    for message in records:
+                        if not self._running:
+                            break
+
+                        try:
+                            event_data = message.value
+                            command = event_data.get("command", "")
+                            params = event_data.get("params", {})
+
+                            GLOG.INFO(
+                                f"[PAPER-WORKER] Received command: {command}, "
+                                f"params: {params}"
+                            )
+
+                            success = self._handle_command(command, params)
+
+                            # 发送处理结果
+                            self._send_response(command, success, params)
+
+                            # 成功处理后提交 offset
+                            try:
+                                self._consumer.commit()
+                            except Exception as e:
+                                GLOG.ERROR(
+                                    f"[PAPER-WORKER] Failed to commit offset: {e}"
+                                )
+
+                        except Exception as e:
+                            GLOG.ERROR(
+                                f"[PAPER-WORKER] Error processing message: {e}"
+                            )
+
+            except Exception as e:
+                if self._running:
+                    GLOG.ERROR(f"[PAPER-WORKER] Error in consume loop: {e}")
+
+    def _send_response(self, command: str, success: bool, params: Dict) -> None:
+        """
+        发送命令处理结果到 Kafka
+
+        Args:
+            command: 原始命令
+            success: 是否处理成功
+            params: 原始参数
+        """
+        if not self._producer:
+            return
+
+        try:
+            self._producer.send(
+                KafkaTopics.SYSTEM_EVENTS,
+                {
+                    "source": f"paper-trading-{self.worker_id}",
+                    "command": command,
+                    "success": success,
+                    "params": params,
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+        except Exception as e:
+            GLOG.ERROR(f"[PAPER-WORKER] Failed to send response: {e}")
+
     def stop(self) -> None:
         """
         停止 Worker（优雅关闭）
 
-        关闭 Kafka 连接，停止引擎。
+        设置停止标志，关闭 Kafka 连接，停止引擎。
         """
         if not self._running:
             return
@@ -468,12 +797,20 @@ class PaperTradingWorker:
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error closing consumer: {e}")
 
-        # 关闭 Kafka Producer
+        # 关闭 Kafka Producer（flush 确保消息发出）
         if self._producer:
             try:
+                self._producer.flush()
                 self._producer.close()
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error closing producer: {e}")
+
+        # 停止引擎前持久化所有 portfolio 状态
+        if self._engine:
+            try:
+                self._persist_all_portfolios()
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] Error persisting state on stop: {e}")
 
         # 停止引擎
         if self._engine:

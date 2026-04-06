@@ -292,3 +292,39 @@ class PositionCRUD(BaseCRUD[MPosition]):
             as_dataframe=as_dataframe,
             output_type="model"
         )
+
+    def delete_by_portfolio(self, portfolio_id: str) -> int:
+        """
+        删除指定 portfolio 的所有持仓快照（用于状态持久化时全量替换）
+
+        Args:
+            portfolio_id: 投资组合UUID
+
+        Returns:
+            int: 删除的记录数
+        """
+        try:
+            self.delete(filters={"portfolio_id": portfolio_id})
+            GLOG.DEBUG(f"Deleted all position snapshots for portfolio {portfolio_id[:8]}")
+            return 1
+        except Exception as e:
+            GLOG.ERROR(f"Failed to delete positions for portfolio {portfolio_id[:8]}: {e}")
+            return 0
+
+    def batch_create(self, positions: list) -> int:
+        """
+        批量创建持仓快照（用于状态持久化时全量写入）
+
+        Args:
+            positions: MPosition 模型列表
+
+        Returns:
+            int: 创建的记录数
+        """
+        try:
+            for pos in positions:
+                self.create(pos)
+            return len(positions)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to batch create positions: {e}")
+            return 0

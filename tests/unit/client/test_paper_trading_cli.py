@@ -401,3 +401,187 @@ class TestSendUnloadCommand:
         result = _send_unload_command("portfolio_456")
 
         assert result is False
+
+
+class TestStoreDeploySource:
+    """_store_deploy_source 测试"""
+
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    def test_stores_source_in_redis(self, mock_glog):
+        """应将 source_portfolio_id 存入 Redis"""
+        mock_redis = MagicMock()
+
+        with patch("ginkgo.services") as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+
+            from ginkgo.client.portfolio_cli import _store_deploy_source
+            _store_deploy_source("paper_001", "source_001")
+
+        mock_redis.set.assert_called_once_with("deviation:source:paper_001", "source_001")
+
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    def test_handles_redis_failure_gracefully(self, mock_glog):
+        """Redis 失败时应 WARN 而非抛异常"""
+        mock_redis = MagicMock()
+        mock_redis.set.side_effect = Exception("connection refused")
+
+        with patch("ginkgo.services") as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+
+            from ginkgo.client.portfolio_cli import _store_deploy_source
+            # 不应抛异常
+            _store_deploy_source("paper_001", "source_001")
+
+        mock_glog.WARN.assert_called_once()
+
+
+class TestGenerateBaseline:
+    """_generate_baseline_if_possible 测试"""
+
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    def test_skips_when_no_completed_backtest(self, mock_glog):
+        """无已完成回测时应跳过"""
+        mock_redis = MagicMock()
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = MagicMock(is_success=True, data=[])
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            mock_services.data.backtest_task_service.return_value = mock_task_svc
+
+            from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
+            _generate_baseline_if_possible("paper_001", "source_001")
+
+        mock_glog.WARN.assert_called_once()
+
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    def test_computes_and_caches_baseline(self, mock_glog):
+        """有已完成回测时应调用 backtest_task_service 并尝试缓存"""
+        mock_redis = MagicMock()
+
+        mock_task = MagicMock()
+        mock_task.run_id = "task-001"
+        mock_task.engine_id = "engine-001"
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = MagicMock(
+            is_success=True,
+            data=[mock_task],
+        )
+
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value = mock_redis
+        mock_services.data.backtest_task_service.return_value = mock_task_svc
+
+        with patch("ginkgo.services", mock_services):
+            from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
+            _generate_baseline_if_possible("paper_001", "source_001")
+
+        mock_task_svc.list.assert_called_once()
+        call_kwargs = mock_task_svc.list.call_args[1]
+        assert call_kwargs.get("portfolio_id") == "source_001"
+        assert call_kwargs.get("status") == "completed"
+
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    def test_skips_when_evaluation_fails(self, mock_glog):
+        """baseline 评估失败时应跳过"""
+        mock_redis = MagicMock()
+
+        mock_task = MagicMock()
+        mock_task.run_id = "task-001"
+        mock_task.engine_id = "engine-001"
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = MagicMock(
+            is_success=True,
+            data=[mock_task],
+        )
+
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value = mock_redis
+        mock_services.data.backtest_task_service.return_value = mock_task_svc
+
+        with patch("ginkgo.services", mock_services):
+            from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
+            _generate_baseline_if_possible("paper_001", "source_001")
+
+        # Should not crash
+        mock_task_svc.list.assert_called_once()
+
+
+class TestBaselineCommand:
+    """baseline CLI 命令测试"""
+
+    def test_baseline_command_exists(self):
+        """baseline 命令应在 CLI 中注册"""
+        from ginkgo.client.portfolio_cli import app
+
+        registered = [cmd for cmd in app.registered_commands if cmd.name == "baseline"]
+        assert len(registered) > 0, "baseline command should be registered"
+
+    @patch("ginkgo.client.portfolio_cli._generate_baseline_if_possible")
+    @patch("ginkgo.client.portfolio_cli._store_deploy_source")
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    @patch("ginkgo.client.portfolio_cli.console")
+    def test_baseline_uses_redis_source(self, mock_console, mock_glog,
+                                        mock_store, mock_generate):
+        """baseline 命令应使用 Redis 中的 source 映射"""
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = "source_from_redis"
+
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value = mock_redis
+
+        with patch("ginkgo.services", mock_services):
+            from ginkgo.client.portfolio_cli import app
+            runner = CliRunner()
+            result = runner.invoke(app, ["baseline", "paper_001"])
+
+        assert result.exit_code == 0
+        mock_generate.assert_called_once_with("paper_001", "source_from_redis")
+        mock_store.assert_not_called()  # 不需要更新映射
+
+    @patch("ginkgo.client.portfolio_cli._generate_baseline_if_possible")
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    @patch("ginkgo.client.portfolio_cli.console")
+    def test_baseline_uses_source_option(self, mock_console, mock_glog,
+                                         mock_generate):
+        """baseline 命令传 --source 时应先更新 Redis 再用新值生成 baseline"""
+        # Simulate Redis storage: set() writes, get() reads from same dict
+        redis_store = {}
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = lambda key: redis_store.get(key)
+        mock_redis.set.side_effect = lambda key, val: redis_store.update({key: val})
+        redis_store["deviation:source:paper_001"] = "old_source"
+
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value = mock_redis
+
+        with patch("ginkgo.services", mock_services):
+            from ginkgo.client.portfolio_cli import app
+            runner = CliRunner()
+            result = runner.invoke(app, ["baseline", "paper_001", "--source", "new_source"])
+
+        assert result.exit_code == 0
+        # _store_deploy_source should have written "new_source" to Redis
+        assert redis_store["deviation:source:paper_001"] == "new_source"
+        # _generate_baseline_if_possible is called with the updated value from Redis
+        mock_generate.assert_called_once_with("paper_001", "new_source")
+
+    @patch("ginkgo.client.portfolio_cli._store_deploy_source")
+    @patch("ginkgo.client.portfolio_cli.GLOG")
+    @patch("ginkgo.client.portfolio_cli.console")
+    def test_baseline_fails_without_source(self, mock_console, mock_glog, mock_store):
+        """无 source 时应报错退出"""
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value = mock_redis
+
+        with patch("ginkgo.services", mock_services):
+            from ginkgo.client.portfolio_cli import app
+            runner = CliRunner()
+            result = runner.invoke(app, ["baseline", "paper_001"])
+
+        assert result.exit_code == 1

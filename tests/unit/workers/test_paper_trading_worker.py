@@ -543,3 +543,384 @@ class TestDailyCycleResult:
         result = DailyCycleResult()
         assert result.skipped is False
         assert result.advanced is False
+
+
+class TestGetBaseline:
+    """_get_baseline 测试"""
+
+    def _make_worker(self):
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        return PaperTradingWorker(worker_id="test-1")
+
+    def test_returns_cached_baseline_from_redis(self):
+        """Redis 有缓存时应直接返回，不查 ClickHouse"""
+        worker = self._make_worker()
+        cached_baseline = {"slice_period_days": 30, "baseline_stats": {"sharpe_ratio": {"mean": 1.5}}}
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = '{"slice_period_days": 30}'
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            result = worker._get_baseline("p-001")
+
+        assert result == {"slice_period_days": 30}
+
+    def test_computes_baseline_on_redis_miss(self):
+        """Redis 无缓存时应从 ClickHouse 计算"""
+        worker = self._make_worker()
+
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = lambda key: None  # 所有 key 都 miss
+
+        # Mock source mapping
+        mock_redis.get.side_effect = lambda key: "source_uuid" if "source" in key else None
+
+        # Mock backtest task
+        mock_task = MagicMock()
+        mock_task.run_id = "task-001"
+        mock_task.engine_id = "engine-001"
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = MagicMock(
+            is_success=True,
+            data=[mock_task],
+        )
+
+        # Mock evaluator
+        mock_evaluator = MagicMock()
+        mock_evaluator.evaluate_backtest_stability.return_value = {
+            "status": "success",
+            "monitoring_baseline": {"slice_period_days": 14, "baseline_stats": {}},
+        }
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            mock_services.data.backtest_task_service.return_value = mock_task_svc
+            with patch("ginkgo.trading.analysis.evaluation.backtest_evaluator.BacktestEvaluator",
+                       return_value=mock_evaluator):
+                result = worker._get_baseline("p-001")
+
+        assert result is not None
+        assert result["slice_period_days"] == 14
+
+    def test_returns_none_when_no_source_mapping(self):
+        """无 source 映射时应返回 None"""
+        worker = self._make_worker()
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            result = worker._get_baseline("p-001")
+
+        assert result is None
+
+    def test_returns_none_when_no_completed_backtest(self):
+        """无已完成回测时应返回 None"""
+        worker = self._make_worker()
+
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = lambda key: "source_uuid" if "source" in key else None
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = MagicMock(is_success=True, data=[])
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            mock_services.data.backtest_task_service.return_value = mock_task_svc
+            result = worker._get_baseline("p-001")
+
+        assert result is None
+
+
+class TestGetDeviationConfig:
+    """_get_deviation_config 测试"""
+
+    def test_returns_default_config_when_no_redis(self):
+        """Redis 无配置时应返回默认值"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            config = worker._get_deviation_config("p-001")
+
+        assert config["auto_takedown"] is False
+        assert config["slice_period_days"] is None
+        assert config["alert_channels"] == ["kafka"]
+
+    def test_returns_config_from_redis(self):
+        """Redis 有配置时应返回存储的配置"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = '{"auto_takedown": true, "slice_period_days": 14}'
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.redis_service.return_value = mock_redis
+            config = worker._get_deviation_config("p-001")
+
+        assert config["auto_takedown"] is True
+        assert config["slice_period_days"] == 14
+
+
+class TestDeviationCheck:
+    """偏差检测流程测试"""
+
+    def _make_worker_with_portfolio(self, portfolio_id="p-001"):
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_engine = MagicMock()
+        mock_portfolio = MagicMock()
+        mock_portfolio.portfolio_id = portfolio_id
+        mock_portfolio.code = "test-strategy"
+        mock_engine.portfolios = [mock_portfolio]
+        worker._engine = mock_engine
+        return worker, mock_portfolio
+
+    def test_skip_when_no_detectors(self):
+        """无 detector 时应跳过检查"""
+        worker, _ = self._make_worker_with_portfolio()
+        worker._deviation_detectors = {}
+
+        # 不应抛异常
+        worker._run_deviation_check()
+
+    def test_accumulates_data_and_checks_on_slice_complete(self):
+        """切片完成时应调用 check_deviation_on_slice_complete"""
+        worker, mock_portfolio = self._make_worker_with_portfolio()
+
+        mock_detector = MagicMock()
+        mock_detector.accumulate_live_data.return_value = True  # 切片完成
+        mock_detector.check_deviation_on_slice_complete.return_value = {
+            "status": "completed",
+            "overall_level": "NORMAL",
+            "deviations": {},
+        }
+        worker._deviation_detectors = {"p-001": mock_detector}
+
+        with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
+            with patch.object(worker, "_handle_deviation_result") as mock_handle:
+                worker._run_deviation_check()
+
+        mock_detector.accumulate_live_data.assert_called_once()
+        mock_detector.check_deviation_on_slice_complete.assert_called_once()
+        mock_handle.assert_called_once()
+
+    def test_no_check_when_slice_not_complete(self):
+        """切片未完成时不应调用 check_deviation_on_slice_complete"""
+        worker, _ = self._make_worker_with_portfolio()
+
+        mock_detector = MagicMock()
+        mock_detector.accumulate_live_data.return_value = False  # 切片未完成
+        worker._deviation_detectors = {"p-001": mock_detector}
+
+        with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
+            with patch.object(worker, "_handle_deviation_result") as mock_handle:
+                worker._run_deviation_check()
+
+        mock_detector.check_deviation_on_slice_complete.assert_not_called()
+        mock_handle.assert_not_called()
+
+    def test_continues_on_portfolio_error(self):
+        """单个 portfolio 异常不应中断其他 portfolio 的检查"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_engine = MagicMock()
+
+        mock_p1 = MagicMock()
+        mock_p1.portfolio_id = "p-001"
+        mock_p2 = MagicMock()
+        mock_p2.portfolio_id = "p-002"
+        mock_engine.portfolios = [mock_p1, mock_p2]
+        worker._engine = mock_engine
+
+        mock_detector_bad = MagicMock()
+        mock_detector_bad.accumulate_live_data.side_effect = Exception("clickhouse error")
+        mock_detector_good = MagicMock()
+        mock_detector_good.accumulate_live_data.return_value = False
+
+        worker._deviation_detectors = {"p-001": mock_detector_bad, "p-002": mock_detector_good}
+
+        with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
+            # 不应抛异常
+            worker._run_deviation_check()
+
+        mock_detector_good.accumulate_live_data.assert_called_once()
+
+
+class TestLoadTodayRecords:
+    """_load_today_records 测试"""
+
+    def test_filters_records_by_today(self):
+        """应只返回当日的 analyzer 记录"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        worker._engine = MagicMock()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        yesterday = "2020-01-01"
+
+        # Mock records
+        mock_record_today = MagicMock()
+        mock_record_today.name = "net_value"
+        mock_record_today.value = 1.05
+        mock_record_today.timestamp = f"{today} 15:00:00"
+
+        mock_record_old = MagicMock()
+        mock_record_old.name = "net_value"
+        mock_record_old.value = 1.03
+        mock_record_old.timestamp = f"{yesterday} 15:00:00"
+
+        mock_analyzer_svc = MagicMock()
+        mock_analyzer_svc.get_by_run_id.return_value = MagicMock(
+            is_success=True,
+            data=[mock_record_today, mock_record_old],
+        )
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            records = worker._load_today_records("p-001")
+
+        assert len(records["analyzers"]) == 1
+        assert records["analyzers"][0]["name"] == "net_value"
+
+    def test_returns_empty_on_service_error(self):
+        """服务异常时应返回空记录"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        worker._engine = MagicMock()
+
+        mock_analyzer_svc = MagicMock()
+        mock_analyzer_svc.get_by_run_id.return_value = MagicMock(
+            is_success=False,
+            data=None,
+        )
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            records = worker._load_today_records("p-001")
+
+        assert records["analyzers"] == []
+
+
+class TestHandleDeviationResult:
+    """_handle_deviation_result 测试"""
+
+    def _make_worker(self):
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        worker = PaperTradingWorker(worker_id="test-1")
+        worker._engine = MagicMock()
+        mock_portfolio = MagicMock()
+        mock_portfolio.portfolio_id = "p-001"
+        mock_portfolio.code = "test-strategy"
+        return worker, mock_portfolio
+
+    def test_normal_is_silent(self):
+        """NORMAL 级别不应发送告警"""
+        worker, mock_portfolio = self._make_worker()
+
+        result = {"overall_level": "NORMAL", "deviations": {}}
+        with patch.object(worker, "_send_deviation_alert") as mock_alert:
+            worker._handle_deviation_result(mock_portfolio, result)
+
+        mock_alert.assert_not_called()
+
+    def test_moderate_sends_alert(self):
+        """MODERATE 级别应发送告警"""
+        worker, mock_portfolio = self._make_worker()
+
+        result = {
+            "overall_level": "MODERATE",
+            "deviations": {"sharpe_ratio": {"level": "MODERATE", "z_score": -1.5}},
+        }
+        with patch.object(worker, "_send_deviation_alert") as mock_alert:
+            with patch.object(worker, "_handle_unload") as mock_unload:
+                worker._handle_deviation_result(mock_portfolio, result)
+
+        mock_alert.assert_called_once()
+        mock_unload.assert_not_called()
+
+    def test_severe_sends_alert(self):
+        """SEVERE 级别应发送告警"""
+        worker, mock_portfolio = self._make_worker()
+
+        result = {
+            "overall_level": "SEVERE",
+            "deviations": {"max_drawdown": {"level": "SEVERE", "z_score": 2.5}},
+        }
+        with patch.object(worker, "_send_deviation_alert") as mock_alert:
+            with patch.object(worker, "_handle_unload") as mock_unload:
+                worker._handle_deviation_result(mock_portfolio, result)
+
+        mock_alert.assert_called_once()
+        mock_unload.assert_not_called()  # auto_takedown 默认关闭
+
+    def test_severe_auto_takedown_when_enabled(self):
+        """SEVERE + auto_takedown=true 应触发 unload"""
+        worker, mock_portfolio = self._make_worker()
+
+        result = {
+            "overall_level": "SEVERE",
+            "deviations": {"max_drawdown": {"level": "SEVERE", "z_score": 2.5}},
+        }
+
+        with patch.object(worker, "_get_deviation_config",
+                           return_value={"auto_takedown": True}):
+            with patch.object(worker, "_send_deviation_alert") as mock_alert:
+                with patch.object(worker, "_handle_unload", return_value=True) as mock_unload:
+                    worker._handle_deviation_result(mock_portfolio, result)
+
+        mock_unload.assert_called_once_with({"portfolio_id": "p-001"})
+
+
+class TestSendDeviationAlert:
+    """_send_deviation_alert 测试"""
+
+    def test_sends_to_system_events(self):
+        """应发送告警到 SYSTEM_EVENTS topic"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_producer = MagicMock()
+        worker._producer = mock_producer
+
+        mock_portfolio = MagicMock()
+        mock_portfolio.portfolio_id = "p-001"
+        mock_portfolio.code = "test-strategy"
+
+        result = {
+            "overall_level": "MODERATE",
+            "deviations": {"sharpe_ratio": {"level": "MODERATE", "z_score": -1.5}},
+        }
+
+        worker._send_deviation_alert(mock_portfolio, "MODERATE", result)
+
+        mock_producer.send.assert_called_once()
+        call_args = mock_producer.send.call_args
+        assert call_args[0][0] == "ginkgo.live.system.events"
+        msg = call_args[0][1]
+        assert msg["type"] == "deviation_alert"
+        assert msg["level"] == "MODERATE"
+        assert msg["portfolio_id"] == "p-001"
+
+    def test_noop_without_producer(self):
+        """无 producer 时不应抛异常"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        worker._producer = None
+
+        # 不应抛异常
+        worker._send_deviation_alert(MagicMock(), "SEVERE", {})
