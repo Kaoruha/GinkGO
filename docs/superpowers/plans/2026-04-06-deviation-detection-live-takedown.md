@@ -27,70 +27,65 @@
 
 ---
 
-## Task 1: Add Portfolio `status` Field
+## Task 1: Add OFFLINE State to Portfolio Enum
 
-Add `status` column (active/offline) to MPortfolio model. This is a prerequisite for takedown.
+Add `OFFLINE = 7` to `PORTFOLIO_RUNSTATE_TYPES` enum. No schema change — reuses existing `state` TINYINT column. Worker/Broker check `state == OFFLINE` to skip.
 
 **Files:**
-- Modify: `src/ginkgo/data/models/model_portfolio.py:44` (after `live_status`)
-- Modify: `src/ginkgo/data/crud/portfolio_crud.py` (add `update_status()` method)
-- Create: `tests/unit/data/test_portfolio_status.py`
+- Modify: `src/ginkgo/enums.py:568` (PORTFOLIO_RUNSTATE_TYPES)
+- Modify: `src/ginkgo/data/models/model_portfolio.py:40` (update comment)
+- Create: `tests/unit/enums/test_portfolio_offline_state.py`
 
-- [ ] **Step 1: Add `status` column to MPortfolio model**
+- [ ] **Step 1: Add OFFLINE enum value**
 
-In `model_portfolio.py`, after line 44 (`live_status`), add:
-
-```python
-# Operational status: ACTIVE(1), OFFLINE(0)
-status: Mapped[int] = mapped_column(TINYINT, default=1, comment="运营状态: 1=active, 0=offline")
-```
-
-- [ ] **Step 2: Add `update_status()` to portfolio_crud.py**
+In `src/ginkgo/enums.py`, in `PORTFOLIO_RUNSTATE_TYPES` class (after line 578), add:
 
 ```python
-def update_status(self, uuid: str, status: int) -> bool:
-    """Update portfolio operational status. status: 1=active, 0=offline"""
-    return self.update(uuid, status=status)
+OFFLINE = 7                    # 已下线（人工停止策略执行，保留持仓）
 ```
 
-- [ ] **Step 3: Add `find_active_portfolios()` to portfolio_crud.py**
+- [ ] **Step 2: Update model comment**
+
+In `src/ginkgo/data/models/model_portfolio.py:40`, update the comment to include OFFLINE:
 
 ```python
-def find_active_portfolios(self) -> List:
-    return self.find(filters={"status": 1})
+state: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行状态: 0=已初始化, 1=运行中, 2=已暂停, 3=停止中, 4=已停止, 5=重载中, 6=迁移中, 7=已下线")
 ```
 
-- [ ] **Step 4: Write test**
+- [ ] **Step 3: Write test**
 
-In `tests/unit/data/test_portfolio_status.py`:
+Create `tests/unit/enums/test_portfolio_offline_state.py`:
 
 ```python
 import pytest
-from ginkgo.data.models.model_portfolio import MPortfolio
+from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+
 
 @pytest.mark.tdd
-class TestPortfolioStatus:
-    def test_default_status_is_active(self):
-        p = MPortfolio()
-        assert p.status == 1
+class TestOfflineState:
+    def test_offline_value_is_7(self):
+        assert PORTFOLIO_RUNSTATE_TYPES.OFFLINE == 7
 
-    def test_status_can_be_set_offline(self):
-        p = MPortfolio()
-        p.status = 0
-        assert p.status == 0
+    def test_offline_exists_in_enum(self):
+        assert hasattr(PORTFOLIO_RUNSTATE_TYPES, "OFFLINE")
+
+    def test_other_values_unchanged(self):
+        assert PORTFOLIO_RUNSTATE_TYPES.RUNNING == 1
+        assert PORTFOLIO_RUNSTATE_TYPES.PAUSED == 2
+        assert PORTFOLIO_RUNSTATE_TYPES.STOPPED == 4
 ```
 
-- [ ] **Step 5: Run test**
+- [ ] **Step 4: Run test**
 
 ```bash
-pytest tests/unit/data/test_portfolio_status.py -v
+pytest tests/unit/enums/test_portfolio_offline_state.py -v
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/ginkgo/data/models/model_portfolio.py src/ginkgo/data/crud/portfolio_crud.py tests/unit/data/test_portfolio_status.py
-git commit -m "feat: add portfolio status field (active/offline) for takedown"
+git add src/ginkgo/enums.py src/ginkgo/data/models/model_portfolio.py tests/unit/enums/test_portfolio_offline_state.py
+git commit -m "feat: add OFFLINE=7 state to PORTFOLIO_RUNSTATE_TYPES enum"
 ```
 
 ---
@@ -524,7 +519,8 @@ def _run_deviation_check(self) -> None:
 8. Add offline check in `run_daily_cycle()` — before processing each portfolio:
 ```python
 # Skip offline portfolios
-if getattr(portfolio, 'status', 1) == 0:
+from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+if portfolio.state == PORTFOLIO_RUNSTATE_TYPES.OFFLINE:
     GLOG.DEBUG(f"[PAPER-WORKER] Skipping offline portfolio {portfolio.portfolio_id[:8]}")
     continue
 ```
@@ -598,7 +594,7 @@ class TestListShowsStatus:
         mock_portfolio = MagicMock()
         mock_portfolio.uuid = "p-001"
         mock_portfolio.name = "Test"
-        mock_portfolio.status = 0  # offline
+        mock_portfolio.state = 7  # OFFLINE
         mock_portfolio.mode = 1
         mock_portfolio.state = 1
         mock_crud = MagicMock()
@@ -630,7 +626,8 @@ def takedown_portfolio(
     from ginkgo.interfaces.kafka_topics import KafkaTopics
 
     crud = container.portfolio_crud()
-    crud.update(portfolio_id, status=0)
+    from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+    crud.update_state(portfolio_id, PORTFOLIO_RUNSTATE_TYPES.OFFLINE)
     rprint(f"[yellow]Portfolio {portfolio_id[:8]} is now OFFLINE[/yellow]")
 
     # Send Kafka notification
@@ -657,11 +654,12 @@ def online_portfolio(
     from ginkgo.data.containers import container
 
     crud = container.portfolio_crud()
-    crud.update(portfolio_id, status=1)
+    from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+    crud.update_state(portfolio_id, PORTFOLIO_RUNSTATE_TYPES.RUNNING)
     rprint(f"[green]Portfolio {portfolio_id[:8]} is now ACTIVE[/green]")
 ```
 
-Also update the `list` command to show status column — add `status` to the table with "active"/"offline" label.
+Also update the `list` command to show state column — add "offline" label for state==7.
 
 - [ ] **Step 4: Run test — verify it passes**
 
@@ -694,14 +692,14 @@ from unittest.mock import MagicMock
 
 @pytest.mark.tdd
 class TestHandleTakedown:
-    def test_updates_portfolio_status_to_offline(self):
+    def test_updates_portfolio_state_to_offline(self):
         handler = MagicMock()
         from ginkgo.livecore.scheduler.command_handler import CommandHandler
-        # Test that handle_takedown calls portfolio_crud.update(id, status=0)
+        # Test that handle_takedown calls crud.update_state(id, OFFLINE)
         # and publishes SYSTEM_EVENTS notification
 
-    def test_handle_online_restores_status(self):
-        # Test that handle_online calls portfolio_crud.update(id, status=1)
+    def test_handle_online_restores_state(self):
+        # Test that handle_online calls crud.update_state(id, RUNNING)
         pass
 ```
 
@@ -725,9 +723,8 @@ def handle_takedown(self, params: Dict):
         return
 
     crud = services.data.portfolio_crud()
-    crud.update(portfolio_id, status=0)
-
-    # Publish notification
+    from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+    crud.update_state(portfolio_id, PORTFOLIO_RUNSTATE_TYPES.OFFLINE)
     if self._publish_callback:
         self._publish_callback({
             "source": "scheduler",
@@ -746,7 +743,8 @@ def handle_online(self, params: Dict):
         return
 
     crud = services.data.portfolio_crud()
-    crud.update(portfolio_id, status=1)
+    from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+    crud.update_state(portfolio_id, PORTFOLIO_RUNSTATE_TYPES.RUNNING)
 ```
 
 - [ ] **Step 3: Run tests**
@@ -793,7 +791,7 @@ class TestDeviationScheduler:
 
         mock_portfolio = MagicMock()
         mock_portfolio.portfolio_id = "live-001"
-        mock_portfolio.status = 1  # active
+        mock_portfolio.state = 1  # RUNNING
         scheduler._get_live_portfolios = MagicMock(return_value=[mock_portfolio])
         scheduler._load_today_records = MagicMock(return_value={"analyzers": [], "signals": [], "orders": []})
 
@@ -805,7 +803,7 @@ class TestDeviationScheduler:
         scheduler = DeviationScheduler(producer=MagicMock())
         mock_portfolio = MagicMock()
         mock_portfolio.portfolio_id = "live-001"
-        mock_portfolio.status = 0  # offline
+        mock_portfolio.state = 7  # OFFLINE
         scheduler._get_live_portfolios = MagicMock(return_value=[mock_portfolio])
         mock_checker = MagicMock()
         scheduler._checker = mock_checker
@@ -842,7 +840,7 @@ class DeviationScheduler:
 
     def initialize(self, portfolios: List) -> None:
         """Initialize detectors for Live portfolios."""
-        self._portfolios_cache = [p for p in portfolios if getattr(p, 'status', 1) == 1]
+        self._portfolios_cache = [p for p in portfolios if p.state != 7]
         for portfolio in self._portfolios_cache:
             baseline = self._checker.get_baseline(portfolio.portfolio_id)
             if baseline:
@@ -857,7 +855,7 @@ class DeviationScheduler:
     def run_daily_check(self) -> None:
         """Run deviation check for all active Live portfolios."""
         for portfolio in self._portfolios_cache:
-            if getattr(portfolio, 'status', 1) == 0:
+            if portfolio.state == 7:  # OFFLINE
                 continue
 
             try:
@@ -995,7 +993,7 @@ git commit -m "fix: resolve mock issues in CLI baseline tests"
 | DeviationChecker shared module | Task 2 | Covered |
 | Live mode daily check (configurable time) | Task 6 | Covered |
 | Live mode anomaly trigger (real-time P&L) | Task 6 | Covered |
-| Portfolio status field (active/offline) | Task 1 | Covered |
+| Portfolio OFFLINE state (enum, no schema change) | Task 1 | Covered |
 | Takedown flow (CLI → Kafka → Handler) | Task 4, 5 | Covered |
 | Online flow | Task 4, 5 | Covered |
 | Paper mode skips offline portfolios | Task 3 | Covered |
