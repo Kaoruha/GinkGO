@@ -576,6 +576,7 @@ class PORTFOLIO_RUNSTATE_TYPES(EnumBase):
     STOPPED = 4                   # 已停止
     RELOADING = 5                 # 正在重载配置
     MIGRATING = 6                 # 正在迁移到其他节点
+    OFFLINE = 7                   # 已下线（人工停止策略执行，保留持仓）
 
 
 # ==================== 默认分析器集合枚举 ====================
