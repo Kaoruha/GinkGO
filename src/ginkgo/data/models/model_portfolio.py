@@ -37,7 +37,7 @@ class MPortfolio(MMysqlBase):
     mode: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行模式: 0=回测, 1=模拟盘, 2=实盘")
 
     # Portfolio state: INITIALIZED(0), RUNNING(1), PAUSED(2), STOPPING(3), STOPPED(4), RELOADING(5), MIGRATING(6)
-    state: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行状态: 0=已初始化, 1=运行中, 2=已暂停, 3=停止中, 4=已停止, 5=重载中, 6=迁移中")
+    state: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行状态: 0=已初始化, 1=运行中, 2=已暂停, 3=停止中, 4=已停止, 5=重载中, 6=迁移中, 7=已下线")
 
     # 实盘交易字段 (当mode=LIVE时使用)
     live_account_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, comment="关联的实盘账号ID (仅实盘模式)")
