@@ -784,10 +784,85 @@ def _deploy_paper_trading(
 
     GLOG.INFO(f"[DEPLOY] Copied {len(mappings)} component mapping(s) to {new_portfolio_id}")
 
-    # 4. 发送 Kafka deploy 通知
+    # 4. 存储 source_portfolio_id 映射 + 计算 baseline
+    _store_deploy_source(new_portfolio_id, source_portfolio_id)
+    _generate_baseline_if_possible(new_portfolio_id, source_portfolio_id)
+
+    # 5. 发送 Kafka deploy 通知
     _send_deploy_notification(new_portfolio_id)
 
     return new_portfolio_id
+
+
+def _store_deploy_source(paper_portfolio_id: str, source_portfolio_id: str) -> None:
+    """将 source_portfolio_id 映射存入 Redis"""
+    try:
+        from ginkgo import services
+        redis_svc = services.data.redis_service()
+        if redis_svc:
+            redis_svc.set(f"deviation:source:{paper_portfolio_id}", source_portfolio_id)
+            GLOG.INFO(f"[DEPLOY] Stored source mapping: {source_portfolio_id[:8]} -> {paper_portfolio_id[:8]}")
+    except Exception as e:
+        GLOG.WARN(f"[DEPLOY] Failed to store source mapping in Redis: {e}")
+
+
+def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id: str) -> None:
+    """从源 portfolio 的回测数据计算 baseline 并缓存到 Redis"""
+    try:
+        from ginkgo import services
+        from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
+
+        # 查找源 portfolio 最近完成的回测任务
+        task_service = services.data.backtest_task_service()
+        task_result = task_service.list(
+            portfolio_id=source_portfolio_id,
+            status="completed",
+            page_size=1,
+        )
+
+        if not task_result.is_success() or not task_result.data:
+            GLOG.WARN(f"[DEPLOY] No completed backtest found for source {source_portfolio_id[:8]}, skipping baseline")
+            return
+
+        tasks = task_result.data
+        if not tasks:
+            GLOG.WARN(f"[DEPLOY] No completed backtest found for source {source_portfolio_id[:8]}, skipping baseline")
+            return
+
+        latest_task = tasks[0] if isinstance(tasks, list) else tasks
+        run_id = getattr(latest_task, 'run_id', None)
+        engine_id = getattr(latest_task, 'engine_id', None)
+
+        if not run_id:
+            GLOG.WARN(f"[DEPLOY] Backtest task has no run_id, skipping baseline")
+            return
+
+        GLOG.INFO(f"[DEPLOY] Computing baseline from backtest run_id={run_id[:8]}...")
+
+        evaluator = BacktestEvaluator()
+        eval_result = evaluator.evaluate_backtest_stability(
+            portfolio_id=source_portfolio_id,
+            engine_id=engine_id,
+        )
+
+        if eval_result.get("status") != "success":
+            GLOG.WARN(f"[DEPLOY] Baseline evaluation failed: {eval_result.get('reason', 'unknown')}")
+            return
+
+        baseline = eval_result.get("monitoring_baseline", {})
+        if not baseline:
+            GLOG.WARN(f"[DEPLOY] No monitoring_baseline in evaluation result")
+            return
+
+        # 缓存到 Redis
+        redis_svc = services.data.redis_service()
+        if redis_svc:
+            redis_svc.set(f"deviation:baseline:{paper_portfolio_id}", json.dumps(baseline, default=str))
+            GLOG.INFO(f"[DEPLOY] Baseline cached: slice_period={baseline.get('slice_period_days')}, "
+                       f"metrics={len(baseline.get('baseline_stats', {}))}")
+
+    except Exception as e:
+        GLOG.WARN(f"[DEPLOY] Baseline generation failed (non-blocking): {e}")
 
 
 def _send_deploy_notification(portfolio_id: str) -> None:
@@ -825,3 +900,46 @@ def _send_unload_command(portfolio_id: str) -> bool:
     else:
         GLOG.ERROR(f"[UNLOAD] Failed to send Kafka notification for {portfolio_id}")
     return success
+
+
+# ========== Analysis Baseline ==========
+
+
+@app.command(name="baseline")
+def generate_baseline(
+    portfolio_id: str = typer.Argument(..., help="Paper/Live Portfolio ID"),
+    source: Optional[str] = typer.Option(None, "--source", "-s", help="源回测 Portfolio ID（覆盖 Redis 中的映射）"),
+):
+    """手动生成/刷新偏差检测 baseline"""
+    from rich.panel import Panel
+
+    # 如果提供了 source，先更新映射
+    if source:
+        _store_deploy_source(portfolio_id, source)
+
+    # 从 Redis 读取 source_portfolio_id
+    from ginkgo import services
+    redis_svc = services.data.redis_service()
+    source_id = None
+    if redis_svc:
+        source_id = redis_svc.get(f"deviation:source:{portfolio_id}")
+
+    if not source_id:
+        source_id = source
+
+    if not source_id:
+        console.print(f"[red]No source portfolio found. Use --source to specify, or deploy first.[/red]")
+        raise typer.Exit(1)
+
+    try:
+        _generate_baseline_if_possible(portfolio_id, source_id)
+        console.print(Panel(
+            f"[bold green]Baseline generated/refreshed[/bold green]\n\n"
+            f"Portfolio ID: {portfolio_id}\n"
+            f"Source: {source_id}",
+            title="Baseline",
+        ))
+    except Exception as e:
+        GLOG.ERROR(f"[BASELINE] Generation failed: {e}")
+        console.print(f"[bold red]Failed: {e}[/bold red]")
+        raise typer.Exit(1)

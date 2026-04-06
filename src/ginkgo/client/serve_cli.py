@@ -739,13 +739,26 @@ def serve_worker_paper(
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
+        console.print(f"\n:rocket: [bold green]Assembling engine for PaperTradingWorker...[/bold green]")
+
+        from ginkgo import services
+        worker.assemble_engine(services.data.container)
+
+        if worker._engine is None:
+            console.print("[red]:x: No PAPER portfolios found in DB, nothing to run[/red]")
+            raise typer.Exit(0)
+
+        portfolio_count = len(worker._engine.portfolios)
+        console.print(f":white_check_mark: [green]Engine assembled with {portfolio_count} portfolio(s)[/green]")
+
         console.print(f"\n:rocket: [bold green]Starting PaperTradingWorker...[/bold green]")
         console.print(":information: Press Ctrl+C to stop\n")
 
         worker.start()
 
         console.print(":white_check_mark: [green]PaperTradingWorker started[/green]")
-        console.print(f":information: Node ID: {worker.worker_id}\n")
+        console.print(f":information: Node ID: {worker.worker_id}")
+        console.print(f":information: Portfolios: {portfolio_count}\n")
 
         while worker.is_running:
             time.sleep(1)

@@ -838,6 +838,82 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             {"analyzer": analyzer.name, "stage": stage, "error": str(error), "timestamp": clock_now()}
         )
 
+    # ========== 状态快照与恢复 ==========
+
+    def snapshot_state(self) -> dict:
+        """
+        序列化运行时状态，用于持久化到数据库。
+
+        Returns:
+            dict: 包含 cash, frozen, fee, positions 的状态字典
+        """
+        positions_data = []
+        for code, pos in self._positions.items():
+            model = pos.to_model()  # Position 已有 to_model() 方法
+            positions_data.append({
+                "portfolio_id": model.portfolio_id,
+                "engine_id": model.engine_id,
+                "run_id": model.run_id,
+                "code": model.code,
+                "cost": model.cost,
+                "volume": model.volume,
+                "frozen_volume": model.frozen_volume,
+                "settlement_frozen_volume": model.settlement_frozen_volume,
+                "settlement_days": model.settlement_days,
+                "settlement_queue_json": model.settlement_queue_json,
+                "frozen_money": model.frozen_money,
+                "price": model.price,
+                "fee": model.fee,
+                "uuid": model.uuid,
+            })
+
+        return {
+            "cash": str(self._cash),
+            "frozen": str(self._frozen),
+            "fee": str(self._fee),
+            "positions": positions_data,
+        }
+
+    def restore_state(self, state: dict) -> None:
+        """
+        从快照恢复运行时状态（直接设内部字段，不发事件，不写 DB）。
+
+        Args:
+            state: snapshot_state() 返回的状态字典
+        """
+        from ginkgo.entities import Position
+
+        self._cash = Decimal(state["cash"])
+        self._frozen = Decimal(state["frozen"])
+        self._fee = Decimal(state["fee"])
+        self._positions = {}
+
+        for p_dict in state.get("positions", []):
+            # 利用 MPosition 的 update 方法，再通过 Position.from_model 转换
+            from ginkgo.data.models.model_position import MPosition
+            m_pos = MPosition()
+            m_pos.update(
+                p_dict["portfolio_id"],
+                p_dict["engine_id"],
+                p_dict.get("run_id", ""),
+                code=p_dict["code"],
+                cost=p_dict["cost"],
+                volume=p_dict["volume"],
+                frozen_volume=p_dict["frozen_volume"],
+                settlement_frozen_volume=p_dict["settlement_frozen_volume"],
+                settlement_days=p_dict["settlement_days"],
+                settlement_queue_json=p_dict["settlement_queue_json"],
+                frozen_money=p_dict["frozen_money"],
+                price=p_dict["price"],
+                fee=p_dict["fee"],
+            )
+            m_pos.uuid = p_dict.get("uuid", "")
+            pos = Position.from_model(m_pos)
+            self._positions[p_dict["code"]] = pos
+
+        self.update_worth()
+        self.update_profit()
+
     # ========== 通用方法 ==========
 
     def get_info(self) -> Dict:

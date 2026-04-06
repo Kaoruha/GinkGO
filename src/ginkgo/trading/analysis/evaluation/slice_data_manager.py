@@ -21,11 +21,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from ginkgo.libs import GLOG, datetime_normalize
-from ginkgo.data.operations import (
-    get_analyzer_records_page_filtered,
-    get_signals_page_filtered,
-    get_order_records_page_filtered
-)
 
 
 class SliceDataManager:
@@ -58,30 +53,33 @@ class SliceDataManager:
         GLOG.info(f"获取回测数据: portfolio={portfolio_id}, engine={engine_id}")
         
         try:
+            from ginkgo import services
+
             # 获取analyzer记录
-            analyzer_data = get_analyzer_records_page_filtered(
+            analyzer_crud = services.data.cruds.analyzer_record()
+            analyzer_records = analyzer_crud.get_by_run_id(
+                run_id=engine_id,
                 portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                start_date=start_date,
-                end_date=end_date
+                page_size=100000,
+                as_dataframe=True,
             )
-            
+            analyzer_data = analyzer_records if isinstance(analyzer_records, pd.DataFrame) else pd.DataFrame()
+
             # 获取信号记录
-            signal_data = get_signals_page_filtered(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                start_date=start_date,
-                end_date=end_date,
-                as_dataframe=True
+            signal_crud = services.data.cruds.signal()
+            signal_records = signal_crud.find(
+                filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
+                as_dataframe=True,
             )
-            
+            signal_data = signal_records if isinstance(signal_records, pd.DataFrame) else pd.DataFrame()
+
             # 获取订单记录
-            order_data = get_order_records_page_filtered(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                start_date=start_date,
-                end_date=end_date
+            order_crud = services.data.cruds.order_record()
+            order_records = order_crud.find(
+                filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
+                as_dataframe=True,
             )
+            order_data = order_records if isinstance(order_records, pd.DataFrame) else pd.DataFrame()
             
             # 数据预处理
             analyzer_data = self._preprocess_analyzer_data(analyzer_data)

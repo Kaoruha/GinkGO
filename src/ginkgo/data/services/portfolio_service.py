@@ -118,6 +118,11 @@ class PortfolioService(BaseService):
         mode: PORTFOLIO_MODE_TYPES = None,
         state: PORTFOLIO_RUNSTATE_TYPES = None,
         description: str = None,
+        cash=None,
+        frozen=None,
+        current_capital=None,
+        total_fee=None,
+        total_profit=None,
         **kwargs
     ) -> ServiceResult:
         """
@@ -163,6 +168,26 @@ class PortfolioService(BaseService):
             updates["desc"] = description
             updates_applied.append("description")
 
+        if cash is not None:
+            updates["cash"] = cash
+            updates_applied.append("cash")
+
+        if frozen is not None:
+            updates["frozen"] = frozen
+            updates_applied.append("frozen")
+
+        if current_capital is not None:
+            updates["current_capital"] = current_capital
+            updates_applied.append("current_capital")
+
+        if total_fee is not None:
+            updates["total_fee"] = total_fee
+            updates_applied.append("total_fee")
+
+        if total_profit is not None:
+            updates["total_profit"] = total_profit
+            updates_applied.append("total_profit")
+
         if not updates:
             return ServiceResult.success({}, "No updates provided for portfolio update", warnings)
 
@@ -194,6 +219,137 @@ class PortfolioService(BaseService):
             "warnings": warnings
         }
         return ServiceResult.success(result_data, f"Portfolio updated successfully")
+
+    def persist_portfolio_state(self, portfolio_id: str, state: dict) -> ServiceResult:
+        """
+        将 Portfolio 运行时状态持久化到 MySQL
+
+        更新 portfolio 表的 cash/frozen/total_fee/current_capital，
+        全量替换 position 表的持仓快照。
+
+        Args:
+            portfolio_id: 投资组合UUID
+            state: snapshot_state() 返回的状态字典
+
+        Returns:
+            ServiceResult
+        """
+        try:
+            from ginkgo.data.models.model_position import MPosition
+            from decimal import Decimal
+
+            # 1. 更新 portfolio 表的运行时字段
+            positions = state.get("positions", [])
+            position_value = sum(
+                Decimal(p.get("price", 0)) * int(p.get("volume", 0))
+                for p in positions
+            )
+            current_capital = Decimal(state["cash"]) + Decimal(state["frozen"]) + position_value
+
+            portfolio_updates = {
+                "cash": state["cash"],
+                "frozen": state["frozen"],
+                "total_fee": state["fee"],
+                "current_capital": str(current_capital),
+            }
+            self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=portfolio_updates)
+
+            # 2. 全量替换 position 表
+            position_crud = self._get_position_crud()
+            position_crud.delete_by_portfolio(portfolio_id)
+
+            for p_dict in positions:
+                m_pos = MPosition()
+                m_pos.update(
+                    p_dict["portfolio_id"],
+                    p_dict["engine_id"],
+                    p_dict.get("run_id", ""),
+                    code=p_dict["code"],
+                    cost=p_dict["cost"],
+                    volume=p_dict["volume"],
+                    frozen_volume=p_dict["frozen_volume"],
+                    settlement_frozen_volume=p_dict["settlement_frozen_volume"],
+                    settlement_days=p_dict["settlement_days"],
+                    settlement_queue_json=p_dict["settlement_queue_json"],
+                    frozen_money=p_dict["frozen_money"],
+                    price=p_dict["price"],
+                    fee=p_dict["fee"],
+                )
+                if p_dict.get("uuid"):
+                    m_pos.uuid = p_dict["uuid"]
+                position_crud.create(m_pos)
+
+            GLOG.INFO(
+                f"Persisted state for portfolio {portfolio_id[:8]}: "
+                f"cash={state['cash']}, positions={len(positions)}"
+            )
+            return ServiceResult.success({"portfolio_id": portfolio_id})
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to persist portfolio state: {e}")
+            return ServiceResult.error(f"Database operation failed: {str(e)}")
+
+    def load_persisted_state(self, portfolio_id: str) -> ServiceResult:
+        """
+        从 MySQL 加载 Portfolio 的运行时状态
+
+        读取 portfolio 表的 cash/frozen/total_fee 和 position 表的持仓快照。
+
+        Args:
+            portfolio_id: 投资组合UUID
+
+        Returns:
+            ServiceResult: data 为 state dict（兼容 restore_state()）
+        """
+        try:
+            # 1. 读取 portfolio 表的运行时字段
+            portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
+            if not portfolios:
+                return ServiceResult.error(f"Portfolio {portfolio_id} not found")
+
+            p = portfolios[0]
+
+            # 2. 读取 position 表的持仓快照
+            position_crud = self._get_position_crud()
+            m_positions = position_crud.find(filters={"portfolio_id": portfolio_id})
+
+            positions_data = []
+            for m_pos in m_positions:
+                positions_data.append({
+                    "portfolio_id": m_pos.portfolio_id,
+                    "engine_id": m_pos.engine_id,
+                    "run_id": m_pos.run_id,
+                    "code": m_pos.code,
+                    "cost": str(m_pos.cost),
+                    "volume": m_pos.volume,
+                    "frozen_volume": m_pos.frozen_volume,
+                    "settlement_frozen_volume": m_pos.settlement_frozen_volume,
+                    "settlement_days": m_pos.settlement_days,
+                    "settlement_queue_json": m_pos.settlement_queue_json,
+                    "frozen_money": str(m_pos.frozen_money),
+                    "price": str(m_pos.price),
+                    "fee": str(m_pos.fee),
+                    "uuid": m_pos.uuid,
+                })
+
+            has_state = float(p.cash) > 0 or len(positions_data) > 0
+
+            return ServiceResult.success({
+                "cash": str(p.cash),
+                "frozen": str(p.frozen),
+                "fee": str(p.total_fee),
+                "positions": positions_data,
+                "has_state": has_state,
+            })
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to load persisted portfolio state: {e}")
+            return ServiceResult.error(f"Database operation failed: {str(e)}")
+
+    def _get_position_crud(self):
+        """获取 PositionCRUD 实例（延迟导入避免循环依赖）"""
+        from ginkgo import services
+        return services.data.cruds.position()
 
     @retry(max_try=3)
     def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
