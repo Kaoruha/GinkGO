@@ -1,6 +1,6 @@
-# Upstream: Concrete Engine Classes (EngineHistoric/EngineLive继承)、CLI Commands (ginkgo engine run创建实例)
-# Downstream: NamedMixin/LoggableMixin (继承提供命名和日志能力)、ABC (抽象基类)、EXECUTION_MODE/ENGINESTATUS_TYPES (运行模式枚举BACKTEST/LIVE/PAPER)
-# Role: BaseEngine交易引擎抽象基类定义核心属性和Portfolio管理支持事件驱动支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI Commands (ginkgo engine run创建实例)、TimeControlledEventEngine等具体引擎继承
+# Downstream: EngineContext (创建并维护)、Portfolio (添加/绑定/移除)、EXECUTION_MODE/ENGINESTATUS_TYPES (状态枚举)
+# Role: 引擎抽象基类，管理 engine_id/run_id 生成、source_type 设置、Portfolio 列表和引擎状态生命周期
 
 
 
@@ -174,6 +174,16 @@ class BaseEngine(NamedMixin, ABC):
         self._engine_context.set_run_id(run_id)
         GLOG.INFO(f"Run ID updated to: {run_id}")
 
+    def set_source_type(self, source_type) -> None:
+        """
+        设置运行模式类型（BACKTEST / PAPER_REPLAY / PAPER_LIVE）
+
+        Args:
+            source_type: SOURCE_TYPES 枚举值
+        """
+        self._engine_context.set_source_type(source_type)
+        GLOG.INFO(f"Source type updated to: {source_type}")
+
     def start(self) -> bool:
         """
         启动引擎
@@ -198,6 +208,11 @@ class BaseEngine(NamedMixin, ABC):
             else:
                 # 从暂停状态恢复，保持原有run_id
                 GLOG.INFO(f"Engine '{self.name}' resumed: engine_id={self.engine_id}, run_id={self.run_id}")
+
+            # 回测模式自动标记 source_type
+            from ginkgo.enums import SOURCE_TYPES, EXECUTION_MODE
+            if self._mode == EXECUTION_MODE.BACKTEST and self._engine_context.source_type == SOURCE_TYPES.OTHER:
+                self.set_source_type(SOURCE_TYPES.BACKTEST)
 
             self._state = ENGINESTATUS_TYPES.RUNNING
             return True
