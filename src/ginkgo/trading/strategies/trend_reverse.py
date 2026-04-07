@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Trend Reverse策略继承BaseStrategy实现TrendReverse趋势反转交易逻辑
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseStrategy, Signal, DIRECTION_TYPES
+# Role: 趋势反转策略占位文件，预留给趋势反转检测交易策略实现
 
 
 

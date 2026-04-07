@@ -1,3 +1,7 @@
+# Upstream: Scheduler, ExecutionNode, DataManager等LiveCore组件
+# Downstream: Redis (心跳存储)
+# Role: LiveCore组件统一心跳Mixin，10秒间隔30秒TTL的Redis心跳上报
+
 """
 统一心跳机制
 

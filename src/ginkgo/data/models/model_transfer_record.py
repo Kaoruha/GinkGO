@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Transfer Record模型继承定义MTransferRecord划转记录相关数据结构
+# Upstream: AnalyzerService, transfer_record_crud, 分析器(资金曲线统计)
+# Downstream: MClickBase, MBacktestRecordBase, ModelConversion, 划转相关枚举(MARKET_TYPES/TRANSFERSTATUS_TYPES)
+# Role: 划转记录ClickHouse模型，存储资金划转事件(方向/市场/金额/状态)
 
 
 

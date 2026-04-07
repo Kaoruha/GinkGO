@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (cal方法), Portfolio Manager (实例管理), Concrete Strategies (继承)
 # Downstream: Data Layer (data_feeder), Event System (EventPriceUpdate), Mixins (Context/Time/Named/Loggable)
-# Role: Strategy base class with cal/initialize/finalize/data_feeder methods
+# Role: 创建带有完整上下文的交易信号
 
 
 

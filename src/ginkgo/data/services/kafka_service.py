@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: KafkaService Kafka服务提供消息队列生产和消费功能支持流式数据处理支持交易系统功能支持相关功能
+# Upstream: Data Workers (数据同步Worker消费)、CLI Commands (发送更新信号)、KafkaService自身 (发送信号)
+# Downstream: BaseService (继承基类)、KafkaCRUD (Kafka消息操作)、Data Workers (消费backtest/数据更新主题)
+# Role: KafkaService消息队列服务提供Kafka发布订阅主题管理和数据更新信号发送
 
 
 

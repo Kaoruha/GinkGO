@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Terminal Candle绘图继承BasePlot提供TerminalCandle终端K线图表可视化
+# Upstream: CLI, 终端快速查看
+# Downstream: plotext, pandas, shutil
+# Role: 终端K线图 — 使用 plotext 在终端渲染蜡烛图，无需 GUI 环境
 
 
 

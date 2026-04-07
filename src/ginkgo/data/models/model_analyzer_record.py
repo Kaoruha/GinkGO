@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Analyzer Record模型继承定义MAnalyzerRecord分析器记录相关数据结构
+# Upstream: AnalyzerService, analyzer_crud, 分析器模块(analysis/analyzers)
+# Downstream: MClickBase, MBacktestRecordBase, SOURCE_TYPES, 工具函数
+# Role: 分析器记录ClickHouse模型，存储分析器计算结果值(portfolio_id/analyzer_id/value)
 
 
 

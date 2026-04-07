@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: MRunRecord回测记录模型继承MBacktestRecordBase定义回测运行记录数据结构和字段支持回测历史追踪
+# Upstream: 回测引擎, run_record_crud, Worker系统
+# Downstream: MMysqlBase, MBacktestRecordBase, SOURCE_TYPES, 工具函数
+# Role: 运行记录MySQL模型，追踪每次引擎执行的完整生命周期(状态/起止时间/性能指标)
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现策略继承/方法必需/初始化调用等5个类的核心功能支持交易系统功能支持策略验证和结构检查确保代码质量
+# Upstream: LogicalEvaluator, BaseEvaluator默认规则集
+# Downstream: rules.base_rule (ASTBasedRule), core.enums, core.evaluation_result
+# Role: 结构验证规则集，包含StrategyBaseInheritanceRule/CalMethodRequiredRule/CalSignatureValidationRule/SuperInitCallRule/AbstractMarkerRule
 
 
 
@@ -463,3 +463,4 @@ class AbstractMarkerRule(ASTBasedRule):
         elif isinstance(node, ast.Attribute):
             return node.attr
         return None
+

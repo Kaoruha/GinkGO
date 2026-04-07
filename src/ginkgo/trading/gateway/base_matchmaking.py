@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BaseMatchmaking基础撮合定义订单撮合抽象接口支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, TimeControlledEventEngine
+# Downstream: trading.events.EventPriceUpdate, trading.enums, entities.mixins, trading.engines.base_engine
+# Role: 撮合引擎抽象基类，提供价格缓存、订单簿管理、佣金配置、数据馈送绑定和事件发布等撮合基础能力
 
 
 
@@ -128,3 +128,4 @@ class MatchMakingBase(TimeMixin, NamedMixin, Base):
             self._order_book = {}
 
         return result
+

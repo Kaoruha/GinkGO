@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 评估规则模块导出基类/逻辑规则/最佳实践/结构规则等评估规则支持交易系统功能和组件集成提供完整业务支持
+# Upstream: evaluation顶层包, BaseEvaluator, validators子包
+# Downstream: rules.base_rule, rules.rule_registry, rules.structural_rules, rules.logical_rules, rules.best_practice_rules
+# Role: 评估规则子包入口，导出BaseRule/ASTBasedRule/RuntimeRule基类、RuleRegistry注册表和全部结构/逻辑/最佳实践规则
 
 
 
@@ -63,3 +63,4 @@ __all__ = [
     "ForbiddenDirectDataAccessRule",
     "ForbiddenOperationsRule",
 ]
+

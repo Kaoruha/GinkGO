@@ -1,3 +1,7 @@
+# Upstream: worker_cli (ginkgo worker backtest run), Kafka (BACKTEST_ASSIGNMENTS)
+# Downstream: BacktestProcessor, ProgressTracker, Redis (心跳), Kafka (进度)
+# Role: 回测Worker主节点，从Kafka消费任务并管理并发执行
+
 """
 BacktestWorker Node
 

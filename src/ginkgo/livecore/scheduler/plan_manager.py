@@ -1,3 +1,7 @@
+# Upstream: Scheduler._schedule_loop()
+# Downstream: Redis (调度计划读写), portfolio_service (查询live portfolio)
+# Role: Redis调度计划读写及孤儿/新增/已删除Portfolio检测
+
 """
 调度计划管理模块
 

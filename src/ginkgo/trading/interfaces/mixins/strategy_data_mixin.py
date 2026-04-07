@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: StrategyDataMixin策略数据混入接口提供策略数据访问支持数据获取支持交易系统功能支持相关功能
+# Upstream: BaseStrategy及其子类
+# Downstream: libs.GLOG, pandas
+# Role: 策略数据访问混入类，基于data_feeder提供K线缓存、价格序列pandas转换和缓存管理等功能
 
 
 

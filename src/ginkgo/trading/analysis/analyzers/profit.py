@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Profit利润分析器继承BaseAnalyzer计算总利润/盈亏比和平均收益评估盈利能力支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Portfolio (NEWDAY/ENDDAY stage), BASIC_ANALYZERS, ResultPlot
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas
+# Role: 利润分析器 — 计算每日盈亏（当日资产-前日资产），记录日度利润序列
 
 
 
@@ -41,3 +41,4 @@ class Profit(BaseAnalyzer):
     def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """记录利润数据到数据库"""
         self.add_record()
+

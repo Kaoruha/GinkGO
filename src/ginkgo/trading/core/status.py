@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Status状态类提供组件状态管理支持运行状态/就绪状态和错误状态追踪用于系统监控和诊断支持交易系统功能和组件集成提供完整业务支持
+# Upstream: API状态查询接口, CLI状态命令, 引擎监控
+# Downstream: enums.EXECUTION_MODE, enums.TIME_MODE, enums.ENGINESTATUS_TYPES
+# Role: 引擎状态查询数据类定义，包括EngineStatus/EventStats/QueueInfo/TimeInfo等标准化状态结构用于API和监控
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: AlphaFactors alpha因子计算提供量价动量等因子计算支持因子分析支持交易系统功能支持相关功能
+# Upstream: Alpha158Factory, Analyzers, computation.technical.__init__
+# Downstream: BaseIndicator, pandas, numpy
+# Role: Alpha158因子实现（18类），包括KMID/KLEN/KLOW/KHIGH量价因子、MA/STD/BETA/ROC时序因子、MAX/MIN/QTLU/QTLD极值因子、RANK/RSV/IMAX/IMIN/IMXD排名因子，支持事件和矢量化双模式
 
 
 

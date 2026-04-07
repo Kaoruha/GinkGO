@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 监控模块公共接口，导出Dashboard仪表板、Health健康检查、Metrics指标监控、Tracing链路追踪等系统监控组件
+# Upstream: BacktestEngine, LiveEngine, API Server
+# Downstream: MetricsCollector, PerformanceMetrics, HealthChecker, HealthStatus, EventTracer, TraceContext
+# Role: 监控可观测性模块包，导出指标收集、健康检查和链路追踪等监控组件
 
 
 

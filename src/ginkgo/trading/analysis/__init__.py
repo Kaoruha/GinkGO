@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System, CLI/API/Web UI
-# Role: 分析模块统一导出 — 分析器/指标/报告/引擎，为回测系统提供完整分析评估能力
+# Upstream: Portfolio, Engine, CLI/API/Web UI
+# Downstream: analyzers, BacktestResultAggregator, Metric/DataProvider/MetricRegistry, reports, AnalysisEngine, plots
+# Role: 分析评估层统一入口 — 导出分析器/结果汇总/指标基础设施/报告/分析引擎/可视化模块
 
 
 """

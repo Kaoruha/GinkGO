@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Volatility分析器继承BaseAnalyzer计算Volatility波动率性能指标支持相关功能
+# Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Role: 波动率分析器 — 滚动窗口计算日收益率样本标准差并年化（sqrt(252)）
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 评估流水线模块导出流水线阶段/数据管理/周期优化等流水线组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI评估命令
+# Downstream: pipeline.stages (空包，暂无导出)
+# Role: 评估流水线子包，预留EvaluationPipeline多阶段评估编排(静态分析/运行时检查/信号追踪)
 
 
 
@@ -17,3 +17,4 @@ This package contains pipeline implementation:
 """
 
 __all__ = []
+

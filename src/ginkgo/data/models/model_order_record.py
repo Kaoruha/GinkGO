@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Order Record模型继承定义MOrderRecord订单记录相关数据结构支持相关功能
+# Upstream: AnalyzerService, order_record_crud, 分析器(回测指标统计)
+# Downstream: MClickBase, MBacktestRecordBase, ModelConversion, 订单相关枚举
+# Role: 订单记录ClickHouse模型，存储回测/模拟盘产生的订单快照(价格/数量/状态/费用)
 
 
 
@@ -153,3 +153,4 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)
+

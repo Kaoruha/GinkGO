@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ATR平均真实波幅指标继承BaseIndicator提供市场波动率分析和算法实现支持风险评估支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Risk Management, Strategies
+# Downstream: BaseIndicator, pandas, numpy
+# Role: ATR平均真实波幅指标，基于最高价/最低价/收盘价计算真实范围并取均值，支持事件和矩阵双模式
 
 
 
@@ -119,3 +119,4 @@ class AverageTrueRange(BaseIndicator):
                 
         except Exception:
             return BaseIndicator.cal_matrix(matrix_data)
+

@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: Registry因子定义继承FactorBase提供FactorRegistry计算支持交易系统功能
+# Role: Registry因子定义继承FactorBase提供FactorRegistry计算
 
 
 

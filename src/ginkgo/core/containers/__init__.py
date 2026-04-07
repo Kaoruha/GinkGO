@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心容器模块导出核心容器/应用容器等依赖注入容器提供组件注册和解析功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 核心模块(core.__init__)、全局服务访问(通过container.services获取配置/日志/线程)
+# Downstream: core_containers(container/CoreContainer/Container)
+# Role: DI容器包入口，导出Container容器类和全局单例container实例，提供配置/日志/线程等核心服务的依赖注入
 
 
 

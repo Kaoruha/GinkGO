@@ -1,3 +1,7 @@
+# Upstream: Scheduler._assign_portfolios()
+# Downstream: SchedulePublisher (通过新计划触发发布)
+# Role: Portfolio到ExecutionNode的负载均衡分配算法
+
 """
 负载均衡算法模块
 

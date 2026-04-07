@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: EngineInterface引擎接口定义引擎协议规范回测引擎行为和执行支持交易系统功能支持相关功能
+# Upstream: 回测引擎、策略适配器 (实现引擎接口)
+# Downstream: PortfolioBase(组合基类), ENGINESTATUS_TYPES(枚举), abc, datetime
+# Role: 引擎统一接口，定义BaseEngine/EventDrivenEngine/MatrixEngine/HybridEngine四种引擎模式协议和生命周期管理
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心工厂模块公共接口，导出BaseFactory工厂基类、ComponentFactory组件工厂等工厂类，提供组件创建和装配功能
+# Upstream: 核心模块(core.__init__)、各业务模块通过工厂创建组件
+# Downstream: BaseFactory, ComponentFactory
+# Role: 工厂模式包入口，导出BaseFactory基类和ComponentFactory组件工厂，提供依赖注入的组件创建
 
 
 

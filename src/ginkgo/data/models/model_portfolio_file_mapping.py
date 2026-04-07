@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Portfolio File Mapping模型继承定义MPortfolioFileMapping组合文件映射相关数据结构
+# Upstream: FileService, portfolio_file_mapping_crud, 文件管理流程
+# Downstream: MMysqlBase, SOURCE_TYPES, FILE_TYPES, 工具函数
+# Role: 组合-文件映射MySQL模型，记录投资组合与策略文件/配置文件的关联关系
 
 
 

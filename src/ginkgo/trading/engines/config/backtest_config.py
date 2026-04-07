@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BacktestConfig回测配置类继承BaseConfig提供回测参数配置和方案管理支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, TimeControlledEventEngine, CLI回测命令, API回测接口
+# Downstream: enums.ENGINE_ARCHITECTURE, enums.EXECUTION_MODE
+# Role: 回测配置数据类定义，包含DataFrequency/TradingSession枚举和BacktestConfig配置项（日期/资金/引擎模式/交易时段等）
 
 
 

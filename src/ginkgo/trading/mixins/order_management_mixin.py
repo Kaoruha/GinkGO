@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Order Management Mixin混入类提供OrderManagementMixin订单管理功能扩展
+# Upstream: PortfolioBase, PortfolioT1Backtest
+# Downstream: Order, GLOG
+# Role: 订单管理Mixin，提供内存中的待处理订单队列、处理跟踪和执行历史管理
 
 
 

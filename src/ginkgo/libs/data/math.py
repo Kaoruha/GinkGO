@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Math数学工具提供统计计算和数学函数功能支持数值运算/数据处理和技术指标计算用于量化分析支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 回测引擎、交易模块 (计算交易费用)
+# Downstream: Decimal, DIRECTION_TYPES(枚举), Number/to_decimal
+# Role: 数学工具模块，提供cal_fee交易费用计算函数(佣金+印花税+过户费)
 
 
 
@@ -34,3 +34,4 @@ def cal_fee(direction: DIRECTION_TYPES, price: Number, tax_rate: Number) -> Deci
     if direction == DIRECTION_TYPES.SHORT:
         fee += price * Decimal("0.00002")
     return fee
+

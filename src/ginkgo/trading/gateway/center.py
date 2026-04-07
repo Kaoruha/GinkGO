@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: RoutingCenter路由中心提供路由管理和订单分发功能支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: EventRoutingCenter调用方, 外部路由消费者
+# Downstream: gateway.interfaces, gateway.balancers, gateway.circuit_breaker, trading.time.clock, libs.GLOG
+# Role: 事件路由中心核心实现，提供智能规则匹配、动态目标管理、性能指标收集、健康监控和缓存机制
 
 
 
@@ -1255,3 +1255,4 @@ class EventRoutingCenter(IEventRoutingCenter):
         """重新加载系统配置"""
         # TODO: 实现系统配置重加载逻辑
         GLOG.INFO("系统配置重加载功能待实现")
+

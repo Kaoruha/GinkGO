@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (判断交易日)、Data Services (同步交易日历)
 # Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES (枚举CHINA/NASDAQ)
-# Role: TradeDay交易日历实体继承Base定义核心属性提供枚举验证和转换方法支持交易系统功能和组件集成提供完整业务支持
+# Role: TradeDay交易日历实体继承Base定义核心属性提供枚举验证和转换方法
 
 
 
@@ -176,3 +176,4 @@ class TradeDay(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, TradeDay.__name__, 20, 60)
+

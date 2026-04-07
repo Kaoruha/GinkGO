@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: SimpleMovingAverage简单移动平均线继承BaseIndicator提供趋势分析和价格平滑功能
+# Upstream: computation.technical.__init__, Strategies, Analyzers, Alpha Factors
+# Downstream: BaseIndicator, pandas, numpy
+# Role: SMA简单移动平均线，对价格序列取算术平均值实现趋势平滑，支持事件和矩阵双模式
 
 
 

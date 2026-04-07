@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 实现 ModeAdapter、EventAdapter、VectorizedWrapper 等类的核心功能，封装相关业务逻辑
+# Upstream: 回测引擎、策略模块 (调用模式适配进行事件驱动/矩阵模式切换)
+# Downstream: BaseAdapter, BaseStrategy(策略接口), Signal(实体), DIRECTION_TYPES/SOURCE_TYPES(枚举), pandas/numpy, GLOG日志
+# Role: 回测模式适配器，实现事件驱动与矩阵模式间策略信号的双向转换，含EventAdapter包装和VectorizedWrapper向量化支持
 
 
 

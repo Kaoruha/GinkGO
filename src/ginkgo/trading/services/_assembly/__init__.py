@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 引擎装配子模块包，将 EngineAssemblyService 拆分为多个职责单一的子模块
+# Upstream: EngineAssemblyService, API Server
+# Downstream: ComponentLoader, InfrastructureFactory, TaskEngineBuilder, DataPreparer
+# Role: 引擎装配子模块包，拆分自原EngineAssemblyService为职责单一的四个子模块
 
 
 """

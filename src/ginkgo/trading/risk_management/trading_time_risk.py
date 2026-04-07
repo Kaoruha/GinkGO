@@ -1,3 +1,7 @@
+# Upstream: Portfolio (add_risk_manager注册使用)
+# Downstream: RiskBase (继承风控基类)
+# Role: TradingTimeRisk交易时段风控，禁止午休和临近收盘时段下单
+
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement

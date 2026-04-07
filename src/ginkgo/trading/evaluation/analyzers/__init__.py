@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供EvaluationAnalyzers评估分析器模块提供分析器功能支持代码分析功能支持回测评估和代码验证
+# Upstream: 评估模块, 运行时追踪流水线
+# Downstream: analyzers.runtime_analyzer (SignalTracer, DataSourceAdapter)
+# Role: 分析器子包入口，导出SignalTracer信号追踪器和DataSourceAdapter/AdapterFactory数据适配器
 
 
 

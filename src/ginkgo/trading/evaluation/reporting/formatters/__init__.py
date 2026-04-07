@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供ReportFormatters报告格式化器模块提供格式化功能支持报告格式功能支持回测评估和代码验证
+# Upstream: reporting子包
+# Downstream: (空包，暂无导出)
+# Role: 报告格式化器子包，预留RichFormatter/HTMLFormatter等输出格式适配实现
 
 
 

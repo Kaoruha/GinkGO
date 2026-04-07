@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (订单执行前调用cal), Portfolio Manager (管理风控实例)
 # Downstream: Data Layer (读取portfolio_info计算仓位), Event System (监听EventPriceUpdate触发主动风控), BaseRiskManagement (继承风控基类), Signal/Order (实体操作)
-# Role: PositionRatioRisk仓位风控配置单股/总仓位上限被动拦截并智能调整订单支持交易系统功能和组件集成提供完整业务支持
+# Role: PositionRatioRisk仓位风控配置单股/总仓位上限被动拦截并智能调整订单
 
 
 
@@ -337,3 +337,4 @@ class PositionRatioRisk(BaseRiskManagement):
             GLOG.INFO(f"PositionRatioRisk: No position ratio warnings triggered")
 
         return signals
+

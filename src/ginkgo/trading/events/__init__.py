@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 事件模块公共接口导出EventBase/价格/信号/订单等事件类支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 全系统（引擎、组合、策略、风控、分析器、馈送器等所有组件）
+# Downstream: events.base_event, events.market_events, events.order_lifecycle_events, events.portfolio_events, events.capital_update, events.order_related, events.interest_update
+# Role: 事件体系包入口，统一导出基础事件、市场数据事件、订单生命周期事件、组合事件、资金事件等全部事件类
 
 
 
@@ -107,3 +107,4 @@ __all__ = [
     "EventExecutionTimeout",
     "EventExecutionCanceled",
 ]
+

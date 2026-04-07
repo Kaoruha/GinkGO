@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BaseIndicator技术指标基类定义指标计算框架和接口支持技术指标开发和扩展实现指标体系支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 所有技术指标子类（SMA/WMA/EMA/ATR/RSI/BollingerBands/PinBar/Gap/InflectionPoint/GoldenSection/Alpha Factors等）
+# Downstream: pandas, numpy
+# Role: 技术指标基类，定义纯静态计算框架，提供数据校验、结果标准化、错误处理、矩阵计算等通用接口
 
 
 
@@ -125,3 +125,4 @@ class BaseIndicator:
                 index=matrix_data.index, 
                 columns=matrix_data.columns
             )
+

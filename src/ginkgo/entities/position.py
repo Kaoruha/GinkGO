@@ -1,6 +1,6 @@
 # Upstream: Portfolio Manager (管理持仓并更新)、Backtest Engines (成交后更新持仓状态)、Risk Management (读取持仓计算仓位比例)
 # Downstream: Base/TimeMixin (继承提供uuid/component_type和时间能力)、DIRECTION_TYPES (枚举)
-# Role: Position持仓实体继承Base定义持仓属性和交易相关信息支持持仓追踪支持交易系统功能和组件集成提供完整业务支持
+# Role: Position持仓实体继承Base定义持仓属性和交易相关信息支持持仓追踪
 
 
 
@@ -1008,3 +1008,4 @@ class Position(TimeMixin, Base):
 
     # def __repr__(self) -> str:
     #     return base_repr(self, self._code, 12, 60)
+

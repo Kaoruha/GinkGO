@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: StreamingConfig流式配置管理定义流式处理配置项和参数支持流式处理配置支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 流式查询引擎, StreamingQueryEngine, EngineFactory
+# Downstream: GCONF(全局配置), yaml, StreamingConfigError
+# Role: 流式查询配置管理，定义数据库特化配置(MySQL/ClickHouse连接池、批处理等)和运行时热更新
 
 
 
@@ -386,3 +386,4 @@ def reload_config() -> StreamingConfig:
 def update_config(updates: Dict[str, Any]) -> None:
     """运行时更新配置"""
     _config_manager.update_config(updates)
+

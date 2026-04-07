@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: GoldenSection黄金分割分析继承BaseIndicator提供支撑阻力位和回调分析功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical（预留）
+# Downstream: BaseIndicator, pandas
+# Role: 黄金分割分析指标，基于0.236/0.382/0.5/0.618/1比例计算趋势回调支撑阻力位（未完成）
 
 
 
@@ -26,3 +26,4 @@ class GoldenSection(BaseIndicator):
         column_name = f"{self.name}"
         for i, r in df.iterrows():
             rs.loc[i, "timestamp"] = r["timestamp"]
+

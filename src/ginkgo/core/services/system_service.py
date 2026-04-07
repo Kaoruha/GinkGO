@@ -1,3 +1,7 @@
+# Upstream: API Server (ginkgo serve api), CLI (ginkgo status)
+# Downstream: RedisService, stockinfo_service, KafkaConsumer, bar_crud
+# Role: 系统状态和基础设施健康检查(MySQL/Redis/Kafka/ClickHouse)
+
 """
 System Service - 系统状态和基础设施管理服务
 

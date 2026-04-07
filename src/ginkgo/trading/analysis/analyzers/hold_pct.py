@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: HoldPct持仓比例分析器继承BaseAnalyzer计算持仓比例和仓位占用评估资金使用效率支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Portfolio (NEWDAY stage)
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES
+# Role: 持仓比例分析器 — 每日记录持仓价值占总资产比例，评估资金使用效率
 
 
 
@@ -46,3 +46,4 @@ class HoldPCT(BaseAnalyzer):
     def current_hold_percentage(self) -> float:
         """当前持仓比例（只读属性）"""
         return self.current_value
+

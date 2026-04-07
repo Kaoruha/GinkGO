@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: SliceDataManager切片数据管理器提供数据切片管理支持数据分段支持交易系统功能支持相关功能
+# Upstream: BacktestEvaluator (调用数据加载和切片)
+# Downstream: AnalyzerRecordCRUD/SignalCRUD/OrderRecordCRUD (查询回测数据)
+# Role: 从ClickHouse加载回测数据，按时间切片并平衡切片边界
 
 
 

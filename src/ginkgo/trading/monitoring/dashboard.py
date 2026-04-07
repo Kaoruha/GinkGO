@@ -1,3 +1,7 @@
+# Upstream: monitoring.__init__ (模块导出)、Web UI (面板数据消费)
+# Downstream: metrics (MetricsCollector)、health (HealthChecker)、tracing (EventTracer)
+# Role: MonitoringDashboard监控面板，聚合指标/健康/追踪数据提供告警管理和可视化面板
+
 """
 T5架构监控面板模块
 

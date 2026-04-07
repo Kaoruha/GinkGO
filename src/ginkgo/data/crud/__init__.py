@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: CRUD操作模块公共接口，导出BarCRUD、TickCRUD、StockinfoCRUD、FileCRUD等CRUD类，封装数据库增删改查操作
+# Upstream: 数据服务层(BaseService), API层, 回测引擎
+# Downstream: BaseCRUD, ClickHouse/MySQL/MongoDB/Redis数据库模型
+# Role: CRUD包入口，统一导出全部CRUD类(BarCRUD、OrderCRUD、PortfolioCRUD等40+个)，供服务层和容器注册使用
 
 
 

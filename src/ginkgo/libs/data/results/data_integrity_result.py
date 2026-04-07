@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: DataIntegrityResult数据完整性结果封装数据校验结果支持交易系统功能支持交易系统功能
+# Upstream: 数据校验模块、完整性检查服务 (封装检查结果)
+# Downstream: dataclasses, datetime
+# Role: DataIntegrityCheckResult数据完整性检查结果类，含完整性评分/缺失重复记录统计/问题追踪和建议功能
 
 
 

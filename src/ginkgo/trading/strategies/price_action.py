@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Price Action策略继承BaseStrategy实现PriceAction价格行为交易逻辑支持相关功能
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseStrategy, Signal, DIRECTION_TYPES
+# Role: 价格行为策略占位文件，预留给Pinbar关键位交易策略实现
 
 
 
@@ -20,3 +20,4 @@
 # 6. 喜好所处波段的趋势对比前期的走势是否没有出现明显的加速，或者信号前面是否有缓冲趋势？
 
 # Page.92
+

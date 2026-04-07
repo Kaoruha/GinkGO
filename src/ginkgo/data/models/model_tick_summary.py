@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 定义 MTickSummary Tick数据模型，包含毫秒级时间戳、价格、成交量、买卖方向等字段，用于高频数据的存储和查询
+# Upstream: TickService, tick_summary_crud, 高频数据分析
+# Downstream: MClickBase, SOURCE_TYPES, TICKDIRECTION_TYPES, 工具函数
+# Role: Tick汇总ClickHouse模型，存储高频交易数据(代码/价格/成交量)，按代码+时间排序优化查询
 
 
 

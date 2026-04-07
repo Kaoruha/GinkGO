@@ -1,3 +1,6 @@
+# Upstream: FileCRUD (文件CRUD写入/读取)、FileService (文件管理服务)
+# Downstream: MMysqlBase (继承MySQL基类)、MySQL (file表持久化)
+# Role: MFile文件数据模型映射MySQL file表支持版本管理和二进制数据存储
 import pandas as pd
 import datetime
 

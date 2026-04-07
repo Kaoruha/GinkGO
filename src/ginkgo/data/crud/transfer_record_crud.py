@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: TransferRecordCRUD划转记录CRUD继承BaseCRUD提供历史记录查询支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 回测引擎, 资金管理模块, TransferService
+# Downstream: BaseCRUD, MTransferRecord模型, Transfer实体
+# Role: 资金划转记录CRUD，管理出入金和资金调拨的历史记录，支持多方向和状态筛选
 
 
 
@@ -231,3 +231,4 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get portfolio ids from transfer records: {e}")
             return []
+

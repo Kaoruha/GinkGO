@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Risk Validator RiskValidator风控验证器检查风控组件配置合理性提供相关功能和接口实现
+# Upstream: validate_component统一入口 (按component_type='risk'调用)
+# Downstream: BaseValidator, ValidationResult, ValidationLevel, ValidationRules, ast/inspect/re
+# Role: 风控组件校验器，通过AST语法树和反射检查用户自定义RiskManagement的基类继承/方法签名/参数类型合规性
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Position Record模型继承定义MPositionRecord持仓记录相关数据结构
+# Upstream: AnalyzerService, position_record_crud, 分析器(回测指标统计)
+# Downstream: MClickBase, MBacktestRecordBase, SOURCE_TYPES, 工具函数
+# Role: 持仓记录ClickHouse模型，存储回测/模拟盘的持仓快照(成本/数量/冻结/费用)
 
 
 

@@ -1,3 +1,6 @@
+# Upstream: ParamCRUD (参数CRUD写入/读取)、ParamService (参数管理服务)、MappingService (映射服务创建参数)
+# Downstream: MMysqlBase (继承MySQL基类)、MySQL (params表持久化)
+# Role: MParam参数数据模型映射MySQL params表通过mapping_id关联组件配置
 import datetime
 import pandas as pd
 

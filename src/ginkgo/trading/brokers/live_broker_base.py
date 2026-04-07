@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Live Broker Base LiveBrokerBase实盘经纪商基类定义实盘交易接口提供相关功能和接口实现
+# Upstream: InfrastructureFactory, FuturesBroker, HKStockBroker, USStockBroker, OKXBroker
+# Downstream: BaseBroker, BrokerExecutionResult, Order, DIRECTION_TYPES, ATTITUDE_TYPES, to_decimal
+# Role: 实盘交易Broker基类，提供API交易、异步执行和本地风控等通用功能
 
 
 

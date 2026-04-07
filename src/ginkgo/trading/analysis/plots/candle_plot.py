@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: CandlePlotK线图绘制继承BasePlot提供K线图/价格走势和成交量可视化功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI, 回测结果查看
+# Downstream: BasePlot, matplotlib (pyplot, gridspec, ticker, widgets), pandas, numpy, GLOG
+# Role: K线图 — 接收DataFrame绘制蜡烛图+成交量柱状图，支持鼠标点击查看OHLCV详情
 
 
 
@@ -128,3 +128,4 @@ class CandlePlot(BasePlot):
         )
         self.figure.canvas.mpl_connect("button_press_event", self.on_press)
         plt.ioff()
+

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ExponentialMovingAverage指数移动平均线继承BaseIndicator提供趋势分析和价格平滑功能
+# Upstream: computation.technical.__init__, Strategies, Analyzers
+# Downstream: BaseIndicator, pandas, numpy
+# Role: EMA指数移动平均线，使用平滑系数alpha=2/(period+1)逐步加权计算，支持事件和矩阵双模式
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 数据模块公共接口提供依赖注入容器管理CRUD操作和数据源访问支持交易系统功能和组件集成
+# Upstream: 回测引擎, 策略模块, 分析器模块, CLI命令, Web UI, Worker系统
+# Downstream: containers(Container), seeding(数据初始化), utils(get_crud)
+# Role: 数据层包入口，暴露依赖注入容器container和工具函数，统一数据访问入口
 
 
 """
@@ -33,3 +33,4 @@ from ginkgo.data import seeding
 from ginkgo.data.utils import get_crud
 
 __all__ = ["container", "seeding", "get_crud"]
+

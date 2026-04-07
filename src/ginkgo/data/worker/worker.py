@@ -1,6 +1,6 @@
 # Upstream: Kafka data commands (ginkgo.data.commands)
 # Downstream: ClickHouse (bar data storage via BarCRUD), Redis (heartbeat storage)
-# Role: Data collection worker - consumes Kafka data commands and fetches/updates market data
+# Role: Data Worker - 数据采集Worker
 
 import threading
 import time

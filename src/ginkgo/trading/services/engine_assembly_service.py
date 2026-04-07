@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 引擎装配服务门面类，委托子模块完成具体装配逻辑
+# Upstream: API Server, CLI commands, Worker nodes
+# Downstream: BaseEngine, BacktestEngine, PortfolioT1Backtest, ComponentLoader, InfrastructureFactory, TaskEngineBuilder, DataPreparer
+# Role: 引擎装配服务门面类，委托ComponentLoader/InfrastructureFactory/TaskEngineBuilder/DataPreparer完成具体装配
 
 
 """

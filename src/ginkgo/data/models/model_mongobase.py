@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: MongoDB Collections, CRUD Operations
-# Role: MMongoBase MongoDB文档模型基类继承MBase和Pydantic BaseModel提供uuid/meta/desc/create_at/update_at/is_del/source字段
+# Upstream: MTransfer, MFile, MNotificationRecord等MongoDB文档模型
+# Downstream: MBase, Pydantic(BaseModel/Field/field_validator), SOURCE_TYPES
+# Role: MongoDB文档模型基类，继承Pydantic BaseModel和MBase，提供uuid/meta/source等公共字段
 
 
 import uuid

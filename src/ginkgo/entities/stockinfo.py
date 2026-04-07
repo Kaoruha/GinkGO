@@ -1,6 +1,6 @@
 # Upstream: Data Services (StockinfoService同步股票信息)、Strategies (查询股票基础信息)
 # Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES/CURRENCY_TYPES (枚举)
-# Role: StockInfo股票基础信息实体继承Base定义代码/名称/行业/市场/上市日期等核心属性支持交易系统功能和组件集成提供完整业务支持
+# Role: StockInfo股票基础信息实体继承Base定义代码/名称/行业/市场/上市日期等核心属性
 
 
 
@@ -228,3 +228,4 @@ class StockInfo(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, StockInfo.__name__, 20, 60)
+

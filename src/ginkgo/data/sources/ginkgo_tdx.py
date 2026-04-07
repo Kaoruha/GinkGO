@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoTDX TDX数据源继承SourceBase提供通达信数据获取支持交易系统功能支持交易系统功能
+# Upstream: 数据更新任务, 实时行情获取, BarService
+# Downstream: GinkgoSourceBase, mootdx库, GLOG
+# Role: 通达信(TDX)数据源适配器，提供实时行情快照和多周期K线数据获取
 
 
 
@@ -162,3 +162,4 @@ class GinkgoTDX(GinkgoSourceBase):
         df = self.client.k(symbol=code_num, begin=start_date, end=end_date)
         console.print(f":crab: Got {df.shape[0]} records about {code} OHLC from [bold #E4C1C0]TDX[/].")
         return df
+

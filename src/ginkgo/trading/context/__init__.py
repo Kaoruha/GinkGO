@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 上下文模块公共接口，导出EngineContext引擎上下文、PortfolioContext组合上下文等上下文管理类，提供组件运行环境信息
+# Upstream: BaseEngine, PortfolioBase, 全部ContextMixin组件
+# Downstream: context.engine_context, context.portfolio_context
+# Role: 上下文管理模块包入口，导出EngineContext引擎级上下文和PortfolioContext组合级上下文，提供分层运行环境信息
 
 
 

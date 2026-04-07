@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 经纪商模块公共接口导出模拟/手动/实盘/A股等经纪商实现支持交易系统功能支持订单执行和交易模拟提供多市场支持
+# Upstream: EngineAssemblyService, InfrastructureFactory, PortfolioBase, SyncBrokerFacade
+# Downstream: IBroker, BaseBroker, BrokerType, OrderType, OrderSide, TradingOrder, Position
+# Role: 经纪商模块包，导出IBroker接口、数据类定义及BaseBroker基类
 
 
 

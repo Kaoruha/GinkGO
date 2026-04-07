@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 实现 ModelAdapter、SklearnModelAdapter、XGBoostModelAdapter 等 7 个类的核心功能
+# Upstream: ML策略模块 (调用模型适配统一ML框架接口)
+# Downstream: BaseAdapter, BaseModel(模型接口), MODEL_TYPES(枚举), pandas/numpy, GLOG日志
+# Role: ML模型适配器，支持sklearn/XGBoost/LightGBM/PyTorch/TensorFlow/Generic六种框架到BaseModel统一接口的适配
 
 
 

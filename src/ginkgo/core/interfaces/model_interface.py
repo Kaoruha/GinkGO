@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: ModelInterface模型接口定义模型协议规范ML模型交互和模型集成支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 模型适配器(sklearn/xgboost等继承BaseModel)、ML策略模块
+# Downstream: MODEL_TYPES(枚举), pandas, numpy, datetime, sklearn.metrics
+# Role: ML模型统一接口，定义BaseModel/BaseTimeSeriesModel/BaseEnsembleModel三种模型协议含fit/predict/save/load等完整生命周期
 
 
 

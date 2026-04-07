@@ -1,3 +1,7 @@
+# Upstream: GLOG, 日志初始化模块
+# Downstream: 日志系统 (容器环境元数据注入)
+# Role: 容器环境检测和日志元数据采集
+
 """
 Log utilities module for Ginkgo library
 

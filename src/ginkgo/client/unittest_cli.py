@@ -1,7 +1,7 @@
 # coding:utf-8
 # Upstream: Data Layer
 # Downstream: External APIs (Tushare, Yahoo, etc.)
-# Role: 单元测试CLI实现日志级别/测试层等核心类提供运行/列表/调试等单元测试管理命令支持交易系统功能和组件集成提供完整业务支持
+# Role: 单元测试CLI实现日志级别/测试层等核心类提供运行/列表/调试等单元测试管理命令
 
 
 
@@ -496,3 +496,4 @@ def _count_tests_in_suite(suite) -> int:
         else:
             count += 1
     return count
+

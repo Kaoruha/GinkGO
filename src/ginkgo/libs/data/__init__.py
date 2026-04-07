@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 数据工具模块导出时间规范化/数字处理/费用计算/统计检验等数据处理工具支持交易系统功能和组件集成提供完整业务支持
+# Upstream: libs顶层模块(__init__.py)、各业务模块
+# Downstream: datetime_normalize, Number/to_decimal, t_test/chi2_test, cal_fee, DataValidationResult/DataIntegrityCheckResult/DataSyncResult
+# Role: 数据工具包入口，导出时间标准化/数字处理/费用计算/统计检验和数据结果类等通用数据处理工具
 
 
 

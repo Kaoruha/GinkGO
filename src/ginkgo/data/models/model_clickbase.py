@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: ClickHouse基础数据模型继承MBase提供uuid/created_at/updated_at/source等字段
+# Upstream: MBar, MTick, MAnalyzerRecord, MOrderRecord, MPositionRecord, MTransferRecord等时序模型
+# Downstream: MBase, SQLAlchemy(DeclarativeBase), clickhouse_sqlalchemy(engines), SOURCE_TYPES
+# Role: ClickHouse ORM声明基类，提供uuid/meta/timestamp/source等公共字段和MergeTree引擎配置
 
 
 

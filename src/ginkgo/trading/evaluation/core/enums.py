@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Enums模块提供EvaluationEnums评估枚举定义评估常量和枚举类型功能支持回测评估和代码验证
+# Upstream: evaluation模块所有组件 (rules, evaluators, reporters)
+# Downstream: enum (标准库)
+# Role: 定义评估核心枚举：ComponentType(STRATEGY/SELECTOR/SIZER/RISK_MANAGER)、EvaluationLevel(BASIC/STANDARD/STRICT)、EvaluationSeverity(ERROR/WARNING/INFO)
 
 
 

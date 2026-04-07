@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Strategy Validator验证器检查StrategyValidator策略配置合理性支持相关功能
+# Upstream: validate_component统一入口 (按component_type='strategy'调用)
+# Downstream: BaseValidator, ValidationResult, ValidationLevel, ValidationRules, ast/inspect/re
+# Role: 策略组件校验器，通过AST语法树和反射检查用户自定义Strategy的基类继承/方法签名/参数类型合规性
 
 
 

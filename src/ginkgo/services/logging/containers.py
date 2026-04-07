@@ -1,3 +1,7 @@
+# Upstream: services/logging (模块初始化)
+# Downstream: LogService, LevelService, AlertService
+# Role: 日志服务依赖注入容器，提供日志查询/级别管理/告警服务
+
 """
 Logging Service Container
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Health健康监控继承BaseMonitor提供系统健康状态检查和组件监控功能支持故障诊断支持交易系统功能和组件集成提供完整业务支持
+# Upstream: API Server, monitoring/__init__
+# Downstream: HealthChecker, HealthStatus, ComponentHealth, SystemHealth, psutil, clock_now
+# Role: 健康监控模块，提供组件级和系统级健康状态检查及故障诊断功能
 
 
 
@@ -410,3 +410,4 @@ def register_health_check(component_name: str,
 async def check_system_health() -> SystemHealth:
     """便捷函数：检查系统健康状态"""
     return await _global_health_checker.check_all_health()
+

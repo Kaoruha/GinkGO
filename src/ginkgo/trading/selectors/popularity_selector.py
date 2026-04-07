@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Popularity Selector选股器继承BaseSelector提供PopularitySelector热度选股功能
+# Upstream: EngineAssemblyService, PortfolioBase
+# Downstream: BaseSelector, container, GLOG, rich.Progress
+# Role: 热度选股器，基于历史交易数据统计选取最活跃的Top-N股票
 
 
 

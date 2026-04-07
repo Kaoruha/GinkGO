@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 回测分析评估模块导出评估器/切片数据管理/指标稳定性计算等组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PaperTradingWorker, 回测完成后评估, 偏差检测链路
+# Downstream: BacktestEvaluator, DeviationChecker, SlicePeriodOptimizer, LiveDeviationDetector, MetricStabilityCalculator, SliceDataManager
+# Role: 评估工具包导出 — 回测评估/切片周期优化/偏差检测/指标稳定性计算/切片数据管理
 
 
 

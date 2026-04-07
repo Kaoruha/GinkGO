@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Engine Handler Mapping模型继承定义MEngineHandlerMapping引擎处理器映射相关数据结构
+# Upstream: MappingService, mapping_crud, 回测引擎装配流程
+# Downstream: MMysqlBase, SOURCE_TYPES, EVENT_TYPES, 工具函数
+# Role: 引擎-处理器映射MySQL模型，记录引擎与策略/风控/Sizer等处理器组件的绑定关系
 
 
 

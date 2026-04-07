@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 流式缓存模块公共接口，导出CacheManager缓存管理器，提供流式数据处理的缓存优化和内存管理功能
+# Upstream: 流式查询引擎, 数据服务层
+# Downstream: CacheManager, StreamingCache, CacheConfig, CacheMetrics, CacheStrategy
+# Role: 流式缓存子包入口，导出缓存管理器和缓存策略组件，提供查询结果缓存优化
 
 
 

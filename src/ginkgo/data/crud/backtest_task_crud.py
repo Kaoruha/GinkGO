@@ -1,6 +1,6 @@
 # Upstream: BacktestTaskService (回测任务业务服务)、BacktestTaskFactory (创建和查询回测任务)
 # Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MBacktestTask (MySQL回测任务模型)
-# Role: BacktestTaskCRUD回测任务CRUD操作继承BaseCRUD提供回测任务管理功能支持交易系统功能和组件集成提供完整业务支持
+# Role: BacktestTaskCRUD回测任务CRUD操作继承BaseCRUD提供回测任务管理功能
 
 """
 Backtest Task CRUD Operations
@@ -289,3 +289,4 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
 # 向后兼容别名
 RunRecordCRUD = BacktestTaskCRUD
+

@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: ExpressionService表达式服务提供表达式计算和管理功能支持因子表达式支持交易系统功能支持相关功能
+# Role: ExpressionService表达式服务提供表达式计算和管理功能支持因子表达式
 
 
 

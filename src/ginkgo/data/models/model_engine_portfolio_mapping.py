@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Engine Portfolio Mapping模型继承定义MEnginePortfolioMapping引擎组合映射相关数据结构
+# Upstream: PortfolioMappingService, engine_portfolio_mapping_crud, 回测引擎装配流程
+# Downstream: MMysqlBase, SOURCE_TYPES, EVENT_TYPES, 工具函数
+# Role: 引擎-组合映射MySQL模型，记录引擎与投资组合的多对多绑定关系
 
 
 

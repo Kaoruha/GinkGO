@@ -1,6 +1,6 @@
 # Upstream: 外部应用和CLI命令(统一服务访问入口from ginkgo import service_hub)
 # Downstream: DataContainer/Data/Trading/Core/ML/Features容器(懒加载各模块容器提供依赖注入)
-# Role: ServiceHub服务访问协调器提供懒加载/错误处理支持交易系统功能和组件集成提供完整业务支持
+# Role: ServiceHub服务访问协调器提供懒加载/错误处理
 
 
 """
@@ -139,3 +139,4 @@ service_hub = ServiceHub()
 services = service_hub
 
 __all__ = ['service_hub', 'services']
+

@@ -1,6 +1,6 @@
-# Upstream: PositionService (持仓业务服务)、Portfolio Manager (持仓记录查询和分析)
-# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MPosition (MySQL持仓模型)、Position (业务持仓实体)
-# Role: PositionCRUD持仓CRUD继承BaseCRUD提供持仓数据管理和查询功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PortfolioService (状态持久化时全量替换/加载持仓快照)、PositionService (持仓查询业务服务)
+# Downstream: BaseCRUD (继承标准CRUD能力)、MPosition (MySQL持仓模型)、Position (业务持仓实体)
+# Role: 持仓记录 CRUD，提供按组合/代码/业务时间查询、持仓快照批量创建与删除，支持状态持久化
 
 
 

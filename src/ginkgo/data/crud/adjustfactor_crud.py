@@ -1,6 +1,6 @@
 # Upstream: AdjustfactorService (复权因子业务服务)、BarService (K线复权计算)
 # Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MAdjustfactor (ClickHouse复权因子模型)
-# Role: AdjustfactorCRUD复权因子CRUD继承BaseCRUD提供复权数据管理和查询功能支持交易系统功能和组件集成提供完整业务支持
+# Role: AdjustfactorCRUD复权因子CRUD继承BaseCRUD提供复权数据管理和查询功能
 
 
 
@@ -375,3 +375,4 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         except Exception as e:
             GLOG.ERROR(f"Modify operation failed: {e}")
             raise
+

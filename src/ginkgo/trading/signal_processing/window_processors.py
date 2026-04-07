@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: WindowProcessors窗口处理器提供滑动窗口处理支持时序数据处理支持交易系统功能支持相关功能
+# Upstream: BacktestEngine, signal_processing/__init__
+# Downstream: TimeWindowBatchProcessor, WindowType, ProcessingMode, Signal, clock_now
+# Role: 具体时间窗口处理器，实现日线/小时线/分钟线/立即处理等不同粒度
 
 
 
@@ -330,3 +330,4 @@ class CustomWindowProcessor(TimeWindowBatchProcessor):
             self.logger.ERROR(f"Custom batch trigger function failed: {e}")
             # 回退到基于批次大小的判断
             return len(signals) >= self.min_batch_size
+

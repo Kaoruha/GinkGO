@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心工具模块导出配置管理/日志记录/线程管理等核心工具类支持交易系统功能提供基础设施支持确保系统稳定运行
+# Upstream: libs顶层模块(__init__.py)、core容器
+# Downstream: GinkgoConfig(配置), GinkgoLogger(日志)
+# Role: 核心工具包入口，导出GinkgoConfig配置管理和GinkgoLogger日志类，GinkgoThreadManager通过顶层延迟加载
 
 
 

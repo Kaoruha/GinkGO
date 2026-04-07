@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 可视化模块公共接口，导出Chart图表、Renderer渲染器、Decorator装饰器等可视化组件，提供评估结果的可视化展示
+# Upstream: evaluation顶层包, 信号追踪报告
+# Downstream: (空包，暂无导出)
+# Role: 可视化子包，预留完整图表架构(core基础/renderers渲染后端/decorators装饰器/charts图表类型)
 
 
 

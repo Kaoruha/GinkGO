@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Fixed Selector选股器继承BaseSelector提供FixedSelector固定选股功能
+# Upstream: EngineAssemblyService, PortfolioBase
+# Downstream: BaseSelector, GLOG
+# Role: 固定选股器，支持列表/JSON/逗号分隔格式的固定股票池配置
 
 
 

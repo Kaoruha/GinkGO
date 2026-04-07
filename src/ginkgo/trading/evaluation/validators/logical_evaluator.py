@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: LogicalEvaluator逻辑评估器继承BaseEvaluator提供代码逻辑检查和错误识别功能
+# Upstream: CLI评估命令, 评估流水线
+# Downstream: evaluators.base_evaluator (SimpleEvaluator), rules.logical_rules, rules.rule_registry, core.enums, GLOG
+# Role: 逻辑验证器，继承SimpleEvaluator并预注册ReturnStatementRule/SignalFieldRule/SignalParameterRule/DirectionValidationRule等7条逻辑规则
 
 
 

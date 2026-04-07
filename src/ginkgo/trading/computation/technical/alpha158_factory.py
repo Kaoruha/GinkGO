@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Alpha158Factory Alpha158因子工厂提供Alpha158因子计算支持因子构建支持交易系统功能
+# Upstream: Analyzers, Factor Research Modules, computation.__init__
+# Downstream: Alpha Factors (KMID/KLEN/KLOW/KHIGH/MA/STD/BETA/ROC/MAX/MIN/QTLU/QTLD/RANK/RSV/IMAX/IMIN/IMXD), BaseIndicator, pandas, numpy
+# Role: Alpha158因子工厂，基于QLib规范批量创建和管理Alpha因子，支持单股事件模式和矩阵批量计算
 
 
 

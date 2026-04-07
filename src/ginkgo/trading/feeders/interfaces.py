@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 DataFeedStatus、IDataFeeder、IBacktestDataFeeder 等 4 个类的核心功能
+# Upstream: feeders.backtest_feeder, feeders.live_feeder, feeders.okx_data_feeder
+# Downstream: trading.events, trading.time.interfaces, trading.time.providers
+# Role: 数据馈送接口定义，包括DataFeedStatus状态枚举、IDataFeeder核心接口、IBacktestDataFeeder和ILiveDataFeeder扩展接口
 
 
 

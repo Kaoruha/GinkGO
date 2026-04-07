@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BatchProcessor批处理器提供批量信号处理功能支持信号批量处理支持交易系统功能支持相关功能
+# Upstream: DailyWindowProcessor, HourlyWindowProcessor, MinuteWindowProcessor
+# Downstream: TimeWindowBatchProcessor, WindowType, ProcessingMode, Signal, Order, clock_now
+# Role: 时间窗口批处理器核心实现，定义批处理基类和窗口/处理模式枚举
 
 
 
@@ -399,3 +399,4 @@ class TimeWindowBatchProcessor(ABC):
         self._signal_batches.clear()
         self._batch_timestamps.clear()
         self.logger.INFO(f"Cleared {cleared_signals} pending signals from {len(self._signal_batches)} batches")
+

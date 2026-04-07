@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: VaRCVaR风险价值分析器继承BaseAnalyzer计算VaR和CVaR评估最大潜在损失风险支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Portfolio (ENDDAY stage)
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Role: VaR/CVaR分析器 — 历史模拟法计算风险价值和条件风险价值，年化后输出
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: BaseStreamingEngine基础流式引擎定义流式数据处理抽象基类支持交易系统功能支持相关功能
+# Upstream: MySQLStreamingEngine, ClickHouseStreamingEngine(子类)
+# Downstream: streaming包核心类(StreamingState/ProgressInfo), StreamingConfig
+# Role: 流式查询引擎抽象基类(Template Method模式)，定义stream_find标准流程和游标类型枚举
 
 
 
@@ -470,3 +470,4 @@ class StreamingCursor(ABC):
     def fetchmany(self, size: int) -> List[Any]:
         """批量获取记录"""
         pass
+

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoAKShare AKShare数据源继承SourceBase提供A股数据获取支持交易系统功能
+# Upstream: 数据更新任务, BarService
+# Downstream: GinkgoSourceBase, akshare库
+# Role: AKShare数据源适配器，提供A股行情和交易日数据获取(桩实现)
 
 
 
@@ -20,3 +20,4 @@ class GinkgoAkShare(GinkgoSourceBase):
 
     def fetch_cn_stock_list(self, date: any, *args, **kwargs):
         pass
+

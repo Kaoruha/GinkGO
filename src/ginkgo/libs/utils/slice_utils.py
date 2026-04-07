@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: SliceUtils切片工具提供数据切片和分页处理的辅助方法支持大数据集处理和内存优化支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 回测引擎、数据同步模块 (按时间切片处理大数据)
+# Downstream: pandas, numpy, datetime_normalize
+# Role: 数据切片工具模块，提供create_time_slices时间切片/分页处理等辅助方法，支持大数据集分批处理
 
 
 

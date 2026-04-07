@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (事件驱动回测引擎)、Live Trading Engines (事件驱动实盘引擎)
 # Downstream: BaseEngine (继承提供引擎基础能力)、Queue/threading (事件队列和线程管理)、EVENT_TYPES (事件类型枚举)
-# Role: EventEngine事件驱动引擎继承BaseEngine实现事件分发和处理机制支持交易系统功能和组件集成提供完整业务支持
+# Role: EventEngine事件驱动引擎继承BaseEngine实现事件分发和处理机制
 
 
 
@@ -901,3 +901,4 @@ class EventEngine(BaseEngine):
             # 无论如何都要重置调整状态并释放锁
             self._is_resizing = False
             self._resize_lock.release()
+

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ML predictor strategy with cal method for signal generation
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: StrategyMLBase, BaseModel, FeatureProcessor, AlphaFactors, Signal, DIRECTION_TYPES
+# Role: ML预测策略，基于已训练机器学习模型预测股价收益率并生成交易信号
 
 
 

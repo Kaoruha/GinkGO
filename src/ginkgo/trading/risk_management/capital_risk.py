@@ -1,3 +1,7 @@
+# Upstream: Portfolio (add_risk_manager注册使用)
+# Downstream: RiskBase (继承风控基类)
+# Role: CapitalRisk资金风控，限制总资金使用率和单笔交易占比，超阈值生成平仓信号
+
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement

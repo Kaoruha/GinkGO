@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Metrics指标监控继承BaseMonitor提供性能指标收集/统计和监控功能支持性能优化支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BacktestEngine, LiveEngine, API Server
+# Downstream: MetricsCollector, MetricType, MetricPoint, PerformanceMetrics, SystemMetrics, TradingMetrics
+# Role: 指标收集模块，提供Counter/Gauge/Histogram/Timer等类型指标的收集、聚合和报告
 
 
 
@@ -445,3 +445,4 @@ def record_timer(name: str, duration_ms: float, labels: Dict[str, str] = None) -
 def time_it(name: str, labels: Dict[str, str] = None):
     """便捷函数：时间上下文管理器"""
     return _global_metrics_collector.time_it(name, labels)
+

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: StreamingEngineFactory流式引擎工厂提供流式引擎创建功能支持交易系统功能支持相关功能
+# Upstream: StreamingQueryEngine, 流式查询调用方
+# Downstream: MySQLStreamingEngine, ClickHouseStreamingEngine, BaseStreamingEngine, StreamingConfig
+# Role: 流式引擎工厂，自动检测数据库类型并选择合适引擎，提供查询分析和性能监控
 
 
 
@@ -504,3 +504,4 @@ class StreamingEngineFactory:
 
 # 全局工厂实例
 streaming_engine_factory = StreamingEngineFactory()
+

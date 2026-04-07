@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 交易网关模块公共接口，导出TradeGateway交易网关、Center路由中心、Balancer负载均衡、CircuitBreaker熔断器等订单路由组件
+# Upstream: BaseEngine, TimeControlledEventEngine
+# Downstream: gateway.interfaces, gateway.balancers, gateway.circuit_breaker, gateway.center, gateway.trade_gateway
+# Role: 交易网关模块包入口，导出路由中心、负载均衡器、熔断器、撮合器、交易网关等事件路由组件
 
 
 

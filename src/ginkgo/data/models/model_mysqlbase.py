@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: MySQL基础数据模型继承MBase提供uuid/created_at/updated_at/is_del等字段
+# Upstream: MEngine, MPortfolio, MBacktestTask, MEngineHandlerMapping, MEnginePortfolioMapping等关系型模型
+# Downstream: MBase, SQLAlchemy(DeclarativeBase), SOURCE_TYPES, 工具函数
+# Role: MySQL ORM声明基类，提供uuid/meta/create_at/update_at/is_del等公共字段
 
 
 

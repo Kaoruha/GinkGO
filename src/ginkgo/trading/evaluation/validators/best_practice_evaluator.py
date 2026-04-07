@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BestPracticeEvaluator最佳实践评估器继承BaseEvaluator提供代码规范检查和优化建议
+# Upstream: CLI评估命令, 评估流水线
+# Downstream: evaluators.base_evaluator (SimpleEvaluator), rules.best_practice_rules, rules.rule_registry, core.enums, GLOG
+# Role: 最佳实践验证器，继承SimpleEvaluator并预注册DecoratorUsageRule/ExceptionHandlingRule/LoggingRule/ResetStateRule/ParameterValidationRule
 
 
 

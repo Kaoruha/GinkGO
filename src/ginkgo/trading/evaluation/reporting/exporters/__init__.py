@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供ReportExporters报告导出器模块提供导出功能支持报告输出功能支持回测评估和代码验证
+# Upstream: reporting子包
+# Downstream: (空包，暂无导出)
+# Role: 报告导出器子包，预留FileExporter/HTTPExporter/WebhookExporter等输出渠道实现
 
 
 

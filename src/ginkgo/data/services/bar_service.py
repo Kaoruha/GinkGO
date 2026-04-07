@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies (通过get_bars获取K线数据)、Backtest Engines (同步历史K线)、CLI Commands (ginkgo data update)
-# Downstream: BaseService (继承提供CRUD/数据源/日志/重试/缓存能力)、BarCRUD (ClickHouse K线持久化)、AdjustfactorService (复权服务依赖)、Tushare/TDX (数据源)
-# Role: BarService K线数据业务服务提供K线数据管理和查询功能支持数据源支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Trading Strategies (get_bars获取K线)、Backtest Engines (同步历史K线)、CLI Commands (ginkgo data update)
+# Downstream: BaseService (继承基类)、BarCRUD (ClickHouse K线持久化)、AdjustfactorService (复权依赖)
+# Role: BarService日K线数据服务提供K线同步查询复权和完整性检查
 
 
 
@@ -1481,3 +1481,4 @@ class BarService(BaseService):
             current_date += timedelta(days=1)
 
         return trading_days
+

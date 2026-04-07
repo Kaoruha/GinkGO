@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: SizerValidator仓位验证器检查仓位计算逻辑正确性支持仓位验证支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: validate_component统一入口 (按component_type='sizer'调用)
+# Downstream: BaseValidator, ValidationResult, ValidationLevel, ValidationRules, ast/inspect/re, GLOG
+# Role: 仓位管理组件校验器，通过AST语法树和反射检查用户自定义Sizer的基类继承/方法签名/仓位计算逻辑合规性
 
 
 

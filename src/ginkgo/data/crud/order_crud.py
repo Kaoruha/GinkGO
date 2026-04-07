@@ -1,6 +1,6 @@
 # Upstream: OrderService (订单业务服务)、Portfolio Manager (订单记录查询)
 # Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MOrder (MySQL订单模型)、Order (业务订单实体)
-# Role: OrderCRUD订单CRUD操作继承BaseCRUD提供订单管理和业务查询功能支持组合查询支持交易系统功能和组件集成提供完整业务支持
+# Role: OrderCRUD订单CRUD操作继承BaseCRUD提供订单管理和业务查询功能支持组合查询
 
 
 
@@ -651,3 +651,4 @@ class OrderCRUD(BaseCRUD[MOrder]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get order portfolio ids: {e}")
             return []
+

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Backtest Feeder数据馈送器继承BaseFeeder提供BacktestFeeder回测数据数据推送
+# Upstream: TimeControlledEventEngine, BaseEngine
+# Downstream: feeders.base_feeder, feeders.interfaces, trading.events, entities.Bar, trading.time, libs, enums.SOURCE_TYPES
+# Role: 回测数据馈送器实现，基于BarService加载历史K线数据，按交易日逐步推送EventPriceUpdate事件给引擎
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoKafka Kafka驱动提供Kafka连接和消息队列操作支持流式处理支持交易系统功能支持相关功能
+# Upstream: 数据层容器(containers.py), Worker系统, 实盘交易引擎
+# Downstream: kafka-python, GCONF, KafkaTopics接口, GinkgoLogger
+# Role: Kafka消息队列驱动，提供Producer/Consumer/Admin客户端封装和Topic管理
 
 
 
@@ -416,3 +416,4 @@ def get_unconsumed_message(topic: str) -> int:
     consumer.close()
 
     return total_message_count
+

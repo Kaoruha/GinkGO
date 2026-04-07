@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Ast Helpers模块提供ASTHelpers AST辅助工具提供AST操作辅助函数支持代码分析功能支持回测评估和代码验证
+# Upstream: analyzers.ast_analyzer, rules (ASTBasedRule子类)
+# Downstream: ast, pathlib (标准库)
+# Role: AST解析辅助工具集，提供parse_file/parse_source解析、find_all_class_defs/find_method_def类方法查找、get_imports/get_decorators导入装饰器提取等函数
 
 
 

@@ -1,3 +1,7 @@
+# Upstream: API层/Scheduler (构建分配消息)、BacktestWorker (消费进度消息)
+# Downstream: Kafka消息队列 (序列化传输)
+# Role: BacktestAssignmentDTO/BacktestProgressDTO回测任务分配与进度消息数据传输对象
+
 """
 Backtest Assignment DTO
 

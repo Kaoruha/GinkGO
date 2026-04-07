@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 计算模块公共接口，导出Alpha158因子、Technical技术指标、BollingerBands布林带、RSI相对强弱等计算器和指标
+# Upstream: 回测引擎、组合管理、分析器、策略
+# Downstream: BaseIndicator, Alpha158Factory, BollingerBands, RelativeStrengthIndex, MA/EMA/SMA/WMA, ATR, PinBar, Gap, InflectionPoint, Alpha Factors (KMID/KLEN/KLOW/KHIGH/MA/STD/BETA/ROC/MAX/MIN/QTLU/QTLD/RANK/RSV/IMAX/IMIN/IMXD)
+# Role: 计算模块统一入口，整合技术指标和Alpha158因子，提供向后兼容的旧模块别名（indicators/indices）
 
 
 

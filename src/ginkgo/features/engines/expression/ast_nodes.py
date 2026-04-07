@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: Ast Nodes模块提供ASTNodes抽象语法树节点定义表达式AST节点类型支持相关业务功能支持交易系统功能
+# Role: Ast Nodes模块提供ASTNodes抽象语法树节点定义表达式AST节点类型支持相关业务功能
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Bases基础组件模块导出交易基础类公共接口支持组件开发和扩展支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 引擎、组合、策略、风控等组件的具体实现类
+# Downstream: bases.signal_base, bases.order_base, bases.position_base, bases.portfolio_base, bases.selector_base, bases.risk_base, bases.sizer_base
+# Role: 交易组件基类模块包入口，导出Signal/Order/Position/Portfolio/Selector/Risk/Sizer七大组件抽象基类
 
 
 

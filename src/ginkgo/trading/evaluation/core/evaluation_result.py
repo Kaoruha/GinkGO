@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 EvaluationIssue、EvaluationResult、SignalTrace 等 4 个类的核心功能
+# Upstream: BaseEvaluator, BaseReporter, SignalTracer
+# Downstream: core.enums (EvaluationLevel, EvaluationSeverity), dataclasses
+# Role: 评估结果实体定义，包含EvaluationIssue单条问题、EvaluationResult完整评估结果、SignalTrace信号追踪记录和SignalTraceReport追踪报告
 
 
 

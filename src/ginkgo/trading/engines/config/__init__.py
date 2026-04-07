@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Config配置模块提供回测引擎配置定义和管理支持配置加载/验证和保存功能确保配置正确性支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, TimeControlledEventEngine, CLI回测命令
+# Downstream: engines.config.backtest_config
+# Role: 引擎配置模块包入口，导出BacktestConfig回测配置数据类，统一管理回测参数
 
 
 

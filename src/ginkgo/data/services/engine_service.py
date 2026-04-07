@@ -1,6 +1,6 @@
 # Upstream: CLI Commands (ginkgo engine add/list/delete)、Backtest Engines (引擎配置管理)
 # Downstream: BaseService (继承提供服务基础能力)、EngineCRUD (引擎配置CRUD)、EnginePortfolioMappingCRUD (引擎投资组合映射CRUD)、ParamCRUD (参数CRUD)
-# Role: EngineService引擎配置管理服务提供引擎CRUD和组合绑定功能支持交易系统功能和组件集成提供完整业务支持
+# Role: EngineService引擎配置管理服务提供引擎CRUD和组合绑定功能
 
 
 
@@ -947,3 +947,4 @@ class EngineService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"Engine fuzzy search failed: {str(e)}")
+

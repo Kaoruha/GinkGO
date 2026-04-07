@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 RateLimiter、ConnectionManager、LiveDataFeeder 等类的核心功能，封装相关业务逻辑
+# Upstream: LiveEngine, PaperTradingWorker
+# Downstream: feeders.interfaces, trading.events, trading.time.interfaces, trading.time.providers, libs.GLOG, websockets
+# Role: 实盘数据馈送器实现，提供WebSocket连接管理、令牌桶限流、断线重连和市场数据实时推送功能
 
 
 

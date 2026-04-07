@@ -1,6 +1,6 @@
 # Upstream: PortfolioService (投资组合管理)、Backtest Engines (创建和查询portfolio)
 # Downstream: MMysqlBase (继承提供MySQL ORM能力)
-# Role: MPortfolio投资组合MySQL模型继承MMysqlBase定义核心字段提供投资组合配置管理支持交易系统功能和组件集成提供完整业务支持
+# Role: MPortfolio投资组合MySQL模型继承MMysqlBase定义核心字段提供投资组合配置管理
 
 
 
@@ -140,3 +140,4 @@ class MPortfolio(MMysqlBase):
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
+

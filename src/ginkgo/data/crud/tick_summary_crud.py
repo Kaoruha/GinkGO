@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: TickSummaryCRUD Tick汇总CRUD继承BaseCRUD提供Tick数据统计功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: TickService, 高频数据分析模块
+# Downstream: BaseCRUD, MTickSummary模型
+# Role: Tick汇总数据CRUD，管理Tick级别的成交汇总统计(价格、成交量等)
 
 
 
@@ -180,3 +180,4 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
                 "source": summary.source,
             }
         return None
+

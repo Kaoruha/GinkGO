@@ -1,3 +1,7 @@
+# Upstream: 线程管理器(GTM), Worker管理
+# Downstream: os.popen (ps命令)
+# Role: 按关键词查找系统进程
+
 # 导入os模块，用于操作系统相关的功能
 import os
 

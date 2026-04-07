@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Mapping映射实体提供对象关联关系定义支持引擎组合映射和处理器组合映射实现组件关联支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Engine Assembler, Portfolio Manager, Mapping CRUD Services, API Handlers
+# Downstream: Base, COMPONENT_TYPES, SOURCE_TYPES
+# Role: Mapping通用映射业务实体，表示Engine-Handler/Engine-Portfolio/Portfolio-File等键值对关联关系，支持字典式访问和从数据库模型转换
 
 
 

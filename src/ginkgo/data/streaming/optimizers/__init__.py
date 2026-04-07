@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Optimizers优化器模块提供优化器组件的公共接口和导出支持优化器使用支持交易系统功能支持相关功能
+# Upstream: 流式查询引擎, EngineFactory
+# Downstream: 无(空包，组件待实现)
+# Role: 流式优化器子包入口，预留QueryOptimizer/BatchSizeOptimizer/IndexHintOptimizer导出
 
 
 
@@ -20,3 +20,4 @@
 """
 
 __all__ = []
+

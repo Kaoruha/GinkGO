@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: EngineProtocol引擎协议定义引擎接口规范和行为契约支持类型检查和接口实现支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, TimeControlledEventEngine, EventEngine
+# Downstream: typing.Protocol（标准库）
+# Role: IEngine引擎接口协议定义，规范生命周期管理、状态管理、事件处理、组件管理等引擎核心行为契约
 
 
 

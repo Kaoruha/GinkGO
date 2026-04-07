@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 时间管理模块公共接口，导出Clock时钟、TimeProvider时间提供者、Timestamp时间戳等时间管理组件，提供统一的时间抽象
+# Upstream: BacktestEngine, LiveEngine, EventProcessor, all time-aware components
+# Downstream: ITimeProvider, ITimeAwareComponent, LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator, TIME_MODE
+# Role: 时间管理模块包，导出时间提供者接口和逻辑/系统时钟实现
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 分析器模块导出基类/年化收益/夏普比率/最大回撤/波动率等性能分析器支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BacktestEvaluator, AnalysisEngine, Portfolio
+# Downstream: BaseAnalyzer, AnnualizedReturn, MaxDrawdown, SharpeRatio, Volatility, WinRate, Profit
+# Role: 分析器包导出所有性能分析器（17个指标）及BASIC_ANALYZERS默认配置列表
 
 
 
@@ -64,3 +64,4 @@ BASIC_ANALYZERS = [
     SignalCount,        # 信号计数 - 执行统计
     OrderCount,         # 订单计数 - 执行统计
 ]
+

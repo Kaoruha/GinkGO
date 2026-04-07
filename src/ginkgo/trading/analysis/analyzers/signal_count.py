@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Signal Count分析器继承BaseAnalyzer计算SignalCount信号统计性能指标
+# Upstream: Portfolio (SIGNALGENERATION stage), BASIC_ANALYZERS, SlicePeriodOptimizer
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, AnalyzerService (container)
+# Role: 信号计数分析器 — 每次信号生成时累计计数，每日收盘写入累计信号总数
 
 
 

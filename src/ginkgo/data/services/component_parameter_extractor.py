@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Component Parameter Extractor服务提供Component Parameter Extractor管理和查询
+# Upstream: ParameterMetadataService, Web UI(参数展示), API层
+# Downstream: ast, inspect, FileCRUD(获取文件内容), GLOG
+# Role: 动态组件参数提取器，通过AST分析组件源码获取构造函数参数名，支持缓存和数据库内容回退
 
 
 

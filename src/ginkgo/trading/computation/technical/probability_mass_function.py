@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ProbabilityMassFunction概率质量函数继承BaseIndicator提供离散概率分布分析
+# Upstream: computation.technical（预留）
+# Downstream: BaseIndicator（预留）
+# Role: PMF概率质量函数模块占位文件（尚未实现）
 
 
 

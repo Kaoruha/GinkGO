@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: PortfolioInterface组合接口定义组合协议规范组合管理和状态支持交易系统功能支持相关功能
+# Upstream: 回测引擎、组合模块 (实现组合接口)
+# Downstream: BaseStrategy(策略接口), BaseAnalyzer, BaseSizer, BaseSelector, BaseRiskManagement, abc, datetime
+# Role: 投资组合统一接口，定义BasePortfolio/BaseMultiStrategyPortfolio协议含策略管理/仓位计算/再平衡/性能统计
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 实现 AdapterError、BaseAdapter、ChainableAdapter 等 5 个类的核心功能
+# Upstream: ModeAdapter, ModelAdapter, StrategyAdapter (继承BaseAdapter)
+# Downstream: abc(ABC/abstractmethod), GLOG日志, datetime
+# Role: 适配器抽象基类，定义AdapterError异常、BaseAdapter/ChainableAdapter/CompositeAdapter/ConditionalAdapter四种适配器通用接口
 
 
 

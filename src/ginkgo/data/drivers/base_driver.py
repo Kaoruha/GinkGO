@@ -1,6 +1,6 @@
 # Upstream: All Concrete Database Drivers (GinkgoClickHouse/GinkgoMySQL/GinkgoMongo/GinkgoRedis继承)
 # Downstream: sqlalchemy (数据库连接引擎)、GLOG (日志记录)
-# Role: BaseDriver基础驱动定义数据库驱动的抽象基类和接口规范数据库操作支持交易系统功能支持相关功能
+# Role: BaseDriver基础驱动定义数据库驱动的抽象基类和接口规范数据库操作
 
 
 
@@ -399,3 +399,4 @@ class DatabaseDriverBase(ABC):
         """🆕 移除流式查询会话"""
         if self._streaming_session_factory:
             self._streaming_session_factory.remove()
+

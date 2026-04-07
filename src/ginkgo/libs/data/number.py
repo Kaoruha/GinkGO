@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Number模块提供Number数字工具提供数字处理/转换和格式化功能支持相关业务功能支持交易系统功能
+# Upstream: math模块(cal_fee)、logger模块(日志类型支持)、normalize模块
+# Downstream: numpy, Decimal
+# Role: 数字类型工具，定义Number类型别名(float/int/Decimal)和to_decimal转换函数
 
 
 
@@ -25,3 +25,4 @@ def to_decimal(value: Number) -> Decimal:
         return Decimal(str(value))
     except InvalidOperation as e:
         raise ValueError(f"Cannot convert {value} to Decimal: {e}")
+

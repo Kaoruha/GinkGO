@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 通用工具模块导出时间日志/重试/缓存/进度条/健康检查等工具函数支持交易系统功能和组件集成提供完整业务支持
+# Upstream: libs顶层模块(__init__.py)、各业务模块
+# Downstream: common(try_wait_counter/str2bool/time_logger/retry/cache_with_expiration/RichProgress), display(pretty_repr/base_repr/GinkgoColor), codes(cn_index), process(find_process_by_keyword)
+# Role: 通用工具包入口，导出重试/缓存/日志装饰器、进度条、显示格式化和进程查找等工具函数
 
 
 

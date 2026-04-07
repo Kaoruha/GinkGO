@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Ginkgo Clickhouse驱动提供GinkgoClickHouse ClickHouse数据库连接
+# Upstream: 数据层容器(containers.py), CRUD层, ClickHouse模型写入操作
+# Downstream: SQLAlchemy, GCONF, DatabaseDriverBase, GinkgoLogger
+# Role: ClickHouse数据库驱动，继承DatabaseDriverBase，封装连接池和ORM会话管理
 
 
 

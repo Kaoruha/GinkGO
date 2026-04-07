@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Component Tester验证器检查ComponentTester组件测试器提供组件单元测试功能配置合理性
+# Upstream: test_component统一入口 (按test_type调用)
+# Downstream: ValidationResult, ValidationLevel, ValidationRules, tempfile, datetime
+# Role: 组件集成测试器，在安全沙盒环境中运行用户组件的单元测试/集成测试/性能测试并收集结果
 
 
 

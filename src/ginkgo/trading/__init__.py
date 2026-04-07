@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 交易模块公共接口提供策略/风控/经纪商/投资组合等核心组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI commands, API Server, external consumers
+# Downstream: BacktestBase, Container, Bar, Order, Position, Signal, Tick, entities, computation, services
+# Role: 交易模块顶层包，统一导出实体、引擎、策略、风控、经纪商、组合等全部核心组件
 
 
 
@@ -155,3 +155,4 @@ __compatibility_notes__ = """
 
 兼容性层经过优化，减少了重复警告。
 """
+

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 实现 MySQLStreamingEngine 交易引擎，驱动回测或实盘流程，处理事件分发和策略执行
+# Upstream: StreamingEngineFactory(自动选择), MySQL数据处理任务
+# Downstream: BaseStreamingEngine, StreamingConfig, pymysql, psutil
+# Role: MySQL专用流式引擎，基于SSCursor实现内存优化的流式查询，支持自适应批处理和连接恢复
 
 
 

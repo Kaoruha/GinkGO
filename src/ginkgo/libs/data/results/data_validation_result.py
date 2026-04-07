@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: DataValidationResult数据验证结果封装验证结果和错误支持交易系统功能支持交易系统功能
+# Upstream: 数据校验模块、各CRUD模块 (封装验证结果)
+# Downstream: dataclasses, datetime
+# Role: DataValidationResult数据验证结果类，含有效性标记/错误警告统计/数据质量评分和实体元数据
 
 
 

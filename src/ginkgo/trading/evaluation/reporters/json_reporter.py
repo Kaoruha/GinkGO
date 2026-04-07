@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Json Reporter模块提供JSONReporter JSON报告器生成JSON格式报告支持数据导出功能支持回测评估和代码验证
+# Upstream: CLI评估命令, 自动化流程
+# Downstream: reporters.base_reporter (FileOutputReporter), core.evaluation_result, json (标准库)
+# Role: JSON格式报告生成器，将EvaluationResult/SignalTraceReport序列化为结构化JSON输出，支持文件导出
 
 
 

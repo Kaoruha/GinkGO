@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model ConversionCRUD继承BaseCRUD提供ModelConversion模型转换提供模型和实体转换功能支持数据映射数据操作
+# Upstream: 各CRUD类(作为Mixin混入), 业务实体对象
+# Downstream: ModelCRUDMapping, pandas
+# Role: Model转换Mixin，提供to_dataframe()和to_entity()方法，通过ModelCRUDMapping将数据库Model转为业务对象
 
 
 

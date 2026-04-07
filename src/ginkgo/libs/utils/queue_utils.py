@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: QueueUtils队列工具提供队列操作和任务管理的辅助方法支持异步处理和任务调度优化支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Kafka消费者、Worker管理模块
+# Downstream: dataclasses, Enum
+# Role: 队列管理工具模块，定义QueueStatus/WorkerStatus枚举和队列状态监控数据结构
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 交易核心模块导出引擎基类/回测基类/装配器/身份标识/状态管理等核心组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 全系统（所有trading子模块和外部调用者）
+# Downstream: entities.base, entities.identity, entities.file_info, trading.core.backtest_base, trading.core.containers
+# Role: 交易核心基础设施模块包入口，导出Base基础类、BacktestBase回测基类、FileInfo文件信息、Container依赖注入容器
 
 
 

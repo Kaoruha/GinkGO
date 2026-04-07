@@ -1,3 +1,7 @@
+# Upstream: Scheduler._schedule_loop()
+# Downstream: Redis (心跳键扫描), LoadBalancer (健康节点列表)
+# Role: 扫描Redis心跳键检测健康ExecutionNode及性能指标
+
 """
 心跳检测模块
 

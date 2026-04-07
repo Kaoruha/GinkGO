@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: LightGBMModel LightGBM模型封装LightGBM算法接口支持交易系统功能支持相关功能
+# Role: LightGBMModel LightGBM模型封装LightGBM算法接口
 
 
 

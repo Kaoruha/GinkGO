@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 基础校验器模块提供ValidationLevel/ValidationResult/BaseValidator等类
+# Upstream: StrategyValidator/AnalyzerValidator/RiskValidator/SizerValidator (继承BaseValidator)
+# Downstream: ast, importlib, tempfile, abc(ABC/abstractmethod), Enum, dataclasses
+# Role: 校验器抽象基类，定义ValidationLevel级别枚举、ValidationResult结果类和BaseValidator通用校验接口(代码/文件/组件)
 
 
 

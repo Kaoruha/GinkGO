@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 交易核心模块依赖注入容器管理引擎/投资组合/策略等核心组件的依赖注入和服务访问支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI命令, API接口, 全系统服务调用者
+# Downstream: dependency_injector, trading.engines, trading.analysis.analyzers, trading.strategies, trading.portfolios
+# Role: 交易模块依赖注入容器，基于dependency-injector提供引擎、分析器、策略、组合等组件的懒加载和统一服务访问
 
 
 
@@ -446,3 +446,4 @@ container.get_service_info = get_service_info
 
 # Create alias for backward compatibility
 backtest_container = container
+

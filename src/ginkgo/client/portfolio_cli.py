@@ -1,6 +1,6 @@
-# Upstream: Data Layer
-# Downstream: External APIs (Tushare, Yahoo, etc.)
-# Role: 投资组合管理CLI，提供list查看、create创建、bind/unbind组件绑定、status状态查询等Portfolio操作
+# Upstream: CLI入口 (ginkgo portfolio 子命令)
+# Downstream: PortfolioService (组合CRUD)、MappingService (组件绑定)、Kafka (deploy/unload通知)
+# Role: 投资组合管理CLI，提供 list/create/get/delete/status/bind/unbind/deploy/unload/baseline 命令
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: StrategyInterface策略接口定义策略协议规范策略实现和行为支持交易系统功能支持相关功能
+# Upstream: 策略适配器 (继承BaseStrategy/BaseMLStrategy)、回测引擎
+# Downstream: Signal(实体), STRATEGY_TYPES/DIRECTION_TYPES(枚举), abc, pandas, datetime
+# Role: 策略统一接口，定义BaseStrategy传统策略和BaseMLStrategy机器学习策略协议含cal/cal_vectorized/train/predict
 
 
 

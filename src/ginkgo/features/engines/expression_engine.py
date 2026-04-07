@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: Expression Engine引擎提供ExpressionEngine表达式计算和处理支持相关功能
+# Role: Expression Engine引擎提供ExpressionEngine表达式计算和处理
 
 
 

@@ -1,6 +1,6 @@
 # Upstream: TransferCRUD (资金划转记录持久化)、Portfolio Manager (出入金记录查询)
 # Downstream: MMysqlBase (继承提供MySQL ORM能力)、MBacktestRecordBase (继承提供回测记录基础字段)、TRANSFERDIRECTION_TYPES/MARKET_TYPES/TRANSFERSTATUS_TYPES (枚举类型验证)
-# Role: MTransfer资金划转MySQL模型继承MMysqlBase定义核心字段支持交易系统功能和组件集成提供完整业务支持
+# Role: MTransfer资金划转MySQL模型继承MMysqlBase定义核心字段
 
 
 
@@ -115,3 +115,4 @@ class MTransfer(MMysqlBase, MBacktestRecordBase):
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
+

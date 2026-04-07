@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Volume Activate策略继承BaseStrategy实现VolumeActivate成交量激活交易逻辑
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseStrategy, Signal, EventSignalGeneration, get_bars, DIRECTION_TYPES
+# Role: 成交量激活策略，基于成交量均值偏离检测生成做多信号
 
 
 

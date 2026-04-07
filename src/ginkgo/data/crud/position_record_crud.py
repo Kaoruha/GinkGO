@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: PositionRecordCRUD持仓记录CRUD继承BaseCRUD提供历史记录管理支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 回测引擎, 分析器, PositionService
+# Downstream: BaseCRUD, MPositionRecord模型
+# Role: 持仓记录CRUD，管理历史持仓快照(成本、数量、冻结量等)，用于回测分析和偏差检测
 
 
 

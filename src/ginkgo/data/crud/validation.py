@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: ValidationCRUD继承BaseCRUD提供Validation验证模块提供数据验证和参数校验功能确保数据质量数据操作
+# Upstream: BaseCRUD(所有CRUD子类), 数据服务层
+# Downstream: ginkgo.enums枚举类型, datetime, Decimal
+# Role: 配置化数据验证框架，提供字段约束校验(类型/范围/枚举/正则)、类型转换和ValidationError统一异常
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 数据源模块导出Tushare/AKShare/TDX/Yahoo/BaoStock等数据源封装外部数据获取
+# Upstream: 数据更新CLI(ginkgo data update), 数据同步服务
+# Downstream: GinkgoTushare, GinkgoAkShare, GinkgoBaoStock, GinkgoTDX, GinkgoYahoo
+# Role: 数据源包入口，统一导出所有外部数据源适配器(Tushare/AKShare/BaoStock/TDX/Yahoo)
 
 
 

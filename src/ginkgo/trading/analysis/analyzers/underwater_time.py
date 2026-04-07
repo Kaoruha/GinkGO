@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Underwater Time分析器继承BaseAnalyzer计算UnderwaterTime水下时间性能指标
+# Upstream: Portfolio (NEWDAY stage)
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Role: 水下时间分析器 — 记录净值低于历史最高点的连续/累计天数及水下期次数
 
 
 

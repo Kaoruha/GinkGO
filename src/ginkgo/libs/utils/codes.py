@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Codes代码工具提供状态码/错误码和业务代码定义及转换辅助方法支持代码规范化和错误处理支持交易系统功能和组件集成提供完整业务支持
+# Upstream: libs/utils/__init__.py (可选导入cn_index)
+# Downstream: 无外部依赖
+# Role: 代码工具模块，提供cn_index中国市场指数列表工具函数
 
 
 
@@ -10,3 +10,4 @@
 def cn_index():
     l = []
     return l
+

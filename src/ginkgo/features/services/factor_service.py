@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: FactorService因子服务提供因子计算/管理和查询功能支持量化分析支持交易系统功能支持相关功能
+# Role: FactorService因子服务提供因子计算/管理和查询功能支持量化分析
 
 
 
@@ -541,3 +541,4 @@ class FactorService:
             GLOG.ERROR(result.error)
         
         return result
+

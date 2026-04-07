@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 流式恢复模块导出错误处理器/检查点管理器提供流式数据处理的故障恢复和断点续传功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 流式查询引擎, StreamingQueryEngine
+# Downstream: ErrorHandler, ErrorClassifier, ErrorSeverity, RecoveryAction, RetryStrategy
+# Role: 流式错误恢复子包入口，导出错误分类处理器和重试策略组件
 
 
 
@@ -39,3 +39,4 @@ __all__ = [
     # "CircuitState",
     # "CircuitBreakerConfig",
 ]
+

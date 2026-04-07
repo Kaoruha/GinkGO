@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ResultPlot回测结果绘图继承BasePlot提供净值曲线/回撤和收益可视化功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: AnalysisEngine, CLI, 回测报告生成
+# Downstream: BasePlot, matplotlib (pyplot, gridspec, ticker, widgets), pandas, numpy, GLOG
+# Role: 回测结果折线图 — 多指标多组合的时序折线对比图，支持标签和图例
 
 
 
@@ -138,3 +138,4 @@ class ResultPlot(BasePlot):
             self.ax[i].set_title(key)
         plt.draw()
         # plt.ioff()
+

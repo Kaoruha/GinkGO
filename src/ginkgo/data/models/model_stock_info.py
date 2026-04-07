@@ -1,6 +1,6 @@
 # Upstream: StockinfoService (同步股票基础信息)、Data Services (查询股票元数据)
 # Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、CURRENCY_TYPES/MARKET_TYPES (枚举类型验证)
-# Role: MStockInfo股票信息MySQL模型继承MMysqlBase定义核心字段支持交易系统功能和组件集成提供完整业务支持
+# Role: MStockInfo股票信息MySQL模型继承MMysqlBase定义核心字段
 
 
 
@@ -119,3 +119,4 @@ class MStockInfo(MMysqlBase, ModelConversion):
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
+

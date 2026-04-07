@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供ReportTemplates报告模板模块提供报告模板支持报告生成功能支持回测评估和代码验证
+# Upstream: reporting.core.TemplateEngine
+# Downstream: (空包，暂无导出)
+# Role: 报告模板子包，预留Jinja2模板文件(text/json/markdown/html格式)
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 实现 MethodSignature、ValidationRules 等类的核心功能，封装相关业务逻辑
+# Upstream: StrategyValidator/AnalyzerValidator/RiskValidator/SizerValidator (获取校验规则)
+# Downstream: dataclasses
+# Role: 校验规则定义模块，定义MethodSignature方法签名和ValidationRules各类组件的校验标准(基类/必需方法/参数约束)
 
 
 

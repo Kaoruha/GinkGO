@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: BaseFactory基础工厂定义组件创建的抽象基类和接口支持依赖注入管理支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: ComponentFactory (继承BaseFactory)、DI容器
+# Downstream: abc(ABC/abstractmethod), GLOG日志
+# Role: 工厂抽象基类，定义组件注册/注销/创建接口和依赖注入解析机制，支持DI容器集成
 
 
 

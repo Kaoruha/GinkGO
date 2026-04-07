@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Sync Facade经纪商继承BaseBroker提供SyncFacade同步门面提供交易模拟支持相关功能
+# Upstream: BacktestEngine, TimeControlledEventEngine
+# Downstream: BaseBroker, ExecutionResult, asyncio
+# Role: 同步Broker门面，将异步Broker接口封装为同步调用供回测管线使用
 
 
 
@@ -86,4 +86,5 @@ class SyncBrokerFacade:
 
     def get_account_info(self) -> Any:
         return self._run(self._broker.get_account_info())
+
 

@@ -1,6 +1,6 @@
-# Upstream: All Modules (全局访问GCONF获取配置)
-# Downstream: Standard Library (os/yaml/threading)
-# Role: GinkgoConfig全局配置管理器单例模式确保线程安全配置文件存储在~/.ginkgo提供get/set等方法
+# Upstream: 全局所有模块 (通过GCONF单例访问配置)
+# Downstream: os, yaml, shutil, threading(线程安全单例)
+# Role: GinkgoConfig全局配置管理器，线程安全单例模式，配置文件存储于~/.ginkgo目录，提供分层配置(环境变量>配置文件>默认值)
 
 
 

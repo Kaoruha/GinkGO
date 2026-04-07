@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoBaoStock BaoStock数据源继承SourceBase提供A股数据获取支持交易系统功能
+# Upstream: 数据更新任务, BarService, StockinfoService
+# Downstream: GinkgoSourceBase, baostock库, GLOG
+# Role: BaoStock数据源适配器，提供A股K线、交易日历、股票列表等数据获取，支持重试和自动登录
 
 
 
@@ -210,3 +210,4 @@ class GinkgoBaoStock(GinkgoSourceBase):
 
         console.print(f":crab: Got {result.shape[0]} records about adjustfactor from [bold #E4C1C0]Baostock[/].")
         return result
+

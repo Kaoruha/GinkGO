@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: HandlerCRUD处理器CRUD继承BaseCRUD提供处理器配置管理功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: EngineCRUD, 引擎装配层
+# Downstream: BaseCRUD, MHandler模型
+# Role: 处理器(Handler)配置CRUD，管理自定义处理器(信号/风控等)的注册和查询
 
 
 
@@ -159,3 +159,4 @@ class HandlerCRUD(BaseCRUD[MHandler]):
         Update handler function name.
         """
         return self.modify({"uuid": uuid}, {"func_name": func_name})
+

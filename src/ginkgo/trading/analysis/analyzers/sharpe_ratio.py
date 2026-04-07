@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Sharpe Ratio分析器继承BaseAnalyzer计算SharpeRatio夏普比率性能指标
+# Upstream: Portfolio (NEWDAY stage), BASIC_ANALYZERS
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, GLOG
+# Role: 夏普比率分析器 — 滚动365日计算(年化收益率-基准收益率)/收益率标准差
 
 
 

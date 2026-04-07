@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: LiveDeviationDetector实盘偏差检测器检测实盘回测偏差支持交易系统功能支持相关功能
+# Upstream: DeviationChecker (编排检测流程)、BacktestEvaluator (提供baseline)
+# Downstream: 无直接下游，检测结果返回给DeviationChecker处理
+# Role: z-score偏差检测，支持切片完成检测和每日点时对比(daily_curves)
 
 
 

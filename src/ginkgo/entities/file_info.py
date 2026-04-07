@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: FileInfo文件信息类提供文件元数据管理支持回测配置/策略文件和数据文件追踪及版本控制支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Engine Assembler, Portfolio Manager, File CRUD Services, Data Workers
+# Downstream: Base, FILE_TYPES, SOURCE_TYPES, datetime_normalize, base_repr, clock_now, pandas
+# Role: FileInfo文件信息业务实体，管理文件元数据（名称/类型/内容/描述/元信息），支持策略、选择器等文件存储和追踪
 
 
 
@@ -204,3 +204,4 @@ class FileInfo(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, FileInfo.__name__, 12, 60)
+
