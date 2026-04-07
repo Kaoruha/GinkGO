@@ -65,6 +65,21 @@ This design ensures clean separation between **data time** (when something happe
 
 **Design Goal**: Detect when live/paper trading performance deviates from backtest baseline.
 
+**Three Trading Modes** — all records are tagged via `source` field (`SOURCE_TYPES` enum):
+- **`BACKTEST=15`**: Historical backtest engine output
+- **`PAPER_REPLAY=18`**: Historical simulation (out-of-sample validation after backtest period)
+- **`PAPER_LIVE=19`**: Real-time paper trading (live market data)
+
+The PaperTradingWorker auto-detects mode on startup: if the persisted engine time is behind today, it enters **REPLAY** mode (batch-advances historical days with `LogicalTimeProvider`), then switches to **LIVE_PAPER** mode (`SystemTimeProvider`) once caught up.
+
+```python
+from ginkgo.enums import SOURCE_TYPES
+
+# Filter records by trading mode (works on all CRUDs with source field)
+records = analyzer_crud.find(filters={"source": SOURCE_TYPES.PAPER_REPLAY.value})
+orders = order_crud.find(filters={"source": SOURCE_TYPES.BACKTEST.value, "portfolio_id": "xxx"})
+```
+
 **Dual-Mode Detection (Mode C)**:
 - **Daily Point-in-Time**: Compare live day-N metrics against backtest day-N distribution using z-scores — lightweight, runs every day
 - **Slice-Complete Check**: Full slice comparison when a monitoring period ends — deep analysis
@@ -88,7 +103,15 @@ PaperTradingWorker (daily loop)
 - `BacktestEvaluator` — orchestrates backtest evaluation, extracts daily curves per metric/day
 - `LiveDeviationDetector` — z-score based deviation detection against baseline
 - `DeviationChecker` — shared logic for Paper/Live modes (alerting, takedown)
-- `PaperTradingWorker` — daily loop that runs point-in-time + slice-complete checks
+- `PaperTradingWorker` — REPLAY batch loop + LIVE_PAPER daily cycle, runs both detection modes
+
+### ⏱️ Time Provider Architecture
+
+- **`LogicalTimeProvider`**: Controllable logical time for backtest and historical replay
+- **`SystemTimeProvider`**: Real-time system clock for live trading
+- **`clock_now()`**: Global time entry (`ginkgo.trading.time.clock`), reads from the active provider
+- **`EngineContext`**: Engine-level context holding `engine_id` / `run_id` / `source_type`
+- **`ContextMixin`**: Component base mixin that propagates context properties (portfolio_id, run_id, source_type)
 
 ## 🚀 Quick Start
 
