@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 定义 BaseAnalyzer 分析器基类，提供 _do_activate、_do_record 等模板方法，供子类实现具体的分析逻辑
+# Upstream: EngineContext (提供portfolio_id/engine_id/run_id/source_type)
+# Downstream: AnalyzerService (写入ClickHouse)、ContextMixin (上下文传播)
+# Role: 分析器基类，_do_activate/_do_record模板方法，通过AnalyzerService写入ClickHouse
 
 
 
@@ -346,6 +346,7 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
                 value=value,
                 name=self.name,
                 analyzer_id=self._analyzer_id,
+                source=self.source_type,
             )
         else:
             print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: value is None for date={date}")

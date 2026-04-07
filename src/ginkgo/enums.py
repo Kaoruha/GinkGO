@@ -1,6 +1,6 @@
 # Upstream: 全项目所有模块(策略/风控/数据/引擎等依赖这些枚举值)
 # Downstream: Python标准库Enum/IntEnum (基类提供枚举转换validate_input/from_int/to_int方法)
-# Role: 枚举类型定义中心统一管理27个核心枚举类EnumBase提供转换方法支持交易系统功能和组件集成提供完整业务支持
+# Role: 枚举类型定义中心统一管理27个核心枚举类EnumBase提供转换方法
 
 
 
@@ -158,6 +158,8 @@ class SOURCE_TYPES(EnumBase):
     BACKTEST = 15
     LIVE = 16
     BROKERMATCHMAKING = 17
+    PAPER_REPLAY = 18   # 历史数据模拟（回测区间外的样本外验证）
+    PAPER_LIVE = 19     # 实盘模拟（真实市场数据）
     MANUAL = 18
     OKX = 19  # OKX 交易所
 
@@ -675,3 +677,4 @@ __all__ = [
     "LEVEL_TYPES",
     "LOG_CATEGORY_TYPES",
 ]
+

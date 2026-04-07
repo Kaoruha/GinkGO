@@ -1,6 +1,6 @@
-# Upstream: TaskTimer (Kafka control commands), CLI deploy command
-# Downstream: TimeControlledEventEngine (daily cycle execution)
-# Role: 纸上交易 Worker — 持有 TimeControlledEventEngine，消费 Kafka 命令推进
+# Upstream: TaskTimer (Kafka控制命令触发每日循环)、CLI deploy/unload/baseline 命令
+# Downstream: TimeControlledEventEngine (引擎组装与时间推进)、DeviationChecker (偏差检测)、PortfolioService (状态持久化)
+# Role: 纸上交易 Worker，REPLAY模式批量快进历史、LIVE_PAPER模式每日实时推进，含偏差检测与状态持久化
 
 
 """
@@ -24,6 +24,7 @@ from ginkgo.enums import (
     PORTFOLIO_RUNSTATE_TYPES,
     MARKET_TYPES,
     FREQUENCY_TYPES,
+    SOURCE_TYPES,
 )
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.libs import GLOG
@@ -171,14 +172,9 @@ class PaperTradingWorker:
                     f"{portfolio.code}: {e}"
                 )
 
-        # 8. 固定 run_id（模拟盘唯一确定性标识）
-        engine.set_run_id("paper")
-
-        # 9. 启动引擎
-        engine.start()
-
-        # 9. 恢复状态 / 首次初始化
+        # 8. 恢复状态 / 首次初始化（在设置 run_id 和 time provider 之前，需要读取持久化时间）
         portfolio_service = container.portfolio_service()
+        persisted_engine_time = None
         for portfolio in engine.portfolios:
             try:
                 state_result = portfolio_service.load_persisted_state(portfolio.portfolio_id)
@@ -188,6 +184,12 @@ class PaperTradingWorker:
                         f"[PAPER-WORKER] Restored state for portfolio "
                         f"{portfolio.code}: cash={state_result.data['cash']}"
                     )
+                    # 提取持久化的引擎时间（取最新的）
+                    et = state_result.data.get("engine_current_time")
+                    if et:
+                        t = datetime.fromisoformat(et)
+                        if persisted_engine_time is None or t > persisted_engine_time:
+                            persisted_engine_time = t
                 else:
                     # 首次运行，从 initial_capital 开始
                     db_rec = next(
@@ -205,7 +207,40 @@ class PaperTradingWorker:
                     f"{portfolio.portfolio_id}: {e}"
                 )
 
-        # 10. 初始化偏差检测器
+        # 9. 检测模式并配置 run_id / source_type / time_provider
+        real_now = datetime.now()
+        is_replay = (
+            persisted_engine_time is not None
+            and persisted_engine_time.replace(hour=0, minute=0, second=0, microsecond=0).date() < real_now.date()
+        )
+        session_ts = real_now.strftime("%Y%m%d%H%M%S")
+
+        if is_replay:
+            run_id = f"replay-{session_ts}"
+            engine.set_run_id(run_id)
+            engine.set_source_type(SOURCE_TYPES.PAPER_REPLAY)
+
+            # 用 LogicalTimeProvider 从上次位置开始
+            from ginkgo.trading.time.providers import LogicalTimeProvider
+            replay_provider = LogicalTimeProvider(
+                initial_time=persisted_engine_time,
+                end_time=real_now,
+            )
+            engine._time_provider = replay_provider
+            GLOG.INFO(
+                f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
+                f"run_id={run_id}"
+            )
+        else:
+            run_id = f"paper-{session_ts}"
+            engine.set_run_id(run_id)
+            engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
+            GLOG.INFO(f"[PAPER-WORKER] LIVE_PAPER mode: run_id={run_id}")
+
+        # 10. 启动引擎
+        engine.start()
+
+        # 11. 初始化偏差检测器
         self._deviation_detectors = {}
         for portfolio in engine.portfolios:
             try:
@@ -290,13 +325,15 @@ class PaperTradingWorker:
         if not self.deviation_checker._detectors:
             return
 
+        effective_date = self._engine.now if self._engine else datetime.now()
+
         for portfolio in self._engine.portfolios:
             try:
-                records = self._load_today_records(portfolio.portfolio_id)
+                records = self._load_today_records(portfolio.portfolio_id, effective_date)
 
                 # Mode A: 每日点时对比
                 try:
-                    day_index = self._get_day_index(portfolio)
+                    day_index = self._get_day_index(portfolio, effective_date)
                     current_metrics = self._extract_current_metrics(records)
                     if day_index and current_metrics:
                         self.deviation_checker.run_daily_point_check(
@@ -321,15 +358,16 @@ class PaperTradingWorker:
                     f"{portfolio.portfolio_id[:8]}: {e}"
                 )
 
-    def _get_day_index(self, portfolio) -> Optional[int]:
+    def _get_day_index(self, portfolio, effective_date: datetime = None) -> Optional[int]:
         """计算当前 portfolio 在切片周期内的天数"""
+        if effective_date is None:
+            effective_date = self._engine.now if self._engine else datetime.now()
         try:
             detector = self.deviation_checker._detectors.get(portfolio.portfolio_id)
             if not detector or not detector.current_slice_data.get("start_date"):
                 return None
             start = detector.current_slice_data["start_date"]
-            now = datetime.now()
-            return (now - start).days + 1
+            return (effective_date - start).days + 1
         except Exception:
             return None
 
@@ -341,24 +379,26 @@ class PaperTradingWorker:
             value = record.get("value", 0)
             metrics[name] = float(value)
         return metrics
-    def _load_today_records(self, portfolio_id: str) -> Dict:
-        """查询当日 analyzer/signal/order records（ClickHouse, run_id="paper"）"""
+    def _load_today_records(self, portfolio_id: str, effective_date: datetime = None) -> Dict:
+        """查询指定日期的 analyzer/signal/order records"""
         from ginkgo import services
-        from datetime import datetime
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        if effective_date is None:
+            effective_date = self._engine.now if self._engine else datetime.now()
+
+        target_date_str = effective_date.strftime("%Y-%m-%d")
         records = {"analyzers": [], "signals": [], "orders": []}
 
         try:
             analyzer_service = services.data.services.analyzer_service()
             result = analyzer_service.get_by_run_id(
-                run_id="paper",
+                run_id=self._engine.run_id if self._engine else "paper",
                 portfolio_id=portfolio_id,
             )
             if result.is_success() and result.data:
                 for r in result.data:
                     ts = str(getattr(r, 'timestamp', ''))[:10]
-                    if ts == today:
+                    if ts == target_date_str:
                         records["analyzers"].append({
                             "name": getattr(r, 'name', ''),
                             "value": float(getattr(r, 'value', 0)),
@@ -475,9 +515,12 @@ class PaperTradingWorker:
         from ginkgo import services
 
         portfolio_service = services.data.container.portfolio_service()
+        engine_current_time = self._engine.now
+
         for portfolio in self._engine.portfolios:
             try:
                 state = portfolio.snapshot_state()
+                state["engine_current_time"] = engine_current_time.isoformat()
                 result = portfolio_service.persist_portfolio_state(portfolio.portfolio_id, state)
                 if result.is_success():
                     GLOG.DEBUG(
@@ -493,15 +536,20 @@ class PaperTradingWorker:
                     f"[PAPER-WORKER] Error persisting {portfolio.code}: {e}"
                 )
 
+    def _is_replay_mode(self) -> bool:
+        """检查引擎当前是否处于 REPLAY 模式"""
+        if not self._engine or not self._engine._time_provider:
+            return False
+        from ginkgo.trading.time.providers import LogicalTimeProvider
+        return isinstance(self._engine._time_provider, LogicalTimeProvider)
+
     def run_daily_cycle(self) -> DailyCycleResult:
         """
         执行每日循环
 
-        流程：
-        1. 检查是否为交易日
-        2. 收集所有 Portfolio 的 interested codes
-        3. 调用 bar_service.sync_range_batch 拉取当日数据
-        4. 调用 engine.advance_time_to 推进到下一个交易日
+        根据引擎时间模式自动分发：
+        - REPLAY: 批量快进历史交易日（_run_replay_cycle）
+        - LIVE_PAPER: 每日实时推进（_run_live_paper_cycle）
 
         Returns:
             DailyCycleResult: 执行结果
@@ -514,6 +562,99 @@ class PaperTradingWorker:
             GLOG.DEBUG("[PAPER-WORKER] No portfolios loaded, skipping daily cycle")
             return DailyCycleResult(skipped=True, advanced=False)
 
+        if self._is_replay_mode():
+            return self._run_replay_cycle()
+        else:
+            return self._run_live_paper_cycle()
+
+    def _run_replay_cycle(self) -> DailyCycleResult:
+        """批量快进历史交易日直到追上当前日期"""
+        from ginkgo import services
+
+        real_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        trade_day_crud = services.data.cruds.trade_day()
+        total_advanced = 0
+
+        while True:
+            current_engine_date = self._engine.now.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+            if current_engine_date.date() >= real_today.date():
+                GLOG.INFO(
+                    f"[PAPER-WORKER] REPLAY caught up to {real_today.date()}, "
+                    f"total_advanced={total_advanced}"
+                )
+                break
+
+            # 查找下一个交易日
+            next_day = trade_day_crud.get_next_trading_day(current_engine_date)
+            if next_day is None or next_day.date() >= real_today.date():
+                GLOG.INFO(
+                    f"[PAPER-WORKER] REPLAY: no more historical trading days"
+                )
+                break
+
+            # 推进引擎（数据已在 DB 中，无需同步）
+            try:
+                GLOG.DEBUG(f"[PAPER-WORKER] REPLAY: advancing to {next_day.date()}")
+                self._engine.advance_time_to(next_day)
+                total_advanced += 1
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] REPLAY advance error at {next_day.date()}: {e}")
+                break
+
+        if total_advanced > 0:
+            # 偏差检查
+            try:
+                self._run_deviation_check()
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] Deviation check error in REPLAY: {e}")
+
+            # 持久化
+            self._persist_all_portfolios()
+
+            # 切换到 LIVE_PAPER 模式
+            self._transition_to_live()
+
+            return DailyCycleResult(skipped=False, advanced=True)
+
+        # 没有推进过，可能已经追上了
+        self._transition_to_live()
+        return DailyCycleResult(skipped=False, advanced=False)
+
+    def _transition_to_live(self) -> None:
+        """从 REPLAY 切换到 LIVE_PAPER 模式"""
+        from ginkgo.trading.time.providers import SystemTimeProvider
+
+        real_provider = SystemTimeProvider()
+        self._engine.set_time_provider(real_provider)
+
+        # 更新 run_id 和 source_type
+        real_now = datetime.now()
+        session_ts = real_now.strftime("%Y%m%d%H%M%S")
+        self._engine._run_id = f"paper-{session_ts}"
+        self._engine._engine_context.set_run_id(self._engine._run_id)
+        self._engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
+
+        GLOG.INFO(
+            f"[PAPER-WORKER] Transitioned to LIVE_PAPER mode, "
+            f"run_id={self._engine._run_id}"
+        )
+
+    def _run_live_paper_cycle(self) -> DailyCycleResult:
+        """
+        实时模拟盘每日循环
+
+        流程：
+        1. 检查是否为交易日
+        2. 收集所有 Portfolio 的 interested codes
+        3. 调用 bar_service.sync_range_batch 拉取当日数据
+        4. 调用 engine.advance_time_to 推进到下一个交易日
+
+        Returns:
+            DailyCycleResult: 执行结果
+        """
         from ginkgo import services
 
         # 1. 检查交易日

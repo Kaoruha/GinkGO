@@ -1,6 +1,6 @@
-# Upstream: All Concrete CRUD Classes (BarCRUD/TickCRUD/StockinfoCRUD等30+个CRUD继承)
-# Downstream: MClickBase/MMysqlBase (ClickHouse和MySQL数据模型基类)、ClickHouse/MySQL (数据库驱动)
-# Role: BaseCRUD基础CRUD抽象类定义CRUD操作接口和模板方法支持数据持久化支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 所有具体CRUD类 (BarCRUD/TickCRUD/AnalyzerRecordCRUD等30+个)
+# Downstream: MClickBase/MMysqlBase/MMongoBase (数据模型基类)、ClickHouse/MySQL/MongoDB (数据库驱动)
+# Role: 抽象基类CRUD，定义模板方法和增删改查接口，支持分页和source字段过滤
 
 
 
@@ -530,6 +530,10 @@ class BaseCRUD(Generic[T], ABC):
         Args:
             filters: Dictionary of field -> value filters (supports operators)
                     Examples: {"code": "000001.SZ", "timestamp__gte": "2023-01-01"}
+                    source 字段筛选运行模式（使用 SOURCE_TYPES 枚举的 value）：
+                    {"source": SOURCE_TYPES.BACKTEST.value}     # 回测数据
+                    {"source": SOURCE_TYPES.PAPER_REPLAY.value}  # 历史模拟数据
+                    {"source": SOURCE_TYPES.PAPER_LIVE.value}    # 实盘模拟数据
             page: Page number (0-based)
             page_size: Number of items per page
             order_by: Field name to order by

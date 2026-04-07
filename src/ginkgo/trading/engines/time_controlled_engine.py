@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines (时间控制回测引擎)、Live Trading Engines (时间控制实盘引擎)
-# Downstream: EventEngine (继承提供事件驱动引擎基础能力)、ITimeAwareComponent (实现时间感知组件接口)、LogicalTimeProvider/SystemTimeProvider (逻辑时间/系统时间提供者)、TIME_MODE (时间模式枚举LOGICAL/SYSTEM)
-# Role: TimeControlledEventEngine时间控制的事件引擎T5架构核心引擎统一事件驱动引擎支持回测和实盘模式的时间控制
+# Upstream: PaperTradingWorker (PAPER模式每日循环)、CLI (BACKTEST模式回测执行)
+# Downstream: EventEngine (继承事件驱动基类)、LogicalTimeProvider/SystemTimeProvider (逻辑/系统时间)、ITimeAwareComponent (时间感知接口)
+# Role: 时间控制事件引擎，支持逻辑时间回测与系统时间实盘，set_time_provider 实现 REPLAY→LIVE 切换
 
 
 
@@ -157,6 +157,22 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 self._time_provider.set_end_time(end_date)
 
             GLOG.INFO(f"Time range set: {start_date} to {end_date}")
+
+    def set_time_provider(self, provider) -> None:
+        """替换时间提供者（用于 REPLAY → LIVE_PAPER 切换）
+
+        Args:
+            provider: ITimeProvider 实例
+        """
+        self._time_provider = provider
+        if hasattr(provider, "register_time_listener"):
+            provider.register_time_listener(self)
+        try:
+            from ginkgo.trading.time.clock import set_global_time_provider
+            set_global_time_provider(provider)
+        except Exception:
+            pass
+        GLOG.INFO(f"Time provider swapped to: {type(provider).__name__}")
 
     def start(self) -> bool:
         """启动引擎（带调试信息）"""

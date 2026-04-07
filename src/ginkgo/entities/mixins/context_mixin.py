@@ -1,6 +1,6 @@
-# Upstream: 所有需要引擎绑定的组件(Strategy/Portfolio/Broker/Analyzer等)
-# Downstream: BaseEngine(引擎实例绑定)、EngineContext(引擎上下文)、PortfolioContext(投资组合上下文)
-# Role: ContextMixin上下文混入类提供portfolio_id/engine_id/run_id等上下文属性和方法，用于组件访问上下文信息
+# Upstream: BaseEngine (引擎实例绑定)、PortfolioContext/EngineContext (分级上下文对象)
+# Downstream: 所有引擎绑定组件 (Strategy/Selector/Sizer/RiskManagement/Analyzer/Broker)
+# Role: 上下文传播 Mixin，将 portfolio_id/engine_id/run_id/source_type 从引擎上下文传播到各组件
 
 
 
@@ -159,5 +159,14 @@ class ContextMixin:
         if self._bound_portfolio and hasattr(self._bound_portfolio, 'uuid'):
             return self._bound_portfolio.uuid
 
+        return None
+
+    @property
+    def source_type(self) -> Optional[int]:
+        """获取运行模式类型 - 从上下文动态获取，支持延迟查找"""
+        if self._context and hasattr(self._context, 'source_type'):
+            return self._context.source_type
+        if self._bound_portfolio and hasattr(self._bound_portfolio, '_context') and self._bound_portfolio._context:
+            return self._bound_portfolio._context.source_type
         return None
 

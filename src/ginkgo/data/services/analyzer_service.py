@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: AnalyzerService分析器服务提供分析器管理和结果查询功能支持分析器操作支持交易系统功能支持相关功能
+# Upstream: BaseAnalyzer (分析器基类调用add_record写入数据)
+# Downstream: AnalyzerRecordCRUD (数据访问层)、ClickHouse (持久化存储)
+# Role: 分析器记录服务层，封装add_record并传递source_type参数
 
 
 
@@ -51,7 +51,8 @@ class AnalyzerService(BaseService):
         value: Any,
         name: str,
         analyzer_id: str = "",
-        business_timestamp: Optional[str] = None
+        business_timestamp: Optional[str] = None,
+        source: Any = None,
     ) -> ServiceResult:
         """
         添加 analyzer 记录到数据库
@@ -82,7 +83,7 @@ class AnalyzerService(BaseService):
                 value=value,
                 name=name,
                 analyzer_id=analyzer_id,
-                source=SOURCE_TYPES.OTHER,
+                source=source if source is not None else SOURCE_TYPES.OTHER,
             )
 
             GLOG.DEBUG(f"添加 analyzer 记录成功: {name}, value={value}, timestamp={timestamp}")

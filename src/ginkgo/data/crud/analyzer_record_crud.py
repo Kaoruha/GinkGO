@@ -1,6 +1,6 @@
-# Upstream: ResultService (回测结果查询服务)、AnalyzerModule (分析器记录数据)
-# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MAnalyzerRecord (ClickHouse分析器记录模型)
-# Role: AnalyzerRecordCRUD分析记录CRUD继承BaseCRUD提供分析记录管理功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: AnalyzerService (分析器服务层)、BaseCRUD (抽象基类)
+# Downstream: MAnalyzerRecord (ClickHouse分析器记录模型)、SOURCE_TYPES (枚举映射)
+# Role: 分析器记录CRUD，支持SOURCE_TYPES枚举字段映射和多维度查询
 
 
 
@@ -92,6 +92,8 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
                     SOURCE_TYPES.SIM,
                     SOURCE_TYPES.LIVE,
                     SOURCE_TYPES.BACKTEST,
+                    SOURCE_TYPES.PAPER_REPLAY,
+                    SOURCE_TYPES.PAPER_LIVE,
                     SOURCE_TYPES.OTHER
                 ]
             }
