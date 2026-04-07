@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: PositionBase基础持仓定义持仓抽象接口和状态管理支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PortfolioBase, Position实体
+# Downstream: entities.base.Base, entities.mixins.TimeMixin, entities.mixins.ContextMixin
+# Role: 持仓组件抽象基类，组合时间戳管理和上下文管理能力，为所有持仓组件提供uuid、component_type等基础功能
 
 
 

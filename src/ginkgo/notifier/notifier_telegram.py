@@ -1,6 +1,6 @@
 # Upstream: GinkgoNotifier (调用echo发送Telegram消息)、run_telebot (独立线程运行)
 # Downstream: telebot库(TeleBot API)、DataContainer(通过container访问file_crud/analyzer_record_crud)、ResultPlot(回测结果绘图)、GCONF(Telegram_Token/Telegram_ChatIDs/TELEGRAM_PWD)、FILE_TYPES枚举
-# Role: Telegram通知Bot使用telebot库实现机器人交互提供欢迎/帮助/消息/回显等方法支持交易系统功能和组件集成提供完整业务支持
+# Role: Telegram通知Bot使用telebot库实现机器人交互提供欢迎/帮助/消息/回显等方法
 
 
 
@@ -444,3 +444,4 @@ def run_telebot():
         print("[WARNING] Telegram Bot not configured, skipping bot startup")
         return
     bot.infinity_polling()
+

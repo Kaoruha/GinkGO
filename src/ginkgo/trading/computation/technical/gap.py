@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Gap跳空分析继承BaseIndicator提供价格跳空检测和缺口分析功能支撑阻力识别支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Strategies
+# Downstream: BaseIndicator, pandas
+# Role: Gap跳空缺口检测，识别向上/向下跳空并过滤幅度不足的噪音缺口
 
 
 
@@ -53,3 +53,4 @@ class Gap(BaseIndicator):
                 continue
             rs.loc[i, column_name] = 0
         return rs
+

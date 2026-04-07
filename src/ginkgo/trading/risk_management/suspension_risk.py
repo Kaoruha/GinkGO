@@ -1,3 +1,7 @@
+# Upstream: Portfolio (add_risk_manager注册使用)
+# Downstream: RiskBase (继承风控基类)
+# Role: SuspensionRisk停牌风控，限制停牌股票占比，提供停牌持仓报告
+
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement

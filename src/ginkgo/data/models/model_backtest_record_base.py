@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Backtest Record Base模型继承定义MBacktestRecordBase回测记录基类相关数据结构
+# Upstream: MOrderRecord, MPositionRecord, MSignalTracker, MAnalyzerRecord, MRunRecord, MBacktestTask
+# Downstream: SQLAlchemy(String, mapped_column)
+# Role: 回测记录Mixin基类，为Order/Position/Signal等模型提供engine_id和run_id字段
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现熔断配置/熔断器/熔断管理器等类的核心功能封装相关业务逻辑支持交易系统功能和组件集成提供完整业务支持
+# Upstream: EventRoutingCenter, gateway.center
+# Downstream: gateway.interfaces, trading.time.clock
+# Role: 断路器模式实现，提供故障检测、状态转换（关闭/打开/半开）、滑动窗口统计和恢复探测等熔断保护机制
 
 
 
@@ -334,3 +334,4 @@ def get_circuit_breaker(target_id: str,
 def get_circuit_breaker_manager() -> CircuitBreakerManager:
     """获取全局断路器管理器"""
     return _global_circuit_breaker_manager
+

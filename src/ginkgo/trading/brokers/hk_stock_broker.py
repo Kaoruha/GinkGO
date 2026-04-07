@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Hk Stock Broker经纪商继承BaseBroker提供HKStockBroker港股交易模拟
+# Upstream: InfrastructureFactory, LiveEngine
+# Downstream: LiveBrokerBase, BrokerExecutionResult, Order, DIRECTION_TYPES
+# Role: 港股实盘交易Broker，支持T+0交易、手数制度和双币种结算
 
 
 

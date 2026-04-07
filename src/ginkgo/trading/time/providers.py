@@ -1,3 +1,7 @@
+# Upstream: TimeControlledEventEngine, clock.py (全局provider)
+# Downstream: ITimeProvider接口, TimeBoundaryValidator
+# Role: ITimeProvider实现(逻辑时间/系统时间)及时间边界验证器
+
 """
 时间提供者实现
 

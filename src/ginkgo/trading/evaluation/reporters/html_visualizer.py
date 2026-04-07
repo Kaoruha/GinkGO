@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Html Visualizer模块提供HTML可视化生成器生成HTML可视化报告支持Web展示功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 信号追踪报告生成, CLI评估命令
+# Downstream: json, datetime, pathlib (标准库)
+# Role: HTML信号可视化器，生成包含Chart.js的交互式K线+信号标记HTML图表，支持独立文件输出和Web展示
 
 
 
@@ -1137,3 +1137,4 @@ class HTMLSignalVisualizer:
 </body>
 </html>"""
         return html
+

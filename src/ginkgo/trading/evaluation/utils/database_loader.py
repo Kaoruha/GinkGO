@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Database Loader模块提供DatabaseLoader数据库加载器提供数据加载功能支持评估数据获取功能支持回测评估和代码验证
+# Upstream: CLI评估命令, 评估流水线
+# Downstream: data.containers (container), data.models (MFile, MPortfolioFileMapping), enums (FILE_TYPES), GLOG
+# Role: 数据库策略加载器，从MFile表加载策略代码到临时文件供评估使用，支持按file_id/portfolio_id加载并提供上下文管理器自动清理
 
 
 

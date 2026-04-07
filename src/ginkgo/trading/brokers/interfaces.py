@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Interfaces经纪商继承BaseBroker提供BrokerInterfaces交易模拟支持相关功能
+# Upstream: BaseBroker, FuturesBroker, HKStockBroker, USStockBroker, OKXBroker
+# Downstream: IBroker, BrokerType, OrderType, OrderSide, OrderStatus, TradingOrder, Position, Trade, GLOG, clock_now
+# Role: 交易代理接口定义，提供IBroker抽象接口及BrokerType/OrderType等数据类
 
 
 
@@ -435,3 +435,4 @@ class IBroker(ABC):
 # 为向后兼容性提供别名
 Position = BrokerPosition
 Trade = BrokerTrade
+

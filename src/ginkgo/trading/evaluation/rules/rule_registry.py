@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Rule Registry模块提供RuleRegistry规则注册表提供规则注册和查找功能支持规则管理功能支持回测评估和代码验证
+# Upstream: BaseEvaluator, SimpleEvaluator, 全局规则初始化
+# Downstream: rules.base_rule (BaseRule), core.enums (ComponentType)
+# Role: 评估规则注册表(单例模式)，按ComponentType组织管理规则，支持规则注册/查找/启用禁用，提供get_global_registry()全局访问
 
 
 

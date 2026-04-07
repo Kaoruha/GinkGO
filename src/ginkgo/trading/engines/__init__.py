@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 引擎模块导出引擎基类/事件引擎/时间控制引擎等核心引擎组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI命令, API接口, core.containers
+# Downstream: engines.base_engine, engines.event_engine, engines.time_controlled_engine, enums.EXECUTION_MODE
+# Role: 引擎模块包入口，导出BaseEngine基类、EventEngine事件引擎、TimeControlledEventEngine时间控制引擎及兼容别名
 
 
 
@@ -14,3 +14,4 @@ from ginkgo.enums import EXECUTION_MODE
 
 # Backward compatibility alias
 BacktestEngine = TimeControlledEventEngine
+

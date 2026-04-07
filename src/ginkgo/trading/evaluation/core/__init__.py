@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供EvaluationCore评估核心模块提供评估基础功能支持评估框架功能支持回测评估和代码验证
+# Upstream: evaluation顶层包, evaluators, rules, reporters
+# Downstream: core.enums, core.evaluation_result
+# Role: 评估核心子包入口，导出ComponentType/EvaluationLevel/EvaluationSeverity枚举和EvaluationResult/EvaluationIssue结果实体
 
 
 

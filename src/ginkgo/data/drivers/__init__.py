@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 数据库驱动模块导出ClickHouse/MySQL/MongoDB/Redis等数据库驱动封装底层连接
+# Upstream: 数据层容器(containers.py), CRUD层, 服务层
+# Downstream: GinkgoClickhouse, GinkgoMysql, GinkgoMongo, GinkgoRedis, DatabaseDriverBase
+# Role: 数据库驱动包入口，导出四大驱动类并定义熔断器(CircuitBreaker)防止级联故障
 
 
 

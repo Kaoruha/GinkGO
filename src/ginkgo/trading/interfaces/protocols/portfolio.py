@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Portfolio PortfolioProtocol组合协议定义组合接口标准提供相关功能和接口实现
+# Upstream: PortfolioBase, BasePortfolio及其子类
+# Downstream: typing.Protocol（标准库）
+# Role: IPortfolio投资组合接口协议定义，规范组件管理、事件处理、信号处理、持仓管理、风控、T+1等组合核心行为契约
 
 
 

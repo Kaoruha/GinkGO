@@ -1,3 +1,6 @@
+# Upstream: MappingService (映射服务调用参数创建)、CLI Commands (参数管理)、Cleanup流程 (清理孤立参数)
+# Downstream: BaseService (继承基类)、ParamCRUD (参数CRUD操作)、MParam (参数模型)
+# Role: ParamService参数管理服务提供映射参数的增删改查验证和批量操作
 from typing import Dict, Any, List, Optional, Union
 import pandas as pd
 

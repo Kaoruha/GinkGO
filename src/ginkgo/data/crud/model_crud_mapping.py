@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: ModelCRUDMapping模型映射管理提供CRUD模型注册和查询功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: ModelConversion, CRUD自动注册机制
+# Downstream: GLOG日志
+# Role: Model-CRUD映射注册表，维护数据库Model类到CRUD类的映射关系，支持注册和查询
 
 
 

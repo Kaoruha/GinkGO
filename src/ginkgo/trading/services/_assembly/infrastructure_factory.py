@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 基础设施工厂，无状态工具类，负责创建引擎基础设施组件
+# Upstream: EngineAssemblyService, TaskEngineBuilder
+# Downstream: BacktestFeeder, OKXDataFeeder, SimBroker, OKXBroker, EXECUTION_MODE, EVENT_TYPES
+# Role: 基础设施工厂（无状态），提供DataFeeder/Broker/引擎基础设施的静态创建方法
 
 
 """

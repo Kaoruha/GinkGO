@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Terminal Line绘图继承BasePlot提供TerminalLine终端折线图表可视化支持相关功能
+# Upstream: CLI, 终端快速查看
+# Downstream: plotext, pandas, numpy, sys, termios, tty, GLOG
+# Role: 终端折线图 — 使用 plotext 渲染折线图，支持智能采样、分页浏览和键盘翻页
 
 
 
@@ -336,3 +336,4 @@ class TerminalLine:
             missing = required - existing
             print("Missing columns: ", missing)
             return False
+

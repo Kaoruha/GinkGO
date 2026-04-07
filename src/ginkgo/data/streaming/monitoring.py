@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 实现 MemoryLevel、SessionState、MemorySnapshot 等 8 个类的核心功能
+# Upstream: 流式查询引擎, session_context, StreamingQueryEngine
+# Downstream: streaming包核心类(StreamingState), psutil
+# Role: 流式查询内存监控和会话管理系统，提供MemoryLevel/SessionState枚举和内存快照，含单例监控器
 
 
 

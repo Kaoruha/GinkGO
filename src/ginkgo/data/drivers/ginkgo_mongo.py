@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: MongoDB Collections, CRUD Operations
-# Role: GinkgoMongo驱动提供MongoDB连接池和文档操作支持文档存储支持通知系统和交易功能
+# Upstream: 数据层容器(containers.py), CRUD层, 通知系统, 文件服务
+# Downstream: pymongo, GinkgoLogger, 装饰器(retry/time_logger)
+# Role: MongoDB文档数据库驱动，基于pymongo实现连接池、健康检查和自动重试
 
 
 import time

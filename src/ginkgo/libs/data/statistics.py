@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Statistics统计工具提供t_test等统计检验和分析功能支持统计分析支持交易系统功能支持相关功能
+# Upstream: 回测评估模块、分析器模块 (统计检验)
+# Downstream: numpy, pandas, scipy.stats(延迟导入)
+# Role: 统计检验工具模块，提供t_test独立样本t检验和chi2_test卡方检验，用于回测与实盘分布对比分析
 
 
 
@@ -115,3 +115,4 @@ def kolmogorov_smirnov_test() -> None:
 
 def rank_sum_test() -> None:
     pass
+

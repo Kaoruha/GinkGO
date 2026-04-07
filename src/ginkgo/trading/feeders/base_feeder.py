@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Base Feeder数据馈送器继承BaseFeeder提供BaseFeeder基础数据数据推送支持相关功能
+# Upstream: TimeControlledEventEngine, 子类馈送器
+# Downstream: entities.base, entities.mixins.TimeMixin, entities.mixins.NamedMixin, trading.events.base_event, libs, data.container
+# Role: 数据馈送器抽象基类，提供事件发布器绑定、引擎通信（put）、日线数据获取（get_daybar）等馈送基础能力
 
 
 
@@ -116,3 +116,4 @@ class BaseFeeder(TimeMixin, NamedMixin, Base):
             return pd.DataFrame()
 
     # 订阅/广播机制已移除，兴趣集合通过 EventInterestUpdate 维护
+

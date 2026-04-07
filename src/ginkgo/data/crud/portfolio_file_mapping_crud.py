@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Portfolio File Mapping CrudCrud继承BaseCRUD提供PortfolioFileMapping数据操作
+# Upstream: FileCRUD, PortfolioCRUD, 文件管理服务
+# Downstream: BaseCRUD, MPortfolioFileMapping模型, ModelList, FILE_TYPES枚举
+# Role: 投资组合-文件映射CRUD，管理Portfolio与文件(策略脚本等)的绑定关系
 
 
 

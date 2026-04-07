@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 数据模块依赖注入容器管理数据库驱动/CRUD操作层/数据服务层和数据源的依赖注入支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 全项目(from ginkgo.data import container), 回测引擎, Worker系统, CLI, API服务
+# Downstream: 全部CRUD类, 全部Service类, 数据驱动(GinkgoMongo/GinkgoTushare等), dependency_injector
+# Role: 数据层依赖注入容器，基于dependency_injector统一管理CRUD/Service/数据源的实例化和生命周期
 
 from __future__ import annotations  # 启用延迟注解评估，避免循环导入
 
@@ -382,3 +382,4 @@ def get_service_info():
 # Bind the factory method and service info to the container instance
 container.create_tick_crud = create_tick_crud
 container.get_service_info = get_service_info
+

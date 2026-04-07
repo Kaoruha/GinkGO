@@ -1,6 +1,6 @@
 # Upstream: CLI Commands (ginkgo backtest list/run/delete)、API Server (回测任务API)
 # Downstream: BaseService (继承提供服务基础能力)、BacktestTaskCRUD (回测任务CRUD)、AnalyzerService (分析服务)
-# Role: BacktestTaskService回测任务服务提供回测任务管理功能支持交易系统功能和组件集成提供完整业务支持
+# Role: BacktestTaskService回测任务服务提供回测任务管理功能
 
 """
 Backtest Task Service
@@ -807,3 +807,4 @@ class BacktestTaskService(BaseService):
 
 # 向后兼容别名
 RunRecordService = BacktestTaskService
+

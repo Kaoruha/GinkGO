@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Engine Handler Mapping CrudCrud继承BaseCRUD提供EngineHandlerMapping数据操作
+# Upstream: EngineCRUD, 引擎装配层
+# Downstream: BaseCRUD, MEngineHandlerMapping模型, ModelConversion, ModelCRUDMapping
+# Role: 引擎-处理器映射CRUD，管理引擎与Handler的绑定关系，支持增删改查
 
 
 

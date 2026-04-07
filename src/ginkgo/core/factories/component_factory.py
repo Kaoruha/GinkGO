@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: ComponentFactory组件工厂提供动态创建和配置组件功能支持工厂模式支持交易系统功能支持相关功能
+# Upstream: 核心模块(core.__init__)、各业务模块通过ComponentFactory创建策略/模型/引擎等
+# Downstream: BaseFactory, GLOG日志
+# Role: 统一组件工厂，支持策略/模型/引擎/分析器/组合/风控/仓位等组件的动态创建、批量创建和配置驱动创建
 
 
 

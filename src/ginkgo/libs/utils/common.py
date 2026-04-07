@@ -1,3 +1,7 @@
+# Upstream: 全项目 (各模块的装饰器和工具函数)
+# Downstream: 各CRUD/Service/Strategy (被装饰的函数)
+# Role: 通用装饰器(time_logger/retry/cache_with_expiration/skip_if_ran)
+
 import time
 import math
 import threading

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Technical技术指标模块提供技术指标公共接口和导出功能支持指标计算和分析用于策略开发支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.__init__, Analyzers, Strategies
+# Downstream: BaseIndicator, SMA, WMA, EMA, ATR, PinBar, InflectionPoint, Gap, BollingerBands, RelativeStrengthIndex, Alpha Factors (KMID/KLEN/KLOW/KHIGH/MA/STD/BETA/ROC/MAX/MIN/QTLU/QTLD/RANK/RSV/IMAX/IMIN/IMXD), Alpha158Factory
+# Role: 技术指标子包统一导出，聚合移动平均线、波动率、形态识别、布林带、RSI及Alpha158因子
 
 
 

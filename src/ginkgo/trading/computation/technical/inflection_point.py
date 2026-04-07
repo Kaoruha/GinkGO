@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: InflectionPoint拐点分析继承BaseIndicator提供价格拐点检测和趋势反转分析支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Strategies
+# Downstream: BaseIndicator, pandas, numpy
+# Role: InflectionPoint拐点检测，识别连续反向K线确认的短期趋势反转信号
 
 
 
@@ -56,3 +56,4 @@ class InflectionPoint(BaseIndicator):
             else:
                 rs.loc[i, column_name] = 0
         return rs
+

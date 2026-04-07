@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: PortfolioT1Backtest回测投资组合管理策略/持仓/资金和执行支持交易系统功能支持相关功能
+# Upstream: BacktestEngine, TimeControlledEventEngine, EngineAssemblyService
+# Downstream: PortfolioBase, Position, Signal, Order, EventOrderAck, EventPriceUpdate, INotificationService, MOrder, container
+# Role: T1回测投资组合，管理策略调度、持仓跟踪、订单执行和资金结算
 
 
 """
@@ -1075,3 +1075,4 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception:
             # 异常时返回最简信息
             return f"{PortfolioT1Backtest.__name__}(name={getattr(self, 'name', 'Unknown')})"
+

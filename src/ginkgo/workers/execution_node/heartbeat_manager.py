@@ -1,3 +1,7 @@
+# Upstream: ExecutionNode (持有HeartbeatManager实例)
+# Downstream: Redis (心跳/指标/状态存储)
+# Role: ExecutionNode心跳上报、性能指标更新、Portfolio/节点状态写入Redis
+
 # 从 node.py 提取的心跳管理模块
 # 负责：心跳上报、节点指标更新、Portfolio状态上报、node_id冲突检测、旧数据清理
 

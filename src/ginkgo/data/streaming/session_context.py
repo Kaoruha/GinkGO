@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 流式会话管理实现Context/Manager/MemoryAware等核心业务逻辑支持交易系统功能和组件集成提供完整业务支持
+# Upstream: StreamingQueryEngine, 流式查询调用方
+# Downstream: monitoring模块(memory_monitor/session_manager/resource_optimizer), StreamingState
+# Role: 流式查询会话上下文管理器，集成内存监控和资源优化，提供会话生命周期管理和性能指标收集
 
 
 
@@ -357,3 +357,4 @@ def memory_aware(memory_limit_mb: Optional[float] = None, batch_size_auto_adjust
         装饰器函数
     """
     return MemoryAwareSessionContext(memory_limit_mb=memory_limit_mb, batch_size_auto_adjust=batch_size_auto_adjust)
+

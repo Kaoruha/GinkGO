@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: NetValue净值分析器继承BaseAnalyzer计算净值曲线和累计收益率评估策略表现支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Portfolio (NEWDAY/ENDDAY stage), BASIC_ANALYZERS, ResultPlot
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal
+# Role: 净值分析器 — 记录每日组合总资产作为净值曲线，收盘时写入数据库
 
 
 
@@ -38,3 +38,4 @@ class NetValue(BaseAnalyzer):
     def current_net_value(self) -> float:
         """当前净值（只读属性）"""
         return self.current_value
+

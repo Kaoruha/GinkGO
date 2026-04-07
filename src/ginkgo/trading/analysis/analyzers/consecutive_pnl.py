@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Consecutive Pnl分析器继承BaseAnalyzer计算ConsecutivePnl连续盈亏性能指标
+# Upstream: Portfolio (ENDDAY stage), DeviationChecker
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Role: 连续盈亏分析器 — 记录最大连续盈利/亏损天数及金额，存储当前连续亏损天数
 
 
 

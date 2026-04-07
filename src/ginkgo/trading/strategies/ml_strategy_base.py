@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ML strategy base class with cal/initialize/finalize methods
+# Upstream: PortfolioBase, StrategyMLPredictor
+# Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, get_bars, DIRECTION_TYPES, MODEL_TYPES
+# Role: 机器学习策略基类，提供ML模型加载、特征工程、预测到信号的桥接框架
 
 
 

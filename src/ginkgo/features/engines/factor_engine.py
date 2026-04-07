@@ -1,3 +1,7 @@
+# Upstream: FactorService (封装调用)、features.containers (DI注册)
+# Downstream: ExpressionParser (表达式解析)、bar_service (K线数据获取)、factor_service (因子存储)
+# Role: FactorEngine因子计算引擎，基于表达式解析和K线数据批量计算因子并存储
+
 """
 Factor Engine - 因子计算引擎
 

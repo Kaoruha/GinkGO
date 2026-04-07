@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Cumulative Distribution Function累积分布函数计算提供CDF统计函数和概率分析
+# Upstream: computation.technical（预留）
+# Downstream: BaseIndicator（预留）
+# Role: CDF累积分布函数计算模块占位文件（尚未实现）
 
 
 

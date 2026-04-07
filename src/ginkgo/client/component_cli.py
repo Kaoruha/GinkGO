@@ -1,6 +1,6 @@
 # Upstream: CLI主入口(ginkgo component命令调用)
 # Downstream: GCONF(WORKING_PATH配置)、FileService(组件文件注册)、subprocess(py_compile语法检查/EDITOR编辑器)、Path库(文件路径操作)、Rich库(表格/确认框/面板/语法高亮显示)
-# Role: 文件系统组件管理CLI提供创建/编辑/删除/列表/验证等完整生命周期管理包含模板代码生成支持交易系统功能和组件集成提供完整业务支持
+# Role: 文件系统组件管理CLI提供创建/编辑/删除/列表/验证等完整生命周期管理包含模板代码生成
 
 
 

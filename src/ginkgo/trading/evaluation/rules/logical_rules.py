@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现返回语句/信号字段/方向验证等7个类的核心功能支持交易系统功能支持策略验证和代码检查提供静态分析能力
+# Upstream: LogicalEvaluator
+# Downstream: rules.base_rule (ASTBasedRule), core.enums, core.evaluation_result
+# Role: 逻辑验证规则集，包含ReturnStatementRule/SignalFieldRule/SignalParameterRule/DirectionValidationRule/TimeProviderUsageRule/ForbiddenDirectDataAccessRule/ForbiddenOperationsRule
 
 
 
@@ -611,3 +611,4 @@ class SignalParameterRule(ASTBasedRule):
             )
 
         return None
+

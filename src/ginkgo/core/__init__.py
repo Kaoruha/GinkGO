@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心模块公共接口，提供GCONF配置管理、GLOG日志记录、GTM线程管理等核心服务，使用依赖注入容器管理组件生命周期
+# Upstream: 全局所有模块 (通过from ginkgo.core import访问核心服务)
+# Downstream: containers(DI容器), time_logger/retry(装饰器), interfaces/adapters/factories(延迟导入)
+# Role: 核心模块公共入口，提供get_config/get_logger/get_thread_manager等服务函数和validate_data/check_health等工具函数
 
 
 

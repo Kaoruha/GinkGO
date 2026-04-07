@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 定义策略基类接口，提供cal、initialize、finalize等核心方法，供具体策略继承实现交易逻辑
+# Upstream: 回测引擎、组合模块 (调用策略适配统一策略接口)
+# Downstream: BaseAdapter, BaseStrategy(接口), BaseMLStrategy(接口), BaseStrategy(实现), Signal(实体), STRATEGY_TYPES/DIRECTION_TYPES/SOURCE_TYPES(枚举), pandas/numpy, GLOG日志
+# Role: 策略适配器，实现传统策略/BaseStrategy实现/ML策略/通用策略到BaseStrategyInterface统一接口的适配
 
 
 

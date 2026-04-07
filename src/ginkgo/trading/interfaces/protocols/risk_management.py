@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: RiskManagementProtocol风控协议定义风控接口标准支持风控实现规范支持交易系统功能
+# Upstream: BaseRiskManagement, PositionRatioRisk, LossLimitRisk等风控实现类
+# Downstream: typing.Protocol（标准库）
+# Role: IRiskManagement风控接口协议定义，规范被动风控（validate_order）和主动风控（generate_risk_signals）双机制行为契约
 
 
 

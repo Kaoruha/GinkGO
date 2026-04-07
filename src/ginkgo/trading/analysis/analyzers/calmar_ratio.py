@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Calmar Ratio分析器继承BaseAnalyzer计算CalmarRatio卡尔玛比率性能指标
+# Upstream: Portfolio (ENDDAY stage)
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Role: 卡尔玛比率分析器 — 年化收益率/最大回撤，衡量每单位回撤风险的风险调整收益
 
 
 

@@ -1,3 +1,7 @@
+# Upstream: BacktestProcessor (任务执行中上报进度)
+# Downstream: Kafka (BACKTEST_PROGRESS topic), BacktestTaskService (数据库)
+# Role: 回测任务进度跟踪和上报(Kafka+DB+SSE通知)
+
 """
 Progress Tracker
 

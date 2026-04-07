@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: EventBase事件基类定义事件抽象接口和框架支持事件创建/序列化和传递机制实现事件驱动支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 引擎事件分发器, 事件生产者（馈送器、策略、风控等）
+# Downstream: enums.EVENT_TYPES, enums.SOURCE_TYPES, entities.mixins.TimeMixin, entities.mixins.ContextMixin
+# Role: 事件基类定义，提供事件名称、时间戳、UUID、事件类型、来源等公共属性和抽象接口，所有事件类的根
 
 
 
@@ -166,3 +166,4 @@ class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
 
     def __repr__(self):
         return base_repr(self, EventBase.__name__, 16, 60)
+

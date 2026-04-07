@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: GTM线程管理核心提供多线程控制和Kafka分布式Worker管理支持任务并发执行和负载均衡支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 全局所有模块 (通过GTM单例管理线程/Worker)、CLI命令(ginkgo worker)
+# Downstream: GCONF(配置), GLOG(日志), GinkgoLogger, retry(装饰器), psutil, rich, redis_service/kafka_service(延迟加载)
+# Role: GinkgoThreadManager线程/进程管理器，支持Kafka数据Worker管理、WatchDog守护、MainControl主控和LiveEngine生命周期管理
 
 
 
@@ -1079,3 +1079,4 @@ if __name__ == "__main__":
                 pass
             finally:
                 pass
+

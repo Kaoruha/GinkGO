@@ -1,3 +1,7 @@
+# Upstream: Portfolio (add_risk_manager注册使用)
+# Downstream: RiskBase (继承风控基类)
+# Role: TimeBasedRisk时间维度风控，限制最大持仓天数和每日交易次数
+
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement

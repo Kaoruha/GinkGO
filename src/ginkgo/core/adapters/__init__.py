@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心适配器模块导出基类/模式/模型/策略等适配器实现支持交易系统功能提供组件适配和接口转换支持模块解耦
+# Upstream: 核心模块(core.__init__)、工厂模块(core.factories)、接口模块(core.interfaces)
+# Downstream: BaseAdapter, ModeAdapter, ModelAdapter, StrategyAdapter, GLOG日志
+# Role: 适配器模式包入口，导出基类/模式/模型/策略四类适配器，实现组件间的无缝集成和接口转换
 
 
 

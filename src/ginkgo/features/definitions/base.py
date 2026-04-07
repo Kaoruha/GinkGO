@@ -1,3 +1,7 @@
+# Upstream: FactorService (因子计算调用)、features.definitions.registry (自动发现)
+# Downstream: Alpha158Factors/ChinaAFactors/MovingAverageIndicators/BarraFactors等(具体因子定义子类)
+# Role: BaseDefinition因子定义抽象基类，子类只需定义NAME/EXPRESSIONS/CATEGORIES即可获得表达式管理能力
+
 """
 因子定义基类 - 统一接口和业务逻辑
 

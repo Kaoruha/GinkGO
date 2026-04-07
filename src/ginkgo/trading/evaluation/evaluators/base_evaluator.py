@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BaseEvaluator基础评估器定义代码评估接口和框架支持代码质量分析和检查及优化建议支持交易系统功能和组件集成提供完整业务支持
+# Upstream: LogicalEvaluator, BestPracticeValidator, CLI评估命令
+# Downstream: rules.base_rule (BaseRule), rules.rule_registry (RuleRegistry), core.enums, core.evaluation_result, GLOG
+# Role: 评估器基类，定义evaluate()评估接口，BaseEvaluator提供抽象框架，SimpleEvaluator提供简化实现自动加载规则并生成EvaluationResult
 
 
 
@@ -365,3 +365,4 @@ class SimpleEvaluator(BaseEvaluator):
             suggestion="This may indicate a bug in the evaluation rule. Please report this issue.",
             file_path=file_path,
         )
+

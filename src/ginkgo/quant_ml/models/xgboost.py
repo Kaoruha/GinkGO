@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: XGBoostModel XGBoost模型封装XGBoost算法接口支持XGBoost集成支持相关功能
+# Role: XGBoostModel XGBoost模型封装XGBoost算法接口支持XGBoost集成
 
 
 

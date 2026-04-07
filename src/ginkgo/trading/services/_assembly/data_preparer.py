@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 数据准备器，负责数据获取和 YAML 配置驱动装配
+# Upstream: EngineAssemblyService, CLI commands
+# Downstream: BaseService, ServiceResult, GLOG, yaml, container services
+# Role: 数据准备器，从数据服务获取装配所需数据并支持YAML配置文件驱动的引擎创建
 
 
 """

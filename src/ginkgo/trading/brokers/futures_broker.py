@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Futures Broker经纪商继承BaseBroker提供FuturesBroker期货交易模拟
+# Upstream: InfrastructureFactory, LiveEngine
+# Downstream: LiveBrokerBase, BrokerExecutionResult, Order, DIRECTION_TYPES
+# Role: 期货实盘交易Broker，支持保证金交易、逐日盯市和强制平仓
 
 
 

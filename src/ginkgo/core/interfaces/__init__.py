@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 核心接口模块导出引擎/组合/策略/模型等核心接口协议定义组件的标准契约支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 核心模块(core.__init__)、适配器模块、工厂模块、各业务模块
+# Downstream: BaseStrategy, BaseModel, BaseEngine, BasePortfolio
+# Role: 接口定义包入口，导出策略/模型/引擎/组合四类核心接口协议，定义组件标准契约
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 提供 EnginePortfolioMappingCRUD 的CRUD操作接口，支持增删改查和批量操作
+# Upstream: EngineCRUD, PortfolioCRUD, 引擎装配层
+# Downstream: BaseCRUD, MEnginePortfolioMapping模型, ModelConversion, ModelCRUDMapping
+# Role: 引擎-投资组合映射CRUD，管理引擎与Portfolio的绑定关系
 
 
 

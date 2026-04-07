@@ -1,3 +1,7 @@
+# Upstream: CLI入口 (ginkgo worker命令)
+# Downstream: GinkgoThreadManager, BacktestWorker, RedisService
+# Role: Worker管理CLI，含DataWorker/BacktestWorker启停和状态查看
+
 """
 Ginkgo Worker CLI - Worker管理命令
 """

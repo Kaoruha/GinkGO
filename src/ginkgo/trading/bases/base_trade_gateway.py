@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BaseTradeGateway交易网关抽象基类接口，定义订单路由和匹配的核心方法，供子类继承实现具体路由逻辑和订单分发功能
+# Upstream: gateway.trade_gateway
+# Downstream: entities.mixins.TimeMixin, entities.mixins.ContextMixin, trading.mixins.order_management_mixin, entities.mixins.EngineBindableMixin, libs.GLOG
+# Role: 交易网关抽象基类，通过Mixin组装时间管理、上下文管理、内存订单管理等基础功能，子类专注路由逻辑
 
 
 

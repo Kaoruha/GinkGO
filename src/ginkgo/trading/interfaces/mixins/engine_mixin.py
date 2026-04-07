@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: EngineMixin引擎混入类提供引擎交互能力支持引擎绑定和方法调用功能集成实现组件协作支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine及其子类
+# Downstream: libs.GLOG
+# Role: 引擎功能混入类，提供事件上下文追踪、性能监控、事件处理统计和调试诊断等引擎增强能力
 
 
 

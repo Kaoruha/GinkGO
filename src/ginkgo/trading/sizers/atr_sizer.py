@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: ATRSizer基于ATR的仓位管理器继承BaseSizer提供波动率自适应仓位计算和风险控制支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, container, pandas
+# Role: ATR仓位管理器，基于平均真实波幅计算波动率自适应的订单仓位
 
 
 
@@ -114,3 +114,4 @@ class ATRSizer(BaseSizer):
             print(o)
             o.set_source(SOURCE_TYPES.SIZER)
         return o
+

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Cn All Selector选股器继承BaseSelector提供CNAllSelector全A股选股功能
+# Upstream: EngineAssemblyService, PortfolioBase
+# Downstream: BaseSelector, container.stockinfo_service
+# Role: 全A股选股器，从股票信息服务获取全部A股代码列表
 
 
 

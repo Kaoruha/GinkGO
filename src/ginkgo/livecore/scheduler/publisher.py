@@ -1,3 +1,7 @@
+# Upstream: Scheduler._publish_schedule_update()
+# Downstream: Kafka (schedule.updates topic), Redis (调度计划更新)
+# Role: 比较新旧计划差异并发布调度变更到Kafka
+
 """
 调度更新发布模块
 

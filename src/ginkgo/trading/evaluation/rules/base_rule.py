@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 BaseRule、ASTBasedRule、RuntimeRule 等类的核心功能，封装相关业务逻辑
+# Upstream: RuleRegistry, structural_rules, logical_rules, best_practice_rules
+# Downstream: core.enums (EvaluationLevel, EvaluationSeverity), core.evaluation_result (EvaluationIssue)
+# Role: 评估规则基类，定义check()抽象接口，BaseRule通用规则/ASTBasedRule AST规则/RuntimeRule运行时规则三层继承体系
 
 
 

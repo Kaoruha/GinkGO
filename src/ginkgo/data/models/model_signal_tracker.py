@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Model Signal Tracker模型继承定义MSignalTracker信号追踪相关数据结构
+# Upstream: SignalTrackingService, signal_tracker_crud, 模拟盘/实盘信号管理
+# Downstream: MMysqlBase, MBacktestRecordBase, 执行相关枚举(EXECUTION_MODE/TRACKINGSTATUS_TYPES/ACCOUNT_TYPE)
+# Role: 信号追踪MySQL模型，记录模拟盘/实盘信号的预期与实际执行对比，支持人工确认流程
 
 
 

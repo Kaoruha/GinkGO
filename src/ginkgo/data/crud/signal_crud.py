@@ -1,6 +1,6 @@
 # Upstream: SignalService (信号业务服务)、Portfolio Manager (查询信号记录)
 # Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MSignal (ClickHouse信号模型)、Signal (业务信号实体)
-# Role: SignalCRUD信号CRUD操作继承BaseCRUD提供信号数据增删改查和业务查询方法支持交易系统功能和组件集成提供完整业务支持
+# Role: SignalCRUD信号CRUD操作继承BaseCRUD提供信号数据增删改查和业务查询方法
 
 
 
@@ -413,3 +413,4 @@ class SignalCRUD(BaseCRUD[MSignal]):
             as_dataframe=as_dataframe,
             output_type="model"
         )
+

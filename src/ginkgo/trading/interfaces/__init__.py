@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 接口模块导出经纪商/组合/策略/风控等接口协议定义组件的标准契约支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 全系统（组件实现验证、类型检查、依赖注入）
+# Downstream: interfaces.protocols.IStrategy, interfaces.protocols.IRiskManagement, interfaces.protocols.IPortfolio, interfaces.protocols.IEngine
+# Role: 交易框架接口模块包入口，导出IStrategy/IRiskManagement/IPortfolio/IEngine四大Protocol接口协议
 
 
 

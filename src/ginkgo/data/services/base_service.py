@@ -1,3 +1,6 @@
+# Upstream: data.services (所有具体Service继承)
+# Downstream: ServiceResult (标准化返回结构)、GLOG (日志)、所有ConcreteService (继承基类)
+# Role: BaseService服务层基类提供依赖注入日志记录和ServiceResult标准化返回
 """
 Base Service Module
 

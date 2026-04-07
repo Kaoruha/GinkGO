@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoMySQL MySQL驱动提供MySQL连接和ORM操作支持关系型数据库支持交易系统功能
+# Upstream: 数据层容器(containers.py), CRUD层, MySQL模型写入操作
+# Downstream: SQLAlchemy, GCONF, DatabaseDriverBase, GinkgoLogger
+# Role: MySQL关系型数据库驱动，继承DatabaseDriverBase，封装连接池和ORM会话管理
 
 
 
@@ -144,3 +144,4 @@ class GinkgoMysql(DatabaseDriverBase):
     def remove_session(self) -> None:
         """移除会话（向后兼容）"""
         self._session_factory.remove()
+

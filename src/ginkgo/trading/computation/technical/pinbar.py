@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: PinbarPin柱识别继承BaseIndicator提供K线形态识别和反转信号分析功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Strategies
+# Downstream: BaseIndicator, pandas
+# Role: PinBar Pin柱形态识别，检测长影线K线（上下影线比>1.4且影线超实体2/3）判断多空反转信号
 
 
 
@@ -43,3 +43,4 @@ class PinBar(BaseIndicator):
                 else:
                     rs.loc[i, column_name] = 0
         return rs
+

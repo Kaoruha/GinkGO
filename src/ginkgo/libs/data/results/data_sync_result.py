@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: DataSyncResult数据同步结果封装数据同步结果支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 数据同步服务、各数据源适配器 (封装同步结果)
+# Downstream: dataclasses, datetime
+# Role: DataSyncResult数据同步结果类，含处理/新增/更新/跳过/失败统计、成功率计算、幂等性标记和错误追踪
 
 
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BasePlot基础绘图类提供图表可视化基类定义绘图接口和模板方法支持图表扩展开发和自定义支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CandlePlot, CandleWithIndexPlot, ResultPlot
+# Downstream: matplotlib (pyplot, font_manager), os, numpy
+# Role: 绘图基类 — 提供标题设置、中文字体配置、颜色方案和 show() 模板方法
 
 
 
@@ -44,3 +44,4 @@ class BasePlot(object):
 
     def show(self, *args, **kwargs):
         plt.show()
+

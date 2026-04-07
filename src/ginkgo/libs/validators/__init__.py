@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 组件验证器模块导出基类/策略验证/风控验证/组件测试等验证工具支持交易系统功能和组件集成提供完整业务支持
+# Upstream: libs顶层模块(__init__.py)、CLI/API层 (调用validate_component/test_component)
+# Downstream: BaseValidator/ValidationResult/ValidationLevel, StrategyValidator, AnalyzerValidator, RiskValidator, SizerValidator, ComponentTester, ValidationRules
+# Role: 组件校验器包入口，导出校验基类和策略/分析器/风控/仓位四类专用校验器，提供validate_component/test_component统一入口
 
 
 

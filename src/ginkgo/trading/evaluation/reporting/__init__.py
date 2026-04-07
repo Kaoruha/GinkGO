@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 评估报告模块导出文本报告/Markdown报告/JSON报告/HTML可视化等报告生成器支持交易系统功能和组件集成提供完整业务支持
+# Upstream: evaluation顶层包, CLI评估命令
+# Downstream: (空包，暂无导出)
+# Role: 报告子包，预留报告生成流水线(core数据模型/templates模板/formatters格式化/exporters导出)完整架构
 
 
 
@@ -18,3 +18,4 @@ This package contains reporting implementation:
 """
 
 __all__ = []
+

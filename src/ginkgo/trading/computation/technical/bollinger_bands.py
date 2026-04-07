@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BollingerBands布林带指标继承BaseIndicator提供价格通道和波动率分析功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Strategies, Analyzers
+# Downstream: BaseIndicator, pandas, numpy
+# Role: 布林带指标（BollingerBands）及布林带交易信号（BollingerBandsSignal），计算上中下轨和价格位置，生成突破买卖信号
 
 
 
@@ -250,3 +250,4 @@ class BollingerBandsSignal(BaseIndicator):
                 
         except Exception:
             return BaseIndicator.cal_matrix(matrix_data)
+

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Fixed Sizer仓位管理继承BaseSizer提供FixedSizer固定下单功能支持相关功能
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, container, to_decimal
+# Role: 固定仓位管理器，按固定数量下单并自动根据可用资金调整
 
 
 
@@ -172,3 +172,4 @@ class FixedSizer(BaseSizer):
         except Exception as e:
             GLOG.ERROR(f"Sizer:{self.name} failed to create order: {e}")
             return None
+

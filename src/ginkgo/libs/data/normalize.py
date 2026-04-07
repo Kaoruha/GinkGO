@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: 数据标准化模块提供datetime_normalize/str2bool/str2float等类型转换方法
+# Upstream: 全局所有模块 (时间字段的标准化转换)
+# Downstream: datetime, numpy(numpy.datetime64处理)
+# Role: 数据标准化模块，提供datetime_normalize时间标准化函数，支持str/int/float/np.datetime64/pd.Timestamp等多种格式到datetime转换
 
 
 

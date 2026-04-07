@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: MBacktestTask回测任务模型继承MBacktestRecordBase定义回测任务数据结构和字段支持回测历史追踪
+# Upstream: BacktestTaskService, backtest_task_crud, 回测引擎, Web UI
+# Downstream: MMysqlBase, MBacktestRecordBase, SOURCE_TYPES, 工具函数
+# Role: 回测任务MySQL模型，记录每次回测执行的完整信息(收益率/最大回撤/配置快照)
 
 """
 Backtest Task Model

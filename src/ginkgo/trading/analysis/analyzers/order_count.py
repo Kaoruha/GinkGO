@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Order Count分析器继承BaseAnalyzer计算OrderCount订单统计性能指标
+# Upstream: Portfolio (ORDERSEND stage), BASIC_ANALYZERS, SlicePeriodOptimizer
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, AnalyzerService (container)
+# Role: 订单计数分析器 — 每次订单发送时累计计数，每日收盘写入累计订单总数
 
 
 

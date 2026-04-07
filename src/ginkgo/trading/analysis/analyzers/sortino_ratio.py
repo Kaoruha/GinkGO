@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Sortino Ratio分析器继承BaseAnalyzer计算SortinoRatio索提诺比率性能指标
+# Upstream: Portfolio (ENDDAY stage)
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Role: 索提诺比率分析器 — 仅用下行标准差计算风险调整收益，年化后输出
 
 
 

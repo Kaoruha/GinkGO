@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: GLOG日志核心，基于 structlog 实现结构化日志输出，支持容器环境 JSON 格式和本地 Rich 控制台输出
+# Upstream: 全局所有模块 (通过GLOG单例记录日志)
+# Downstream: structlog, contextvars(分布式追踪trace_id/span_id), Number/to_decimal(类型支持), datetime
+# Role: GinkgoLogger结构化日志核心，基于structlog实现JSON/Rich双输出，支持trace_id/span_id分布式追踪和业务上下文绑定
 
 
 # Imports for structlog and distributed logging

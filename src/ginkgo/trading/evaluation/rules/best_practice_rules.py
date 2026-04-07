@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 DecoratorUsageRule、ExceptionHandlingRule、LoggingRule 等 5 个类的核心功能
+# Upstream: BestPracticeValidator
+# Downstream: rules.base_rule (ASTBasedRule), core.enums, core.evaluation_result, GLOG
+# Role: 最佳实践评估规则集，包含DecoratorUsageRule(@time_logger/@retry推荐)、ExceptionHandlingRule/LoggingRule/ResetStateRule/ParameterValidationRule
 
 
 

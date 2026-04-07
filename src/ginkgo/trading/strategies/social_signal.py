@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Social Signal策略继承BaseStrategy实现SocialSignal社交信号交易逻辑
+# Upstream: PortfolioBase, ComponentFactoryService
+# Downstream: BaseStrategy, Signal, DIRECTION_TYPES
+# Role: 社交信号策略占位文件，预留给社交媒体舆情交易策略实现
 
 
 

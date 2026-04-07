@@ -1,3 +1,7 @@
+# Upstream: Scheduler (编排器，持有CommandHandler实例)
+# Downstream: Scheduler状态 (is_paused), LoadBalancer, SchedulePublisher
+# Role: 处理Kafka调度命令(recalculate/schedule/migrate/pause/resume)
+
 """
 命令处理模块
 

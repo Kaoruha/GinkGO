@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 流式数据处理模块提供ClickHouse/MySQL等引擎支持增量处理支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseCRUD(流式查询), 数据服务层, 大数据批量处理任务
+# Downstream: engines子模块, config, monitoring, checkpoint
+# Role: 流式查询包入口，提供StreamingQueryEngine统一接口和核心数据类(QueryState/ProgressInfo等)
 
 
 
@@ -243,3 +243,4 @@ def _log_module_info():
 
 # 模块加载时初始化
 _log_module_info()
+

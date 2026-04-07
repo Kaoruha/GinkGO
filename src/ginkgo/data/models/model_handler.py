@@ -1,3 +1,6 @@
+# Upstream: HandlerCRUD (处理器CRUD写入/读取)、EngineAssemblyService (引擎装配加载)
+# Downstream: MMysqlBase (继承MySQL基类)、ModelConversion (继承模型转换)、MySQL (handler表持久化)
+# Role: MHandler处理器数据模型映射MySQL handler表存储库路径和函数名
 import datetime
 
 from typing import Optional

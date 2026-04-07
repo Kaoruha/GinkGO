@@ -1,3 +1,7 @@
+# Upstream: CLI命令和各需要格式化输出的模块
+# Downstream: Rich Console/Table (终端输出)
+# Role: 终端显示和格式化工具(颜色控制/表格/图表/对象repr)
+
 """
 显示和格式化工具模块
 合并了原来的 ginkgo_pretty.py 和 ginkgo_color.py

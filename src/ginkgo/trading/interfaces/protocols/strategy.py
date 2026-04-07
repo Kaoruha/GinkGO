@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: StrategyProtocol策略协议定义策略接口标准支持策略实现规范支持交易系统功能支持相关功能
+# Upstream: BaseStrategy及其所有策略子类
+# Downstream: typing.Protocol（标准库）
+# Role: IStrategy策略接口协议定义，规范信号计算（cal）、生命周期管理和策略信息提供等策略核心行为契约
 
 
 

@@ -1,6 +1,6 @@
 # Upstream: Portfolio Manager (添加剥头皮策略)、BaseStrategy (继承提供策略基础能力)
 # Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES (方向枚举LONG/SHORT)、SOURCE_TYPES (信号源枚举)
-# Role: Scalping剥头皮策略继承BaseStrategy提供短期高频交易策略实现和快速进出场逻辑支持交易系统功能和组件集成提供完整业务支持
+# Role: Scalping剥头皮策略继承BaseStrategy提供短期高频交易策略实现和快速进出场逻辑
 
 
 
@@ -32,3 +32,4 @@ class StrategyScalping(BaseStrategy):
         
         # 策略暂时不实现具体逻辑，直接返回空列表
         return []
+

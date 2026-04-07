@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Ast Analyzer模块提供ASTAnalyzer AST分析器提供代码AST分析支持代码结构分析功能支持回测评估和代码验证
+# Upstream: ComponentEvaluator, 静态分析流水线
+# Downstream: ast, utils.ast_helpers, GLOG
+# Role: AST静态代码分析器，提取类结构/方法/装饰器等代码模式，为ClassInfo/MethodInfo数据结构提供解析能力
 
 
 

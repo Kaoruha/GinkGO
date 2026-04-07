@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: TradeGateway交易网关提供订单路由和匹配功能支持订单分发/撮合和执行管理实现交易流转和优化支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, TimeControlledEventEngine, PaperTradingWorker
+# Downstream: bases.base_trade_gateway, trading.interfaces.broker_interface, trading.bases.base_broker, entities.Order, trading.enums, trading.events.order_lifecycle_events
+# Role: 统一交易网关实现，支持回测/模拟/实盘三种模式，自动路由订单到对应市场Broker，纯内存订单管理
 
 
 

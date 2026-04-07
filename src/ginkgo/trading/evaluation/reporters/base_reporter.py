@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 BaseReporter、FileOutputReporter 等类的核心功能，封装相关业务逻辑
+# Upstream: CLI评估命令, 报告生成流程
+# Downstream: core.evaluation_result (EvaluationResult, SignalTraceReport)
+# Role: 报告器基类，定义generate()/generate_signal_trace()/generate_to_file()抽象接口，FileOutputReporter提供文件输出通用实现
 
 
 

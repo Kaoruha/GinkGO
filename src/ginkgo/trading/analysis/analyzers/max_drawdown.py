@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Max Drawdown分析器继承BaseAnalyzer计算MaxDrawdown最大回撤性能指标
+# Upstream: Portfolio (NEWDAY stage), BASIC_ANALYZERS, CalmarRatio
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal
+# Role: 最大回撤分析器 — 追踪历史最高净值，计算当前回撤比例（负值表示损失）
 
 
 

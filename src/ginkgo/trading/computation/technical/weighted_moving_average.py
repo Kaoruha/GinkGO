@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: WeightedMovingAverage加权移动平均线继承BaseIndicator提供加权趋势分析功能
+# Upstream: computation.technical.__init__, Strategies, Analyzers
+# Downstream: BaseIndicator, pandas, numpy
+# Role: WMA加权移动平均线，近端数据权重线性递增（1,2,...,n）计算加权均值，支持事件和矩阵双模式
 
 
 

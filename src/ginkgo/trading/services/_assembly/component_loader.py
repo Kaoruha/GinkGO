@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 组件加载器，负责组件实例化和绑定
+# Upstream: EngineAssemblyService, TaskEngineBuilder
+# Downstream: PortfolioT1Backtest, GLOG, file_service
+# Role: 组件加载器，从字典配置或源码文件实例化策略/选股器/分析器等组件并绑定到Portfolio
 
 
 """

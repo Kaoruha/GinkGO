@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: WinRate胜率分析器继承BaseAnalyzer计算交易胜率和盈亏比评估策略表现和盈利能力支持交易系统功能和组件集成提供完整业务支持
+# Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Role: 胜率分析器 — 统计盈利日占比（胜率）和平均盈利/平均亏损比（盈亏比）
 
 
 

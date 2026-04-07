@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Text Reporter模块提供TextReporter文本报告器生成纯文本格式报告支持结果输出功能支持回测评估和代码验证
+# Upstream: CLI评估命令, 终端输出
+# Downstream: reporters.base_reporter (BaseReporter), core.enums, core.evaluation_result, rich (Console, Panel, Table)
+# Role: Rich文本报告生成器，使用Rich库生成彩色终端输出，包含问题表格和信号追踪面板展示
 
 
 

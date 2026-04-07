@@ -1,3 +1,7 @@
+# Upstream: BacktestWorker (持有BacktestMetrics实例)
+# Downstream: BacktestWorker.get_status() (状态查询)
+# Role: 回测Worker运行指标收集(任务数/成功率/运行时长)
+
 """
 Backtest Worker Metrics
 

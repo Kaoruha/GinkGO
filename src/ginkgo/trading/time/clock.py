@@ -1,3 +1,7 @@
+# Upstream: 全项目 (通过clock.now()获取时间)
+# Downstream: ITimeProvider实现 (LogicalTimeProvider/SystemTimeProvider)
+# Role: 全局时钟适配层，统一now()入口，支持provider注入和回退
+
 """
 Global Clock Adapter
 

@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Annualized Returns分析器继承BaseAnalyzer计算AnnualizedReturns年化收益率性能指标
+# Upstream: Portfolio (NEWDAY stage), BASIC_ANALYZERS
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, math
+# Role: 年化收益率分析器 — 按252交易日年化公式计算组合年化收益率
 
 
 

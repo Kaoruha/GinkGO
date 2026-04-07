@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 评估模块导出评估器基类/回测评估/语法分析/运行分析等评估组件支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CLI评估命令, 回测引擎
+# Downstream: core.enums, core.evaluation_result
+# Role: 策略评估模块入口，导出ComponentType/EvaluationLevel/EvaluationSeverity枚举和EvaluationResult/EvaluationIssue结果实体
 
 
 
@@ -36,3 +36,4 @@ __all__ = [
     "EvaluationResult",
     "EvaluationIssue",
 ]
+

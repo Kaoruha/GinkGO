@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Markdown Reporter模块提供Markdown报告器生成报告支持文档生成功能支持回测评估和代码验证
+# Upstream: CLI评估命令, 文档生成流程
+# Downstream: reporters.base_reporter (FileOutputReporter), core.enums, core.evaluation_result
+# Role: Markdown格式报告生成器，将评估结果转换为GitHub/GitLab友好的Markdown文档，支持问题和信号追踪表格
 
 
 

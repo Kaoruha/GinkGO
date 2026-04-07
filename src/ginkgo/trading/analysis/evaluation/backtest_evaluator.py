@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: BacktestEvaluator回测评估器提供回测性能评估支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PaperTradingWorker (调用评估建立监控基准)
+# Downstream: SliceDataManager (数据切片)、LiveDeviationDetector (创建检测器实例)
+# Role: 编排回测稳定性评估流程，生成含daily_curves的monitoring_baseline
 
 
 

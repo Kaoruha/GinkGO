@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: RSI相对强弱指标继承BaseIndicator提供超买超卖分析和动量指标功能支持趋势判断支持交易系统功能和组件集成提供完整业务支持
+# Upstream: computation.technical.__init__, Strategies, Analyzers
+# Downstream: BaseIndicator, pandas, numpy
+# Role: RSI相对强弱指标及RSISignal交易信号，计算超买超卖区间并生成突破信号（RSI<30买入/RSI>70卖出）
 
 
 

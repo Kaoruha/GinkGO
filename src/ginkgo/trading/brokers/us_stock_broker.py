@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Us Stock Broker经纪商继承BaseBroker提供USStockBroker美股交易模拟
+# Upstream: InfrastructureFactory, LiveEngine
+# Downstream: LiveBrokerBase, BrokerExecutionResult, Order, DIRECTION_TYPES
+# Role: 美股实盘交易Broker，支持T+0交易、盘前盘后及多种订单类型
 
 
 

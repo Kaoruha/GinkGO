@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 RoutingStrategy、RoutingMode、RouteStatus 等 16 个类的核心功能
+# Upstream: gateway.center, gateway.balancers, gateway.circuit_breaker, gateway.__init__
+# Downstream: trading.time.clock
+# Role: 事件路由系统接口与数据结构定义，包括路由中心/负载均衡器/熔断器抽象接口、路由策略枚举和路由数据类
 
 
 

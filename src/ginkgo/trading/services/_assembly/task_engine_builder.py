@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 从 BacktestTask 构建回测引擎
+# Upstream: EngineAssemblyService, Worker nodes
+# Downstream: TimeControlledEventEngine, EXECUTION_MODE, GLOG, ComponentLoader, InfrastructureFactory
+# Role: 任务引擎构建器，从BacktestTask创建/加载Portfolio并装配完整的回测引擎
 
 
 """

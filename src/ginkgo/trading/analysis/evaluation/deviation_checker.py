@@ -1,3 +1,6 @@
+# Upstream: PaperTradingWorker (每日循环调用偏差检测)
+# Downstream: LiveDeviationDetector (z-score检测)、Redis (基线缓存)、Kafka (告警)
+# Role: 偏差检测共享逻辑，管理基线获取、告警发送和自动熔断
 import json
 from datetime import datetime
 from typing import Dict, List, Optional

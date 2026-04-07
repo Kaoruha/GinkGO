@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: Oscillators因子定义继承FactorBase提供Oscillators计算支持交易系统功能
+# Role: Oscillators因子定义继承FactorBase提供Oscillators计算
 
 
 

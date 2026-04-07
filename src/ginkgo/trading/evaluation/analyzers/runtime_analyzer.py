@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Runtime Analyzer模块提供RuntimeAnalyzer运行时分析器提供运行时分析支持性能分析功能支持回测评估和代码验证
+# Upstream: 回测引擎, 评估流水线RuntimeInspectionStage
+# Downstream: core.evaluation_result (SignalTrace, SignalTraceReport), events.EventBase, GLOG
+# Role: 运行时信号追踪分析器，通过SignalTracer上下文管理器捕获cal()调用，提供BarDataAdapter/TickDataAdapter事件适配
 
 
 

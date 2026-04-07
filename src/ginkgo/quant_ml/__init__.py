@@ -1,6 +1,6 @@
 # Upstream: External Applications
 # Downstream: Trading Strategies, Analysis Tools
-# Role: QuantML机器学习模块提供机器学习模型训练/预测和评估功能支持量化交易策略开发支持交易系统功能支持相关功能
+# Role: QuantML机器学习模块提供机器学习模型训练/预测和评估功能支持量化交易策略开发
 
 
 

@@ -1,3 +1,7 @@
+# Upstream: BacktestWorker, BacktestProcessor (创建/使用任务对象)
+# Downstream: BacktestProcessor, ProgressTracker (任务状态和配置)
+# Role: 回测任务数据模型(BacktestTask/BacktestConfig/状态枚举)
+
 """
 Backtest Task Models
 

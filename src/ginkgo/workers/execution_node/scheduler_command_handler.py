@@ -1,3 +1,7 @@
+# Upstream: ExecutionNode._schedule_updates_loop() (Kafka消息消费)
+# Downstream: ExecutionNode (load_portfolio/pause/resume/stop)
+# Role: ExecutionNode端处理Scheduler下发的Kafka调度命令
+
 # 从 node.py 提取的调度命令处理模块
 # 负责：处理来自 Scheduler 的 Kafka 命令（reload/migrate/pause/resume/shutdown）
 

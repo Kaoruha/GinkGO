@@ -1,3 +1,6 @@
+# Upstream: Portfolio Manager (订单查询)、API Server (订单接口)
+# Downstream: BaseService (继承基类)、OrderCRUD (Phase 4订单持久化)
+# Role: OrderService订单服务Phase 3占位实现返回空结果等待持久化改造
 """
 Order Service - Phase 3 占位实现
 

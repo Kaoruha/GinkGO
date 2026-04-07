@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: CacheManager缓存管理器提供数据缓存和过期管理功能支持缓存操作支持交易系统功能支持相关功能
+# Upstream: 流式查询引擎, StreamingQueryEngine
+# Downstream: GLOG, threading, pickle, collections.OrderedDict
+# Role: 流式查询缓存管理器，实现LRU/LFU/TTL/自适应缓存策略，支持内存限制和命中率统计
 
 
 
@@ -644,3 +644,4 @@ class CacheManager:
 # 全局缓存管理器实例
 default_cache_config = CacheConfig()
 cache_manager = CacheManager(default_cache_config)
+

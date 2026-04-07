@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 BaseLoadBalancer、RoundRobinBalancer、WeightedBalancer 等 10 个类的核心功能
+# Upstream: EventRoutingCenter, gateway.center
+# Downstream: gateway.interfaces, trading.time.clock
+# Role: 负载均衡策略实现，提供轮询、加权、最少连接、哈希、优先级、广播、故障转移等多种路由目标选择算法
 
 
 

@@ -1,3 +1,7 @@
+# Upstream: monitoring.__init__ (模块导出)、dashboard (AlertManager调用)、evaluation_result (@traced装饰)
+# Downstream: SpanExporter实现(ConsoleExporter/FileExporter/MemoryExporter)
+# Role: EventTracer分布式事件追踪器，提供trace/span链路追踪和traced装饰器
+
 """
 T5架构事件追踪模块
 

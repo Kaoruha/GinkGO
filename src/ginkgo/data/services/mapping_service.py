@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: MappingService映射服务提供组件映射关系管理功能支持映射配置和查询支持交易系统功能支持相关功能
+# Upstream: EngineService (引擎组合绑定)、CLI Commands (映射管理)、Cleanup流程 (清理孤立映射)
+# Downstream: BaseService (继承基类)、EnginePortfolioMappingCRUD/PortfolioFileMappingCRUD/EngineHandlerMappingCRUD/ParamCRUD
+# Role: MappingService统一管理引擎组合文件处理器映射关系和参数创建清理
 
 
 

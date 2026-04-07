@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: SlicePeriodOptimizer切片周期优化器优化回测切片支持参数优化支持交易系统功能支持相关功能
+# Upstream: BacktestEvaluator, 回测完成后参数化查询
+# Downstream: pandas, numpy, GLOG, MetricStabilityCalculator (间接)
+# Role: 切片周期优化器 — 候选周期遍历，按信号/订单平衡性和指标平稳性评分选最优切片周期
 
 
 

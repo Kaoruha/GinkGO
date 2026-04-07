@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: Analyzer Validator验证器检查AnalyzerValidator分析器配置合理性支持相关功能
+# Upstream: validate_component统一入口 (按component_type='analyzer'调用)
+# Downstream: BaseValidator, ValidationResult, ValidationLevel, ValidationRules, ast/inspect/re
+# Role: 分析器组件校验器，通过AST语法树和反射检查用户自定义Analyzer的基类继承/方法签名/参数类型合规性
 
 
 

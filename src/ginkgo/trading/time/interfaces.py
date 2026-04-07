@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 实现 ITimeProvider、ITimeAwareComponent 等类的核心功能，封装相关业务逻辑
+# Upstream: LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator
+# Downstream: ITimeProvider, ITimeAwareComponent, TIME_MODE
+# Role: 时间控制接口定义，提供时间提供者和时间感知组件的抽象接口
 
 
 

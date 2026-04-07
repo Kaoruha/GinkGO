@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: StabilityUtils稳定性工具提供重试和容错机制支持系统稳定性保障和故障恢复支持交易系统功能和组件集成提供完整业务支持
+# Upstream: core容器(container.utilities.stability)、回测模块
+# Downstream: numpy, pandas, scipy.stats, Decimal, GLOG
+# Role: 稳定性分析工具模块，提供滚动统计量计算和统计稳定性检验功能
 
 
 

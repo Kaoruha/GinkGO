@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供EvaluationUtils评估工具模块提供工具函数支持评估操作功能支持回测评估和代码验证
+# Upstream: evaluation内部模块 (analyzers, rules)
+# Downstream: utils.ast_helpers, utils.database_loader (未显式导出)
+# Role: 评估工具子包，包含ast_helpers AST解析工具和database_loader数据库策略加载器
 
 
 

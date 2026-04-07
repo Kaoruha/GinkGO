@@ -1,7 +1,7 @@
 # coding:utf-8
 # Upstream: Data Layer
 # Downstream: External APIs (Tushare, Yahoo, etc.)
-# Role: 测试CLI实现日志级别/测试层等核心类提供运行/列表/覆盖率等测试管理命令支持交易系统功能和组件集成提供完整业务支持
+# Role: 测试CLI实现日志级别/测试层等核心类提供运行/列表/覆盖率等测试管理命令
 
 
 

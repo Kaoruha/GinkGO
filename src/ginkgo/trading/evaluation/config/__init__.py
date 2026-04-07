@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role:   Init  模块提供EvaluationConfig评估配置模块提供配置管理支持评估参数配置功能支持回测评估和代码验证
+# Upstream: EvaluatorComposer
+# Downstream: (空包，暂无导出)
+# Role: 评估配置子包，预留ConfigLoader配置加载和EvaluatorComposer评估器组装功能
 
 
 

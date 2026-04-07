@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoRedis Redis驱动提供Redis连接和缓存操作支持缓存管理支持交易系统功能支持相关功能
+# Upstream: 数据层容器(containers.py), Worker系统, 偏差检测模块, RedisService
+# Downstream: redis-py, GinkgoLogger, 装饰器(retry/time_logger)
+# Role: Redis缓存驱动，封装连接池和基础键值操作，支持自动重连
 
 
 
@@ -40,3 +40,4 @@ class GinkgoRedis(object):
         if self._redis is None:
             self.connect()
         return self._redis
+

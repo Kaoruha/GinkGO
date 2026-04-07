@@ -1,3 +1,7 @@
+# Upstream: BacktestWorker._start_task() (创建并启动)
+# Downstream: EngineAssemblyService, TimeControlledEventEngine, BacktestResultAggregator
+# Role: 单个回测任务处理器，装配引擎并执行回测生命周期
+
 """
 Backtest Task Processor
 

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 实现 ClickHouseStreamingEngine 交易引擎，驱动回测或实盘流程，处理事件分发和策略执行
+# Upstream: StreamingEngineFactory(自动选择), 大数据批量处理
+# Downstream: BaseStreamingEngine, StreamingConfig, psutil
+# Role: ClickHouse专用流式引擎，利用原生流式传输和列式存储优化处理大规模时序数据查询
 
 
 

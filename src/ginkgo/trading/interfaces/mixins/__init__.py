@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: 接口Mixin模块导出引擎混入/事件混入/策略数据混入等接口混入类支持交易系统功能和组件集成提供完整业务支持
+# Upstream: BaseEngine, EventPriceUpdate, BaseStrategy等组件实现类
+# Downstream: mixins.engine_mixin, mixins.event_mixin, mixins.strategy_data_mixin
+# Role: 接口Mixin模块包入口，导出EngineMixin引擎增强、EventMixin事件追踪、StrategyDataMixin策略数据访问三大混入类
 
 
 

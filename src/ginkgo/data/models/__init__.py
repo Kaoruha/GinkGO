@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 数据模型模块导出K线/Tick/股票/复权因子等数据模型类支持交易系统功能和组件集成提供完整业务支持
+# Upstream: CRUD层, 服务层, 数据层容器(containers.py), 回测引擎
+# Downstream: 全部ORM模型类(MBar/MTick/MOrder/MPosition等)
+# Role: 数据模型包入口，统一导出所有ClickHouse/MySQL/MongoDB ORM模型类
 
 
 
@@ -100,3 +100,4 @@ __all__ = [
     "MComponentLog",
     "MPerformanceLog",
 ]
+

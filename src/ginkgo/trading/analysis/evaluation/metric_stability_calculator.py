@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: MetricStabilityCalculator指标稳定性计算器计算指标稳定性支持指标分析支持交易系统功能
+# Upstream: BacktestEvaluator, 切片分析评估
+# Downstream: pandas, numpy, scipy.stats, GLOG
+# Role: 指标稳定性计算器 — 计算变异系数/一致性比率/趋势稳定性/异常值比率/正态性/自相关/结构变化点
 
 
 

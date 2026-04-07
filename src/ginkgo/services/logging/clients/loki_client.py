@@ -1,3 +1,7 @@
+# Upstream: AlertService, 日志查询模块
+# Downstream: Grafana Loki HTTP API
+# Role: Grafana Loki HTTP客户端，封装日志查询和LogQL构建
+
 # T042: Grafana Loki HTTP 客户端实现
 # 封装 Loki API 调用，支持日志查询和 LogQL 构建
 

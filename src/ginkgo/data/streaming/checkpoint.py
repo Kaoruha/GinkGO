@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: 实现 CheckpointInfo、ProgressTracker、CheckpointManager 等 4 个类的核心功能
+# Upstream: 流式查询引擎, StreamingQueryEngine, 断点续传场景
+# Downstream: streaming包核心类(QueryState/ProgressInfo), GLOG
+# Role: 断点续传和进度跟踪系统，提供CheckpointInfo/ProgressTracker/CheckpointManager，支持查询中断后恢复
 
 
 

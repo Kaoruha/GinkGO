@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: PortfolioContext组合上下文提供组合状态和配置管理支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: PortfolioBase, 分析器、策略等组合内组件
+# Downstream: context.engine_context
+# Role: 组合级上下文管理，持有portfolio_id并引用EngineContext，统一提供portfolio_id/engine_id/run_id只读访问
 
 
 
@@ -63,3 +63,4 @@ class PortfolioContext:
         return (f"PortfolioContext(portfolio_id={self._portfolio_id[:8]}..., "
                 f"engine_id={self.engine_id[:8]}..., "
                 f"run_id={self.run_id[:8] if self.run_id else None}...)")
+

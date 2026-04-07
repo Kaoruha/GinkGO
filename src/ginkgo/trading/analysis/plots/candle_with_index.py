@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Candle With Index绘图继承BasePlot提供CandleWithIndex指数K线图表可视化
+# Upstream: CLI, 技术指标叠加显示
+# Downstream: BasePlot, BaseIndicator, matplotlib (pyplot, gridspec, widgets), pandas, numpy, GLOG
+# Role: 带指标K线图 — 在K线图上叠加技术指标线（MA/MACD等），支持独立子图指标
 
 
 

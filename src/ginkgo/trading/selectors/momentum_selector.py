@@ -1,6 +1,6 @@
-# Upstream: Backtest Engines, Portfolio Manager
-# Downstream: Data Layer, Event System
-# Role: Momentum Selector选股器继承BaseSelector提供MomentumSelector动量选股功能
+# Upstream: EngineAssemblyService, PortfolioBase
+# Downstream: BaseSelector, container, pandas, GLOG
+# Role: 动量选股器，基于时间窗口内的收益率排名动态选取Top-N股票
 
 
 

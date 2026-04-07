@@ -1,3 +1,7 @@
+# Upstream: CLI入口 (ginkgo deploy命令)
+# Downstream: DeploymentService, container.deployment_service()
+# Role: 回测结果一键部署为纸上交易/实盘的CLI命令
+
 import typer
 from typing import Optional
 from typing_extensions import Annotated

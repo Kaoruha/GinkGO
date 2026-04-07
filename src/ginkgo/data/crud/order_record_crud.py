@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Order Record CrudCrud继承BaseCRUD提供OrderRecord数据操作支持交易系统功能
+# Upstream: OrderService, 回测引擎, 模拟盘Worker
+# Downstream: BaseCRUD, MOrderRecord模型, Order实体, ValidationError
+# Role: 订单记录CRUD，管理回测和实盘的订单历史记录，支持按portfolio/engine筛选
 
 
 
@@ -463,3 +463,4 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             as_dataframe=as_dataframe,
             output_type="model"
         )
+

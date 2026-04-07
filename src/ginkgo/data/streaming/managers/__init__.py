@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Managers管理器模块提供管理器组件的公共接口和导出支持管理器访问支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 流式查询引擎
+# Downstream: 无(空包，组件待实现)
+# Role: 流式管理器子包入口，预留CheckpointManager/ProgressTracker/MemoryMonitor/SessionManager导出
 
 
 
@@ -21,3 +21,4 @@
 """
 
 __all__ = []
+

@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: GinkgoSourceBase数据源基类定义数据源的抽象接口和规范支持数据源开发支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 各数据源子类(AKShare/BaoStock/TDX/Yahoo/Tushare)
+# Downstream: 无外部依赖
+# Role: 数据源抽象基类，定义connect()接口规范，所有外部数据源适配器均继承此类
 
 
 
@@ -21,3 +21,4 @@ class GinkgoSourceBase(object):
 
     def connect(self, *args, **kwargs):
         raise NotImplementedError()
+

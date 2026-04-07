@@ -1,6 +1,6 @@
-# Upstream: All Modules
-# Downstream: Standard Library
-# Role: HealthCheck健康检查工具提供系统状态监控和组件可用性检测功能支持故障发现和告警支持交易系统功能和组件集成提供完整业务支持
+# Upstream: core容器(container.utilities.health_check)、CLI命令(ginkgo serve)
+# Downstream: GLOG/GCONF(全局实例), rich(Console/Emoji), socket, subprocess
+# Role: 健康检查工具模块，提供ClickHouse/MySQL/Redis/Kafka端口和服务就绪检测及Docker容器状态检查
 
 
 

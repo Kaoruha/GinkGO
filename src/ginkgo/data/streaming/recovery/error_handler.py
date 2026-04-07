@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: ErrorHandler错误处理器提供异常捕获和恢复机制支持错误处理支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+# Upstream: 流式查询引擎, 各StreamingEngine
+# Downstream: GLOG, threading, collections
+# Role: 智能错误处理系统，提供错误严重程度分类(ErrorSeverity)和恢复动作(重试/降级/熔断等)策略
 
 
 
@@ -458,3 +458,4 @@ class ErrorHandler:
                 op for op, count in failure_stats.items() if count >= self.max_consecutive_failures // 2
             ],
         }
+

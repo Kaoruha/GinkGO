@@ -1,6 +1,6 @@
-# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
-# Downstream: ClickHouse, MySQL, MongoDB
-# Role: Parameter Metadata Service服务提供ParameterMetadataService参数元数据管理和查询
+# Upstream: Web UI(参数展示), API层, 组件配置管理
+# Downstream: BaseService, ComponentParameterExtractor, GLOG
+# Role: 参数元数据服务，管理组件参数名称到索引的映射，优先动态提取回退预定义映射
 
 
 
