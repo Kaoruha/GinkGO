@@ -137,6 +137,45 @@ GTM.reset_all_workers()  # 停止所有worker
 
 ## 风控体系
 
+### 运行模式（SOURCE_TYPES）
+所有回测/模拟盘记录通过 `source` 字段标记运行模式，支持按模式筛选和对比：
+- **`BACKTEST=15`**: 回测引擎产出（`engine.start()` 自动设置）
+- **`PAPER_REPLAY=18`**: 历史数据模拟（回测区间外样本外验证）
+- **`PAPER_LIVE=19`**: 实盘模拟（真实市场数据实时推进）
+
+```python
+from ginkgo.enums import SOURCE_TYPES
+
+# BaseCRUD filter 按模式筛选（所有有 source 字段的 CRUD 通用）
+analyzer_crud.find(filters={"source": SOURCE_TYPES.PAPER_REPLAY.value})
+order_crud.find(filters={"source": SOURCE_TYPES.BACKTEST.value, "portfolio_id": "xxx"})
+signal_crud.find(filters={"source": SOURCE_TYPES.PAPER_LIVE.value})
+
+# 模拟盘自动切换：Worker 启动时检测 REPLAY → LIVE_PAPER
+# REPLAY 用 LogicalTimeProvider 批量快进历史数据，追上后切换 SystemTimeProvider
+# Analyzer 写入时通过 EngineContext.source_type 自动标记，无需手动传
+```
+
+### 时间体系
+- **`LogicalTimeProvider`**: 回测/历史模拟用，可控逻辑时间，支持 `set_current_time()`
+- **`SystemTimeProvider`**: 实盘/实盘模拟用，系统实时时间
+- **`clock_now()`**: 全局时间入口（`ginkgo.trading.time.clock`），优先读全局 provider
+- **`EngineContext`**: 引擎级上下文，持有 `engine_id` / `run_id` / `source_type`
+- **`ContextMixin`**: 组件基类 Mixin，通过 `_context` 透传上下文属性
+
+### 偏差检测体系
+回测基准建立 → 模拟盘每日检测 → 分级告警 → 自动下线：
+```python
+# 链路: BacktestEvaluator → monitoring_baseline(含daily_curves) → LiveDeviationDetector
+#       PaperTradingWorker → DeviationChecker → check_point_in_time() / check_deviation_on_slice_complete()
+#       告警: MODERATE/SEVERE → Kafka SYSTEM_EVENTS → 可选 auto_takedown
+
+# Redis key 设计:
+#   deviation:source:{portfolio_id}   → 回测源 portfolio 映射
+#   deviation:baseline:{portfolio_id} → baseline JSON 缓存
+#   deviation:config:{portfolio_id}  → 检测配置（auto_takedown, slice_period_days 等）
+```
+
 ### 风控类型
 - **`PositionRatioRisk`**: 持仓比例控制，支持单股和总持仓限制，智能调整订单量
 - **`LossLimitRisk`**: 止损控制，监控持仓亏损自动生成平仓信号  
