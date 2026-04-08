@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.83s, 46 tests [PASS]
 ClickHouse基础模型综合测试
 
 测试MClickBase模型的ClickHouse特有功能

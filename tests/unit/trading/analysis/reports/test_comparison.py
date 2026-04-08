@@ -1,3 +1,7 @@
+"""
+性能: 273MB RSS, 2.41s, 8 tests [PASS]
+"""
+
 # ComparisonReport 测试用例
 #
 # 测试范围:

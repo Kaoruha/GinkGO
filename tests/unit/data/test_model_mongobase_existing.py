@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.95s, 35 tests [PASS]
+"""
+
 # Upstream: MMongoBase Model
 # Downstream: None (单元测试)
 # Role: MMongoBase单元测试验证模型初始化/枚举处理/序列化功能

@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.83s, 14 tests [PASS]
+"""
+
 # Upstream: None
 # Downstream: None
 # Role: MessageQueue单元测试验证消息队列功能

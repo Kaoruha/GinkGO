@@ -1,3 +1,7 @@
+"""
+性能: 272MB RSS, 2.49s, 14 tests [PASS]
+"""
+
 import pytest
 import pandas as pd
 import numpy as np

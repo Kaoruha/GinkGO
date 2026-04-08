@@ -1,3 +1,7 @@
+"""
+性能: 274MB RSS, 2.63s, 19 tests [PASS]
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 import pandas as pd

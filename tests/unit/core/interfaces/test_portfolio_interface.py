@@ -1,4 +1,5 @@
 """
+性能: 271MB RSS, 2.45s, 49 tests [PASS]
 组合接口单元测试
 
 测试 BasePortfolio、BaseMultiStrategyPortfolio 接口定义，

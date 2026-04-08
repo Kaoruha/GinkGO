@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 1.92s, 15 tests [PASS]
 Unit tests for validation_cli.py commands: validate (standalone command).
 
 Validation CLI is registered as a single command on the main app:

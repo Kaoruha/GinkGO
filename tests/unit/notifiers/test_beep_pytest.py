@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.89s, 0 tests [PASS]
 声音通知测试 - 使用Pytest最佳实践。
 
 测试声音通知器的初始化、播放功能。
@@ -109,20 +110,15 @@ class TestBeepNotifierValidation:
         100000,  # 过高的频率
     ])
     def test_beep_notifier_invalid_frequency(self, invalid_frequency):
-        """测试无效频率验证."""
+        """测试无效频率验证 - 无效频率应被拒绝或优雅处理."""
         try:
             from ginkgo.notifiers.beep_notifier import BeepNotifier
         except ImportError:
             pytest.skip("BeepNotifier not available")
 
-        # 尝试创建无效频率的通知器
-        try:
-            notifier = BeepNotifier(frequency=invalid_frequency)
-            # 如果没有验证，创建会成功
-            assert notifier is not None
-        except (ValueError, AttributeError):
-            # 如果有验证，抛出异常是预期的
-            pass
+        # BeepNotifier 应该对无效频率抛出 ValueError
+        with pytest.raises((ValueError, AttributeError)):
+            BeepNotifier(frequency=invalid_frequency)
 
     @pytest.mark.unit
     @pytest.mark.parametrize("invalid_duration", [
@@ -131,20 +127,15 @@ class TestBeepNotifierValidation:
         0,  # 零时长
     ])
     def test_beep_notifier_invalid_duration(self, invalid_duration):
-        """测试无效时长验证."""
+        """测试无效时长验证 - 无效时长应被拒绝或优雅处理."""
         try:
             from ginkgo.notifiers.beep_notifier import BeepNotifier
         except ImportError:
             pytest.skip("BeepNotifier not available")
 
-        # 尝试创建无效时长的通知器
-        try:
-            notifier = BeepNotifier(duration=invalid_duration)
-            # 如果没有验证，创建会成功
-            assert notifier is not None
-        except (ValueError, AttributeError):
-            # 如果有验证，抛出异常是预期的
-            pass
+        # BeepNotifier 应该对无效时长抛出 ValueError
+        with pytest.raises((ValueError, AttributeError)):
+            BeepNotifier(duration=invalid_duration)
 
 
 @pytest.mark.notifier

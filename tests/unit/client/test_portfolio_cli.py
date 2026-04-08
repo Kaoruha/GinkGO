@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 2.03s, 27 tests [PASS]
 Portfolio CLI 单元测试
 
 测试 ginkgo.client.portfolio_cli 的所有命令：

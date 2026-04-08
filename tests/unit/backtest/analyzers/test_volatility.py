@@ -1,3 +1,7 @@
+"""
+性能: 271MB RSS, 2.46s, 21 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -302,6 +306,116 @@ class TestVolatility(unittest.TestCase):
 
         # 两日只有1个收益率，需要2个数据点才能计算波动率
         self.assertEqual(self.analyzer.current_volatility, 0.0)
+
+
+class TestVolatilityNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证波动率计算"""
+
+    def setUp(self):
+        self.analyzer = Volatility("test_vol_num", window=20)
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_vol_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def test_known_volatility_with_manual_calculation(self):
+        """使用手动计算的已知收益率序列验证波动率"""
+        base_worth = 10000
+        # 构造worth值序列，第一个值初始化_last_worth
+        target_returns = [0.01, 0.02, -0.01, 0.015, -0.005, 0.02, -0.01, 0.01, 0.005, -0.015]
+        worth_values = [base_worth]
+        for r in target_returns:
+            worth_values.append(worth_values[-1] * (1 + r))
+
+        # 第一个值初始化_last_worth，后续值产生收益率
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth_values[0]})
+        for i in range(1, len(worth_values)):
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth_values[i]})
+
+        # 直接用analyzer内部_returns做独立验证
+        arr = np.array(self.analyzer._returns)
+        expected_daily_vol = float(np.std(arr, ddof=1))
+        expected_annual_vol = expected_daily_vol * np.sqrt(252)
+
+        self.assertAlmostEqual(self.analyzer.daily_volatility, expected_daily_vol, places=5)
+        self.assertAlmostEqual(self.analyzer.current_volatility, expected_annual_vol, places=3)
+
+    def test_zero_volatility_constant_returns(self):
+        """常数收益率波动率应接近0"""
+        base_worth = 10000
+        daily_return = 0.01
+
+        for i in range(10):
+            worth = base_worth * ((1 + daily_return) ** (i + 1))
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        # 所有日收益率都是0.01，标准差应为0
+        self.assertAlmostEqual(self.analyzer.current_volatility, 0.0, places=5)
+
+    def test_known_two_value_volatility(self):
+        """只有2个不同收益率时的精确验证 - 使用内部_returns"""
+        base_worth = 10000
+        target_returns = [0.02, -0.02, 0.02, -0.02, 0.02]
+        worth_values = [base_worth]
+        for r in target_returns:
+            worth_values.append(worth_values[-1] * (1 + r))
+
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth_values[0]})
+        for i in range(1, len(worth_values)):
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth_values[i]})
+
+        arr = np.array(self.analyzer._returns)
+        expected = float(np.std(arr, ddof=1) * np.sqrt(252))
+        self.assertAlmostEqual(self.analyzer.current_volatility, expected, places=3)
+
+
+class TestVolatilityBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def test_empty_data(self):
+        """从未调用activate，验证默认值"""
+        analyzer = Volatility("test_vol_empty")
+        self.assertEqual(analyzer.current_volatility, 0.0)
+        self.assertEqual(analyzer.daily_volatility, 0.0)
+        self.assertEqual(len(analyzer._returns), 0)
+
+    def test_single_bar(self):
+        """只传1条bar数据"""
+        analyzer = Volatility("test_vol_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
+        self.assertEqual(analyzer.current_volatility, 0.0)
+
+    def test_all_zero_values(self):
+        """所有bar的worth=0"""
+        analyzer = Volatility("test_vol_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        for i in range(5):
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        # _last_worth=0, 不满足 >0, 不添加收益率
+        self.assertEqual(analyzer.current_volatility, 0.0)
+        self.assertEqual(len(analyzer._returns), 0)
 
 
 if __name__ == '__main__':

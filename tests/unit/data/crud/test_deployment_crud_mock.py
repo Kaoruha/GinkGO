@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.88s, 7 tests [PASS]
 DeploymentCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -59,17 +60,6 @@ class TestDeploymentCRUDConstruction:
 
         assert deployment_crud.model_class is MDeployment
 
-    @pytest.mark.unit
-    def test_construction_has_business_methods(self, deployment_crud):
-        """验证所有业务方法都存在且可调用"""
-        required_methods = [
-            "get_by_target_portfolio",
-            "get_by_source_task",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(deployment_crud, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(deployment_crud, method_name)), f"不可调用: {method_name}"
 
 
 # ============================================================

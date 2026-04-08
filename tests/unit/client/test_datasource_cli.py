@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 1.98s, 14 tests [PASS]
 DataSource CLI 单元测试
 
 测试 ginkgo.client.datasource_cli 的所有命令：

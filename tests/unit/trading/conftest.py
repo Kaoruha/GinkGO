@@ -83,17 +83,6 @@ def pytest_report_header(config):
     ]
 
 
-def pytest_report_teststatus(report):
-    """自定义测试状态报告"""
-    if report.when == "call":
-        if report.passed:
-            pass
-        elif report.failed:
-            pass
-        elif report.skipped:
-            pass
-
-
 # ============================================================================
 # 共享Fixtures
 # ============================================================================

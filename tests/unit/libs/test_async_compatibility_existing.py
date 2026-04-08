@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.86s, 11 tests [PASS]
 T060: 异步兼容测试
 
 验证 async/await 场景下 trace_id 自动传播和上下文管理。

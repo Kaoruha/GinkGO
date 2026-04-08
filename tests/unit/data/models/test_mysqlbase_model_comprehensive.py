@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.93s, 42 tests [PASS]
 MySQL基础模型综合测试
 
 测试MMysqlBase模型的MySQL特有功能

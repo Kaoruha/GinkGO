@@ -1,3 +1,7 @@
+"""
+性能: 156MB RSS, 0.8s, 0 tests [NO_TESTS]
+"""
+
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """

@@ -1,3 +1,7 @@
+"""
+性能: 272MB RSS, 2.59s, 11 tests [PASS]
+"""
+
 # Upstream: trading.analysis 完整模块 (metrics, reports)
 # Downstream: None (集成测试)
 # Role: 验证分析模块各组件的集成性 — 模块导出、端到端分析流程、比较报告
@@ -52,7 +56,6 @@ class TestModuleExports:
         assert callable(RollingReport)
 
     def test_existing_analyzer_exports_unchanged(self):
-        assert issubclass(BaseAnalyzer, object)
         assert callable(BacktestResultAggregator)
 
     def test_new_metric_classes_exported(self):

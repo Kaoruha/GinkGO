@@ -1,4 +1,5 @@
 """
+性能: 273MB RSS, 2.39s, 44 tests [PASS]
 基础适配器单元测试
 
 测试 BaseAdapter、ChainableAdapter、CompositeAdapter、ConditionalAdapter、AdapterError，

@@ -1,3 +1,7 @@
+"""
+性能: 272MB RSS, 2.28s, 24 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -340,6 +344,148 @@ class TestWinRate(unittest.TestCase):
         self.assertEqual(self.analyzer.total_trades, 5)
         self.assertEqual(self.analyzer.win_count, 3)
         self.assertEqual(self.analyzer.current_win_rate, 0.6)
+
+
+class TestWinRateNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证胜率和盈亏比"""
+
+    def setUp(self):
+        self.analyzer = WinRate("test_win_rate_num")
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_win_rate_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def _init_and_advance(self, analyzer, day_index):
+        day_time = self.test_time + timedelta(days=day_index)
+        analyzer.advance_time(day_time)
+
+    def test_exact_win_rate_3_of_5(self):
+        """验证精确胜率: 3胜2败 = 60%"""
+        base_worth = 10000
+        daily_changes = [100, -50, 200, -75, 150]  # 3胜2败
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertAlmostEqual(self.analyzer.current_win_rate, 0.6, places=5)
+        self.assertEqual(self.analyzer.win_count, 3)
+        self.assertEqual(self.analyzer.loss_count, 2)
+        self.assertEqual(self.analyzer.total_trades, 5)
+
+    def test_exact_profit_loss_ratio(self):
+        """验证精确盈亏比"""
+        base_worth = 10000
+        # 2胜: +300, +150; 2败: -100, -200
+        # avg_profit = (300+150)/2 = 225
+        # avg_loss = (100+200)/2 = 150
+        # pl_ratio = 225/150 = 1.5
+        daily_changes = [300, -100, 150, -200]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertAlmostEqual(self.analyzer.profit_loss_ratio, 1.5, places=5)
+
+    def test_zero_win_rate(self):
+        """验证0%胜率"""
+        base_worth = 10000
+        daily_changes = [-100, -50, -200]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertEqual(self.analyzer.current_win_rate, 0.0)
+        self.assertEqual(self.analyzer.win_count, 0)
+        self.assertEqual(self.analyzer.total_trades, 3)
+
+    def test_100_percent_win_rate(self):
+        """验证100%胜率"""
+        base_worth = 10000
+        daily_changes = [100, 200, 150]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertEqual(self.analyzer.current_win_rate, 1.0)
+        self.assertEqual(self.analyzer.loss_count, 0)
+        self.assertEqual(self.analyzer.total_trades, 3)
+
+
+class TestWinRateBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def _init_and_advance(self, analyzer, day_index):
+        day_time = self.test_time + timedelta(days=day_index)
+        analyzer.advance_time(day_time)
+
+    def test_empty_data(self):
+        """从未调用activate，验证默认值"""
+        analyzer = WinRate("test_win_empty")
+        self.assertEqual(analyzer.current_win_rate, 0.0)
+        self.assertEqual(analyzer.win_count, 0)
+        self.assertEqual(analyzer.loss_count, 0)
+        self.assertEqual(analyzer.total_trades, 0)
+        self.assertEqual(analyzer.profit_loss_ratio, 0.0)
+
+    def test_single_bar(self):
+        """只传1条bar数据"""
+        analyzer = WinRate("test_win_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
+        self.assertEqual(analyzer.current_win_rate, 0.0)
+        self.assertEqual(analyzer.total_trades, 0)
+
+    def test_all_zero_values(self):
+        """所有bar的worth=0"""
+        analyzer = WinRate("test_win_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        # Day0: init
+        self._init_and_advance(analyzer, 0)
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        # Day1: worth=0, _last_worth=0, 0 > 0不满足，win_rate=0.0
+        self._init_and_advance(analyzer, 1)
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        self.assertEqual(analyzer.current_win_rate, 0.0)
+        self.assertEqual(analyzer.total_trades, 0)
 
 
 if __name__ == '__main__':

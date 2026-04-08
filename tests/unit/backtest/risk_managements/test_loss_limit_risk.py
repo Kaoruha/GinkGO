@@ -1,4 +1,5 @@
 """
+性能: 157MB RSS, 0.91s, 36 tests [PASS]
 Test cases for LossLimitRisk risk management.
 Tests cover loss calculation, signal generation, edge cases, and financial accuracy.
 """

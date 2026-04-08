@@ -1,3 +1,7 @@
+"""
+性能: 213MB RSS, 7.18s, 7 tests [PASS]
+"""
+
 # Upstream: ginkgo.research.decay_analysis
 # Downstream: pytest
 # Role: FactorDecayAnalyzer 测试

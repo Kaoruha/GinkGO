@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.05s, 74 tests [PASS]
 Position类TDD测试
 
 通过TDD方式开发Position持仓管理类的完整测试套件

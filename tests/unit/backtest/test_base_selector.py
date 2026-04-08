@@ -1,4 +1,5 @@
 """
+性能: 223MB RSS, 1.88s, 33 tests [PASS]
 BaseSelector tests using pytest framework.
 Tests cover selector initialization, data feeder binding, pick functionality,
 and concrete implementations like FixedSelector.

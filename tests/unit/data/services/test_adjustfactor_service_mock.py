@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 2.09s, 16 tests [PASS]
 AdjustfactorService 单元测试（Mock 依赖）
 
 通过 MagicMock 注入所有依赖，隔离测试业务逻辑。

@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.85s, 21 tests [PASS]
+"""
+
 # Upstream: None
 # Downstream: None
 # Role: NotificationService单元测试验证通知服务业务逻辑功能
@@ -307,7 +311,7 @@ class TestNotificationServiceSendTemplate:
     """NotificationService 模板发送测试"""
 
     def test_send_template_success(self):
-        """测试使用模板发送"""
+        """测试使用模板发送 — 让真实 send 方法执行，验证渲染内容被正确传递"""
         template_crud = Mock()
         record_crud = Mock()
         template_engine = Mock()
@@ -321,20 +325,34 @@ class TestNotificationServiceSendTemplate:
         )
 
         # Mock template_engine
-        template_engine.render_from_template_id.return_value = "Rendered content"
+        rendered_content = "Rendered content"
+        template_engine.render_from_template_id.return_value = rendered_content
+        # send() 内部也会通过 template_engine.render() 二次渲染，需要 mock
+        template_engine.render.return_value = rendered_content
 
-        # Mock template
+        # Mock template — send_template 和 send 都会调用 get_by_template_id
         mock_template = Mock()
         mock_template.subject = "Test Subject"
-        mock_template.get_template_type_enum.return_value = Mock(name="TEXT")
-
+        mock_template.content = "Template raw content"
+        # 枚举 mock: .name 需要返回字符串 "TEXT"，不能使用 Mock(name="TEXT")
+        # 因为 Mock 的 name 参数是内部标识符，.name 属性会被当作子 mock
+        mock_enum = Mock()
+        mock_enum.name = "TEXT"
+        mock_template.get_template_type_enum.return_value = mock_enum
         template_crud.get_by_template_id.return_value = mock_template
 
-        # Mock send
-        service.send = Mock(return_value=Mock(
+        # Mock record_crud（send 内部需要）
+        record_crud.add.return_value = "record_uuid_123"
+        record_crud.update_status.return_value = 1
+
+        # 注册 mock channel，让真实 send 方法通过 channel 验证渲染内容
+        mock_channel = Mock()
+        mock_channel.channel_name = "discord"
+        mock_channel.send.return_value = ChannelResult(
             success=True,
-            data={"message_id": "msg123"}
-        ))
+            message_id="discord_msg_123"
+        )
+        service.register_channel(mock_channel)
 
         result = service.send_template(
             template_id="test_template",
@@ -344,6 +362,12 @@ class TestNotificationServiceSendTemplate:
 
         assert result.success is True
         template_engine.render_from_template_id.assert_called_once()
+        # 验证渲染后的内容被传递到了 channel.send
+        mock_channel.send.assert_called_once()
+        call_kwargs = mock_channel.send.call_args
+        assert call_kwargs.kwargs.get("content") == rendered_content
+        # 验证模板标题被传递
+        assert call_kwargs.kwargs.get("title") == "Test Subject"
 
     def test_send_template_not_found(self):
         """测试模板不存在"""

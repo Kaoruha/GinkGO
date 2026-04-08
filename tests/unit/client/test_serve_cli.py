@@ -1,4 +1,5 @@
 """
+性能: 159MB RSS, 0.92s, 12 tests [PASS]
 Serve CLI 单元测试
 
 测试 ginkgo.client.serve_cli 的所有命令：

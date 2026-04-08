@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.86s, 3 tests [PASS]
+"""
+
 import sys
 import unittest
 import datetime

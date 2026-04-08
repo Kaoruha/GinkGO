@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 10.45s, 31 tests [PASS]
 KafkaService数据服务测试
 
 测试Kafka消息队列服务的核心功能和业务逻辑

@@ -496,12 +496,12 @@ class TestDatabaseDrivenAssembly:
         result = service.assemble_backtest_engine(engine_id="missing")
         assert result.success is False
 
+    @pytest.mark.skip(reason="测试逻辑未实现：缺少对 _get_portfolio_components 返回 None 后续行为的断言")
     def test_portfolio_components_query_failure(self):
         service = EngineAssemblyService()
         with patch.object(service._data_preparer, '_get_portfolio_components', return_value=None):
             # _prepare_engine_data would log WARN and skip
             pass
-        assert True
 
 
 @pytest.mark.unit

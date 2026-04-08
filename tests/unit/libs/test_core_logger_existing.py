@@ -1,4 +1,5 @@
 """
+性能: 155MB RSS, 0.92s, 25 tests [PASS]
 Unit tests for GinkgoLogger JSON output functionality
 
 This module tests the GinkgoLogger's JSON format output capabilities,

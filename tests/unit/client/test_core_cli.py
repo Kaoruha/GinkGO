@@ -1,4 +1,5 @@
 """
+性能: 226MB RSS, 2.49s, 25 tests [PASS]
 Unit tests for core_cli.py commands: status, debug, init, version.
 
 Core commands are registered on the main app via _main_app.command(name=...)(core_cli.func).

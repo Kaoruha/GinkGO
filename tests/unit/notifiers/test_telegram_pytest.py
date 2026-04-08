@@ -1,4 +1,5 @@
 """
+性能: 159MB RSS, 0.91s, 0 tests [PASS]
 Telegram通知测试 - 使用Pytest最佳实践。
 
 测试Telegram通知器的初始化、配置、发送功能。

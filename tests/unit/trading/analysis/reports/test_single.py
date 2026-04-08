@@ -1,3 +1,7 @@
+"""
+性能: 271MB RSS, 2.54s, 23 tests [PASS]
+"""
+
 # AnalysisReport + SingleReport 测试用例
 #
 # 测试范围:

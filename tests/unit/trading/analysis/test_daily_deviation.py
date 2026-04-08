@@ -1,3 +1,7 @@
+"""
+性能: 271MB RSS, 2.5s, 7 tests [PASS]
+"""
+
 import os
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 

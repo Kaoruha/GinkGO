@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 1.86s, 7 tests [PASS]
 Unit tests for cli_utils.py helper functions.
 
 cli_utils provides utility functions for tree display and parameter retrieval:
@@ -30,6 +31,8 @@ from ginkgo.enums import FILE_TYPES
 # 1. _get_component_parameters
 # ============================================================================
 
+
+# NOTE: Testing private methods directly - consider refactoring to test through public CLI interface
 
 @pytest.mark.unit
 @pytest.mark.cli
@@ -66,6 +69,8 @@ class TestGetComponentParameters:
 # ============================================================================
 
 
+# NOTE: Testing private methods directly - consider refactoring to test through public CLI interface
+
 @pytest.mark.unit
 @pytest.mark.cli
 class TestAddPortfolioComponents:
@@ -101,6 +106,8 @@ class TestAddPortfolioComponents:
 # 3. _show_portfolio_tree / _show_engine_tree
 # ============================================================================
 
+
+# NOTE: Testing private methods directly - consider refactoring to test through public CLI interface
 
 @pytest.mark.unit
 @pytest.mark.cli

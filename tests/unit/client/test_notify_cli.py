@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 2.03s, 20 tests [FAIL(1)]
 Unit tests for notify_cli.py commands: send, template, history, search, channels,
 and recipients subcommands (list, add, delete, update, contacts, toggle).
 

@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.87s, 36 tests [PASS]
 Test cases for Simple Moving Average (SMA) indicator.
 Tests cover basic calculation, edge cases, matrix operations, and performance.
 """

@@ -1,4 +1,5 @@
 """
+性能: 161MB RSS, 0.91s, 32 tests [PASS]
 Test cases for Relative Strength Index (RSI) indicator.
 Tests cover calculation logic, boundary conditions, edge cases, and matrix operations.
 """

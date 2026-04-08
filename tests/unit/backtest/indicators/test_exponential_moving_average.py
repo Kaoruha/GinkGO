@@ -1,4 +1,5 @@
 """
+性能: 157MB RSS, 0.87s, 38 tests [PASS]
 Test cases for Exponential Moving Average (EMA) indicator.
 Tests cover basic calculation, trend analysis, edge cases, and comparison with SMA.
 """

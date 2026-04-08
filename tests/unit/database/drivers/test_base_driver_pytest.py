@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 2.04s, 17 tests [PASS]
 基础驱动测试 - 使用Pytest最佳实践重构。
 
 测试DatabaseDriverBase基类的核心功能。

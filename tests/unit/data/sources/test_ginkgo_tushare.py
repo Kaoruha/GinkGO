@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 3.68s, 14 tests [PASS]
 GinkgoTushare 数据源单元测试（Mock tushare API）
 
 测试范围:

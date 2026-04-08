@@ -1,4 +1,5 @@
 """
+性能: 253MB RSS, 7.09s, 31 tests [PASS]
 StockinfoService数据服务测试
 
 测试股票信息服务的核心功能和业务逻辑

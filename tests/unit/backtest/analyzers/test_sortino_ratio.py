@@ -1,3 +1,7 @@
+"""
+性能: 270MB RSS, 2.34s, 19 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -235,6 +239,115 @@ class TestSortinoRatio(unittest.TestCase):
         # 索提诺比率应该很高（使用0.0001作为分母）
         sortino_ratio = self.analyzer.current_sortino_ratio
         self.assertGreater(sortino_ratio, 0)
+
+
+class TestSortinoRatioNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证索提诺比率计算"""
+
+    def setUp(self):
+        self.analyzer = SortinoRatio("test_sortino_num", risk_free_rate=0.0)  # 用0无风险利率便于计算
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_sortino_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def test_all_positive_returns_high_sortino(self):
+        """全部正收益时索提诺比率应很高"""
+        base_worth = 10000
+        returns = [0.02, 0.015, 0.025, 0.01, 0.03, 0.02, 0.015, 0.025, 0.01, 0.02,
+                   0.015, 0.025]
+
+        current_worth = base_worth
+        for i, ret in enumerate(returns):
+            current_worth = current_worth * (1 + ret)
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        # 全正收益，下行波动率为0，索提诺比率应非常大
+        self.assertGreater(self.analyzer.current_sortino_ratio, 10)
+
+    def test_known_downside_deviation(self):
+        """验证下行偏差的手动计算"""
+        base_worth = 10000
+        # risk_free_rate=0, 12个数据点
+        # 负超额收益: -0.02, -0.01, -0.015
+        # downside_dev = sqrt(mean([-0.02, -0.01, -0.015]^2))
+        # = sqrt((0.0004+0.0001+0.000225)/3) = sqrt(0.000725/3) = sqrt(0.00024167) = 0.01554
+        returns = [0.01, 0.02, -0.02, 0.015, -0.01, 0.01, 0.02, 0.015, -0.015, 0.02,
+                   0.01, 0.015]
+
+        current_worth = base_worth
+        for i, ret in enumerate(returns):
+            current_worth = current_worth * (1 + ret)
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        # 手动计算验证
+        import numpy as np
+        arr = np.array(returns)
+        neg = arr[arr < 0]
+        expected_downside = float(np.sqrt(np.mean(neg ** 2)))
+        self.assertAlmostEqual(self.analyzer.downside_volatility, expected_downside * np.sqrt(252), places=2)
+
+    def test_negative_mean_returns(self):
+        """平均收益为负时索提诺比率为负"""
+        base_worth = 10000
+        # 需要11次activate: 第1次初始化_last_worth, 后10次产生收益率(>=10阈值)
+        returns = [-0.02, -0.015, -0.01, -0.025, -0.02, -0.015, -0.01, -0.025, -0.02, -0.015, -0.01]
+
+        current_worth = base_worth
+        for i, ret in enumerate(returns):
+            current_worth = current_worth * (1 + ret)
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertLess(self.analyzer.current_sortino_ratio, 0)
+
+
+class TestSortinoRatioBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def test_empty_data(self):
+        """从未调用activate，验证默认值"""
+        analyzer = SortinoRatio("test_sortino_empty")
+        self.assertEqual(analyzer.current_sortino_ratio, 0.0)
+        self.assertEqual(analyzer.downside_volatility, 0.0)
+        self.assertEqual(len(analyzer._returns), 0)
+
+    def test_single_bar(self):
+        """只传1条bar数据"""
+        analyzer = SortinoRatio("test_sortino_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
+        self.assertEqual(analyzer.current_sortino_ratio, 0.0)
+
+    def test_all_zero_values(self):
+        """所有bar的worth=0"""
+        analyzer = SortinoRatio("test_sortino_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        for i in range(5):
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        # _last_worth=0, 不满足 >0, 不添加收益率
+        self.assertEqual(analyzer.current_sortino_ratio, 0.0)
+        self.assertEqual(len(analyzer._returns), 0)
 
 
 if __name__ == '__main__':

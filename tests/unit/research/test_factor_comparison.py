@@ -1,3 +1,7 @@
+"""
+性能: 212MB RSS, 1.89s, 8 tests [PASS]
+"""
+
 # Upstream: ginkgo.research.factor_comparison
 # Downstream: pytest
 # Role: FactorComparator 测试

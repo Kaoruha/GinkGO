@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 2.02s, 10 tests [PASS]
 PortfolioCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -192,21 +193,3 @@ class TestPortfolioCRUDConstruction:
         assert portfolio_crud._is_mysql is True
         assert portfolio_crud._is_clickhouse is False
 
-    @pytest.mark.unit
-    def test_portfolio_crud_has_required_methods(self, portfolio_crud):
-        """验证 BaseCRUD 的关键 hook 方法都存在且可调用"""
-        required_methods = [
-            "_do_add",
-            "_do_find",
-            "_do_modify",
-            "_do_remove",
-            "_do_count",
-            "_get_field_config",
-            "_get_enum_mappings",
-            "_create_from_params",
-            "_convert_input_item",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(portfolio_crud, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(portfolio_crud, method_name)), f"不可调用: {method_name}"

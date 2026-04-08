@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 1.99s, 19 tests [PASS]
 Unit tests for logging_cli.py commands: set-level, get-level, reset-level, whitelist.
 
 Mock strategy:

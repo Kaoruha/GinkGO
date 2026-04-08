@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.89s, 10 tests [PASS]
+"""
+
 # Upstream: MMongoBase Model, ModelConversion
 # Downstream: None (单元测试)
 # Role: Pydantic模型转换兼容性测试验证to_dataframe/to_entity与现有架构兼容

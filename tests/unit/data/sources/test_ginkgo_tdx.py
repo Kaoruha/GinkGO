@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.89s, 10 tests [PASS]
 GinkgoTDX 数据源单元测试（Mock mootdx API）
 
 测试范围:

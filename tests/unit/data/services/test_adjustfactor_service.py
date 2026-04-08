@@ -1,4 +1,5 @@
 """
+性能: 225MB RSS, 2.59s, 25 tests [PASS]
 AdjustfactorService数据服务测试
 
 测试复权因子服务的核心功能和业务逻辑

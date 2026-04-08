@@ -1,16 +1,11 @@
 """
+性能: 270MB RSS, 2.41s, 18 tests [PASS]
 BaseAnalyzer分析器TDD测试
 
 通过TDD方式开发BaseAnalyzer的核心逻辑测试套件
 聚焦于模板方法模式、钩子机制和扩展性验证
 """
 import pytest
-import sys
-from pathlib import Path
-
-# 添加项目路径
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES

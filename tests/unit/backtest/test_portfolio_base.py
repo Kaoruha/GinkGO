@@ -1,4 +1,5 @@
 """
+性能: 274MB RSS, 2.75s, 25 tests [PASS]
 Portfolio module tests using pytest framework.
 Tests cover BasePortfolio functionality including strategy management,
 position management, analyzer integration, and financial operations.

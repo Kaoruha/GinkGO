@@ -1,3 +1,7 @@
+"""
+性能: 211MB RSS, 1.67s, 13 tests [PASS]
+"""
+
 # Upstream: ginkgo.research.ic_analysis
 # Downstream: pytest
 # Role: ICAnalyzer 单元测试
@@ -17,6 +21,7 @@ import numpy as np
 @pytest.fixture
 def sample_factor_data():
     """创建示例因子数据"""
+    rng = np.random.RandomState(42)
     dates = pd.date_range("2023-01-01", periods=100, freq="D")
     codes = ["000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ", "000005.SZ"]
 
@@ -26,7 +31,7 @@ def sample_factor_data():
             data.append({
                 "date": date.strftime("%Y%m%d"),
                 "code": code,
-                "factor_value": np.random.randn(),
+                "factor_value": rng.randn(),
             })
 
     return pd.DataFrame(data)
@@ -35,6 +40,7 @@ def sample_factor_data():
 @pytest.fixture
 def sample_return_data():
     """创建示例收益数据"""
+    rng = np.random.RandomState(42)
     dates = pd.date_range("2023-01-01", periods=105, freq="D")
     codes = ["000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ", "000005.SZ"]
 
@@ -44,8 +50,8 @@ def sample_return_data():
             data.append({
                 "date": date.strftime("%Y%m%d"),
                 "code": code,
-                "return_1d": np.random.randn() * 0.02,
-                "return_5d": np.random.randn() * 0.05,
+                "return_1d": rng.randn() * 0.02,
+                "return_5d": rng.randn() * 0.05,
             })
 
     return pd.DataFrame(data)
@@ -115,10 +121,11 @@ class TestICAnalyzer:
         analyzer.analyze(periods=[1, 5])
         stats = analyzer.get_statistics(period=5)  # 使用存在的周期
 
-        # 如果有统计数据，验证 ICIR
-        if stats is not None and stats.std != 0:
-            expected_icir = stats.mean / stats.std
-            assert abs(stats.icir - expected_icir) < 0.01
+        # 验证 ICIR 计算
+        assert stats is not None, "get_statistics(period=5) 应返回有效结果"
+        assert stats.std != 0, "IC 标准差不应为零（固定随机种子保证数据有效）"
+        expected_icir = stats.mean / stats.std
+        assert abs(stats.icir - expected_icir) < 0.01
 
     def test_positive_ratio(self, sample_factor_data, sample_return_data):
         """测试正向 IC 比例"""
@@ -128,10 +135,10 @@ class TestICAnalyzer:
         analyzer.analyze(periods=[1, 5])
         stats = analyzer.get_statistics(period=5)  # 使用存在的周期
 
-        # 如果有统计数据，验证正向比例
-        if stats is not None:
-            # 正向比例应在 0-1 之间
-            assert 0 <= stats.pos_ratio <= 1
+        # 验证正向比例
+        assert stats is not None, "get_statistics(period=5) 应返回有效结果"
+        # 正向比例应在 0-1 之间
+        assert 0 <= stats.pos_ratio <= 1
 
     def test_analyze_with_custom_return_col(self, sample_factor_data, sample_return_data):
         """测试自定义收益列"""

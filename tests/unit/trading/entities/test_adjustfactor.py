@@ -1,4 +1,5 @@
 """
+性能: 157MB RSS, 0.86s, 16 tests [PASS]
 AdjustFactor类TDD测试
 
 通过TDD方式开发AdjustFactor复权因子类的完整测试套件

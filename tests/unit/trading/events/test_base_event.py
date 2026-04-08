@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.88s, 31 tests [PASS]
 EventBase事件基类TDD测试
 
 通过TDD方式开发EventBase的核心逻辑测试套件

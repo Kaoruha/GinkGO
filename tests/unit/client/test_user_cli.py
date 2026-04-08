@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 2.03s, 16 tests [PASS]
 User CLI 单元测试
 
 测试 ginkgo.client.user_cli 的所有命令：

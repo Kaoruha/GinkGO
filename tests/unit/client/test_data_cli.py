@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 2.06s, 40 tests [PASS]
 Data CLI 单元测试
 
 测试 ginkgo.client.data_cli 的所有命令：

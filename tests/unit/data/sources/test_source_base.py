@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.98s, 10 tests [PASS]
 GinkgoSourceBase 数据源基类单元测试
 
 测试范围:

@@ -1,3 +1,7 @@
+"""
+性能: 269MB RSS, 2.53s, 20 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -252,6 +256,154 @@ class TestCalmarRatio(unittest.TestCase):
         # 最终创新高后的卡尔马比率
         calmar_ratio = self.analyzer.current_calmar_ratio
         self.assertGreater(calmar_ratio, 0)
+
+
+class TestCalmarRatioNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证计算结果"""
+
+    def setUp(self):
+        self.analyzer = CalmarRatio("test_calmar_numerical")
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_calmar_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def test_known_drawdown_calculation(self):
+        """使用已知净值序列验证最大回撤计算"""
+        # 序列: 10000 -> 12000 -> 10000 -> 13000
+        # Day0: init, _initial_worth=10000, _max_worth=10000
+        # Day1: worth=12000 > max=10000 -> new max=12000, no drawdown
+        # Day2: worth=10000 < max=12000 -> dd=(12000-10000)/12000=0.166667, max_dd=0.166667
+        # Day3: worth=13000 > max=12000 -> new max=13000, no new dd
+        worth_sequence = [10000, 12000, 10000, 13000]
+
+        for i, worth in enumerate(worth_sequence):
+            portfolio_info = {"worth": worth}
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        # 最大回撤应为 (12000-10000)/12000 = 1/6
+        self.assertAlmostEqual(self.analyzer.max_drawdown_ratio, 1.0 / 6.0, places=4)
+
+    def test_known_annualized_return(self):
+        """使用已知序列验证年化收益率计算"""
+        # 252个交易日，净值从10000涨到11000 (10%总收益)
+        # annualized_return = (1 + 0.10)^(252/252) - 1 = 0.10
+        worth_sequence = [10000 + (1000 * (i + 1) / 252) for i in range(253)]
+
+        for i, worth in enumerate(worth_sequence):
+            portfolio_info = {"worth": worth}
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        self.assertAlmostEqual(self.analyzer.annualized_return, 0.10, places=2)
+
+    def test_known_calmar_ratio(self):
+        """使用已知数据验证卡尔马比率"""
+        # 简化序列: 10000 -> 12000 -> 9000 -> 10000
+        # Day0: init, _initial_worth=10000
+        # Day1: worth=12000 > max=10000 -> new max=12000, _trading_days=1
+        # Day2: worth=9000 < max=12000 -> dd=(12000-9000)/12000=0.25, max_dd=0.25, _trading_days=2
+        # Day3: worth=10000 < max=12000 -> dd=(12000-10000)/12000=0.1667, _trading_days=3
+        # total_return = (10000-10000)/10000 = 0
+        # annualized = (1+0)^(252/3) - 1 = 0
+        # calmar = 0 / 0.25 = 0
+        worth_sequence = [10000, 12000, 9000, 10000]
+
+        for i, worth in enumerate(worth_sequence):
+            portfolio_info = {"worth": worth}
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        self.assertAlmostEqual(self.analyzer.max_drawdown_ratio, 0.25, places=4)
+        # 总收益=0, 年化=0, calmar=0
+        self.assertEqual(self.analyzer.current_calmar_ratio, 0.0)
+
+    def test_known_calmar_ratio_positive_return(self):
+        """验证正收益场景的卡尔马比率"""
+        # 10天序列: 10000 -> 11000 -> 8000 -> 12000 -> 8000 -> 12000 -> ... -> 15000
+        # 通过交替高低值产生回撤
+        # Day0: init, _initial_worth=10000
+        # Day1: 11000 > 10000 -> max=11000, td=1
+        # Day2: 8000 < 11000 -> dd=(11000-8000)/11000=0.2727, max_dd=0.2727, td=2
+        # Day3: 12000 > 11000 -> max=12000, td=3
+        # Day4: 8000 < 12000 -> dd=(12000-8000)/12000=0.3333, max_dd=0.3333, td=4
+        # Day5: 13000 > 12000 -> max=13000, td=5
+        # Day6: 9000 < 13000 -> dd=(13000-9000)/13000=0.3077, td=6
+        # Day7: 14000 > 13000 -> max=14000, td=7
+        # Day8: 10000 < 14000 -> dd=(14000-10000)/14000=0.2857, td=8
+        # Day9: 15000 > 14000 -> max=15000, td=9
+        # total_return = (15000-10000)/10000 = 0.5
+        # annualized = (1.5)^(252/9) - 1 = 非常大的正数
+        # calmar = annualized / 0.3333
+        worth_sequence = [10000, 11000, 8000, 12000, 8000, 13000, 9000, 14000, 10000, 15000]
+
+        for i, worth in enumerate(worth_sequence):
+            portfolio_info = {"worth": worth}
+            day_time = self.test_time + timedelta(days=i)
+            self.analyzer.advance_time(day_time)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        max_dd = self.analyzer.max_drawdown_ratio
+        self.assertAlmostEqual(max_dd, 4000.0 / 12000.0, places=4)  # 1/3
+        calmar = self.analyzer.current_calmar_ratio
+        self.assertGreater(calmar, 0)
+
+
+class TestCalmarRatioBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def test_empty_data(self):
+        """传入空数据，验证不崩溃且返回合理值"""
+        analyzer = CalmarRatio("test_calmar_empty")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        # 从未调用activate，所有属性应为默认值
+        self.assertIsNone(analyzer._initial_worth)
+        self.assertEqual(analyzer.current_calmar_ratio, 0.0)
+        self.assertEqual(analyzer.annualized_return, 0.0)
+        self.assertEqual(analyzer.max_drawdown_ratio, 0.0)
+
+    def test_single_bar(self):
+        """只传1条bar数据"""
+        analyzer = CalmarRatio("test_calmar_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
+        # 单日初始化，不应崩溃
+        self.assertEqual(analyzer._initial_worth, 10000)
+        self.assertEqual(analyzer.current_calmar_ratio, 0.0)
+        self.assertEqual(analyzer.annualized_return, 0.0)
+        self.assertEqual(analyzer.max_drawdown_ratio, 0.0)
+
+    def test_all_zero_values(self):
+        """所有bar的worth=0，验证不会除零崩溃"""
+        analyzer = CalmarRatio("test_calmar_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        for i in range(5):
+            portfolio_info = {"worth": 0}
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        # 初始为0，后续净值不变，_initial_worth=0
+        # annualized_return中 _initial_worth > 0 不满足，返回0.0
+        self.assertEqual(analyzer.current_calmar_ratio, 0.0)
+        self.assertEqual(analyzer.annualized_return, 0.0)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 1.97s, 33 tests [PASS]
 ModelBase查询模板综合测试
 
 测试ModelBase的统一查询模板功能

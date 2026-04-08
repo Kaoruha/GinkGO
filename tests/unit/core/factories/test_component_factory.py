@@ -1,4 +1,5 @@
 """
+性能: 272MB RSS, 2.55s, 30 tests [PASS]
 组件工厂单元测试
 
 测试 ComponentFactory 统一组件工厂，

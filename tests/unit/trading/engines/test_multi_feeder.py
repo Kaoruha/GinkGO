@@ -1,3 +1,7 @@
+"""
+性能: 157MB RSS, 0.96s, 6 tests [PASS]
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine

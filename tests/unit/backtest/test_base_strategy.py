@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.98s, 16 tests [PASS]
 BaseStrategy tests using pytest framework.
 Tests cover strategy initialization, data feeder binding, signal generation,
 and strategy polymorphism.

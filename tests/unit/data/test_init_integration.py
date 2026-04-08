@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.95s, 0 tests [PASS]
 Integration Tests for the Refactored ginkgo.data.__init__ module.
 
 NOTE: The functions tested here do not exist in the current implementation.

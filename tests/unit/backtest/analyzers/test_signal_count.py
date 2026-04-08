@@ -1,3 +1,7 @@
+"""
+性能: 273MB RSS, 3.24s, 16 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -224,6 +228,99 @@ class TestSignalCount(unittest.TestCase):
 
         # 数据框中应该只有一行数据
         self.assertEqual(len(self.analyzer.data), 1)
+
+
+class TestSignalCountNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证计数结果"""
+
+    def setUp(self):
+        self.analyzer = SignalCount("test_signal_num")
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_signal_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def test_exact_count_after_known_activations(self):
+        """验证累计计数的精确值"""
+        portfolio_info = {"cash": 10000, "positions": {}, "worth": 10000}
+
+        for _ in range(7):
+            self.analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+
+        self.assertEqual(self.analyzer.total_count, 7)
+        self.assertEqual(self.analyzer.get_data(self.test_time), Decimal("7"))
+
+    def test_data_value_matches_total_count(self):
+        """验证每次激活后data中的值与total_count一致"""
+        portfolio_info = {"cash": 10000, "positions": {}, "worth": 10000}
+
+        for expected in range(1, 6):
+            self.analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+            self.assertEqual(
+                float(self.analyzer.get_data(self.test_time)),
+                float(Decimal(str(expected)))
+            )
+
+    def test_cumulative_across_days(self):
+        """验证跨天的累计计数"""
+        portfolio_info = {"cash": 10000, "positions": {}, "worth": 10000}
+
+        # Day 1: 3 signals
+        for _ in range(3):
+            self.analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+        self.assertEqual(self.analyzer.total_count, 3)
+
+        # Day 1 end record
+        self.analyzer.record(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
+
+        # Day 2: 4 signals
+        day2_time = self.test_time + timedelta(days=1)
+        self.analyzer.advance_time(day2_time)
+        for _ in range(4):
+            self.analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+
+        self.assertEqual(self.analyzer.total_count, 7)
+        self.assertEqual(self.analyzer.get_data(day2_time), Decimal("7"))
+
+
+class TestSignalCountBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def test_empty_data(self):
+        """从未调用activate，验证默认值"""
+        analyzer = SignalCount("test_signal_empty")
+        self.assertEqual(analyzer.total_count, 0)
+
+    def test_single_activation(self):
+        """只激活1次"""
+        analyzer = SignalCount("test_signal_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        portfolio_info = {"cash": 10000, "positions": {}, "worth": 10000}
+        analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+        self.assertEqual(analyzer.total_count, 1)
+
+    def test_all_zero_values(self):
+        """portfolio worth为0时仍能正常计数"""
+        analyzer = SignalCount("test_signal_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        portfolio_info = {"cash": 0, "positions": {}, "worth": 0}
+        for _ in range(5):
+            analyzer.activate(RECORDSTAGE_TYPES.SIGNALGENERATION, portfolio_info)
+
+        # SignalCount只关心激活次数，不关心worth值
+        self.assertEqual(analyzer.total_count, 5)
 
 
 if __name__ == '__main__':

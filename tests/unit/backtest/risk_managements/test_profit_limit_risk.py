@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.91s, 38 tests [PASS]
 Test cases for ProfitTargetRisk risk management.
 Tests cover profit calculation, signal generation, edge cases, and financial accuracy.
 

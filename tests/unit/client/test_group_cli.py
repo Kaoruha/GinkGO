@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.97s, 18 tests [PASS]
 Group CLI 单元测试
 
 测试 ginkgo.client.group_cli 的所有命令：

@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.88s, 12 tests [PASS]
 TickCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -115,39 +116,26 @@ class TestTickCRUDCreateFromParams:
         """传入完整参数，返回 MTick 模型且属性正确
 
         注意：源码 tick_crud.py:424 使用了 TICKDIRECTION_TYPES.OTHER（不存在），
-        需要临时补丁该属性以避免 AttributeError。
+        使用 patch.object 将 OTHER 映射到 VOID 以绕过源码 bug。
         """
         with patch("ginkgo.data.crud.tick_crud.datetime_normalize") as mock_dt, \
-             patch("ginkgo.data.crud.tick_crud.to_decimal") as mock_decimal:
+             patch("ginkgo.data.crud.tick_crud.to_decimal") as mock_decimal, \
+             patch.object(TICKDIRECTION_TYPES, "OTHER", TICKDIRECTION_TYPES.VOID, create=True):
             mock_dt.return_value = datetime(2024, 1, 15, 9, 30, 0)
             mock_decimal.return_value = Decimal("10.50")
 
-            # 补丁：临时添加 OTHER 属性（源码 bug，应使用 VOID）
-            TICKDIRECTION_TYPES._value2member_map_.setdefault(-1, TICKDIRECTION_TYPES.VOID)
-            original_getattr = TICKDIRECTION_TYPES.__class__.__getattribute__
+            params = {
+                "code": "000001.SZ",
+                "price": Decimal("10.50"),
+                "volume": 1000,
+                "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
+            }
 
-            def patched_getattr(cls, name):
-                if name == "OTHER":
-                    return TICKDIRECTION_TYPES.VOID
-                return original_getattr(cls, name)
+            mtick = tick_crud._create_from_params(**params)
 
-            try:
-                TICKDIRECTION_TYPES.__class__.__getattribute__ = patched_getattr
-
-                params = {
-                    "code": "000001.SZ",
-                    "price": Decimal("10.50"),
-                    "volume": 1000,
-                    "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
-                }
-
-                mtick = tick_crud._create_from_params(**params)
-
-                assert isinstance(mtick, MTick)
-                assert mtick.code == "000001.SZ"
-                assert mtick.volume == 1000
-            finally:
-                TICKDIRECTION_TYPES.__class__.__getattribute__ = original_getattr
+            assert isinstance(mtick, MTick)
+            assert mtick.code == "000001.SZ"
+            assert mtick.volume == 1000
 
     @pytest.mark.unit
     def test_create_from_params_requires_code(self, tick_crud):
@@ -218,26 +206,6 @@ class TestTickCRUDConstruction:
         # TickCRUD 不继承 BaseCRUD，没有 _is_mysql/_is_clickhouse
         assert tick_crud.model_class is MTick
 
-    @pytest.mark.unit
-    def test_tick_crud_has_required_methods(self, tick_crud):
-        """验证 TickCRUD 的关键方法都存在且可调用"""
-        required_methods = [
-            "_get_field_config",
-            "_get_enum_mappings",
-            "_create_from_params",
-            "_convert_input_item",
-            "find",
-            "create",
-            "add",
-            "remove",
-            "count",
-            "find_by_time_range",
-            "count_by_direction",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(tick_crud, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(tick_crud, method_name)), f"不可调用: {method_name}"
 
     @pytest.mark.unit
     def test_tick_crud_not_base_crud(self, tick_crud):

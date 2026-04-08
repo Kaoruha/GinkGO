@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.98s, 15 tests [PASS]
 BarService 单元测试（Mock 依赖）
 
 通过 MagicMock 注入所有依赖，隔离测试业务逻辑。

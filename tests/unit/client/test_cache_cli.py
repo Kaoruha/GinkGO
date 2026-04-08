@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.0s, 19 tests [PASS]
 Cache CLI 单元测试
 
 测试 ginkgo.client.cache_cli 的所有命令：

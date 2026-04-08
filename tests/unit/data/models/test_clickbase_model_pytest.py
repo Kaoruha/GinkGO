@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.92s, 42 tests [PASS]
 ClickHouse基础模型测试 - Pytest最佳实践重构
 
 测试MClickBase模型的ClickHouse特有功能

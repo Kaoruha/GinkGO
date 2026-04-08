@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.98s, 40 tests [PASS]
 PortfolioService 单元测试（Mock 依赖）
 
 通过 MagicMock 注入所有依赖，隔离测试业务逻辑。
