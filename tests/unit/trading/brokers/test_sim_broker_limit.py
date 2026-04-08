@@ -1,3 +1,7 @@
+"""
+性能: 210MB RSS, 1.34s, 13 tests [PASS]
+"""
+
 import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock

@@ -1,4 +1,5 @@
 """
+性能: 274MB RSS, 2.53s, 25 tests [PASS]
 模式适配器单元测试
 
 测试 ModeAdapter、EventAdapter、VectorizedWrapper，

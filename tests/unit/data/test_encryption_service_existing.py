@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 2.01s, 12 tests [PASS]
 Unit Tests for EncryptionService
 
 Tests for Fernet-based encryption service used to secure API credentials.

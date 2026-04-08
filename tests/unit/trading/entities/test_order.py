@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.93s, 46 tests [PASS]
 Order类TDD测试
 
 通过TDD方式开发Order交易订单类的完整测试套件

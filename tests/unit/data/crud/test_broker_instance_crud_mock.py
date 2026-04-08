@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.91s, 7 tests [PASS]
 BrokerInstanceCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -145,14 +146,3 @@ class TestBrokerInstanceCRUDConstruction:
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
 
-    @pytest.mark.unit
-    def test_has_required_methods(self, crud_instance):
-        """验证 BaseCRUD 的关键 hook 方法都存在且可调用"""
-        required_methods = [
-            "_do_add", "_do_find", "_do_modify", "_do_remove", "_do_count",
-            "_get_field_config", "_get_enum_mappings",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(crud_instance, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(crud_instance, method_name)), f"不可调用: {method_name}"

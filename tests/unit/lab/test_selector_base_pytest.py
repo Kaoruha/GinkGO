@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.87s, 0 tests [PASS]
 Selector基础测试 - 使用Pytest最佳实践重构。
 
 测试BaseSelector、FixedSelector等选择器类的功能。

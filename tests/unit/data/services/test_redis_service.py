@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 3.96s, 20 tests [PASS]
 RedisService数据服务测试
 
 测试RedisService的核心功能和业务逻辑
@@ -9,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime, timedelta
+
+pytestmark = pytest.mark.integration
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent

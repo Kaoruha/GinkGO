@@ -1,4 +1,5 @@
 """Integration test for multi-data-feeder support
+性能: 157MB RSS, 0.99s, 5 tests [PASS]
 
 This test demonstrates that the multi-feeder support is backward compatible
 and works correctly with the existing engine infrastructure.

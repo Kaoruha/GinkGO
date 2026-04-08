@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.9s, 17 tests [PASS]
 ClickHouse驱动测试 - 使用Pytest最佳实践重构。
 
 测试ClickHouse驱动的初始化、连接、健康检查等核心功能。

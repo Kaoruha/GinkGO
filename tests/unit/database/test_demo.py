@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.84s, 0 tests [PASS]
 Demo database test to verify the warning system works.
 """
 

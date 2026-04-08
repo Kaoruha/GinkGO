@@ -1,3 +1,7 @@
+"""
+性能: 273MB RSS, 2.5s, 27 tests [PASS]
+"""
+
 # tests/unit/client/test_paper_trading_cli.py
 """
 Tests for deploy/unload paper trading CLI commands.
@@ -198,7 +202,8 @@ class TestDeployPaperTrading:
         return mock_data, mock_ps, mock_crud
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
-    def test_deploy_creates_paper_portfolio(self, mock_send):
+    @patch("ginkgo.services")
+    def test_deploy_creates_paper_portfolio(self, mock_services, mock_send):
         """应创建 PAPER 模式的 Portfolio"""
         source_portfolio = self._make_mock_source_portfolio()
         source_result = self._make_mock_service_result([source_portfolio])
@@ -206,19 +211,13 @@ class TestDeployPaperTrading:
         create_result = self._make_mock_service_result(create_result_data)
 
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, create_result)
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            result_id = _deploy_paper_trading(
-                source_portfolio_id="source_uuid",
-                name="paper_backtest_portfolio",
-            )
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        result_id = _deploy_paper_trading(
+            source_portfolio_id="source_uuid",
+            name="paper_backtest_portfolio",
+        )
 
         assert result_id == "new_paper_uuid"
         mock_ps.add.assert_called_once()
@@ -227,7 +226,8 @@ class TestDeployPaperTrading:
         assert call_kwargs["name"] == "paper_backtest_portfolio"
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
-    def test_deploy_copies_mappings(self, mock_send):
+    @patch("ginkgo.services")
+    def test_deploy_copies_mappings(self, mock_services, mock_send):
         """应复制源 Portfolio 的组件映射"""
         source_portfolio = self._make_mock_source_portfolio()
         source_result = self._make_mock_service_result([source_portfolio])
@@ -240,19 +240,13 @@ class TestDeployPaperTrading:
         mock_mapping.type.value = "strategy"
 
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, create_result, [mock_mapping])
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            _deploy_paper_trading(
-                source_portfolio_id="source_uuid",
-                name="paper_backtest_portfolio",
-            )
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        _deploy_paper_trading(
+            source_portfolio_id="source_uuid",
+            name="paper_backtest_portfolio",
+        )
 
         mock_crud.add.assert_called_once()
         call_kwargs = mock_crud.add.call_args[1]
@@ -261,7 +255,8 @@ class TestDeployPaperTrading:
         assert call_kwargs["type"] == "strategy"
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
-    def test_deploy_sends_kafka_notification(self, mock_send):
+    @patch("ginkgo.services")
+    def test_deploy_sends_kafka_notification(self, mock_services, mock_send):
         """应发送 Kafka deploy 通知"""
         source_portfolio = self._make_mock_source_portfolio()
         source_result = self._make_mock_service_result([source_portfolio])
@@ -269,37 +264,27 @@ class TestDeployPaperTrading:
         create_result = self._make_mock_service_result(create_result_data)
 
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, create_result)
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            _deploy_paper_trading(source_portfolio_id="source_uuid")
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        _deploy_paper_trading(source_portfolio_id="source_uuid")
 
         mock_send.assert_called_once_with("new_paper_uuid")
 
-    def test_deploy_source_not_found_raises(self):
+    @patch("ginkgo.services")
+    def test_deploy_source_not_found_raises(self, mock_services):
         """源 Portfolio 不存在时应抛出 ValueError"""
         source_result = self._make_mock_service_result(None, success=False)
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, None)
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            with pytest.raises(ValueError, match="Source portfolio not found"):
-                _deploy_paper_trading(source_portfolio_id="bad_source")
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        with pytest.raises(ValueError, match="Source portfolio not found"):
+            _deploy_paper_trading(source_portfolio_id="bad_source")
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
-    def test_deploy_create_fails_raises(self, mock_send):
+    @patch("ginkgo.services")
+    def test_deploy_create_fails_raises(self, mock_services, mock_send):
         """创建 Portfolio 失败时应抛出 ValueError"""
         source_portfolio = self._make_mock_source_portfolio()
         source_result = self._make_mock_service_result([source_portfolio])
@@ -308,20 +293,15 @@ class TestDeployPaperTrading:
         create_result.error = "Name already exists"
 
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, create_result)
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            with pytest.raises(ValueError, match="Failed to create paper portfolio"):
-                _deploy_paper_trading(source_portfolio_id="source_uuid")
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        with pytest.raises(ValueError, match="Failed to create paper portfolio"):
+            _deploy_paper_trading(source_portfolio_id="source_uuid")
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
-    def test_deploy_default_name_generation(self, mock_send):
+    @patch("ginkgo.services")
+    def test_deploy_default_name_generation(self, mock_services, mock_send):
         """不传 name 时应自动生成名称"""
         source_portfolio = self._make_mock_source_portfolio()
         source_result = self._make_mock_service_result([source_portfolio])
@@ -329,16 +309,10 @@ class TestDeployPaperTrading:
         create_result = self._make_mock_service_result(create_result_data)
 
         mock_data, mock_ps, mock_crud = self._setup_mock_data(source_result, create_result)
+        mock_services.data = mock_data
 
-        from ginkgo.service_hub import service_hub
-        original_cache = service_hub._module_cache.copy()
-        try:
-            service_hub._module_cache['data'] = mock_data
-
-            from ginkgo.client.portfolio_cli import _deploy_paper_trading
-            _deploy_paper_trading(source_portfolio_id="source_uuid", name=None)
-        finally:
-            service_hub._module_cache = original_cache
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        _deploy_paper_trading(source_portfolio_id="source_uuid", name=None)
 
         call_kwargs = mock_ps.add.call_args[1]
         assert call_kwargs["name"] == "paper_backtest_portfolio"

@@ -1,3 +1,7 @@
+"""
+性能: 157MB RSS, 0.87s, 31 tests [PASS]
+"""
+
 # Upstream: notify_cli.py (ginkgo notify template --var)
 # Downstream: None (Unit test for parameter parsing logic)
 # Role: 单元测试验证 --var 参数的解析逻辑，包括变量传递、类型转换、默认值覆盖
@@ -20,6 +24,9 @@ import json
 from typing import Dict, Any
 
 
+# NOTE: parse_variables 在源码中尚无独立实现（函数逻辑内联于 CLI 层）。
+# 此处定义为本测试的目标函数，验证 CLI --var 参数解析的设计契约。
+# 若将来源码提取为独立函数，应从此处替换为 from ginkgo.notifier.xxx import parse_variables。
 def parse_variables(variables: list) -> Dict[str, Any]:
     """
     解析 --var 参数列表为字典

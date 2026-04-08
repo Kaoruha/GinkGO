@@ -5,73 +5,72 @@ import types
 from unittest.mock import MagicMock, patch
 import sys
 
-# Direct import to avoid broken __init__.py chain (ginkgo.data.operations missing)
-#
-# Strategy: force-override sys.modules["ginkgo"] with a mock so that
-# `from ginkgo import services` inside DeviationChecker methods resolves
-# to our mock at call time.
 
-# Save real ginkgo if present, replace with mock
-_real_ginkgo = sys.modules.get("ginkgo")
+@pytest.fixture()
+def _deviation_checker_env(monkeypatch):
+    """Fixture that sets up the sys.modules mocks for DeviationChecker and
+    restores them afterwards, preventing global state pollution."""
+    mock_services = MagicMock()
 
-_mock_services = MagicMock()
-_ginkgo_mock = types.ModuleType("ginkgo")
-_ginkgo_mock.services = _mock_services
+    # Build the mock ginkgo module tree
+    ginkgo_mock = types.ModuleType("ginkgo")
+    ginkgo_mock.services = mock_services
 
-# Mock kafka_topics
-_kafka_mock = types.ModuleType("ginkgo.interfaces.kafka_topics")
-_KafkaTopics_cls = MagicMock()
-_KafkaTopics_cls.SYSTEM_EVENTS = "ginkgo.live.system.events"
-_kafka_mock.KafkaTopics = _KafkaTopics_cls
-sys.modules["ginkgo.interfaces"] = types.ModuleType("ginkgo.interfaces")
-sys.modules["ginkgo.interfaces.kafka_topics"] = _kafka_mock
+    kafka_mock = types.ModuleType("ginkgo.interfaces.kafka_topics")
+    KafkaTopics_cls = MagicMock()
+    KafkaTopics_cls.SYSTEM_EVENTS = "ginkgo.live.system.events"
+    kafka_mock.KafkaTopics = KafkaTopics_cls
 
-# Mock GLOG
-_glog_mock = types.ModuleType("ginkgo.libs")
-_glog_mock.GLOG = MagicMock()
-sys.modules["ginkgo.libs"] = _glog_mock
+    glog_mock = types.ModuleType("ginkgo.libs")
+    glog_mock.GLOG = MagicMock()
 
-# Force override
-sys.modules["ginkgo"] = _ginkgo_mock
+    # Use monkeypatch.setitem for safe sys.modules overrides
+    monkeypatch.setitem(sys.modules, "ginkgo.interfaces", types.ModuleType("ginkgo.interfaces"))
+    monkeypatch.setitem(sys.modules, "ginkgo.interfaces.kafka_topics", kafka_mock)
+    monkeypatch.setitem(sys.modules, "ginkgo.libs", glog_mock)
+    monkeypatch.setitem(sys.modules, "ginkgo", ginkgo_mock)
 
-# Load the module
-_spec = importlib.util.spec_from_file_location(
-    "ginkgo.trading.analysis.evaluation.deviation_checker",
-    "src/ginkgo/trading/analysis/evaluation/deviation_checker.py",
-)
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["ginkgo.trading.analysis.evaluation.deviation_checker"] = _mod
-_spec.loader.exec_module(_mod)
+    # Load the target module via spec
+    mod_key = "ginkgo.trading.analysis.evaluation.deviation_checker"
+    spec = importlib.util.spec_from_file_location(
+        mod_key,
+        "src/ginkgo/trading/analysis/evaluation/deviation_checker.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, mod_key, mod)
+    spec.loader.exec_module(mod)
 
-DeviationChecker = _mod.DeviationChecker
+    return mod.DeviationChecker, mock_services
 
 
-def _setup_redis_service(mock_redis):
+def _setup_redis_service(mock_services, mock_redis):
     """Helper to configure the mock services for redis access."""
-    _mock_services.reset_mock()
-    _mock_services.data.redis_service.return_value = mock_redis
+    mock_services.reset_mock()
+    mock_services.data.redis_service.return_value = mock_redis
 
 
 @pytest.mark.tdd
 class TestGetBaseline:
-    def test_returns_cached_baseline_from_redis(self):
+    def test_returns_cached_baseline_from_redis(self, _deviation_checker_env):
+        DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         baseline = {"net_value": {"mean": 1.0, "std": 0.1}}
         mock_redis = MagicMock()
         mock_redis.get.return_value = json.dumps(baseline)
 
-        _setup_redis_service(mock_redis)
+        _setup_redis_service(mock_services, mock_redis)
         result = checker.get_baseline("p-001")
 
         assert result == baseline
         mock_redis.get.assert_called_once_with("deviation:baseline:p-001")
 
-    def test_returns_none_when_no_source_mapping(self):
+    def test_returns_none_when_no_source_mapping(self, _deviation_checker_env):
+        DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
-        _setup_redis_service(mock_redis)
+        _setup_redis_service(mock_services, mock_redis)
         result = checker.get_baseline("p-001")
 
         assert result is None
@@ -79,24 +78,26 @@ class TestGetBaseline:
 
 @pytest.mark.tdd
 class TestGetDeviationConfig:
-    def test_returns_default_config_when_no_redis(self):
+    def test_returns_default_config_when_no_redis(self, _deviation_checker_env):
+        DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
-        _setup_redis_service(mock_redis)
+        _setup_redis_service(mock_services, mock_redis)
         result = checker.get_deviation_config("p-001")
 
         assert result["auto_takedown"] is False
         assert result["alert_channels"] == ["kafka"]
 
-    def test_returns_config_from_redis(self):
+    def test_returns_config_from_redis(self, _deviation_checker_env):
+        DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         config = {"auto_takedown": True, "check_time": "21:00"}
         mock_redis = MagicMock()
         mock_redis.get.return_value = json.dumps(config)
 
-        _setup_redis_service(mock_redis)
+        _setup_redis_service(mock_services, mock_redis)
         result = checker.get_deviation_config("p-001")
 
         assert result["auto_takedown"] is True
@@ -105,7 +106,8 @@ class TestGetDeviationConfig:
 
 @pytest.mark.tdd
 class TestHandleDeviationResult:
-    def test_normal_is_silent(self):
+    def test_normal_is_silent(self, _deviation_checker_env):
+        DeviationChecker, _ = _deviation_checker_env
         checker = DeviationChecker()
         result = {"overall_level": "NORMAL", "deviations": {}}
         mock_producer = MagicMock()
@@ -113,7 +115,8 @@ class TestHandleDeviationResult:
         checker.handle_deviation_result("p-001", result, auto_takedown=False)
         mock_producer.send.assert_not_called()
 
-    def test_moderate_sends_alert(self):
+    def test_moderate_sends_alert(self, _deviation_checker_env):
+        DeviationChecker, _ = _deviation_checker_env
         checker = DeviationChecker()
         result = {
             "overall_level": "MODERATE",
@@ -124,7 +127,8 @@ class TestHandleDeviationResult:
         checker.handle_deviation_result("p-001", result, auto_takedown=False)
         mock_producer.send.assert_called_once()
 
-    def test_severe_auto_takedown(self):
+    def test_severe_auto_takedown(self, _deviation_checker_env):
+        DeviationChecker, _ = _deviation_checker_env
         checker = DeviationChecker()
         mock_takedown = MagicMock()
         checker._takedown_callback = mock_takedown
@@ -140,7 +144,8 @@ class TestHandleDeviationResult:
 
 @pytest.mark.tdd
 class TestSendDeviationAlert:
-    def test_sends_multi_metric_to_system_events(self):
+    def test_sends_multi_metric_to_system_events(self, _deviation_checker_env):
+        DeviationChecker, _ = _deviation_checker_env
         checker = DeviationChecker()
         mock_producer = MagicMock()
         checker._producer = mock_producer
@@ -159,7 +164,8 @@ class TestSendDeviationAlert:
         assert isinstance(msg["deviation_details"], list)
         assert len(msg["deviation_details"]) == 2
 
-    def test_noop_without_producer(self):
+    def test_noop_without_producer(self, _deviation_checker_env):
+        DeviationChecker, _ = _deviation_checker_env
         checker = DeviationChecker()
         checker._producer = None
         checker.send_deviation_alert("p-001", "MODERATE", {})

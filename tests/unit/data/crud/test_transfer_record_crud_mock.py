@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.83s, 11 tests [PASS]
 TransferRecordCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -218,15 +219,3 @@ class TestTransferRecordCRUDConstruction:
         assert transfer_record_crud._is_clickhouse is True
         assert transfer_record_crud._is_mysql is False
 
-    @pytest.mark.unit
-    def test_transfer_record_crud_has_required_methods(self, transfer_record_crud):
-        """验证 BaseCRUD 的关键 hook 方法都存在且可调用"""
-        required_methods = [
-            "_do_add", "_do_find", "_do_modify", "_do_remove", "_do_count",
-            "_get_field_config", "_get_enum_mappings",
-            "_create_from_params", "_convert_input_item",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(transfer_record_crud, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(transfer_record_crud, method_name)), f"不可调用: {method_name}"

@@ -1,3 +1,7 @@
+"""
+性能: 161MB RSS, 11.51s, 3 tests [PASS]
+"""
+
 # tests/unit/trading/engines/test_component_advance_order.py
 import pytest
 from unittest.mock import MagicMock, patch

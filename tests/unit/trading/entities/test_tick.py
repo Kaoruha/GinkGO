@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.87s, 43 tests [PASS]
 Tick类TDD测试
 
 通过TDD方式开发Tick高频交易数据类的完整测试套件

@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.88s, 17 tests [PASS]
 Unit tests for log utility functions
 
 This module tests container environment detection and metadata collection

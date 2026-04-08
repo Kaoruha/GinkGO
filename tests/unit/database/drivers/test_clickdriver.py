@@ -1,3 +1,7 @@
+"""
+性能: 218MB RSS, 1.77s, 0 tests [PASS]
+"""
+
 import unittest
 import time
 from decimal import Decimal

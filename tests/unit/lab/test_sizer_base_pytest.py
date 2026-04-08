@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.91s, 19 tests [PASS]
 Sizer基础测试 - 使用Pytest最佳实践重构。
 
 测试BaseSizer、FixedSizer、ATRSizer等仓位管理类的功能。

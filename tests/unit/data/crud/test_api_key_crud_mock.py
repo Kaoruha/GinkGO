@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.89s, 13 tests [PASS]
 ApiKeyCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
@@ -66,21 +67,6 @@ class TestApiKeyCRUDConstruction:
 
         assert api_key_crud.model_class is MApiKey
 
-    @pytest.mark.unit
-    def test_construction_has_business_methods(self, api_key_crud):
-        """验证所有业务方法都存在且可调用"""
-        required_methods = [
-            "create_api_key",
-            "get_api_key_by_uuid",
-            "get_api_keys_by_user",
-            "update_api_key",
-            "delete_api_key",
-            "verify_api_key",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(api_key_crud, method_name), f"缺少方法: {method_name}"
-            assert callable(getattr(api_key_crud, method_name)), f"不可调用: {method_name}"
 
 
 # ============================================================

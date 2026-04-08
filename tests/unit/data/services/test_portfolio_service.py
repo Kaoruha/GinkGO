@@ -1,4 +1,5 @@
 """
+性能: 225MB RSS, 3.64s, 44 tests [PASS]
 PortfolioService数据服务测试
 
 测试PortfolioService的核心功能和业务逻辑

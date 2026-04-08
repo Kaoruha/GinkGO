@@ -1,4 +1,5 @@
 """
+性能: 273MB RSS, 2.34s, 25 tests [PASS]
 策略接口单元测试
 
 测试 BaseStrategy、BaseMLStrategy 接口定义，

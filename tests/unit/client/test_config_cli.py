@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 2.05s, 41 tests [PASS]
 Config CLI 单元测试
 
 测试 ginkgo.client.config_cli 的所有命令：

@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.04s, 24 tests [PASS]
 Unit tests for flat_cli.py commands: component, mapping, result sub-apps.
 
 Flat CLI provides sub-apps (component_app, mapping_app, result_app) that are

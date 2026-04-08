@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.86s, 11 tests [PASS]
 CRUDResult 包装器 + BaseCRUD 抽象类单元测试
 
 覆盖范围：

@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.94s, 12 tests [PASS]
 Worker CLI 单元测试
 
 测试 ginkgo.client.worker_cli 的所有命令：

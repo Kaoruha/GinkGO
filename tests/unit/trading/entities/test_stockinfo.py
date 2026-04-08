@@ -1,4 +1,5 @@
 """
+性能: 157MB RSS, 0.89s, 17 tests [PASS]
 StockInfo类TDD测试
 
 通过TDD方式开发StockInfo股票信息类的完整测试套件

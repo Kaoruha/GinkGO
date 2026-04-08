@@ -1,3 +1,7 @@
+"""
+性能: 221MB RSS, 1.89s, 3 tests [PASS]
+"""
+
 # TDD Red阶段：测试用例尚未实现
 import sys
 from pathlib import Path

@@ -1,4 +1,5 @@
 """
+性能: 157MB RSS, 0.88s, 0 tests [PASS]
 TimeRelated 实体测试
 
 本模块测试TimeRelated时间管理混入类的功能：

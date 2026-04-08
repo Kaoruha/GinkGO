@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.98s, 72 tests [PASS]
 Transfer类TDD测试
 
 通过TDD方式开发Transfer资金转移类的完整测试套件

@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.86s, 21 tests [PASS]
 IPortfolio Protocol接口测试
 
 测试IPortfolio Protocol接口的类型安全性和运行时验证。

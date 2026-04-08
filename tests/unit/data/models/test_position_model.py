@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 1.95s, 37 tests [PASS]
 MPosition 持仓数据模型单元测试
 
 测试 MPosition 的构造、字段默认值、update 方法（str/Series 重载）、

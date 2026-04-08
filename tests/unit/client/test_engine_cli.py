@@ -1,4 +1,5 @@
 """
+性能: 223MB RSS, 2.09s, 40 tests [PASS]
 Unit tests for engine_cli.py commands.
 
 Engine CLI registers its own ``app = typer.Typer()`` with subcommands:

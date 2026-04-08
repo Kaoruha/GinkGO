@@ -1,4 +1,5 @@
 """
+性能: 232MB RSS, 12.0s, 25 tests [PASS]
 TickService数据服务测试
 
 测试TickService的核心功能和业务逻辑

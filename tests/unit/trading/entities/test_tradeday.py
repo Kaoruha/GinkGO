@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.89s, 22 tests [PASS]
 TradeDay类TDD测试
 
 通过TDD方式开发TradeDay交易日类的完整测试套件

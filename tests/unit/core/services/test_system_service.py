@@ -1,4 +1,5 @@
 """
+性能: 273MB RSS, 2.42s, 24 tests [PASS]
 系统服务单元测试
 
 测试 SystemService，验证系统状态获取、Worker 格式化、组件计数等功能。

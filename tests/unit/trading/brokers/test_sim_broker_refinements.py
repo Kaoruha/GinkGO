@@ -1,4 +1,5 @@
 """
+性能: 211MB RSS, 1.4s, 35 tests [PASS]
 SimBroker 变更测试 - 覆盖 simplify 审查中修改的代码
 
 测试范围:

@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.0s, 9 tests [PASS]
 Container CLI 单元测试
 
 测试 ginkgo.client.container_cli 的所有命令：

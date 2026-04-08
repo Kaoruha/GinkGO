@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.14s, 50 tests [PASS]
 数据库基础驱动测试 - Pytest最佳实践重构
 
 测试DatabaseDriverBase抽象基类的核心功能

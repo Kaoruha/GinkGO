@@ -1,3 +1,7 @@
+"""
+性能: 227MB RSS, 1.59s, 15 tests [PASS]
+"""
+
 # Upstream: ginkgo.research.orthogonalization
 # Downstream: pytest
 # Role: FactorOrthogonalizer 测试

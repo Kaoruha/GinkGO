@@ -1,18 +1,13 @@
 """
+性能: 272MB RSS, 2.33s, 33 tests [PASS]
 Metric Protocol, DataProvider, MetricRegistry TDD测试
 
 通过TDD方式开发分析模块基础抽象层的核心逻辑测试套件
 聚焦于Metric协议、DataProvider数据容器、MetricRegistry注册中心
 """
 import pytest
-import sys
 import pandas as pd
-from pathlib import Path
 from typing import List, Dict, Any
-
-# 添加项目路径
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.trading.analysis.metrics.base import DataProvider, MetricRegistry
 from ginkgo.trading.analysis.metrics.base import Metric

@@ -1,3 +1,7 @@
+"""
+性能: 219MB RSS, 1.9s, 13 tests [PASS]
+"""
+
 # Upstream: BaseMongoCRUD (继承)、MPortfolioConfig (模型)
 # Downstream: None (单元测试)
 # Role: PortfolioConfigCRUD 投资组合配置 CRUD 单元测试（Mock MongoDB 驱动）

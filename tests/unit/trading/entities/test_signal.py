@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 2.06s, 67 tests [PASS]
 Signal类TDD测试
 
 通过TDD方式开发Signal交易信号类的完整测试套件

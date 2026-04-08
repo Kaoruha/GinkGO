@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.88s, 0 tests [PASS]
 Unit Tests for Price Adjustment APIs in ginkgo.data.__init__ module.
 
 NOTE: The functions tested here do not exist in the current implementation.

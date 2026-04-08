@@ -1,3 +1,7 @@
+"""
+性能: 220MB RSS, 2.82s, 17 tests [PASS]
+"""
+
 # Upstream: BaseMongoCRUD (继承)、MNotificationRecord (模型)
 # Downstream: None (单元测试)
 # Role: NotificationRecordCRUD 通知记录 CRUD 单元测试（Mock MongoDB 驱动）

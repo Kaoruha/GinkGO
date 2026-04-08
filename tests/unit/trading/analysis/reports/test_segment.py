@@ -1,3 +1,7 @@
+"""
+性能: 273MB RSS, 2.47s, 14 tests [PASS]
+"""
+
 # SegmentReport 测试用例
 #
 # 测试范围:

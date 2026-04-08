@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.89s, 37 tests [PASS]
 OrderCancellation阶段测试
 
 测试订单取消阶段的组件交互和逻辑处理

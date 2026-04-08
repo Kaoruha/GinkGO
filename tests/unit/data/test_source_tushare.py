@@ -1,6 +1,13 @@
+"""
+性能: 223MB RSS, 2.43s, 7 tests [PASS]
+"""
+
 import unittest
 import pandas as pd
+import pytest
 from ginkgo.libs.core.config import GCONF
+
+pytestmark = pytest.mark.integration
 
 try:
     from ginkgo.data.sources.ginkgo_tushare import GinkgoTushare

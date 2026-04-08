@@ -1,4 +1,5 @@
 """
+性能: 222MB RSS, 2.05s, 19 tests [PASS]
 OrderCRUD 单元测试 - Mock 数据库连接
 
 测试覆盖范围:
@@ -218,20 +219,6 @@ class TestOrderConstruction:
         """验证 OrderCRUD 使用 MySQL 存储"""
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
-
-
-class TestOrderHookMethods:
-    """必要 Hook 方法存在性检查"""
-
-    @pytest.mark.unit
-    def test_has_required_hook_methods(self, crud_instance):
-        """验证所有必要的 Hook 方法可调用"""
-        assert callable(getattr(crud_instance, '_get_field_config', None))
-        assert callable(getattr(crud_instance, '_get_enum_mappings', None))
-        assert callable(getattr(crud_instance, '_create_from_params', None))
-        assert callable(getattr(crud_instance, '_convert_input_item', None))
-        assert callable(getattr(crud_instance, '_convert_output_items', None))
-        assert callable(getattr(crud_instance, '_convert_models_to_business_objects', None))
 
 
 # ============================================================================

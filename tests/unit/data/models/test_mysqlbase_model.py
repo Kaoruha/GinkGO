@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 1.92s, 54 tests [PASS]
 MySQL基础模型测试 - Pytest最佳实践重构
 
 测试MMysqlBase模型的MySQL特有功能

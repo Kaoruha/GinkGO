@@ -1,3 +1,7 @@
+"""
+性能: 157MB RSS, 0.81s, 3 tests [PASS]
+"""
+
 import pytest
 from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
 

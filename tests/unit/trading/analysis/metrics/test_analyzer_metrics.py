@@ -1,19 +1,14 @@
 """
+性能: 272MB RSS, 2.46s, 27 tests [PASS]
 Analyzer Metrics TDD 测试
 
 事后分析指标 (RollingMean / RollingStd / CV / IC) 的单元测试。
 验证基于 AnalyzerRecord 时间序列的滚动统计和 IC 计算逻辑。
 """
 import pytest
-import sys
 import pandas as pd
 import numpy as np
-from pathlib import Path
 from typing import List, Dict, Any
-
-# 添加项目路径
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.trading.analysis.metrics.analyzer_metrics import RollingMean, RollingStd, CV, IC
 from ginkgo.trading.analysis.metrics.base import Metric, DataProvider, MetricRegistry

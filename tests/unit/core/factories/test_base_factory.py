@@ -1,4 +1,5 @@
 """
+性能: 272MB RSS, 2.43s, 20 tests [PASS]
 基础工厂单元测试
 
 测试 BaseFactory 抽象工厂类，

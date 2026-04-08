@@ -1,4 +1,5 @@
 """
+性能: 273MB RSS, 2.54s, 48 tests [PASS]
 模型接口单元测试
 
 测试 BaseModel、BaseTimeSeriesModel、BaseEnsembleModel 接口定义，

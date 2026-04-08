@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.94s, 31 tests [PASS]
 ServiceResult 和 BaseService 单元测试
 
 覆盖范围：

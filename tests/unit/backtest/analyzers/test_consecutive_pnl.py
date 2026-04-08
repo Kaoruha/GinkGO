@@ -1,3 +1,7 @@
+"""
+性能: 271MB RSS, 2.36s, 25 tests [PASS]
+"""
+
 import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -395,6 +399,146 @@ class TestConsecutivePnL(unittest.TestCase):
         self.assertEqual(self.analyzer.max_consecutive_losses, 3)
         self.assertEqual(self.analyzer.current_consecutive_wins, 0)
         self.assertEqual(self.analyzer.current_consecutive_losses, 3)
+
+
+class TestConsecutivePnLNumericalCorrectness(unittest.TestCase):
+    """数值正确性验证 - 使用已知数据验证计算结果"""
+
+    def setUp(self):
+        self.analyzer = ConsecutivePnL("test_consecutive_num")
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+        self.analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        self.analyzer.advance_time(self.test_time)
+        self.analyzer.set_analyzer_id("test_consecutive_num_001")
+        self.analyzer.set_portfolio_id("test_portfolio_001")
+
+    def _init_and_advance(self, analyzer, day_index):
+        day_time = self.test_time + timedelta(days=day_index)
+        analyzer.advance_time(day_time)
+
+    def test_known_streak_exact_values(self):
+        """验证连续盈亏的精确天数"""
+        base_worth = 10000
+        # 2胜3败1胜
+        daily_changes = [100, 200, -50, -100, -150, 80]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertEqual(self.analyzer.max_consecutive_wins, 2)
+        self.assertEqual(self.analyzer.max_consecutive_losses, 3)
+        self.assertEqual(self.analyzer.current_consecutive_wins, 1)
+        self.assertEqual(self.analyzer.current_consecutive_losses, 0)
+
+    def test_known_max_win_amount(self):
+        """验证最大连续盈利金额"""
+        base_worth = 10000
+        # 第一段连胜: +100+200=300, 第二段连胜: +50=50
+        daily_changes = [100, 200, -100, 50]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertAlmostEqual(self.analyzer.max_win_amount, 300.0, places=2)
+
+    def test_known_max_loss_amount(self):
+        """验证最大连续亏损金额"""
+        base_worth = 10000
+        # 第一段连败: 50+100=150, 第二段连败: 20=20
+        daily_changes = [-50, -100, 200, -20]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        self.assertAlmostEqual(self.analyzer.max_loss_amount, 150.0, places=2)
+
+    def test_known_streak_ratio(self):
+        """验证连续盈亏比率"""
+        base_worth = 10000
+        # 3连胜, 2连败
+        daily_changes = [100, 200, 150, -50, -100]
+
+        current_worth = base_worth
+        self._init_and_advance(self.analyzer, 0)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        for i, change in enumerate(daily_changes):
+            current_worth += change
+            self._init_and_advance(self.analyzer, i + 1)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": current_worth})
+
+        # streak_ratio = max_wins / max_losses = 3 / 2 = 1.5
+        self.assertAlmostEqual(self.analyzer.streak_ratio, 1.5, places=2)
+
+
+class TestConsecutivePnLBoundaryConditions(unittest.TestCase):
+    """边界条件测试"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def _init_and_advance(self, analyzer, day_index):
+        day_time = self.test_time + timedelta(days=day_index)
+        analyzer.advance_time(day_time)
+
+    def test_empty_data(self):
+        """从未调用activate，验证默认值"""
+        analyzer = ConsecutivePnL("test_consecutive_empty")
+        self.assertEqual(analyzer.max_consecutive_wins, 0)
+        self.assertEqual(analyzer.max_consecutive_losses, 0)
+        self.assertEqual(analyzer.current_consecutive_wins, 0)
+        self.assertEqual(analyzer.current_consecutive_losses, 0)
+
+    def test_single_bar(self):
+        """只传1条bar数据"""
+        analyzer = ConsecutivePnL("test_consecutive_single")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_single_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
+        # 单日无前一天数据，所有值为0
+        self.assertEqual(analyzer.max_consecutive_wins, 0)
+        self.assertEqual(analyzer.max_consecutive_losses, 0)
+
+    def test_all_zero_values(self):
+        """所有bar的worth=0"""
+        analyzer = ConsecutivePnL("test_consecutive_zeros")
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_zeros_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+
+        # Day0: init worth=0
+        self._init_and_advance(analyzer, 0)
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        # Day1: worth=0 (0-0=0, daily_pnl=0, not >0 and not <0, so streak unchanged)
+        self._init_and_advance(analyzer, 1)
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
+
+        # 零变化不应影响连胜连败
+        self.assertEqual(analyzer.max_consecutive_wins, 0)
+        self.assertEqual(analyzer.max_consecutive_losses, 0)
 
 
 if __name__ == '__main__':

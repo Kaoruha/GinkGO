@@ -1,4 +1,5 @@
 """
+性能: 220MB RSS, 2.0s, 10 tests [PASS]
 UserCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：

@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.89s, 15 tests [PASS]
 IStrategy Protocol接口测试
 
 遵循TDD方法，验证BaseStrategy类对IStrategy Protocol的接口实现状态。

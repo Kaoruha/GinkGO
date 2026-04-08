@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.93s, 21 tests [PASS]
 BaseSizer tests using pytest framework.
 Tests cover base sizer initialization, data feeder binding, and position sizing.
 """

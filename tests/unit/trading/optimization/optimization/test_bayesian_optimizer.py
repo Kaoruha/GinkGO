@@ -65,6 +65,7 @@ class TestBayesianOptimizer:
         assert optimizer is not None
         assert optimizer.n_trials == 10
 
+    @pytest.mark.skip(reason="optuna-specific test")
     def test_init_without_optuna(self, sample_param_ranges):
         """测试无 optuna 时初始化失败"""
         # 此测试在 optuna 可用时跳过

@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.9s, 35 tests [PASS]
 OrderAcknowledgment阶段测试
 
 测试订单确认阶段的组件交互和逻辑处理

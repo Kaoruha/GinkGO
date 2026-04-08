@@ -1,4 +1,5 @@
 """
+性能: 158MB RSS, 0.91s, 51 tests [PASS]
 Bar类TDD测试
 
 通过TDD方式开发Bar市场数据类的完整测试套件

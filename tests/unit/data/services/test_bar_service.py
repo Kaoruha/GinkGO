@@ -1,4 +1,5 @@
 """
+性能: 266MB RSS, 12.14s, 56 tests [PASS]
 BarService数据服务TDD测试
 
 通过TDD方式开发BarService的完整测试套件

@@ -1,17 +1,15 @@
 """
+性能: 273MB RSS, 2.39s, 0 tests [PASS]
 Enhanced Backtest System Integration Tests
 
 测试增强回测系统的各个组件集成
 
-NOTE: This test file is temporarily skipped as it uses outdated API.
-The BacktestConfig class now uses engine_architecture instead of engine_mode,
-and EngineMode is defined in ginkgo.core.interfaces.engine_interface.
+NOTE: API已变更（engine_mode, ConfigTemplates等），暂跳过待更新
 """
 
 import pytest
 
-# Skip entire module due to API changes
-pytestmark = pytest.mark.skip(reason="BacktestConfig API has changed - uses engine_architecture instead of engine_mode")
+pytestmark = pytest.mark.skip(reason="BacktestConfig API outdated: engine_mode/ConfigTemplates/container accessors changed")
 
 import datetime
 from unittest.mock import Mock, patch

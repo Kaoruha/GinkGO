@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.97s, 0 tests [PASS]
 MySQL驱动测试 - 使用Pytest最佳实践重构。
 
 测试MySQL驱动的初始化、连接、健康检查等核心功能。

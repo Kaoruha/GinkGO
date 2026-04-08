@@ -1,3 +1,7 @@
+"""
+性能: 156MB RSS, 0.89s, 5 tests [PASS]
+"""
+
 # Upstream: ginkgo.trading.comparison.models
 # Downstream: pytest
 # Role: ComparisonResult 测试

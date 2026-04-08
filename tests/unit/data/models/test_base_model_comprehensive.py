@@ -1,4 +1,5 @@
 """
+性能: 219MB RSS, 1.92s, 38 tests [PASS]
 数据模型基础测试
 
 测试MClickBase和MMysqlBase基础模型的核心功能

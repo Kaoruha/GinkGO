@@ -1,4 +1,5 @@
 """
+性能: 156MB RSS, 0.87s, 24 tests [PASS]
 Signal基础测试 - 使用Pytest最佳实践重构。
 
 测试Signal类的基本功能，包括初始化、属性设置、方向管理等。

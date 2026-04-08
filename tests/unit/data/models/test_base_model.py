@@ -1,4 +1,5 @@
 """
+性能: 218MB RSS, 1.89s, 24 tests [PASS]
 数据模型基础测试 - Pytest最佳实践重构
 
 测试MBase基础模型的核心功能

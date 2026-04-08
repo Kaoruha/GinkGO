@@ -1,3 +1,7 @@
+"""
+性能: 157MB RSS, 0.8s, 6 tests [PASS]
+"""
+
 import unittest
 import sys
 import os

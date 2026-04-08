@@ -1,3 +1,7 @@
+"""
+性能: 212MB RSS, 2.32s, 13 tests [PASS]
+"""
+
 # Upstream: ginkgo.research.layering
 # Downstream: pytest
 # Role: FactorLayering 单元测试
@@ -96,7 +100,8 @@ class TestFactorLayering:
 
         # 每组应有收益数据
         for group_id, group in result.groups.items():
-            assert group.count > 0 or group.mean_return is not None
+            assert group.count > 0
+            assert group.mean_return is not None
 
     def test_long_short_return(self, sample_factor_data, sample_return_data):
         """测试多空收益计算"""
