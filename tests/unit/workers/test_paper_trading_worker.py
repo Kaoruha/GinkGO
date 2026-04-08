@@ -1,4 +1,5 @@
 """
+性能: 319MB RSS, 1.41s, 43 tests [FAIL(4)]
 PaperTradingWorker 单元测试
 
 测试覆盖：
@@ -509,9 +510,22 @@ class TestStartStop:
         """start 应设置 is_running=True"""
         from ginkgo.workers.paper_trading_worker import PaperTradingWorker
 
+        # mock consumer.poll 返回空 dict，让 _consume_loop 的 while 循环
+        # 在下一次迭代前通过 stop() 退出
+        mock_consumer = MagicMock()
+        mock_consumer.consumer.poll.return_value = {}
+        mock_consumer_cls.return_value = mock_consumer
+
         worker = PaperTradingWorker(worker_id="test-1")
-        worker.start()
+        # 在另一个线程中 start，主线程短暂等待后 stop
+        import threading
+        t = threading.Thread(target=worker.start)
+        t.start()
+        import time
+        time.sleep(0.1)
         assert worker.is_running is True
+        worker.stop()
+        t.join(timeout=2)
 
     @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoConsumer")
     @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer")

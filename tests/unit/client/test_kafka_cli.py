@@ -1,4 +1,5 @@
 """
+性能: 221MB RSS, 1.99s, 16 tests [PASS]
 Unit tests for kafka_cli.py commands: status, reset, purge, monitor, health,
 consumer-groups, reset-offsets.
 
@@ -127,6 +128,7 @@ class TestPurge:
         mock_service.topic_exists.return_value = True
         mock_service.get_message_count.return_value = 10
         mock_crud = MagicMock()
+        mock_crud.consume_messages.return_value = []  # 避免无限循环
         mock_service._crud_repo = mock_crud
 
         with patch("ginkgo.data.containers.container") as mock_container:
