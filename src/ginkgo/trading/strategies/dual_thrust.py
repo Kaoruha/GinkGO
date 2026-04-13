@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (调用cal方法)
-# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)
-# Role: Dual Thrust策略继承BaseStrategy实现DualThrust Dual Thrust交易逻辑
+# Downstream: BaseStrategy, IDataFeeder, DIRECTION_TYPES
+# Role: Dual Thrust策略 — 通过 data_feeder 获取历史K线计算突破区间
 
 
 
@@ -11,7 +11,7 @@ import datetime
 from decimal import Decimal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.data import get_bars
+from ginkgo.entities import Signal
 from ginkgo.libs import GLOG
 import pandas as pd
 
@@ -59,10 +59,13 @@ class StrategyDualThrust(BaseStrategy):
 
     def cal(self, portfolio_info, event, *args, **kwargs):
         super().cal(portfolio_info, event)
-        date_start = self.now - datetime.timedelta(days=(self._spans + 1))
-        df = get_bars(event.code, date_start, self.now, as_dataframe=True)
+        date_start = self.business_timestamp - datetime.timedelta(days=(self._spans + 1))
+        df = self.data_feeder.get_historical_data(
+            symbols=[event.code], start_time=date_start,
+            end_time=self.business_timestamp, data_type="bar"
+        )
 
-        if df.shape[0] < self._spans + 1:
+        if df is None or df.empty or df.shape[0] < self._spans + 1:
             return []
 
         today_r = self._calculate_range(df)

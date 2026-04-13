@@ -347,7 +347,7 @@ class PaperTradingWorker:
                     portfolio.portfolio_id, records
                 )
                 if result:
-                    config = self._get_deviation_config(portfolio_id)
+                    config = self._get_deviation_config(portfolio.portfolio_id)
                     self.deviation_checker.handle_deviation_result(
                         portfolio.portfolio_id, result,
                         auto_takedown=config.get("auto_takedown", False),
@@ -412,7 +412,7 @@ class PaperTradingWorker:
             signal_records = signal_crud.find(filters={"portfolio_id": portfolio_id})
             for r in (signal_records or []):
                 ts = str(getattr(r, 'timestamp', ''))[:10]
-                if ts == today:
+                if ts == target_date_str:
                     records["signals"].append({
                         "code": getattr(r, 'code', ''),
                         "direction": getattr(r, 'direction', 0),
@@ -427,7 +427,7 @@ class PaperTradingWorker:
             order_records = order_crud.find(filters={"portfolio_id": portfolio_id})
             for r in (order_records or []):
                 ts = str(getattr(r, 'timestamp', ''))[:10]
-                if ts == today:
+                if ts == target_date_str:
                     records["orders"].append({
                         "code": getattr(r, 'code', ''),
                         "volume": getattr(r, 'volume', 0),

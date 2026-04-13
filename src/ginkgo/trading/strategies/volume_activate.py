@@ -1,6 +1,6 @@
 # Upstream: PortfolioBase, ComponentFactoryService
-# Downstream: BaseStrategy, Signal, EventSignalGeneration, get_bars, DIRECTION_TYPES
-# Role: 成交量激活策略，基于成交量均值偏离检测生成做多信号
+# Downstream: BaseStrategy, IDataFeeder, Signal, EventSignalGeneration, DIRECTION_TYPES
+# Role: 成交量激活策略 — 通过 data_feeder 获取历史成交量检测均值偏离
 
 
 
@@ -12,7 +12,6 @@ import datetime
 from ginkgo.trading.events import EventSignalGeneration
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.data import get_bars
 from ginkgo.libs import GLOG
 
 
@@ -29,10 +28,13 @@ class StrategyVolumeActivate(BaseStrategy):
 
     def cal(self, portfolio_info, event, *args, **kwargs):
         super().cal(portfolio_info, event)
-        date_start = self.now + datetime.timedelta(days=-self._spans)
-        date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
-        if df.shape[0] == 0:
+        date_start = self.business_timestamp + datetime.timedelta(days=-self._spans)
+        date_end = self.business_timestamp
+        df = self.data_feeder.get_historical_data(
+            symbols=[event.code], start_time=date_start,
+            end_time=date_end, data_type="bar"
+        )
+        if df is None or df.empty:
             return []
         mean = df["volume"].mean()
         std = df["volume"].std()
