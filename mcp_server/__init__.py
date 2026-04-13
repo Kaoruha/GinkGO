@@ -11,4 +11,4 @@ Ginkgo MCP Server
     GINKGO_ACCOUNT_ID=xxx ginkgo serve mcp
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

@@ -880,9 +880,9 @@ def serve_worker_notify(
 
 @app.command("mcp")
 def serve_mcp(
-    transport: str = typer.Option("stdio", "--transport", "-t", help="传输模式: stdio (默认) 或 sse"),
-    port: int = typer.Option(8001, "--port", "-p", help="SSE模式端口号 (默认: 8001)"),
-    host: str = typer.Option("localhost", "--host", "-H", help="SSE模式主机 (默认: localhost)")
+    transport: str = typer.Option("stdio", "--transport", "-t", help="传输模式: stdio / sse / streamable_http"),
+    port: int = typer.Option(8001, "--port", "-p", help="HTTP模式端口号 (默认: 8001)"),
+    host: str = typer.Option("localhost", "--host", "-H", help="HTTP模式主机 (默认: localhost)")
 ):
     """
     :robot: Start Ginkgo MCP Server for AI agents.
@@ -890,25 +890,26 @@ def serve_mcp(
     Provides OKX trading capabilities to AI agents like OpenClaw.
 
     环境变量:
-        GINKGO_API_KEY: Ginkgo API Key (stdio模式必需，SSE模式可选)
+        GINKGO_API_KEY: Ginkgo API Key (stdio模式必需，HTTP模式可选)
 
     传输模式:
-        stdio - 标准输入输出 (默认，需要GINKGO_API_KEY环境变量)
-        sse   - HTTP/SSE (API KEY通过HTTP Header传递，推荐用于生产环境)
+        stdio           - 标准输入输出 (默认，需要GINKGO_API_KEY环境变量)
+        sse             - HTTP模式 (旧SSE + Streamable HTTP共存，推荐生产环境)
+        streamable_http - 同sse，启动同一HTTP服务
 
     Examples:
       # stdio模式 (需要环境变量)
       ginkgo serve mcp
       GINKGO_API_KEY=xxx ginkgo serve mcp
 
-      # SSE模式 (推荐，独立服务器)
+      # HTTP模式 (推荐，独立服务器)
       ginkgo serve mcp --transport sse --port 8001
 
-    SSE模式API KEY传递方式:
+    HTTP模式API KEY传递方式:
       1. HTTP Header: X-API-Key: your-api-key
       2. Bearer Token: Authorization: Bearer your-api-key
 
-    OpenClaw配置 (stdio模式):
+    Claude Desktop配置 (stdio模式):
       {
         "name": "ginkgo-okx",
         "transport": "stdio",
@@ -917,20 +918,20 @@ def serve_mcp(
         "env": {"GINKGO_API_KEY": "your-api-key"}
       }
 
-    OpenClaw配置 (SSE模式，推荐):
+    Claude Desktop配置 (HTTP模式，推荐):
       {
         "name": "ginkgo-okx",
-        "transport": "http",
-        "url": "http://localhost:8001/sse",
+        "url": "http://localhost:8001/mcp",
         "headers": {
           "X-API-Key": "your-api-key"
         }
       }
 
-    SSE模式端点:
-      GET /health - 健康检查
-      GET /tools  - 获取工具列表 (需要API KEY)
-      POST /tools/{tool_name} - 调用工具 (需要API KEY)
+    HTTP模式端点:
+      /mcp      - Streamable HTTP (MCP 2025-03-26, 推荐)
+      /sse      - 旧SSE (兼容老客户端)
+      /http     - 独立JSON-RPC
+      /health   - 健康检查
     """
     import signal
     import os
@@ -953,11 +954,14 @@ def serve_mcp(
     default_account = os.getenv("GINKGO_LIVE_ACCOUNT_ID", "(use default)")
 
     # 根据传输模式显示不同信息
-    if transport == "sse":
+    is_http = transport in ("sse", "streamable_http")
+    if is_http:
         console.print(Panel.fit(
             f"[bold magenta]:robot: MCP Server[/bold magenta]\n"
-            f"[dim]Mode:[/dim] [bold yellow]SSE/HTTP[/bold yellow]\n"
-            f"[dim]URL:[/dim] http://{host}:{port}/sse\n"
+            f"[dim]Mode:[/dim] [bold yellow]HTTP[/bold yellow]\n"
+            f"[dim]URL:[/dim] http://{host}:{port}\n"
+            f"[dim]Streamable HTTP:[/dim] /mcp (MCP 2025-03-26, 推荐)\n"
+            f"[dim]Legacy SSE:[/dim] /sse (兼容老客户端)\n"
             f"[dim]API Key:[/dim] 通过HTTP Header传递 (X-API-Key 或 Authorization: Bearer)",
             title="[bold]Ginkgo OKX Trading[/bold]",
             border_style="magenta"
@@ -988,7 +992,7 @@ def serve_mcp(
 
         # 设置sys.argv传递参数给main函数
         sys.argv = ["mcp_server", "--transport", transport]
-        if transport == "sse":
+        if is_http:
             sys.argv.extend(["--port", str(port), "--host", host])
 
         # 运行MCP Server
