@@ -698,51 +698,47 @@ class TestDeviationCheck:
         mock_portfolio.code = "test-strategy"
         mock_engine.portfolios = [mock_portfolio]
         worker._engine = mock_engine
+        # 用 MagicMock 替换懒加载的真实 deviation_checker
+        worker._deviation_checker = MagicMock()
         return worker, mock_portfolio
 
     def test_skip_when_no_detectors(self):
         """无 detector 时应跳过检查"""
         worker, _ = self._make_worker_with_portfolio()
-        worker._deviation_detectors = {}
+        worker.deviation_checker._detectors = {}
 
         # 不应抛异常
         worker._run_deviation_check()
 
-    def test_accumulates_data_and_checks_on_slice_complete(self):
-        """切片完成时应调用 check_deviation_on_slice_complete"""
+    def test_calls_run_deviation_check(self):
+        """应调用 deviation_checker.run_deviation_check 处理偏差检测"""
         worker, mock_portfolio = self._make_worker_with_portfolio()
 
-        mock_detector = MagicMock()
-        mock_detector.accumulate_live_data.return_value = True  # 切片完成
-        mock_detector.check_deviation_on_slice_complete.return_value = {
+        mock_result = {
             "status": "completed",
             "overall_level": "NORMAL",
             "deviations": {},
         }
-        worker._deviation_detectors = {"p-001": mock_detector}
+        worker.deviation_checker.run_deviation_check.return_value = mock_result
+        worker.deviation_checker.run_daily_point_check.return_value = None
 
         with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
-            with patch.object(worker, "_handle_deviation_result") as mock_handle:
+            with patch.object(worker, "_get_deviation_config", return_value={"auto_takedown": False}):
                 worker._run_deviation_check()
 
-        mock_detector.accumulate_live_data.assert_called_once()
-        mock_detector.check_deviation_on_slice_complete.assert_called_once()
-        mock_handle.assert_called_once()
+        worker.deviation_checker.run_deviation_check.assert_called_once()
+        worker.deviation_checker.handle_deviation_result.assert_called_once()
 
-    def test_no_check_when_slice_not_complete(self):
-        """切片未完成时不应调用 check_deviation_on_slice_complete"""
+    def test_no_handle_when_no_result(self):
+        """run_deviation_check 返回 None 时不应调用 handle_deviation_result"""
         worker, _ = self._make_worker_with_portfolio()
 
-        mock_detector = MagicMock()
-        mock_detector.accumulate_live_data.return_value = False  # 切片未完成
-        worker._deviation_detectors = {"p-001": mock_detector}
+        worker.deviation_checker.run_deviation_check.return_value = None
 
         with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
-            with patch.object(worker, "_handle_deviation_result") as mock_handle:
-                worker._run_deviation_check()
+            worker._run_deviation_check()
 
-        mock_detector.check_deviation_on_slice_complete.assert_not_called()
-        mock_handle.assert_not_called()
+        worker.deviation_checker.handle_deviation_result.assert_not_called()
 
     def test_continues_on_portfolio_error(self):
         """单个 portfolio 异常不应中断其他 portfolio 的检查"""
@@ -757,19 +753,15 @@ class TestDeviationCheck:
         mock_p2.portfolio_id = "p-002"
         mock_engine.portfolios = [mock_p1, mock_p2]
         worker._engine = mock_engine
-
-        mock_detector_bad = MagicMock()
-        mock_detector_bad.accumulate_live_data.side_effect = Exception("clickhouse error")
-        mock_detector_good = MagicMock()
-        mock_detector_good.accumulate_live_data.return_value = False
-
-        worker._deviation_detectors = {"p-001": mock_detector_bad, "p-002": mock_detector_good}
+        worker._deviation_checker = MagicMock()
+        worker.deviation_checker.run_deviation_check.side_effect = Exception("clickhouse error")
 
         with patch.object(worker, "_load_today_records", return_value={"analyzers": []}):
             # 不应抛异常
             worker._run_deviation_check()
 
-        mock_detector_good.accumulate_live_data.assert_called_once()
+        # run_deviation_check 对每个 portfolio 都会被调用
+        assert worker.deviation_checker.run_deviation_check.call_count == 2
 
 
 class TestLoadTodayRecords:

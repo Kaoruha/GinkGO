@@ -1,6 +1,6 @@
 # Upstream: PortfolioBase, StrategyMLPredictor
-# Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, get_bars, DIRECTION_TYPES, MODEL_TYPES
-# Role: 机器学习策略基类，提供ML模型加载、特征工程、预测到信号的桥接框架
+# Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, IDataFeeder, DIRECTION_TYPES, MODEL_TYPES
+# Role: 机器学习策略基类 — 通过 data_feeder 获取历史数据，提供ML模型加载、特征工程、预测到信号的桥接框架
 
 
 
@@ -25,8 +25,8 @@ from abc import abstractmethod
 
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, MODEL_TYPES
+from ginkgo.entities import Signal
 from ginkgo.libs import GLOG
-from ginkgo.data import get_bars
 
 # 尝试导入ML模块
 try:
@@ -234,9 +234,12 @@ class StrategyMLBase(BaseStrategy):
             # 获取历史数据
             if history_data is None:
                 start_date = current_time - datetime.timedelta(days=self._lookback_days)
-                history_data = get_bars(code, start_date, current_time, as_dataframe=True)
-            
-            if history_data is None or len(history_data) == 0:
+                history_data = self.data_feeder.get_historical_data(
+                    symbols=[code], start_time=start_date,
+                    end_time=current_time, data_type="bar"
+                )
+
+            if history_data is None or (isinstance(history_data, pd.DataFrame) and history_data.empty):
                 GLOG.WARN(f"无法获取 {code} 的历史数据")
                 return None
             
@@ -483,7 +486,7 @@ class StrategyMLBase(BaseStrategy):
                 return []
             
             code = event.code
-            current_time = event.timestamp if hasattr(event, 'timestamp') else self.now
+            current_time = event.timestamp if hasattr(event, 'timestamp') else self.business_timestamp
             
             # 提取特征
             features = self.extract_features(code, current_time)

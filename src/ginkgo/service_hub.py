@@ -29,7 +29,6 @@ _MODULE_REGISTRY: Dict[str, tuple] = {
     'notifier': ('ginkgo.notifier.containers', 'container', None),
     'research': ('ginkgo.research.containers', 'research_container', None),
     'validation': ('ginkgo.validation.containers', 'validation_container', None),
-    'paper': ('ginkgo.trading.paper.containers', 'paper_container', None),
     'comparison': ('ginkgo.trading.comparison.containers', 'comparison_container', None),
     'optimization': ('ginkgo.trading.optimization.containers', 'optimization_container', None),
     'logging': ('ginkgo.services.logging.containers', 'container', None),

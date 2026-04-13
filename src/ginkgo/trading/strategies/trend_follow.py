@@ -1,6 +1,6 @@
 # Upstream: Portfolio Manager (添加趋势跟踪策略)、BaseStrategy (继承提供策略基础能力)
-# Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、get_bars (数据获取工具)
-# Role: Trend Follow策略继承BaseStrategy实现TrendFollow趋势跟踪交易逻辑
+# Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、IDataFeeder (数据获取)
+# Role: Trend Follow策略 — 通过 data_feeder 获取历史K线计算均线和动量
 
 
 
@@ -13,12 +13,6 @@ import pandas as pd
 from ginkgo.entities import Signal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.data import container
-
-
-def get_bars(code, start=None, end=None, **kwargs):
-    """便捷函数：获取K线数据"""
-    return container.bar_service().get(code=code, start=start, end=end, **kwargs)
 
 
 class StrategyTrendFollow(BaseStrategy):
@@ -105,9 +99,12 @@ class StrategyTrendFollow(BaseStrategy):
         
         # 获取历史数据
         date_start = self.business_timestamp - datetime.timedelta(days=(self._slow_ma_period + 10))
-        df = get_bars(event.code, date_start, self.business_timestamp, as_dataframe=True)
+        df = self.data_feeder.get_historical_data(
+            symbols=[event.code], start_time=date_start,
+            end_time=self.business_timestamp, data_type="bar"
+        )
 
-        if df.shape[0] < self._slow_ma_period + 5:
+        if df is None or df.empty or df.shape[0] < self._slow_ma_period + 5:
             return []
 
         # 计算技术指标
