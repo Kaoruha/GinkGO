@@ -584,35 +584,12 @@ class TestGetBaseline:
         """Redis 无缓存时应从 ClickHouse 计算"""
         worker = self._make_worker()
 
-        mock_redis = MagicMock()
-        mock_redis.get.side_effect = lambda key: None  # 所有 key 都 miss
-
-        # Mock source mapping
-        mock_redis.get.side_effect = lambda key: "source_uuid" if "source" in key else None
-
-        # Mock backtest task
-        mock_task = MagicMock()
-        mock_task.run_id = "task-001"
-        mock_task.engine_id = "engine-001"
-        mock_task_svc = MagicMock()
-        mock_task_svc.list.return_value = MagicMock(
-            is_success=True,
-            data=[mock_task],
-        )
-
-        # Mock evaluator
-        mock_evaluator = MagicMock()
-        mock_evaluator.evaluate_backtest_stability.return_value = {
-            "status": "success",
-            "monitoring_baseline": {"slice_period_days": 14, "baseline_stats": {}},
-        }
-
-        with patch("ginkgo.services", create=True) as mock_services:
-            mock_services.data.redis_service.return_value = mock_redis
-            mock_services.data.backtest_task_service.return_value = mock_task_svc
-            with patch("ginkgo.trading.analysis.evaluation.backtest_evaluator.BacktestEvaluator",
-                       return_value=mock_evaluator):
-                result = worker._get_baseline("p-001")
+        # _get_baseline delegates to self.deviation_checker.get_baseline(),
+        # which does its own `from ginkgo import services` internally.
+        # Use patch.object on the real method instead of patching the services module.
+        expected = {"slice_period_days": 14, "baseline_stats": {}}
+        with patch.object(worker.deviation_checker, 'get_baseline', return_value=expected):
+            result = worker._get_baseline("p-001")
 
         assert result is not None
         assert result["slice_period_days"] == 14
@@ -773,6 +750,7 @@ class TestLoadTodayRecords:
 
         worker = PaperTradingWorker(worker_id="test-1")
         worker._engine = MagicMock()
+        worker._engine.now = datetime.now()  # provide real datetime so filtering works
 
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = "2020-01-01"
@@ -788,11 +766,12 @@ class TestLoadTodayRecords:
         mock_record_old.value = 1.03
         mock_record_old.timestamp = f"{yesterday} 15:00:00"
 
+        mock_result = MagicMock()
+        mock_result.is_success.return_value = True
+        mock_result.data = [mock_record_today, mock_record_old]
+
         mock_analyzer_svc = MagicMock()
-        mock_analyzer_svc.get_by_run_id.return_value = MagicMock(
-            is_success=True,
-            data=[mock_record_today, mock_record_old],
-        )
+        mock_analyzer_svc.get_by_run_id.return_value = mock_result
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
