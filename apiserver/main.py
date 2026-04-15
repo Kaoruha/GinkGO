@@ -112,7 +112,7 @@ async def health_check_api():
 
 
 # 路由注册 - 统一使用 /api/v1 前缀
-from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts
+from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts, trading
 from api import settings as settings_router
 from core.version import API_PREFIX
 
@@ -126,6 +126,7 @@ app.include_router(arena.router, prefix=f"{API_PREFIX}/arena", tags=["arena"])
 app.include_router(settings_router.router, prefix=f"{API_PREFIX}/settings", tags=["settings"])
 app.include_router(node_graph.router, prefix=f"{API_PREFIX}/node-graphs", tags=["node-graphs"])
 app.include_router(accounts.router, prefix=f"{API_PREFIX}/accounts", tags=["accounts"])
+app.include_router(trading.router, prefix=f"{API_PREFIX}/paper-trading", tags=["paper-trading"])
 
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
