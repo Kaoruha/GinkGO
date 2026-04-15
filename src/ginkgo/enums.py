@@ -160,8 +160,8 @@ class SOURCE_TYPES(EnumBase):
     BROKERMATCHMAKING = 17
     PAPER_REPLAY = 18   # 历史数据模拟（回测区间外的样本外验证）
     PAPER_LIVE = 19     # 实盘模拟（真实市场数据）
-    MANUAL = 18
-    OKX = 19  # OKX 交易所
+    MANUAL = 20         # 手动录入
+    OKX = 21            # OKX 交易所
 
 
 class DIRECTION_TYPES(EnumBase):
