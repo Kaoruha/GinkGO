@@ -16,6 +16,8 @@ python -m pytest tests/e2e/test_full_backtest_flow.py -v -s
 """
 
 import time
+import uuid
+
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -68,20 +70,29 @@ EXAMPLE_CONFIG = {
 }
 
 
+@pytest.fixture(scope="class")
+def backtest_context(authenticated_page):
+    """创建 context 供整个测试类使用，替代 self.* 状态传递"""
+    timestamp = int(time.time())
+    portfolio_name = f"{EXAMPLE_CONFIG['portfolio']['name']}_{timestamp}"
+    ctx = {
+        "page": authenticated_page,
+        "timestamp": timestamp,
+        "portfolio_name": portfolio_name,
+        "short_task_name": None,
+        "long_task_name": None,
+    }
+    yield ctx
+
+
 @pytest.mark.e2e
 @pytest.mark.slow
 class TestFullBacktestFlow:
     """完整回测流程测试"""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, authenticated_page: Page):
-        """每个测试前准备"""
-        self.page = authenticated_page
-        self.timestamp = int(time.time())
-
-    def test_01_create_portfolio_with_components(self):
+    def test_01_create_portfolio_with_components(self, authenticated_page, backtest_context):
         """步骤1: 创建Portfolio并配置组件"""
-        page = self.page
+        page = authenticated_page
         page.set_default_timeout(120000)
 
         # 导航到Portfolio列表
@@ -99,9 +110,8 @@ class TestFullBacktestFlow:
         expect(modal).to_be_visible()
 
         # 填写基本信息
-        portfolio_name = f"{EXAMPLE_CONFIG['portfolio']['name']}_{self.timestamp}"
+        portfolio_name = backtest_context["portfolio_name"]
         page.fill('.ant-modal input[placeholder="组合名称"]', portfolio_name)
-        self.portfolio_name = portfolio_name
 
         # 设置初始资金
         cash_input = page.locator(".ant-modal .ant-input-number-input").first
@@ -147,9 +157,9 @@ class TestFullBacktestFlow:
         expect(success_msg).to_be_visible(timeout=5000)
         print(f"   ✅ Portfolio创建成功")
 
-    def test_02_verify_portfolio_components(self):
+    def test_02_verify_portfolio_components(self, authenticated_page, backtest_context):
         """步骤2: 验证Portfolio组件配置"""
-        page = self.page
+        page = authenticated_page
 
         # 搜索刚创建的Portfolio
         page.goto(f"{config.web_ui_url}/portfolio")
@@ -157,7 +167,7 @@ class TestFullBacktestFlow:
         page.wait_for_timeout(1000)
 
         search_input = page.locator("input[placeholder*=\"搜索\"]").first
-        search_input.fill(f"{EXAMPLE_CONFIG['portfolio']['name']}_{self.timestamp}")
+        search_input.fill(backtest_context["portfolio_name"])
         page.wait_for_timeout(1500)
 
         # 点击进入详情
@@ -186,9 +196,9 @@ class TestFullBacktestFlow:
         assert "0.9" in body_text or "90%" in body_text, "买入概率应该显示"
         print("   ✅ 策略配置正确: buy_probability=0.9")
 
-    def test_03_create_short_backtest(self):
+    def test_03_create_short_backtest(self, authenticated_page, backtest_context):
         """步骤3: 创建短周期回测任务（快速验证）"""
-        page = self.page
+        page = authenticated_page
         page.set_default_timeout(120000)
 
         # 导航到回测列表
@@ -206,8 +216,9 @@ class TestFullBacktestFlow:
         expect(modal).to_be_visible()
 
         # 填写任务名称
-        task_name = f"{EXAMPLE_CONFIG['backtest_short']['name']}_{self.timestamp}"
-        self.short_task_name = task_name
+        timestamp = backtest_context["timestamp"]
+        task_name = f"{EXAMPLE_CONFIG['backtest_short']['name']}_{timestamp}"
+        backtest_context["short_task_name"] = task_name
         page.fill('.ant-modal:visible input[placeholder="请输入任务名称"]', task_name)
         print(f"\n📋 创建短周期回测: {task_name}")
 
@@ -245,9 +256,9 @@ class TestFullBacktestFlow:
         if success_msg.is_visible(timeout=5000):
             print("   ✅ 回测任务创建成功")
 
-    def test_04_wait_short_backtest_complete(self):
+    def test_04_wait_short_backtest_complete(self, authenticated_page, backtest_context):
         """步骤4: 等待短周期回测完成"""
-        page = self.page
+        page = authenticated_page
         page.set_default_timeout(120000)
 
         # 确保在回测列表页
@@ -286,9 +297,9 @@ class TestFullBacktestFlow:
 
         print("   ⏰ 等待超时，回测可能仍在运行")
 
-    def test_05_view_backtest_results(self):
+    def test_05_view_backtest_results(self, authenticated_page, backtest_context):
         """步骤5: 查看回测结果"""
-        page = self.page
+        page = authenticated_page
 
         # 确保在回测列表页
         page.goto(f"{config.web_ui_url}/stage1/backtest")
@@ -320,9 +331,9 @@ class TestFullBacktestFlow:
                 if chart.is_visible():
                     print("   ✅ 净值图表显示正常")
 
-    def test_06_analyze_signals(self):
+    def test_06_analyze_signals(self, authenticated_page, backtest_context):
         """步骤6: 分析信号记录"""
-        page = self.page
+        page = authenticated_page
 
         print(f"\n📈 分析信号记录...")
 
@@ -345,9 +356,9 @@ class TestFullBacktestFlow:
         if "random" in body_text.lower() or "随机" in body_text:
             print("   ✅ 策略类型: RandomSignalStrategy")
 
-    def test_07_analyze_orders(self):
+    def test_07_analyze_orders(self, authenticated_page, backtest_context):
         """步骤7: 分析订单记录"""
-        page = self.page
+        page = authenticated_page
 
         print(f"\n📋 分析订单记录...")
 
@@ -367,9 +378,9 @@ class TestFullBacktestFlow:
         if position_section.is_visible():
             print("   ✅ 持仓信息显示正常")
 
-    def test_08_create_long_backtest(self):
+    def test_08_create_long_backtest(self, authenticated_page, backtest_context):
         """步骤8: 创建长周期回测（观察进度）"""
-        page = self.page
+        page = authenticated_page
         page.set_default_timeout(120000)
 
         # 导航到回测列表
@@ -387,8 +398,9 @@ class TestFullBacktestFlow:
         expect(modal).to_be_visible()
 
         # 填写任务名称
-        task_name = f"{EXAMPLE_CONFIG['backtest_long']['name']}_{self.timestamp}"
-        self.long_task_name = task_name
+        timestamp = backtest_context["timestamp"]
+        task_name = f"{EXAMPLE_CONFIG['backtest_long']['name']}_{timestamp}"
+        backtest_context["long_task_name"] = task_name
         page.fill('.ant-modal:visible input[placeholder="请输入任务名称"]', task_name)
         print(f"\n📋 创建长周期回测: {task_name}")
 
@@ -422,9 +434,9 @@ class TestFullBacktestFlow:
 
         print("   ✅ 长周期回测任务创建成功")
 
-    def test_09_monitor_long_backtest_progress(self):
+    def test_09_monitor_long_backtest_progress(self, authenticated_page, backtest_context):
         """步骤9: 监控长周期回测进度"""
-        page = self.page
+        page = authenticated_page
         page.set_default_timeout(180000)  # 3分钟超时
 
         print(f"\n⏳ 监控长周期回测进度...")
@@ -458,9 +470,9 @@ class TestFullBacktestFlow:
 
         print("   ℹ️ 监控结束，回测可能仍在后台运行")
 
-    def test_10_final_summary(self):
+    def test_10_final_summary(self, authenticated_page, backtest_context):
         """步骤10: 最终汇总"""
-        page = self.page
+        page = authenticated_page
 
         print(f"\n" + "=" * 60)
         print("📊 E2E完整回测流程测试汇总")
