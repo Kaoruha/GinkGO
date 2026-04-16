@@ -42,13 +42,8 @@ def pytest_configure(config):
             "这是为了保护生产环境数据库安全。"
         )
 
-    # 添加TDD标记
-    config.addinivalue_line("markers", "tdd: TDD开发的测试")
-    config.addinivalue_line("markers", "integration: 集成测试")
-    config.addinivalue_line("markers", "slow: 慢速测试")
+    # 添加TDD标记（tdd/integration/slow/financial/protocol 已在 pyproject.toml 中注册）
     config.addinivalue_line("markers", "requires_db: 需要数据库的测试")
-    config.addinivalue_line("markers", "financial: 金融精度测试")
-    config.addinivalue_line("markers", "protocol: Protocol接口测试")
     config.addinivalue_line("markers", "mixin: Mixin功能测试")
     config.addinivalue_line("markers", "enhancement: 框架增强功能测试")
     config.addinivalue_line("markers", "event_system: 事件系统测试")

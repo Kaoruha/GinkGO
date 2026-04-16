@@ -86,12 +86,4 @@ def sample_portfolio_info() -> Dict[str, Any]:
     }
 
 
-def pytest_configure(config):
-    """Pytest配置钩子."""
-    # 注册自定义标记
-    config.addinivalue_line("markers", "unit: 单元测试标记")
-    config.addinivalue_line("markers", "integration: 集成测试标记")
-    config.addinivalue_line("markers", "lab: 实验性测试标记")
-    config.addinivalue_line("markers", "strategy: 策略测试标记")
-    config.addinivalue_line("markers", "sizer: 仓位管理测试标记")
-    config.addinivalue_line("markers", "selector: 选择器测试标记")
+# pytest_configure 已移除，所有标记已在 pyproject.toml 中注册

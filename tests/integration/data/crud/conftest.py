@@ -245,29 +245,4 @@ def measure_performance():
 
 
 # Pytest标记配置
-def pytest_configure(config):
-    """注册自定义pytest标记"""
-    config.addinivalue_line(
-        "markers", "database: 标记需要数据库连接的测试"
-    )
-    config.addinivalue_line(
-        "markers", "tdd: 标记TDD测试用例"
-    )
-    config.addinivalue_line(
-        "markers", "db_cleanup: 标记需要清理测试数据的测试"
-    )
-    config.addinivalue_line(
-        "markers", "enum: 标记枚举类型测试"
-    )
-    config.addinivalue_line(
-        "markers", "financial: 标记金融计算测试"
-    )
-    config.addinivalue_line(
-        "markers", "slow: 标记运行缓慢的测试"
-    )
-    config.addinivalue_line(
-        "markers", "integration: 标记集成测试"
-    )
-    config.addinivalue_line(
-        "markers", "unit: 标记单元测试"
-    )
+# pytest_configure 已移除，所有标记已在 pyproject.toml 中注册
