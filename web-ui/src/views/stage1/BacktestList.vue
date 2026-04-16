@@ -13,7 +13,7 @@
           </svg>
           刷新
         </button>
-        <button class="btn-primary" @click="showCreateModal = true">
+        <button class="btn-primary" data-testid="btn-create-backtest" @click="showCreateModal = true">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -75,10 +75,10 @@
           v-model="searchKeyword"
           type="search"
           placeholder="搜索任务..."
-          class="search-input"
+          class="search-input" data-testid="backtest-search"
           @keyup.enter="handleSearch"
         />
-        <button class="search-btn" @click="handleSearch">
+        <button class="search-btn" data-testid="backtest-search-btn" @click="handleSearch">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
@@ -96,7 +96,7 @@
         <p>暂无回测任务</p>
       </div>
       <div v-else class="custom-table">
-        <table class="data-table">
+        <table class="data-table" data-testid="backtest-table">
           <thead>
             <tr>
               <th class="checkbox-col">

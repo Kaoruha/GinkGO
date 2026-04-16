@@ -83,9 +83,9 @@ def authenticated_page(page: Page):
         page.evaluate("localStorage.clear(); sessionStorage.clear();")
 
         # 执行登录
-        page.fill('input[placeholder="enter username"]', config.test_username)
-        page.fill('input[placeholder="enter password"]', config.test_password)
-        page.click('button:has-text("EXECUTE")')
+        page.fill("[data-testid='username-input']", config.test_username)
+        page.fill("[data-testid='password-input']", config.test_password)
+        page.click("[data-testid='login-submit']")
 
         # 等待跳转
         page.wait_for_url("**/dashboard", timeout=10000)

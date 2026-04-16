@@ -6,8 +6,8 @@
 
     <div class="page-content">
       <!-- 系统状态卡片 -->
-      <div class="stats-grid">
-        <div class="stat-card">
+      <div class="stats-grid" data-testid="stats-grid">
+        <div class="stat-card" data-testid="stat-portfolio">
           <div class="stat-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
@@ -20,7 +20,7 @@
           </div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" data-testid="stat-backtest">
           <div class="stat-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
@@ -35,7 +35,7 @@
           </div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" data-testid="stat-worker">
           <div class="stat-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
@@ -50,7 +50,7 @@
           </div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" data-testid="stat-system">
           <div class="stat-icon success">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -65,8 +65,8 @@
       </div>
 
       <!-- 4阶段概览 -->
-      <div class="stages-grid">
-        <div class="stage-card stage-1">
+      <div class="stages-grid" data-testid="stages-grid">
+        <div class="stage-card stage-1" data-testid="stage-backtest">
           <div class="stage-header">
             <h3>回测</h3>
           </div>
@@ -80,12 +80,12 @@
               <span class="stat-number text-success">23.5%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage1/backtest')" class="stage-link">
+          <button @click="$router.push('/stage1/backtest')" class="stage-link" data-testid="stage-link-backtest">
             进入回测 →
           </button>
         </div>
 
-        <div class="stage-card stage-2">
+        <div class="stage-card stage-2" data-testid="stage-validation">
           <div class="stage-header">
             <h3>验证</h3>
           </div>
@@ -99,12 +99,12 @@
               <span class="stat-number text-success">42</span>
             </div>
           </div>
-          <button @click="$router.push('/stage2/walkforward')" class="stage-link">
+          <button @click="$router.push('/stage2/walkforward')" class="stage-link" data-testid="stage-link-validation">
             进入验证 →
           </button>
         </div>
 
-        <div class="stage-card stage-3">
+        <div class="stage-card stage-3" data-testid="stage-paper">
           <div class="stage-header">
             <h3>模拟</h3>
           </div>
@@ -118,12 +118,12 @@
               <span class="stat-number text-success">5.8%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage3/paper')" class="stage-link">
+          <button @click="$router.push('/stage3/paper')" class="stage-link" data-testid="stage-link-paper">
             进入模拟 →
           </button>
         </div>
 
-        <div class="stage-card stage-4">
+        <div class="stage-card stage-4" data-testid="stage-live">
           <div class="stage-header">
             <h3>实盘</h3>
           </div>
@@ -137,7 +137,7 @@
               <span class="stat-number text-success">2.3%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage4/live')" class="stage-link">
+          <button @click="$router.push('/stage4/live')" class="stage-link" data-testid="stage-link-live">
             进入实盘 →
           </button>
         </div>

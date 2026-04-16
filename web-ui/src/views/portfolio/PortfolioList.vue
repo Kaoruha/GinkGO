@@ -15,15 +15,16 @@
               type="search"
               placeholder="搜索组合名称..."
               class="search-input"
+              data-testid="portfolio-search"
             />
-            <button class="search-btn" @click="handleSearch">
+            <button class="search-btn" data-testid="portfolio-search-btn" @click="handleSearch">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <path d="m21 21-4.35-4.35"></path>
               </svg>
             </button>
           </div>
-          <button class="btn-primary" @click="showCreateModal">
+          <button class="btn-primary" data-testid="btn-create-portfolio" @click="showCreateModal">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -80,7 +81,7 @@
       <div v-else-if="displayPortfolios.length === 0" class="empty-state">
         <div class="empty-icon">📊</div>
         <p class="empty-text">暂无投资组合</p>
-        <button class="btn-primary" @click="showCreateModal">创建第一个组合</button>
+        <button class="btn-primary" data-testid="btn-create-portfolio" @click="showCreateModal">创建第一个组合</button>
       </div>
 
       <!-- 卡片列表 -->
@@ -89,6 +90,7 @@
           v-for="portfolio in displayPortfolios"
           :key="portfolio.uuid"
           class="portfolio-card"
+              data-testid="portfolio-card"
           @click="viewDetail(portfolio)"
         >
           <div class="card-header">
@@ -99,7 +101,7 @@
               </span>
             </div>
             <div class="card-actions" @click.stop>
-              <button class="btn-icon" @click="toggleMenu(portfolio.uuid)">
+              <button class="btn-icon" data-testid="card-menu-btn" @click="toggleMenu(portfolio.uuid)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="1"></circle>
                   <circle cx="12" cy="5" r="1"></circle>
@@ -115,7 +117,7 @@
                   详情
                 </button>
                 <div class="dropdown-divider"></div>
-                <button class="dropdown-item danger" @click="confirmDelete(portfolio)">
+                <button class="dropdown-item danger" data-testid="btn-delete-portfolio" @click="confirmDelete(portfolio)">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 6h18"></path>
                     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
