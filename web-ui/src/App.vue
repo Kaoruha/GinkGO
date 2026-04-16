@@ -27,6 +27,7 @@
               v-if="item.children && item.children.length > 0"
               class="menu-item has-submenu"
               :class="{ active: openKeys.includes(item.key), selected: selectedKeys.includes(item.key) }"
+              :data-testid="`nav-${item.key}`"
               @click="toggleSubMenu(item.key)"
             >
               <div class="menu-item-content">
@@ -40,6 +41,7 @@
               :to="getRouteForKey(item.key)"
               class="menu-item"
               :class="{ selected: selectedKeys.includes(item.key) }"
+              :data-testid="`nav-${item.key}`"
               @click="handleMenuClick(item.key)"
             >
               <div class="menu-item-content">
@@ -57,6 +59,7 @@
                 :to="getRouteForKey(child.key)"
                 class="submenu-item"
                 :class="{ selected: selectedKeys.includes(child.key) }"
+                :data-testid="`nav-${child.key}`"
                 @click="handleMenuClick(child.key)"
               >
                 {{ child.label }}
@@ -105,7 +108,7 @@
             </span>
           </button>
           <div class="user-dropdown">
-            <button class="avatar-btn" @click="toggleUserMenu">
+            <button class="avatar-btn" data-testid="user-menu-btn" @click="toggleUserMenu">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
@@ -128,7 +131,7 @@
                 </svg>
                 系统设置
               </button>
-              <button class="dropdown-item text-danger" @click="handleLogout">
+              <button class="dropdown-item text-danger" data-testid="logout-btn" @click="handleLogout">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                   <polyline points="16 17 21 12 16 7"></polyline>

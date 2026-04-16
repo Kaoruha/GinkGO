@@ -51,7 +51,7 @@
         </div>
       </div>
 
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form @submit.prevent="handleLogin" class="login-form" data-testid="login-form">
         <div class="input-group">
           <label class="input-label" for="username">&gt; username</label>
           <div class="pixel-input-wrapper">
@@ -62,9 +62,10 @@
               placeholder="enter username"
               autocomplete="off"
               :class="{ 'has-error': errors.username }"
+              data-testid="username-input"
             />
           </div>
-          <span v-if="errors.username" class="error-message">{{ errors.username }}</span>
+          <span v-if="errors.username" class="error-message" data-testid="username-error">{{ errors.username }}</span>
         </div>
 
         <div class="input-group">
@@ -76,12 +77,14 @@
               :type="showPassword ? 'text' : 'password'"
               placeholder="enter password"
               :class="{ 'has-error': errors.password }"
+              data-testid="password-input"
             />
             <button
               type="button"
               class="password-toggle"
               @click="showPassword = !showPassword"
               :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              data-testid="password-toggle"
             >
               <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
@@ -95,13 +98,14 @@
               </svg>
             </button>
           </div>
-          <span v-if="errors.password" class="error-message">{{ errors.password }}</span>
+          <span v-if="errors.password" class="error-message" data-testid="password-error">{{ errors.password }}</span>
         </div>
 
         <button
           type="submit"
           class="login-btn"
           :disabled="loading"
+          data-testid="login-submit"
         >
           <span v-if="!loading">[ EXECUTE ]</span>
           <span v-else>LOADING...</span>
@@ -109,7 +113,7 @@
       </form>
 
       <!-- Toast 消息 -->
-      <div v-if="toastMessage" class="toast-message" :class="toastType">
+      <div v-if="toastMessage" class="toast-message" :class="toastType" data-testid="toast">
         {{ toastMessage }}
       </div>
 

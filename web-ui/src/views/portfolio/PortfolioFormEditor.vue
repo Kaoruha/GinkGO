@@ -14,8 +14,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn-secondary" @click="goBack">取消</button>
-        <button class="btn-primary" :disabled="saving" @click="savePortfolio">
+        <button class="btn-secondary" data-testid="btn-cancel-form" @click="goBack">取消</button>
+        <button class="btn-primary" data-testid="btn-save-portfolio" :disabled="saving" @click="savePortfolio">
           {{ isEditMode ? '保存' : '创建' }}
         </button>
       </div>
@@ -34,7 +34,7 @@
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">名称 <span class="required">*</span></label>
-                  <input v-model="formData.name" type="text" placeholder="组合名称" class="form-input" />
+                  <input v-model="formData.name" type="text" placeholder="组合名称" data-testid="input-portfolio-name" class="form-input" />
                 </div>
                 <div class="form-group">
                   <label class="form-label">初始资金 <span class="required">*</span></label>
