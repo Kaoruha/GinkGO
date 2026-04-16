@@ -132,9 +132,6 @@ def configured_crud_cleanup(request):
         yield
         return
 
-    # 导入依赖
-    from ginkgo.enums import SOURCE_TYPES
-
     # 延迟导入异步清理工具
     import sys
     from pathlib import Path
