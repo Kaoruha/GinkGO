@@ -15,7 +15,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
+_path = str(Path(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.libs.data.statistics import chi2_test, kolmogorov_smirnov_test, rank_sum_test, t_test
 

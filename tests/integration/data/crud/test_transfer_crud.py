@@ -28,7 +28,9 @@ from decimal import Decimal
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
+_path = str(project_root / "src")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.data.crud.transfer_crud import TransferCRUD
 from ginkgo.data.models.model_transfer import MTransfer
@@ -38,7 +40,9 @@ from ginkgo.enums import (
 )
 
 # 导入异步清理工具
-sys.path.insert(0, str(project_root / "tests" / "unit" / "libs" / "utils"))
+_path = str(project_root / "tests" / "unit" / "libs" / "utils")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 try:
     from async_cleanup import AsyncCleanupMixin, async_cleanup_with_wait
 except ImportError:

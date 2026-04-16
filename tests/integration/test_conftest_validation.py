@@ -13,7 +13,9 @@ from typing import Dict, Any, List
 
 # 确保测试路径正确
 project_root = Path(__file__).parent.parent.parent  # tests/unit/.. → Ginkgo root
-sys.path.insert(0, str(project_root / "src"))
+_path = str(project_root / "src")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 # 导入需要验证的模块
 try:

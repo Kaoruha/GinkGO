@@ -11,7 +11,9 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-sys.path.insert(0, "/home/kaoru/Ginkgo/src")
+_path = "/home/kaoru/Ginkgo/src"
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.trading.strategies.trend_reverse import TrendFollow
 from ginkgo.trading.events.price_update import EventPriceUpdate

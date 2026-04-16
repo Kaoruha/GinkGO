@@ -6,8 +6,12 @@ import sys
 import os
 
 # Setup paths
-sys.path.insert(0, '/home/kaoru/Ginkgo/src')
-sys.path.insert(0, '/home/kaoru/Ginkgo/test/backtest')
+_path = '/home/kaoru/Ginkgo/src'
+if _path not in sys.path:
+    sys.path.insert(0, _path)
+_path = '/home/kaoru/Ginkgo/test/backtest'
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 os.environ['GINKGO_TEST_MODE'] = '1'
 

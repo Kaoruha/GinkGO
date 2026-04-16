@@ -8,7 +8,9 @@ Momentum Strategy (动量因子策略) 单元测试
 """
 
 import sys
-sys.path.insert(0, "/home/kaoru/Ginkgo/src")
+_path = "/home/kaoru/Ginkgo/src"
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 import pytest
 from datetime import datetime, timedelta

@@ -12,7 +12,9 @@ import os
 import datetime
 from decimal import Decimal
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+_path = os.path.join(os.path.dirname(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.libs import GLOG, GCONF
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine

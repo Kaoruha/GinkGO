@@ -13,7 +13,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
+_path = str(Path(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs.data.math import cal_fee

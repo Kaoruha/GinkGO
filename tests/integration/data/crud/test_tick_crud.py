@@ -54,8 +54,12 @@ import pandas as pd
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
-sys.path.insert(0, str(project_root / "test"))
+_path = str(project_root / "src")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
+_path = str(project_root / "test")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.data.crud.tick_crud import TickCRUD, get_tick_model
 from ginkgo.data.models.model_tick import MTick

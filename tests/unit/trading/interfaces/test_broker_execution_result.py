@@ -10,7 +10,9 @@ BrokerExecutionResult.to_event() 测试 - 覆盖 FILLED→ORDERFILLED 事件类�
 """
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../../..'))
+_path = os.path.join(os.path.dirname(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from decimal import Decimal
 import pytest
