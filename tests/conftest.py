@@ -143,8 +143,10 @@ def configured_crud_cleanup(request):
     # 延迟导入异步清理工具
     import sys
     from pathlib import Path
-    project_root = Path(__file__).parent.parent
-    sys.path.insert(0, str(project_root / "test" / "libs" / "utils"))
+    project_root = Path(__file__).parent
+    _path_to_add = str(project_root / "unit" / "libs" / "utils")
+    if _path_to_add not in sys.path:
+        sys.path.insert(0, _path_to_add)
 
     try:
         from async_cleanup import AsyncCleanupMixin, async_cleanup_with_wait
@@ -422,10 +424,12 @@ def mock_tushare_data_source():
         # 导入Mock数据源和patch工具
         import sys
         import os
-        sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+        _path_to_add = os.path.join(os.path.dirname(__file__), 'fixtures')
+        if _path_to_add not in sys.path:
+            sys.path.insert(0, _path_to_add)
 
         from unittest.mock import patch
-        from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
+        from mock_data.mock_ginkgo_tushare import MockGinkgoTushare
 
         # 使用patch自动替换GinkgoTushare类 - 修复导入路径
         with patch('ginkgo.data.sources.GinkgoTushare', MockGinkgoTushare):
