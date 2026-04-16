@@ -22,6 +22,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import MODAL, SELECT, SELECT_DROPDOWN, SELECT_ITEM, BTN_PRIMARY, MESSAGE, TABLE_ROW, INPUT_NUMBER, INPUT, FORM_ITEM, DATE_PICKER
 
 # 预制回测配置（参考 complete_backtest_example.py）
 # 注意：000001.SZ 有 2023-12 到 2025-12 的数据
@@ -104,7 +105,7 @@ class TestFullBacktestFlow:
         create_btn.click()
 
         # 验证模态框打开
-        modal = page.locator(".ant-modal")
+        modal = page.locator(MODAL)
         expect(modal).to_be_visible()
 
         # 填写基本信息
@@ -149,7 +150,7 @@ class TestFullBacktestFlow:
         submit_btn.click()
 
         # 验证成功
-        success_msg = page.locator(".ant-message-success")
+        success_msg = page.locator(f"{MESSAGE}-success")
         expect(success_msg).to_be_visible(timeout=5000)
         print(f"   ✅ Portfolio创建成功")
 
@@ -163,14 +164,13 @@ class TestFullBacktestFlow:
 
         search_input = page.locator("input[placeholder*=\"搜索\"]").first
         search_input.fill(backtest_context["portfolio_name"])
-        # 等待搜索结果过滤完成
-        page.wait_for_timeout(1500)
 
-        # 点击进入详情
-        cards = page.locator(".portfolio-card").all()
-        if cards:
-            cards[0].click()
-        else:
+        # 点击进入详情（等待搜索结果过滤完成）
+        first_card = page.locator(".portfolio-card").first
+        try:
+            first_card.wait_for(state="visible", timeout=3000)
+            first_card.click()
+        except Exception:
             # 如果搜索不到，直接跳过
             print("   ⚠️ 未找到Portfolio卡片，跳过验证")
             return
@@ -205,7 +205,7 @@ class TestFullBacktestFlow:
         create_btn.click()
 
         # 验证模态框
-        modal = page.locator(".ant-modal:visible")
+        modal = page.locator(f"{MODAL}:visible")
         expect(modal).to_be_visible()
 
         # 填写任务名称
@@ -216,7 +216,7 @@ class TestFullBacktestFlow:
         print(f"\n📋 创建短周期回测: {task_name}")
 
         # 选择Portfolio
-        portfolio_select = modal.locator(".ant-select").first
+        portfolio_select = modal.locator(SELECT).first
         portfolio_select.click()
 
         # 选择刚创建的Portfolio
@@ -242,7 +242,7 @@ class TestFullBacktestFlow:
         submit_btn.click()
 
         # 验证创建成功
-        success_msg = page.locator(".ant-message-success")
+        success_msg = page.locator(f"{MESSAGE}-success")
         if success_msg.is_visible(timeout=5000):
             print("   ✅ 回测任务创建成功")
 
@@ -381,7 +381,7 @@ class TestFullBacktestFlow:
         create_btn.click()
 
         # 验证模态框
-        modal = page.locator(".ant-modal:visible")
+        modal = page.locator(f"{MODAL}:visible")
         expect(modal).to_be_visible()
 
         # 填写任务名称
@@ -392,7 +392,7 @@ class TestFullBacktestFlow:
         print(f"\n📋 创建长周期回测: {task_name}")
 
         # 选择Portfolio
-        portfolio_select = modal.locator(".ant-select").first
+        portfolio_select = modal.locator(SELECT).first
         portfolio_select.click()
 
         # 选择刚创建的Portfolio
