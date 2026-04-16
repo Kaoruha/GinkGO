@@ -65,17 +65,26 @@ class TestLogin:
 
     def test_logout(self, authenticated_page: Page):
         """登出功能"""
+        import re
+
         page = authenticated_page
 
         # 确保在仪表盘
         assert "/dashboard" in page.url
 
-        # 点击用户菜单 (假设有)
-        user_menu = page.locator(".user-menu, .user-dropdown, [data-testid='user-menu']")
-        if user_menu.is_visible():
-            user_menu.click()
-            logout_btn = page.locator("button:has-text('退出'), button:has-text('登出')")
-            if logout_btn.is_visible():
-                logout_btn.click()
-                page.wait_for_url("**/login", timeout=5000)
-                assert "/login" in page.url
+        # 查找用户菜单 - 必须存在
+        user_menu = page.locator(
+            '[data-testid="user-menu"], .anticon-user, .user-menu, [class*="user"]'
+        )
+        expect(user_menu.first).to_be_visible(timeout=5000)
+        user_menu.first.click()
+
+        # 查找登出按钮 - 必须存在
+        logout_btn = page.locator(
+            'text=退出, text=登出, text=Logout, [data-testid="logout-btn"]'
+        )
+        expect(logout_btn.first).to_be_visible(timeout=5000)
+        logout_btn.first.click()
+
+        # 验证跳转到登录页
+        expect(page).to_have_url(re.compile(r".*login.*"), timeout=5000)
