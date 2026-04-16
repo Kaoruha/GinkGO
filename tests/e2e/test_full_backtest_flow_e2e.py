@@ -52,11 +52,10 @@ class TestFullBacktestFlow:
         create_btn = page.locator("button:has-text('创建组合')").first
         assert create_btn.is_visible(), "创建组合按钮应该可见"
         create_btn.click()
-        page.wait_for_timeout(2000)
 
         # 验证模态框打开
         modal = page.locator(".ant-modal")
-        assert modal.is_visible(), "创建组合模态框应该打开"
+        expect(modal).to_be_visible()
 
         # 填写基本信息
         page.locator("#form_item_name").first.fill(self.portfolio_name)
@@ -68,55 +67,42 @@ class TestFullBacktestFlow:
 
         # 配置 Selector
         page.locator("button.type-btn:has-text('选股器')").first.click()
-        page.wait_for_timeout(300)
 
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
         page.locator(".ant-select-item-option:has-text('fixed_selector')").first.click()
-        page.wait_for_timeout(1500)
 
         page.locator(".param-row input").nth(1).fill("000001.SZ")
         print("✓ Selector: fixed_selector, codes=000001.SZ")
-        page.wait_for_timeout(500)
 
         # 配置 Sizer
         page.locator("button.type-btn:has-text('仓位管理')").first.click()
-        page.wait_for_timeout(300)
 
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
         page.locator(".ant-select-item-option:has-text('fixed_sizer')").first.click()
-        page.wait_for_timeout(1500)
 
         page.locator(".param-row input").last.fill("1000")
         print("✓ Sizer: fixed_sizer, volume=1000")
-        page.wait_for_timeout(500)
 
         # 配置 Strategy
         page.locator("button.type-btn:has-text('策略')").first.click()
-        page.wait_for_timeout(300)
 
         strategy_dropdown = page.locator(".component-selector .ant-select").first
         strategy_dropdown.click()
-        page.wait_for_timeout(500)
 
         search_input = strategy_dropdown.locator("input[role='combobox']").first
         search_input.type("random_signal")
-        page.wait_for_timeout(800)
 
         page.locator(".ant-select-item-option").first.click()
-        page.wait_for_timeout(3000)
         print("✓ Strategy: random_signal_strategy")
 
         # 保存
         submit_btn = page.locator(".ant-modal button.ant-btn-primary:has-text('创 建')").first
         submit_btn.click()
-        page.wait_for_timeout(5000)
 
         # 验证成功
         success_msg = page.locator(".ant-message-success")
-        if success_msg.is_visible():
-            print("✓ Portfolio 创建成功")
+        expect(success_msg).to_be_visible(timeout=5000)
+        print("✓ Portfolio 创建成功")
 
         # 关闭模态框
         close_btn = page.locator(".ant-modal-close")
@@ -137,11 +123,10 @@ class TestFullBacktestFlow:
         create_btn = page.locator('button:has-text("创建回测")').first
         assert create_btn.is_visible()
         create_btn.click()
-        page.wait_for_timeout(2000)
 
         # 验证模态框打开
         modal = page.locator(".ant-modal")
-        assert modal.is_visible()
+        expect(modal).to_be_visible()
 
         # 填写任务名称
         name_input = page.locator('input[placeholder*="任务名称"]').first
@@ -151,19 +136,16 @@ class TestFullBacktestFlow:
         # 选择 Portfolio
         portfolio_select = page.locator(".ant-modal .ant-select").first
         portfolio_select.click()
-        page.wait_for_timeout(500)
 
         # 搜索刚创建的 Portfolio
         search_input = page.locator(".ant-select-dropdown input").first
         if search_input.is_visible():
             search_input.fill(self.portfolio_name)
-            page.wait_for_timeout(500)
 
         dropdown_items = page.locator(".ant-select-dropdown .ant-select-item").all()
         assert dropdown_items, "应该有 Portfolio 选项"
         dropdown_items[0].click()
         print(f"✓ 已选择 Portfolio: {self.portfolio_name}")
-        page.wait_for_timeout(500)
 
         # 设置日期
         date_inputs = page.locator("input.ant-picker-input").all()
@@ -175,12 +157,11 @@ class TestFullBacktestFlow:
         # 提交
         submit_btn = page.locator("button.ant-btn-primary:has-text('确定')").first
         submit_btn.click()
-        page.wait_for_timeout(5000)
 
         # 验证成功
         success_msg = page.locator(".ant-message-success")
-        if success_msg.is_visible():
-            print("✓ 回测任务创建成功")
+        expect(success_msg).to_be_visible(timeout=5000)
+        print("✓ 回测任务创建成功")
 
     def test_03_start_backtest(self):
         """测试 3: 启动回测"""
@@ -197,7 +178,6 @@ class TestFullBacktestFlow:
         start_btn = task_row.locator('button:has-text("启动")').first
         if start_btn.is_visible():
             start_btn.click()
-            page.wait_for_timeout(2000)
 
             # 验证消息
             message = page.locator(".ant-message-notice-content").first
@@ -233,7 +213,6 @@ class TestFullBacktestFlow:
         # 点击任务行
         task_row = page.locator(f"tr:has-text('{self.bt_name}')").first
         task_row.click()
-        page.wait_for_timeout(2000)
 
         # 验证跳转到详情页
         assert f"/stage1/backtest/" in page.url, "应该跳转到详情页"

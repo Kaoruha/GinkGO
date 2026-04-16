@@ -68,16 +68,14 @@ class TestPortfolioCreation:
         # 点击创建按钮
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
 
         # 验证模态框打开
         modal = page.locator(".ant-modal").first
-        assert modal.is_visible(), "创建组合模态框应该打开"
+        expect(modal).to_be_visible()
 
         # 关闭模态框
         close_btn = modal.locator(".ant-modal-close").first
         close_btn.click()
-        page.wait_for_timeout(500)
 
         print("✅ 创建模态框正常")
 
@@ -91,7 +89,9 @@ class TestPortfolioCreation:
         # 打开创建模态框
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
+        # 等待模态框动画完成
+        modal = page.locator(".ant-modal").first
+        expect(modal).to_be_visible()
 
         # 填写名称
         name_input = page.locator("#form_item_name").first
@@ -114,7 +114,6 @@ class TestPortfolioCreation:
         # 关闭模态框
         close_btn = page.locator(".ant-modal-close").first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_add_selector(self):
         """测试添加选股器"""
@@ -126,21 +125,20 @@ class TestPortfolioCreation:
         # 打开创建模态框
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
+        # 等待模态框动画完成
+        modal = page.locator(".ant-modal").first
+        expect(modal).to_be_visible()
 
         # 点击选股器标签
         page.locator("button.type-btn:has-text('选股器')").first.click()
-        page.wait_for_timeout(500)
 
         # 选择组件
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
 
         # 选择 fixed_selector
         selector_option = page.locator(".ant-select-item-option:has-text('fixed_selector')").first
         if selector_option.is_visible():
             selector_option.click()
-            page.wait_for_timeout(1500)
             print("✓ 已选择: fixed_selector")
 
             # 填写 codes 参数
@@ -152,7 +150,6 @@ class TestPortfolioCreation:
         # 关闭模态框
         close_btn = page.locator(".ant-modal-close").first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_add_sizer(self):
         """测试添加仓位管理器"""
@@ -164,21 +161,19 @@ class TestPortfolioCreation:
         # 打开创建模态框
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
+        modal = page.locator(".ant-modal").first
+        expect(modal).to_be_visible()
 
         # 点击仓位管理标签
         page.locator("button.type-btn:has-text('仓位管理')").first.click()
-        page.wait_for_timeout(500)
 
         # 选择组件
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
 
         # 选择 fixed_sizer
         sizer_option = page.locator(".ant-select-item-option:has-text('fixed_sizer')").first
         if sizer_option.is_visible():
             sizer_option.click()
-            page.wait_for_timeout(1500)
             print("✓ 已选择: fixed_sizer")
 
             # 填写 volume 参数
@@ -189,7 +184,6 @@ class TestPortfolioCreation:
         # 关闭模态框
         close_btn = page.locator(".ant-modal-close").first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_add_strategy(self):
         """测试添加策略"""
@@ -201,33 +195,29 @@ class TestPortfolioCreation:
         # 打开创建模态框
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
+        modal = page.locator(".ant-modal").first
+        expect(modal).to_be_visible()
 
         # 点击策略标签
         page.locator("button.type-btn:has-text('策略')").first.click()
-        page.wait_for_timeout(500)
 
         # 选择组件
         strategy_dropdown = page.locator(".component-selector .ant-select").first
         strategy_dropdown.click()
-        page.wait_for_timeout(500)
 
         # 搜索 random_signal
         search_input = strategy_dropdown.locator("input[role='combobox']").first
         search_input.type("random_signal")
-        page.wait_for_timeout(800)
 
         # 选择第一个选项
         first_option = page.locator(".ant-select-item-option").first
         if first_option.is_visible():
             first_option.click()
-            page.wait_for_timeout(3000)
             print("✓ 已选择: random_signal_strategy")
 
         # 关闭模态框
         close_btn = page.locator(".ant-modal-close").first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_create_portfolio_complete(self):
         """测试创建完整的 Portfolio"""
@@ -239,7 +229,8 @@ class TestPortfolioCreation:
         # 打开创建模态框
         create_btn = page.locator("button:has-text('创建组合')").first
         create_btn.click()
-        page.wait_for_timeout(2000)
+        modal = page.locator(".ant-modal").first
+        expect(modal).to_be_visible()
 
         # 填写基本信息
         page.locator("#form_item_name").first.fill(self.portfolio_name)
@@ -248,51 +239,38 @@ class TestPortfolioCreation:
 
         # 添加选股器
         page.locator("button.type-btn:has-text('选股器')").first.click()
-        page.wait_for_timeout(500)
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
         page.locator(".ant-select-item-option:has-text('fixed_selector')").first.click()
-        page.wait_for_timeout(1500)
         page.locator(".param-row input").nth(1).fill("000001.SZ")
         print("✓ Selector: fixed_selector")
-        page.wait_for_timeout(500)
 
         # 添加仓位管理器
         page.locator("button.type-btn:has-text('仓位管理')").first.click()
-        page.wait_for_timeout(500)
         page.locator(".component-selector .ant-select").first.click()
-        page.wait_for_timeout(500)
         page.locator(".ant-select-item-option:has-text('fixed_sizer')").first.click()
-        page.wait_for_timeout(1500)
         page.locator(".param-row input").last.fill("1500")
         print("✓ Sizer: fixed_sizer")
-        page.wait_for_timeout(500)
 
         # 添加策略
         page.locator("button.type-btn:has-text('策略')").first.click()
-        page.wait_for_timeout(500)
         strategy_dropdown = page.locator(".component-selector .ant-select").first
         strategy_dropdown.click()
-        page.wait_for_timeout(500)
         search_input = strategy_dropdown.locator("input[role='combobox']").first
         search_input.type("random_signal")
-        page.wait_for_timeout(800)
         page.locator(".ant-select-item-option").first.click()
-        page.wait_for_timeout(3000)
         print("✓ Strategy: random_signal")
 
         # 提交
         submit_btn = page.locator(".ant-modal button.ant-btn-primary:has-text('创 建')").first
         submit_btn.click()
-        page.wait_for_timeout(5000)
 
         # 验证成功
         success_msg = page.locator(".ant-message-success")
-        if success_msg.is_visible():
-            print("✅ Portfolio 创建成功")
+        expect(success_msg).to_be_visible(timeout=5000)
+        print("✅ Portfolio 创建成功")
 
         # 验证在列表中
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("networkidle")
         portfolio_item = page.locator(f"text={self.portfolio_name}").first
         if portfolio_item.is_visible():
             print(f"✅ Portfolio 出现在列表中: {self.portfolio_name}")

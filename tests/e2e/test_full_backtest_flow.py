@@ -98,12 +98,10 @@ class TestFullBacktestFlow:
         # 导航到Portfolio列表
         page.goto(f"{config.web_ui_url}/portfolio")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
 
         # 点击创建按钮
         create_btn = page.locator('button:has-text("创建"), button.ant-btn-primary').first
         create_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框打开
         modal = page.locator(".ant-modal")
@@ -116,7 +114,6 @@ class TestFullBacktestFlow:
         # 设置初始资金
         cash_input = page.locator(".ant-modal .ant-input-number-input").first
         cash_input.fill(str(EXAMPLE_CONFIG["portfolio"]["initial_cash"]))
-        page.wait_for_timeout(300)
 
         print(f"\n📋 创建Portfolio: {portfolio_name}")
 
@@ -150,7 +147,6 @@ class TestFullBacktestFlow:
         # 提交创建
         submit_btn = page.locator(".ant-modal button.ant-btn-primary").last
         submit_btn.click()
-        page.wait_for_timeout(3000)
 
         # 验证成功
         success_msg = page.locator(".ant-message-success")
@@ -164,17 +160,16 @@ class TestFullBacktestFlow:
         # 搜索刚创建的Portfolio
         page.goto(f"{config.web_ui_url}/portfolio")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
 
         search_input = page.locator("input[placeholder*=\"搜索\"]").first
         search_input.fill(backtest_context["portfolio_name"])
+        # 等待搜索结果过滤完成
         page.wait_for_timeout(1500)
 
         # 点击进入详情
         cards = page.locator(".portfolio-card").all()
         if cards:
             cards[0].click()
-            page.wait_for_timeout(2000)
         else:
             # 如果搜索不到，直接跳过
             print("   ⚠️ 未找到Portfolio卡片，跳过验证")
@@ -204,12 +199,10 @@ class TestFullBacktestFlow:
         # 导航到回测列表
         page.goto(f"{config.web_ui_url}/stage1/backtest")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
 
         # 点击新建按钮
         create_btn = page.locator('button:has-text("新建")').first
         create_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框
         modal = page.locator(".ant-modal:visible")
@@ -225,7 +218,6 @@ class TestFullBacktestFlow:
         # 选择Portfolio
         portfolio_select = modal.locator(".ant-select").first
         portfolio_select.click()
-        page.wait_for_timeout(500)
 
         # 选择刚创建的Portfolio
         portfolio_option = page.locator(f".ant-select-dropdown:visible .ant-select-item:has-text('{EXAMPLE_CONFIG['portfolio']['name'][:10]}')").first
@@ -237,7 +229,6 @@ class TestFullBacktestFlow:
             first_option = page.locator(".ant-select-dropdown:visible .ant-select-item").first
             first_option.click()
             print("   ✅ 已选择第一个Portfolio")
-        page.wait_for_timeout(500)
 
         # 设置日期
         self._set_date_picker_v2(page, modal, "开始日期", EXAMPLE_CONFIG["backtest_short"]["start_date"])
@@ -249,7 +240,6 @@ class TestFullBacktestFlow:
         # 提交 - 使用"确定"按钮
         submit_btn = modal.locator('button:has-text("确 定")')
         submit_btn.click()
-        page.wait_for_timeout(3000)
 
         # 验证创建成功
         success_msg = page.locator(".ant-message-success")
@@ -264,7 +254,6 @@ class TestFullBacktestFlow:
         # 确保在回测列表页
         page.goto(f"{config.web_ui_url}/stage1/backtest")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
 
         print(f"\n⏳ 等待短周期回测完成...")
 
@@ -273,9 +262,9 @@ class TestFullBacktestFlow:
         start_time = time.time()
 
         while time.time() - start_time < max_wait:
-            # 刷新页面
+            # 刷新页面并等待表格加载
             page.reload()
-            page.wait_for_timeout(2000)
+            page.wait_for_load_state("networkidle")
 
             # 查找任务状态
             rows = page.locator(".ant-table-tbody tr").all()
@@ -304,7 +293,6 @@ class TestFullBacktestFlow:
         # 确保在回测列表页
         page.goto(f"{config.web_ui_url}/stage1/backtest")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
 
         print(f"\n📊 查看回测结果...")
 
@@ -312,7 +300,8 @@ class TestFullBacktestFlow:
         rows = page.locator(".ant-table-tbody tr").all()
         if rows:
             rows[0].click()
-            page.wait_for_timeout(3000)
+            # 等待导航到详情页完成
+            page.wait_for_load_state("networkidle")
 
             # 验证进入详情页
             current_url = page.url
@@ -386,12 +375,10 @@ class TestFullBacktestFlow:
         # 导航到回测列表
         page.goto(f"{config.web_ui_url}/stage1/backtest")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
 
         # 点击新建按钮
         create_btn = page.locator('button:has-text("新建")').first
         create_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框
         modal = page.locator(".ant-modal:visible")
@@ -407,7 +394,6 @@ class TestFullBacktestFlow:
         # 选择Portfolio
         portfolio_select = modal.locator(".ant-select").first
         portfolio_select.click()
-        page.wait_for_timeout(500)
 
         # 选择刚创建的Portfolio
         portfolio_option = page.locator(f".ant-select-dropdown:visible .ant-select-item:has-text('{EXAMPLE_CONFIG['portfolio']['name']}')").first
@@ -418,7 +404,6 @@ class TestFullBacktestFlow:
             first_option = page.locator(".ant-select-dropdown:visible .ant-select-item").first
             first_option.click()
             print("   ✅ 已选择第一个Portfolio")
-        page.wait_for_timeout(500)
 
         # 设置日期（长周期：3个月）
         self._set_date_picker_v2(page, modal, "开始日期", EXAMPLE_CONFIG["backtest_long"]["start_date"])
@@ -430,7 +415,6 @@ class TestFullBacktestFlow:
         # 提交 - 使用"确定"按钮
         submit_btn = modal.locator('button:has-text("确 定")')
         submit_btn.click()
-        page.wait_for_timeout(3000)
 
         print("   ✅ 长周期回测任务创建成功")
 
@@ -445,7 +429,7 @@ class TestFullBacktestFlow:
         max_checks = 10
         for i in range(max_checks):
             page.reload()
-            page.wait_for_timeout(3000)
+            page.wait_for_load_state("networkidle")
 
             # 查找任务
             rows = page.locator(".ant-table-tbody tr").all()
@@ -480,13 +464,13 @@ class TestFullBacktestFlow:
 
         # 获取Portfolio数量
         page.goto(f"{config.web_ui_url}/portfolio")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("networkidle")
         portfolio_cards = page.locator(".portfolio-card").all()
         print(f"📁 Portfolio数量: {len(portfolio_cards)}")
 
         # 获取回测任务数量
         page.goto(f"{config.web_ui_url}/stage1/backtest")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("networkidle")
         backtest_rows = page.locator(".ant-table-tbody tr").all()
 
         # 统计状态
@@ -520,24 +504,18 @@ class TestFullBacktestFlow:
         # 点击类型按钮
         type_btn = page.locator(f".ant-modal .type-btn:has-text('{type_btn_text}')")
         type_btn.click()
-        page.wait_for_timeout(300)
 
         # 打开下拉选择
         select = page.locator(".ant-modal .component-selector .ant-select-selector")
         select.click()
-        page.wait_for_timeout(500)
 
         # 输入并选择组件
         page.keyboard.type(component_name)
-        page.wait_for_timeout(500)
         page.keyboard.press("Enter")
-        page.wait_for_timeout(1500)
 
         # 填写参数
         for key, value in params.items():
             self._fill_param(page, key, value)
-
-        page.wait_for_timeout(500)
 
     def _fill_param(self, page, label: str, value: str):
         """填写参数"""
@@ -567,24 +545,19 @@ class TestFullBacktestFlow:
         if picker.is_visible():
             # 强制点击，忽略遮挡
             picker.click(force=True)
-            page.wait_for_timeout(500)
 
             # 直接在输入框中输入
             picker_input = picker.locator("input")
             if picker_input.is_visible():
                 picker_input.fill(date_str)
-                page.wait_for_timeout(300)
                 page.keyboard.press("Enter")
             else:
                 # 使用键盘输入
                 page.keyboard.type(date_str.replace("-", ""))
-                page.wait_for_timeout(300)
                 page.keyboard.press("Enter")
 
-            page.wait_for_timeout(500)
             # 点击其他地方关闭可能的弹窗
             page.keyboard.press("Escape")
-            page.wait_for_timeout(300)
 
     def _set_date_picker_v2(self, page, modal, label: str, date_str: str):
         """设置日期选择器 - 改进版"""
@@ -593,20 +566,16 @@ class TestFullBacktestFlow:
         if picker.is_visible():
             # 点击输入框
             picker.click()
-            page.wait_for_timeout(500)
 
             # 直接填写日期
             picker_input = picker.locator("input")
             picker_input.fill(date_str)
-            page.wait_for_timeout(300)
 
             # 按回车确认
             page.keyboard.press("Enter")
-            page.wait_for_timeout(500)
 
             # 点击模态框其他位置关闭日期面板
             modal.locator(".ant-modal-content").click(position={"x": 10, "y": 10})
-            page.wait_for_timeout(300)
 
     def _extract_progress(self, text: str) -> str:
         """从文本中提取进度"""
