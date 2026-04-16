@@ -405,6 +405,14 @@ def auto_clean_test_data(request):
     do_cleanup()
 
 
+# ===== 通用测试数据fixtures =====
+
+@pytest.fixture
+def sample_stock_code():
+    """标准测试股票代码"""
+    return "000001.SZ"
+
+
 # ===== Mock数据源fixtures =====
 
 @pytest.fixture(scope="session", autouse=True)
