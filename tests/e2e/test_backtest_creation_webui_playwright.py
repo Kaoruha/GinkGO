@@ -15,6 +15,7 @@ from datetime import datetime
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import MODAL, SELECT, SELECT_ITEM, BTN_PRIMARY, MESSAGE, DATE_PICKER, CLOSE_BTN, SPIN
 
 
 @pytest.mark.e2e
@@ -45,11 +46,10 @@ class TestBacktestCreation:
         create_btn = page.locator('button:has-text("创建回测")').first
         assert create_btn.is_visible(), "创建回测按钮应该可见"
         create_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框打开
-        modal = page.locator(".ant-modal").first
-        assert modal.is_visible(), "创建回测模态框应该打开"
+        modal = page.locator(MODAL).first
+        expect(modal).to_be_visible(timeout=5000)
 
         return modal
 
@@ -62,7 +62,7 @@ class TestBacktestCreation:
 
         # 验证 URL
         assert "/stage1/backtest" in page.url
-        print("✅ 成功导航到回测列表页")
+        print("成功导航到回测列表页")
 
     def test_create_button_exists(self):
         """测试创建按钮存在"""
@@ -75,7 +75,7 @@ class TestBacktestCreation:
         create_btn = page.locator('button:has-text("创建回测")').first
         assert create_btn.is_visible(), "创建回测按钮应该可见"
 
-        print("✅ 创建回测按钮正常")
+        print("创建回测按钮正常")
 
     def test_open_create_modal(self):
         """测试打开创建模态框"""
@@ -83,10 +83,10 @@ class TestBacktestCreation:
 
         # 验证模态框标题
         title = modal.locator(".ant-modal-title").first
-        if title.is_visible():
-            title_text = title.text_content()
-            print(f"✅ 模态框标题: {title_text}")
-            assert "回测" in title_text or "创建" in title_text, "模态框标题应包含'回测'或'创建'"
+        expect(title).to_be_visible(timeout=5000)
+        title_text = title.text_content()
+        print(f"模态框标题: {title_text}")
+        assert "回测" in title_text or "创建" in title_text, "模态框标题应包含'回测'或'创建'"
 
     def test_task_name_input_in_modal(self):
         """测试模态框中的任务名称输入框"""
@@ -100,55 +100,48 @@ class TestBacktestCreation:
         name_input.fill(self.backtest_name)
         assert name_input.input_value() == self.backtest_name, "任务名称应该被正确填写"
 
-        print(f"✅ 任务名称: {self.backtest_name}")
+        print(f"任务名称: {self.backtest_name}")
 
         # 关闭模态框
-        close_btn = modal.locator(".ant-modal-close").first
+        close_btn = modal.locator(CLOSE_BTN).first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_portfolio_selector_in_modal(self):
         """测试模态框中的 Portfolio 选择器"""
         modal = self._open_create_modal()
 
         # 验证 Portfolio 下拉框
-        portfolio_select = modal.locator(".ant-select").first
+        portfolio_select = modal.locator(SELECT).first
         assert portfolio_select.is_visible(), "Portfolio 下拉框应该可见"
 
         # 点击打开下拉框
         portfolio_select.click()
-        page.wait_for_timeout(500)
 
         # 验证下拉框打开
-        dropdown = page.locator(".ant-select-dropdown").first
-        if dropdown.is_visible():
-            print("✅ Portfolio 下拉框正常")
+        dropdown = self.page.locator(".ant-select-dropdown").first
+        expect(dropdown).to_be_visible(timeout=5000)
+        print("Portfolio 下拉框正常")
 
-            # 关闭下拉框
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
-        else:
-            print("⚠️ Portfolio 下拉框可能没有选项")
+        # 关闭下拉框
+        self.page.keyboard.press("Escape")
 
         # 关闭模态框
-        close_btn = modal.locator(".ant-modal-close").first
+        close_btn = modal.locator(CLOSE_BTN).first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_submit_button_in_modal(self):
         """测试模态框中的提交按钮"""
         modal = self._open_create_modal()
 
         # 验证确定按钮
-        submit_btn = modal.locator("button.ant-btn-primary:has-text('确定')").first
+        submit_btn = modal.locator(f"button{BTN_PRIMARY}:has-text('确定')").first
         assert submit_btn.is_visible(), "确定按钮应该可见"
 
-        print("✅ 确定按钮正常")
+        print("确定按钮正常")
 
         # 关闭模态框
-        close_btn = modal.locator(".ant-modal-close").first
+        close_btn = modal.locator(CLOSE_BTN).first
         close_btn.click()
-        page.wait_for_timeout(500)
 
     def test_create_backtest_with_minimal_fields(self):
         """测试使用最小必填字段创建回测任务"""
@@ -158,53 +151,47 @@ class TestBacktestCreation:
         # 填写任务名称
         name_input = modal.locator('input[placeholder*="任务名称"]').first
         name_input.fill(self.backtest_name)
-        print(f"✓ 任务名称: {self.backtest_name}")
+        print(f"任务名称: {self.backtest_name}")
 
         # 选择 Portfolio（如果有）
-        portfolio_select = modal.locator(".ant-select").first
+        portfolio_select = modal.locator(SELECT).first
         portfolio_select.click()
-        page.wait_for_timeout(500)
 
-        dropdown_items = page.locator(".ant-select-dropdown .ant-select-item").all()
+        dropdown_items = page.locator(f".ant-select-dropdown {SELECT_ITEM}").all()
         if dropdown_items:
             dropdown_items[0].click()
-            print("✓ 已选择 Portfolio")
-            page.wait_for_timeout(500)
+            print("已选择 Portfolio")
         else:
-            print("⚠️ 没有 Portfolio 可选")
+            print("没有 Portfolio 可选")
             # 关闭下拉框
             page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
 
         # 设置日期范围（如果有日期选择器）
         date_inputs = modal.locator("input.ant-picker-input").all()
         if len(date_inputs) >= 2:
             date_inputs[0].fill("2023-01-01")
             date_inputs[1].fill("2023-12-31")
-            print("✓ 日期: 2023-01-01 ~ 2023-12-31")
-            page.wait_for_timeout(300)
+            print("日期: 2023-01-01 ~ 2023-12-31")
 
         # 提交
-        submit_btn = modal.locator("button.ant-btn-primary:has-text('确定')").first
+        submit_btn = modal.locator(f"button{BTN_PRIMARY}:has-text('确定')").first
         submit_btn.click()
-        page.wait_for_timeout(5000)
 
-        # 验证结果
-        # 方案1：验证成功消息
+        # 验证成功消息
         success_msg = page.locator(".ant-message-success, .ant-message-notice-content").first
-        if success_msg.is_visible():
-            msg_text = success_msg.text_content()
-            print(f"✓ 创建成功: {msg_text}")
+        expect(success_msg).to_be_visible(timeout=5000)
+        msg_text = success_msg.text_content()
+        print(f"创建成功: {msg_text}")
 
-        # 方案2：验证模态框关闭
-        modal = page.locator(".ant-modal").first
-        if not modal.is_visible(timeout=2000):
-            print("✓ 模态框已关闭")
+        # 验证模态框关闭
+        modal = page.locator(MODAL).first
+        expect(modal).not_to_be_visible(timeout=5000)
+        print("模态框已关闭")
 
-        # 方案3：验证仍在回测列表页
+        # 验证仍在回测列表页
         assert "/stage1/backtest" in page.url, "应该仍在回测列表页"
 
-        print("✅ 回测任务创建流程完成")
+        print("回测任务创建流程完成")
 
     def test_modal_cancel_button(self):
         """测试模态框的取消按钮"""
@@ -216,28 +203,26 @@ class TestBacktestCreation:
 
         # 点击取消
         cancel_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框关闭
-        modal = page.locator(".ant-modal").first
-        assert not modal.is_visible(timeout=2000), "点击取消后模态框应该关闭"
+        modal = self.page.locator(MODAL).first
+        expect(modal).not_to_be_visible(timeout=5000)
 
-        print("✅ 取消按钮正常")
+        print("取消按钮正常")
 
     def test_modal_close_button(self):
         """测试模态框的关闭按钮"""
         modal = self._open_create_modal()
 
         # 验证关闭按钮（X）
-        close_btn = modal.locator(".ant-modal-close").first
+        close_btn = modal.locator(CLOSE_BTN).first
         assert close_btn.is_visible(), "关闭按钮应该可见"
 
         # 点击关闭
         close_btn.click()
-        page.wait_for_timeout(1000)
 
         # 验证模态框关闭
-        modal = page.locator(".ant-modal").first
-        assert not modal.is_visible(timeout=2000), "点击关闭后模态框应该关闭"
+        modal = self.page.locator(MODAL).first
+        expect(modal).not_to_be_visible(timeout=5000)
 
-        print("✅ 关闭按钮正常")
+        print("关闭按钮正常")

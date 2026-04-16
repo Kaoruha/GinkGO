@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 from playwright.sync_api import Page, expect, Browser
 
 from .config import config
+from .selectors import TABLE, TABLE_ROW, TAG, BTN, MESSAGE, SELECT_ITEM
 
 
 # ==================== 页面健康检查 ====================
@@ -129,11 +130,11 @@ class BacktestTaskHelper:
         self.page.goto(self.backtest_list_url, wait_until="domcontentloaded")
 
         # 等待页面加载
-        self.page.wait_for_timeout(3000)
+        self.page.wait_for_load_state("domcontentloaded")
 
         # 健康检查
         self.health_checker.setup_listeners()
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_load_state("domcontentloaded")
         self.health_checker.assert_healthy()
 
     def get_task_status(self, task_uuid: str) -> str:
@@ -144,7 +145,7 @@ class BacktestTaskHelper:
             raise ValueError(f"找不到任务: {task_uuid}")
 
         # 获取状态列
-        status_cell = task_row.locator(".status-tag, .ant-tag").first
+        status_cell = task_row.locator(f".status-tag, {TAG}").first
         status_text = status_cell.text_content() or ""
 
         # 转换为英文状态
@@ -168,7 +169,7 @@ class BacktestTaskHelper:
                 uuid_text = uuid_cell.text_content() or ""
 
                 # 获取状态
-                status_cell = row.locator(".status-tag, .ant-tag").first
+                status_cell = row.locator(f".status-tag, {TAG}").first
                 status_text = status_cell.text_content() or ""
 
                 # 转换状态
@@ -207,16 +208,14 @@ class BacktestTaskHelper:
         button.click()
 
         # 等待操作完成
-        self.page.wait_for_timeout(3000)
+        self.page.wait_for_load_state("domcontentloaded")
 
         # 获取操作结果消息
-        message_element = self.page.locator(".ant-message-notice-content").first
-        if message_element.is_visible():
-            message = message_element.text_content() or ""
-            print(f"  📨 操作消息: {message}")
-            return message
-
-        return ""
+        message_element = self.page.locator(f"{MESSAGE}-notice-content").first
+        expect(message_element).to_be_visible(timeout=5000)
+        message = message_element.text_content() or ""
+        print(f"  操作消息: {message}")
+        return message
 
     def verify_status_changed(self, task_uuid: str, old_status: str, operation: str) -> str:
         """验证状态已改变"""
@@ -224,7 +223,6 @@ class BacktestTaskHelper:
 
         # 刷新页面
         self.page.reload(wait_until="domcontentloaded")
-        self.page.wait_for_timeout(3000)
 
         # 获取新状态
         new_status = self.get_task_status(task_uuid)
@@ -467,7 +465,7 @@ class TestBacktestOperations:
             print(f"  ✓ 勾选 {uuid[:8]}")
 
         # 等待批量操作栏出现
-        self.page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 5. 点击批量启动按钮
         print("\n🔘 点击批量启动按钮")
@@ -476,13 +474,13 @@ class TestBacktestOperations:
             raise AssertionError("批量启动按钮不可见")
 
         batch_start_btn.click()
-        self.page.wait_for_timeout(config.operation_wait)
+        page.wait_for_load_state("domcontentloaded")
 
         # 6. 验证消息
-        message_element = self.page.locator(".ant-message-notice-content").first
-        if message_element.is_visible():
-            message = message_element.text_content() or ""
-            print(f"📨 批量操作消息: {message}")
+        message_element = self.page.locator(f"{MESSAGE}-notice-content").first
+        expect(message_element).to_be_visible(timeout=5000)
+        message = message_element.text_content() or ""
+        print(f"批量操作消息: {message}")
 
         # 7. 验证状态变化
         print("\n🔍 验证状态变化...")
@@ -522,7 +520,7 @@ class TestBacktestOperations:
         print(f"  ✅ 找到 {len(status_tags)} 个状态标签")
 
         # 3. 等待一段时间确保没有延迟错误
-        self.page.wait_for_timeout(3000)
+        page.wait_for_load_state("domcontentloaded")
         self.helper.health_checker.assert_healthy()
 
         print("\n✅ 测试通过: 页面健康检查")
@@ -566,7 +564,7 @@ if __name__ == "__main__":
             rows = page.locator("tbody tr").all()
             for row in rows:
                 try:
-                    status_cell = row.locator(".status-tag, .ant-tag").first
+                    status_cell = row.locator(f".status-tag, {TAG}").first
                     status_text = status_cell.text_content() or ""
                     status_count[status_text] = status_count.get(status_text, 0) + 1
                 except:
