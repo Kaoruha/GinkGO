@@ -103,9 +103,7 @@ def screenshot_dir() -> Path:
 
 def pytest_configure(config):
     """Pytest 配置钩子"""
-    # 添加自定义标记
-    config.addinivalue_line("markers", "e2e: E2E 测试")
-    config.addinivalue_line("markers", "slow: 慢速测试")
+    # e2e 目录特有标记（e2e/slow 已在 pyproject.toml 中注册）
     config.addinivalue_line("markers", "login: 需要登录的测试")
 
 

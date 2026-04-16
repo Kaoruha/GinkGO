@@ -205,7 +205,7 @@ addopts = [
     "--timeout=60",         # 单测试超时
 ]
 
-# 标记定义 - 精简版本
+# 标记定义 - 覆盖所有在用的高频 markers
 markers = [
     "unit: 快速的单元级测试",
     "integration: 组件协同/端到端测试",
@@ -219,6 +219,22 @@ markers = [
     "tdd: TDD开发的测试用例",
     "enum: 枚举处理相关的测试用例",
     "financial: 金融精度测试（涉及金额计算）",
+    "cli: 命令行接口测试",
+    "risk: 风控管理测试",
+    "e2e: 端到端测试（浏览器自动化）",
+    "lab: 实验性功能测试",
+    "critical: 关键路径测试",
+    "indicator: 技术指标测试",
+    "notifier: 通知系统测试",
+    "asyncio: 异步相关测试",
+    "selector: 选股器测试",
+    "strategy: 策略测试",
+    "sizer: 仓位管理测试",
+    "protocol: Protocol接口测试",
+    "benchmark: 基准测试",
+    "kafka: Kafka消息队列测试",
+    "error_handling: 错误处理测试",
+    "infrastructure: 基础设施测试",
 ]
 
 # 警告过滤

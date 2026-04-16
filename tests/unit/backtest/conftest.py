@@ -352,12 +352,4 @@ def profit_ratio_test_cases():
 
 
 # ========== Pytest Markers ==========
-
-def pytest_configure(config):
-    """Configure custom pytest markers."""
-    config.addinivalue_line("markers", "unit: Unit tests (fast, isolated)")
-    config.addinivalue_line("markers", "integration: Integration tests (slower, may use database)")
-    config.addinivalue_line("markers", "slow: Slow tests (performance testing)")
-    config.addinivalue_line("markers", "financial: Financial calculation tests (requires precision)")
-    config.addinivalue_line("markers", "indicator: Technical indicator tests")
-    config.addinivalue_line("markers", "risk: Risk management tests")
+# pytest_configure 已移除，所有标记已在 pyproject.toml 中注册

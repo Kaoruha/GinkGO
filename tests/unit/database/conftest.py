@@ -169,11 +169,7 @@ def sample_tick_data() -> Dict[str, Any]:
 
 
 def pytest_configure(config):
-    """Pytest配置钩子."""
-    # 注册自定义标记
-    config.addinivalue_line("markers", "unit: 单元测试标记")
-    config.addinivalue_line("markers", "integration: 集成测试标记")
-    config.addinivalue_line("markers", "database: 数据库测试标记")
-    config.addinivalue_line("markers", "slow: 慢速测试标记")
+    """Pytest配置钩子 - 仅注册 database 目录特有的标记."""
+    # unit/integration/database/slow 已在 pyproject.toml 中注册
     config.addinivalue_line("markers", "clickhouse: ClickHouse特定测试")
     config.addinivalue_line("markers", "mysql: MySQL特定测试")

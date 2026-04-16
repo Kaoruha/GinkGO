@@ -16,23 +16,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 
 
-def pytest_configure(config):
-    """配置pytest标记"""
-    config.addinivalue_line(
-        "markers", "unit: 单元测试标记（不依赖外部资源）"
-    )
-    config.addinivalue_line(
-        "markers", "integration: 集成测试标记（需要数据库等资源）"
-    )
-    config.addinivalue_line(
-        "markers", "financial: 金融业务逻辑测试标记"
-    )
-    config.addinivalue_line(
-        "markers", "slow: 慢速测试标记（执行时间较长）"
-    )
-    config.addinivalue_line(
-        "markers", "tdd: TDD测试标记（测试驱动开发）"
-    )
+# pytest_configure 已移除，所有标记已在 pyproject.toml 中注册
 
 
 def pytest_collection_modifyitems(config, items):
