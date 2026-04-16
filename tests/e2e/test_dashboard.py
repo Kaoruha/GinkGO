@@ -70,11 +70,11 @@ class TestNavigation:
 
         # 点击组合菜单
         portfolio_link = page.locator('a[href*="/portfolio"], .ant-menu-item:has-text("组合")')
-        if portfolio_link.count() > 0:
-            portfolio_link.first.click()
-            page.wait_for_load_state("networkidle")
-            assert "/portfolio" in page.url
-            print("✅ 导航到组合页面成功")
+        expect(portfolio_link.first).to_be_visible(timeout=5000)
+        portfolio_link.first.click()
+        page.wait_for_load_state("networkidle")
+        assert "/portfolio" in page.url
+        print("✅ 导航到组合页面成功")
 
     def test_navigate_to_backtest(self, authenticated_page: Page):
         """导航到回测页面"""
@@ -84,10 +84,10 @@ class TestNavigation:
 
         # 点击回测菜单
         backtest_link = page.locator('a[href*="/backtest"], .ant-menu-item:has-text("回测")')
-        if backtest_link.count() > 0:
-            backtest_link.first.click()
-            page.wait_for_load_state("networkidle")
-            print("✅ 导航到回测页面成功")
+        expect(backtest_link.first).to_be_visible(timeout=5000)
+        backtest_link.first.click()
+        page.wait_for_load_state("networkidle")
+        print("✅ 导航到回测页面成功")
 
     def test_navigate_to_data(self, authenticated_page: Page):
         """导航到数据页面"""
@@ -97,7 +97,7 @@ class TestNavigation:
 
         # 点击数据菜单
         data_link = page.locator('a[href*="/data"], .ant-menu-item:has-text("数据")')
-        if data_link.count() > 0:
-            data_link.first.click()
-            page.wait_for_load_state("networkidle")
-            print("✅ 导航到数据页面成功")
+        expect(data_link.first).to_be_visible(timeout=5000)
+        data_link.first.click()
+        page.wait_for_load_state("networkidle")
+        print("✅ 导航到数据页面成功")
