@@ -42,7 +42,7 @@ class ConcreteDriver(DatabaseDriverBase):
         return "test://localhost/db?streaming=true"
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverBaseConstruction:
     """1. 数据库驱动基础构造测试"""
@@ -87,7 +87,7 @@ class TestDatabaseDriverBaseConstruction:
         assert shared_logger in driver2.loggers
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverLoggingSystem:
     """2. 数据库驱动日志系统测试"""
@@ -150,7 +150,7 @@ class TestDatabaseDriverLoggingSystem:
         good_logger.INFO.assert_called()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverConnectionManagement:
     """3. 数据库驱动连接管理测试"""
@@ -228,7 +228,7 @@ class TestDatabaseDriverConnectionManagement:
         assert driver._connection_stats["connections_created"] == initial_created + 5
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverStreamingSupport:
     """4. 数据库驱动流式查询支持测试"""
@@ -289,7 +289,7 @@ class TestDatabaseDriverStreamingSupport:
                 mock_session.commit.assert_called()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverHealthCheck:
     """5. 数据库驱动健康检查测试"""
@@ -343,7 +343,7 @@ class TestDatabaseDriverHealthCheck:
         assert driver._connection_stats["last_health_check"] > 0
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverStatisticsMonitoring:
     """6. 数据库驱动统计监控测试"""
@@ -396,7 +396,7 @@ class TestDatabaseDriverStatisticsMonitoring:
         assert driver._connection_stats["connections_created"] == initial_created + 30
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverBackwardCompatibility:
     """7. 数据库驱动向后兼容性测试"""
@@ -434,7 +434,7 @@ class TestDatabaseDriverBackwardCompatibility:
         mock_factory.remove.assert_called_once()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverAbstractMethods:
     """8. 数据库驱动抽象方法测试"""
@@ -465,7 +465,7 @@ class TestDatabaseDriverAbstractMethods:
         assert hasattr(DatabaseDriverBase, '_get_streaming_uri')
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverThreadSafetyAndConcurrency:
     """9. 数据库驱动线程安全和并发测试"""
@@ -555,7 +555,7 @@ class TestDatabaseDriverThreadSafetyAndConcurrency:
         assert len(errors) == 0
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestDatabaseDriverErrorHandlingAndResilience:
     """10. 数据库驱动错误处理和弹性测试"""

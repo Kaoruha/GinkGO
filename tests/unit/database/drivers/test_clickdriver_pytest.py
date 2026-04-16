@@ -50,7 +50,7 @@ class TestClickhouseDriverUnit:
             pytest.skip("GinkgoClickhouse not available")
         return GinkgoClickhouse(**mock_config)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_initialization(self, driver, mock_config):
         """测试ClickHouse驱动初始化."""
         # 验证基本属性设置
@@ -67,7 +67,7 @@ class TestClickhouseDriverUnit:
         assert driver._connect_timeout == 10
         assert driver._read_timeout == 10
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_initialization_custom_params(self, driver, mock_config):
         """测试ClickHouse驱动自定义参数初始化."""
         custom_config = mock_config.copy()
@@ -80,7 +80,7 @@ class TestClickhouseDriverUnit:
         assert driver._connect_timeout == 20
         assert driver._read_timeout == 30
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.parametrize("echo,timeout", [
         (True, 15),
         (False, 25),
@@ -99,7 +99,7 @@ class TestClickhouseDriverUnit:
         if echo is not None:
             assert driver._echo == echo
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_uri_construction(self, driver, mock_config):
         """测试ClickHouse URI构建逻辑."""
         uri = driver._get_uri()
@@ -111,7 +111,7 @@ class TestClickhouseDriverUnit:
 
         assert uri == expected_uri
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_uri_construction_custom_timeouts(self, driver, mock_config):
         """测试ClickHouse URI构建（自定义超时）."""
         custom_config = mock_config.copy()
@@ -124,25 +124,25 @@ class TestClickhouseDriverUnit:
         assert "connect_timeout=25" in uri
         assert "read_timeout=45" in uri
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_health_check_query(self, driver):
         """测试健康检查查询."""
         query = driver._health_check_query()
         assert query == "SELECT 1"
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_inheritance(self, driver):
         """验证继承关系."""
         assert isinstance(driver, DatabaseDriverBase)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_base_attributes(self, driver):
         """验证基类属性初始化."""
         assert driver._connection_stats is not None
         assert driver._lock is not None
         assert isinstance(driver.loggers, list)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_backwards_compatibility(self, driver):
         """测试向后兼容属性."""
         # 测试engine属性
@@ -293,7 +293,7 @@ class TestClickhouseDriverLogging:
             "db": "test_db",
         }
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_logger_integration(self, driver):
         """测试ClickHouse Logger集成."""
         if GLOG is None:
@@ -306,7 +306,7 @@ class TestClickhouseDriverLogging:
         if GLOG in driver.loggers:
             assert GLOG in driver.loggers
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_logger_singleton_behavior(self, driver, mock_config):
         """测试ClickHouse Logger单例行为."""
         driver1 = driver
@@ -317,7 +317,7 @@ class TestClickhouseDriverLogging:
             assert driver1._clickhouse_logger is driver2._clickhouse_logger
             assert GinkgoClickhouse._clickhouse_logger is driver1._clickhouse_logger
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_log_method(self, driver):
         """测试日志方法."""
         # 测试日志方法不抛出异常
@@ -334,7 +334,7 @@ class TestClickhouseDriverLogging:
 class TestClickhouseDriverErrorHandling:
     """测试ClickHouse驱动错误处理."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_invalid_config_error_handling(self):
         """测试无效配置的错误处理."""
         if GinkgoClickhouse is None:
@@ -359,7 +359,7 @@ class TestClickhouseDriverErrorHandling:
             # 如果在初始化时就失败，这也是可以接受的
             pass
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_clickhouse_multiple_instances_independence(self):
         """测试多个ClickHouse驱动实例的独立性."""
         if GinkgoClickhouse is None:
@@ -388,7 +388,7 @@ class TestClickhouseDriverErrorHandling:
 class TestClickhouseDriverPerformance:
     """测试ClickHouse驱动性能."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.slow
     def test_clickhouse_engine_creation_performance(self):
         """测试引擎创建性能."""

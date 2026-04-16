@@ -18,7 +18,7 @@ if _path not in sys.path:
 from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverConstruction:
     """1. Redis驱动构造测试"""
@@ -54,7 +54,7 @@ class TestRedisDriverConstruction:
         assert driver._port == 26379
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverConnectionManagement:
     """2. Redis驱动连接管理测试"""
@@ -108,7 +108,7 @@ class TestRedisDriverConnectionManagement:
         assert redis is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverBasicOperations:
     """3. Redis驱动基本操作测试"""
@@ -174,7 +174,7 @@ class TestRedisDriverBasicOperations:
             mock_redis.zrange.assert_called_with("zset", 0, -1)
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverCachingStrategies:
     """4. Redis驱动缓存策略测试"""
@@ -221,7 +221,7 @@ class TestRedisDriverCachingStrategies:
             mock_redis.delete.assert_called_with("cache_key")
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverPubSubSystem:
     """5. Redis驱动发布订阅系统测试"""
@@ -281,7 +281,7 @@ class TestRedisDriverPubSubSystem:
             mock_pubsub.close.assert_called()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverDistributedLocking:
     """6. Redis驱动分布式锁测试"""
@@ -329,7 +329,7 @@ class TestRedisDriverDistributedLocking:
             assert result is None  # Failed to acquire
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverTransactionSupport:
     """7. Redis驱动事务支持测试"""
@@ -390,7 +390,7 @@ class TestRedisDriverTransactionSupport:
                 pipe.execute()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverHealthCheck:
     """8. Redis驱动健康检查测试"""
@@ -438,7 +438,7 @@ class TestRedisDriverHealthCheck:
             mock_redis.slowlog_get.assert_called()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverThreadSafety:
     """9. Redis驱动线程安全测试"""
@@ -506,7 +506,7 @@ class TestRedisDriverThreadSafety:
         assert driver.max_try == 5
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestRedisDriverErrorHandling:
     """10. Redis驱动错误处理测试"""

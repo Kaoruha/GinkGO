@@ -24,7 +24,7 @@ from ginkgo.libs.utils.health_check import (
 # ============================================================
 # check_port_open
 # ============================================================
-@pytest.mark.unit
+@pytest.mark.integration
 class TestCheckPortOpen:
     """check_port_open 端口检查测试（使用本地临时端口）"""
 
@@ -72,7 +72,7 @@ class TestCheckPortOpen:
 # ============================================================
 # wait_for_service
 # ============================================================
-@pytest.mark.unit
+@pytest.mark.integration
 class TestWaitForService:
     """wait_for_service 等待服务就绪测试"""
 
@@ -133,7 +133,7 @@ class TestWaitForService:
 # ============================================================
 # wait_for_services
 # ============================================================
-@pytest.mark.unit
+@pytest.mark.integration
 class TestWaitForServices:
     """wait_for_services 多服务等待测试"""
 
@@ -189,7 +189,7 @@ class TestWaitForServices:
 # ============================================================
 # get_ginkgo_services_config
 # ============================================================
-@pytest.mark.unit
+@pytest.mark.integration
 class TestGetGinkgoServicesConfig:
     """get_ginkgo_services_config 服务配置获取测试"""
 
