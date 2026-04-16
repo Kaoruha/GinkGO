@@ -15,9 +15,10 @@ Portfolio 参数保存形式验证测试
 import pytest
 import requests
 from ginkgo import services
+from config import config
 
 
-API_BASE = "http://192.168.50.12:8000"
+API_BASE = config.api_base
 
 
 @pytest.fixture(scope="module")
@@ -29,7 +30,7 @@ def cleanup_portfolio():
     # 清理
     for uuid in created_uuids:
         try:
-            requests.delete(f"{API_BASE}/api/v1/portfolio/{uuid}")
+            requests.delete(f"{API_BASE}/portfolio/{uuid}")
         except:
             pass
 
@@ -78,13 +79,13 @@ def test_portfolio_param_save_format(cleanup_portfolio):
 
     # 2. 获取实际组件UUID
     print("\n📋 获取组件UUID...")
-    components_resp = requests.get(f"{API_BASE}/api/v1/components/selectors")
+    components_resp = requests.get(f"{API_BASE}/components/selectors")
     selectors = components_resp.json().get("data", [])
 
-    components_resp2 = requests.get(f"{API_BASE}/api/v1/components/sizers")
+    components_resp2 = requests.get(f"{API_BASE}/components/sizers")
     sizers = components_resp2.json().get("data", [])
 
-    components_resp3 = requests.get(f"{API_BASE}/api/v1/components/strategies")
+    components_resp3 = requests.get(f"{API_BASE}/components/strategies")
     strategies = components_resp3.json().get("data", [])
 
     # 找到需要的组件
@@ -114,7 +115,7 @@ def test_portfolio_param_save_format(cleanup_portfolio):
 
     # 3. 创建Portfolio
     print("\n📝 创建Portfolio...")
-    response = requests.post(f"{API_BASE}/api/v1/portfolio", json=test_config)
+    response = requests.post(f"{API_BASE}/portfolio", json=test_config)
     assert response.status_code == 200, f"创建失败: {response.text}"
 
     result = response.json()
@@ -181,7 +182,7 @@ def test_portfolio_param_save_format(cleanup_portfolio):
 
     # 6. 验证通过API获取的配置
     print("\n📋 验证API返回配置...")
-    api_resp = requests.get(f"{API_BASE}/api/v1/portfolio/{portfolio_uuid}")
+    api_resp = requests.get(f"{API_BASE}/portfolio/{portfolio_uuid}")
     assert api_resp.status_code == 200
 
     api_data = api_resp.json()
