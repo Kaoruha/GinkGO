@@ -188,12 +188,13 @@ strict_equality = true
 [tool.pytest.ini_options]
 # 测试发现配置
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
+python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-minversion = "6.0"
+minversion = "7.0"
+pythonpath = [".", "src"]
 
-# 运行配置 - 合并自test/pytest.ini的完整配置
+# 运行配置
 addopts = [
     "-v",                    # 详细输出
     "--strict-markers",      # 严格标记模式
@@ -201,6 +202,7 @@ addopts = [
     "--tb=short",           # 简短traceback
     "--color=yes",          # 彩色输出
     "--durations=10",       # 显示最慢的10个测试
+    "--timeout=60",         # 单测试超时
 ]
 
 # 标记定义 - 精简版本
@@ -231,6 +233,9 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+timeout = 300
+console_output_style = "progress"
 
 # 所需插件
 required_plugins = ["pytest-cov"]
