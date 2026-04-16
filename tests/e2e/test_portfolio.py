@@ -14,6 +14,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import MODAL, BTN_PRIMARY, SELECT, INPUT, MESSAGE, INPUT_NUMBER
 
 
 # 测试配置
@@ -53,8 +54,7 @@ class TestPortfolioCRUD:
         """每个测试前准备"""
         self.page = authenticated_page
         self.page.goto(f"{config.web_ui_url}/portfolio")
-        self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_load_state("domcontentloaded")
 
     def test_01_create_portfolio(self):
         """创建投资组合"""
@@ -62,17 +62,15 @@ class TestPortfolioCRUD:
         page.set_default_timeout(120000)
 
         # 点击创建按钮
-        page.click('button.ant-btn-primary:has-text("创建组合")')
-        page.wait_for_timeout(1000)
+        page.click(f'{BTN_PRIMARY}:has-text("创建组合")')
 
         # 验证模态框打开
-        modal = page.locator(".ant-modal")
+        modal = page.locator(MODAL)
         expect(modal).to_be_visible()
 
         # 填写基本信息
-        page.fill('.ant-modal input[placeholder="组合名称"]', TEST_PORTFOLIO_NAME)
-        page.fill(".ant-modal .ant-input-number-input", "100000")
-        page.wait_for_timeout(300)
+        page.fill(f'{MODAL} input[placeholder="组合名称"]', TEST_PORTFOLIO_NAME)
+        page.fill(f"{MODAL} {INPUT_NUMBER}-input", "100000")
 
         # 添加选股器
         self._add_component(
@@ -102,11 +100,10 @@ class TestPortfolioCRUD:
         )
 
         # 提交
-        page.click(".ant-modal button.ant-btn-primary")
-        page.wait_for_timeout(3000)
+        page.click(f"{MODAL} {BTN_PRIMARY}")
 
         # 验证成功
-        success_msg = page.locator(".ant-message-success")
+        success_msg = page.locator(f"{MESSAGE}-success")
         expect(success_msg).to_be_visible(timeout=5000)
         print(f"✅ 投资组合创建成功: {TEST_PORTFOLIO_NAME}")
 
@@ -115,9 +112,9 @@ class TestPortfolioCRUD:
         page = self.page
 
         # 搜索 - 更新选择器
-        search_input = page.locator("input[placeholder*=\"搜索\"], .ant-input-search input").first
+        search_input = page.locator('input[placeholder*="搜索"], .ant-input-search input').first
         search_input.fill(TEST_PORTFOLIO_NAME)
-        page.wait_for_timeout(1500)
+        page.locator(".portfolio-card").first.wait_for(state="visible", timeout=3000)
 
         # 验证搜索结果
         cards = page.locator(".portfolio-card").all()
@@ -138,14 +135,14 @@ class TestPortfolioCRUD:
 
         # 点击"回测"筛选
         page.click('.ant-radio-button-wrapper:has-text("回测")')
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         after_cards = page.locator(".portfolio-card").all()
         print(f"筛选前: {before_count}, 筛选后: {len(after_cards)}")
 
         # 恢复全部
         page.click('.ant-radio-button-wrapper:has-text("全部")')
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         print("✅ 模式筛选功能正常")
 
@@ -155,12 +152,12 @@ class TestPortfolioCRUD:
 
         # 搜索并点击
         page.fill(".ant-input-search input", TEST_PORTFOLIO_NAME)
-        page.wait_for_timeout(1000)
+        page.locator(".portfolio-card").first.wait_for(state="visible", timeout=3000)
 
         card = page.locator(".portfolio-card").first
         expect(card).to_be_visible()
         card.click()
-        page.wait_for_timeout(3000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 验证 URL
         current_url = page.url
@@ -203,7 +200,7 @@ class TestPortfolioCRUD:
 
         # 搜索
         page.fill(".ant-input-search input", TEST_PORTFOLIO_NAME)
-        page.wait_for_timeout(1000)
+        page.locator(".portfolio-card").first.wait_for(state="visible", timeout=3000)
 
         card = page.locator(".portfolio-card").first
         expect(card).to_be_visible()
@@ -211,31 +208,20 @@ class TestPortfolioCRUD:
         # 点击更多按钮
         more_btn = card.locator(".ant-dropdown-trigger")
         more_btn.click()
-        page.wait_for_timeout(800)
 
         # 点击删除 - 查找包含"删除"的菜单项
         delete_item = page.locator(".ant-dropdown-menu-item:has-text('删除')")
-        if delete_item.is_visible():
-            delete_item.click()
-        else:
-            # 备选方案：点击第二个菜单项
-            menu_items = page.locator(".ant-dropdown-menu-item").all()
-            if len(menu_items) >= 2:
-                menu_items[1].click()
-            else:
-                print("⚠️ 无法找到删除菜单项")
-                return
-        page.wait_for_timeout(800)
+        expect(delete_item).to_be_visible(timeout=5000)
+        delete_item.click()
 
         # 确认删除
-        page.click(".ant-modal .ant-btn-dangerous")
-        page.wait_for_timeout(3000)
+        page.click(f"{MODAL} .ant-btn-dangerous")
+        page.wait_for_load_state("domcontentloaded")
 
         # 验证删除成功
         page.fill(".ant-input-search input", "")
-        page.wait_for_timeout(500)
         page.fill(".ant-input-search input", TEST_PORTFOLIO_NAME)
-        page.wait_for_timeout(1500)
+        page.locator(".portfolio-card, .ant-empty").first.wait_for(state="visible", timeout=3000)
 
         remaining = page.locator(".portfolio-card").all()
         empty = page.locator(".ant-empty")
@@ -250,29 +236,24 @@ class TestPortfolioCRUD:
         print(f"添加 {component_type}: {component_name}")
 
         # 点击类型按钮
-        page.click(f".ant-modal .type-btn:nth-child({type_btn_index})")
-        page.wait_for_timeout(300)
+        page.click(f"{MODAL} .type-btn:nth-child({type_btn_index})")
 
         # 打开下拉选择
-        page.click(".ant-modal .component-selector .ant-select-selector")
-        page.wait_for_timeout(500)
+        page.click(f"{MODAL} .component-selector {SELECT}-selector")
 
         # 输入组件名称
         page.keyboard.type(component_name)
-        page.wait_for_timeout(500)
         page.keyboard.press("Enter")
-        page.wait_for_timeout(1500)
+        expect(page.locator(f"{MODAL} .config-section .param-row").first).to_be_visible(timeout=3000)
 
         # 填写参数
         print(f"配置 {component_type} 参数:")
         for key, value in params.items():
             self._fill_param_by_label(page, key, value)
 
-        page.wait_for_timeout(500)
-
     def _fill_param_by_label(self, page, label: str, value: str):
         """根据 label 填写参数"""
-        param_rows = page.locator(".ant-modal .config-section .param-row").all()
+        param_rows = page.locator(f"{MODAL} .config-section .param-row").all()
 
         for row in param_rows:
             label_el = row.locator(".param-label")
@@ -280,14 +261,14 @@ class TestPortfolioCRUD:
                 label_text = label_el.text_content()
                 if label and label_text and label in label_text:
                     # 尝试数字输入框
-                    num_input = row.locator(".ant-input-number-input")
+                    num_input = row.locator(f"{INPUT_NUMBER}-input")
                     if num_input.is_visible():
                         num_input.fill(str(value))
                         print(f"  ✓ {label} = {value}")
                         return True
 
                     # 尝试普通输入框
-                    input_el = row.locator(".ant-input")
+                    input_el = row.locator(INPUT)
                     if input_el.is_visible():
                         input_el.fill(str(value))
                         print(f"  ✓ {label} = {value}")

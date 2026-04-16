@@ -11,6 +11,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import CARD, TABLE, TABLE_ROW, SPIN
 
 
 @pytest.mark.e2e
@@ -21,8 +22,7 @@ class TestSystemStatus:
         """系统状态页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 系统状态页面加载成功")
@@ -31,11 +31,10 @@ class TestSystemStatus:
         """系统概览显示"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查统计卡片
-        stat_cards = page.locator(".ant-statistic, .ant-card").all()
+        stat_cards = page.locator(f".ant-statistic, {CARD}").all()
         print(f"统计卡片数量: {len(stat_cards)}")
 
         # 应该显示一些系统信息
@@ -46,11 +45,10 @@ class TestSystemStatus:
         """基础设施状态显示"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查基础设施状态卡片（MySQL, Redis, ClickHouse 等）
-        infra_section = page.locator(".ant-card:has-text('基础设施'), .ant-card:has-text('MySQL')")
+        infra_section = page.locator(f"{CARD}:has-text('基础设施'), {CARD}:has-text('MySQL')")
         if infra_section.count() > 0:
             print("✅ 基础设施状态显示正常")
         else:
@@ -61,16 +59,13 @@ class TestSystemStatus:
         """Worker 列表显示"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查组件详情表格
-        worker_table = page.locator(".ant-card:has-text('组件') table, .ant-card:has-text('Worker') table")
-        if worker_table.is_visible():
-            rows = page.locator(".ant-table-tbody tr").all()
-            print(f"Worker/组件数量: {len(rows)}")
-        else:
-            print("⚠️ Worker 列表暂无数据")
+        worker_table = page.locator(f"{CARD}:has-text('组件') table, {CARD}:has-text('Worker') table")
+        expect(worker_table).to_be_visible(timeout=5000)
+        rows = page.locator(f"{TABLE} tbody tr").all()
+        print(f"Worker/组件数量: {len(rows)}")
 
         print("✅ Worker 列表检查完成")
 
@@ -78,15 +73,13 @@ class TestSystemStatus:
         """自动刷新开关"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查自动刷新开关
         refresh_switch = page.locator(".ant-switch, button:has-text('自动刷新')")
         if refresh_switch.count() > 0:
             # 点击切换
             refresh_switch.first.click()
-            page.wait_for_timeout(500)
             refresh_switch.first.click()
             print("✅ 自动刷新开关功能正常")
         else:
@@ -101,8 +94,7 @@ class TestWorkerManagement:
         """Worker 管理页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/workers")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ Worker 管理页面加载成功")
@@ -116,8 +108,7 @@ class TestAlertCenter:
         """告警中心页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/alerts")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 告警中心页面加载成功")
