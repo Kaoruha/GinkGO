@@ -28,25 +28,18 @@ import sys
 # 辅助：为 MPortfolioConfig 模型注册 mock（模型文件尚不存在）
 # ============================================================
 
-# 由于 MPortfolioConfig 模型可能尚未创建，使用 mock 模块注册
-MOCK_MODEL_REGISTERED = False
 
-
-def _ensure_model_mock():
-    """确保 model_portfolio_config 模块可导入"""
-    global MOCK_MODEL_REGISTERED
-    if MOCK_MODEL_REGISTERED:
-        return
+@pytest.fixture(autouse=True)
+def _mock_model_module(monkeypatch):
+    """确保 model_portfolio_config 模块可导入，使用 monkeypatch 自动清理"""
     if "ginkgo.data.models.model_portfolio_config" in sys.modules:
-        MOCK_MODEL_REGISTERED = True
+        yield
         return
 
-    # 创建模拟模型模块
     import types
     mock_model_module = types.ModuleType("ginkgo.data.models.model_portfolio_config")
     mock_model_module.__path__ = []
 
-    # 创建模拟模型类（继承自 MMongoBase）
     from ginkgo.data.models.model_mongobase import MMongoBase
 
     class MockPortfolioConfig(MMongoBase):
@@ -67,8 +60,8 @@ def _ensure_model_mock():
         user_uuid: str = ""
 
     mock_model_module.MPortfolioConfig = MockPortfolioConfig
-    sys.modules["ginkgo.data.models.model_portfolio_config"] = mock_model_module
-    MOCK_MODEL_REGISTERED = True
+    monkeypatch.setitem(sys.modules, "ginkgo.data.models.model_portfolio_config", mock_model_module)
+    yield
 
 
 # ============================================================
@@ -87,7 +80,6 @@ def mock_driver():
 @pytest.fixture
 def crud(mock_driver):
     """构造 PortfolioConfigCRUD 实例，注入 mock 驱动"""
-    _ensure_model_mock()
     with patch("ginkgo.data.crud.base_mongo_crud.GLOG", MagicMock()), \
          patch("ginkgo.data.crud.base_mongo_crud.ModelCRUDMapping.register"):
         from ginkgo.data.crud.portfolio_config_crud import PortfolioConfigCRUD
@@ -106,7 +98,6 @@ class TestPortfolioConfigCRUDConstruction:
     @pytest.mark.unit
     def test_model_class_is_correct(self, crud):
         """验证 model_class 为 MPortfolioConfig"""
-        _ensure_model_mock()
         from ginkgo.data.models.model_portfolio_config import MPortfolioConfig
         assert crud.model_class is MPortfolioConfig
 
@@ -124,7 +115,6 @@ class TestPortfolioConfigCRUDConstruction:
     @pytest.mark.unit
     def test_class_level_model_class(self):
         """类属性 _model_class 正确设置"""
-        _ensure_model_mock()
         with patch("ginkgo.data.crud.base_mongo_crud.GLOG", MagicMock()), \
              patch("ginkgo.data.crud.base_mongo_crud.ModelCRUDMapping.register"):
             from ginkgo.data.crud.portfolio_config_crud import PortfolioConfigCRUD
