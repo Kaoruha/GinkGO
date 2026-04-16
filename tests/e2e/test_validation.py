@@ -11,6 +11,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import SELECT, INPUT_NUMBER, INPUT
 
 
 @pytest.mark.e2e
@@ -21,8 +22,7 @@ class TestWalkForward:
         """Walk-Forward 页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/walkforward")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ Walk-Forward 页面加载成功")
@@ -31,12 +31,11 @@ class TestWalkForward:
         """Walk-Forward 表单元素"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/walkforward")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查表单元素
-        backtest_select = page.locator(".ant-select, select")
-        n_folds_input = page.locator("input[type='number'], .ant-input-number")
+        backtest_select = page.locator(f"{SELECT}, select")
+        n_folds_input = page.locator(f"input[type='number'], {INPUT_NUMBER}")
 
         if backtest_select.count() > 0:
             print("✅ 回测选择器存在")
@@ -54,8 +53,7 @@ class TestMonteCarlo:
         """蒙特卡洛页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/montecarlo")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 蒙特卡洛页面加载成功")
@@ -64,8 +62,7 @@ class TestMonteCarlo:
         """蒙特卡洛表单元素"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/montecarlo")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查模拟次数输入框
         sim_input = page.locator("input[placeholder*='模拟'], input[type='number']")
@@ -88,8 +85,7 @@ class TestSensitivity:
         """敏感性分析页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/sensitivity")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 敏感性分析页面加载成功")
@@ -98,11 +94,10 @@ class TestSensitivity:
         """敏感性分析表单元素"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/stage2/sensitivity")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查参数输入
-        param_input = page.locator("input, textarea")
+        param_input = page.locator(f"{INPUT}, textarea")
         if param_input.count() > 0:
             print("✅ 参数输入框存在")
 
@@ -117,8 +112,7 @@ class TestFactorResearch:
         """IC 分析页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/research/ic")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ IC 分析页面加载成功")
@@ -127,8 +121,7 @@ class TestFactorResearch:
         """因子分层页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/research/layering")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 因子分层页面加载成功")
@@ -137,8 +130,7 @@ class TestFactorResearch:
         """因子衰减页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/research/decay")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 因子衰减页面加载成功")
@@ -147,8 +139,7 @@ class TestFactorResearch:
         """因子比较页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/research/compare")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 因子比较页面加载成功")
@@ -157,8 +148,7 @@ class TestFactorResearch:
         """因子正交化页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/research/orthogonalize")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 因子正交化页面加载成功")
@@ -172,8 +162,7 @@ class TestOptimization:
         """网格搜索页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/optimization/grid")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 网格搜索页面加载成功")
@@ -182,8 +171,7 @@ class TestOptimization:
         """遗传算法页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/optimization/genetic")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 遗传算法页面加载成功")
@@ -192,8 +180,7 @@ class TestOptimization:
         """贝叶斯优化页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/optimization/bayesian")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 贝叶斯优化页面加载成功")

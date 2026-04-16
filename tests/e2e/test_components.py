@@ -13,15 +13,16 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .config import config
+from .selectors import TABLE, TABLE_ROW, INPUT, CARD, TABS
 
 
 # 组件类型配置
 COMPONENT_TYPES = [
-    {"name": "策略", "path": "/components/strategies", "selector": ".strategy-item, .ant-table-row"},
-    {"name": "选股器", "path": "/components/selectors", "selector": ".selector-item, .ant-table-row"},
-    {"name": "仓位管理", "path": "/components/sizers", "selector": ".sizer-item, .ant-table-row"},
-    {"name": "风控", "path": "/components/risks", "selector": ".risk-item, .ant-table-row"},
-    {"name": "分析器", "path": "/components/analyzers", "selector": ".analyzer-item, .ant-table-row"},
+    {"name": "策略", "path": "/components/strategies", "selector": f".strategy-item, {TABLE_ROW}"},
+    {"name": "选股器", "path": "/components/selectors", "selector": f".selector-item, {TABLE_ROW}"},
+    {"name": "仓位管理", "path": "/components/sizers", "selector": f".sizer-item, {TABLE_ROW}"},
+    {"name": "风控", "path": "/components/risks", "selector": f".risk-item, {TABLE_ROW}"},
+    {"name": "分析器", "path": "/components/analyzers", "selector": f".analyzer-item, {TABLE_ROW}"},
 ]
 
 
@@ -33,8 +34,7 @@ class TestComponentsOverview:
         """组件页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 组件页面加载成功")
@@ -43,18 +43,16 @@ class TestComponentsOverview:
         """组件标签页切换"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查标签页
-        tabs = page.locator(".ant-tabs-tab").all()
+        tabs = page.locator(f"{TABS}-tab").all()
         print(f"标签页数量: {len(tabs)}")
 
         if tabs:
             # 点击不同的标签页
             for i, tab in enumerate(tabs[:3]):  # 只测试前3个
                 tab.click()
-                page.wait_for_timeout(500)
             print("✅ 标签页切换正常")
 
 
@@ -66,15 +64,14 @@ class TestStrategyList:
         """策略列表页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/strategies")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         # 检查表格或卡片
-        table = page.locator(".ant-table")
-        cards = page.locator(".ant-card")
+        table = page.locator(TABLE)
+        cards = page.locator(CARD)
 
         if table.is_visible():
-            rows = page.locator(".ant-table-tbody tr").all()
+            rows = page.locator(f"{TABLE_ROW}").all()
             print(f"策略数量: {len(rows)}")
         elif cards.count() > 0:
             print(f"策略卡片数量: {cards.count()}")
@@ -87,13 +84,12 @@ class TestStrategyList:
         """策略搜索功能"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/strategies")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("domcontentloaded")
 
-        search_input = page.locator(".ant-input-search input, input[placeholder*='搜索']")
+        search_input = page.locator(f".ant-input-search {INPUT}, input[placeholder*='搜索']")
         if search_input.is_visible():
             search_input.fill("random")
-            page.wait_for_timeout(1000)
+            page.locator(TABLE_ROW).first.wait_for(state="visible", timeout=5000)
             print("✅ 策略搜索功能正常")
 
 
@@ -105,8 +101,7 @@ class TestSelectorList:
         """选股器列表页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/selectors")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 选股器列表页面加载成功")
@@ -120,8 +115,7 @@ class TestSizerList:
         """仓位管理器列表页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/sizers")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 仓位管理器列表页面加载成功")
@@ -135,8 +129,7 @@ class TestRiskList:
         """风控管理器列表页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/risks")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 风控管理器列表页面加载成功")
@@ -150,8 +143,7 @@ class TestAnalyzerList:
         """分析器列表页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/components/analyzers")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("domcontentloaded")
 
         expect(page.locator("body")).to_be_visible()
         print("✅ 分析器列表页面加载成功")
