@@ -71,6 +71,20 @@ class TestMysqlModel(MMysqlBase if MMysqlBase else object):
         created_at = Column(DateTime, default=datetime.now)
 
 
+import pytest
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _cleanup_test_models():
+    """清理测试创建的 SQLAlchemy 模型 metadata"""
+    yield
+    # 模块结束后清理测试模型注册的表
+    for model_class in [TestClickModel, TestMysqlModel]:
+        table_name = getattr(model_class, '__tablename__', None)
+        if table_name and table_name in model_class.metadata.tables:
+            model_class.metadata.remove(model_class.metadata.tables[table_name])
+
+
 class TestConnectionManager(unittest.TestCase):
     """ConnectionManager类测试 - 使用真实数据库连接"""
 
