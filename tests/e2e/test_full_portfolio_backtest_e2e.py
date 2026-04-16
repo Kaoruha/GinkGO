@@ -15,9 +15,10 @@ import pytest
 import requests
 import time
 from datetime import datetime
+from config import config
 
 # API配置
-API_BASE = "http://192.168.50.12:8000"
+API_BASE = config.api_base
 
 
 @pytest.fixture(scope="module")
@@ -40,14 +41,14 @@ def cleanup_portfolio(api_client):
     # 清理回测任务
     for task_id in created_backtest_ids:
         try:
-            api_client.delete(f"{API_BASE}/api/v1/backtest/{task_id}")
+            api_client.delete(f"{API_BASE}/backtest/{task_id}")
         except:
             pass
 
     # 清理Portfolio
     for portfolio_id in created_portfolio_ids:
         try:
-            api_client.delete(f"{API_BASE}/api/v1/portfolio/{portfolio_id}")
+            api_client.delete(f"{API_BASE}/portfolio/{portfolio_id}")
         except:
             pass
 
@@ -68,7 +69,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     print("\n📋 步骤1: 获取组件UUID")
 
     # 获取selectors
-    selectors_resp = api_client.get(f"{API_BASE}/api/v1/components/selectors")
+    selectors_resp = api_client.get(f"{API_BASE}/components/selectors")
     assert selectors_resp.status_code == 200
     selectors = selectors_resp.json().get("data", [])
     fixed_selector = next((s for s in selectors if "fixed" in s["name"].lower()), None)
@@ -76,7 +77,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     print(f"  Selector: {fixed_selector['name']} ({fixed_selector['uuid'][:16]}...)")
 
     # 获取sizers
-    sizers_resp = api_client.get(f"{API_BASE}/api/v1/components/sizers")
+    sizers_resp = api_client.get(f"{API_BASE}/components/sizers")
     assert sizers_resp.status_code == 200
     sizers = sizers_resp.json().get("data", [])
     fixed_sizer = next((s for s in sizers if "fixed" in s["name"].lower()), None)
@@ -84,7 +85,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     print(f"  Sizer: {fixed_sizer['name']} ({fixed_sizer['uuid'][:16]}...)")
 
     # 获取strategies
-    strategies_resp = api_client.get(f"{API_BASE}/api/v1/components/strategies")
+    strategies_resp = api_client.get(f"{API_BASE}/components/strategies")
     assert strategies_resp.status_code == 200
     strategies = strategies_resp.json().get("data", [])
 
@@ -142,7 +143,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
         ]
     }
 
-    response = api_client.post(f"{API_BASE}/api/v1/portfolio", json=portfolio_payload)
+    response = api_client.post(f"{API_BASE}/portfolio", json=portfolio_payload)
     assert response.status_code == 200, f"创建Portfolio失败: {response.text}"
 
     portfolio_result = response.json()
@@ -157,7 +158,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n🔍 步骤3: 验证Portfolio配置")
 
-    response = api_client.get(f"{API_BASE}/api/v1/portfolio/{portfolio_id}")
+    response = api_client.get(f"{API_BASE}/portfolio/{portfolio_id}")
     assert response.status_code == 200
 
     portfolio = response.json()
@@ -197,7 +198,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
         }
     }
 
-    response = api_client.post(f"{API_BASE}/api/v1/backtest", json=backtest_payload)
+    response = api_client.post(f"{API_BASE}/backtest", json=backtest_payload)
     assert response.status_code == 200, f"创建回测任务失败: {response.text}"
 
     backtest_result = response.json()
@@ -218,7 +219,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     final_status = None
 
     while time.time() - start_time < max_wait:
-        response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}")
+        response = api_client.get(f"{API_BASE}/backtest/{backtest_id}")
         assert response.status_code == 200
 
         task_status = response.json()
@@ -248,7 +249,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n📊 步骤6: 验证BacktestTask记录")
 
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}")
+    response = api_client.get(f"{API_BASE}/backtest/{backtest_id}")
     assert response.status_code == 200
 
     backtest_task = response.json()
@@ -275,7 +276,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n📈 步骤7: 验证AnalyzerRecord记录")
 
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}/analyzers")
+    response = api_client.get(f"{API_BASE}/backtest/{backtest_id}/analyzers")
     assert response.status_code == 200
 
     analyzers_result = response.json()
@@ -297,7 +298,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n📊 步骤8: 验证净值曲线")
 
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}/netvalue")
+    response = api_client.get(f"{API_BASE}/backtest/{backtest_id}/netvalue")
     assert response.status_code == 200
 
     netvalue = response.json()
@@ -313,7 +314,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n📡 步骤9: 验证信号记录")
 
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}/signals")
+    response = api_client.get(f"{API_BASE}/backtest/{backtest_id}/signals")
     assert response.status_code == 200
 
     signals_result = response.json()
@@ -332,7 +333,7 @@ def test_full_portfolio_to_backtest_flow(api_client, cleanup_portfolio):
     # ============================================================
     print("\n📋 步骤10: 验证订单记录")
 
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{backtest_id}/orders")
+    response = api_client.get(f"{API_BASE}/backtest/{backtest_id}/orders")
     assert response.status_code == 200
 
     orders_result = response.json()

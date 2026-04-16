@@ -12,8 +12,9 @@
 import pytest
 import requests
 from ginkgo import services
+from config import config
 
-API_BASE = "http://192.168.50.12:8000"
+API_BASE = config.api_base
 
 
 @pytest.fixture(scope="module")
@@ -33,14 +34,14 @@ def cleanup_portfolio():
     
     for uuid in created_uuids:
         try:
-            requests.delete(f"{API_BASE}/api/v1/portfolio/{uuid}")
+            requests.delete(f"{API_BASE}/portfolio/{uuid}")
         except:
             pass
 
 
 def get_component_with_params(component_type, name_filter=None):
     """获取有参数定义的组件"""
-    resp = requests.get(f"{API_BASE}/api/v1/components/{component_type}")
+    resp = requests.get(f"{API_BASE}/components/{component_type}")
     components = resp.json().get("data", [])
     
     # 优先找有参数的组件
@@ -84,7 +85,7 @@ def test_empty_config_uses_defaults(api_client, cleanup_portfolio):
     for p in selector.get("params", []):
         print(f"    - {p['name']}: {p.get('default', 'N/A')}")
     
-    resp = api_client.post(f"{API_BASE}/api/v1/portfolio", json=config)
+    resp = api_client.post(f"{API_BASE}/portfolio", json=config)
     assert resp.status_code == 200
     
     portfolio_uuid = resp.json()["uuid"]
@@ -152,7 +153,7 @@ def test_partial_config_uses_defaults(api_client, cleanup_portfolio):
     print(f"  Config只包含: {second_param['name']} = {test_value}")
     print(f"  期望: 第一个参数使用默认值")
     
-    resp = api_client.post(f"{API_BASE}/api/v1/portfolio", json=config)
+    resp = api_client.post(f"{API_BASE}/portfolio", json=config)
     assert resp.status_code == 200
     
     portfolio_uuid = resp.json()["uuid"]
@@ -192,10 +193,10 @@ def test_all_components_save_params(api_client, cleanup_portfolio):
     # 获取各类型组件
     selector = get_component_with_params("selectors", "fixed")
     
-    resp_siz = api_client.get(f"{API_BASE}/api/v1/components/sizers")
+    resp_siz = api_client.get(f"{API_BASE}/components/sizers")
     sizers = [s for s in resp_siz.json().get("data", []) if "fixed" in s["name"].lower()]
     
-    resp_str = api_client.get(f"{API_BASE}/api/v1/components/strategies")
+    resp_str = api_client.get(f"{API_BASE}/components/strategies")
     strategies = [s for s in resp_str.json().get("data", []) if s.get("params")]
     
     if not all([selector, sizers, strategies]):
@@ -226,7 +227,7 @@ def test_all_components_save_params(api_client, cleanup_portfolio):
     print(f"  Sizer: {sizers[0]['name']}")
     print(f"  策略: {strategies[0]['name']}")
     
-    resp = api_client.post(f"{API_BASE}/api/v1/portfolio", json=config)
+    resp = api_client.post(f"{API_BASE}/portfolio", json=config)
     assert resp.status_code == 200
     
     portfolio_uuid = resp.json()["uuid"]
@@ -301,7 +302,7 @@ def test_portfolio_load_with_params(api_client, cleanup_portfolio):
     print(f"\n创建Portfolio: {portfolio_name}")
     print(f"  Config codes: {test_codes}")
     
-    resp = api_client.post(f"{API_BASE}/api/v1/portfolio", json=config)
+    resp = api_client.post(f"{API_BASE}/portfolio", json=config)
     assert resp.status_code == 200
     
     portfolio_uuid = resp.json()["uuid"]
