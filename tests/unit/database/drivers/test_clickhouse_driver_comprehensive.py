@@ -18,7 +18,7 @@ if _path not in sys.path:
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverConstruction:
     """1. ClickHouse驱动构造测试"""
@@ -72,7 +72,7 @@ class TestClickHouseDriverConstruction:
         assert call_kwargs['pool_recycle'] == 7200
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverConnectionManagement:
     """2. ClickHouse驱动连接管理测试"""
@@ -116,7 +116,7 @@ class TestClickHouseDriverConnectionManagement:
         assert driver._read_timeout == 30
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverHealthCheck:
     """3. ClickHouse驱动健康检查测试"""
@@ -155,7 +155,7 @@ class TestClickHouseDriverHealthCheck:
         assert driver._health_check_query() == "SELECT 1"
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverQueryOptimization:
     """4. ClickHouse驱动查询优化测试"""
@@ -201,7 +201,7 @@ class TestClickHouseDriverQueryOptimization:
         assert driver.session is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverTimeSeriesSupport:
     """5. ClickHouse驱动时序数据支持测试"""
@@ -242,7 +242,7 @@ class TestClickHouseDriverTimeSeriesSupport:
         assert driver.session is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverStreamingQueries:
     """6. ClickHouse驱动流式查询测试"""
@@ -291,7 +291,7 @@ class TestClickHouseDriverStreamingQueries:
         assert hasattr(driver, 'get_streaming_session')
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverDataTypes:
     """7. ClickHouse驱动数据类型测试"""
@@ -327,7 +327,7 @@ class TestClickHouseDriverDataTypes:
         assert hasattr(types, 'Nullable')
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverPerformanceMonitoring:
     """8. ClickHouse驱动性能监控测试"""
@@ -373,7 +373,7 @@ class TestClickHouseDriverPerformanceMonitoring:
         # System metrics accessible via SQL queries through session
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverThreadSafety:
     """9. ClickHouse驱动线程安全测试"""
@@ -452,7 +452,7 @@ class TestClickHouseDriverThreadSafety:
         assert stats is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestClickHouseDriverErrorHandling:
     """10. ClickHouse驱动错误处理测试"""

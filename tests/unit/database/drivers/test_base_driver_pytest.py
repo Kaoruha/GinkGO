@@ -87,7 +87,7 @@ class TestDatabaseDriverBaseUnit:
 
         return driver
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_initialization(self, base_driver):
         """测试基础驱动初始化."""
         assert base_driver.driver_name == "TestDriver"
@@ -98,14 +98,14 @@ class TestDatabaseDriverBaseUnit:
         assert base_driver._port == "1234"
         assert base_driver._db == "test_db"
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_default_parameters(self, base_driver):
         """测试默认参数设置."""
         assert base_driver._echo is False
         assert base_driver._connect_timeout == 10
         assert base_driver._read_timeout == 10
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_connection_stats_initialization(self, base_driver):
         """测试连接统计初始化."""
         stats = base_driver._connection_stats
@@ -121,7 +121,7 @@ class TestDatabaseDriverBaseUnit:
         assert "streaming_connections_created" in stats
         assert "active_streaming_connections" in stats
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_get_connection_stats(self, base_driver):
         """测试获取连接统计."""
         stats = base_driver.get_connection_stats()
@@ -134,7 +134,7 @@ class TestDatabaseDriverBaseUnit:
         assert "uptime" in stats
         assert "connection_efficiency" in stats
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_log_method(self, base_driver, mock_logger):
         """测试日志方法."""
         # 测试不同级别的日志
@@ -167,7 +167,7 @@ class TestDatabaseDriverBaseConnectionManagement:
             db="test_db"
         )
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_health_check_default(self, base_driver):
         """测试默认健康检查实现."""
         # 默认情况下，健康检查应该返回True或False
@@ -178,7 +178,7 @@ class TestDatabaseDriverBaseConnectionManagement:
             # 如果没有实现引擎或健康检查失败，这是预期的
             pass
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_session_property(self, base_driver):
         """测试会话属性."""
         try:
@@ -190,7 +190,7 @@ class TestDatabaseDriverBaseConnectionManagement:
             # 如果没有实现session_factory或初始化失败，这是预期的
             pass
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_engine_property(self, base_driver):
         """测试引擎属性."""
         try:
@@ -237,13 +237,13 @@ class TestDatabaseDriverBaseLoggerManagement:
 
         return driver
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_logger_initialization(self, base_driver):
         """测试日志初始化."""
         assert isinstance(base_driver.loggers, list)
         assert len(base_driver.loggers) > 0
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.parametrize("level,message", [
         ("INFO", "Test info message"),
         ("WARNING", "Test warning message"),
@@ -278,7 +278,7 @@ class TestDatabaseDriverBaseThreadSafety:
             db="test_db"
         )
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_lock_initialization(self, base_driver):
         """测试锁初始化."""
         assert base_driver._lock is not None
@@ -296,7 +296,7 @@ class TestDatabaseDriverBaseThreadSafety:
 class TestDatabaseDriverBaseParametrized:
     """参数化的基础驱动测试."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_base_driver_port_types(self, driver_type, host, port):
         """测试不同端口类型."""
         if DatabaseDriverBase is None:

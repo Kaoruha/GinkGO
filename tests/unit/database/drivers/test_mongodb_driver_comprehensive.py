@@ -19,7 +19,7 @@ from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverConstruction:
     """1. MongoDB驱动构造测试"""
@@ -63,7 +63,7 @@ class TestMongoDBDriverConstruction:
         assert driver._max_try == 5
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverConnectionManagement:
     """2. MongoDB驱动连接管理测试"""
@@ -130,7 +130,7 @@ class TestMongoDBDriverConnectionManagement:
         assert kwargs['w'] == "majority"
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverDocumentOperations:
     """3. MongoDB驱动文档操作测试"""
@@ -182,7 +182,7 @@ class TestMongoDBDriverDocumentOperations:
         assert col is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverIndexManagement:
     """4. MongoDB驱动索引管理测试"""
@@ -232,7 +232,7 @@ class TestMongoDBDriverIndexManagement:
         assert col is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverAggregationPipeline:
     """5. MongoDB驱动聚合管道测试"""
@@ -283,7 +283,7 @@ class TestMongoDBDriverAggregationPipeline:
         assert hasattr(col, 'aggregate')
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverTransactionSupport:
     """6. MongoDB驱动事务支持测试"""
@@ -345,7 +345,7 @@ class TestMongoDBDriverTransactionSupport:
         assert kwargs['retryWrites'] is True
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverHealthCheck:
     """7. MongoDB驱动健康检查测试"""
@@ -400,7 +400,7 @@ class TestMongoDBDriverHealthCheck:
         assert result == ['col1', 'col2']
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverDataTypes:
     """8. MongoDB驱动数据类型测试"""
@@ -440,7 +440,7 @@ class TestMongoDBDriverDataTypes:
         assert str(d) == "123.456"
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverThreadSafety:
     """9. MongoDB驱动线程安全测试"""
@@ -498,7 +498,7 @@ class TestMongoDBDriverThreadSafety:
         assert driver.max_try == 5
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMongoDBDriverErrorHandling:
     """10. MongoDB驱动错误处理测试"""

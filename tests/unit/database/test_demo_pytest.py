@@ -16,14 +16,14 @@ from tests.unit.database.test_isolation import (
 class TestDatabaseDemo:
     """Demo测试类，验证数据库警告系统."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.skip(reason="纯占位断言，无实际验证逻辑")
     def test_basic_database_connection(self):
         """基础测试，验证数据库连接警告出现."""
         # 这个测试仅验证警告系统工作正常
         assert True, "Database test isolation system is working"
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.skip(reason="纯占位断言，无实际验证逻辑")
     def test_configuration_display(self):
         """测试数据库配置正确显示."""
@@ -35,7 +35,7 @@ class TestDatabaseDemo:
 class TestDatabaseValidation:
     """测试数据库配置验证功能."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_validate_config_with_no_gconf(self, monkeypatch):
         """测试没有GCONF时的配置验证."""
         # 模拟GCONF不可用的情况
@@ -47,7 +47,7 @@ class TestDatabaseValidation:
         assert is_safe is True
         assert issues == []
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_validate_config_safety_checks(self):
         """测试配置安全检查."""
         # 这个测试验证安全检查逻辑
@@ -59,7 +59,7 @@ class TestDatabaseValidation:
         except Exception:
             pytest.skip("Cannot test validation without GCONF")
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.parametrize("config_type", ["clickhouse", "mysql", "unknown"])
     def test_get_original_port(self, config_type):
         """测试原始端口获取逻辑."""
@@ -78,7 +78,7 @@ class TestDatabaseValidation:
 class TestDatabaseTestDataFactory:
     """测试测试数据工厂功能."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_create_test_data_factory(self):
         """测试创建测试数据工厂."""
         from tests.unit.database.test_isolation import create_test_data_factory
@@ -90,7 +90,7 @@ class TestDatabaseTestDataFactory:
         assert hasattr(factory, 'create_test_bar_data')
         assert hasattr(factory, 'cleanup_all')
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_factory_create_test_stock(self):
         """测试工厂创建测试股票."""
         from tests.unit.database.test_isolation import create_test_data_factory
@@ -109,7 +109,7 @@ class TestDatabaseTestDataFactory:
         assert stock2['code'] == "CUSTOM001.SZ"
         assert ('stock', "CUSTOM001.SZ") in factory._cleanup_registry
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_factory_create_test_bar_data(self):
         """测试工厂创建测试K线数据."""
         from tests.unit.database.test_isolation import create_test_data_factory
@@ -128,7 +128,7 @@ class TestDatabaseTestDataFactory:
         assert all('close' in bar for bar in bars)
         assert all('volume' in bar for bar in bars)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_factory_cleanup_all(self):
         """测试工厂清理功能."""
         from tests.unit.database.test_isolation import create_test_data_factory

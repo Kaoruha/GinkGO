@@ -19,7 +19,7 @@ from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverConstruction:
     """1. MySQL驱动构造测试"""
@@ -68,7 +68,7 @@ class TestMySQLDriverConstruction:
         assert driver._echo is True
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverConnectionManagement:
     """2. MySQL驱动连接管理测试"""
@@ -115,7 +115,7 @@ class TestMySQLDriverConnectionManagement:
         assert driver._engine is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverTransactionManagement:
     """3. MySQL驱动事务管理测试"""
@@ -164,7 +164,7 @@ class TestMySQLDriverTransactionManagement:
         assert retry is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverHealthCheck:
     """4. MySQL驱动健康检查测试"""
@@ -200,7 +200,7 @@ class TestMySQLDriverHealthCheck:
         assert driver._engine is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverConstraintSupport:
     """5. MySQL驱动约束支持测试"""
@@ -237,7 +237,7 @@ class TestMySQLDriverConstraintSupport:
         assert driver._engine is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverStorageEngines:
     """6. MySQL驱动存储引擎测试"""
@@ -274,7 +274,7 @@ class TestMySQLDriverStorageEngines:
         assert call_kwargs['pool_pre_ping'] is True
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverDataTypes:
     """7. MySQL驱动数据类型测试"""
@@ -317,7 +317,7 @@ class TestMySQLDriverDataTypes:
         assert driver._engine is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverPerformanceOptimization:
     """8. MySQL驱动性能优化测试"""
@@ -367,7 +367,7 @@ class TestMySQLDriverPerformanceOptimization:
         assert driver._create_streaming_engine is not None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverThreadSafety:
     """9. MySQL驱动线程安全测试"""
@@ -449,7 +449,7 @@ class TestMySQLDriverThreadSafety:
         assert "connections_created" in stats
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.database
 class TestMySQLDriverErrorHandling:
     """10. MySQL驱动错误处理测试"""

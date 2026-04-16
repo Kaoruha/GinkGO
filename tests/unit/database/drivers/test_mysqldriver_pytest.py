@@ -45,7 +45,7 @@ class TestMysqlDriverUnit:
             pytest.skip("GinkgoMysql not available")
         return GinkgoMysql(**mock_config)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_initialization(self, driver, mock_config):
         """测试MySQL驱动初始化."""
         # 验证基本属性设置
@@ -62,7 +62,7 @@ class TestMysqlDriverUnit:
         assert driver._connect_timeout == 10
         assert driver._read_timeout == 10
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_initialization_custom_params(self, mock_config):
         """测试MySQL驱动自定义参数初始化."""
         custom_config = mock_config.copy()
@@ -78,7 +78,7 @@ class TestMysqlDriverUnit:
         assert driver._connect_timeout == 20
         assert driver._read_timeout == 30
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     @pytest.mark.parametrize("echo,timeout", [
         (True, 15),
         (False, 25),
@@ -100,7 +100,7 @@ class TestMysqlDriverUnit:
         if echo is not None:
             assert driver._echo == echo
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_uri_construction(self, driver, mock_config):
         """测试MySQL URI构建逻辑."""
         uri = driver._get_uri()
@@ -112,7 +112,7 @@ class TestMysqlDriverUnit:
 
         assert uri == expected_uri
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_uri_construction_custom_timeouts(self, mock_config):
         """测试MySQL URI构建（自定义超时）."""
         if GinkgoMysql is None:
@@ -128,18 +128,18 @@ class TestMysqlDriverUnit:
         assert "connect_timeout=25" in uri
         assert "read_timeout=45" in uri
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_health_check_query(self, driver):
         """测试健康检查查询."""
         query = driver._health_check_query()
         assert query == "SELECT 1"
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_inheritance(self, driver):
         """验证继承关系."""
         assert isinstance(driver, DatabaseDriverBase)
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_base_attributes(self, driver):
         """验证基类属性初始化."""
         assert driver._connection_stats is not None
@@ -269,7 +269,7 @@ class TestMysqlDriverIntegration:
 class TestMysqlDriverErrorHandling:
     """测试MySQL驱动错误处理."""
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_invalid_config_error_handling(self):
         """测试无效配置的错误处理."""
         if GinkgoMysql is None:
@@ -294,7 +294,7 @@ class TestMysqlDriverErrorHandling:
             # 如果在初始化时就失败，这也是可以接受的
             pass
 
-    @pytest.mark.unit
+    @pytest.mark.integration
     def test_mysql_multiple_instances_independence(self):
         """测试多个MySQL驱动实例的独立性."""
         if GinkgoMysql is None:
