@@ -6,7 +6,9 @@ import unittest
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+_path = os.path.join(os.path.dirname(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.enums import (
     DIRECTION_TYPES, TICKDIRECTION_TYPES, ORDER_TYPES, 

@@ -11,7 +11,9 @@ from datetime import datetime, date
 from unittest.mock import MagicMock, AsyncMock, patch
 
 project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
+_path = str(project_root / "src")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.trading.feeders.live_feeder import LiveDataFeeder, RateLimiter, ConnectionManager
 from ginkgo.trading.feeders.interfaces import DataFeedStatus

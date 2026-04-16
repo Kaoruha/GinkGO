@@ -15,7 +15,9 @@ import sys
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
+_path = str(project_root / "src")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 

@@ -14,7 +14,9 @@ from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timedelta
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../.."))
+_path = os.path.join(os.path.dirname(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.base_service import ServiceResult

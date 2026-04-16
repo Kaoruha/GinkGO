@@ -13,7 +13,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 from contextlib import contextmanager
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../.."))
+_path = os.path.join(os.path.dirname(__file__
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from ginkgo.data.services.portfolio_service import PortfolioService
 from ginkgo.data.services.base_service import ServiceResult

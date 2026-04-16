@@ -3,8 +3,12 @@ Simple test runner to verify refactored tests without pytest configuration issue
 """
 
 import sys
-sys.path.insert(0, '.')
-sys.path.insert(0, 'src')
+_path = '.'
+if _path not in sys.path:
+    sys.path.insert(0, _path)
+_path = 'src'
+if _path not in sys.path:
+    sys.path.insert(0, _path)
 
 from test.backtest.indicators.test_simple_moving_average import TestSimpleMovingAverageCalculation
 from test.backtest.indicators.test_exponential_moving_average import TestExponentialMovingAverageCalculation
