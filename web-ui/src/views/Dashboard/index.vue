@@ -353,41 +353,9 @@ onMounted(() => {
   gap: 16px;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
 .btn-large {
   padding: 12px 24px;
   font-size: 16px;
-}
-
-.btn-primary {
-  background: #ffffff;
-  color: #667eea;
-}
-
-.btn-primary:hover {
-  background: #f0f0f0;
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 /* 统计概览 */
@@ -402,22 +370,6 @@ onMounted(() => {
   margin: 0 0 20px 0;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  border: 1px solid #2a2a3e;
-}
-
 .stat-icon {
   width: 48px;
   height: 48px;
@@ -430,18 +382,6 @@ onMounted(() => {
 
 .stat-content {
   flex: 1;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 /* 快捷入口 */
@@ -526,13 +466,6 @@ onMounted(() => {
 /* 最近活动 */
 .recent-section {
   margin-bottom: 32px;
-}
-
-.card {
-  background: #1a1a2e;
-  border-radius: 12px;
-  border: 1px solid #2a2a3e;
-  padding: 20px;
 }
 
 .empty-state {

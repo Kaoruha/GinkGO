@@ -241,73 +241,11 @@ onMounted(() => {
   color: #ffffff;
 }
 
-.tag {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-cyan {
-  background: #13c2c2;
-  color: #ffffff;
-}
-
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s;
-  position: relative;
-  overflow: hidden;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
 
 .stat-card::before {
   content: '';
@@ -338,18 +276,6 @@ onMounted(() => {
 .stat-orange .stat-icon { background: rgba(250, 140, 22, 0.1); color: #fa8c16; }
 .stat-purple .stat-icon { background: rgba(114, 46, 209, 0.1); color: #722ed1; }
 
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-}
-
 .stat-footer {
   margin-top: 12px;
   font-size: 12px;
@@ -357,13 +283,6 @@ onMounted(() => {
 }
 
 /* 卡片 */
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 24px;
-}
 
 .card-title {
   font-size: 16px;

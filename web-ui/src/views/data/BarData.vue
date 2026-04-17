@@ -576,78 +576,8 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.tag {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-green {
-  background: #52c41a;
-  color: #ffffff;
-}
-
-.tag-blue {
-  background: #1890ff;
-  color: #ffffff;
-}
-
-.spin {
-  display: inline-block;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.form-select,
-.form-input {
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.form-select:focus,
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.btn-primary {
-  padding: 8px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 24px;
 }
 
 .card-title {
@@ -705,13 +635,6 @@ onUnmounted(() => {
   background: #2a2a3e;
   border-top: 1px solid #3a3a4e;
   margin-top: 8px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
 }
 
 .stat-card-small {
@@ -793,17 +716,6 @@ onUnmounted(() => {
 .pagination-info {
   color: #8a8a9a;
   font-size: 13px;
-}
-
-.btn-small {
-  padding: 6px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .btn-small:hover:not(:disabled) {

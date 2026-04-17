@@ -365,24 +365,6 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.btn-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-text:hover {
-  background: #2a2a3e;
-}
-
 .title-section {
   flex: 1;
 }
@@ -405,44 +387,10 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  gap: 16px;
-  color: #8a8a9a;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 .result-content {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
 }
 
 .card-header h4 {
@@ -450,10 +398,6 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
 }
 
 .config-grid {
@@ -506,14 +450,6 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
-.value-up {
-  color: #f5222d;
-}
-
-.value-down {
-  color: #52c41a;
-}
-
 .charts-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -560,44 +496,6 @@ onUnmounted(() => {
 
 .text-right {
   text-align: right;
-}
-
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-gray {
-  background: #2a2a3e;
-  color: #8a8a9a;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
-}
-
-.tag-orange {
-  background: rgba(250, 140, 22, 0.2);
-  color: #fa8c16;
-}
-
-.tag-cyan {
-  background: rgba(19, 194, 194, 0.2);
-  color: #13c2c2;
 }
 
 @media (max-width: 1200px) {

@@ -384,65 +384,12 @@ onMounted(() => {
 }
 
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.stat-success {
-  color: #4ade80;
-}
 
 .stat-danger {
   color: #f87171;
 }
 
 /* 卡片 */
-.card {
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
-  border-radius: 8px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #3a3a4e;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.card-body {
-  padding: 0;
-}
 
 .filter-controls {
   display: flex;
@@ -561,26 +508,10 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  cursor: pointer;
-  padding: 4px;
-  margin-right: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .btn-icon svg {
   width: 16px;
   height: 16px;
   stroke-width: 2;
-}
-
-.btn-icon:hover {
-  color: #ffffff;
 }
 
 .btn-icon.btn-danger:hover {
@@ -594,99 +525,6 @@ onMounted(() => {
 }
 
 /* 模态框 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
-  border-radius: 8px;
-  width: 500px;
-  max-width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #3a3a4e;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.modal-close {
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-}
-
-.modal-close:hover {
-  color: #ffffff;
-}
-
-.modal-body {
-  padding: 16px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  background: #12121a;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  padding: 10px 12px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #6366f1;
-}
-
-.form-group input:disabled,
-.form-group select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .checkbox-group {
   display: flex;
@@ -759,70 +597,6 @@ onMounted(() => {
   margin: 8px 0 0 0;
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-}
-
 /* 按钮 */
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 
-.btn-primary {
-  background: #6366f1;
-  color: #ffffff;
-}
-
-.btn-primary:hover {
-  background: #4f46e5;
-}
-
-.btn-secondary {
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  color: #ffffff;
-}
-
-.btn-secondary:hover {
-  background: #12121a;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: #ffffff;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-.tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.tag-blue {
-  background: #3b82f6;
-  color: #ffffff;
-}
-
-.tag-red {
-  background: #ef4444;
-  color: #ffffff;
-}
 </style>

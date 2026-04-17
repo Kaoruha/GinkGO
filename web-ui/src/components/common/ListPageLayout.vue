@@ -87,6 +87,7 @@ const props = withDefaults(defineProps<{
   emptyActionText?: string
   showSearch?: boolean
   searchPlaceholder?: string
+  searchValue?: string
   showCreate?: boolean
   createText?: string
 }>(), {
@@ -106,7 +107,7 @@ const emit = defineEmits<{
 }>()
 
 const searchModel = computed({
-  get: () => '',
+  get: () => props.searchValue ?? '',
   set: (val) => emit('update:search', val),
 })
 </script>
@@ -218,50 +219,8 @@ const searchModel = computed({
 }
 
 /* Button */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: #ffffff;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
 
 /* Loading */
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 60px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Empty State */
 .empty-state {

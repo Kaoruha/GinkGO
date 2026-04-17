@@ -118,31 +118,11 @@ const runAnalysis = async () => {
   padding: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
 }
 
 .header-actions {
@@ -152,69 +132,9 @@ const runAnalysis = async () => {
   flex-wrap: wrap;
 }
 
-.form-select,
-.form-input {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-select:focus,
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
 .date-range {
   display: flex;
   gap: 8px;
-}
-
-.btn-primary {
-  padding: 6px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 20px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  display: block;
-  font-size: 12px;
-  color: #8a8a9a;
 }
 
 .chart-section {

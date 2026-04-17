@@ -147,61 +147,10 @@ const onFinish = async (values: CreatePaperAccount) => {
   margin: 0 auto;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.form-row {
-  margin-bottom: 16px;
-}
-
 .form-group-group {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.form-label {
-  min-width: 120px;
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input,
-.form-select {
-  flex: 1;
-  max-width: 300px;
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
 }
 
 .checkbox-group {
@@ -239,38 +188,6 @@ const onFinish = async (values: CreatePaperAccount) => {
 
 .radio-label input[type="radio"] {
   cursor: pointer;
-}
-
-.btn-primary {
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 .form-actions {

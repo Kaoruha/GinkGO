@@ -469,17 +469,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
 .card-title {
   display: flex;
   align-items: center;
@@ -489,77 +478,8 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.card-body {
-  padding: 20px;
-}
-
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-danger {
-  padding: 8px 16px;
-  background: #f5222d;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-danger:hover {
-  background: #ff4d4f;
-}
-
-.btn-small {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .btn-small:hover:not(:disabled) {
@@ -572,21 +492,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-red { background: rgba(245, 34, 45, 0.2); color: #f5222d; }
-.tag-orange { background: rgba(250, 140, 22, 0.2); color: #fa8c16; }
-.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
 .tag-yellow { background: rgba(250, 173, 20, 0.2); color: #faad14; }
-.tag-gray { background: rgba(140, 140, 140, 0.2); color: #8c8c8c; }
 
 .account-name {
   display: flex;
@@ -631,113 +537,7 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.loading-state {
-  text-align: center;
-  padding: 40px;
-  color: #8a8a9a;
-}
-
 /* 模态框样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-small {
-  max-width: 400px;
-}
-
-.modal-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: #8a8a9a;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-close:hover {
-  color: #ffffff;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
 
 .radio-group {
   display: flex;
@@ -821,20 +621,6 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {

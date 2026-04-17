@@ -517,106 +517,8 @@ onUnmounted(() => {
 }
 
 /* 按钮 */
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-danger {
-  padding: 8px 16px;
-  background: #f5222d;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-danger:hover {
-  background: #ff4d4f;
-}
-
-.btn-icon {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-icon:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
 
 /* 标签 */
-.tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-purple {
-  background: #722ed1;
-  color: #ffffff;
-}
-
-.tag-blue {
-  background: #1890ff;
-  color: #ffffff;
-}
-
-.tag-green {
-  background: #52c41a;
-  color: #ffffff;
-}
-
-.tag-orange {
-  background: #fa8c16;
-  color: #ffffff;
-}
-
-.tag-red {
-  background: #f5222d;
-  color: #ffffff;
-}
 
 /* 筛选栏 */
 .filter-bar {
@@ -651,66 +553,11 @@ onUnmounted(() => {
 }
 
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 8px;
-}
-
-.stat-success {
-  color: #52c41a;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-}
 
 /* 滚动内容区 */
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  padding: 60px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.spinner-small {
-  width: 24px;
-  height: 24px;
-  border-width: 2px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* 空状态 */
@@ -752,13 +599,6 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transform: translateY(-2px);
   border-color: #3a3a4e;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
 }
 
 .card-title {
@@ -871,103 +711,16 @@ onUnmounted(() => {
   color: #f5222d;
 }
 
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid #2a2a3e;
-}
-
 .card-footer .date {
   font-size: 12px;
   color: #8a8a9a;
 }
 
 /* 模态框 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
-
-.modal-large {
-  width: 1200px;
-}
-
-.modal-small {
-  width: 400px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  color: #8a8a9a;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
-
-.modal-body {
-  flex: 1;
-  overflow: auto;
-  padding: 0;
-}
 
 .modal-body p {
   color: #ffffff;
   margin: 0;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #2a2a3e;
 }
 
 /* 加载更多触发器 */

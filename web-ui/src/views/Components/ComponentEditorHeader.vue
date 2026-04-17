@@ -93,25 +93,6 @@ onMounted(() => {
   gap: 8px;
 }
 
-.btn-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #8a8a9a;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-text:hover {
-  color: #ffffff;
-  background: #2a2a3e;
-}
-
 .btn-text svg {
   flex-shrink: 0;
 }
@@ -141,18 +122,5 @@ onMounted(() => {
 }
 
 /* Tag */
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
 
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
-.tag-purple { background: rgba(114, 46, 209, 0.2); color: #722ed1; }
-.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
-.tag-gray { background: #2a2a3e; color: #8a8a9a; }
 </style>

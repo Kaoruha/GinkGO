@@ -244,42 +244,11 @@ onMounted(() => {
   margin: 0;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 24px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.form-group {
-  margin-bottom: 24px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-  margin-bottom: 8px;
 }
 
 .multi-select {
@@ -340,52 +309,8 @@ onMounted(() => {
   margin-top: 16px;
 }
 
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 10px 20px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-small {
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .btn-small:hover {
@@ -428,16 +353,6 @@ onMounted(() => {
 .metric-label {
   font-weight: 500;
   color: #ffffff;
-}
-
-.value-up {
-  color: #f5222d;
-  font-weight: 500;
-}
-
-.value-down {
-  color: #52c41a;
-  font-weight: 500;
 }
 
 .empty-state {

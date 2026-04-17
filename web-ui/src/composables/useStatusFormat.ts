@@ -8,25 +8,27 @@ import { computed, type ComputedRef } from 'vue'
  * 状态配置类型
  */
 export interface StatusConfig {
-  color: string
+  /** tag CSS 类名，如 'tag-blue', 'tag-green' */
+  tagClass: string
+  /** 显示文本 */
   label: string
 }
 
 /**
  * 通用状态格式化 composable
  */
-export function useStatusFormat<T extends string>(
-  config: Record<T, StatusConfig>
+export function useStatusFormat<T extends string | number>(
+  config: Record<string, StatusConfig>
 ) {
-  const getColor = (status: T): string => {
-    return config[status]?.color || 'default'
+  const getTagClass = (status: T): string => {
+    return config[String(status)]?.tagClass || 'tag-gray'
   }
 
   const getLabel = (status: T): string => {
-    return config[status]?.label || status
+    return config[String(status)]?.label || String(status)
   }
 
-  return { getColor, getLabel }
+  return { getTagClass, getLabel }
 }
 
 /**
@@ -35,27 +37,36 @@ export function useStatusFormat<T extends string>(
 
 // 回测状态
 export const BACKTEST_STATUS_CONFIG: Record<string, StatusConfig> = {
-  created: { color: 'default', label: '待启动' },
-  pending: { color: 'warning', label: '等待中' },
-  running: { color: 'processing', label: '运行中' },
-  completed: { color: 'success', label: '已完成' },
-  failed: { color: 'error', label: '失败' },
-  stopped: { color: 'default', label: '已停止' },
+  created: { tagClass: 'tag-gray', label: '待启动' },
+  pending: { tagClass: 'tag-orange', label: '等待中' },
+  running: { tagClass: 'tag-blue', label: '运行中' },
+  completed: { tagClass: 'tag-green', label: '已完成' },
+  failed: { tagClass: 'tag-red', label: '失败' },
+  stopped: { tagClass: 'tag-gray', label: '已停止' },
+  cancelled: { tagClass: 'tag-orange', label: '已取消' },
 }
 
 // Portfolio 模式
-export const PORTFOLIO_MODE_CONFIG: Record<number, StatusConfig> = {
-  0: { color: 'blue', label: '回测' },
-  1: { color: 'orange', label: '模拟' },
-  2: { color: 'red', label: '实盘' },
+export const PORTFOLIO_MODE_CONFIG: Record<string, StatusConfig> = {
+  '0': { tagClass: 'tag-blue', label: '回测' },
+  '1': { tagClass: 'tag-orange', label: '模拟' },
+  '2': { tagClass: 'tag-red', label: '实盘' },
 }
 
 // Portfolio 状态
-export const PORTFOLIO_STATE_CONFIG: Record<number, StatusConfig> = {
-  0: { color: 'default', label: '已停止' },
-  1: { color: 'green', label: '运行中' },
-  2: { color: 'blue', label: '已完成' },
-  3: { color: 'red', label: '错误' },
+export const PORTFOLIO_STATE_CONFIG: Record<string, StatusConfig> = {
+  '0': { tagClass: 'tag-gray', label: '已停止' },
+  '1': { tagClass: 'tag-green', label: '运行中' },
+  '2': { tagClass: 'tag-blue', label: '已完成' },
+  '3': { tagClass: 'tag-red', label: '错误' },
+}
+
+// 订单状态
+export const ORDER_STATUS_CONFIG: Record<string, StatusConfig> = {
+  '0': { tagClass: 'tag-orange', label: '待处理' },
+  '1': { tagClass: 'tag-green', label: '已成交' },
+  '2': { tagClass: 'tag-gray', label: '已取消' },
+  '3': { tagClass: 'tag-blue', label: '部分成交' },
 }
 
 /**
@@ -69,28 +80,19 @@ export function useBacktestStatus() {
  * Portfolio 模式格式化
  */
 export function usePortfolioMode() {
-  const getColor = (mode: number): string => {
-    return PORTFOLIO_MODE_CONFIG[mode]?.color || 'default'
-  }
-
-  const getLabel = (mode: number): string => {
-    return PORTFOLIO_MODE_CONFIG[mode]?.label || '未知'
-  }
-
-  return { getColor, getLabel }
+  return useStatusFormat<number>(PORTFOLIO_MODE_CONFIG)
 }
 
 /**
  * Portfolio 状态格式化
  */
 export function usePortfolioState() {
-  const getColor = (state: number): string => {
-    return PORTFOLIO_STATE_CONFIG[state]?.color || 'default'
-  }
+  return useStatusFormat<number>(PORTFOLIO_STATE_CONFIG)
+}
 
-  const getLabel = (state: number): string => {
-    return PORTFOLIO_STATE_CONFIG[state]?.label || '未知'
-  }
-
-  return { getColor, getLabel }
+/**
+ * 订单状态格式化
+ */
+export function useOrderStatus() {
+  return useStatusFormat<number>(ORDER_STATUS_CONFIG)
 }

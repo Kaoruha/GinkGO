@@ -120,38 +120,6 @@ async function handleLogin() {
   gap: 20px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 16px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 6px;
-  color: #ffffff;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-input::placeholder {
-  color: #5a5a6e;
-}
-
 .btn-login {
   width: 100%;
   padding: 12px;
@@ -176,20 +144,6 @@ async function handleLogin() {
 .btn-login:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 480px) {

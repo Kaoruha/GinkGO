@@ -542,23 +542,6 @@ const plotResults = () => {
   padding: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
@@ -566,81 +549,8 @@ const plotResults = () => {
   color: #ffffff;
 }
 
-.card-body {
-  padding: 20px;
-}
-
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input,
-.form-select {
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
 }
 
 .config-section {
@@ -811,17 +721,6 @@ const plotResults = () => {
   gap: 8px;
 }
 
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
 /* Alert */
 .alert {
   display: flex;
@@ -861,18 +760,6 @@ const plotResults = () => {
 }
 
 /* Stats */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-}
 
 .stat-card h5 {
   margin: 0 0 12px 0;
@@ -943,24 +830,6 @@ const plotResults = () => {
 
 .data-table tr:hover {
   background: #2a2a3e;
-}
-
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
 }
 
 .mt-3 {

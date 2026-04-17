@@ -403,24 +403,6 @@ onUnmounted(() => {
 }
 
 /* 按钮 */
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
 
 /* 统计卡片 - 6列 */
 .stats-grid-six {
@@ -430,25 +412,11 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
 .stat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
 }
 
 .stat-icon {
@@ -460,20 +428,9 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.stat-success {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
 .stat-error {
   background: rgba(245, 34, 45, 0.2);
   color: #f5222d;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 .stat-value-with-tag {
@@ -494,24 +451,6 @@ onUnmounted(() => {
 }
 
 /* 卡片 */
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
 
 /* 基础设施卡片 */
 .infra-grid {
@@ -585,48 +524,10 @@ onUnmounted(() => {
 }
 
 /* 标签 */
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-
-.tag-orange {
-  background: rgba(250, 140, 22, 0.2);
-  color: #fa8c16;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
-}
-
-.tag-purple {
-  background: rgba(114, 46, 209, 0.2);
-  color: #722ed1;
-}
 
 .tag-magenta {
   background: rgba(235, 47, 150, 0.2);
   color: #eb2f96;
-}
-
-.tag-gray {
-  background: rgba(140, 140, 140, 0.2);
-  color: #8c8c8c;
 }
 
 /* 表格 */
@@ -670,26 +571,7 @@ onUnmounted(() => {
   color: #8a8a9a;
 }
 
-/* 加载和空状态 */
-.loading-container {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
+/* 空状态 */
 .empty-state {
   display: flex;
   justify-content: center;

@@ -243,23 +243,6 @@ const renderChart = () => {
   padding: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 24px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
@@ -267,80 +250,8 @@ const renderChart = () => {
   color: #ffffff;
 }
 
-.card-body {
-  padding: 20px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input,
-.form-select {
-  padding: 10px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 .action-buttons {
@@ -351,33 +262,6 @@ const renderChart = () => {
 
 .chart-container {
   height: 350px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.stat-card {
-  background: #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  display: block;
-  font-size: 13px;
-  color: #8a8a9a;
 }
 
 .table-wrapper {

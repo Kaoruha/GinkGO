@@ -659,20 +659,6 @@ onBeforeUnmount(() => {
 }
 
 /* Tag */
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
-.tag-purple { background: rgba(114, 46, 209, 0.2); color: #722ed1; }
-.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
-.tag-gray { background: #2a2a3e; color: #8a8a9a; }
 
 /* Content */
 .editor-content {
@@ -715,45 +701,8 @@ onBeforeUnmount(() => {
   margin: 0 0 12px 0;
 }
 
-.form-group {
-  margin-bottom: 12px;
-}
-
 .form-group:last-child {
   margin-bottom: 0;
-}
-
-.form-label {
-  display: block;
-  font-size: 12px;
-  color: #8a8a9a;
-  margin-bottom: 4px;
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 6px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 40px;
-  font-family: 'Fira Code', monospace;
 }
 
 .date-range {
@@ -768,53 +717,14 @@ onBeforeUnmount(() => {
 }
 
 /* Button */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: #ffffff;
-}
 
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .btn-block {
   width: 100%;
   justify-content: center;
-}
-
-.btn-icon {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-icon:hover {
-  background: #2a2a3e;
-  color: #ffffff;
 }
 
 /* Editor Area */
@@ -1008,15 +918,6 @@ onBeforeUnmount(() => {
 
 .stat-row:last-child {
   border-bottom: none;
-}
-
-.stat-label {
-  color: #8a8a9a;
-}
-
-.stat-value {
-  color: #ffffff;
-  font-weight: 500;
 }
 
 /* Empty State */

@@ -1,0 +1,105 @@
+// ============================================================
+// Modals / Dialogs - 全局模态框样式
+// ============================================================
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal,
+.modal-content {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.3s ease;
+}
+
+.modal-large {
+  max-width: 1200px;
+}
+
+.modal-wide {
+  max-width: 800px;
+}
+
+.modal-small {
+  max-width: 400px;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+  }
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #8a8a9a;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+
+  &:hover {
+    color: #ffffff;
+    background: #2a2a3e;
+  }
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer,
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid #2a2a3e;
+}

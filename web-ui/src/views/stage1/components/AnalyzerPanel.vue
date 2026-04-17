@@ -207,47 +207,10 @@ watch(() => props.analyzers, (newAnalyzers) => {
   color: #ffffff;
 }
 
-.form-select {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  min-width: 240px;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
 /* Card */
-.card {
-  background: #1a1a2e;
-  border-radius: 8px;
-  border: 1px solid #2a2a3e;
-  margin-bottom: 16px;
-}
 
 .stats-card {
   margin-bottom: 16px;
-}
-
-.card-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-}
-
-.card-body {
-  padding: 16px;
 }
 
 .table-card {
@@ -272,27 +235,6 @@ watch(() => props.analyzers, (newAnalyzers) => {
 }
 
 /* Loading */
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Chart Placeholder */
 .chart-container {
@@ -319,17 +261,6 @@ watch(() => props.analyzers, (newAnalyzers) => {
 }
 
 /* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-}
-
-.stats-row {
-  display: flex;
-  gap: 16px;
-  margin-top: 16px;
-}
 
 .stat-item {
   text-align: center;
@@ -338,18 +269,6 @@ watch(() => props.analyzers, (newAnalyzers) => {
 .stat-item-wide {
   flex: 1;
   text-align: center;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 .trend-icon {

@@ -301,55 +301,14 @@ onUnmounted(() => {
   background: rgba(24, 144, 255, 0.1);
 }
 
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #e0e0e0;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-secondary:hover:not(:disabled) {
   border-color: #1890ff;
   background: rgba(24, 144, 255, 0.1);
 }
 
-.btn-secondary:disabled {
-  color: #666;
-  border-color: #444;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #1890ff;
-  border: 1px solid #1890ff;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
   border-color: #40a9ff;
-}
-
-.btn-primary:disabled {
-  background: #444;
-  border-color: #444;
-  color: #666;
-  cursor: not-allowed;
 }
 
 .file-info {
@@ -362,14 +321,6 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: #fff;
-}
-
-.tag {
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  border: none;
 }
 
 .unsaved-badge {
@@ -398,32 +349,8 @@ onUnmounted(() => {
   color: #8a8a9a;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .editor-loading p {
   margin-top: 16px;
-}
-
-.loading-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 .status-bar {

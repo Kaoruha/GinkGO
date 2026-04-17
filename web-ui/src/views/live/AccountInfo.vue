@@ -588,28 +588,6 @@ onUnmounted(() => {
 }
 
 /* 加载状态 */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  color: #8a8a9a;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* 空状态 */
 .empty-state {
@@ -641,29 +619,6 @@ onUnmounted(() => {
 /* 统计卡片 */
 .stats-section {
   margin-bottom: 8px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 0 30px rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
 }
 
 .stat-icon {
@@ -701,18 +656,6 @@ onUnmounted(() => {
   flex: 1;
 }
 
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
 /* 账户卡片 */
 .accounts-section {
   display: flex;
@@ -731,14 +674,6 @@ onUnmounted(() => {
 .account-card:hover {
   border-color: #2a2a3e;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #2a2a3e;
 }
 
 .account-info {
@@ -976,13 +911,6 @@ onUnmounted(() => {
 }
 
 /* 卡片底部 */
-.card-footer {
-  display: flex;
-  align-items: center;
-  padding: 12px 20px;
-  background: #121226;
-  border-top: 1px solid #2a2a3e;
-}
 
 .update-time {
   font-size: 12px;

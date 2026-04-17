@@ -736,98 +736,18 @@ onUnmounted(() => {
 }
 
 /* 按钮 */
-.btn-primary {
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
 
 .btn-sm {
   padding: 4px 12px;
   font-size: 12px;
 }
 
-.btn-danger {
-  background: #f5222d;
-  border: none;
-}
-
-.btn-danger:hover {
-  background: #ff4d4f;
-}
-
 /* 标签 */
-.tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
 
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: #ffffff;
-}
 
 .stat-primary {
   color: #1890ff;
-}
-
-.stat-success {
-  color: #52c41a;
 }
 
 /* 内容网格 */
@@ -835,29 +755,6 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 .header-controls {
@@ -893,12 +790,6 @@ onUnmounted(() => {
 
 .search-input:focus {
   border-color: #1890ff;
-}
-
-.card-body {
-  padding: 20px;
-  max-height: 500px;
-  overflow-y: auto;
 }
 
 /* 交易对列表 */

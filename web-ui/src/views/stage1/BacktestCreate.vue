@@ -194,56 +194,11 @@ onMounted(() => {
 }
 
 /* Card */
-.card {
-  background: #1a1a2e;
-  border-radius: 8px;
-  border: 1px solid #2a2a3e;
-  padding: 24px;
-}
 
 /* Form */
-.form-row {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 0;
-}
-
-.form-col {
-  flex: 1;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
 
 .required {
   color: #f5222d;
-}
-
-.form-input,
-.form-select {
-  width: 100%;
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
 }
 
 .form-input:disabled,
@@ -259,52 +214,11 @@ onMounted(() => {
 }
 
 /* Button */
-.btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: #ffffff;
-}
 
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  color: #ffffff;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
 /* Tag */
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
 
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
 </style>
