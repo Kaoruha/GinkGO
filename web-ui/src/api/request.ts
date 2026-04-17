@@ -13,13 +13,6 @@ const service: AxiosInstance = axios.create({
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('access_token')
-    // 调试日志
-    console.log('[Request Interceptor]', {
-      url: config.url,
-      method: config.method,
-      hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 20)}...` : null
-    })
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
@@ -33,8 +26,8 @@ service.interceptors.response.use(
   (response) => {
     // 检查业务错误
     if (response.data?.success === false) {
-      const error: any = new Error(response.data?.message || '操作失败')
-      error.code = response.data?.error || 'BUSINESS_ERROR'
+      const error = new Error(response.data?.message || '操作失败')
+      ;(error as Error & { code: string }).code = response.data?.error || 'BUSINESS_ERROR'
       return Promise.reject(error)
     }
     return response.data

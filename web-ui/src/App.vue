@@ -31,7 +31,7 @@
               @click="toggleSubMenu(item.key)"
             >
               <div class="menu-item-content">
-                <span class="menu-icon" v-html="item.icon"></span>
+                <component :is="item.icon" class="menu-icon" :size="16" v-if="item.icon" />
                 <span class="menu-label">{{ item.label }}</span>
                 <span class="submenu-arrow">{{ openKeys.includes(item.key) ? '▼' : '▶' }}</span>
               </div>
@@ -45,7 +45,7 @@
               @click="handleMenuClick(item.key)"
             >
               <div class="menu-item-content">
-                <span class="menu-icon" v-html="item.icon"></span>
+                <component :is="item.icon" class="menu-icon" :size="16" v-if="item.icon" />
                 <span class="menu-label">{{ item.label }}</span>
               </div>
             </router-link>
@@ -156,7 +156,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
+import {
+  LayoutDashboard, Wallet, Rocket, FlaskConical, TrendingUp,
+  Zap, Wrench, Database, Code2, BarChart3, FileSearch,
+  Bell, User, Settings, LogOut, ChevronDown, ChevronRight,
+  type LucideIcon
+} from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -197,26 +203,26 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-// SVG 图标定义
-const icons: Record<string, string> = {
-  dashboard: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`,
-  wallet: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4Z"></path></svg>`,
-  rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91 2.64-2.97 5.18-5.1 7.25-6.63-.22-.77-.22-1.63.09-2.09-.78-.8-2.07-.81-2.91-.09Z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>`,
-  experiment: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31"></path><path d="M14 2v7.31"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path></svg>`,
-  linechart: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="21" y2="3"></line><path d="m19 9-5 5-4-4-3 3"></path></svg>`,
-  lightning: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
-  tool: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
-  database: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`,
-  function: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31"></path><path d="M14 2v7.31"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><line x1="5.52" y1="16.58" x2="9.3" y2="20.36"></line><line x1="18.48" y1="16.58" x2="14.7" y2="20.36"></line></svg>`,
-  barchart: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>`,
-  filesearch: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M5 17a3 3 0 0 0 0-6"></path><path d="M9 17h4"></path><path d="M5 21a3 3 0 0 0 6 0"></path><path d="M9 21h4"></path></svg>`,
+// 图标组件映射
+const icons: Record<string, Component> = {
+  dashboard: LayoutDashboard,
+  wallet: Wallet,
+  rocket: Rocket,
+  experiment: FlaskConical,
+  linechart: TrendingUp,
+  lightning: Zap,
+  tool: Wrench,
+  database: Database,
+  function: Code2,
+  barchart: BarChart3,
+  filesearch: FileSearch,
 }
 
 // 菜单定义
 interface MenuItem {
   key: string
   label: string
-  icon: string
+  icon: Component | ''
   type?: 'divider'
   children?: MenuItem[]
 }

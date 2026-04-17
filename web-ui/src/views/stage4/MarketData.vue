@@ -420,8 +420,10 @@ const stopAllTickersPolling = () => {
 // API Server WebSocket（通过 API Server 中转 OKX WebSocket）
 const connectWebSocket = () => {
   // 连接到 API Server WebSocket
-  const apiHost = window.location.hostname + ':8000'
-  const wsUrl = `ws://${apiHost}/ws`
+  const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+  const url = new URL(apiBase || `${window.location.protocol}//${window.location.hostname}:8000`)
+  const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${url.host}/ws`
 
   // 启用自动重连
   shouldReconnect.value = true

@@ -19,7 +19,6 @@
   "dependencies": {
     "@guolao/vue-monaco-editor": "^1.6.0",
     "@vueuse/core": "^14.2.1",
-    "@vueuse/motion": "^3.0.3",
     "axios": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
