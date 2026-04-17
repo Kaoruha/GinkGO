@@ -144,29 +144,6 @@ const cancelOrder = (order: any) => {
   padding: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.card-body {
-  padding: 20px;
-}
-
 .header-actions {
   display: flex;
   gap: 12px;
@@ -174,68 +151,9 @@ const cancelOrder = (order: any) => {
   flex-wrap: wrap;
 }
 
-.btn-primary {
-  padding: 6px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
-}
-
 .text-danger {
   color: #f5222d;
 }
-
-.form-select,
-.form-input {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-select:focus,
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-red { background: rgba(245, 34, 45, 0.2); color: #f5222d; }
-.tag-orange { background: rgba(250, 140, 22, 0.2); color: #fa8c16; }
-.tag-gray { background: rgba(140, 140, 140, 0.2); color: #8c8c8c; }
 
 .table-wrapper {
   overflow-x: auto;

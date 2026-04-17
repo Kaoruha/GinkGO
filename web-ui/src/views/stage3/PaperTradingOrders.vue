@@ -246,74 +246,8 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.form-input,
-.form-select {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-body {
-  min-height: 200px;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 40px;
-  color: #8a8a9a;
 }
 
 .table-wrapper {
@@ -347,38 +281,6 @@ onMounted(() => {
 
 .data-table tbody tr:hover {
   background: #2a2a3e;
-}
-
-.tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-orange {
-  background: rgba(250, 140, 22, 0.2);
-  color: #fa8c16;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-
-.tag-gray {
-  background: rgba(140, 140, 140, 0.2);
-  color: #8c8c8c;
 }
 
 .empty-state {

@@ -964,24 +964,6 @@ onMounted(() => {
   gap: 12px;
 }
 
-.btn-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: #1890ff;
-  font-size: 14px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.btn-text:hover {
-  background: rgba(24, 144, 255, 0.1);
-}
-
 .title-section h1 {
   margin: 0;
   font-size: 16px;
@@ -1000,41 +982,8 @@ onMounted(() => {
   gap: 8px;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 .form-layout {
@@ -1061,12 +1010,6 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
 }
 
 .form-card {
@@ -1101,51 +1044,8 @@ onMounted(() => {
   min-height: 0;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
 .required {
   color: #f5222d;
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 60px;
 }
 
 .input-group {
@@ -1154,12 +1054,6 @@ onMounted(() => {
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
   border-radius: 4px;
-}
-
-.input-prefix {
-  padding: 8px 12px;
-  color: #8a8a9a;
-  font-size: 14px;
 }
 
 .input-group .form-input {
@@ -1301,30 +1195,6 @@ onMounted(() => {
 .item-actions .unit {
   font-size: 12px;
   color: #8a8a9a;
-}
-
-.btn-icon {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-icon:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
-
-.btn-icon.text-red {
-  color: #f5222d;
-}
-
-.btn-icon.text-red:hover {
-  background: rgba(245, 34, 45, 0.1);
-  color: #f5222d;
 }
 
 .item-params {

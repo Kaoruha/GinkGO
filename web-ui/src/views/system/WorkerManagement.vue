@@ -32,17 +32,6 @@
   color: #ffffff;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-body {
-  padding: 40px;
-  text-align: center;
-}
-
 .placeholder-text {
   margin: 0;
   color: #8a8a9a;

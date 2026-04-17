@@ -90,109 +90,16 @@
 }
 
 /* 按钮 */
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-danger {
-  padding: 8px 16px;
-  background: #f5222d;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-danger:hover {
-  background: #ff4d4f;
-}
 
 /* 标签 */
-.tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
-}
 
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.stat-success {
-  color: #52c41a;
-}
 
 /* 表格网格 */
 .tables-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
 }
 
 /* 响应式 */

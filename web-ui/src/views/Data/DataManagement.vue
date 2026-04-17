@@ -277,42 +277,8 @@ onMounted(() => {
   margin: 0;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -320,68 +286,15 @@ onMounted(() => {
   color: #1890ff;
 }
 
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 12px;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
 .stat-blue .stat-value { color: #1890ff; }
 .stat-green .stat-value { color: #52c41a; }
 .stat-orange .stat-value { color: #fa8c16; }
 .stat-purple .stat-value { color: #722ed1; }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 24px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .card-header span {
   color: #ffffff;
   font-size: 16px;
   font-weight: 600;
-}
-
-.card-body {
-  padding: 20px;
 }
 
 .data-type-selector {
@@ -427,27 +340,6 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   align-items: center;
-}
-
-.form-input {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  min-width: 200px;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 40px;
-  color: #8a8a9a;
 }
 
 .table-wrapper {

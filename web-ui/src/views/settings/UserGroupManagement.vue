@@ -250,28 +250,6 @@ onMounted(() => {
   gap: 12px;
 }
 
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
 .table-wrapper {
   overflow-x: auto;
 }
@@ -302,24 +280,6 @@ onMounted(() => {
 
 .data-table tr:hover {
   background: #2a2a3e;
-}
-
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-
-.tag-gray {
-  background: #2a2a3e;
-  color: #8a8a9a;
 }
 
 .tags-wrapper {
@@ -363,108 +323,9 @@ onMounted(() => {
 }
 
 /* 模态框样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-large {
-  max-width: 700px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.modal-close {
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  font-size: 20px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.modal-close:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
-
-.modal-body {
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
 
 .required {
   color: #f5222d;
-}
-
-.form-input,
-.form-textarea {
-  width: 100%;
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 80px;
 }
 
 .multi-select {
@@ -494,29 +355,6 @@ onMounted(() => {
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 /* Transfer 组件样式 */

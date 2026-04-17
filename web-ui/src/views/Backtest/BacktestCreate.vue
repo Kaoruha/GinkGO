@@ -568,24 +568,6 @@ const loadAnalyzers = async () => {
   flex-wrap: wrap;
 }
 
-.btn-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-text:hover {
-  background: #2a2a3e;
-}
-
 .title-section {
   display: flex;
   flex-direction: column;
@@ -715,46 +697,6 @@ const loadAnalyzers = async () => {
   margin: -8px 0 16px 0;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input,
-.form-select {
-  padding: 10px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.form-input::placeholder {
-  color: #5a5a6e;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
 .date-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -769,30 +711,9 @@ const loadAnalyzers = async () => {
   margin-bottom: 16px;
 }
 
-.btn-small {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-small:hover {
   border-color: #1890ff;
   color: #1890ff;
-}
-
-.btn-danger {
-  background: rgba(245, 34, 45, 0.1);
-  border-color: #f5222d;
-  color: #f5222d;
-}
-
-.btn-danger:hover {
-  background: rgba(245, 34, 45, 0.2);
 }
 
 .btn-dashed {
@@ -816,41 +737,8 @@ const loadAnalyzers = async () => {
   color: #1890ff;
 }
 
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 10px 20px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 .selected-portfolios-list {
@@ -1035,34 +923,6 @@ const loadAnalyzers = async () => {
   margin-top: 32px;
 }
 
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-orange {
-  background: rgba(250, 140, 22, 0.2);
-  color: #fa8c16;
-}
-
-.tag-gray {
-  background: #2a2a3e;
-  color: #8a8a9a;
-}
-
 .btn-remove {
   padding: 2px 8px;
   background: transparent;
@@ -1080,66 +940,6 @@ const loadAnalyzers = async () => {
 }
 
 /* 模态框 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.modal-close {
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  color: #8a8a9a;
-  font-size: 20px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.modal-close:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
-
-.modal-body {
-  padding: 16px;
-  overflow-y: auto;
-}
 
 .analyzer-select-list {
   display: flex;

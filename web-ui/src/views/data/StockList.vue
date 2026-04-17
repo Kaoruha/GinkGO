@@ -311,18 +311,6 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.tag {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-blue {
-  background: #1890ff;
-  color: #ffffff;
-}
-
 .tag-st {
   background: #f5222d;
   color: #ffffff;
@@ -354,25 +342,8 @@ onMounted(() => {
   border-color: #1890ff;
 }
 
-.btn-primary {
-  padding: 8px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .btn-success {
@@ -396,33 +367,6 @@ onMounted(() => {
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #8a8a9a;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
 }
 
 .table-wrapper {
@@ -493,17 +437,6 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.btn-small {
-  padding: 6px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-small:hover:not(:disabled) {
   border-color: #1890ff;
   color: #1890ff;
@@ -522,21 +455,6 @@ onMounted(() => {
   color: #ffffff;
   font-size: 12px;
   cursor: pointer;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  color: #8a8a9a;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-}
-
-.btn-close:hover {
-  color: #ffffff;
 }
 
 /* 抽屉 */

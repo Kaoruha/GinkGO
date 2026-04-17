@@ -178,27 +178,6 @@
 }
 
 /* 统计卡片网格 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  border-color: #00ff88;
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
-}
 
 .stat-icon {
   width: 48px;
@@ -217,18 +196,6 @@
 
 .stat-content {
   flex: 1;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 .stat-suffix {

@@ -406,24 +406,6 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.btn-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-text:hover {
-  background: #2a2a3e;
-}
-
 .page-title {
   font-size: 24px;
   font-weight: 600;
@@ -449,82 +431,6 @@ onUnmounted(() => {
   padding: 8px 12px;
 }
 
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-danger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #f5222d;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-danger:hover {
-  background: #ff4d4f;
-}
-
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 .detail-content {
   display: flex;
   flex-direction: column;
@@ -541,26 +447,11 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
 }
 
 .info-card {
@@ -695,18 +586,6 @@ onUnmounted(() => {
   font-size: 20px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.value-up {
-  color: #f5222d;
-}
-
-.value-down {
-  color: #52c41a;
-}
-
-.value-flat {
-  color: #8a8a9a;
 }
 
 .empty-state {

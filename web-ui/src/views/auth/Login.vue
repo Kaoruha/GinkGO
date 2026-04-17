@@ -647,10 +647,6 @@ onUnmounted(() => {
 }
 
 /* ========== 头部 ========== */
-.card-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
 
 .logo-wrapper {
   margin-bottom: 16px;
@@ -938,11 +934,6 @@ onUnmounted(() => {
 }
 
 /* ========== 底部 ========== */
-.card-footer {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #2a2a3e;
-}
 
 .terminal-output {
   font-family: 'Silkscreen', monospace;

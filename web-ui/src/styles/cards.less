@@ -1,0 +1,105 @@
+// ============================================================
+// Cards - 全局卡片样式
+// ============================================================
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  overflow: hidden;
+
+  & + .card {
+    margin-top: 16px;
+  }
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a3e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+  }
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #2a2a3e;
+}
+
+// Stats grid
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #3a3a4e;
+  }
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8a8a9a;
+  margin-top: 4px;
+}
+
+.stat-change {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.stat-success {
+  color: #52c41a !important;
+}
+
+// Change indicators
+.value-up {
+  color: #52c41a;
+}
+
+.value-down {
+  color: #f5222d;
+}
+
+.value-flat {
+  color: #8a8a9a;
+}
+
+.positive {
+  color: #52c41a;
+}
+
+.negative {
+  color: #f5222d;
+}

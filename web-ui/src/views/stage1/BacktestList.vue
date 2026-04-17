@@ -695,57 +695,14 @@ onUnmounted(() => {
 }
 
 /* 按钮 */
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
 
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .btn-secondary:hover:not(:disabled) {
   border-color: #1890ff;
   color: #1890ff;
-}
-
-.btn-small {
-  padding: 4px 12px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .btn-small:hover:not(:disabled) {
@@ -758,16 +715,6 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-.link-button {
-  background: none;
-  border: none;
-  color: #1890ff;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: color 0.2s;
-}
-
 .link-button:hover:not(:disabled) {
   color: #40a9ff;
 }
@@ -775,10 +722,6 @@ onUnmounted(() => {
 .link-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.link-danger {
-  color: #f5222d;
 }
 
 .link-danger:hover:not(:disabled) {
@@ -809,27 +752,6 @@ onUnmounted(() => {
 }
 
 /* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 8px;
-}
 
 .stat-running {
   color: #52c41a;
@@ -837,11 +759,6 @@ onUnmounted(() => {
 
 .stat-failed {
   color: #f5222d;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
 }
 
 /* 筛选栏 */
@@ -944,26 +861,6 @@ onUnmounted(() => {
   border: 1px solid #2a2a3e;
   border-radius: 8px;
   padding: 16px;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 60px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .empty-state {
@@ -1104,83 +1001,6 @@ onUnmounted(() => {
 }
 
 /* 模态框 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  width: 90%;
-  max-width: 500px;
-}
-
-.modal-large {
-  max-width: 800px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  color: #8a8a9a;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: #2a2a3e;
-  color: #ffffff;
-}
-
-.modal-body {
-  flex: 1;
-  overflow: auto;
-  padding: 20px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #2a2a3e;
-}
 
 /* 表单 */
 .form {
@@ -1195,34 +1015,8 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.form-label {
-  font-size: 13px;
-  color: #ffffff;
-  font-weight: 500;
-}
-
 .required {
   color: #f5222d;
-}
-
-.form-input,
-.form-select {
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  outline: none;
-}
-
-.form-input:focus,
-.form-select:focus {
-  border-color: #1890ff;
-}
-
-.form-input::placeholder {
-  color: #8a8a9a;
 }
 
 .chart-container {

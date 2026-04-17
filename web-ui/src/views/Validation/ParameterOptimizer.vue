@@ -437,66 +437,11 @@ onMounted(() => {
   padding: 16px;
 }
 
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
-}
-
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  font-weight: 500;
-}
-
-.form-input,
-.form-select {
-  padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #1890ff;
 }
 
 .date-range-inputs {
@@ -551,41 +496,8 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
-.btn-primary {
-  padding: 10px 20px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
 }
 
 .action-buttons {
@@ -649,17 +561,6 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 /* Alert */
@@ -733,29 +634,6 @@ onMounted(() => {
   background: #2a2a3e;
 }
 
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-green {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-
-.tag-orange {
-  background: rgba(250, 173, 20, 0.2);
-  color: #faad14;
-}
-
-.tag-gold {
-  background: rgba(250, 204, 21, 0.2);
-  color: #facc15;
-}
-
 .tag-silver {
   background: rgba(192, 192, 192, 0.2);
   color: #c0c0c0;
@@ -764,11 +642,6 @@ onMounted(() => {
 .tag-bronze {
   background: rgba(205, 127, 50, 0.2);
   color: #cd7f32;
-}
-
-.tag-gray {
-  background: #2a2a3e;
-  color: #8a8a9a;
 }
 
 /* 热力图 */

@@ -40,28 +40,6 @@ const { openCreateModal } = useComponentList()
   color: #8a8a9a;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: #ffffff;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
 .btn-primary svg {
   flex-shrink: 0;
 }

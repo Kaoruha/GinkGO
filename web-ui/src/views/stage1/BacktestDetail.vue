@@ -745,81 +745,11 @@ onUnmounted(() => {
 }
 
 /* Loading */
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 100px;
-  flex: 1;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #2a2a3e;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.spinner-small {
-  width: 24px;
-  height: 24px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
-}
-
-.loading-inline {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Button */
-.btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: #ffffff;
-}
 
 .btn-primary:hover:not(:disabled) {
   background: #40a9ff;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  color: #ffffff;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-danger {
-  background: #f5222d;
-  color: #ffffff;
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -827,20 +757,6 @@ onUnmounted(() => {
 }
 
 /* Tag */
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
-.tag-red { background: rgba(245, 34, 45, 0.2); color: #f5222d; }
-.tag-gray { background: #2a2a3e; color: #8a8a9a; }
-.tag-cyan { background: rgba(19, 194, 194, 0.2); color: #13c2c2; }
 
 /* Tabs */
 .tabs-container {
@@ -884,13 +800,6 @@ onUnmounted(() => {
 }
 
 /* Card */
-.card {
-  background: #1a1a2e;
-  border-radius: 8px;
-  border: 1px solid #2a2a3e;
-  padding: 20px;
-  margin-bottom: 16px;
-}
 
 .card-title {
   font-size: 16px;
@@ -1028,26 +937,9 @@ onUnmounted(() => {
 }
 
 /* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-}
 
 .stat-item {
   text-align: center;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ffffff;
 }
 
 /* Data Table */

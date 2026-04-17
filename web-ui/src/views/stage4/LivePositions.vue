@@ -210,121 +210,12 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.form-input {
-  padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #1890ff;
-}
-
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #1890ff;
-  border: none;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #1890ff;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: color 0.2s;
-}
-
-.btn-link:hover {
-  color: #40a9ff;
-}
-
 .btn-link-danger {
   color: #f5222d;
 }
 
 .btn-link-danger:hover {
   color: #ff4d4f;
-}
-
-.tag {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-red {
-  background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #8a8a9a;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.stat-success {
-  color: #52c41a;
 }
 
 .stat-danger {
@@ -337,22 +228,6 @@ onMounted(() => {
 
 .text-danger {
   color: #f5222d;
-}
-
-.card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 8px;
-}
-
-.card-body {
-  min-height: 200px;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 40px;
-  color: #8a8a9a;
 }
 
 .table-wrapper {
