@@ -60,6 +60,19 @@
       </div>
     </div>
 
+    <!-- Tab 导航 -->
+    <div class="portfolio-tab-bar">
+      <router-link
+        v-for="tab in tabs"
+        :key="tab.key"
+        :to="tab.route(portfolioId)"
+        class="portfolio-tab-item"
+        :class="{ active: activeTab === tab.key }"
+      >
+        {{ tab.label }}
+      </router-link>
+    </div>
+
     <!-- 可滚动的内容区域 -->
     <div class="scrollable-content">
       <!-- 加载状态 -->
@@ -422,9 +435,31 @@ import { useRouter, useRoute } from 'vue-router'
 import { portfolioApi, type PortfolioDetail } from '@/api/modules/portfolio'
 import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
 import { formatDate, formatNumber } from '@/utils/format'
+import OverviewTab from './tabs/OverviewTab.vue'
 
 const router = useRouter()
 const route = useRoute()
+
+const portfolioId = computed(() => route.params.id as string)
+
+const activeTab = computed(() => {
+  const path = route.path
+  if (path.includes('/backtests')) return 'backtests'
+  if (path.includes('/validation')) return 'validation'
+  if (path.includes('/paper')) return 'paper'
+  if (path.includes('/live')) return 'live'
+  if (path.includes('/components')) return 'components'
+  return 'overview'
+})
+
+const tabs = [
+  { key: 'overview', label: '概况', route: (id: string) => `/portfolios/${id}` },
+  { key: 'backtests', label: '回测', route: (id: string) => `/portfolios/${id}/backtests` },
+  { key: 'validation', label: '验证', route: (id: string) => `/portfolios/${id}/validation` },
+  { key: 'paper', label: '模拟', route: (id: string) => `/portfolios/${id}/paper` },
+  { key: 'live', label: '实盘', route: (id: string) => `/portfolios/${id}/live` },
+  { key: 'components', label: '组件', route: (id: string) => `/portfolios/${id}/components` },
+]
 
 // 简化的通知函数
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -697,6 +732,26 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content, .modal {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+
 .portfolio-detail-container {
   height: 100%;
   display: flex;
@@ -721,6 +776,31 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+
+.portfolio-tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #2a2a3e;
+  padding: 0 24px;
+  background: #1a1a2e;
+  flex-shrink: 0;
+}
+.portfolio-tab-item {
+  padding: 10px 16px;
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.portfolio-tab-item:hover {
+  color: rgba(255,255,255,0.9);
+}
+.portfolio-tab-item.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
 }
 
 .header-left {
