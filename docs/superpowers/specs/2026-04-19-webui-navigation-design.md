@@ -17,24 +17,26 @@
 
 | 决策 | 选择 | 理由 |
 |------|------|------|
-| 导航架构 | 极简工作台（5 入口） | 减少认知负担，复杂度下放到页面内 |
+| 导航架构 | 极简工作台（6 入口） | 减少认知负担，复杂度下放到页面内 |
 | 核心实体 | Portfolio（投资组合） | 全生命周期围绕 Portfolio 展开 |
 | 回测归属 | 从属于 Portfolio | 回测必须在 Portfolio 上下文中发起 |
 | 交易入口 | 全局监控视图 | 操作在 Portfolio 内，跨组合监控独立入口 |
 | 研究入口 | 独立顶层入口 | 因子研究与 Portfolio 流程正交 |
 | 管理入口 | 合并为二级 | 低频运维功能降级 |
+| 数据入口 | 独立顶层 | 数据查看是高频需求，查看和同步都需便捷访问 |
 | 视觉风格 | 保持深色主题，暂不变更 | 先解决架构问题 |
 | 功能范围 | 0 个功能删除 | 只重组入口，不删功能 |
 
 ## 3. 导航结构
 
-### 3.1 顶层菜单（5 项）
+### 3.1 顶层菜单（6 项）
 
 ```
 📊 工作台    → /dashboard
 💼 组合      → /portfolios
 🧪 研究      → /research
 📡 交易      → /trading
+💾 数据      → /data
 ⚙️ 管理      → /admin
 ```
 
@@ -134,22 +136,34 @@
 - `GET /trading/live` — 实盘全局监控
 - `GET /trading/live/market` — 市场数据
 
-### 3.6 管理（/admin）
+### 3.6 数据（/data）
 
-**定位：** 低频运维功能，三个二级入口。
+**定位：** 独立的数据查看与管理入口。数据查看是高频需求（研究时频繁浏览股票、K线），数据同步/更新也需便捷访问。
+
+| 子视图 | 路由 | 内容 |
+|--------|------|------|
+| 数据概览 | `/data` | 数据统计（股票数、K线条数、Tick 摘要）、数据源状态 |
+| 股票信息 | `/data/stocks` | 股票列表浏览、搜索、分页 |
+| K线数据 | `/data/bars` | K线数据查看、按代码和日期范围筛选 |
+| 数据同步 | `/data/sync` | 数据更新操作（stockinfo/bars/ticks/adjustfactor）、同步状态 |
+
+**路由：**
+- `GET /data` — 数据概览
+- `GET /data/stocks` — 股票信息
+- `GET /data/bars` — K线数据
+- `GET /data/sync` — 数据同步
+
+### 3.7 管理（/admin）
+
+**定位：** 低频运维功能，两个二级入口。
 
 | 二级入口 | 路由 | 内容 |
 |----------|------|------|
-| 数据 | `/admin/data` | 数据概览、股票信息、K线数据、数据同步、数据源状态 |
 | 组件 | `/admin/components` | 策略、风控、仓位、选股器、分析器、事件处理器（组件库管理） |
 | 系统 | `/admin/system` | 系统状态、Worker 管理、API Key、用户管理、用户组、通知管理、告警中心 |
 
 **路由：**
-- `GET /admin` — 管理首页（重定向到数据）
-- `GET /admin/data` — 数据管理
-- `GET /admin/data/stocks` — 股票信息
-- `GET /admin/data/bars` — K线数据
-- `GET /admin/data/sync` — 数据同步
+- `GET /admin` — 管理首页（重定向到组件）
 - `GET /admin/components` — 组件库
 - `GET /admin/components/:type` — 组件列表（strategies/risks/sizers/selectors/analyzers/handlers）
 - `GET /admin/components/:type/:id` — 组件详情
@@ -191,14 +205,14 @@
 | `/research/*` | `/research/factor/*` | 保持，增加父路由 |
 | `/optimization/*` | `/research/optimization/*` | 移入研究 |
 | `/components/*` | `/admin/components/*` | 降为二级 |
-| `/data/*` | `/admin/data/*` | 降为二级 |
+| `/data/*` | `/data/*` | 独立顶层入口 |
 | `/system/*` | `/admin/system/*` | 降为二级 |
 
 ## 5. 技术影响
 
 ### 前端变更
 - **路由重写：** 89 条路由 → 约 40 条（合并后减少）
-- **App.vue：** 侧边栏从 13 项缩减为 5 项，移除子菜单折叠逻辑
+- **App.vue：** 侧边栏从 13 项缩减为 6 项，移除子菜单折叠逻辑
 - **Portfolio Detail：** 新增 6 Tab 页面结构，作为核心页面
 - **Store 调整：** backtest store 需关联 portfolio_id
 - **页面迁移：** 部分独立页面转为 Tab 内子组件
@@ -219,7 +233,7 @@
 ### 阶段划分建议
 
 **Phase 1: 路由和导航**
-- 重写 App.vue 侧边栏（5 项）
+- 重写 App.vue 侧边栏（6 项）
 - 重写 router/index.ts
 - 添加路由重定向（旧路由 → 新路由）
 
