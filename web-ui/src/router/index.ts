@@ -18,9 +18,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/portfolios/:id/edit', name: 'PortfolioEdit', component: () => import('@/views/portfolio/PortfolioFormEditor.vue'), meta: { title: '编辑组合' } },
 
   // ===== 组件库 =====
-  { path: '/components', name: 'Components', component: () => import('@/views/admin/AdminPage.vue'), meta: { title: '组件库' } },
-  { path: '/components/:type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
-  { path: '/components/:type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
+  {
+    path: '/components',
+    component: () => import('@/views/admin/AdminPage.vue'),
+    children: [
+      { path: '', name: 'Components', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件库' } },
+      { path: ':type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
+      { path: ':type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
+    ],
+  },
 
   // ===== 研究 =====
   { path: '/research', name: 'Research', redirect: '/research/factor', meta: { title: '研究' } },
@@ -47,14 +53,20 @@ const routes: RouteRecordRaw[] = [
   { path: '/data/bars', name: 'BarData', component: () => import('@/views/data/BarData.vue'), meta: { title: 'K线数据' } },
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
 
-  // ===== 管理 =====
-  { path: '/admin', name: 'Admin', component: () => import('@/views/system/SystemStatus.vue'), meta: { title: '系统状态' } },
-  { path: '/admin/workers', name: 'WorkerManagement', component: () => import('@/views/system/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
-  { path: '/admin/api-keys', name: 'ApiKeyManagement', component: () => import('@/views/system/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
-  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/settings/UserManagement.vue'), meta: { title: '用户管理' } },
-  { path: '/admin/groups', name: 'UserGroupManagement', component: () => import('@/views/settings/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
-  { path: '/admin/notifications', name: 'NotificationManagement', component: () => import('@/views/settings/NotificationManagement.vue'), meta: { title: '通知管理' } },
-  { path: '/admin/alerts', name: 'AlertCenter', component: () => import('@/views/system/AlertCenter.vue'), meta: { title: '告警中心' } },
+  // ===== 管理（系统级功能）=====
+  {
+    path: '/admin',
+    component: () => import('@/views/admin/AdminLayout.vue'),
+    children: [
+      { path: '', name: 'Admin', component: () => import('@/views/system/SystemStatus.vue'), meta: { title: '系统状态' } },
+      { path: 'workers', name: 'WorkerManagement', component: () => import('@/views/system/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
+      { path: 'api-keys', name: 'ApiKeyManagement', component: () => import('@/views/system/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
+      { path: 'users', name: 'UserManagement', component: () => import('@/views/settings/UserManagement.vue'), meta: { title: '用户管理' } },
+      { path: 'groups', name: 'UserGroupManagement', component: () => import('@/views/settings/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
+      { path: 'notifications', name: 'NotificationManagement', component: () => import('@/views/settings/NotificationManagement.vue'), meta: { title: '通知管理' } },
+      { path: 'alerts', name: 'AlertCenter', component: () => import('@/views/system/AlertCenter.vue'), meta: { title: '告警中心' } },
+    ],
+  },
 
   // ===== 旧路由兼容重定向 =====
   // 组合 singular → plural
