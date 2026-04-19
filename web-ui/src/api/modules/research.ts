@@ -110,7 +110,7 @@ export const researchApi = {
    * IC 分析
    */
   icAnalysis(config: ICAnalysisConfig): Promise<ICAnalysisResult> {
-    return request.post('/v1/research/ic', {
+    return request.post('/api/v1/research/ic', {
       backtest_id: config.backtest_id,
       return_period: config.return_period,
     })
@@ -120,7 +120,7 @@ export const researchApi = {
    * 因子分层
    */
   layering(config: FactorLayeringConfig): Promise<FactorLayeringResult> {
-    return request.post('/v1/research/layering', {
+    return request.post('/api/v1/research/layering', {
       backtest_id: config.backtest_id,
       n_layers: config.n_layers,
       factor_name: config.factor_name,
@@ -131,7 +131,7 @@ export const researchApi = {
    * 因子正交化
    */
   orthogonalize(config: FactorOrthogonalizeConfig): Promise<FactorOrthogonalizeResult> {
-    return request.post('/v1/research/orthogonalize', {
+    return request.post('/api/v1/research/orthogonalize', {
       backtest_id: config.backtest_id,
       factors: config.factors,
       method: config.method,
@@ -142,7 +142,7 @@ export const researchApi = {
    * 因子比较
    */
   compare(config: FactorCompareConfig): Promise<FactorCompareResult> {
-    return request.post('/v1/research/compare', {
+    return request.post('/api/v1/research/compare', {
       backtest_id_1: config.backtest_id_1,
       backtest_id_2: config.backtest_id_2,
       metrics: config.metrics,
@@ -153,7 +153,7 @@ export const researchApi = {
    * 因子衰减分析
    */
   decay(config: FactorDecayConfig): Promise<FactorDecayResult> {
-    return request.post('/v1/research/decay', {
+    return request.post('/api/v1/research/decay', {
       backtest_id: config.backtest_id,
       max_lag: config.max_lag,
     })

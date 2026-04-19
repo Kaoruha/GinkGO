@@ -84,7 +84,7 @@ export const validationApi = {
    * Walk-Forward 验证
    */
   walkForward(config: WalkForwardConfig): Promise<WalkForwardResult> {
-    return request.post('/v1/validation/walkforward', {
+    return request.post('/api/v1/validation/walkforward', {
       backtest_config: { backtest_id: config.backtest_id },
       n_folds: config.n_folds,
       window_type: config.window_type,
@@ -96,7 +96,7 @@ export const validationApi = {
    * 蒙特卡洛模拟
    */
   monteCarlo(config: MonteCarloConfig): Promise<MonteCarloResult> {
-    return request.post('/v1/validation/montecarlo', {
+    return request.post('/api/v1/validation/montecarlo', {
       backtest_config: { backtest_id: config.backtest_id },
       n_simulations: config.n_simulations,
       confidence_level: config.confidence_level,
@@ -107,7 +107,7 @@ export const validationApi = {
    * 敏感性分析
    */
   sensitivity(config: SensitivityConfig): Promise<SensitivityResult[]> {
-    return request.post('/v1/validation/sensitivity', {
+    return request.post('/api/v1/validation/sensitivity', {
       backtest_config: { backtest_id: config.backtest_id },
       params: config.params,
     })

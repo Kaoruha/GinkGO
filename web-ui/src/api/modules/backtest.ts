@@ -175,7 +175,7 @@ export const backtestApi = {
   /**
    * 删除回测任务
    */
-  delete(uuid: string): Promise<{ success: boolean; message: string }> {
+  delete(uuid: string): Promise<void> {
     return request.delete(`/api/v1/backtest/${uuid}`)
   },
 
@@ -203,21 +203,21 @@ export const backtestApi = {
   /**
    * 启动回测任务
    */
-  start(uuid: string, data?: BacktestStartRequest): Promise<{ success: boolean; run_id: string; message: string }> {
+  start(uuid: string, data?: BacktestStartRequest): Promise<{ run_id: string }> {
     return request.post(`/api/v1/backtest/${uuid}/start`, data || {})
   },
 
   /**
    * 停止回测任务
    */
-  stop(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
+  stop(uuid: string): Promise<{ run_id: string }> {
     return request.post(`/api/v1/backtest/${uuid}/stop`)
   },
 
   /**
    * 取消回测任务
    */
-  cancel(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
+  cancel(uuid: string): Promise<{ run_id: string }> {
     return request.post(`/api/v1/backtest/${uuid}/cancel`)
   },
 

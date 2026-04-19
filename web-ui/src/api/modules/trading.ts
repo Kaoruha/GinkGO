@@ -99,7 +99,7 @@ export interface CreatePaperAccount {
  */
 export function getPaperAccounts() {
   return request<APIResponse<PaperAccount[]>>({
-    url: '/v1/paper-trading/accounts',
+    url: '/api/v1/paper-trading/accounts',
     method: 'GET'
   })
 }
@@ -109,7 +109,7 @@ export function getPaperAccounts() {
  */
 export function createPaperAccount(data: CreatePaperAccount) {
   return request<APIResponse<{ account_id: string }>>({
-    url: '/v1/paper-trading/accounts',
+    url: '/api/v1/paper-trading/accounts',
     method: 'POST',
     data
   })
@@ -133,7 +133,7 @@ export function getPaperAccount(accountId: string) {
  * 启动模拟盘
  */
 export function startPaperTrading(accountId: string, strategyIds: string[]) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/paper-trading/${accountId}/start`,
     method: 'POST',
     data: { strategy_ids: strategyIds }
@@ -144,7 +144,7 @@ export function startPaperTrading(accountId: string, strategyIds: string[]) {
  * 停止模拟盘
  */
 export function stopPaperTrading(accountId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/paper-trading/${accountId}/stop`,
     method: 'POST'
   })
@@ -175,7 +175,7 @@ export function getPaperOrders(accountId: string, status?: OrderStatus[]) {
  * 撤销模拟盘订单
  */
 export function cancelPaperOrder(accountId: string, orderId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/paper-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
@@ -205,7 +205,7 @@ export function getPaperReport(accountId: string, date: string) {
  */
 export function getLiveAccounts() {
   return request<APIResponse<LiveAccount[]>>({
-    url: '/v1/live-trading/accounts',
+    url: '/api/v1/live-trading/accounts',
     method: 'GET'
   })
 }
@@ -214,7 +214,7 @@ export function getLiveAccounts() {
  * 连接券商
  */
 export function connectBroker(accountId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/live-trading/accounts/${accountId}/connect`,
     method: 'POST'
   })
@@ -224,7 +224,7 @@ export function connectBroker(accountId: string) {
  * 断开券商连接
  */
 export function disconnectBroker(accountId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/live-trading/accounts/${accountId}/disconnect`,
     method: 'POST'
   })
@@ -254,7 +254,7 @@ export function getLiveActiveOrders(accountId: string) {
  * 撤销实盘订单
  */
 export function cancelLiveOrder(accountId: string, orderId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/live-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
@@ -290,7 +290,7 @@ export function getRiskStatus(accountId: string) {
  * 触发熔断
  */
 export function triggerCircuitBreaker(accountId: string) {
-  return request<APIResponse<{ success: boolean }>>({
+  return request<APIResponse<void>>({
     url: `/v1/live-trading/${accountId}/risk/circuit-breaker`,
     method: 'POST'
   })
@@ -314,7 +314,7 @@ export function getTradingLogs(params: {
     message: string
     details?: any
   }>>>({
-    url: '/v1/live-trading/logs',
+    url: '/api/v1/live-trading/logs',
     method: 'GET',
     params
   })

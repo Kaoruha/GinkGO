@@ -1,4 +1,5 @@
 import request from '../request'
+import type { APIResponse } from '@/types/api'
 
 // 权限类型
 export type PermissionType = 'read' | 'trade' | 'admin'
@@ -61,13 +62,6 @@ export interface VerifyApiKeyResponse {
   user_id: string | null
 }
 
-// 标准 API 响应格式（匹配后端返回 {code, message, data}）
-interface StandardResponse<T> {
-  code: number
-  message: string
-  data: T
-}
-
 /**
  * API Key API
  */
@@ -78,14 +72,14 @@ export const apiKeyApi = {
   listApiKeys: (params?: {
     user_id?: string
   }) => {
-    return request.get<StandardResponse<ApiKey[]>>(`/api/v1/api-keys/`, { params })
+    return request.get<APIResponse<ApiKey[]>>(`/api/v1/api-keys/`, { params })
   },
 
   /**
    * 创建 API Key
    */
   createApiKey: (data: CreateApiKeyRequest) => {
-    return request.post<StandardResponse<CreateApiKeyResponse>>(
+    return request.post<APIResponse<CreateApiKeyResponse>>(
       `/api/v1/api-keys/`,
       data
     )
@@ -95,28 +89,28 @@ export const apiKeyApi = {
    * 获取 API Key 详情
    */
   getApiKey: (uuid: string) => {
-    return request.get<StandardResponse<ApiKey>>(`/api/v1/api-keys/${uuid}`)
+    return request.get<APIResponse<ApiKey>>(`/api/v1/api-keys/${uuid}`)
   },
 
   /**
    * 更新 API Key
    */
   updateApiKey: (uuid: string, data: UpdateApiKeyRequest) => {
-    return request.put<StandardResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`, data)
+    return request.put<APIResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`, data)
   },
 
   /**
    * 删除 API Key
    */
   deleteApiKey: (uuid: string) => {
-    return request.delete<StandardResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`)
+    return request.delete<APIResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`)
   },
 
   /**
    * 获取完整 API Key（用于复制）
    */
   revealApiKey: (uuid: string) => {
-    return request.post<StandardResponse<{ uuid: string; name: string; key_value: string }>>(
+    return request.post<APIResponse<{ uuid: string; name: string; key_value: string }>>(
       `/api/v1/api-keys/${uuid}/reveal`
     )
   },
@@ -125,7 +119,7 @@ export const apiKeyApi = {
    * 验证 API Key
    */
   verifyApiKey: (apiKey: string, requiredPermission?: string) => {
-    return request.post<StandardResponse<VerifyApiKeyResponse | null>>(
+    return request.post<APIResponse<VerifyApiKeyResponse | null>>(
       `/api/v1/api-keys/verify?required_permission=${requiredPermission || ''}`,
       {},
       {
@@ -140,7 +134,7 @@ export const apiKeyApi = {
    * 检查权限
    */
   checkPermission: (apiKey: string, permission: string) => {
-    return request.post<StandardResponse<{ has_permission: boolean; permission: string }>>(
+    return request.post<APIResponse<{ has_permission: boolean; permission: string }>>(
       `/api/v1/api-keys/check-permission?permission=${permission}`,
       {},
       {

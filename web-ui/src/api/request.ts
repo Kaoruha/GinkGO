@@ -21,16 +21,16 @@ service.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// 响应拦截器 - 处理错误和 Token 过期
+// 响应拦截器 - 解包 {code, data} 信封
 service.interceptors.response.use(
   (response) => {
-    // 检查业务错误
-    if (response.data?.success === false) {
-      const error = new Error(response.data?.message || '操作失败')
-      ;(error as Error & { code: string }).code = response.data?.error || 'BUSINESS_ERROR'
+    const data = response.data
+    if (data && typeof data.code === 'number' && data.code !== 0) {
+      const error = new Error(data.message || '操作失败')
+      ;(error as Error & { code: number }).code = data.code
       return Promise.reject(error)
     }
-    return response.data
+    return data
   },
   (error: AxiosError) => {
     // 忽略取消的请求
@@ -39,31 +39,23 @@ service.interceptors.response.use(
     }
 
     const status = error.response?.status
+    const responseData = error.response?.data as any
 
     // 401 未授权
     if (status === 401) {
-      // 如果是登录请求失败，不跳转，由 Login.vue 处理错误提示
       const isLoginRequest = error.config?.url?.includes('/auth/login')
       if (isLoginRequest) {
-        const backendMsg = (error.response?.data as any)?.detail || (error.response?.data as any)?.error
-        const errorMsg = backendMsg || '用户名或密码错误'
+        const errorMsg = responseData?.message || '用户名或密码错误'
         return Promise.reject(new Error(errorMsg))
       }
-      // 其他401错误，清除登录状态并跳转
       localStorage.removeItem('access_token')
       localStorage.removeItem('user_info')
       window.location.href = '/login'
       return Promise.reject(error)
     }
 
-    // 403 禁止访问
-    if (status === 403) {
-      toast.error('没有权限执行此操作')
-      return Promise.reject(error)
-    }
-
-    // 其他错误
-    const errorMsg = (error.response?.data as any)?.message || error.message || '请求失败'
+    // 其他错误 - 优先用新格式的 message
+    const errorMsg = responseData?.message || error.message || '请求失败'
     toast.error(errorMsg)
     return Promise.reject(error)
   }

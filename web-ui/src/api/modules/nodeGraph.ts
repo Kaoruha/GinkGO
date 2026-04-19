@@ -30,7 +30,7 @@ export const nodeGraphApi = {
     is_template?: boolean
     keyword?: string
   }, options?: RequestOptions) => {
-    return request.get<{ items: NodeGraphSummary[]; total: number }>('/v1/node-graphs/', { params, signal: options?.signal })
+    return request.get<{ items: NodeGraphSummary[]; total: number }>('/api/v1/node-graphs/', { params, signal: options?.signal })
   },
 
   /**
@@ -48,7 +48,7 @@ export const nodeGraphApi = {
    * @param options 请求选项（支持 signal 取消请求）
    */
   create: (data: NodeGraphCreate, options?: RequestOptions) => {
-    return request.post<NodeGraphDetail>('/v1/node-graphs/', data, { signal: options?.signal })
+    return request.post<NodeGraphDetail>('/api/v1/node-graphs/', data, { signal: options?.signal })
   },
 
   /**

@@ -36,7 +36,7 @@ export const usersApi = {
    * @param options 请求选项（支持 signal 取消请求）
    */
   list(params?: { status?: string; search?: string }, options?: RequestOptions): Promise<UserInfo[]> {
-    return request.get('/v1/settings/users', { params, signal: options?.signal })
+    return request.get('/api/v1/settings/users', { params, signal: options?.signal })
   },
 
   /**
@@ -45,7 +45,7 @@ export const usersApi = {
    * @param options 请求选项（支持 signal 取消请求）
    */
   create(data: UserCreate, options?: RequestOptions): Promise<UserInfo> {
-    return request.post('/v1/settings/users', data, { signal: options?.signal })
+    return request.post('/api/v1/settings/users', data, { signal: options?.signal })
   },
 
   /**
@@ -189,14 +189,14 @@ export const userGroupsApi = {
    * 获取用户组列表
    */
   list(): Promise<UserGroupInfo[]> {
-    return request.get('/v1/settings/user-groups')
+    return request.get('/api/v1/settings/user-groups')
   },
 
   /**
    * 创建用户组
    */
   create(data: UserGroupCreate): Promise<UserGroupInfo> {
-    return request.post('/v1/settings/user-groups', data)
+    return request.post('/api/v1/settings/user-groups', data)
   },
 
   /**
@@ -304,14 +304,14 @@ export const notificationsApi = {
    * 获取通知模板列表
    */
   listTemplates(): Promise<NotificationTemplate[]> {
-    return request.get('/v1/settings/notifications/templates')
+    return request.get('/api/v1/settings/notifications/templates')
   },
 
   /**
    * 创建通知模板
    */
   createTemplate(data: Partial<NotificationTemplate>): Promise<NotificationTemplate> {
-    return request.post('/v1/settings/notifications/templates', data)
+    return request.post('/api/v1/settings/notifications/templates', data)
   },
 
   /**
@@ -346,21 +346,21 @@ export const notificationsApi = {
    * 获取通知历史
    */
   listHistory(params?: { type?: string; page?: number; page_size?: number }): Promise<NotificationHistory[]> {
-    return request.get('/v1/settings/notifications/history', { params })
+    return request.get('/api/v1/settings/notifications/history', { params })
   },
 
   /**
    * 获取通知接收人列表
    */
   listRecipients(): Promise<NotificationRecipient[]> {
-    return request.get('/v1/settings/notifications/recipients')
+    return request.get('/api/v1/settings/notifications/recipients')
   },
 
   /**
    * 创建通知接收人
    */
   createRecipient(data: NotificationRecipientCreate): Promise<NotificationRecipient> {
-    return request.post('/v1/settings/notifications/recipients', data)
+    return request.post('/api/v1/settings/notifications/recipients', data)
   },
 
   /**
@@ -422,14 +422,14 @@ export const apiKeysApi = {
    * 获取API密钥列表
    */
   list(): Promise<APIKey[]> {
-    return request.get('/v1/settings/api-keys')
+    return request.get('/api/v1/settings/api-keys')
   },
 
   /**
    * 创建API密钥
    */
   create(data: { name: string; expires_at?: string }): Promise<APIKey> {
-    return request.post('/v1/settings/api-keys', data)
+    return request.post('/api/v1/settings/api-keys', data)
   },
 
   /**
@@ -443,6 +443,6 @@ export const apiKeysApi = {
    * 获取API统计
    */
   getStats(): Promise<APIStats> {
-    return request.get('/v1/settings/api-stats')
+    return request.get('/api/v1/settings/api-stats')
   }
 }

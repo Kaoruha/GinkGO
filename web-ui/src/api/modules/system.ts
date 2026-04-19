@@ -58,62 +58,62 @@ export const systemApi = {
    * 获取系统状态
    */
   getStatus(): Promise<SystemStatusResponse> {
-    return request.get('/v1/system/status')
+    return request.get('/api/v1/system/status')
   },
 
   /**
    * 获取所有组件/Worker状态
    */
   getWorkers(): Promise<WorkersResponse> {
-    return request.get('/v1/system/workers')
+    return request.get('/api/v1/system/workers')
   },
 
   /**
    * 获取DataWorker列表
    */
   getDataWorkers(): Promise<WorkerInfo[]> {
-    return request.get('/v1/system/workers/data')
+    return request.get('/api/v1/system/workers/data')
   },
 
   /**
    * 获取BacktestWorker列表
    */
   getBacktestWorkers(): Promise<WorkerInfo[]> {
-    return request.get('/v1/system/workers/backtest')
+    return request.get('/api/v1/system/workers/backtest')
   },
 
   /**
    * 获取ExecutionNode列表
    */
   getExecutionNodes(): Promise<WorkerInfo[]> {
-    return request.get('/v1/system/workers/execution')
+    return request.get('/api/v1/system/workers/execution')
   },
 
   /**
    * 获取Scheduler列表
    */
   getSchedulers(): Promise<WorkerInfo[]> {
-    return request.get('/v1/system/workers/scheduler')
+    return request.get('/api/v1/system/workers/scheduler')
   },
 
   /**
    * 获取TaskTimer列表
    */
   getTaskTimers(): Promise<WorkerInfo[]> {
-    return request.get('/v1/system/workers/timer')
+    return request.get('/api/v1/system/workers/timer')
   },
 
   /**
    * 启动 Worker
    */
-  startWorker(workerId: string): Promise<{ success: boolean; message: string }> {
+  startWorker(workerId: string): Promise<{ message: string }> {
     return request.post(`/v1/system/workers/${workerId}/start`)
   },
 
   /**
    * 停止 Worker
    */
-  stopWorker(workerId: string): Promise<{ success: boolean; message: string }> {
+  stopWorker(workerId: string): Promise<{ message: string }> {
     return request.post(`/v1/system/workers/${workerId}/stop`)
   },
 
