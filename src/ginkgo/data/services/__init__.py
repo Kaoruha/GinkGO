@@ -38,6 +38,10 @@ from ginkgo.data.services.factor_service import FactorService
 from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
 from ginkgo.data.services.order_service import OrderService, order_service
+from ginkgo.data.services.credential_service import CredentialService
+from ginkgo.data.services.user_service import UserService
+from ginkgo.data.services.user_group_service import UserGroupService
+from ginkgo.data.services.notification_service import NotificationService
 
 # Legacy aliases (Backward compatibility)
 DataService = BaseService

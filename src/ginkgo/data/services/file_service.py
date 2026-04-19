@@ -454,7 +454,7 @@ class FileService(FileSearchMixin, BaseService):
         return service_result
 
     def get(
-        self, name: str = None, file_type: FILE_TYPES = None, as_dataframe: bool = True, **kwargs
+        self, name: str = None, file_type: FILE_TYPES = None, **kwargs
     ) -> ServiceResult:
         """
         查询文件信息，支持按名称、类型等多种条件过滤和缓存
@@ -462,11 +462,10 @@ class FileService(FileSearchMixin, BaseService):
         Args:
             name: 文件名称过滤条件
             file_type: 文件类型过滤条件
-            as_dataframe: 是否返回DataFrame格式
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 包含文件数据列表或DataFrame的查询结果
+            ServiceResult: 包含文件数据列表的查询结果
         """
         try:
             # 提取filters参数并从kwargs中移除，避免重复传递
@@ -481,9 +480,9 @@ class FileService(FileSearchMixin, BaseService):
             # Always exclude soft-deleted records
             filters["is_del"] = False
 
-            files = self._crud_repo.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+            files = self._crud_repo.find(filters=filters, **kwargs)
             return ServiceResult.success(
-                data={"files": files, "as_dataframe": as_dataframe, "count": len(files) if hasattr(files, '__len__') else 0},
+                data={"files": files, "count": len(files) if hasattr(files, '__len__') else 0},
                 message=f"Retrieved files successfully"
             )
         except Exception as e:

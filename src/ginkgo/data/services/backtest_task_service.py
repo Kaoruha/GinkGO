@@ -85,7 +85,6 @@ class BacktestTaskService(BaseService):
             if status:
                 filters["status"] = status
 
-            result = self._crud_repo.find(filters=filters, as_dataframe=False)
 
             return ServiceResult.success(result, f"Successfully retrieved backtest tasks")
 

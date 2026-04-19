@@ -577,7 +577,7 @@ class PortfolioService(BaseService):
   
     # ==================== 标准接口方法 ====================
 
-    def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, as_dataframe: bool = False, **kwargs) -> ServiceResult:
+    def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         获取投资组合数据
 
@@ -586,7 +586,6 @@ class PortfolioService(BaseService):
             name: 投资组合名称
             mode: 运行模式筛选
             state: 运行状态筛选
-            as_dataframe: 是否返回DataFrame
             **kwargs: 其他过滤条件
 
         Returns:

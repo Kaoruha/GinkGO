@@ -76,7 +76,6 @@ class EngineService(BaseService):
             filters['is_del'] = False
 
             # Execute query - always return ModelList
-            result = self._crud_repo.find(filters=filters, as_dataframe=False)
 
             return ServiceResult.success(result, f"Successfully retrieved engine data")
 
@@ -180,7 +179,7 @@ class EngineService(BaseService):
                 engine_list = engines if isinstance(engines, list) else [engines]
             else:
                 # 检查所有引擎
-                engine_list = self._crud_repo.find(filters={'is_del': False}, as_dataframe=False)
+                engine_list = self._crud_repo.find(filters={'is_del': False})
 
             for engine in engine_list:
                 if not engine:
@@ -631,7 +630,7 @@ class EngineService(BaseService):
             # 检查映射是否已存在
             try:
                 existing_mappings = self.get_engine_portfolio_mappings(
-                    engine_id=engine_id, portfolio_id=portfolio_id, as_dataframe=True
+                    engine_id=engine_id, portfolio_id=portfolio_id
                 )
                 if not existing_mappings.empty:
                     return ServiceResult.error(f"投资组合 {portfolio_id} 已映射到引擎 {engine_id}")

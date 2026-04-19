@@ -141,7 +141,6 @@ class FactorService(BaseService):
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         factor_category: Optional[str] = None,
-        as_dataframe: bool = True
     ) -> ServiceResult:
         """
         Query factor data for specified entity
@@ -153,13 +152,12 @@ class FactorService(BaseService):
             start_time: Start time
             end_time: End time
             factor_category: Factor category
-            as_dataframe: Whether to return DataFrame format
 
         Returns:
             ServiceResult: Query result
         """
         result = self.create_result()
-        
+
         try:
             factors = self.factor_crud.get_factors_by_entity(
                 entity_type=entity_type,
@@ -168,7 +166,6 @@ class FactorService(BaseService):
                 start_time=start_time,
                 end_time=end_time,
                 factor_category=factor_category,
-                as_dataframe=as_dataframe
             )
             
             result.success = True
@@ -189,7 +186,6 @@ class FactorService(BaseService):
         entity_id: str,
         factor_names: Optional[List[str]] = None,
         factor_category: Optional[str] = None,
-        as_dataframe: bool = True
     ) -> ServiceResult:
         """
         Get latest factor values for specified entity
@@ -199,20 +195,18 @@ class FactorService(BaseService):
             entity_id: Entity identifier
             factor_names: List of factor names
             factor_category: Factor category
-            as_dataframe: Whether to return DataFrame format
 
         Returns:
             ServiceResult: Latest factor data
         """
         result = self.create_result()
-        
+
         try:
             latest_factors = self.factor_crud.get_latest_factors_by_entity(
                 entity_type=entity_type,
                 entity_id=entity_id,
                 factor_names=factor_names,
                 factor_category=factor_category,
-                as_dataframe=as_dataframe
             )
             
             result.success = True
@@ -265,12 +259,12 @@ class FactorService(BaseService):
                     factor_names=factor_names,
                     start_time=start_time,
                     end_time=end_time,
-                    as_dataframe=True
                 )
                 
                 if factors_result.success:
-                    factors_df = factors_result.get_data("factors")
-                    if not factors_df.empty:
+                    factors_data = factors_result.get_data("factors")
+                    if factors_data is not None and len(factors_data) > 0:
+                        factors_df = factors_data.to_dataframe() if hasattr(factors_data, 'to_dataframe') else pd.DataFrame(factors_data)
                         factors_df['entity_factor'] = factors_df['entity_id'] + '_' + factors_df['factor_name']
                         all_factor_data.append(factors_df)
             
@@ -349,12 +343,14 @@ class FactorService(BaseService):
             if end_time:
                 filters["timestamp__lte"] = end_time
             
-            factors_df = self.factor_crud.find(filters=filters, as_dataframe=True)
-            
-            if factors_df.empty:
+            factors_result = self.factor_crud.find(filters=filters)
+
+            if not factors_result:
                 result.error = f"No data found for factor {factor_name}"
                 return result
-            
+
+            factors_df = factors_result.to_dataframe()
+
             # 计算分布统计
             factor_values = factors_df['factor_value'].astype(float)
             

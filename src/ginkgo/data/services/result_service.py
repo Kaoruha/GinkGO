@@ -544,3 +544,91 @@ class ResultService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"创建持仓记录失败: {e}")
             return ServiceResult.error(f"创建持仓记录失败: {e}")
+
+    def get_orders_by_portfolio(
+        self,
+        portfolio_id: str,
+        status: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> ServiceResult:
+        """按 portfolio 查询订单记录（不依赖 run_id，用于实盘/模拟盘）"""
+        try:
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            crud = OrderRecordCRUD()
+
+            filters = {"portfolio_id": portfolio_id}
+            if status is not None:
+                filters["status"] = status
+
+            result = crud.find(
+                filters=filters,
+                page_size=page_size,
+                order_by="timestamp",
+                desc_order=True,
+            )
+            total = crud.count(filters)
+
+            return ServiceResult.success({"data": result, "total": total})
+        except Exception as e:
+            GLOG.ERROR(f"查询订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_current_positions(
+        self,
+        portfolio_id: str,
+        min_volume: Optional[int] = None,
+    ) -> ServiceResult:
+        """查询当前持仓（不依赖 run_id，用于实盘/模拟盘）"""
+        try:
+            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
+            crud = PositionRecordCRUD()
+
+            result = crud.find_current_positions(
+                portfolio_id=portfolio_id,
+                min_volume=min_volume,
+            )
+            return ServiceResult.success(result)
+        except Exception as e:
+            GLOG.ERROR(f"查询持仓失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def cancel_order(self, order_id: str) -> ServiceResult:
+        """取消订单"""
+        try:
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            crud = OrderRecordCRUD()
+
+            records = crud.find_by_order_id(order_id)
+            if not records:
+                return ServiceResult.error("Order not found")
+
+            record = records[0]
+            crud.update_by_uuid(record.uuid, data={"status": 4})  # 4 = CANCELLED
+
+            return ServiceResult.success({"cancelled": True})
+        except Exception as e:
+            GLOG.ERROR(f"取消订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_orders_by_portfolio_date(
+        self,
+        portfolio_id: str,
+        start_date=None,
+        end_date=None,
+        page_size: Optional[int] = None,
+    ) -> ServiceResult:
+        """按 portfolio + 日期范围查询订单（不依赖 run_id）"""
+        try:
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            crud = OrderRecordCRUD()
+
+            result = crud.find_by_portfolio(
+                portfolio_id=portfolio_id,
+                start_date=start_date,
+                end_date=end_date,
+                page_size=page_size,
+            )
+            return ServiceResult.success(result)
+        except Exception as e:
+            GLOG.ERROR(f"查询订单失败: {e}")
+            return ServiceResult.error(str(e))
