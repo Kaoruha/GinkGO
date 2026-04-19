@@ -100,7 +100,6 @@ class UserGroupService(BaseService):
                 return protection_error
 
             # Check if name already exists
-            existing = self.user_group_crud.find(filters={"name": name}, page_size=1, as_dataframe=False)
             if existing:
                 return ServiceResult.error(
                     f"Group already exists: {name}",
@@ -167,7 +166,6 @@ class UserGroupService(BaseService):
             # For now, assume user exists
 
             # Check if group exists
-            groups = self.user_group_crud.find(filters={"uuid": group_uuid}, page_size=1, as_dataframe=False)
             if not groups:
                 return ServiceResult.error(
                     f"Group not found: {group_uuid}",
@@ -310,7 +308,6 @@ class UserGroupService(BaseService):
             ServiceResult with group data
         """
         try:
-            groups = self.user_group_crud.find(filters={"uuid": group_uuid}, page_size=1, as_dataframe=False)
 
             if not groups:
                 return ServiceResult.error(
@@ -360,7 +357,6 @@ class UserGroupService(BaseService):
             if is_active is not None:
                 filters["is_active"] = is_active
 
-            groups = self.user_group_crud.find(filters=filters, page_size=limit, as_dataframe=False)
 
             group_list = []
             for group in groups:
@@ -404,7 +400,6 @@ class UserGroupService(BaseService):
             member_list = []
             for mapping in mappings:
                 # Get user info to fetch user display name
-                users = user_crud.find(filters={"uuid": mapping.user_uuid}, page_size=1, as_dataframe=False)
                 user_name = users[0].display_name if users else "Unknown"
 
                 member_list.append({
@@ -445,7 +440,6 @@ class UserGroupService(BaseService):
                 groups = self.user_group_crud.find(
                     filters={"uuid": mapping.group_uuid},
                     page_size=1,
-                    as_dataframe=False
                 )
                 if groups:
                     group = groups[0]

@@ -168,7 +168,6 @@ class UserService(BaseService):
         try:
             # If setting as primary, first set all other contacts to is_primary=False
             if is_primary:
-                existing_contacts = self.user_contact_crud.find_by_user_id(user_id=user_uuid, as_dataframe=False)
                 for contact in existing_contacts:
                     if contact.is_primary:
                         self.user_contact_crud.modify(
@@ -282,7 +281,6 @@ class UserService(BaseService):
             ServiceResult with user data
         """
         try:
-            users = self.user_crud.find(filters={"uuid": user_uuid}, page_size=1, as_dataframe=False)
 
             if not users:
                 return ServiceResult.error(
@@ -381,7 +379,6 @@ class UserService(BaseService):
         """
         try:
             # Check if user exists
-            users = self.user_crud.find(filters={"uuid": user_uuid}, page_size=1, as_dataframe=False)
             if not users:
                 return ServiceResult.error(
                     f"User not found: {user_uuid}",
@@ -413,7 +410,6 @@ class UserService(BaseService):
             GLOG.INFO(f"Updated user: {user_uuid}")
 
             # Re-fetch user to get updated data
-            users = self.user_crud.find(filters={"uuid": user_uuid}, page_size=1, as_dataframe=False)
             if not users:
                 return ServiceResult.error(
                     "Failed to fetch updated user",
@@ -469,7 +465,6 @@ class UserService(BaseService):
             if is_active is not None:
                 filters["is_active"] = is_active
 
-            users = self.user_crud.find(filters=filters, page_size=limit, as_dataframe=False)
 
             # 按 name 过滤（在 Python 端实现模糊匹配，搜索 username 和 display_name）
             if name:
@@ -523,7 +518,6 @@ class UserService(BaseService):
         """
         try:
             # Check if contact exists
-            contacts = self.user_contact_crud.find(filters={"uuid": contact_uuid}, page_size=1, as_dataframe=False)
             if not contacts:
                 return ServiceResult.error(
                     f"Contact not found: {contact_uuid}",
@@ -568,7 +562,6 @@ class UserService(BaseService):
             GLOG.INFO(f"Updated contact: {contact_uuid}")
 
             # Re-fetch to get updated data
-            contacts = self.user_contact_crud.find(filters={"uuid": contact_uuid}, page_size=1, as_dataframe=False)
             if not contacts:
                 return ServiceResult.error(
                     "Failed to fetch updated contact",
@@ -609,7 +602,6 @@ class UserService(BaseService):
         """
         try:
             # Get the contact to find its user
-            contacts = self.user_contact_crud.find(filters={"uuid": contact_uuid}, page_size=1, as_dataframe=False)
             if not contacts:
                 return ServiceResult.error(
                     f"Contact not found: {contact_uuid}",
@@ -620,7 +612,6 @@ class UserService(BaseService):
             user_id = contact.user_id
 
             # Set all other contacts to is_primary=False
-            existing_contacts = self.user_contact_crud.find_by_user_id(user_id=user_id, as_dataframe=False)
             for other_contact in existing_contacts:
                 if other_contact.uuid != contact_uuid and other_contact.is_primary:
                     self.user_contact_crud.modify(
@@ -695,7 +686,6 @@ class UserService(BaseService):
         try:
             contacts = self.user_contact_crud.find_by_user_id(
                 user_id=user_uuid,
-                as_dataframe=False
             )
 
             contact_list = []

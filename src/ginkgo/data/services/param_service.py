@@ -199,7 +199,7 @@ class ParamService(BaseService):
             return ServiceResult.error(f"删除参数失败: {str(e)}")
 
     def get(self, param_id: str = None, mapping_id: str = None, index: int = None,
-            as_dataframe: bool = True, **kwargs) -> ServiceResult:
+            **kwargs) -> ServiceResult:
         """
         查询参数数据，支持多种查询条件和输出格式
 
@@ -207,7 +207,6 @@ class ParamService(BaseService):
             param_id: 参数UUID（精确查询）
             mapping_id: 映射标识符（过滤条件）
             index: 参数索引位置（过滤条件）
-            as_dataframe: 是否返回DataFrame格式
             **kwargs: 其他过滤条件
 
         Returns:
@@ -231,7 +230,7 @@ class ParamService(BaseService):
             filters['is_del'] = False
 
             # 执行查询
-            result = self._crud_repo.find(filters=filters, as_dataframe=as_dataframe)
+            result = self._crud_repo.find(filters=filters)
 
             return ServiceResult.success(result, f"成功获取参数数据")
 
@@ -329,13 +328,12 @@ class ParamService(BaseService):
 
     # ==================== 业务方法 ====================
 
-    def get_by_mapping(self, mapping_id: str, as_dataframe: bool = True, **kwargs) -> ServiceResult:
+    def get_by_mapping(self, mapping_id: str, **kwargs) -> ServiceResult:
         """
         获取指定映射的所有参数，按索引顺序排序
 
         Args:
             mapping_id: 映射标识符
-            as_dataframe: 是否返回DataFrame格式
             **kwargs: 其他过滤条件
 
         Returns:
@@ -351,7 +349,6 @@ class ParamService(BaseService):
             # 按索引升序排序返回
             params = self._crud_repo.find(
                 filters=filters,
-                as_dataframe=as_dataframe,
                 order_by="index",
                 desc_order=False
             )
@@ -464,7 +461,6 @@ class ParamService(BaseService):
                 return ServiceResult.error("源映射和目标映射不能相同")
 
             # 获取源映射的所有参数
-            source_result = self.get_by_mapping(source_mapping, as_dataframe=False)
             if not source_result.is_success():
                 return ServiceResult.error(f"获取源映射参数失败: {source_result.error}")
 
@@ -593,7 +589,6 @@ class ParamService(BaseService):
 
             if mapping_id:
                 # 获取特定映射的详细信息
-                params_result = self.get_by_mapping(mapping_id, as_dataframe=False)
                 if params_result.is_success():
                     params = params_result.data
                     if params:
@@ -607,7 +602,7 @@ class ParamService(BaseService):
             else:
                 # 获取所有映射的汇总信息
                 try:
-                    all_params = self._crud_repo.find(filters={"is_del": False}, as_dataframe=True)
+                    all_params = self._crud_repo.find(filters={"is_del": False})
                     if all_params is not None and not all_params.empty:
                         unique_mappings = all_params["mapping_id"].nunique()
                         summary_data["unique_mappings"] = unique_mappings
@@ -636,7 +631,6 @@ class ParamService(BaseService):
                 return ServiceResult.error("映射ID不能为空")
 
             # 获取该映射的所有参数
-            params_result = self.get_by_mapping(mapping_id, as_dataframe=False)
             if not params_result.is_success():
                 return ServiceResult.error(f"获取映射参数失败: {params_result.error}")
 

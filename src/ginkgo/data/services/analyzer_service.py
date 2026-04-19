@@ -99,7 +99,6 @@ class AnalyzerService(BaseService):
         portfolio_id: Optional[str] = None,
         analyzer_name: Optional[str] = None,
         limit: int = 1000,
-        as_dataframe: bool = False
     ) -> ServiceResult:
         """
         按 run_id 查询 analyzer 记录
@@ -109,7 +108,6 @@ class AnalyzerService(BaseService):
             portfolio_id: 投资组合ID（可选）
             analyzer_name: 分析器名称（可选）
             limit: 返回数量限制
-            as_dataframe: 是否返回 DataFrame 格式
 
         Returns:
             ServiceResult: 查询结果
@@ -120,7 +118,6 @@ class AnalyzerService(BaseService):
                 portfolio_id=portfolio_id,
                 analyzer_name=analyzer_name,
                 page_size=limit,
-                as_dataframe=as_dataframe
             )
 
             GLOG.INFO(f"按 run_id 查询成功: run_id={run_id}, count={len(result) if result else 0}")
