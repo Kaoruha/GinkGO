@@ -1,6 +1,6 @@
 import request from '../request'
 
-const BASE = '/api/v1/components'
+const BASE = '/api/v1/components/'
 
 export const componentsApi = {
   async list(componentType?: string) {
