@@ -21,7 +21,7 @@ def _get_component_parameters(mapping_id: str, file_id: str, file_type: FILE_TYP
         
         # 从params表获取所有构造参数
         param_crud = container.cruds.param()
-        params_df = param_crud.find(filters={"mapping_id": mapping_id}, as_dataframe=True, order_by="index")
+        params_df = param_crud.find(filters={"mapping_id": mapping_id}, order_by="index")
         params_dict = {}
         
         if params_df.shape[0] > 0:
@@ -41,7 +41,7 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
     
     # 获取portfolio的文件映射
     portfolio_service = container.portfolio_service()
-    mappings_df = portfolio_service.get_portfolio_file_mappings(as_dataframe=True)
+    mappings_df = portfolio_service.get_portfolio_file_mappings().to_dataframe()
     portfolio_files = mappings_df[mappings_df["portfolio_id"] == portfolio_id]
     
     if portfolio_files.shape[0] == 0:
@@ -131,7 +131,7 @@ def _show_engine_tree(engine_row, detail: bool, filter_type: Optional[FILE_TYPES
     
     # 获取engine关联的portfolios
     engine_service = container.engine_service()
-    mappings_df = engine_service.get_engine_portfolio_mappings(as_dataframe=True)
+    mappings_df = engine_service.get_engine_portfolio_mappings().to_dataframe()
     engine_portfolios = mappings_df[mappings_df["engine_id"] == engine_row["uuid"]]
     
     if engine_portfolios.shape[0] == 0:
@@ -141,7 +141,7 @@ def _show_engine_tree(engine_row, detail: bool, filter_type: Optional[FILE_TYPES
             portfolio_id = mapping["portfolio_id"]
             # 获取portfolio详情
             portfolio_service = container.portfolio_service()
-            portfolio_df = portfolio_service.get_portfolio(portfolio_id, as_dataframe=True)
+            portfolio_df = portfolio_service.get_portfolio(portfolio_id)
             if portfolio_df.shape[0] > 0:
                 portfolio_row = portfolio_df.iloc[0]
                 portfolio_branch = tree.add(f"[bold green]Portfolio:[/bold green] {portfolio_row['name']} ([yellow]{portfolio_id}[/yellow])")

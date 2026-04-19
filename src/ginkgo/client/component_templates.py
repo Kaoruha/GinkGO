@@ -42,7 +42,7 @@ class {class_name}(BaseStrategy):
         # 获取历史数据
         date_start = self.now + datetime.timedelta(days=-self._window - 5)
         date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        df = get_bars(event.code, date_start, date_end)
 
         if len(df) < self._window:
             return []  # 数据不足
@@ -109,7 +109,7 @@ class {class_name}(BaseStrategy):
 
         date_start = self.now + datetime.timedelta(days=-self._long_window - 5)
         date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        df = get_bars(event.code, date_start, date_end)
 
         if len(df) < self._long_window:
             return []
@@ -311,7 +311,7 @@ class {class_name}(BaseRiskManagement):
         try:
             date_start = datetime.datetime.now() - datetime.timedelta(days=self.atr_period * 2)
             date_end = datetime.datetime.now()
-            df = get_bars(code, date_start, date_end, as_dataframe=True)
+            df = get_bars(code, date_start, date_end)
 
             if len(df) < self.atr_period:
                 return 0.0
@@ -469,7 +469,7 @@ class {class_name}(BaseStrategy):
 
         date_start = self.now + datetime.timedelta(days=-self.rsi_period * 2)
         date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        df = get_bars(event.code, date_start, date_end)
 
         if len(df) < self.rsi_period:
             return []
@@ -543,7 +543,7 @@ class {class_name}(BaseStrategy):
 
         date_start = self.now + datetime.timedelta(days=-self.lookback_period)
         date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        df = get_bars(event.code, date_start, date_end)
 
         if len(df) < self.lookback_period:
             return []

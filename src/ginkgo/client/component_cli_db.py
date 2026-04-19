@@ -104,7 +104,7 @@ class {name}(BaseStrategy):
         # 获取历史数据
         date_start = self.now + datetime.timedelta(days=-self._window - 5)
         date_end = self.now
-        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        df = get_bars(event.code, date_start, date_end)
 
         if len(df) < self._window:
             return []  # 数据不足

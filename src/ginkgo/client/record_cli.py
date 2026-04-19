@@ -87,7 +87,6 @@ def signal(
             engine_id=engine, 
             portfolio_id=portfolio, 
             page_size=page if page > 0 else None, 
-            as_dataframe=True
         )
         
         if signals_df.shape[0] == 0:
