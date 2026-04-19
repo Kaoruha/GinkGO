@@ -629,11 +629,9 @@ class NotificationWorker:
         # 获取组信息
         if group_uuid:
             group = self.notification_service.group_crud.find(
-                filters={"uuid": group_uuid}, page_size=1, as_dataframe=False
             )
         elif group_name:
             group = self.notification_service.group_crud.find(
-                filters={"name": group_name}, page_size=1, as_dataframe=False
             )
         else:
             GLOG.ERROR("[ERROR] Custom fields message missing group_name/group_uuid")
@@ -645,13 +643,11 @@ class NotificationWorker:
 
         group_uuid = group[0].uuid
         mappings = self.notification_service.group_mapping_crud.find_by_group(
-            group_uuid, as_dataframe=False
         )
 
         success_count = 0
         for mapping in mappings:
             contacts = self.notification_service.contact_crud.find_by_user_id(
-                mapping.user_uuid, as_dataframe=False
             )
             for contact in contacts:
                 contact_type_enum = contact.get_contact_type_enum()

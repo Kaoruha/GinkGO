@@ -104,7 +104,6 @@ class NotificationRecipientService(BaseService):
                     filters={"user_id": user_id, "is_primary": True, "is_del": False},
                     page_size=1,
                 page=0,
-                    as_dataframe=False
                 )
                 if not contacts:
                     return ServiceResult.error(
@@ -212,7 +211,6 @@ class NotificationRecipientService(BaseService):
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
-                as_dataframe=False
             )
             if not recipients:
                 return ServiceResult.error(
@@ -317,7 +315,6 @@ class NotificationRecipientService(BaseService):
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
-                as_dataframe=False
             )
             if not recipients:
                 return ServiceResult.error(
@@ -358,7 +355,6 @@ class NotificationRecipientService(BaseService):
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
-                as_dataframe=False
             )
             if not recipients:
                 return ServiceResult.error(
@@ -429,7 +425,6 @@ class NotificationRecipientService(BaseService):
                     filters["recipient_type"] = recipient_type.value
 
             # 查询
-            recipients = self.recipient_crud.find(filters=filters, as_dataframe=False)
 
             # 获取所有用户和用户组信息用于显示
             user_ids = list(set([r.user_id for r in recipients if r.user_id]))
@@ -440,7 +435,6 @@ class NotificationRecipientService(BaseService):
                 from ginkgo.data.containers import container
                 user_crud = container.user_crud()
                 for user_id in user_ids:
-                    user_list = user_crud.find(filters={"uuid": user_id, "is_del": False}, as_dataframe=False)
                     if user_list:
                         u = user_list[0]
                         users_map[user_id] = {"uuid": u.uuid, "username": u.username, "display_name": u.display_name}
@@ -450,7 +444,6 @@ class NotificationRecipientService(BaseService):
                 from ginkgo.data.containers import container
                 group_crud = container.user_group_crud()
                 for group_id in group_ids:
-                    group_list = group_crud.find(filters={"uuid": group_id, "is_del": False}, as_dataframe=False)
                     if group_list:
                         g = group_list[0]
                         groups_map[group_id] = {"uuid": g.uuid, "name": g.name}
@@ -502,7 +495,6 @@ class NotificationRecipientService(BaseService):
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
-                as_dataframe=False
             )
             if not recipients:
                 return ServiceResult.error(
@@ -522,7 +514,6 @@ class NotificationRecipientService(BaseService):
                         "is_primary": True,
                         "is_del": False
                     },
-                    as_dataframe=False
                 )
                 for uc in user_contacts:
                     contacts.append({
@@ -534,7 +525,6 @@ class NotificationRecipientService(BaseService):
                 # 获取用户组所有用户的主联系方式
                 mappings = self.user_group_mapping_crud.find(
                     filters={"group_uuid": recipient.user_group_id, "is_del": False},
-                    as_dataframe=False
                 )
                 for mapping in mappings:
                     user_contacts = self.user_contact_crud.find(
@@ -543,7 +533,6 @@ class NotificationRecipientService(BaseService):
                             "is_primary": True,
                             "is_del": False
                         },
-                        as_dataframe=False
                     )
                     for uc in user_contacts:
                         contacts.append({
