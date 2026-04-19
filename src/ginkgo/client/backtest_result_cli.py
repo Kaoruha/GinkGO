@@ -355,7 +355,6 @@ def _show_by_run_id(
         run_id=run_id,
         portfolio_id=portfolio_id,
         analyzer_name=analyzer_name,
-        as_dataframe=True
     )
 
     if not data_result.success:
