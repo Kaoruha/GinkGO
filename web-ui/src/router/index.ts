@@ -17,6 +17,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/portfolios/:id', name: 'PortfolioDetail', component: () => import('@/views/portfolio/PortfolioDetail.vue'), meta: { title: '组合详情' } },
   { path: '/portfolios/:id/edit', name: 'PortfolioEdit', component: () => import('@/views/portfolio/PortfolioFormEditor.vue'), meta: { title: '编辑组合' } },
 
+  // ===== 组件库 =====
+  { path: '/components', name: 'Components', component: () => import('@/views/admin/AdminPage.vue'), meta: { title: '组件库' } },
+  { path: '/components/:type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
+  { path: '/components/:type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
+
   // ===== 研究 =====
   { path: '/research', name: 'Research', redirect: '/research/factor', meta: { title: '研究' } },
   { path: '/research/factor', name: 'FactorResearch', component: () => import('@/views/research/ResearchPage.vue'), meta: { title: '因子分析' } },
@@ -43,32 +48,33 @@ const routes: RouteRecordRaw[] = [
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
 
   // ===== 管理 =====
-  { path: '/admin', name: 'Admin', redirect: '/admin/components', meta: { title: '管理' } },
-  { path: '/admin/components', name: 'AdminComponents', component: () => import('@/views/admin/AdminPage.vue'), meta: { title: '组件库' } },
-  { path: '/admin/components/:type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
-  { path: '/admin/components/:type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
-  { path: '/admin/system', name: 'AdminSystem', component: () => import('@/views/system/SystemStatus.vue'), meta: { title: '系统状态' } },
-  { path: '/admin/system/workers', name: 'WorkerManagement', component: () => import('@/views/system/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
-  { path: '/admin/system/api-keys', name: 'ApiKeyManagement', component: () => import('@/views/system/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
-  { path: '/admin/system/users', name: 'UserManagement', component: () => import('@/views/settings/UserManagement.vue'), meta: { title: '用户管理' } },
-  { path: '/admin/system/groups', name: 'UserGroupManagement', component: () => import('@/views/settings/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
-  { path: '/admin/system/notifications', name: 'NotificationManagement', component: () => import('@/views/settings/NotificationManagement.vue'), meta: { title: '通知管理' } },
-  { path: '/admin/system/alerts', name: 'AlertCenter', component: () => import('@/views/system/AlertCenter.vue'), meta: { title: '告警中心' } },
+  { path: '/admin', name: 'Admin', component: () => import('@/views/system/SystemStatus.vue'), meta: { title: '系统状态' } },
+  { path: '/admin/workers', name: 'WorkerManagement', component: () => import('@/views/system/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
+  { path: '/admin/api-keys', name: 'ApiKeyManagement', component: () => import('@/views/system/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
+  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/settings/UserManagement.vue'), meta: { title: '用户管理' } },
+  { path: '/admin/groups', name: 'UserGroupManagement', component: () => import('@/views/settings/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
+  { path: '/admin/notifications', name: 'NotificationManagement', component: () => import('@/views/settings/NotificationManagement.vue'), meta: { title: '通知管理' } },
+  { path: '/admin/alerts', name: 'AlertCenter', component: () => import('@/views/system/AlertCenter.vue'), meta: { title: '告警中心' } },
 
   // ===== 旧路由兼容重定向 =====
+  // 组合 singular → plural
   { path: '/portfolio', redirect: '/portfolios' },
   { path: '/portfolio/create', redirect: '/portfolios/create' },
   { path: '/portfolio/:id', redirect: to => `/portfolios/${to.params.id}` },
   { path: '/portfolio/:id/edit', redirect: to => `/portfolios/${to.params.id}/edit` },
+  // 回测 → 组合
   { path: '/backtest', redirect: '/portfolios' },
   { path: '/backtest/create', redirect: '/portfolios' },
   { path: '/backtest/:id', redirect: '/portfolios' },
   { path: '/backtest/compare', redirect: '/portfolios' },
+  // 验证 → 组合
   { path: '/validation/walkforward', redirect: '/portfolios' },
   { path: '/validation/montecarlo', redirect: '/portfolios' },
   { path: '/validation/sensitivity', redirect: '/portfolios' },
+  // 模拟盘 → 交易
   { path: '/paper', redirect: '/trading/paper' },
   { path: '/paper/orders', redirect: '/trading/paper' },
+  // 实盘 → 交易
   { path: '/live', redirect: '/trading/live' },
   { path: '/live/orders', redirect: '/trading/live' },
   { path: '/live/positions', redirect: '/trading/live' },
@@ -78,33 +84,36 @@ const routes: RouteRecordRaw[] = [
   { path: '/live/broker-management', redirect: '/trading/live' },
   { path: '/live/trade-history', redirect: '/trading/live' },
   { path: '/live/trading-control', redirect: '/trading/live' },
+  // 研究旧路径
   { path: '/research/ic', redirect: '/research/factor/ic' },
   { path: '/research/layering', redirect: '/research/factor/layering' },
   { path: '/research/orthogonal', redirect: '/research/factor/orthogonal' },
   { path: '/research/comparison', redirect: '/research/factor/comparison' },
   { path: '/research/decay', redirect: '/research/factor/decay' },
+  // 优化旧路径
   { path: '/optimization/grid', redirect: '/research/optimization/grid' },
   { path: '/optimization/genetic', redirect: '/research/optimization/genetic' },
   { path: '/optimization/bayesian', redirect: '/research/optimization/bayesian' },
-  { path: '/components/strategies', redirect: '/admin/components/strategies' },
-  { path: '/components/strategies/:id', redirect: to => `/admin/components/strategies/${to.params.id}` },
-  { path: '/components/risks', redirect: '/admin/components/risks' },
-  { path: '/components/risks/:id', redirect: to => `/admin/components/risks/${to.params.id}` },
-  { path: '/components/sizers', redirect: '/admin/components/sizers' },
-  { path: '/components/sizers/:id', redirect: to => `/admin/components/sizers/${to.params.id}` },
-  { path: '/components/selectors', redirect: '/admin/components/selectors' },
-  { path: '/components/selectors/:id', redirect: to => `/admin/components/selectors/${to.params.id}` },
-  { path: '/components/analyzers', redirect: '/admin/components/analyzers' },
-  { path: '/components/analyzers/:id', redirect: to => `/admin/components/analyzers/${to.params.id}` },
-  { path: '/components/handlers', redirect: '/admin/components/handlers' },
-  { path: '/components/handlers/:id', redirect: to => `/admin/components/handlers/${to.params.id}` },
-  { path: '/system/status', redirect: '/admin/system' },
-  { path: '/system/workers', redirect: '/admin/system/workers' },
-  { path: '/system/api-keys', redirect: '/admin/system/api-keys' },
-  { path: '/system/users', redirect: '/admin/system/users' },
-  { path: '/system/groups', redirect: '/admin/system/groups' },
-  { path: '/system/notifications', redirect: '/admin/system/notifications' },
-  { path: '/system/alerts', redirect: '/admin/system/alerts' },
+  // 管理旧组件路径 → 新顶级组件路径
+  { path: '/admin/components', redirect: '/components' },
+  { path: '/admin/components/:type', redirect: to => `/components/${to.params.type}` },
+  { path: '/admin/components/:type/:id', redirect: to => `/components/${to.params.type}/${to.params.id}` },
+  // 管理 /admin/system/* → /admin/*
+  { path: '/admin/system', redirect: '/admin' },
+  { path: '/admin/system/workers', redirect: '/admin/workers' },
+  { path: '/admin/system/api-keys', redirect: '/admin/api-keys' },
+  { path: '/admin/system/users', redirect: '/admin/users' },
+  { path: '/admin/system/groups', redirect: '/admin/groups' },
+  { path: '/admin/system/notifications', redirect: '/admin/notifications' },
+  { path: '/admin/system/alerts', redirect: '/admin/alerts' },
+  // /system/* → /admin/*
+  { path: '/system/status', redirect: '/admin' },
+  { path: '/system/workers', redirect: '/admin/workers' },
+  { path: '/system/api-keys', redirect: '/admin/api-keys' },
+  { path: '/system/users', redirect: '/admin/users' },
+  { path: '/system/groups', redirect: '/admin/groups' },
+  { path: '/system/notifications', redirect: '/admin/notifications' },
+  { path: '/system/alerts', redirect: '/admin/alerts' },
 
   // 404
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { title: '页面未找到' } },
