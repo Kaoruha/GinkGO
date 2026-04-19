@@ -1,3 +1,6 @@
+# Superpowers brainstorm
+.superpowers/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -232,3 +235,6 @@ web-ui/node_modules/
 
 # Web UI build output
 web-ui/dist/
+
+# graphify knowledge graph output
+graphify-out/

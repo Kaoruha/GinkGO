@@ -21,6 +21,28 @@ Ginkgo is a Python quantitative trading library featuring:
 - **多数据库支持**: 统一接口访问 ClickHouse、MySQL、MongoDB、Redis
 - **分层架构**: LiveCore(数据层) 与 ExecutionNode(执行层) 通过Kafka解耦
 
+### 分层架构：CRUD 与 Service
+
+**三层调用关系：** `API层 / CLI层 → Service层 → CRUD层 → 数据库`
+
+**CRUD 层（数据访问层）：**
+- 定位：纯粹的数据读写操作，每张表对应一个 CRUD 类
+- 继承 `BaseCRUD`，提供标准的 `add/find/get/modify/remove/count` 方法
+- 可以包含字段的格式转换（如 `datetime_normalize`、`to_decimal`、枚举转换）
+- 可以包含基于单表的查询便捷方法（如 `find_by_portfolio`、`get_by_user_id`）
+- **禁止**：跨表业务逻辑、业务规则校验、事务编排
+
+**Service 层（业务服务层）：**
+- 定位：业务逻辑编排，可跨多个 CRUD，提供业务语义
+- 方法名体现业务含义（如 `register`、`update_last_login`、`reset_password`）
+- 负责事务管理、跨表操作、业务规则校验、权限检查
+- 返回 `ServiceResult` 标准化结果
+
+**强制规则：**
+1. **API 层禁止直接调用 CRUD**，必须通过 Service 层
+2. **Service 层禁止直接暴露 CRUD 实例**（如 `service.crud`），应封装为 Service 方法
+3. **CRUD 方法返回 `ModelList`**，调用方按需链式转换：`.to_dataframe()`、`.to_entities()`、`.first()`
+
 ### 全局实例
 - **`GLOG`**: 日志记录，支持Rich格式化
 - **`GCONF`**: 配置管理，分层配置系统 (环境变量 → 配置文件 → 默认值)
@@ -610,3 +632,12 @@ from ginkgo.libs import GLOG, GCONF, GTM
 
 ## Recent Changes
 - 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
