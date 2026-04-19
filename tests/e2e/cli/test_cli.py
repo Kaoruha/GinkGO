@@ -14,7 +14,8 @@ import os
 import pytest
 
 # 确保项目根目录在 sys.path 中
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# __file__ = tests/e2e/cli/test_cli.py -> 上3级 = 项目根
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 _path = PROJECT_ROOT
 if _path not in sys.path:
     sys.path.insert(0, _path)
@@ -44,7 +45,7 @@ class TestEntryPoint:
     def test_no_args_shows_help(self):
         """无参数显示帮助（Typer 返回 2 表示缺少子命令，但会显示用法）"""
         result = _run_cli([])
-        assert "Ginkgo" in result.stdout
+        assert "Ginkgo" in result.stdout or "Ginkgo" in result.stderr
 
 
 class TestCoreCommands:

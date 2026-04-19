@@ -1,51 +1,66 @@
 """
-Ant Design 选择器常量
+CSS 选择器常量
 
-集中管理 E2E 测试中使用的 CSS 选择器，方便 Ant Design 版本升级时统一更新。
-未来计划：在 Vue 组件中添加 data-testid 属性，逐步替换 CSS 类选择器。
+集中管理 E2E 测试中使用的 CSS 选择器。
+优先使用 data-testid，其次使用语义化 CSS 类名。
 """
 
-# Ant Design 组件选择器
-MODAL = ".ant-modal"
-MODAL_CONFIRM = ".ant-modal-confirm"
-TABLE = ".ant-table"
-TABLE_ROW = ".ant-table-row"
-TABLE_CELL = ".ant-table-cell"
-SELECT = ".ant-select"
-SELECT_DROPDOWN = ".ant-select-dropdown"
-SELECT_ITEM = ".ant-select-item"
-INPUT = ".ant-input"
-INPUT_NUMBER = ".ant-input-number"
-DATE_PICKER = ".ant-picker"
-BTN = ".ant-btn"
-BTN_PRIMARY = ".ant-btn-primary"
-BTN_DANGER = ".ant-btn-dangerous"
-BTN_LINK = ".ant-btn-link"
-MENU = ".ant-menu"
-MENU_ITEM = ".ant-menu-item"
-TABS = ".ant-tabs"
-TAB_PANE = ".ant-tabs-tabpane"
-FORM_ITEM = ".ant-form-item"
-MESSAGE = ".ant-message"
-NOTIFICATION = ".ant-notification"
-SPIN = ".ant-spin"
-DRAWER = ".ant-drawer"
-POPUP = ".ant-popover"
-TAG = ".ant-tag"
-BADGE = ".ant-badge"
-SWITCH = ".ant-switch"
-CHECKBOX = ".ant-checkbox"
-RADIO = ".ant-radio"
-DROPDOWN = ".ant-dropdown"
-BREADCRUMB = ".ant-breadcrumb"
-PAGINATION = ".ant-pagination"
-CARD = ".ant-card"
-COLLAPSE = ".ant-collapse"
-PROGRESS = ".ant-progress"
-RESULT = ".ant-result"
-EMPTY = ".ant-empty"
+# 表格
+TABLE = "table.data-table"
+TABLE_ROW = "table.data-table tbody tr"
+TABLE_CELL = "table.data-table td"
 
-# 通用文本选择器
-CLOSE_BTN = ".ant-modal-close, [aria-label='Close'], .ant-drawer-close"
-SUBMIT_BTN = "button[type='submit'], .ant-btn-primary"
-CANCEL_BTN = ".ant-btn-default:not(.ant-btn-primary)"
+# 表单元素
+MODAL = ".modal, .modal-content"
+MODAL_CONFIRM = ".modal-overlay"
+SELECT = ".form-select"
+SELECT_DROPDOWN = "select option"
+SELECT_ITEM = "select option"
+INPUT = ".form-input"
+INPUT_NUMBER = "input[type='number'].form-input"
+DATE_PICKER = "input[type='date']"
+
+# 按钮
+BTN = ".btn, .btn-primary, .btn-secondary"
+BTN_PRIMARY = ".btn-primary"
+BTN_DANGER = ".btn-danger"
+BTN_LINK = ".btn-link, .link-button"
+
+# 导航
+MENU = ".menu"
+MENU_ITEM = ".menu-item"
+TABS = ""  # 无 tabs 组件，使用路由导航
+TAB_PANE = ""
+
+# 表单
+FORM_ITEM = ".form-group"
+
+# 反馈
+MESSAGE = ".toast, .ant-message"
+NOTIFICATION = ".notification"
+SPIN = ".spinner"
+DRAWER = ".drawer"
+POPUP = ".popover"
+
+# 标签和徽章
+TAG = ".tag"
+BADGE = ".badge"
+SWITCH = ".switch-input"
+CHECKBOX = "input[type='checkbox']"
+RADIO = "input[type='radio']"
+DROPDOWN = ".dropdown-menu"
+BREADCRUMB = ".breadcrumb"
+
+# 卡片和统计
+PAGINATION = ".pagination"
+CARD = ".card"
+COLLAPSE = ".collapse"
+PROGRESS = ".progress-fill"
+RESULT = ".result"
+EMPTY = ".empty-state"
+STAT_CARD = ".stat-card"
+
+# 通用
+CLOSE_BTN = ".modal-close, [aria-label='Close']"
+SUBMIT_BTN = "button[type='submit'], .btn-primary"
+CANCEL_BTN = ".btn-secondary"

@@ -3,15 +3,15 @@
 
 测试系统相关页面：
 - 系统状态
-- Worker 管理
-- 告警中心
+- 基础设施
+- Worker 列表
 """
 
 import pytest
 from playwright.sync_api import Page, expect
 
 from ..config import config
-from ..selectors import CARD, TABLE, TABLE_ROW, SPIN
+from ..selectors import CARD, STAT_CARD, TABLE, SWITCH
 
 
 @pytest.mark.e2e
@@ -22,65 +22,48 @@ class TestSystemStatus:
         """系统状态页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        expect(page.locator("body")).to_be_visible()
-        print("✅ 系统状态页面加载成功")
+        assert "/system/status" in page.url
 
     def test_system_overview(self, authenticated_page: Page):
-        """系统概览显示"""
+        """系统概览统计卡片可见"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        # 检查统计卡片
-        stat_cards = page.locator(f".ant-statistic, {CARD}").all()
-        print(f"统计卡片数量: {len(stat_cards)}")
-
-        # 应该显示一些系统信息
-        assert len(stat_cards) >= 1 or page.locator("table").count() >= 1
-        print("✅ 系统概览显示正常")
+        expect(page.locator(STAT_CARD).first).to_be_visible()
 
     def test_infrastructure_status(self, authenticated_page: Page):
-        """基础设施状态显示"""
+        """基础设施状态可见"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        # 检查基础设施状态卡片（MySQL, Redis, ClickHouse 等）
-        infra_section = page.locator(f"{CARD}:has-text('基础设施'), {CARD}:has-text('MySQL')")
-        if infra_section.count() > 0:
-            print("✅ 基础设施状态显示正常")
-        else:
-            # 可能是其他布局
-            print("⚠️ 基础设施部分未找到")
+        infra = page.locator(f"{CARD}, .infra-grid, .infra-card").first
+        expect(infra).to_be_visible()
 
     def test_worker_list(self, authenticated_page: Page):
-        """Worker 列表显示"""
+        """Worker 区域可见"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        # 检查组件详情表格
-        worker_table = page.locator(f"{CARD}:has-text('组件') table, {CARD}:has-text('Worker') table")
-        expect(worker_table).to_be_visible(timeout=5000)
-        rows = page.locator(f"{TABLE} tbody tr").all()
-        print(f"Worker/组件数量: {len(rows)}")
-
-        print("✅ Worker 列表检查完成")
+        worker_section = page.locator(f"{CARD}:has-text('Worker'), {CARD}:has-text('组件')").first
+        expect(worker_section).to_be_visible()
 
     def test_auto_refresh_toggle(self, authenticated_page: Page):
-        """自动刷新开关"""
+        """自动刷新开关可见且可点击"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/status")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        # 检查自动刷新开关
-        refresh_switch = page.locator(".ant-switch, button:has-text('自动刷新')")
-        if refresh_switch.count() > 0:
-            # 点击切换
-            refresh_switch.first.click()
-            refresh_switch.first.click()
-            print("✅ 自动刷新开关功能正常")
-        else:
-            print("⚠️ 自动刷新开关未找到")
+        toggle = page.locator(f"{SWITCH}, button:has-text('自动刷新')").first
+        expect(toggle).to_be_visible()
+        toggle.click()
+        page.wait_for_timeout(500)

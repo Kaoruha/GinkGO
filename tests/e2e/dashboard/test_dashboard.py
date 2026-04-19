@@ -105,5 +105,5 @@ class TestStagesOverview:
         """点击回测快捷入口跳转"""
         _goto_dashboard(authenticated_page)
         authenticated_page.click(SEL["link_backtest"])
-        authenticated_page.wait_for_load_state("networkidle")
+        authenticated_page.wait_for_url("**/backtest**", timeout=5000)
         assert "/backtest" in authenticated_page.url

@@ -3,7 +3,6 @@
 
 覆盖：
 - 任务状态显示
-- 操作按钮可见性
 - 页面健康检查
 """
 
@@ -28,12 +27,10 @@ class TestBacktestTaskStatus:
         authenticated_page.wait_for_timeout(1000)
 
         rows = authenticated_page.locator("[data-testid='backtest-table'] tbody tr")
-        if rows.count() == 0:
-            pytest.skip("无回测数据")
+        expect(rows.first).to_be_visible()
 
-        # 行内应有状态标签
         tags = rows.first.locator(".tag, .status-tag, .badge")
-        assert tags.count() >= 0  # 状态标签可能以不同形式呈现
+        assert tags.count() >= 1
 
 
 @pytest.mark.e2e
@@ -52,23 +49,18 @@ class TestBacktestPageHealth:
         _goto_list(authenticated_page)
         authenticated_page.wait_for_timeout(2000)
 
-        # 过滤掉已知的无害错误
         real_errors = [e for e in errors if "favicon" not in e.lower() and "404" not in e]
-        assert len(real_errors) == 0, f"发现控制台错误: {real_errors[:3]}"
+        assert len(real_errors) == 0, f"控制台错误: {real_errors[:3]}"
 
     def test_page_navigates_back_and_forth(self, authenticated_page: Page):
         """页面来回导航不报错"""
         _goto_list(authenticated_page)
-
         rows = authenticated_page.locator("[data-testid='backtest-table'] tbody tr")
-        if rows.count() == 0:
-            pytest.skip("无回测数据")
+        expect(rows.first).to_be_visible()
 
-        # 进入详情
         rows.first.click()
         authenticated_page.wait_for_url("**/backtest/*", timeout=5000)
 
-        # 直接导航回列表
         authenticated_page.goto(f"{config.web_ui_url}/backtest")
         authenticated_page.wait_for_load_state("networkidle")
         assert "/backtest" in authenticated_page.url
