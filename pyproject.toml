@@ -125,6 +125,7 @@ dev = [
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
     "typer[testing]>=0.9.0",
+    "graphifyy>=0.2.0",  # knowledge graph for codebase exploration
 ]
 # 参数优化依赖（遗传算法、贝叶斯优化）
 optimization = [
