@@ -14,7 +14,19 @@ const routes: RouteRecordRaw[] = [
   // ===== 组合 =====
   { path: '/portfolios', name: 'PortfolioList', component: () => import('@/views/portfolio/PortfolioList.vue'), meta: { title: '组合列表' } },
   { path: '/portfolios/create', name: 'PortfolioCreate', component: () => import('@/views/portfolio/PortfolioFormEditor.vue'), meta: { title: '创建组合' } },
-  { path: '/portfolios/:id', name: 'PortfolioDetail', component: () => import('@/views/portfolio/PortfolioDetail.vue'), meta: { title: '组合详情' } },
+  {
+    path: '/portfolios/:id',
+    component: () => import('@/views/portfolio/PortfolioDetail.vue'),
+    children: [
+      { path: '', name: 'PortfolioDetail', component: () => import('@/views/portfolio/tabs/OverviewTab.vue'), meta: { title: '组合详情' } },
+      { path: 'backtests', name: 'PortfolioBacktests', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测' } },
+      { path: 'backtests/:backtestId', name: 'BacktestDetail', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测详情' } },
+      { path: 'validation', name: 'PortfolioValidation', component: () => import('@/views/portfolio/tabs/ValidationTab.vue'), meta: { title: '验证' } },
+      { path: 'paper', name: 'PortfolioPaper', component: () => import('@/views/portfolio/tabs/PaperTab.vue'), meta: { title: '模拟' } },
+      { path: 'live', name: 'PortfolioLive', component: () => import('@/views/portfolio/tabs/LiveTab.vue'), meta: { title: '实盘' } },
+      { path: 'components', name: 'PortfolioComponents', component: () => import('@/views/portfolio/tabs/ComponentsTab.vue'), meta: { title: '组件' } },
+    ],
+  },
   { path: '/portfolios/:id/edit', name: 'PortfolioEdit', component: () => import('@/views/portfolio/PortfolioFormEditor.vue'), meta: { title: '编辑组合' } },
 
   // ===== 组件库 =====
