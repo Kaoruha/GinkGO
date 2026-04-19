@@ -88,7 +88,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
         ...listState.value
       })
 
-      if (result.success && result.data) {
+      if (result.code === 0 && result.data) {
         if (params?.page === 1) {
           // 第一页，替换数据
           items.value = result.data.items
@@ -116,7 +116,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
     try {
       const result = await apiModule.getDetail(uuid)
 
-      if (result.success && result.data) {
+      if (result.code === 0 && result.data) {
         selectedItem.value = result.data
       }
     } catch (err) {
@@ -136,7 +136,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
     try {
       const result = await apiModule.create(data)
 
-      if (result.success && result.data) {
+      if (result.code === 0 && result.data) {
         items.value.unshift(result.data)
         pagination.value.total++
         selectedItem.value = null
@@ -158,7 +158,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
     try {
       const result = await apiModule.update(uuid, data)
 
-      if (result.success && result.data) {
+      if (result.code === 0 && result.data) {
         const index = items.value.findIndex(item => (item as any).uuid === uuid)
         if (index !== -1) {
           items.value[index] = { ...items.value[index], ...result.data }
@@ -181,7 +181,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
     try {
       const result = await apiModule.delete(uuid)
 
-      if (result.success) {
+      if (result.code === 0) {
         items.value = items.value.filter(item => (item as any).uuid !== uuid)
         pagination.value.total--
 

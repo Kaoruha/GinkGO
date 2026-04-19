@@ -35,7 +35,7 @@
 
     <!-- 登录卡片 -->
     <div class="login-card" @mousemove="handleCardMouseMove" @mouseleave="handleCardMouseLeave" :style="cardStyle">
-      <div class="card-header">
+      <div class="login-card-header">
         <div class="logo-wrapper">
           <div class="pixel-logo">
             <span class="letter">G</span>
@@ -449,6 +449,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ========== 头部 ========== */
+.login-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
 /* ========== 开机日志 - 左下角 ========== */
 .boot-log {
   position: fixed;

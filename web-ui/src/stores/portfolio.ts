@@ -65,7 +65,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       }
 
       currentPage.value = page
-      total.value = result.total || 0
+      total.value = result.meta?.total || 0
       return result
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
@@ -81,8 +81,9 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.get(uuid)
-      currentPortfolio.value = result
-      return result
+      const payload = result.data
+      currentPortfolio.value = payload
+      return payload
     } catch (error) {
       console.error('Failed to fetch portfolio:', error)
       return null
@@ -96,8 +97,9 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.create(data)
-      portfolios.value.push(result)
-      return result
+      const payload = result.data
+      portfolios.value.push(payload)
+      return payload
     } catch (error) {
       console.error('Failed to create portfolio:', error)
       throw error
@@ -111,11 +113,12 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.update(uuid, data)
+      const payload = result.data
       const index = portfolios.value.findIndex(p => p.uuid === uuid)
       if (index !== -1) {
-        portfolios.value[index] = result
+        portfolios.value[index] = payload
       }
-      return result
+      return payload
     } catch (error) {
       console.error('Failed to update portfolio:', error)
       throw error
@@ -169,11 +172,12 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchStats() {
     try {
       const result = await portfolioApi.getStats()
+      const payload = result.data
       statsData.value = {
-        total: result.total || 0,
-        running: result.running || 0,
-        avgNetValue: result.avg_net_value || 1,
-        totalAssets: result.total_assets || 0
+        total: payload.total || 0,
+        running: payload.running || 0,
+        avgNetValue: payload.avg_net_value || 1,
+        totalAssets: payload.total_assets || 0
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error)

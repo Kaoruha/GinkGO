@@ -17,10 +17,11 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       const response = await authApi.login(credentials)
-      token.value = response.token
-      user.value = response.user
-      saveAuth(response)
-      return response
+      const payload = response.data
+      token.value = payload.token
+      user.value = payload.user
+      saveAuth(payload)
+      return payload
     } catch (error) {
       console.error('Login failed:', error)
       throw error
@@ -50,7 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const result = await authApi.verifyToken()
-      if (!result.valid) {
+      if (!result.data.valid) {
         token.value = null
         user.value = null
         clearAuth()
@@ -69,9 +70,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     try {
       const result = await authApi.getCurrentUser()
-      user.value = result
-      localStorage.setItem('user_info', JSON.stringify(result))
-      return result
+      const payload = result.data
+      user.value = payload
+      localStorage.setItem('user_info', JSON.stringify(payload))
+      return payload
     } catch (error) {
       console.error('Failed to fetch user:', error)
       return null
