@@ -172,39 +172,35 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         return items
 
     # Business Helper Methods
-    def find_by_uuid(self, uuid: str, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_by_uuid(self, uuid: str) -> List[MPortfolio]:
         """Find portfolio by UUID."""
-        return self.find(filters={"uuid": uuid}, page_size=1,
-                        as_dataframe=as_dataframe)
+        return self.find(filters={"uuid": uuid}, page_size=1)
 
-    def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_by_name_pattern(self, name_pattern: str) -> List[MPortfolio]:
         """Find portfolios by name pattern."""
-        return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True)
 
-    def find_by_mode(self, mode: PORTFOLIO_MODE_TYPES, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_by_mode(self, mode: PORTFOLIO_MODE_TYPES) -> List[MPortfolio]:
         """Find portfolios by mode (BACKTEST/PAPER/LIVE)."""
         mode_value = PORTFOLIO_MODE_TYPES.validate_input(mode)
-        return self.find(filters={"mode": mode_value}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters={"mode": mode_value}, order_by="update_at", desc_order=True)
 
-    def find_by_state(self, state: PORTFOLIO_RUNSTATE_TYPES, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_by_state(self, state: PORTFOLIO_RUNSTATE_TYPES) -> List[MPortfolio]:
         """Find portfolios by state (INITIALIZED/RUNNING/PAUSED/...)."""
         state_value = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
-        return self.find(filters={"state": state_value}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters={"state": state_value}, order_by="update_at", desc_order=True)
 
-    def find_paper_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_paper_portfolios(self) -> List[MPortfolio]:
         """Find all PAPER mode portfolios."""
-        return self.find_by_mode(PORTFOLIO_MODE_TYPES.PAPER, as_dataframe=as_dataframe)
+        return self.find_by_mode(PORTFOLIO_MODE_TYPES.PAPER)
 
-    def find_live_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_live_portfolios(self) -> List[MPortfolio]:
         """Find all LIVE mode portfolios."""
-        return self.find_by_mode(PORTFOLIO_MODE_TYPES.LIVE, as_dataframe=as_dataframe)
+        return self.find_by_mode(PORTFOLIO_MODE_TYPES.LIVE)
 
-    def find_running_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_running_portfolios(self) -> List[MPortfolio]:
         """Find all RUNNING state portfolios."""
-        return self.find_by_state(PORTFOLIO_RUNSTATE_TYPES.RUNNING, as_dataframe=as_dataframe)
+        return self.find_by_state(PORTFOLIO_RUNSTATE_TYPES.RUNNING)
 
     def get_all_uuids(self) -> List[str]:
         """
@@ -259,7 +255,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
     # ==================== 废弃方法（向后兼容） ====================
 
-    def find_by_live_status(self, is_live: bool, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+    def find_by_live_status(self, is_live: bool) -> List[MPortfolio]:
         """
         [已废弃] 按实盘状态查询投资组合
 
@@ -272,14 +268,13 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
         Args:
             is_live: True=实盘, False=回测
-            as_dataframe: 是否返回DataFrame
 
         Returns:
             符合条件的投资组合列表
         """
         GLOG.WARN("find_by_live_status is deprecated, use find_by_mode instead")
         mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
-        return self.find_by_mode(mode, as_dataframe=as_dataframe)
+        return self.find_by_mode(mode)
 
     def update_live_status(self, uuid: str, is_live: bool) -> None:
         """

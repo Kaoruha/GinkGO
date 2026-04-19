@@ -15,6 +15,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MOrder
 from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
@@ -326,13 +327,12 @@ class OrderCRUD(BaseCRUD[MOrder]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find orders by portfolio ID.
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         if status:
             filters["status"] = status
         if start_date:
@@ -346,8 +346,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def find_by_code(
@@ -357,13 +355,12 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find orders by stock code.
         """
         filters = {"code": code}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if status:
@@ -377,21 +374,18 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def find_pending_orders(
         self,
         portfolio_id: Optional[str] = None,
         code: Optional[str] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find pending orders.
         """
         filters = {"status": ORDERSTATUS_TYPES.NEW}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if code:
@@ -401,8 +395,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters=filters,
             order_by="timestamp",
             desc_order=False,  # Pending orders by creation time
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def find_filled_orders(
@@ -410,13 +402,12 @@ class OrderCRUD(BaseCRUD[MOrder]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find filled orders.
         """
         filters = {"status": ORDERSTATUS_TYPES.FILLED}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if start_date:
@@ -428,8 +419,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def find_by_direction(
@@ -439,13 +428,12 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find orders by direction (LONG/SHORT).
         """
         filters = {"direction": direction}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if status:
@@ -459,8 +447,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def find_large_orders(
@@ -470,13 +456,12 @@ class OrderCRUD(BaseCRUD[MOrder]):
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
         limit: Optional[int] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Order], pd.DataFrame]:
+    ) -> ModelList[MOrder]:
         """
         Business helper: Find large volume orders.
         """
         filters = {"volume__gte": min_volume}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if start_date:
@@ -489,8 +474,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             page_size=limit,
             order_by="volume",
             desc_order=True,  # Largest volume first
-            as_dataframe=as_dataframe,
-            output_type="order" if not as_dataframe else "model"
         )
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
@@ -569,7 +552,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        orders = self.find(filters=filters, as_dataframe=False)
         
         if not orders:
             return {

@@ -48,11 +48,8 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
         try:
             results = self.find(
                 filters={"name": name, "is_del": False},
-                page_size=1,
-                page=0,
-                as_dataframe=False
             )
-            return results[0] if results else None
+            return results.first()
 
         except Exception as e:
             GLOG.ERROR(f"Error getting recipient by name '{name}': {e}")
@@ -77,7 +74,6 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
                     "recipient_type": recipient_type.value,
                     "is_del": False
                 },
-                as_dataframe=False
             )
             return results
 
@@ -100,7 +96,6 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
             if recipient_type is not None:
                 filters["recipient_type"] = recipient_type.value
 
-            results = self.find(filters=filters, as_dataframe=False)
             return results
 
         except Exception as e:
@@ -120,7 +115,6 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
                     "is_default": True,
                     "is_del": False
                 },
-                as_dataframe=False
             )
             return results
 
@@ -144,7 +138,6 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
                     "user_id": user_id,
                     "is_del": False
                 },
-                as_dataframe=False
             )
             return results
 
@@ -168,7 +161,6 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
                     "user_group_id": user_group_id,
                     "is_del": False
                 },
-                as_dataframe=False
             )
             return results
 

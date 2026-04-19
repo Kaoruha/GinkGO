@@ -141,76 +141,66 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         if is_active is not None:
             filters["is_active"] = is_active
 
-        return self.find(filters=filters, as_dataframe=False)
 
     def find_by_user_id(
         self,
         user_id: str,
-        as_dataframe: bool = False
-    ) -> Union[List[MUserContact], pd.DataFrame]:
+    ) -> List[MUserContact]:
         """
         按用户ID查询联系方式
 
         Args:
             user_id: 用户UUID
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            联系方式列表或DataFrame
+            联系方式列表
         """
-        return self.find(filters={"user_id": user_id}, as_dataframe=as_dataframe)
+        return self.find(filters={"user_id": user_id})
 
     def find_by_contact_type(
         self,
         contact_type: Union[CONTACT_TYPES, int],
-        as_dataframe: bool = False
-    ) -> Union[List[MUserContact], pd.DataFrame]:
+    ) -> List[MUserContact]:
         """
         按联系方式类型查询
 
         Args:
             contact_type: 联系方式类型（枚举或整数）
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            联系方式列表或DataFrame
+            联系方式列表
         """
         validated_type = CONTACT_TYPES.validate_input(contact_type)
         if validated_type is None:
             GLOG.WARN(f"无效的联系方式类型: {contact_type}")
-            return [] if not as_dataframe else pd.DataFrame()
+            return []
 
-        return self.find(filters={"contact_type": validated_type}, as_dataframe=as_dataframe)
+        return self.find(filters={"contact_type": validated_type})
 
-    def find_primary_contacts(self, as_dataframe: bool = False) -> Union[List[MUserContact], pd.DataFrame]:
+    def find_primary_contacts(self) -> List[MUserContact]:
         """
         查询所有主联系方式
 
-        Args:
-            as_dataframe: 是否返回DataFrame
-
         Returns:
-            联系方式列表或DataFrame
+            联系方式列表
         """
-        return self.find(filters={"is_primary": True}, as_dataframe=as_dataframe)
+        return self.find(filters={"is_primary": True})
 
     def find_active_contacts(
         self,
         user_id: Optional[str] = None,
-        as_dataframe: bool = False
-    ) -> Union[List[MUserContact], pd.DataFrame]:
+    ) -> List[MUserContact]:
         """
         查询启用的联系方式
 
         Args:
             user_id: 用户UUID（可选，如果提供则只查询该用户的启用联系方式）
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            联系方式列表或DataFrame
+            联系方式列表
         """
         filters = {"is_active": True}
         if user_id:
             filters["user_id"] = user_id
 
-        return self.find(filters=filters, as_dataframe=as_dataframe)
+        return self.find(filters=filters)

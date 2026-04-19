@@ -367,7 +367,6 @@ class BaseMongoCRUD(Generic[T], ABC):
     def find(
         self,
         filters: Optional[Dict[str, Any]] = None,
-        as_dataframe: bool = False,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort: Optional[List[tuple]] = None
@@ -377,13 +376,12 @@ class BaseMongoCRUD(Generic[T], ABC):
 
         Args:
             filters: 查询过滤条件（默认只查询未删除文档）
-            as_dataframe: 是否返回 DataFrame（默认返回模型列表）
             limit: 返回结果数量限制
             offset: 跳过文档数量
             sort: 排序规则
 
         Returns:
-            模型列表或 DataFrame
+            模型列表
         """
         # 映射参数名：MySQL 使用 offset，MongoDB 使用 skip
         skip = offset
@@ -395,8 +393,6 @@ class BaseMongoCRUD(Generic[T], ABC):
             sort=sort
         )
 
-        if as_dataframe:
-            return self._convert_models_to_dataframe(results)
         return results
 
     def modify(self, filters: Dict[str, Any], updates: Dict[str, Any]) -> int:

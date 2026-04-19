@@ -150,8 +150,7 @@ class BrokerInstanceCRUD(BaseCRUD[MBrokerInstance]):
             "portfolio_id": portfolio_id,
             "is_del": False
         }
-        results = self.find(filters=filters, limit=1)
-        return results[0] if results else None
+        return self.find(filters=filters).first()
 
     def get_broker_by_live_account(self, live_account_id: str) -> List[MBrokerInstance]:
         """

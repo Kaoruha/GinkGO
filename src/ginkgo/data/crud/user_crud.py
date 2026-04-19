@@ -133,7 +133,6 @@ class UserCRUD(BaseCRUD[MUser]):
             raise ValueError("filters参数必须提供")
 
         # 1. 查询要删除的用户
-        users = self.find(filters=filters, page_size=10000, as_dataframe=False)
         user_uuids = [u.uuid for u in users]
 
         if not user_uuids:
@@ -246,52 +245,46 @@ class UserCRUD(BaseCRUD[MUser]):
 
     # ==================== 业务辅助方法 ====================
 
-    def find_by_name(self, name: str, as_dataframe: bool = False) -> Union[List[MUser], pd.DataFrame]:
+    def find_by_name(self, name: str) -> List[MUser]:
         """
         按名称查询用户
 
         Args:
             name: 用户名称
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            用户列表或DataFrame
+            用户列表
         """
-        return self.find(filters={"name": name}, as_dataframe=as_dataframe)
+        return self.find(filters={"name": name})
 
     def find_by_user_type(
         self,
         user_type: Union[USER_TYPES, int],
-        as_dataframe: bool = False
-    ) -> Union[List[MUser], pd.DataFrame]:
+    ) -> List[MUser]:
         """
         按用户类型查询
 
         Args:
             user_type: 用户类型（枚举或整数）
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            用户列表或DataFrame
+            用户列表
         """
         validated_type = USER_TYPES.validate_input(user_type)
         if validated_type is None:
             GLOG.WARN(f"无效的用户类型: {user_type}")
-            return [] if not as_dataframe else pd.DataFrame()
+            return []
 
-        return self.find(filters={"user_type": validated_type}, as_dataframe=as_dataframe)
+        return self.find(filters={"user_type": validated_type})
 
-    def find_active_users(self, as_dataframe: bool = False) -> Union[List[MUser], pd.DataFrame]:
+    def find_active_users(self) -> List[MUser]:
         """
         查询所有激活用户
 
-        Args:
-            as_dataframe: 是否返回DataFrame
-
         Returns:
-            用户列表或DataFrame
+            用户列表
         """
-        return self.find(filters={"is_active": True}, as_dataframe=as_dataframe)
+        return self.find(filters={"is_active": True})
 
     def fuzzy_search(
         self,

@@ -164,8 +164,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, analyzer_name: Optional[str] = None,
-                         start_date: Optional[Any] = None, end_date: Optional[Any] = None,
-                         as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+                         start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> List[MAnalyzerRecord]:
         """
         Business helper: Find analyzer records by portfolio.
         """
@@ -178,11 +177,9 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
-        return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="timestamp", desc_order=True)
 
-    def find_by_analyzer(self, analyzer_name: str, portfolio_id: Optional[str] = None,
-                        as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+    def find_by_analyzer(self, analyzer_name: str, portfolio_id: Optional[str] = None) -> List[MAnalyzerRecord]:
         """
         Business helper: Find records by analyzer name.
         """
@@ -190,14 +187,13 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
 
-        return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="timestamp", desc_order=True)
 
-    def get_latest_values(self, portfolio_id: str, as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+    def get_latest_values(self, portfolio_id: str) -> List[MAnalyzerRecord]:
         """
         Business helper: Get latest analyzer values for a portfolio.
         """
-        return self.find_by_portfolio(portfolio_id, page_size=10, as_dataframe=as_dataframe)
+        return self.find_by_portfolio(portfolio_id, page_size=10)
 
     def get_portfolio_ids(self) -> List[str]:
         """
@@ -224,8 +220,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             return []
 
     def find_by_business_time(self, portfolio_id: str, start_business_time: Optional[Any] = None,
-                             end_business_time: Optional[Any] = None, analyzer_name: Optional[str] = None,
-                             as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+                             end_business_time: Optional[Any] = None, analyzer_name: Optional[str] = None) -> List[MAnalyzerRecord]:
         """
         Business helper: Find analyzer records by business timestamp range.
         """
@@ -238,12 +233,11 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         if end_business_time:
             filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
 
-        return self.find(filters=filters, order_by="business_timestamp", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="business_timestamp", desc_order=True)
 
     def find_by_time_range(self, portfolio_id: str, start_time: Optional[Any] = None,
                           end_time: Optional[Any] = None, use_business_time: bool = True,
-                          analyzer_name: Optional[str] = None, as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+                          analyzer_name: Optional[str] = None) -> List[MAnalyzerRecord]:
         """
         Business helper: Find analyzer records by time range (can use either timestamp or business_timestamp).
 
@@ -253,7 +247,6 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             end_time: End time of the range
             use_business_time: If True, use business_timestamp; if False, use timestamp
             analyzer_name: Optional analyzer name filter
-            as_dataframe: Return results as DataFrame if True
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -266,12 +259,10 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         if end_time:
             filters[f"{time_field}__lte"] = datetime_normalize(end_time)
 
-        return self.find(filters=filters, order_by=time_field, desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by=time_field, desc_order=True)
 
     def get_by_run_id(self, run_id: str, portfolio_id: Optional[str] = None,
-                      analyzer_name: Optional[str] = None, page_size: int = 1000,
-                      as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+                      analyzer_name: Optional[str] = None, page_size: int = 1000) -> List[MAnalyzerRecord]:
         """
         按 run_id 查询 analyzer 记录（支持 result 命令）
 
@@ -280,10 +271,9 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             portfolio_id: 投资组合ID（可选，为空则查询所有portfolio）
             analyzer_name: 分析器名称（可选，为空则查询所有analyzer）
             page_size: 分页大小（限制返回条数）
-            as_dataframe: 返回 pandas DataFrame
 
         Returns:
-            List[MAnalyzerRecord] 或 pd.DataFrame
+            List[MAnalyzerRecord]
 
         Examples:
             # 查询某次运行的所有 analyzer 记录
@@ -304,4 +294,4 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             filters["name"] = analyzer_name
 
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        page_size=page_size, as_dataframe=as_dataframe)
+                        page_size=page_size)

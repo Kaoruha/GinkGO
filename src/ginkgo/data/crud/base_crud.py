@@ -518,7 +518,6 @@ class BaseCRUD(Generic[T], ABC):
         page_size: Optional[int] = None,
         order_by: Optional[str] = None,
         desc_order: bool = False,
-        as_dataframe: bool = False,
         distinct_field: Optional[str] = None,
         session: Optional[Session] = None,
     ) -> ModelList[T]:
@@ -538,7 +537,6 @@ class BaseCRUD(Generic[T], ABC):
             page_size: Number of items per page
             order_by: Field name to order by
             desc_order: Whether to use descending order
-            as_dataframe: DEPRECATED - Use models.to_dataframe() instead
             distinct_field: Field name for DISTINCT query (returns unique values of this field)
             session: Optional SQLAlchemy session to use for the operation.
 
@@ -548,7 +546,7 @@ class BaseCRUD(Generic[T], ABC):
         try:
             # Execute query using existing _do_find method
             raw_results = self._do_find(
-                filters, page, page_size, order_by, desc_order, False, "model", distinct_field, session
+                filters, page, page_size, order_by, desc_order, distinct_field, session
             )
 
             # Ensure we always return a list
@@ -840,8 +838,6 @@ class BaseCRUD(Generic[T], ABC):
         page_size: Optional[int] = None,
         order_by: Optional[str] = None,
         desc_order: bool = False,
-        as_dataframe: bool = False,
-        output_type: str = "model",
         distinct_field: Optional[str] = None,
         session: Optional[Session] = None,
     ) -> Union[List[Any], pd.DataFrame]:
@@ -917,28 +913,17 @@ class BaseCRUD(Generic[T], ABC):
                 else:
                     query = query.limit(page_size)  # 默认从第0页开始
 
-            if as_dataframe:
-                df = pd.read_sql(query.statement, s.connection())
+            results = query.all()
+            GLOG.DEBUG(f"Found {len(results)} {self.model_class.__name__} records")
 
-                # Clean ClickHouse FixedString null bytes for specific fields
-                if self._is_clickhouse and df.shape[0] > 0:
-                    df = self._clean_clickhouse_strings(df)
+            # Detach objects from session with performance consideration
+            if len(results) > 100:  # Large dataset: use batch expunge for performance
+                s.expunge_all()
+            else:  # Small dataset: use precise expunge for safety
+                for obj in results:
+                    s.expunge(obj)
 
-                GLOG.DEBUG(f"Found {df.shape[0]} {self.model_class.__name__} records as DataFrame")
-                return df
-            else:
-                results = query.all()
-                GLOG.DEBUG(f"Found {len(results)} {self.model_class.__name__} records")
-
-                # Detach objects from session with performance consideration
-                if len(results) > 100:  # Large dataset: use batch expunge for performance
-                    s.expunge_all()
-                else:  # Small dataset: use precise expunge for safety
-                    for obj in results:
-                        s.expunge(obj)
-
-                # Apply output conversion
-                return self._convert_output_items(results, output_type)
+            return self._convert_output_items(results)
 
     def _do_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """

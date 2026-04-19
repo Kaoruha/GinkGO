@@ -261,8 +261,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         start_business_time: Optional[Any] = None,
         end_business_time: Optional[Any] = None,
         min_volume: int = 0,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPosition], pd.DataFrame]:
+    ) -> List[MPosition]:
         """
         Business helper: Find positions by business time range.
 
@@ -271,10 +270,9 @@ class PositionCRUD(BaseCRUD[MPosition]):
             start_business_time: Start of business time range (optional)
             end_business_time: End of business time range (optional)
             min_volume: Minimum volume filter (default: 0)
-            as_dataframe: Return as DataFrame if True
 
         Returns:
-            List of MPosition models or DataFrame
+            List of MPosition models
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -289,7 +287,6 @@ class PositionCRUD(BaseCRUD[MPosition]):
             filters=filters,
             order_by="business_timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
