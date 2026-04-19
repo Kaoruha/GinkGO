@@ -125,7 +125,7 @@ def list_handler(message):
 
 def get_backtest_strategies():
     file_crud = container.cruds.file()
-    raw = file_crud.get_page_filtered(type=FILE_TYPES.ENGINE.value, as_dataframe=True)
+    raw = file_crud.get_page_filtered(type=FILE_TYPES.ENGINE.value)
     res = []
     count = 0
     for i, r in raw.iterrows():
@@ -211,7 +211,7 @@ def run_backtest(message):
 
 @bot.message_handler(commands=["compare"])
 def compare_backtest(message):
-    raw = get_engines(as_dataframe=True).head(20)
+    raw = get_engines().to_dataframe().head(20)
     raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) <= 2:
         bot.reply_to(
@@ -311,7 +311,7 @@ def compare_backtest(message):
 
 @bot.message_handler(commands=["res"])
 def res_backtest(message):
-    raw = get_engines(as_dataframe=True)
+    raw = get_engines().to_dataframe()
     raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) == 1:
         bot.reply_to(

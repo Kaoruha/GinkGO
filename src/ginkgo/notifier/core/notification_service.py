@@ -534,7 +534,6 @@ class NotificationService(BaseService):
             group_uuid = result.data["groups"][0]["uuid"]
 
             # 获取组内所有用户
-            mappings = self.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
             return [m.user_uuid for m in mappings]
 
         except Exception as e:
@@ -556,14 +555,12 @@ class NotificationService(BaseService):
 
         try:
             # 根据 name 获取 group_uuid
-            group = self.group_crud.find(filters={"name": group_name}, page_size=1, as_dataframe=False)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
             group_uuid = group[0].uuid
 
             # 获取组内所有用户
-            mappings = self.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
             user_uuids = [m.user_uuid for m in mappings]
 
             return ServiceResult.success(
@@ -784,14 +781,12 @@ class NotificationService(BaseService):
                 )
 
             # 根据 name 获取 group_uuid
-            group = self.group_crud.find(filters={"name": group_name}, page_size=1, as_dataframe=False)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
             group_uuid = group[0].uuid
 
             # 获取组内所有用户
-            mappings = self.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
             if not mappings:
                 return ServiceResult.error(f"No users found in group: {group_name}")
 
@@ -866,14 +861,12 @@ class NotificationService(BaseService):
                 )
 
             # 根据 name 获取 group_uuid
-            group = self.group_crud.find(filters={"name": group_name}, page_size=1, as_dataframe=False)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
             group_uuid = group[0].uuid
 
             # 获取组内所有用户
-            mappings = self.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
             if not mappings:
                 return ServiceResult.error(f"No users found in group: {group_name}")
 

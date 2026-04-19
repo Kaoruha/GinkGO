@@ -147,7 +147,6 @@ def notify(
         group_mapping_crud = container.user_group_mapping_crud()
 
         # 获取所有启用的通知接收人
-        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
 
         if not recipients:
             GLOG.WARN("No notification recipients found, notification not sent")
@@ -169,7 +168,6 @@ def notify(
                 if recipient.user_group_id and group_mapping_crud:
                     mappings = group_mapping_crud.find_by_group(
                         recipient.user_group_id,
-                        as_dataframe=False
                     )
                     for mapping in mappings:
                         user_uuids_set.add(mapping.user_uuid)
@@ -308,7 +306,6 @@ def notify_with_fields(
         group_mapping_crud = container.user_group_mapping_crud()
 
         # 获取所有启用的通知接收人
-        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
 
         if not recipients:
             GLOG.WARN(f"[{module}] No notification recipients found")
@@ -330,7 +327,6 @@ def notify_with_fields(
                 if recipient.user_group_id and group_mapping_crud:
                     mappings = group_mapping_crud.find_by_group(
                         recipient.user_group_id,
-                        as_dataframe=False
                     )
                     for mapping in mappings:
                         user_uuids_set.add(mapping.user_uuid)
@@ -377,7 +373,6 @@ def notify_with_fields(
         for user_uuid in user_uuids:
             # 获取用户的webhook联系方式
             if service.contact_crud:
-                contacts = service.contact_crud.find_by_user_id(user_uuid, as_dataframe=False)
                 for contact in contacts:
                     contact_type_enum = contact.get_contact_type_enum()
                     if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
