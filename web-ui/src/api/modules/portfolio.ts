@@ -60,49 +60,49 @@ export const portfolioApi = {
    * 获取 Portfolio 列表
    */
   list(params?: PortfolioListParams): Promise<{ data: Portfolio[]; total: number }> {
-    return request.get('/api/v1/portfolio', { params })
+    return request.get('/api/v1/portfolios/', { params })
   },
 
   /**
    * 获取单个 Portfolio
    */
   get(uuid: string): Promise<Portfolio> {
-    return request.get(`/api/v1/portfolio/${uuid}`)
+    return request.get(`/api/v1/portfolios/${uuid}`)
   },
 
   /**
    * 创建 Portfolio
    */
   create(data: PortfolioCreateRequest): Promise<Portfolio> {
-    return request.post('/api/v1/portfolio', data)
+    return request.post('/api/v1/portfolios/', data)
   },
 
   /**
    * 更新 Portfolio
    */
   update(uuid: string, data: Partial<Portfolio>): Promise<Portfolio> {
-    return request.put(`/api/v1/portfolio/${uuid}`, data)
+    return request.put(`/api/v1/portfolios/${uuid}`, data)
   },
 
   /**
    * 删除 Portfolio
    */
   delete(uuid: string): Promise<void> {
-    return request.delete(`/api/v1/portfolio/${uuid}`)
+    return request.delete(`/api/v1/portfolios/${uuid}`)
   },
 
   /**
    * 启动 Portfolio
    */
   start(uuid: string): Promise<void> {
-    return request.post(`/api/v1/portfolio/${uuid}/start`)
+    return request.post(`/api/v1/portfolios/${uuid}/start`)
   },
 
   /**
    * 停止 Portfolio
    */
   stop(uuid: string): Promise<void> {
-    return request.post(`/api/v1/portfolio/${uuid}/stop`)
+    return request.post(`/api/v1/portfolios/${uuid}/stop`)
   },
 
   /**
@@ -114,6 +114,6 @@ export const portfolioApi = {
     avg_net_value: number
     total_assets: number
   }> {
-    return request.get('/api/v1/portfolio/stats')
+    return request.get('/api/v1/portfolios/stats')
   },
 }
