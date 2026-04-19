@@ -2,9 +2,9 @@
   <div class="admin-page">
     <div class="admin-sidebar">
       <div class="admin-nav-group">
-        <div class="admin-nav-title">组件库</div>
+        <div class="admin-nav-title">系统管理</div>
         <router-link
-          v-for="item in componentItems"
+          v-for="item in systemItems"
           :key="item.route"
           :to="item.route"
           class="admin-nav-item"
@@ -25,16 +25,20 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-const componentItems = [
-  { label: '策略组件', route: '/components/strategies' },
-  { label: '风控组件', route: '/components/risks' },
-  { label: '仓位组件', route: '/components/sizers' },
-  { label: '选股器', route: '/components/selectors' },
-  { label: '分析器', route: '/components/analyzers' },
-  { label: '事件处理器', route: '/components/handlers' },
+const systemItems = [
+  { label: '系统状态', route: '/admin' },
+  { label: 'Worker 管理', route: '/admin/workers' },
+  { label: 'API Key', route: '/admin/api-keys' },
+  { label: '用户管理', route: '/admin/users' },
+  { label: '用户组', route: '/admin/groups' },
+  { label: '通知管理', route: '/admin/notifications' },
+  { label: '告警中心', route: '/admin/alerts' },
 ]
 
 const isActive = (itemRoute: string) => {
+  if (itemRoute === '/admin') {
+    return route.path === '/admin'
+  }
   return route.path.startsWith(itemRoute)
 }
 </script>
