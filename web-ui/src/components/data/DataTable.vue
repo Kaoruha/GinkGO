@@ -5,9 +5,9 @@
         <thead>
           <tr>
             <th
-              v-for="column in columns"
-              :key="column.key || column.dataIndex"
-              :style="{ width: column.width }"
+              v-for="column in computedColumns"
+              :key="column.key"
+              :style="{ width: column.width + 'px' }"
             >
               {{ column.title }}
             </th>
@@ -17,24 +17,21 @@
           <tr
             v-for="(record, rowIndex) in displayData"
             :key="record[rowKey] || rowIndex"
-            :class="{ 'table-row-hover': hoveredRow === rowIndex }"
-            @mouseenter="hoveredRow = rowIndex"
-            @mouseleave="hoveredRow = -1"
+            :class="{ clickable: $attrs.onRowClick }"
+            @click="$emit('rowClick', record)"
           >
             <td
-              v-for="column in columns"
-              :key="column.key || column.dataIndex"
+              v-for="column in computedColumns"
+              :key="column.key"
             >
               <slot
-                v-if="column.slotName"
+                v-if="$slots[column.slotName]"
                 :name="column.slotName"
                 :record="record"
                 :index="rowIndex"
-              >
-                <component :is="column.customRender" v-bind="{ record, index: rowIndex }" />
-              </slot>
-              <template v-else>
-                {{ record[column.dataIndex] }}
+              />
+              <template v-else-if="column.dataIndex">
+                {{ formatCellValue(record[column.dataIndex]) }}
               </template>
             </td>
           </tr>
@@ -42,60 +39,31 @@
       </table>
     </div>
 
-    <!-- Loading state -->
+    <!-- Loading -->
     <div v-if="loading" class="table-loading">
       <div class="spinner"></div>
     </div>
 
     <!-- Pagination -->
-    <div v-if="paginationConfig && total > 0" class="table-pagination">
+    <div v-if="showPagination && totalCount > 0" class="table-pagination">
       <div class="pagination-info">
-        共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页
+        共 {{ totalCount }} 条{{ totalPages > 1 ? `，第 ${currentPage} / ${totalPages} 页` : '' }}
       </div>
-      <div class="pagination-controls">
-        <button
-          class="pagination-btn"
-          :disabled="page === 1"
-          @click="handlePageChange(1)"
-        >
-          首页
-        </button>
-        <button
-          class="pagination-btn"
-          :disabled="page === 1"
-          @click="handlePageChange(page - 1)"
-        >
-          上一页
-        </button>
+      <div v-if="totalPages > 1" class="pagination-controls">
+        <button class="pagination-btn" :disabled="currentPage === 1" @click="changePage(1)">首页</button>
+        <button class="pagination-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">上一页</button>
         <input
-          v-model.number="jumpPage"
+          v-model.number="jumpInput"
           type="number"
           :min="1"
           :max="totalPages"
           class="pagination-input"
-          @keyup.enter="handlePageChange(jumpPage)"
+          @keyup.enter="changePage(jumpInput)"
         />
-        <button
-          class="pagination-btn"
-          @click="handlePageChange(jumpPage)"
-        >
-          跳转
-        </button>
-        <button
-          class="pagination-btn"
-          :disabled="page === totalPages"
-          @click="handlePageChange(page + 1)"
-        >
-          下一页
-        </button>
-        <button
-          class="pagination-btn"
-          :disabled="page === totalPages"
-          @click="handlePageChange(totalPages)"
-        >
-          末页
-        </button>
-        <select v-model.number="localPageSize" class="pagination-select">
+        <button class="pagination-btn" @click="changePage(jumpInput)">跳转</button>
+        <button class="pagination-btn" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">下一页</button>
+        <button class="pagination-btn" :disabled="currentPage === totalPages" @click="changePage(totalPages)">末页</button>
+        <select v-model.number="innerPageSize" class="pagination-select">
           <option :value="10">10 条/页</option>
           <option :value="20">20 条/页</option>
           <option :value="50">50 条/页</option>
@@ -103,142 +71,104 @@
         </select>
       </div>
     </div>
-
-    <!-- Custom Toolbar -->
-    <div v-if="showToolbar" class="table-toolbar">
-      <div class="toolbar-left">
-        <slot name="toolbar" />
-      </div>
-      <div class="toolbar-right">
-        <div class="toolbar-actions">
-          <button class="btn-icon" title="刷新" @click="handleRefresh" :disabled="loading">
-            <svg v-if="!loading" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
-            </svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 2a10 10 0 0 1 10 10"></path>
-            </svg>
-          </button>
-          <button v-if="showExport" class="btn-icon" title="导出" @click="handleExport">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
-          <slot name="toolbarActions" />
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, useAttrs, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 
-/**
- * 通用数据表格组件
- * 提供统一的分页、筛选、排序功能
- */
-
-interface Column {
+export interface Column {
   title: string
-  dataIndex: string
-  key?: string
+  dataIndex?: string
   width?: number
   slotName?: string
-  customRender?: any
 }
 
-interface Props {
+export interface ActionConfig {
+  key: string
+  label?: string
+  to?: ((record: any) => RouteLocationRaw) | RouteLocationRaw
+  confirm?: string
+  danger?: boolean
+  show?: ((record: any) => boolean) | boolean
+}
+
+const props = withDefaults(defineProps<{
   columns: Column[]
   dataSource: any[]
   loading?: boolean
   rowKey?: string
-  scrollX?: number
-  showToolbar?: boolean
-  showExport?: boolean
+  actions?: (string | ActionConfig)[]
+  total?: number
   page?: number
   pageSize?: number
-  total?: number
-}
-
-const props = withDefaults(defineProps<Props>(), {
+  showToolbar?: boolean
+  showExport?: boolean
+}>(), {
   loading: false,
   rowKey: 'id',
-  scrollX: 1200,
-  showToolbar: true,
-  showExport: true,
   page: 1,
-  pageSize: 20
+  pageSize: 20,
+  showToolbar: false,
+  showExport: false,
 })
 
 const emit = defineEmits<{
-  refresh: [event?: any]
+  action: [key: string, record: any]
+  rowClick: [record: any]
+  'update:page': [page: number]
+  'update:pageSize': [size: number]
+  refresh: []
   export: []
-  'update:page': [value: number]
-  'update:pageSize': [value: number]
 }>()
 
-const attrs = useAttrs()
-const hoveredRow = ref(-1)
-const jumpPage = ref(props.page)
-const localPageSize = ref(props.pageSize)
+const jumpInput = ref(props.page)
+const innerPageSize = ref(props.pageSize)
 
-// 计算总页数
-const totalPages = computed(() => {
-  return Math.ceil((props.total || props.dataSource.length) / props.pageSize)
+watch(() => props.page, v => { jumpInput.value = v })
+watch(innerPageSize, v => {
+  emit('update:pageSize', v)
 })
 
-// 当前页数据
-const displayData = computed(() => {
-  if (!props.total) {
-    // 如果没有total，使用客户端分页
-    const start = (props.page - 1) * props.pageSize
-    const end = start + props.pageSize
-    return props.dataSource.slice(start, end)
+const totalCount = computed(() => props.total ?? props.dataSource.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / innerPageSize.value)))
+const currentPage = computed(() => Math.min(props.page, totalPages.value))
+
+const showPagination = computed(() => totalCount.value > 0)
+
+// Auto-add action column
+const computedColumns = computed(() => {
+  const cols = props.columns.map(c => ({
+    ...c,
+    key: c.slotName || c.dataIndex || c.title,
+  }))
+  if (props.actions && props.actions.length > 0) {
+    cols.push({ title: '操作', slotName: '__actions', width: 120, key: '__actions' })
   }
-  return props.dataSource
+  return cols
 })
 
-// 分页配置
-const paginationConfig = computed(() => ({
-  current: props.page,
-  pageSize: props.pageSize,
-  total: props.total || props.dataSource.length,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条`
-}))
-
-// 监听页码变化更新跳转输入框
-watch(() => props.page, (newPage) => {
-  jumpPage.value = newPage
+// Client-side pagination when total is not provided
+const displayData = computed(() => {
+  if (props.total != null) return props.dataSource
+  const start = (currentPage.value - 1) * innerPageSize.value
+  return props.dataSource.slice(start, start + innerPageSize.value)
 })
 
-// 监听每页条数变化
-watch(localPageSize, (newSize) => {
-  emit('update:pageSize', newSize)
-  emit('refresh')
-})
-
-// 页码变化处理
-const handlePageChange = (newPage: number) => {
-  if (newPage < 1 || newPage > totalPages.value) return
-  jumpPage.value = newPage
-  emit('update:page', newPage)
-  emit('refresh', { page: newPage, pageSize: localPageSize.value })
+function changePage(p: number) {
+  p = Math.max(1, Math.min(p, totalPages.value))
+  if (p === currentPage.value) return
+  jumpInput.value = p
+  emit('update:page', p)
 }
 
-// 刷新
-const handleRefresh = () => {
-  emit('refresh')
-}
-
-// 导出
-const handleExport = () => {
-  emit('export')
+function formatCellValue(val: any): string {
+  if (val == null) return '-'
+  if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
+    return new Date(val).toLocaleString('zh-CN')
+  }
+  return String(val)
 }
 </script>
 
@@ -246,13 +176,13 @@ const handleExport = () => {
 .data-table {
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 .table-wrapper {
   overflow-x: auto;
-  border-radius: 8px;
+  border-radius: 8px 8px 0 0;
   border: 1px solid #2a2a3e;
+  border-bottom: none;
 }
 
 .pro-table {
@@ -285,19 +215,18 @@ const handleExport = () => {
   transition: background 0.2s;
 }
 
-.pro-table tbody tr.table-row-hover {
+.pro-table tbody tr:hover {
   background: #2a2a3e;
 }
 
-.pro-table tbody tr:hover {
-  background: #2a2a3e;
+.pro-table tbody tr.clickable {
+  cursor: pointer;
 }
 
 /* Loading */
 .table-loading {
   display: flex;
   justify-content: center;
-  align-items: center;
   padding: 40px;
 }
 
@@ -311,9 +240,7 @@ const handleExport = () => {
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 /* Pagination */
@@ -323,8 +250,8 @@ const handleExport = () => {
   align-items: center;
   padding: 12px 16px;
   background: #1a1a2e;
-  border-radius: 8px;
   border: 1px solid #2a2a3e;
+  border-radius: 0 0 8px 8px;
 }
 
 .pagination-info {
@@ -388,53 +315,5 @@ const handleExport = () => {
 .pagination-select:focus {
   outline: none;
   border-color: #1890ff;
-}
-
-/* Toolbar */
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #1a1a2e;
-  border-radius: 8px;
-  border: 1px solid #2a2a3e;
-}
-
-.toolbar-left {
-  flex: 1;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  padding: 6px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-icon:hover:not(:disabled) {
-  background: #3a3a4e;
-  border-color: #1890ff;
-}
-
-.btn-icon:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>
