@@ -286,7 +286,6 @@ class FactorEngine:
                 code=entity_id,
                 start_date=start_dt,
                 end_date=end_dt,
-                as_dataframe=True,
                 adjustment_type="NONE"  # features模块使用原始价格
             )
             
