@@ -60,23 +60,24 @@ async def list_portfolios(
         portfolio_service = get_portfolio_service()
 
         # 确定筛选条件
-        is_live_filter = None
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        mode_filter = None
         if mode == PortfolioMode.BACKTEST:
-            is_live_filter = False
+            mode_filter = PORTFOLIO_MODE_TYPES.BACKTEST.value
         elif mode == PortfolioMode.LIVE:
-            is_live_filter = True
+            mode_filter = PORTFOLIO_MODE_TYPES.LIVE.value
         elif mode == PortfolioMode.PAPER:
-            is_live_filter = True
+            mode_filter = PORTFOLIO_MODE_TYPES.PAPER.value
 
         # 获取列表
-        result = portfolio_service.get(is_live=is_live_filter)
+        result = portfolio_service.get(mode=mode_filter)
 
         if not result.is_success():
             return ok(data=[], message="Portfolios retrieved successfully")
 
         portfolios = []
         for p in result.data or []:
-            mode_val = "BACKTEST" if p.is_live == 0 else "LIVE"
+            mode_val = "BACKTEST" if p.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value else ("PAPER" if p.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE")
             portfolios.append({
                 "uuid": p.uuid,
                 "name": p.name,
@@ -234,7 +235,7 @@ async def get_portfolio(uuid: str):
         data = {
             "uuid": uuid,
             "name": portfolio_model.name,
-            "mode": "BACKTEST" if portfolio_model.is_live == 0 else "LIVE",
+            "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
             "state": "INITIALIZED",
             "config_locked": False,
             "net_value": 1.0,
@@ -284,7 +285,7 @@ async def create_portfolio(data: PortfolioCreate):
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
-            is_live=False,  # BACKTEST 模式
+            mode=0,  # BACKTEST 模式
             selectors=data.selectors,
             sizer=sizer_data,
             strategies=data.strategies,

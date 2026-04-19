@@ -229,18 +229,18 @@ class PortfolioSagaFactory:
     @staticmethod
     def create_portfolio_saga(
         name: str,
-        is_live: bool,
-        selectors: List[Dict[str, Any]],
-        sizer: Optional[Dict[str, Any]],
-        strategies: List[Dict[str, Any]],
-        risk_managers: List[Dict[str, Any]],
-        analyzers: List[Dict[str, Any]]
+        mode: int = 0,
+        selectors: List[Dict[str, Any]] = None,
+        sizer: Optional[Dict[str, Any]] = None,
+        strategies: List[Dict[str, Any]] = None,
+        risk_managers: List[Dict[str, Any]] = None,
+        analyzers: List[Dict[str, Any]] = None
     ) -> SagaTransaction:
         """创建 Portfolio 创建 Saga
 
         Args:
             name: Portfolio 名称
-            is_live: 是否为实盘模式
+            mode: 运行模式 (0=BACKTEST, 1=PAPER, 2=LIVE)
             selectors: 选股器列表 [{"component_uuid": "...", "config": {...}}]
             sizer: 仓位管理器 {"component_uuid": "...", "config": {...}}
             strategies: 策略列表 [{"component_uuid": "...", "config": {...}}]
@@ -267,7 +267,7 @@ class PortfolioSagaFactory:
 
         # ==================== 步骤 1: 创建 Portfolio ====================
         def create_portfolio():
-            result = portfolio_service.add(name=name, is_live=is_live)
+            result = portfolio_service.add(name=name, mode=mode)
             if not result.is_success():
                 raise Exception(f"Failed to create portfolio: {result.error}")
             context['portfolio_result'] = result.data
