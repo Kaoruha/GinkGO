@@ -14,7 +14,7 @@ export const fileApi = {
    * 获取文件列表
    */
   async list(query: string = '', page: number = 0, size: number = 100, type?: number): Promise<FileItem[]> {
-    const res = await request.get<FileItem[]>('/v1/file_list', {
+    const res = await request.get<FileItem[]>('/api/v1/file_list', {
       params: { query, page, size, type }
     })
     // request 拦截器已经返回 response.data，所以 res 就是数据
@@ -33,7 +33,7 @@ export const fileApi = {
    * 创建文件
    */
   async create(name: string, type: number, content: string = ''): Promise<{ status: string; uuid: string; name: string }> {
-    const res = await request.post('/v1/file', {
+    const res = await request.post('/api/v1/file', {
       name,
       type,
       content
@@ -45,7 +45,7 @@ export const fileApi = {
    * 更新文件内容
    */
   async update(fileId: string, content: string): Promise<{ status: string }> {
-    const res = await request.post('/v1/update_file', {
+    const res = await request.post('/api/v1/update_file', {
       file_id: fileId,
       content
     })

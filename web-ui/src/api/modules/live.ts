@@ -48,7 +48,6 @@ export interface UpdateLiveAccountRequest {
 
 // 验证响应
 export interface ValidateAccountResponse {
-  success: boolean
   valid: boolean
   message: string
   account_info?: {

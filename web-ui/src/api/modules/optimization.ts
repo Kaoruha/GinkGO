@@ -85,7 +85,7 @@ export const optimizationApi = {
    * 网格搜索
    */
   gridSearch(config: GridSearchConfig): Promise<GridSearchResult> {
-    return request.post('/v1/optimization/grid', {
+    return request.post('/api/v1/optimization/grid', {
       strategy_id: config.strategy_id,
       params: config.params,
     })
@@ -95,7 +95,7 @@ export const optimizationApi = {
    * 遗传算法优化
    */
   genetic(config: GeneticOptimizerConfig): Promise<GeneticOptimizerResult> {
-    return request.post('/v1/optimization/genetic', {
+    return request.post('/api/v1/optimization/genetic', {
       strategy_id: config.strategy_id,
       params: config.params,
       population_size: config.population_size,
@@ -110,7 +110,7 @@ export const optimizationApi = {
    * 贝叶斯优化
    */
   bayesian(config: BayesianOptimizerConfig): Promise<BayesianOptimizerResult> {
-    return request.post('/v1/optimization/bayesian', {
+    return request.post('/api/v1/optimization/bayesian', {
       strategy_id: config.strategy_id,
       params: config.params,
       n_iterations: config.n_iterations,
