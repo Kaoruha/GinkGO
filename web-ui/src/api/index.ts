@@ -18,7 +18,6 @@ export type { StockInfo, BarData, DataStats } from './modules/data'
 
 // 组件模块
 export { componentsApi } from './modules/components'
-export type { ComponentSummary } from './modules/components'
 
 // 系统模块
 export { systemApi } from './modules/system'

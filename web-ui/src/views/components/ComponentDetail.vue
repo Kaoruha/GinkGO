@@ -86,6 +86,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, shallowRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
+import { componentsApi } from '@/api/modules/components'
 
 const router = useRouter()
 const route = useRoute()
@@ -118,7 +119,6 @@ const hasUnsavedChanges = computed(() => {
   return currentContent.value !== originalContent.value
 })
 
-// 编辑器配置
 const editorTheme = ref('vs-dark')
 const editorOptions = {
   fontSize: 14,
@@ -150,20 +150,13 @@ const editorOptions = {
 
 function handleEditorMount(editorInstance: any) {
   editor.value = editorInstance
-
-  // 监听光标位置变化
   editorInstance.onDidChangeCursorPosition((e: any) => {
     cursorLine.value = e.position.lineNumber
     cursorColumn.value = e.position.column
   })
-
-  // 快捷键保存
   editorInstance.addCommand(
-    // Ctrl+S
     editorInstance._standaloneEditor?.constructor?.KeyMod?.CtrlCmd | editorInstance._standaloneEditor?.constructor?.KeyCode?.KeyS,
-    () => {
-      handleSave()
-    }
+    () => { handleSave() }
   )
 }
 
@@ -189,14 +182,14 @@ async function loadFile() {
 
   loading.value = true
   try {
-    // TODO: 调用 API 加载文件
-    await new Promise(resolve => setTimeout(resolve, 500))
-    fileName.value = 'example.py'
-    fileType.value = 6
+    const res: any = await componentsApi.get(fileId.value)
+    const data = res?.data || res
+    fileName.value = data.name || ''
+    fileType.value = data.file_type || 0
 
-    const content = '# 示例文件\n# TODO: 实现策略逻辑\n'
-    originalContent.value = content
-    currentContent.value = content
+    const code = data.code || ''
+    originalContent.value = code
+    currentContent.value = code
   } catch (error: any) {
     console.error('加载文件失败:', error)
   } finally {
@@ -209,10 +202,11 @@ async function handleSave() {
 
   saving.value = true
   try {
-    // TODO: 调用 API 保存文件
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await componentsApi.update(fileId.value, {
+      name: fileName.value,
+      code: currentContent.value,
+    })
     originalContent.value = currentContent.value
-    console.log('保存成功')
   } catch (error: any) {
     console.error('保存失败:', error)
   } finally {
@@ -225,7 +219,6 @@ function handleReset() {
   currentContent.value = originalContent.value
 }
 
-// 键盘快捷键
 function handleKeyDown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault()
