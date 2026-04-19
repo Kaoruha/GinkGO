@@ -56,7 +56,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       if (params?.keyword) apiParams.keyword = params.keyword
 
       const result = await portfolioApi.list(apiParams)
-      const newData = result.data || []
+      const newData = (Array.isArray(result?.data) ? result.data : (result?.data?.data || [])) as Portfolio[]
 
       if (append) {
         portfolios.value.push(...newData)
@@ -65,7 +65,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       }
 
       currentPage.value = page
-      total.value = result.meta?.total || 0
+      total.value = (result as any)?.meta?.total || newData.length
       return result
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
@@ -81,7 +81,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.get(uuid)
-      const payload = result.data
+      const payload = (result?.data?.data !== undefined) ? result.data.data : result?.data
       currentPortfolio.value = payload
       return payload
     } catch (error) {
@@ -97,7 +97,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.create(data)
-      const payload = result.data
+      const payload = (result?.data?.data !== undefined) ? result.data.data : result?.data
       portfolios.value.push(payload)
       return payload
     } catch (error) {
@@ -113,7 +113,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     loading.value = true
     try {
       const result = await portfolioApi.update(uuid, data)
-      const payload = result.data
+      const payload = (result?.data?.data !== undefined) ? result.data.data : result?.data
       const index = portfolios.value.findIndex(p => p.uuid === uuid)
       if (index !== -1) {
         portfolios.value[index] = payload
@@ -172,7 +172,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchStats() {
     try {
       const result = await portfolioApi.getStats()
-      const payload = result.data
+      const payload = (result?.data?.data !== undefined) ? result.data.data : result?.data
       statsData.value = {
         total: payload.total || 0,
         running: payload.running || 0,

@@ -388,12 +388,12 @@ const handleCreated = (uuid: string) => {
   createModalVisible.value = false
   fetchPortfolios({ page: 0, append: false })
   fetchStats()
-  router.push(`/portfolio/${uuid}`)
+  router.push(`/portfolios/${uuid}`)
 }
 
 const viewDetail = (record: any) => {
   activeMenu.value = null
-  router.push(`/portfolio/${record.uuid}`)
+  router.push(`/portfolios/${record.uuid}`)
 }
 
 const confirmDelete = (record: any) => {
