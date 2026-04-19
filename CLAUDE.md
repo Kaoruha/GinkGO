@@ -320,6 +320,20 @@ delete_bars_filtered(code="000001.SZ", start="20230101", end="20231231")
 - **Redis**: 缓存和任务状态 (Worker状态、临时数据、分布式锁)
 - **MongoDB**: 文档数据存储 (策略配置、复杂结果数据)
 
+## Git 规范
+
+### 分支命名
+- 格式：`{递增序号}-{类型}/{描述}`
+- 类型：`feat` | `fix` | `refactor` | `docs` | `test` | `chore`
+- 示例：`001-feat/webui-navigation`、`002-fix/portfolio-api-404`
+- 序号从 001 开始，全局递增
+- **创建分支前必须先查询远端最大序号**：`git branch -r | grep -oP '\d+(?=-)' | sort -n | tail -1`，取 `max(本地最大, 远端最大) + 1`
+
+### 测试目录规范
+- 所有测试统一放在项目根目录 `tests/` 下，禁止在模块内创建 `tests/` 子目录
+- 子目录划分：`tests/unit/`、`tests/integration/`、`tests/e2e/`、`tests/api/`、`tests/performance/`
+- 前端测试：`web-ui/tests/`（Playwright E2E、Vitest 单元测试）
+
 ## Key Commands
 
 ### Environment Setup
