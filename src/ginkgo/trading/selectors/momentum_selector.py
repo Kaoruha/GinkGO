@@ -72,7 +72,7 @@ class MomentumSelector(BaseSelector):
             name = r["code_name"]
             GLOG.DEBUG(f"Pick {code} from {start_date} to {end_date}")
             bar_crud = container.cruds.bar()
-            df = bar_crud.get_page_filtered(code=code, start_date=start_date, end_date=end_date, as_dataframe=True)
+            df = bar_crud.get_page_filtered(code=code, start_date=start_date, end_date=end_date)
             if df.shape[0] == 0:
                 continue
             momentum = df["close"].iloc[-1] / df["close"].iloc[0] - 1

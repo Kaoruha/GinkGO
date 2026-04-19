@@ -61,7 +61,6 @@ class SliceDataManager:
                 run_id=engine_id,
                 portfolio_id=portfolio_id,
                 page_size=100000,
-                as_dataframe=True,
             )
             analyzer_data = analyzer_records if isinstance(analyzer_records, pd.DataFrame) else pd.DataFrame()
 
@@ -69,7 +68,6 @@ class SliceDataManager:
             signal_crud = services.data.cruds.signal()
             signal_records = signal_crud.find(
                 filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
-                as_dataframe=True,
             )
             signal_data = signal_records if isinstance(signal_records, pd.DataFrame) else pd.DataFrame()
 
@@ -77,7 +75,6 @@ class SliceDataManager:
             order_crud = services.data.cruds.order_record()
             order_records = order_crud.find(
                 filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
-                as_dataframe=True,
             )
             order_data = order_records if isinstance(order_records, pd.DataFrame) else pd.DataFrame()
             

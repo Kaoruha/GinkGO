@@ -80,7 +80,7 @@ class PortfolioManagementService:
         """
         try:
             # Get portfolio configuration
-            portfolio_data = self._portfolio_service.get_portfolio(portfolio_id, as_dataframe=True)
+            portfolio_data = self._portfolio_service.get_portfolio(portfolio_id)
             if portfolio_data.shape[0] == 0:
                 self._logger.ERROR(f"Portfolio {portfolio_id} not found")
                 return None
@@ -284,7 +284,7 @@ class PortfolioManagementService:
                 config = self._active_portfolios[portfolio_id]['config']
             else:
                 # Fetch from database
-                portfolio_data = self._portfolio_service.get_portfolio(portfolio_id, as_dataframe=True)
+                portfolio_data = self._portfolio_service.get_portfolio(portfolio_id)
                 if portfolio_data.shape[0] == 0:
                     return None
                 config = portfolio_data.iloc[0].to_dict()
