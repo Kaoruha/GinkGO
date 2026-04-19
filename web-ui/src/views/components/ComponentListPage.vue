@@ -75,25 +75,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import ListPageLayout from '@/components/common/ListPageLayout.vue'
+import { componentsApi } from '@/api/modules/components'
 
-interface Props {
-  title: string
-  fileType: number
-  basePath: string
+const route = useRoute()
+
+const routeTypeToApiType: Record<string, string> = {
+  strategies: 'strategy',
+  analyzers: 'analyzer',
+  risks: 'risk',
+  sizers: 'sizer',
+  selectors: 'selector',
 }
 
-const props = defineProps<Props>()
-const router = useRouter()
+const routeTypeToLabel: Record<string, string> = {
+  strategies: '策略组件',
+  analyzers: '分析器',
+  risks: '风控组件',
+  sizers: '仓位组件',
+  selectors: '选股器',
+}
+
+const currentType = computed(() => {
+  const t = route.params.type as string
+  return routeTypeToApiType[t] || ''
+})
+
+const title = computed(() => {
+  const t = route.params.type as string
+  return routeTypeToLabel[t] || '组件列表'
+})
+
+const basePath = computed(() => {
+  const t = route.params.type as string
+  return `/components/${t}`
+})
 
 const loading = ref(false)
 const files = ref<any[]>([])
 const searchText = ref('')
 const createModalVisible = ref(false)
 const newFileName = ref('')
-const fileNameInput = ref<HTMLInputElement | null>(null)
 
 const filteredFiles = computed(() => {
   if (!searchText.value) return files.value
@@ -102,7 +126,7 @@ const filteredFiles = computed(() => {
 })
 
 function getDetailUrl(record: any): string {
-  return `${props.basePath}/${record.uuid}`
+  return `${basePath.value}/${record.uuid}`
 }
 
 function formatDate(timestamp: string): string {
@@ -111,58 +135,52 @@ function formatDate(timestamp: string): string {
 }
 
 async function loadFiles() {
+  if (!currentType.value) return
   loading.value = true
   try {
-    // TODO: 调用 API 加载文件列表
-    await new Promise(resolve => setTimeout(resolve, 500))
-    files.value = []
+    const res: any = await componentsApi.list(currentType.value)
+    files.value = Array.isArray(res) ? res : (res?.data || [])
   } catch (error: any) {
     console.error('加载失败:', error)
+    files.value = []
   } finally {
     loading.value = false
   }
 }
 
-function handleCreate() {
+async function handleCreate() {
   newFileName.value = ''
   createModalVisible.value = true
-  nextTick(() => {
-    fileNameInput.value?.focus()
-  })
 }
 
 async function handleCreateConfirm() {
-  if (!newFileName.value.trim()) {
-    console.warn('请输入文件名')
-    return
-  }
+  if (!newFileName.value.trim()) return
   createModalVisible.value = false
 
   try {
-    // TODO: 调用 API 创建文件
-    await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('创建成功')
+    await componentsApi.create({
+      name: newFileName.value.trim(),
+      component_type: currentType.value,
+      code: `# ${newFileName.value.trim()}\n# TODO: implement\n`,
+    })
+    await loadFiles()
   } catch (error: any) {
     console.error('创建失败:', error)
   }
 }
 
 async function handleDelete(record: any) {
-  if (!confirm(`确定删除 ${record.name}？`)) {
-    return
-  }
+  if (!confirm(`确定删除 ${record.name}？`)) return
 
   try {
-    // TODO: 调用 API 删除文件
-    await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('删除成功')
+    await componentsApi.delete(record.uuid)
     await loadFiles()
   } catch (error: any) {
     console.error('删除失败:', error)
   }
 }
 
-watch(() => props.fileType, () => {
+watch(() => route.params.type, () => {
   loadFiles()
 }, { immediate: true })
 </script>
