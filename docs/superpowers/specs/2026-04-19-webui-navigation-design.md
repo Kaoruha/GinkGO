@@ -17,23 +17,25 @@
 
 | 决策 | 选择 | 理由 |
 |------|------|------|
-| 导航架构 | 极简工作台（6 入口） | 减少认知负担，复杂度下放到页面内 |
+| 导航架构 | 极简工作台（7 入口） | 减少认知负担，复杂度下放到页面内 |
 | 核心实体 | Portfolio（投资组合） | 全生命周期围绕 Portfolio 展开 |
 | 回测归属 | 从属于 Portfolio | 回测必须在 Portfolio 上下文中发起 |
 | 交易入口 | 全局监控视图 | 操作在 Portfolio 内，跨组合监控独立入口 |
 | 研究入口 | 独立顶层入口 | 因子研究与 Portfolio 流程正交 |
-| 管理入口 | 合并为二级 | 低频运维功能降级 |
+| 组件入口 | 独立顶层 | 策略/风控/分析器/选股器是构建量化策略的核心积木，高频操作 |
+| 管理入口 | 只保留系统管理 | 用户/Worker/告警等真正低频运维功能 |
 | 数据入口 | 独立顶层 | 数据查看是高频需求，查看和同步都需便捷访问 |
 | 视觉风格 | 保持深色主题，暂不变更 | 先解决架构问题 |
 | 功能范围 | 0 个功能删除 | 只重组入口，不删功能 |
 
 ## 3. 导航结构
 
-### 3.1 顶层菜单（6 项）
+### 3.1 顶层菜单（7 项）
 
 ```
 📊 工作台    → /dashboard
 💼 组合      → /portfolios
+🧩 组件      → /components
 🧪 研究      → /research
 📡 交易      → /trading
 💾 数据      → /data
@@ -75,7 +77,7 @@
 | 验证 | `/portfolios/:id/validation` | 走步验证、蒙特卡洛、敏感性分析（Tab 内子视图切换），选择回测结果做样本外验证 |
 | 模拟 | `/portfolios/:id/paper` | 模拟盘监控、订单记录、偏差检测、启动/停止控制 |
 | 实盘 | `/portfolios/:id/live` | 实盘监控、订单管理、持仓管理、账户信息、Broker 管理、交易控制、交易历史（Tab 内子视图切换） |
-| 组件 | `/portfolios/:id/components` | 策略/选股器/仓位/风控/分析器配置查看与编辑 |
+| 组件 | `/portfolios/:id/components` | 当前组合装配的策略/选股器/仓位/风控/分析器查看与编辑，跳转组件库创建新组件 |
 
 **头部操作栏（始终可见）：**
 - 新建回测 → 进入回测创建流程
@@ -153,27 +155,43 @@
 - `GET /data/bars` — K线数据
 - `GET /data/sync` — 数据同步
 
-### 3.7 管理（/admin）
+### 3.7 组件（/components）
 
-**定位：** 低频运维功能，两个二级入口。
+**定位：** 独立的组件库管理入口。策略、风控、仓位管理器、选股器、分析器、事件处理器——所有可复用的交易组件在此创建、配置、浏览和测试。
 
-| 二级入口 | 路由 | 内容 |
-|----------|------|------|
-| 组件 | `/admin/components` | 策略、风控、仓位、选股器、分析器、事件处理器（组件库管理） |
-| 系统 | `/admin/system` | 系统状态、Worker 管理、API Key、用户管理、用户组、通知管理、告警中心 |
+| 子视图 | 路由 | 内容 |
+|--------|------|------|
+| 组件库 | `/components` | 按类型分类浏览所有组件（策略/风控/仓位/选股器/分析器/事件处理器），搜索、筛选 |
+| 类型列表 | `/components/:type` | 某类型下的组件列表（strategies/risks/sizers/selectors/analyzers/handlers） |
+| 组件详情 | `/components/:type/:id` | 组件配置查看与编辑、参数说明、使用该组件的组合列表 |
 
 **路由：**
-- `GET /admin` — 管理首页（重定向到组件）
-- `GET /admin/components` — 组件库
-- `GET /admin/components/:type` — 组件列表（strategies/risks/sizers/selectors/analyzers/handlers）
-- `GET /admin/components/:type/:id` — 组件详情
-- `GET /admin/system` — 系统状态
-- `GET /admin/system/workers` — Worker 管理
-- `GET /admin/system/api-keys` — API Key 管理
-- `GET /admin/system/users` — 用户管理
-- `GET /admin/system/groups` — 用户组管理
-- `GET /admin/system/notifications` — 通知管理
-- `GET /admin/system/alerts` — 告警中心
+- `GET /components` — 组件库首页（按类型分组展示）
+- `GET /components/:type` — 组件列表（strategies/risks/sizers/selectors/analyzers/handlers）
+- `GET /components/:type/:id` — 组件详情
+
+### 3.8 管理（/admin）
+
+**定位：** 系统级运维功能，低频操作。
+
+| 子视图 | 路由 | 内容 |
+|--------|------|------|
+| 系统状态 | `/admin` | 系统健康状态概览 |
+| Worker 管理 | `/admin/workers` | Worker 列表、启停控制 |
+| API Key | `/admin/api-keys` | API Key 管理 |
+| 用户管理 | `/admin/users` | 用户 CRUD |
+| 用户组 | `/admin/groups` | 用户组管理 |
+| 通知 | `/admin/notifications` | 通知渠道配置 |
+| 告警 | `/admin/alerts` | 告警中心 |
+
+**路由：**
+- `GET /admin` — 系统状态概览
+- `GET /admin/workers` — Worker 管理
+- `GET /admin/api-keys` — API Key 管理
+- `GET /admin/users` — 用户管理
+- `GET /admin/groups` — 用户组管理
+- `GET /admin/notifications` — 通知管理
+- `GET /admin/alerts` — 告警中心
 
 ## 4. 当前路由到新路由的映射
 
@@ -204,7 +222,7 @@
 | `/live/trading-control` | `/portfolios/:id/live` | 合并到 Tab 内 |
 | `/research/*` | `/research/factor/*` | 保持，增加父路由 |
 | `/optimization/*` | `/research/optimization/*` | 移入研究 |
-| `/components/*` | `/admin/components/*` | 降为二级 |
+| `/components/*` | `/components/*` | 独立顶层入口 |
 | `/data/*` | `/data/*` | 独立顶层入口 |
 | `/system/*` | `/admin/system/*` | 降为二级 |
 
@@ -212,7 +230,7 @@
 
 ### 前端变更
 - **路由重写：** 89 条路由 → 约 40 条（合并后减少）
-- **App.vue：** 侧边栏从 13 项缩减为 6 项，移除子菜单折叠逻辑
+- **App.vue：** 侧边栏从 13 项缩减为 7 项，移除子菜单折叠逻辑
 - **Portfolio Detail：** 新增 6 Tab 页面结构，作为核心页面
 - **Store 调整：** backtest store 需关联 portfolio_id
 - **页面迁移：** 部分独立页面转为 Tab 内子组件
@@ -233,7 +251,7 @@
 ### 阶段划分建议
 
 **Phase 1: 路由和导航**
-- 重写 App.vue 侧边栏（6 项）
+- 重写 App.vue 侧边栏（7 项）
 - 重写 router/index.ts
 - 添加路由重定向（旧路由 → 新路由）
 
