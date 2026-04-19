@@ -214,7 +214,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         if not include_deleted:
             filters["is_del"] = False
 
-        results = self.find(filters=filters, as_dataframe=False)
 
         # 应用额外过滤
         filtered_results = []
@@ -240,7 +239,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         Returns:
             MLiveAccount or None: 账号对象
         """
-        results = self.find(filters={"uuid": uuid, "is_del": False}, as_dataframe=False)
         if not results:
             return None
         return results[0]
@@ -435,7 +433,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
             Dict with keys: accounts (List), total (int), page (int), page_size (int)
         """
         filters = {"user_id": user_id, "is_del": False}
-        all_accounts = self.find(filters=filters, as_dataframe=False)
 
         # 应用过滤
         filtered_accounts = []

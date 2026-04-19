@@ -154,8 +154,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         portfolio_id: str,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MCapitalAdjustment], pd.DataFrame]:
+    ) -> List[MCapitalAdjustment]:
         """
         Business helper: Find capital adjustments by portfolio.
         """
@@ -167,7 +166,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
         return self.find(
-            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe
+            filters=filters, order_by="timestamp", desc_order=True
         )
 
     def get_total_adjustment(
@@ -176,10 +175,9 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         """
         Business helper: Get total capital adjustment amount for a portfolio.
         """
-        adjustments = self.find_by_portfolio(portfolio_id, start_date, end_date, as_dataframe=False)
         return sum(float(adj.amount) for adj in adjustments if adj.amount)
 
-    def find_by_reason(self, reason: str, as_dataframe: bool = False) -> Union[List[MCapitalAdjustment], pd.DataFrame]:
+    def find_by_reason(self, reason: str) -> List[MCapitalAdjustment]:
         """
         Business helper: Find capital adjustments by reason.
         """
@@ -187,7 +185,6 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             filters={"reason__like": reason},
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model",
         )
 
@@ -196,8 +193,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         portfolio_id: str,
         start_business_time: Optional[Any] = None,
         end_business_time: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MCapitalAdjustment], pd.DataFrame]:
+    ) -> List[MCapitalAdjustment]:
         """
         Business helper: Find capital adjustments by business time range.
 
@@ -205,10 +201,9 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             portfolio_id: Portfolio ID to query
             start_business_time: Start of business time range (optional)
             end_business_time: End of business time range (optional)
-            as_dataframe: Return as DataFrame if True
 
         Returns:
-            List of MCapitalAdjustment models or DataFrame
+            List of MCapitalAdjustment models
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -221,6 +216,5 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             filters=filters,
             order_by="business_timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )

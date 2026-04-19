@@ -808,7 +808,6 @@ class TickCRUD:
             page_size=page_size,
             order_by="timestamp",
             desc_order=False,  # Ticks usually sorted chronologically
-            as_dataframe=False,  # 总是返回ModelList
             output_type="model",
         )
 
@@ -866,7 +865,6 @@ class TickCRUD:
             filters=filters,
             order_by="timestamp",
             desc_order=False,
-            as_dataframe=False,  # 总是返回ModelList
         )
 
     def find_large_volume_ticks(
@@ -920,7 +918,6 @@ class TickCRUD:
             page_size=limit,
             order_by="volume",
             desc_order=True,  # Largest volume first
-            as_dataframe=False,  # 总是返回ModelList
         )
 
     def get_latest_ticks(self, code: str, limit: int = 100):
@@ -957,7 +954,6 @@ class TickCRUD:
             page_size=limit,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=False,  # 总是返回ModelList
         )
 
     def remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
@@ -1132,7 +1128,6 @@ class TickCRUD:
         if end_time:
             filters["timestamp__lte"] = datetime_normalize(end_time)
 
-        ticks = self.find(filters=filters, as_dataframe=False)
 
         if not ticks:
             return {

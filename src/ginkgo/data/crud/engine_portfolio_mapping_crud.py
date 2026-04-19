@@ -121,38 +121,32 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
     # Business Helper Methods
     
     
-    def find_by_engine(self, engine_id: str,
-                      as_dataframe: bool = False) -> Union[List[MEnginePortfolioMapping], pd.DataFrame]:
+    def find_by_engine(self, engine_id: str) -> List[MEnginePortfolioMapping]:
         """
         Business helper: Find portfolio mappings by engine ID.
         """
         filters = {"engine_id": engine_id}
 
-        return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="uuid")
 
-    def find_by_portfolio(self, portfolio_id: str,
-                         as_dataframe: bool = False) -> Union[List[MEnginePortfolioMapping], pd.DataFrame]:
+    def find_by_portfolio(self, portfolio_id: str) -> List[MEnginePortfolioMapping]:
         """
         Business helper: Find engine mappings by portfolio ID.
         """
         filters = {"portfolio_id": portfolio_id}
-        
-        return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe)
+
+        return self.find(filters=filters, order_by="uuid")
 
     def get_portfolios_for_engine(self, engine_id: str) -> List[str]:
         """
         Business helper: Get all portfolio IDs for an engine.
         """
-        mappings = self.find_by_engine(engine_id, as_dataframe=False)
         return [m.portfolio_id for m in mappings if m.portfolio_id]
 
     def get_engines_for_portfolio(self, portfolio_id: str) -> List[str]:
         """
         Business helper: Get all engine IDs for a portfolio.
         """
-        mappings = self.find_by_portfolio(portfolio_id, as_dataframe=False)
         return [m.engine_id for m in mappings if m.engine_id]
 
 

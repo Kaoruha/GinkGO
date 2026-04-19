@@ -182,8 +182,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
         status: Optional[TRANSFERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Transfer], pd.DataFrame]:
+    ) -> List[Transfer]:
         """
         Business helper: Find transfer records by portfolio.
         """
@@ -201,8 +200,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="transfer" if not as_dataframe else "model",
+            output_type="transfer",
         )
 
     def get_total_transfer_amount(

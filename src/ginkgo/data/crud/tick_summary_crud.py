@@ -135,41 +135,36 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
         return items
 
     # Business Helper Methods
-    def find_by_code(self, code: str, start_date: Optional[Any] = None, 
-                    end_date: Optional[Any] = None, as_dataframe: bool = False) -> Union[List[MTickSummary], pd.DataFrame]:
+    def find_by_code(self, code: str, start_date: Optional[Any] = None,
+                    end_date: Optional[Any] = None) -> List[MTickSummary]:
         """
         Business helper: Find tick summaries by stock code.
         """
         filters = {"code": code}
-        
+
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
-        return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="timestamp", desc_order=True)
 
-    def find_by_date(self, date: Any, codes: Optional[List[str]] = None,
-                    as_dataframe: bool = False) -> Union[List[MTickSummary], pd.DataFrame]:
+    def find_by_date(self, date: Any, codes: Optional[List[str]] = None) -> List[MTickSummary]:
         """
         Business helper: Find tick summaries by date.
         """
         filters = {"timestamp": datetime_normalize(date)}
-        
+
         if codes:
             filters["code__in"] = codes
 
-        return self.find(filters=filters, order_by="code", 
-                        as_dataframe=as_dataframe)
+        return self.find(filters=filters, order_by="code")
 
     def get_daily_summary(self, date: Any, code: str) -> Optional[dict]:
         """
         Business helper: Get daily tick summary for a specific stock.
         """
-        result = self.find(filters={"code": code, "timestamp": datetime_normalize(date)},
-                          page_size=1, as_dataframe=False)
-        
+        result = self.find(filters={"code": code, "timestamp": datetime_normalize(date)})
         if result:
             summary = result[0]
             return {

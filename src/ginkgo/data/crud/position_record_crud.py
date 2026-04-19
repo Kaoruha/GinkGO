@@ -14,6 +14,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPositionRecord
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
@@ -160,8 +161,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find position records by portfolio ID.
         """
@@ -180,8 +180,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def find_by_code(
@@ -190,8 +188,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find position records by stock code.
         """
@@ -208,16 +205,13 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def find_current_positions(
         self,
         portfolio_id: str,
         min_volume: Optional[int] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find current positions (latest for each code).
         """
@@ -230,8 +224,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def find_positions_with_volume(
@@ -240,8 +232,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         min_volume: int = 1,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find position records with volume greater than threshold.
         """
@@ -256,16 +247,13 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             filters=filters,
             order_by="volume",
             desc_order=True,  # Largest positions first
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def find_frozen_positions(
         self,
         portfolio_id: str,
         min_frozen_volume: int = 1,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find positions with frozen volume.
         """
@@ -275,13 +263,11 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             filters=filters,
             order_by="frozen_volume",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def get_latest_position(
-        self, portfolio_id: str, code: str, as_dataframe: bool = False
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+        self, portfolio_id: str, code: str
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Get latest position record for a specific code.
         """
@@ -290,8 +276,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             page_size=1,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
@@ -353,7 +337,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         if as_of_date:
             filters["timestamp__lte"] = datetime_normalize(as_of_date)
         
-        positions = self.find(filters=filters, as_dataframe=False)
         
         if not positions:
             return {
@@ -397,7 +380,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        positions = self.find(filters=filters, as_dataframe=False)
         
         if not positions:
             return {
@@ -457,8 +439,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         end_business_time: Optional[Any] = None,
         code: Optional[str] = None,
         min_volume: Optional[int] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+    ) -> ModelList[MPositionRecord]:
         """
         Business helper: Find position records by business time range.
 
@@ -468,7 +449,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             end_business_time: End of business time range (optional)
             code: Stock code filter (optional)
             min_volume: Minimum volume filter (optional)
-            as_dataframe: Return as DataFrame if True
 
         Returns:
             List of MPositionRecord models or DataFrame
@@ -488,6 +468,4 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             filters=filters,
             order_by="business_timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="model"
         )

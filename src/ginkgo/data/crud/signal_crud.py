@@ -217,13 +217,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = False,
-        as_dataframe: bool = False,
-    ) -> Union[List[Signal], pd.DataFrame]:
+    ) -> List[Signal]:
         """
         Business helper: Find signals by portfolio ID with date range.
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
@@ -235,8 +234,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
-            output_type="signal" if not as_dataframe else "model"
+            output_type="signal"
         )
 
     def find_by_engine(
@@ -244,13 +242,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
         engine_id: str,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Signal], pd.DataFrame]:
+    ) -> List[Signal]:
         """
         Business helper: Find signals by engine ID.
         """
         filters = {"engine_id": engine_id}
-        
+
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
@@ -260,8 +257,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="signal" if not as_dataframe else "model"
+            output_type="signal"
         )
 
     def find_by_code_and_direction(
@@ -271,13 +267,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[Signal], pd.DataFrame]:
+    ) -> List[Signal]:
         """
         Business helper: Find signals by code and direction.
         """
         filters = {"code": code, "direction": direction}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if start_date:
@@ -289,13 +284,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
-            output_type="signal" if not as_dataframe else "model"
+            output_type="signal"
         )
 
     def get_latest_signals(
-        self, portfolio_id: str, limit: int = 10, page: Optional[int] = None, as_dataframe: bool = False
-    ) -> Union[List[Signal], pd.DataFrame]:
+        self, portfolio_id: str, limit: int = 10, page: Optional[int] = None
+    ) -> List[Signal]:
         """
         Business helper: Get latest signals for a portfolio with pagination support.
 
@@ -303,14 +297,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
             portfolio_id: Portfolio ID to query
             limit: Number of signals to return (default: 10)
             page: Page number (0-based, None means start from page 0)
-            as_dataframe: Return as DataFrame if True
         """
         return self.find_by_portfolio(
             portfolio_id=portfolio_id,
             page=page,  # Use dynamic page parameter
             page_size=limit,
             desc_order=True,
-            as_dataframe=as_dataframe
         )
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
@@ -385,8 +377,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         portfolio_id: str,
         start_business_time: Optional[Any] = None,
         end_business_time: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MSignal], pd.DataFrame]:
+    ) -> List[MSignal]:
         """
         Business helper: Find signals by business time range.
 
@@ -394,10 +385,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
             portfolio_id: Portfolio ID to query
             start_business_time: Start of business time range (optional)
             end_business_time: End of business time range (optional)
-            as_dataframe: Return as DataFrame if True
 
         Returns:
-            List of MSignal models or DataFrame
+            List of MSignal models
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -410,7 +400,6 @@ class SignalCRUD(BaseCRUD[MSignal]):
             filters=filters,
             order_by="business_timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 

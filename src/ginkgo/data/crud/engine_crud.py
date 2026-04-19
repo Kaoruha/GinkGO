@@ -155,15 +155,15 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return items
 
     # Business Helper Methods
-    def find_by_uuid(self, uuid: str, as_dataframe: bool = False) -> Union[List[MEngine], pd.DataFrame]:
+    def find_by_uuid(self, uuid: str) -> List[MEngine]:
         """
         Business helper: Find engine by UUID.
         """
-        return self.find(filters={"uuid": uuid}, page_size=1, as_dataframe=as_dataframe)
+        return self.find(filters={"uuid": uuid}, page_size=1)
 
     def find_by_status(
-        self, status: ENGINESTATUS_TYPES, as_dataframe: bool = False
-    ) -> Union[List[MEngine], pd.DataFrame]:
+        self, status: ENGINESTATUS_TYPES
+    ) -> List[MEngine]:
         """
         Business helper: Find engines by status.
         """
@@ -171,11 +171,10 @@ class EngineCRUD(BaseCRUD[MEngine]):
             filters={"status": status},
             order_by="update_at",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model",
         )
 
-    def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MEngine], pd.DataFrame]:
+    def find_by_name_pattern(self, name_pattern: str) -> List[MEngine]:
         """
         Business helper: Find engines by name pattern.
         """
@@ -183,7 +182,6 @@ class EngineCRUD(BaseCRUD[MEngine]):
             filters={"name__like": name_pattern},
             order_by="update_at",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model",
         )
 

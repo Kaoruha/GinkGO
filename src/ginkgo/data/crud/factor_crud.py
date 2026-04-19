@@ -151,18 +151,17 @@ class FactorCRUD(BaseCRUD[MFactor]):
     # ============================================================================
 
     def get_factors_by_entity(
-        self, 
-        entity_type: Union[ENTITY_TYPES, str, int], 
+        self,
+        entity_type: Union[ENTITY_TYPES, str, int],
         entity_id: str,
         factor_names: Optional[List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         factor_category: Optional[str] = None,
-        as_dataframe: bool = False
-    ) -> Union[List[MFactor], pd.DataFrame]:
+    ) -> List[MFactor]:
         """
         查询指定实体的因子数据
-        
+
         Args:
             entity_type: 实体类型
             entity_id: 实体标识
@@ -170,14 +169,13 @@ class FactorCRUD(BaseCRUD[MFactor]):
             start_time: 开始时间
             end_time: 结束时间
             factor_category: 因子分类过滤
-            as_dataframe: 是否返回DataFrame
-            
+
         Returns:
-            因子数据列表或DataFrame
+            因子数据列表
         """
         # 构建过滤条件
         filters = {}
-        
+
         # 实体类型转换
         if isinstance(entity_type, ENTITY_TYPES):
             filters["entity_type"] = entity_type.value
@@ -189,26 +187,25 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 raise ValueError(f"Invalid entity_type string: {entity_type}")
         elif isinstance(entity_type, int):
             filters["entity_type"] = entity_type
-        
+
         filters["entity_id"] = entity_id
-        
+
         # 时间范围过滤
         if start_time:
             filters["timestamp__gte"] = start_time
         if end_time:
             filters["timestamp__lte"] = end_time
-            
+
         # 因子分类过滤
         if factor_category:
             filters["factor_category"] = factor_category
-            
+
         # 因子名称过滤
         if factor_names:
             filters["factor_name__in"] = factor_names
-        
+
         return self.find(
             filters=filters,
-            as_dataframe=as_dataframe,
             order_by="timestamp",
             desc_order=False
         )
@@ -219,18 +216,16 @@ class FactorCRUD(BaseCRUD[MFactor]):
         entity_id: str,
         factor_names: Optional[List[str]] = None,
         factor_category: Optional[str] = None,
-        as_dataframe: bool = False
-    ) -> Union[List[MFactor], pd.DataFrame]:
+    ) -> List[MFactor]:
         """
         获取指定实体的最新因子值
-        
+
         Args:
             entity_type: 实体类型
-            entity_id: 实体标识  
+            entity_id: 实体标识
             factor_names: 因子名称列表
             factor_category: 因子分类过滤
-            as_dataframe: 是否返回DataFrame
-            
+
         Returns:
             最新因子数据
         """
@@ -243,26 +238,12 @@ class FactorCRUD(BaseCRUD[MFactor]):
                     entity_id=entity_id,
                     factor_names=[factor_name],
                     factor_category=factor_category,
-                    as_dataframe=False
                 )
                 if factors:
                     # 获取最新的那个
                     latest_factor = max(factors, key=lambda x: x.timestamp)
                     all_factors.append(latest_factor)
-            
-            if as_dataframe and all_factors:
-                # 转换为DataFrame
-                data = []
-                for factor in all_factors:
-                    data.append({
-                        'entity_type': factor.entity_type,
-                        'entity_id': factor.entity_id,
-                        'factor_name': factor.factor_name,
-                        'factor_value': factor.factor_value,
-                        'factor_category': factor.factor_category,
-                        'timestamp': factor.timestamp
-                    })
-                return pd.DataFrame(data)
+
             return all_factors
         else:
             # 查询所有因子，按因子名称分组取最新
@@ -270,33 +251,19 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 entity_type=entity_type,
                 entity_id=entity_id,
                 factor_category=factor_category,
-                as_dataframe=False
             )
-            
+
             if not all_factors:
-                return pd.DataFrame() if as_dataframe else []
-            
+                return []
+
             # 按因子名称分组，取每组最新的
             factor_groups = {}
             for factor in all_factors:
                 factor_name = factor.factor_name
                 if factor_name not in factor_groups or factor.timestamp > factor_groups[factor_name].timestamp:
                     factor_groups[factor_name] = factor
-            
+
             latest_factors = list(factor_groups.values())
-            
-            if as_dataframe:
-                data = []
-                for factor in latest_factors:
-                    data.append({
-                        'entity_type': factor.entity_type,
-                        'entity_id': factor.entity_id,
-                        'factor_name': factor.factor_name,
-                        'factor_value': factor.factor_value,
-                        'factor_category': factor.factor_category,
-                        'timestamp': factor.timestamp
-                    })
-                return pd.DataFrame(data)
             return latest_factors
 
     def get_available_entities(

@@ -104,18 +104,17 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
 
     # ==================== 业务辅助方法 ====================
 
-    def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MUserGroup], pd.DataFrame]:
+    def find_by_name_pattern(self, name_pattern: str) -> List[MUserGroup]:
         """
         按名称模糊查询
 
         Args:
             name_pattern: 名称模式
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            用户组列表或DataFrame
+            用户组列表
         """
-        return self.find(filters={"name__like": name_pattern}, as_dataframe=as_dataframe)
+        return self.find(filters={"name__like": name_pattern})
 
     def fuzzy_search(
         self,

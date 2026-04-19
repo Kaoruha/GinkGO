@@ -178,8 +178,7 @@ class BarCRUD(BaseCRUD[MBar]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = False,
-        as_dataframe: bool = False,
-    ) -> Union[List[Bar], pd.DataFrame]:
+    ) -> List[Bar]:
         """
         Business helper: Find bars by code with date range.
         """
@@ -196,10 +195,9 @@ class BarCRUD(BaseCRUD[MBar]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
         )
 
-    def get_latest_bars(self, code: str, limit: int = 1, page: Optional[int] = None, as_dataframe: bool = False) -> Union[List[Bar], pd.DataFrame]:
+    def get_latest_bars(self, code: str, limit: int = 1, page: Optional[int] = None) -> List[Bar]:
         """
         Business helper: Get latest bars for a code with pagination support.
 
@@ -207,7 +205,6 @@ class BarCRUD(BaseCRUD[MBar]):
             code: Stock code to query
             limit: Number of bars to return (default: 1)
             page: Page number (0-based, None means start from page 0)
-            as_dataframe: Return as DataFrame if True
         """
         return self.find(
             filters={"code": code},
@@ -215,7 +212,6 @@ class BarCRUD(BaseCRUD[MBar]):
             page_size=limit,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
         )
 
     def remove_by_code_and_date_range(
@@ -287,7 +283,6 @@ class BarCRUD(BaseCRUD[MBar]):
                 page_size=limit,
                 order_by=None,
                 desc_order=False,
-                as_dataframe=False,
                 output_type="model",
                 distinct_field="code",
             )

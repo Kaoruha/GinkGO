@@ -114,37 +114,31 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         return items
 
     # Business Helper Methods
-    def find_by_engine(self, engine_id: str,
-                      as_dataframe: bool = False) -> Union[List[MEngineHandlerMapping], pd.DataFrame]:
+    def find_by_engine(self, engine_id: str) -> List[MEngineHandlerMapping]:
         """
         Business helper: Find handler mappings by engine ID.
         """
         filters = {"engine_id": engine_id}
-        
-        return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe)
 
-    def find_by_handler(self, handler_id: str,
-                       as_dataframe: bool = False) -> Union[List[MEngineHandlerMapping], pd.DataFrame]:
+        return self.find(filters=filters, order_by="uuid")
+
+    def find_by_handler(self, handler_id: str) -> List[MEngineHandlerMapping]:
         """
         Business helper: Find engine mappings by handler ID.
         """
         filters = {"handler_id": handler_id}
-        
-        return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe)
+
+        return self.find(filters=filters, order_by="uuid")
 
     def get_handlers_for_engine(self, engine_id: str) -> List[str]:
         """
         Business helper: Get all handler IDs for an engine.
         """
-        mappings = self.find_by_engine(engine_id, as_dataframe=False)
         return [m.handler_id for m in mappings if m.handler_id]
 
     def get_engines_for_handler(self, handler_id: str) -> List[str]:
         """
         Business helper: Get all engine IDs for a handler.
         """
-        mappings = self.find_by_handler(handler_id, as_dataframe=False)
         return [m.engine_id for m in mappings if m.engine_id]
 

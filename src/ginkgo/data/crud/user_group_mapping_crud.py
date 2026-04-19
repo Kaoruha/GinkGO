@@ -104,31 +104,29 @@ class UserGroupMappingCRUD(BaseCRUD[MUserGroupMapping]):
 
     # ==================== 业务辅助方法 ====================
 
-    def find_by_user(self, user_uuid: str, as_dataframe: bool = False) -> Union[List[MUserGroupMapping], pd.DataFrame]:
+    def find_by_user(self, user_uuid: str) -> List[MUserGroupMapping]:
         """
         查询用户所属的所有组
 
         Args:
             user_uuid: 用户UUID
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            映射列表或DataFrame
+            映射列表
         """
-        return self.find(filters={"user_uuid": user_uuid}, as_dataframe=as_dataframe)
+        return self.find(filters={"user_uuid": user_uuid})
 
-    def find_by_group(self, group_uuid: str, as_dataframe: bool = False) -> Union[List[MUserGroupMapping], pd.DataFrame]:
+    def find_by_group(self, group_uuid: str) -> List[MUserGroupMapping]:
         """
         查询组中包含的所有用户
 
         Args:
             group_uuid: 组UUID
-            as_dataframe: 是否返回DataFrame
 
         Returns:
-            映射列表或DataFrame
+            映射列表
         """
-        return self.find(filters={"group_uuid": group_uuid}, as_dataframe=as_dataframe)
+        return self.find(filters={"group_uuid": group_uuid})
 
     def check_mapping_exists(self, user_uuid: str, group_uuid: str) -> bool:
         """
@@ -144,7 +142,6 @@ class UserGroupMappingCRUD(BaseCRUD[MUserGroupMapping]):
         results = self.find(
             filters={"user_uuid": user_uuid, "group_uuid": group_uuid},
             page_size=1,
-            as_dataframe=False
         )
         return len(results) > 0
 

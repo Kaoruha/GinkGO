@@ -244,13 +244,12 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-        as_dataframe: bool = False,
-    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+    ) -> List[MOrderRecord]:
         """
         Business helper: Find order records by portfolio ID.
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
@@ -264,11 +263,10 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
-    def find_by_order_id(self, order_id: str, as_dataframe: bool = False) -> Union[List[MOrderRecord], pd.DataFrame]:
+    def find_by_order_id(self, order_id: str) -> List[MOrderRecord]:
         """
         Business helper: Find order records by order ID.
         """
@@ -276,7 +274,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             filters={"order_id": order_id},
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
@@ -287,13 +284,12 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+    ) -> List[MOrderRecord]:
         """
         Business helper: Find order records by code and status.
         """
         filters = {"code": code, "status": status}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if start_date:
@@ -305,7 +301,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
@@ -313,13 +308,12 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         self,
         portfolio_id: Optional[str] = None,
         code: Optional[str] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+    ) -> List[MOrderRecord]:
         """
         Business helper: Find pending order records.
         """
         filters = {"status": ORDERSTATUS_TYPES.SUBMITTED}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if code:
@@ -329,7 +323,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
@@ -338,13 +331,12 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+    ) -> List[MOrderRecord]:
         """
         Business helper: Find filled order records.
         """
         filters = {"status": ORDERSTATUS_TYPES.FILLED}
-        
+
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
         if start_date:
@@ -356,7 +348,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 
@@ -416,7 +407,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        records = self.find(filters=filters, as_dataframe=False)
         
         total_amount = sum(
             float(record.transaction_price) * record.volume + float(record.fee)
@@ -432,8 +422,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         start_business_time: Optional[Any] = None,
         end_business_time: Optional[Any] = None,
         status: Optional[ORDERSTATUS_TYPES] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+    ) -> List[MOrderRecord]:
         """
         Business helper: Find order records by business time range.
 
@@ -442,10 +431,9 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             start_business_time: Start of business time range (optional)
             end_business_time: End of business time range (optional)
             status: Order status filter (optional)
-            as_dataframe: Return as DataFrame if True
 
         Returns:
-            List of MOrderRecord models or DataFrame
+            List of MOrderRecord models
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -460,7 +448,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             filters=filters,
             order_by="business_timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
             output_type="model"
         )
 

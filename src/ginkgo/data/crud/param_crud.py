@@ -144,7 +144,6 @@ class ParamCRUD(BaseCRUD[MParam]):
         """
         Business helper: Set parameter value.
         """
-        existing = self.find(filters={"mapping_id": mapping_id, "index": index}, as_dataframe=False)
         if existing:
             return self.modify({"mapping_id": mapping_id, "index": index}, {"value": value})
         else:

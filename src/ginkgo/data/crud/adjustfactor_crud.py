@@ -166,8 +166,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-        as_dataframe: bool = False,
-    ) -> Union[List[MAdjustfactor], pd.DataFrame]:
+    ) -> List[MAdjustfactor]:
         """
         Business helper: Find adjustment factors by stock code.
         Calls BaseCRUD.find() template method to get all decorators.
@@ -185,12 +184,11 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            as_dataframe=as_dataframe,
         )
 
     def find_latest_factor(
-        self, code: str, as_of_date: Optional[Any] = None, as_dataframe: bool = False
-    ) -> Union[List[MAdjustfactor], pd.DataFrame]:
+        self, code: str, as_of_date: Optional[Any] = None
+    ) -> List[MAdjustfactor]:
         """
         Business helper: Find latest adjustment factor for a stock.
         Calls BaseCRUD.find() template method to get all decorators.
@@ -205,7 +203,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             page_size=1,
             order_by="timestamp",
             desc_order=True,
-            as_dataframe=as_dataframe,
         )
 
     def find_by_date_range(
@@ -213,8 +210,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         start_date: Any,
         end_date: Any,
         codes: Optional[List[str]] = None,
-        as_dataframe: bool = False,
-    ) -> Union[List[MAdjustfactor], pd.DataFrame]:
+    ) -> List[MAdjustfactor]:
         """
         Business helper: Find adjustment factors by date range.
         Calls BaseCRUD.find() template method to get all decorators.
@@ -225,7 +221,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             filters["code__in"] = codes
 
         return self.find(
-            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe
+            filters=filters, order_by="timestamp", desc_order=True
         )
 
     def delete_by_code(self, code: str, start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> None:
@@ -267,7 +263,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
-        factors = self.find(filters=filters, as_dataframe=False)
 
         if not factors:
             return {
