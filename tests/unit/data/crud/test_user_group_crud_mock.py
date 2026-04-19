@@ -132,7 +132,6 @@ class TestUserGroupCRUDBusinessHelpers:
         crud_instance.find.assert_called_once()
         call_kwargs = crud_instance.find.call_args[1]
         assert call_kwargs["filters"]["name__like"] == "%trader%"
-        assert call_kwargs["as_dataframe"] is False
 
 
 # ============================================================

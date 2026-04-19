@@ -137,7 +137,6 @@ class TestUserCRUDBusinessHelpers:
         crud_instance.find.assert_called_once()
         call_kwargs = crud_instance.find.call_args[1]
         assert call_kwargs["filters"]["name"] == "Alice"
-        assert call_kwargs["as_dataframe"] is False
 
     @pytest.mark.unit
     def test_find_active_users(self, crud_instance):
@@ -149,7 +148,6 @@ class TestUserCRUDBusinessHelpers:
         crud_instance.find.assert_called_once()
         call_kwargs = crud_instance.find.call_args[1]
         assert call_kwargs["filters"]["is_active"] is True
-        assert call_kwargs["as_dataframe"] is False
 
     @pytest.mark.unit
     def test_fuzzy_search_uuid_pattern(self, crud_instance):

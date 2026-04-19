@@ -28,12 +28,11 @@ SEL = {
     "save_btn": "[data-testid='btn-save-portfolio']",
 }
 
-TEST_PORTFOLIO_NAME = f"E2E_Test_{int(time.time())}"
-
 
 def _goto_list(page: Page):
     page.goto(f"{config.web_ui_url}/portfolio")
     page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)
 
 
 @pytest.mark.e2e
@@ -52,13 +51,10 @@ class TestPortfolioListPage:
         _goto_list(authenticated_page)
         expect(authenticated_page.locator(SEL["create_btn"]).first).to_be_visible()
 
-    def test_portfolio_cards_or_empty(self, authenticated_page: Page):
-        """卡片展示或空状态"""
+    def test_portfolio_cards_visible(self, authenticated_page: Page):
+        """组合卡片可见"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-        cards = authenticated_page.locator(SEL["card"])
-        empty = authenticated_page.locator(".empty-state")
-        assert cards.count() > 0 or empty.is_visible()
+        expect(authenticated_page.locator(SEL["card"]).first).to_be_visible(timeout=5000)
 
 
 @pytest.mark.e2e
@@ -91,19 +87,17 @@ class TestPortfolioFilter:
         expect(authenticated_page.locator(".radio-button").first).to_be_visible()
 
     def test_filter_by_mode(self, authenticated_page: Page):
-        """按模式筛选不报错"""
+        """按模式筛选"""
         _goto_list(authenticated_page)
-        # 点击"回测"
         backtest_btn = authenticated_page.locator(".radio-button:has-text('回测')")
-        if backtest_btn.is_visible():
-            backtest_btn.click()
-            authenticated_page.wait_for_timeout(500)
+        expect(backtest_btn).to_be_visible()
+        backtest_btn.click()
+        authenticated_page.wait_for_timeout(500)
 
-        # 恢复"全部"
         all_btn = authenticated_page.locator(".radio-button:has-text('全部')")
-        if all_btn.is_visible():
-            all_btn.click()
-            authenticated_page.wait_for_timeout(500)
+        expect(all_btn).to_be_visible()
+        all_btn.click()
+        authenticated_page.wait_for_timeout(500)
 
 
 @pytest.mark.e2e
@@ -114,25 +108,19 @@ class TestPortfolioCreate:
         """点击创建按钮打开模态框"""
         _goto_list(authenticated_page)
         authenticated_page.locator(SEL["create_btn"]).first.click()
-        # 模态框出现，包含表单编辑器
-        modal = authenticated_page.locator(".modal-overlay")
-        expect(modal).to_be_visible(timeout=5000)
-        expect(authenticated_page.locator(SEL["input_name"])).to_be_visible()
+        expect(authenticated_page.locator(".modal-overlay").first).to_be_visible(timeout=10000)
 
     def test_create_with_name_only(self, authenticated_page: Page):
         """创建只填名称的组合"""
         _goto_list(authenticated_page)
         authenticated_page.locator(SEL["create_btn"]).first.click()
-        modal = authenticated_page.locator(".modal-overlay")
-        expect(modal).to_be_visible(timeout=5000)
+        expect(authenticated_page.locator(".modal-overlay").first).to_be_visible(timeout=10000)
 
         name = f"E2E最小_{int(time.time())}"
         authenticated_page.locator(SEL["input_name"]).fill(name)
-
         authenticated_page.locator(SEL["save_btn"]).click()
         authenticated_page.wait_for_timeout(3000)
 
-        # 创建后模态框关闭或跳转到详情
         assert "/portfolio" in authenticated_page.url
 
 
@@ -143,30 +131,17 @@ class TestPortfolioDetail:
     def test_click_card_navigates_to_detail(self, authenticated_page: Page):
         """点击组合卡片跳转到详情页"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-
-        cards = authenticated_page.locator(SEL["card"])
-        if cards.count() == 0:
-            pytest.skip("无组合数据，跳过详情测试")
-
-        cards.first.click()
+        expect(authenticated_page.locator(SEL["card"]).first).to_be_visible(timeout=5000)
+        authenticated_page.locator(SEL["card"]).first.click()
         authenticated_page.wait_for_url("**/portfolio/*", timeout=5000)
         assert "/portfolio/" in authenticated_page.url and "/create" not in authenticated_page.url
 
-    def test_detail_shows_components(self, authenticated_page: Page):
-        """详情页显示组件配置"""
+    def test_detail_shows_title(self, authenticated_page: Page):
+        """详情页显示页面标题"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-
-        cards = authenticated_page.locator(SEL["card"])
-        if cards.count() == 0:
-            pytest.skip("无组合数据，跳过")
-
-        cards.first.click()
+        expect(authenticated_page.locator(SEL["card"]).first).to_be_visible(timeout=5000)
+        authenticated_page.locator(SEL["card"]).first.click()
         authenticated_page.wait_for_url("**/portfolio/*", timeout=5000)
-        authenticated_page.wait_for_timeout(1000)
-
-        # 详情页应有页面标题
         expect(authenticated_page.locator(".page-title")).to_be_visible()
 
 
@@ -177,22 +152,14 @@ class TestPortfolioDelete:
     def test_delete_via_card_menu(self, authenticated_page: Page):
         """通过卡片菜单删除组合"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
+        expect(authenticated_page.locator(SEL["card"]).first).to_be_visible(timeout=5000)
 
-        cards = authenticated_page.locator(SEL["card"])
-        if cards.count() == 0:
-            pytest.skip("无组合数据，跳过删除测试")
-
-        # 点击第一张卡片的菜单按钮
-        cards.first.locator(SEL["card_menu"]).click()
-
-        # 点击删除
+        authenticated_page.locator(SEL["card"]).first.locator(SEL["card_menu"]).click()
         delete_btn = authenticated_page.locator(SEL["delete_btn"])
         expect(delete_btn).to_be_visible(timeout=3000)
         delete_btn.click()
 
-        # 确认删除（小模态框中的删除按钮）
-        confirm_btn = authenticated_page.locator(".modal-small .btn-danger, .btn-danger:has-text('删除')").first
-        if confirm_btn.is_visible():
-            confirm_btn.click()
-            authenticated_page.wait_for_timeout(2000)
+        confirm_btn = authenticated_page.locator(".btn-danger:has-text('删除')").first
+        expect(confirm_btn).to_be_visible(timeout=3000)
+        confirm_btn.click()
+        authenticated_page.wait_for_timeout(2000)

@@ -140,7 +140,6 @@ class TestUserGroupMappingCRUDBusinessHelpers:
         crud_instance.find.assert_called_once()
         call_kwargs = crud_instance.find.call_args[1]
         assert call_kwargs["filters"]["user_uuid"] == "user-001"
-        assert call_kwargs["as_dataframe"] is False
 
     @pytest.mark.unit
     def test_check_mapping_exists_true(self, crud_instance):

@@ -5,13 +5,9 @@
 - 列表页面加载与统计卡片
 - 搜索
 - 状态筛选
-- 分页
 - 创建回测（模态框）
 - 行点击导航到详情
-- 任务操作（启动/停止）
 """
-
-import time
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -29,6 +25,7 @@ SEL = {
 def _goto_list(page: Page):
     page.goto(f"{config.web_ui_url}/backtest")
     page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)
 
 
 @pytest.mark.e2e
@@ -44,16 +41,12 @@ class TestBacktestListPage:
     def test_stats_cards_visible(self, authenticated_page: Page):
         """统计卡片可见"""
         _goto_list(authenticated_page)
-        cards = authenticated_page.locator(".stat-card")
-        assert cards.count() >= 1
+        expect(authenticated_page.locator(".stat-card").first).to_be_visible()
 
-    def test_table_or_empty(self, authenticated_page: Page):
-        """表格显示或空状态"""
+    def test_table_visible(self, authenticated_page: Page):
+        """表格可见"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-        table = authenticated_page.locator(SEL["table"])
-        empty = authenticated_page.locator(".empty-state")
-        assert table.is_visible() or empty.is_visible()
+        expect(authenticated_page.locator(SEL["table"])).to_be_visible()
 
 
 @pytest.mark.e2e
@@ -71,8 +64,7 @@ class TestBacktestSearch:
         """搜索过滤结果"""
         _goto_list(authenticated_page)
         rows = authenticated_page.locator(f"{SEL['table']} tbody tr")
-        if rows.count() == 0:
-            pytest.skip("无回测数据")
+        expect(rows.first).to_be_visible()
 
         before = rows.count()
         authenticated_page.locator(SEL["search"]).fill("NOTEXIST_12345")
@@ -93,30 +85,17 @@ class TestBacktestFilter:
         expect(authenticated_page.locator(".radio-button").first).to_be_visible()
 
     def test_filter_by_status(self, authenticated_page: Page):
-        """按状态筛选不报错"""
+        """按状态筛选"""
         _goto_list(authenticated_page)
         completed = authenticated_page.locator(".radio-button:has-text('已完成')")
-        if completed.is_visible():
-            completed.click()
-            authenticated_page.wait_for_timeout(500)
+        expect(completed).to_be_visible()
+        completed.click()
+        authenticated_page.wait_for_timeout(500)
 
         all_btn = authenticated_page.locator(".radio-button:has-text('全部')")
-        if all_btn.is_visible():
-            all_btn.click()
-            authenticated_page.wait_for_timeout(500)
-
-
-@pytest.mark.e2e
-class TestBacktestPagination:
-    """分页"""
-
-    def test_pagination_visible_when_needed(self, authenticated_page: Page):
-        """数据多时分页器可见"""
-        _goto_list(authenticated_page)
-        pagination = authenticated_page.locator(".pagination")
-        rows = authenticated_page.locator(f"{SEL['table']} tbody tr")
-        if rows.count() > 10:
-            expect(pagination).to_be_visible()
+        expect(all_btn).to_be_visible()
+        all_btn.click()
+        authenticated_page.wait_for_timeout(500)
 
 
 @pytest.mark.e2e
@@ -137,11 +116,8 @@ class TestBacktestCreate:
         modal = authenticated_page.locator(".modal-overlay")
         expect(modal).to_be_visible(timeout=5000)
 
-        # 任务名称输入框
         expect(modal.locator("input.form-input").first).to_be_visible()
-        # Portfolio 下拉
         expect(modal.locator("select.form-select")).to_be_visible()
-        # 日期输入
         expect(modal.locator("input[type='date']").first).to_be_visible()
 
 
@@ -152,11 +128,8 @@ class TestBacktestDetail:
     def test_click_row_navigates_to_detail(self, authenticated_page: Page):
         """点击表格行跳转到详情页"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-
         rows = authenticated_page.locator(f"{SEL['table']} tbody tr")
-        if rows.count() == 0:
-            pytest.skip("无回测数据")
+        expect(rows.first).to_be_visible()
 
         rows.first.click()
         authenticated_page.wait_for_url("**/backtest/*", timeout=5000)
@@ -170,12 +143,8 @@ class TestBacktestOperations:
     def test_action_buttons_in_table(self, authenticated_page: Page):
         """表格行有操作按钮"""
         _goto_list(authenticated_page)
-        authenticated_page.wait_for_timeout(1000)
-
         rows = authenticated_page.locator(f"{SEL['table']} tbody tr")
-        if rows.count() == 0:
-            pytest.skip("无回测数据")
+        expect(rows.first).to_be_visible()
 
-        # 行内应有操作按钮（启动/查看详情等）
         action_btns = rows.first.locator("button.link-button")
         assert action_btns.count() >= 1

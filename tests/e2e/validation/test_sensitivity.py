@@ -10,7 +10,6 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from ..config import config
-from ..selectors import INPUT
 
 
 @pytest.mark.e2e
@@ -20,21 +19,18 @@ class TestSensitivity:
     def test_sensitivity_page_loads(self, authenticated_page: Page):
         """敏感性分析页面加载"""
         page = authenticated_page
-        page.goto(f"{config.web_ui_url}/stage2/sensitivity")
-        page.wait_for_load_state("domcontentloaded")
+        page.goto(f"{config.web_ui_url}/validation/sensitivity")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        expect(page.locator("body")).to_be_visible()
-        print("✅ 敏感性分析页面加载成功")
+        assert "/validation/sensitivity" in page.url
 
     def test_sensitivity_form(self, authenticated_page: Page):
-        """敏感性分析表单元素"""
+        """敏感性分析表单存在"""
         page = authenticated_page
-        page.goto(f"{config.web_ui_url}/stage2/sensitivity")
-        page.wait_for_load_state("domcontentloaded")
+        page.goto(f"{config.web_ui_url}/validation/sensitivity")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        # 检查参数输入
-        param_input = page.locator(f"{INPUT}, textarea")
-        if param_input.count() > 0:
-            print("✅ 参数输入框存在")
-
-        print("✅ 敏感性分析表单检查完成")
+        expect(page.locator("select.form-select").first).to_be_visible()
+        expect(page.locator("input.form-input[type='text']").first).to_be_visible()

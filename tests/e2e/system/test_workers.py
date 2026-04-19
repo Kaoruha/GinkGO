@@ -20,10 +20,10 @@ class TestWorkerManagement:
         """Worker 管理页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/workers")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        expect(page.locator("body")).to_be_visible()
-        print("✅ Worker 管理页面加载成功")
+        assert "/system/workers" in page.url
 
 
 @pytest.mark.e2e
@@ -34,7 +34,7 @@ class TestAlertCenter:
         """告警中心页面加载"""
         page = authenticated_page
         page.goto(f"{config.web_ui_url}/system/alerts")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
-        expect(page.locator("body")).to_be_visible()
-        print("✅ 告警中心页面加载成功")
+        assert "/system/alerts" in page.url
