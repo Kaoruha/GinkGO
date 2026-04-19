@@ -127,9 +127,11 @@ export const useSystemStore = defineStore('system', () => {
     loading.value = true
     try {
       const result = await systemApi.getFullStatus()
-      systemStatus.value = result.status
-      workers.value = result.workers.data || []
-      componentCounts.value = result.workers.components || componentCounts.value
+      const statusPayload = result.status.data
+      const workersPayload = result.workers.data
+      systemStatus.value = statusPayload
+      workers.value = workersPayload.data || []
+      componentCounts.value = workersPayload.components || componentCounts.value
       lastUpdate.value = new Date().toISOString()
       return result
     } catch (error) {
@@ -146,8 +148,9 @@ export const useSystemStore = defineStore('system', () => {
   async function fetchWorkers() {
     try {
       const result = await systemApi.getWorkers()
-      workers.value = result.data || []
-      componentCounts.value = result.components || componentCounts.value
+      const payload = result.data
+      workers.value = payload.data || []
+      componentCounts.value = payload.components || componentCounts.value
       return result
     } catch (error) {
       console.error('Failed to fetch workers:', error)
@@ -161,12 +164,13 @@ export const useSystemStore = defineStore('system', () => {
   async function startWorker(workerId: string) {
     try {
       const result = await systemApi.startWorker(workerId)
+      const payload = result.data
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
         worker.status = 'running'
       }
-      return result
+      return payload
     } catch (error) {
       console.error('Failed to start worker:', error)
       throw error
@@ -179,12 +183,13 @@ export const useSystemStore = defineStore('system', () => {
   async function stopWorker(workerId: string) {
     try {
       const result = await systemApi.stopWorker(workerId)
+      const payload = result.data
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
         worker.status = 'stopped'
       }
-      return result
+      return payload
     } catch (error) {
       console.error('Failed to stop worker:', error)
       throw error

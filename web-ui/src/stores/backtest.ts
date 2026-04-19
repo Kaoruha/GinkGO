@@ -148,7 +148,7 @@ export const useBacktestStore = defineStore('backtest', () => {
     try {
       const result = await backtestApi.list(params)
       tasks.value = result.data || []
-      total.value = result.total || 0
+      total.value = result.meta?.total || 0
       lastUpdate.value = new Date().toISOString()
 
       // 更新运行中任务集合
@@ -176,22 +176,23 @@ export const useBacktestStore = defineStore('backtest', () => {
     detailLoading.value = true
     try {
       const task = await backtestApi.get(uuid)
-      currentTask.value = task
+      const payload = task.data
+      currentTask.value = payload
 
       // 更新列表中的任务
       const index = tasks.value.findIndex(t => t.uuid === uuid)
       if (index !== -1) {
-        tasks.value[index] = task
+        tasks.value[index] = payload
       }
 
       // 更新运行状态
-      if (task.status === 'running') {
+      if (payload.status === 'running') {
         runningTaskIds.value.add(uuid)
       } else {
         runningTaskIds.value.delete(uuid)
       }
 
-      return task
+      return payload
     } catch (error) {
       console.error('Failed to fetch backtest task:', error)
       return null
@@ -205,9 +206,10 @@ export const useBacktestStore = defineStore('backtest', () => {
    */
   async function fetchNetValue(uuid: string) {
     try {
-      const data = await backtestApi.getNetValue(uuid)
-      currentNetValue.value = data
-      return data
+      const result = await backtestApi.getNetValue(uuid)
+      const payload = result.data
+      currentNetValue.value = payload
+      return payload
     } catch (error) {
       console.error('Failed to fetch net value:', error)
       return null
@@ -220,7 +222,8 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function fetchAnalyzers(uuid: string) {
     try {
       const result = await backtestApi.getAnalyzers(uuid)
-      currentAnalyzers.value = result.analyzers || []
+      const payload = result.data
+      currentAnalyzers.value = payload.analyzers || []
       return result
     } catch (error) {
       console.error('Failed to fetch analyzers:', error)
@@ -233,10 +236,11 @@ export const useBacktestStore = defineStore('backtest', () => {
    */
   async function createTask(data: { name?: string; portfolio_id: string; start_date?: string; end_date?: string }) {
     try {
-      const task = await backtestApi.create(data)
-      tasks.value.unshift(task)
+      const result = await backtestApi.create(data)
+      const payload = result.data
+      tasks.value.unshift(payload)
       total.value++
-      return task
+      return payload
     } catch (error) {
       console.error('Failed to create backtest task:', error)
       throw error

@@ -80,7 +80,7 @@
               <span class="stat-number text-success">23.5%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage1/backtest')" class="stage-link" data-testid="stage-link-backtest">
+          <button @click="$router.push('/backtest')" class="stage-link" data-testid="stage-link-backtest">
             进入回测 →
           </button>
         </div>
@@ -99,7 +99,7 @@
               <span class="stat-number text-success">42</span>
             </div>
           </div>
-          <button @click="$router.push('/stage2/walkforward')" class="stage-link" data-testid="stage-link-validation">
+          <button @click="$router.push('/validation/walkforward')" class="stage-link" data-testid="stage-link-validation">
             进入验证 →
           </button>
         </div>
@@ -118,7 +118,7 @@
               <span class="stat-number text-success">5.8%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage3/paper')" class="stage-link" data-testid="stage-link-paper">
+          <button @click="$router.push('/paper')" class="stage-link" data-testid="stage-link-paper">
             进入模拟 →
           </button>
         </div>
@@ -137,7 +137,7 @@
               <span class="stat-number text-success">2.3%</span>
             </div>
           </div>
-          <button @click="$router.push('/stage4/live')" class="stage-link" data-testid="stage-link-live">
+          <button @click="$router.push('/live')" class="stage-link" data-testid="stage-link-live">
             进入实盘 →
           </button>
         </div>

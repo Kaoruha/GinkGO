@@ -60,7 +60,7 @@
           </div>
         </div>
 
-        <div v-if="result.data_points && result.data_points.length > 0" class="table-wrapper">
+        <div v-if="result?.data_points && result.data_points.length > 0" class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>

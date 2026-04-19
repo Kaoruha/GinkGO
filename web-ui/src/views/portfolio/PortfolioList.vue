@@ -178,7 +178,7 @@
     </div>
 
     <!-- 创建组合模态框 -->
-    <div v-if="createModalVisible" class="modal-overlay" @click.self="closeCreateModal">
+    <div v-if="createModalVisible" class="modal-overlay" data-testid="create-portfolio-modal" @click.self="closeCreateModal">
       <div class="modal-content modal-large">
         <div class="modal-header">
           <h3>创建投资组合</h3>
@@ -233,8 +233,8 @@ const {
 const { fetchPortfolios, fetchStats, deletePortfolio } = portfolioStore
 
 // 状态格式化
-const { getColor: getModeColor, getLabel: getModeLabel } = usePortfolioMode()
-const { getColor: getStateColor, getLabel: getStateLabel } = usePortfolioState()
+const { getTagClass: getModeColor, getLabel: getModeLabel } = usePortfolioMode()
+const { getTagClass: getStateColor, getLabel: getStateLabel } = usePortfolioState()
 
 const searchKeyword = ref('')
 const createModalVisible = ref(false)
@@ -436,6 +436,25 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
 .portfolio-list-page {
   height: 100%;
   display: flex;
