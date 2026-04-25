@@ -381,7 +381,7 @@ class StrategyMLBase(BaseStrategy):
     def _create_signal(self, portfolio_info, code: str,
                       direction: DIRECTION_TYPES, reason: str):
         """创建交易信号"""
-        # 使用基类方法创建信号（自动填充 run_id 等上下文）
+        # 使用基类方法创建信号（自动填充 task_id 等上下文）
         signal = self.create_signal(
             code=code,
             direction=direction,

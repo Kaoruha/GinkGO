@@ -207,11 +207,8 @@ class RandomSignalStrategy(BaseStrategy):
                 index=self.signal_count
             )
 
-            # 创建信号 - ID现在从绑定的引擎动态获取
-            signal = Signal(
-                portfolio_id=self.portfolio_id,  # 从绑定的portfolio动态获取
-                engine_id=self.engine_id,         # 从绑定的引擎动态获取
-                run_id=self.run_id,               # 从绑定的引擎动态获取
+            # 创建信号 - 使用基类的 create_signal 自动填充 portfolio_id/engine_id/task_id
+            signal = self.create_signal(
                 code=code,
                 direction=direction_enum,
                 reason=reason,

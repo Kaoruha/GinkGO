@@ -190,14 +190,11 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 if atr is not None:
                     reason += f", ATR={atr:.2f}"
 
-                signal = Signal(
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                signal = self.create_signal(
                     code=code,
                     direction=direction,
                     reason=reason,
+                    business_timestamp=portfolio_info.get("now"),
                 )
                 signals.append(signal)
 
@@ -208,7 +205,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                     strategy_id=self.uuid,
                     portfolio_id=portfolio_info.get("uuid"),
                     engine_id=self.engine_id,
-                    run_id=self.run_id,
+                    task_id=self.task_id,
                     business_timestamp=portfolio_info.get("now"),
                 )
 
@@ -223,14 +220,11 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 if atr is not None:
                     reason += f", ATR={atr:.2f}"
 
-                signal = Signal(
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                signal = self.create_signal(
                     code=code,
                     direction=direction,
                     reason=reason,
+                    business_timestamp=portfolio_info.get("now"),
                 )
                 signals.append(signal)
 
@@ -241,7 +235,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                     strategy_id=self.uuid,
                     portfolio_id=portfolio_info.get("uuid"),
                     engine_id=self.engine_id,
-                    run_id=self.run_id,
+                    task_id=self.task_id,
                     business_timestamp=portfolio_info.get("now"),
                 )
 
