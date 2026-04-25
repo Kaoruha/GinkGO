@@ -273,9 +273,9 @@ class TimeWindowBatchProcessor(ABC):
                 
                 if suggested_position_size > 0:
                     order = self._create_order_from_signal(signal, suggested_position_size)
-                    if order and order.frozen <= remaining_capital:
+                    if order and order.frozen_money <= remaining_capital:
                         orders.append(order)
-                        remaining_capital -= order.frozen
+                        remaining_capital -= order.frozen_money
                         
             except Exception as e:
                 self.logger.ERROR(f"Error processing signal {signal.code}: {e}")
@@ -344,14 +344,15 @@ class TimeWindowBatchProcessor(ABC):
             estimated_price = getattr(signal, 'price', 10.0)
             
             order = Order(
+                portfolio_id=signal.portfolio_id,
+                engine_id=signal.engine_id,
+                task_id=signal.task_id,
                 code=signal.code,
                 direction=signal.direction,
                 volume=volume,
                 limit_price=estimated_price,
-                frozen=estimated_price * volume,  # 简化的冻结金额计算
+                frozen_money=estimated_price * volume,
                 timestamp=signal.timestamp,
-                portfolio_id=signal.portfolio_id,
-                engine_id=signal.engine_id
             )
             
             return order
