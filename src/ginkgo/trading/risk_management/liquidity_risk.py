@@ -26,7 +26,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -185,16 +185,12 @@ class LiquidityRisk(BaseRiskManagement):
             GLOG.CRITICAL(f"LiquidityRisk: CRITICAL low liquidity for {event.code}, turnover {liquidity_metrics.get('avg_turnover', 0):,.0f}")
 
             # 生成减仓信号
-            signal = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,
-                timestamp=portfolio_info["now"],
+            signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
                 reason=f"CRITICAL: Liquidity too low, turnover {liquidity_metrics.get('avg_turnover', 0):,.0f} < {self._min_turnover_ratio:,.0f}",
-                source=SOURCE_TYPES.STRATEGY,
+                strength=0.9,  # 高强度信号
             )
-            signal.strength = 0.9  # 高强度信号
             signals.append(signal)
 
         # 检查价格冲击风险
@@ -209,16 +205,12 @@ class LiquidityRisk(BaseRiskManagement):
 
             price_impact = self._calculate_price_impact(sell_order, liquidity_metrics)
             if price_impact > self._warning_price_impact:
-                signal = Signal(
-                    portfolio_id=portfolio_info["uuid"],
-                    engine_id=self.engine_id,
-                    timestamp=portfolio_info["now"],
+                signal = self.create_signal(
                     code=event.code,
                     direction=DIRECTION_TYPES.SHORT,
                     reason=f"WARNING: High exit price impact {price_impact:.2f}% > {self._warning_price_impact}%",
-                    source=SOURCE_TYPES.STRATEGY,
+                    strength=0.6,  # 中等强度信号
                 )
-                signal.strength = 0.6  # 中等强度信号
                 signals.append(signal)
 
         return signals

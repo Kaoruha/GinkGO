@@ -13,7 +13,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -110,14 +110,10 @@ class LossLimitRisk(BaseRiskManagement):
                 engine_id=self.engine_id,
             )
 
-            signal = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,  # 使用self获取engine_id
-                timestamp=portfolio_info["now"],
+            signal = self.create_signal(
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,  # 平仓
                 reason=f"Loss Limit ({loss_ratio:.2f}% > {self._loss_limit}%)",
-                source=SOURCE_TYPES.STRATEGY,  # 风控生成的信号也标记为策略来源
             )
             signals.append(signal)
 

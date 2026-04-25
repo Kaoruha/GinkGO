@@ -7,7 +7,7 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -58,11 +58,8 @@ class MarginRisk(BaseRiskManagement):
         margin_info = portfolio_info.get("margin_info", {})
         current_leverage = float(margin_info.get("current_leverage", 1.0))
         if current_leverage >= self._margin_call_warning_ratio:
-            signals.append(Signal(
-                portfolio_id=portfolio_info.get("uuid", ""),
-                engine_id=self.engine_id, run_id="", timestamp=portfolio_info.get("now"),
+            signals.append(self.create_signal(
                 code="", direction=DIRECTION_TYPES.SHORT,
                 reason=f"Margin call warning: leverage {current_leverage:.2f}x",
-                source=SOURCE_TYPES.STRATEGY))
-            signals[-1].strength = 0.7
+                strength=0.7))
         return signals

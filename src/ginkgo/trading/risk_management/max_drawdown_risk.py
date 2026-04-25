@@ -26,7 +26,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -137,16 +137,12 @@ class MaxDrawdownRisk(BaseRiskManagement):
             # 为所有持仓生成减仓信号
             for code in portfolio_info.get("positions", {}):
                 if portfolio_info["positions"][code] and portfolio_info["positions"][code].volume > 0:
-                    signal = Signal(
-                        portfolio_id=portfolio_info["uuid"],
-                        engine_id=self.engine_id,
-                        timestamp=portfolio_info["now"],
+                    signal = self.create_signal(
                         code=code,
                         direction=DIRECTION_TYPES.SHORT,
                         reason=f"CRITICAL: Max drawdown {current_drawdown:.1f}% exceeded {self._critical_drawdown}%",
-                        source=SOURCE_TYPES.STRATEGY,
+                        strength=0.95,  # 高强度信号
                     )
-                    signal.strength = 0.95  # 高强度信号
                     signals.append(signal)
 
         # 超过最大回撤 - 警告减仓
@@ -156,16 +152,12 @@ class MaxDrawdownRisk(BaseRiskManagement):
             # 选择亏损最大的股票减仓
             worst_position = self._find_worst_performing_position(portfolio_info)
             if worst_position:
-                signal = Signal(
-                    portfolio_id=portfolio_info["uuid"],
-                    engine_id=self.engine_id,
-                    timestamp=portfolio_info["now"],
+                signal = self.create_signal(
                     code=worst_position,
                     direction=DIRECTION_TYPES.SHORT,
                     reason=f"WARNING: Max drawdown {current_drawdown:.1f}% exceeded {self._max_drawdown}%",
-                    source=SOURCE_TYPES.STRATEGY,
+                    strength=0.7,  # 中等强度信号
                 )
-                signal.strength = 0.7  # 中等强度信号
                 signals.append(signal)
 
         # 预警回撤 - 记录警告

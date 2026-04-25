@@ -26,7 +26,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -168,16 +168,12 @@ class ConcentrationRisk(BaseRiskManagement):
         if current_concentrations.get('max_single_position', 0) > self._max_single_position_ratio:
             worst_position = current_concentrations.get('worst_single_position', '')
             if worst_position:
-                signal = Signal(
-                    portfolio_id=portfolio_info["uuid"],
-                    engine_id=self.engine_id,
-                    timestamp=portfolio_info["now"],
+                signal = self.create_signal(
                     code=worst_position,
                     direction=DIRECTION_TYPES.SHORT,
                     reason=f"CRITICAL: Single position concentration {current_concentrations['max_single_position']:.1f}% exceeded {self._max_single_position_ratio}%",
-                    source=SOURCE_TYPES.STRATEGY,
+                    strength=0.85,  # 高强度信号
                 )
-                signal.strength = 0.85  # 高强度信号
                 signals.append(signal)
 
         # 检查行业集中度
@@ -187,16 +183,12 @@ class ConcentrationRisk(BaseRiskManagement):
                 # 选择该行业中最大的持仓进行减仓
                 industry_positions = current_concentrations.get('industry_positions', {}).get(worst_industry, [])
                 if industry_positions:
-                    signal = Signal(
-                        portfolio_id=portfolio_info["uuid"],
-                        engine_id=self.engine_id,
-                        timestamp=portfolio_info["now"],
+                    signal = self.create_signal(
                         code=industry_positions[0],  # 选择最大持仓
                         direction=DIRECTION_TYPES.SHORT,
                         reason=f"WARNING: Industry concentration {current_concentrations['max_industry']:.1f}% exceeded {self._max_industry_ratio}% for {worst_industry}",
-                        source=SOURCE_TYPES.STRATEGY,
+                        strength=0.7,  # 中等强度信号
                     )
-                    signal.strength = 0.7  # 中等强度信号
                     signals.append(signal)
 
         # 检查前5大持仓集中度

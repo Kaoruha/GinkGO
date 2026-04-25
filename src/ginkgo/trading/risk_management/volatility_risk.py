@@ -26,7 +26,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 import math
@@ -152,32 +152,24 @@ class VolatilityRisk(BaseRiskManagement):
             GLOG.WARN(f"VolatilityRisk: EXTREME volatility {current_volatility:.1f}% > {self._max_volatility}% for {event.code}")
 
             # 生成减仓或暂停交易信号
-            signal = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,
-                timestamp=portfolio_info["now"],
+            signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
                 reason=f"EXTREME: Volatility {current_volatility:.1f}% exceeded {self._max_volatility}%",
-                source=SOURCE_TYPES.STRATEGY,
+                strength=min(0.9, current_volatility / self._max_volatility),  # 波动率越高信号越强
             )
-            signal.strength = min(0.9, current_volatility / self._max_volatility)  # 波动率越高信号越强
             signals.append(signal)
 
         elif current_volatility > self._warning_volatility:
             GLOG.INFO(f"VolatilityRisk: HIGH volatility {current_volatility:.1f}% > {self._warning_volatility}% for {event.code}")
 
             # 生成预警信号
-            signal = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,
-                timestamp=portfolio_info["now"],
+            signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
                 reason=f"HIGH: Volatility {current_volatility:.1f}% exceeded {self._warning_volatility}%",
-                source=SOURCE_TYPES.STRATEGY,
+                strength=0.6,  # 中等强度预警信号
             )
-            signal.strength = 0.6  # 中等强度预警信号
             signals.append(signal)
 
         return signals
