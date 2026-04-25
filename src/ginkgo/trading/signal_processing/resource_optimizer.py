@@ -439,14 +439,15 @@ class ResourceOptimizer:
                 
                 if volume > 0:
                     order = Order(
+                        portfolio_id=portfolio_info.get('portfolio_id', ''),
+                        engine_id=portfolio_info.get('engine_id', ''),
+                        task_id=portfolio_info.get('task_id', ''),
                         code=code,
                         direction=DIRECTION_TYPES.LONG,  # 简化处理，实际应该从信号获取
                         volume=volume,
                         limit_price=estimated_price,
-                        frozen=estimated_price * volume,
+                        frozen_money=estimated_price * volume,
                         timestamp=portfolio_info.get('current_time'),
-                        portfolio_id=portfolio_info.get('portfolio_id', ''),
-                        engine_id=portfolio_info.get('engine_id', '')
                     )
                     orders.append(order)
                     
@@ -475,12 +476,12 @@ class ResourceOptimizer:
         max_total_frozen = available_capital * self.constraints.max_total_allocation
         
         # 按冻结金额排序（从大到小），优先满足大订单
-        sorted_orders = sorted(orders, key=lambda o: o.frozen, reverse=True)
+        sorted_orders = sorted(orders, key=lambda o: o.frozen_money, reverse=True)
         
         for order in sorted_orders:
-            if total_frozen + order.frozen <= max_total_frozen:
+            if total_frozen + order.frozen_money <= max_total_frozen:
                 validated_orders.append(order)
-                total_frozen += order.frozen
+                total_frozen += order.frozen_money
             else:
                 # 尝试调整订单大小
                 remaining_capital = max_total_frozen - total_frozen
@@ -490,7 +491,7 @@ class ResourceOptimizer:
                     
                     if adjusted_volume > 0:
                         order.volume = adjusted_volume
-                        order.frozen = order.limit_price * adjusted_volume
+                        order.frozen_money = order.limit_price * adjusted_volume
                         validated_orders.append(order)
                         total_frozen += order.frozen
                         
