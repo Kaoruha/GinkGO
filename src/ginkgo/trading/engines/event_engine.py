@@ -613,7 +613,7 @@ class EventEngine(BaseEngine):
         try:
             # 设置引擎ID和运行ID
             event.engine_id = self.engine_id
-            event.run_id = self.run_id or f"{self.engine_id}_init"
+            event.task_id = self.task_id or f"{self.engine_id}_init"
 
             # 设置事件时间戳
             event.set_time(self.now)

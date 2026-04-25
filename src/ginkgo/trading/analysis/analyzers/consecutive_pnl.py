@@ -104,10 +104,6 @@ class ConsecutivePnL(BaseAnalyzer):
 
         self.add_data(consecutive_losses)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录连续亏损数据到数据库"""
-        self.add_record()
-
     @property
     def current_consecutive_losses(self) -> int:
         """当前连续亏损天数（只读属性）"""

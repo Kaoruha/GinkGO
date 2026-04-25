@@ -233,28 +233,28 @@ class TimeBoundaryValidator:
     """时间边界验证器
 
     提供严格的时间边界检查，防止未来数据泄露和时间倒退。
-    使用类级缓存（按run_id隔离）支持跨实例缓存共享，优化重复验证性能。
+    使用类级缓存（按task_id隔离）支持跨实例缓存共享，优化重复验证性能。
     """
 
-    # 类级缓存：按run_id隔离，支持跨实例共享
+    # 类级缓存：按task_id隔离，支持跨实例共享
     _shared_cache: dict = {}
     _default_cache_size: int = 50  # 每个run默认50个槽位
 
-    def __init__(self, time_provider: ITimeProvider, run_id: Optional[str] = None, cache_size: Optional[int] = None):
+    def __init__(self, time_provider: ITimeProvider, task_id: Optional[str] = None, cache_size: Optional[int] = None):
         """初始化时间边界验证器
 
         Args:
             time_provider: 时间提供者实例
-            run_id: 回测会话ID（用于缓存隔离，支持跨实例共享）
+            task_id: 回测会话ID（用于缓存隔离，支持跨实例共享）
             cache_size: 该run的缓存大小（可选，默认50个槽位）
         """
         self._time_provider = time_provider
-        self._run_id = run_id
+        self._task_id = task_id
         self._cache_size = cache_size or self.__class__._default_cache_size
 
-        # 如果指定了run_id，初始化该run的共享缓存空间
-        if run_id and run_id not in self.__class__._shared_cache:
-            self.__class__._shared_cache[run_id] = OrderedDict()
+        # 如果指定了task_id，初始化该run的共享缓存空间
+        if task_id and task_id not in self.__class__._shared_cache:
+            self.__class__._shared_cache[task_id] = OrderedDict()
         
     def validate_data_access(self, data_timestamp: datetime, context: str = "data access", request_time: Optional[datetime] = None) -> None:
         """验证数据访问的时间边界
@@ -325,8 +325,8 @@ class TimeBoundaryValidator:
         Returns:
             bool: True表示验证通过，False表示验证失败
         """
-        # 如果没有run_id，直接验证（无缓存）
-        if not self._run_id:
+        # 如果没有task_id，直接验证（无缓存）
+        if not self._task_id:
             try:
                 self.validate_data_access(data_timestamp, context=context, request_time=request_time)
                 return True
@@ -334,11 +334,11 @@ class TimeBoundaryValidator:
                 return False
 
         # 获取该run的共享缓存
-        cache = self.__class__._shared_cache.get(self._run_id)
+        cache = self.__class__._shared_cache.get(self._task_id)
         if cache is None:
-            # run_id不存在，初始化缓存
+            # task_id不存在，初始化缓存
             cache = OrderedDict()
-            self.__class__._shared_cache[self._run_id] = cache
+            self.__class__._shared_cache[self._task_id] = cache
 
         # 构造缓存key
         cache_key = (data_timestamp, request_time)
@@ -362,34 +362,34 @@ class TimeBoundaryValidator:
         return result
 
     @classmethod
-    def clear_cache(cls, run_id: Optional[str] = None) -> None:
+    def clear_cache(cls, task_id: Optional[str] = None) -> None:
         """清空缓存
 
         Args:
-            run_id: 如果指定，只清空该run的缓存；如果为None，清空所有缓存
+            task_id: 如果指定，只清空该run的缓存；如果为None，清空所有缓存
         """
-        if run_id is None:
+        if task_id is None:
             cls._shared_cache.clear()
-        elif run_id in cls._shared_cache:
-            del cls._shared_cache[run_id]
+        elif task_id in cls._shared_cache:
+            del cls._shared_cache[task_id]
 
     @classmethod
-    def get_cache_stats(cls, run_id: Optional[str] = None) -> dict:
+    def get_cache_stats(cls, task_id: Optional[str] = None) -> dict:
         """获取缓存统计信息
 
         Args:
-            run_id: 如果指定，返回该run的统计；如果为None，返回所有run的统计
+            task_id: 如果指定，返回该run的统计；如果为None，返回所有run的统计
 
         Returns:
             缓存统计信息字典
         """
-        if run_id is not None:
-            if run_id not in cls._shared_cache:
-                return {'run_id': run_id, 'size': 0, 'max_size': cls._default_cache_size, 'usage': '0.0%'}
+        if task_id is not None:
+            if task_id not in cls._shared_cache:
+                return {'task_id': task_id, 'size': 0, 'max_size': cls._default_cache_size, 'usage': '0.0%'}
 
-            cache_size = len(cls._shared_cache[run_id])
+            cache_size = len(cls._shared_cache[task_id])
             return {
-                'run_id': run_id,
+                'task_id': task_id,
                 'size': cache_size,
                 'max_size': cls._default_cache_size,
                 'usage': f"{cache_size/cls._default_cache_size*100:.1f}%"
@@ -403,8 +403,8 @@ class TimeBoundaryValidator:
                 'total_entries': total_entries,
                 'max_size_per_run': cls._default_cache_size,
                 'runs': {
-                    run_id: len(cache)
-                    for run_id, cache in cls._shared_cache.items()
+                    task_id: len(cache)
+                    for task_id, cache in cls._shared_cache.items()
                 }
             }
 

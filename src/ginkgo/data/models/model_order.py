@@ -51,7 +51,7 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
     exchange_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="交易所响应信息")
 
     def __init__(self,
-                 portfolio_id=None, engine_id=None, run_id=None,
+                 portfolio_id=None, engine_id=None, task_id=None,
                  uuid=None, code=None, direction=None, order_type=None, status=None,
                  volume=None, limit_price=None, frozen=None, transaction_price=None,
                  transaction_volume=None, remain=None, fee=None, timestamp=None,
@@ -64,8 +64,8 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         # 基本属性
         if uuid is not None:
@@ -112,7 +112,7 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str = "",  # 新增run_id参数
+        task_id: str = "",
         uuid: Optional[str] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
@@ -133,7 +133,7 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
     ) -> None:
         self.portfolio_id = portfolio_id
         self.engine_id = engine_id
-        self.run_id = run_id  # 新增run_id字段赋值
+        self.task_id = task_id
         if uuid is not None:
             self.uuid = uuid
         if code is not None:

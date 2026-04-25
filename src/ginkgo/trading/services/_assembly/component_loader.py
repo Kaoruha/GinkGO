@@ -11,6 +11,7 @@ ComponentLoader - 组件加载器
 - 执行组件绑定和实例化（从文件/数据库加载组件）
 """
 
+import json
 from typing import Optional, Dict, Any
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.portfolios import PortfolioT1Backtest
@@ -190,29 +191,41 @@ class ComponentLoader:
                     else:
                         return None, "Invalid file data structure"
 
-                    # 获取组件参数（按索引顺序）
+                    # 获取组件参数（按索引顺序，反序列化后构建 kwargs）
                     from ginkgo.data.containers import container
 
                     param_crud = container.cruds.param()
-                    # 🔍 调试：添加详细的参数查询日志
-                    self._logger.INFO(f"🔍 [PARAM QUERY] Querying params for mapping_id: {mapping_uuid}")
                     param_records = param_crud.find(filters={"mapping_id": mapping_uuid})
                     component_params = []
+                    component_kwargs = {}
                     if param_records:
-                        # 按index排序
+                        # 按index排序，并用 json.loads 反序列化（与写入时的 json.dumps 对称）
                         sorted_params = sorted(param_records, key=lambda p: p.index)
-                        component_params = [param.value for param in sorted_params]
-                        param_details = [(p.index, p.value) for p in sorted_params]
-                        self._logger.INFO(f"✅ [PARAM QUERY] Found {len(component_params)} params: {param_details}")
+                        for p in sorted_params:
+                            try:
+                                component_params.append(json.loads(p.value) if p.value else p.value)
+                            except (json.JSONDecodeError, TypeError):
+                                component_params.append(p.value)
+                        self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
+
+                        # 用动态参数提取器获取参数名，构建 kwargs
+                        try:
+                            from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
+                            file_crud_local = container.cruds.file()
+                            file_records = file_crud_local.find(filters={"uuid": file_id})
+                            if file_records:
+                                comp_name = file_records[0].name
+                                type_map = {6: "strategy", 4: "selector", 5: "sizer", 3: "risk_manager", 1: "analyzer"}
+                                file_type_str = type_map.get(component_type)
+                                if file_type_str:
+                                    param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
+                                    for idx, val in enumerate(component_params):
+                                        if idx in param_names:
+                                            component_kwargs[param_names[idx]] = val
+                        except Exception as e:
+                            self._logger.WARN(f"Failed to resolve param names, falling back to positional: {e}")
                     else:
-                        self._logger.WARN(f"❌ [PARAM QUERY] No params found for mapping_id: {mapping_uuid}")
-                        # 尝试查询所有参数来调试
-                        all_params = param_crud.find()
-                        if all_params:
-                            self._logger.WARN(f"🔍 [DEBUG] Total params in database: {len(all_params)}")
-                            # 显示前5个参数的mapping_id
-                            for i, param in enumerate(all_params[:5]):
-                                self._logger.WARN(f"🔍 [DEBUG] Param {i+1}: mapping_id={param.mapping_id}, index={param.index}, value={param.value}")
+                        self._logger.WARN(f"No params found for mapping_id: {mapping_uuid}")
 
                     # 动态执行代码来获取组件类
                     import importlib.util
@@ -313,14 +326,15 @@ class ComponentLoader:
                             self._logger.ERROR(f"No component class found in file. Available classes: {class_details}")
                             return None, f"No component class found in file. Available classes: {class_details}"
 
-                        # 实例化组件（使用位置参数，如果无参数则尝试无参实例化）
+                        # 实例化组件（优先用 kwargs 关键字传参，跳过 name 位置参数）
                         try:
-                            if component_params:
-                                # 有参数：使用参数实例化
-                                self._logger.DEBUG(f"Creating {component_class.__name__} with params: {component_params}")
+                            if component_kwargs:
+                                self._logger.DEBUG(f"Creating {component_class.__name__} with kwargs: {component_kwargs}")
+                                component = component_class(**component_kwargs)
+                            elif component_params:
+                                self._logger.DEBUG(f"Creating {component_class.__name__} with positional params: {component_params}")
                                 component = component_class(*component_params)
                             else:
-                                # 无参数：尝试无参实例化（允许使用默认值）
                                 self._logger.INFO(f"No params found for {component_class.__name__}, attempting instantiation with defaults")
                                 component = component_class()
 
@@ -423,7 +437,9 @@ class ComponentLoader:
                             return None, f"No component class found in source module {full_module_path}"
 
                         # 实例化组件
-                        if component_params:
+                        if component_kwargs:
+                            component = component_class(**component_kwargs)
+                        elif component_params:
                             component = component_class(*component_params)
                         else:
                             component = component_class()

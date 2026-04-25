@@ -29,7 +29,7 @@ class AnalyzerService(BaseService):
     提供分析器记录的数据访问功能：
     - 添加 analyzer 记录到数据库
     - 查询 analyzer 记录
-    - 按 run_id、portfolio_id 等维度查询
+    - 按 task_id、portfolio_id 等维度查询
     """
 
     def __init__(self, analyzer_crud: AnalyzerRecordCRUD):
@@ -46,7 +46,7 @@ class AnalyzerService(BaseService):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,
+        task_id: str,
         timestamp: str,
         value: Any,
         name: str,
@@ -60,7 +60,7 @@ class AnalyzerService(BaseService):
         Args:
             portfolio_id: 投资组合ID
             engine_id: 引擎ID
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             timestamp: 时间戳
             value: 分析器数值
             name: 分析器名称
@@ -77,7 +77,7 @@ class AnalyzerService(BaseService):
             record = self._crud_repo.create(
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id,
+                task_id=task_id,
                 timestamp=timestamp,
                 business_timestamp=business_timestamp or timestamp,
                 value=value,
@@ -93,18 +93,18 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"添加 analyzer 记录失败: {e}")
             return ServiceResult.error(f"添加 analyzer 记录失败: {e}")
 
-    def get_by_run_id(
+    def get_by_task_id(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: Optional[str] = None,
         analyzer_name: Optional[str] = None,
         limit: int = 1000,
     ) -> ServiceResult:
         """
-        按 run_id 查询 analyzer 记录
+        按 task_id 查询 analyzer 记录
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
             analyzer_name: 分析器名称（可选）
             limit: 返回数量限制
@@ -113,19 +113,19 @@ class AnalyzerService(BaseService):
             ServiceResult: 查询结果
         """
         try:
-            result = self._crud_repo.get_by_run_id(
-                run_id=run_id,
+            result = self._crud_repo.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=analyzer_name,
                 page_size=limit,
             )
 
-            GLOG.INFO(f"按 run_id 查询成功: run_id={run_id}, count={len(result) if result else 0}")
+            GLOG.INFO(f"按 task_id 查询成功: task_id={task_id}, count={len(result) if result else 0}")
             return ServiceResult.success(result)
 
         except Exception as e:
-            GLOG.ERROR(f"按 run_id 查询失败: {e}")
-            return ServiceResult.error(f"按 run_id 查询失败: {e}")
+            GLOG.ERROR(f"按 task_id 查询失败: {e}")
+            return ServiceResult.error(f"按 task_id 查询失败: {e}")
 
     def get_latest_by_portfolio(
         self,

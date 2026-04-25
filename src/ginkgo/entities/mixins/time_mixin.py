@@ -45,8 +45,8 @@ class TimeMixin:
         # 最后更新时间
         self._last_update: datetime.datetime = current_time
 
-        # 验证专用run_id（兜底存储，当没有BacktestBase时使用）
-        self._validation_run_id: Optional[str] = None
+        # 验证专用task_id（兜底存储，当没有BacktestBase时使用）
+        self._validation_task_id: Optional[str] = None
 
         # 时间验证相关（ITimeAwareComponent接口）
         self._time_validator: Optional[Any] = None  # TimeBoundaryValidator
@@ -272,28 +272,28 @@ class TimeMixin:
 
     # ==================== ITimeAwareComponent接口实现 ====================
 
-    def set_run_id(self, run_id: str) -> None:
+    def set_task_id(self, task_id: str) -> None:
         """
         设置回测会话ID（协作式多重继承 + 兜底存储）
 
-        TimeRelated职责：更新validator的run_id以支持跨实例缓存共享
-        BacktestBase职责：设置业务属性 _run_id
+        TimeRelated职责：更新validator的task_id以支持跨实例缓存共享
+        BacktestBase职责：设置业务属性 _task_id
 
         Args:
-            run_id: 回测会话的唯一标识符
+            task_id: 回测会话的唯一标识符
         """
         # 1. 协作调用父类（如BacktestBase）
-        if hasattr(super(), 'set_run_id'):
-            super().set_run_id(run_id)
+        if hasattr(super(), 'set_task_id'):
+            super().set_task_id(task_id)
         else:
-            # 2. 兜底：如果没有父类管理run_id，自己存一份
-            self._validation_run_id = run_id
+            # 2. 兜底：如果没有父类管理task_id，自己存一份
+            self._validation_task_id = task_id
 
         # 3. 重建validator（如果已存在）
         if hasattr(self, '_time_validator') and self._time_validator is not None:
             old_provider = self._time_validator._time_provider
             from ginkgo.trading.time.providers import TimeBoundaryValidator
-            self._time_validator = TimeBoundaryValidator(old_provider, run_id=run_id)
+            self._time_validator = TimeBoundaryValidator(old_provider, task_id=task_id)
 
     def set_time_provider(self, time_provider: Any) -> None:
         """
@@ -305,10 +305,10 @@ class TimeMixin:
         self._time_provider = time_provider
 
         # 创建时间边界验证器（validator内部持有provider）
-        # 优先级查找run_id：BacktestBase.run_id > _validation_run_id
+        # 优先级查找task_id：BacktestBase.task_id > _validation_task_id
         from ginkgo.trading.time.providers import TimeBoundaryValidator
-        run_id = getattr(self, 'run_id', None) or getattr(self, '_validation_run_id', None)
-        self._time_validator = TimeBoundaryValidator(time_provider, run_id=run_id)
+        task_id = getattr(self, 'task_id', None) or getattr(self, '_validation_task_id', None)
+        self._time_validator = TimeBoundaryValidator(time_provider, task_id=task_id)
 
     def get_time_provider(self) -> Any:
         """

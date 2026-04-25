@@ -55,10 +55,6 @@ class SharpeRatio(BaseAnalyzer):
 
         self.add_data(sharpe_ratio)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录夏普比率到数据库"""
-        self.add_record()
-
     @property
     def current_sharpe_ratio(self) -> float:
         """当前夏普比率（只读属性）"""

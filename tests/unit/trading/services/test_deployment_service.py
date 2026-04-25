@@ -17,7 +17,7 @@ class TestDeploymentServiceDeploy:
         from ginkgo.trading.services.deployment_service import DeploymentService
 
         mock_task_service = MagicMock()
-        mock_task_service.get_by_run_id.return_value = MagicMock(
+        mock_task_service.get_by_task_id.return_value = MagicMock(
             success=True,
             data={"status": "running"}
         )
@@ -37,7 +37,7 @@ class TestDeploymentServiceDeploy:
         from ginkgo.trading.services.deployment_service import DeploymentService
 
         mock_task_service = MagicMock()
-        mock_task_service.get_by_run_id.return_value = MagicMock(
+        mock_task_service.get_by_task_id.return_value = MagicMock(
             success=True,
             data={"status": "completed", "portfolio_id": "p1"}
         )
@@ -58,7 +58,7 @@ class TestDeploymentServiceDeploy:
         from ginkgo.trading.services.deployment_service import DeploymentService
 
         mock_task_service = MagicMock()
-        mock_task_service.get_by_run_id.return_value = MagicMock(
+        mock_task_service.get_by_task_id.return_value = MagicMock(
             success=True,
             data={"status": "completed", "portfolio_id": "p1", "name": "BT-001"}
         )

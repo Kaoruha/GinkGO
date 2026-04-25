@@ -54,15 +54,15 @@ class TestEventBaseConstruction:
     def test_id_parameters_constructor(self):
         """测试ID参数构造"""
         event = EventBase(name="Test")
-        # EventBase overrides portfolio_id, engine_id, run_id properties
-        # but __init__ does not initialize _portfolio_id, _engine_id, _run_id
+        # EventBase overrides portfolio_id, engine_id, task_id properties
+        # but __init__ does not initialize _portfolio_id, _engine_id, _task_id
         # so accessing them without setting raises AttributeError
         with pytest.raises(AttributeError):
             _ = event.portfolio_id
         with pytest.raises(AttributeError):
             _ = event.engine_id
         with pytest.raises(AttributeError):
-            _ = event.run_id
+            _ = event.task_id
 
     def test_backtest_base_inheritance(self):
         """测试BacktestBase继承"""

@@ -5,6 +5,7 @@
       <div class="header-left">
         <router-link to="/portfolios" class="back-link">&larr; 组合列表</router-link>
         <h1 class="page-title">{{ portfolioName }}</h1>
+        <span class="portfolio-id">{{ portfolioId }}</span>
         <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
       </div>
       <div class="header-actions">
@@ -28,7 +29,9 @@
 
     <!-- Tab content -->
     <div class="tab-content">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <component :is="Component" :key="route.fullPath" />
+      </router-view>
     </div>
   </div>
 </template>
@@ -72,7 +75,7 @@ const tabs = computed(() => [
 ])
 
 function startBacktest() {
-  router.push(`/portfolios/${portfolioId.value}/backtests`)
+  router.push(`/portfolios/${portfolioId.value}/backtests?action=create`)
 }
 
 // Load portfolio info
@@ -113,6 +116,13 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 
 .back-link:hover {
   color: rgba(255,255,255,0.8);
+}
+
+.portfolio-id {
+  font-size: 12px;
+  color: #6a6a7a;
+  font-family: monospace;
+  user-select: all;
 }
 
 .page-title {

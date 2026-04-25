@@ -263,7 +263,7 @@ class PortfolioService(BaseService):
                 m_pos.update(
                     p_dict["portfolio_id"],
                     p_dict["engine_id"],
-                    p_dict.get("run_id", ""),
+                    p_dict.get("task_id", ""),
                     code=p_dict["code"],
                     cost=p_dict["cost"],
                     volume=p_dict["volume"],
@@ -318,7 +318,7 @@ class PortfolioService(BaseService):
                 positions_data.append({
                     "portfolio_id": m_pos.portfolio_id,
                     "engine_id": m_pos.engine_id,
-                    "run_id": m_pos.run_id,
+                    "task_id": m_pos.task_id,
                     "code": m_pos.code,
                     "cost": str(m_pos.cost),
                     "volume": m_pos.volume,
@@ -927,12 +927,12 @@ class PortfolioService(BaseService):
             if not hasattr(portfolio, 'frozen_cash'):
                 portfolio.frozen_cash = 0.0
 
-            # 3. 设置上下文（engine_id和run_id）
+            # 3. 设置上下文（engine_id和task_id）
             from ginkgo.trading.context.engine_context import EngineContext
             from ginkgo.trading.context.portfolio_context import PortfolioContext
 
             engine_context = EngineContext(engine_id="livecore")
-            engine_context.set_run_id(portfolio.uuid)
+            engine_context.set_task_id(portfolio.uuid)
             portfolio_context = PortfolioContext(
                 portfolio_id=portfolio.uuid,
                 engine_context=engine_context

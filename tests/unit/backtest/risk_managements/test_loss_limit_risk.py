@@ -32,7 +32,7 @@ def _make_position(code="000001.SZ", cost="10.0", volume=1000, price="10.0"):
     return Position(
         portfolio_id="test_portfolio_id",
         engine_id="test_engine_id",
-        run_id="test_run_id",
+        task_id="test_task_id",
         code=code,
         cost=Decimal(cost),
         volume=volume,
@@ -134,7 +134,7 @@ class TestLossLimitRiskOrderProcessing:
         order = Order(
             portfolio_id="test_portfolio_id",
             engine_id="test_engine_id",
-            run_id="test_run_id",
+            task_id="test_task_id",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -228,7 +228,7 @@ class TestLossLimitRiskThresholds:
             positions={"000001.SZ": position}
         )
 
-        # Patch Signal to bypass run_id validation and capture the args
+        # Patch Signal to bypass task_id validation and capture the args
         with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal

@@ -107,7 +107,7 @@ class TestBacktestModeManager:
         assert engine.engine_id is not None, "引擎ID不应为空"
         assert len(engine.engine_id) > 0, "引擎ID应为非空字符串"
 
-        assert engine.run_id is None, "初始运行ID应为空"
+        assert engine.task_id is None, "初始运行ID应为空"
 
         # 投资组合管理
         assert getattr(engine, 'portfolios', None) is not None, "引擎应有投资组合列表"
@@ -266,7 +266,7 @@ class TestBacktestModeManager:
         assert engine.mode == EXECUTION_MODE.BACKTEST, "引擎应为BACKTEST模式"
         assert engine.status == "idle", "初始状态应为idle"
         assert engine.is_active == False, "初始状态应不活跃"
-        assert engine.run_id is None, "初始run_id应为空"
+        assert engine.task_id is None, "初始task_id应为空"
         assert engine.run_sequence == 0, "初始运行序列应为0"
         print(f"✓ 初始状态验证通过: status={engine.status}, active={engine.is_active}")
 
@@ -278,11 +278,11 @@ class TestBacktestModeManager:
         assert start_result is True, "启动方法应返回True"
         assert engine.status == "running", "启动后状态应为running"
         assert engine.is_active == True, "启动后应处于活跃状态"
-        assert engine.run_id is not None, "启动后应生成run_id"
-        assert isinstance(engine.run_id, str), "run_id应为字符串"
-        assert len(engine.run_id) > 0, "run_id不应为空字符串"
+        assert engine.task_id is not None, "启动后应生成task_id"
+        assert isinstance(engine.task_id, str), "task_id应为字符串"
+        assert len(engine.task_id) > 0, "task_id不应为空字符串"
         assert engine.run_sequence == 1, "首次启动运行序列应为1"
-        print(f"✓ 启动状态验证通过: run_id={engine.run_id}, sequence={engine.run_sequence}")
+        print(f"✓ 启动状态验证通过: task_id={engine.task_id}, sequence={engine.run_sequence}")
 
         # 3. 验证时间提供者在启动后的状态
         time_provider = engine._time_provider
@@ -302,7 +302,7 @@ class TestBacktestModeManager:
                 'event_type': type(event).__name__,
                 'engine_status': engine.status,
                 'engine_active': engine.is_active,
-                'run_id': engine.run_id,
+                'task_id': engine.task_id,
                 'timestamp': dt.now(timezone.utc)
             })
 
@@ -324,7 +324,7 @@ class TestBacktestModeManager:
         # 验证停止后状态（注意：stop()可能返回None）
         assert engine.status == "stopped", "停止后状态应为stopped"
         assert engine.is_active == False, "停止后应不活跃"
-        assert engine.run_id is not None, "停止后run_id应保留"
+        assert engine.task_id is not None, "停止后task_id应保留"
         assert engine.run_sequence == 1, "运行序列应保持不变"
         print(f"✓ 停止状态验证通过: status={engine.status}, active={engine.is_active}")
 
@@ -362,7 +362,7 @@ class TestBacktestModeManager:
         # 验证关键属性在整个生命周期中的存在性
         assert getattr(engine, 'status', None) is not None, "引擎应始终有status属性"
         assert getattr(engine, 'is_active', None) is not None, "引擎应始终有is_active属性"
-        assert getattr(engine, 'run_id', None) is not None, "引擎应始终有run_id属性"
+        assert getattr(engine, 'task_id', None) is not None, "引擎应始终有task_id属性"
         assert getattr(engine, 'run_sequence', None) is not None, "引擎应始终有run_sequence属性"
         assert getattr(engine, '_time_provider', None) is not None, "引擎应始终有时间提供者"
 
@@ -396,7 +396,7 @@ class TestBacktestModeManager:
         # 最终总结
         print("✓ 回测生命周期管理测试通过")
         print(f"  - 初始状态: Idle -> Running -> Stopped")
-        print(f"  - Run ID 生成: {engine.run_id is not None}")
+        print(f"  - Run ID 生成: {engine.task_id is not None}")
         print(f"  - 运行序列: {engine.run_sequence}")
         print(f"  - 事件处理: 正常")
         print(f"  - 异常处理: 健壮")
@@ -423,7 +423,7 @@ class TestBacktestModeManager:
         start_result = engine.start()
         assert start_result is True, "引擎启动应成功"
         assert engine.status == "running", "启动后状态应为running"
-        print(f"✓ 引擎启动成功: run_id={engine.run_id}")
+        print(f"✓ 引擎启动成功: task_id={engine.task_id}")
 
         # 3. 设置交易日处理相关的测试数据
         print("设置交易日测试数据...")
@@ -621,7 +621,7 @@ class TestBacktestModeManager:
         # 验证交易日处理的关键指标
         assert len(trading_day_events) >= 0, "事件处理列表应存在"
         assert engine.status == "stopped", "引擎应正确停止"
-        assert engine.run_id is not None, "run_id应保留"
+        assert engine.task_id is not None, "task_id应保留"
 
         print("✓ 交易日处理测试通过")
 
@@ -1710,7 +1710,7 @@ class TestModeSpecificBehavior:
         # 验证初始状态
         assert engine.status == "idle", f"{mode}模式初始状态应为idle"
         assert not engine.is_active, f"{mode}模式初始应未激活"
-        assert engine.run_id is None, f"{mode}模式初始run_id应为None"
+        assert engine.task_id is None, f"{mode}模式初始task_id应为None"
         assert engine.run_sequence == 0, f"{mode}模式初始运行序列应为0"
 
         # 验证事件系统初始化
@@ -1883,12 +1883,12 @@ class TestModeSpecificBehavior:
         # 测试引擎标识
         assert getattr(backtest_engine, 'engine_id', None) is not None, "回测引擎应有engine_id"
         assert getattr(live_engine, 'engine_id', None) is not None, "实盘引擎应有engine_id"
-        assert getattr(backtest_engine, 'run_id', None) is not None, "回测引擎应有run_id"
-        assert getattr(live_engine, 'run_id', None) is not None, "实盘引擎应有run_id"
+        assert getattr(backtest_engine, 'task_id', None) is not None, "回测引擎应有task_id"
+        assert getattr(live_engine, 'task_id', None) is not None, "实盘引擎应有task_id"
 
         # 验证运行ID生成
-        assert backtest_engine.run_id is not None, "回测引擎启动后应有run_id"
-        assert live_engine.run_id is not None, "实盘引擎启动后应有run_id"
+        assert backtest_engine.task_id is not None, "回测引擎启动后应有task_id"
+        assert live_engine.task_id is not None, "实盘引擎启动后应有task_id"
 
         # 停止引擎
         backtest_engine.stop()

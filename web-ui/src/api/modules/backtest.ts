@@ -2,7 +2,7 @@ import request from '../request'
 
 export interface BacktestTask {
   uuid: string
-  run_id: string
+  task_id: string
   name: string
   engine_id: string
   portfolio_id: string
@@ -29,12 +29,21 @@ export interface BacktestTask {
 }
 
 export interface BacktestCreateRequest {
-  name?: string
-  engine_id?: string
-  portfolio_id?: string
-  start_date?: string
-  end_date?: string
-  config_snapshot?: Record<string, any>
+  name: string
+  engine_uuid?: string
+  portfolio_uuids: string[]
+  engine_config: {
+    start_date: string
+    end_date: string
+    broker_type?: string
+    initial_cash?: number
+    commission_rate?: number
+    slippage_rate?: number
+    broker_attitude?: number
+    commission_min?: number
+    analyzers?: any[]
+  }
+  component_config?: Record<string, any>
 }
 
 export interface BacktestStartRequest {
@@ -89,7 +98,7 @@ export interface AnalyzerInfo {
 }
 
 export interface BacktestAnalyzersResponse {
-  run_id: string
+  task_id: string
   portfolio_id: string
   analyzers: AnalyzerInfo[]
   total_count: number
@@ -155,98 +164,105 @@ export const backtestApi = {
    * 获取回测任务列表
    */
   list(params?: BacktestListParams): Promise<BacktestListResponse> {
-    return request.get('/api/v1/backtest', { params })
+    return request.get('/api/v1/backtests/', { params })
   },
 
   /**
    * 获取单个回测任务
    */
   get(uuid: string): Promise<BacktestTask> {
-    return request.get(`/api/v1/backtest/${uuid}`)
+    return request.get(`/api/v1/backtests/${uuid}`)
   },
 
   /**
    * 创建回测任务
    */
   create(data: BacktestCreateRequest): Promise<BacktestTask> {
-    return request.post('/api/v1/backtest', data)
+    return request.post('/api/v1/backtests/', data)
   },
 
   /**
    * 删除回测任务
    */
   delete(uuid: string): Promise<void> {
-    return request.delete(`/api/v1/backtest/${uuid}`)
+    return request.delete(`/api/v1/backtests/${uuid}`)
   },
 
   /**
    * 获取回测净值数据
    */
   getNetValue(uuid: string): Promise<BacktestNetValue> {
-    return request.get(`/api/v1/backtest/${uuid}/netvalue`)
+    return request.get(`/api/v1/backtests/${uuid}/netvalue`)
   },
 
   /**
    * 对比多个回测
    */
   compare(ids: string[]): Promise<{ data: Record<string, any> }> {
-    return request.get('/api/v1/backtest/compare', { params: { ids: ids.join(',') } })
+    return request.get('/api/v1/backtests/compare', { params: { ids: ids.join(',') } })
   },
 
   /**
    * 获取回测任务的分析器列表
    */
   getAnalyzers(uuid: string): Promise<BacktestAnalyzersResponse> {
-    return request.get(`/api/v1/backtest/${uuid}/analyzers`)
+    return request.get(`/api/v1/backtests/${uuid}/analyzers`)
   },
 
   /**
    * 启动回测任务
    */
-  start(uuid: string, data?: BacktestStartRequest): Promise<{ run_id: string }> {
-    return request.post(`/api/v1/backtest/${uuid}/start`, data || {})
+  start(uuid: string, data?: BacktestStartRequest): Promise<{ task_id: string }> {
+    return request.post(`/api/v1/backtests/${uuid}/start`, data || {})
   },
 
   /**
    * 停止回测任务
    */
-  stop(uuid: string): Promise<{ run_id: string }> {
-    return request.post(`/api/v1/backtest/${uuid}/stop`)
+  stop(uuid: string): Promise<{ task_id: string }> {
+    return request.post(`/api/v1/backtests/${uuid}/stop`)
   },
 
   /**
    * 取消回测任务
    */
-  cancel(uuid: string): Promise<{ run_id: string }> {
-    return request.post(`/api/v1/backtest/${uuid}/cancel`)
+  cancel(uuid: string): Promise<{ task_id: string }> {
+    return request.post(`/api/v1/backtests/${uuid}/cancel`)
   },
 
   /**
    * 获取分析器时序数据
    */
   getAnalyzerData(uuid: string, analyzerName: string): Promise<AnalyzerTimeseriesResponse> {
-    return request.get(`/api/v1/backtest/${uuid}/analyzer/${analyzerName}`)
+    return request.get(`/api/v1/backtests/${uuid}/analyzer/${analyzerName}`)
   },
 
   /**
    * 获取回测信号记录
    */
-  getSignals(uuid: string, page: number = 0, size: number = 100): Promise<{ data: SignalRecord[]; total: number; page: number; size: number }> {
-    return request.get(`/api/v1/backtest/${uuid}/signals`, { params: { page, size } })
+  getSignals(uuid: string, page: number = 1, size: number = 100): Promise<{ data: SignalRecord[]; total: number; page: number; size: number }> {
+    return request.get(`/api/v1/backtests/${uuid}/signals`, { params: { page, size } })
   },
 
   /**
    * 获取回测订单记录
    */
   getOrders(uuid: string): Promise<{ data: OrderRecord[]; total: number }> {
-    return request.get(`/api/v1/backtest/${uuid}/orders`)
+    return request.get(`/api/v1/backtests/${uuid}/orders`)
   },
 
   /**
    * 获取回测持仓记录
    */
   getPositions(uuid: string): Promise<{ data: PositionRecord[]; total: number }> {
-    return request.get(`/api/v1/backtest/${uuid}/positions`)
+    return request.get(`/api/v1/backtests/${uuid}/positions`)
+  },
+
+  /**
+   * 获取回测日志
+   */
+  getLogs(uuid: string, params?: { level?: string; event_type?: string; start_time?: string; end_time?: string; limit?: number; offset?: number }): Promise<{ data: { logs: any[]; total: number; limit: number; offset: number } }> {
+    return request.get(`/api/v1/backtests/${uuid}/logs`, { params })
   },
 
 }

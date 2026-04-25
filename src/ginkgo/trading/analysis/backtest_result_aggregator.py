@@ -108,12 +108,12 @@ class BacktestResultAggregator:
 
             # 3. 更新 BacktestTask (任务应该在运行前已创建)
             result_fields = {
-                "final_portfolio_value": metrics.get("final_portfolio_value", "0"),
-                "total_pnl": metrics.get("total_pnl", "0"),
-                "max_drawdown": metrics.get("max_drawdown", "0"),
-                "sharpe_ratio": metrics.get("sharpe_ratio", "0"),
-                "annual_return": metrics.get("annual_return", "0"),
-                "win_rate": metrics.get("win_rate", "0"),
+                "final_portfolio_value": metrics.get("final_portfolio_value", 0.0),
+                "total_pnl": metrics.get("total_pnl", 0.0),
+                "max_drawdown": metrics.get("max_drawdown", 0.0),
+                "sharpe_ratio": metrics.get("sharpe_ratio", 0.0),
+                "annual_return": metrics.get("annual_return", 0.0),
+                "win_rate": metrics.get("win_rate", 0.0),
                 "total_orders": stats.get("total_orders", 0),
                 "total_signals": stats.get("total_signals", 0),
                 "total_positions": stats.get("total_positions", 0),
@@ -188,7 +188,7 @@ class BacktestResultAggregator:
         task_id: str,
         portfolio_id: str,
         engine_id: str
-    ) -> Dict[str, str]:
+    ) -> Dict[str, float]:
         """
         汇总分析器指标
 
@@ -198,15 +198,15 @@ class BacktestResultAggregator:
             engine_id: 引擎ID
 
         Returns:
-            Dict[str, str]: 指标字典
+            Dict[str, float]: 指标字典
         """
         metrics = {
-            "final_portfolio_value": "0",
-            "total_pnl": "0",
-            "max_drawdown": "0",
-            "sharpe_ratio": "0",
-            "annual_return": "0",
-            "win_rate": "0",
+            "final_portfolio_value": 0.0,
+            "total_pnl": 0.0,
+            "max_drawdown": 0.0,
+            "sharpe_ratio": 0.0,
+            "annual_return": 0.0,
+            "win_rate": 0.0,
         }
 
         if not self._analyzer_service:
@@ -215,8 +215,8 @@ class BacktestResultAggregator:
 
         try:
             # 获取净值数据 - 用于计算最终资产和总盈亏
-            net_value_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            net_value_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_NET_VALUE,
                 limit=10000
@@ -226,16 +226,16 @@ class BacktestResultAggregator:
             if df is not None and len(df) > 0:
                 # 降序排列：iloc[0] 是最新值，iloc[-1] 是最早值
                 final_value = float(df['value'].iloc[0])
-                metrics["final_portfolio_value"] = str(final_value)
+                metrics["final_portfolio_value"] = final_value
 
                 # 总盈亏 = 最终净值 - 初始净值
                 initial_value = float(df['value'].iloc[-1])
                 total_pnl = final_value - initial_value
-                metrics["total_pnl"] = str(total_pnl)
+                metrics["total_pnl"] = total_pnl
 
             # 获取最大回撤
-            drawdown_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            drawdown_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_MAX_DRAWDOWN,
                 limit=10000
@@ -245,11 +245,11 @@ class BacktestResultAggregator:
             if df is not None and len(df) > 0:
                 # 最大回撤是最小的（负值最大的）回撤值
                 max_drawdown = abs(float(df['value'].min()))
-                metrics["max_drawdown"] = str(max_drawdown)
+                metrics["max_drawdown"] = max_drawdown
 
             # 获取夏普比率（取最后值）
-            sharpe_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            sharpe_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_SHARPE_RATIO,
                 limit=1000
@@ -258,11 +258,11 @@ class BacktestResultAggregator:
             df = self._get_dataframe(sharpe_result)
             if df is not None and len(df) > 0:
                 sharpe = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
-                metrics["sharpe_ratio"] = str(sharpe)
+                metrics["sharpe_ratio"] = sharpe
 
             # 获取年化收益
-            annual_return_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            annual_return_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_ANNUAL_RETURN,
                 limit=1000
@@ -271,11 +271,11 @@ class BacktestResultAggregator:
             df = self._get_dataframe(annual_return_result)
             if df is not None and len(df) > 0:
                 annual_return = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
-                metrics["annual_return"] = str(annual_return)
+                metrics["annual_return"] = annual_return
 
             # 获取胜率
-            win_rate_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            win_rate_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_WIN_RATE,
                 limit=1000
@@ -284,7 +284,7 @@ class BacktestResultAggregator:
             df = self._get_dataframe(win_rate_result)
             if df is not None and len(df) > 0:
                 win_rate = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
-                metrics["win_rate"] = str(win_rate)
+                metrics["win_rate"] = win_rate
 
         except Exception as e:
             GLOG.ERROR(f"Error aggregating metrics: {e}")
@@ -320,8 +320,8 @@ class BacktestResultAggregator:
 
         try:
             # 从 signal_count 分析器获取信号数（取最新值，因为记录的是累计值）
-            signal_count_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            signal_count_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_SIGNAL_COUNT,
                 limit=10
@@ -332,8 +332,8 @@ class BacktestResultAggregator:
                 stats["total_signals"] = int(df['value'].iloc[0])
 
             # 从 order_count 分析器获取订单数（取最新值）
-            order_count_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            order_count_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_ORDER_COUNT,
                 limit=10
@@ -371,8 +371,8 @@ class BacktestResultAggregator:
             return result
 
         try:
-            net_value_result = self._analyzer_service.get_by_run_id(
-                run_id=task_id,
+            net_value_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=self.ANALYZER_NET_VALUE,
                 limit=10000

@@ -55,9 +55,9 @@ class DeviationChecker:
                 return None
 
             latest_task = task_result.data[0] if isinstance(task_result.data, list) else task_result.data
-            run_id = getattr(latest_task, "run_id", None)
+            task_id = getattr(latest_task, "task_id", None)
             engine_id = getattr(latest_task, "engine_id", None)
-            if not run_id:
+            if not task_id:
                 return None
 
             from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator

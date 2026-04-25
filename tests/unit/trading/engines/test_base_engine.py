@@ -118,25 +118,25 @@ class TestBaseEngineProperties:
         start_success = engine.start()
         assert start_success is True
         assert engine.run_sequence == 1
-        first_run = engine.run_id
-        assert IdentityUtils.validate_run_id_format(first_run)
+        first_run = engine.task_id
+        assert IdentityUtils.validate_task_id_format(first_run)
 
         # 暂停后重启：保持同一会话
         engine.pause()
         resume_success = engine.start()
         assert resume_success is True
         assert engine.run_sequence == 1  # 序列号不变
-        resumed_run = engine.run_id
-        assert resumed_run == first_run  # 同一个run_id
+        resumed_run = engine.task_id
+        assert resumed_run == first_run  # 同一个task_id
 
-        # 停止后重启：run_id未被清除，所以不会生成新会话
-        # （实际行为：stop不清除_run_id，generate_run_id检测到非None则跳过）
+        # 停止后重启：task_id未被清除，所以不会生成新会话
+        # （实际行为：stop不清除_task_id，generate_task_id检测到非None则跳过）
         engine.stop()
         restart_success = engine.start()
         assert restart_success is True
-        assert engine.run_sequence == 1  # 序列号不变，因为_run_id仍存在
-        restarted_run = engine.run_id
-        assert restarted_run == first_run  # 仍然是同一个run_id
+        assert engine.run_sequence == 1  # 序列号不变，因为_task_id仍存在
+        restarted_run = engine.task_id
+        assert restarted_run == first_run  # 仍然是同一个task_id
 
     def test_config_property(self):
         """测试配置相关属性的可用性"""
@@ -203,22 +203,22 @@ class TestBaseEngineIdentityManagement:
         assert summary["component_type"] == COMPONENT_TYPES.ENGINE  # summary中的component_type是枚举
 
     def test_identity_utils_integration(self, monkeypatch):
-        """start 时生成的 run_id 应符合 IdentityUtils 校验（32位hex格式）"""
-        # generate_run_id() 无参数，返回32位hex字符串
-        def fake_run_id():
+        """start 时生成的 task_id 应符合 IdentityUtils 校验（32位hex格式）"""
+        # generate_task_id() 无参数，返回32位hex字符串
+        def fake_task_id():
             return "a" * 32
 
         monkeypatch.setattr(
-            "ginkgo.entities.identity.IdentityUtils.generate_run_id", fake_run_id
+            "ginkgo.entities.identity.IdentityUtils.generate_task_id", fake_task_id
         )
 
         engine = DummyEngine(engine_id="engine_identity")
         start_success = engine.start()
         assert start_success is True
 
-        run_id = engine.run_id
-        assert run_id == "a" * 32
-        assert IdentityUtils.validate_run_id_format(run_id) is True
+        task_id = engine.task_id
+        assert task_id == "a" * 32
+        assert IdentityUtils.validate_task_id_format(task_id) is True
 
 
 @pytest.mark.unit
@@ -246,7 +246,7 @@ class TestBaseEngineComponentManagement:
         expected_keys = {
             "name",
             "engine_id",
-            "run_id",
+            "task_id",
             "status",
             "is_active",
             "run_sequence",

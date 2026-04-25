@@ -75,9 +75,7 @@
             <div class="card-header">
               <div class="card-title">
                 <span class="name">{{ portfolio.name }}</span>
-                <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">
-                  {{ getModeLabel(portfolio.mode) }}
-                </span>
+                <span class="uuid" :title="portfolio.uuid">{{ portfolio.uuid }}</span>
               </div>
               <div class="card-actions" @click.stop>
                 <button class="btn-icon" data-testid="card-menu-btn" @click="toggleMenu(portfolio.uuid)">
@@ -108,24 +106,11 @@
               </div>
             </div>
 
-            <div class="card-content">
-              <p class="desc">{{ portfolio.desc || '暂无描述' }}</p>
-              <div v-if="portfolio.mode === 0" class="metrics">
-                <div class="metric">
-                  <span class="label">回测次数</span>
-                  <span class="value">{{ portfolio.backtest_count || 0 }}</span>
-                </div>
-                <div class="metric">
-                  <span class="label">平均收益</span>
-                  <span class="value" :class="{ positive: portfolio.avg_return >= 0, negative: portfolio.avg_return < 0 }">
-                    {{ formatPercentValue(portfolio.avg_return) }}
-                  </span>
-                </div>
-              </div>
-              <div v-else class="metrics">
+            <div class="card-body">
+              <div class="metrics">
                 <div class="metric">
                   <span class="label">净值</span>
-                  <span class="value" :class="{ positive: portfolio.net_value >= 1, negative: portfolio.net_value < 1 }">
+                  <span class="value" :class="{ positive: (portfolio.net_value || 1) >= 1, negative: (portfolio.net_value || 1) < 1 }">
                     {{ (portfolio.net_value || 1).toFixed(4) }}
                   </span>
                 </div>
@@ -134,12 +119,15 @@
                   <span class="value">{{ formatMoney(portfolio.initial_cash) }}</span>
                 </div>
               </div>
-              <div class="card-footer">
-                <span class="tag" :class="`tag-${getStateColorClass(portfolio.state)}`">
-                  {{ getStateLabel(portfolio.state) }}
-                </span>
-                <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
-              </div>
+            </div>
+            <div class="card-footer">
+              <span class="footer-tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">
+                {{ getModeLabel(portfolio.mode) }}
+              </span>
+              <span class="footer-tag" :class="`tag-${getStateColorClass(portfolio.state)}`">
+                {{ getStateLabel(portfolio.state) }}
+              </span>
+              <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
             </div>
           </div>
         </div>
@@ -152,7 +140,7 @@
   </ListPage>
 
   <!-- 创建组合模态框 -->
-  <div v-if="createModalVisible" class="modal-overlay" data-testid="create-portfolio-modal" @click.self="closeCreateModal">
+  <div v-if="createModalVisible" class="modal-overlay" data-testid="create-portfolio-modal">
     <div class="modal-content modal-large">
       <div class="modal-header">
         <h3>创建投资组合</h3>
@@ -191,6 +179,7 @@ import { usePortfolioMode, usePortfolioState } from '@/composables'
 import { formatMoney } from '@/utils/format'
 import ListPage from '@/components/common/ListPage.vue'
 import PortfolioFormEditor from './PortfolioFormEditor.vue'
+import { message } from '@/utils/toast'
 
 const router = useRouter()
 const portfolioStore = usePortfolioStore()
@@ -219,9 +208,9 @@ const activeMenu = ref<string | null>(null)
 
 const filterOptions = [
   { value: '', label: '全部' },
-  { value: '0', label: '回测' },
-  { value: '1', label: '模拟' },
-  { value: '2', label: '实盘' }
+  { value: 'BACKTEST', label: '回测' },
+  { value: 'PAPER', label: '模拟' },
+  { value: 'LIVE', label: '实盘' }
 ]
 
 const displayPortfolios = computed(() => filteredPortfolios.value)
@@ -321,8 +310,9 @@ const handleDelete = async () => {
     deletingPortfolio.value = null
     fetchPortfolios({ page: 0, append: false })
     fetchStats()
+    message.success('删除成功')
   } catch (e) {
-    console.error('删除失败', e)
+    message.error('删除失败')
   }
 }
 
@@ -416,6 +406,8 @@ onUnmounted(() => {
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
 }
 
 .portfolio-card:hover {
@@ -439,8 +431,17 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+.card-title .uuid {
+  font-size: 11px;
+  color: #6a6a7a;
+  font-family: monospace;
+  flex-shrink: 0;
+  user-select: all;
+}
+
 .card-title .name {
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -493,23 +494,30 @@ onUnmounted(() => {
 .dropdown-item.danger:hover { background: rgba(245,34,45,0.1); }
 .dropdown-divider { height: 1px; background: #3a3a4e; margin: 4px 0; }
 
-.card-content { display: flex; flex-direction: column; gap: 12px; }
-.card-content .desc { color: #8a8a9a; font-size: 13px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }
 
 .metrics { display: flex; gap: 24px; }
-.metric { display: flex; flex-direction: column; }
-.metric .label { font-size: 12px; color: #8a8a9a; }
-.metric .value { font-size: 16px; font-weight: 500; color: #fff; }
+.metric { display: flex; flex-direction: column; gap: 2px; }
+.metric .label { font-size: 11px; color: #6a6a7a; }
+.metric .value { font-size: 18px; font-weight: 600; color: #fff; }
 .metric .value.positive { color: #52c41a; }
 .metric .value.negative { color: #f5222d; }
 
 .card-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #2a2a3e;
 }
 
-.card-footer .date { font-size: 12px; color: #8a8a9a; }
+.card-footer .footer-tag {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8a8a9a;
+}
+
+.card-footer .date { font-size: 12px; color: #6a6a7a; margin-left: auto; }
 
 /* Empty */
 .empty-state {
@@ -562,7 +570,7 @@ onUnmounted(() => {
   max-height: 90vh;
 }
 
-.modal-large { width: 700px; }
+.modal-large { width: 960px; }
 .modal-small { width: 420px; }
 
 .modal-header {

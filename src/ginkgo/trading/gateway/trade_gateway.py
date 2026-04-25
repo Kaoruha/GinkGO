@@ -325,10 +325,10 @@ class TradeGateway(BaseTradeGateway):
             # 获取必要的上下文信息
             portfolio_id = getattr(event, 'portfolio_id', None)
             engine_id = self._bound_engine.engine_id if self._bound_engine else None
-            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+            task_id = getattr(self._bound_engine, 'task_id', None) if self._bound_engine else None
 
-            if not all([portfolio_id, engine_id, run_id]):
-                GLOG.WARN(f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, run_id={run_id}")
+            if not all([portfolio_id, engine_id, task_id]):
+                GLOG.WARN(f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, task_id={task_id}")
                 return
 
             result_service = container.result_service()
@@ -336,7 +336,7 @@ class TradeGateway(BaseTradeGateway):
                 order_id=order.uuid,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id,
+                task_id=task_id,
                 code=order.code,
                 direction=order.direction,
                 order_type=order.order_type,
@@ -489,12 +489,12 @@ class TradeGateway(BaseTradeGateway):
             code = result.order.code if result.order else "Unknown"
             GLOG.INFO(f"✅ ORDER FILLED: {result.filled_volume} {code} @ {result.filled_price}")
 
-            # 获取engine_id和run_id（Router从绑定的engine获取）
+            # 获取engine_id和task_id（Router从绑定的engine获取）
             engine_id = self._bound_engine.engine_id if self._bound_engine else None
-            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+            task_id = getattr(self._bound_engine, 'task_id', None) if self._bound_engine else None
 
             # 发布订单成交事件
-            event = result.to_event(engine_id=engine_id, run_id=run_id)
+            event = result.to_event(engine_id=engine_id, task_id=task_id)
             if event:
                 # 添加Router事件创建的关键事件流日志
                 GLOG.INFO(f"[ROUTER_EVENT] {result.order.direction.name} {result.order.code} {result.filled_volume}shares @ {result.filled_price} Event:{type(event).__name__} Portfolio:{event.portfolio_id[:8]} Order:{result.order.uuid[:8]}")
@@ -510,7 +510,7 @@ class TradeGateway(BaseTradeGateway):
 
             # 🔥 [CRITICAL FIX] 创建拒绝事件
             event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
-                                    run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
+                                    task_id=getattr(self._bound_engine, 'task_id', None) if self._bound_engine else None)
             if event:
                 GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_REJECTED event: {type(event).__name__}")
                 GLOG.INFO(f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
@@ -529,7 +529,7 @@ class TradeGateway(BaseTradeGateway):
 
             # 创建拒绝事件
             event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
-                                    run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
+                                    task_id=getattr(self._bound_engine, 'task_id', None) if self._bound_engine else None)
             if event:
                 GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_REJECTED event for NEW status: {type(event).__name__}")
                 GLOG.INFO(f"🔥 [ROUTER] Rejection reason: {result.error_message}")
@@ -549,8 +549,8 @@ class TradeGateway(BaseTradeGateway):
 
             # 创建取消事件
             engine_id = self._bound_engine.engine_id if self._bound_engine else None
-            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
-            event = result.to_event(engine_id=engine_id, run_id=run_id)
+            task_id = getattr(self._bound_engine, 'task_id', None) if self._bound_engine else None
+            event = result.to_event(engine_id=engine_id, task_id=task_id)
             if event:
                 GLOG.INFO(f"🔥 [ROUTER] Creating ORDER_CANCELED event: {type(event).__name__}")
                 # 发布取消事件到引擎

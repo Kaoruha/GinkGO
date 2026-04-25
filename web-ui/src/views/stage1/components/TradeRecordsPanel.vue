@@ -131,7 +131,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { backtestApi, type SignalRecord, type OrderRecord, type PositionRecord } from '@/api/modules/backtest'
 
 interface Props {
-  taskId: string  // run_id
+  taskId: string  // task_id
 }
 
 const props = defineProps<Props>()

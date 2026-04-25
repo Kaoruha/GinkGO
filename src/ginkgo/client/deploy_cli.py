@@ -14,7 +14,7 @@ console = Console()
 
 @app.command("")
 def deploy(
-    backtest_task_id: Annotated[str, typer.Argument(help="回测任务ID (run_id)")],
+    backtest_task_id: Annotated[str, typer.Argument(help="回测任务ID (task_id)")],
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,

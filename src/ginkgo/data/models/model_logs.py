@@ -64,7 +64,7 @@ class MBacktestLog(Base):
     # ==================== 任务关联字段 ====================
     portfolio_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
     engine_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
-    run_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
+    task_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
 
     # ==================== 信号事件字段 ====================
     symbol: Mapped[Optional[str]] = mapped_column(String(), default=None)

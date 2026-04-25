@@ -103,7 +103,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 position_price=position.price,
                 portfolio_id=position.portfolio_id,
                 engine_id=position.engine_id,
-                run_id=position.run_id,
+                task_id=position.task_id,
                 business_timestamp=self.business_timestamp,
             )
         except Exception as e:
@@ -116,7 +116,7 @@ class PortfolioT1Backtest(PortfolioBase):
             result_service.create_position_record(
                 portfolio_id=position.portfolio_id,
                 engine_id=position.engine_id,
-                run_id=position.run_id,
+                task_id=position.task_id,
                 code=position.code,
                 cost=position.cost,
                 volume=position.volume,
@@ -427,10 +427,10 @@ class PortfolioT1Backtest(PortfolioBase):
         # 6. Create and submit order event to engine
         GLOG.INFO(f"📤 ORDER SUBMISSION: Creating EventOrderAck for {order.direction.name} {order.volume} shares of {order.code}")
         # 调试：检查引擎绑定状态
-        GLOG.INFO(f"🔍 [EVENT DEBUG] Creating EventOrderAck - portfolio_id={self.uuid}, engine_id={self.engine_id}, run_id={self.run_id}")
+        GLOG.INFO(f"🔍 [EVENT DEBUG] Creating EventOrderAck - portfolio_id={self.uuid}, engine_id={self.engine_id}, task_id={self.task_id}")
         GLOG.INFO(f"🔍 [EVENT DEBUG] Bound engine: {self.bound_engine}, Engine ID: {self.bound_engine.engine_id if self.bound_engine else None}")
 
-        event = EventOrderAck(order, portfolio_id=self.uuid, engine_id=self.engine_id, run_id=self.run_id)
+        event = EventOrderAck(order, portfolio_id=self.uuid, engine_id=self.engine_id, task_id=self.task_id)
         event.broker_order_id = f"BROKER_{order.uuid[:8]}"
 
         # Set the order as payload for unified access
@@ -529,7 +529,7 @@ class PortfolioT1Backtest(PortfolioBase):
                         signal_crud.create(
                             portfolio_id=signal.portfolio_id,
                             engine_id=signal.engine_id,
-                            run_id=signal.run_id,
+                            task_id=signal.task_id,
                             timestamp=signal.business_timestamp,  # 使用业务时间，而不是系统时间
                             code=signal.code,
                             direction=signal.direction,
@@ -577,7 +577,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 order_id=order.uuid,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
                 code=order.code,
                 direction=order.direction,
                 order_type=order.order_type,
@@ -678,7 +678,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
             )
 
             fill_cost = price * qty + fee
@@ -724,7 +724,7 @@ class PortfolioT1Backtest(PortfolioBase):
                     p = Position(
                         portfolio_id=self.uuid,
                         engine_id=self.engine_id,
-                        run_id=self.run_id,
+                        task_id=self.task_id,
                         code=code,
                         cost=price,
                         volume=qty,
@@ -798,7 +798,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 reason=reject_reason,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
             )
 
             # 保存订单记录（REJECTED 状态）
@@ -834,7 +834,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 expired_quantity=expired_quantity,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
             )
 
             # 过期一般伴随取消事件；组合在取消事件中做资金/仓位回滚
@@ -878,7 +878,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 cancelled_quantity=cancelled_quantity,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
             )
 
             # 保存订单记录（CANCELED 状态）
@@ -975,7 +975,7 @@ class PortfolioT1Backtest(PortfolioBase):
         p = Position(
             portfolio_id=self.uuid,
             engine_id=self.engine_id,
-            run_id=self.run_id,
+            task_id=self.task_id,
             code=event.code,
             cost=event.transaction_price,
             volume=event.transaction_volume,
@@ -1004,7 +1004,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 frozen_cash=self.frozen,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
                 business_timestamp=self.business_timestamp,
             )
         except Exception as e:
@@ -1042,7 +1042,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 frozen_cash=self.frozen,
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
-                run_id=self.run_id,
+                task_id=self.task_id,
                 business_timestamp=self.business_timestamp,
             )
         except Exception as e:

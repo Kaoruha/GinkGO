@@ -69,7 +69,11 @@ const initChart = () => {
     // 去重并排序数据（lightweight-charts 要求时间升序且无重复）
     const uniqueData = [...new Map(props.data.map((item: any) => [item.time, item])).values()]
       .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
-    mainSeries.setData(uniqueData)
+    try {
+      mainSeries.setData(uniqueData)
+    } catch (e) {
+      console.warn('NetValueChart: failed to set main data', e)
+    }
   }
 
   // 基准净值曲线
@@ -82,7 +86,11 @@ const initChart = () => {
     // 去重并排序数据
     const uniqueBenchmark = [...new Map(props.benchmarkData.map((item: any) => [item.time, item])).values()]
       .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
-    benchmarkSeries.setData(uniqueBenchmark)
+    try {
+      benchmarkSeries.setData(uniqueBenchmark)
+    } catch (e) {
+      console.warn('NetValueChart: failed to set benchmark data', e)
+    }
   }
 
   chart.timeScale().fitContent()
@@ -109,19 +117,17 @@ onUnmounted(() => {
 
 watch(() => props.data, (newData) => {
   if (mainSeries && newData.length > 0) {
-    // 去重并排序数据
     const uniqueData = [...new Map(newData.map((item: any) => [item.time, item])).values()]
       .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
-    mainSeries.setData(uniqueData)
+    try { mainSeries.setData(uniqueData) } catch { /* ignore format errors */ }
   }
 }, { deep: true })
 
 watch(() => props.benchmarkData, (newData) => {
   if (benchmarkSeries && newData.length > 0) {
-    // 去重并排序数据
     const uniqueData = [...new Map(newData.map((item: any) => [item.time, item])).values()]
       .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
-    benchmarkSeries.setData(uniqueData)
+    try { benchmarkSeries.setData(uniqueData) } catch { /* ignore format errors */ }
   }
 }, { deep: true })
 

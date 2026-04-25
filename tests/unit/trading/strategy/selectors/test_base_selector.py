@@ -21,12 +21,12 @@ from ginkgo.trading.feeders.base_feeder import BaseFeeder
 from datetime import datetime
 
 
-def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", run_id="test_run"):
-    """Set mock context so that engine_id/portfolio_id/run_id are available."""
+def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", task_id="test_run"):
+    """Set mock context so that engine_id/portfolio_id/task_id are available."""
     ctx = MagicMock()
     ctx.engine_id = engine_id
     ctx.portfolio_id = portfolio_id
-    ctx.run_id = run_id
+    ctx.task_id = task_id
     obj._context = ctx
 
 
@@ -47,7 +47,7 @@ class TestBaseSelectorConstruction:
         # 验证继承自ContextMixin的属性
         assert getattr(selector, 'engine_id', None) is None
         assert getattr(selector, 'portfolio_id', None) is None
-        assert getattr(selector, 'run_id', None) is None
+        assert getattr(selector, 'task_id', None) is None
 
     def test_custom_name_constructor(self):
         """测试自定义名称构造"""
@@ -68,13 +68,13 @@ class TestBaseSelectorConstruction:
         # 验证ID管理属性 (None when no context)
         assert selector.engine_id is None
         assert selector.portfolio_id is None
-        assert selector.run_id is None
+        assert selector.task_id is None
 
         # 验证设置context后ID可用
         _set_context(selector)
         assert selector.engine_id == "test_engine"
         assert selector.portfolio_id == "test_portfolio"
-        assert selector.run_id == "test_run"
+        assert selector.task_id == "test_run"
 
 
 @pytest.mark.unit
@@ -222,18 +222,18 @@ class TestSelectorExtensibility:
         # 验证子类有context属性
         assert getattr(test_selector, 'engine_id', None) is None
         assert getattr(test_selector, 'portfolio_id', None) is None
-        assert getattr(test_selector, 'run_id', None) is None
+        assert getattr(test_selector, 'task_id', None) is None
 
-        # 验证子类可以接收engine_id/portfolio_id/run_id注入 via context
+        # 验证子类可以接收engine_id/portfolio_id/task_id注入 via context
         _set_context(test_selector,
                      engine_id="test_engine_001",
                      portfolio_id="test_portfolio_001",
-                     run_id="test_run_001")
+                     task_id="test_run_001")
 
         # 验证ID正确设置
         assert test_selector.engine_id == "test_engine_001"
         assert test_selector.portfolio_id == "test_portfolio_001"
-        assert test_selector.run_id == "test_run_001"
+        assert test_selector.task_id == "test_run_001"
 
     def test_selector_polymorphism(self):
         """测试选择器多态性"""

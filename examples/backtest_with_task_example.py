@@ -48,7 +48,7 @@ class BacktestWithTaskExample:
         self.broker = None
         self.net_value_analyzer = None
         self.task_service = None
-        self.run_id = None
+        self.task_id = None
         self.start_date = None
         self.end_date = None
 
@@ -102,11 +102,11 @@ class BacktestWithTaskExample:
         self.portfolio.add_analyzer(self.net_value_analyzer)
         self.engine.set_data_feeder(self.feeder)
 
-        # 8. 生成run_id（在启动前设置，引擎会保留）
+        # 8. 生成task_id（在启动前设置，引擎会保留）
         import uuid
-        self.run_id = uuid.uuid4().hex
-        self.engine.set_run_id(self.run_id)
-        print(f"📋 Run ID已设置: {self.run_id}")
+        self.task_id = uuid.uuid4().hex
+        self.engine.set_task_id(self.task_id)
+        print(f"📋 Task ID已设置: {self.task_id}")
 
         # 9. 获取服务
         self.task_service = service_hub.data.backtest_task_service()
@@ -118,8 +118,8 @@ class BacktestWithTaskExample:
         print("\n📝 创建BacktestTask记录...")
 
         try:
-            # 使用已设置的run_id
-            print(f"📋 使用Run ID: {self.run_id}")
+            # 使用已设置的task_id
+            print(f"📋 使用Task ID: {self.task_id}")
 
             # 使用保存的时间范围
             start_time_dt = self.start_date
@@ -127,8 +127,8 @@ class BacktestWithTaskExample:
 
             # 创建任务
             result = self.task_service.create(
-                run_id=self.run_id,  # 使用run_id而不是task_id
-                name=f"Example_Task_{self.run_id[:8]}",
+                task_id=self.task_id,
+                name=f"Example_Task_{self.task_id[:8]}",
                 engine_id=self.engine.engine_id,
                 portfolio_id=self.portfolio.portfolio_id,
                 backtest_start_date=start_time_dt,
@@ -142,7 +142,7 @@ class BacktestWithTaskExample:
             )
 
             if result.is_success():
-                print(f"✅ BacktestTask创建成功: {self.run_id}")
+                print(f"✅ BacktestTask创建成功: {self.task_id}")
                 return True
             else:
                 print(f"❌ BacktestTask创建失败: {result.error}")
@@ -159,7 +159,7 @@ class BacktestWithTaskExample:
         # 运行前检查
         self.engine.check_components_binding()
 
-        # 启动引擎（会保留已设置的run_id）
+        # 启动引擎（会保留已设置的task_id）
         print("⏱️  引擎运行中...")
         success = self.engine.start()
 
@@ -168,10 +168,10 @@ class BacktestWithTaskExample:
             self._update_task_status("failed", error_message="引擎启动失败")
             return
 
-        # 验证run_id未改变
-        if self.engine.run_id != self.run_id:
-            print(f"⚠️ 警告: run_id已改变! 预期:{self.run_id}, 实际:{self.engine.run_id}")
-            self.run_id = self.engine.run_id
+        # 验证task_id未改变
+        if self.engine.task_id != self.task_id:
+            print(f"⚠️ 警告: task_id已改变! 预期:{self.task_id}, 实际:{self.engine.task_id}")
+            self.task_id = self.engine.task_id
 
         # 等待完成
         print("⏳ 等待回测完成...")
@@ -191,7 +191,7 @@ class BacktestWithTaskExample:
 
     def _update_task_status(self, status: str, error_message: str = None):
         """更新任务状态"""
-        if not self.task_service or not self.run_id:
+        if not self.task_service or not self.task_id:
             return
 
         try:
@@ -201,7 +201,7 @@ class BacktestWithTaskExample:
 
             # 更新任务
             self.task_service.update(
-                uuid=self.run_id,
+                uuid=self.task_id,
                 status=status,
                 end_time=datetime.datetime.now(),
                 final_portfolio_value=str(final_value),
@@ -220,7 +220,7 @@ class BacktestWithTaskExample:
 
         # 1. 验证BacktestTask
         print("\n📝 BacktestTask验证:")
-        task_result = self.task_service.get(run_id=self.run_id)
+        task_result = self.task_service.get(task_id=self.task_id)
         if task_result.is_success() and task_result.data:
             task = task_result.data[0]
             print(f"  ✅ 找到BacktestTask:")
@@ -235,7 +235,7 @@ class BacktestWithTaskExample:
         # 2. 验证AnalyzerRecord
         print("\n📊 AnalyzerRecord验证:")
         analyzer_record_crud = service_hub.data.cruds.analyzer_record()
-        records = analyzer_record_crud.get_by_run_id(run_id=self.run_id, page_size=100)
+        records = analyzer_record_crud.get_by_task_id(task_id=self.task_id, page_size=100)
         print(f"  ✅ 找到 {len(records)} 条AnalyzerRecord")
 
         if records:
@@ -288,9 +288,9 @@ def main():
     # 验证数据
     backtest.verify_results()
 
-    return backtest.run_id
+    return backtest.task_id
 
 
 if __name__ == "__main__":
-    run_id = main()
-    print(f"\n✅ 回测完成！Run ID: {run_id}")
+    task_id = main()
+    print(f"\n✅ 回测完成！Task ID: {task_id}")

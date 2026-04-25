@@ -69,10 +69,6 @@ class VarCVar(BaseAnalyzer):
         
         self.add_data(var_value)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录VaR到数据库"""
-        self.add_record()
-
     @property
     def current_var(self) -> float:
         """当前VaR值（只读属性）"""

@@ -11,7 +11,7 @@
 Context package for hierarchical context management in Ginkgo trading system.
 
 Provides:
-- EngineContext: Engine-level context (engine_id, run_id)
+- EngineContext: Engine-level context (engine_id, task_id)
 - PortfolioContext: Portfolio-level context (portfolio_id + EngineContext reference)
 """
 

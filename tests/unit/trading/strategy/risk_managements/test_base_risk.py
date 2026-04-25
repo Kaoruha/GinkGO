@@ -21,7 +21,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
     return Order(
         portfolio_id="test_portfolio",
         engine_id="test_engine",
-        run_id="test_run",
+        task_id="test_run",
         code=code,
         direction=direction,
         order_type=ORDER_TYPES.LIMITORDER,

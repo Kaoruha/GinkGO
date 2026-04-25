@@ -434,7 +434,7 @@ class TestGenerateBaseline:
         mock_redis = MagicMock()
 
         mock_task = MagicMock()
-        mock_task.run_id = "task-001"
+        mock_task.task_id = "task-001"
         mock_task.engine_id = "engine-001"
 
         mock_task_svc = MagicMock()
@@ -462,7 +462,7 @@ class TestGenerateBaseline:
         mock_redis = MagicMock()
 
         mock_task = MagicMock()
-        mock_task.run_id = "task-001"
+        mock_task.task_id = "task-001"
         mock_task.engine_id = "engine-001"
 
         mock_task_svc = MagicMock()

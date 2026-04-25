@@ -247,12 +247,12 @@ class TestResultCommands:
         assert "result-002" in result.output
         assert "Sharpe Ratio" not in result.output
 
-    def test_result_show_no_run_id_lists_runs(self, cli_runner):
+    def test_result_show_no_task_id_lists_runs(self, cli_runner):
         """result show without --run-id should list available runs."""
         from ginkgo.data.services.base_service import ServiceResult
         mock_service = MagicMock()
         mock_service.list_runs.return_value = ServiceResult.success(data=[
-            {"engine_name": "test_engine", "run_id": "run-1",
+            {"engine_name": "test_engine", "task_id": "run-1",
              "portfolio_name": "p1", "timestamp": "2025-01-01", "record_count": 10}
         ])
         with patch("ginkgo.data.containers.container") as mock_container:

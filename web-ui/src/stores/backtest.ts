@@ -234,7 +234,7 @@ export const useBacktestStore = defineStore('backtest', () => {
   /**
    * 创建任务
    */
-  async function createTask(data: { name?: string; portfolio_id: string; start_date?: string; end_date?: string }) {
+  async function createTask(data: { name: string; portfolio_uuids: string[]; engine_config: Record<string, any> }) {
     try {
       const result = await backtestApi.create(data)
       const payload = result.data
@@ -250,9 +250,9 @@ export const useBacktestStore = defineStore('backtest', () => {
   /**
    * 启动任务
    */
-  async function startTask(uuid: string, params?: { start_date?: string; end_date?: string }) {
+  async function startTask(uuid: string) {
     try {
-      const result = await backtestApi.start(uuid, params)
+      const result = await backtestApi.start(uuid)
       runningTaskIds.value.add(uuid)
 
       // 更新任务状态

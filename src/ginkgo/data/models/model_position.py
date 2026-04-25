@@ -52,7 +52,7 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str = "",  # 新增run_id参数
+        task_id: str = "",
         code: Optional[str] = None,
         cost: Optional[Number] = None,
         volume: Optional[int] = None,
@@ -70,7 +70,7 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
     ) -> None:
         self.portfolio_id = portfolio_id
         self.engine_id = engine_id
-        self.run_id = run_id  # 新增run_id字段赋值
+        self.task_id = task_id
         if code is not None:
             self.code = str(code)
         if cost is not None:

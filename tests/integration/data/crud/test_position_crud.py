@@ -409,7 +409,7 @@ class TestPositionCRUDQuery:
             MPosition(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_001",
-                run_id="convert_test_run_001",
+                task_id="convert_test_run_001",
                 code="CONVERT001.SZ",
                 cost=Decimal("100.50"),
                 volume=1000,
@@ -421,7 +421,7 @@ class TestPositionCRUDQuery:
             MPosition(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_001",
-                run_id="convert_test_run_001",
+                task_id="convert_test_run_001",
                 code="CONVERT001.SZ",
                 cost=Decimal("98.30"),
                 volume=500,
@@ -433,7 +433,7 @@ class TestPositionCRUDQuery:
             MPosition(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_002",
-                run_id="convert_test_run_002",
+                task_id="convert_test_run_002",
                 code="CONVERT002.SZ",
                 cost=Decimal("50.00"),
                 volume=2000,
@@ -964,7 +964,7 @@ class TestPositionCRUDDelete:
                 volume=1000,
                 cost=Decimal("10.00"),
                 price=Decimal("10.50"),
-                run_id="delete_test_run"
+                task_id="delete_test_run"
             )
             test_position.source = SOURCE_TYPES.TEST
             position_crud.add(test_position)
@@ -1265,7 +1265,7 @@ class TestPositionCRUDEnumValidation:
             test_position = MPosition(
                 portfolio_id="comprehensive_enum_test",
                 engine_id="enum_test_engine",  # 添加必需的engine_id字段
-                run_id="enum_test_run",
+                task_id="enum_test_run",
                 code=code,
                 volume=volume,
                 cost=avg_price,

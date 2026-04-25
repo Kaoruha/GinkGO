@@ -319,12 +319,12 @@ class DataPreparer:
             # 提取核心配置
             engine_config = working_config.get("engine", {})
             engine_type = engine_config.get("type", "historic").lower()
-            run_id = engine_config.get("run_id") or str(uuid.uuid4())
+            task_id = engine_config.get("task_id") or str(uuid.uuid4())
 
-            self._logger.INFO(f"🔧 Assembling {engine_type} engine with run_id: {run_id}")
+            self._logger.INFO(f"🔧 Assembling {engine_type} engine with task_id: {task_id}")
 
             # 创建基础引擎
-            engine = self._create_base_engine_from_config(engine_type, run_id, engine_config)
+            engine = self._create_base_engine_from_config(engine_type, task_id, engine_config)
             if engine is None:
                 return ServiceResult(success=False, error=f"Failed to create base engine for type: {engine_type}")
 
@@ -341,7 +341,7 @@ class DataPreparer:
             # 配置全局设置
             self._apply_global_settings(engine, working_config.get("settings", {}))
 
-            self._logger.INFO(f"✅ Engine {engine_type} ({run_id}) created successfully")
+            self._logger.INFO(f"✅ Engine {engine_type} ({task_id}) created successfully")
             result = ServiceResult(success=True)
             result.data = engine
             return result
@@ -369,7 +369,7 @@ class DataPreparer:
             supported_types = list(self._engine_type_mapping.keys())
             raise EngineConfigurationError(f"Unsupported engine type: {engine_type}. Supported: {supported_types}")
 
-    def _create_base_engine_from_config(self, engine_type: str, run_id: str, config: Dict[str, Any]) -> Optional[Any]:
+    def _create_base_engine_from_config(self, engine_type: str, task_id: str, config: Dict[str, Any]) -> Optional[Any]:
         """创建基础引擎实例（用于YAML配置）"""
         try:
             # 延迟导入避免循环依赖
@@ -389,18 +389,18 @@ class DataPreparer:
                 engine_class = BacktestEngine
 
             if engine_type in ["live", "realtime"]:
-                # LiveEngine需要run_id参数
-                engine = engine_class(run_id=run_id)
+                # LiveEngine需要task_id参数
+                engine = engine_class(task_id=task_id)
             elif engine_type in ["time_controlled", "time_based"]:
                 # TimeControlledEventEngine需要特殊处理
                 name = config.get("name", "TimeControlledEngine")
                 engine = engine_class(name=name)
-                engine.set_run_id(run_id)
+                engine.set_task_id(task_id)
             else:
                 # BacktestEngine等其他引擎
                 name = config.get("name", f"{engine_type.title()}Engine")
                 engine = engine_class(name=name)
-                engine.set_run_id(run_id)
+                engine.set_task_id(task_id)
 
             # 设置引擎特定配置
             start_date = None
@@ -648,7 +648,7 @@ class DataPreparer:
                 "engine": {
                     "type": "historic",
                     "name": "BacktestEngine",
-                    "run_id": "bt_sample_001",
+                    "task_id": "bt_sample_001",
                     "start_date": "2023-01-01",
                     "end_date": "2023-12-31",
                 },
@@ -663,7 +663,7 @@ class DataPreparer:
                 "settings": {"log_level": "INFO", "debug": False},
             },
             "live": {
-                "engine": {"type": "live", "name": "LiveEngine", "run_id": "live_sample_001"},
+                "engine": {"type": "live", "name": "LiveEngine", "task_id": "live_sample_001"},
                 "data_feeder": {"type": "live", "settings": {"symbols": ["000001.SZ"], "subscription_timeout": 30.0}},
                 "routing": {"enabled": True},
                 "portfolios": [{"type": "base", "name": "LivePortfolio", "strategies": [], "risk_managers": []}],

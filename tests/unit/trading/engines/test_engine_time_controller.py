@@ -242,7 +242,7 @@ class TestTimeControllerBasicMethods:
         assert engine.status == "running", "启动后状态应为running"
         assert engine.is_active == True, "启动后应激活"
         assert engine.run_sequence == 1, "运行序列应递增为1"
-        assert engine.run_id is not None, "应生成run_id"
+        assert engine.task_id is not None, "应生成task_id"
 
     def test_stop_method(self):
         """测试停止方法"""
@@ -260,7 +260,7 @@ class TestTimeControllerBasicMethods:
         # 验证停止后状态（当前实现返回None，所以只验证状态变化）
         assert engine.status == "stopped", "停止后状态应为stopped"
         assert engine.is_active == False, "停止后应未激活"
-        assert engine.run_id is not None, "run_id应保留"
+        assert engine.task_id is not None, "task_id应保留"
 
         # 记录：当前stop()方法返回None，如果需要返回值需要在源码中修改
         # 测试失败问题已记录在 test_trading_engines_test_failures.md

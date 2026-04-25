@@ -105,6 +105,10 @@
               <th>任务</th>
               <th>状态</th>
               <th>总盈亏</th>
+              <th>夏普比率</th>
+              <th>最大回撤</th>
+              <th>年化收益</th>
+              <th>胜率</th>
               <th>订单数</th>
               <th>信号数</th>
               <th>创建时间</th>
@@ -142,6 +146,22 @@
                 <span :style="{ color: getPNLColor(record.total_pnl) }">
                   {{ formatDecimal(record.total_pnl) }}
                 </span>
+              </td>
+              <td>
+                <span :style="{ color: getSharpeColor(record.sharpe_ratio) }">
+                  {{ formatDecimal(record.sharpe_ratio) }}
+                </span>
+              </td>
+              <td>
+                <span :style="{ color: getDrawdownColor(record.max_drawdown) }">
+                  {{ formatPercent(record.max_drawdown) }}
+                </span>
+              </td>
+              <td>
+                {{ formatPercent(record.annual_return) }}
+              </td>
+              <td>
+                {{ formatPercent(record.win_rate) }}
               </td>
               <td>{{ record.total_orders || 0 }}</td>
               <td>{{ record.total_signals || 0 }}</td>
@@ -249,7 +269,7 @@
     <div v-if="showNetValueModal" class="modal-overlay" @click.self="showNetValueModal = false">
       <div class="modal-content modal-large">
         <div class="modal-header">
-          <h3>{{ currentTask?.run_id || '' }} 净值曲线</h3>
+          <h3>{{ currentTask?.task_id || '' }} 净值曲线</h3>
           <button class="btn-close" @click="showNetValueModal = false">×</button>
         </div>
         <div class="modal-body">
@@ -538,18 +558,18 @@ const handleCancel = async (task: BacktestTask) => {
 }
 
 // 颜色辅助函数
-const getPNLColor = (val: string) => {
-  const num = parseFloat(val)
+const getPNLColor = (val: string | number) => {
+  const num = typeof val === 'number' ? val : parseFloat(val)
   return isNaN(num) ? '#666' : num >= 0 ? '#cf1322' : '#3f8600'
 }
 
-const getDrawdownColor = (val: string) => {
-  const num = parseFloat(val)
+const getDrawdownColor = (val: string | number) => {
+  const num = typeof val === 'number' ? val : parseFloat(val)
   return isNaN(num) ? '#666' : num <= 0.1 ? '#52c41a' : '#f5222d'
 }
 
-const getSharpeColor = (val: string) => {
-  const num = parseFloat(val)
+const getSharpeColor = (val: string | number) => {
+  const num = typeof val === 'number' ? val : parseFloat(val)
   return isNaN(num) ? '#666' : num >= 1 ? '#52c41a' : '#faad14'
 }
 
@@ -632,8 +652,8 @@ const resetForm = () => {
   createForm.initialCapital = 1000000
 }
 
-const formatDecimal = (val: string) => {
-  const num = parseFloat(val)
+const formatDecimal = (val: string | number) => {
+  const num = typeof val === 'number' ? val : parseFloat(val)
   return isNaN(num) ? '-' : num.toFixed(2)
 }
 

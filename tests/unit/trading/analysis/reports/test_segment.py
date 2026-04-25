@@ -46,19 +46,19 @@ def _make_dp(*data_pairs):
 class TestConstruction:
     def test_empty_data_raises(self):
         with pytest.raises(ValueError, match="无任何可用"):
-            SegmentReport(run_id="test", data=DataProvider())
+            SegmentReport(task_id="test", data=DataProvider())
 
     def test_invalid_freq_raises(self):
         dp = _make_dp(("net_value", _make_df([1.0, 2.0, 3.0])))
         with pytest.raises(ValueError, match="不支持的频率"):
-            SegmentReport(run_id="test", data=dp, freq="W")
+            SegmentReport(task_id="test", data=dp, freq="W")
 
     def test_accepts_analyzers_filter(self):
         dp = _make_dp(
             ("net_value", _make_df(list(range(90)))),
             ("sharpe", _make_df([0.5] * 90)),
         )
-        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=["net_value"])
+        report = SegmentReport(task_id="test", data=dp, freq="M", analyzers=["net_value"])
         d = report.to_dict()
         for segment_metrics in d.values():
             assert "net_value" in segment_metrics
@@ -69,7 +69,7 @@ class TestConstruction:
             ("net_value", _make_df(list(range(90)))),
             ("sharpe", _make_df([0.5] * 90)),
         )
-        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=None)
+        report = SegmentReport(task_id="test", data=dp, freq="M", analyzers=None)
         d = report.to_dict()
         for segment_metrics in d.values():
             assert "net_value" in segment_metrics
@@ -77,13 +77,13 @@ class TestConstruction:
 
     def test_missing_analyzer_skipped(self):
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M", analyzers=["nonexistent"])
+        report = SegmentReport(task_id="test", data=dp, freq="M", analyzers=["nonexistent"])
         assert report.to_dict() == {}
 
     def test_no_timestamp_skipped(self):
         dp = DataProvider()
         dp.add("bad", pd.DataFrame({"value": [1.0, 2.0, 3.0]}))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         assert report.to_dict() == {}
 
 
@@ -95,27 +95,27 @@ class TestSegmentComputation:
     def test_monthly_segment_count(self):
         """90 days from 2024-01-01 -> 3 monthly segments (Jan, Feb, Mar)."""
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         d = report.to_dict()
         assert len(d) == 3
 
     def test_quarterly_segment_count(self):
         """90 days -> 1 quarterly segment."""
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="Q")
+        report = SegmentReport(task_id="test", data=dp, freq="Q")
         d = report.to_dict()
         assert len(d) == 1
 
     def test_yearly_segment_count(self):
         """400 days -> 2 yearly segments (2024, 2025)."""
         dp = _make_dp(("net_value", _make_df(list(range(400)))))
-        report = SegmentReport(run_id="test", data=dp, freq="Y")
+        report = SegmentReport(task_id="test", data=dp, freq="Y")
         d = report.to_dict()
         assert len(d) == 2
 
     def test_segment_stats_structure(self):
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         d = report.to_dict()
         first_key = list(d.keys())[0]
         stats = d[first_key]["net_value"]
@@ -130,14 +130,14 @@ class TestSegmentComputation:
 class TestToDataFrame:
     def test_index_is_segment(self):
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         df = report.to_dataframe()
         assert df.index.name == "segment"
         assert not df.empty
 
     def test_columns_are_analyzer_stat(self):
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         df = report.to_dataframe()
         assert "net_value.mean" in df.columns
         assert "net_value.std" in df.columns
@@ -151,12 +151,12 @@ class TestToDataFrame:
 class TestToRich:
     def test_returns_rich_table(self):
         dp = _make_dp(("net_value", _make_df(list(range(90)))))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         table = report.to_rich()
         assert isinstance(table, Table)
 
     def test_empty_data_returns_table_with_message(self):
         dp = _make_dp(("net_value", _make_df([1.0])))
-        report = SegmentReport(run_id="test", data=dp, freq="M")
+        report = SegmentReport(task_id="test", data=dp, freq="M")
         table = report.to_rich()
         assert isinstance(table, Table)

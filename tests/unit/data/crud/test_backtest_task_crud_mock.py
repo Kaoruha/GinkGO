@@ -3,7 +3,7 @@
 BacktestTaskCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
-- _get_field_config: 字段配置（run_id 自动生成，配置为空）
+- _get_field_config: 字段配置（task_id 自动生成，配置为空）
 - _create_from_params: 参数转 MBacktestTask 模型
 - Business Helper: get_tasks_by_engine, count_by_status, get_by_uuid
 - 构造与类型检查
@@ -44,7 +44,7 @@ class TestBacktestTaskCRUDFieldConfig:
 
     @pytest.mark.unit
     def test_field_config_is_empty(self, crud_instance):
-        """run_id 自动生成，字段配置为空字典"""
+        """task_id 自动生成，字段配置为空字典"""
         config = crud_instance._get_field_config()
         assert config == {}
 
@@ -63,7 +63,7 @@ class TestBacktestTaskCRUDCreateFromParams:
         from ginkgo.data.models import MBacktestTask
 
         params = {
-            "run_id": "run-001",
+            "task_id": "run-001",
             "name": "测试回测任务",
             "engine_id": "engine-001",
             "portfolio_id": "portfolio-001",
@@ -73,18 +73,18 @@ class TestBacktestTaskCRUDCreateFromParams:
         model = crud_instance._create_from_params(**params)
 
         assert isinstance(model, MBacktestTask)
-        assert model.run_id == "run-001"
+        assert model.task_id == "run-001"
         assert model.uuid == "run-001"
         assert model.name == "测试回测任务"
         assert model.status == "running"
 
     @pytest.mark.unit
-    def test_create_from_params_auto_generates_run_id(self, crud_instance):
-        """未提供 run_id 时自动生成"""
+    def test_create_from_params_auto_generates_task_id(self, crud_instance):
+        """未提供 task_id 时自动生成"""
         model = crud_instance._create_from_params()
 
-        assert model.run_id is not None
-        assert model.run_id == model.uuid
+        assert model.task_id is not None
+        assert model.task_id == model.uuid
         assert model.status == "created"
 
     @pytest.mark.unit

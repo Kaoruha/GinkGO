@@ -38,7 +38,3 @@ class Profit(BaseAnalyzer):
             
         self.add_data(value)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录利润数据到数据库"""
-        self.add_record()
-

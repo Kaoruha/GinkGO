@@ -42,7 +42,7 @@ class PortfolioInfo(Protocol):
     @property
     def engine_id(self) -> str: ...
     @property
-    def run_id(self) -> str: ...
+    def task_id(self) -> str: ...
     @property
     def available_cash(self) -> float: ...
     @property
@@ -55,6 +55,6 @@ def check_portfolio_info(info: Dict[str, Any]) -> bool:
     """运行时检查字典是否符合 PortfolioInfo 协议。"""
     required_keys = {
         'name', 'uuid', 'cash', 'frozen', 'profit', 'worth',
-        'positions', 'portfolio_id', 'engine_id', 'run_id',
+        'positions', 'portfolio_id', 'engine_id', 'task_id',
     }
     return required_keys.issubset(info.keys())

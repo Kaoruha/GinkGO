@@ -10,7 +10,7 @@
 """
 Result Service Module
 
-提供回测结果查询和分析服务，支持按 run_id 查询 analyzer 指标数据。
+提供回测结果查询和分析服务，支持按 task_id 查询 analyzer 指标数据。
 """
 
 from typing import List, Optional, Dict, Any, Union
@@ -28,7 +28,7 @@ class ResultService(BaseService):
     Result Service Layer
 
     提供回测结果查询、聚合和统计分析功能：
-    - 按 run_id 查询 analyzer 记录
+    - 按 task_id 查询 analyzer 记录
     - 支持多 portfolio、多 analyzer 聚合
     - 提供 DataFrame 格式输出，支持绘图
     """
@@ -43,25 +43,25 @@ class ResultService(BaseService):
         super().__init__(crud_repo=analyzer_crud)
         self._crud_repo = analyzer_crud
 
-    def get_run_summary(self, run_id: str) -> ServiceResult:
+    def get_run_summary(self, task_id: str) -> ServiceResult:
         """
         获取某次运行会话的摘要信息
 
         Args:
-            run_id: 运行会话ID
+            task_id: 任务ID
 
         Returns:
             ServiceResult[Dict]: 包含 portfolios、analyzers、时间范围等摘要信息
         """
         try:
-            if not run_id:
-                return ServiceResult.error("run_id 不能为空")
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
 
-            # 获取该 run_id 的所有记录
-            records = self._crud_repo.get_by_run_id(run_id, page_size=10000)
+            # 获取该 task_id 的所有记录
+            records = self._crud_repo.get_by_task_id(task_id, page_size=10000)
 
             if not records:
-                return ServiceResult.error(f"未找到 run_id={run_id} 的记录")
+                return ServiceResult.error(f"未找到 task_id={task_id} 的记录")
 
             # 聚合摘要信息
             portfolios = list(set(r.portfolio_id for r in records if r.portfolio_id))
@@ -75,7 +75,7 @@ class ResultService(BaseService):
             }
 
             summary = {
-                "run_id": run_id,
+                "task_id": task_id,
                 "engine_id": records[0].engine_id if records else None,
                 "portfolio_count": len(portfolios),
                 "portfolios": portfolios,
@@ -85,7 +85,7 @@ class ResultService(BaseService):
                 "time_range": time_range
             }
 
-            GLOG.INFO(f"获取 run_id={run_id} 的摘要信息成功")
+            GLOG.INFO(f"获取 task_id={task_id} 的摘要信息成功")
             return ServiceResult.success(summary)
 
         except Exception as e:
@@ -94,7 +94,7 @@ class ResultService(BaseService):
 
     def get_analyzer_values(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: Optional[str] = None,
         analyzer_name: Optional[str] = None
     ) -> ServiceResult:
@@ -102,7 +102,7 @@ class ResultService(BaseService):
         获取 analyzer 指标值
 
         Args:
-            run_id: 运行会话ID
+            task_id: 任务ID
             portfolio_id: 投资组合ID（可选）
             analyzer_name: 分析器名称（可选）
 
@@ -110,18 +110,18 @@ class ResultService(BaseService):
             ServiceResult[ModelList]: 可调用 to_dataframe() 转换为 DataFrame
         """
         try:
-            if not run_id:
-                return ServiceResult.error("run_id 不能为空")
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
 
-            # 使用 CRUD 的 get_by_run_id 方法
-            result = self._crud_repo.get_by_run_id(
-                run_id=run_id,
+            # 使用 CRUD 的 get_by_task_id 方法
+            result = self._crud_repo.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=analyzer_name,
                 page_size=10000
             )
 
-            GLOG.INFO(f"获取 run_id={run_id} 的 analyzer 值成功")
+            GLOG.INFO(f"获取 task_id={task_id} 的 analyzer 值成功")
             return ServiceResult.success(result)
 
         except Exception as e:
@@ -130,7 +130,7 @@ class ResultService(BaseService):
 
     def get_multi_analyzer_data(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: str,
         analyzer_names: List[str]
     ) -> ServiceResult:
@@ -138,7 +138,7 @@ class ResultService(BaseService):
         获取多个 analyzer 的数据，用于对比绘图
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID
             analyzer_names: 分析器名称列表
 
@@ -146,16 +146,16 @@ class ResultService(BaseService):
             ServiceResult[Dict[str, ModelList]]: analyzer_name -> ModelList 的映射
         """
         try:
-            if not run_id or not portfolio_id:
-                return ServiceResult.error("run_id 和 portfolio_id 不能为空")
+            if not task_id or not portfolio_id:
+                return ServiceResult.error("task_id 和 portfolio_id 不能为空")
 
             if not analyzer_names:
                 return ServiceResult.error("analyzer_names 列表不能为空")
 
             data_map = {}
             for analyzer_name in analyzer_names:
-                model_list = self._crud_repo.get_by_run_id(
-                    run_id=run_id,
+                model_list = self._crud_repo.get_by_task_id(
+                    task_id=task_id,
                     portfolio_id=portfolio_id,
                     analyzer_name=analyzer_name,
                     page_size=10000
@@ -176,7 +176,7 @@ class ResultService(BaseService):
         limit: int = 100
     ) -> ServiceResult:
         """
-        列出运行会话（run_id）
+        列出运行会话（task_id）
 
         Args:
             engine_id: 引擎ID筛选（可选）
@@ -184,7 +184,7 @@ class ResultService(BaseService):
             limit: 返回数量限制
 
         Returns:
-            ServiceResult[List[Dict]]: run_id 列表及其摘要
+            ServiceResult[List[Dict]]: task_id 列表及其摘要
         """
         try:
             # 构建过滤条件
@@ -197,16 +197,16 @@ class ResultService(BaseService):
             # 获取记录 - 使用 page_size 代替 limit
             records = self._crud_repo.find(filters=filters, page_size=limit * 100, order_by="timestamp", desc_order=True)
 
-            # 按 run_id 分组
+            # 按 task_id 分组
             run_map = {}
             engine_ids = set()
             portfolio_ids = set()
 
             for record in records:
-                run_id = record.run_id
-                if run_id and run_id not in run_map:
-                    run_map[run_id] = {
-                        "run_id": run_id,
+                task_id = record.task_id
+                if task_id and task_id not in run_map:
+                    run_map[task_id] = {
+                        "task_id": task_id,
                         "engine_id": record.engine_id,
                         "portfolio_id": record.portfolio_id,
                         "timestamp": record.timestamp,
@@ -214,8 +214,8 @@ class ResultService(BaseService):
                     }
                     engine_ids.add(record.engine_id)
                     portfolio_ids.add(record.portfolio_id)
-                elif run_id:
-                    run_map[run_id]["record_count"] += 1
+                elif task_id:
+                    run_map[task_id]["record_count"] += 1
 
             # 获取 engine name 映射
             engine_name_map = {}
@@ -259,22 +259,22 @@ class ResultService(BaseService):
 
     def get_portfolio_analyzers(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: str
     ) -> ServiceResult:
         """
         获取某个 portfolio 的所有 analyzer 列表
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID
 
         Returns:
             ServiceResult[List[str]]: analyzer 名称列表
         """
         try:
-            records = self._crud_repo.get_by_run_id(
-                run_id=run_id,
+            records = self._crud_repo.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 page_size=10000
             )
@@ -290,7 +290,7 @@ class ResultService(BaseService):
 
     def get_analyzer_stats(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: str,
         analyzer_name: str
     ) -> ServiceResult:
@@ -298,7 +298,7 @@ class ResultService(BaseService):
         获取某个 analyzer 的统计信息
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID
             analyzer_name: 分析器名称
 
@@ -306,8 +306,8 @@ class ResultService(BaseService):
             ServiceResult[Dict]: 统计信息（min, max, avg, latest等）
         """
         try:
-            records = self._crud_repo.get_by_run_id(
-                run_id=run_id,
+            records = self._crud_repo.get_by_task_id(
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 analyzer_name=analyzer_name,
                 page_size=10000
@@ -322,7 +322,7 @@ class ResultService(BaseService):
             if not values:
                 return ServiceResult.error("没有有效的数值数据")
 
-            # get_by_run_id 使用降序排列 (desc_order=True)
+            # get_by_task_id 使用降序排列 (desc_order=True)
             # values[0] 是最新值，values[-1] 是最旧值
             stats = {
                 "analyzer_name": analyzer_name,
@@ -344,7 +344,7 @@ class ResultService(BaseService):
 
     def get_signals(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: Optional[str] = None,
         page: int = 0,
         page_size: int = 100
@@ -353,7 +353,7 @@ class ResultService(BaseService):
         获取回测信号记录
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
             page: 页码
             page_size: 每页数量
@@ -362,13 +362,13 @@ class ResultService(BaseService):
             ServiceResult[List]: 信号记录列表
         """
         try:
-            if not run_id:
-                return ServiceResult.error("run_id 不能为空")
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
 
             from ginkgo.data.crud.signal_crud import SignalCRUD
             signal_crud = SignalCRUD()
 
-            filters = {"run_id": run_id}
+            filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
@@ -382,7 +382,7 @@ class ResultService(BaseService):
 
             total = signal_crud.count(filters)
 
-            GLOG.INFO(f"获取 run_id={run_id} 的信号记录成功: {len(result)} 条")
+            GLOG.INFO(f"获取 task_id={task_id} 的信号记录成功: {len(result)} 条")
             return ServiceResult.success({"data": result, "total": total, "page": page, "page_size": page_size})
 
         except Exception as e:
@@ -391,27 +391,27 @@ class ResultService(BaseService):
 
     def get_orders(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: Optional[str] = None
     ) -> ServiceResult:
         """
         获取回测订单记录
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
 
         Returns:
             ServiceResult[List]: 订单记录列表
         """
         try:
-            if not run_id:
-                return ServiceResult.error("run_id 不能为空")
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
 
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
             order_record_crud = OrderRecordCRUD()
 
-            filters = {"run_id": run_id}
+            filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
@@ -423,7 +423,7 @@ class ResultService(BaseService):
 
             total = order_record_crud.count(filters)
 
-            GLOG.INFO(f"获取 run_id={run_id} 的订单记录成功: {len(result)} 条")
+            GLOG.INFO(f"获取 task_id={task_id} 的订单记录成功: {len(result)} 条")
             return ServiceResult.success({"data": result, "total": total})
 
         except Exception as e:
@@ -432,27 +432,27 @@ class ResultService(BaseService):
 
     def get_positions(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: Optional[str] = None
     ) -> ServiceResult:
         """
         获取回测持仓记录
 
         Args:
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
 
         Returns:
             ServiceResult[List]: 持仓记录列表
         """
         try:
-            if not run_id:
-                return ServiceResult.error("run_id 不能为空")
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
 
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
             position_record_crud = PositionRecordCRUD()
 
-            filters = {"run_id": run_id}
+            filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
@@ -464,7 +464,7 @@ class ResultService(BaseService):
 
             total = position_record_crud.count(filters)
 
-            GLOG.INFO(f"获取 run_id={run_id} 的持仓记录成功: {len(result)} 条")
+            GLOG.INFO(f"获取 task_id={task_id} 的持仓记录成功: {len(result)} 条")
             return ServiceResult.success({"data": result, "total": total})
 
         except Exception as e:
@@ -480,7 +480,7 @@ class ResultService(BaseService):
             order_id: 订单ID
             portfolio_id: 投资组合ID
             engine_id: 引擎ID
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             code: 股票代码
             direction: 交易方向
             order_type: 订单类型
@@ -502,7 +502,7 @@ class ResultService(BaseService):
 
             order_record_crud.create(**kwargs)
 
-            GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} run_id={kwargs.get('run_id')}")
+            GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
             return ServiceResult.success({"message": "Order record created"})
 
         except Exception as e:
@@ -517,7 +517,7 @@ class ResultService(BaseService):
         Args:
             portfolio_id: 投资组合ID
             engine_id: 引擎ID
-            run_id: 运行会话ID
+            task_id: 运行会话ID
             code: 股票代码
             volume: 持仓数量
             cost: 成本
@@ -538,7 +538,7 @@ class ResultService(BaseService):
 
             position_record_crud.create(**kwargs)
 
-            GLOG.INFO(f"持仓记录创建成功: code={kwargs.get('code')} run_id={kwargs.get('run_id')}")
+            GLOG.INFO(f"持仓记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
             return ServiceResult.success({"message": "Position record created"})
 
         except Exception as e:
@@ -551,7 +551,7 @@ class ResultService(BaseService):
         status: Optional[int] = None,
         page_size: Optional[int] = None,
     ) -> ServiceResult:
-        """按 portfolio 查询订单记录（不依赖 run_id，用于实盘/模拟盘）"""
+        """按 portfolio 查询订单记录（不依赖 task_id，用于实盘/模拟盘）"""
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
             crud = OrderRecordCRUD()
@@ -578,7 +578,7 @@ class ResultService(BaseService):
         portfolio_id: str,
         min_volume: Optional[int] = None,
     ) -> ServiceResult:
-        """查询当前持仓（不依赖 run_id，用于实盘/模拟盘）"""
+        """查询当前持仓（不依赖 task_id，用于实盘/模拟盘）"""
         try:
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
             crud = PositionRecordCRUD()
@@ -617,7 +617,7 @@ class ResultService(BaseService):
         end_date=None,
         page_size: Optional[int] = None,
     ) -> ServiceResult:
-        """按 portfolio + 日期范围查询订单（不依赖 run_id）"""
+        """按 portfolio + 日期范围查询订单（不依赖 task_id）"""
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
             crud = OrderRecordCRUD()

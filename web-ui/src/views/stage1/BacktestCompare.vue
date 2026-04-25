@@ -44,16 +44,16 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in backtestList" :key="record.run_id">
+              <tr v-for="record in backtestList" :key="record.task_id">
                 <td>
                   <input
                     type="checkbox"
                     :disabled="record.status !== 'completed'"
-                    :checked="selectedIds.includes(record.run_id)"
-                    @change="toggleSelect(record.run_id, $event)"
+                    :checked="selectedIds.includes(record.task_id)"
+                    @change="toggleSelect(record.task_id, $event)"
                   />
                 </td>
-                <td>{{ record.run_id }}</td>
+                <td>{{ record.task_id }}</td>
                 <td>{{ record.name }}</td>
                 <td>
                   <span class="tag" :class="`tag-${getStatusColorClass(record.status)}`">
@@ -142,7 +142,7 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warnin
 }
 
 interface BacktestItem {
-  run_id: string
+  task_id: string
   name: string
   status: string
   total_return?: number
@@ -213,8 +213,8 @@ const fetchBacktestList = async () => {
   try {
     // Mock data - replace with actual API call
     backtestList.value = [
-      { run_id: 'bt001', name: '回测任务1', status: 'completed', total_return: 0.15, sharpe_ratio: 1.5, max_drawdown: -0.1 },
-      { run_id: 'bt002', name: '回测任务2', status: 'completed', total_return: 0.2, sharpe_ratio: 1.8, max_drawdown: -0.08 },
+      { task_id: 'bt001', name: '回测任务1', status: 'completed', total_return: 0.15, sharpe_ratio: 1.5, max_drawdown: -0.1 },
+      { task_id: 'bt002', name: '回测任务2', status: 'completed', total_return: 0.2, sharpe_ratio: 1.8, max_drawdown: -0.08 },
     ]
   } catch (e) {
     showToast('获取回测列表失败', 'error')

@@ -10,7 +10,7 @@
       <div class="page-header">
         <div class="page-title">
           <span class="tag" :class="`tag-${getStatusColor(backtest.status)}`">{{ getStatusLabel(backtest.status) }}</span>
-          <span class="run-id">{{ backtest.run_id?.substring(0, 16) }}...</span>
+          <span class="task-id">{{ backtest.task_id?.substring(0, 16) }}...</span>
         </div>
         <div class="header-actions">
           <!-- 重新运行按钮：已完成/失败/已停止状态显示 -->
@@ -308,7 +308,7 @@
         <!-- 分析器详情 -->
         <div v-show="activeTab === 'analyzers'" class="tab-panel">
           <AnalyzerPanel
-            :taskId="backtest.run_id"
+            :taskId="backtest.task_id"
             :portfolioId="backtest.portfolio_id"
             :analyzers="analyzers"
           />
@@ -316,7 +316,7 @@
 
         <!-- 交易记录 -->
         <div v-show="activeTab === 'trades'" class="tab-panel">
-          <TradeRecordsPanel :taskId="backtest.run_id" />
+          <TradeRecordsPanel :taskId="backtest.task_id" />
         </div>
 
         <!-- 日志 -->
@@ -733,7 +733,7 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
-.run-id {
+.task-id {
   font-family: monospace;
   font-size: 13px;
   color: #8a8a9a;

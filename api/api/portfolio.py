@@ -44,10 +44,10 @@ def get_mapping_service():
     from ginkgo.data.containers import container
     return container.portfolio_mapping_service()
 
-def get_param_service():
-    """获取ParameterMetadataService实例"""
-    from ginkgo.data.containers import container
-    return container.parameter_metadata_service()
+def get_param_names(component_name: str, file_type: str = None):
+    """获取组件参数名映射"""
+    from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
+    return get_component_parameter_names(component_name, None, file_type, None)
 
 
 @router.get("/")
@@ -199,15 +199,20 @@ async def get_portfolio(uuid: str):
                 # 添加参数
                 params = m.get('params', {})
                 if params:
-                    # 将参数从param_0, param_1格式转换为实际参数名
-                    param_service = get_param_service()
-                    # 获取组件名称用于参数映射（不传file_type，让函数自动推断）
                     component_name = file_obj.name if file_obj else ""
-                    param_names = param_service.get_component_parameter_names(
-                        component_name=component_name
-                    )
+                    file_type_str = None
+                    if file_type is not None:
+                        file_type_val = int(file_type)
+                        type_map = {
+                            FILE_TYPES.STRATEGY.value: "strategy",
+                            FILE_TYPES.SELECTOR.value: "selector",
+                            FILE_TYPES.SIZER.value: "sizer",
+                            FILE_TYPES.RISKMANAGER.value: "risk_manager",
+                            FILE_TYPES.ANALYZER.value: "analyzer",
+                        }
+                        file_type_str = type_map.get(file_type_val)
+                    param_names = get_param_names(component_name, file_type_str)
 
-                    # 转换参数
                     config = {}
                     for key, value in params.items():
                         if key.startswith('param_'):
@@ -218,15 +223,16 @@ async def get_portfolio(uuid: str):
                     component_info['config'] = config
 
                 # 根据类型分组
-                if file_type == FILE_TYPES.SELECTOR:
+                file_type_val = int(file_type) if file_type is not None else -1
+                if file_type_val == FILE_TYPES.SELECTOR.value:
                     selectors.append(component_info)
-                elif file_type == FILE_TYPES.SIZER:
+                elif file_type_val == FILE_TYPES.SIZER.value:
                     sizers.append(component_info)
-                elif file_type == FILE_TYPES.STRATEGY:
+                elif file_type_val == FILE_TYPES.STRATEGY.value:
                     strategies.append(component_info)
-                elif file_type == FILE_TYPES.RISKMANAGER:
+                elif file_type_val == FILE_TYPES.RISKMANAGER.value:
                     risk_managers.append(component_info)
-                elif file_type == FILE_TYPES.ANALYZER:
+                elif file_type_val == FILE_TYPES.ANALYZER.value:
                     analyzers.append(component_info)
 
         from datetime import datetime
@@ -280,7 +286,7 @@ async def create_portfolio(data: PortfolioCreate):
         # 准备组件数据
         sizer_data = None
         if data.sizer_uuid:
-            sizer_data = {'component_uuid': data.sizer_uuid, 'config': {}}
+            sizer_data = {'component_uuid': data.sizer_uuid, 'config': data.sizer_config or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.create_portfolio_saga(
@@ -342,7 +348,7 @@ async def update_portfolio(uuid: str, data: dict):
         # 准备更新参数
         sizer_data = None
         if data.get('sizer_uuid'):
-            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': {}}
+            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': data.get('sizer_config') or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.update_portfolio_saga(
