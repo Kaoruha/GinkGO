@@ -78,12 +78,8 @@ def get_template_code(component_type: str, template: str, name: str) -> str:
 基础策略模板
 """
 
-import datetime
-from ginkgo.backtest.execution.events import EventSignalGeneration
-from ginkgo.backtest.entities.signal import Signal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.data import get_bars
+from ginkgo.enums import DIRECTION_TYPES
 
 
 class {name}(BaseStrategy):
@@ -101,30 +97,18 @@ class {name}(BaseStrategy):
         """策略计算逻辑"""
         super({name}, self).cal(portfolio_info, event)
 
-        # 获取历史数据
-        date_start = self.now + datetime.timedelta(days=-self._window - 5)
-        date_end = self.now
-        df = get_bars(event.code, date_start, date_end)
-
-        if len(df) < self._window:
-            return []  # 数据不足
-
-        # 策略逻辑示例
-        current_price = df['close'].iloc[-1]
-        ma = df['close'].rolling(window=self._window).mean().iloc[-1]
+        # TODO: 在此获取历史数据并实现策略逻辑
+        # 示例：获取均线后判断方向
 
         signals = []
-        if current_price > ma:
-            signal = Signal(
-                code=event.code,
-                direction=DIRECTION_TYPES.LONG,
-                source=SOURCE_TYPES.STRATEGY,
-                datetime=self.now,
-                price=current_price,
-                weight=1.0,
-                reason="Price > Moving Average"
-            )
-            signals.append(signal)
+        # 示例：创建做多信号
+        # signal = self.create_signal(
+        #     code=event.code,
+        #     direction=DIRECTION_TYPES.LONG,
+        #     weight=1.0,
+        #     reason="Price > Moving Average"
+        # )
+        # signals.append(signal)
 
         return signals
 
@@ -140,12 +124,10 @@ class {name}(BaseStrategy):
 基础风险管理模板
 """
 
-from ginkgo.backtest.strategy.risk_managements.base_risk_management import BaseRiskManagement
-from ginkgo.backtest.entities.signal import Signal
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.trading.bases.risk_base import RiskBase
 
 
-class {name}(BaseRiskManagement):
+class {name}(RiskBase):
     """
     {name} 风险管理器
     """
@@ -165,6 +147,7 @@ class {name}(BaseRiskManagement):
         """主动风控：生成风控信号"""
         signals = []
         # 在这里实现主动风控逻辑
+        # 示例：使用 self.create_signal() 创建风控信号
         return signals
 
     def reset_state(self):
@@ -719,10 +702,10 @@ def validate(
                 console.print("[yellow]⚠️[/yellow] Strategy structure: Should inherit from BaseStrategy")
 
         elif component.type.name == "RISKMANAGER":
-            if "class " in code_str and "BaseRiskManagement" in code_str:
+            if "class " in code_str and ("RiskBase" in code_str or "BaseRiskManagement" in code_str):
                 console.print("[green]✅[/green] RiskManager structure: Valid")
             else:
-                console.print("[yellow]⚠️[/yellow] RiskManager structure: Should inherit from BaseRiskManagement")
+                console.print("[yellow]⚠️[/yellow] RiskManager structure: Should inherit from RiskBase")
 
         elif component.type.name == "SELECTOR":
             if "class " in code_str and "BaseSelector" in code_str:
