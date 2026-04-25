@@ -60,14 +60,11 @@ class StrategyTrendFollow(BaseStrategy):
         生成交易信号
         """
         GLOG.INFO(f"Generate {direction.value} signal for {code} from {self.name}")
-        return Signal(
-            portfolio_id=portfolio_info["uuid"],
-            engine_id=self.engine_id,
-            timestamp=portfolio_info["now"],
+        return self.create_signal(
             code=code,
             direction=direction,
             reason=reason,
-            source=SOURCE_TYPES.STRATEGY,
+            timestamp=portfolio_info["now"],
         )
 
     def _check_position_risk(self, portfolio_info, code: str, current_price: float) -> bool:
