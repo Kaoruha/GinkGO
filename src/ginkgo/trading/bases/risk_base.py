@@ -32,7 +32,7 @@ class RiskBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
 
     组合时间、上下文和引擎绑定能力，为所有风控组件提供基础功能：
     - 时间戳管理 (timestamp, business_timestamp)
-    - 上下文管理 (engine_id, run_id, portfolio_id)
+    - 上下文管理 (engine_id, task_id, portfolio_id)
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
@@ -88,3 +88,28 @@ class RiskBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
         """
         # 默认实现不生成信号，子类可以重写实现主动风控逻辑
         return []
+
+    def create_signal(self, code: str, direction, reason: str = "",
+                      volume: int = 0, weight: float = 0.0,
+                      strength: float = 0.5, confidence: float = 0.5,
+                      **kwargs):
+        """
+        创建带有完整上下文的风控信号。
+
+        自动填充 portfolio_id、engine_id、task_id，风控组件只需关注业务参数。
+        """
+        from ginkgo.entities import Signal
+
+        return Signal(
+            portfolio_id=self.portfolio_id or "",
+            engine_id=self.engine_id or "",
+            task_id=self.task_id or "",
+            code=code,
+            direction=direction,
+            reason=reason,
+            volume=volume,
+            weight=weight,
+            strength=strength,
+            confidence=confidence,
+            **kwargs,
+        )
