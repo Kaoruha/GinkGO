@@ -149,7 +149,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
             # 使用事件更新的兴趣集
             if len(self._interested_codes) == 0:
-                GLOG.WARN(f"No interested symbols at {target_time}")
+                GLOG.WARN(f"No interested symbols at {target_time}, selector may not have published codes")
                 return True
 
             # 为每个股票生成并推送价格更新事件
