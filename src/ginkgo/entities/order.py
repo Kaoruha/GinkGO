@@ -33,10 +33,10 @@ class Order(TimeMixin, Base):
 
     def __init__(
         self,
-        portfolio_id: str,
-        engine_id: str,
-        run_id: str,
-        code: str,
+        portfolio_id: str = "",
+        engine_id: str = "",
+        task_id: str = "",
+        code: str = "",
         direction: DIRECTION_TYPES,
         order_type: ORDER_TYPES,
         status: ORDERSTATUS_TYPES,
@@ -62,7 +62,7 @@ class Order(TimeMixin, Base):
         Args:
             portfolio_id (str): Portfolio ID (required, no default)
             engine_id (str): Engine ID (required, no default)
-            run_id (str): Run ID (required, no default)
+            task_id (str): Task ID (required, no default)
             code (str): Order code (required, no default)
             direction (DIRECTION_TYPES): Trading direction (required, no default)
             order_type (ORDER_TYPES): Order type (required, no default)
@@ -82,7 +82,7 @@ class Order(TimeMixin, Base):
         super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.ORDER, *args, **kwargs)
 
         try:
-            self.set(portfolio_id, engine_id, run_id, code, direction, order_type, status,
+            self.set(portfolio_id, engine_id, task_id, code, direction, order_type, status,
                     volume, limit_price, frozen_money, frozen_volume, transaction_price, transaction_volume,
                     remain, fee, timestamp)
         except Exception as e:
@@ -106,7 +106,7 @@ class Order(TimeMixin, Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,
+        task_id: str,
         code: str,
         direction: DIRECTION_TYPES,
         order_type: ORDER_TYPES,
@@ -125,23 +125,17 @@ class Order(TimeMixin, Base):
     ):
         # 对所有核心业务字段进行严格的类型和值验证
 
-        # portfolio_id类型和值验证
+        # portfolio_id类型验证
         if not isinstance(portfolio_id, str):
             raise TypeError(f"portfolio_id must be str, got {type(portfolio_id).__name__}")
-        if not portfolio_id:
-            raise ValueError("portfolio_id cannot be empty.")
 
-        # engine_id类型和值验证
+        # engine_id类型验证
         if not isinstance(engine_id, str):
             raise TypeError(f"engine_id must be str, got {type(engine_id).__name__}")
-        if not engine_id:
-            raise ValueError("engine_id cannot be empty.")
 
-        # run_id类型和值验证
-        if not isinstance(run_id, str):
-            raise TypeError(f"run_id must be str, got {type(run_id).__name__}")
-        if not run_id:
-            raise ValueError("run_id cannot be empty.")
+        # task_id类型验证
+        if not isinstance(task_id, str):
+            raise TypeError(f"task_id must be str, got {type(task_id).__name__}")
 
         # code类型和值验证
         if not isinstance(code, str):
@@ -189,7 +183,7 @@ class Order(TimeMixin, Base):
         # 赋值所有验证通过的字段
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._code = code
         self._volume = volume
         self._limit_price = to_decimal(limit_price)
@@ -224,7 +218,7 @@ class Order(TimeMixin, Base):
         """
         Set from pandas Series with validation
         """
-        required_fields = {"portfolio_id", "engine_id", "run_id", "code", "direction", "order_type", "status"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "code", "direction", "order_type", "status"}
         # 检查 Series 是否包含所有必需字段
         if not required_fields.issubset(series.index):
             missing_fields = required_fields - set(series.index)
@@ -234,7 +228,7 @@ class Order(TimeMixin, Base):
         self.set(
             series['portfolio_id'],
             series['engine_id'],
-            series.get('run_id', ''),
+            series.get('task_id', ''),
             series['code'],
             DIRECTION_TYPES(series['direction']),
             ORDER_TYPES(series['order_type']),
@@ -261,7 +255,7 @@ class Order(TimeMixin, Base):
         if df.empty:
             raise ValueError("DataFrame is empty")
 
-        required_fields = {"portfolio_id", "engine_id", "run_id", "code", "direction", "order_type", "status"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "code", "direction", "order_type", "status"}
         # 检查 DataFrame 是否包含所有必需字段
         if not required_fields.issubset(df.columns):
             missing_fields = required_fields - set(df.columns)
@@ -417,12 +411,12 @@ class Order(TimeMixin, Base):
         self._engine_id = value
 
     @property
-    def run_id(self) -> str:
-        return self._run_id
+    def task_id(self) -> str:
+        return self._task_id
 
-    @run_id.setter
-    def run_id(self, value) -> None:
-        self._run_id = value
+    @task_id.setter
+    def task_id(self, value) -> None:
+        self._task_id = value
 
     def _validate_status_transition(self, from_status: ORDERSTATUS_TYPES, to_status: ORDERSTATUS_TYPES) -> None:
         """
@@ -620,7 +614,7 @@ class Order(TimeMixin, Base):
         model.update(
             portfolio_id=getattr(self, '_portfolio_id', ''),
             engine_id=getattr(self, '_engine_id', ''),
-            run_id=getattr(self, '_run_id', ''),  # 新增run_id传递
+            task_id=getattr(self, '_task_id', ''),  # task_id传递
             uuid=self.uuid,
             code=self._code,
             direction=self._direction,
@@ -676,7 +670,7 @@ class Order(TimeMixin, Base):
             order_id=model.uuid,
             portfolio_id=model.portfolio_id,
             engine_id=model.engine_id,
-            run_id=model.run_id,  # 新增run_id读取
+            task_id=model.task_id,  # task_id读取
         )
 
     def __repr__(self) -> str:
