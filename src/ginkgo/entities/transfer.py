@@ -27,7 +27,7 @@ class Transfer(Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,
+        task_id: str,
         direction: TRANSFERDIRECTION_TYPES,
         market: MARKET_TYPES,
         money: Number,
@@ -49,10 +49,10 @@ class Transfer(Base):
             raise TypeError(f"engine_id must be str, got {type(engine_id)}")
         if not engine_id:
             raise ValueError("engine_id cannot be empty.")
-        if not isinstance(run_id, str):
-            raise TypeError(f"run_id must be str, got {type(run_id)}")
-        if not run_id:
-            raise ValueError("run_id cannot be empty.")
+        if not isinstance(task_id, str):
+            raise TypeError(f"task_id must be str, got {type(task_id)}")
+        if not task_id:
+            raise ValueError("task_id cannot be empty.")
         if not isinstance(direction, TRANSFERDIRECTION_TYPES):
             raise TypeError(f"direction must be TRANSFERDIRECTION_TYPES enum, got {type(direction)}")
         if not isinstance(market, MARKET_TYPES):
@@ -74,7 +74,7 @@ class Transfer(Base):
         # 设置属性
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._direction = direction
         self._market = market
         self._money = money
@@ -90,7 +90,7 @@ class Transfer(Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,
+        task_id: str,
         direction: TRANSFERDIRECTION_TYPES,
         market: MARKET_TYPES,
         money: Number,
@@ -104,8 +104,8 @@ class Transfer(Base):
             raise ValueError("portfolio_id must be a string.")
         if not isinstance(engine_id, str):
             raise ValueError("engine_id must be a string.")
-        if not isinstance(run_id, str):
-            raise ValueError("run_id must be a string.")
+        if not isinstance(task_id, str):
+            raise ValueError("task_id must be a string.")
         if not isinstance(direction, TRANSFERDIRECTION_TYPES):
             raise ValueError("direction must be a valid TRANSFERDIRECTION_TYPES enum.")
         if not isinstance(market, MARKET_TYPES):
@@ -122,7 +122,7 @@ class Transfer(Base):
 
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._direction = direction
         self._market = market
         self._money = money
@@ -131,7 +131,7 @@ class Transfer(Base):
 
     @set.register
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        required_fields = {"portfolio_id", "engine_id", "run_id", "direction", "market", "money", "timestamp"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "direction", "market", "money", "timestamp"}
         # 检查 Series 是否包含所有必需字段
         if not required_fields.issubset(df.index):
             missing_fields = required_fields - set(df.index)
@@ -139,7 +139,7 @@ class Transfer(Base):
 
         self._portfolio_id = df["portfolio_id"]
         self._engine_id = df["engine_id"]
-        self._run_id = df["run_id"]
+        self._task_id = df["task_id"]
         self._direction = df["direction"]
         self._market = df["market"]
         self._money = df["money"]
@@ -149,7 +149,7 @@ class Transfer(Base):
 
     @set.register
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
-        required_fields = {"portfolio_id", "engine_id", "run_id", "direction", "market", "money", "timestamp"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "direction", "market", "money", "timestamp"}
         # 检查 DataFrame 是否包含所有必需字段
         if not required_fields.issubset(df.columns):
             missing_fields = required_fields - set(df.columns)
@@ -160,7 +160,7 @@ class Transfer(Base):
 
         self._portfolio_id = row["portfolio_id"]
         self._engine_id = row["engine_id"]
-        self._run_id = row["run_id"]
+        self._task_id = row["task_id"]
         self._direction = row["direction"]
         self._market = row["market"]
         self._money = row["money"]
@@ -185,12 +185,12 @@ class Transfer(Base):
         self._engine_id = value
 
     @property
-    def run_id(self) -> str:
-        return self._run_id
+    def task_id(self) -> str:
+        return self._task_id
 
-    @run_id.setter
-    def run_id(self, value) -> None:
-        self._run_id = value
+    @task_id.setter
+    def task_id(self, value) -> None:
+        self._task_id = value
 
     @property
     def direction(self) -> TRANSFERDIRECTION_TYPES:
@@ -229,7 +229,7 @@ class Transfer(Base):
         return cls(
             portfolio_id=model.portfolio_id,
             engine_id=model.engine_id,
-            run_id=model.run_id,
+            task_id=model.task_id,
             direction=model.direction,  # 此时已经是枚举对象
             market=model.market,       # 此时已经是枚举对象
             money=model.money,

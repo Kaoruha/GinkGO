@@ -1564,14 +1564,14 @@ class TestBacktestDeterminism:
             ]
         }
 
-        def run_backtest(run_id_suffix: str) -> dict:
+        def run_backtest(task_id_suffix: str) -> dict:
             """运行一次回测并返回结果"""
-            print(f"  运行回测 {run_id_suffix}...")
+            print(f"  运行回测 {task_id_suffix}...")
 
             # 创建引擎
             engine = TimeControlledEventEngine(
                 mode=EXECUTION_MODE.BACKTEST,
-                name=f"DeterminismTest_{run_id_suffix}"
+                name=f"DeterminismTest_{task_id_suffix}"
             )
 
             # 设置回测时间范围
@@ -2039,14 +2039,14 @@ class TestBacktestDeterminism:
         """测试处理器执行顺序确定性"""
         print("测试处理器执行顺序确定性...")
 
-        def run_handler_order_test(run_id: str) -> list:
+        def run_handler_order_test(task_id: str) -> list:
             """运行处理器顺序测试"""
-            print(f"  运行处理器顺序测试 {run_id}...")
+            print(f"  运行处理器顺序测试 {task_id}...")
 
             # 创建引擎
             engine = TimeControlledEventEngine(
                 mode=EXECUTION_MODE.BACKTEST,
-                name=f"HandlerOrderTest_{run_id}"
+                name=f"HandlerOrderTest_{task_id}"
             )
 
             # 设置时间范围
@@ -2158,14 +2158,14 @@ class TestBacktestDeterminism:
 
         import math
 
-        def run_precision_test(run_id: str) -> dict:
+        def run_precision_test(task_id: str) -> dict:
             """运行精度测试"""
-            print(f"  运行精度测试 {run_id}...")
+            print(f"  运行精度测试 {task_id}...")
 
             # 创建引擎
             engine = TimeControlledEventEngine(
                 mode=EXECUTION_MODE.BACKTEST,
-                name=f"PrecisionTest_{run_id}"
+                name=f"PrecisionTest_{task_id}"
             )
 
             # 设置时间范围
@@ -2583,7 +2583,7 @@ class TestTimeControlledEngineEndToEnd:
                 'timestamp': event.timestamp,
                 'target_time': event.target_time,
                 'engine_id': event.engine_id,
-                'run_id': event.run_id
+                'task_id': event.task_id
             })
             print(f"    时间推进: {event.timestamp} → {event.target_time}")
 
@@ -2643,7 +2643,7 @@ class TestTimeControlledEngineEndToEnd:
 
                 # 推进时间
                 engine._time_provider.advance_time_to(event_time)
-                time_event = EventTimeAdvance(target_time=event_time, engine_id=engine.engine_id, run_id=engine.run_id)
+                time_event = EventTimeAdvance(target_time=event_time, engine_id=engine.engine_id, task_id=engine.task_id)
                 engine.put(time_event)
 
                 # 为每个标的生成价格数据
@@ -2665,7 +2665,7 @@ class TestTimeControlledEngineEndToEnd:
                         timestamp=event_time
                     )
 
-                    price_event = EventPriceUpdate(price_info=bar, timestamp=event_time, engine_id=engine.engine_id, run_id=engine.run_id)
+                    price_event = EventPriceUpdate(price_info=bar, timestamp=event_time, engine_id=engine.engine_id, task_id=engine.task_id)
                     engine.put(price_event)
 
                 # 等待事件处理
@@ -2688,7 +2688,7 @@ class TestTimeControlledEngineEndToEnd:
         print(f"  - 处理价格事件: {price_events_count}")
         print(f"  - 生成交易信号: {signals_count}")
         print(f"  - 处理订单: {len(pipeline_results['processed_orders'])}")
-        print(f"  - 引擎运行ID: {engine.run_id}")
+        print(f"  - 引擎运行ID: {engine.task_id}")
         print(f"  - 最终状态: {engine.status}")
 
         # 业务逻辑验证
@@ -2706,7 +2706,7 @@ class TestTimeControlledEngineEndToEnd:
         # 验证事件标识完整性
         for event in pipeline_results['time_events']:
             assert event['engine_id'] is not None, "时间事件应有engine_id"
-            assert event['run_id'] is not None, "时间事件应有run_id"
+            assert event['task_id'] is not None, "时间事件应有task_id"
 
         # 验证价格数据完整性
         for price_event in pipeline_results['price_events']:
@@ -2732,7 +2732,7 @@ class TestTimeControlledEngineEndToEnd:
 
         # 验证所有阶段都正常执行
         assert engine.engine_id is not None, "配置阶段：引擎ID生成"
-        assert engine.run_id is not None, "运行阶段：运行ID生成"
+        assert engine.task_id is not None, "运行阶段：运行ID生成"
         assert total_events > 0, "运行阶段：事件处理"
         assert engine.status == "stopped", "结果阶段：引擎正常停止"
 

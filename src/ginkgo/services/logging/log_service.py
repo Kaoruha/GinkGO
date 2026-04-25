@@ -44,6 +44,7 @@ class LogService(BaseService):
     def query_backtest_logs(
         self,
         portfolio_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         strategy_id: Optional[str] = None,
         level: Optional[str] = None,
         start_time: Optional[datetime] = None,
@@ -59,6 +60,7 @@ class LogService(BaseService):
 
         Args:
             portfolio_id: 组合 ID 过滤
+            task_id: 运行会话 ID 过滤
             strategy_id: 策略 ID 过滤
             level: 日志级别过滤 (DEBUG/INFO/WARNING/ERROR/CRITICAL)
             start_time: 开始时间
@@ -75,6 +77,7 @@ class LogService(BaseService):
         self._log_operation_start(
             "query_backtest_logs",
             portfolio_id=portfolio_id,
+            task_id=task_id,
             strategy_id=strategy_id,
             level=level,
             limit=limit
@@ -89,6 +92,8 @@ class LogService(BaseService):
                 conditions = []
                 if portfolio_id:
                     conditions.append(MBacktestLog.portfolio_id == portfolio_id)
+                if task_id:
+                    conditions.append(MBacktestLog.task_id == task_id)
                 if strategy_id:
                     conditions.append(MBacktestLog.strategy_id == strategy_id)
                 if level:

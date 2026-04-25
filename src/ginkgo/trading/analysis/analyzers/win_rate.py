@@ -69,10 +69,6 @@ class WinRate(BaseAnalyzer):
         
         self.add_data(win_rate)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录胜率到数据库"""
-        self.add_record()
-
     @property
     def current_win_rate(self) -> float:
         """当前胜率（只读属性）"""

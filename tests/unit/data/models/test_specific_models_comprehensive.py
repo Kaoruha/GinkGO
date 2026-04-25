@@ -188,7 +188,7 @@ class TestOrderModelComprehensive:
         """测试MOrder投资组合关系"""
         assert hasattr(MOrder, 'portfolio_id')
         assert hasattr(MOrder, 'engine_id')
-        assert hasattr(MOrder, 'run_id')
+        assert hasattr(MOrder, 'task_id')
 
     def test_morder_update_method_implementation(self):
         """测试MOrder update方法实现"""
@@ -233,7 +233,7 @@ class TestPositionModelComprehensive:
         """测试MPosition投资组合集成"""
         assert hasattr(MPosition, 'portfolio_id')
         assert hasattr(MPosition, 'engine_id')
-        assert hasattr(MPosition, 'run_id')
+        assert hasattr(MPosition, 'task_id')
 
     def test_mposition_risk_metrics_calculation(self):
         """测试MPosition风险指标计算"""
@@ -277,7 +277,7 @@ class TestSignalModelComprehensive:
         """测试MSignal策略元数据"""
         assert hasattr(MSignal, 'portfolio_id')
         assert hasattr(MSignal, 'engine_id')
-        assert hasattr(MSignal, 'run_id')
+        assert hasattr(MSignal, 'task_id')
         assert hasattr(MSignal, 'reason')
 
     def test_msignal_timing_information(self):

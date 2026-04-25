@@ -332,14 +332,14 @@ def get(
 
 @result_app.command("show")
 def show(
-    run_id: Optional[str] = typer.Option(None, "--run-id", "-r", help=":abc: Run session ID"),
+    task_id: Optional[str] = typer.Option(None, "--run-id", "-r", help=":abc: Run session ID"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Portfolio ID"),
     analyzer: Optional[str] = typer.Option(None, "--analyzer", "-a", help=":bar_chart: Analyzer name"),
     mode: str = typer.Option("table", "--mode", "-m", help=":display: Display mode (table/terminal/plot)"),
     limit: int = typer.Option(50, "--limit", "-l", help=":1234: Max records to display"),
 ):
     """
-    :chart_with_upwards_trend: Show analyzer results by run_id.
+    :chart_with_upwards_trend: Show analyzer results by task_id.
 
     Examples:
         ginkgo result show                    # List available runs
@@ -355,8 +355,8 @@ def show(
 
     result_service = container.result_service()
 
-    # 如果没有指定 run_id，列出所有可用的运行会话
-    if run_id is None:
+    # 如果没有指定 task_id，列出所有可用的运行会话
+    if task_id is None:
         list_result = result_service.list_runs()
         if not list_result.success:
             console.print(f":x: [red]获取运行会话列表失败[/red]")
@@ -374,7 +374,7 @@ def show(
 
         columns_config = {
             "engine_name": {"display_name": "Engine", "style": "green"},
-            "run_id": {"display_name": "Run ID", "style": "cyan"},
+            "task_id": {"display_name": "Run ID", "style": "cyan"},
             "portfolio_name": {"display_name": "Portfolio", "style": "yellow"},
             "timestamp": {"display_name": "Run Time", "style": "dim"},
             "record_count": {"display_name": "Records", "style": "blue"}
@@ -387,19 +387,19 @@ def show(
             console=console
         )
         console.print("\n[yellow]使用 --run-id 参数查看详细结果[/yellow]")
-        console.print("[dim]示例: ginkgo result show --run-id <run_id>[/dim]")
+        console.print("[dim]示例: ginkgo result show --run-id <task_id>[/dim]")
         raise typer.Exit(0)
 
     # 获取运行摘要
-    summary_result = result_service.get_run_summary(run_id)
+    summary_result = result_service.get_run_summary(task_id)
     if not summary_result.success:
-        console.print(f":x: [red]未找到 run_id={run_id} 的记录[/red]")
+        console.print(f":x: [red]未找到 task_id={task_id} 的记录[/red]")
         console.print(f"[yellow]{summary_result.error}[/yellow]")
         raise typer.Exit(1)
 
     summary = summary_result.data
     console.print(f":information_source: [bold]运行会话摘要:[/bold]")
-    console.print(f"  Run ID: {summary['run_id']}")
+    console.print(f"  Run ID: {summary['task_id']}")
     console.print(f"  Engine ID: {summary['engine_id']}")
     console.print(f"  总记录数: {summary['total_records']}")
     console.print("")
@@ -420,7 +420,7 @@ def show(
 
     # 自动选择 analyzer（如果只有一个）
     if analyzer is None:
-        analyzers_result = result_service.get_portfolio_analyzers(run_id, portfolio_id)
+        analyzers_result = result_service.get_portfolio_analyzers(task_id, portfolio_id)
         if analyzers_result.success:
             analyzers = analyzers_result.data
             if len(analyzers) > 1:
@@ -437,7 +437,7 @@ def show(
 
     # 获取数据
     data_result = result_service.get_analyzer_values(
-        run_id=run_id,
+        task_id=task_id,
         portfolio_id=portfolio_id,
         analyzer_name=analyzer
     )
@@ -460,7 +460,7 @@ def show(
             "timestamp": {"display_name": "Date", "style": "cyan"},
             "value": {"display_name": "Value", "style": "yellow"}
         }
-        title = f":bar_chart: [bold]{analyzer}[/bold] [dim]({run_id})[/dim]"
+        title = f":bar_chart: [bold]{analyzer}[/bold] [dim]({task_id})[/dim]"
         display_dataframe(
             data=result_df.head(limit),
             columns_config=columns_config,
@@ -472,7 +472,7 @@ def show(
         console.print(f"[dim]显示 {result_df.shape[0]} 条记录[/dim]")
         display_terminal_chart(
             data=result_df.head(limit) if limit > 0 else result_df,
-            title=f"{analyzer} [{run_id}]",
+            title=f"{analyzer} [{task_id}]",
             max_points=limit,
             console=console
         )

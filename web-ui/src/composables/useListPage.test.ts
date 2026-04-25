@@ -144,19 +144,19 @@ describe('useListPage', () => {
 describe('commonSearchFilters', () => {
   describe('byNameAndUuid', () => {
     it('应匹配 name', () => {
-      const item = { name: 'Apple', uuid: '123', run_id: 'r1' }
+      const item = { name: 'Apple', uuid: '123', task_id: 'r1' }
       expect(commonSearchFilters.byNameAndUuid(item, 'apple')).toBe(true)
       expect(commonSearchFilters.byNameAndUuid(item, 'ORANGE')).toBe(false)
     })
 
     it('应匹配 uuid', () => {
-      const item = { name: 'Test', uuid: 'abc123', run_id: 'r1' }
+      const item = { name: 'Test', uuid: 'abc123', task_id: 'r1' }
       expect(commonSearchFilters.byNameAndUuid(item, 'abc')).toBe(true)
       expect(commonSearchFilters.byNameAndUuid(item, 'xyz')).toBe(false)
     })
 
-    it('应匹配 run_id', () => {
-      const item = { name: 'Test', uuid: '123', run_id: 'BT_2024' }
+    it('应匹配 task_id', () => {
+      const item = { name: 'Test', uuid: '123', task_id: 'BT_2024' }
       expect(commonSearchFilters.byNameAndUuid(item, '2024')).toBe(true)
     })
   })

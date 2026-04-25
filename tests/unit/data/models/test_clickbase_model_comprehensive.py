@@ -80,11 +80,11 @@ class TestClickBaseModelIDSystem:
         assert hasattr(MBacktestRecordBase, 'engine_id')
         assert get_column_default(MBacktestRecordBase.engine_id) == ""
 
-    def test_mclickbase_run_id_session_tracking(self):
+    def test_mclickbase_task_id_session_tracking(self):
         """测试MClickBase运行ID会话跟踪"""
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-        assert hasattr(MBacktestRecordBase, 'run_id')
-        assert get_column_default(MBacktestRecordBase.run_id) == ""
+        assert hasattr(MBacktestRecordBase, 'task_id')
+        assert get_column_default(MBacktestRecordBase.task_id) == ""
 
     def test_mclickbase_id_indexing_strategy(self):
         """测试MClickBase ID索引策略"""
@@ -129,10 +129,10 @@ class TestClickBaseModelImmutableDataPatterns:
     def test_mclickbase_backtest_data_isolation(self):
         """测试MClickBase回测数据隔离"""
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-        # MSignal uses MBacktestRecordBase for engine_id/run_id isolation
+        # MSignal uses MBacktestRecordBase for engine_id/task_id isolation
         assert issubclass(MSignal, MBacktestRecordBase)
         assert hasattr(MSignal, 'engine_id')
-        assert hasattr(MSignal, 'run_id')
+        assert hasattr(MSignal, 'task_id')
 
     def test_mclickbase_append_only_operations(self):
         """测试MClickBase仅追加操作"""

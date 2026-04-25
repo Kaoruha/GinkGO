@@ -47,11 +47,11 @@ class TestAnalyzerRecordCRUDFieldConfig:
 
     @pytest.mark.unit
     def test_field_config_has_required_keys(self, analyzer_record_crud):
-        """配置包含 portfolio_id/engine_id/run_id/name/analyzer_id/timestamp/business_timestamp/value/source"""
+        """配置包含 portfolio_id/engine_id/task_id/name/analyzer_id/timestamp/business_timestamp/value/source"""
         config = analyzer_record_crud._get_field_config()
 
         required_keys = {
-            "portfolio_id", "engine_id", "run_id", "name",
+            "portfolio_id", "engine_id", "task_id", "name",
             "analyzer_id", "timestamp", "business_timestamp", "value", "source",
         }
         assert required_keys.issubset(set(config.keys())), \
@@ -112,7 +112,7 @@ class TestAnalyzerRecordCRUDCreateFromParams:
         params = {
             "portfolio_id": "portfolio-001",
             "engine_id": "engine-001",
-            "run_id": "run-001",
+            "task_id": "run-001",
             "name": "net_value",
             "analyzer_id": "analyzer-001",
             "timestamp": datetime(2024, 1, 15),
@@ -135,7 +135,7 @@ class TestAnalyzerRecordCRUDCreateFromParams:
         )
 
         assert model.portfolio_id == "portfolio-001"
-        assert model.run_id == ""
+        assert model.task_id == ""
         assert model.name == ""
         assert model.value == Decimal("0")
         assert model.source == SOURCE_TYPES.SIM.value

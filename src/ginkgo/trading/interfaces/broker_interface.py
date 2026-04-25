@@ -50,13 +50,13 @@ class BrokerExecutionResult:
         # 存储完整的Order对象（用于生成事件的payload）
         self.order = order
 
-    def to_event(self, engine_id: str = None, run_id: str = None):
+    def to_event(self, engine_id: str = None, task_id: str = None):
         """
         转换为对应的Event
 
         Args:
             engine_id: 引擎ID（由Router提供）
-            run_id: 运行ID（由Router提供）
+            task_id: 运行ID（由Router提供）
 
         Returns:
             Event: 转换后的事件对象
@@ -73,7 +73,7 @@ class BrokerExecutionResult:
                 order=self.order,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id
+                task_id=task_id
             )
             event.broker_order_id = self.broker_order_id or ""
         elif self.status in [ORDERSTATUS_TYPES.PARTIAL_FILLED, ORDERSTATUS_TYPES.FILLED]:
@@ -85,7 +85,7 @@ class BrokerExecutionResult:
                 commission=self.commission,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id
+                task_id=task_id
             )
             # FILLED 状态使用 ORDERFILLED 事件类型，确保触发 on_order_filled 处理器
             if self.status == ORDERSTATUS_TYPES.FILLED:
@@ -96,7 +96,7 @@ class BrokerExecutionResult:
                 cancelled_quantity=self.filled_volume,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id
+                task_id=task_id
             )
         elif self.status == ORDERSTATUS_TYPES.REJECTED:
             event = EventOrderRejected(
@@ -104,7 +104,7 @@ class BrokerExecutionResult:
                 reject_reason=self.error_message or "Order rejected",
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id
+                task_id=task_id
             )
         else:
             return None

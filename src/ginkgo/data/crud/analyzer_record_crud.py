@@ -52,7 +52,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             },
 
             # 运行会话ID - 非空字符串
-            'run_id': {
+            'task_id': {
                 'type': 'string',
                 'min': 1
             },
@@ -106,7 +106,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         return MAnalyzerRecord(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            run_id=kwargs.get("run_id", ""),
+            task_id=kwargs.get("task_id", ""),
             name=kwargs.get("name", kwargs.get("analyzer_name", "")),
             analyzer_id=kwargs.get("analyzer_id", ""),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
@@ -164,6 +164,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, analyzer_name: Optional[str] = None,
+                         task_id: Optional[str] = None,
                          start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> List[MAnalyzerRecord]:
         """
         Business helper: Find analyzer records by portfolio.
@@ -172,6 +173,8 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
         if analyzer_name:
             filters["name"] = analyzer_name
+        if task_id:
+            filters["task_id"] = task_id
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
@@ -261,13 +264,13 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
         return self.find(filters=filters, order_by=time_field, desc_order=True)
 
-    def get_by_run_id(self, run_id: str, portfolio_id: Optional[str] = None,
+    def get_by_task_id(self, task_id: str, portfolio_id: Optional[str] = None,
                       analyzer_name: Optional[str] = None, page_size: int = 1000) -> List[MAnalyzerRecord]:
         """
-        按 run_id 查询 analyzer 记录（支持 result 命令）
+        按 task_id 查询 analyzer 记录（支持 result 命令）
 
         Args:
-            run_id: 运行会话ID（必需）
+            task_id: 任务ID（必需）
             portfolio_id: 投资组合ID（可选，为空则查询所有portfolio）
             analyzer_name: 分析器名称（可选，为空则查询所有analyzer）
             page_size: 分页大小（限制返回条数）
@@ -277,16 +280,16 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
         Examples:
             # 查询某次运行的所有 analyzer 记录
-            records = crud.get_by_run_id("a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2")
+            records = crud.get_by_task_id("a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2")
 
             # 查询某次运行的特定 portfolio 和 analyzer
-            records = crud.get_by_run_id(
-                run_id="a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2",
+            records = crud.get_by_task_id(
+                task_id="a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2",
                 portfolio_id="present_portfolio_uuid",
                 analyzer_name="net_value"
             )
         """
-        filters = {"run_id": run_id}
+        filters = {"task_id": task_id}
 
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id

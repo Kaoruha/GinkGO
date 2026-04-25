@@ -167,7 +167,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         return MOrder(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            run_id=kwargs.get("run_id", ""),  # 添加 run_id
+            task_id=kwargs.get("task_id", ""),  # 添加 task_id
             code=kwargs.get("code"),
             direction=direction_value,
             order_type=order_type_value,
@@ -192,7 +192,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
             return MOrder(
                 portfolio_id=getattr(item, 'portfolio_id', ""),
                 engine_id=getattr(item, 'engine_id', ""),
-                run_id=getattr(item, 'run_id', ""),  # 添加 run_id
+                task_id=getattr(item, 'task_id', ""),  # 添加 task_id
                 code=getattr(item, 'code', ""),
                 direction=DIRECTION_TYPES.validate_input(getattr(item, 'direction', DIRECTION_TYPES.LONG)),
                 order_type=ORDER_TYPES.validate_input(getattr(item, 'order_type', ORDER_TYPES.OTHER)),
@@ -240,7 +240,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
             order = Order(
                 portfolio_id=model.portfolio_id,
                 engine_id=model.engine_id,
-                run_id=model.run_id,
+                task_id=model.task_id,
                 code=model.code,
                 direction=model.direction,
                 order_type=model.order_type,
@@ -268,7 +268,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 Order(
                     portfolio_id=item.portfolio_id,
                     engine_id=item.engine_id,
-                    run_id=item.run_id,
+                    task_id=item.task_id,
                     code=item.code,
                     direction=item.direction,
                     order_type=item.order_type,

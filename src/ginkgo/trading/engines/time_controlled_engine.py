@@ -1074,7 +1074,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             # 汇总结果
             result = aggregator.aggregate_and_save(
-                task_id=self.run_id or "",
+                task_id=self.task_id or "",
                 portfolio_id=portfolio_id,
                 engine_id=self.engine_id,
                 status="completed"
@@ -1339,9 +1339,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         # 回测模式：启动前创建 BacktestTask 记录
         if self.mode == EXECUTION_MODE.BACKTEST:
-            # 确保 run_id 已生成
-            if self._run_id is None:
-                self.generate_run_id()
+            # 确保 task_id 已生成
+            if self._task_id is None:
+                self.generate_task_id()
             self._create_backtest_task()
 
         self.start()
@@ -1359,10 +1359,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             task_service = service_hub.data.backtest_task_service()
 
             # 检查任务是否已存在（由 BacktestWorker 创建）
-            if self.run_id:
-                exists_result = task_service.exists(uuid=self.run_id)
+            if self.task_id:
+                exists_result = task_service.exists(uuid=self.task_id)
                 if exists_result.is_success() and exists_result.data.get("exists"):
-                    GLOG.INFO(f"Backtest task already exists: {self.run_id}, skipping creation")
+                    GLOG.INFO(f"Backtest task already exists: {self.task_id}, skipping creation")
                     return
 
             # 获取 portfolio_id
@@ -1380,7 +1380,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             # 创建任务
             result = task_service.create(
-                task_id=self.run_id,
+                task_id=self.task_id,
                 engine_id=self.engine_id,
                 portfolio_id=portfolio_id,
                 config_snapshot={
@@ -1391,7 +1391,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             )
 
             if result.is_success():
-                GLOG.INFO(f"Created backtest task: {self.run_id}")
+                GLOG.INFO(f"Created backtest task: {self.task_id}")
             else:
                 GLOG.WARN(f"Failed to create backtest task: {result.error}")
 

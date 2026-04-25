@@ -42,7 +42,7 @@ class ControlCommand:
     timestamp: Optional[datetime.datetime] = None  # 时间戳
     portfolio_id: Optional[str] = None  # Portfolio ID（用于路由）
     engine_id: Optional[str] = None  # Engine ID（用于路由）
-    run_id: Optional[str] = None  # 运行ID（用于审计）
+    task_id: Optional[str] = None  # 运行ID（用于审计）
     message_id: Optional[str] = None  # 消息ID（用于去重）
 
     def __post_init__(self):
@@ -61,7 +61,7 @@ class ControlCommand:
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             "portfolio_id": self.portfolio_id,
             "engine_id": self.engine_id,
-            "run_id": self.run_id,
+            "task_id": self.task_id,
             "message_id": self.message_id
         }
 
@@ -84,7 +84,7 @@ class ControlCommand:
             timestamp=timestamp,
             portfolio_id=data.get("portfolio_id"),
             engine_id=data.get("engine_id"),
-            run_id=data.get("run_id"),
+            task_id=data.get("task_id"),
             message_id=data.get("message_id")
         )
 

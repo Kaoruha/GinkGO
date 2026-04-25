@@ -191,7 +191,7 @@ class TestEngineAssemblyCoordination:
     def test_create_base_engine_from_yaml_config(self):
         service = EngineAssemblyService()
         config = {
-            "engine": {"type": "historic", "name": "YamlEngine", "run_id": "yaml_001"},
+            "engine": {"type": "historic", "name": "YamlEngine", "task_id": "yaml_001"},
             "portfolios": [],
         }
         result = service.create_engine_from_config(config)
@@ -201,14 +201,14 @@ class TestEngineAssemblyCoordination:
     def test_engine_assembly_context_management(self):
         service = EngineAssemblyService()
         assert service._get_current_engine_id() == ""
-        assert service._get_current_run_id() == ""
+        assert service._get_current_task_id() == ""
         service._current_engine_id = "engine_1"
-        service._current_run_id = "run_1"
+        service._current_task_id = "run_1"
         assert service._get_current_engine_id() == "engine_1"
-        assert service._get_current_run_id() == "run_1"
+        assert service._get_current_task_id() == "run_1"
         # Cleanup
         service._current_engine_id = None
-        service._current_run_id = None
+        service._current_task_id = None
         assert service._get_current_engine_id() == ""
 
 
@@ -281,7 +281,7 @@ class TestIdentityAndContextInjection:
         mock_component.__class__.__name__ = "TestStrategy"
         components = {"strategies": [mock_component]}
         service._inject_ids_to_components(components, "e1", "p1", "r1")
-        mock_component.set_backtest_ids.assert_called_once_with(engine_id="e1", portfolio_id="p1", run_id="r1")
+        mock_component.set_backtest_ids.assert_called_once_with(engine_id="e1", portfolio_id="p1", task_id="r1")
 
     def test_inject_ids_to_single_component(self):
         service = EngineAssemblyService()
@@ -301,17 +301,17 @@ class TestIdentityAndContextInjection:
         service._current_engine_id = "my_engine"
         assert service._get_current_engine_id() == "my_engine"
 
-    def test_assembly_context_run_id_access(self):
+    def test_assembly_context_task_id_access(self):
         service = EngineAssemblyService()
-        assert service._get_current_run_id() == ""
-        service._current_run_id = "my_run"
-        assert service._get_current_run_id() == "my_run"
+        assert service._get_current_task_id() == ""
+        service._current_task_id = "my_run"
+        assert service._get_current_task_id() == "my_run"
 
     def test_id_propagation_to_portfolio(self):
         service = EngineAssemblyService()
         mock_portfolio = MagicMock()
         service._inject_ids_to_single_component(mock_portfolio, "e1", "p1", "r1")
-        mock_portfolio.set_backtest_ids.assert_called_once_with(engine_id="e1", portfolio_id="p1", run_id="r1")
+        mock_portfolio.set_backtest_ids.assert_called_once_with(engine_id="e1", portfolio_id="p1", task_id="r1")
 
     def test_id_propagation_to_all_components(self):
         service = EngineAssemblyService()
@@ -374,12 +374,12 @@ class TestAssemblyValidationAndErrorHandling:
     def test_assembly_context_cleanup_on_failure(self):
         service = EngineAssemblyService()
         service._current_engine_id = "test_e"
-        service._current_run_id = "test_r"
+        service._current_task_id = "test_r"
         # Simulate finally block
         service._current_engine_id = None
-        service._current_run_id = None
+        service._current_task_id = None
         assert service._get_current_engine_id() == ""
-        assert service._get_current_run_id() == ""
+        assert service._get_current_task_id() == ""
 
 
 @pytest.mark.unit
@@ -390,7 +390,7 @@ class TestYAMLConfigDrivenAssembly:
         import tempfile, yaml
         service = EngineAssemblyService()
         config = {
-            "engine": {"type": "historic", "name": "BtEngine", "run_id": "bt_001"},
+            "engine": {"type": "historic", "name": "BtEngine", "task_id": "bt_001"},
             "data_feeder": {"type": "historical"},
             "portfolios": [],
             "settings": {"log_level": "INFO"},
@@ -406,7 +406,7 @@ class TestYAMLConfigDrivenAssembly:
         import tempfile, yaml
         service = EngineAssemblyService()
         config = {
-            "engine": {"type": "historic", "name": "LiveEngine", "run_id": "live_001"},
+            "engine": {"type": "historic", "name": "LiveEngine", "task_id": "live_001"},
             "portfolios": [],
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -533,7 +533,7 @@ class TestBacktestModeAssembly:
     def test_backtest_id_context_injection(self):
         service = EngineAssemblyService()
         service._current_engine_id = "bt_engine"
-        service._current_run_id = "bt_run"
+        service._current_task_id = "bt_run"
         mock_component = MagicMock()
         service._inject_ids_to_single_component(mock_component, "bt_engine", "p1", "bt_run")
         mock_component.set_backtest_ids.assert_called_once()
@@ -566,9 +566,9 @@ class TestLiveModeAssembly:
         service = EngineAssemblyService()
         assert callable(getattr(service, '_create_portfolio_instance', None))
 
-    def test_live_run_id_generation(self):
+    def test_live_task_id_generation(self):
         import uuid
         service = EngineAssemblyService()
-        run_id = str(uuid.uuid4())
-        assert len(run_id) == 36  # UUID format
-        assert run_id.count("-") == 4
+        task_id = str(uuid.uuid4())
+        assert len(task_id) == 36  # UUID format
+        assert task_id.count("-") == 4

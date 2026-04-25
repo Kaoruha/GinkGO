@@ -172,7 +172,7 @@ class PaperTradingWorker:
                     f"{portfolio.code}: {e}"
                 )
 
-        # 8. 恢复状态 / 首次初始化（在设置 run_id 和 time provider 之前，需要读取持久化时间）
+        # 8. 恢复状态 / 首次初始化（在设置 task_id 和 time provider 之前，需要读取持久化时间）
         portfolio_service = container.portfolio_service()
         persisted_engine_time = None
         for portfolio in engine.portfolios:
@@ -207,7 +207,7 @@ class PaperTradingWorker:
                     f"{portfolio.portfolio_id}: {e}"
                 )
 
-        # 9. 检测模式并配置 run_id / source_type / time_provider
+        # 9. 检测模式并配置 task_id / source_type / time_provider
         real_now = datetime.now()
         is_replay = (
             persisted_engine_time is not None
@@ -216,8 +216,8 @@ class PaperTradingWorker:
         session_ts = real_now.strftime("%Y%m%d%H%M%S")
 
         if is_replay:
-            run_id = f"replay-{session_ts}"
-            engine.set_run_id(run_id)
+            task_id = f"replay-{session_ts}"
+            engine.set_task_id(task_id)
             engine.set_source_type(SOURCE_TYPES.PAPER_REPLAY)
 
             # 用 LogicalTimeProvider 从上次位置开始
@@ -229,13 +229,13 @@ class PaperTradingWorker:
             engine._time_provider = replay_provider
             GLOG.INFO(
                 f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
-                f"run_id={run_id}"
+                f"task_id={task_id}"
             )
         else:
-            run_id = f"paper-{session_ts}"
-            engine.set_run_id(run_id)
+            task_id = f"paper-{session_ts}"
+            engine.set_task_id(task_id)
             engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
-            GLOG.INFO(f"[PAPER-WORKER] LIVE_PAPER mode: run_id={run_id}")
+            GLOG.INFO(f"[PAPER-WORKER] LIVE_PAPER mode: task_id={task_id}")
 
         # 10. 启动引擎
         engine.start()
@@ -391,8 +391,8 @@ class PaperTradingWorker:
 
         try:
             analyzer_service = services.data.services.analyzer_service()
-            result = analyzer_service.get_by_run_id(
-                run_id=self._engine.run_id if self._engine else "paper",
+            result = analyzer_service.get_by_task_id(
+                task_id=self._engine.task_id if self._engine else "paper",
                 portfolio_id=portfolio_id,
             )
             if result.is_success() and result.data:
@@ -630,16 +630,16 @@ class PaperTradingWorker:
         real_provider = SystemTimeProvider()
         self._engine.set_time_provider(real_provider)
 
-        # 更新 run_id 和 source_type
+        # 更新 task_id 和 source_type
         real_now = datetime.now()
         session_ts = real_now.strftime("%Y%m%d%H%M%S")
-        self._engine._run_id = f"paper-{session_ts}"
-        self._engine._engine_context.set_run_id(self._engine._run_id)
+        self._engine._task_id = f"paper-{session_ts}"
+        self._engine._engine_context.set_task_id(self._engine._task_id)
         self._engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
 
         GLOG.INFO(
             f"[PAPER-WORKER] Transitioned to LIVE_PAPER mode, "
-            f"run_id={self._engine._run_id}"
+            f"task_id={self._engine._task_id}"
         )
 
     def _run_live_paper_cycle(self) -> DailyCycleResult:

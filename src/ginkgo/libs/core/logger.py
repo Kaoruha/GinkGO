@@ -1449,7 +1449,7 @@ class GinkgoLogger:
         记录引擎错误事件
 
         必需字段: error_code, error_message
-        可选字段: engine_id, run_id, progress
+        可选字段: engine_id, task_id, progress
 
         Example:
             >>> GLOG.log_engine_error_event(
@@ -1471,12 +1471,12 @@ class GinkgoLogger:
         """
         记录引擎启动事件
 
-        可选字段: engine_id, run_id, portfolio_id, start_time, config
+        可选字段: engine_id, task_id, portfolio_id, start_time, config
 
         Example:
             >>> GLOG.log_engine_start_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     portfolio_id=portfolio.uuid,
             ...     start_time=datetime.now()
             ... )
@@ -1493,7 +1493,7 @@ class GinkgoLogger:
         记录引擎暂停事件
 
         必需字段: reason (可选，为空表示正常暂停)
-        可选字段: engine_id, run_id, progress, pause_time
+        可选字段: engine_id, task_id, progress, pause_time
 
         Example:
             >>> GLOG.log_engine_pause_event(
@@ -1514,12 +1514,12 @@ class GinkgoLogger:
         """
         记录引擎恢复事件
 
-        可选字段: engine_id, run_id, resume_time, paused_duration
+        可选字段: engine_id, task_id, resume_time, paused_duration
 
         Example:
             >>> GLOG.log_engine_resume_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     resume_time=datetime.now()
             ... )
         """
@@ -1534,13 +1534,13 @@ class GinkgoLogger:
         """
         记录引擎完成事件
 
-        可选字段: engine_id, run_id, portfolio_id, end_time, duration_seconds,
+        可选字段: engine_id, task_id, portfolio_id, end_time, duration_seconds,
                   total_bars, total_orders, final_capital, total_return
 
         Example:
             >>> GLOG.log_engine_complete_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     duration_seconds=3600,
             ...     total_bars=1000,
             ...     final_capital=110000.0,

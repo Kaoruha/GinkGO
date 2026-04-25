@@ -43,7 +43,7 @@ def list():
 
 @app.command(name="show")
 def show(
-    run_id: Annotated[
+    task_id: Annotated[
         Optional[str], typer.Option("--run-id", "-r", case_sensitive=True, help="Run session ID.")
     ] = None,
     engine: Annotated[
@@ -77,9 +77,9 @@ def show(
     from ginkgo.data.containers import container
     from ginkgo.enums import FILE_TYPES
 
-    # 新方式：按 run_id 查询
-    if run_id is not None:
-        _show_by_run_id(run_id, portfolio, analyzer, mode, page_size, interactive, max_points, output)
+    # 新方式：按 task_id 查询
+    if task_id is not None:
+        _show_by_task_id(task_id, portfolio, analyzer, mode, page_size, interactive, max_points, output)
         return
 
     # 旧方式：按 engine/portfolio/analyzer 查询
@@ -268,8 +268,8 @@ def _display_plot_mode(result: "pd.DataFrame", output_path: Optional[str]):
         _display_table_mode(result, 50)
 
 
-def _show_by_run_id(
-    run_id: str,
+def _show_by_task_id(
+    task_id: str,
     portfolio_id: Optional[str],
     analyzer_name: Optional[str],
     mode: DisplayMode,
@@ -279,10 +279,10 @@ def _show_by_run_id(
     output_path: Optional[str]
 ):
     """
-    按 run_id 查询并显示结果（新方式）
+    按 task_id 查询并显示结果（新方式）
 
     Args:
-        run_id: 运行会话ID
+        task_id: 运行会话ID
         portfolio_id: 投资组合ID（可选）
         analyzer_name: 分析器名称（可选）
         mode: 显示模式
@@ -303,15 +303,15 @@ def _show_by_run_id(
 
     # 如果没有指定 portfolio，先列出可用的 portfolio
     if portfolio_id is None:
-        summary_result = result_service.get_run_summary(run_id)
+        summary_result = result_service.get_run_summary(task_id)
         if not summary_result.success:
-            console.print(f":x: [red]未找到 run_id={run_id} 的记录[/red]")
+            console.print(f":x: [red]未找到 task_id={task_id} 的记录[/red]")
             console.print(f"[yellow]{summary_result.error}[/yellow]")
             return
 
         summary = summary_result.data
         console.print(f":information_source: [bold]运行会话摘要:[/bold]")
-        console.print(f"  Run ID: {summary['run_id']}")
+        console.print(f"  Run ID: {summary['task_id']}")
         console.print(f"  Engine ID: {summary['engine_id']}")
         console.print(f"  总记录数: {summary['total_records']}")
         console.print(f"  时间范围: {summary['time_range']['start']} ~ {summary['time_range']['end']}")
@@ -332,7 +332,7 @@ def _show_by_run_id(
 
     # 如果没有指定 analyzer，先列出可用的 analyzer
     if analyzer_name is None:
-        analyzers_result = result_service.get_portfolio_analyzers(run_id, portfolio_id)
+        analyzers_result = result_service.get_portfolio_analyzers(task_id, portfolio_id)
         if not analyzers_result.success:
             console.print(f":x: [red]获取 analyzer 列表失败[/red]")
             return
@@ -352,7 +352,7 @@ def _show_by_run_id(
 
     # 获取数据
     data_result = result_service.get_analyzer_values(
-        run_id=run_id,
+        task_id=task_id,
         portfolio_id=portfolio_id,
         analyzer_name=analyzer_name,
     )
@@ -375,7 +375,7 @@ def _show_by_run_id(
             "business_timestamp": {"display_name": "Business Time", "style": "dim"},
             "value": {"display_name": "Value", "style": "yellow"}
         }
-        title = f":bar_chart: [bold]{analyzer_name}[/bold] [dim]({run_id})[/dim]"
+        title = f":bar_chart: [bold]{analyzer_name}[/bold] [dim]({task_id})[/dim]"
 
         if interactive:
             display_dataframe_interactive(
@@ -397,7 +397,7 @@ def _show_by_run_id(
     elif mode == DisplayMode.terminal:
         console.print(f"[dim]数据概览: {result_df.shape[0]} 条记录[/dim]")
 
-        title = f"{analyzer_name} [{run_id}]"
+        title = f"{analyzer_name} [{task_id}]"
 
         if interactive:
             display_terminal_chart_interactive(

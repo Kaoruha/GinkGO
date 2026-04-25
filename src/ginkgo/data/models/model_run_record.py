@@ -45,7 +45,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
     __tablename__ = "run_record"
 
     # 执行标识信息
-    run_id: Mapped[str] = mapped_column(String(128), unique=True, comment="执行会话ID")
+    task_id: Mapped[str] = mapped_column(String(128), unique=True, comment="执行会话ID")
     parent_engine_id: Mapped[str] = mapped_column(String(64), comment="所属引擎ID") 
     
     # 运行时间信息
@@ -84,7 +84,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
     @update.register(str)
     def _(
         self,
-        run_id: str,
+        task_id: str,
         parent_engine_id: str,
         start_time: Optional[datetime.datetime] = None,
         end_time: Optional[datetime.datetime] = None,
@@ -104,7 +104,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
         *args,
         **kwargs,
     ) -> None:
-        self.run_id = run_id
+        self.task_id = task_id
         self.parent_engine_id = parent_engine_id
         self.status = status
         self.error_message = error_message
@@ -141,15 +141,15 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         required_fields = {
-            "run_id", "parent_engine_id", "start_time", "status"
+            "task_id", "parent_engine_id", "start_time", "status"
         }
-        
+
         # 验证必填字段
         missing_fields = required_fields - set(df.index)
         if missing_fields:
             raise ValueError(f"Missing required fields: {missing_fields}")
-        
-        self.run_id = df["run_id"]
+
+        self.task_id = df["task_id"]
         self.parent_engine_id = df["parent_engine_id"]
         self.start_time = datetime_normalize(df["start_time"])
         self.status = df["status"]
@@ -257,7 +257,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
             dict: 运行摘要
         """
         return {
-            'run_id': self.run_id,
+            'task_id': self.task_id,
             'parent_engine_id': self.parent_engine_id,
             'status': self.status,
             'start_time': self.start_time.isoformat() if self.start_time else None,

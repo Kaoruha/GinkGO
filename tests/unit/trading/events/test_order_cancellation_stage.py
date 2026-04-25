@@ -33,7 +33,7 @@ def _make_order(status=ORDERSTATUS_TYPES.SUBMITTED, volume=100,
     return Order(
         portfolio_id="portfolio-001",
         engine_id="engine-001",
-        run_id="run-001",
+        task_id="run-001",
         code=code,
         direction=DIRECTION_TYPES.LONG,
         order_type=ORDER_TYPES.LIMITORDER,
@@ -134,13 +134,13 @@ class TestOrderCancelEventCreation:
             cancel_reason="Insufficient funds",
             portfolio_id="portfolio-002",
             engine_id="engine-002",
-            run_id="run-002"
+            task_id="run-002"
         )
         assert event.cancelled_quantity == 50
         assert event.cancel_reason == "Insufficient funds"
         assert event.portfolio_id == "portfolio-002"
         assert event.engine_id == "engine-002"
-        assert event.run_id == "run-002"
+        assert event.task_id == "run-002"
         assert event.order_id == order.uuid
 
     def test_cancel_reason_classification(self):
@@ -199,11 +199,11 @@ class TestBrokerCancellationProcessing:
             cancelled_quantity=100,
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert event.portfolio_id == "portfolio-001"
         assert event.engine_id == "engine-001"
-        assert event.run_id == "run-001"
+        assert event.task_id == "run-001"
         assert isinstance(event.uuid, str)
         assert len(event.uuid) > 0
 
@@ -368,11 +368,11 @@ class TestCapitalUnfreezing:
             cancel_reason="Risk management",
             portfolio_id="portfolio-audit-001",
             engine_id="engine-audit-001",
-            run_id="run-audit-001"
+            task_id="run-audit-001"
         )
         assert event.portfolio_id == "portfolio-audit-001"
         assert event.engine_id == "engine-audit-001"
-        assert event.run_id == "run-audit-001"
+        assert event.task_id == "run-audit-001"
         assert event.timestamp == ts
         assert event.cancel_reason == "Risk management"
 

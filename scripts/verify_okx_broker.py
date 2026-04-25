@@ -193,7 +193,7 @@ class OKXBrokerVerifier:
             order=test_order,
             portfolio_id="test_portfolio",
             engine_id="verify_engine",
-            run_id="verify_run"
+            task_id="verify_run"
         )
 
         result = self.broker.submit_order_event(event)

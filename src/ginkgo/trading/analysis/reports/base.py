@@ -39,7 +39,7 @@ class AnalysisReport:
     - position_analysis: position 数据的计数统计
 
     Args:
-        run_id: 回测运行标识
+        task_id: 回测运行标识
         registry: 指标注册中心
         data: 数据容器
 
@@ -49,7 +49,7 @@ class AnalysisReport:
 
     def __init__(
         self,
-        run_id: str,
+        task_id: str,
         registry: MetricRegistry,
         data: DataProvider,
     ):
@@ -57,7 +57,7 @@ class AnalysisReport:
         if len(data.available) == 0:
             raise ValueError("DataProvider 中无任何可用数据")
 
-        self.run_id = run_id
+        self.task_id = task_id
         self._data = data
         self._registry = registry
 
@@ -144,7 +144,7 @@ class AnalysisReport:
             包含所有 section 的字典
         """
         return {
-            "run_id": self.run_id,
+            "task_id": self.task_id,
             "analyzer_summary": {
                 k: dict(v) for k, v in self.analyzer_summary.items()
             },
@@ -199,7 +199,7 @@ class AnalysisReport:
         Returns:
             Rich Table 实例，包含各分区的指标和值
         """
-        table = Table(title=f"Analysis Report — {self.run_id}")
+        table = Table(title=f"Analysis Report — {self.task_id}")
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="green")
 

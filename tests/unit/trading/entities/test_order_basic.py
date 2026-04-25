@@ -30,7 +30,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.SHORT,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -55,7 +55,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -76,7 +76,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -94,7 +94,7 @@ class TestOrderConstruction:
         order1 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -106,7 +106,7 @@ class TestOrderConstruction:
         order2 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -124,7 +124,7 @@ class TestOrderConstruction:
         order3 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,

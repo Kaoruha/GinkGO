@@ -24,18 +24,18 @@ from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from datetime import datetime
 
 
-def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", run_id="test_run"):
-    """Set mock context so that engine_id/portfolio_id/run_id are available."""
+def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", task_id="test_run"):
+    """Set mock context so that engine_id/portfolio_id/task_id are available."""
     ctx = MagicMock()
     ctx.engine_id = engine_id
     ctx.portfolio_id = portfolio_id
-    ctx.run_id = run_id
+    ctx.task_id = task_id
     obj._context = ctx
 
 
 def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG):
     return Signal(
-        portfolio_id='test_portfolio', engine_id='test_engine', run_id='test_run',
+        portfolio_id='test_portfolio', engine_id='test_engine', task_id='test_run',
         timestamp=datetime.now(), code=code, direction=direction
     )
 
@@ -57,7 +57,7 @@ class TestBaseSizerConstruction:
         # 验证继承自ContextMixin的属性
         assert getattr(sizer, 'engine_id', None) is None
         assert getattr(sizer, 'portfolio_id', None) is None
-        assert getattr(sizer, 'run_id', None) is None
+        assert getattr(sizer, 'task_id', None) is None
 
     def test_custom_name_constructor(self):
         """测试自定义名称构造"""
@@ -78,13 +78,13 @@ class TestBaseSizerConstruction:
         # 验证ID管理属性 (None when no context)
         assert sizer.engine_id is None
         assert sizer.portfolio_id is None
-        assert sizer.run_id is None
+        assert sizer.task_id is None
 
         # 验证设置context后ID可用
         _set_context(sizer)
         assert sizer.engine_id == "test_engine"
         assert sizer.portfolio_id == "test_portfolio"
-        assert sizer.run_id == "test_run"
+        assert sizer.task_id == "test_run"
 
 
 @pytest.mark.unit
@@ -194,7 +194,7 @@ class TestCalMethod:
                 # 可以返回Order对象
                 return Order(portfolio_id=signal.portfolio_id,
                            engine_id=signal.engine_id,
-                           run_id=signal.run_id,
+                           task_id=signal.task_id,
                            code=signal.code,
                            direction=signal.direction,
                            order_type=ORDER_TYPES.LIMITORDER,
@@ -239,7 +239,7 @@ class TestSizerExtensibility:
                 # 自定义仓位计算逻辑：固定数量
                 return Order(portfolio_id=signal.portfolio_id,
                            engine_id=signal.engine_id,
-                           run_id=signal.run_id,
+                           task_id=signal.task_id,
                            code=signal.code,
                            direction=signal.direction,
                            order_type=ORDER_TYPES.LIMITORDER,
@@ -280,7 +280,7 @@ class TestSizerExtensibility:
                 if signal.direction == DIRECTION_TYPES.SHORT:
                     return Order(portfolio_id=signal.portfolio_id,
                                engine_id=signal.engine_id,
-                               run_id=signal.run_id,
+                               task_id=signal.task_id,
                                code=signal.code,
                                direction=signal.direction,
                                order_type=ORDER_TYPES.LIMITORDER,
@@ -296,7 +296,7 @@ class TestSizerExtensibility:
                 # 返回固定数量的Order
                 return Order(portfolio_id=signal.portfolio_id,
                            engine_id=signal.engine_id,
-                           run_id=signal.run_id,
+                           task_id=signal.task_id,
                            code=signal.code,
                            direction=signal.direction,
                            order_type=ORDER_TYPES.LIMITORDER,
@@ -345,18 +345,18 @@ class TestSizerExtensibility:
         # 验证子类有context属性
         assert getattr(test_sizer, 'engine_id', None) is None
         assert getattr(test_sizer, 'portfolio_id', None) is None
-        assert getattr(test_sizer, 'run_id', None) is None
+        assert getattr(test_sizer, 'task_id', None) is None
 
-        # 验证子类可以接收engine_id/portfolio_id/run_id注入 via context
+        # 验证子类可以接收engine_id/portfolio_id/task_id注入 via context
         _set_context(test_sizer,
                      engine_id="test_engine_001",
                      portfolio_id="test_portfolio_001",
-                     run_id="test_run_001")
+                     task_id="test_run_001")
 
         # 验证ID正确设置
         assert test_sizer.engine_id == "test_engine_001"
         assert test_sizer.portfolio_id == "test_portfolio_001"
-        assert test_sizer.run_id == "test_run_001"
+        assert test_sizer.task_id == "test_run_001"
 
     def test_sizer_polymorphism(self):
         """测试仓位管理器多态性"""
@@ -369,7 +369,7 @@ class TestSizerExtensibility:
                 # 保守策略：小仓位
                 return Order(portfolio_id=signal.portfolio_id,
                            engine_id=signal.engine_id,
-                           run_id=signal.run_id,
+                           task_id=signal.task_id,
                            code=signal.code,
                            direction=signal.direction,
                            order_type=ORDER_TYPES.LIMITORDER,
@@ -385,7 +385,7 @@ class TestSizerExtensibility:
                 # 激进策略：大仓位
                 return Order(portfolio_id=signal.portfolio_id,
                            engine_id=signal.engine_id,
-                           run_id=signal.run_id,
+                           task_id=signal.task_id,
                            code=signal.code,
                            direction=signal.direction,
                            order_type=ORDER_TYPES.LIMITORDER,

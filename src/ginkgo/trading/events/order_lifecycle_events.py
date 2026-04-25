@@ -45,7 +45,7 @@ class EventOrderAck(EventBase):
                  broker_order_id: str = "",
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
-                 run_id: Optional[str] = None,
+                 task_id: Optional[str] = None,
                  *args, **kwargs):
         super().__init__(name="OrderAck", *args, **kwargs)
         self.set_type(EVENT_TYPES.ORDERACK)
@@ -55,8 +55,8 @@ class EventOrderAck(EventBase):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         self._order = order
         self._broker_order_id = broker_order_id
@@ -118,7 +118,7 @@ class EventOrderPartiallyFilled(EventOrderRelated):
                  commission: Optional[Decimal] = None,
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
-                 run_id: Optional[str] = None,
+                 task_id: Optional[str] = None,
                  *args, **kwargs):
         # 调用EventOrderRelated构造函数，自动设置payload = order
         super().__init__(order=order, name="OrderPartiallyFilled", *args, **kwargs)
@@ -129,8 +129,8 @@ class EventOrderPartiallyFilled(EventOrderRelated):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         # 部分成交特有信息
         self._filled_quantity = float(filled_quantity)
@@ -207,7 +207,7 @@ class EventOrderRejected(EventBase):
                  reject_code: Optional[str] = None,
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
-                 run_id: Optional[str] = None,
+                 task_id: Optional[str] = None,
                  *args, **kwargs):
         super().__init__(name="OrderRejected", *args, **kwargs)
         self.set_type(EVENT_TYPES.ORDERREJECTED)
@@ -217,8 +217,8 @@ class EventOrderRejected(EventBase):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         self._order = order
         self._reject_reason = reject_reason
@@ -270,7 +270,7 @@ class EventOrderExpired(EventBase):
                  expire_reason: str = "Time expired",
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
-                 run_id: Optional[str] = None,
+                 task_id: Optional[str] = None,
                  *args, **kwargs):
         super().__init__(name="OrderExpired", *args, **kwargs)
         self.set_type(EVENT_TYPES.ORDEREXPIRED)
@@ -280,8 +280,8 @@ class EventOrderExpired(EventBase):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         self._order = order
         self._expire_reason = expire_reason
@@ -335,7 +335,7 @@ class EventOrderCancelAck(EventBase):
                  cancel_reason: str = "User cancelled",
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
-                 run_id: Optional[str] = None,
+                 task_id: Optional[str] = None,
                  *args, **kwargs):
         super().__init__(name="OrderCancelAck", *args, **kwargs)
         self.set_type(EVENT_TYPES.ORDERCANCELACK)
@@ -345,8 +345,8 @@ class EventOrderCancelAck(EventBase):
             self.portfolio_id = portfolio_id
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         self._order = order
         self._cancelled_quantity = float(cancelled_quantity)

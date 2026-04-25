@@ -215,7 +215,7 @@ def mock_engine():
             import time
             self._name = "MockEngine"
             self._engine_id = f"engine_{uuid.uuid4().hex[:12]}"
-            self._run_id = None
+            self._task_id = None
             self._status = ENGINESTATUS_TYPES.VOID
             self._state = ENGINESTATUS_TYPES.VOID
             self._is_active_flag = False
@@ -236,8 +236,8 @@ def mock_engine():
             return self._engine_id
 
         @property
-        def run_id(self):
-            return self._run_id
+        def task_id(self):
+            return self._task_id
 
         @property
         def status(self):
@@ -281,7 +281,7 @@ def mock_engine():
             self._state = ENGINESTATUS_TYPES.RUNNING
             self._is_active_flag = True
             import time
-            self._run_id = f"run_{int(time.time())}"
+            self._task_id = f"run_{int(time.time())}"
             return True
 
         def pause(self):
@@ -296,7 +296,7 @@ def mock_engine():
                 return False
             self._state = ENGINESTATUS_TYPES.STOPPED
             self._is_active_flag = False
-            self._run_id = None
+            self._task_id = None
             return True
 
         def put(self, event):
@@ -329,7 +329,7 @@ def mock_engine():
             return {
                 "name": self.name,
                 "engine_id": self.engine_id,
-                "run_id": self.run_id,
+                "task_id": self.task_id,
                 "status": self.status,
                 "is_active": self.is_active,
                 "run_sequence": self.run_sequence,
@@ -349,7 +349,7 @@ def mock_event_base():
             self.event_type = kwargs.get('event_type', 'MockEvent')
             self.timestamp = kwargs.get('timestamp', datetime.now())
             self.code = kwargs.get('code', 'DEFAULT')
-            self.run_id = kwargs.get('run_id', 'test_run')
+            self.task_id = kwargs.get('task_id', 'test_run')
 
     return MockBaseEvent
 

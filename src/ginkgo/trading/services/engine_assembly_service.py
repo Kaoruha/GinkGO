@@ -77,7 +77,7 @@ class EngineAssemblyService(BaseService):
 
         # 装配上下文 - 用于ID注入
         self._current_engine_id = None
-        self._current_run_id = None
+        self._current_task_id = None
 
         # 配置管理器已统一使用GCONF
         self.config_manager = config_manager
@@ -104,12 +104,12 @@ class EngineAssemblyService(BaseService):
         """获取当前装配上下文中的引擎ID"""
         return self._current_engine_id or ""
 
-    def _get_current_run_id(self) -> str:
+    def _get_current_task_id(self) -> str:
         """获取当前装配上下文中的运行ID"""
-        return self._current_run_id or ""
+        return self._current_task_id or ""
 
     def _inject_ids_to_components(
-        self, components: Dict[str, Any], engine_id: str, portfolio_id: str, run_id: str
+        self, components: Dict[str, Any], engine_id: str, portfolio_id: str, task_id: str
     ) -> None:
         """统一为所有组件注入运行时ID"""
         injected_count = 0
@@ -119,7 +119,7 @@ class EngineAssemblyService(BaseService):
             for component in component_list:
                 total_count += 1
                 if hasattr(component, "set_backtest_ids"):
-                    component.set_backtest_ids(engine_id=engine_id, portfolio_id=portfolio_id, run_id=run_id)
+                    component.set_backtest_ids(engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id)
                     injected_count += 1
                     self._logger.DEBUG(f"✅ Injected IDs to {component_type}: {component.__class__.__name__}")
                 else:
@@ -127,10 +127,10 @@ class EngineAssemblyService(BaseService):
 
         self._logger.INFO(f"ID injection completed: {injected_count}/{total_count} components updated")
 
-    def _inject_ids_to_single_component(self, component: Any, engine_id: str, portfolio_id: str, run_id: str) -> bool:
+    def _inject_ids_to_single_component(self, component: Any, engine_id: str, portfolio_id: str, task_id: str) -> bool:
         """为单个组件注入运行时ID"""
         if hasattr(component, "set_backtest_ids"):
-            component.set_backtest_ids(engine_id=engine_id, portfolio_id=portfolio_id, run_id=run_id)
+            component.set_backtest_ids(engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id)
             self._logger.DEBUG(f"✅ Injected IDs to component: {component.__class__.__name__}")
             return True
         else:
@@ -289,11 +289,11 @@ class EngineAssemblyService(BaseService):
         """
         # 设置装配上下文
         self._current_engine_id = engine_id
-        self._current_run_id = engine_data.get("run_id", engine_id)
+        self._current_task_id = engine_data.get("task_id", engine_id)
 
         try:
             self._logger.INFO(
-                f"🔧 Starting engine assembly with context: engine_id={self._current_engine_id}, run_id={self._current_run_id}"
+                f"🔧 Starting engine assembly with context: engine_id={self._current_engine_id}, task_id={self._current_task_id}"
             )
 
             # Create base engine (委托到 InfrastructureFactory)
@@ -372,7 +372,7 @@ class EngineAssemblyService(BaseService):
         finally:
             # 清理装配上下文
             self._current_engine_id = None
-            self._current_run_id = None
+            self._current_task_id = None
 
     # ========== Portfolio 绑定方法（编排多个子模块） ==========
 
@@ -383,10 +383,10 @@ class EngineAssemblyService(BaseService):
         try:
             portfolio_id = portfolio_config["uuid"]
             engine_id = self._get_current_engine_id()
-            run_id = self._get_current_run_id()
+            task_id = self._get_current_task_id()
 
             self._logger.INFO(
-                f"🔧 Binding portfolio {portfolio_id} with ID context: engine_id={engine_id}, run_id={run_id}"
+                f"🔧 Binding portfolio {portfolio_id} with ID context: engine_id={engine_id}, task_id={task_id}"
             )
 
             # Create portfolio instance (引擎使用自身的时间配置)
@@ -395,10 +395,10 @@ class EngineAssemblyService(BaseService):
                 return False
 
             # 为Portfolio注入ID（如果Portfolio支持BacktestBase）
-            self._inject_ids_to_single_component(portfolio, engine_id, portfolio_id, run_id)
+            self._inject_ids_to_single_component(portfolio, engine_id, portfolio_id, task_id)
 
             # 🔥 延迟查找设计：先绑定组件到Portfolio，此时Portfolio还没有context
-            # 但组件会在调用 run_id 等属性时，通过 _bound_portfolio 延迟查找获取
+            # 但组件会在调用 task_id 等属性时，通过 _bound_portfolio 延迟查找获取
             GLOG.DEBUG(f"[BIND PORTFOLIO] Calling _bind_components_to_portfolio_with_ids for {portfolio_id}")
             success = self._bind_components_to_portfolio_with_ids(portfolio, components, logger)
             GLOG.DEBUG(f"[BIND PORTFOLIO] _bind_components_to_portfolio_with_ids returned: {success}")
@@ -407,20 +407,20 @@ class EngineAssemblyService(BaseService):
                 return False
 
             # 然后绑定Portfolio到Engine，Portfolio获得context
-            # 组件后续通过 _bound_portfolio 延迟查找即可获取到 run_id
+            # 组件后续通过 _bound_portfolio 延迟查找即可获取到 task_id
             GLOG.DEBUG(f"[BIND PORTFOLIO] About to call _register_portfolio_with_engine for {portfolio_id}")
             self._register_portfolio_with_engine(engine, portfolio)
             GLOG.DEBUG(f"[BIND PORTFOLIO] _register_portfolio_with_engine completed for {portfolio_id}")
 
             # 调试：验证 Portfolio 绑定后的 context
             if hasattr(portfolio, '_context') and portfolio._context:
-                self._logger.INFO(f"🔍 [CONTEXT CHECK] Portfolio._context.run_id = {portfolio._context.run_id}")
+                self._logger.INFO(f"🔍 [CONTEXT CHECK] Portfolio._context.task_id = {portfolio._context.task_id}")
                 self._logger.INFO(f"🔍 [CONTEXT CHECK] Portfolio._context.engine_id = {portfolio._context.engine_id}")
-                # 检查 analyzers 的 run_id
+                # 检查 analyzers 的 task_id
                 if hasattr(portfolio, '_analyzers'):
                     for name, analyzer in portfolio._analyzers.items():
-                        analyzer_run_id = analyzer.run_id if hasattr(analyzer, 'run_id') else 'N/A'
-                        self._logger.INFO(f"🔍 [CONTEXT CHECK] Analyzer {name}.run_id = {analyzer_run_id}")
+                        analyzer_task_id = analyzer.task_id if hasattr(analyzer, 'task_id') else 'N/A'
+                        self._logger.INFO(f"🔍 [CONTEXT CHECK] Analyzer {name}.task_id = {analyzer_task_id}")
             else:
                 self._logger.WARN(f"⚠️ Portfolio has no _context after binding to engine!")
 

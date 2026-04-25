@@ -2,10 +2,12 @@
 # Downstream: 各CRUD/Service/Strategy (被装饰的函数)
 # Role: 通用装饰器(time_logger/retry/cache_with_expiration/skip_if_ran)
 
+import json
 import time
 import math
 import threading
 from collections import OrderedDict
+from typing import Any, List
 
 from functools import wraps
 from rich.console import Console
@@ -14,6 +16,26 @@ from ginkgo.libs.core.config import GinkgoConfig
 
 console = Console()
 _gconf = GinkgoConfig()
+
+
+def ensure_list(val: Any) -> List[str]:
+    """将任意值统一转为 list[str]，供组件构造函数兜底使用。
+
+    支持：list、JSON字符串、逗号分隔字符串、单个值。
+    """
+    if isinstance(val, list):
+        return [str(v) for v in val]
+    if isinstance(val, str):
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, list):
+                return [str(v) for v in parsed]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return [s.strip() for s in val.split(',') if s.strip()]
+    if val is None:
+        return []
+    return [str(val)]
 
 
 def try_wait_counter(try_time: int = 0, min: int = 0.1, max: int = 30) -> int:

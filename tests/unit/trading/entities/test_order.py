@@ -31,7 +31,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.SHORT,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -56,7 +56,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -77,7 +77,7 @@ class TestOrderConstruction:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -95,7 +95,7 @@ class TestOrderConstruction:
         order1 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -107,7 +107,7 @@ class TestOrderConstruction:
         order2 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -125,7 +125,7 @@ class TestOrderConstruction:
         order3 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -149,7 +149,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id=123,  # 应该是str不是int
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -164,7 +164,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="",  # 空字符串应该失败
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -181,7 +181,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id=456,  # 应该是str不是int
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -196,7 +196,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="",  # 空字符串应该失败
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -206,14 +206,14 @@ class TestOrderProperties:
                 timestamp="2023-01-01 10:00:00"
             )
 
-    def test_run_id_type_validation(self):
-        """测试run_id类型验证"""
-        # 测试run_id必须是str类型
+    def test_task_id_type_validation(self):
+        """测试task_id类型验证"""
+        # 测试task_id必须是str类型
         with pytest.raises(Exception):
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id=789,  # 应该是str不是int
+                task_id=789,  # 应该是str不是int
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -223,12 +223,12 @@ class TestOrderProperties:
                 timestamp="2023-01-01 10:00:00"
             )
 
-        # 测试run_id不能为空字符串
+        # 测试task_id不能为空字符串
         with pytest.raises(Exception):
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="",  # 空字符串应该失败
+                task_id="",  # 空字符串应该失败
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -245,7 +245,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code=123456,  # 应该是str不是int
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -260,7 +260,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="",  # 空字符串应该失败
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -283,7 +283,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -298,7 +298,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -312,7 +312,7 @@ class TestOrderProperties:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -330,7 +330,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -344,7 +344,7 @@ class TestOrderProperties:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -361,7 +361,7 @@ class TestOrderProperties:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -378,7 +378,7 @@ class TestOrderProperties:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -404,7 +404,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -419,7 +419,7 @@ class TestOrderDataSetting:
             order.set(
                 portfolio_id=123,  # 错误类型
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -433,7 +433,7 @@ class TestOrderDataSetting:
             order.set(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction="invalid_direction",  # 错误类型
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -450,7 +450,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -464,7 +464,7 @@ class TestOrderDataSetting:
         test_data = pd.Series({
             'portfolio_id': 'SERIES_PORTFOLIO',
             'engine_id': 'SERIES_ENGINE',
-            'run_id': 'SERIES_RUN',
+            'task_id': 'SERIES_RUN',
             'code': '000002.SZ',
             'direction': DIRECTION_TYPES.SHORT.value,
             'order_type': ORDER_TYPES.LIMITORDER.value,
@@ -496,7 +496,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -524,7 +524,7 @@ class TestOrderDataSetting:
         series_data = pd.Series({
             'portfolio_id': 'SERIES_PORTFOLIO',
             'engine_id': 'SERIES_ENGINE',
-            'run_id': 'SERIES_RUN',
+            'task_id': 'SERIES_RUN',
             'code': 'SERIES_CODE',
             'direction': DIRECTION_TYPES.SHORT.value,
             'order_type': ORDER_TYPES.LIMITORDER.value,
@@ -539,7 +539,7 @@ class TestOrderDataSetting:
         df_data = pd.DataFrame([{
             'portfolio_id': 'DF_PORTFOLIO',
             'engine_id': 'DF_ENGINE',
-            'run_id': 'DF_RUN',
+            'task_id': 'DF_RUN',
             'code': 'DF_CODE',
             'direction': DIRECTION_TYPES.LONG.value,
             'order_type': ORDER_TYPES.MARKETORDER.value,
@@ -558,7 +558,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -597,7 +597,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -658,7 +658,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -695,7 +695,7 @@ class TestOrderDataSetting:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -772,7 +772,7 @@ class TestOrderStatusManagement:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -787,7 +787,7 @@ class TestOrderStatusManagement:
         order_submitted = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -803,7 +803,7 @@ class TestOrderStatusManagement:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,  # 使用限价单以便测试fill
@@ -825,7 +825,7 @@ class TestOrderStatusManagement:
         order_cancel = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -844,7 +844,7 @@ class TestOrderStatusManagement:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -869,7 +869,7 @@ class TestOrderStatusManagement:
         new_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -885,7 +885,7 @@ class TestOrderStatusManagement:
         submitted_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,  # 使用限价单
@@ -901,7 +901,7 @@ class TestOrderStatusManagement:
         cancel_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -920,7 +920,7 @@ class TestOrderStatusManagement:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -936,7 +936,7 @@ class TestOrderStatusManagement:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -951,7 +951,7 @@ class TestOrderStatusManagement:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -973,7 +973,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1003,7 +1003,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1029,7 +1029,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1067,7 +1067,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1099,7 +1099,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1136,7 +1136,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1175,7 +1175,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1211,7 +1211,7 @@ class TestOrderTradeExecution:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1241,7 +1241,7 @@ class TestOrderTradeExecution:
         order2 = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1268,7 +1268,7 @@ class TestOrderPriceVolumeValidation:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1284,7 +1284,7 @@ class TestOrderPriceVolumeValidation:
         zero_price_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1299,7 +1299,7 @@ class TestOrderPriceVolumeValidation:
         negative_price_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1315,7 +1315,7 @@ class TestOrderPriceVolumeValidation:
         precise_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1336,7 +1336,7 @@ class TestOrderPriceVolumeValidation:
         normal_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1354,7 +1354,7 @@ class TestOrderPriceVolumeValidation:
             lot_order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1371,7 +1371,7 @@ class TestOrderPriceVolumeValidation:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1386,7 +1386,7 @@ class TestOrderPriceVolumeValidation:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1405,7 +1405,7 @@ class TestOrderPriceVolumeValidation:
         buy_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1424,7 +1424,7 @@ class TestOrderPriceVolumeValidation:
         sell_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.SHORT,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1467,7 +1467,7 @@ class TestOrderPriceVolumeValidation:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1480,7 +1480,7 @@ class TestOrderPriceVolumeValidation:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1497,7 +1497,7 @@ class TestOrderPriceVolumeValidation:
         future_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1520,7 +1520,7 @@ class TestOrderPriceVolumeValidation:
         market_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1536,7 +1536,7 @@ class TestOrderPriceVolumeValidation:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1550,7 +1550,7 @@ class TestOrderPriceVolumeValidation:
         zero_frozen_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1584,7 +1584,7 @@ class TestOrderPriceVolumeValidation:
         filled_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1608,7 +1608,7 @@ class TestOrderPriceVolumeValidation:
         canceled_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1632,7 +1632,7 @@ class TestOrderPriceVolumeValidation:
         high_precision_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1673,7 +1673,7 @@ class TestOrderPriceVolumeValidation:
         negative_price_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1693,7 +1693,7 @@ class TestOrderPriceVolumeValidation:
         consistent_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1729,7 +1729,7 @@ class TestOrderPriceVolumeValidation:
         future_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -1751,7 +1751,7 @@ class TestOrderPriceVolumeValidation:
         market_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1780,7 +1780,7 @@ class TestOrderEnumConstraints:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=direction,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1795,7 +1795,7 @@ class TestOrderEnumConstraints:
         long_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG.value,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1811,7 +1811,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=None,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1825,7 +1825,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction="INVALID",
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1841,7 +1841,7 @@ class TestOrderEnumConstraints:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=order_type,
@@ -1856,7 +1856,7 @@ class TestOrderEnumConstraints:
         market_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER.value,
@@ -1872,7 +1872,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=None,
@@ -1896,7 +1896,7 @@ class TestOrderEnumConstraints:
             order = Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1911,7 +1911,7 @@ class TestOrderEnumConstraints:
         new_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1927,7 +1927,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -1942,7 +1942,7 @@ class TestOrderEnumConstraints:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -1987,7 +1987,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=999,  # 无效枚举值
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -2001,7 +2001,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=888,  # 无效枚举值
@@ -2015,7 +2015,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -2029,7 +2029,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction="INVALID_STRING",
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -2043,7 +2043,7 @@ class TestOrderEnumConstraints:
             Order(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=1.5,  # 浮点数不被接受
                 order_type=ORDER_TYPES.MARKETORDER,
@@ -2058,7 +2058,7 @@ class TestOrderEnumConstraints:
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -2083,7 +2083,7 @@ class TestOrderEnumConstraints:
         int_order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG.value,
             order_type=ORDER_TYPES.LIMITORDER.value,

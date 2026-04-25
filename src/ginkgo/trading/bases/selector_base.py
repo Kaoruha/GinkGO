@@ -28,7 +28,7 @@ class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Bas
 
     组合时间、上下文和名称管理能力，为所有选股组件提供基础功能：
     - 时间戳管理 (timestamp, business_timestamp)
-    - 上下文管理 (engine_id, run_id, portfolio_id)
+    - 上下文管理 (engine_id, task_id, portfolio_id)
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
@@ -93,6 +93,9 @@ class SelectorBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Bas
         try:
             # 获取当前选中的标的
             selected_codes = self.pick(time)
+
+            # 统一转大写，确保与数据库中的股票代码格式一致
+            selected_codes = [code.upper() for code in selected_codes]
 
             # 直接通过引擎推送事件
             # 导入事件类（避免循环依赖）

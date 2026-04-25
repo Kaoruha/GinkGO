@@ -49,10 +49,6 @@ class AnnualizedReturn(BaseAnalyzer):
 
         self.add_data(annualized_return)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录年化收益率到数据库"""
-        self.add_record()
-
     @property
     def current_annualized_return(self) -> float:
         """当前年化收益率（只读属性）"""

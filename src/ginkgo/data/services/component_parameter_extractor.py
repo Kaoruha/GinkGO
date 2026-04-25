@@ -1,6 +1,6 @@
-# Upstream: ParameterMetadataService, Web UI(参数展示), API层
+# Upstream: Web UI(参数展示), API层, ComponentLoader(组件实例化)
 # Downstream: ast, inspect, FileCRUD(获取文件内容), GLOG
-# Role: 动态组件参数提取器，通过AST分析组件源码获取构造函数参数名，支持缓存和数据库内容回退
+# Role: 动态组件参数提取器，通过AST分析组件源码获取构造函数参数名和默认值，支持缓存和数据库内容回退
 
 
 
@@ -201,7 +201,7 @@ class ComponentParameterExtractor:
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
                 if (inspect.isclass(attr) and
-                    attr_name.lower().replace('_', '') in component_name.lower().replace('_', '')):
+                    component_name.lower().replace('_', '') in attr_name.lower().replace('_', '')):
                     component_class = attr
                     break
 
@@ -226,11 +226,10 @@ class ComponentParameterExtractor:
             param_index = 0
 
             for param_name, param in init_signature.parameters.items():
-                # 跳过self, args, kwargs
+                # 跳过self, args, kwargs（name保留，确保索引与构造函数位置一致）
                 if param_name in ['self', 'args', 'kwargs']:
                     continue
 
-                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = param_name
                 param_index += 1
 
@@ -278,11 +277,10 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self, args, kwargs
+                # 跳过self, args, kwargs（name保留）
                 if arg_name in ['self', 'args', 'kwargs']:
                     continue
 
-                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = arg_name
                 param_index += 1
 
@@ -333,11 +331,10 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self, args, kwargs
+                # 跳过self, args, kwargs（name保留）
                 if arg_name in ['self', 'args', 'kwargs']:
                     continue
 
-                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = arg_name
                 param_index += 1
 
@@ -354,9 +351,138 @@ class ComponentParameterExtractor:
         param_mapping = self.extract_component_parameters(component_name, file_content, component_type, file_id)
         return param_mapping.get(param_index, f"param_{param_index}")
 
+    def extract_component_parameter_defaults(self, component_name: str, file_content: str = None,
+                                              component_type: str = None, file_id: str = None) -> Dict[str, Any]:
+        """提取组件的构造函数参数及默认值
+
+        Returns:
+            Dict[str, Any]: 参数名到默认值的映射，如 {"volume": "150", "max_position_ratio": 0.2}
+        """
+        # 优先使用提供的文件内容
+        if file_content:
+            return self._extract_defaults_from_content(file_content, component_name) or {}
+
+        # 从数据库获取内容
+        if file_id:
+            try:
+                from ginkgo.data.containers import container
+                file_service = container.file_service()
+                result = file_service.get_by_uuid(file_id)
+                if result.success and result.data:
+                    file_info = result.data
+                    db_content = None
+                    if isinstance(file_info, dict) and 'file' in file_info:
+                        mfile = file_info['file']
+                        if hasattr(mfile, 'data') and mfile.data:
+                            db_content = mfile.data
+                    elif hasattr(file_info, 'data') and file_info.data:
+                        db_content = file_info.data
+                    if db_content:
+                        content_str = db_content.decode('utf-8', errors='ignore') if isinstance(db_content, bytes) else str(db_content)
+                        return self._extract_defaults_from_content(content_str, component_name) or {}
+            except Exception as e:
+                GLOG.DEBUG(f"从数据库获取文件内容失败 {file_id}: {e}")
+
+        # 回退到本地文件系统
+        file_path = self._find_component_file(component_name, component_type)
+        if file_path and os.path.exists(file_path):
+            return self._extract_defaults_from_file(file_path, component_name) or {}
+
+        return {}
+
+    def _extract_defaults_from_content(self, content: str, component_name: str) -> Optional[Dict[str, Any]]:
+        try:
+            tree = ast.parse(content)
+            component_class = self._find_component_class(tree, component_name)
+            if not component_class:
+                return None
+            init_method = self._find_init_method(component_class)
+            if not init_method:
+                return None
+            return self._parse_defaults(init_method)
+        except Exception as e:
+            GLOG.DEBUG(f"提取默认值失败 {component_name}: {e}")
+            return None
+
+    def _extract_defaults_from_file(self, file_path: str, component_name: str) -> Optional[Dict[str, Any]]:
+        try:
+            tree = ast.parse(Path(file_path).read_text(encoding='utf-8'))
+            component_class = self._find_component_class(tree, component_name)
+            if not component_class:
+                return None
+            init_method = self._find_init_method(component_class)
+            if not init_method:
+                return None
+            return self._parse_defaults(init_method)
+        except Exception as e:
+            GLOG.ERROR(f"从文件提取默认值失败 {file_path}: {e}")
+            return None
+
+    @staticmethod
+    def _find_component_class(tree: ast.AST, component_name: str) -> Optional[ast.ClassDef]:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name.lower()
+                if (component_name.lower() in class_name or
+                    any(kw in class_name for kw in ['strategy', 'selector', 'sizer', 'risk', 'analyzer'])):
+                    return node
+        return None
+
+    @staticmethod
+    def _find_init_method(class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
+        for node in class_node.body:
+            if isinstance(node, ast.FunctionDef) and node.name == '__init__':
+                return node
+        return None
+
+    @staticmethod
+    def _parse_defaults(init_method: ast.FunctionDef) -> Dict[str, Any]:
+        """从 __init__ 方法提取参数名和默认值"""
+        args = init_method.args.args
+        defaults = init_method.args.defaults
+        # defaults 对齐到 args 末尾
+        n_defaults = len(defaults)
+        n_args = len(args)
+        default_start = n_args - n_defaults
+
+        result = {}
+        for i, arg in enumerate(args):
+            name = arg.arg
+            if name in ('self', 'args', 'kwargs'):
+                continue
+            default_idx = i - default_start
+            if default_idx >= 0 and default_idx < n_defaults:
+                val = _ast_node_to_value(defaults[default_idx])
+                if val is not _NODEFAULT:
+                    result[name] = val
+        return result
+
     def clear_cache(self):
         """清空缓存"""
         self._component_cache.clear()
+
+
+_NODEFAULT = object()
+
+
+def _ast_node_to_value(node: ast.AST):
+    """将 AST 节点转换为 Python 值"""
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        val = _ast_node_to_value(node.operand)
+        if val is not _NODEFAULT:
+            return -val
+        return _NODEFAULT
+    if isinstance(node, ast.List):
+        vals = [_ast_node_to_value(e) for e in node.elts]
+        return vals if all(v is not _NODEFAULT for v in vals) else _NODEFAULT
+    if isinstance(node, ast.Tuple):
+        vals = tuple(_ast_node_to_value(e) for e in node.elts)
+        return vals if all(v is not _NODEFAULT for v in vals) else _NODEFAULT
+    if isinstance(node, (ast.NameConstant,)):  # Python 3.7 compat
+        return node.value
+    return _NODEFAULT
 
 
 # 全局实例
@@ -373,3 +499,9 @@ def get_component_parameter_name(component_name: str, param_index: int,
                                file_content: str = None, component_type: str = None, file_id: str = None) -> str:
     """便捷函数：获取特定参数的名称"""
     return _component_extractor.get_parameter_info(component_name, param_index, file_content, component_type, file_id)
+
+
+def get_component_parameter_defaults(component_name: str, file_content: str = None,
+                                     component_type: str = None, file_id: str = None) -> Dict[str, Any]:
+    """便捷函数：获取组件参数默认值"""
+    return _component_extractor.extract_component_parameter_defaults(component_name, file_content, component_type, file_id)

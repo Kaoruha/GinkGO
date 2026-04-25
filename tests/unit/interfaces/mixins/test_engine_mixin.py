@@ -28,7 +28,7 @@ def mock_engine_base():
             self.name = "TestEngine"
             self.handled_events = []
             self.log_calls = []
-            self.run_id = "test_run"
+            self.task_id = "test_run"
 
         def start(self):
             return True

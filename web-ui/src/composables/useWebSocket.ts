@@ -1,6 +1,6 @@
 /**
  * WebSocket 连接管理
- * 用于接收实时更新通知
+ * 连接后端 /ws/portfolio 端点，token 通过 query param 传递
  */
 import { ref, onMounted, onUnmounted } from 'vue'
 
@@ -9,64 +9,79 @@ type MessageHandler = (data: any) => void
 const ws = ref<WebSocket | null>(null)
 const isConnected = ref(false)
 const handlers = new Map<string, Set<MessageHandler>>()
+const pendingTopics = new Set<string>()
+
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let retryCount = 0
+const MAX_RETRIES = 3
 
 function getWebSocketUrl(): string {
-  // 使用当前页面的 host 构建 WebSocket URL
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.host
-  // 如果是前端开发服务器 (5173)，使用后端端口 8000
-  const wsHost = host.includes(':5173') ? host.replace(':5173', ':8000') : host
-  return `${protocol}//${wsHost}/ws`
+  const token = localStorage.getItem('access_token')
+  let url = `${protocol}//${window.location.host}/ws/portfolio`
+  if (token) url += `?token=${encodeURIComponent(token)}`
+  return url
+}
+
+function sendSubscribe(topic: string) {
+  if (ws.value?.readyState === WebSocket.OPEN) {
+    ws.value.send(JSON.stringify({ type: 'subscribe', topic }))
+  } else {
+    pendingTopics.add(topic)
+  }
 }
 
 function connect(url?: string) {
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    return
-  }
+  if (ws.value?.readyState === WebSocket.OPEN) return
 
   const wsUrl = url || getWebSocketUrl()
-  console.log('[WS] Connecting to', wsUrl)
   ws.value = new WebSocket(wsUrl)
 
   ws.value.onopen = () => {
     isConnected.value = true
-    console.log('[WS] Connected')
+    retryCount = 0
+    for (const topic of pendingTopics) {
+      sendSubscribe(topic)
+    }
+    pendingTopics.clear()
   }
 
-  ws.value.onclose = () => {
+  ws.value.onclose = (event) => {
     isConnected.value = false
-    console.log('[WS] Disconnected')
-    // 5秒后重连
-    setTimeout(() => connect(wsUrl), 5000)
+    // 1008 = auth rejected (policy violation), don't retry
+    if (event.code === 1008) return
+    if (retryCount < MAX_RETRIES) {
+      retryCount++
+      reconnectTimer = setTimeout(() => connect(wsUrl), 5000)
+    }
   }
 
-  ws.value.onerror = (error) => {
-    console.error('[WS] Error:', error)
-  }
+  ws.value.onerror = () => {}
 
   ws.value.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
       const type = data.type
 
-      // 调用对应类型的所有处理器
       const typeHandlers = handlers.get(type)
-      if (typeHandlers) {
-        typeHandlers.forEach(handler => handler(data))
-      }
+      if (typeHandlers) typeHandlers.forEach(h => h(data))
 
-      // 调用通配符处理器
       const wildcardHandlers = handlers.get('*')
-      if (wildcardHandlers) {
-        wildcardHandlers.forEach(handler => handler(data))
+      if (wildcardHandlers) wildcardHandlers.forEach(h => h(data))
+
+      if (data.topic) {
+        const topicHandlers = handlers.get(`topic:${data.topic}`)
+        if (topicHandlers) topicHandlers.forEach(h => h(data))
       }
-    } catch (e) {
-      console.error('[WS] Parse error:', e)
-    }
+    } catch {}
   }
 }
 
 function disconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   if (ws.value) {
     ws.value.close()
     ws.value = null
@@ -79,7 +94,10 @@ function subscribe(eventType: string, handler: MessageHandler) {
   }
   handlers.get(eventType)!.add(handler)
 
-  // 返回取消订阅函数
+  if (eventType.startsWith('topic:')) {
+    sendSubscribe(eventType.slice(6))
+  }
+
   return () => {
     handlers.get(eventType)?.delete(handler)
   }
@@ -87,19 +105,12 @@ function subscribe(eventType: string, handler: MessageHandler) {
 
 export function useWebSocket() {
   onMounted(() => {
-    if (!isConnected.value) {
-      connect()
-    }
+    if (!isConnected.value) connect()
   })
 
   onUnmounted(() => {
-    // 组件卸载时不断开连接，保持全局连接
+    // 保持全局连接
   })
 
-  return {
-    isConnected,
-    subscribe,
-    connect,
-    disconnect,
-  }
+  return { isConnected, subscribe, connect, disconnect }
 }

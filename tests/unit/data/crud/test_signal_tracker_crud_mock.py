@@ -47,14 +47,14 @@ class TestSignalTrackerCRUDFieldConfig:
 
     @pytest.mark.unit
     def test_field_config_has_required_keys(self, signal_tracker_crud):
-        """配置包含 signal_id/strategy_id/portfolio_id/expected_code/expected_direction/expected_price/expected_volume/expected_timestamp/business_timestamp/engine_id/run_id/account_type/execution_mode"""
+        """配置包含 signal_id/strategy_id/portfolio_id/expected_code/expected_direction/expected_price/expected_volume/expected_timestamp/business_timestamp/engine_id/task_id/account_type/execution_mode"""
         config = signal_tracker_crud._get_field_config()
 
         required_keys = {
             "signal_id", "strategy_id", "portfolio_id",
             "expected_code", "expected_direction", "expected_price",
             "expected_volume", "expected_timestamp", "business_timestamp",
-            "engine_id", "run_id", "account_type", "execution_mode",
+            "engine_id", "task_id", "account_type", "execution_mode",
         }
         assert required_keys.issubset(set(config.keys())), \
             f"缺少字段: {required_keys - set(config.keys())}"
@@ -122,7 +122,7 @@ class TestSignalTrackerCRUDCreateFromParams:
             "expected_timestamp": datetime(2024, 1, 15),
             "business_timestamp": datetime(2024, 1, 15),
             "engine_id": "engine-001",
-            "run_id": "run-001",
+            "task_id": "run-001",
         }
 
         model = signal_tracker_crud._create_from_params(**params)

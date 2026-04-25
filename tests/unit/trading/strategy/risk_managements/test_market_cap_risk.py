@@ -19,7 +19,7 @@ from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, EVENT_
 def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
                 limit_price=10.0, order_type=ORDER_TYPES.LIMITORDER):
     return Order(
-        portfolio_id="p", engine_id="e", run_id="r", code=code,
+        portfolio_id="p", engine_id="e", task_id="r", code=code,
         direction=direction, order_type=order_type,
         status=ORDERSTATUS_TYPES.NEW, volume=volume, limit_price=limit_price,
     )

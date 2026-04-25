@@ -156,7 +156,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         expected_volume: int,
         expected_timestamp: datetime.datetime,
         engine_id: Optional[str] = None,
-        run_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         actual_price: Optional[float] = None,
         actual_volume: Optional[int] = None,
         actual_timestamp: Optional[datetime.datetime] = None,
@@ -188,8 +188,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         
         if engine_id is not None:
             self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
+        if task_id is not None:
+            self.task_id = task_id
 
         # 实际执行参数
         if actual_price is not None:

@@ -159,7 +159,7 @@ class TestOrderCreateFromParams:
         model = crud_instance._create_from_params(
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001",
+            task_id="run-001",
             code="600000.SH",
             direction=DIRECTION_TYPES.SHORT,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -176,7 +176,7 @@ class TestOrderCreateFromParams:
         )
 
         assert isinstance(model, MOrder)
-        assert model.run_id == "run-001"
+        assert model.task_id == "run-001"
         assert model.direction == DIRECTION_TYPES.SHORT.value
         assert model.status == ORDERSTATUS_TYPES.FILLED.value
         assert model.source == SOURCE_TYPES.TUSHARE.value

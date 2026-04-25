@@ -63,10 +63,6 @@ class SkewKurtosis(BaseAnalyzer):
         
         self.add_data(skewness)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录偏度到数据库"""
-        self.add_record()
-
     @property
     def current_skewness(self) -> float:
         """当前偏度值（只读属性）"""

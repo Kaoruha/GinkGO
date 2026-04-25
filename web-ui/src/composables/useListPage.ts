@@ -143,11 +143,11 @@ export function useListPage<T, P extends Record<string, any> = Record<string, an
  */
 export const commonSearchFilters = {
   /** 按名称和 UUID 搜索 */
-  byNameAndUuid: <T extends { name?: string; uuid?: string; run_id?: string }>(item: T, keyword: string) => {
+  byNameAndUuid: <T extends { name?: string; uuid?: string; task_id?: string }>(item: T, keyword: string) => {
     return (
       item.name?.toLowerCase().includes(keyword) ||
       item.uuid?.toLowerCase().includes(keyword) ||
-      item.run_id?.toLowerCase().includes(keyword)
+      item.task_id?.toLowerCase().includes(keyword)
     )
   },
 

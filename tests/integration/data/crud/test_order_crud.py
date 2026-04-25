@@ -517,7 +517,7 @@ class TestOrderCRUDDelete:
             test_order = MOrder(
                 portfolio_id="test_portfolio_delete",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="999999.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -608,7 +608,7 @@ class TestOrderCRUDDelete:
                 test_order = MOrder(
                     portfolio_id=f"delete_status_portfolio_{i}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=f"DELETE_STATUS_{i:03d}.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -673,7 +673,7 @@ class TestOrderCRUDDelete:
                 test_order = MOrder(
                     portfolio_id=f"delete_code_portfolio_{i}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=test_code,
                     direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -723,7 +723,7 @@ class TestOrderCRUDDelete:
                 buy_order = MOrder(
                     portfolio_id=f"delete_direction_buy_{i}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=f"DELETE_BUY_{i+1:03d}.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -739,7 +739,7 @@ class TestOrderCRUDDelete:
                 sell_order = MOrder(
                     portfolio_id=f"delete_direction_sell_{i}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=f"DELETE_SELL_{i+1:03d}.SZ",
                     direction=DIRECTION_TYPES.SHORT,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -797,7 +797,7 @@ class TestOrderCRUDDelete:
                 test_order = MOrder(
                     portfolio_id=f"delete_time_portfolio_{i}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=f"DELETE_TIME_{i+1:03d}.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -814,7 +814,7 @@ class TestOrderCRUDDelete:
             outside_order = MOrder(
                 portfolio_id="delete_time_outside",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="DELETE_TIME_OUTSIDE.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -882,7 +882,7 @@ class TestOrderCRUDDelete:
                 test_order = MOrder(
                     portfolio_id=f"cleanup_portfolio_{i:03d}",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code=f"CLEANUP_ORDER_{i+1:03d}.SZ",
                     direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -949,7 +949,7 @@ class TestOrderCRUDBusinessLogic:
             new_order = MOrder(
                 portfolio_id="lifecycle_test",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -1054,7 +1054,7 @@ class TestOrderCRUDBusinessLogic:
                 MOrder(
                     portfolio_id="convert_test_portfolio",
                     engine_id="convert_test_engine",
-                    run_id="convert_test_run",
+                    task_id="convert_test_run",
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     order_type=ORDER_TYPES.LIMITORDER,
@@ -1070,7 +1070,7 @@ class TestOrderCRUDBusinessLogic:
                 MOrder(
                     portfolio_id="convert_test_portfolio",
                     engine_id="convert_test_engine",
-                    run_id="convert_test_run",
+                    task_id="convert_test_run",
                     code="000002.SZ",
                     direction=DIRECTION_TYPES.SHORT,
                     order_type=ORDER_TYPES.MARKETORDER,
@@ -1246,7 +1246,7 @@ class TestOrderCRUDEnumValidation:
         print("\n→ 测试多头方向枚举传参...")
         test_order_long = MOrder(
             engine_id="test_engine_enum",
-            run_id="test_run_enum",
+            task_id="test_run_enum",
             portfolio_id="test_portfolio_enum",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,  # 直接传入枚举对象
@@ -1277,7 +1277,7 @@ class TestOrderCRUDEnumValidation:
         print("\n→ 测试空头方向枚举传参...")
         test_order_short = MOrder(
             engine_id="test_engine_enum",
-            run_id="test_run_enum",
+            task_id="test_run_enum",
             portfolio_id="test_portfolio_enum",
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT,  # 直接传入枚举对象
@@ -1316,7 +1316,7 @@ class TestOrderCRUDEnumValidation:
         for i, status in enumerate(valid_statuses):
             test_order = MOrder(
                 engine_id="test_engine_status",
-                run_id="test_run_status",
+                task_id="test_run_status",
                 portfolio_id="test_portfolio_status",
                 code=f"00000{i+1}.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1373,7 +1373,7 @@ class TestOrderCRUDEnumValidation:
         for i, (order_type, type_name) in enumerate(order_types):
             test_order = MOrder(
                 engine_id="test_engine_type",
-                run_id="test_run_type",
+                task_id="test_run_type",
                 portfolio_id="test_portfolio_type",
                 code=f"60000{i+1}.SH",
                 direction=DIRECTION_TYPES.LONG,
@@ -1436,7 +1436,7 @@ class TestOrderCRUDEnumValidation:
         for i, (direction, order_type, status, desc) in enumerate(enum_combinations):
             test_order = MOrder(
                 engine_id=f"test_engine_comp_{run_tag}",
-                run_id=f"test_run_comp_{run_tag}",
+                task_id=f"test_run_comp_{run_tag}",
                 portfolio_id=f"test_portfolio_comp_{run_tag}",
                 code=f"COMPREHENSIVE_{run_tag}_{i+1:03d}.SZ",
                 direction=direction,      # 枚举传参

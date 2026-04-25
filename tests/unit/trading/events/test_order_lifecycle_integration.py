@@ -32,12 +32,12 @@ def _make_order(status=ORDERSTATUS_TYPES.NEW, volume=100,
                 limit_price=Decimal("10.00"), code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG, transaction_volume=0,
                 portfolio_id="portfolio-001", engine_id="engine-001",
-                run_id="run-001"):
+                task_id="run-001"):
     """创建测试用Order实例的辅助函数"""
     return Order(
         portfolio_id=portfolio_id,
         engine_id=engine_id,
-        run_id=run_id,
+        task_id=task_id,
         code=code,
         direction=direction,
         order_type=ORDER_TYPES.LIMITORDER,
@@ -122,7 +122,7 @@ class TestCompleteOrderLifecycleSuccess:
             order=order,
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         fill = EventOrderPartiallyFilled(
             order=order,
@@ -130,7 +130,7 @@ class TestCompleteOrderLifecycleSuccess:
             fill_price=15.50,
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert ack.portfolio_id == fill.portfolio_id == "portfolio-001"
         assert ack.code == fill.code == "600036.SH"
@@ -220,11 +220,11 @@ class TestOrderLifecycleRejectionFlows:
             reject_code="SYS_REJECT",
             portfolio_id="portfolio-notif",
             engine_id="engine-notif",
-            run_id="run-notif"
+            task_id="run-notif"
         )
         assert event.portfolio_id == "portfolio-notif"
         assert event.engine_id == "engine-notif"
-        assert event.run_id == "run-notif"
+        assert event.task_id == "run-notif"
         assert event.order_id == order.uuid
 
 
@@ -342,7 +342,7 @@ class TestOrderLifecycleExpirationFlows:
             timestamp=datetime.datetime(2024, 1, 1, 15, 0, 0),
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert expired.expired_quantity == 500
         assert expired.code == order.code
@@ -546,19 +546,19 @@ class TestOrderLifecycleEventDrivenIntegration:
         event_objects = []
         for name, etype in audit_events:
             if name == "Ack":
-                e = EventOrderAck(order=order, portfolio_id="audit", engine_id="audit", run_id="audit")
+                e = EventOrderAck(order=order, portfolio_id="audit", engine_id="audit", task_id="audit")
             elif name == "PartialFill":
                 e = EventOrderPartiallyFilled(order=order, filled_quantity=10, fill_price=10.0,
-                                              portfolio_id="audit", engine_id="audit", run_id="audit")
+                                              portfolio_id="audit", engine_id="audit", task_id="audit")
             elif name == "Reject":
                 e = EventOrderRejected(order=order, reject_reason="audit test",
-                                       portfolio_id="audit", engine_id="audit", run_id="audit")
+                                       portfolio_id="audit", engine_id="audit", task_id="audit")
             elif name == "Expire":
                 e = EventOrderExpired(order=order, expire_reason="audit test",
-                                      portfolio_id="audit", engine_id="audit", run_id="audit")
+                                      portfolio_id="audit", engine_id="audit", task_id="audit")
             else:
                 e = EventOrderCancelAck(order=order, cancelled_quantity=10, cancel_reason="audit test",
-                                        portfolio_id="audit", engine_id="audit", run_id="audit")
+                                        portfolio_id="audit", engine_id="audit", task_id="audit")
             assert e.event_type == etype
             assert e.portfolio_id == "audit"
             event_objects.append(e)
@@ -680,7 +680,7 @@ class TestOrderLifecycleErrorHandlingAndResilience:
             order=order,
             portfolio_id="recovery",
             engine_id="recovery",
-            run_id="recovery"
+            task_id="recovery"
         )
         assert recovery_event.order_id == order.uuid
         assert recovery_event.code == "600036.SH"

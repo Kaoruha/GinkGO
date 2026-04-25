@@ -51,6 +51,9 @@ export const PORTFOLIO_MODE_CONFIG: Record<string, StatusConfig> = {
   '0': { tagClass: 'tag-blue', label: '回测' },
   '1': { tagClass: 'tag-orange', label: '模拟' },
   '2': { tagClass: 'tag-red', label: '实盘' },
+  'BACKTEST': { tagClass: 'tag-blue', label: '回测' },
+  'PAPER': { tagClass: 'tag-orange', label: '模拟' },
+  'LIVE': { tagClass: 'tag-red', label: '实盘' },
 }
 
 // Portfolio 状态
@@ -59,6 +62,12 @@ export const PORTFOLIO_STATE_CONFIG: Record<string, StatusConfig> = {
   '1': { tagClass: 'tag-green', label: '运行中' },
   '2': { tagClass: 'tag-blue', label: '已完成' },
   '3': { tagClass: 'tag-red', label: '错误' },
+  'RUNNING': { tagClass: 'tag-green', label: '运行中' },
+  'PAUSED': { tagClass: 'tag-orange', label: '已暂停' },
+  'STOPPED': { tagClass: 'tag-gray', label: '已停止' },
+  'COMPLETED': { tagClass: 'tag-blue', label: '已完成' },
+  'ERROR': { tagClass: 'tag-red', label: '错误' },
+  'INITIALIZED': { tagClass: 'tag-gray', label: '未启动' },
 }
 
 // 订单状态

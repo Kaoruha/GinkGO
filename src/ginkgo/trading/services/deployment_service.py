@@ -43,7 +43,7 @@ class DeploymentService(BaseService):
         一键部署：从回测结果部署到纸上交易/实盘
 
         Args:
-            backtest_task_id: 回测任务 run_id
+            backtest_task_id: 回测任务 task_id
             mode: PAPER 或 LIVE
             account_id: MLiveAccount.uuid (live模式必填)
             name: 新Portfolio名称 (可选，自动生成)
@@ -52,7 +52,7 @@ class DeploymentService(BaseService):
             ServiceResult with data: {"portfolio_id": str, "deployment_id": str}
         """
         # 1. 验证回测任务
-        task_result = self._task_service.get_by_run_id(backtest_task_id)
+        task_result = self._task_service.get_by_task_id(backtest_task_id)
         if not task_result.success or not task_result.data:
             return ServiceResult(success=False, error=f"回测任务不存在: {backtest_task_id}")
 

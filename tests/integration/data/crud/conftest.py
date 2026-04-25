@@ -111,7 +111,7 @@ def sample_transfer_data():
         {
             "portfolio_id": "test_portfolio_001",
             "engine_id": "test_engine_001",
-            "run_id": "test_run_001",
+            "task_id": "test_run_001",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.CHINA,
             "money": Decimal("100000.00"),
@@ -122,7 +122,7 @@ def sample_transfer_data():
         {
             "portfolio_id": "test_portfolio_001",
             "engine_id": "test_engine_001",
-            "run_id": "test_run_001",
+            "task_id": "test_run_001",
             "direction": TRANSFERDIRECTION_TYPES.OUT,
             "market": MARKET_TYPES.CHINA,
             "money": Decimal("5000.00"),

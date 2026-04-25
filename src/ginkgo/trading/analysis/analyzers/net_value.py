@@ -30,10 +30,6 @@ class NetValue(BaseAnalyzer):
         current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
         self.add_data(current_worth)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录净值数据到数据库"""
-        self.add_record()
-
     @property
     def current_net_value(self) -> float:
         """当前净值（只读属性）"""

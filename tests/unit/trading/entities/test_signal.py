@@ -30,7 +30,7 @@ class TestSignalConstruction:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -42,7 +42,7 @@ class TestSignalConstruction:
         # 验证核心字段正确赋值
         assert signal.portfolio_id == "test_portfolio"
         assert signal.engine_id == "test_engine"
-        assert signal.run_id == "test_run"
+        assert signal.task_id == "test_run"
         assert signal.code == "000001.SZ"
         assert signal.direction == DIRECTION_TYPES.LONG
         assert signal.reason == "test signal"
@@ -61,7 +61,7 @@ class TestSignalConstruction:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -87,7 +87,7 @@ class TestSignalConstruction:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -104,7 +104,7 @@ class TestSignalConstruction:
         another_signal = Signal(
             portfolio_id="test_portfolio2",
             engine_id="test_engine2",
-            run_id="test_run2",
+            task_id="test_run2",
             timestamp="2024-01-01 14:30:00",
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -119,7 +119,7 @@ class TestSignalConstruction:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "test_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "timestamp": "2024-01-01 09:30:00",
             "code": "000001.SZ",
             "direction": DIRECTION_TYPES.LONG,
@@ -135,7 +135,7 @@ class TestSignalConstruction:
             Signal(**{**base_params, "engine_id": ""})
 
         with pytest.raises(Exception):
-            Signal(**{**base_params, "run_id": ""})
+            Signal(**{**base_params, "task_id": ""})
 
         # timestamp=None 不再抛异常（TimeMixin会使用当前时间）
         # 跳过此断言
@@ -162,7 +162,7 @@ class TestSignalConstruction:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "test_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "timestamp": "2024-01-01 09:30:00",
             "code": "000001.SZ",
             "direction": DIRECTION_TYPES.LONG,
@@ -193,7 +193,7 @@ class TestSignalConstruction:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -210,7 +210,7 @@ class TestSignalConstruction:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -230,7 +230,7 @@ class TestSignalConstruction:
         signal_with_uuid = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -252,7 +252,7 @@ class TestSignalProperties:
         signal = Signal(
             portfolio_id=portfolio_id,
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -275,7 +275,7 @@ class TestSignalProperties:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id=original_engine_id,
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -292,14 +292,14 @@ class TestSignalProperties:
         signal.engine_id = new_engine_id
         assert signal.engine_id == new_engine_id
 
-    def test_run_id_property(self):
+    def test_task_id_property(self):
         """测试运行ID属性"""
-        # 创建Signal测试run_id属性
-        original_run_id = "test_run_001"
+        # 创建Signal测试task_id属性
+        original_task_id = "test_run_001"
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id=original_run_id,
+            task_id=original_task_id,
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -307,14 +307,14 @@ class TestSignalProperties:
             source=SOURCE_TYPES.SIM
         )
 
-        # 验证run_id属性正确读取
-        assert signal.run_id == original_run_id
-        assert isinstance(signal.run_id, str)
+        # 验证task_id属性正确读取
+        assert signal.task_id == original_task_id
+        assert isinstance(signal.task_id, str)
 
-        # 验证run_id可以修改（有setter）
-        new_run_id = "updated_run_002"
-        signal.run_id = new_run_id
-        assert signal.run_id == new_run_id
+        # 验证task_id可以修改（有setter）
+        new_task_id = "updated_run_002"
+        signal.task_id = new_task_id
+        assert signal.task_id == new_task_id
 
     def test_code_property(self):
         """测试股票代码属性"""
@@ -323,7 +323,7 @@ class TestSignalProperties:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code=code,
             direction=DIRECTION_TYPES.LONG,
@@ -345,7 +345,7 @@ class TestSignalProperties:
         signal_long = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -361,7 +361,7 @@ class TestSignalProperties:
         signal_short = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -382,7 +382,7 @@ class TestSignalProperties:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -405,7 +405,7 @@ class TestSignalProperties:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=timestamp_str,
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -429,7 +429,7 @@ class TestSignalProperties:
             signal = Signal(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 timestamp="2024-01-01 09:30:00",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -456,7 +456,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -467,7 +467,7 @@ class TestSignalDataSetting:
         # 验证所有参数都被正确设置
         assert signal.portfolio_id == "test_portfolio"
         assert signal.engine_id == "test_engine"
-        assert signal.run_id == "test_run"
+        assert signal.task_id == "test_run"
         assert signal.code == "000001.SZ"
         assert signal.direction == DIRECTION_TYPES.LONG
         assert signal.reason == "test signal"
@@ -505,7 +505,7 @@ class TestSignalDataSetting:
         series_data = pd.Series({
             'portfolio_id': 'series_portfolio',
             'engine_id': 'series_engine',
-            'run_id': 'series_run',
+            'task_id': 'series_run',
             'timestamp': '000003.SZ',  # -> code (4th pos in set())
             'code': DIRECTION_TYPES.LONG.value,  # -> direction (5th pos)
             'direction': 1,  # DIRECTION_TYPES(series['direction']) -> reason (6th pos, but result unused by set)
@@ -516,7 +516,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -530,7 +530,7 @@ class TestSignalDataSetting:
         # 验证从Series设置的数据
         assert signal.portfolio_id == 'series_portfolio'
         assert signal.engine_id == 'series_engine'
-        assert signal.run_id == 'series_run'
+        assert signal.task_id == 'series_run'
         assert signal.code == '000003.SZ'
         assert signal.direction == DIRECTION_TYPES.LONG
         assert signal.reason == 'pandas series signal'
@@ -550,7 +550,7 @@ class TestSignalDataSetting:
         df_data = pd.DataFrame([{
             'portfolio_id': 'df_portfolio',
             'engine_id': 'df_engine',
-            'run_id': 'df_run',
+            'task_id': 'df_run',
             'timestamp': '000004.SZ',  # -> code
             'code': DIRECTION_TYPES.SHORT.value,  # -> direction
             'direction': 'pandas dataframe signal',  # -> reason
@@ -561,7 +561,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -575,7 +575,7 @@ class TestSignalDataSetting:
         # 验证从DataFrame设置的数据
         assert signal.portfolio_id == 'df_portfolio'
         assert signal.engine_id == 'df_engine'
-        assert signal.run_id == 'df_run'
+        assert signal.task_id == 'df_run'
         assert signal.code == '000004.SZ'
         assert signal.direction == DIRECTION_TYPES.SHORT
         assert signal.reason == 'pandas dataframe signal'
@@ -592,7 +592,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="test",
             engine_id="test",
-            run_id="test",
+            task_id="test",
             timestamp="2024-01-01",
             code="test",
             direction=DIRECTION_TYPES.LONG,
@@ -618,7 +618,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -630,7 +630,7 @@ class TestSignalDataSetting:
         signal.set(
             "portfolio1",    # portfolio_id
             "engine1",       # engine_id
-            "run1",          # run_id
+            "run1",          # task_id
             "000002.SZ",     # code
             DIRECTION_TYPES.SHORT,  # direction
             "order test",    # reason
@@ -671,7 +671,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -682,7 +682,7 @@ class TestSignalDataSetting:
         # 测试直接参数方式：所有参数都是必需的
         with pytest.raises(TypeError):
             # 缺少必需参数应该失败
-            signal.set("portfolio", "engine")  # 缺少run_id, code等
+            signal.set("portfolio", "engine")  # 缺少task_id, code等
 
         # 测试Series方式：缺少必需字段应该失败
         incomplete_series = pd.Series({
@@ -727,7 +727,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -771,7 +771,7 @@ class TestSignalDataSetting:
         signal = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -857,7 +857,7 @@ class TestSignalDataSetting:
         invalid_series = pd.Series({
             'portfolio_id': 'test_portfolio',
             'engine_id': 'test_engine',
-            'run_id': 'test_run',
+            'task_id': 'test_run',
             'timestamp': '2024-01-01',
             'code': '000001.SZ',
             'direction': 999,  # 无效的direction枚举值
@@ -872,7 +872,7 @@ class TestSignalDataSetting:
         invalid_df = pd.DataFrame([{
             'portfolio_id': 'test_portfolio',
             'engine_id': 'test_engine',
-            'run_id': 'test_run',
+            'task_id': 'test_run',
             'timestamp': '2024-01-01',
             'code': '000001.SZ',
             'direction': DIRECTION_TYPES.LONG.value,
@@ -895,7 +895,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="",  # 空字符串
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -907,7 +907,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="valid_portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -928,7 +928,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="",  # 空字符串
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -940,7 +940,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="valid_engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -959,14 +959,14 @@ class TestSignalParameterValidation:
             signal.set("portfolio", "", "run", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
-    def test_run_id_validation(self):
+    def test_task_id_validation(self):
         """测试运行ID验证"""
-        # 测试run_id不能为空字符串
+        # 测试task_id不能为空字符串
         with pytest.raises(Exception):  # Signal构造函数包装了原始异常
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="",  # 空字符串
+                task_id="",  # 空字符串
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -974,12 +974,12 @@ class TestSignalParameterValidation:
                 source=SOURCE_TYPES.STRATEGY
             )
 
-        # 测试run_id不能为非字符串类型
+        # 测试task_id不能为非字符串类型
         with pytest.raises(Exception):  # Signal构造函数包装了原始异常
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id=123,  # 非字符串类型
+                task_id=123,  # 非字符串类型
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -987,25 +987,25 @@ class TestSignalParameterValidation:
                 source=SOURCE_TYPES.STRATEGY
             )
 
-        # 测试有效的run_id
+        # 测试有效的task_id
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="valid_run",
+            task_id="valid_run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             reason="reason",
             source=SOURCE_TYPES.STRATEGY
         )
-        assert signal.run_id == "valid_run"
+        assert signal.task_id == "valid_run"
 
-        # 测试通过set方法设置无效run_id (非字符串类型)
+        # 测试通过set方法设置无效task_id (非字符串类型)
         with pytest.raises(TypeError):
             signal.set("portfolio", "engine", 456, "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
-        # 测试通过set方法设置空run_id
+        # 测试通过set方法设置空task_id
         with pytest.raises(ValueError):
             signal.set("portfolio", "engine", "", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
@@ -1017,7 +1017,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="",  # 空字符串
                 direction=DIRECTION_TYPES.LONG,
@@ -1030,7 +1030,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code=123,  # 非字符串类型
                 direction=DIRECTION_TYPES.LONG,
@@ -1042,7 +1042,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1068,7 +1068,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1081,7 +1081,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1093,7 +1093,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1119,7 +1119,7 @@ class TestSignalParameterValidation:
         signal_none_ts = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp=None,  # None值 -> 使用当前时间
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1132,7 +1132,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1148,7 +1148,7 @@ class TestSignalParameterValidation:
         signal2 = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp=dt,
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1171,7 +1171,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=None,  # None值
@@ -1184,7 +1184,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction="invalid_direction",  # 字符串类型不被接受
@@ -1196,7 +1196,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1209,7 +1209,7 @@ class TestSignalParameterValidation:
         signal2 = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=2,  # 对应DIRECTION_TYPES.SHORT
@@ -1235,7 +1235,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1248,7 +1248,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1260,7 +1260,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1273,7 +1273,7 @@ class TestSignalParameterValidation:
         signal2 = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1299,7 +1299,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=None,  # None值
@@ -1311,7 +1311,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1330,7 +1330,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1342,7 +1342,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1366,7 +1366,7 @@ class TestSignalParameterValidation:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1378,7 +1378,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1401,7 +1401,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1414,7 +1414,7 @@ class TestSignalParameterValidation:
             signal.set("portfolio", 123, "run", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
-        # 测试run_id类型错误
+        # 测试task_id类型错误
         with pytest.raises(TypeError):
             signal.set("portfolio", "engine", 123, "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
@@ -1435,7 +1435,7 @@ class TestSignalParameterValidation:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1472,7 +1472,7 @@ class TestSignalSourceManagement:
         signal_strategy = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1486,7 +1486,7 @@ class TestSignalSourceManagement:
         signal_database = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -1499,7 +1499,7 @@ class TestSignalSourceManagement:
         signal_backtest = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1512,7 +1512,7 @@ class TestSignalSourceManagement:
         signal_live = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -1525,7 +1525,7 @@ class TestSignalSourceManagement:
         signal_sim = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1542,7 +1542,7 @@ class TestSignalSourceManagement:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1587,7 +1587,7 @@ class TestSignalSourceManagement:
         signal_default = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1601,7 +1601,7 @@ class TestSignalSourceManagement:
         signal_df = Signal(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             timestamp="2024-01-01",
             code="temp",
             direction=DIRECTION_TYPES.LONG,
@@ -1614,7 +1614,7 @@ class TestSignalSourceManagement:
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1642,7 +1642,7 @@ class TestSignalSourceManagement:
             signal = Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                run_id="run",
+                task_id="run",
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1656,7 +1656,7 @@ class TestSignalSourceManagement:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1705,7 +1705,7 @@ class TestSignalSourceManagement:
         signal_strategy = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1716,7 +1716,7 @@ class TestSignalSourceManagement:
         signal_database = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1727,7 +1727,7 @@ class TestSignalSourceManagement:
         signal_live = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1744,7 +1744,7 @@ class TestSignalSourceManagement:
         signal_strategy2 = Signal(
             portfolio_id="portfolio2",
             engine_id="engine2",
-            run_id="run2",
+            task_id="run2",
             timestamp="2024-01-02",
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -1815,7 +1815,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-15 09:30:00",  # 字符串格式 - 被TimeMixin忽略
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1853,7 +1853,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1917,7 +1917,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp=dt,  # 直接传入datetime对象 - 被TimeMixin忽略
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1975,7 +1975,7 @@ class TestSignalTimeNormalization:
         signal_none_ts = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp=None,  # None -> TimeMixin使用当前时间
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -1988,7 +1988,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp="2024-01-01",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2082,7 +2082,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             timestamp=naive_dt,  # 被TimeMixin忽略
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2165,7 +2165,7 @@ class TestSignalTimeNormalization:
         signal = Signal(
             portfolio_id="portfolio",
             engine_id="engine",
-            run_id="run",
+            task_id="run",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             reason="seconds precision test",
@@ -2240,7 +2240,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2273,7 +2273,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2309,7 +2309,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2337,7 +2337,7 @@ class TestSignalStrengthAndConfidence:
         strong_confident_signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2354,7 +2354,7 @@ class TestSignalStrengthAndConfidence:
         weak_uncertain_signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT,
@@ -2378,7 +2378,7 @@ class TestSignalStrengthAndConfidence:
             signal = Signal(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 timestamp="2024-01-01 09:30:00",
                 code="000003.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -2396,7 +2396,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2446,7 +2446,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2473,7 +2473,7 @@ class TestSignalStrengthAndConfidence:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-01 09:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2528,7 +2528,7 @@ class TestSignalQuantitativeValidation:
         valid_signal = Signal(
             portfolio_id="quant_portfolio_001",
             engine_id="strategy_engine",
-            run_id="test_run_20240118",
+            task_id="test_run_20240118",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 0, tzinfo=timezone.utc),
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2548,7 +2548,7 @@ class TestSignalQuantitativeValidation:
         test_signal_1 = Signal(
             portfolio_id="valid_portfolio",
             engine_id="strategy_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 0, tzinfo=timezone.utc),
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2562,7 +2562,7 @@ class TestSignalQuantitativeValidation:
         test_signal_2 = Signal(
             portfolio_id="test_portfolio",
             engine_id="valid_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 0, tzinfo=timezone.utc),
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2575,7 +2575,7 @@ class TestSignalQuantitativeValidation:
         test_signal_3 = Signal(
             portfolio_id="test_portfolio",
             engine_id="strategy_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 0, tzinfo=timezone.utc),
             code="valid_code",
             direction=DIRECTION_TYPES.LONG,
@@ -2588,7 +2588,7 @@ class TestSignalQuantitativeValidation:
         test_signal_4 = Signal(
             portfolio_id="test_portfolio",
             engine_id="strategy_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 0, tzinfo=timezone.utc),
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2607,7 +2607,7 @@ class TestSignalQuantitativeValidation:
         future_signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="strategy_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=future_time,  # 未来时间 - 但被TimeMixin忽略
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2622,7 +2622,7 @@ class TestSignalQuantitativeValidation:
         past_signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="strategy_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp=past_time,  # 过去时间 - 但被TimeMixin忽略
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2639,7 +2639,7 @@ class TestSignalQuantitativeValidation:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "strategy_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "timestamp": datetime.datetime(2024, 1, 18, 10, 30, 0),
             "code": "000001.SZ",
             "direction": DIRECTION_TYPES.LONG,
@@ -2679,7 +2679,7 @@ class TestSignalQuantitativeValidation:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "strategy_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "timestamp": datetime.datetime(2024, 1, 18, 10, 30, 0),
             "code": "000001.SZ",
             "reason": "test signal",
@@ -2708,7 +2708,7 @@ class TestSignalQuantitativeValidation:
         base_params = {
             "portfolio_id": "a_share_portfolio",
             "engine_id": "strategy_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "timestamp": datetime.datetime(2024, 1, 18, 10, 30, 0),
             "direction": DIRECTION_TYPES.LONG,
             "reason": "A股交易信号",
@@ -2748,7 +2748,7 @@ class TestSignalQuantitativeValidation:
         traceable_signal = Signal(
             portfolio_id="multi_factor_portfolio_001",
             engine_id="alpha_strategy_engine_v2.1",
-            run_id="backtest_20240118_session_001",
+            task_id="backtest_20240118_session_001",
             timestamp=datetime.datetime(2024, 1, 18, 10, 30, 15),
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2761,7 +2761,7 @@ class TestSignalQuantitativeValidation:
         # 验证可追溯性字段的业务合理性
         assert len(traceable_signal.portfolio_id) > 0
         assert len(traceable_signal.engine_id) > 0
-        assert len(traceable_signal.run_id) > 0
+        assert len(traceable_signal.task_id) > 0
 
         # 验证时间戳精度（量化交易需要精确时间）
         assert traceable_signal.timestamp.microsecond is not None
@@ -2782,7 +2782,7 @@ class TestSignalValidation:
         valid_signal = Signal(
             portfolio_id="valid_portfolio",
             engine_id="valid_engine",
-            run_id="valid_run",
+            task_id="valid_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2800,7 +2800,7 @@ class TestSignalValidation:
         signal = Signal(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2841,7 +2841,7 @@ class TestSignalModelConversion:
         signal = Signal(
             portfolio_id="model_test_portfolio",
             engine_id="model_test_engine",
-            run_id="model_test_run",
+            task_id="model_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2857,7 +2857,7 @@ class TestSignalModelConversion:
         # 验证所有字段正确转换
         assert model.portfolio_id == "model_test_portfolio"
         assert model.engine_id == "model_test_engine"
-        assert model.run_id == "model_test_run"
+        assert model.task_id == "model_test_run"
         assert model.uuid == signal.uuid
         assert model.code == "000001.SZ"
         assert model.direction == DIRECTION_TYPES.LONG.value  # 模型中存储枚举值
@@ -2871,7 +2871,7 @@ class TestSignalModelConversion:
         original = Signal(
             portfolio_id="reconstruction_portfolio",
             engine_id="reconstruction_engine",
-            run_id="reconstruction_run",
+            task_id="reconstruction_run",
             timestamp="2024-01-15 14:30:00",
             code="600519.SH",
             direction=DIRECTION_TYPES.SHORT,
@@ -2888,7 +2888,7 @@ class TestSignalModelConversion:
         # 验证所有关键属性一致
         assert reconstructed.portfolio_id == original.portfolio_id
         assert reconstructed.engine_id == original.engine_id
-        assert reconstructed.run_id == original.run_id
+        assert reconstructed.task_id == original.task_id
         assert reconstructed.code == original.code
         assert reconstructed.direction == original.direction
         assert reconstructed.reason == original.reason
@@ -2906,7 +2906,7 @@ class TestSignalSetterMethods:
         signal = Signal(
             portfolio_id="setter_test_portfolio",
             engine_id="setter_test_engine",
-            run_id="setter_test_run",
+            task_id="setter_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2929,7 +2929,7 @@ class TestSignalSetterMethods:
         signal = Signal(
             portfolio_id="setter_test_portfolio",
             engine_id="setter_test_engine",
-            run_id="setter_test_run",
+            task_id="setter_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2953,7 +2953,7 @@ class TestSignalSetterMethods:
         signal = Signal(
             portfolio_id="setter_test_portfolio",
             engine_id="setter_test_engine",
-            run_id="setter_test_run",
+            task_id="setter_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -2976,7 +2976,7 @@ class TestSignalSetterMethods:
         signal = Signal(
             portfolio_id="setter_test_portfolio",
             engine_id="setter_test_engine",
-            run_id="setter_test_run",
+            task_id="setter_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
@@ -3000,7 +3000,7 @@ class TestSignalSetterMethods:
         signal = Signal(
             portfolio_id="independence_test_portfolio",
             engine_id="independence_test_engine",
-            run_id="independence_test_run",
+            task_id="independence_test_run",
             timestamp="2024-01-15 10:30:00",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,

@@ -73,7 +73,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         return MPositionRecord(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            run_id=kwargs.get("run_id", ""),
+            task_id=kwargs.get("task_id", ""),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             code=kwargs.get("code"),
             cost=to_decimal(kwargs.get("cost", 0)),

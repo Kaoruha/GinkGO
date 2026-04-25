@@ -506,7 +506,7 @@ class SignalParameterRule(ASTBasedRule):
 
     Checks:
     - Use business_timestamp instead of timestamp
-    - portfolio_id, engine_id, run_id should be from portfolio_info or self
+    - portfolio_id, engine_id, task_id should be from portfolio_info or self
     - business_timestamp should come from portfolio_info.get("now")
 
     Why:
@@ -518,7 +518,7 @@ class SignalParameterRule(ASTBasedRule):
         Signal(
             portfolio_id=portfolio_info.get("uuid"),
             engine_id=self.engine_id,
-            run_id=self.run_id,
+            task_id=self.task_id,
             business_timestamp=portfolio_info.get("now"),
             code=code,
             direction=direction,
@@ -591,7 +591,7 @@ class SignalParameterRule(ASTBasedRule):
             )
 
         # Check if missing recommended context parameters
-        recommended_params = {"portfolio_id", "engine_id", "run_id", "business_timestamp"}
+        recommended_params = {"portfolio_id", "engine_id", "task_id", "business_timestamp"}
         provided_params = set(kwargs.keys())
         missing_recommended = recommended_params - provided_params
 
@@ -603,7 +603,7 @@ class SignalParameterRule(ASTBasedRule):
                 suggestion=(
                     f"Add missing parameters: {', '.join(missing_recommended)}. "
                     f"Example: Signal(portfolio_id=portfolio_info.get('uuid'), "
-                    f"engine_id=self.engine_id, run_id=self.run_id, "
+                    f"engine_id=self.engine_id, task_id=self.task_id, "
                     f"business_timestamp=portfolio_info.get('now'), ...)"
                 ),
                 file_path=file_path,

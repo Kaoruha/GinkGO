@@ -27,18 +27,18 @@ def verify_trace_id():
     )
     print(f"  引擎 ID: {engine.engine_id}")
 
-    # 2. 启动引擎（此时应生成 run_id 和设置 trace_id）
+    # 2. 启动引擎（此时应生成 task_id 和设置 trace_id）
     print("\n[步骤 2] 启动引擎...")
     engine.start()
 
     # 3. 验证 trace_id 已设置
     print("\n[步骤 3] 验证 Trace ID...")
     trace_id = GLOG.get_trace_id()
-    run_id = engine.run_id
+    task_id = engine.task_id
 
-    print(f"  Run ID:    {run_id}")
+    print(f"  Task ID:   {task_id}")
     print(f"  Trace ID:  {trace_id}")
-    print(f"  一致性:    {'✓ 通过' if trace_id == run_id else '✗ 失败'}")
+    print(f"  一致性:    {'✓ 通过' if trace_id == task_id else '✗ 失败'}")
 
     # 4. 验证 trace_id 在日志输出中
     print("\n[步骤 4] 验证日志输出包含 Trace ID...")
@@ -71,7 +71,7 @@ def verify_trace_id():
     print("\n" + "=" * 60)
     all_passed = (
         trace_id is not None and
-        trace_id == run_id and
+        trace_id == task_id and
         has_trace and
         trace_matches and
         final_trace_id is None

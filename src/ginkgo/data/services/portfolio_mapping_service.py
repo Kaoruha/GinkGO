@@ -402,7 +402,7 @@ class PortfolioMappingService(BaseService):
                 # 如果需要包含参数
                 if include_params:
                     params = self._param_crud.find_by_mapping_id(m.uuid)
-                    # 将参数列表转换为字典
+                    # 将参数列表转换为字典（优先使用存储的参数名）
                     params_dict = {}
                     for p in params:
                         # 尝试解析 JSON 值

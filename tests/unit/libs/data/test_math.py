@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-_path = str(Path(__file__
+_path = str(Path(__file__).parent.parent.parent)
 if _path not in sys.path:
     sys.path.insert(0, _path)
 

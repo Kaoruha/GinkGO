@@ -10,7 +10,7 @@ BrokerExecutionResult.to_event() 测试 - 覆盖 FILLED→ORDERFILLED 事件类�
 """
 import sys
 import os
-_path = os.path.join(os.path.dirname(__file__
+_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
@@ -29,7 +29,7 @@ class TestBrokerExecutionResultToEvent:
         return Order(
             portfolio_id="portfolio-001",
             engine_id="engine-1",
-            run_id="run-1",
+            task_id="run-1",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -47,7 +47,7 @@ class TestBrokerExecutionResultToEvent:
             filled_price=10.5,
             order=self._make_order()
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event is not None
         assert event.event_type == EVENT_TYPES.ORDERFILLED
 
@@ -60,7 +60,7 @@ class TestBrokerExecutionResultToEvent:
             filled_price=10.5,
             order=self._make_order()
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event is not None
         assert event.event_type == EVENT_TYPES.ORDERPARTIALLYFILLED
 
@@ -71,7 +71,7 @@ class TestBrokerExecutionResultToEvent:
             error_message="Insufficient funds",
             order=self._make_order()
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event is not None
         assert event.event_type == EVENT_TYPES.ORDERREJECTED
 
@@ -82,7 +82,7 @@ class TestBrokerExecutionResultToEvent:
             broker_order_id="BROKER-003",
             order=self._make_order()
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event is not None
         assert event.event_type == EVENT_TYPES.ORDERACK
 
@@ -93,7 +93,7 @@ class TestBrokerExecutionResultToEvent:
             filled_volume=0,
             order=self._make_order()
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event is not None
         assert event.event_type == EVENT_TYPES.ORDERCANCELACK
 
@@ -117,7 +117,7 @@ class TestBrokerExecutionResultToEvent:
             trade_id="TRADE-001",
             order=order
         )
-        event = result.to_event(engine_id="engine-1", run_id="run-1")
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
         assert event.filled_quantity == 200
         assert event.fill_price == 15.75
         assert event.commission == 2.5

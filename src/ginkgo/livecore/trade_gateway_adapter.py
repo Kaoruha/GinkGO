@@ -190,7 +190,7 @@ class TradeGatewayAdapter(Thread):
             order = Order(
                 portfolio_id=order_data['portfolio_id'],
                 engine_id=order_data.get('engine_id', 'live_engine'),
-                run_id=order_data.get('run_id', 'live_run'),
+                task_id=order_data.get('task_id', 'live_run'),
                 code=order_data['code'],
                 direction=DIRECTION_TYPES(order_data['direction']),
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -301,7 +301,7 @@ class TradeGatewayAdapter(Thread):
                         commission=Decimal('5.25'),  # 模拟手续费
                         portfolio_id=order.portfolio_id,
                         engine_id=order.engine_id,
-                        run_id=order.run_id
+                        task_id=order.task_id
                     )
 
                     # 发布到Kafka
@@ -339,7 +339,7 @@ class TradeGatewayAdapter(Thread):
                 order_id=fill_event.order.uuid,
                 portfolio_id=fill_event.portfolio_id,
                 engine_id=fill_event.engine_id,
-                run_id=fill_event.run_id,
+                task_id=fill_event.task_id,
                 code=fill_event.order.code,
                 direction=fill_event.order.direction.value,
                 filled_quantity=fill_event.filled_quantity,

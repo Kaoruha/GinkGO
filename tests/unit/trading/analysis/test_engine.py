@@ -39,7 +39,7 @@ def _make_mock_analyzer_service(records_by_name):
             records.append(obj)
 
     result.data = records
-    service.get_by_run_id.return_value = result
+    service.get_by_task_id.return_value = result
     return service
 
 
@@ -78,13 +78,13 @@ class TestLoadAnalyzerRecords:
 
     def test_returns_empty_dict_on_service_failure(self):
         engine, analyzer_service = _make_engine({})
-        analyzer_service.get_by_run_id.return_value.is_success.return_value = False
+        analyzer_service.get_by_task_id.return_value.is_success.return_value = False
         result = engine._load_analyzer_records("test-run")
         assert result == {}
 
     def test_returns_empty_dict_on_no_data(self):
         engine, analyzer_service = _make_engine({})
-        analyzer_service.get_by_run_id.return_value.data = None
+        analyzer_service.get_by_task_id.return_value.data = None
         result = engine._load_analyzer_records("test-run")
         assert result == {}
 
@@ -97,7 +97,7 @@ class TestLoadAnalyzerRecords:
         del obj.name
         obj.__dict__ = {"timestamp": "2024-01-01", "value": 1.0}
         result.data = [obj]
-        service.get_by_run_id.return_value = result
+        service.get_by_task_id.return_value = result
 
         result_service = _make_mock_result_service()
         engine = AnalysisEngine(result_service, service)
@@ -156,7 +156,7 @@ class TestAutoRegisterMetrics:
 class TestLoadData:
     def test_raises_on_empty_analyzer_records(self):
         engine, analyzer_service = _make_engine({})
-        analyzer_service.get_by_run_id.return_value.is_success.return_value = False
+        analyzer_service.get_by_task_id.return_value.is_success.return_value = False
         with pytest.raises(ValueError, match="分析器记录"):
             engine._load_data("test-run")
 
@@ -222,7 +222,7 @@ class TestAnalyze:
 class TestCompare:
     def test_returns_comparison_report(self):
         engine, _ = _make_engine({"net_value": [1.0, 1.1, 1.2]})
-        report = engine.compare(run_ids=["run1", "run2"])
+        report = engine.compare(task_ids=["run1", "run2"])
         assert isinstance(report, ComparisonReport)
 
 

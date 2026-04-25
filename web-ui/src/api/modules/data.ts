@@ -102,14 +102,14 @@ export const dataApi = {
   /**
    * 同步股票信息
    */
-  syncStockInfo(): Promise<{ run_id: string }> {
+  syncStockInfo(): Promise<{ task_id: string }> {
     return request.post('/api/v1/data/sync/stockinfo')
   },
 
   /**
    * 同步 K 线数据
    */
-  syncBars(codes: string[]): Promise<{ run_id: string }> {
+  syncBars(codes: string[]): Promise<{ task_id: string }> {
     return request.post('/api/v1/data/sync/bars', { codes })
   },
 

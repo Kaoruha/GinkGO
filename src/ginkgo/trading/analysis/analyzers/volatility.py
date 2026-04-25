@@ -66,10 +66,6 @@ class Volatility(BaseAnalyzer):
         
         self.add_data(volatility)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录波动率到数据库"""
-        self.add_record()
-
     @property
     def current_volatility(self) -> float:
         """当前年化波动率（只读属性）"""

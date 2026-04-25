@@ -674,14 +674,14 @@ class TestModeSpecificBehavior:
 
         # 验证基础属性初始化
         assert hasattr(engine, 'engine_id'), "引擎应有engine_id"
-        assert hasattr(engine, 'run_id'), "引擎应有run_id"
+        assert hasattr(engine, 'task_id'), "引擎应有task_id"
         assert hasattr(engine, 'status'), "引擎应有status"
         assert hasattr(engine, 'is_active'), "引擎应有is_active"
 
         # 验证初始状态
         assert engine.status == "idle", f"{mode}模式初始状态应为idle"
         assert not engine.is_active, f"{mode}模式初始应未激活"
-        assert engine.run_id is None, f"{mode}模式初始run_id应为None"
+        assert engine.task_id is None, f"{mode}模式初始task_id应为None"
         assert engine.run_sequence == 0, f"{mode}模式初始运行序列应为0"
 
         # 验证事件系统初始化
@@ -854,12 +854,12 @@ class TestModeSpecificBehavior:
         # 测试引擎标识
         assert hasattr(backtest_engine, 'engine_id'), "回测引擎应有engine_id"
         assert hasattr(live_engine, 'engine_id'), "实盘引擎应有engine_id"
-        assert hasattr(backtest_engine, 'run_id'), "回测引擎应有run_id"
-        assert hasattr(live_engine, 'run_id'), "实盘引擎应有run_id"
+        assert hasattr(backtest_engine, 'task_id'), "回测引擎应有task_id"
+        assert hasattr(live_engine, 'task_id'), "实盘引擎应有task_id"
 
         # 验证运行ID生成
-        assert backtest_engine.run_id is not None, "回测引擎启动后应有run_id"
-        assert live_engine.run_id is not None, "实盘引擎启动后应有run_id"
+        assert backtest_engine.task_id is not None, "回测引擎启动后应有task_id"
+        assert live_engine.task_id is not None, "实盘引擎启动后应有task_id"
 
         # 停止引擎
         backtest_engine.stop()

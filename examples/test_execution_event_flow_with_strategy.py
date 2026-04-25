@@ -36,7 +36,7 @@ class SimpleBuyStrategy(BaseStrategy):
             return [Signal(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code=event.payload.code,
                 direction=DIRECTION_TYPES.LONG
             )]
@@ -56,7 +56,7 @@ class FixedSizer(SizerBase):
         return Order(
             portfolio_id=signal.portfolio_id,
             engine_id=signal.engine_id,
-            run_id=signal.run_id,
+            task_id=signal.task_id,
             code=signal.code,
             direction=signal.direction,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -114,11 +114,11 @@ def test_execution_with_strategy():
 
     portfolio = execution_node._portfolio_instances[portfolio_id]
 
-    # 确保 Portfolio 有 engine_id 和 run_id
+    # 确保 Portfolio 有 engine_id 和 task_id
     # 注意：这些是只读属性，需要在创建时设置或使用默认值
     print(f"   Portfolio ID: {portfolio.portfolio_id}")
     print(f"   Engine ID: {portfolio.engine_id if portfolio.engine_id else 'N/A (will use default)'}")
-    print(f"   Run ID: {portfolio.run_id if portfolio.run_id else 'N/A (will use default)'}")
+    print(f"   Task ID: {portfolio.task_id if portfolio.task_id else 'N/A (will use default)'}")
 
     # 添加策略
     strategy = SimpleBuyStrategy()

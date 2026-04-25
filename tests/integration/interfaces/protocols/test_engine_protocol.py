@@ -96,7 +96,7 @@ class SimpleMockEngine:
     def __init__(self):
         self._name = "MockEngine"
         self._engine_id = "mock_engine_123"
-        self._run_id = None
+        self._task_id = None
         self._status = ENGINESTATUS_TYPES.VOID
         self._state = ENGINESTATUS_TYPES.VOID
         self._is_active_flag = False
@@ -119,8 +119,8 @@ class SimpleMockEngine:
         return self._engine_id
 
     @property
-    def run_id(self):
-        return self._run_id
+    def task_id(self):
+        return self._task_id
 
     @property
     def status(self) -> str:
@@ -165,7 +165,7 @@ class SimpleMockEngine:
             return False
         self._state = ENGINESTATUS_TYPES.RUNNING
         self._is_active_flag = True
-        self._run_id = f"run_{int(time.time())}"
+        self._task_id = f"run_{int(time.time())}"
         return True
 
     def pause(self) -> bool:
@@ -180,7 +180,7 @@ class SimpleMockEngine:
             return False
         self._state = ENGINESTATUS_TYPES.STOPPED
         self._is_active_flag = False
-        self._run_id = None
+        self._task_id = None
         return True
 
     # ========== 事件管理 ==========
@@ -223,7 +223,7 @@ class SimpleMockEngine:
         return {
             "name": self.name,
             "engine_id": self.engine_id,
-            "run_id": self.run_id,
+            "task_id": self.task_id,
             "status": self.status,
             "is_active": self.is_active,
             "run_sequence": self.run_sequence,
@@ -271,7 +271,7 @@ class TestIEngineProtocol:
         assert start_result == True, "启动应该成功"
         assert engine.state == ENGINESTATUS_TYPES.RUNNING, "启动后状态应该是RUNNING"
         assert engine.is_active == True, "启动后应该活跃"
-        assert engine.run_id is not None, "启动后应该有运行ID"
+        assert engine.task_id is not None, "启动后应该有运行ID"
 
         # 测试暂停
         pause_result = engine.pause()
@@ -372,7 +372,7 @@ class TestIEngineProtocol:
 
         # 验证必需字段
         required_fields = [
-            "name", "engine_id", "run_id", "status", "is_active",
+            "name", "engine_id", "task_id", "status", "is_active",
             "run_sequence", "mode", "portfolios_count"
         ]
         for field in required_fields:

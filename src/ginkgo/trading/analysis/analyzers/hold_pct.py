@@ -38,10 +38,6 @@ class HoldPCT(BaseAnalyzer):
             
         self.add_data(hold_percentage)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录持仓比例数据到数据库"""
-        self.add_record()
-
     @property
     def current_hold_percentage(self) -> float:
         """当前持仓比例（只读属性）"""

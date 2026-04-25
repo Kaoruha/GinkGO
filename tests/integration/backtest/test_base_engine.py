@@ -106,30 +106,30 @@ class BaseEngineTest(unittest.TestCase):
         self.assertEqual(self.engine.status, "running")
         self.assertTrue(self.engine.is_active)
 
-    def test_start_generates_run_id(self):
-        self.assertIsNone(self.engine.run_id)
+    def test_start_generates_task_id(self):
+        self.assertIsNone(self.engine.task_id)
         self.engine.start()
-        self.assertIsNotNone(self.engine.run_id)
+        self.assertIsNotNone(self.engine.task_id)
 
-    def test_start_from_stopped_generates_new_run_id(self):
+    def test_start_from_stopped_generates_new_task_id(self):
         self.engine.start()
-        first_run_id = self.engine.run_id
+        first_task_id = self.engine.task_id
         self.engine.stop()
-        # stop() clears trace_id but does NOT clear run_id
-        # generate_run_id() without force=True is a no-op when run_id is set
-        self.assertEqual(self.engine.run_id, first_run_id)
-        # Use force=True to actually get a new run_id
-        new_run_id = self.engine.generate_run_id(force=True)
-        self.assertIsNotNone(new_run_id)
-        self.assertNotEqual(new_run_id, first_run_id)
+        # stop() clears trace_id but does NOT clear task_id
+        # generate_task_id() without force=True is a no-op when task_id is set
+        self.assertEqual(self.engine.task_id, first_task_id)
+        # Use force=True to actually get a new task_id
+        new_task_id = self.engine.generate_task_id(force=True)
+        self.assertIsNotNone(new_task_id)
+        self.assertNotEqual(new_task_id, first_task_id)
         self.assertEqual(self.engine.run_sequence, 2)
 
-    def test_start_from_paused_keeps_run_id(self):
+    def test_start_from_paused_keeps_task_id(self):
         self.engine.start()
-        run_id = self.engine.run_id
+        task_id = self.engine.task_id
         self.engine.pause()
         self.engine.start()
-        self.assertEqual(self.engine.run_id, run_id)
+        self.assertEqual(self.engine.task_id, task_id)
 
     def test_start_from_running_returns_false(self):
         self.engine.start()
@@ -219,35 +219,35 @@ class BaseEngineTest(unittest.TestCase):
             self.engine.engine_id = "hack"
 
     # ------------------------------------------------------------------
-    # set_run_id()
+    # set_task_id()
     # ------------------------------------------------------------------
 
-    def test_set_run_id_from_idle(self):
-        self.engine.set_run_id("custom-run-id")
-        self.assertEqual(self.engine.run_id, "custom-run-id")
+    def test_set_task_id_from_idle(self):
+        self.engine.set_task_id("custom-run-id")
+        self.assertEqual(self.engine.task_id, "custom-run-id")
 
-    def test_set_run_id_from_running_raises(self):
+    def test_set_task_id_from_running_raises(self):
         self.engine.start()
         with self.assertRaises(RuntimeError):
-            self.engine.set_run_id("custom-run-id")
+            self.engine.set_task_id("custom-run-id")
 
     # ------------------------------------------------------------------
-    # generate_run_id()
+    # generate_task_id()
     # ------------------------------------------------------------------
 
-    def test_generate_run_id(self):
-        run_id = self.engine.generate_run_id()
-        self.assertIsNotNone(run_id)
-        self.assertEqual(run_id, self.engine.run_id)
+    def test_generate_task_id(self):
+        task_id = self.engine.generate_task_id()
+        self.assertIsNotNone(task_id)
+        self.assertEqual(task_id, self.engine.task_id)
 
-    def test_generate_run_id_does_not_overwrite(self):
-        first = self.engine.generate_run_id()
-        second = self.engine.generate_run_id()
+    def test_generate_task_id_does_not_overwrite(self):
+        first = self.engine.generate_task_id()
+        second = self.engine.generate_task_id()
         self.assertEqual(first, second)
 
-    def test_generate_run_id_force(self):
-        first = self.engine.generate_run_id()
-        second = self.engine.generate_run_id(force=True)
+    def test_generate_task_id_force(self):
+        first = self.engine.generate_task_id()
+        second = self.engine.generate_task_id(force=True)
         self.assertNotEqual(first, second)
         self.assertEqual(self.engine.run_sequence, 2)
 
@@ -390,9 +390,9 @@ class BaseEngineTest(unittest.TestCase):
         self.assertEqual(self.engine.run_sequence, 0)
 
     def test_run_sequence_increments(self):
-        self.engine.generate_run_id()
+        self.engine.generate_task_id()
         self.assertEqual(self.engine.run_sequence, 1)
-        self.engine.generate_run_id(force=True)
+        self.engine.generate_task_id(force=True)
         self.assertEqual(self.engine.run_sequence, 2)
 
     # ------------------------------------------------------------------

@@ -74,10 +74,6 @@ class SortinoRatio(BaseAnalyzer):
         
         self.add_data(sortino_ratio)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录索提诺比率到数据库"""
-        self.add_record()
-
     @property
     def current_sortino_ratio(self) -> float:
         """当前索提诺比率（只读属性）"""

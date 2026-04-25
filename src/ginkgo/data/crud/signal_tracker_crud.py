@@ -65,7 +65,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
 
             # 场景相关字段 - 根据具体业务场景必填
             "engine_id": {"type": str},  # 回测场景必填
-            "run_id": {"type": str},     # 回测场景必填，区分多次执行
+            "task_id": {"type": str},     # 回测场景必填，区分多次执行
             "account_type": {
                 "type": "enum",
                 "choices": [a for a in ACCOUNT_TYPE]
@@ -98,7 +98,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
 
             # 场景相关字段
             engine_id=kwargs.get("engine_id", ""),
-            run_id=kwargs.get("run_id", ""),
+            task_id=kwargs.get("task_id", ""),
             account_type=ACCOUNT_TYPE.validate_input(kwargs.get("account_type", ACCOUNT_TYPE.PAPER)),
             execution_mode=EXECUTION_MODE.validate_input(kwargs.get("execution_mode", EXECUTION_MODE.PAPER)),
         )
@@ -127,7 +127,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 expected_timestamp=datetime_normalize(getattr(item, 'timestamp')),
                 business_timestamp=datetime_normalize(getattr(item, 'business_timestamp')),
                 engine_id=getattr(item, 'engine_id', ''),
-                run_id=getattr(item, 'run_id', ''),
+                task_id=getattr(item, 'task_id', ''),
                 account_type=ACCOUNT_TYPE.validate_input(getattr(item, 'account_type', ACCOUNT_TYPE.PAPER)),
                 execution_mode=EXECUTION_MODE.validate_input(getattr(item, 'execution_mode', EXECUTION_MODE.PAPER)),
             )
@@ -144,7 +144,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 expected_timestamp=datetime_normalize(item.get('expected_timestamp')),
                 business_timestamp=datetime_normalize(item.get('business_timestamp')),
                 engine_id=item.get('engine_id', ''),
-                run_id=item.get('run_id', ''),
+                task_id=item.get('task_id', ''),
                 account_type=ACCOUNT_TYPE.validate_input(item.get('account_type')),
                 execution_mode=EXECUTION_MODE.validate_input(item.get('execution_mode')),
             )
@@ -160,7 +160,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 expected_timestamp=datetime_normalize(item.get("expected_timestamp")),
                 business_timestamp=datetime_normalize(item.get("business_timestamp")),
                 engine_id=item.get("engine_id", ""),
-                run_id=item.get("run_id", ""),
+                task_id=item.get("task_id", ""),
                 account_type=ACCOUNT_TYPE.validate_input(item.get("account_type")),
                 execution_mode=EXECUTION_MODE.validate_input(item.get("execution_mode")),
             )
@@ -244,7 +244,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
     def find_by_engine(
         self,
         engine_id: str,
-        run_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         account_type: Optional[ACCOUNT_TYPE] = None
     ) -> ModelList[MSignalTracker]:
         """
@@ -252,7 +252,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
 
         Args:
             engine_id: 引擎ID
-            run_id: 运行会话ID筛选
+            task_id: 任务ID筛选
             account_type: 账户类型筛选
 
         Returns:
@@ -260,8 +260,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         """
         filters = {"engine_id": engine_id}
 
-        if run_id is not None:
-            filters["run_id"] = run_id
+        if task_id is not None:
+            filters["task_id"] = task_id
         if account_type is not None:
             filters["account_type"] = account_type
 

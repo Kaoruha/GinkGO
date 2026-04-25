@@ -21,7 +21,7 @@ from ginkgo.trading.analysis.reports.base import AnalysisReport
 class ComparisonReport:
     """多次回测对比报告
 
-    接收多个 AnalysisReport 实例，按 run_id 组织并排展示。
+    接收多个 AnalysisReport 实例，按 task_id 组织并排展示。
 
     Args:
         reports: AnalysisReport 实例列表
@@ -31,23 +31,23 @@ class ComparisonReport:
         self.reports = reports
 
     def to_dict(self) -> dict:
-        """转换为字典，以 run_id 为 key
+        """转换为字典，以 task_id 为 key
 
         Returns:
-            {run_id: {summary: {...}, signal_analysis: {...}, ...}, ...}
+            {task_id: {summary: {...}, signal_analysis: {...}, ...}, ...}
         """
         result: Dict[str, dict] = {}
         for report in self.reports:
             d = report.to_dict()
-            run_id = d.pop("run_id")
-            result[run_id] = d
+            task_id = d.pop("task_id")
+            result[task_id] = d
         return result
 
     def to_dataframe(self) -> pd.DataFrame:
-        """转换为 DataFrame，以 run_id 为列
+        """转换为 DataFrame，以 task_id 为列
 
         Returns:
-            以 metric.section 为 MultiIndex、run_id 为列的 DataFrame
+            以 metric.section 为 MultiIndex、task_id 为列的 DataFrame
         """
         if not self.reports:
             return pd.DataFrame()
@@ -66,7 +66,7 @@ class ComparisonReport:
                     key = (section_name, metric_name)
                     if key not in all_keys:
                         all_keys[key] = {}
-                    all_keys[key][report.run_id] = value
+                    all_keys[key][report.task_id] = value
 
         if not all_keys:
             return pd.DataFrame()
@@ -80,15 +80,15 @@ class ComparisonReport:
         """转换为 Rich Table
 
         Returns:
-            以 run_id 为列、指标行为内容的 Rich Table
+            以 task_id 为列、指标行为内容的 Rich Table
         """
         table = Table(title="[Comparison] Analysis Report")
 
-        # 收集所有 run_id 作为列
-        run_ids = [r.run_id for r in self.reports]
+        # 收集所有 task_id 作为列
+        task_ids = [r.task_id for r in self.reports]
         table.add_column("Metric", style="cyan")
-        for run_id in run_ids:
-            table.add_column(run_id, style="green")
+        for task_id in task_ids:
+            table.add_column(task_id, style="green")
 
         if not self.reports:
             table.add_row("(no reports)", "")
@@ -118,7 +118,7 @@ class ComparisonReport:
         for section_label, metric_name in all_metrics:
             if section_label != current_section:
                 table.add_section()
-                table.add_row(f"[bold]{section_label}[/bold]", *[""] * len(run_ids))
+                table.add_row(f"[bold]{section_label}[/bold]", *[""] * len(task_ids))
                 current_section = section_label
 
             values = []

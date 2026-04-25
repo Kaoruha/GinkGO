@@ -24,7 +24,7 @@
     <div class="form-layout">
       <!-- 左侧面板 -->
       <div class="left-panel">
-        <form @submit.prevent="savePortfolio">
+        <form @submit.prevent>
           <!-- 基本信息卡片 -->
           <div class="card form-card">
             <div class="card-header-sm">
@@ -81,6 +81,7 @@
                   v-for="type in componentTypes"
                   :key="type.key"
                   :class="['type-btn', { active: activeComponentType === type.key }]"
+                  type="button"
                   @click="activeComponentType = type.key"
                 >
                   {{ type.label }}
@@ -88,90 +89,41 @@
               </div>
 
               <div class="component-selector">
-                <!-- 选股器选择 -->
-                <select
+                <SearchSelect
                   v-if="activeComponentType === 'selector'"
-                  v-model="selectedSelector"
-                  class="form-select"
-                  @change="onSelectSelectorChange"
-                >
-                  <option value="">选择选股器</option>
-                  <option
-                    v-for="selector in availableSelectors.filter(s => !isSelectorAdded(s.uuid))"
-                    :key="selector.uuid"
-                    :value="selector.uuid"
-                  >
-                    {{ selector.name }}
-                  </option>
-                </select>
-
-                <!-- 仓位管理器选择 -->
-                <select
+                  placeholder="搜索选股器..."
+                  :search-fn="q => searchComponents('selector', q)"
+                  :exclude-values="formData.selectors.map(s => s.uuid)"
+                  @select="o => addSelector(o.value)"
+                />
+                <SearchSelect
                   v-else-if="activeComponentType === 'sizer'"
-                  v-model="selectedSizer"
-                  class="form-select"
-                  @change="onSelectSizerChange"
-                >
-                  <option value="">选择仓位管理器</option>
-                  <option
-                    v-for="sizer in availableSizers.filter(s => !formData.sizer || s.uuid !== formData.sizer.uuid)"
-                    :key="sizer.uuid"
-                    :value="sizer.uuid"
-                  >
-                    {{ sizer.name }}
-                  </option>
-                </select>
-
-                <!-- 策略选择 -->
-                <select
+                  placeholder="搜索仓位管理器..."
+                  :search-fn="q => searchComponents('sizer', q)"
+                  :exclude-values="formData.sizer ? [formData.sizer.uuid] : []"
+                  @select="o => addSizer(o.value)"
+                />
+                <SearchSelect
                   v-else-if="activeComponentType === 'strategy'"
-                  v-model="selectedStrategy"
-                  class="form-select"
-                  @change="onSelectStrategyChange"
-                >
-                  <option value="">选择策略</option>
-                  <option
-                    v-for="strategy in availableStrategies.filter(s => !isStrategyAdded(s.uuid))"
-                    :key="strategy.uuid"
-                    :value="strategy.uuid"
-                  >
-                    {{ strategy.name }}
-                  </option>
-                </select>
-
-                <!-- 风控选择 -->
-                <select
+                  placeholder="搜索策略..."
+                  :search-fn="q => searchComponents('strategy', q)"
+                  :exclude-values="formData.strategies.map(s => s.uuid)"
+                  @select="o => addStrategy(o.value)"
+                />
+                <SearchSelect
                   v-else-if="activeComponentType === 'risk'"
-                  v-model="selectedRisk"
-                  class="form-select"
-                  @change="onSelectRiskChange"
-                >
-                  <option value="">选择风控规则</option>
-                  <option
-                    v-for="risk in availableRisks.filter(r => !isRiskAdded(r.uuid))"
-                    :key="risk.uuid"
-                    :value="risk.uuid"
-                  >
-                    {{ risk.name }}
-                  </option>
-                </select>
-
-                <!-- 分析器选择 -->
-                <select
+                  placeholder="搜索风控规则..."
+                  :search-fn="q => searchComponents('risk', q)"
+                  :exclude-values="formData.risk_managers.map(r => r.uuid)"
+                  @select="o => addRisk(o.value)"
+                />
+                <SearchSelect
                   v-else-if="activeComponentType === 'analyzer'"
-                  v-model="selectedAnalyzer"
-                  class="form-select"
-                  @change="onSelectAnalyzerChange"
-                >
-                  <option value="">选择分析器（可选）</option>
-                  <option
-                    v-for="analyzer in availableAnalyzers.filter(a => !isAnalyzerAdded(a.uuid))"
-                    :key="analyzer.uuid"
-                    :value="analyzer.uuid"
-                  >
-                    {{ analyzer.name }}
-                  </option>
-                </select>
+                  placeholder="搜索分析器..."
+                  :search-fn="q => searchComponents('analyzer', q)"
+                  :exclude-values="formData.analyzers.map(a => a.uuid)"
+                  @select="o => addAnalyzer(o.value)"
+                />
               </div>
             </div>
           </div>
@@ -218,12 +170,12 @@
                       <label class="param-label">{{ param.label || param.name }}</label>
                       <input
                         v-if="param.type === 'number'"
-                        v-model.number="selector.config[param.name]"
-                        type="number"
-                        :min="param.min"
-                        :max="param.max"
-                        :step="param.step || 1"
+                        :value="formatNumber(selector.config[param.name] ?? 0)"
+                        type="text"
+                        inputmode="decimal"
                         class="param-input"
+                        @focus="e => e.target.value = selector.config[param.name] ?? ''"
+                        @blur="e => { selector.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(selector.config[param.name]) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`sel-${selector.uuid}-${param.name}`" v-model="selector.config[param.name]" type="checkbox" class="switch-input" />
@@ -272,12 +224,12 @@
                       <label class="param-label">{{ param.label || param.name }}</label>
                       <input
                         v-if="param.type === 'number'"
-                        v-model.number="formData.sizer.config[param.name]"
-                        type="number"
-                        :min="param.min"
-                        :max="param.max"
-                        :step="param.step || 1"
+                        :value="formatNumber(formData.sizer.config[param.name] ?? 0)"
+                        type="text"
+                        inputmode="decimal"
                         class="param-input"
+                        @focus="e => e.target.value = formData.sizer.config[param.name] ?? ''"
+                        @blur="e => { formData.sizer.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(formData.sizer.config[param.name]) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`sizer-${param.name}`" v-model="formData.sizer.config[param.name]" type="checkbox" class="switch-input" />
@@ -330,12 +282,12 @@
                       <label class="param-label">{{ param.label || param.name }}</label>
                       <input
                         v-if="param.type === 'number'"
-                        v-model.number="strategy.config[param.name]"
-                        type="number"
-                        :min="param.min"
-                        :max="param.max"
-                        :step="param.step || 1"
+                        :value="formatNumber(strategy.config[param.name] ?? 0)"
+                        type="text"
+                        inputmode="decimal"
                         class="param-input"
+                        @focus="e => e.target.value = strategy.config[param.name] ?? ''"
+                        @blur="e => { strategy.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(strategy.config[param.name]) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`strat-${strategy.uuid}-${param.name}`" v-model="strategy.config[param.name]" type="checkbox" class="switch-input" />
@@ -384,12 +336,12 @@
                       <label class="param-label">{{ param.label || param.name }}</label>
                       <input
                         v-if="param.type === 'number'"
-                        v-model.number="risk.config[param.name]"
-                        type="number"
-                        :min="param.min"
-                        :max="param.max"
-                        :step="param.step || 1"
+                        :value="formatNumber(risk.config[param.name] ?? 0)"
+                        type="text"
+                        inputmode="decimal"
                         class="param-input"
+                        @focus="e => e.target.value = risk.config[param.name] ?? ''"
+                        @blur="e => { risk.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(risk.config[param.name]) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`risk-${risk.uuid}-${param.name}`" v-model="risk.config[param.name]" type="checkbox" class="switch-input" />
@@ -438,12 +390,12 @@
                       <label class="param-label">{{ param.label || param.name }}</label>
                       <input
                         v-if="param.type === 'number'"
-                        v-model.number="analyzer.config[param.name]"
-                        type="number"
-                        :min="param.min"
-                        :max="param.max"
-                        :step="param.step || 1"
+                        :value="formatNumber(analyzer.config[param.name] ?? 0)"
+                        type="text"
+                        inputmode="decimal"
                         class="param-input"
+                        @focus="e => e.target.value = analyzer.config[param.name] ?? ''"
+                        @blur="e => { analyzer.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(analyzer.config[param.name]) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`ana-${analyzer.uuid}-${param.name}`" v-model="analyzer.config[param.name]" type="checkbox" class="switch-input" />
@@ -477,11 +429,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-
-// 简化的通知函数
-const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-}
+import { portfolioApi } from '@/api/modules/portfolio'
+import { componentsApi } from '@/api/modules/components'
+import SearchSelect from '@/components/common/SearchSelect.vue'
+import type { SearchOption } from '@/components/common/SearchSelect.vue'
+import { message } from '@/utils/toast'
 
 // Props
 const props = defineProps<{
@@ -528,7 +480,7 @@ const availableAnalyzers = ref<any[]>([])
 // 组件版本缓存
 const componentVersionsCache = ref<Record<string, any[]>>({})
 
-// 临时选择
+// 临时选择（不再需要，SearchSelect 自行管理）
 const selectedSelector = ref<string>('')
 const selectedSizer = ref<string>('')
 const selectedStrategy = ref<string>('')
@@ -578,17 +530,15 @@ const getComponentVersions = (name: string, type: string): any[] => {
   return componentVersionsCache.value[cacheKey] || []
 }
 
-// 加载组件参数定义
-const loadComponentParameters = (uuid: string) => {
-  const allComponents = [
-    ...availableSelectors.value,
-    ...availableSizers.value,
-    ...availableStrategies.value,
-    ...availableRisks.value,
-    ...availableAnalyzers.value
-  ]
-  const component = allComponents.find(c => c.uuid === uuid)
-  return component?.parameters || []
+// 加载组件参数定义（从详情 API 获取，含 AST 解析的参数）
+const loadComponentParameters = async (uuid: string) => {
+  try {
+    const res = await componentsApi.get(uuid) as any
+    const data = res.data || res
+    return data.parameters || []
+  } catch {
+    return []
+  }
 }
 
 // 根据参数定义构建默认配置
@@ -689,7 +639,7 @@ const changeComponentVersion = async (componentType: string, index: number, vers
       formData.value.analyzers[index].config = mergedConfig
     }
   } catch (error) {
-    showToast('切换版本失败', 'error')
+    message.error('切换版本失败')
   }
 }
 
@@ -809,54 +759,101 @@ const removeAnalyzer = (index: number) => {
   formData.value.analyzers.splice(index, 1)
 }
 
+// 搜索组件（供 SearchSelect 使用，同时更新 available 列表）
+const searchComponents = async (type: string, query: string): Promise<SearchOption[]> => {
+  try {
+    const res = await componentsApi.list(type, { keyword: query || undefined, page: 1, page_size: 20 })
+    const items = (res as any).data || res || []
+    // 同步到 available 列表供 add 函数查找
+    const mapped = items.map((c: any) => ({ ...c, uuid: c.uuid, name: c.name }))
+    if (type === 'strategy') availableStrategies.value = mapped
+    else if (type === 'selector') availableSelectors.value = mapped
+    else if (type === 'sizer') availableSizers.value = mapped
+    else if (type === 'risk') availableRisks.value = mapped
+    else if (type === 'analyzer') availableAnalyzers.value = mapped
+    return items.map((c: any) => ({ value: c.uuid, label: c.name, data: c }))
+  } catch {
+    return []
+  }
+}
+
 // 加载组件列表
 const loadComponents = async () => {
-  // 模拟数据加载
-  availableStrategies.value = [
-    { uuid: 's1', name: '双均线策略', component_type: 'strategy', version: '1.0.0', parameters: [] },
-    { uuid: 's2', name: '动量策略', component_type: 'strategy', version: '1.0.0', parameters: [] },
-  ]
-  availableSelectors.value = [
-    { uuid: 'sel1', name: '全市场选股', component_type: 'selector', version: '1.0.0', parameters: [] },
-  ]
-  availableSizers.value = [
-    { uuid: 'sz1', name: '等权重仓位', component_type: 'sizer', version: '1.0.0', parameters: [] },
-  ]
-  availableRisks.value = [
-    { uuid: 'r1', name: '止损风控', component_type: 'risk', version: '1.0.0', parameters: [] },
-  ]
-  availableAnalyzers.value = []
+  try {
+    const types = ['strategy', 'selector', 'sizer', 'risk', 'analyzer']
+    const results = await Promise.all(
+      types.map(t => componentsApi.list(t, { page: 1, page_size: 100 }).catch(() => ({ data: [] })))
+    )
+    availableStrategies.value = results[0].data || []
+    availableSelectors.value = results[1].data || []
+    availableSizers.value = results[2].data || []
+    availableRisks.value = results[3].data || []
+    availableAnalyzers.value = results[4].data || []
+  } catch (e) {
+    console.error('加载组件失败:', e)
+  }
 }
 
 // 保存投资组合
 const savePortfolio = async () => {
   if (!formData.value.name) {
-    showToast('请输入组合名称', 'warning')
-    return
-  }
-  if (formData.value.selectors.length === 0) {
-    showToast('请至少添加一个选股器', 'warning')
-    return
-  }
-  if (!formData.value.sizer) {
-    showToast('请选择仓位管理器', 'warning')
+    message.warning('请输入组合名称')
     return
   }
   if (formData.value.strategies.length === 0) {
-    showToast('请至少添加一个策略', 'warning')
+    message.warning('请至少添加一个策略')
     return
   }
 
   saving.value = true
   try {
-    // 模拟保存
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    showToast(isEditMode.value ? '投资组合更新成功' : '投资组合创建成功')
-    if (!isEditMode.value && props.isModalMode) {
-      emit('created', 'new-uuid')
+    const payload: any = {
+      name: formData.value.name,
+      mode: formData.value.mode,
+      initial_cash: formData.value.initial_cash,
+      benchmark: formData.value.benchmark || undefined,
+      description: formData.value.description || undefined,
+      strategies: formData.value.strategies.map(s => ({
+        component_uuid: s.uuid,
+        weight: s.weight || 100,
+        config: s.config || {},
+      })),
     }
-  } catch {
-    showToast('保存失败', 'error')
+    if (formData.value.selectors.length > 0) {
+      payload.selectors = formData.value.selectors.map(s => ({
+        component_uuid: s.uuid,
+        config: s.config || {},
+      }))
+    }
+    if (formData.value.sizer) {
+      payload.sizer_uuid = formData.value.sizer.uuid
+      payload.sizer_config = formData.value.sizer.config || {}
+    }
+    if (formData.value.risk_managers.length > 0) {
+      payload.risk_managers = formData.value.risk_managers.map(r => ({
+        component_uuid: r.uuid,
+        config: r.config || {},
+      }))
+    }
+    if (formData.value.analyzers.length > 0) {
+      payload.analyzers = formData.value.analyzers.map(a => ({
+        component_uuid: a.uuid,
+        config: a.config || {},
+      }))
+    }
+
+    const result = await portfolioApi.create(payload)
+    message.success(isEditMode.value ? '投资组合更新成功' : '投资组合创建成功')
+    const createdUuid = result.uuid || result.data?.uuid
+    if (!isEditMode.value) {
+      if (props.isModalMode) {
+        emit('created', createdUuid)
+      } else if (createdUuid) {
+        router.push(`/portfolios/${createdUuid}`)
+      }
+    }
+  } catch (e: any) {
+    message.error(`保存失败: ${e.message || e}`)
   } finally {
     saving.value = false
   }

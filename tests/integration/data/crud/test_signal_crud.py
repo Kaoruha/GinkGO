@@ -135,7 +135,7 @@ class TestSignalCRUDInsert:
             MSignal(
                 portfolio_id="test_portfolio_001",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 reason="突破移动平均线",
@@ -148,7 +148,7 @@ class TestSignalCRUDInsert:
             MSignal(
                 portfolio_id="test_portfolio_001",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="000002.SZ",
                 direction=DIRECTION_TYPES.SHORT,
                 reason="RSI超买信号",
@@ -219,7 +219,7 @@ class TestSignalCRUDInsert:
         test_signal = MSignal(
             portfolio_id="test_portfolio_002",
             engine_id="test_engine_001",
-            run_id="test_run_001",
+            task_id="test_run_001",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             reason="MACD金叉信号",
@@ -390,7 +390,7 @@ class TestSignalCRUDQuery:
             MSignal(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_001",
-                run_id="convert_run_001",
+                task_id="convert_run_001",
                 code="CONVERT001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 reason="移动平均线金叉",
@@ -402,7 +402,7 @@ class TestSignalCRUDQuery:
             MSignal(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_001",
-                run_id="convert_run_001",
+                task_id="convert_run_001",
                 code="CONVERT001.SZ",
                 direction=DIRECTION_TYPES.SHORT,
                 reason="技术指标超买",
@@ -414,7 +414,7 @@ class TestSignalCRUDQuery:
             MSignal(
                 portfolio_id="convert_test_portfolio",
                 engine_id="convert_engine_002",
-                run_id="convert_run_002",
+                task_id="convert_run_002",
                 code="CONVERT002.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 reason="成交量放大确认",
@@ -694,7 +694,7 @@ class TestSignalCRUDUpdate:
             new_signal = MSignal(
                 portfolio_id=reference_signal.portfolio_id,
                 engine_id="corrected_engine_001",
-                run_id="corrected_run_001",
+                task_id="corrected_run_001",
                 code=reference_signal.code,
                 direction=DIRECTION_TYPES(reference_signal.direction),  # 转换枚举
                 reason="修正后的信号原因 - 基于原信号调整",
@@ -751,7 +751,7 @@ class TestSignalCRUDDelete:
             test_signal = MSignal(
                 portfolio_id="test_portfolio_delete",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 code="999999.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 reason="待删除的测试信号",
@@ -843,7 +843,7 @@ class TestSignalCRUDBusinessLogic:
                 MSignal(
                     portfolio_id="strategy_analysis_test",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="移动平均线金叉",
@@ -855,7 +855,7 @@ class TestSignalCRUDBusinessLogic:
                 MSignal(
                     portfolio_id="strategy_analysis_test",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="成交量放大确认",
@@ -867,7 +867,7 @@ class TestSignalCRUDBusinessLogic:
                 MSignal(
                     portfolio_id="strategy_analysis_test",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code="000002.SZ",
                     direction=DIRECTION_TYPES.SHORT,
                     reason="技术指标超买",
@@ -924,7 +924,7 @@ class TestSignalCRUDBusinessLogic:
                 MSignal(
                     portfolio_id="conflict_test",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="做多信号",
@@ -936,7 +936,7 @@ class TestSignalCRUDBusinessLogic:
                 MSignal(
                     portfolio_id="conflict_test",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.SHORT,
                     reason="做空信号",

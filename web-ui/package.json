@@ -28,6 +28,7 @@
     "monaco-editor": "^0.55.1",
     "pinia": "^2.1.7",
     "radix-vue": "^1.9.17",
+    "reka-ui": "^2.9.6",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "vue": "^3.4.0",

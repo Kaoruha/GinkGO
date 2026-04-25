@@ -72,7 +72,6 @@ from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
-from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 from ginkgo.data.services.encryption_service import EncryptionService, get_encryption_service
 from ginkgo.data.services.live_account_service import LiveAccountService
 from ginkgo.data.services.api_key_service import ApiKeyService
@@ -218,9 +217,6 @@ class Container(containers.DeclarativeContainer):
         engine_handler_mapping_crud=engine_handler_mapping_crud,
         param_crud=param_crud,
     )
-
-    # Parameter Metadata Service for parameter name mapping
-    parameter_metadata_service = providers.Singleton(ParameterMetadataService)
 
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 

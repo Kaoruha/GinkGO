@@ -33,7 +33,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
     return Order(
         portfolio_id="test-portfolio-001",
         engine_id="test-engine-001",
-        run_id="test-run-001",
+        task_id="test-run-001",
         code=code,
         direction=direction,
         order_type=order_type,
@@ -187,7 +187,7 @@ class TestOrderExpiredEventCreation:
             expire_reason="GTD expired",
             portfolio_id=order.portfolio_id,
             engine_id=order.engine_id,
-            run_id=order.run_id,
+            task_id=order.task_id,
         )
         assert event.portfolio_id == order.portfolio_id
         assert event.engine_id == order.engine_id

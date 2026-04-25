@@ -63,7 +63,7 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
         cls.available_components = None
         cls.bound_components = None
         cls.test_engine_instance = None
-        cls.test_run_id = None
+        cls.test_task_id = None
 
     @classmethod
     def tearDownClass(cls):
@@ -521,12 +521,12 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
 
             engine = assemble_result.data
             BacktestWorkflowIntegrationTest.test_engine_instance = engine
-            # run_id 在引擎启动时生成，装配时为 None
-            BacktestWorkflowIntegrationTest.test_run_id = None
+            # task_id 在引擎启动时生成，装配时为 None
+            BacktestWorkflowIntegrationTest.test_task_id = None
 
             GLOG.INFO(f"Engine assembled: {engine.name}")
             GLOG.INFO(f"  Engine ID: {engine.engine_id}")
-            GLOG.INFO(f"  Run ID: {BacktestWorkflowIntegrationTest.test_run_id} (will be set after engine starts)")
+            GLOG.INFO(f"  Run ID: {BacktestWorkflowIntegrationTest.test_task_id} (will be set after engine starts)")
 
             # 运行回测
             GLOG.INFO("Starting backtest...")
@@ -538,9 +538,9 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
 
             success = engine.start()
 
-            # 引擎启动后获取 run_id
-            BacktestWorkflowIntegrationTest.test_run_id = engine.run_id
-            GLOG.INFO(f"Engine started, Run ID: {BacktestWorkflowIntegrationTest.test_run_id}")
+            # 引擎启动后获取 task_id
+            BacktestWorkflowIntegrationTest.test_task_id = engine.task_id
+            GLOG.INFO(f"Engine started, Run ID: {BacktestWorkflowIntegrationTest.test_task_id}")
 
             # 等待引擎完成
             while engine.is_active and (time.time() - start_time) < timeout:
@@ -569,31 +569,31 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
         GLOG.INFO("Step 11: Check Backtest Results")
         GLOG.INFO("=" * 60)
 
-        if not hasattr(BacktestWorkflowIntegrationTest, 'test_run_id'):
-            self.skipTest("No run_id attribute from backtest execution")
+        if not hasattr(BacktestWorkflowIntegrationTest, 'test_task_id'):
+            self.skipTest("No task_id attribute from backtest execution")
 
-        run_id = BacktestWorkflowIntegrationTest.test_run_id
-        if not run_id or (isinstance(run_id, str) and run_id.strip() == ''):
-            self.skipTest(f"Run ID is empty: '{run_id}' (type: {type(run_id)})")
+        task_id = BacktestWorkflowIntegrationTest.test_task_id
+        if not task_id or (isinstance(task_id, str) and task_id.strip() == ''):
+            self.skipTest(f"Run ID is empty: '{task_id}' (type: {type(task_id)})")
 
-        GLOG.INFO(f"Checking results for run_id: {run_id}")
+        GLOG.INFO(f"Checking results for task_id: {task_id}")
 
         # 获取运行摘要
-        summary_result = self.result_service.get_run_summary(run_id)
+        summary_result = self.result_service.get_run_summary(task_id)
 
         # 如果没有找到记录，这可能是正常的（没有 analyzer 绑定或未保存）
         if not summary_result.success:
-            GLOG.WARN(f"No analyzer records found for run_id: {run_id}")
+            GLOG.WARN(f"No analyzer records found for task_id: {task_id}")
             GLOG.WARN("This may be because:")
             GLOG.WARN("  1. No analyzer components were bound to the portfolio")
             GLOG.WARN("  2. Analyzer data was not saved during backtest")
             GLOG.WARN("  3. Run completed but no data was generated")
-            self.skipTest(f"No analyzer records found for run_id: {run_id}")
+            self.skipTest(f"No analyzer records found for task_id: {task_id}")
 
         summary = summary_result.data
 
         GLOG.info(f"Run Summary:")
-        GLOG.info(f"  Run ID: {summary['run_id']}")
+        GLOG.info(f"  Run ID: {summary['task_id']}")
         GLOG.info(f"  Engine ID: {summary['engine_id']}")
         GLOG.info(f"  Portfolio Count: {summary['portfolio_count']}")
         GLOG.info(f"  Total Records: {summary['total_records']}")
@@ -603,7 +603,7 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
 
             # 获取分析器列表
             analyzers_result = self.result_service.get_portfolio_analyzers(
-                run_id=run_id,
+                task_id=task_id,
                 portfolio_id=portfolio_id
             )
 
@@ -614,7 +614,7 @@ class BacktestWorkflowIntegrationTest(unittest.TestCase):
                 if analyzers_result.data:
                     analyzer_name = analyzers_result.data[0]
                     values_result = self.result_service.get_analyzer_values(
-                        run_id=run_id,
+                        task_id=task_id,
                         portfolio_id=portfolio_id,
                         analyzer_name=analyzer_name
                     )

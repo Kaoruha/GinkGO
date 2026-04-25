@@ -830,14 +830,14 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
             return
 
         latest_task = tasks[0] if isinstance(tasks, list) else tasks
-        run_id = getattr(latest_task, 'run_id', None)
+        task_id = getattr(latest_task, 'task_id', None)
         engine_id = getattr(latest_task, 'engine_id', None)
 
-        if not run_id:
-            GLOG.WARN(f"[DEPLOY] Backtest task has no run_id, skipping baseline")
+        if not task_id:
+            GLOG.WARN(f"[DEPLOY] Backtest task has no task_id, skipping baseline")
             return
 
-        GLOG.INFO(f"[DEPLOY] Computing baseline from backtest run_id={run_id[:8]}...")
+        GLOG.INFO(f"[DEPLOY] Computing baseline from backtest task_id={task_id[:8]}...")
 
         evaluator = BacktestEvaluator()
         eval_result = evaluator.evaluate_backtest_stability(

@@ -128,15 +128,15 @@ class InfrastructureFactory:
             )
             engine.set_engine_id(engine_id)
 
-            # 设置 run_id（用于回测结果聚合器和事件追踪）
-            run_id = engine_data.get("run_id", engine_id)
-            engine.set_run_id(run_id)
+            # 设置 task_id（用于回测结果聚合器和事件追踪）
+            task_id = engine_data.get("task_id", engine_id)
+            engine.set_task_id(task_id)
 
-            # 调试：验证 run_id 是否正确设置到 EngineContext
+            # 调试：验证 task_id 是否正确设置到 EngineContext
             engine_context = engine.get_engine_context()
             _logger = logger or GLOG
-            _logger.INFO(f"🔍 [RUN_ID CHECK] engine.set_run_id({run_id}) called")
-            _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.run_id = {engine_context.run_id}")
+            _logger.INFO(f"🔍 [RUN_ID CHECK] engine.set_task_id({task_id}) called")
+            _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.task_id = {engine_context.task_id}")
             _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.engine_id = {engine_context.engine_id}")
 
             # 设置时间范围 - 使用引擎数据库中的时间配置

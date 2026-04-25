@@ -120,9 +120,9 @@ def _setup_portfolio(p, time_val=None):
 
 def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
                 limit_price=Decimal("10.0"), portfolio_id="pid",
-                engine_id="eid", run_id="rid", **overrides):
+                engine_id="eid", task_id="rid", **overrides):
     defaults = dict(
-        portfolio_id=portfolio_id, engine_id=engine_id, run_id=run_id,
+        portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
         code=code, direction=direction, order_type=ORDER_TYPES.LIMITORDER,
         status=ORDERSTATUS_TYPES.NEW, volume=volume,
         limit_price=limit_price, frozen_money=volume * limit_price,
@@ -132,12 +132,12 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
 
 
 def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG,
-                 portfolio_id="pid", engine_id="eid", run_id="rid",
+                 portfolio_id="pid", engine_id="eid", task_id="rid",
                  ts=None, **overrides):
     if ts is not None and ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     defaults = dict(
-        portfolio_id=portfolio_id, engine_id=engine_id, run_id=run_id,
+        portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
         code=code, direction=direction, reason="test",
         source=SOURCE_TYPES.OTHER, business_timestamp=ts,
     )
@@ -150,11 +150,11 @@ def _utc(dt):
     return dt.replace(tzinfo=timezone.utc)
 
 
-def _set_context_ids(p, engine_id="eid", run_id="rid"):
-    """Set engine_id and run_id on a portfolio via context."""
+def _set_context_ids(p, engine_id="eid", task_id="rid"):
+    """Set engine_id and task_id on a portfolio via context."""
     mock_ctx = Mock()
     mock_ctx.engine_id = engine_id
-    mock_ctx.run_id = run_id
+    mock_ctx.task_id = task_id
     mock_ctx.portfolio_id = p.uuid
     p._context = mock_ctx
 
@@ -558,7 +558,7 @@ class TestOrderLifecycleEvents:
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), portfolio_id="pid",
-            engine_id="eid", run_id="rid",
+            engine_id="eid", task_id="rid",
         )
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
              patch('ginkgo.trading.portfolios.t1backtest.container'), \
@@ -641,7 +641,7 @@ class TestLongShortFillHandling:
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
              patch('ginkgo.trading.portfolios.t1backtest.container'):
             # deal_long_filled creates Position internally using p.uuid
-            # Need to set engine_id/run_id via context
+            # Need to set engine_id/task_id via context
             _set_context_ids(p)
             p.deal_long_filled(event)
         assert "000001.SZ" in p.positions
@@ -651,7 +651,7 @@ class TestLongShortFillHandling:
         _setup_portfolio(p)
         _set_context_ids(p)
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -698,7 +698,7 @@ class TestLongShortFillHandling:
         _setup_portfolio(p)
         _set_context_ids(p)
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )

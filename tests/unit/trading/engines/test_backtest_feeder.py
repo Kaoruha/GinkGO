@@ -549,11 +549,11 @@ class TestEventGeneration:
 
 @pytest.fixture
 def configured_feeder():
-    """创建已配置time_provider和run_id的BacktestFeeder"""
+    """创建已配置time_provider和task_id的BacktestFeeder"""
     feeder = BacktestFeeder()
     provider = LogicalTimeProvider(initial_time=datetime(2023, 6, 1))
     feeder.set_time_provider(provider)
-    feeder.set_run_id("test_hist_run")
+    feeder.set_task_id("test_hist_run")
 
     # 正确的时间推进顺序：先推进Provider，再通知组件
     provider.set_current_time(datetime(2023, 6, 10))

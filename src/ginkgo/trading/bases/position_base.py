@@ -24,7 +24,7 @@ class PositionBase(TimeMixin, ContextMixin, Base):
 
     组合时间和上下文管理能力，为所有持仓组件提供基础功能：
     - 时间戳管理 (timestamp, business_timestamp)
-    - 上下文管理 (engine_id, run_id, portfolio_id)
+    - 上下文管理 (engine_id, task_id, portfolio_id)
     - 引擎上下文同步 (sync_engine_context)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """

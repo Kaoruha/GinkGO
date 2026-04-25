@@ -63,7 +63,7 @@ class TestEngineCRUDInsert:
             "is_live": False,
             "source": SOURCE_TYPES.TEST,  # 使用枚举对象，验证器会处理
             "config_hash": "abc123def456",
-            "current_run_id": "run_001",
+            "current_task_id": "run_001",
             "run_count": 5,
             "config_snapshot": json.dumps({
                 "start_date": "2023-01-01",
@@ -80,7 +80,7 @@ class TestEngineCRUDInsert:
             "is_live": True,
             "source": SOURCE_TYPES.TEST,  # 使用枚举对象，验证器会处理
             "config_hash": "xyz789uvw456",
-            "current_run_id": "live_001",
+            "current_task_id": "live_001",
             "run_count": 1,
             "config_snapshot": json.dumps({
                 "broker": "simulator",
@@ -148,7 +148,7 @@ class TestEngineCRUDInsert:
             "is_live": False,
             "source": SOURCE_TYPES.TEST,  # 使用枚举对象，验证器会处理
             "config_hash": "test_config_hash",
-            "current_run_id": "paper_001",
+            "current_task_id": "paper_001",
             "run_count": 0,
             "config_snapshot": json.dumps({
                 "mode": "paper_trading",
@@ -678,7 +678,7 @@ class TestEngineCRUDDataConversion:
                     is_live=False,
                     source=SOURCE_TYPES.TEST,
                     config_hash="conv_test_1",
-                    current_run_id="run_001",
+                    current_task_id="run_001",
                     run_count=5,
                     config_snapshot='{"mode": "test", "version": "1.0"}'
                 ),
@@ -688,7 +688,7 @@ class TestEngineCRUDDataConversion:
                     is_live=True,
                     source=SOURCE_TYPES.TEST,
                     config_hash="conv_test_2",
-                    current_run_id="run_002",
+                    current_task_id="run_002",
                     run_count=10,
                     config_snapshot='{"mode": "test", "version": "1.0"}'
                 )
@@ -799,7 +799,7 @@ class TestEngineCRUDDelete:
         engines = [
             engine_crud.create(name=f"test_engine_{i}", status=ENGINESTATUS_TYPES.INITIALIZING,
                                source=SOURCE_TYPES.TEST, config_hash=f"config_{i}",
-                               current_run_id=f"run_{i}", run_count=i*5)
+                               current_task_id=f"run_{i}", run_count=i*5)
             for i in range(4)  # 创建4个不同名称的引擎
         ]
 
@@ -866,7 +866,7 @@ class TestEngineCRUDDelete:
         engines = [
             engine_crud.create(name=f"test_engine_{i}", status=ENGINESTATUS_TYPES.INITIALIZING,
                                source=SOURCE_TYPES.TEST, config_hash=f"config_{i}",
-                               current_run_id=f"run_{i}", run_count=i*5)
+                               current_task_id=f"run_{i}", run_count=i*5)
             for i in range(4)  # 创建4个不同名称的引擎
         ]
 
@@ -924,7 +924,7 @@ class TestEngineCRUDDelete:
                 name="delete_test_engine",
                 version="1.0.0",
                 config_hash="test_hash_123",
-                current_run_id="run_456",
+                current_task_id="run_456",
                 run_count=0,
                 config_snapshot='{"test": "config"}'
             )

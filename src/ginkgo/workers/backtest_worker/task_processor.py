@@ -95,7 +95,7 @@ class BacktestProcessor(Thread):
             if hasattr(self._engine, 'notify_analyzers_backtest_end'):
                 self._engine.notify_analyzers_backtest_end()
 
-            # 汇总分析器结果并保存到数据库
+            # 汇总分析器结果并保存到数据库（包含正确的sharpe_ratio等指标）
             self._aggregate_and_save_results()
 
             # 阶段4: 完成处理
@@ -104,7 +104,10 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
             self.task.result = self._result
 
-            self.progress_tracker.report_completed(self.task, self._result)
+            # report_completed 会写 result 字段到 DB，
+            # 但 _calculate_result 的指标是占位值，aggregator 已正确写入，
+            # 所以传 None 避免覆盖
+            self.progress_tracker.report_completed(self.task, None)
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
         except InterruptedError:
@@ -167,7 +170,7 @@ class BacktestProcessor(Thread):
         # 1. 构建引擎配置
         engine_data = {
             "name": f"BacktestEngine_{self.task.task_uuid[:8]}",
-            "run_id": self.task.task_uuid,
+            "task_id": self.task.task_uuid,
             "backtest_start_date": self.task.config.start_date,
             "backtest_end_date": self.task.config.end_date,
             "initial_capital": self.task.config.initial_cash,

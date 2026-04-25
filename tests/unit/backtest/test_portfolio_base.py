@@ -52,7 +52,7 @@ def sample_position(portfolio):
     return Position(
         portfolio_id=portfolio.portfolio_id,
         engine_id=TEST_ENGINE_ID,
-        run_id=TEST_RUN_ID,
+        task_id=TEST_RUN_ID,
         code="test_code",
         cost=Decimal("10"),
         volume=1000,
@@ -136,7 +136,7 @@ class TestPositionManagement:
         pos1 = Position(
             portfolio_id=portfolio.portfolio_id,
             engine_id=TEST_ENGINE_ID,
-            run_id=TEST_RUN_ID,
+            task_id=TEST_RUN_ID,
             code="test_code",
             cost=Decimal("10"),
             volume=1000,
@@ -151,7 +151,7 @@ class TestPositionManagement:
         pos2 = Position(
             portfolio_id=portfolio.portfolio_id,
             engine_id=TEST_ENGINE_ID,
-            run_id=TEST_RUN_ID,
+            task_id=TEST_RUN_ID,
             code="test_code2",
             cost=Decimal("10"),
             volume=1000,
@@ -173,7 +173,7 @@ class TestPositionManagement:
         pos = Position(
             portfolio_id=portfolio.portfolio_id,
             engine_id=TEST_ENGINE_ID,
-            run_id=TEST_RUN_ID,
+            task_id=TEST_RUN_ID,
             code=code,
             cost=price,
             volume=volume,

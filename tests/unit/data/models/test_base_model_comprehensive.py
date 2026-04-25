@@ -175,11 +175,11 @@ class TestModelEngineRunIDSystem:
         assert hasattr(MBacktestRecordBase, 'engine_id')
         assert get_column_default(MBacktestRecordBase.engine_id) == ""
 
-    def test_run_id_session_tracking(self):
+    def test_task_id_session_tracking(self):
         """测试运行ID会话跟踪"""
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-        assert hasattr(MBacktestRecordBase, 'run_id')
-        assert get_column_default(MBacktestRecordBase.run_id) == ""
+        assert hasattr(MBacktestRecordBase, 'task_id')
+        assert get_column_default(MBacktestRecordBase.task_id) == ""
 
     def test_hierarchical_id_relationship(self):
         """测试层次ID关系"""
@@ -187,16 +187,16 @@ class TestModelEngineRunIDSystem:
         # Both MClickBase and MMysqlBase have uuid
         assert hasattr(MClickBase, 'uuid')
         assert hasattr(MMysqlBase, 'uuid')
-        # MBacktestRecordBase adds engine_id and run_id
+        # MBacktestRecordBase adds engine_id and task_id
         assert hasattr(MBacktestRecordBase, 'engine_id')
-        assert hasattr(MBacktestRecordBase, 'run_id')
+        assert hasattr(MBacktestRecordBase, 'task_id')
 
     def test_id_system_querying_optimization(self):
         """测试ID系统查询优化"""
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-        # engine_id and run_id are String(32) for efficient indexing
+        # engine_id and task_id are String(32) for efficient indexing
         assert get_mapped_column(MBacktestRecordBase.engine_id).type.length == 32
-        assert get_mapped_column(MBacktestRecordBase.run_id).type.length == 32
+        assert get_mapped_column(MBacktestRecordBase.task_id).type.length == 32
 
 
 @pytest.mark.unit

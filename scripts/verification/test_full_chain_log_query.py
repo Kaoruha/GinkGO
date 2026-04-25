@@ -32,7 +32,7 @@ def test_full_chain_log_query():
 
     # 启动引擎（生成 trace_id）
     engine.start()
-    trace_id = engine.run_id
+    trace_id = engine.task_id
     print(f"  ✓ 回测启动成功")
     print(f"  ✓ Trace ID: {trace_id}")
 

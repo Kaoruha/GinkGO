@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-E2E 验证脚本 — 基于真实回测 run_id 验证分析模块全部功能
+E2E 验证脚本 — 基于真实回测 task_id 验证分析模块全部功能
 
 验证项:
 1. AnalysisEngine.analyze() → SingleReport
@@ -30,7 +30,7 @@ GCONF.set_debug(True)
 # 配置
 # ============================================================
 
-# 使用已知有数据的 run_id
+# 使用已知有数据的 task_id
 RUN_ID = "e91da857bfea44d281e48782fcec58d3"
 
 passed = 0
@@ -51,7 +51,7 @@ def check(condition, msg):
 
 def main():
     print("=" * 60)
-    print(f"E2E 分析模块验证 — run_id: {RUN_ID}")
+    print(f"E2E 分析模块验证 — task_id: {RUN_ID}")
     print("=" * 60)
 
     # ============================================================
@@ -77,7 +77,7 @@ def main():
         report = engine.analyze(RUN_ID)
         from ginkgo.trading.analysis.reports.single import SingleReport
         check(isinstance(report, SingleReport), "返回 SingleReport 实例")
-        check(report.run_id == RUN_ID, f"run_id 正确: {report.run_id}")
+        check(report.task_id == RUN_ID, f"task_id 正确: {report.task_id}")
     except Exception as e:
         check(False, f"analyze() 失败: {e}")
         report = None
@@ -137,7 +137,7 @@ def main():
     print("\n[6] SingleReport 输出适配")
 
     d = report.to_dict()
-    check(d["run_id"] == RUN_ID, "to_dict() 包含正确 run_id")
+    check(d["task_id"] == RUN_ID, "to_dict() 包含正确 task_id")
     check("analyzer_summary" in d, "to_dict() 包含 analyzer_summary")
     check("stability_analysis" in d, "to_dict() 包含 stability_analysis")
     check("ic_analysis" in d, "to_dict() 包含 ic_analysis")
@@ -159,13 +159,13 @@ def main():
     # ============================================================
     print("\n[7] compare() → ComparisonReport")
     try:
-        comp = engine.compare(run_ids=[RUN_ID])
+        comp = engine.compare(task_ids=[RUN_ID])
         from ginkgo.trading.analysis.reports.comparison import ComparisonReport
         check(isinstance(comp, ComparisonReport), "返回 ComparisonReport 实例")
         check(len(comp.reports) == 1, "包含 1 个 report")
 
         comp_d = comp.to_dict()
-        check(RUN_ID in comp_d, f"to_dict() 包含 run_id key: {RUN_ID}")
+        check(RUN_ID in comp_d, f"to_dict() 包含 task_id key: {RUN_ID}")
         check("analyzer_summary" in comp_d[RUN_ID], "对比报告包含 analyzer_summary")
 
         comp_df = comp.to_dataframe()

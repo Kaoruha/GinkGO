@@ -65,10 +65,10 @@ class TaskEngineBuilder:
             timer_interval=0.01,  # 提高性能
         )
 
-        # 设置时间边界和 run_id
+        # 设置时间边界和 task_id
         engine.set_start_time(datetime.datetime.strptime(task.config.start_date, "%Y-%m-%d"))
         engine.set_end_time(datetime.datetime.strptime(task.config.end_date, "%Y-%m-%d"))
-        engine.set_run_id(task.task_uuid)
+        engine.set_task_id(task.task_uuid)
 
         # 2. 创建并添加 Portfolio
         portfolio = self._create_portfolio_from_task(task)

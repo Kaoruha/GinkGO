@@ -342,29 +342,29 @@ class TestTimeControlledEngineProperties:
         engine3 = TimeControlledEventEngine(engine_id=custom_id)
         assert engine3.engine_id == custom_id, "自定义engine_id应生效"
 
-    def test_run_id_property(self):
+    def test_task_id_property(self):
         """测试运行ID属性
-        验证run_id的会话管理和唯一性。
+        验证task_id的会话管理和唯一性。
         """
         engine = TimeControlledEventEngine()
 
-        # 初始状态run_id应为None
-        assert engine.run_id is None, "初始run_id应为None"
+        # 初始状态task_id应为None
+        assert engine.task_id is None, "初始task_id应为None"
 
-        # 手动生成run_id（不启动引擎线程，避免线程无法重启的问题）
-        run_id_1 = engine.generate_run_id()
-        assert run_id_1 is not None, "生成后应返回run_id"
-        assert engine.run_id == run_id_1, "run_id应与生成的一致"
-        assert isinstance(engine.run_id, str), "run_id应为字符串类型"
+        # 手动生成task_id（不启动引擎线程，避免线程无法重启的问题）
+        task_id_1 = engine.generate_task_id()
+        assert task_id_1 is not None, "生成后应返回task_id"
+        assert engine.task_id == task_id_1, "task_id应与生成的一致"
+        assert isinstance(engine.task_id, str), "task_id应为字符串类型"
 
-        # 保持run_id
-        current_run_id = engine.run_id
-        assert current_run_id == run_id_1, "run_id应保持不变"
+        # 保持task_id
+        current_task_id = engine.task_id
+        assert current_task_id == task_id_1, "task_id应保持不变"
 
-        # 强制生成新run_id
-        new_run_id = engine.generate_run_id(force=True)
-        assert new_run_id != current_run_id, "强制生成应产生新run_id"
-        assert engine.run_id == new_run_id, "run_id应更新为新值"
+        # 强制生成新task_id
+        new_task_id = engine.generate_task_id(force=True)
+        assert new_task_id != current_task_id, "强制生成应产生新task_id"
+        assert engine.task_id == new_task_id, "task_id应更新为新值"
 
 
 @pytest.mark.unit

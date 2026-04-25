@@ -81,10 +81,10 @@ class TestMySQLBaseModelIDSystem:
         assert col.type.__class__.__name__ == 'String'
         assert col.type.length == 32
 
-    def test_mmysqlbase_run_id_varchar_field(self):
+    def test_mmysqlbase_task_id_varchar_field(self):
         """测试MMysqlBase运行ID VARCHAR字段"""
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-        col = get_mapped_column(MBacktestRecordBase.run_id)
+        col = get_mapped_column(MBacktestRecordBase.task_id)
         assert col.type.__class__.__name__ == 'String'
         assert col.type.length == 32
 
@@ -92,10 +92,10 @@ class TestMySQLBaseModelIDSystem:
         """测试MMysqlBase ID可空选项"""
         # uuid is primary key, not nullable
         assert get_mapped_column(MMysqlBase.uuid).primary_key is True
-        # engine_id and run_id have defaults (empty string)
+        # engine_id and task_id have defaults (empty string)
         from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
         assert is_column_nullable(MBacktestRecordBase, 'engine_id') is True
-        assert is_column_nullable(MBacktestRecordBase, 'run_id') is True
+        assert is_column_nullable(MBacktestRecordBase, 'task_id') is True
 
     def test_mmysqlbase_id_indexing_strategy(self):
         """测试MMysqlBase ID索引策略"""

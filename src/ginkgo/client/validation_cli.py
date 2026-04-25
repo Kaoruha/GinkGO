@@ -626,7 +626,7 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
                 "uuid": "validation_test_portfolio",
                 "portfolio_id": "validation_test_portfolio",
                 "engine_id": "validation_test_engine",
-                "run_id": "validation_test_run",
+                "task_id": "validation_test_run",
                 "now": datetime.now(),
             }
 

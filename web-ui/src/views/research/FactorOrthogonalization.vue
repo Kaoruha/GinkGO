@@ -15,7 +15,7 @@
             <label class="form-label">回测任务</label>
             <select v-model="config.backtestId" class="form-select">
               <option value="">选择回测任务</option>
-              <option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">{{ bt.run_id }}</option>
+              <option v-for="bt in backtestList" :key="bt.task_id" :value="bt.task_id">{{ bt.task_id }}</option>
             </select>
           </div>
           <div class="form-group">

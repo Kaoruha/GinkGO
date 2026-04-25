@@ -62,11 +62,11 @@ from ginkgo.enums import (
     PORTFOLIO_RUNSTATE_TYPES,
     RECORDSTAGE_TYPES,
 )
-def _set_context_ids(p, engine_id="eid", run_id="rid"):
-    """Set engine_id and run_id on a portfolio via context."""
+def _set_context_ids(p, engine_id="eid", task_id="rid"):
+    """Set engine_id and task_id on a portfolio via context."""
     mock_ctx = Mock()
     mock_ctx.engine_id = engine_id
-    mock_ctx.run_id = run_id
+    mock_ctx.task_id = task_id
     mock_ctx.portfolio_id = p.uuid
     p._context = mock_ctx
 
@@ -124,9 +124,9 @@ def _setup_portfolio(p, time_val=None):
 
 def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
                 limit_price=Decimal("10.0"), portfolio_id="pid",
-                engine_id="eid", run_id="rid", **overrides):
+                engine_id="eid", task_id="rid", **overrides):
     defaults = dict(
-        portfolio_id=portfolio_id, engine_id=engine_id, run_id=run_id,
+        portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
         code=code, direction=direction, order_type=ORDER_TYPES.LIMITORDER,
         status=ORDERSTATUS_TYPES.NEW, volume=volume,
         limit_price=limit_price, frozen_money=volume * limit_price,
@@ -136,10 +136,10 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
 
 
 def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG,
-                 portfolio_id="pid", engine_id="eid", run_id="rid",
+                 portfolio_id="pid", engine_id="eid", task_id="rid",
                  **overrides):
     defaults = dict(
-        portfolio_id=portfolio_id, engine_id=engine_id, run_id=run_id,
+        portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
         code=code, direction=direction, reason="test",
         source=SOURCE_TYPES.OTHER,
     )
@@ -206,7 +206,7 @@ class TestPositionRecovery:
         """Manually add a long position to simulate recovery."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -218,7 +218,7 @@ class TestPositionRecovery:
         """Simulate short by buying then freezing and selling."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=200,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -234,7 +234,7 @@ class TestPositionRecovery:
         """Simulate mixed long/short operations."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=0,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -245,7 +245,7 @@ class TestPositionRecovery:
         """Zero volume positions can be manually removed."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=0,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -259,7 +259,7 @@ class TestPositionRecovery:
         """Test that sync_state_to_db calls DB functions."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -320,7 +320,7 @@ class TestLiveSignalProcessing:
         p = _make_portfolio()
         components = _setup_portfolio(p)
         # Replace the sizer with one that returns an order
-        order = _make_order(portfolio_id=p.uuid, engine_id="eid", run_id="rid")
+        order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
         components["sizer"].cal = Mock(return_value=order)
         mock_risk = Mock(spec=RiskBase)
         mock_risk.cal = Mock(side_effect=lambda info, o: o)
@@ -339,7 +339,7 @@ class TestLiveSignalProcessing:
         p = _make_portfolio()
         components = _setup_portfolio(p)
         # Replace the sizer with one that returns an order with volume > 0
-        order = _make_order(portfolio_id=p.uuid, engine_id="eid", run_id="rid")
+        order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
         order.volume = 100
         components["sizer"].cal = Mock(return_value=order)
         signal = _make_signal(portfolio_id=p.uuid)
@@ -365,12 +365,12 @@ class TestRealTimeOrderHandling:
         _set_context_ids(p)
         p.add_cash(Decimal("100000"))
         p.freeze(Decimal("1005"))
-        order = _make_order(portfolio_id=p.uuid, engine_id="eid", run_id="rid")
+        order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
         order.transaction_volume = 0
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
         )
         with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \
              patch('ginkgo.trading.portfolios.portfolio_live.container'):
@@ -385,12 +385,12 @@ class TestRealTimeOrderHandling:
         _set_context_ids(p)
         p.add_cash(Decimal("100000"))
         p.freeze(Decimal("1005"))
-        order = _make_order(portfolio_id=p.uuid, engine_id="eid", run_id="rid")
+        order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
         order.transaction_volume = 0
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
         )
         with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \
              patch('ginkgo.trading.portfolios.portfolio_live.container'):
@@ -409,7 +409,7 @@ class TestRealTimeOrderHandling:
         order.remain = Decimal("1000")
         event = EventOrderCancelAck(
             order=order, cancelled_quantity=100,
-            portfolio_id="pid", engine_id="eid", run_id="rid",
+            portfolio_id="pid", engine_id="eid", task_id="rid",
         )
         # EventOrderCancelAck doesn't have a direction attr directly;
         # set it on the event for the portfolio to read
@@ -449,7 +449,7 @@ class TestDatabaseIntegration:
     def test_record_positions_persistence(self):
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -473,7 +473,7 @@ class TestDatabaseIntegration:
         """Position CRUD is called for each position in sync."""
         p = _make_portfolio()
         pos1 = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -491,7 +491,7 @@ class TestDatabaseIntegration:
         """sync_state_to_db catches exceptions and returns False."""
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -506,7 +506,7 @@ class TestDatabaseIntegration:
         assert p.get_position("000001.SZ") is None
         # Add position
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )

@@ -42,7 +42,7 @@ class SegmentReport:
     不再依赖 MetricRegistry，直接在 value 列上计算。
 
     Args:
-        run_id: 回测运行标识
+        task_id: 回测运行标识
         data: 数据容器 (DataProvider，每个分析器必须包含 timestamp 和 value 列)
         freq: 分段频率，"M"=月, "Q"=季, "Y"=年
         analyzers: 可选的分析器名称列表，None = 处理 DataProvider 中所有分析器
@@ -53,7 +53,7 @@ class SegmentReport:
 
     def __init__(
         self,
-        run_id: str,
+        task_id: str,
         data: DataProvider,
         freq: str = "M",
         analyzers: Optional[List[str]] = None,
@@ -64,7 +64,7 @@ class SegmentReport:
         if freq not in _FREQ_LABELS:
             raise ValueError(f"不支持的频率 '{freq}'，支持: M, Q, Y")
 
-        self.run_id = run_id
+        self.task_id = task_id
         self._data = data
         self.freq = freq
         self.analyzers = analyzers
@@ -163,7 +163,7 @@ class SegmentReport:
             以分段为行、每个分析器一列的 Rich Table。
             每个单元格显示 "mean=X, std=Y, final=Z" 格式。
         """
-        table = Table(title=f"[Segment] Analysis Report — {self.run_id} (freq={self.freq})")
+        table = Table(title=f"[Segment] Analysis Report — {self.task_id} (freq={self.freq})")
 
         # 收集所有分析器名
         all_analyzer_names: List[str] = []

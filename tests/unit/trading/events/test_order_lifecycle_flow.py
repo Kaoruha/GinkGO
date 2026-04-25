@@ -30,7 +30,7 @@ def _make_order(status=ORDERSTATUS_TYPES.SUBMITTED, volume=100,
     return Order(
         portfolio_id="portfolio-001",
         engine_id="engine-001",
-        run_id="run-001",
+        task_id="run-001",
         code=code,
         direction=DIRECTION_TYPES.LONG,
         order_type=ORDER_TYPES.LIMITORDER,
@@ -94,11 +94,11 @@ class TestOrderAckEventFlow:
             order=order,
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert ack.portfolio_id == "portfolio-001"
         assert ack.engine_id == "engine-001"
-        assert ack.run_id == "run-001"
+        assert ack.task_id == "run-001"
         assert ack.payload == order
 
     def test_order_status_update_on_ack(self):
@@ -290,7 +290,7 @@ class TestOrderExpiredEventFlow:
             expire_reason="Time expired",
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert event.code == "000001.SZ"
         assert event.expired_quantity == 200
@@ -405,7 +405,7 @@ class TestOrderEventPortfolioIntegration:
             order=order,
             portfolio_id="portfolio-001",
             engine_id="engine-001",
-            run_id="run-001"
+            task_id="run-001"
         )
         assert ack.portfolio_id == "portfolio-001"
         assert ack.order_id == order.uuid
@@ -481,7 +481,7 @@ class TestOrderEventBacktestVsLive:
         ack = EventOrderAck(
             order=order,
             engine_id="live-engine-001",
-            run_id="live-run-001"
+            task_id="live-run-001"
         )
         ack.broker_order_id = "LIVE-BRK-12345"
         assert ack.broker_order_id == "LIVE-BRK-12345"

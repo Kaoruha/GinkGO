@@ -79,7 +79,7 @@ class IEngine(Protocol):
         ...
 
     @property
-    def run_id(self) -> Optional[str]:
+    def task_id(self) -> Optional[str]:
         """
         运行会话ID (Run Session ID)
 
@@ -508,7 +508,7 @@ class IEngine(Protocol):
         包含信息：
             - name: 引擎名称
             - engine_id: 引擎ID
-            - run_id: 运行会话ID
+            - task_id: 运行会话ID
             - status: 状态字符串
             - is_active: 是否活跃
             - run_sequence: 运行序列号
@@ -600,7 +600,7 @@ class IEngine(Protocol):
 
         典型增强：
             - 设置engine_id
-            - 设置run_id
+            - 设置task_id
             - 设置时间戳
             - 分配序列号
 

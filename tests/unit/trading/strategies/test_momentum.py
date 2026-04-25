@@ -50,7 +50,7 @@ def _make_portfolio_info(now: datetime = None, interested_codes=None):
     return {
         "uuid": "portfolio-001",
         "engine_id": "engine-001",
-        "run_id": "run-001",
+        "task_id": "run-001",
         "now": now,
         "interested_codes": interested_codes,
         "positions": {},
@@ -252,7 +252,7 @@ class TestMomentumCal:
             interested_codes=["000001.SZ"],
         )
         portfolio_info["engine_id"] = "engine-xyz"
-        portfolio_info["run_id"] = "run-abc"
+        portfolio_info["task_id"] = "run-abc"
 
         start = datetime(2024, 3, 1)
 
@@ -267,7 +267,7 @@ class TestMomentumCal:
         sig = result[0]
         assert sig.portfolio_id == "portfolio-001"
         assert sig.engine_id == "engine-xyz"
-        assert sig.run_id == "run-abc"
+        assert sig.task_id == "run-abc"
         assert sig.business_timestamp == now
 
 
