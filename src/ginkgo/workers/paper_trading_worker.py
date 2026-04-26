@@ -776,6 +776,15 @@ class PaperTradingWorker:
 
             db_portfolio = db_portfolios[0]
 
+            # Mode 校验：只接受 PAPER 或 LIVE
+            portfolio_mode = getattr(db_portfolio, 'mode', -1)
+            if portfolio_mode == 0:  # BACKTEST
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Cannot deploy BACKTEST portfolio {portfolio_id}. "
+                    "Deploy first via DeploymentService.deploy()."
+                )
+                return False
+
             # 收集组件绑定信息
             components = collect_portfolio_components(
                 portfolio_id=portfolio_id,
