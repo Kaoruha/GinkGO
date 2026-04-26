@@ -13,8 +13,8 @@
     </div>
 
     <div class="sub-tab-content">
-      <SegmentStability v-if="activeSub === 'segment'" />
-      <MonteCarlo v-else-if="activeSub === 'montecarlo'" />
+      <SegmentStability v-if="activeSub === 'segment'" :portfolio-id="portfolioId" />
+      <MonteCarlo v-else-if="activeSub === 'montecarlo'" :portfolio-id="portfolioId" />
       <WalkForward v-else-if="activeSub === 'walkforward'" />
       <Sensitivity v-else-if="activeSub === 'sensitivity'" />
     </div>
@@ -23,11 +23,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import SegmentStability from '@/views/portfolio/validation/SegmentStability.vue'
 import MonteCarlo from '@/views/portfolio/validation/MonteCarlo.vue'
 import WalkForward from '@/views/stage2/WalkForward.vue'
 import Sensitivity from '@/views/stage2/Sensitivity.vue'
 
+const route = useRoute()
+const portfolioId = route.params.id as string
 const activeSub = ref('segment')
 
 const subTabs = [
