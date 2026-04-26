@@ -59,6 +59,12 @@ async def list_portfolios(
         # 获取PortfolioService
         portfolio_service = get_portfolio_service()
 
+        def _check_frozen(pid):
+            try:
+                return portfolio_service.is_portfolio_frozen(pid)
+            except Exception:
+                return False
+
         # 确定筛选条件
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
         mode_filter = None
@@ -83,7 +89,7 @@ async def list_portfolios(
                 "name": p.name,
                 "mode": mode_val,
                 "state": "INITIALIZED",
-                "config_locked": False,
+                "config_locked": _check_frozen(p.uuid),
                 "net_value": 1.0,
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None
             })
@@ -243,7 +249,7 @@ async def get_portfolio(uuid: str):
             "name": portfolio_model.name,
             "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
             "state": "INITIALIZED",
-            "config_locked": False,
+            "config_locked": portfolio_service.is_portfolio_frozen(uuid),
             "net_value": 1.0,
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
             "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
