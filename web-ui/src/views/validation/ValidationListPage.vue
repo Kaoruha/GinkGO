@@ -199,6 +199,7 @@ const runValidation = async () => {
     } else if (activeMethod.value === 'monte_carlo') {
       res = await validationApi.monteCarlo({
         backtest_id: config.taskId,
+        portfolio_id: portfolioId,
         n_simulations: mcSims.value,
       })
     }
