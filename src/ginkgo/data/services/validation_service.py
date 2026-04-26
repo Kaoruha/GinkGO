@@ -14,7 +14,7 @@ class ValidationService(BaseService):
     def __init__(self, analyzer_record_crud=None, validation_result_crud=None):
         super().__init__(crud_repo=analyzer_record_crud)
         self._analyzer_crud = analyzer_record_crud
-        self._validation_result_crud = validation_result_crud
+        self._result_crud = validation_result_crud
 
     def _get_net_value_records(self, task_id: str, portfolio_id: str):
         """获取指定任务的 net_value 记录，按 business_timestamp 升序"""
@@ -88,6 +88,24 @@ class ValidationService(BaseService):
         score = 1.0 - float(np.std(segment_returns) / mean_abs)
         return max(0.0, round(score, 4))
 
+    def _save_result(self, task_id: str, portfolio_id: str, method: str,
+                     config: dict, result_data: dict, score: float = None) -> str:
+        """持久化验证结果，返回记录 uuid"""
+        import json
+        from ginkgo.data.models.model_validation_result import MValidationResult, VALIDATION_STATUS
+
+        record = MValidationResult(
+            task_id=task_id,
+            portfolio_id=portfolio_id,
+            method=method,
+            config=json.dumps(config, ensure_ascii=False),
+            result=json.dumps(result_data, ensure_ascii=False),
+            score=score,
+            status=VALIDATION_STATUS.COMPLETED,
+        )
+        self._result_crud.add(record)
+        return record.uuid
+
     def segment_stability(
         self,
         task_id: str,
@@ -122,6 +140,18 @@ class ValidationService(BaseService):
 
             if not windows:
                 return ServiceResult.error("分段数均大于数据长度，无法计算")
+
+            # 持久化结果
+            if self._result_crud:
+                avg_score = float(np.mean([w["stability_score"] for w in windows]))
+                self._save_result(
+                    task_id=task_id,
+                    portfolio_id=portfolio_id,
+                    method="segment_stability",
+                    config={"version": 1, "n_segments_list": n_segments_list},
+                    result_data={"windows": windows},
+                    score=avg_score,
+                )
 
             return ServiceResult.success(data={"windows": windows})
 
@@ -192,6 +222,16 @@ class ValidationService(BaseService):
                 "counts": hist.tolist(),
                 "bins": [round(float(b), 6) for b in bin_edges.tolist()],
             }
+
+            # 持久化结果
+            if self._result_crud:
+                self._save_result(
+                    task_id=task_id,
+                    portfolio_id=portfolio_id,
+                    method="monte_carlo",
+                    config={"version": 1, "n_simulations": n_simulations, "confidence": confidence},
+                    result_data=stats,
+                )
 
             return ServiceResult.success(data=stats)
 
