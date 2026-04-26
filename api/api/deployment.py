@@ -23,32 +23,33 @@ def _get_deployment_service():
 
 @router.post("/")
 async def deploy(req: DeployRequest):
-    """一键部署：从回测结果部署到模拟盘/实盘"""
+    """一键部署（走 Saga 事务）"""
     from ginkgo.enums import PORTFOLIO_MODE_TYPES
+    from services.saga_transaction import PortfolioSagaFactory
 
     mode_map = {
-        "paper": PORTFOLIO_MODE_TYPES.PAPER,
-        "live": PORTFOLIO_MODE_TYPES.LIVE,
+        "paper": PORTFOLIO_MODE_TYPES.PAPER.value,
+        "live": PORTFOLIO_MODE_TYPES.LIVE.value,
     }
     mode = mode_map.get(req.mode.lower())
     if mode is None:
         raise BusinessError(f"无效部署模式: {req.mode}，支持: paper / live")
 
-    if mode == PORTFOLIO_MODE_TYPES.LIVE and not req.account_id:
+    if mode == PORTFOLIO_MODE_TYPES.LIVE.value and not req.account_id:
         raise BusinessError("实盘部署需要提供 account_id")
 
-    service = _get_deployment_service()
-    result = service.deploy(
+    saga = PortfolioSagaFactory.deploy_saga(
         backtest_task_id=req.backtest_task_id,
         mode=mode,
         account_id=req.account_id,
         name=req.name,
     )
 
-    if not result.success:
-        raise BusinessError(result.error)
+    success = await saga.execute()
+    if not success:
+        raise BusinessError(f"部署失败: {saga.error}. 事务已回滚。")
 
-    return ok(data=result.data, message="部署成功")
+    return ok(data=saga.steps[0].result, message="部署成功")
 
 
 @router.get("/{portfolio_id}")
