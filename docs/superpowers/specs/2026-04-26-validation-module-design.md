@@ -34,21 +34,29 @@ class BaseStrategy:
 
 **适用：所有策略**
 
-将回测区间等分为 N 段，每段独立计算收益、夏普、最大回撤，看各段表现是否一致。
+将回测区间等分为 N 段，每段独立计算收益、夏普、最大回撤，看各段表现是否一致。支持多种分段数同时对比，观察不同粒度下稳定性是否一致。
 
 **输入：**
 - 已完成的回测任务 UUID
-- 分段数（默认 4）
+- 分段数列表（默认 [2, 4, 8]）
 - 分段方式：等交易日数（默认）/ 等时间
 
 **计算逻辑：**
 ```
 完整区间: 2024-01-02 ~ 2024-12-31
-分成 4 段:
+
+分段数=2:
+  H1: 收益 +2.1%, 夏普 1.3, 最大回撤 -5.2%
+  H2: 收益 +1.7%, 夏普 0.8, 最大回撤 -8.2%
+
+分段数=4:
   Q1: 收益 +3.2%, 夏普 1.8, 最大回撤 -4.1%
   Q2: 收益 +1.1%, 夏普 0.9, 最大回撤 -6.3%
   Q3: 收益 -0.8%, 夏普 -0.3, 最大回撤 -8.2%
   Q4: 收益 +2.5%, 夏普 1.2, 最大回撤 -5.0%
+
+分段数=8:
+  M1~M8: ...
 
 mean_abs = mean(|各段收益|)
 稳定性评分 = 0 if mean_abs < 0.001 else max(0, 1 - std(各段收益) / mean_abs)
@@ -59,9 +67,9 @@ mean_abs = mean(|各段收益|)
 **数据来源：** 已有 `analyzer_record` 表中 net_value 的每日记录，按日期分段提取，无需重跑回测。
 
 **输出：**
-- 各段关键指标表格（收益、夏普、回撤、胜率）
-- 稳定性评分（0~1，越高越稳定）
-- 各段净值曲线叠加对比图
+- 各分段数下的关键指标表格（收益、夏普、回撤、胜率）
+- 各分段数对应的稳定性评分
+- 多窗口稳定性趋势图（分段数 vs 稳定性评分，看评分是否随粒度变化骤降）
 
 ---
 
@@ -492,8 +500,14 @@ CREATE TABLE m_walk_forward_result (
 ```
 # 分段稳定性（基于已有数据，秒级返回）
 POST /api/v1/validation/segment-stability
-  Body: { task_id, n_segments: 4 }
-  Response: { segments: [...], stability_score: 0.75 }
+  Body: { task_id, n_segments: [2, 4, 8] }
+  Response: {
+    windows: [
+      { n_segments: 2, segments: [...], stability_score: 0.85 },
+      { n_segments: 4, segments: [...], stability_score: 0.72 },
+      { n_segments: 8, segments: [...], stability_score: 0.58 }
+    ]
+  }
 
 # 蒙特卡洛（基于已有数据，秒级返回）
 POST /api/v1/validation/monte-carlo
@@ -521,4 +535,37 @@ POST /api/v1/validation/factor-stability
   Body: { task_id, n_segments: 4, ic_method: "spearman" }
   Response: { factors: [{name, ic_values: [...], stability_score, trend}], alerts: [...] }
 ```
+
+## 项目结构（影响范围）
+
+```
+api/
+├── main.py                          [改] 注册 validation router
+└── api/
+    └── validation.py                [新] 5 个 API 端点
+
+src/ginkgo/
+├── data/
+│   ├── containers.py                [改] 注册 ValidationService
+│   └── services/
+│       └── validation_service.py    [新] 分段稳定性/蒙特卡洛/鲁棒性计算
+└── trading/
+    └── bases/
+        └── strategy_base.py         [后] 加 capabilities + fit() 接口
+
+web-ui/src/
+├── api/modules/
+│   └── validation.ts                [改] 补充分段稳定性/因子稳定性接口
+└── views/
+    └── portfolio/
+        ├── tabs/
+        │   └── ValidationTab.vue        [改] 增加子标签
+        └── validation/                  [新] 验证组件目录
+            ├── SegmentStability.vue     [新] 分段稳定性
+            ├── MonteCarlo.vue           [移] 从 stage2/ 迁移
+            ├── WalkForward.vue          [移] 从 stage2/ 迁移
+            ├── ParameterRobustness.vue  [移] stage2/Sensitivity 重命名
+            └── FactorStability.vue      [新] 因子稳定性
+
+图例: [新]=新增  [改]=修改  [移]=迁移  [后]=后续实现
 ```
