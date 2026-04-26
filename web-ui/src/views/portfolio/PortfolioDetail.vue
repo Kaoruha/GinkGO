@@ -59,8 +59,6 @@ const activeTab = computed(() => {
   const path = route.path
   if (path.includes('/backtests')) return 'backtests'
   if (path.includes('/validation')) return 'validation'
-  if (path.includes('/paper')) return 'paper'
-  if (path.includes('/live')) return 'live'
   if (path.includes('/components')) return 'components'
   return 'overview'
 })
@@ -69,8 +67,6 @@ const tabs = computed(() => [
   { key: 'overview', label: '概况', route: `/portfolios/${portfolioId.value}` },
   { key: 'backtests', label: '回测', route: `/portfolios/${portfolioId.value}/backtests` },
   { key: 'validation', label: '验证', route: `/portfolios/${portfolioId.value}/validation` },
-  { key: 'paper', label: '模拟', route: `/portfolios/${portfolioId.value}/paper` },
-  { key: 'live', label: '实盘', route: `/portfolios/${portfolioId.value}/live` },
   { key: 'components', label: '组件', route: `/portfolios/${portfolioId.value}/components` },
 ])
 
