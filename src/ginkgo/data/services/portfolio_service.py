@@ -444,6 +444,18 @@ class PortfolioService(BaseService):
                 filters={"uuid": portfolio_id}
             )
 
+            # 如果是已部署的 target，将对应 deployment 状态更新为 STOPPED
+            if hasattr(self, '_deployment_crud') and self._deployment_crud:
+                deployments = self._deployment_crud.find(
+                    filters={"target_portfolio_id": portfolio_id}
+                )
+                for d in deployments:
+                    if getattr(d, 'status', -1) == 1:  # DEPLOYED
+                        self._deployment_crud.modify(
+                            filters={"uuid": d.uuid},
+                            updates={"status": 3},  # STOPPED
+                        )
+
             GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
 
             result_data = {
