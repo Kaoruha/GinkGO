@@ -90,3 +90,41 @@ class TestSegmentStability:
         # 一致上涨的数据稳定性应较高
         for w in data["windows"]:
             assert w["stability_score"] > 0.5
+
+
+class TestMonteCarlo:
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_monte_carlo_basic(self, mock_get_records):
+        """蒙特卡洛模拟基本流程"""
+        from ginkgo.data.services.validation_service import ValidationService
+        daily_returns = [0.005] * 50 + [-0.003] * 50
+        records = _make_net_value_records("2024-01-02", daily_returns, task_id="test-task")
+        mock_get_records.return_value = records
+
+        svc = ValidationService.__new__(ValidationService)
+        result = svc.monte_carlo(
+            task_id="test-task",
+            portfolio_id="pf-001",
+            n_simulations=1000,
+            confidence=0.95,
+        )
+
+        assert result.is_success()
+        data = result.data
+        assert "var" in data
+        assert "cvar" in data
+        assert "actual_return" in data
+        assert "percentile" in data
+        assert "loss_probability" in data
+        assert 0 <= data["percentile"] <= 100
+        assert data["loss_probability"] >= 0
+
+    def test_monte_carlo_var_cvar(self):
+        """VaR 应小于 CVaR（绝对值）"""
+        from ginkgo.data.services.validation_service import ValidationService
+        svc = ValidationService.__new__(ValidationService)
+        np.random.seed(42)
+        simulated_returns = np.random.normal(0.001, 0.02, 10000)
+        actual_return = 0.05
+        result = svc._calc_monte_carlo_stats(simulated_returns, actual_return, 0.95)
+        assert result["cvar"] <= result["var"]
