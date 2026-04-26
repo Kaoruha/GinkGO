@@ -127,3 +127,73 @@ class ValidationService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"分段稳定性计算失败: {e}")
             return ServiceResult.error(f"计算失败: {e}")
+
+    @staticmethod
+    def _calc_monte_carlo_stats(
+        simulated_returns: np.ndarray,
+        actual_return: float,
+        confidence: float,
+    ) -> dict:
+        """从模拟收益分布计算统计指标"""
+        sorted_returns = np.sort(simulated_returns)
+        n = len(sorted_returns)
+
+        # VaR: 置信水平对应的分位数
+        var_idx = int(n * (1 - confidence))
+        var = float(sorted_returns[var_idx])
+
+        # CVaR: 尾部均值
+        cvar = float(np.mean(sorted_returns[:var_idx + 1]))
+
+        # 损失概率
+        loss_probability = float(np.sum(simulated_returns < 0) / n)
+
+        # 实际收益在模拟分布中的百分位
+        percentile = float(np.searchsorted(sorted_returns, actual_return) / n * 100)
+
+        return {
+            "var": round(var, 6),
+            "cvar": round(cvar, 6),
+            "loss_probability": round(loss_probability, 4),
+            "percentile": round(percentile, 2),
+        }
+
+    def monte_carlo(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        n_simulations: int = 10000,
+        confidence: float = 0.95,
+    ) -> ServiceResult:
+        """蒙特卡洛模拟验证"""
+        try:
+            records = self._get_net_value_records(task_id, portfolio_id)
+            if len(records) < 10:
+                return ServiceResult.error("数据不足：net_value 记录少于 10 条")
+
+            returns = self._records_to_returns(records)
+            actual_return = float(np.prod(1 + returns) - 1)
+
+            # Bootstrap：有放回抽样
+            n_days = len(returns)
+            simulated_returns = np.empty(n_simulations)
+            for i in range(n_simulations):
+                sampled = np.random.choice(returns, size=n_days, replace=True)
+                simulated_returns[i] = float(np.prod(1 + sampled) - 1)
+
+            stats = self._calc_monte_carlo_stats(simulated_returns, actual_return, confidence)
+            stats["actual_return"] = round(actual_return, 6)
+            stats["n_simulations"] = n_simulations
+
+            # 分布直方图数据（分桶）
+            hist, bin_edges = np.histogram(simulated_returns, bins=50)
+            stats["distribution"] = {
+                "counts": hist.tolist(),
+                "bins": [round(float(b), 6) for b in bin_edges.tolist()],
+            }
+
+            return ServiceResult.success(data=stats)
+
+        except Exception as e:
+            GLOG.ERROR(f"蒙特卡洛模拟失败: {e}")
+            return ServiceResult.error(f"模拟失败: {e}")
