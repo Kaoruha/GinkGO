@@ -96,6 +96,18 @@ export interface SegmentStabilityResult {
   }[]
 }
 
+export interface ValidationRecord {
+  uuid: string
+  task_id: string
+  portfolio_id: string
+  method: string
+  config: Record<string, any>
+  result: Record<string, any> | null
+  score: number | null
+  status: number
+  create_at: string
+}
+
 // ========== API 方法 ==========
 
 export const validationApi = {
@@ -142,5 +154,19 @@ export const validationApi = {
       portfolio_id: config.portfolio_id,
       n_segments: config.n_segments || [2, 4, 8],
     })
+  },
+
+  /**
+   * 验证结果列表
+   */
+  listResults(params?: { portfolio_id?: string; method?: string; page?: number; page_size?: number }): Promise<{ data: ValidationRecord[]; total: number }> {
+    return request.get('/api/v1/validation/results', { params })
+  },
+
+  /**
+   * 验证结果详情
+   */
+  getResult(resultId: string): Promise<{ data: ValidationRecord }> {
+    return request.get(`/api/v1/validation/results/${resultId}`)
   },
 }

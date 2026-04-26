@@ -112,7 +112,7 @@ import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
 const props = defineProps<{
-  portfolioId: string
+  portfolioId?: string
 }>()
 
 const loading = ref(false)
@@ -127,7 +127,11 @@ const config = reactive({
 
 const fetchBacktestList = async () => {
   try {
-    const res = await backtestApi.list({ page: 1, size: 50, status: 'completed', portfolio_id: props.portfolioId })
+    const params: any = { page: 1, size: 50, status: 'completed' }
+    if (props.portfolioId) {
+      params.portfolio_id = props.portfolioId
+    }
+    const res = await backtestApi.list(params)
     backtestList.value = res.data || []
   } catch { /* ignore */ }
 }
@@ -143,7 +147,7 @@ const runSimulation = async () => {
   try {
     const res = await validationApi.monteCarlo({
       backtest_id: config.backtestId,
-      portfolio_id: props.portfolioId,
+      portfolio_id: props.portfolioId || '',
       n_simulations: config.nSimulations,
       confidence: config.confidenceLevel,
     })
