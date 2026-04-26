@@ -75,6 +75,7 @@ from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.encryption_service import EncryptionService, get_encryption_service
 from ginkgo.data.services.live_account_service import LiveAccountService
 from ginkgo.data.services.api_key_service import ApiKeyService
+from ginkgo.data.services.validation_service import ValidationService
 
 # Live trading CRUDs
 from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
@@ -283,6 +284,12 @@ class Container(containers.DeclarativeContainer):
     # API Key service for API key management
     api_key_service = providers.Singleton(
         ApiKeyService
+    )
+
+    # Validation service for backtest validation (segment stability, monte carlo)
+    validation_service = providers.Singleton(
+        ValidationService,
+        analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),
     )
 
     # Backtest task service
