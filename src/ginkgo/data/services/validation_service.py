@@ -57,7 +57,7 @@ class ValidationService(BaseService):
         total_return = cumulative[-1] - 1
 
         # 夏普比率（年化）
-        std = np.std(daily_returns)
+        std = np.std(daily_returns, ddof=1)
         if std == 0:
             sharpe = 0.0
         else:
