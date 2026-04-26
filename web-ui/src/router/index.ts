@@ -22,8 +22,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'backtests', name: 'PortfolioBacktests', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测' } },
       { path: 'backtests/:backtestId', name: 'BacktestDetail', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测详情' } },
       { path: 'validation', name: 'PortfolioValidation', component: () => import('@/views/portfolio/tabs/ValidationTab.vue'), meta: { title: '验证' } },
-      { path: 'paper', name: 'PortfolioPaper', component: () => import('@/views/portfolio/tabs/PaperTab.vue'), meta: { title: '模拟' } },
-      { path: 'live', name: 'PortfolioLive', component: () => import('@/views/portfolio/tabs/LiveTab.vue'), meta: { title: '实盘' } },
       { path: 'components', name: 'PortfolioComponents', component: () => import('@/views/portfolio/tabs/ComponentsTab.vue'), meta: { title: '组件' } },
     ],
   },
@@ -52,6 +50,12 @@ const routes: RouteRecordRaw[] = [
   { path: '/research/optimization/grid', name: 'GridSearch', component: () => import('@/views/optimization/GridSearch.vue'), meta: { title: '网格搜索' } },
   { path: '/research/optimization/genetic', name: 'GeneticOptimizer', component: () => import('@/views/optimization/GeneticOptimizer.vue'), meta: { title: '遗传算法' } },
   { path: '/research/optimization/bayesian', name: 'BayesianOptimizer', component: () => import('@/views/optimization/BayesianOptimizer.vue'), meta: { title: '贝叶斯优化' } },
+
+  // ===== 回测中心 =====
+  { path: '/backtests', name: 'BacktestCenter', component: () => import('@/views/backtest/BacktestListPage.vue'), meta: { title: '回测中心' } },
+
+  // ===== 验证 =====
+  { path: '/validation', name: 'ValidationCenter', component: () => import('@/views/validation/ValidationListPage.vue'), meta: { title: '策略验证' } },
 
   // ===== 交易 =====
   { path: '/trading', name: 'Trading', redirect: '/trading/paper', meta: { title: '交易' } },
@@ -86,11 +90,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/portfolio/create', redirect: '/portfolios/create' },
   { path: '/portfolio/:id', redirect: to => `/portfolios/${to.params.id}` },
   { path: '/portfolio/:id/edit', redirect: to => `/portfolios/${to.params.id}/edit` },
-  // 回测 → 组合
-  { path: '/backtest', redirect: '/portfolios' },
-  { path: '/backtest/create', redirect: '/portfolios' },
-  { path: '/backtest/:id', redirect: '/portfolios' },
-  { path: '/backtest/compare', redirect: '/portfolios' },
+  // 回测 → 回测中心
+  { path: '/backtest', redirect: '/backtests' },
+  { path: '/backtest/create', redirect: '/backtests' },
+  { path: '/backtest/:id', redirect: '/backtests' },
+  { path: '/backtest/compare', redirect: '/backtests' },
   // 验证 → 组合
   { path: '/validation/walkforward', redirect: '/portfolios' },
   { path: '/validation/montecarlo', redirect: '/portfolios' },
