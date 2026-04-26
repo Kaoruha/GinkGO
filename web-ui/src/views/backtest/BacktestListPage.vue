@@ -1,68 +1,168 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">回测中心</h1>
-      <p class="page-description">所有组合的回测任务</p>
-    </div>
+  <ListPage
+    title="回测中心"
+    :columns="columns"
+    :data-source="tasks"
+    :loading="loading"
+    row-key="uuid"
+    :searchable="false"
+    :creatable="false"
+    :total="total"
+    :page="currentPage"
+    :page-size="pageSize"
+    :server-pagination="true"
+    clickable
+    @update:page="onPageChange"
+    @update:page-size="onPageSizeChange"
+    @row-click="goDetail"
+  >
+    <template #filters>
+      <select v-model="statusFilter" class="filter-select" @change="fetchTasks">
+        <option value="">全部状态</option>
+        <option value="completed">已完成</option>
+        <option value="running">进行中</option>
+        <option value="pending">排队中</option>
+        <option value="failed">失败</option>
+        <option value="stopped">已停止</option>
+        <option value="created">待调度</option>
+      </select>
+    </template>
 
-    <div class="card">
-      <div class="card-body">
-        <table v-if="tasks.length" class="data-table">
-          <thead>
-            <tr>
-              <th>任务</th>
-              <th>组合</th>
-              <th>状态</th>
-              <th>收益率</th>
-              <th>夏普</th>
-              <th>最大回撤</th>
-              <th>创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in tasks" :key="t.uuid">
-              <td>
-                <router-link :to="`/portfolios/${t.portfolio_id}/backtests/${t.uuid}`" class="link">
-                  {{ t.name || t.uuid?.slice(0, 8) }}
-                </router-link>
-              </td>
-              <td class="mono">{{ t.portfolio_id?.slice(0, 8) }}</td>
-              <td>{{ t.status }}</td>
-              <td :class="Number(t.annual_return) >= 0 ? 'text-green' : 'text-red'">
-                {{ t.annual_return != null ? (Number(t.annual_return) * 100).toFixed(2) + '%' : '-' }}
-              </td>
-              <td>{{ t.sharpe_ratio != null ? Number(t.sharpe_ratio).toFixed(2) : '-' }}</td>
-              <td class="text-red">{{ t.max_drawdown != null ? (Number(t.max_drawdown) * 100).toFixed(2) + '%' : '-' }}</td>
-              <td>{{ t.created_at?.replace('T', ' ').slice(0, 19) || '-' }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="empty-state">暂无回测任务</div>
-      </div>
-    </div>
-  </div>
+    <template #name="{ record }">
+      <router-link
+        :to="`/portfolios/${record.portfolio_id}/backtests/${record.uuid}`"
+        class="task-link"
+        @click.stop
+      >
+        {{ record.name || record.uuid?.slice(0, 8) }}
+      </router-link>
+    </template>
+
+    <template #status="{ record }">
+      <StatusTag :status="record.status" type="backtest" />
+    </template>
+
+    <template #annual_return="{ record }">
+      <span :class="Number(record.annual_return) >= 0 ? 'val-green' : 'val-red'">
+        {{ formatPct(record.annual_return) }}
+      </span>
+    </template>
+
+    <template #sharpe_ratio="{ record }">
+      <span :class="Number(record.sharpe_ratio) >= 0 ? 'val-green' : 'val-red'">
+        {{ formatNum(record.sharpe_ratio, 2) }}
+      </span>
+    </template>
+
+    <template #max_drawdown="{ record }">
+      <span class="val-red">{{ formatPct(record.max_drawdown) }}</span>
+    </template>
+
+    <template #win_rate="{ record }">
+      {{ formatPct(record.win_rate) }}
+    </template>
+
+    <template #total_signals="{ record }">
+      <span class="val-muted">{{ record.total_signals ?? '-' }}</span>
+      <span class="val-divider">/</span>
+      <span class="val-muted">{{ record.total_orders ?? '-' }}</span>
+    </template>
+
+    <template #created_at="{ record }">
+      <span class="val-muted">{{ formatTime(record.created_at) }}</span>
+    </template>
+  </ListPage>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import ListPage from '@/components/common/ListPage.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { backtestApi } from '@/api/modules/backtest'
 
-const tasks = ref<any[]>([])
+const router = useRouter()
 
-const fetchTasks = async () => {
+const tasks = ref<any[]>([])
+const loading = ref(false)
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const statusFilter = ref('')
+
+const columns = [
+  { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
+  { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100 },
+  { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80 },
+  { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100 },
+  { title: '胜率', dataIndex: 'win_rate', key: 'win_rate', width: 80 },
+  { title: '信号/订单', dataIndex: 'total_signals', key: 'total_signals', width: 100 },
+  { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160 },
+]
+
+const formatPct = (v: any) => v != null && v !== '' ? (Number(v) * 100).toFixed(2) + '%' : '-'
+const formatNum = (v: any, d: number) => v != null && v !== '' ? Number(v).toFixed(d) : '-'
+const formatTime = (t: string) => {
+  if (!t) return '-'
+  return t.replace('T', ' ').slice(0, 19)
+}
+
+function goDetail(record: any) {
+  router.push(`/portfolios/${record.portfolio_id}/backtests/${record.uuid}`)
+}
+
+function onPageChange(p: number) {
+  currentPage.value = p
+  fetchTasks()
+}
+
+function onPageSizeChange(s: number) {
+  pageSize.value = s
+  currentPage.value = 1
+  fetchTasks()
+}
+
+async function fetchTasks() {
+  loading.value = true
   try {
-    const res = await backtestApi.list({ page: 1, size: 100 })
-    tasks.value = res.data || []
-  } catch { /* ignore */ }
+    const params: any = { page: currentPage.value, page_size: pageSize.value }
+    if (statusFilter.value) params.status = statusFilter.value
+    const res: any = await backtestApi.list(params)
+    tasks.value = res?.data || []
+    total.value = res?.meta?.total || 0
+  } catch {
+    tasks.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => fetchTasks())
 </script>
 
 <style scoped>
-.mono { font-family: monospace; font-size: 12px; color: #8a8a9a; }
-.link { color: #3b82f6; text-decoration: none; }
-.link:hover { text-decoration: underline; }
-.text-green { color: #22c55e; }
-.text-red { color: #ef4444; }
+.task-link {
+  color: #1890ff;
+  font-weight: 500;
+  text-decoration: none;
+}
+.task-link:hover { text-decoration: underline; }
+
+.val-green { color: #52c41a; font-weight: 500; }
+.val-red { color: #f5222d; font-weight: 500; }
+.val-muted { color: #8a8a9a; }
+.val-divider { color: #3a3a4e; margin: 0 2px; }
+
+.filter-select {
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filter-select:focus { outline: none; border-color: #1890ff; }
 </style>
