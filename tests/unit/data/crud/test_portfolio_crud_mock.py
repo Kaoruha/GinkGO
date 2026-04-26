@@ -193,3 +193,18 @@ class TestPortfolioCRUDConstruction:
         assert portfolio_crud._is_mysql is True
         assert portfolio_crud._is_clickhouse is False
 
+
+# ============================================================
+# update_mode 废弃测试
+# ============================================================
+
+
+class TestPortfolioCRUDUpdateModeDeprecated:
+    """update_mode 已废弃，应抛出 DeprecationWarning"""
+
+    @pytest.mark.unit
+    def test_update_mode_raises_deprecation(self, portfolio_crud):
+        """update_mode 应抛出 DeprecationWarning 并拒绝执行"""
+        with pytest.raises(DeprecationWarning, match="update_mode is deprecated"):
+            portfolio_crud.update_mode("test-uuid", PORTFOLIO_MODE_TYPES.LIVE)
+

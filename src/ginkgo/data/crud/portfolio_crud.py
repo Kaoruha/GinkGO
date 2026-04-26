@@ -223,9 +223,17 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         return self.remove({"uuid": uuid})
 
     def update_mode(self, uuid: str, mode: PORTFOLIO_MODE_TYPES) -> None:
-        """Update portfolio mode."""
-        mode_value = PORTFOLIO_MODE_TYPES.validate_input(mode)
-        return self.modify({"uuid": uuid}, {"mode": mode_value})
+        """Update portfolio mode.
+
+        .. deprecated::
+            mode 只能通过 DeploymentService.deploy() 或 PortfolioService.add() 设置。
+            直接修改 mode 已废弃。
+        """
+        raise DeprecationWarning(
+            "update_mode is deprecated. "
+            "Use DeploymentService.deploy() to create deployed portfolios, "
+            "or PortfolioService.add() for new portfolios."
+        )
 
     def update_state(self, uuid: str, state: PORTFOLIO_RUNSTATE_TYPES) -> None:
         """Update portfolio state."""
