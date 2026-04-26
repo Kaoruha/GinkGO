@@ -108,6 +108,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { validationApi } from '@/api/modules/validation'
+import { backtestApi } from '@/api/modules/backtest'
+
+const props = defineProps<{
+  portfolioId: string
+}>()
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -120,8 +126,10 @@ const config = reactive({
 })
 
 const fetchBacktestList = async () => {
-  // TODO: 调用 API 获取回测列表
-  backtestList.value = []
+  try {
+    const res = await backtestApi.list({ page: 1, size: 50, status: 'completed', portfolio_id: props.portfolioId })
+    backtestList.value = res.data || []
+  } catch { /* ignore */ }
 }
 
 const runSimulation = async () => {
@@ -131,12 +139,17 @@ const runSimulation = async () => {
   }
 
   loading.value = true
+  result.value = null
   try {
-    // TODO: 调用 API 进行蒙特卡洛模拟
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('模拟完成')
-  } catch {
-    console.error('模拟失败')
+    const res = await validationApi.monteCarlo({
+      backtest_id: config.backtestId,
+      portfolio_id: props.portfolioId,
+      n_simulations: config.nSimulations,
+      confidence: config.confidenceLevel,
+    })
+    result.value = res.data
+  } catch (e: any) {
+    alert('模拟失败: ' + (e.message || e))
   } finally {
     loading.value = false
   }

@@ -88,13 +88,16 @@ import { ref, reactive, onMounted } from 'vue'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
+const props = defineProps<{
+  portfolioId: string
+}>()
+
 const loading = ref(false)
 const result = ref<any>(null)
 const backtestList = ref<any[]>([])
 const segmentsInput = ref('2, 4, 8')
 const config = reactive({
   taskId: '',
-  portfolioId: '',
 })
 
 const scoreClass = (score: number) => {
@@ -109,11 +112,9 @@ const runAnalysis = async () => {
   result.value = null
   try {
     const segments = segmentsInput.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
-    const task = backtestList.value.find(t => t.uuid === config.taskId)
-    const portfolioId = task?.portfolio_id || config.portfolioId
     const res = await validationApi.segmentStability({
       task_id: config.taskId,
-      portfolio_id: portfolioId,
+      portfolio_id: props.portfolioId,
       n_segments: segments.length ? segments : undefined,
     })
     result.value = res.data
@@ -126,7 +127,7 @@ const runAnalysis = async () => {
 
 const fetchBacktestList = async () => {
   try {
-    const res = await backtestApi.list({ page: 1, size: 50, status: 'completed' })
+    const res = await backtestApi.list({ page: 1, size: 50, status: 'completed', portfolio_id: props.portfolioId })
     backtestList.value = res.data || []
   } catch { /* ignore */ }
 }
