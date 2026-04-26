@@ -126,10 +126,10 @@ export const validationApi = {
   /**
    * 蒙特卡洛模拟
    */
-  monteCarlo(config: MonteCarloConfig): Promise<MonteCarloResult> {
+  monteCarlo(config: MonteCarloConfig & { portfolio_id?: string }): Promise<MonteCarloResult> {
     return request.post('/api/v1/validation/monte-carlo', {
       task_id: config.backtest_id,
-      portfolio_id: '',
+      portfolio_id: config.portfolio_id || '',
       n_simulations: config.n_simulations || 10000,
       confidence: config.confidence_level || 0.95,
     })
