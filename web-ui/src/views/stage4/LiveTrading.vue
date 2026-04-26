@@ -1,75 +1,69 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-red">实盘</span>
-        实盘监控
-        <span class="tag tag-red" style="margin-left: 8px">实盘运行</span>
-      </h1>
-      <div class="page-actions">
-        <button class="btn-danger">紧急停止</button>
-        <button class="btn-secondary">刷新</button>
-      </div>
+      <h1 class="page-title">实盘交易</h1>
+      <p class="page-description">所有实盘运行实例</p>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">总资产</div>
-        <div class="stat-value">¥2,150,000</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">今日盈亏</div>
-        <div class="stat-value stat-success">¥25,000</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">持仓市值</div>
-        <div class="stat-value">¥1,650,000</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">可用资金</div>
-        <div class="stat-value">¥500,000</div>
-      </div>
-    </div>
-
-    <!-- 详情表格 -->
-    <div class="tables-grid">
-      <div class="card">
-        <div class="card-header">
-          <h3>持仓明细</h3>
-        </div>
-        <div class="card-body">
-          <p style="color: #8a8a9a; text-align: center; padding: 20px;">暂无持仓数据</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <h3>今日委托</h3>
-        </div>
-        <div class="card-body">
-          <p style="color: #8a8a9a; text-align: center; padding: 20px;">暂无委托数据</p>
-        </div>
-      </div>
+    <div class="table-container">
+      <table v-if="portfolios.length" class="data-table">
+        <thead>
+          <tr>
+            <th>组合名称</th>
+            <th>模式</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in portfolios" :key="p.uuid">
+            <td>
+              <router-link :to="`/portfolios/${p.uuid}`" class="link">{{ p.name || p.uuid?.slice(0, 8) }}</router-link>
+            </td>
+            <td>{{ p.mode }}</td>
+            <td>{{ p.created_at?.replace('T', ' ').slice(0, 19) || '-' }}</td>
+            <td>
+              <router-link :to="`/portfolios/${p.uuid}`" class="link">查看详情</router-link>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty-state">暂无实盘实例</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 实盘监控页面 - 占位实现
-// 实际数据需要从API获取
+import { ref, onMounted } from 'vue'
+import { portfolioApi } from '@/api/modules/portfolio'
+
+const portfolios = ref<any[]>([])
+
+const fetchPortfolios = async () => {
+  try {
+    const res = await portfolioApi.list({ mode: 'LIVE' })
+    portfolios.value = res.data || []
+  } catch { /* ignore */ }
+}
+
+onMounted(() => fetchPortfolios())
 </script>
 
 <style scoped>
 .page-container {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px;
   background: transparent;
+  overflow: hidden;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -79,52 +73,67 @@
   font-size: 20px;
   font-weight: 600;
   color: #ffffff;
+}
+
+.page-description {
+  margin: 0;
+  font-size: 14px;
+  color: #8a8a9a;
+}
+
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.data-table th {
+  background: #2a2a3e;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.data-table tbody tr:hover {
+  background: #2a2a3e;
+}
+
+.empty-state {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
+  padding: 60px;
+  color: #8a8a9a;
 }
 
-.page-actions {
-  display: flex;
-  gap: 12px;
+.link {
+  color: #3b82f6;
+  text-decoration: none;
 }
 
-/* 按钮 */
-
-/* 标签 */
-
-/* 统计卡片 */
-
-/* 表格网格 */
-.tables-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-/* 响应式 */
-@media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .tables-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .page-actions {
-    width: 100%;
-  }
+.link:hover {
+  text-decoration: underline;
 }
 </style>
