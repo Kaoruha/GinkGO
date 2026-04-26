@@ -85,3 +85,18 @@ def test_is_portfolio_frozen_target_deleted():
     service._crud_repo = mock_portfolio_crud
 
     assert service.is_portfolio_frozen("source-uuid") is False
+
+
+def test_update_rejected_when_frozen():
+    """冻结组合的 update 应被拒绝"""
+    from ginkgo.data.services.portfolio_service import PortfolioService
+
+    service = PortfolioService.__new__(PortfolioService)
+    service._crud_repo = MagicMock()
+    service._deployment_crud = None  # not needed since we mock is_portfolio_frozen
+    service.is_portfolio_frozen = MagicMock(return_value=True)
+
+    result = service.update(portfolio_id="frozen-uuid", name="new-name")
+
+    assert not result.is_success()
+    assert "已部署" in result.error or "不可修改" in result.error

@@ -174,6 +174,10 @@ class PortfolioService(BaseService):
         if not portfolio_id or not portfolio_id.strip():
             return ServiceResult.error("Portfolio ID cannot be empty")
 
+        # 冻结检查
+        if self.is_portfolio_frozen(portfolio_id):
+            return ServiceResult.error("组合已部署，不可修改")
+
         updates = {}
         if name is not None:
             if not name.strip():
