@@ -1,4 +1,4 @@
-# 组合详情"验证"Tab 设计方案
+# 策略验证模块设计方案
 
 ## 策略能力特征（后续优化，当前不实现）
 
@@ -457,18 +457,95 @@ CREATE TABLE m_walk_forward_result (
 
 ---
 
-## UI 结构
+## 页面架构
+
+采用"独立全局页 + 组合详情内筛选视图"两层结构。
+
+### 侧边栏导航
 
 ```
-验证 Tab
-├── 顶部：回测任务选择器（选择要验证的已完成回测）
-├── 子标签页（当前全部显示，后续根据策略能力自动过滤）
+├── 仪表盘
+├── 组合管理          Portfolio 列表
+├── 回测中心          Backtest Task 列表（跨组合所有回测任务）
+├── 策略验证          Validation Record 列表 + 新建验证
+├── 模拟盘            Portfolio (mode=PAPER) 过滤视图
+├── 实盘交易          Portfolio (mode=LIVE) 过滤视图
+├── 研究工具
+├── 数据
+└── 管理
+```
+
+### 组合详情 Tab
+
+```
+概况 / 回测 / 验证 / 组件
+```
+
+- **概况**：基本信息 + 当前运行状态（PAPER/LIVE 组合展示持仓/订单）
+- **回测**：当前组合的回测任务列表（全局"回测中心"的 portfolio_id 过滤子集）
+- **验证**：当前组合的验证记录（全局"策略验证"的 portfolio_id 过滤子集）
+- **组件**：策略/风控/选股器配置
+
+模拟盘/实盘不作为组合详情的 tab，因为它们不是组合的子资源，而是组合的不同运行模式（mode=PAPER/LIVE）。全局页面通过 `GET /portfolios?mode=PAPER/LIVE` 过滤查看。
+
+### 全局 vs 组合内数据关系
+
+| 全局页面 | 数据实体 | API | 组合详情 Tab |
+|---------|---------|-----|-------------|
+| 回测中心 | Backtest Task | `GET /backtests` | 回测 tab (按 portfolio_id 过滤) |
+| 策略验证 | Validation Record | `GET /validation/results` | 验证 tab (按 portfolio_id 过滤) |
+| 模拟盘 | Portfolio (mode=PAPER) | `GET /portfolios?mode=PAPER` | 概况 tab |
+| 实盘交易 | Portfolio (mode=LIVE) | `GET /portfolios?mode=LIVE` | 概况 tab |
+
+### 验证组件复用
+
+验证组件（SegmentStability/MonteCarlo 等）`portfolioId` 为可选 prop：
+- 全局页面：不传，加载全部回测任务
+- 组合详情内：传 portfolioId，按组合过滤回测任务
+
+### 验证结果持久化
+
+验证结果存入 `m_validation_result` 表，支持全局列表查询和组合内过滤。
+
+```sql
+CREATE TABLE m_validation_result (
+    uuid VARCHAR(36) PRIMARY KEY,
+    task_id VARCHAR(36) NOT NULL,          -- 关联回测任务
+    portfolio_id VARCHAR(36) NOT NULL,     -- 冗余，从 task 带过来，避免 JOIN
+    method VARCHAR(32) NOT NULL,           -- segment_stability / monte_carlo / ...
+    config TEXT NOT NULL,                  -- JSON: { version: 1, ...输入参数 }
+    result TEXT NOT NULL,                  -- JSON: 各方法的完整结果
+    score FLOAT,                           -- 摘要评分（可选，同方法内排序用）
+    status ENUM('running','completed','failed'),
+    create_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_task (task_id),
+    INDEX idx_portfolio (portfolio_id),
+    INDEX idx_method (method)
+);
+```
+
+### UI 结构
+
+```
+策略验证全局页 (/validation)
+├── 列表视图：所有验证记录（回测任务名/方法/时间/状态）
+├── 新建验证：回测任务选择器（选择任意已完成回测）+ 验证方法选择
 │   ├── 分段稳定性
 │   ├── 蒙特卡洛
 │   ├── 参数鲁棒性
 │   ├── 滚动前进
 │   └── 因子稳定性
-└── 综合评分面板（汇总所有已执行验证的评分）
+└── 验证详情：某次验证的完整结果
+
+模拟盘全局页 (/trading/paper)
+├── Portfolio 列表 (mode=PAPER) + 运行状态 + 持仓/盈亏
+
+实盘交易全局页 (/trading/live)
+├── Portfolio 列表 (mode=LIVE) + 运行状态 + 持仓/盈亏
+
+组合详情 - 验证 Tab (过滤视图)
+├── 回测任务选择器（仅显示当前组合的已完成回测）
+└── 子标签页（同上，结果按 portfolio_id 过滤）
 ```
 
 ## 数据流
@@ -556,16 +633,28 @@ src/ginkgo/
 web-ui/src/
 ├── api/modules/
 │   └── validation.ts                [改] 补充分段稳定性/因子稳定性接口
+├── router/
+│   └── index.ts                     [改] 新增 /validation 独立路由
 └── views/
+    ├── validation/                  [新] 全局验证页面
+    │   ├── ValidationList.vue       [新] 验证记录列表
+    │   ├── ValidationDetail.vue     [新] 验证详情
+    │   └── ValidationCreate.vue     [新] 新建验证（选择任意回测）
+    ├── trading/                     [改] 模拟/实盘升级为 mode 过滤视图
+    │   ├── PaperTrading.vue         [改] 接入 portfolios?mode=PAPER
+    │   └── LiveTrading.vue          [改] 接入 portfolios?mode=LIVE
     └── portfolio/
+        ├── PortfolioDetail.vue      [改] 移除模拟/实盘 tab
         ├── tabs/
-        │   └── ValidationTab.vue        [改] 增加子标签
-        └── validation/                  [新] 验证组件目录
+        │   ├── ValidationTab.vue    [改] 按 portfolio_id 过滤
+        │   ├── PaperTab.vue         [删] 不再需要
+        │   └── LiveTab.vue          [删] 不再需要
+        └── validation/              [新] 共享验证组件目录
             ├── SegmentStability.vue     [新] 分段稳定性
             ├── MonteCarlo.vue           [移] 从 stage2/ 迁移
             ├── WalkForward.vue          [移] 从 stage2/ 迁移
             ├── ParameterRobustness.vue  [移] stage2/Sensitivity 重命名
             └── FactorStability.vue      [新] 因子稳定性
 
-图例: [新]=新增  [改]=修改  [移]=迁移  [后]=后续实现
+图例: [新]=新增  [改]=修改  [移]=迁移  [删]=删除  [后]=后续实现
 ```
