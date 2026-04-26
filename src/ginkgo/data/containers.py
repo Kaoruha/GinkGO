@@ -200,6 +200,7 @@ class Container(containers.DeclarativeContainer):
         PortfolioService,
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        deployment_crud=deployment_crud,
     )
 
     # Portfolio Mapping Service - MongoDB 图结构与 MySQL Mapping+Param 双向同步
