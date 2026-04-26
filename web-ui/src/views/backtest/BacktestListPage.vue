@@ -38,6 +38,18 @@
       </router-link>
     </template>
 
+    <template #portfolio_name="{ record }">
+      <router-link
+        v-if="record.portfolio_id"
+        :to="`/portfolios/${record.portfolio_id}`"
+        class="portfolio-link"
+        @click.stop
+      >
+        {{ record.portfolio_name || record.portfolio_id?.slice(0, 8) }}
+      </router-link>
+      <span v-else class="val-muted">-</span>
+    </template>
+
     <template #status="{ record }">
       <StatusTag :status="record.status" type="backtest" />
     </template>
@@ -92,6 +104,7 @@ const statusFilter = ref('')
 
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
+  { title: '组合', dataIndex: 'portfolio_name', key: 'portfolio_name', width: 150 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
   { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100 },
   { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80 },
@@ -149,6 +162,13 @@ onMounted(() => fetchTasks())
   text-decoration: none;
 }
 .task-link:hover { text-decoration: underline; }
+
+.portfolio-link {
+  color: #8a8a9a;
+  text-decoration: none;
+  font-size: 12px;
+}
+.portfolio-link:hover { color: #1890ff; }
 
 .val-green { color: #52c41a; font-weight: 500; }
 .val-red { color: #f5222d; font-weight: 500; }

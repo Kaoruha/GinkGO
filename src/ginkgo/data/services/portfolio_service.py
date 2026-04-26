@@ -625,6 +625,24 @@ class PortfolioService(BaseService):
   
     # ==================== 标准接口方法 ====================
 
+    def get_names_by_ids(self, portfolio_ids: List[str]) -> Dict[str, str]:
+        """批量查询组合名称
+
+        Args:
+            portfolio_ids: 组合 UUID 列表
+
+        Returns:
+            Dict[str, str]: {uuid: name} 映射
+        """
+        if not portfolio_ids:
+            return {}
+        try:
+            portfolios = self._crud_repo.find(filters={"uuid__in": list(portfolio_ids)})
+            return {getattr(p, 'uuid', ''): getattr(p, 'name', '') for p in portfolios}
+        except Exception as e:
+            GLOG.ERROR(f"批量查询组合名称失败: {e}")
+            return {}
+
     def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         获取投资组合数据
