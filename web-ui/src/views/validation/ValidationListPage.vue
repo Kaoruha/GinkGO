@@ -5,10 +5,21 @@
       <p class="page-description">基于回测结果的策略有效性验证</p>
     </div>
 
-    <!-- 新建验证 -->
+    <!-- Tab 切换 -->
     <div class="card">
-      <div class="card-header"><h3>新建验证</h3></div>
+      <div class="card-header">
+        <div class="tab-bar">
+          <button
+            v-for="m in methods"
+            :key="m.key"
+            class="tab-btn"
+            :class="{ active: activeMethod === m.key }"
+            @click="activeMethod = m.key"
+          >{{ m.label }}</button>
+        </div>
+      </div>
       <div class="card-body">
+        <!-- 参数区 -->
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">回测任务</label>
@@ -19,12 +30,9 @@
               </option>
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">验证方法</label>
-            <select v-model="config.method" class="form-select">
-              <option value="segment_stability">分段稳定性</option>
-              <option value="monte_carlo">蒙特卡洛</option>
-            </select>
+          <div class="form-group" v-if="activeMethod === 'monte_carlo'">
+            <label class="form-label">模拟次数</label>
+            <input v-model.number="mcSims" type="number" class="form-input" min="1000" step="1000" />
           </div>
           <div class="form-group" style="align-self: flex-end;">
             <button class="btn-primary" :disabled="!config.taskId || running" @click="runValidation">
@@ -32,47 +40,52 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 验证结果 -->
-    <div v-if="newResult" class="card">
-      <div class="card-header"><h3>验证结果</h3></div>
-      <div class="card-body">
-        <div v-if="config.method === 'segment_stability'" class="stats-grid">
-          <div class="stat-card" v-for="w in newResult.windows" :key="w.n_segments">
-            <div class="stat-value">{{ w.n_segments }} 段</div>
-            <div class="stat-label">稳定性评分</div>
-            <div class="stat-value" :class="w.stability_score >= 0.7 ? 'text-green' : w.stability_score >= 0.4 ? 'text-yellow' : 'text-red'">
-              {{ (w.stability_score * 100).toFixed(1) }}%
+        <!-- 结果区 -->
+        <div v-if="newResult" class="result-section">
+          <!-- 分段稳定性 -->
+          <template v-if="activeMethod === 'segment_stability'">
+            <h4 class="result-title">分段稳定性结果</h4>
+            <div class="stats-grid">
+              <div class="stat-card" v-for="w in newResult.windows" :key="w.n_segments">
+                <div class="stat-value">{{ w.n_segments }} 段</div>
+                <div class="stat-label">稳定性评分</div>
+                <div class="stat-value" :class="w.stability_score >= 0.7 ? 'text-green' : w.stability_score >= 0.4 ? 'text-yellow' : 'text-red'">
+                  {{ (w.stability_score * 100).toFixed(1) }}%
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div v-else-if="config.method === 'monte_carlo'" class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">VaR 95%</div>
-            <div class="stat-value text-red">{{ (newResult.statistics.var_95 * 100).toFixed(2) }}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">VaR 99%</div>
-            <div class="stat-value text-red">{{ (newResult.statistics.var_99 * 100).toFixed(2) }}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">期望损失 (ES)</div>
-            <div class="stat-value text-red">{{ (newResult.statistics.expected_shortfall * 100).toFixed(2) }}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">均值收益</div>
-            <div class="stat-value">{{ (newResult.statistics.mean_return * 100).toFixed(2) }}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">收益标准差</div>
-            <div class="stat-value">{{ (newResult.statistics.std_return * 100).toFixed(2) }}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">P50 收益</div>
-            <div class="stat-value">{{ (newResult.percentiles.p50 * 100).toFixed(2) }}%</div>
-          </div>
+          </template>
+          <!-- 蒙特卡洛 -->
+          <template v-if="activeMethod === 'monte_carlo'">
+            <h4 class="result-title">蒙特卡洛模拟结果</h4>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">VaR 95%</div>
+                <div class="stat-value text-red">{{ (newResult.statistics.var_95 * 100).toFixed(2) }}%</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">VaR 99%</div>
+                <div class="stat-value text-red">{{ (newResult.statistics.var_99 * 100).toFixed(2) }}%</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">期望损失 (ES)</div>
+                <div class="stat-value text-red">{{ (newResult.statistics.expected_shortfall * 100).toFixed(2) }}%</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">均值收益</div>
+                <div class="stat-value">{{ (newResult.statistics.mean_return * 100).toFixed(2) }}%</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">收益标准差</div>
+                <div class="stat-value">{{ (newResult.statistics.std_return * 100).toFixed(2) }}%</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">P50 收益</div>
+                <div class="stat-value">{{ (newResult.percentiles.p50 * 100).toFixed(2) }}%</div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -81,11 +94,20 @@
     <div class="card">
       <div class="card-header">
         <h3>验证记录</h3>
-        <select v-model="methodFilter" class="form-select" style="width: auto;">
-          <option value="">全部方法</option>
-          <option value="segment_stability">分段稳定性</option>
-          <option value="monte_carlo">蒙特卡洛</option>
-        </select>
+        <div class="tab-bar compact">
+          <button
+            class="tab-btn sm"
+            :class="{ active: methodFilter === '' }"
+            @click="methodFilter = ''"
+          >全部</button>
+          <button
+            v-for="m in methods"
+            :key="m.key"
+            class="tab-btn sm"
+            :class="{ active: methodFilter === m.key }"
+            @click="methodFilter = m.key"
+          >{{ m.label }}</button>
+        </div>
       </div>
       <div class="card-body">
         <table v-if="records.length" class="data-table">
@@ -119,23 +141,25 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
+const methods = [
+  { key: 'segment_stability', label: '分段稳定性' },
+  { key: 'monte_carlo', label: '蒙特卡洛' },
+]
+
 const backtestList = ref<any[]>([])
 const records = ref<any[]>([])
 const newResult = ref<any>(null)
 const running = ref(false)
+const activeMethod = ref('segment_stability')
 const methodFilter = ref('')
+const mcSims = ref(10000)
 
 const config = reactive({
   taskId: '',
-  method: 'segment_stability',
 })
 
 const methodLabel = (m: string) => {
-  const map: Record<string, string> = {
-    segment_stability: '分段稳定性',
-    monte_carlo: '蒙特卡洛',
-  }
-  return map[m] || m
+  return methods.find(x => x.key === m)?.label || m
 }
 
 const formatTime = (t: string) => {
@@ -167,15 +191,15 @@ const runValidation = async () => {
     const task = backtestList.value.find(t => t.uuid === config.taskId)
     const portfolioId = task?.portfolio_id || ''
     let res: any
-    if (config.method === 'segment_stability') {
+    if (activeMethod.value === 'segment_stability') {
       res = await validationApi.segmentStability({
         task_id: config.taskId,
         portfolio_id: portfolioId,
       })
-    } else if (config.method === 'monte_carlo') {
+    } else if (activeMethod.value === 'monte_carlo') {
       res = await validationApi.monteCarlo({
         backtest_id: config.taskId,
-        n_simulations: 10000,
+        n_simulations: mcSims.value,
       })
     }
     newResult.value = res
@@ -196,6 +220,60 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.tab-bar {
+  display: flex;
+  gap: 4px;
+}
+.tab-bar.compact { gap: 2px; }
+
+.tab-btn {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  color: #8a8a9a;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: #fff; border-color: #3a3a4e; }
+.tab-btn.active {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+.tab-btn.sm {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.result-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #2a2a3e;
+}
+.result-title {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+.stat-value { font-size: 18px; font-weight: 600; color: #fff; }
+.stat-label { font-size: 12px; color: #8a8a9a; margin-top: 4px; }
+
 .text-green { color: #22c55e; }
 .text-red { color: #ef4444; }
 .text-yellow { color: #eab308; }
