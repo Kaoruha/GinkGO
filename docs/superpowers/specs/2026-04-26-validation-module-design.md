@@ -1,24 +1,34 @@
 # 组合详情"验证"Tab 设计方案
 
-## 三种策略类型
+## 策略能力特征（后续优化，当前不实现）
 
-| 类型 | 典型策略 | 参数来源 | 过拟合风险 |
-|------|---------|---------|-----------|
-| 规则型 | 均线交叉、动量、止损止盈 | 经验设定 | 低~中 |
-| 多因子 | 多因子打分、因子轮动 | 因子权重/选择需要拟合 | 中~高 |
-| 神经网络 | LSTM/Transformer 预测 | 训练拟合 | 高 |
+策略不按类型硬分类，而是通过类属性声明能力标志位，决定哪些验证方法适用。子类只需覆盖与基类不同的属性：
+
+```python
+class BaseStrategy:
+    # 是否需要训练/拟合阶段（多因子权重拟合、神经网络训练）
+    requires_fit = False
+
+    # 是否有可扫描的可调参数（如 lookback_period、top_n 等）
+    has_tunable_params = True
+
+    # 是否输出因子得分（策略 cal() 中产出各股票的因子评分）
+    uses_factors = False
+```
+
+**当前方案：** UI 显示所有验证方法，不做自动过滤。用户选择了不适用的方法时，后端返回错误提示。能力标志位的自动检测留待验证功能成熟后实现。
 
 ## 验证方法矩阵
 
-| 方法 | 规则型 | 多因子 | 神经网络 | 原理 |
-|------|--------|--------|---------|------|
-| **分段稳定性** | ✅ | ✅ | ✅ | 固定参数，切时段，看表现是否一致 |
-| **蒙特卡洛** | ✅ | ✅ | ✅ | 对日收益率 bootstrap，评估收益分布 |
-| **参数鲁棒性** | ✅ | ✅ | ⚠️ | 扰动参数，看策略对参数是否敏感 |
-| **滚动前进** | ❌ | ✅ | ✅ | 训练期拟合→测试期验证，检测过拟合 |
-| **因子稳定性** | ❌ | ✅ | ❌ | 因子 IC 值在不同时段是否衰减 |
+| 方法 | 原理 |
+|------|------|
+| **分段稳定性** | 固定参数，切时段，看表现是否一致 |
+| **蒙特卡洛** | 对日收益率 bootstrap，评估收益分布 |
+| **参数鲁棒性** | 扰动参数，看策略对参数是否敏感 |
+| **滚动前进** | 训练期拟合→测试期验证，检测过拟合 |
+| **因子稳定性** | 因子 IC 值在不同时段是否衰减 |
 
-## 四个验证模块详细设计
+## 五个验证模块详细设计
 
 ### 1. 分段稳定性（通用）
 
@@ -29,7 +39,7 @@
 **输入：**
 - 已完成的回测任务 UUID
 - 分段数（默认 4）
-- 分段方式：等时间 / 等交易日数
+- 分段方式：等交易日数（默认）/ 等时间
 
 **计算逻辑：**
 ```
@@ -40,7 +50,10 @@
   Q3: 收益 -0.8%, 夏普 -0.3, 最大回撤 -8.2%
   Q4: 收益 +2.5%, 夏普 1.2, 最大回撤 -5.0%
 
-稳定性评分 = 1 - std(各段收益) / mean(|各段收益|)
+mean_abs = mean(|各段收益|)
+稳定性评分 = 0 if mean_abs < 0.001 else max(0, 1 - std(各段收益) / mean_abs)
+# mean_abs < 0.001 时收益过小，无法判断稳定性
+# max(0, ...) 防止评分出现负值
 ```
 
 **数据来源：** 已有 `analyzer_record` 表中 net_value 的每日记录，按日期分段提取，无需重跑回测。
@@ -207,12 +220,9 @@ class BaseStrategy:
     # 现有方法
     def cal(self, portfolio_info, event) -> List[Signal]: ...
 
-    # 新增：训练/拟合接口（可选覆盖）
-    @classmethod
-    def requires_fit(cls) -> bool:
-        """策略是否需要训练阶段。默认 False，有拟合需求的策略覆盖为 True。"""
-        return False
+    # capabilities 类属性（见上方定义）
 
+    # 新增：训练/拟合接口（requires_fit=True 的策略必须实现）
     def fit(self, train_data: pd.DataFrame) -> None:
         """在训练数据上拟合策略参数/模型。
         Args:
@@ -237,9 +247,9 @@ class MultiFactorStrategy(BaseStrategy):
         self.weights = None          # 拟合后的因子权重
         self.top_n = top_n
 
-    @classmethod
-    def requires_fit(cls) -> bool:
-        return True
+    requires_fit = True
+    uses_factors = True
+    # has_tunable_params 继承基类默认值 True
 
     def fit(self, train_data):
         """在训练期用 IC 加权确定因子权重"""
@@ -267,9 +277,9 @@ class LSTMStrategy(BaseStrategy):
         self.model = None
         self.lookback = lookback
 
-    @classmethod
-    def requires_fit(cls) -> bool:
-        return True
+    requires_fit = True
+    # has_tunable_params 继承基类默认值 True
+    # uses_factors 继承基类默认值 False
 
     def fit(self, train_data):
         """在训练期训练 LSTM 模型"""
@@ -304,7 +314,7 @@ class WalkForwardProcessor:
         portfolio = load_portfolio(self.portfolio_id)
         strategy = portfolio.get_strategy()
 
-        if not strategy.requires_fit():
+        if not strategy.requires_fit:
             raise ValueError("策略不需要训练阶段，不适用 Walk Forward 验证")
 
         folds = split_walk_forward(start_date, end_date, self.n_folds, self.train_ratio, self.mode)
@@ -349,7 +359,8 @@ class WalkForwardProcessor:
         # 计算退化度
         avg_train = statistics.mean(r["train_return"] for r in results)
         avg_test = statistics.mean(r["test_return"] for r in results)
-        degradation = (avg_train - avg_test) / avg_train if avg_train != 0 else None
+        degradation = (avg_train - avg_test) / avg_train if abs(avg_train) >= 0.001 else abs(avg_train - avg_test)
+        # |avg_train| < 0.001 时用绝对差值代替比率，退化度仅供参考
 
         return {"folds": results, "degradation": degradation}
 ```
@@ -393,11 +404,48 @@ CREATE TABLE m_walk_forward_result (
 #### 4.8 当前状态
 
 **未实现。** 前置依赖：
-1. `BaseStrategy` 增加 `fit()`/`get_fitted_params()`/`set_fitted_params()`/`requires_fit()` 接口
+1. `BaseStrategy` 增加 `requires_fit`/`has_tunable_params`/`uses_factors` 类属性 + `fit()`/`get_fitted_params()`/`set_fitted_params()` 接口
 2. 各具体策略类实现训练逻辑（多因子 IC 拟合、神经网络训练）
 3. 回测引擎支持两阶段执行模式（训练阶段 + 测试阶段）
 4. `WalkForwardProcessor` 编排层实现
 5. 异步任务管理（N 折 = N 次回测，需任务队列支持）
+
+---
+
+### 5. 因子稳定性（多因子）
+
+**适用：多因子策略**
+
+将回测区间分为 N 段，每段计算各因子的 IC 值（因子得分与未来收益的秩相关系数），看 IC 在不同时段是否稳定。IC 持续衰减说明因子可能失效。
+
+**输入：**
+- 已完成的回测任务 UUID
+- 分段数（默认 4）
+- IC 计算方式：Spearman 秩相关（默认）/ Pearson
+
+**计算逻辑：**
+```
+因子 A: Q1 IC=0.05, Q2 IC=0.04, Q3 IC=0.03, Q4 IC=0.06 → 均值 0.045, 稳定
+因子 B: Q1 IC=0.08, Q2 IC=0.02, Q3 IC=-0.01, Q4 IC=0.01 → 均值 0.025, 衰减
+
+稳定性评分 = 1 - std(各段IC) / mean(|各段IC|)
+  （同分段稳定性公式，含 mean_abs < 0.001 阈值保护）
+```
+
+**数据来源：** 需要策略在 `cal()` 时输出每只股票的因子得分，写入 analyzer_record。当前引擎尚不支持此数据采集。
+
+**输出：**
+- 各因子在各段的 IC 值表格
+- IC 时序趋势图（按因子分组）
+- 因子稳定性评分
+- 衰减因子告警（IC 均值 < 0.02 或趋势为负）
+
+#### 当前状态
+
+**未实现。** 前置依赖：
+1. 多因子策略模块实现，策略 `cal()` 输出因子得分
+2. 回测引擎支持因子得分采集与存储
+3. IC 计算工具函数
 
 ---
 
@@ -406,24 +454,14 @@ CREATE TABLE m_walk_forward_result (
 ```
 验证 Tab
 ├── 顶部：回测任务选择器（选择要验证的已完成回测）
-├── 策略类型标签（自动检测或手动选择）
-│   ├── 规则型 → 显示: 分段稳定性 | 蒙特卡洛 | 参数鲁棒性
-│   ├── 多因子 → 显示: 分段稳定性 | 蒙特卡洛 | 参数鲁棒性 | 滚动前进
-│   └── 神经网络 → 显示: 分段稳定性 | 蒙特卡洛 | 滚动前进
-├── 子标签页（根据策略类型显示可用的验证方法）
+├── 子标签页（当前全部显示，后续根据策略能力自动过滤）
 │   ├── 分段稳定性
 │   ├── 蒙特卡洛
 │   ├── 参数鲁棒性
-│   └── 滚动前进
+│   ├── 滚动前进
+│   └── 因子稳定性
 └── 综合评分面板（汇总所有已执行验证的评分）
 ```
-
-## 实现优先级
-
-1. **分段稳定性** — 纯后处理，基于已有 analyzer_record，无需新 API，无需重跑回测
-2. **蒙特卡洛** — 纯后处理，同上
-3. **参数鲁棒性** — 需要多任务编排（批量创建回测）
-4. **滚动前进** — 最复杂，需要策略层支持 fit 接口
 
 ## 数据流
 
@@ -436,7 +474,18 @@ CREATE TABLE m_walk_forward_result (
 
 滚动前进（需重跑 N 折 + fit 接口）:
   切分日期 → N 折(训练+测试) → 每折创建回测任务 → 聚合 → 计算退化度
+
+因子稳定性（需因子得分数据）:
+  analyzer_record(factor_scores) → 按段计算 IC → 统计衰减趋势
 ```
+
+## 实现优先级
+
+1. **分段稳定性** — 纯后处理，基于已有 analyzer_record，无需新 API，无需重跑回测
+2. **蒙特卡洛** — 纯后处理，同上
+3. **参数鲁棒性** — 需要多任务编排（批量创建回测）
+4. **滚动前进** — 最复杂，需要策略层支持 fit 接口
+5. **因子稳定性** — 依赖因子策略模块，当前不实现
 
 ## 后端 API 设计
 
@@ -466,4 +515,10 @@ POST /api/v1/validation/walk-forward
 
 GET /api/v1/validation/walk-forward/{job_id}
   Response: { status, folds: [{fold, train_return, test_return}], degradation }
+
+# 因子稳定性（基于已有数据，秒级返回）
+POST /api/v1/validation/factor-stability
+  Body: { task_id, n_segments: 4, ic_method: "spearman" }
+  Response: { factors: [{name, ic_values: [...], stability_score, trend}], alerts: [...] }
+```
 ```
