@@ -157,8 +157,11 @@ class PortfolioService(BaseService):
 
 
         if mode is not None:
-            updates["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
-            updates_applied.append("mode")
+            GLOG.WARN(
+                f"Portfolio {portfolio_id}: mode modification ignored. "
+                "Use DeploymentService.deploy() or PortfolioService.add()."
+            )
+            warnings.append("mode modification is not allowed, use deploy instead")
 
         if state is not None:
             updates["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
