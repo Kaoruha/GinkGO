@@ -349,6 +349,8 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
 async def list_backtests(
     status: Optional[str] = Query(None, description="按状态筛选"),
     portfolio_id: Optional[str] = Query(None, description="按投资组合筛选"),
+    sort_by: Optional[str] = Query(None, description="排序字段: annual_return / sharpe_ratio / max_drawdown / win_rate / created_at"),
+    sort_order: Optional[str] = Query("desc", description="排序方向: asc / desc"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
@@ -434,6 +436,12 @@ async def list_backtests(
                 completed_at=completed_at_str,
                 error_message=task_dict["error_message"],
             ))
+
+        # 排序
+        sortable_fields = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "created_at", "total_pnl"}
+        if sort_by in sortable_fields:
+            reverse = sort_order != "asc"
+            summaries.sort(key=lambda s: getattr(s, sort_by, 0) or 0, reverse=reverse)
 
         # 分页
         total = len(summaries)

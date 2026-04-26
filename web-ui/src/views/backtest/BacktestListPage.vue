@@ -11,9 +11,12 @@
     :page="currentPage"
     :page-size="pageSize"
     :server-pagination="true"
+    :sort-by="sortBy"
+    :sort-order="sortOrder"
     clickable
     @update:page="onPageChange"
     @update:page-size="onPageSizeChange"
+    @sort="onSort"
     @row-click="goDetail"
   >
     <template #filters>
@@ -101,15 +104,17 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const statusFilter = ref('')
+const sortBy = ref('')
+const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
   { title: '组合', dataIndex: 'portfolio_name', key: 'portfolio_name', width: 150 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
-  { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100 },
-  { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80 },
-  { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100 },
-  { title: '胜率', dataIndex: 'win_rate', key: 'win_rate', width: 80 },
+  { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100, sortable: true },
+  { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80, sortable: true },
+  { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100, sortable: true },
+  { title: '胜率', dataIndex: 'win_rate', key: 'win_rate', width: 80, sortable: true },
   { title: '信号/订单', dataIndex: 'total_signals', key: 'total_signals', width: 100 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160 },
 ]
@@ -136,11 +141,22 @@ function onPageSizeChange(s: number) {
   fetchTasks()
 }
 
+function onSort(field: string, order: 'asc' | 'desc') {
+  sortBy.value = field
+  sortOrder.value = order
+  currentPage.value = 1
+  fetchTasks()
+}
+
 async function fetchTasks() {
   loading.value = true
   try {
     const params: any = { page: currentPage.value, page_size: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
+    if (sortBy.value) {
+      params.sort_by = sortBy.value
+      params.sort_order = sortOrder.value
+    }
     const res: any = await backtestApi.list(params)
     tasks.value = res?.data || []
     total.value = res?.meta?.total || 0
