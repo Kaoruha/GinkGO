@@ -82,8 +82,8 @@
               >
                 {{ col.title }}
                 <span v-if="col.sortable" class="sort-icon">
-                  <template v-if="sortBy === col.dataIndex">
-                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  <template v-if="innerSortBy === col.dataIndex">
+                    {{ innerSortOrder === 'asc' ? '↑' : '↓' }}
                   </template>
                   <template v-else>⇅</template>
                 </span>
@@ -170,8 +170,6 @@ const props = withDefaults(defineProps<{
   pageSize?: number
   pageSizes?: number[]
   serverPagination?: boolean
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
 }>(), {
   loading: false,
   rowKey: 'id',
@@ -188,8 +186,6 @@ const props = withDefaults(defineProps<{
   pageSize: 20,
   pageSizes: () => [10, 20, 50, 100],
   serverPagination: false,
-  sortBy: '',
-  sortOrder: 'desc',
 })
 
 const emit = defineEmits<{
@@ -197,14 +193,14 @@ const emit = defineEmits<{
   'update:searchValue': [value: string]
   'update:page': [page: number]
   'update:pageSize': [size: number]
-  'update:sortBy': [field: string]
-  'update:sortOrder': [order: 'asc' | 'desc']
   sort: [field: string, order: 'asc' | 'desc']
   rowClick: [record: any]
 }>()
 
 const innerPage = ref(props.page)
 const innerPageSize = ref(props.pageSize)
+const innerSortBy = ref('')
+const innerSortOrder = ref<'asc' | 'desc'>('desc')
 
 watch(() => props.page, v => { innerPage.value = v })
 
@@ -261,10 +257,15 @@ watch(innerPageSize, (newSize, oldSize) => {
 })
 
 function handleSort(field: string) {
-  const newOrder = props.sortBy === field && props.sortOrder === 'desc' ? 'asc' : 'desc'
-  emit('update:sortBy', field)
-  emit('update:sortOrder', newOrder)
-  emit('sort', field, newOrder)
+  if (innerSortBy.value === field) {
+    innerSortOrder.value = innerSortOrder.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    innerSortBy.value = field
+    innerSortOrder.value = 'desc'
+  }
+  innerPage.value = 1
+  emit('update:page', 1)
+  emit('sort', field, innerSortOrder.value)
 }
 
 function formatValue(val: any): string {
