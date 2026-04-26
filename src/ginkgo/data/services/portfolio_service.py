@@ -31,17 +31,46 @@ from ginkgo.data.crud.model_conversion import ModelList
 
 
 class PortfolioService(BaseService):
-    def __init__(self, crud_repo, portfolio_file_mapping_crud):
+    def __init__(self, crud_repo, portfolio_file_mapping_crud, deployment_crud=None):
         """
         初始化PortfolioService，设置投资组合和文件映射仓储依赖
 
         Args:
             crud_repo: 投资组合数据CRUD仓储实例
             portfolio_file_mapping_crud: 投资组合文件映射CRUD仓储实例
+            deployment_crud: 部署CRUD仓储实例（可选，用于冻结判定）
         """
         super().__init__(
             crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
         )
+        self._deployment_crud = deployment_crud
+
+    def is_portfolio_frozen(self, portfolio_id: str) -> bool:
+        """检查组合是否已部署（冻结）
+
+        通过查询 MDeployment 判定：存在 source_portfolio_id 匹配且
+        target 未删除且状态为 DEPLOYED 的记录时返回 True。
+        """
+        if not hasattr(self, '_deployment_crud') or self._deployment_crud is None:
+            return False
+
+        deployments = self._deployment_crud.find(
+            filters={"source_portfolio_id": portfolio_id}
+        )
+
+        for d in deployments:
+            if getattr(d, 'status', -1) != 1:  # DEPLOYMENT_STATUS.DEPLOYED = 1
+                continue
+            target_id = getattr(d, 'target_portfolio_id', None)
+            if not target_id:
+                continue
+            targets = self._crud_repo.find(
+                filters={"uuid": target_id, "is_del": False}
+            )
+            if targets and len(targets) > 0:
+                return True
+
+        return False
 
     @retry(max_try=3)
     def add(
