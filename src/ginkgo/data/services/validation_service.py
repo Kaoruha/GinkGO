@@ -11,9 +11,10 @@ from ginkgo.libs import GLOG
 class ValidationService(BaseService):
     """回测验证服务：基于已有 analyzer_record 数据计算验证指标"""
 
-    def __init__(self, analyzer_record_crud=None):
+    def __init__(self, analyzer_record_crud=None, validation_result_crud=None):
         super().__init__(crud_repo=analyzer_record_crud)
         self._analyzer_crud = analyzer_record_crud
+        self._validation_result_crud = validation_result_crud
 
     def _get_net_value_records(self, task_id: str, portfolio_id: str):
         """获取指定任务的 net_value 记录，按 business_timestamp 升序"""

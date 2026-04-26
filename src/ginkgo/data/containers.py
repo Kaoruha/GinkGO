@@ -82,6 +82,7 @@ from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
 from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
 from ginkgo.data.crud.deployment_crud import DeploymentCRUD
+from ginkgo.data.crud.validation_result_crud import ValidationResultCRUD
 
 # User management services
 from ginkgo.user.services.user_service import UserService
@@ -286,10 +287,14 @@ class Container(containers.DeclarativeContainer):
         ApiKeyService
     )
 
+    # Validation result CRUD
+    validation_result_crud = providers.Singleton(ValidationResultCRUD)
+
     # Validation service for backtest validation (segment stability, monte carlo)
     validation_service = providers.Singleton(
         ValidationService,
         analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),
+        validation_result_crud=validation_result_crud,
     )
 
     # Backtest task service
