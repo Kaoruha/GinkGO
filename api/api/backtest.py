@@ -66,6 +66,7 @@ class BacktestTaskSummary(BaseModel):
     uuid: str
     name: str
     portfolio_id: str = ""
+    portfolio_name: str = ""
     status: str = "created"
     progress: float = 0
     total_pnl: float = 0.0
@@ -363,6 +364,19 @@ async def list_backtests(
 
         tasks = result.data or []
 
+        # 批量获取 portfolio 名称
+        portfolio_ids = set()
+        for task in tasks:
+            pid = task.get("portfolio_id") if isinstance(task, dict) else getattr(task, 'portfolio_id', '')
+            if pid:
+                portfolio_ids.add(pid)
+        portfolio_names = {}
+        if portfolio_ids:
+            try:
+                portfolio_names = get_portfolio_service().get_names_by_ids(list(portfolio_ids))
+            except Exception:
+                pass
+
         # 转换为 API 模型
         summaries = []
         for task in tasks:
@@ -403,6 +417,7 @@ async def list_backtests(
                 uuid=task_dict["uuid"],
                 name=task_dict["name"],
                 portfolio_id=task_dict["portfolio_id"],
+                portfolio_name=portfolio_names.get(task_dict["portfolio_id"], ""),
                 status=task_dict["status"],
                 progress=task_dict["progress"],
                 total_pnl=task_dict["total_pnl"],
