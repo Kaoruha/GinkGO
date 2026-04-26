@@ -77,8 +77,16 @@
                 v-for="col in resolvedColumns"
                 :key="col.key"
                 :style="{ width: col.width ? col.width + 'px' : undefined }"
+                :class="{ sortable: col.sortable }"
+                @click="col.sortable && handleSort(col.dataIndex)"
               >
                 {{ col.title }}
+                <span v-if="col.sortable" class="sort-icon">
+                  <template v-if="sortBy === col.dataIndex">
+                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  </template>
+                  <template v-else>⇅</template>
+                </span>
               </th>
             </tr>
           </thead>
@@ -139,6 +147,7 @@ export interface Column {
   dataIndex: string
   key?: string
   width?: number
+  sortable?: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -161,6 +170,8 @@ const props = withDefaults(defineProps<{
   pageSize?: number
   pageSizes?: number[]
   serverPagination?: boolean
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }>(), {
   loading: false,
   rowKey: 'id',
@@ -177,6 +188,8 @@ const props = withDefaults(defineProps<{
   pageSize: 20,
   pageSizes: () => [10, 20, 50, 100],
   serverPagination: false,
+  sortBy: '',
+  sortOrder: 'desc',
 })
 
 const emit = defineEmits<{
@@ -184,6 +197,9 @@ const emit = defineEmits<{
   'update:searchValue': [value: string]
   'update:page': [page: number]
   'update:pageSize': [size: number]
+  'update:sortBy': [field: string]
+  'update:sortOrder': [order: 'asc' | 'desc']
+  sort: [field: string, order: 'asc' | 'desc']
   rowClick: [record: any]
 }>()
 
@@ -243,6 +259,13 @@ watch(innerPageSize, (newSize, oldSize) => {
     emit('update:pageSize', newSize)
   }
 })
+
+function handleSort(field: string) {
+  const newOrder = props.sortBy === field && props.sortOrder === 'desc' ? 'asc' : 'desc'
+  emit('update:sortBy', field)
+  emit('update:sortOrder', newOrder)
+  emit('sort', field, newOrder)
+}
 
 function formatValue(val: any): string {
   if (val == null) return '-'
@@ -411,6 +434,21 @@ function formatValue(val: any): string {
   color: #fff;
   border-bottom: 1px solid #3a3a4e;
   white-space: nowrap;
+}
+
+.pro-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.pro-table th.sortable:hover {
+  color: #1890ff;
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 .pro-table td {
