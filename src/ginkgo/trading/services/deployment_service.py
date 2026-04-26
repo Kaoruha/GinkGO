@@ -68,12 +68,57 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
+        # 2b. 创建 PENDING deployment 记录
+        deployment = MDeployment(
+            source_task_id=backtest_task_id,
+            target_portfolio_id="",
+            source_portfolio_id=source_portfolio_id,
+            mode=mode.value,
+            account_id=account_id,
+            status=DEPLOYMENT_STATUS.PENDING,
+        )
+        self._deployment_crud.add(deployment)
+        deployment_id = deployment.uuid
+
+        # 3-7. 核心部署流程（失败时标记 deployment 为 FAILED）
+        try:
+            return self._deploy_core(
+                backtest_task_id=backtest_task_id,
+                source_portfolio_id=source_portfolio_id,
+                mode=mode,
+                account_id=account_id,
+                name=name,
+                task_data=task_data,
+                deployment_id=deployment_id,
+            )
+        except Exception as e:
+            GLOG.ERROR(f"部署流程异常: {e}")
+            try:
+                self._deployment_crud.modify(
+                    filters={"uuid": deployment_id},
+                    updates={"status": DEPLOYMENT_STATUS.FAILED},
+                )
+            except Exception:
+                pass
+            return ServiceResult(success=False, error=f"部署失败: {str(e)}")
+
+    def _deploy_core(
+        self,
+        backtest_task_id: str,
+        source_portfolio_id: str,
+        mode: PORTFOLIO_MODE_TYPES,
+        account_id: Optional[str],
+        name: Optional[str],
+        task_data: dict,
+        deployment_id: str,
+    ) -> ServiceResult:
+        """核心部署流程: 步骤 3-8。失败时由调用方标记 FAILED。"""
         # 3. 读取原 Portfolio 的组件映射
         mappings_result = self._mapping_service.get_portfolio_mappings(
             source_portfolio_id, include_params=True
         )
         if not mappings_result.success:
-            return ServiceResult(success=False, error=f"读取Portfolio组件映射失败: {mappings_result.error}")
+            raise RuntimeError(f"读取Portfolio组件映射失败: {mappings_result.error}")
 
         mappings = mappings_result.data if mappings_result.data else []
 
@@ -89,53 +134,48 @@ class DeploymentService(BaseService):
             description=f"部署自回测任务 {backtest_task_id}",
         )
         if not portfolio_result.success:
-            return ServiceResult(success=False, error=f"创建Portfolio失败: {portfolio_result.error}")
+            raise RuntimeError(f"创建Portfolio失败: {portfolio_result.error}")
 
         new_portfolio_id = portfolio_result.data.get("uuid")
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
         # 5. 深拷贝组件: MFile(clone) + Mapping(新建) + Param(复制)
-        try:
-            for mapping in mappings:
-                old_file_id = getattr(mapping, "file_id", None)
-                if not old_file_id:
-                    continue
+        for mapping in mappings:
+            old_file_id = getattr(mapping, "file_id", None)
+            if not old_file_id:
+                continue
 
-                file_type = getattr(mapping, "type", None)
-                mapping_name = getattr(mapping, "name", "")
-                mapping_uuid = getattr(mapping, "uuid", "")
+            file_type = getattr(mapping, "type", None)
+            mapping_name = getattr(mapping, "name", "")
+            mapping_uuid = getattr(mapping, "uuid", "")
 
-                # 5a. Clone MFile
-                clone_name = f"{mapping_name}_{new_portfolio_id[:8]}"
-                clone_result = self._file_service.clone(old_file_id, clone_name, file_type)
-                if not clone_result.success:
-                    GLOG.WARN(f"克隆文件失败 {old_file_id}: {clone_result.error}")
-                    continue
+            # 5a. Clone MFile
+            clone_name = f"{mapping_name}_{new_portfolio_id[:8]}"
+            clone_result = self._file_service.clone(old_file_id, clone_name, file_type)
+            if not clone_result.success:
+                GLOG.WARN(f"克隆文件失败 {old_file_id}: {clone_result.error}")
+                continue
 
-                new_file_id = clone_result.data["file_info"]["uuid"]
+            new_file_id = clone_result.data["file_info"]["uuid"]
 
-                # 5b. Create new Mapping
-                add_result = self._mapping_service.add_file(
-                    portfolio_uuid=new_portfolio_id,
-                    file_id=new_file_id,
-                    file_type=FILE_TYPES(file_type) if file_type else None,
-                    name=mapping_name,
-                )
-                if not add_result.success:
-                    GLOG.WARN(f"创建映射失败: {add_result.error}")
-                    continue
+            # 5b. Create new Mapping
+            add_result = self._mapping_service.add_file(
+                portfolio_uuid=new_portfolio_id,
+                file_id=new_file_id,
+                file_type=FILE_TYPES(file_type) if file_type else None,
+                name=mapping_name,
+            )
+            if not add_result.success:
+                GLOG.WARN(f"创建映射失败: {add_result.error}")
+                continue
 
-                # 5c. Copy Params from old mapping to new mapping
-                if mapping_uuid:
-                    params_result = self._mapping_service.get_mapping_params(mapping_uuid)
-                    if params_result.success and params_result.data:
-                        new_mapping_id = add_result.data.get("mapping_id")
-                        if new_mapping_id:
-                            self._copy_params(mapping_uuid, new_mapping_id, params_result.data)
-
-        except Exception as e:
-            GLOG.ERROR(f"组件拷贝失败: {e}")
-            return ServiceResult(success=False, error=f"组件拷贝失败: {str(e)}")
+            # 5c. Copy Params from old mapping to new mapping
+            if mapping_uuid:
+                params_result = self._mapping_service.get_mapping_params(mapping_uuid)
+                if params_result.success and params_result.data:
+                    new_mapping_id = add_result.data.get("mapping_id")
+                    if new_mapping_id:
+                        self._copy_params(mapping_uuid, new_mapping_id, params_result.data)
 
         # 6. Copy MongoDB Graph
         try:
@@ -153,23 +193,19 @@ class DeploymentService(BaseService):
                 )
             except Exception as e:
                 GLOG.ERROR(f"创建Broker实例失败: {e}")
-                return ServiceResult(success=False, error=f"创建Broker实例失败: {str(e)}")
+                raise RuntimeError(f"创建Broker实例失败: {str(e)}")
 
-        # 8. 创建 MDeployment 记录
+        # 8. 更新 MDeployment 状态为 DEPLOYED
         try:
-            deployment = MDeployment(
-                source_task_id=backtest_task_id,
-                target_portfolio_id=new_portfolio_id,
-                source_portfolio_id=source_portfolio_id,
-                mode=mode.value,
-                account_id=account_id,
-                status=DEPLOYMENT_STATUS.DEPLOYED,
+            self._deployment_crud.modify(
+                filters={"uuid": deployment_id},
+                updates={
+                    "target_portfolio_id": new_portfolio_id,
+                    "status": DEPLOYMENT_STATUS.DEPLOYED,
+                },
             )
-            self._deployment_crud.add(deployment)
-            deployment_id = deployment.uuid
         except Exception as e:
-            GLOG.WARN(f"创建部署记录失败(非致命): {e}")
-            deployment_id = None
+            GLOG.WARN(f"更新部署记录状态失败(非致命): {e}")
 
         GLOG.INFO(f"部署完成: {new_portfolio_id} <- {backtest_task_id}")
         result = ServiceResult(success=True)
