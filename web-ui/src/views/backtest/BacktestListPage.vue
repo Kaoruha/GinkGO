@@ -11,8 +11,6 @@
     :page="currentPage"
     :page-size="pageSize"
     :server-pagination="true"
-    :sort-by="sortBy"
-    :sort-order="sortOrder"
     clickable
     @update:page="onPageChange"
     @update:page-size="onPageSizeChange"
@@ -104,7 +102,7 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const statusFilter = ref('')
-const sortBy = ref('')
+const sortBy = ref('annual_return')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const columns = [
@@ -144,7 +142,6 @@ function onPageSizeChange(s: number) {
 function onSort(field: string, order: 'asc' | 'desc') {
   sortBy.value = field
   sortOrder.value = order
-  currentPage.value = 1
   fetchTasks()
 }
 
