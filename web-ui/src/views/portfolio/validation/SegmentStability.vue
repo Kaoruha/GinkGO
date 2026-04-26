@@ -89,7 +89,7 @@ import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
 const props = defineProps<{
-  portfolioId: string
+  portfolioId?: string
 }>()
 
 const loading = ref(false)
@@ -114,7 +114,7 @@ const runAnalysis = async () => {
     const segments = segmentsInput.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
     const res = await validationApi.segmentStability({
       task_id: config.taskId,
-      portfolio_id: props.portfolioId,
+      portfolio_id: props.portfolioId || '',
       n_segments: segments.length ? segments : undefined,
     })
     result.value = res.data
@@ -127,7 +127,11 @@ const runAnalysis = async () => {
 
 const fetchBacktestList = async () => {
   try {
-    const res = await backtestApi.list({ page: 1, size: 50, status: 'completed', portfolio_id: props.portfolioId })
+    const params: any = { page: 1, size: 50, status: 'completed' }
+    if (props.portfolioId) {
+      params.portfolio_id = props.portfolioId
+    }
+    const res = await backtestApi.list(params)
     backtestList.value = res.data || []
   } catch { /* ignore */ }
 }
