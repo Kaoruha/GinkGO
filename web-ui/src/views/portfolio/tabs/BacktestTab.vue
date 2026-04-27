@@ -69,7 +69,6 @@
               <button v-if="canStartByState(task.status)" class="link-btn" @click="handleStart(task)">启动</button>
               <button v-if="canStopByState(task.status)" class="link-btn link-danger" @click="handleStop(task)">停止</button>
               <button v-if="canCancelByState(task.status)" class="link-btn" @click="handleCancel(task)">取消</button>
-              <button v-if="task.status === 'completed'" class="link-btn link-deploy" @click="openDeployModal(task.uuid)">部署</button>
             </div>
           </div>
         </div>
@@ -174,44 +173,6 @@
         </div>
       </div>
 
-      <!-- 部署模态框 -->
-      <div v-if="showDeployModal" class="modal-overlay" @click.self="showDeployModal = false">
-        <div class="modal-box">
-          <div class="modal-header">
-            <h3>部署到模拟盘/实盘</h3>
-            <button class="btn-close" @click="showDeployModal = false">×</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-item">
-              <label>目标模式</label>
-              <div class="radio-group">
-                <button class="radio-button" :class="{ active: deployMode === 'paper' }" @click="deployMode = 'paper'">模拟盘</button>
-                <button class="radio-button" :class="{ active: deployMode === 'live' }" @click="deployMode = 'live'">实盘</button>
-              </div>
-            </div>
-            <div v-if="deployMode === 'live'" class="form-item">
-              <label>实盘账号</label>
-              <select v-model="deployAccountId" class="form-select">
-                <option value="">选择实盘账号</option>
-                <option v-for="acc in liveAccounts" :key="acc.uuid" :value="acc.uuid">
-                  {{ acc.name }} ({{ acc.exchange }} - {{ acc.environment }})
-                </option>
-              </select>
-              <p v-if="liveAccounts.length === 0" class="form-hint">暂无可用实盘账号，请先在实盘账号管理中添加</p>
-            </div>
-            <div class="form-item">
-              <label>组合名称（可选）</label>
-              <input v-model="deployName" type="text" placeholder="留空自动生成" class="form-input" />
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="showDeployModal = false">取消</button>
-            <button class="btn-primary" :disabled="deploying || (deployMode === 'live' && !deployAccountId)" @click="handleDeploy">
-              {{ deploying ? '部署中...' : '确认部署' }}
-            </button>
-          </div>
-        </div>
-      </div>
     </template>
 
     <!-- ========== 详情视图 ========== -->
@@ -230,7 +191,6 @@
             <span class="task-uuid">{{ currentTask.uuid }}</span>
           </div>
           <div class="detail-actions">
-            <button v-if="currentTask.status === 'completed'" class="btn-deploy" @click="openDeployModal(currentTask.uuid)">部署</button>
             <button v-if="canStartByState(currentTask.status)" class="btn-primary" @click="handleReRun">重新运行</button>
             <button v-if="canStopByState(currentTask.status)" class="btn-danger" @click="handleStopDetail">停止</button>
             <button v-if="currentTask.status !== 'running'" class="btn-danger-outline" @click="handleDelete">删除</button>
@@ -494,9 +454,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { backtestApi, deploymentApi, liveAccountApi } from '@/api'
+import { backtestApi } from '@/api'
 import type { BacktestTask, AnalyzerInfo } from '@/api'
-import type { LiveAccount } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
 import { useWebSocket } from '@/composables'
@@ -540,61 +499,6 @@ const statusOptions = [
 const showCreateModal = ref(false)
 const creating = ref(false)
 const createForm = ref({ name: '', start_date: '', end_date: '', initial_cash: 1000000 })
-
-// ========== 部署状态 ==========
-const showDeployModal = ref(false)
-const deployTaskId = ref('')
-const deployMode = ref<'paper' | 'live'>('paper')
-const deployAccountId = ref('')
-const deployName = ref('')
-const deploying = ref(false)
-const liveAccounts = ref<LiveAccount[]>([])
-
-const openDeployModal = (taskId: string) => {
-  deployTaskId.value = taskId
-  deployMode.value = 'paper'
-  deployAccountId.value = ''
-  deployName.value = ''
-  showDeployModal.value = true
-  loadLiveAccounts()
-}
-
-const loadLiveAccounts = async () => {
-  try {
-    const res: any = await liveAccountApi.getAccounts({ page: 1, page_size: 100, status: 'enabled' })
-    liveAccounts.value = res?.data?.accounts || []
-  } catch { liveAccounts.value = [] }
-}
-
-const handleDeploy = async () => {
-  if (!deployTaskId.value) return
-  if (deployMode.value === 'live' && !deployAccountId.value) {
-    message.warning('请选择实盘账号')
-    return
-  }
-  deploying.value = true
-  try {
-    const res: any = await deploymentApi.deploy({
-      backtest_task_id: deployTaskId.value,
-      mode: deployMode.value,
-      account_id: deployMode.value === 'live' ? deployAccountId.value : undefined,
-      name: deployName.value || undefined,
-    })
-    showDeployModal.value = false
-    const newPortfolioId = res?.data?.portfolio_id
-    if (newPortfolioId) {
-      message.success('部署成功')
-      router.push(`/portfolios/${newPortfolioId}`)
-    } else {
-      message.success('部署成功')
-      loadList()
-    }
-  } catch (e: any) {
-    message.error('部署失败: ' + (e?.message || e))
-  } finally {
-    deploying.value = false
-  }
-}
 
 function formatCash(val: number | string) {
   const n = typeof val === 'string' ? parseInt(val.replace(/,/g, ''), 10) : val
@@ -1233,17 +1137,6 @@ onUnmounted(() => {
 .link-btn:hover { color: #40a9ff; }
 .link-btn.link-danger { color: #f5222d; }
 .link-btn.link-danger:hover { color: #ff4d4f; }
-.link-btn.link-deploy { color: #52c41a; }
-.link-btn.link-deploy:hover { color: #73d13d; }
-
-.btn-deploy {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 16px; background: transparent;
-  border: 1px solid #52c41a; border-radius: 4px;
-  color: #52c41a; font-size: 13px; cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-deploy:hover { background: #52c41a; color: #fff; }
 
 .form-select {
   width: 100%; padding: 8px 12px;
