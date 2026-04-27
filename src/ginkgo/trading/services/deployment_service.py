@@ -54,7 +54,10 @@ class DeploymentService(BaseService):
         if not portfolio_result.success or not portfolio_result.data:
             return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
 
-        portfolio_data = portfolio_result.data
+        portfolio_list = portfolio_result.data
+        portfolio_obj = portfolio_list[0] if portfolio_list else None
+        if not portfolio_obj:
+            return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
 
         # 2. 检查是否已冻结
         if self._portfolio_service.is_portfolio_frozen(portfolio_id):
@@ -83,7 +86,7 @@ class DeploymentService(BaseService):
                 mode=mode,
                 account_id=account_id,
                 name=name,
-                portfolio_name=portfolio_data.get("name", portfolio_id),
+                portfolio_name=getattr(portfolio_obj, "name", None) or portfolio_id,
                 deployment_id=deployment_id,
             )
         except Exception as e:
