@@ -21,3 +21,7 @@ class DeploymentCRUD(BaseCRUD):
     def get_by_source_task(self, task_id: str):
         """根据源回测任务ID查询部署记录"""
         return self.find(filters={"source_task_id": task_id})
+
+    def get_by_source_portfolio(self, portfolio_id: str):
+        """根据源Portfolio ID查询部署记录"""
+        return self.find(filters={"source_portfolio_id": portfolio_id})
