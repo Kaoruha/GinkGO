@@ -690,7 +690,7 @@ class PortfolioSagaFactory:
 
     @staticmethod
     def deploy_saga(
-        backtest_task_id: str,
+        portfolio_id: str,
         mode: int,
         account_id: str = None,
         name: str = None,
@@ -701,12 +701,12 @@ class PortfolioSagaFactory:
 
         deployment_service = container.deployment_service()
 
-        saga = SagaTransaction(f"portfolio:deploy:{backtest_task_id}")
+        saga = SagaTransaction(f"portfolio:deploy:{portfolio_id}")
         context = {}
 
         def execute_deploy():
             result = deployment_service.deploy(
-                backtest_task_id=backtest_task_id,
+                portfolio_id=portfolio_id,
                 mode=PORTFOLIO_MODE_TYPES(mode),
                 account_id=account_id,
                 name=name,
@@ -717,13 +717,13 @@ class PortfolioSagaFactory:
             return result.data
 
         def compensate_deploy(data):
-            portfolio_id = context.get('result', {}).get('portfolio_id')
-            if portfolio_id:
+            portfolio_id_created = context.get('result', {}).get('portfolio_id')
+            if portfolio_id_created:
                 try:
                     from ginkgo.data.containers import container as c
                     portfolio_service = c.portfolio_service()
-                    portfolio_service.delete(portfolio_id=portfolio_id)
-                    logger.info(f"Compensated: deleted deployed portfolio {portfolio_id}")
+                    portfolio_service.delete(portfolio_id=portfolio_id_created)
+                    logger.info(f"Compensated: deleted deployed portfolio {portfolio_id_created}")
                 except Exception as e:
                     logger.error(f"Deploy compensation failed: {e}")
 
