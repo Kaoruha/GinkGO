@@ -569,7 +569,7 @@ const loadLiveAccounts = async () => {
 const handleDeploy = async () => {
   if (!deployTaskId.value) return
   if (deployMode.value === 'live' && !deployAccountId.value) {
-    message('请选择实盘账号', 'warning')
+    message.warning('请选择实盘账号')
     return
   }
   deploying.value = true
@@ -583,14 +583,14 @@ const handleDeploy = async () => {
     showDeployModal.value = false
     const newPortfolioId = res?.data?.portfolio_id
     if (newPortfolioId) {
-      message('部署成功', 'success')
+      message.success('部署成功')
       router.push(`/portfolios/${newPortfolioId}`)
     } else {
-      message('部署成功', 'success')
+      message.success('部署成功')
       loadList()
     }
   } catch (e: any) {
-    message('部署失败: ' + (e?.message || e), 'error')
+    message.error('部署失败: ' + (e?.message || e))
   } finally {
     deploying.value = false
   }
@@ -719,7 +719,7 @@ const loadList = async () => {
     const res = await backtestApi.list(params)
     if (disposed) return
     tasks.value = res.data || []
-    total.value = res.meta?.total || res.total || 0
+    total.value = res.total || 0
   } catch (e) {
     console.error('Failed to load backtests:', e)
   } finally {
@@ -744,7 +744,7 @@ const handleStart = async (task: BacktestTask) => {
       const config = typeof task.config_snapshot === 'string' ? JSON.parse(task.config_snapshot) : task.config_snapshot
       params = { start_date: config.start_date, end_date: config.end_date }
     }
-    await backtestStore.startTask(task.uuid, params)
+    await backtestApi.start(task.uuid, params)
     message.success('任务已启动')
     loadList()
   } catch (e: any) {
@@ -813,7 +813,7 @@ const loadDetail = async () => {
   try {
     const task = await backtestApi.get(backtestId.value)
     if (disposed) return
-    currentTask.value = task.data || task
+    currentTask.value = (task as any).data || task
     // 日志筛选默认回测区间
     const t = currentTask.value
     if (t?.backtest_start_date) logFilters.value.start_time = dayjs(t.backtest_start_date).format('YYYY-MM-DD')
@@ -822,7 +822,7 @@ const loadDetail = async () => {
     try {
       const nv = await backtestApi.getNetValue(backtestId.value)
       if (disposed) return
-      const nvData = nv.data || nv
+      const nvData = (nv as any).data || nv
       netValueData.value = (nvData?.strategy || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
       benchmarkData.value = (nvData?.benchmark || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
     } catch { /* net value may not exist */ }
@@ -830,7 +830,7 @@ const loadDetail = async () => {
     try {
       const ar = await backtestApi.getAnalyzers(backtestId.value)
       if (disposed) return
-      const arData = ar.data || ar
+      const arData = (ar as any).data || ar
       analyzers.value = arData?.analyzers || []
       if (analyzers.value.length > 0) {
         selectedAnalyzer.value = analyzers.value[0].name
@@ -859,9 +859,9 @@ const loadTrades = async () => {
       backtestApi.getPositions(backtestId.value),
     ])
     if (disposed) return
-    if (sigRes.status === 'fulfilled') { const d = sigRes.value.data || sigRes.value; signals.value = d.data || d || [] }
-    if (ordRes.status === 'fulfilled') { const d = ordRes.value.data || ordRes.value; orders.value = d.data || d || [] }
-    if (posRes.status === 'fulfilled') { const d = posRes.value.data || posRes.value; positions.value = d.data || d || [] }
+    if (sigRes.status === 'fulfilled') { const d = (sigRes.value as any).data || sigRes.value; signals.value = d.data || d || [] }
+    if (ordRes.status === 'fulfilled') { const d = (ordRes.value as any).data || ordRes.value; orders.value = d.data || d || [] }
+    if (posRes.status === 'fulfilled') { const d = (posRes.value as any).data || posRes.value; positions.value = d.data || d || [] }
   } finally {
     if (!disposed) {
       signalsLoading.value = false
@@ -876,7 +876,7 @@ const loadAnalyzerData = async () => {
   analyzerLoading.value = true
   try {
     const res = await backtestApi.getAnalyzerData(backtestId.value, selectedAnalyzer.value)
-    const d = res.data || res
+    const d = (res as any).data !== undefined ? (res as any).data : res
     analyzerStats.value = d.stats
     analyzerTimeseries.value = d.data || []
   } catch {
@@ -930,16 +930,10 @@ const onLogsScroll = (e: Event) => {
 const handleReRun = async () => {
   if (!currentTask.value) return
   try {
-    let params: any = {}
-    if (currentTask.value.config_snapshot) {
-      const config = typeof currentTask.value.config_snapshot === 'string'
-        ? JSON.parse(currentTask.value.config_snapshot) : currentTask.value.config_snapshot
-      params = { start_date: config.start_date, end_date: config.end_date }
-    }
     const result = await backtestStore.startTask(currentTask.value.uuid)
     message.success('已重新启动回测')
-    if (result?.task_uuid) {
-      router.push(`/portfolios/${portfolioId.value}/backtests/${result.task_uuid}`)
+    if (result?.task_id) {
+      router.push(`/portfolios/${portfolioId.value}/backtests/${result.task_id}`)
     } else {
       loadDetail()
     }

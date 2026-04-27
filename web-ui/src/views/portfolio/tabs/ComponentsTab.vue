@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { portfolioApi } from '@/api'
 
@@ -48,7 +48,7 @@ const componentGroups = computed(() => {
 onMounted(async () => {
   try {
     const res = await portfolioApi.get(portfolioId.value)
-    portfolio.value = res.data || res
+    portfolio.value = (res as any).data || res
   } catch (e) {
     console.error('Failed to load portfolio:', e)
   } finally {

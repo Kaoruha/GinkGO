@@ -25,13 +25,13 @@
               :key="column.key"
             >
               <slot
-                v-if="$slots[column.slotName]"
-                :name="column.slotName"
+                v-if="hasSlot(column.slotName)"
+                :name="column.slotName ?? ''"
                 :record="record"
                 :index="rowIndex"
               />
               <template v-else-if="column.dataIndex">
-                {{ formatCellValue(record[column.dataIndex]) }}
+                {{ formatCellValue(getCellValue(record, column.dataIndex)) }}
               </template>
             </td>
           </tr>
@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, useSlots } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 export interface Column {
@@ -123,6 +123,13 @@ const emit = defineEmits<{
   export: []
 }>()
 
+const slots = useSlots()
+
+function hasSlot(name: string | undefined): boolean {
+  if (!name) return false
+  return !!slots[name]
+}
+
 const jumpInput = ref(props.page)
 const innerPageSize = ref(props.pageSize)
 
@@ -161,6 +168,11 @@ function changePage(p: number) {
   if (p === currentPage.value) return
   jumpInput.value = p
   emit('update:page', p)
+}
+
+function getCellValue(record: any, dataIndex: string | undefined): any {
+  if (!dataIndex) return undefined
+  return record[dataIndex]
 }
 
 function formatCellValue(val: any): string {

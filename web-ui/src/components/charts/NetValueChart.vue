@@ -9,7 +9,6 @@ import {
   IChartApi,
   ISeriesApi,
   LineData,
-  AreaData,
   ColorType,
 } from 'lightweight-charts'
 

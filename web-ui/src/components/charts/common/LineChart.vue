@@ -3,8 +3,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, type PropType } from 'vue'
-import { createChart, type IChartApi, type LineData, type Time } from 'lightweight-charts'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { createChart, type IChartApi, type LineData } from 'lightweight-charts'
 
 interface Props {
   data: LineData[]
@@ -49,7 +49,7 @@ const initChart = () => {
 
   lineSeries = chart.addLineSeries({
     color: props.color,
-    lineWidth: props.lineWidth,
+    lineWidth: props.lineWidth as any,
     title: props.title,
   })
 

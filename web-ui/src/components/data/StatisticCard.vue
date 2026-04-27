@@ -37,7 +37,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 
 type CardType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 type TrendType = 'up' | 'down' | 'flat'
