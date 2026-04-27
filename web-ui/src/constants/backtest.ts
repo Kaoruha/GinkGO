@@ -165,5 +165,5 @@ export function getBrokerAttitudeLabel(value: number): string {
  * @deprecated 使用 getStateBadgeStatus 代替
  */
 export function getStateStatus(state: string): string {
-  return STATE_COLORS[state] || 'default'
+  return BACKTEST_STATE_COLORS[state] || 'default'
 }

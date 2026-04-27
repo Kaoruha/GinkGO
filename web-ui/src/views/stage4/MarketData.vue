@@ -174,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted, toRaw } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { marketApi, type TradingPair, type MarketSubscription, DataType } from '@/api/modules/market'
 
 // 数据类型标签
@@ -234,10 +234,8 @@ const totalPairs = computed(() => pairs.value.length)
 
 // 调试：tickerData 快照，用于验证响应式
 const tickerDataSnapshot = computed(() => {
-  // 访问 tickerData 和 refreshKey.value 以建立依赖
-  const key = refreshKey.value
-  // 返回 tickerData 的浅拷贝，包含所有键值对
-  const snapshot = {}
+  void refreshKey.value
+  const snapshot: Record<string, any> = {}
   Object.keys(tickerData.value).forEach(symbol => {
     const ticker = tickerData.value[symbol]
     snapshot[symbol] = {
@@ -249,6 +247,7 @@ const tickerDataSnapshot = computed(() => {
 
   return snapshot
 })
+void tickerDataSnapshot
 
 const filteredPairs = computed(() => {
   let result = pairs.value
@@ -279,7 +278,7 @@ const filteredPairs = computed(() => {
 
 const activeTickers = computed(() => {
   // 显式依赖 tickerDataCount 确保响应式
-  const count = tickerDataCount.value
+  void tickerDataCount.value
   const currentTickerData = tickerData.value || {}
   const currentSubscriptions = subscriptions.value
 
@@ -344,10 +343,9 @@ const loadPairs = async () => {
     if (selectedQuoteCurrency.value) {
       params.quote_ccy = selectedQuoteCurrency.value
     }
-    const response = await marketApi.getTradingPairs(params)
-    // 响应拦截器已返回 response.data
+    const response: any = await marketApi.getTradingPairs(params)
     if (response.code === 0) {
-      pairs.value = response.data.pairs
+      pairs.value = response.data?.pairs || []
     }
   } catch (error) {
     console.error('加载交易对失败:', error)
@@ -358,10 +356,9 @@ const loadPairs = async () => {
 
 const loadSubscriptions = async () => {
   try {
-    const response = await marketApi.getSubscriptions()
-    // 响应拦截器已返回 response.data
+    const response: any = await marketApi.getSubscriptions()
     if (response.code === 0) {
-      subscriptions.value = response.data.subscriptions
+      subscriptions.value = response.data?.subscriptions || []
       console.log('[MarketData] 订阅列表加载成功:', subscriptions.value.length, '个订阅')
       console.log('[MarketData] 订阅列表:', subscriptions.value.map(s => s.symbol))
     }
@@ -372,12 +369,12 @@ const loadSubscriptions = async () => {
 
 const loadAllTickers = async () => {
   try {
-    const response = await marketApi.getAllTickers({
+    const response: any = await marketApi.getAllTickers({
       exchange: 'okx',
       environment: 'production'
     })
     if (response.code === 0) {
-      const newTickers = response.data.tickers
+      const newTickers = response.data?.tickers || {}
 
       // 检测价格变化
       Object.keys(newTickers).forEach(symbol => {
@@ -508,7 +505,7 @@ const connectWebSocket = () => {
           console.log(`[WS] 收到: ${symbol}, price=$${data.price}, keys=${Object.keys(tickerData.value).length}`)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[WS] 错误:', error.message)
     }
   }
@@ -599,13 +596,6 @@ const get24hChangeClass = (symbol: string) => {
   if (!ticker || !ticker.price || !ticker.open_24h || ticker.open_24h === 0) return ''
   const change = ticker.price - ticker.open_24h
   return change >= 0 ? 'text-success' : 'text-danger'
-}
-
-const getPriceClass = (ticker: any) => {
-  // 基于价格变化方向设置颜色
-  if (ticker.direction === 'up') return 'text-success'
-  if (ticker.direction === 'down') return 'text-danger'
-  return ''
 }
 
 const getPairPriceClass = (symbol: string) => {

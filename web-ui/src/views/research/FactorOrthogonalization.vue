@@ -73,10 +73,10 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warnin
 
 // 简化的API调用（实际项目中需要导入真实的API）
 const backtestApi: any = {
-  list: async (params: any) => ({ data: [] })
+  list: async (_params: any) => ({ data: [] })
 }
 const researchApi: any = {
-  orthogonalize: async (params: any) => ({ data: null })
+  orthogonalize: async (_params: any) => ({ data: null })
 }
 
 interface FactorOrthogonalizeResult {

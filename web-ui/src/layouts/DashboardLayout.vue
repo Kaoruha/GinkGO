@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -218,7 +218,7 @@ onUnmounted(() => {
 })
 
 // 监听路由变化，自动展开菜单
-const unwatch = route.autoUpdate?.(() => {
+watch(() => route.path, () => {
   autoExpandMenu()
 })
 </script>
