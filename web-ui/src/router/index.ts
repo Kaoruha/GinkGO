@@ -153,7 +153,7 @@ const router = createRouter({
 })
 
 // 路由守卫 - 认证检查
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   document.title = `${to.meta?.title || 'Ginkgo'} - 量化交易平台`
   const requiresAuth = to.meta?.requiresAuth !== false
   if (requiresAuth && !isAuthenticated()) {

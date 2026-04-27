@@ -49,12 +49,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import ListPage from '@/components/common/ListPage.vue'
 import { componentsApi } from '@/api/modules/components'
 
 const route = useRoute()
-const router = useRouter()
 
 const routeTypeMap: Record<string, { api: string; label: string }> = {
   strategies: { api: 'strategy', label: '策略组件' },
@@ -95,6 +94,11 @@ const filteredFiles = computed(() => {
 
 function getDetailUrl(record: any) {
   return `${basePath.value}/${record.uuid}`
+}
+
+function handleCreate() {
+  newFileName.value = ''
+  createModalVisible.value = true
 }
 
 async function loadFiles() {

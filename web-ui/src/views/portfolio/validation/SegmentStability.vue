@@ -117,7 +117,7 @@ const runAnalysis = async () => {
       portfolio_id: props.portfolioId || '',
       n_segments: segments.length ? segments : undefined,
     })
-    result.value = res.data
+    result.value = (res as any).data
   } catch (e: any) {
     alert('分析失败: ' + (e.message || e))
   } finally {

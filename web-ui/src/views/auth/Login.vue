@@ -381,7 +381,7 @@ function startTypewriter() {
   type()
 }
 
-function getParticleStyle(index: number) {
+function getParticleStyle(_index: number) {
   const left = Math.random() * 100
   const delay = Math.random() * 20
   const duration = 15 + Math.random() * 10

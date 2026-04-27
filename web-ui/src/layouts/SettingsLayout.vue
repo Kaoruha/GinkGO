@@ -99,6 +99,7 @@ const username = ref('Admin')
 const currentTime = ref('')
 
 const userInitial = computed(() => username.value.charAt(0).toUpperCase())
+void userInitial
 
 const isSettingsRoute = computed(() => route.path.startsWith('/settings'))
 
