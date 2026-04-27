@@ -2,7 +2,6 @@
  * 状态格式化 Composable
  * 用于统一管理状态标签的颜色和文本映射
  */
-import { computed, type ComputedRef } from 'vue'
 
 /**
  * 状态配置类型

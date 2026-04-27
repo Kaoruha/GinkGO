@@ -1,7 +1,7 @@
 /**
  * useListPage composable 单元测试
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
 import { useListPage, commonSearchFilters } from './useListPage'
 
@@ -16,7 +16,7 @@ describe('useListPage', () => {
     mockFetchFn.mockResolvedValue({ data: [], total: 0 })
 
     const { loading, data, total, page, size, searchKeyword } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     expect(loading.value).toBe(false)
@@ -29,7 +29,7 @@ describe('useListPage', () => {
 
   it('应支持自定义默认页面大小', () => {
     const { size } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
       defaultPageSize: 50,
     })
 
@@ -38,7 +38,7 @@ describe('useListPage', () => {
 
   it('应生成正确的分页配置', () => {
     const { pagination, total, page, size } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     total.value = 100
@@ -57,7 +57,7 @@ describe('useListPage', () => {
     mockFetchFn.mockResolvedValue({ data: mockData, total: 1 })
 
     const { load, data, total, loading } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     await load({ status: 'active' })
@@ -74,7 +74,7 @@ describe('useListPage', () => {
 
   it('handleTableChange 应更新分页参数', () => {
     const { handleTableChange, page, size } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     handleTableChange({ current: 3, pageSize: 50 })
@@ -91,9 +91,9 @@ describe('useListPage', () => {
     ]
     mockFetchFn.mockResolvedValue({ data: mockData, total: 3 })
 
-    const { load, data, searchKeyword, filteredData } = useListPage({
-      fetchFn: mockFetchFn,
-      searchFilter: commonSearchFilters.byNameAndUuid,
+    const { load, searchKeyword, filteredData } = useListPage({
+      fetchFn: mockFetchFn as any,
+      searchFilter: commonSearchFilters.byNameAndUuid as any,
     })
 
     await load()
@@ -105,18 +105,18 @@ describe('useListPage', () => {
     searchKeyword.value = 'apple'
     await nextTick()
     expect(filteredData.value.length).toBe(1)
-    expect(filteredData.value[0].name).toBe('Apple')
+    expect((filteredData.value[0] as any).name).toBe('Apple')
 
     // 搜索 'a1' (uuid)
     searchKeyword.value = 'a1'
     await nextTick()
     expect(filteredData.value.length).toBe(1)
-    expect(filteredData.value[0].uuid).toBe('a1')
+    expect((filteredData.value[0] as any).uuid).toBe('a1')
   })
 
   it('createClickRow 应返回正确的行配置', () => {
     const { createClickRow } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     const onClick = vi.fn()
@@ -132,7 +132,7 @@ describe('useListPage', () => {
     mockFetchFn.mockResolvedValue({ data: [], total: 0 })
 
     const { refresh } = useListPage({
-      fetchFn: mockFetchFn,
+      fetchFn: mockFetchFn as any,
     })
 
     await refresh()

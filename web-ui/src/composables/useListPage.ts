@@ -92,7 +92,7 @@ export function useListPage<T, P extends Record<string, any> = Record<string, an
         page: page.value,
         size: size.value,
         ...extraParams,
-      } as P
+      } as unknown as P
 
       const result = await fetchFn(params)
       data.value = result.data || []

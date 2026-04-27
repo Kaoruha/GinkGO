@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi, saveAuth, clearAuth, getStoredUser, isAuthenticated } from '@/api'
+import { authApi, saveAuth, clearAuth, getStoredUser } from '@/api'
 import type { UserInfo, LoginRequest } from '@/api'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       const response = await authApi.login(credentials)
-      const payload = response.data
+      const payload = (response as any).data !== undefined ? (response as any).data : response
       token.value = payload.token
       user.value = payload.user
       saveAuth(payload)
@@ -51,7 +51,8 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const result = await authApi.verifyToken()
-      if (!result.data.valid) {
+      const payload = (result as any).data !== undefined ? (result as any).data : result
+      if (!payload.valid) {
         token.value = null
         user.value = null
         clearAuth()
@@ -70,7 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     try {
       const result = await authApi.getCurrentUser()
-      const payload = result.data
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       user.value = payload
       localStorage.setItem('user_info', JSON.stringify(payload))
       return payload
