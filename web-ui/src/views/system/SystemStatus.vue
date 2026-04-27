@@ -148,7 +148,7 @@
                   Portfolio: {{ record.portfolio_count || 0 }}
                 </template>
                 <template v-else-if="record.type === 'scheduler'">
-                  运行: {{ record.running_tasks || 0 }} / 待处理: {{ record.pending_tasks || 0 }}
+                  运行: {{ getSchedulerRunning(record) }} / 待处理: {{ getSchedulerPending(record) }}
                 </template>
                 <template v-else-if="record.type === 'task_timer'">
                   定时任务: {{ record.jobs_count || 0 }}
@@ -172,7 +172,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useSystemStore } from '@/stores'
-import type { WorkerInfo } from '@/api'
 
 // ========== Store ==========
 const systemStore = useSystemStore()
@@ -223,7 +222,15 @@ const componentTypeMap: Record<string, { label: string; color: string; total: nu
 
 // ========== 方法 ==========
 const getComponentCount = (type: string): number => {
-  return componentCounts.value[type] || 0
+  return (componentCounts.value as any)[type] || 0
+}
+
+const getSchedulerRunning = (record: any): number => {
+  return record.running_tasks || 0
+}
+
+const getSchedulerPending = (record: any): number => {
+  return record.pending_tasks || 0
 }
 
 const getInfraName = (name: string): string => {
@@ -308,8 +315,8 @@ const fetchStatus = async () => {
   }
 }
 
-const toggleAutoRefresh = (checked: boolean) => {
-  autoRefreshModel.value = checked
+const toggleAutoRefresh = () => {
+  const checked = autoRefreshModel.value
   if (checked) {
     systemStore.enableAutoRefresh(5000)
   } else {

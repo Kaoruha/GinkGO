@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Wallet, TrendingUp, TrendingDown, AlertCircle, DollarSign, Coins, Clock, Activity } from 'lucide-vue-next'
 import { liveAccountApi } from '@/api'
 
@@ -459,10 +457,10 @@ onUnmounted(() => {
             </div>
 
             <!-- 实际持仓数据 -->
-            <template v-else-if="account.positions?.length > 0">
+            <template v-else-if="account.positions && account.positions.length > 0">
             <div class="section-title">
               <Activity class="w-4 h-4 mr-2" />
-              持仓信息 ({{ account.positions.length }})
+              持仓信息 ({{ account.positions!.length }})
             </div>
             <div class="positions-list">
               <div

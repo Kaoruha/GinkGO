@@ -149,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import dayjs, { Dayjs } from 'dayjs'
 import {
@@ -263,7 +263,7 @@ const nextPage = () => {
 }
 
 // 模拟 API 获取数据
-const fetchBarsFromAPI = async (code: string, startDate: Dayjs, count: number): Promise<any[]> => {
+const fetchBarsFromAPI = async (_code: string, startDate: Dayjs, count: number): Promise<any[]> => {
   await new Promise(resolve => setTimeout(resolve, 500))
 
   const mockData = []
@@ -370,7 +370,7 @@ const initChart = () => {
   window.addEventListener('resize', handleResize)
 }
 
-const handleVisibleRangeChange = async (range: Range<Time>) => {
+const handleVisibleRangeChange = async (_range: Range<Time>) => {
   if (!chart || isLoadingLocked || !hasMoreHistory.value || isLoadingMore.value) return
 
   const logicalRange = chart.timeScale().getVisibleLogicalRange()

@@ -21,7 +21,7 @@
       </div>
 
       <div class="card-actions">
-        <button class="btn-primary" @click="handleSelect(strategy)">使用策略</button>
+        <button class="btn-primary" @click="handleSelect()">使用策略</button>
         <button class="btn-secondary">查看详情</button>
       </div>
     </div>
@@ -29,7 +29,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
 
 /**
  * 策略卡片组件
@@ -59,27 +58,29 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  select: []
+  select: [strategy: Strategy]
 }>()
 
+const CATEGORY_LABELS: Record<string, string> = {
+  trend: '趋势',
+  reversal: '反转',
+  mean_revert: '均值回归',
+  arbitrage: '套利'
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  trend: 'blue',
+  reversal: 'orange',
+  mean_revert: 'green',
+  arbitrage: 'purple'
+}
+
 const getCategoryLabel = (category: string) => {
-  const labels = {
-    trend: '趋势',
-    reversal: '反转',
-    mean_revert: '均值回归',
-    arbitrage: '套利'
-  }
-  return labels[category] || category
+  return CATEGORY_LABELS[category] || category
 }
 
 const getCategoryColorClass = (category: string) => {
-  const colors = {
-    trend: 'blue',
-    reversal: 'orange',
-    mean_revert: 'green',
-    arbitrage: 'purple'
-  }
-  return colors[category] || 'gray'
+  return CATEGORY_COLORS[category] || 'gray'
 }
 
 const handleSelect = () => {

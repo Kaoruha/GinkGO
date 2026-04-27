@@ -17,15 +17,18 @@ export interface BacktestTask {
   total_signals: number
   total_positions: number
   total_events: number
-  final_portfolio_value: string
-  total_pnl: string
-  max_drawdown: string
-  sharpe_ratio: string
-  annual_return: string
-  win_rate: string
+  final_portfolio_value: number
+  total_pnl: number
+  max_drawdown: number
+  sharpe_ratio: number
+  annual_return: number
+  win_rate: number
   config_snapshot?: string
+  backtest_start_date?: string
+  backtest_end_date?: string
   created_at: string
   update_at: string
+  updated_at?: string
 }
 
 export interface BacktestCreateRequest {
@@ -79,6 +82,11 @@ export interface BacktestListResponse {
   total: number
   page: number
   size: number
+  meta?: {
+    total: number
+    page: number
+    size: number
+  }
 }
 
 export interface AnalyzerInfo {

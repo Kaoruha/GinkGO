@@ -11,7 +11,7 @@
     />
     <div v-if="benchmarkData.length > 0" class="benchmark-overlay">
       <LineChart
-        :data="benchmarkData"
+        :data="benchmarkChartData"
         :height="height"
         :line-width="1"
         color="#999"
@@ -39,11 +39,18 @@ const props = withDefaults(defineProps<Props>(), {
 
 const chartRef = ref()
 
-const chartData = computed<AreaData[]>(() => {
-  return props.netValueData.map((d, i) => ({
+const chartData = computed(() => {
+  return props.netValueData.map((d) => ({
     time: d.time as any,
     value: d.value,
-  }))
+  })) as AreaData[]
+})
+
+const benchmarkChartData = computed(() => {
+  return (props.benchmarkData || []).map((d) => ({
+    time: d.time as any,
+    value: d.value,
+  })) as any[]
 })
 
 const lineColor = '#2196F3'

@@ -149,9 +149,9 @@ const runSimulation = async () => {
       backtest_id: config.backtestId,
       portfolio_id: props.portfolioId || '',
       n_simulations: config.nSimulations,
-      confidence: config.confidenceLevel,
+      confidence_level: config.confidenceLevel,
     })
-    result.value = res.data
+    result.value = (res as any).data || res
   } catch (e: any) {
     alert('模拟失败: ' + (e.message || e))
   } finally {

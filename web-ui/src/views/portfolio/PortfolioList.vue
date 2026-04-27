@@ -122,10 +122,10 @@
             </div>
             <div class="card-footer">
               <span class="footer-tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">
-                {{ getModeLabel(portfolio.mode) }}
+                {{ formatMode(portfolio.mode) }}
               </span>
               <span class="footer-tag" :class="`tag-${getStateColorClass(portfolio.state)}`">
-                {{ getStateLabel(portfolio.state) }}
+                {{ formatState(portfolio.state) }}
               </span>
               <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
             </div>
@@ -184,7 +184,6 @@ import { message } from '@/utils/toast'
 const router = useRouter()
 const portfolioStore = usePortfolioStore()
 const {
-  portfolios,
   loading,
   loadingMore,
   filterMode,
@@ -195,8 +194,11 @@ const {
 } = storeToRefs(portfolioStore)
 const { fetchPortfolios, fetchStats, deletePortfolio } = portfolioStore
 
-const { getTagClass: getModeColor, getLabel: getModeLabel } = usePortfolioMode()
-const { getTagClass: getStateColor, getLabel: getStateLabel } = usePortfolioState()
+const { getTagClass: getModeColor, getLabel: _getModeLabel } = usePortfolioMode()
+const { getTagClass: getStateColor, getLabel: _getStateLabel } = usePortfolioState()
+
+const formatMode = (mode: number | string) => _getModeLabel(mode as number)
+const formatState = (state: number | string) => _getStateLabel(state as number)
 
 const searchKeyword = ref('')
 const createModalVisible = ref(false)
@@ -215,14 +217,14 @@ const filterOptions = [
 
 const displayPortfolios = computed(() => filteredPortfolios.value)
 
-const getModeColorClass = (mode: number) => {
+const getModeColorClass = (mode: number | string) => {
   const map: Record<string, string> = { purple: 'purple', blue: 'blue', green: 'green', orange: 'orange' }
-  return map[getModeColor(mode)] || 'blue'
+  return map[getModeColor(mode as any)] || 'blue'
 }
 
-const getStateColorClass = (state: number) => {
+const getStateColorClass = (state: number | string) => {
   const map: Record<string, string> = { green: 'green', red: 'red', orange: 'orange', blue: 'blue' }
-  return map[getStateColor(state)] || 'blue'
+  return map[getStateColor(state as any)] || 'blue'
 }
 
 let observer: IntersectionObserver | null = null
@@ -265,7 +267,6 @@ watch(displayPortfolios, (newVal) => {
   if (newVal.length > 0 && !observer) setupIntersectionObserver()
 })
 
-const formatPercentValue = (val: number | undefined) => ((val || 0) * 100).toFixed(2) + '%'
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)

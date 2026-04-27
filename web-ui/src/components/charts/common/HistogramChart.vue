@@ -44,18 +44,12 @@ const initChart = () => {
       timeVisible: true,
       secondsVisible: false,
     },
-    priceScale: {
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    },
-  })
+  } as any)
 
   histogramSeries = chart.addHistogramSeries({
     color: props.color,
     title: props.title,
-    priceFormat: props.priceFormat,
+    priceFormat: props.priceFormat as any,
   })
 
   histogramSeries.setData(props.data)

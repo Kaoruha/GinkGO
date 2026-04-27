@@ -83,7 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': string[]
+  'update:modelValue': [val: string[]]
 }>()
 
 const searchText = ref('')
