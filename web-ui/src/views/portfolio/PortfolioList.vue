@@ -93,6 +93,13 @@
                     </svg>
                     详情
                   </button>
+                  <button v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'" class="dropdown-item" @click="openDeploy(portfolio)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M5 12h14"></path>
+                      <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    部署
+                  </button>
                   <div class="dropdown-divider"></div>
                   <button class="dropdown-item danger" data-testid="btn-delete-portfolio" @click="confirmDelete(portfolio)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -168,6 +175,14 @@
       </div>
     </div>
   </div>
+
+  <!-- 部署模态框 -->
+  <DeployModal
+    v-if="deployingPortfolio"
+    v-model:visible="showDeployModal"
+    :portfolio-id="deployingPortfolio.uuid"
+    @success="onDeploySuccess"
+  />
 </template>
 
 <script setup lang="ts">
@@ -179,6 +194,7 @@ import { usePortfolioMode, usePortfolioState } from '@/composables'
 import { formatMoney } from '@/utils/format'
 import ListPage from '@/components/common/ListPage.vue'
 import PortfolioFormEditor from './PortfolioFormEditor.vue'
+import DeployModal from '@/components/business/DeployModal.vue'
 import { message } from '@/utils/toast'
 
 const router = useRouter()
@@ -207,6 +223,23 @@ const deletingPortfolio = ref<any>(null)
 const formEditorRef = ref()
 const loadMoreTrigger = ref<HTMLElement>()
 const activeMenu = ref<string | null>(null)
+
+const showDeployModal = ref(false)
+const deployingPortfolio = ref<any>(null)
+
+const openDeploy = (portfolio: any) => {
+  deployingPortfolio.value = portfolio
+  showDeployModal.value = true
+  activeMenu.value = null
+}
+
+const onDeploySuccess = (newPortfolioId: string) => {
+  fetchPortfolios({ page: 0, append: false })
+  fetchStats()
+  if (newPortfolioId) {
+    router.push(`/portfolios/${newPortfolioId}`)
+  }
+}
 
 const filterOptions = [
   { value: '', label: '全部' },
