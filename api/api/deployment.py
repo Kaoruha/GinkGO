@@ -49,7 +49,9 @@ async def deploy(req: DeployRequest):
     if not success:
         raise BusinessError(f"部署失败: {saga.error}. 事务已回滚。")
 
-    return ok(data=saga.steps[0].result.data, message="部署成功")
+    result = saga.steps[0].result
+    deploy_data = result.data if hasattr(result, 'data') else result
+    return ok(data=deploy_data, message="部署成功")
 
 
 @router.get("/{portfolio_id}")
