@@ -37,6 +37,10 @@ export type { GridSearchConfig, GridSearchResult, GeneticOptimizerConfig, Geneti
 
 // 实盘账号模块
 export { liveAccountApi } from './modules/live'
+
+// 部署模块
+export { deploymentApi } from './modules/deployment'
+export type { DeployRequest, DeployResponse, DeploymentInfo } from './modules/deployment'
 export type {
   LiveAccount,
   CreateLiveAccountRequest,
