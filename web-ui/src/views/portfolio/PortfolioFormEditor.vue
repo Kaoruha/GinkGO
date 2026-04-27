@@ -174,8 +174,8 @@
                         type="text"
                         inputmode="decimal"
                         class="param-input"
-                        @focus="e => e.target.value = selector.config[param.name] ?? ''"
-                        @blur="e => { selector.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(selector.config[param.name]) }"
+                        @focus="e => setInputValue(e, selector.config[param.name] ?? '')"
+                        @blur="e => { selector.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(selector.config[param.name])) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`sel-${selector.uuid}-${param.name}`" v-model="selector.config[param.name]" type="checkbox" class="switch-input" />
@@ -228,8 +228,8 @@
                         type="text"
                         inputmode="decimal"
                         class="param-input"
-                        @focus="e => e.target.value = formData.sizer.config[param.name] ?? ''"
-                        @blur="e => { formData.sizer.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(formData.sizer.config[param.name]) }"
+                        @focus="e => { if (formData.sizer) setInputValue(e, formData.sizer.config[param.name] ?? '') }"
+                        @blur="e => { if (formData.sizer) { formData.sizer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(formData.sizer.config[param.name])) } }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`sizer-${param.name}`" v-model="formData.sizer.config[param.name]" type="checkbox" class="switch-input" />
@@ -286,8 +286,8 @@
                         type="text"
                         inputmode="decimal"
                         class="param-input"
-                        @focus="e => e.target.value = strategy.config[param.name] ?? ''"
-                        @blur="e => { strategy.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(strategy.config[param.name]) }"
+                        @focus="e => setInputValue(e, strategy.config[param.name] ?? '')"
+                        @blur="e => { strategy.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(strategy.config[param.name])) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`strat-${strategy.uuid}-${param.name}`" v-model="strategy.config[param.name]" type="checkbox" class="switch-input" />
@@ -340,8 +340,8 @@
                         type="text"
                         inputmode="decimal"
                         class="param-input"
-                        @focus="e => e.target.value = risk.config[param.name] ?? ''"
-                        @blur="e => { risk.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(risk.config[param.name]) }"
+                        @focus="e => setInputValue(e, risk.config[param.name] ?? '')"
+                        @blur="e => { risk.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(risk.config[param.name])) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`risk-${risk.uuid}-${param.name}`" v-model="risk.config[param.name]" type="checkbox" class="switch-input" />
@@ -394,8 +394,8 @@
                         type="text"
                         inputmode="decimal"
                         class="param-input"
-                        @focus="e => e.target.value = analyzer.config[param.name] ?? ''"
-                        @blur="e => { analyzer.config[param.name] = parseNumber(e.target.value); e.target.value = formatNumber(analyzer.config[param.name]) }"
+                        @focus="e => setInputValue(e, analyzer.config[param.name] ?? '')"
+                        @blur="e => { analyzer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(analyzer.config[param.name])) }"
                       />
                       <div v-else-if="param.type === 'boolean'" class="switch-container">
                         <input :id="`ana-${analyzer.uuid}-${param.name}`" v-model="analyzer.config[param.name]" type="checkbox" class="switch-input" />
@@ -454,7 +454,6 @@ const saving = ref(false)
 
 // 是否编辑模式
 const isEditMode = computed(() => !!route.params.uuid)
-const portfolioUuid = computed(() => route.params.uuid as string | undefined)
 
 // 表单数据
 const formData = ref({
@@ -844,7 +843,7 @@ const savePortfolio = async () => {
 
     const result = await portfolioApi.create(payload)
     message.success(isEditMode.value ? '投资组合更新成功' : '投资组合创建成功')
-    const createdUuid = result.uuid || result.data?.uuid
+    const createdUuid = result.uuid || (result as any).data?.uuid
     if (!isEditMode.value) {
       if (props.isModalMode) {
         emit('created', createdUuid)
@@ -873,29 +872,11 @@ const onInitialCashInput = (event: Event) => {
   formData.value.initial_cash = parseNumber(target.value)
 }
 
-const onSelectSelectorChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) addSelector(target.value)
-}
+const getInputValue = (e: Event): string => (e.target as HTMLInputElement | null)?.value ?? ''
 
-const onSelectSizerChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) addSizer(target.value)
-}
-
-const onSelectStrategyChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) addStrategy(target.value)
-}
-
-const onSelectRiskChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) addRisk(target.value)
-}
-
-const onSelectAnalyzerChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) addAnalyzer(target.value)
+const setInputValue = (e: Event, value: string): void => {
+  const target = e.target as HTMLInputElement | null
+  if (target) target.value = value
 }
 
 const onSelectorVersionChange = (index: number) => (event: Event) => {
