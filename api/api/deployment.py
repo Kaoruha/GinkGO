@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 class DeployRequest(BaseModel):
-    backtest_task_id: str = Field(..., description="已完成的回测任务 UUID")
+    portfolio_id: str = Field(..., description="源组合 UUID")
     mode: str = Field(..., description="部署模式: paper / live")
     account_id: Optional[str] = Field(None, description="实盘账号 ID（live 模式必填）")
     name: Optional[str] = Field(None, description="新组合名称")
@@ -39,7 +39,7 @@ async def deploy(req: DeployRequest):
         raise BusinessError("实盘部署需要提供 account_id")
 
     saga = PortfolioSagaFactory.deploy_saga(
-        backtest_task_id=req.backtest_task_id,
+        portfolio_id=req.portfolio_id,
         mode=mode,
         account_id=req.account_id,
         name=req.name,
@@ -65,10 +65,10 @@ async def get_deployment_info(portfolio_id: str):
 
 
 @router.get("/")
-async def list_deployments(task_id: Optional[str] = Query(None, description="按回测任务 ID 筛选")):
+async def list_deployments(portfolio_id: Optional[str] = Query(None, description="按源组合 ID 筛选")):
     """列出部署记录"""
     service = _get_deployment_service()
-    result = service.list_deployments(source_task_id=task_id)
+    result = service.list_deployments(portfolio_id=portfolio_id)
 
     if not result.success:
         raise BusinessError(result.error)
