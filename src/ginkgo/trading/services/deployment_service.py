@@ -1,6 +1,6 @@
 # Upstream: API Server, CLI
 # Downstream: PortfolioService, FileService, MappingService, BacktestTaskService
-# Role: 部署编排服务 - 从回测结果一键部署到纸上交易/实盘
+# Role: 部署编排服务 - 从组合一键部署到模拟盘/实盘
 
 from typing import Optional, List
 from ginkgo.libs import GLOG
@@ -14,7 +14,6 @@ class DeploymentService(BaseService):
 
     def __init__(
         self,
-        task_service=None,
         portfolio_service=None,
         mapping_service=None,
         file_service=None,
@@ -23,7 +22,6 @@ class DeploymentService(BaseService):
         live_account_service=None,
         mongo_driver=None,
     ):
-        self._task_service = task_service
         self._portfolio_service = portfolio_service
         self._mapping_service = mapping_service
         self._file_service = file_service
@@ -34,16 +32,16 @@ class DeploymentService(BaseService):
 
     def deploy(
         self,
-        backtest_task_id: str,
+        portfolio_id: str,
         mode: PORTFOLIO_MODE_TYPES,
         account_id: Optional[str] = None,
         name: Optional[str] = None,
     ) -> ServiceResult:
         """
-        一键部署：从回测结果部署到纸上交易/实盘
+        一键部署：从组合部署到模拟盘/实盘
 
         Args:
-            backtest_task_id: 回测任务 task_id
+            portfolio_id: 源组合 portfolio_id
             mode: PAPER 或 LIVE
             account_id: MLiveAccount.uuid (live模式必填)
             name: 新Portfolio名称 (可选，自动生成)
@@ -51,28 +49,26 @@ class DeploymentService(BaseService):
         Returns:
             ServiceResult with data: {"portfolio_id": str, "deployment_id": str}
         """
-        # 1. 验证回测任务
-        task_result = self._task_service.get_by_task_id(backtest_task_id)
-        if not task_result.success or not task_result.data:
-            return ServiceResult(success=False, error=f"回测任务不存在: {backtest_task_id}")
+        # 1. 验证源 Portfolio 存在
+        portfolio_result = self._portfolio_service.get(portfolio_id=portfolio_id)
+        if not portfolio_result.success or not portfolio_result.data:
+            return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
 
-        task_data = task_result.data
-        if task_data.get("status") != "completed":
-            return ServiceResult(success=False, error=f"回测任务未完成，当前状态: {task_data.get('status')}")
+        portfolio_data = portfolio_result.data
 
-        source_portfolio_id = task_data.get("portfolio_id")
-        if not source_portfolio_id:
-            return ServiceResult(success=False, error="回测任务缺少关联Portfolio")
+        # 2. 检查是否已冻结
+        if self._portfolio_service.is_portfolio_frozen(portfolio_id):
+            return ServiceResult(success=False, error="组合已部署，不可再次部署")
 
-        # 2. 实盘模式验证账号
+        # 3. 实盘模式验证账号
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
-        # 2b. 创建 PENDING deployment 记录
+        # 3b. 创建 PENDING deployment 记录
         deployment = MDeployment(
-            source_task_id=backtest_task_id,
+            source_task_id=None,
             target_portfolio_id="",
-            source_portfolio_id=source_portfolio_id,
+            source_portfolio_id=portfolio_id,
             mode=mode.value,
             account_id=account_id,
             status=DEPLOYMENT_STATUS.PENDING,
@@ -80,15 +76,14 @@ class DeploymentService(BaseService):
         self._deployment_crud.add(deployment)
         deployment_id = deployment.uuid
 
-        # 3-7. 核心部署流程（失败时标记 deployment 为 FAILED）
+        # 4-8. 核心部署流程（失败时标记 deployment 为 FAILED）
         try:
             return self._deploy_core(
-                backtest_task_id=backtest_task_id,
-                source_portfolio_id=source_portfolio_id,
+                source_portfolio_id=portfolio_id,
                 mode=mode,
                 account_id=account_id,
                 name=name,
-                task_data=task_data,
+                portfolio_name=portfolio_data.get("name", portfolio_id),
                 deployment_id=deployment_id,
             )
         except Exception as e:
@@ -104,16 +99,15 @@ class DeploymentService(BaseService):
 
     def _deploy_core(
         self,
-        backtest_task_id: str,
         source_portfolio_id: str,
         mode: PORTFOLIO_MODE_TYPES,
         account_id: Optional[str],
         name: Optional[str],
-        task_data: dict,
+        portfolio_name: str,
         deployment_id: str,
     ) -> ServiceResult:
-        """核心部署流程: 步骤 3-8。失败时由调用方标记 FAILED。"""
-        # 3. 读取原 Portfolio 的组件映射
+        """核心部署流程: 步骤 4-8。失败时由调用方标记 FAILED。"""
+        # 4. 读取原 Portfolio 的组件映射
         mappings_result = self._mapping_service.get_portfolio_mappings(
             source_portfolio_id, include_params=True
         )
@@ -122,16 +116,15 @@ class DeploymentService(BaseService):
 
         mappings = mappings_result.data if mappings_result.data else []
 
-        # 4. 创建新 Portfolio
+        # 5. 创建新 Portfolio
         if not name:
-            source_name = task_data.get("name", backtest_task_id)
             mode_label = "PAPER" if mode == PORTFOLIO_MODE_TYPES.PAPER else "LIVE"
-            name = f"{source_name}_{mode_label}"
+            name = f"{portfolio_name}_{mode_label}"
 
         portfolio_result = self._portfolio_service.add(
             name=name,
             mode=mode,
-            description=f"部署自回测任务 {backtest_task_id}",
+            description=f"部署自组合 {source_portfolio_id}",
         )
         if not portfolio_result.success:
             raise RuntimeError(f"创建Portfolio失败: {portfolio_result.error}")
@@ -207,12 +200,11 @@ class DeploymentService(BaseService):
         except Exception as e:
             GLOG.WARN(f"更新部署记录状态失败(非致命): {e}")
 
-        GLOG.INFO(f"部署完成: {new_portfolio_id} <- {backtest_task_id}")
+        GLOG.INFO(f"部署完成: {new_portfolio_id} <- {source_portfolio_id}")
         result = ServiceResult(success=True)
         result.data = {
             "portfolio_id": new_portfolio_id,
             "deployment_id": deployment_id,
-            "source_task_id": backtest_task_id,
         }
         return result
 
@@ -235,10 +227,10 @@ class DeploymentService(BaseService):
         }
         return result
 
-    def list_deployments(self, source_task_id: str = None) -> ServiceResult:
+    def list_deployments(self, portfolio_id: str = None) -> ServiceResult:
         """列出部署记录"""
-        if source_task_id:
-            records = self._deployment_crud.get_by_source_task(source_task_id)
+        if portfolio_id:
+            records = self._deployment_crud.get_by_source_portfolio(portfolio_id)
         else:
             records = self._deployment_crud.find()
 
