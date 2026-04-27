@@ -13,6 +13,7 @@
       </div>
       <div class="header-actions">
         <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
+        <button v-if="portfolioStatus === 'idle'" class="btn-deploy" @click="openDeploy">部署</button>
         <button class="btn-primary" @click="startBacktest">新建回测</button>
       </div>
     </div>
@@ -36,6 +37,11 @@
         <component :is="Component" :key="route.fullPath" />
       </router-view>
     </div>
+    <DeployModal
+      v-model:visible="showDeployModal"
+      :portfolio-id="portfolioId"
+      @success="onDeploySuccess"
+    />
   </div>
 </template>
 
@@ -43,6 +49,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioApi, deploymentApi } from '@/api'
+import DeployModal from '@/components/business/DeployModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,6 +114,17 @@ async function loadDeploymentInfo() {
   } catch {
     deploymentSource.value = null
   }
+}
+
+const showDeployModal = ref(false)
+
+const openDeploy = () => { showDeployModal.value = true }
+
+const onDeploySuccess = (newPortfolioId: string) => {
+  if (newPortfolioId) {
+    router.push(`/portfolios/${newPortfolioId}`)
+  }
+  loadPortfolio()
 }
 
 watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
@@ -202,6 +220,18 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   cursor: pointer;
 }
 .btn-secondary:hover { border-color: #3b82f6; }
+
+.btn-deploy {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #52c41a;
+  border-radius: 6px;
+  color: #52c41a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-deploy:hover { background: #52c41a; color: #fff; }
 
 .tab-bar {
   display: flex;
