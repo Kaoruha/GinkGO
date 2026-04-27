@@ -330,7 +330,6 @@ def _get_deployment_service():
     if _deployment_service_instance is None:
         from ginkgo.trading.services.deployment_service import DeploymentService
         _deployment_service_instance = DeploymentService(
-            task_service=container.backtest_task_service(),
             portfolio_service=container.portfolio_service(),
             mapping_service=container.portfolio_mapping_service(),
             file_service=container.file_service(),
