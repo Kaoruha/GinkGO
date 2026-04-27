@@ -7,6 +7,9 @@
         <h1 class="page-title">{{ portfolioName }}</h1>
         <span class="portfolio-id">{{ portfolioId }}</span>
         <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
+        <span v-if="deploymentSource" class="deploy-source">
+          来源：{{ deploymentSource.source_task_id?.slice(0, 8) }}
+        </span>
       </div>
       <div class="header-actions">
         <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
@@ -39,6 +42,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { portfolioApi, deploymentApi } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +50,7 @@ const router = useRouter()
 const portfolioId = computed(() => route.params.id as string)
 const portfolioName = ref('加载中...')
 const portfolioStatus = ref('')
+const deploymentSource = ref<any>(null)
 
 const statusLabels: Record<string, string> = {
   live: '实盘',
@@ -74,10 +79,34 @@ function startBacktest() {
   router.push(`/portfolios/${portfolioId.value}/backtests?action=create`)
 }
 
-// Load portfolio info
 async function loadPortfolio() {
-  // Will be wired to API later; for now just set a placeholder name
-  portfolioName.value = `组合 ${portfolioId.value.substring(0, 8)}`
+  try {
+    const res: any = await portfolioApi.get(portfolioId.value)
+    const p = res?.data || res
+    portfolioName.value = p?.name || `组合 ${portfolioId.value.substring(0, 8)}`
+    const mode = (p?.mode || '').toString().toUpperCase()
+    if (mode === 'PAPER') {
+      portfolioStatus.value = 'paper'
+      loadDeploymentInfo()
+    } else if (mode === 'LIVE') {
+      portfolioStatus.value = 'live'
+      loadDeploymentInfo()
+    } else {
+      portfolioStatus.value = 'idle'
+    }
+  } catch {
+    portfolioName.value = `组合 ${portfolioId.value.substring(0, 8)}`
+    portfolioStatus.value = 'idle'
+  }
+}
+
+async function loadDeploymentInfo() {
+  try {
+    const res: any = await deploymentApi.getStatus(portfolioId.value)
+    deploymentSource.value = res?.data || null
+  } catch {
+    deploymentSource.value = null
+  }
 }
 
 watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
@@ -137,6 +166,15 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 .status-tag.live { background: rgba(34,197,94,0.15); color: #22c55e; }
 .status-tag.paper { background: rgba(59,130,246,0.15); color: #3b82f6; }
 .status-tag.idle { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+
+.deploy-source {
+  font-size: 11px;
+  color: #8a8a9a;
+  background: rgba(255,255,255,0.05);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
 
 .header-actions {
   display: flex;
