@@ -15,11 +15,13 @@ export function useApiError(options: ApiErrorOptions = {}) {
     showMessage = true
   } = options
 
+  const errorMessage = ref('')
+
   /**
    * 处理 API 错误
    */
-  const handleError = (error: any, defaultMessage = '操作失败') => {
-    let errorMessage = defaultMessage
+  const handleError = (error: any, defaultMessage = '操作失败'): string => {
+    let msg = defaultMessage
 
     if (error.response) {
       const status = error.response.status
@@ -28,41 +30,45 @@ export function useApiError(options: ApiErrorOptions = {}) {
       // 业务错误处理
       switch (status) {
         case 400:
-          errorMessage = data?.message || '请求参数错误'
+          msg = data?.message || '请求参数错误'
           break
         case 401:
-          errorMessage = '登录已过期'
+          msg = '登录已过期'
           break
         case 403:
-          errorMessage = '没有权限'
+          msg = '没有权限'
           break
         case 404:
-          errorMessage = '资源不存在'
+          msg = '资源不存在'
           break
         case 500:
-          errorMessage = '服务器错误'
+          msg = '服务器错误'
           break
         default:
-          errorMessage = data?.message || errorMessage
+          msg = data?.message || msg
       }
     } else if (error.request) {
-      errorMessage = '网络连接失败'
+      msg = '网络连接失败'
     } else {
-      errorMessage = error.message || errorMessage
+      msg = error.message || msg
     }
+
+    errorMessage.value = msg
 
     if (showMessage) {
-      message.error(errorMessage)
+      message.error(msg)
     }
 
-    return errorMessage
+    return msg
+  }
+
+  const clearError = () => {
+    errorMessage.value = ''
   }
 
   return {
     handleError,
-    errorMessage: ref(''),
-    clearError: () => {
-      errorMessage.value = ''
-    }
+    errorMessage,
+    clearError,
   }
 }

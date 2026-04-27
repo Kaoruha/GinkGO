@@ -3,7 +3,6 @@
  * 测试可取消请求 Composable 的功能
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref } from 'vue'
 import { useRequestCancelable, useMultiRequestCancelable } from '../useRequestCancelable'
 
 describe('useRequestCancelable', () => {
@@ -26,7 +25,7 @@ describe('useRequestCancelable', () => {
     it('应该在请求时设置 loading 为 true', async () => {
       const { loading, execute } = useRequestCancelable()
 
-      const mockRequest = vi.fn((signal) => {
+      const mockRequest = vi.fn((_signal: AbortSignal) => {
         return new Promise((resolve) => {
           setTimeout(() => resolve('data'), 100)
         })
@@ -119,7 +118,7 @@ describe('useRequestCancelable', () => {
       const { execute } = useRequestCancelable()
 
       let abortCount = 0
-      const mockRequest = (signal) => {
+      const mockRequest = (signal: AbortSignal) => {
         return new Promise((resolve, reject) => {
           signal.addEventListener('abort', () => {
             abortCount++
@@ -171,7 +170,7 @@ describe('useRequestCancelable', () => {
       const onFinally = vi.fn()
       const { execute, cancel } = useRequestCancelable()
 
-      const mockRequest = (signal) => {
+      const mockRequest = (signal: AbortSignal) => {
         return new Promise((resolve, reject) => {
           signal.addEventListener('abort', () => {
             const error = new Error('Aborted')
@@ -218,7 +217,7 @@ describe('useMultiRequestCancelable', () => {
     it('应该能够取消特定请求', async () => {
       const { execute, cancel, isLoading } = useMultiRequestCancelable()
 
-      const mockRequest = (signal) => {
+      const mockRequest = (signal: AbortSignal) => {
         return new Promise((resolve, reject) => {
           signal.addEventListener('abort', () => {
             const error = new Error('Aborted')
@@ -245,7 +244,7 @@ describe('useMultiRequestCancelable', () => {
     it('应该能够取消所有请求', async () => {
       const { execute, cancel, isLoading } = useMultiRequestCancelable()
 
-      const mockRequest = (signal) => {
+      const mockRequest = (signal: AbortSignal) => {
         return new Promise((resolve, reject) => {
           signal.addEventListener('abort', () => {
             const error = new Error('Aborted')

@@ -15,20 +15,20 @@ import {
 describe('useStatusFormat', () => {
   it('应返回正确的颜色', () => {
     const config = {
-      active: { color: 'green', label: '激活' },
-      inactive: { color: 'default', label: '未激活' },
-    }
-    const { getColor } = useStatusFormat(config)
+      active: { tagClass: 'tag-green', label: '激活' },
+      inactive: { tagClass: 'tag-default', label: '未激活' },
+    } as Record<string, import('./useStatusFormat').StatusConfig>
+    const { getTagClass } = useStatusFormat(config)
 
-    expect(getColor('active')).toBe('green')
-    expect(getColor('inactive')).toBe('default')
+    expect(getTagClass('active')).toBe('tag-green')
+    expect(getTagClass('inactive')).toBe('tag-default')
   })
 
   it('应返回正确的标签', () => {
     const config = {
-      active: { color: 'green', label: '激活' },
-      inactive: { color: 'default', label: '未激活' },
-    }
+      active: { tagClass: 'tag-green', label: '激活' },
+      inactive: { tagClass: 'tag-default', label: '未激活' },
+    } as Record<string, import('./useStatusFormat').StatusConfig>
     const { getLabel } = useStatusFormat(config)
 
     expect(getLabel('active')).toBe('激活')
@@ -37,24 +37,24 @@ describe('useStatusFormat', () => {
 
   it('未知状态应返回默认值', () => {
     const config = {
-      active: { color: 'green', label: '激活' },
-    }
-    const { getColor, getLabel } = useStatusFormat(config)
+      active: { tagClass: 'tag-green', label: '激活' },
+    } as Record<string, import('./useStatusFormat').StatusConfig>
+    const { getTagClass, getLabel } = useStatusFormat(config)
 
-    expect(getColor('unknown' as any)).toBe('default')
+    expect(getTagClass('unknown' as any)).toBe('tag-gray')
     expect(getLabel('unknown' as any)).toBe('unknown')
   })
 })
 
 describe('useBacktestStatus', () => {
   it('应返回正确的回测状态颜色', () => {
-    const { getColor } = useBacktestStatus()
+    const { getTagClass } = useBacktestStatus()
 
-    expect(getColor('created')).toBe('default')
-    expect(getColor('pending')).toBe('warning')
-    expect(getColor('running')).toBe('processing')
-    expect(getColor('completed')).toBe('success')
-    expect(getColor('failed')).toBe('error')
+    expect(getTagClass('created')).toBe('tag-gray')
+    expect(getTagClass('pending')).toBe('tag-orange')
+    expect(getTagClass('running')).toBe('tag-blue')
+    expect(getTagClass('completed')).toBe('tag-green')
+    expect(getTagClass('failed')).toBe('tag-red')
   })
 
   it('应返回正确的回测状态标签', () => {
@@ -71,11 +71,11 @@ describe('useBacktestStatus', () => {
 
 describe('usePortfolioMode', () => {
   it('应返回正确的模式颜色', () => {
-    const { getColor } = usePortfolioMode()
+    const { getTagClass } = usePortfolioMode()
 
-    expect(getColor(0)).toBe('blue')
-    expect(getColor(1)).toBe('orange')
-    expect(getColor(2)).toBe('red')
+    expect(getTagClass(0)).toBe('tag-blue')
+    expect(getTagClass(1)).toBe('tag-orange')
+    expect(getTagClass(2)).toBe('tag-red')
   })
 
   it('应返回正确的模式标签', () => {
@@ -87,21 +87,21 @@ describe('usePortfolioMode', () => {
   })
 
   it('未知模式应返回默认值', () => {
-    const { getColor, getLabel } = usePortfolioMode()
+    const { getTagClass, getLabel } = usePortfolioMode()
 
-    expect(getColor(99)).toBe('default')
+    expect(getTagClass(99)).toBe('tag-gray')
     expect(getLabel(99)).toBe('未知')
   })
 })
 
 describe('usePortfolioState', () => {
   it('应返回正确的状态颜色', () => {
-    const { getColor } = usePortfolioState()
+    const { getTagClass } = usePortfolioState()
 
-    expect(getColor(0)).toBe('default')
-    expect(getColor(1)).toBe('green')
-    expect(getColor(2)).toBe('blue')
-    expect(getColor(3)).toBe('red')
+    expect(getTagClass(0)).toBe('tag-gray')
+    expect(getTagClass(1)).toBe('tag-green')
+    expect(getTagClass(2)).toBe('tag-blue')
+    expect(getTagClass(3)).toBe('tag-red')
   })
 
   it('应返回正确的状态标签', () => {

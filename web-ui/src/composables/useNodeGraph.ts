@@ -8,12 +8,56 @@ import type { Ref } from 'vue'
 import {
   GraphNode,
   GraphEdge,
-  GraphData,
-  NodeType,
-  ValidationResult,
-  ValidationError,
 } from '@/components/node-graph/types'
-import { canConnect } from '@/components/node-graph/types'
+
+/** 节点图数据结构 */
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+/** 验证错误 */
+export interface ValidationError {
+  message: string
+  severity: 'error' | 'warning'
+  node_id?: string
+  edge_id?: string
+}
+
+/** 验证结果 */
+export interface ValidationResult {
+  is_valid: boolean
+  errors: ValidationError[]
+  warnings: string[]
+}
+
+/** 扩展的节点类型枚举（包含 ENGINE/PORTFOLIO 等节点图特有类型） */
+const NODE_TYPE_ENGINE = 'engine'
+const NODE_TYPE_PORTFOLIO = 'portfolio'
+const NODE_TYPE_STRATEGY = 'strategy'
+const NODE_TYPE_SELECTOR = 'selector'
+const NODE_TYPE_SIZER = 'sizer'
+const NODE_TYPE_RISK_MANAGEMENT = 'risk'
+const NODE_TYPE_ANALYZER = 'analyzer'
+
+/**
+ * 节点类型兼容性检查
+ */
+function canConnect(sourceType: string, targetType: string): boolean {
+  // 定义允许的连接关系
+  const allowedConnections: Record<string, string[]> = {
+    [NODE_TYPE_ENGINE]: [NODE_TYPE_PORTFOLIO],
+    [NODE_TYPE_PORTFOLIO]: [NODE_TYPE_STRATEGY, NODE_TYPE_SELECTOR, NODE_TYPE_SIZER, NODE_TYPE_RISK_MANAGEMENT, NODE_TYPE_ANALYZER],
+    [NODE_TYPE_STRATEGY]: [NODE_TYPE_SIZER, NODE_TYPE_RISK_MANAGEMENT],
+    [NODE_TYPE_SELECTOR]: [NODE_TYPE_STRATEGY],
+    [NODE_TYPE_SIZER]: [],
+    [NODE_TYPE_RISK_MANAGEMENT]: [],
+    [NODE_TYPE_ANALYZER]: [],
+  }
+
+  const allowed = allowedConnections[sourceType]
+  return allowed ? allowed.includes(targetType) : false
+}
 
 export function useNodeGraph(initialData?: GraphData) {
   // 节点列表
@@ -181,7 +225,7 @@ export function useNodeGraph(initialData?: GraphData) {
     const warnings: string[] = []
 
     // 1. 验证必须有且只有一个 ENGINE 节点
-    const engineNodes = nodes.value.filter((n) => n.type === NodeType.ENGINE)
+    const engineNodes = nodes.value.filter((n) => (n as any).type === NODE_TYPE_ENGINE)
     if (engineNodes.length === 0) {
       errors.push({
         message: '必须有一个 ENGINE 节点',
@@ -195,7 +239,7 @@ export function useNodeGraph(initialData?: GraphData) {
     }
 
     // 2. 验证至少有一个 PORTFOLIO 节点
-    const portfolioNodes = nodes.value.filter((n) => n.type === NodeType.PORTFOLIO)
+    const portfolioNodes = nodes.value.filter((n) => (n as any).type === NODE_TYPE_PORTFOLIO)
     if (portfolioNodes.length === 0) {
       errors.push({
         message: '至少需要一个 PORTFOLIO 节点',
@@ -223,7 +267,7 @@ export function useNodeGraph(initialData?: GraphData) {
       const targetNode = nodes.value.find((n) => n.id === edge.target)
       if (!sourceNode || !targetNode) continue
 
-      if (!canConnect(sourceNode.type as NodeType, targetNode.type as NodeType)) {
+      if (!canConnect(sourceNode.type as string, targetNode.type as string)) {
         errors.push({
           edge_id: edge.id,
           message: `${sourceNode.type} 节点不能连接到 ${targetNode.type} 节点`,
@@ -269,21 +313,22 @@ export function useNodeGraph(initialData?: GraphData) {
    */
   const validateNode = (node: GraphNode): string[] => {
     const errors: string[] = []
-    const config = node.data.config as any
+    const config = (node as any).config as any
+    const nodeType = (node as any).type as string
 
-    switch (node.type) {
-      case NodeType.ENGINE:
+    switch (nodeType) {
+      case NODE_TYPE_ENGINE:
         if (!config.start_date) errors.push('必须配置开始日期')
         if (!config.end_date) errors.push('必须配置结束日期')
         break
-      case NodeType.PORTFOLIO:
+      case NODE_TYPE_PORTFOLIO:
         if (!config.portfolio_uuid) errors.push('必须选择投资组合')
         break
-      case NodeType.STRATEGY:
-      case NodeType.SELECTOR:
-      case NodeType.SIZER:
-      case NodeType.RISK_MANAGEMENT:
-      case NodeType.ANALYZER:
+      case NODE_TYPE_STRATEGY:
+      case NODE_TYPE_SELECTOR:
+      case NODE_TYPE_SIZER:
+      case NODE_TYPE_RISK_MANAGEMENT:
+      case NODE_TYPE_ANALYZER:
         if (!config.component_uuid) errors.push('必须选择组件')
         break
     }

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { backtestApi } from '@/api'
 import { useAuthStore } from './auth'
-import type { BacktestTask, BacktestNetValue, AnalyzerInfo } from '@/api'
+import type { BacktestTask, BacktestNetValue, AnalyzerInfo, BacktestCreateRequest } from '@/api'
 import { canStartByState, canStopByState, canCancelByState } from '@/constants'
 
 /**
@@ -147,8 +147,9 @@ export const useBacktestStore = defineStore('backtest', () => {
     loading.value = true
     try {
       const result = await backtestApi.list(params)
-      tasks.value = result.data || []
-      total.value = result.meta?.total || 0
+      const payload = (result as any).data !== undefined ? (result as any).data : result
+      tasks.value = (payload as BacktestTask[]) || []
+      total.value = (payload as any)?.total || 0
       lastUpdate.value = new Date().toISOString()
 
       // 更新运行中任务集合
@@ -176,7 +177,7 @@ export const useBacktestStore = defineStore('backtest', () => {
     detailLoading.value = true
     try {
       const task = await backtestApi.get(uuid)
-      const payload = task.data
+      const payload = (task as any).data !== undefined ? (task as any).data : task
       currentTask.value = payload
 
       // 更新列表中的任务
@@ -207,7 +208,7 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function fetchNetValue(uuid: string) {
     try {
       const result = await backtestApi.getNetValue(uuid)
-      const payload = result.data
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       currentNetValue.value = payload
       return payload
     } catch (error) {
@@ -222,7 +223,7 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function fetchAnalyzers(uuid: string) {
     try {
       const result = await backtestApi.getAnalyzers(uuid)
-      const payload = result.data
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       currentAnalyzers.value = payload.analyzers || []
       return result
     } catch (error) {
@@ -236,8 +237,8 @@ export const useBacktestStore = defineStore('backtest', () => {
    */
   async function createTask(data: { name: string; portfolio_uuids: string[]; engine_config: Record<string, any> }) {
     try {
-      const result = await backtestApi.create(data)
-      const payload = result.data
+      const result = await backtestApi.create(data as BacktestCreateRequest)
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       tasks.value.unshift(payload)
       total.value++
       return payload
@@ -353,27 +354,7 @@ export const useBacktestStore = defineStore('backtest', () => {
   }> {
     batchOperationLoading.value = true
     const results = await Promise.allSettled(
-      uuids.map(uuid => {
-        // 从任务列表中获取配置信息
-        const task = tasks.value.find(t => t.uuid === uuid)
-        let params: { start_date?: string; end_date?: string } = {}
-
-        if (task?.config_snapshot) {
-          try {
-            const config = typeof task.config_snapshot === 'string'
-              ? JSON.parse(task.config_snapshot)
-              : task.config_snapshot
-            params = {
-              start_date: config.start_date,
-              end_date: config.end_date
-            }
-          } catch (e) {
-            console.warn('Failed to parse config_snapshot:', e)
-          }
-        }
-
-        return startTask(uuid, params)
-      })
+      uuids.map(uuid => startTask(uuid))
     )
 
     const success = results.filter(r => r.status === 'fulfilled').length
@@ -467,14 +448,14 @@ export const useBacktestStore = defineStore('backtest', () => {
     current_stage?: string
     error_message?: string
     timestamp?: string  // 服务端时间戳，用于冲突处理
-    updated_at?: string
+    update_at?: string
   }) {
     const task = tasks.value.find(t => t.uuid === data.task_id)
 
     // 数据冲突处理：比较时间戳
-    if (task && data.updated_at) {
-      const existingTime = new Date(task.updated_at).getTime()
-      const updateTime = new Date(data.updated_at).getTime()
+    if (task && data.update_at) {
+      const existingTime = new Date(task.update_at).getTime()
+      const updateTime = new Date(data.update_at).getTime()
 
       // 仅当服务端数据更新时才更新本地数据
       if (updateTime > existingTime) {
@@ -482,7 +463,7 @@ export const useBacktestStore = defineStore('backtest', () => {
         if (data.progress) task.progress = data.progress
         if (data.current_stage) task.current_stage = data.current_stage
         if (data.error_message) task.error_message = data.error_message
-        if (data.updated_at) task.updated_at = data.updated_at
+        if (data.update_at) task.update_at = data.update_at
       }
     } else if (task) {
       // 没有时间戳信息时，直接更新
@@ -493,16 +474,16 @@ export const useBacktestStore = defineStore('backtest', () => {
     }
 
     // 更新当前任务（同样进行冲突处理）
-    if (currentTask.value?.uuid === data.task_id && data.updated_at) {
-      const existingTime = new Date(currentTask.value.updated_at).getTime()
-      const updateTime = new Date(data.updated_at).getTime()
+    if (currentTask.value?.uuid === data.task_id && data.update_at) {
+      const existingTime = new Date(currentTask.value.update_at).getTime()
+      const updateTime = new Date(data.update_at).getTime()
 
       if (updateTime > existingTime) {
         if (data.status) currentTask.value.status = data.status as any
         if (data.progress) currentTask.value.progress = data.progress
         if (data.current_stage) currentTask.value.current_stage = data.current_stage
         if (data.error_message) currentTask.value.error_message = data.error_message
-        if (data.updated_at) currentTask.value.updated_at = data.updated_at
+        if (data.update_at) currentTask.value.update_at = data.update_at
       }
     } else if (currentTask.value?.uuid === data.task_id) {
       if (data.status) currentTask.value.status = data.status as any

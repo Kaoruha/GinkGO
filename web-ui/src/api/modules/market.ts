@@ -172,7 +172,7 @@ export const marketApi = {
   /**
    * 获取订单簿数据
    */
-  getOrderbook: (symbol: str, params?: {
+  getOrderbook: (symbol: string, params?: {
     exchange?: ExchangeType
     depth?: number
   }) => {

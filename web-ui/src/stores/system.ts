@@ -127,11 +127,11 @@ export const useSystemStore = defineStore('system', () => {
     loading.value = true
     try {
       const result = await systemApi.getFullStatus()
-      const statusPayload = result.status.data
-      const workersPayload = result.workers.data
+      const statusPayload = (result.status as any).data !== undefined ? (result.status as any).data : result.status
+      const workersPayload = (result.workers as any).data !== undefined ? (result.workers as any).data : result.workers
       systemStatus.value = statusPayload
-      workers.value = workersPayload.data || []
-      componentCounts.value = workersPayload.components || componentCounts.value
+      workers.value = (workersPayload as any)?.data || workersPayload as any || []
+      componentCounts.value = (workersPayload as any)?.components || componentCounts.value
       lastUpdate.value = new Date().toISOString()
       return result
     } catch (error) {
@@ -148,9 +148,9 @@ export const useSystemStore = defineStore('system', () => {
   async function fetchWorkers() {
     try {
       const result = await systemApi.getWorkers()
-      const payload = result.data
-      workers.value = payload.data || []
-      componentCounts.value = payload.components || componentCounts.value
+      const payload = (result as any).data !== undefined ? (result as any).data : result
+      workers.value = (payload as any)?.data || payload as any || []
+      componentCounts.value = (payload as any)?.components || componentCounts.value
       return result
     } catch (error) {
       console.error('Failed to fetch workers:', error)
@@ -164,7 +164,7 @@ export const useSystemStore = defineStore('system', () => {
   async function startWorker(workerId: string) {
     try {
       const result = await systemApi.startWorker(workerId)
-      const payload = result.data
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
@@ -183,7 +183,7 @@ export const useSystemStore = defineStore('system', () => {
   async function stopWorker(workerId: string) {
     try {
       const result = await systemApi.stopWorker(workerId)
-      const payload = result.data
+      const payload = (result as any).data !== undefined ? (result as any).data : result
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
