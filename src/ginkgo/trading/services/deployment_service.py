@@ -21,6 +21,7 @@ class DeploymentService(BaseService):
         broker_instance_crud=None,
         live_account_service=None,
         mongo_driver=None,
+        param_crud=None,
     ):
         self._portfolio_service = portfolio_service
         self._mapping_service = mapping_service
@@ -29,6 +30,7 @@ class DeploymentService(BaseService):
         self._broker_instance_crud = broker_instance_crud
         self._live_account_service = live_account_service
         self._mongo_driver = mongo_driver
+        self._param_crud = param_crud
 
     def deploy(
         self,
@@ -254,11 +256,9 @@ class DeploymentService(BaseService):
 
     def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
         """原始值复制参数，不经过 json 序列化/反序列化"""
-        from ginkgo.data.containers import container
         from ginkgo.data.models.model_param import MParam
-        param_crud = container.cruds.param()
 
-        source_params = param_crud.find_by_mapping_id(old_mapping_id)
+        source_params = self._param_crud.find_by_mapping_id(old_mapping_id)
         for p in source_params:
             new_param = MParam(
                 mapping_id=new_mapping_id,
@@ -266,7 +266,7 @@ class DeploymentService(BaseService):
                 value=p.value,
                 source=p.source,
             )
-            param_crud.add(new_param)
+            self._param_crud.add(new_param)
 
     def _copy_graph(self, source_portfolio_id: str, target_portfolio_id: str) -> None:
         """复制MongoDB图结构"""
