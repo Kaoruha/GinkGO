@@ -100,6 +100,17 @@ class PaperTradingWorker:
 
         GLOG.INFO(f"[PAPER-WORKER] {self.worker_id}: Assembling engine...")
 
+        # 0. 清理上次异常退出残留的 RUNNING 状态（通过 Service 层）
+        try:
+            portfolio_service = container.portfolio_service()
+            result = portfolio_service.reset_stale_running()
+            if result.is_success() and result.data.get("reset_count", 0) > 0:
+                GLOG.INFO(
+                    f"[PAPER-WORKER] Reset {result.data['reset_count']} stale RUNNING portfolios"
+                )
+        except Exception as e:
+            GLOG.WARN(f"[PAPER-WORKER] Stale state cleanup failed (non-fatal): {e}")
+
         # 1. 查询所有 PAPER 模式的 Portfolio
         portfolio_crud = container.cruds.portfolio()
         db_portfolios = portfolio_crud.find(

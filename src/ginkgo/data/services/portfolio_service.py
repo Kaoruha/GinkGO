@@ -387,6 +387,37 @@ class PortfolioService(BaseService):
         from ginkgo import services
         return services.data.cruds.position()
 
+    def reset_stale_running(self) -> ServiceResult:
+        """
+        将 PAPER/LIVE 模式下 RUNNING 状态的组合重置为 STOPPED。
+
+        用于 Worker 启动时清理上次异常退出残留的 RUNNING 状态。
+        """
+        try:
+            reset_count = 0
+            for mode_value in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
+                portfolios = self._crud_repo.find(
+                    filters={"mode": mode_value, "state": PORTFOLIO_RUNSTATE_TYPES.RUNNING.value}
+                )
+                for p in portfolios:
+                    self._crud_repo.modify(
+                        filters={"uuid": p.uuid},
+                        updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPED.value},
+                    )
+                    reset_count += 1
+                    GLOG.INFO(f"Reset stale RUNNING portfolio {p.uuid[:8]} -> STOPPED")
+
+            if reset_count > 0:
+                GLOG.INFO(f"Reset {reset_count} stale RUNNING portfolios")
+
+            return ServiceResult.success(
+                {"reset_count": reset_count},
+                f"重置 {reset_count} 个残留 RUNNING 组合"
+            )
+        except Exception as e:
+            GLOG.ERROR(f"重置残留 RUNNING 组合失败: {e}")
+            return ServiceResult.error(f"重置残留 RUNNING 组合失败: {str(e)}")
+
     def stop(self, portfolio_id: str) -> ServiceResult:
         """
         停止 PAPER/LIVE portfolio（发送 Kafka unload 命令）
