@@ -742,7 +742,7 @@ def serve_worker_paper(
         console.print(f"\n:rocket: [bold green]Assembling engine for PaperTradingWorker...[/bold green]")
 
         from ginkgo import services
-        worker.assemble_engine(services.data.container)
+        worker.assemble_engine(services.data)
 
         if worker._engine is None:
             console.print("[red]:x: No PAPER portfolios found in DB, nothing to run[/red]")
