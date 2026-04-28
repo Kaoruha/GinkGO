@@ -514,7 +514,7 @@ class PaperTradingWorker:
 
         from ginkgo import services
 
-        portfolio_service = services.data.container.portfolio_service()
+        portfolio_service = services.data.portfolio_service()
         engine_current_time = self._engine.now
 
         for portfolio in self._engine.portfolios:
@@ -766,7 +766,7 @@ class PaperTradingWorker:
 
         try:
             # 从 DB 读取 Portfolio 配置
-            container = services.data.container
+            container = services.data
             portfolio_crud = container.cruds.portfolio()
             db_portfolios = portfolio_crud.find(filters={"uuid": portfolio_id})
 
@@ -872,7 +872,7 @@ class PaperTradingWorker:
         # 更新 DB state 为 STOPPED
         try:
             from ginkgo import services
-            portfolio_service = services.data.container.portfolio_service()
+            portfolio_service = services.data.portfolio_service()
             portfolio_service.update(
                 portfolio_id=portfolio_id,
                 state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
