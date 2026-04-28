@@ -696,10 +696,10 @@ class PortfolioSagaFactory:
         name: str = None,
     ) -> SagaTransaction:
         """创建部署 Saga（深拷贝 + MDeployment 记录）"""
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
-        deployment_service = container.deployment_service()
+        deployment_service = trading_container.deployment_service()
 
         saga = SagaTransaction(f"portfolio:deploy:{portfolio_id}")
         context = {}
