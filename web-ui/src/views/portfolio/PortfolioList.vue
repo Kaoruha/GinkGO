@@ -326,6 +326,12 @@ const viewDetail = (record: any) => {
 }
 
 const confirmDelete = (record: any) => {
+  const mode = record.mode
+  const state = record.state
+  if ((mode === 1 || mode === 2) && (state === 1 || state === 3)) {
+    message.warning('请先停止该组合后再删除')
+    return
+  }
   deletingPortfolio.value = record
   deleteModalVisible.value = true
   activeMenu.value = null
