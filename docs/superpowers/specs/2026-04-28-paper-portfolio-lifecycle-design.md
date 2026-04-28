@@ -109,11 +109,12 @@ STOPPED(4)
 
 ### 4. API 层改动
 
-**api/trading.py：**
-- start 端点改为调用 `PortfolioService` 或保持发 Kafka（此端点假设 portfolio 已存在，不经过 DeploymentService）
-- stop 端点改为调用 `PortfolioService.stop()`
+**api/trading.py 的 start/stop 端点废弃：**
+- 现有 `POST /api/v1/paper-trading/{account_id}/start` 和 `stop` 合并到 portfolio API
+- trading.py 保留路由但标记 deprecated，内部转发到 portfolio Service 方法
 
-**api/portfolio.py：**
+**api/portfolio.py（统一入口）：**
+- 新增 `POST /{uuid}/start` 端点，对 PAPER/LIVE portfolio 发 Kafka deploy 命令（使用 ControlCommand.deploy()）
 - 新增 `POST /{uuid}/stop` 端点，调用 `portfolio_service.stop()`
 - delete 端点不变（Service 层已内含状态检查，错误会通过 ServiceResult 返回）
 
