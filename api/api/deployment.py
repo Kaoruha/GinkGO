@@ -17,8 +17,8 @@ class DeployRequest(BaseModel):
 
 
 def _get_deployment_service():
-    from ginkgo.data.containers import container
-    return container.deployment_service()
+    from ginkgo.trading.containers import trading_container
+    return trading_container.deployment_service()
 
 
 @router.post("/")
