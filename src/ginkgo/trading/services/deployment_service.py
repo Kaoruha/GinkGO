@@ -201,6 +201,22 @@ class DeploymentService(BaseService):
         except Exception as e:
             GLOG.WARN(f"更新部署记录状态失败(非致命): {e}")
 
+        # 9. 发送 Kafka deploy 命令通知 PaperTradingWorker
+        try:
+            from ginkgo.messages.control_command import ControlCommand
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+            from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+            cmd = ControlCommand.deploy(new_portfolio_id)
+            producer = GinkgoProducer()
+            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+            if success:
+                GLOG.INFO(f"[DEPLOY] Kafka deploy command sent for {new_portfolio_id[:8]}")
+            else:
+                GLOG.WARN(f"[DEPLOY] Failed to send Kafka deploy command for {new_portfolio_id[:8]}")
+        except Exception as e:
+            GLOG.WARN(f"[DEPLOY] Kafka notification failed (non-fatal): {e}")
+
         GLOG.INFO(f"部署完成: {new_portfolio_id} <- {source_portfolio_id}")
         result = ServiceResult(success=True)
         result.data = {
