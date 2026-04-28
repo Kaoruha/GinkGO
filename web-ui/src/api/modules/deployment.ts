@@ -3,7 +3,7 @@ import request from '../request'
 // ========== 类型定义 ==========
 
 export interface DeployRequest {
-  backtest_task_id: string
+  portfolio_id: string
   mode: 'paper' | 'live'
   account_id?: string
   name?: string
@@ -12,12 +12,12 @@ export interface DeployRequest {
 export interface DeployResponse {
   portfolio_id: string
   deployment_id: string
-  source_task_id: string
+  source_portfolio_id: string
 }
 
 export interface DeploymentInfo {
   deployment_id: string
-  source_task_id: string
+  source_task_id: string | null
   target_portfolio_id: string
   source_portfolio_id: string
   mode: string
@@ -30,7 +30,7 @@ export interface DeploymentInfo {
 
 export const deploymentApi = {
   /**
-   * 部署回测到模拟盘/实盘
+   * 部署组合到模拟盘/实盘
    */
   deploy(params: DeployRequest) {
     return request.post('/api/v1/deploy/', params)
@@ -46,9 +46,9 @@ export const deploymentApi = {
   /**
    * 列出部署记录
    */
-  list(taskId?: string) {
+  list(portfolioId?: string) {
     const params: Record<string, string> = {}
-    if (taskId) params.task_id = taskId
+    if (portfolioId) params.portfolio_id = portfolioId
     return request.get('/api/v1/deploy/', { params })
   },
 }

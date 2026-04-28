@@ -135,43 +135,39 @@ class DeploymentService(BaseService):
         new_portfolio_id = portfolio_result.data.get("uuid")
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
-        # 5. 深拷贝组件: MFile(clone) + Mapping(新建) + Param(复制)
+        # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
         for mapping in mappings:
-            old_file_id = getattr(mapping, "file_id", None)
-            if not old_file_id:
+            if isinstance(mapping, dict):
+                file_id = mapping.get("file_id")
+                file_type = mapping.get("type")
+                mapping_name = mapping.get("name", "")
+                mapping_uuid = mapping.get("uuid", "")
+            else:
+                file_id = getattr(mapping, "file_id", None)
+                file_type = getattr(mapping, "type", None)
+                mapping_name = getattr(mapping, "name", "")
+                mapping_uuid = getattr(mapping, "uuid", "")
+            if not file_id:
                 continue
 
-            file_type = getattr(mapping, "type", None)
-            mapping_name = getattr(mapping, "name", "")
-            mapping_uuid = getattr(mapping, "uuid", "")
+            file_type_enum = FILE_TYPES(file_type) if file_type else None
 
-            # 5a. Clone MFile
-            clone_name = f"{mapping_name}_{new_portfolio_id[:8]}"
-            clone_result = self._file_service.clone(old_file_id, clone_name, file_type)
-            if not clone_result.success:
-                GLOG.WARN(f"克隆文件失败 {old_file_id}: {clone_result.error}")
-                continue
-
-            new_file_id = clone_result.data["file_info"]["uuid"]
-
-            # 5b. Create new Mapping
+            # 5a. Create new Mapping (引用源文件，不克隆)
             add_result = self._mapping_service.add_file(
                 portfolio_uuid=new_portfolio_id,
-                file_id=new_file_id,
-                file_type=FILE_TYPES(file_type) if file_type else None,
+                file_id=file_id,
+                file_type=file_type_enum,
                 name=mapping_name,
             )
             if not add_result.success:
                 GLOG.WARN(f"创建映射失败: {add_result.error}")
                 continue
 
-            # 5c. Copy Params from old mapping to new mapping
+            # 5b. Copy Params (原始值，不经过 json 序列化)
             if mapping_uuid:
-                params_result = self._mapping_service.get_mapping_params(mapping_uuid)
-                if params_result.success and params_result.data:
-                    new_mapping_id = add_result.data.get("mapping_id")
-                    if new_mapping_id:
-                        self._copy_params(mapping_uuid, new_mapping_id, params_result.data)
+                new_mapping_id = add_result.data.get("mapping_id")
+                if new_mapping_id:
+                    self._copy_params_raw(mapping_uuid, new_mapping_id)
 
         # 6. Copy MongoDB Graph
         try:
@@ -256,16 +252,21 @@ class DeploymentService(BaseService):
         ]
         return result
 
-    def _copy_params(self, old_mapping_id: str, new_mapping_id: str, params: List) -> None:
-        """复制参数从旧mapping到新mapping"""
+    def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
+        """原始值复制参数，不经过 json 序列化/反序列化"""
         from ginkgo.data.containers import container
+        from ginkgo.data.models.model_param import MParam
         param_crud = container.cruds.param()
 
-        for param in params:
-            index = getattr(param, "index", 0)
-            value = getattr(param, "value", "")
-            source = getattr(param, "source", -1)
-            param_crud.set_param_value(new_mapping_id, index, value, source)
+        source_params = param_crud.find_by_mapping_id(old_mapping_id)
+        for p in source_params:
+            new_param = MParam(
+                mapping_id=new_mapping_id,
+                index=p.index,
+                value=p.value,
+                source=p.source,
+            )
+            param_crud.add(new_param)
 
     def _copy_graph(self, source_portfolio_id: str, target_portfolio_id: str) -> None:
         """复制MongoDB图结构"""
