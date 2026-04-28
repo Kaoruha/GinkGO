@@ -12,7 +12,6 @@ Ginkgo Portfolio CLI - 投资组合管理命令
 """
 
 import json
-from datetime import datetime
 
 import typer
 from typing import Optional, List
@@ -701,7 +700,13 @@ def unload_portfolio(
     GLOG.INFO(f"[UNLOAD] Unloading paper trading {portfolio_id}")
 
     try:
-        success = _send_unload_command(portfolio_id)
+        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+        cmd = ControlCommand.unload(portfolio_id)
+        producer = GinkgoProducer()
+        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
         if success:
             console.print(Panel(
@@ -789,7 +794,13 @@ def _deploy_paper_trading(
     _generate_baseline_if_possible(new_portfolio_id, source_portfolio_id)
 
     # 5. 发送 Kafka deploy 通知
-    _send_deploy_notification(new_portfolio_id)
+    from ginkgo.messages.control_command import ControlCommand
+    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+    from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+    cmd = ControlCommand.deploy(new_portfolio_id)
+    producer = GinkgoProducer()
+    producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
     return new_portfolio_id
 
@@ -863,43 +874,6 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
 
     except Exception as e:
         GLOG.WARN(f"[DEPLOY] Baseline generation failed (non-blocking): {e}")
-
-
-def _send_deploy_notification(portfolio_id: str) -> None:
-    """发送 deploy 命令到 Kafka"""
-    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-    from ginkgo.interfaces.kafka_topics import KafkaTopics
-
-    producer = GinkgoProducer()
-    msg = {
-        "command": "deploy",
-        "portfolio_id": portfolio_id,
-        "timestamp": datetime.now().isoformat(),
-    }
-    success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
-    if success:
-        GLOG.INFO(f"[DEPLOY] Kafka notification sent for {portfolio_id}")
-    else:
-        GLOG.ERROR(f"[DEPLOY] Failed to send Kafka notification for {portfolio_id}")
-
-
-def _send_unload_command(portfolio_id: str) -> bool:
-    """发送 unload 命令到 Kafka"""
-    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-    from ginkgo.interfaces.kafka_topics import KafkaTopics
-
-    producer = GinkgoProducer()
-    msg = {
-        "command": "unload",
-        "portfolio_id": portfolio_id,
-        "timestamp": datetime.now().isoformat(),
-    }
-    success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
-    if success:
-        GLOG.INFO(f"[UNLOAD] Kafka notification sent for {portfolio_id}")
-    else:
-        GLOG.ERROR(f"[UNLOAD] Failed to send Kafka notification for {portfolio_id}")
-    return success
 
 
 # ========== Analysis Baseline ==========
