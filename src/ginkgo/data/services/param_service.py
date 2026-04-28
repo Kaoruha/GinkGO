@@ -786,3 +786,29 @@ class ParamService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"根据名称模式清理参数失败: {str(e)}")
             return ServiceResult.error(f"根据名称模式清理参数失败: {str(e)}")
+
+    # ==================== 薄封装方法（供其他 Service 调用） ====================
+
+    def find_by_mapping_id(self, mapping_id: str):
+        """查询指定映射的所有参数（按索引排序）"""
+        return self._crud_repo.find_by_mapping_id(mapping_id)
+
+    def add_param(self, mapping_id: str, index: int, value: str, source=None):
+        """添加参数记录"""
+        from ginkgo.enums import SOURCE_TYPES
+
+        m_param = MParam(
+            mapping_id=mapping_id,
+            index=index,
+            value=value,
+            source=source or SOURCE_TYPES.SIM,
+        )
+        return self._crud_repo.add(m_param)
+
+    def remove_by_mapping(self, mapping_id: str) -> int:
+        """删除指定映射的所有参数"""
+        return self._crud_repo.remove(filters={"mapping_id": mapping_id})
+
+    def remove_by_uuid(self, uuid: str) -> int:
+        """按 UUID 删除单个参数"""
+        return self._crud_repo.remove(filters={"uuid": uuid})
