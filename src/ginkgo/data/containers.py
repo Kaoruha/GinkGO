@@ -203,13 +203,16 @@ class Container(containers.DeclarativeContainer):
         deployment_crud=deployment_crud,
     )
 
+    # Param service with ParamCRUD dependency (must be before portfolio_mapping_service)
+    param_service = providers.Singleton(ParamService, crud_repo=param_crud)
+
     # Portfolio Mapping Service - MongoDB 图结构与 MySQL Mapping+Param 双向同步
     portfolio_mapping_service = providers.Singleton(
         PortfolioMappingService,
         mapping_crud=portfolio_file_mapping_crud,
-        param_crud=param_crud,
+        param_service=param_service,
         mongo_driver=mongo_driver,
-        file_crud=file_crud,
+        file_service=file_service,
     )
 
     # Mapping Service for managing all mapping relationships
@@ -232,9 +235,6 @@ class Container(containers.DeclarativeContainer):
 
     # Factor service with FactorCRUD dependency
     factor_service = providers.Singleton(FactorService, factor_crud=factor_crud)
-
-    # Param service with ParamCRUD dependency
-    param_service = providers.Singleton(ParamService, crud_repo=param_crud)
 
     # Result service with AnalyzerRecordCRUD dependency
     result_service = providers.Singleton(ResultService, analyzer_crud=analyzer_record_crud)
