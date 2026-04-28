@@ -1070,12 +1070,32 @@ class PaperTradingWorker:
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error closing producer: {e}")
 
-        # 停止引擎前持久化所有 portfolio 状态
+        # 停止引擎前：持久化快照 + 更新 state=STOPPED
         if self._engine:
             try:
                 self._persist_all_portfolios()
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error persisting state on stop: {e}")
+
+            try:
+                from ginkgo import services
+                portfolio_service = services.data.portfolio_service()
+                for portfolio in self._engine.portfolios:
+                    try:
+                        portfolio_service.update(
+                            portfolio_id=portfolio.portfolio_id,
+                            state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
+                        )
+                        GLOG.INFO(
+                            f"[PAPER-WORKER] {portfolio.code} state -> STOPPED"
+                        )
+                    except Exception as e:
+                        GLOG.WARN(
+                            f"[PAPER-WORKER] Failed to update state for "
+                            f"{portfolio.portfolio_id[:8]}: {e}"
+                        )
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] Error updating states on stop: {e}")
 
         # 停止引擎
         if self._engine:
