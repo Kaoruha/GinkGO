@@ -14,7 +14,8 @@
       <div class="header-actions">
         <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
         <button v-if="portfolioStatus === 'idle'" class="btn-deploy" @click="openDeploy">部署</button>
-        <button class="btn-primary" @click="startBacktest">新建回测</button>
+        <button v-if="portfolioStatus === 'paper' || portfolioStatus === 'live'" class="btn-stop" @click="handleStop">停止</button>
+        <button v-if="portfolioStatus === 'idle'" class="btn-primary" @click="startBacktest">新建回测</button>
       </div>
     </div>
 
@@ -49,6 +50,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioApi, deploymentApi } from '@/api'
+import { message } from '@/utils/toast'
 import DeployModal from '@/components/business/DeployModal.vue'
 
 const route = useRoute()
@@ -84,6 +86,16 @@ const tabs = computed(() => [
 
 function startBacktest() {
   router.push(`/portfolios/${portfolioId.value}/backtests?action=create`)
+}
+
+async function handleStop() {
+  try {
+    await portfolioApi.stop(portfolioId.value)
+    message.success('停止命令已发送')
+    loadPortfolio()
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '停止失败')
+  }
 }
 
 async function loadPortfolio() {
@@ -232,6 +244,19 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   transition: all 0.2s;
 }
 .btn-deploy:hover { background: #52c41a; color: #fff; }
+
+.btn-stop {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #faad14;
+  background: #fffbe6;
+  color: #d48806;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-stop:hover {
+  background: #fff1b8;
+}
 
 .tab-bar {
   display: flex;
