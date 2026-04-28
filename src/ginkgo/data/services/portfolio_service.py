@@ -387,6 +387,69 @@ class PortfolioService(BaseService):
         from ginkgo import services
         return services.data.cruds.position()
 
+    def stop(self, portfolio_id: str) -> ServiceResult:
+        """
+        停止 PAPER/LIVE portfolio（发送 Kafka unload 命令）
+
+        Args:
+            portfolio_id: 投资组合UUID
+
+        Returns:
+            ServiceResult: 操作结果
+        """
+        try:
+            if not portfolio_id or not portfolio_id.strip():
+                return ServiceResult.error("投资组合ID不能为空")
+
+            # 查询 portfolio 信息
+            portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
+            if not portfolios:
+                return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            portfolio = portfolios[0]
+            mode = getattr(portfolio, 'mode', -1)
+            state = getattr(portfolio, 'state', 0)
+
+            # 校验 mode
+            if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+                return ServiceResult.error("回测模式组合不支持 stop，请直接删除")
+
+            # 校验 state
+            if state == PORTFOLIO_RUNSTATE_TYPES.STOPPED.value:
+                return ServiceResult.error("组合已停止")
+            if state == PORTFOLIO_RUNSTATE_TYPES.STOPPING.value:
+                return ServiceResult.error("组合正在停止中，请等待")
+
+            # 更新 state 为 STOPPING
+            self._crud_repo.modify(
+                filters={"uuid": portfolio_id},
+                updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPING.value},
+            )
+            GLOG.INFO(f"Portfolio {portfolio_id[:8]} state -> STOPPING")
+
+            # 发送 Kafka unload 命令
+            from ginkgo.messages.control_command import ControlCommand
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+            from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+            cmd = ControlCommand.unload(portfolio_id)
+            producer = GinkgoProducer()
+            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+
+            if success:
+                GLOG.INFO(f"[STOP] Kafka unload command sent for {portfolio_id[:8]}")
+            else:
+                GLOG.WARN(f"[STOP] Failed to send Kafka unload command for {portfolio_id[:8]}")
+
+            return ServiceResult.success(
+                {"portfolio_id": portfolio_id},
+                "停止命令已发送"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"停止投资组合失败: {e}")
+            return ServiceResult.error(f"停止投资组合失败: {str(e)}")
+
     @retry(max_try=3)
     def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
         """
@@ -410,6 +473,19 @@ class PortfolioService(BaseService):
 
             if not exists_result.data.get("exists", False):
                 return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            # 检查 PAPER/LIVE 运行状态保护
+            portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
+            if portfolios:
+                p = portfolios[0]
+                mode = getattr(p, 'mode', -1)
+                state = getattr(p, 'state', 0)
+                if mode in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
+                    if state in (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value):
+                        state_name = {v.value: k for k, v in PORTFOLIO_RUNSTATE_TYPES.__members__.items()}.get(state, str(state))
+                        return ServiceResult.error(
+                            f"组合正在{state_name}状态，请先停止后再删除"
+                        )
 
             deleted_count = 0
             mappings_deleted = 0
