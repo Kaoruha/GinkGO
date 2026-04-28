@@ -389,6 +389,68 @@ async def update_portfolio(uuid: str, data: dict):
         raise BusinessError(f"Error updating portfolio: {str(e)}")
 
 
+@router.post("/{uuid}/start")
+async def start_portfolio(uuid: str):
+    """启动 PAPER/LIVE Portfolio（发送 Kafka deploy 命令）"""
+    try:
+        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.kafka_topics import KafkaTopics
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        portfolio_service = get_portfolio_service()
+
+        # 验证存在
+        portfolios = portfolio_service._crud_repo.find(filters={"uuid": uuid})
+        if not portfolios:
+            raise NotFoundError("Portfolio", uuid)
+
+        portfolio = portfolios[0]
+        mode = getattr(portfolio, 'mode', -1)
+        if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+            raise BusinessError("回测模式组合不支持 start，请使用新建回测")
+
+        cmd = ControlCommand.deploy(uuid)
+        producer = GinkgoProducer()
+        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+
+        if not success:
+            raise BusinessError("Failed to send deploy command via Kafka")
+
+        logger.info(f"Start command sent for portfolio {uuid}")
+
+        return ok(data={"success": True}, message="Start command sent")
+
+    except NotFoundError:
+        raise
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error starting portfolio: {str(e)}")
+
+
+@router.post("/{uuid}/stop")
+async def stop_portfolio(uuid: str):
+    """停止 PAPER/LIVE Portfolio"""
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.stop(portfolio_id=uuid)
+
+        if not result.is_success():
+            raise BusinessError(result.error)
+
+        logger.info(f"Stop command sent for portfolio {uuid}")
+
+        return ok(data=result.data, message=result.message or "Stop command sent")
+
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error stopping portfolio: {str(e)}")
+
+
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_portfolio(uuid: str):
     """删除Portfolio（通过 service 层）"""
