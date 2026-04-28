@@ -142,10 +142,11 @@ class ParamCRUD(BaseCRUD[MParam]):
 
     def set_param_value(self, mapping_id: str, index: int, value: str, source: SOURCE_TYPES = SOURCE_TYPES.SIM) -> None:
         """
-        Business helper: Set parameter value.
+        Business helper: Set parameter value (upsert).
         """
+        existing = self.find(filters={"mapping_id": mapping_id, "index": index})
         if existing:
-            return self.modify({"mapping_id": mapping_id, "index": index}, {"value": value})
+            self.modify({"mapping_id": mapping_id, "index": index}, {"value": value})
         else:
             self.create(mapping_id=mapping_id, index=index, value=value, source=source)
 

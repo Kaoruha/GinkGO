@@ -265,10 +265,13 @@ class PortfolioMappingService(BaseService):
 
             GLOG.INFO(f"添加文件映射: {portfolio_uuid} -> {file_id}")
 
-            # 3. 同步到 MongoDB 图结构
-            self._sync_graph_from_mappings(portfolio_uuid)
+            # 3. 同步到 MongoDB 图结构（非致命）
+            try:
+                self._sync_graph_from_mappings(portfolio_uuid)
+            except Exception as e:
+                GLOG.WARN(f"图结构同步失败(非致命): {e}")
 
-            return ServiceResult.success(data={"file_id": file_id})
+            return ServiceResult.success(data={"file_id": file_id, "mapping_id": mapping_uuid})
 
         except Exception as e:
             GLOG.ERROR(f"添加文件失败: {e}")

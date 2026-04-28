@@ -227,9 +227,10 @@ class FileService(FileSearchMixin, BaseService):
 
         try:
             # Get the source file content
-            source_content = self.get_content(source_id)
-            if source_content is None:
+            content_result = self.get_content(source_id)
+            if not content_result.success or content_result.data is None:
                 return ServiceResult.error(f"Source file with ID {source_id} not found")
+            source_content = content_result.data
 
             # Get source file info to determine type if not specified
             if file_type is None:
