@@ -95,12 +95,6 @@ class ParamCRUD(BaseCRUD[MParam]):
         # For now, return models as-is since business object doesn't exist yet
         return models
 
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
     def _convert_output_items(self, items: List[MParam], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MParam objects for business layer.
