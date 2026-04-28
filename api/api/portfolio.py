@@ -400,12 +400,16 @@ async def start_portfolio(uuid: str):
 
         portfolio_service = get_portfolio_service()
 
-        # 验证存在
-        portfolios = portfolio_service._crud_repo.find(filters={"uuid": uuid})
-        if not portfolios:
+        # 验证存在并获取 mode
+        result = portfolio_service.get(portfolio_id=uuid)
+        if not result.is_success() or not result.data:
             raise NotFoundError("Portfolio", uuid)
 
-        portfolio = portfolios[0]
+        portfolio_list = result.data
+        portfolio = portfolio_list[0] if portfolio_list else None
+        if not portfolio:
+            raise NotFoundError("Portfolio", uuid)
+
         mode = getattr(portfolio, 'mode', -1)
         if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
             raise BusinessError("回测模式组合不支持 start，请使用新建回测")

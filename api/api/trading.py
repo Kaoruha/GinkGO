@@ -254,6 +254,7 @@ async def get_paper_account(account_id: str):
 async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = None):
     """[DEPRECATED] Use POST /api/v1/portfolios/{uuid}/start instead"""
     try:
+        from ginkgo.messages.control_command import ControlCommand
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
         # 验证 portfolio 存在
@@ -261,12 +262,8 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
 
         # 发送 Kafka deploy 命令
         producer = _get_kafka_producer()
-        msg = {
-            "command": "deploy",
-            "params": {"portfolio_id": account_id},
-            "timestamp": datetime.now().isoformat(),
-        }
-        success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
+        cmd = ControlCommand.deploy(account_id)
+        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
         if not success:
             raise BusinessError("Failed to send deploy command via Kafka")
@@ -291,6 +288,7 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
 async def stop_paper_trading(account_id: str):
     """[DEPRECATED] Use POST /api/v1/portfolios/{uuid}/stop instead"""
     try:
+        from ginkgo.messages.control_command import ControlCommand
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
         # 验证 portfolio 存在
@@ -298,12 +296,8 @@ async def stop_paper_trading(account_id: str):
 
         # 发送 Kafka unload 命令
         producer = _get_kafka_producer()
-        msg = {
-            "command": "unload",
-            "params": {"portfolio_id": account_id},
-            "timestamp": datetime.now().isoformat(),
-        }
-        success = producer.send(KafkaTopics.CONTROL_COMMANDS, msg)
+        cmd = ControlCommand.unload(account_id)
+        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
         if not success:
             raise BusinessError("Failed to send unload command via Kafka")
