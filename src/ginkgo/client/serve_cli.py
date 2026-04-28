@@ -754,6 +754,10 @@ def serve_worker_paper(
         console.print(f"\n:rocket: [bold green]Starting PaperTradingWorker...[/bold green]")
         console.print(":information: Press Ctrl+C to stop\n")
 
+        # atexit 兜底：异常退出时也执行 stop（覆盖 SIGKILL 以外的场景）
+        import atexit
+        atexit.register(worker.stop)
+
         worker.start()
 
         console.print(":white_check_mark: [green]PaperTradingWorker started[/green]")
