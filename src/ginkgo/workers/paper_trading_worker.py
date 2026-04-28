@@ -240,6 +240,23 @@ class PaperTradingWorker:
         # 10. 启动引擎
         engine.start()
 
+        # 10b. 将所有已加载的 portfolio 状态更新为 RUNNING
+        portfolio_service = container.portfolio_service()
+        for portfolio in engine.portfolios:
+            try:
+                portfolio_service.update(
+                    portfolio_id=portfolio.portfolio_id,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
+                )
+                GLOG.INFO(
+                    f"[PAPER-WORKER] {portfolio.code} state -> RUNNING"
+                )
+            except Exception as e:
+                GLOG.WARN(
+                    f"[PAPER-WORKER] Failed to update state for "
+                    f"{portfolio.portfolio_id[:8]}: {e}"
+                )
+
         # 11. 初始化偏差检测器
         self._deviation_detectors = {}
         for portfolio in engine.portfolios:
