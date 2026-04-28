@@ -1,5 +1,5 @@
 # Upstream: CLI Commands, API Controllers, PortfolioGraphEditor (前端)
-# Downstream: PortfolioFileMappingCRUD (MySQL), ParamCRUD (MySQL), GinkgoMongo (MongoDB), FileCRUD
+# Downstream: PortfolioFileMappingCRUD (MySQL), ParamService (MySQL), GinkgoMongo (MongoDB), FileService
 # Role: PortfolioMappingService 投资组合映射服务 - MongoDB图结构与MySQL Mapping+Param双向同步
 
 
@@ -10,9 +10,9 @@ import uuid
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
-from ginkgo.data.crud.param_crud import ParamCRUD
-from ginkgo.data.crud.file_crud import FileCRUD
-from ginkgo.data.models import MPortfolioFileMapping, MParam
+from ginkgo.data.services.param_service import ParamService
+from ginkgo.data.services.file_service import FileService
+from ginkgo.data.models import MPortfolioFileMapping
 from ginkgo.enums import FILE_TYPES, SOURCE_TYPES
 from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
 
@@ -41,32 +41,32 @@ class PortfolioMappingService(BaseService):
 
     Attributes:
         _mapping_crud: PortfolioFileMappingCRUD 实例
-        _param_crud: ParamCRUD 实例
+        _param_service: ParamService 实例
         _mongo_driver: GinkgoMongo 驱动实例
-        _file_crud: FileCRUD 实例
+        _file_service: FileService 实例
     """
 
     def __init__(
         self,
         mapping_crud: PortfolioFileMappingCRUD,
-        param_crud: ParamCRUD,
+        param_service: ParamService,
         mongo_driver: GinkgoMongo,
-        file_crud: FileCRUD,
+        file_service: FileService,
     ):
         """
         初始化服务
 
         Args:
             mapping_crud: PortfolioFileMappingCRUD 实例
-            param_crud: ParamCRUD 实例
+            param_service: ParamService 实例
             mongo_driver: GinkgoMongo 驱动实例
-            file_crud: FileCRUD 实例
+            file_service: FileService 实例
         """
         super().__init__(
             mapping_crud=mapping_crud,
-            param_crud=param_crud,
+            param_service=param_service,
             mongo_driver=mongo_driver,
-            file_crud=file_crud,
+            file_service=file_service,
         )
 
     # ==================== 方向 1: 图编辑器 → Mapping + Param ====================
@@ -306,7 +306,7 @@ class PortfolioMappingService(BaseService):
 
             # 2. 删除对应的参数
             for mapping in mappings:
-                self._param_crud.remove(filters={"mapping_id": mapping.uuid})
+                self._param_service.remove_by_mapping(mapping.uuid)
 
             # 3. 删除 MySQL Mapping
             self._mapping_crud.delete_mapping(portfolio_uuid, file_id)
@@ -404,7 +404,7 @@ class PortfolioMappingService(BaseService):
 
                 # 如果需要包含参数
                 if include_params:
-                    params = self._param_crud.find_by_mapping_id(m.uuid)
+                    params = self._param_service.find_by_mapping_id(m.uuid)
                     # 将参数列表转换为字典（优先使用存储的参数名）
                     params_dict = {}
                     for p in params:
@@ -440,7 +440,7 @@ class PortfolioMappingService(BaseService):
             ServiceResult: 包含参数字典
         """
         try:
-            params = self._param_crud.find_by_mapping_id(mapping_uuid)
+            params = self._param_service.find_by_mapping_id(mapping_uuid)
 
             # 转换为字典
             params_dict = {}
@@ -649,7 +649,7 @@ class PortfolioMappingService(BaseService):
             if file_id not in current_files:
                 self._mapping_crud.delete_mapping(portfolio_uuid, file_id)
                 # 同时删除参数
-                self._param_crud.remove(filters={"mapping_id": existing_mapping.uuid})
+                self._param_service.remove_by_mapping(existing_mapping.uuid)
 
         return mapping_uuids
 
@@ -690,44 +690,28 @@ class PortfolioMappingService(BaseService):
         mapping_uuid: str,
         params: Dict[str, Any],
     ) -> None:
-        """
-        同步参数到指定的 mapping
-
-        Args:
-            mapping_uuid: Mapping UUID
-            params: 参数字典
-        """
+        """同步参数到指定的 mapping"""
         # 将参数字典转换为扁平列表
         param_list = []
         for key, value in params.items():
-            # 尝试将值序列化为 JSON
             try:
                 value_str = json.dumps(value, ensure_ascii=False)
             except Exception as e:
                 GLOG.ERROR(f"序列化参数值失败: {e}")
                 value_str = str(value)
-
-            param_list.append({
-                "key": key,
-                "value": value_str
-            })
-
-        # 获取现有参数
-        existing_params = self._param_crud.find_by_mapping_id(mapping_uuid)
+            param_list.append({"key": key, "value": value_str})
 
         # 删除旧参数
-        for p in existing_params:
-            self._param_crud.remove(filters={"uuid": p.uuid})
+        self._param_service.remove_by_mapping(mapping_uuid)
 
         # 添加新参数
         for idx, param in enumerate(param_list):
-            m_param = MParam(
-                mapping_id=mapping_uuid,
+            self._param_service.add_param(
+                mapping_uuid=mapping_uuid,
                 index=idx,
                 value=param["value"],
-                source=SOURCE_TYPES.SIM
+                source=SOURCE_TYPES.SIM,
             )
-            self._param_crud.add(m_param)
 
     def _sync_graph_from_mappings(self, portfolio_uuid: str) -> None:
         """
@@ -773,7 +757,8 @@ class PortfolioMappingService(BaseService):
             x_pos = x_positions.get(file_type, 100)
             for mapping in type_mappings:
                 # 获取文件信息
-                file_obj = self._file_crud.get(mapping.file_id)
+                file_result = self._file_service.get_by_uuid(mapping.file_id)
+                file_obj = file_result.data.get("file") if file_result.success else None
                 if not file_obj:
                     continue
 
@@ -822,7 +807,7 @@ class PortfolioMappingService(BaseService):
         Returns:
             参数字典
         """
-        params = self._param_crud.find_by_mapping_id(mapping_uuid)
+        params = self._param_service.find_by_mapping_id(mapping_uuid)
 
         params_dict = {}
         for p in params:
