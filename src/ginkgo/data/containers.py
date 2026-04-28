@@ -234,7 +234,7 @@ class Container(containers.DeclarativeContainer):
     factor_service = providers.Singleton(FactorService, factor_crud=factor_crud)
 
     # Param service with ParamCRUD dependency
-    param_service = providers.Singleton(ParamService)
+    param_service = providers.Singleton(ParamService, crud_repo=param_crud)
 
     # Result service with AnalyzerRecordCRUD dependency
     result_service = providers.Singleton(ResultService, analyzer_crud=analyzer_record_crud)

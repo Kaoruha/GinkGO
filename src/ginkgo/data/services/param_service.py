@@ -18,25 +18,18 @@ class ParamService(BaseService):
     参数验证和类型转换等业务方法。
     """
 
-    def __init__(self):
+    def __init__(self, crud_repo=None):
         """
-        初始化ParamService实例，设置参数CRUD仓库
+        初始化ParamService实例
 
-        Returns:
-            None: 构造函数无返回值
+        Args:
+            crud_repo: ParamCRUD 实例（由容器注入）
         """
-        super().__init__()
-        self._crud_repo = ParamCRUD()
-
-    def _initialize_dependencies(self) -> None:
-        """
-        初始化依赖注入，为ParamService设置必要的组件
-
-        Returns:
-            None: 方法无返回值
-        """
-        # ParamService通常不需要额外依赖，如果有可以在这里添加
-        pass
+        if crud_repo is not None:
+            super().__init__(crud_repo=crud_repo)
+        else:
+            super().__init__()
+            self._crud_repo = ParamCRUD()
 
     @retry(max_try=3)
     def add(self, mapping_id: str, index: int, value: str, **kwargs) -> ServiceResult:
