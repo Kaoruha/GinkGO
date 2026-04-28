@@ -250,9 +250,9 @@ async def get_paper_account(account_id: str):
         raise BusinessError(f"Error getting paper account: {str(e)}")
 
 
-@router.post("/{account_id}/start")
+@router.post("/{account_id}/start", deprecated=True)
 async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = None):
-    """启动模拟盘（发送 Kafka deploy 命令）"""
+    """[DEPRECATED] Use POST /api/v1/portfolios/{uuid}/start instead"""
     try:
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -287,9 +287,9 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
         raise BusinessError(f"Error starting paper trading: {str(e)}")
 
 
-@router.post("/{account_id}/stop")
+@router.post("/{account_id}/stop", deprecated=True)
 async def stop_paper_trading(account_id: str):
-    """停止模拟盘（发送 Kafka unload 命令）"""
+    """[DEPRECATED] Use POST /api/v1/portfolios/{uuid}/stop instead"""
     try:
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
