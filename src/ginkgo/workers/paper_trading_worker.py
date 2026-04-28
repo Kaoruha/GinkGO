@@ -132,7 +132,7 @@ class PaperTradingWorker:
         feeder = BacktestFeeder()
         broker = SimBroker()
         gateway = TradeGateway(brokers=[broker])
-        loader = ComponentLoader()
+        loader = ComponentLoader(file_service=container.file_service())
 
         # 4. 加载每个 Portfolio
         for db_portfolio in db_portfolios:
@@ -145,11 +145,15 @@ class PaperTradingWorker:
 
                 # 创建 Portfolio 实例
                 portfolio = PortfolioT1Backtest()
-                portfolio.portfolio_id = db_portfolio.uuid
-                portfolio.code = db_portfolio.code
+                portfolio.set_portfolio_id(db_portfolio.uuid)
 
-                # 加载组件（通过 ComponentLoader）
-                self._load_components(portfolio, components, loader)
+                # 加载组件（通过 ComponentLoader.perform_component_binding）
+                if not loader.perform_component_binding(portfolio, components, GLOG):
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] Component binding failed for "
+                        f"{db_portfolio.uuid}, skipping"
+                    )
+                    continue
 
                 # 添加到引擎
                 engine.add_portfolio(portfolio)
@@ -828,12 +832,16 @@ class PaperTradingWorker:
 
             # 创建 Portfolio 实例
             portfolio = PortfolioT1Backtest()
-            portfolio.portfolio_id = db_portfolio.uuid
-            portfolio.code = db_portfolio.code
+            portfolio.set_portfolio_id(db_portfolio.uuid)
 
             # 加载组件
-            loader = ComponentLoader()
-            self._load_components(portfolio, components, loader)
+            loader = ComponentLoader(file_service=container.file_service())
+            if not loader.perform_component_binding(portfolio, components, GLOG):
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Component binding failed for "
+                    f"{portfolio_id}, skipping deploy"
+                )
+                return False
 
             # 添加到引擎
             with self._lock:

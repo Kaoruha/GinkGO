@@ -174,8 +174,15 @@ class PortfolioService(BaseService):
         if not portfolio_id or not portfolio_id.strip():
             return ServiceResult.error("Portfolio ID cannot be empty")
 
-        # 冻结检查
-        if self.is_portfolio_frozen(portfolio_id):
+        # 冻结检查（state 由 Worker 运行时控制，不阻止）
+        _only_state = state is not None and all(
+            v is None for k, v in [
+                ("name", name), ("mode", mode), ("description", description),
+                ("cash", cash), ("frozen", frozen), ("current_capital", current_capital),
+                ("total_fee", total_fee), ("total_profit", total_profit),
+            ]
+        )
+        if not _only_state and self.is_portfolio_frozen(portfolio_id):
             return ServiceResult.error("组合已部署，不可修改")
 
         updates = {}
