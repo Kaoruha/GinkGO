@@ -389,23 +389,28 @@ class PortfolioService(BaseService):
 
     def reset_stale_running(self) -> ServiceResult:
         """
-        将 PAPER/LIVE 模式下 RUNNING 状态的组合重置为 STOPPED。
+        将 PAPER/LIVE 模式下 RUNNING 或 STOPPING 状态的组合重置为 STOPPED。
 
-        用于 Worker 启动时清理上次异常退出残留的 RUNNING 状态。
+        用于 Worker 启动时清理上次异常退出残留的状态：
+        - RUNNING：Worker crash 后未来得及设 STOPPED
+        - STOPPING：Service.stop() 已设 STOPPING 但 Worker 未收到 unload 命令
         """
         try:
             reset_count = 0
+            stale_states = (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value)
             for mode_value in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
-                portfolios = self._crud_repo.find(
-                    filters={"mode": mode_value, "state": PORTFOLIO_RUNSTATE_TYPES.RUNNING.value}
-                )
-                for p in portfolios:
-                    self._crud_repo.modify(
-                        filters={"uuid": p.uuid},
-                        updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPED.value},
+                for stale_state in stale_states:
+                    portfolios = self._crud_repo.find(
+                        filters={"mode": mode_value, "state": stale_state}
                     )
-                    reset_count += 1
-                    GLOG.INFO(f"Reset stale RUNNING portfolio {p.uuid[:8]} -> STOPPED")
+                    for p in portfolios:
+                        self._crud_repo.modify(
+                            filters={"uuid": p.uuid},
+                            updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPED.value},
+                        )
+                        reset_count += 1
+                        state_name = "RUNNING" if stale_state == 1 else "STOPPING"
+                        GLOG.INFO(f"Reset stale {state_name} portfolio {p.uuid[:8]} -> STOPPED")
 
             if reset_count > 0:
                 GLOG.INFO(f"Reset {reset_count} stale RUNNING portfolios")

@@ -787,6 +787,13 @@ class PaperTradingWorker:
             GLOG.ERROR("[PAPER-WORKER] deploy command missing portfolio_id")
             return False
 
+        # 检查是否已在引擎中（防重复加载）
+        with self._lock:
+            for p in self._engine.portfolios:
+                if p.uuid == portfolio_id or p.portfolio_id == portfolio_id:
+                    GLOG.WARN(f"[PAPER-WORKER] Portfolio {portfolio_id[:8]} already in engine, skipping")
+                    return True
+
         from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
         from ginkgo.trading.services._assembly.component_loader import ComponentLoader
         from ginkgo.client.portfolio_cli import collect_portfolio_components
