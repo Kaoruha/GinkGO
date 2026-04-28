@@ -459,8 +459,8 @@ onUnmounted(() => {
 
 .card-title {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }

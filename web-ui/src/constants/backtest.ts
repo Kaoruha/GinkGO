@@ -4,6 +4,9 @@
  * Role: 回测任务状态常量，提供六态模型配置
  */
 
+/** 回测默认时间范围（单位：月） */
+export const BACKTEST_DEFAULT_RANGE_MONTHS = 12
+
 /**
  * 回测任务状态（六态模型）
  * - created: 待调度 - 任务已创建，等待调度

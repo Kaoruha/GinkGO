@@ -459,7 +459,7 @@ import type { BacktestTask, AnalyzerInfo } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
 import { useWebSocket } from '@/composables'
-import { canStartByState, canStopByState, canCancelByState } from '@/constants/backtest'
+import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RANGE_MONTHS } from '@/constants/backtest'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
 import { message } from '@/utils/toast'
@@ -498,6 +498,23 @@ const statusOptions = [
 // ========== 创建状态 ==========
 const showCreateModal = ref(false)
 const creating = ref(false)
+
+watch(showCreateModal, (open) => {
+  if (open && !createForm.value.start_date) {
+    const { start, end } = defaultDateRange()
+    createForm.value.start_date = start
+    createForm.value.end_date = end
+    startPickerYear.value = new Date(start).getFullYear()
+    startPickerMonth.value = new Date(start).getMonth()
+  }
+})
+const defaultDateRange = () => {
+  const today = new Date()
+  const past = new Date(today)
+  past.setMonth(past.getMonth() - BACKTEST_DEFAULT_RANGE_MONTHS)
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { start: fmt(past), end: fmt(today) }
+}
 const createForm = ref({ name: '', start_date: '', end_date: '', initial_cash: 1000000 })
 
 function formatCash(val: number | string) {
@@ -701,7 +718,8 @@ const handleCreate = async () => {
     }
     message.success('回测任务已创建并启动')
     showCreateModal.value = false
-    createForm.value = { name: '', start_date: '', end_date: '', initial_cash: 1000000 }
+    const { start, end } = defaultDateRange()
+    createForm.value = { name: '', start_date: start, end_date: end, initial_cash: 1000000 }
     loadList()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '创建失败')
