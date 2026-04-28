@@ -120,7 +120,7 @@ class PaperTradingWorker:
         # 3. 创建共享组件
         feeder = BacktestFeeder()
         broker = SimBroker()
-        gateway = TradeGateway(broker=broker)
+        gateway = TradeGateway(brokers=[broker])
         loader = ComponentLoader()
 
         # 4. 加载每个 Portfolio
