@@ -111,7 +111,15 @@ class DataPreparer:
                     self._logger.WARN(f"No portfolio found for id: {portfolio_id}")
                     continue
 
-                portfolio_configs[portfolio_id] = portfolio_df.iloc[0].to_dict()
+                portfolio_row = portfolio_df.iloc[0].to_dict()
+                portfolio_configs[portfolio_id] = portfolio_row
+
+                # 检查组合模式：仅回测模式可运行回测
+                from ginkgo.enums import PORTFOLIO_MODE_TYPES
+                mode = portfolio_row.get("mode", PORTFOLIO_MODE_TYPES.BACKTEST.value)
+                if mode != PORTFOLIO_MODE_TYPES.BACKTEST.value:
+                    mode_name = {v.value: k for k, v in PORTFOLIO_MODE_TYPES.__members__.items()}.get(mode, str(mode))
+                    return ServiceResult(success=False, error=f"组合 {portfolio_id} 模式为 {mode_name}，仅回测模式(BACKTEST)可运行回测")
 
                 # Get portfolio components
                 components = self._get_portfolio_components(portfolio_id)
