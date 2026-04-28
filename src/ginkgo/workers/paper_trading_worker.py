@@ -106,6 +106,35 @@ class PaperTradingWorker:
             filters={"mode": PORTFOLIO_MODE_TYPES.PAPER.value}
         )
 
+        # 1b. 清理上次异常退出残留的 RUNNING 状态
+        try:
+            portfolio_service = container.portfolio_service()
+            stale_portfolios = portfolio_crud.find(
+                filters={
+                    "mode": PORTFOLIO_MODE_TYPES.PAPER.value,
+                    "state": PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
+                }
+            )
+            for sp in stale_portfolios:
+                try:
+                    portfolio_service.update(
+                        portfolio_id=sp.uuid,
+                        state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
+                    )
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] Cleaned stale RUNNING state for {sp.uuid[:8]}"
+                    )
+                except Exception as e:
+                    GLOG.WARN(
+                        f"[PAPER-WORKER] Failed to clean stale state for {sp.uuid[:8]}: {e}"
+                    )
+            if stale_portfolios:
+                GLOG.INFO(
+                    f"[PAPER-WORKER] Cleaned {len(stale_portfolios)} stale RUNNING portfolios"
+                )
+        except Exception as e:
+            GLOG.WARN(f"[PAPER-WORKER] Stale state cleanup failed (non-fatal): {e}")
+
         if not db_portfolios:
             GLOG.WARN(f"[PAPER-WORKER] {self.worker_id}: No PAPER portfolios found in DB")
             return
