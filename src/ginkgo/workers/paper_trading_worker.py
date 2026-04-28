@@ -808,6 +808,24 @@ class PaperTradingWorker:
                 f"[PAPER-WORKER] Deployed portfolio {db_portfolio.code} "
                 f"({portfolio_id[:8]})"
             )
+
+            # 更新 DB state 为 RUNNING
+            try:
+                portfolio_service = container.portfolio_service()
+                portfolio_service.update(
+                    portfolio_id=portfolio_id,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
+                )
+                GLOG.INFO(
+                    f"[PAPER-WORKER] Portfolio {db_portfolio.code} "
+                    f"state -> RUNNING"
+                )
+            except Exception as e:
+                GLOG.WARN(
+                    f"[PAPER-WORKER] Failed to update state for "
+                    f"{portfolio_id[:8]}: {e}"
+                )
+
             return True
 
         except Exception as e:
@@ -850,6 +868,25 @@ class PaperTradingWorker:
             self._engine.remove_portfolio(target_portfolio)
 
         GLOG.INFO(f"[PAPER-WORKER] Unloaded portfolio {portfolio_id[:8]}")
+
+        # 更新 DB state 为 STOPPED
+        try:
+            from ginkgo import services
+            portfolio_service = services.data.container.portfolio_service()
+            portfolio_service.update(
+                portfolio_id=portfolio_id,
+                state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
+            )
+            GLOG.INFO(
+                f"[PAPER-WORKER] Portfolio {portfolio_id[:8]} "
+                f"state -> STOPPED"
+            )
+        except Exception as e:
+            GLOG.WARN(
+                f"[PAPER-WORKER] Failed to update state for "
+                f"{portfolio_id[:8]}: {e}"
+            )
+
         return True
 
     def _handle_command(self, command: str, params: Dict) -> bool:
@@ -933,19 +970,18 @@ class PaperTradingWorker:
                             break
 
                         try:
-                            event_data = message.value
-                            command = event_data.get("command", "")
-                            params = event_data.get("params", {})
+                            from ginkgo.messages.control_command import ControlCommand
+                            cmd = ControlCommand.from_dict(message.value)
 
                             GLOG.INFO(
-                                f"[PAPER-WORKER] Received command: {command}, "
-                                f"params: {params}"
+                                f"[PAPER-WORKER] Received command: {cmd.command}, "
+                                f"params: {cmd.params}"
                             )
 
-                            success = self._handle_command(command, params)
+                            success = self._handle_command(cmd.command, cmd.params)
 
                             # 发送处理结果
-                            self._send_response(command, success, params)
+                            self._send_response(cmd.command, success, cmd.params)
 
                             # 成功处理后提交 offset
                             try:
