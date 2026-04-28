@@ -33,6 +33,20 @@ def get_portfolio_service():
     return container.portfolio_service()
 
 
+_RUNSTATE_MAP = {
+    -1: "VOID", 0: "INITIALIZED", 1: "RUNNING", 2: "PAUSED",
+    3: "STOPPING", 4: "STOPPED", 5: "RELOADING", 6: "MIGRATING", 7: "OFFLINE",
+}
+
+
+def _map_state(state_value) -> str:
+    if isinstance(state_value, int):
+        return _RUNSTATE_MAP.get(state_value, "INITIALIZED")
+    if hasattr(state_value, "value"):
+        return _RUNSTATE_MAP.get(state_value.value, "INITIALIZED")
+    return str(state_value)
+
+
 def get_file_service():
     """获取FileService实例"""
     from ginkgo.data.containers import container
@@ -88,7 +102,7 @@ async def list_portfolios(
                 "uuid": p.uuid,
                 "name": p.name,
                 "mode": mode_val,
-                "state": "INITIALIZED",
+                "state": _map_state(p.state),
                 "config_locked": _check_frozen(p.uuid),
                 "net_value": 1.0,
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None
@@ -248,7 +262,7 @@ async def get_portfolio(uuid: str):
             "uuid": uuid,
             "name": portfolio_model.name,
             "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
-            "state": "INITIALIZED",
+            "state": _map_state(portfolio_model.state),
             "config_locked": portfolio_service.is_portfolio_frozen(uuid),
             "net_value": 1.0,
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
