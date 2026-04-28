@@ -158,7 +158,7 @@ class PaperTradingWorker:
                 # 添加到引擎
                 engine.add_portfolio(portfolio)
                 GLOG.INFO(
-                    f"[PAPER-WORKER] Loaded portfolio {db_portfolio.code} "
+                    f"[PAPER-WORKER] Loaded portfolio {db_portfolio.name} "
                     f"({db_portfolio.uuid[:8]})"
                 )
 
@@ -184,7 +184,7 @@ class PaperTradingWorker:
             except Exception as e:
                 GLOG.WARN(
                     f"[PAPER-WORKER] selector.pick() failed for "
-                    f"{portfolio.code}: {e}"
+                    f"{portfolio.name}: {e}"
                 )
 
         # 8. 恢复状态 / 首次初始化（在设置 task_id 和 time provider 之前，需要读取持久化时间）
@@ -197,7 +197,7 @@ class PaperTradingWorker:
                     portfolio.restore_state(state_result.data)
                     GLOG.INFO(
                         f"[PAPER-WORKER] Restored state for portfolio "
-                        f"{portfolio.code}: cash={state_result.data['cash']}"
+                        f"{portfolio.name}: cash={state_result.data['cash']}"
                     )
                     # 提取持久化的引擎时间（取最新的）
                     et = state_result.data.get("engine_current_time")
@@ -214,7 +214,7 @@ class PaperTradingWorker:
                     portfolio.add_cash(init_capital)
                     GLOG.INFO(
                         f"[PAPER-WORKER] First run for portfolio "
-                        f"{portfolio.code}: initial_capital={init_capital}"
+                        f"{portfolio.name}: initial_capital={init_capital}"
                     )
             except Exception as e:
                 GLOG.ERROR(
@@ -264,7 +264,7 @@ class PaperTradingWorker:
                     state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
                 )
                 GLOG.INFO(
-                    f"[PAPER-WORKER] {portfolio.code} state -> RUNNING"
+                    f"[PAPER-WORKER] {portfolio.name} state -> RUNNING"
                 )
             except Exception as e:
                 GLOG.WARN(
@@ -286,7 +286,7 @@ class PaperTradingWorker:
                     self._deviation_detectors[portfolio.portfolio_id] = detector
                     self.deviation_checker.set_detector(portfolio.portfolio_id, detector)
                     GLOG.INFO(
-                        f"[PAPER-WORKER] Deviation detector initialized for {portfolio.code}"
+                        f"[PAPER-WORKER] Deviation detector initialized for {portfolio.name}"
                     )
                 else:
                     GLOG.WARN(
@@ -475,7 +475,7 @@ class PaperTradingWorker:
 
         if level == "NORMAL":
             GLOG.DEBUG(
-                f"[PAPER-WORKER] {portfolio.code}: deviation NORMAL"
+                f"[PAPER-WORKER] {portfolio.name}: deviation NORMAL"
             )
             return
 
@@ -488,12 +488,12 @@ class PaperTradingWorker:
 
         if level == "MODERATE":
             GLOG.WARN(
-                f"[PAPER-WORKER] {portfolio.code}: MODERATE deviation - "
+                f"[PAPER-WORKER] {portfolio.name}: MODERATE deviation - "
                 f"{', '.join(severity_metrics)}"
             )
         elif level == "SEVERE":
             GLOG.ERROR(
-                f"[PAPER-WORKER] {portfolio.code}: SEVERE deviation - "
+                f"[PAPER-WORKER] {portfolio.name}: SEVERE deviation - "
                 f"{', '.join(severity_metrics)}"
             )
 
@@ -530,7 +530,7 @@ class PaperTradingWorker:
                     "type": "deviation_alert",
                     "level": level,
                     "portfolio_id": portfolio.portfolio_id,
-                    "portfolio_code": portfolio.code,
+                    "portfolio_code": portfolio.name,
                     "metrics": severity_metrics,
                     "risk_score": result.get("risk_score", 0),
                     "timestamp": datetime.now().isoformat(),
@@ -556,16 +556,16 @@ class PaperTradingWorker:
                 result = portfolio_service.persist_portfolio_state(portfolio.portfolio_id, state)
                 if result.is_success():
                     GLOG.DEBUG(
-                        f"[PAPER-WORKER] Persisted state for {portfolio.code}"
+                        f"[PAPER-WORKER] Persisted state for {portfolio.name}"
                     )
                 else:
                     GLOG.ERROR(
-                        f"[PAPER-WORKER] Persist failed for {portfolio.code}: "
+                        f"[PAPER-WORKER] Persist failed for {portfolio.name}: "
                         f"{result.error_message}"
                     )
             except Exception as e:
                 GLOG.ERROR(
-                    f"[PAPER-WORKER] Error persisting {portfolio.code}: {e}"
+                    f"[PAPER-WORKER] Error persisting {portfolio.name}: {e}"
                 )
 
     def _is_replay_mode(self) -> bool:
@@ -848,7 +848,7 @@ class PaperTradingWorker:
                 self._engine.add_portfolio(portfolio)
 
             GLOG.INFO(
-                f"[PAPER-WORKER] Deployed portfolio {db_portfolio.code} "
+                f"[PAPER-WORKER] Deployed portfolio {db_portfolio.name} "
                 f"({portfolio_id[:8]})"
             )
 
@@ -860,7 +860,7 @@ class PaperTradingWorker:
                     state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
                 )
                 GLOG.INFO(
-                    f"[PAPER-WORKER] Portfolio {db_portfolio.code} "
+                    f"[PAPER-WORKER] Portfolio {db_portfolio.name} "
                     f"state -> RUNNING"
                 )
             except Exception as e:
@@ -1113,7 +1113,7 @@ class PaperTradingWorker:
                             state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
                         )
                         GLOG.INFO(
-                            f"[PAPER-WORKER] {portfolio.code} state -> STOPPED"
+                            f"[PAPER-WORKER] {portfolio.name} state -> STOPPED"
                         )
                     except Exception as e:
                         GLOG.WARN(
