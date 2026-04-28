@@ -88,7 +88,6 @@ from ginkgo.data.crud.validation_result_crud import ValidationResultCRUD
 from ginkgo.user.services.user_service import UserService
 from ginkgo.user.services.user_group_service import UserGroupService
 from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
-from ginkgo.data.services.backtest_task_service import BacktestTaskService
 
 
 class Container(containers.DeclarativeContainer):
@@ -297,22 +296,6 @@ class Container(containers.DeclarativeContainer):
         analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),
         validation_result_crud=validation_result_crud,
     )
-
-    # Backtest task service
-    backtest_task_service = providers.Singleton(
-        BacktestTaskService,
-        crud_repo=backtest_task_crud
-    )
-
-    # Mapping service with all mapping CRUD dependencies
-    mapping_service = providers.Singleton(
-        MappingService,
-        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
-        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
-        engine_handler_mapping_crud=engine_handler_mapping_crud,
-        param_crud=param_crud,
-    )
-
 
 
 # A singleton instance of the container, accessible throughout the application
