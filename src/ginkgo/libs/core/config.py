@@ -341,7 +341,7 @@ class GinkgoConfig(object):
     @property
     def LOGGING_PATH(self) -> str:
         # 优先级：环境变量 > config.yml > 默认值
-        env_path = os.environ.get("GINKGO_LOGGING_PATH")
+        env_path = os.environ.get("GINKGO_LOG_PATH")
         if env_path:
             return env_path
         path = self._get_config("log_path")
@@ -359,6 +359,13 @@ class GinkgoConfig(object):
 
     def set_work_path(self, path: str) -> None:
         self._write_config("working_directory", path)
+
+    @property
+    def COMPOSE_FILE_PATH(self) -> str:
+        working = self.WORKING_PATH
+        if working:
+            return os.path.join(working, "docker-compose.yml")
+        return ""
 
     @property
     def UNITTEST_PATH(self) -> str:
