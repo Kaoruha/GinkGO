@@ -616,7 +616,7 @@ def main():
     path_log = os.path.expanduser("~") + "/.ginkgo/logs"
     path_db = f"{working_directory}/.db"
     path_pip = f"{working_directory}/requirements.txt"
-    path_dockercompose = f"{working_directory}/.conf/docker-compose.yml"
+    path_dockercompose = f"{working_directory}/docker-compose.yml"
     path_click = f"{working_directory}/.conf/clickhouse_users.xml"
     path_gink_conf = f"{working_directory}/src/ginkgo/config/config.yml"
     path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
