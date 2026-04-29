@@ -9,7 +9,7 @@
 # 5. 写入 ClickHouse 对应表
 #
 # 环境变量：
-#   GINKGO_LOGGING_PATH - 日志文件目录（与 GLOG 写入路径一致）
+#   GINKGO_LOG_PATH - 日志文件目录（与 GLOG 写入路径一致）
 #   默认值: ~/.ginkgo/logs (本地开发) 或 /var/log/ginkgo (容器部署)
 
 # ============================================================================
@@ -18,7 +18,7 @@
 
 [sources.ginkgo_logs]
 type = "file"
-include = ["${GINKGO_LOGGING_PATH}/**/*.log"]
+include = ["${GINKGO_LOG_PATH}/**/*.log"]
 
 # Read from the beginning on first start
 read_from = "beginning"
@@ -74,7 +74,7 @@ type = "clickhouse"
 inputs = ["route_by_category.backtest"]
 database = "ginkgo"
 table = "ginkgo_logs_backtest"
-endpoint = "http://clickhouse-master:8123"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
 
 [sinks.clickhouse_backtest.batch]
 max_events = 100
@@ -85,7 +85,7 @@ type = "clickhouse"
 inputs = ["route_by_category.component"]
 database = "ginkgo"
 table = "ginkgo_logs_component"
-endpoint = "http://clickhouse-master:8123"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
 
 [sinks.clickhouse_component.batch]
 max_events = 100
@@ -96,7 +96,7 @@ type = "clickhouse"
 inputs = ["route_by_category.performance"]
 database = "ginkgo"
 table = "ginkgo_logs_performance"
-endpoint = "http://clickhouse-master:8123"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
 
 [sinks.clickhouse_performance.batch]
 max_events = 100

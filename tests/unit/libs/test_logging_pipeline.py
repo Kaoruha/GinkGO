@@ -20,16 +20,16 @@ class TestLoggingPathEnvOverride:
     """验证 LOGGING_PATH 支持环境变量覆盖"""
 
     def test_env_variable_takes_priority(self):
-        """GINKGO_LOGGING_PATH 环境变量优先于 config.yml"""
+        """GINKGO_LOG_PATH 环境变量优先于 config.yml"""
         with pytest.MonkeyPatch.context() as mp:
-            mp.setenv("GINKGO_LOGGING_PATH", "/custom/log/path")
+            mp.setenv("GINKGO_LOG_PATH", "/custom/log/path")
             config = GinkgoConfig()
             assert config.LOGGING_PATH == "/custom/log/path"
 
     def test_config_yml_as_fallback(self):
         """没有环境变量时回退到 config.yml"""
         with pytest.MonkeyPatch.context() as mp:
-            mp.delenv("GINKGO_LOGGING_PATH", raising=False)
+            mp.delenv("GINKGO_LOG_PATH", raising=False)
             config = GinkgoConfig()
             # 应返回 config.yml 中的值或默认值
             path = config.LOGGING_PATH
@@ -39,7 +39,7 @@ class TestLoggingPathEnvOverride:
     def test_default_path_without_env(self):
         """没有环境变量时使用默认值（包含 .ginkgo/logs）"""
         with pytest.MonkeyPatch.context() as mp:
-            mp.delenv("GINKGO_LOGGING_PATH", raising=False)
+            mp.delenv("GINKGO_LOG_PATH", raising=False)
             config = GinkgoConfig()
             path = config.LOGGING_PATH
             assert ".ginkgo" in path or "logs" in path
@@ -198,14 +198,14 @@ class TestVectorConfigPathMatch:
     """验证 Vector 配置路径与 GLOG 使用同一变量"""
 
     def test_vector_includes_env_var(self):
-        """vector.toml 的 include 路径使用 ${GINKGO_LOGGING_PATH}"""
+        """vector.toml 的 include 路径使用 ${GINKGO_LOG_PATH}"""
         try:
             import tomllib
         except ImportError:
             import tomli as tomllib
 
         toml_path = os.path.normpath(os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "deploy", "vector", "vector.toml"
+            os.path.dirname(__file__), "..", "..", "..", ".conf", "vector.toml"
         ))
 
         if not os.path.exists(toml_path):
@@ -217,6 +217,6 @@ class TestVectorConfigPathMatch:
         includes = config["sources"]["ginkgo_logs"]["include"]
         assert len(includes) > 0, "No include patterns in vector.toml"
 
-        # 验证路径引用了 GINKGO_LOGGING_PATH 环境变量
-        assert any("${GINKGO_LOGGING_PATH}" in inc for inc in includes), \
-            f"Expected ${{GINKGO_LOGGING_PATH}} in include patterns, got: {includes}"
+        # 验证路径引用了 GINKGO_LOG_PATH 环境变量
+        assert any("${GINKGO_LOG_PATH}" in inc for inc in includes), \
+            f"Expected ${{GINKGO_LOG_PATH}} in include patterns, got: {includes}"
