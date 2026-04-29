@@ -12,12 +12,42 @@ Ginkgo Config CLI - 统一的配置管理命令
 参考 cline 的简洁设计模式
 """
 
+import os
 import typer
 from typing import Optional, Any
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
 from ginkgo.libs import GLOG
+
+
+def update_env_for_debug(env_file: str, debug_on: bool) -> None:
+    """更新 .env 文件中的数据库主机变量以匹配 debug 模式。
+
+    Args:
+        env_file: .env 文件路径
+        debug_on: True=测试环境, False=生产环境
+    """
+    host_mapping = {
+        "GINKGO_CLICKHOUSE_HOST": "clickhouse-test" if debug_on else "clickhouse-master",
+        "GINKGO_MYSQL_HOST": "mysql-test" if debug_on else "mysql-master",
+        "GINKGO_MONGODB_HOST": "mongo-master",
+    }
+
+    existing = {}
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, value = line.partition("=")
+                    existing[key.strip()] = value.strip()
+
+    existing.update(host_mapping)
+
+    with open(env_file, "w") as f:
+        for key, value in existing.items():
+            f.write(f"{key}={value}\n")
 
 app = typer.Typer(help=":gear: Configuration Management", rich_markup_mode="rich")
 console = Console()
@@ -87,6 +117,37 @@ def set(
             debug_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_debug(debug_value)
             console.print(f":white_check_mark: Set {key} = {debug_value}")
+
+            # 更新 .env 文件中的数据库主机
+            env_file = GCONF.COMPOSE_FILE_PATH
+            if env_file:
+                env_path = os.path.join(os.path.dirname(env_file), ".env")
+                try:
+                    update_env_for_debug(env_path, debug_on=debug_value)
+                    console.print(f":white_check_mark: Updated .env for {'test' if debug_value else 'production'} environment")
+                except Exception as e:
+                    console.print(f":warning: Failed to update .env: {e}")
+
+            # 重启有变化的 Docker 容器
+            if env_file and os.path.exists(env_file):
+                import subprocess
+                try:
+                    compose_dir = os.path.dirname(env_file)
+                    result = subprocess.run(
+                        ["docker", "compose", "up", "-d"],
+                        cwd=compose_dir,
+                        capture_output=True, text=True, timeout=60,
+                    )
+                    if result.returncode == 0:
+                        console.print(":white_check_mark: Docker containers restarted")
+                    else:
+                        console.print(f":warning: Docker compose: {result.stderr.strip()}")
+                except FileNotFoundError:
+                    pass
+                except subprocess.TimeoutExpired:
+                    console.print(":warning: Docker compose timed out")
+                except Exception as e:
+                    console.print(f":warning: Docker compose: {e}")
         elif key.lower() == 'quiet':
             quiet_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_quiet(quiet_value)
