@@ -340,10 +340,12 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_PATH(self) -> str:
+        # 优先级：环境变量 > config.yml > 默认值
+        env_path = os.environ.get("GINKGO_LOGGING_PATH")
+        if env_path:
+            return env_path
         path = self._get_config("log_path")
         if path is None:
-            # 提供默认日志路径
-            import os
             default_path = os.path.join(os.path.expanduser("~"), ".ginkgo", "logs")
             return default_path
         return path
