@@ -348,21 +348,26 @@ def containers(
 
         elif action == "deploy":
             console.print(":rocket: Deploying worker services...")
+            from ginkgo.libs import GCONF
 
-            # 检查docker-compose文件
-            compose_file = "docker-compose.worker.yml"
-            try:
-                import os
-                if os.path.exists(compose_file):
-                    console.print(f":clipboard: Using compose file: {compose_file}")
-                    console.print(":whale: docker-compose up -d")
-                else:
-                    console.print(":memo: Creating default compose file...")
-                    console.print(":bulb: Consider creating docker-compose.worker.yml")
-            except Exception as e:
-                GLOG.ERROR(f"Failed to check compose file: {e}")
-
-            console.print(":white_check_mark: Deployment completed")
+            compose_path = GCONF.COMPOSE_FILE_PATH
+            if compose_path and os.path.exists(compose_path):
+                console.print(f":whale: docker compose up -d (from {compose_path})")
+                import subprocess
+                try:
+                    result = subprocess.run(
+                        ["docker", "compose", "up", "-d"],
+                        cwd=os.path.dirname(compose_path),
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    if result.returncode == 0:
+                        console.print(":white_check_mark: Deployment completed")
+                    else:
+                        console.print(f":x: Deploy failed: {result.stderr.strip()}")
+                except FileNotFoundError:
+                    console.print(":x: Docker is not installed")
+            else:
+                console.print(":x: docker-compose.yml not found")
 
         else:
             console.print(f":x: Unknown action: {action}")
