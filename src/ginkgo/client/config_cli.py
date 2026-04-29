@@ -118,6 +118,9 @@ def set(
             GCONF.set_debug(debug_value)
             console.print(f":white_check_mark: Set {key} = {debug_value}")
 
+            # 确保 config 已加载（_has_local_config 可能为 None）
+            GCONF._read_config()
+
             # 更新 .env 文件中的数据库主机
             env_file = GCONF.COMPOSE_FILE_PATH
             if env_file:

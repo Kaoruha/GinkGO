@@ -365,6 +365,10 @@ class GinkgoConfig(object):
         working = self.WORKING_PATH
         if working:
             return os.path.join(working, "docker-compose.yml")
+        # 回退：从当前目录向上查找 docker-compose.yml
+        candidate = os.path.join(os.getcwd(), "docker-compose.yml")
+        if os.path.exists(candidate):
+            return candidate
         return ""
 
     @property
