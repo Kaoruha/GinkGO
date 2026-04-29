@@ -506,9 +506,9 @@ class GinkgoLogger:
 
     def _setup_json_file_handler(self):
         """
-        容器模式：设置 JSON 格式文件日志处理器
+        JSON 格式文件日志处理器
 
-        输出到 /var/log/ginkgo/ 目录，使用 JSON 格式供 Vector 采集解析。
+        输出到 LOGGING_PATH 目录，使用 JSON 格式供 Vector 采集解析。
         """
         if not self._file_names:
             self._file_names = [LOGGING_DEFAULT_FILE]
@@ -517,7 +517,7 @@ class GinkgoLogger:
             if not file_name.endswith(".log"):
                 file_name += ".log"
 
-            # 容器模式使用 /var/log/ginkgo/ 路径
+            # 写入 LOGGING_PATH（可通过 GINKGO_LOGGING_PATH 环境变量覆盖）
             file_path = os.path.join(LOGGING_PATH, file_name)
 
             # 确保目录存在
