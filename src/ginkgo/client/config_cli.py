@@ -21,12 +21,15 @@ from rich.table import Table
 from ginkgo.libs import GLOG
 
 
-def update_env_for_debug(env_file: str, debug_on: bool) -> None:
+def update_env_for_debug(env_file: str, debug_on: bool) -> dict:
     """更新 .env 文件中的数据库主机变量以匹配 debug 模式。
 
     Args:
         env_file: .env 文件路径
         debug_on: True=测试环境, False=生产环境
+
+    Returns:
+        变化的变量 dict，如果无变化返回空 dict
     """
     host_mapping = {
         "GINKGO_CLICKHOUSE_HOST": "clickhouse-test" if debug_on else "clickhouse-master",
@@ -43,11 +46,14 @@ def update_env_for_debug(env_file: str, debug_on: bool) -> None:
                     key, _, value = line.partition("=")
                     existing[key.strip()] = value.strip()
 
+    changed = {k: v for k, v in host_mapping.items() if existing.get(k) != v}
     existing.update(host_mapping)
 
     with open(env_file, "w") as f:
         for key, value in existing.items():
             f.write(f"{key}={value}\n")
+
+    return changed
 
 app = typer.Typer(help=":gear: Configuration Management", rich_markup_mode="rich")
 console = Console()
@@ -126,8 +132,12 @@ def set(
             if env_file:
                 env_path = os.path.join(os.path.dirname(env_file), ".env")
                 try:
-                    update_env_for_debug(env_path, debug_on=debug_value)
-                    console.print(f":white_check_mark: Updated .env for {'test' if debug_value else 'production'} environment")
+                    changed = update_env_for_debug(env_path, debug_on=debug_value)
+                    env_label = "test" if debug_value else "production"
+                    if changed:
+                        console.print(f":white_check_mark: .env updated → {env_label} (ClickHouse={changed.get('GINKGO_CLICKHOUSE_HOST', '?')}, MySQL={changed.get('GINKGO_MYSQL_HOST', '?')})")
+                    else:
+                        console.print(f":white_check_mark: .env already set to {env_label}")
                 except Exception as e:
                     console.print(f":warning: Failed to update .env: {e}")
 
@@ -136,17 +146,25 @@ def set(
                 import subprocess
                 try:
                     compose_dir = os.path.dirname(env_file)
+                    console.print(":whale: Restarting docker containers...")
                     result = subprocess.run(
                         ["docker", "compose", "up", "-d"],
                         cwd=compose_dir,
                         capture_output=True, text=True, timeout=60,
                     )
                     if result.returncode == 0:
+                        # 解析输出显示重建的容器
+                        recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
+                        if recreated:
+                            for line in recreated:
+                                console.print(f"  {line.strip()}")
+                        else:
+                            console.print("  No containers changed")
                         console.print(":white_check_mark: Docker containers restarted")
                     else:
                         console.print(f":warning: Docker compose: {result.stderr.strip()}")
                 except FileNotFoundError:
-                    pass
+                    console.print(":memo: Docker not installed, skipped container restart")
                 except subprocess.TimeoutExpired:
                     console.print(":warning: Docker compose timed out")
                 except Exception as e:

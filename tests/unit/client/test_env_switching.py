@@ -21,26 +21,29 @@ class TestEnvUpdateLogic:
         from ginkgo.client.config_cli import update_env_for_debug
 
         env_file = str(tmp_path / ".env")
-        update_env_for_debug(env_file, debug_on=True)
+        changed = update_env_for_debug(env_file, debug_on=True)
 
         with open(env_file) as f:
             content = f.read()
 
         assert "GINKGO_CLICKHOUSE_HOST=clickhouse-test" in content
         assert "GINKGO_MYSQL_HOST=mysql-test" in content
+        assert "GINKGO_CLICKHOUSE_HOST" in changed
+        assert "GINKGO_MYSQL_HOST" in changed
 
     def test_debug_off_sets_master_hosts(self, tmp_path):
         """debug=off 时写入 master 环境主机"""
         from ginkgo.client.config_cli import update_env_for_debug
 
         env_file = str(tmp_path / ".env")
-        update_env_for_debug(env_file, debug_on=False)
+        changed = update_env_for_debug(env_file, debug_on=False)
 
         with open(env_file) as f:
             content = f.read()
 
         assert "GINKGO_CLICKHOUSE_HOST=clickhouse-master" in content
         assert "GINKGO_MYSQL_HOST=mysql-master" in content
+        assert "GINKGO_CLICKHOUSE_HOST" in changed
 
     def test_preserves_other_env_vars(self, tmp_path):
         """更新时保留其他环境变量"""
@@ -52,7 +55,7 @@ class TestEnvUpdateLogic:
             f.write("GINKGO_CLICKHOUSE_HOST=clickhouse-test\n")
             f.write("SOME_OTHER_VAR=keep_me\n")
 
-        update_env_for_debug(env_file, debug_on=False)
+        changed = update_env_for_debug(env_file, debug_on=False)
 
         with open(env_file) as f:
             content = f.read()
@@ -68,9 +71,21 @@ class TestEnvUpdateLogic:
         env_file = str(tmp_path / ".env")
         assert not os.path.exists(env_file)
 
-        update_env_for_debug(env_file, debug_on=True)
+        changed = update_env_for_debug(env_file, debug_on=True)
 
         assert os.path.exists(env_file)
+        assert len(changed) > 0
+
+    def test_no_change_returns_empty(self, tmp_path):
+        """当前值与目标一致时返回空 dict"""
+        from ginkgo.client.config_cli import update_env_for_debug
+
+        env_file = str(tmp_path / ".env")
+        # 先设为 test
+        update_env_for_debug(env_file, debug_on=True)
+        # 再设为 test，应无变化
+        changed = update_env_for_debug(env_file, debug_on=True)
+        assert changed == {}
 
     def test_debug_mapping_table(self, tmp_path):
         """验证完整的 debug → 数据库映射"""
@@ -79,7 +94,7 @@ class TestEnvUpdateLogic:
         env_file = str(tmp_path / ".env")
 
         # debug=on
-        update_env_for_debug(env_file, debug_on=True)
+        changed_on = update_env_for_debug(env_file, debug_on=True)
         with open(env_file) as f:
             content_on = f.read()
         assert "GINKGO_CLICKHOUSE_HOST=clickhouse-test" in content_on
@@ -87,7 +102,7 @@ class TestEnvUpdateLogic:
         assert "GINKGO_MONGODB_HOST=mongo-master" in content_on
 
         # debug=off
-        update_env_for_debug(env_file, debug_on=False)
+        changed_off = update_env_for_debug(env_file, debug_on=False)
         with open(env_file) as f:
             content_off = f.read()
         assert "GINKGO_CLICKHOUSE_HOST=clickhouse-master" in content_off
