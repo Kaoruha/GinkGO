@@ -517,7 +517,7 @@ class GinkgoLogger:
             if not file_name.endswith(".log"):
                 file_name += ".log"
 
-            # 写入 LOGGING_PATH（可通过 GINKGO_LOGGING_PATH 环境变量覆盖）
+            # 写入 LOGGING_PATH（可通过 GINKGO_LOG_PATH 环境变量覆盖）
             file_path = os.path.join(LOGGING_PATH, file_name)
 
             # 确保目录存在

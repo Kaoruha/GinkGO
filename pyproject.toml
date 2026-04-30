@@ -287,3 +287,7 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
