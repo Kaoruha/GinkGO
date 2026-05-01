@@ -612,11 +612,9 @@ def main():
         msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
         print(msg)
     else:
-        msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
-        import pdb
-
-        pdb.set_trace()
-        print(msg)
+        print(f"[{red(' MISSING ')}] Ginkgo secure file not found at {path_gink_sec}")
+        print(f"  Create secure.yml in ~/.ginkgo/ based on src/ginkgo/config/secure.template")
+        sys.exit(1)
 
     copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
 
