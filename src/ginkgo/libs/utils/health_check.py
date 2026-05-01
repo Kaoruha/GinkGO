@@ -255,7 +255,7 @@ def check_docker_containers_running(container_names: List[str]) -> Dict[str, boo
         
         status = {}
         for container in container_names:
-            is_running = container in running_containers
+            is_running = any(container in rc for rc in running_containers)
             status[container] = is_running
             if is_running:
                 GLOG.DEBUG(f"Container {container} is running")
@@ -429,7 +429,7 @@ def ensure_services_ready(container_names: List[str] = None, max_wait: int = 300
         bool: 所有服务是否就绪
     """
     if container_names is None:
-        container_names = ["kafka1", "kafka2", "kafka3", "clickhouse_master", "mysql_master", "redis_master", "mongo-master"]
+        container_names = ["kafka1", "kafka2", "kafka3", "clickhouse-master", "mysql-master", "redis-master", "mongo-master"]
 
     GLOG.INFO(f"{Emoji('magnifying_glass_tilted_right')} Checking Docker containers...")
     container_status = check_docker_containers_running(container_names)
