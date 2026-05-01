@@ -561,7 +561,7 @@ def main():
     path_dockercompose = f"{working_directory}/docker-compose.yml"
     path_click = f"{working_directory}/.conf/clickhouse_users.xml"
     path_gink_conf = f"{working_directory}/src/ginkgo/config/config.yml"
-    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
+    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.template"
 
     print("======================================")
     print(f"{green('Ginkgo Trading Framework')} Installation Script")
