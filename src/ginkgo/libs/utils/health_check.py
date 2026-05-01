@@ -195,7 +195,7 @@ def check_mongo_ready(host: str = None, port: int = None,
 
 
 def check_kafka_ready(host: str = None, port: int = None,
-                     container_name: str = "kafka1", timeout: int = 10) -> bool:
+                     container_name: str = "ginkgo-kafka1", timeout: int = 10) -> bool:
     """
     检查Kafka是否就绪
 
