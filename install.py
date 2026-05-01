@@ -103,7 +103,7 @@ def env_check():
 
     if not os.path.exists(os.path.join(venv_path, "pyvenv.cfg")):
         print(f"[{green('CREATE')}] Creating venv at {lightblue(venv_path)}...")
-        subprocess.run(["uv", "venv", venv_path], check=True)
+        subprocess.run(["uv", "venv", venv_path, "--python", "3.12.8"], check=True)
     else:
         print(f"[{green('REUSE')}] Found existing venv at {lightblue(venv_path)}")
 
