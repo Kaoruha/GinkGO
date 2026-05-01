@@ -19,7 +19,7 @@ x-worker-common: &worker-common
     - clickhouse-test
   environment: &worker-env
     GINKGO_KAFKA_HOST: kafka1
-    GINKGO_KAFKA_PORT: 9092
+    GINKGO_KAFKA_PORT: 19092
     GINKGO_REDIS_HOST: redis-master
     GINKGO_REDIS_PORT: 6379
     GINKGO_MONGODB_HOST: ${GINKGO_MONGODB_HOST:-mongo-master}
