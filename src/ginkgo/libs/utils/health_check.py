@@ -221,7 +221,7 @@ def check_kafka_ready(host: str = None, port: int = None,
         # 尝试列出topics
         result = subprocess.run([
             "docker", "exec", container_name,
-            "kafka-topics.sh",
+            "/opt/kafka/bin/kafka-topics.sh",
             "--bootstrap-server", f"{host}:{port}",
             "--list"
         ], capture_output=True, text=True, timeout=timeout)
