@@ -196,6 +196,7 @@ class GinkgoConfig(object):
         if not os.path.exists(config_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/config.yml")
             if os.path.exists(origin_path):
+                os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, config_path)
                 print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
                 self._has_local_config = True  # ✅ 更新缓存
@@ -210,6 +211,7 @@ class GinkgoConfig(object):
         if not os.path.exists(secure_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/secure.backup")
             if os.path.exists(origin_path):
+                os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, secure_path)
                 print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
                 self._has_local_secure = True  # ✅ 更新缓存
