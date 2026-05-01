@@ -580,43 +580,37 @@ def main():
         input(f"Press {green('ENTER')} to continue, {lightblue('Ginkgo')} will be build.")
         print("File Check:")
 
-    if os.path.exists(path_pip):
-        msg = f"[{green('CONFIRMED')}] Pip requirements."
-        print(msg)
+    ginkgo_dir = os.environ.get("GINKGO_DIR", os.path.expanduser("~/.ginkgo"))
+    ginkgo_config = os.path.join(ginkgo_dir, "config.yml")
+    ginkgo_secure = os.path.join(ginkgo_dir, "secure.yml")
+
+    # 检查 ~/.ginkgo 下配置文件，不存在则从源拷贝
+    if not os.path.exists(ginkgo_config) or not os.path.exists(ginkgo_secure):
+        print(f"[{lightblue('SETUP')}] Config files not found in {ginkgo_dir}, copying from source...")
+        if not os.path.exists(path_gink_conf):
+            print(f"[{red(' MISSING ')}] Source config file not found at {path_gink_conf}")
+            sys.exit(1)
+        if not os.path.exists(path_gink_sec):
+            print(f"[{red(' MISSING ')}] Source secure file not found at {path_gink_sec}")
+            sys.exit(1)
+        copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
     else:
-        msg = f"[{red(' MISSING ')}] Pip requirements."
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Config files in {lightblue(ginkgo_dir)}")
+
+    if os.path.exists(path_pip):
+        print(f"[{green('CONFIRMED')}] Pip requirements.")
+    else:
+        print(f"[{red(' MISSING ')}] Pip requirements.")
 
     if os.path.exists(path_dockercompose):
-        msg = f"[{green('CONFIRMED')}] Docker compose file"
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Docker compose file")
     else:
-        msg = f"[{red(' MISSING ')}] Docker Compose file"
-        print(msg)
+        print(f"[{red(' MISSING ')}] Docker Compose file")
 
     if os.path.exists(path_click):
-        msg = f"[{green('CONFIRMED')}] Clickhouse config file"
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Clickhouse config file")
     else:
-        msg = f"[{red(' MISSING ')}] Clickhouse config file"
-        print(msg)
-
-    if os.path.exists(path_gink_conf):
-        msg = f"[{green('CONFIRMED')}] Ginkgo config file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Ginkgo config file"
-        print(msg)
-
-    if os.path.exists(path_gink_sec):
-        msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
-        print(msg)
-    else:
-        print(f"[{red(' MISSING ')}] Ginkgo secure file not found at {path_gink_sec}")
-        print(f"  Create secure.yml in ~/.ginkgo/ based on src/ginkgo/config/secure.template")
-        sys.exit(1)
-
-    copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
+        print(f"[{red(' MISSING ')}] Clickhouse config file")
 
     install_ginkgo()
 
