@@ -1049,10 +1049,8 @@ const dirLabel = (d: string | number | null) => DIR_LABEL_MAP[String(d)] || Stri
 
 const shortMsg = (msg: string | null) => {
   if (!msg) return ''
-  // Skip double-encoded JSON messages
-  if (msg.startsWith('{')) return ''
   const s = msg.replace(/^[\p{Emoji_Presentation}\s]+\[.*?\]\s*/u, '').trim()
-  return s.length > 80 ? s.substring(0, 80) + '...' : s
+  return s.length > 120 ? s.substring(0, 120) + '...' : s
 }
 
 const getAnalyzerColor = (name: string, value: number | null): string => {
