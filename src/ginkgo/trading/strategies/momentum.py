@@ -126,11 +126,6 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         if not isinstance(current_time, datetime):
             return []
 
-        # 获取 engine_id 和 task_id（优先从上下文，后备从 portfolio_info）
-        engine_id = self.engine_id or portfolio_info.get("engine_id", "")
-        task_id = self.task_id or portfolio_info.get("task_id", "")
-        portfolio_id = portfolio_info.get("uuid", "")
-
         # 检查是否到了再平衡时间
         if self._last_rebalance is not None:
             days_since_rebalance = (current_time - self._last_rebalance).days
@@ -207,10 +202,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                     direction=DIRECTION_TYPES.LONG.value,
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    task_id=task_id,
-                    business_timestamp=current_time,
+                    msg=f"动量入选: {code} 进入前{self.top_n}",
                 )
 
         # 卖出跌出 top_n 的持仓
@@ -229,10 +221,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                     direction=DIRECTION_TYPES.SHORT.value,
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    task_id=task_id,
-                    business_timestamp=current_time,
+                    msg=f"动量调出: {code} 跌出前{self.top_n}",
                 )
             else:
                 new_holdings.add(code)

@@ -280,9 +280,9 @@ class EventEngine(BaseEngine):
         # 记录引擎启动事件（必须在启动主线程之前，确保 ENGINESTART 排在最前面）
         try:
             GLOG.backtest.system.start(
-                engine_id=self.uuid,
                 name=self.name,
-                mode=self.mode.value if hasattr(self.mode, 'value') else str(self.mode)
+                mode=self.mode.value if hasattr(self.mode, 'value') else str(self.mode),
+                msg=f"引擎启动: {self.name} 模式{self.mode.value if hasattr(self.mode, 'value') else str(self.mode)}",
             )
         except Exception as e:
             GLOG.WARN(f"Failed to log engine start event: {e}")
@@ -330,8 +330,8 @@ class EventEngine(BaseEngine):
         # 记录引擎暂停事件到ClickHouse
         try:
             GLOG.backtest.system.pause(
-                engine_id=self.uuid,
-                reason="用户暂停"
+                reason="用户暂停",
+                msg=f"引擎暂停: {self.name}",
             )
         except Exception as e:
             GLOG.WARN(f"Failed to log engine pause event: {e}")
@@ -389,8 +389,8 @@ class EventEngine(BaseEngine):
         # 记录引擎完成事件到ClickHouse
         try:
             GLOG.backtest.system.complete(
-                engine_id=self.uuid,
-                name=self.name
+                name=self.name,
+                msg=f"引擎完成: {self.name}",
             )
         except Exception as e:
             GLOG.WARN(f"Failed to log engine complete event: {e}")

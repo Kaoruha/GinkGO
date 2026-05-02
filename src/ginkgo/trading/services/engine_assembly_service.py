@@ -343,6 +343,13 @@ class EngineAssemblyService(BaseService):
                     continue
                 else:
                     self._logger.INFO(f"✅ Successfully bound portfolio {portfolio_id} to engine")
+                    # 获取组件摘要
+                    components = portfolio_components.get(portfolio_id, {})
+                    strategy_count = len(components.get("strategies", []))
+                    risk_count = len(components.get("risk_managers", []))
+                    GLOG.backtest.system.start(
+                        msg=f"组合绑定: {portfolio_id[:8]} {strategy_count}个策略 {risk_count}个风控 初始资金{portfolio_configs[portfolio_id].get('cash', 'N/A')}",
+                    )
                     bound_portfolio_count += 1
 
             # 检查是否至少有一个Portfolio成功绑定
@@ -363,6 +370,9 @@ class EngineAssemblyService(BaseService):
             # 装配完成，但不启动引擎 - 装配和启动分离
             self._logger.INFO("✅ Engine assembly completed (engine not started)")
             self._logger.INFO(f"🔍 [STATE] Final assembly state: {engine.status} (state: {engine.state})")
+            GLOG.backtest.system.start(
+                msg=f"引擎装配完成: {bound_portfolio_count}个组合已绑定",
+            )
 
             return engine
 

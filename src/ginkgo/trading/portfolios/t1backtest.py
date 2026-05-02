@@ -101,10 +101,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 volume=position.volume,
                 position_cost=position.cost,
                 position_price=position.price,
-                portfolio_id=position.portfolio_id,
-                engine_id=position.engine_id,
-                task_id=position.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"持仓更新: {position.code} {position.volume}股 成本{position.cost:.2f}",
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log position event: {e}")
@@ -157,7 +154,7 @@ class PortfolioT1Backtest(PortfolioBase):
                     )
 
         if settled_positions > 0:
-            GLOG.INFO(f"Processed settlement for {settled_positions} positions")
+            GLOG.INFO(f"T+1解冻: {settled_positions}个持仓完成结算解冻")
 
         # ===== 步骤2: 时间推进和状态更新 =====
         # Go next TimePhase - 统一使用hook机制
@@ -182,7 +179,7 @@ class PortfolioT1Backtest(PortfolioBase):
         delayed_signals_count = len(self._signals)
         # 取消详细的Portfolio状态打印以避免性能开销
         # print(f"🕰️ [TIME ADVANCE] Portfolio time advance to {time}: {self}")
-        GLOG.INFO(f"🕰️ Portfolio time advance to {time}, {delayed_signals_count} delayed signals")
+        GLOG.INFO(f"时间推进: {time}, {len(self.positions)}个持仓, {delayed_signals_count}个待处理信号, 现金{self.cash:.2f}")
 
         if delayed_signals_count > 0:
             GLOG.WARN(f"⚡ [T+1 PROCESSING] Processing {delayed_signals_count} delayed T+1 signals from previous period",
@@ -372,12 +369,11 @@ class PortfolioT1Backtest(PortfolioBase):
             order_before_rm = order
             order = risk_manager.cal(self.get_info(), order)
             if order is None:
-                GLOG.WARN(f"⚠️ ORDER BLOCKED by risk manager #{i+1} ({risk_manager.__class__.__name__}) for {event.code}",
-                )
+                GLOG.INFO(f"风控拦截: {risk_manager.__class__.__name__} 拦截了{event.code}的订单")
                 return
             else:
                 if order_before_rm.volume != order.volume:
-                    GLOG.INFO(f"📊 RISK MANAGER #{i+1} adjusted volume: {order_before_rm.volume} → {order.volume}"
+                    GLOG.INFO(f"风控调整: {risk_manager.__class__.__name__} 调整数量 {order_before_rm.volume}→{order.volume}"
                     )
 
         # 4. Get the adjusted order, if so put eventorder to engine
@@ -432,8 +428,6 @@ class PortfolioT1Backtest(PortfolioBase):
 
         event = EventOrderAck(order, portfolio_id=self.uuid, engine_id=self.engine_id, task_id=self.task_id)
         event.broker_order_id = f"BROKER_{order.uuid[:8]}"
-
-        # Set the order as payload for unified access
         event.payload = order
 
         print(
@@ -447,12 +441,13 @@ class PortfolioT1Backtest(PortfolioBase):
             func(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
 
         # Submit to engine
-        GLOG.WARN(f"🚀 [ORDER TO ENGINE] Submitting order event to engine for matchmaking - Event: {event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}",
-        )
-        GLOG.WARN(f"📋 [EVENT DETAILS] Event type: {type(event).__name__}, Order: {event.order.code if hasattr(event, 'order') else 'N/A'}",
-        )
         self.put(event)
-        GLOG.WARN(f"✅ [ORDER FLOW COMPLETE] Signal → Order → Risk Management → Freezing → Engine submission")
+        GLOG.backtest.trade.order(
+            order_id=order.uuid,
+            symbol=order.code,
+            direction=order.direction.name,
+            msg=f"订单提交: {order.direction.name} {order.code} {order.volume}股@{order.limit_price or '市价'} 冻结{order.frozen_money:.2f}",
+        )
 
     def on_price_received(self, event: EventPriceUpdate):
         # 🔍 [DEBUG] 追踪on_price_received调用
@@ -467,7 +462,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             pass
 
-        GLOG.INFO(f"Got new price {code if code != '' else ''}. {self.business_timestamp}")
+        GLOG.INFO(f"收到行情: {code} 收盘{event.close} {self.business_timestamp}")
 
         if not self.is_all_set():
             return
@@ -478,9 +473,12 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 1. Update position price
         if event.code in self.positions:
+            pos = self.positions[event.code]
+            old_worth = pos.worth if hasattr(pos, 'worth') else 0
             self.positions[event.code].on_price_update(event.close)
             self.update_worth()
             self.update_profit()
+            GLOG.INFO(f"持仓估值更新: {event.code} 旧市值{old_worth:.2f}→新市值{pos.worth:.2f} 成本{pos.cost:.2f}")
 
         # 2. Transfer price to each strategy
         if len(self.strategies) == 0:
@@ -512,6 +510,8 @@ class PortfolioT1Backtest(PortfolioBase):
                 signals = []
             finally:
                 pass
+            if signals:
+                GLOG.INFO(f"策略{strategy.name}生成{len(signals)}个信号: {[f'{s.direction.name} {s.code}' for s in signals]}")
             # 处理每个信号
             for signal in signals:
                 if signal:
@@ -676,10 +676,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 commission=fee,
                 symbol=code,
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"成交: {direction.name} {code} {qty}股@{price} 手续费{fee:.2f}",
             )
 
             fill_cost = price * qty + fee
@@ -797,10 +794,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 order_id=event.order_id,
                 code=reject_code,
                 reason=reject_reason,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"订单拒绝: {reject_code} - {reject_reason}",
             )
 
             # 保存订单记录（REJECTED 状态）
@@ -834,10 +828,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 order_id=order_id,
                 reason=expire_reason,
                 expired_quantity=expired_quantity,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"订单过期: {expire_reason} 过期量{expired_quantity}",
             )
 
             # 过期一般伴随取消事件；组合在取消事件中做资金/仓位回滚
@@ -879,10 +870,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 order_id=order_id,
                 reason=cancel_reason,
                 cancelled_quantity=cancelled_quantity,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"订单取消: {cancel_reason} 取消量{cancelled_quantity}",
             )
 
             # 保存订单记录（CANCELED 状态）
@@ -1006,10 +994,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 total=total_value,
                 cash=self.cash,
                 frozen_cash=self.frozen,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"做多成交后资金: 总资产{total_value:.2f} 现金{self.cash:.2f} 冻结{self.frozen:.2f}",
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")
@@ -1044,10 +1029,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 total=total_value,
                 cash=self.cash,
                 frozen_cash=self.frozen,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=self.current_timestamp,
+                msg=f"做空成交后资金: 总资产{total_value:.2f} 现金{self.cash:.2f} 冻结{self.frozen:.2f}",
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")
