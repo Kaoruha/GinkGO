@@ -200,6 +200,9 @@ class EngineAssemblyService(BaseService):
                 logger = GinkgoLogger(
                     logger_name="engine_logger", file_names=[f"bt_{engine_id or 'config'}_{now}"], console_log=False
                 )
+                # 将 bt_ 文件 handler 同步到 GLOG 全局实例，确保回测运行时日志也写入独立文件
+                for handler in logger.file_handlers:
+                    GLOG.logger.addHandler(handler)
 
             # 执行核心装配逻辑
             engine = self._perform_backtest_engine_assembly(
