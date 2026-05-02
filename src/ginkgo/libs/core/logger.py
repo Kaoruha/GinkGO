@@ -423,10 +423,17 @@ class GinkgoLogger:
         self.performance = _PerformanceLogNamespace(self)
 
     def _setup_handlers(self, console_log):
+        # 防止重复初始化（ginkgo.libs vs src.ginkgo.libs 可能触发两次 __init__）
+        existing_names = {getattr(h, '_name', None) for h in self.logger.handlers}
+
         if LOGGING_FILE_ON:
-            self._setup_json_file_handler()
-        self._setup_console_handler(console_log)
-        # self._setup_error_handler()
+            file_handler_name = f"json_file_handler_{self.logger_name}.log"
+            if file_handler_name not in existing_names:
+                self._setup_json_file_handler()
+
+        console_name = getattr(self, '_console_handler_name', None)
+        if console_name and console_name not in existing_names:
+            self._setup_console_handler(console_log)
 
     def _should_log_error(self, msg: str) -> tuple[bool, str]:
         """
