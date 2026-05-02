@@ -14,9 +14,13 @@ This class is maintained by BaseEngine and shared across all Portfolios.
 Provides read-only access to engine_id and task_id.
 """
 
-from typing import Optional
+from datetime import datetime
+from typing import Optional, TYPE_CHECKING
 
 from ginkgo.enums import SOURCE_TYPES
+
+if TYPE_CHECKING:
+    from ginkgo.trading.time.interfaces import ITimeProvider
 
 
 class EngineContext:
@@ -27,6 +31,7 @@ class EngineContext:
     - Store engine_id (read-only, updatable by Engine)
     - Store task_id (read-only, updatable by Engine)
     - Store source_type (marks BACKTEST / PAPER_REPLAY / PAPER_LIVE)
+    - Hold reference to ITimeProvider for dynamic business_timestamp
     - Provide read-only property access
 
     Design:
@@ -45,6 +50,7 @@ class EngineContext:
         self._engine_id = engine_id
         self._task_id: Optional[str] = None
         self._source_type: int = SOURCE_TYPES.OTHER
+        self._time_provider: Optional["ITimeProvider"] = None
 
     @property
     def engine_id(self) -> str:
@@ -60,6 +66,18 @@ class EngineContext:
     def source_type(self) -> int:
         """Read-only: Current source type (SOURCE_TYPES enum value)"""
         return self._source_type
+
+    @property
+    def time_provider(self) -> Optional["ITimeProvider"]:
+        """Read-only: Bound ITimeProvider instance"""
+        return self._time_provider
+
+    @property
+    def business_timestamp(self) -> Optional[datetime]:
+        """Read-only: Current business time from the bound time provider, or None"""
+        if self._time_provider is not None:
+            return self._time_provider.now()
+        return None
 
     def set_engine_id(self, engine_id: str) -> None:
         """
@@ -88,5 +106,19 @@ class EngineContext:
         """
         self._source_type = source_type
 
+    def set_time_provider(self, provider: Optional["ITimeProvider"]) -> None:
+        """
+        Bind or unbind an ITimeProvider (only Engine should call this).
+
+        Args:
+            provider: ITimeProvider instance, or None to unbind
+        """
+        self._time_provider = provider
+
     def __repr__(self) -> str:
-        return f"EngineContext(engine_id={self._engine_id[:8]}..., task_id={self._task_id[:8] if self._task_id else None}...)"
+        tp_status = "bound" if self._time_provider is not None else "unbound"
+        return (
+            f"EngineContext(engine_id={self._engine_id[:8]}..., "
+            f"task_id={self._task_id[:8] if self._task_id else None}..., "
+            f"time_provider={tp_status})"
+        )

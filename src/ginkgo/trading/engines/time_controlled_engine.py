@@ -205,9 +205,11 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         if self.mode == EXECUTION_MODE.BACKTEST:
             # 回测模式：使用逻辑时间
             self._time_provider = LogicalTimeProvider(self._logical_time_start)
+            self._engine_context.set_time_provider(self._time_provider)
         else:
             # LIVE模式：使用系统时间
             self._time_provider = SystemTimeProvider()
+            self._engine_context.set_time_provider(self._time_provider)
 
         # 注册为时间感知组件
         if hasattr(self._time_provider, "register_time_listener"):
@@ -520,7 +522,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 if self._datafeeder:
                     try:
                         self._datafeeder.advance_time(target_time)
-                        GLOG.DEBUG(f"{self.name}: Feeder advanced to {target_time}")
+                        GLOG.INFO(f"{self.name}: Feeder advanced to {target_time.date()}")
                     except Exception as e:
                         GLOG.ERROR(f"{self.name}: Feeder time advance error: {e}")
 
@@ -528,18 +530,18 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
                 self.put(EventComponentTimeAdvance(target_time, "portfolio"))
-                GLOG.DEBUG(f"{self.name}: Feeder stage completed, Portfolio stage queued")
+                GLOG.INFO(f"{self.name}: Feeder stage completed, Portfolio stage queued")
 
             elif component_type == "portfolio":
                 # 阶段2：推进Portfolio时间（此时Broker已有新价格数据）
                 for portfolio in self.portfolios:
                     try:
                         portfolio.advance_time(target_time)
-                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
+                        GLOG.INFO(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time.date()}")
                     except Exception as e:
                         GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
 
-                GLOG.DEBUG(f"{self.name}: Component time advance sequence completed for {target_time}")
+                GLOG.INFO(f"{self.name}: Time advance sequence completed for {target_time.date()}")
 
             else:
                 GLOG.WARN(f"{self.name}: Unknown component_type: {component_type}")

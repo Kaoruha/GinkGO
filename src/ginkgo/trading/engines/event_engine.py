@@ -198,6 +198,9 @@ class EventEngine(BaseEngine):
         """
         Main event processing loop - 默认实现从事件队列中获取并处理事件
         """
+        # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
+        GLOG.bind_context(engine_context=self._engine_context)
+
         while not self._main_flag.is_set():
             # 检查暂停标志
             if self._pause_flag.is_set():
@@ -220,6 +223,7 @@ class EventEngine(BaseEngine):
                 continue
 
         GLOG.INFO("Main loop END.")
+        GLOG.clear_context()
 
     def timer_loop(self, *args, **kwargs) -> None:
         """
@@ -273,6 +277,16 @@ class EventEngine(BaseEngine):
         # 清除暂停标志，允许主循环继续运行
         self._pause_flag.clear()
 
+        # 记录引擎启动事件（必须在启动主线程之前，确保 ENGINESTART 排在最前面）
+        try:
+            GLOG.backtest.system.start(
+                engine_id=self.uuid,
+                name=self.name,
+                mode=self.mode.value if hasattr(self.mode, 'value') else str(self.mode)
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to log engine start event: {e}")
+
         # 启动已存在的线程对象（每个线程只能启动一次）
         GLOG.INFO(f"🔍 Before thread start: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
         if not self._main_thread_started and not self._main_thread.is_alive():
@@ -298,16 +312,6 @@ class EventEngine(BaseEngine):
             GLOG.INFO(f"Timer thread started for engine {self.name}.")
 
         GLOG.INFO(f"Engine {self.name} {self.uuid} STARTED.")
-
-        # 记录引擎启动事件到ClickHouse
-        try:
-            GLOG.backtest.system.start(
-                engine_id=self.uuid,
-                name=self.name,
-                mode=self.mode.value if hasattr(self.mode, 'value') else str(self.mode)
-            )
-        except Exception as e:
-            GLOG.WARN(f"Failed to log engine start event: {e}")
 
         return True
 

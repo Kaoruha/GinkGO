@@ -40,7 +40,6 @@ class BacktestProcessor(Thread):
             worker_id: 所属Worker ID
             progress_tracker: 进度上报器
         """
-        GLOG.set_log_category("component")
         super().__init__(daemon=True)
         self.task = task
         self.worker_id = worker_id
@@ -61,6 +60,9 @@ class BacktestProcessor(Thread):
         self.task.started_at = datetime.utcnow()
         self.task.worker_id = self.worker_id
 
+        GLOG.clear_context()
+        GLOG.set_log_category("component")
+
         try:
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
 
@@ -76,6 +78,14 @@ class BacktestProcessor(Thread):
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
             self._engine = self._assemble_engine()
+
+            # 绑定 PortfolioContext 引用（task_id/engine_id/portfolio_id 动态读取）
+            from ginkgo.trading.context.portfolio_context import PortfolioContext
+            portfolio_context = PortfolioContext(
+                portfolio_id=self.task.portfolio_uuid,
+                engine_context=self._engine._engine_context
+            )
+            GLOG.bind_context(engine_context=portfolio_context)
 
             # 阶段3: 运行回测
             self.task.state = BacktestTaskState.RUNNING
@@ -110,12 +120,6 @@ class BacktestProcessor(Thread):
             self.progress_tracker.report_completed(self.task, None)
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
-        except InterruptedError:
-            self.task.state = BacktestTaskState.CANCELLED
-            self.task.completed_at = datetime.utcnow()
-            self.progress_tracker.report_cancelled(self.task)
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest cancelled")
-
         except Exception as e:
             self._exception = e
             self.task.state = BacktestTaskState.FAILED
@@ -126,6 +130,8 @@ class BacktestProcessor(Thread):
             GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Backtest failed: {e}")
             import traceback
             GLOG.ERROR(traceback.format_exc())
+        finally:
+            GLOG.clear_context()
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """
@@ -165,7 +171,9 @@ class BacktestProcessor(Thread):
 
         将 BacktestTask 转换为 EngineAssemblyService 需要的参数格式
         """
-        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembling backtest engine...")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembling backtest engine: "
+                  f"start={self.task.config.start_date}, end={self.task.config.end_date}, "
+                  f"capital={self.task.config.initial_cash}, commission={self.task.config.commission_rate}")
 
         # 1. 构建引擎配置
         engine_data = {
@@ -216,7 +224,10 @@ class BacktestProcessor(Thread):
             error_msg = result.error or "Unknown error"
             raise RuntimeError(f"Engine assembly failed for {self.task.task_uuid[:8]}: {error_msg}")
 
-        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine assembled: "
+                  f"period={self.task.config.start_date}~{self.task.config.end_date}, "
+                  f"capital={self.task.config.initial_cash}, "
+                  f"broker={engine_data['broker']}")
         return result.data
 
     def _get_portfolio_config_and_components(self) -> tuple:
@@ -322,8 +333,14 @@ class BacktestProcessor(Thread):
                         "type": component_type,  # 🔧 添加组件类型（engine_assembly_service 需要此字段）
                     })
 
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
-                  f"sizers={len(components['sizers'])}, risk_managers={len(components['risk_managers'])}")
+            # 装配摘要
+            strategy_names = [c["name"] for c in components["strategies"] if c.get("name")]
+            risk_names = [c["name"] for c in components["risk_managers"] if c.get("name")]
+            sizer_names = [c["name"] for c in components["sizers"] if c.get("name")]
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembly: "
+                      f"strategies={strategy_names}, "
+                      f"risk_managers={risk_names}, "
+                      f"sizers={sizer_names}")
 
             return components
 
