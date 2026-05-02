@@ -104,7 +104,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=position.portfolio_id,
                 engine_id=position.engine_id,
                 task_id=position.task_id,
-                business_timestamp=self.business_timestamp,
+                business_timestamp=self.current_timestamp,
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log position event: {e}")
@@ -125,7 +125,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 price=position.price,
                 fee=position.fee,
                 timestamp=position.timestamp,
-                business_timestamp=self.business_timestamp,
+                business_timestamp=self.current_timestamp,
             )
             GLOG.DEBUG(f"Position record saved: {position.code} volume={position.volume}")
         except Exception as e:
@@ -679,6 +679,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
+                business_timestamp=self.current_timestamp,
             )
 
             fill_cost = price * qty + fee
@@ -799,6 +800,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
+                business_timestamp=self.current_timestamp,
             )
 
             # 保存订单记录（REJECTED 状态）
@@ -835,6 +837,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
+                business_timestamp=self.current_timestamp,
             )
 
             # 过期一般伴随取消事件；组合在取消事件中做资金/仓位回滚
@@ -879,6 +882,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
+                business_timestamp=self.current_timestamp,
             )
 
             # 保存订单记录（CANCELED 状态）
@@ -1005,7 +1009,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
-                business_timestamp=self.business_timestamp,
+                business_timestamp=self.current_timestamp,
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")
@@ -1043,7 +1047,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
-                business_timestamp=self.business_timestamp,
+                business_timestamp=self.current_timestamp,
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")

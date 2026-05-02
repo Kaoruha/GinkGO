@@ -195,6 +195,7 @@ class TradeGateway(BaseTradeGateway):
                 direction=order.direction.value if hasattr(order.direction, 'value') else str(order.direction),
                 ack_message=getattr(event, 'ack_message', ''),
                 portfolio_id=getattr(event, 'portfolio_id', ''),
+                business_timestamp=getattr(order, 'business_timestamp', None) or getattr(event, 'timestamp', None),
             )
         except Exception as e:
             GLOG.WARN(f"Failed to log order ack event: {e}")

@@ -20,7 +20,7 @@
 type = "file"
 include = ["${GINKGO_LOG_PATH}/**/*.log"]
 
-# Read from the beginning on first start
+# Read from the beginning on first start, then track position via checkpoint
 read_from = "beginning"
 
 # ============================================================================
@@ -40,10 +40,26 @@ source = '''
 inputs = ["parse_json"]
 type = "remap"
 source = '''
+# structlog ECS 格式适配：提取嵌套字段到顶层
+if exists(.log.level) { .level = upcase!(.log.level) }
+if exists(.log.logger) { .logger_name = .log.logger }
+if exists(.@timestamp) { .timestamp = .@timestamp }
+if exists(.ginkgo.log_category) { .log_category = .ginkgo.log_category }
+if exists(.ginkgo.task_id) { .task_id = .ginkgo.task_id }
+if exists(.ginkgo.portfolio_id) { .portfolio_id = .ginkgo.portfolio_id }
+if exists(.ginkgo.engine_id) { .engine_id = .ginkgo.engine_id }
+if exists(.ginkgo.business_timestamp) { .business_timestamp = .ginkgo.business_timestamp }
+if exists(.ginkgo.event_type) { .event_type = .ginkgo.event_type }
+if exists(.ginkgo.strategy_id) { .strategy_id = .ginkgo.strategy_id }
+if exists(.ginkgo.symbol) { .symbol = .ginkgo.symbol }
+if exists(.ginkgo.direction) { .direction = .ginkgo.direction }
+if exists(.ginkgo.signal_reason) { .signal_reason = .ginkgo.signal_reason }
+if exists(.ginkgo.signal_volume) { .signal_volume = .ginkgo.signal_volume }
+if exists(.ginkgo.order_id) { .order_id = .ginkgo.order_id }
+
 # 字段映射：log_category → event_category
 if exists(.log_category) {
   .event_category = .log_category
-  # 保留 log_category 用于路由
 }
 
 # 确保必需字段存在（使用默认值）
@@ -52,18 +68,87 @@ if !exists(.message) { .message = "" }
 if !exists(.logger_name) { .logger_name = "ginkgo" }
 if !exists(.timestamp) { .timestamp = now() }
 
-# 将 timestamp 转换为 ClickHouse DateTime64(3) 兼容格式
-# ClickHouse 期望 ISO 8601 格式或 Unix 时间戳
+# 格式化 timestamp 为 ClickHouse DateTime 兼容格式
+# 去掉末尾的 Z 后缀再解析，兼容 ISO 8601 和空格分隔格式
+ts_str = to_string!(.timestamp)
+ts_str = replace(ts_str, "Z", "")
+ts_str = replace(ts_str, " ", "T")
+ts = parse_timestamp!(ts_str, format: "%Y-%m-%dT%H:%M:%S%.f")
+.timestamp = format_timestamp!(ts, format: "%Y-%m-%d %H:%M:%S")
+
+# 格式化 business_timestamp（如果有）
+# 注意：Python _datetime_decimal_serializer 输出空格分隔格式（非ISO）
+if exists(.business_timestamp) && .business_timestamp != "" {
+  bts_str = to_string!(.business_timestamp)
+  bts_str = replace(bts_str, "Z", "")
+  bts_str = replace(bts_str, " ", "T")
+  .business_timestamp = format_timestamp!(parse_timestamp!(bts_str, format: "%Y-%m-%dT%H:%M:%S%.f"), format: "%Y-%m-%d %H:%M:%S")
+}
 '''
 
 [transforms.route_by_category]
 inputs = ["normalize_fields"]
 type = "route"
 
-# Route logs by log_category field
-route.backtest = '.log_category == "backtest"'
-route.component = '.log_category == "component"'
-route.performance = '.log_category == "performance"'
+# Route logs by event_category (mapped from log_category)
+route.backtest = '.event_category == "backtest"'
+route.component = '.event_category == "component"'
+route.performance = '.event_category == "performance"'
+
+# 路由后清理：移除 ClickHouse 表中不存在的字段
+[transforms.strip_extra_backtest]
+inputs = ["route_by_category.backtest"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
+
+[transforms.strip_extra_component]
+inputs = ["route_by_category.component"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
+
+[transforms.strip_extra_performance]
+inputs = ["route_by_category.performance"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
 
 # ============================================================================
 # Sinks - ClickHouse
@@ -71,7 +156,7 @@ route.performance = '.log_category == "performance"'
 
 [sinks.clickhouse_backtest]
 type = "clickhouse"
-inputs = ["route_by_category.backtest"]
+inputs = ["strip_extra_backtest"]
 database = "ginkgo"
 table = "ginkgo_logs_backtest"
 endpoint = "http://${CLICKHOUSE_HOST}:8123"
@@ -82,7 +167,7 @@ timeout_secs = 5
 
 [sinks.clickhouse_component]
 type = "clickhouse"
-inputs = ["route_by_category.component"]
+inputs = ["strip_extra_component"]
 database = "ginkgo"
 table = "ginkgo_logs_component"
 endpoint = "http://${CLICKHOUSE_HOST}:8123"
@@ -93,7 +178,7 @@ timeout_secs = 5
 
 [sinks.clickhouse_performance]
 type = "clickhouse"
-inputs = ["route_by_category.performance"]
+inputs = ["strip_extra_performance"]
 database = "ginkgo"
 table = "ginkgo_logs_performance"
 endpoint = "http://${CLICKHOUSE_HOST}:8123"

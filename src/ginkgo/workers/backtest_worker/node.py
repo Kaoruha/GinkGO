@@ -186,7 +186,7 @@ class BacktestWorker:
             self.task_consumer = GinkgoConsumer(
                 topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
                 group_id=unique_group_id,
-                offset="latest",  # 只消费新消息，避免处理大量历史消息
+                offset="latest",
             )
 
             while not self.should_stop:

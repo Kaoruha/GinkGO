@@ -145,12 +145,12 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             if not success:
                 return False
 
-            GLOG.DEBUG(f"ADVANCE_TIME: {target_time.date()}, interested={self._interested_codes}")
-
             # 使用事件更新的兴趣集
             if len(self._interested_codes) == 0:
-                GLOG.WARN(f"No interested symbols at {target_time}, selector may not have published codes")
+                GLOG.WARN(f"BacktestFeeder: No interested symbols at {target_time.date()}")
                 return True
+
+            GLOG.INFO(f"BacktestFeeder: Advancing to {target_time.date()}, {len(self._interested_codes)} symbols: {self._interested_codes}")
 
             # 为每个股票生成并推送价格更新事件
             event_count = 0
@@ -161,11 +161,11 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                         self.event_publisher(event)
                         event_count += 1
 
-            GLOG.INFO(f"Generated {event_count} price events for {len(self._interested_codes)} symbols at {target_time}")
+            GLOG.INFO(f"BacktestFeeder: Published {event_count} price events for {target_time.date()}")
             return True
 
         except Exception as e:
-            GLOG.ERROR(f"Error advancing time to {target_time}: {e}")
+            GLOG.ERROR(f"BacktestFeeder: Error advancing time to {target_time}: {e}")
             return False
     
     @TimeMixin.validate_time(['start_time', 'end_time'])
@@ -241,7 +241,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             )
 
             if not result.success or result.data.empty():
-                GLOG.WARN(f"No data found for {code} at {target_time}")
+                GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
                 return events
 
             # 转换ModelList → 业务对象列表
@@ -250,19 +250,20 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None
             if bar is None:
-                GLOG.WARN(f"❌ Failed to convert bar entity for {code}")
+                GLOG.WARN(f"BacktestFeeder: Failed to convert bar entity for {code}")
                 return events
 
-            # 创建价格更新事件，使用Bar实体作为payload
-            GLOG.INFO(f"✅ Creating EventPriceUpdate for {code}")
+            GLOG.INFO(
+                f"BacktestFeeder: Bar data loaded for {code} at {target_time.date()} | "
+                f"O:{bar.open} H:{bar.high} L:{bar.low} C:{bar.close} V:{bar.volume}"
+            )
+
             event = EventPriceUpdate(payload=bar)
             event.set_source(SOURCE_TYPES.BACKTESTFEEDER)
             events.append(event)
 
-            GLOG.INFO(f"🚀 EventPriceUpdate created for {code}")
-
         except Exception as e:
-            GLOG.ERROR(f"Error generating price events for {code}: {e}")
+            GLOG.ERROR(f"BacktestFeeder: Error generating price events for {code}: {e}")
 
         return events
 

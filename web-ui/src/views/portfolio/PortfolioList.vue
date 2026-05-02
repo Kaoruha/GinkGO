@@ -351,8 +351,9 @@ const handleDelete = async () => {
     fetchPortfolios({ page: 0, append: false })
     fetchStats()
     message.success('删除成功')
-  } catch (e) {
-    message.error('删除失败')
+  } catch (e: any) {
+    const reason = e?.response?.data?.message || e?.message || '未知错误'
+    message.error(`删除失败: ${reason}`)
   }
 }
 

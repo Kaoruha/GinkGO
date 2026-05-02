@@ -369,15 +369,17 @@ def wait_for_services():
 
 
 def create_entrypoint():
-    # Remove EntryPoint
-    print("Clean ginkgo binary.")
+    print("Install ginkgo binary.")
+    # 清理旧位置
     for path in ["/usr/bin/ginkgo", "/usr/local/bin/ginkgo"]:
         if os.path.exists(path):
-            command = ["sudo", "rm", path]
-            subprocess.run(command, check=True)
+            subprocess.run(["sudo", "rm", path], check=True)
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
-    output_file = "/usr/local/bin/ginkgo"
+    bin_dir = os.path.expanduser("~/.local/bin")
+    output_file = os.path.join(bin_dir, "ginkgo")
+    os.makedirs(bin_dir, exist_ok=True)
+
     result = subprocess.run(["which", "python"], capture_output=True, text=True)
     python_path = result.stdout.strip()
     script_content = f"""#!/bin/bash
@@ -392,22 +394,9 @@ else
 fi
 """
 
-    with tempfile.NamedTemporaryFile("w", delete=False) as tmp_file:
-        tmp_file.write(script_content)
-        temp_file_name = tmp_file.name
-
-    # 使用 sudo 命令将临时文件移动到目标目录
-    print("copy binary to bin.")
-    command = ["sudo", "mv", temp_file_name, output_file]
-    subprocess.run(command, check=True)
-
-    # 设置文件执行权限
-    print("add executable to binary")
-    command = ["sudo", "chmod", "+x", output_file]
-    subprocess.run(command, check=True)
-    if os.path.exists(temp_file_name):
-        print("remove temp file")
-        os.remove(temp_file_name)
+    with open(output_file, "w") as f:
+        f.write(script_content)
+    os.chmod(output_file, 0o755)
 
 
 def set_jupyterlab_config():
