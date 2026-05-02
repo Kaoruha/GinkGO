@@ -56,6 +56,18 @@ if exists(.ginkgo.direction) { .direction = .ginkgo.direction }
 if exists(.ginkgo.signal_reason) { .signal_reason = .ginkgo.signal_reason }
 if exists(.ginkgo.signal_volume) { .signal_volume = .ginkgo.signal_volume }
 if exists(.ginkgo.order_id) { .order_id = .ginkgo.order_id }
+if exists(.ginkgo.transaction_price) { .transaction_price = .ginkgo.transaction_price }
+if exists(.ginkgo.transaction_volume) { .transaction_volume = .ginkgo.transaction_volume }
+if exists(.ginkgo.commission) { .commission = .ginkgo.commission }
+if exists(.ginkgo.slippage) { .slippage = .ginkgo.slippage }
+if exists(.ginkgo.position_code) { .position_code = .ginkgo.position_code }
+if exists(.ginkgo.position_volume) { .position_volume = .ginkgo.position_volume }
+if exists(.ginkgo.broker_order_id) { .broker_order_id = .ginkgo.broker_order_id }
+if exists(.ginkgo.reject_code) { .reject_code = .ginkgo.reject_code }
+if exists(.ginkgo.reject_reason) { .reject_reason = .ginkgo.reject_reason }
+if exists(.ginkgo.cancel_reason) { .cancel_reason = .ginkgo.cancel_reason }
+if exists(.ginkgo.risk_type) { .risk_type = .ginkgo.risk_type }
+if exists(.ginkgo.risk_reason) { .risk_reason = .ginkgo.risk_reason }
 
 # 字段映射：log_category → event_category
 if exists(.log_category) {
