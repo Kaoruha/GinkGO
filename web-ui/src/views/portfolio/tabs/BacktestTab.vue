@@ -462,7 +462,7 @@
                   <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
                   <span v-if="log.commission" class="log-kv dim">fee={{ log.commission }}</span>
                   <span v-if="log.slippage" class="log-kv dim">slip={{ log.slippage }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span v-if="log.order_id" class="log-kv dim">{{ log.order_id.substring(0, 8) }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERREJECTED'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
