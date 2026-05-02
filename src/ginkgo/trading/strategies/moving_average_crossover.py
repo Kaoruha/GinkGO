@@ -116,7 +116,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
         code = event.code
 
         # 🔍 调试输出
-        print(f"[MA_STRATEGY] {id(self)} 收到 {code} 价格事件 @ {event.timestamp}, 状态数量: {len(self._ma_states)}")
+        GLOG.INFO(f"{self.name}: Processing {code} price event, states: {len(self._ma_states)}")
 
         # 获取足够的历史数据来计算两条均线
         # 需要至少 long_period 条数据
@@ -128,10 +128,10 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
                 use_cache=True
             )
 
-            print(f"[MA_STRATEGY] {code} 获取到 {len(bars)} 条K线数据")
+            GLOG.INFO(f"{self.name}: {code} got {len(bars)} bars")
 
             if not bars or len(bars) < self.long_period:
-                print(f"[MA_STRATEGY] {code} 数据不足，需要至少 {self.long_period} 条")
+                GLOG.DEBUG(f"{self.name}: {code} insufficient data, need {self.long_period} bars")
                 return []
 
             # 计算移动平均线
@@ -143,14 +143,14 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
             current_short_ma, current_long_ma = ma_values
 
             # 🔍 调试输出
-            print(f"[MA_STRATEGY] {code} MA{self.short_period}={current_short_ma:.2f}, MA{self.long_period}={current_long_ma:.2f}")
+            GLOG.INFO(f"{self.name}: {code} MA{self.short_period}={current_short_ma:.2f}, MA{self.long_period}={current_long_ma:.2f}")
 
             # 获取上一次的均线状态
             prev_state = self._ma_states.get(code, {'prev_short': None, 'prev_long': None})
             prev_short_ma = prev_state['prev_short']
             prev_long_ma = prev_state['prev_long']
 
-            print(f"[MA_STRATEGY] {code} 前期: MA{self.short_period}={prev_short_ma}, MA{self.long_period}={prev_long_ma}")
+            GLOG.DEBUG(f"{self.name}: {code} prev MA{self.short_period}={prev_short_ma}, MA{self.long_period}={prev_long_ma}")
 
             # 检测交叉
             signal = self._detect_crossover(
@@ -168,7 +168,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
                 'prev_short': current_short_ma,
                 'prev_long': current_long_ma
             }
-            print(f"[MA_STRATEGY] {code} 状态已更新: MA{self.short_period}={current_short_ma:.2f}, MA{self.long_period}={current_long_ma:.2f}")
+            GLOG.DEBUG(f"{self.name}: {code} state updated")
 
             # 如果是首次运行（没有信号），返回空列表
             if signal is None:
@@ -179,7 +179,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
         except Exception as e:
             GLOG.ERROR(f"{self.name}: 处理 {code} 时出错: {e}")
             import traceback
-            traceback.print_exc()
+            GLOG.ERROR(traceback.format_exc())
             return []
 
     def _calculate_moving_averages(self, bars: List) -> Optional[tuple]:
@@ -243,7 +243,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
         """
         # 第一次运行，没有前期数据
         if prev_short is None or prev_long is None:
-            print(f"[MA_STRATEGY] {code} 首次运行，无前期数据")
+            GLOG.DEBUG(f"{self.name}: {code} first run, no previous MA data")
             return None
 
         signal = None
@@ -290,7 +290,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
             if current_price is not None:
                 signal.reason = f"{reason}, 当前价格: {current_price:.2f}"
 
-            print(f"[MA_STRATEGY] {code} {signal.reason}")
+            GLOG.INFO(f"{self.name}: {code} {signal.reason}")
 
             # 记录信号事件到ClickHouse（使用快捷访问）
             GLOG.backtest.signal(

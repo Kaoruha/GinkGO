@@ -428,10 +428,79 @@
             <div v-if="logsLoading && logs.length === 0" class="loading-center"><div class="spinner spinner-sm"></div></div>
             <template v-else-if="logs.length > 0">
               <div v-for="(log, i) in logs" :key="i" class="log-entry">
-                <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
+                <span class="log-time-col">
+                  <span class="log-bt">{{ formatLogTime(log.business_timestamp) }}</span>
+                  <span class="log-wt">{{ formatLogTime(log.timestamp) }}</span>
+                </span>
                 <span class="log-level" :class="levelClass(log.level)">{{ log.level }}</span>
-                <span v-if="log.event_type" class="log-event">{{ log.event_type }}</span>
-                <span class="log-msg">{{ log.message }}</span>
+                <span v-if="log.event_type" class="log-event" :class="eventClass(log.event_type)">{{ log.event_type }}</span>
+                <!-- 结构化事件展示 -->
+                <span v-if="log.event_type === 'SIGNALGENERATION'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
+                  <span v-if="log.signal_volume" class="log-kv">vol={{ log.signal_volume }}</span>
+                  <span v-if="log.signal_reason" class="log-reason">{{ log.signal_reason }}</span>
+                  <span v-if="log.strategy_id" class="log-kv dim">strategy={{ log.strategy_id.substring(0, 8) }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ORDERSUBMITTED'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span class="log-kv">{{ log.order_type || 'MARKET' }}</span>
+                  <span v-if="log.limit_price" class="log-kv">price={{ log.limit_price }}</span>
+                  <span v-if="log.order_id" class="log-kv dim">{{ log.order_id }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ORDERACK'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span class="log-kv">accepted</span>
+                  <span v-if="log.broker_order_id" class="log-kv dim">{{ log.broker_order_id }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ORDERFILLED'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
+                  <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
+                  <span v-if="log.commission" class="log-kv dim">fee={{ log.commission }}</span>
+                  <span v-if="log.slippage" class="log-kv dim">slip={{ log.slippage }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ORDERREJECTED'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span class="log-kv text-red">REJECTED</span>
+                  <span v-if="log.reject_reason" class="log-reason">{{ log.reject_reason }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ORDERCANCELACK'" class="log-detail">
+                  <span class="log-symbol">{{ log.symbol }}</span>
+                  <span class="log-kv dim">cancelled</span>
+                  <span v-if="log.cancel_reason" class="log-reason">{{ log.cancel_reason }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'POSITIONUPDATE'" class="log-detail">
+                  <span class="log-symbol">{{ log.position_code || log.symbol }}</span>
+                  <span class="log-kv">vol={{ log.position_volume }}</span>
+                  <span class="log-kv">cost={{ log.position_cost }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'CAPITALUPDATE'" class="log-detail">
+                  <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
+                  <span class="log-kv">cash={{ log.available_cash }}</span>
+                  <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? '#52c41a' : '#f5222d' }">PnL={{ log.pnl }}</span>
+                  <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP'" class="log-detail">
+                  <span v-if="log.engine_status" class="log-kv">{{ log.engine_status }}</span>
+                  <span v-if="log.progress" class="log-kv">{{ (log.progress * 100).toFixed(0) }}%</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'RISKBREACH'" class="log-detail">
+                  <span class="log-kv text-red">{{ log.risk_type }}</span>
+                  <span v-if="log.risk_reason" class="log-reason">{{ log.risk_reason }}</span>
+                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                </span>
+                <!-- 默认：纯文本 -->
+                <span v-else class="log-msg">{{ log.message }}</span>
               </div>
               <div v-if="logsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
               <div v-if="!logsHasMore" class="logs-end">已加载全部 {{ logsTotal }} 条日志</div>
@@ -948,7 +1017,9 @@ const fmtAnalyzer = (name: string, value: number | null): string => {
 
 const formatLogTime = (ts?: string | null) => {
   if (!ts) return '-'
-  return dayjs(ts).format('YYYY-MM-DD HH:mm:ss.SSS')
+  const d = dayjs(ts)
+  if (d.year() < 2000) return '-'
+  return d.format('MM-DD HH:mm:ss')
 }
 
 const levelClass = (level?: string | null) => {
@@ -959,6 +1030,29 @@ const levelClass = (level?: string | null) => {
   if (l === 'INFO') return 'level-info'
   if (l === 'DEBUG') return 'level-debug'
   return ''
+}
+
+const eventClass = (et?: string | null) => {
+  if (!et) return ''
+  const e = et.toUpperCase()
+  if (e === 'SIGNALGENERATION') return 'event-signal'
+  if (e.startsWith('ORDER')) return 'event-order'
+  if (e === 'POSITIONUPDATE') return 'event-position'
+  if (e === 'CAPITALUPDATE') return 'event-capital'
+  if (e === 'ENGINESTART' || e === 'ENGINESTOP') return 'event-engine'
+  if (e.startsWith('RISK')) return 'event-risk'
+  return ''
+}
+
+const DIR_LABEL_MAP: Record<string, string> = { '1': 'LONG', '2': 'SHORT', 'LONG': 'LONG', 'SHORT': 'SHORT' }
+const dirLabel = (d: string | number | null) => DIR_LABEL_MAP[String(d)] || String(d ?? '')
+
+const shortMsg = (msg: string | null) => {
+  if (!msg) return ''
+  // Skip double-encoded JSON messages
+  if (msg.startsWith('{')) return ''
+  const s = msg.replace(/^[\p{Emoji_Presentation}\s]+\[.*?\]\s*/u, '').trim()
+  return s.length > 80 ? s.substring(0, 80) + '...' : s
 }
 
 const getAnalyzerColor = (name: string, value: number | null): string => {
@@ -1693,7 +1787,9 @@ onUnmounted(() => {
 }
 .log-entry:hover { background: rgba(255,255,255,0.02); }
 
-.log-time { color: #6a6a7a; flex-shrink: 0; white-space: nowrap; }
+.log-time-col { display: inline-flex; flex-direction: column; flex-shrink: 0; line-height: 1.3; }
+.log-bt { color: #b0b0c0; font-size: 11px; white-space: nowrap; }
+.log-wt { color: #555; font-size: 9px; white-space: nowrap; }
 .log-level {
   flex-shrink: 0;
   padding: 1px 5px;
@@ -1707,6 +1803,17 @@ onUnmounted(() => {
 .level-warning { background: rgba(250,173,20,0.15); color: #ffc53d; }
 .level-error { background: rgba(245,34,45,0.15); color: #ff7875; }
 .log-event { color: #1890ff; flex-shrink: 0; }
+.event-signal { color: #b37feb; }
+.event-order { color: #36cfc9; }
+.event-position { color: #ffc53d; }
+.event-capital { color: #73d13d; }
+.event-engine { color: #69c0ff; }
+.event-risk { color: #ff7875; }
+.log-detail { color: #ccc; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.log-symbol { color: #fff; font-weight: 600; }
+.log-kv { color: #8a8a9a; }
+.log-kv.dim { color: #888; }
+.log-reason { color: #bbb; font-style: italic; }
 .log-msg { color: #ccc; word-break: break-all; }
 .logs-end { text-align: center; font-size: 11px; color: #6a6a7a; padding: 10px 0; }
 

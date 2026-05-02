@@ -707,7 +707,7 @@ class PortfolioMappingService(BaseService):
         # 添加新参数
         for idx, param in enumerate(param_list):
             self._param_service.add_param(
-                mapping_uuid=mapping_uuid,
+                mapping_id=mapping_uuid,
                 index=idx,
                 value=param["value"],
                 source=SOURCE_TYPES.SIM,

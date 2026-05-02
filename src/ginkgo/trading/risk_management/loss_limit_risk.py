@@ -108,6 +108,7 @@ class LossLimitRisk(BaseRiskManagement):
                 symbol=code,
                 portfolio_id=portfolio_info.get("uuid"),
                 engine_id=self.engine_id,
+                business_timestamp=getattr(self, 'current_timestamp', None),
             )
 
             signal = self.create_signal(

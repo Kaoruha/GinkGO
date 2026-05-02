@@ -37,17 +37,17 @@ x-worker-common: &worker-common
     GINKGO_MYSQL_USER: ${MYSQL_USER}
     GINKGO_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     GINKGO_MYSQL_DATABASE: ginkgo
-    GINKGO_DEBUG_MODE: "False"
+    GINKGO_LOG_PATH: /var/log/ginkgo
+    GINKGO_LOG_FILE_ON: "True"
     LOG_LEVEL: INFO
     LOGGING_MODE: container
-    GINKGO_LOG_PATH: ${GINKGO_LOG_PATH:-/var/log/ginkgo}
-    LOG_LEVEL_CONSOLE: ${GINKGO_LOG_LEVEL_CONSOLE:-INFO}
-    LOG_LEVEL_FILE: ${GINKGO_LOG_LEVEL_FILE:-INFO}
+    GINKGO_LOG_LEVEL_CONSOLE: INFO
+    GINKGO_LOG_LEVEL_FILE: INFO
     PYTHONUNBUFFERED: 1
     TZ: Asia/Shanghai
     TUSHARE_TOKEN: ${TUSHARE_TOKEN}
   volumes:
-    - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
+    - ginkgo-logs:/var/log/ginkgo
 
 services:
   # webui:
@@ -391,8 +391,8 @@ services:
     volumes:
       # Vector configuration
       - .conf/vector.toml:/etc/vector/vector.toml:ro
-      # Log files to collect (bind mount to local logs directory)
-      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo:ro
+      # Log files to collect (shared named volume with workers)
+      - ginkgo-logs:/var/log/ginkgo:ro
       # Vector data directory for checkpoint positions (read-write)
       - vector-data:/vector-data
     command: --config /etc/vector/vector.toml
@@ -569,7 +569,7 @@ services:
     container_name: ginkgo-tasktimer
     command: ["python", "main.py", "serve", "tasktimer"]
     volumes:
-      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
+      - ginkgo-logs:/var/log/ginkgo
       # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
       - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
     deploy:
@@ -593,7 +593,7 @@ services:
     container_name: ginkgo-livecore
     command: ["python", "main.py", "serve", "livecore"]
     volumes:
-      - /home/kaoru/.ginkgo/logs:/var/log/ginkgo
+      - ginkgo-logs:/var/log/ginkgo
       # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
       - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
     deploy:
@@ -749,4 +749,7 @@ volumes:
   #   driver: local
   # Vector data directory for checkpoint positions
   vector-data:
+    driver: local
+  # Shared log volume for workers and vector
+  ginkgo-logs:
     driver: local

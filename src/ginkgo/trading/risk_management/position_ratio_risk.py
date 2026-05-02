@@ -149,6 +149,7 @@ class PositionRatioRisk(BaseRiskManagement):
                     symbol=order.code,
                     portfolio_id=portfolio_info.get("uuid"),
                     engine_id=self.engine_id,
+                    business_timestamp=getattr(self, 'current_timestamp', None),
                 )
                 return None
 
@@ -187,6 +188,7 @@ class PositionRatioRisk(BaseRiskManagement):
                     risk_limit_value=float(self._max_total_position_ratio),
                     portfolio_id=portfolio_info.get("uuid"),
                     engine_id=self.engine_id,
+                    business_timestamp=getattr(self, 'current_timestamp', None),
                 )
                 return None
 

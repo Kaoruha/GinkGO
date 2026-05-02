@@ -111,6 +111,7 @@ class ProfitTargetRisk(BaseRiskManagement):
                 risk_limit_value=float(self.profit_target),
                 symbol=event.code,
                 portfolio_id=portfolio_id,
+                business_timestamp=getattr(self, 'current_timestamp', None),
             )
 
             signal = self.create_signal(

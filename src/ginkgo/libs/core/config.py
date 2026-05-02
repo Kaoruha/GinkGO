@@ -186,6 +186,10 @@ class GinkgoConfig(object):
         Path(path).mkdir(parents=True, exist_ok=True)
 
     def generate_config_file(self, path=None) -> None:
+        # Already initialized, skip redundant file checks and prints
+        if path is None and self._has_local_config is not None:
+            return
+
         if path is None:
             path = self.get_conf_dir()
 
@@ -268,19 +272,24 @@ class GinkgoConfig(object):
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
         """
         配置获取优先级：
-        1. 配置文件（如果存在）
-        2. 环境变量 GINKGO_{KEY}
+        1. 环境变量 GINKGO_{KEY}
+        2. 配置文件（如果存在）
         3. 默认值
 
         支持嵌套路径：section 参数可以是 "notifications.email" 这样的路径
         """
-        # 判断是否需要读取配置文件（使用缓存）
+        # 优先级1: 环境变量
+        env_key = f"GINKGO_{key.upper()}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            return env_value
+
+        # 优先级2: 尝试从配置文件读取
         if section is None:
             has_file = self._has_local_config
         else:
             has_file = self._has_local_secure
 
-        # 优先级1: 尝试从配置文件读取
         if has_file:
             try:
                 if section is None:
@@ -303,12 +312,6 @@ class GinkgoConfig(object):
                     return config[key]
             except Exception as e:
                 print(f"[GCONF] Error reading config file: {e}")
-
-        # 优先级2: 尝试环境变量
-        env_key = f"GINKGO_{key.upper()}"
-        env_value = os.environ.get(env_key)
-        if env_value is not None:
-            return env_value
 
         # 优先级3: 返回默认值
         return default
@@ -382,15 +385,15 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_FILE_ON(self) -> bool:
-        """
-        文件日志是否启用
-
-        默认值: True
-        配置路径: log_file_on
-        """
-        # 先初始化配置（确保 _has_local_config 被正确设置）
+        """文件日志是否启用。优先级：环境变量 GINKGO_LOG_FILE_ON > config.yml"""
+        env_val = os.environ.get("GINKGO_LOG_FILE_ON")
+        if env_val is not None:
+            return env_val.upper() == "TRUE"
         self._read_config()
-        return bool(self._get_config("log_file_on"))
+        val = self._get_config("log_file_on")
+        if val is None:
+            return True
+        return bool(val)
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:
