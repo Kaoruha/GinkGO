@@ -937,12 +937,12 @@ class GinkgoLogger:
 
     # ==================== 便捷方法：带字段提示的事件日志 ====================
 
-    def log_signal_event(self, symbol: str, direction: str, **kwargs):
+    def log_signal_event(self, symbol: str, direction: str, msg: str = None, **kwargs):
         """
         记录信号事件
 
         必需字段: symbol, direction
-        可选字段: signal_volume, signal_reason, signal_weight, signal_confidence, strategy_id
+        可选字段: signal_volume, signal_reason, signal_weight, signal_confidence, strategy_id, msg
 
         Example:
             >>> GLOG.log_signal_event(
@@ -955,7 +955,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Signal generated: {direction} {symbol}",
+            msg or f"Signal generated: {direction} {symbol}",
             _ginkgo={
                 "event_type": "SIGNALGENERATION",
                 "symbol": symbol,
@@ -964,12 +964,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_order_event(self, order_id: str, **kwargs):
+    def log_order_event(self, order_id: str, msg: str = None, **kwargs):
         """
         记录订单事件
 
         必需字段: order_id
-        可选字段: order_type, limit_price, frozen_money, symbol, direction
+        可选字段: order_type, limit_price, frozen_money, symbol, direction, msg
 
         Example:
             >>> GLOG.log_order_event(
@@ -982,7 +982,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Order submitted: {order_id}",
+            msg or f"Order submitted: {order_id}",
             _ginkgo={
                 "event_type": "ORDERSUBMITTED",
                 "order_id": order_id,
@@ -990,38 +990,31 @@ class GinkgoLogger:
             }
         )
 
-    def log_order_fill_event(self, order_id: str, price: Number, volume: int, **kwargs):
+    def log_order_fill_event(self, order_id: str, price: Number, volume: int, msg: str = None, **kwargs):
         """
         记录成交事件
 
         必需字段: order_id, transaction_price, transaction_volume
-        可选字段: trade_id, commission, slippage
+        可选字段: trade_id, commission, slippage, msg
 
         Args:
             order_id: 订单ID
             price: 成交价格 (支持 float/int/Decimal)
             volume: 成交数量
+            msg: 自定义消息（可选，默认自动生成）
             **kwargs: 其他字段，如 commission (支持 float/int/Decimal), slippage
 
         Example:
-            >>> # 支持 float
             >>> GLOG.log_order_fill_event(
             ...     order_id=order.uuid,
             ...     price=10.52,
             ...     volume=1000,
             ...     commission=5.26
             ... )
-            >>> # 支持 Decimal
-            >>> GLOG.log_order_fill_event(
-            ...     order_id=order.uuid,
-            ...     price=Decimal("10.52"),
-            ...     volume=1000,
-            ...     commission=Decimal("5.26")
-            ... )
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Order filled: {order_id} @ {price} x{volume}",
+            msg or f"Order filled: {order_id} @ {price} x{volume}",
             _ginkgo={
                 "event_type": "ORDERFILLED",
                 "order_id": order_id,
@@ -1031,23 +1024,23 @@ class GinkgoLogger:
             }
         )
 
-    def log_position_event(self, symbol: str, volume: int, **kwargs):
+    def log_position_event(self, symbol: str, volume: int, msg: str = None, **kwargs):
         """
         记录持仓事件
 
         必需字段: position_code, position_volume
-        可选字段: position_cost, position_price (支持 float/int/Decimal)
+        可选字段: position_cost, position_price, msg
 
         Example:
             >>> GLOG.log_position_event(
             ...     symbol="000001.SZ",
             ...     volume=1000,
-            ...     position_cost=10520.00  # 支持 float
+            ...     position_cost=10520.00
             ... )
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Position updated: {symbol} {volume} shares",
+            msg or f"Position updated: {symbol} {volume} shares",
             _ginkgo={
                 "event_type": "POSITIONUPDATE",
                 "position_code": symbol,
@@ -1056,30 +1049,23 @@ class GinkgoLogger:
             }
         )
 
-    def log_capital_event(self, total_value: Number, available_cash: Number, **kwargs):
+    def log_capital_event(self, total_value: Number, available_cash: Number, msg: str = None, **kwargs):
         """
         记录资金事件
 
         必需字段: total_value, available_cash (支持 float/int/Decimal)
-        可选字段: net_value, drawdown, pnl (支持 float/int/Decimal)
+        可选字段: net_value, drawdown, pnl, msg
 
         Example:
-            >>> # 支持 float
             >>> GLOG.log_capital_event(
             ...     total_value=100000.00,
             ...     available_cash=50000.00,
             ...     pnl=5000.00
             ... )
-            >>> # 支持 Decimal
-            >>> GLOG.log_capital_event(
-            ...     total_value=Decimal("100000.00"),
-            ...     available_cash=Decimal("50000.00"),
-            ...     pnl=Decimal("5000.00")
-            ... )
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Capital updated: total={total_value}, cash={available_cash}",
+            msg or f"Capital updated: total={total_value}, cash={available_cash}",
             _ginkgo={
                 "event_type": "CAPITALUPDATE",
                 "total_value": total_value,
@@ -1088,24 +1074,24 @@ class GinkgoLogger:
             }
         )
 
-    def log_risk_event(self, risk_type: str, risk_reason: str, **kwargs):
+    def log_risk_event(self, risk_type: str, risk_reason: str, msg: str = None, **kwargs):
         """
         记录风控事件
 
         必需字段: risk_type, risk_reason
-        可选字段: risk_limit_value, risk_actual_value (支持 float/int/Decimal)
+        可选字段: risk_limit_value, risk_actual_value, msg
 
         Example:
             >>> GLOG.log_risk_event(
             ...     risk_type="POSITION_LIMIT",
             ...     risk_reason="单股持仓超限",
-            ...     risk_limit_value=0.2,  # 支持 float
+            ...     risk_limit_value=0.2,
             ...     risk_actual_value=0.25
             ... )
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).warning(
-            f"Risk event: {risk_type} - {risk_reason}",
+            msg or f"Risk event: {risk_type} - {risk_reason}",
             _ginkgo={
                 "event_type": "RISKBREACH",
                 "risk_type": risk_type,
@@ -1114,12 +1100,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_component_event(self, component_name: str, message: str, **kwargs):
+    def log_component_event(self, component_name: str, message: str = None, msg: str = None, **kwargs):
         """
         记录组件日志
 
         必需字段: component_name
-        可选字段: component_version, component_instance, module_name
+        可选字段: message, component_version, component_instance, module_name
 
         Example:
             >>> GLOG.log_component_event(
@@ -1129,20 +1115,21 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("component")
+        actual_msg = msg or message or f"Component event: {component_name}"
         structlog.get_logger(self.logger_name).info(
-            message,
+            actual_msg,
             _ginkgo={
                 "component_name": component_name,
                 **kwargs
             }
         )
 
-    def log_performance_event(self, function_name: str, duration_ms: float, **kwargs):
+    def log_performance_event(self, function_name: str, duration_ms: float, msg: str = None, **kwargs):
         """
         记录性能日志
 
         必需字段: function_name, duration_ms
-        可选字段: memory_mb, cpu_percent, throughput, module_name, call_site
+        可选字段: memory_mb, cpu_percent, throughput, module_name, call_site, msg
 
         Example:
             >>> GLOG.log_performance_event(
@@ -1154,7 +1141,7 @@ class GinkgoLogger:
         """
         self.set_log_category("performance")
         structlog.get_logger(self.logger_name).info(
-            f"Performance: {function_name} took {duration_ms}ms",
+            msg or f"Performance: {function_name} took {duration_ms}ms",
             _ginkgo={
                 "function_name": function_name,
                 "duration_ms": duration_ms,
@@ -1164,12 +1151,12 @@ class GinkgoLogger:
 
     # ==================== 错误事件便捷方法 ====================
 
-    def log_order_rejected_event(self, order_id: str, reject_code: str, reject_reason: str, **kwargs):
+    def log_order_rejected_event(self, order_id: str, reject_code: str, reject_reason: str, msg: str = None, **kwargs):
         """
         记录订单拒绝事件
 
         必需字段: order_id, reject_code, reject_reason
-        可选字段: symbol, direction, limit_price
+        可选字段: symbol, direction, limit_price, msg
 
         Example:
             >>> GLOG.log_order_rejected_event(
@@ -1181,7 +1168,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).error(
-            f"Order rejected: {order_id} - {reject_code}: {reject_reason}",
+            msg or f"Order rejected: {order_id} - {reject_code}: {reject_reason}",
             _ginkgo={
                 "event_type": "ORDERREJECTED",
                 "order_id": order_id,
@@ -1191,12 +1178,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_order_cancelled_event(self, order_id: str, cancel_reason: str, **kwargs):
+    def log_order_cancelled_event(self, order_id: str, cancel_reason: str, msg: str = None, **kwargs):
         """
         记录订单取消事件
 
         必需字段: order_id, cancel_reason
-        可选字段: cancelled_quantity
+        可选字段: cancelled_quantity, msg
 
         Example:
             >>> GLOG.log_order_cancelled_event(
@@ -1207,7 +1194,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).warning(
-            f"Order cancelled: {order_id} - {cancel_reason}",
+            msg or f"Order cancelled: {order_id} - {cancel_reason}",
             _ginkgo={
                 "event_type": "ORDERCANCELACK",
                 "order_id": order_id,
@@ -1216,12 +1203,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_order_ack_event(self, order_id: str, broker_order_id: str, **kwargs):
+    def log_order_ack_event(self, order_id: str, broker_order_id: str, msg: str = None, **kwargs):
         """
         记录订单确认事件（实盘交易）
 
         必需字段: order_id, broker_order_id
-        可选字段: symbol, direction, limit_price, ack_message, order_status
+        可选字段: symbol, direction, limit_price, ack_message, order_status, msg
 
         Example:
             >>> GLOG.log_order_ack_event(
@@ -1233,7 +1220,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Order acknowledged: {order_id} -> {broker_order_id}",
+            msg or f"Order acknowledged: {order_id} -> {broker_order_id}",
             _ginkgo={
                 "event_type": "ORDERACK",
                 "order_id": order_id,
@@ -1242,12 +1229,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_order_expired_event(self, order_id: str, expire_reason: str, **kwargs):
+    def log_order_expired_event(self, order_id: str, expire_reason: str, msg: str = None, **kwargs):
         """
         记录订单过期事件
 
         必需字段: order_id, expire_reason
-        可选字段: expired_quantity
+        可选字段: expired_quantity, msg
 
         Example:
             >>> GLOG.log_order_expired_event(
@@ -1258,7 +1245,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).warning(
-            f"Order expired: {order_id} - {expire_reason}",
+            msg or f"Order expired: {order_id} - {expire_reason}",
             _ginkgo={
                 "event_type": "ORDEREXPIRED",
                 "order_id": order_id,
@@ -1267,12 +1254,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, **kwargs):
+    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, msg: str = None, **kwargs):
         """
         记录执行拒绝事件（实盘交易）
 
         必需字段: tracking_id, reject_reason
-        可选字段: symbol, expected_volume, reject_code
+        可选字段: symbol, expected_volume, reject_code, msg
 
         Example:
             >>> GLOG.log_execution_rejected_event(
@@ -1283,7 +1270,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).error(
-            f"Execution rejected: {tracking_id} - {reject_reason}",
+            msg or f"Execution rejected: {tracking_id} - {reject_reason}",
             _ginkgo={
                 "event_type": "EXECUTIONREJECTION",
                 "tracking_id": tracking_id,
@@ -1292,12 +1279,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_execution_timeout_event(self, tracking_id: str, **kwargs):
+    def log_execution_timeout_event(self, tracking_id: str, msg: str = None, **kwargs):
         """
         记录执行超时事件（实盘交易）
 
         必需字段: tracking_id
-        可选字段: symbol, expected_volume, delay_seconds
+        可选字段: symbol, expected_volume, delay_seconds, msg
 
         Example:
             >>> GLOG.log_execution_timeout_event(
@@ -1308,7 +1295,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).error(
-            f"Execution timeout: {tracking_id}",
+            msg or f"Execution timeout: {tracking_id}",
             _ginkgo={
                 "event_type": "EXECUTIONTIMEOUT",
                 "tracking_id": tracking_id,
@@ -1323,13 +1310,14 @@ class GinkgoLogger:
         actual_price: Number,
         expected_volume: int,
         actual_volume: int,
+        msg: str = None,
         **kwargs
     ):
         """
         记录执行确认事件（实盘交易）
 
         必需字段: tracking_id, expected_price, actual_price, expected_volume, actual_volume
-        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation
+        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation, msg
 
         Example:
             >>> GLOG.log_execution_confirm_event(
@@ -1344,7 +1332,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            f"Execution confirmed: {tracking_id}",
+            msg or f"Execution confirmed: {tracking_id}",
             _ginkgo={
                 "event_type": "EXECUTIONCONFIRMATION",
                 "tracking_id": tracking_id,
@@ -1356,12 +1344,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, **kwargs):
+    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, msg: str = None, **kwargs):
         """
         记录执行取消事件（实盘交易）
 
         必需字段: tracking_id, cancel_reason
-        可选字段: symbol, direction, cancel_time
+        可选字段: symbol, direction, cancel_time, msg
 
         Example:
             >>> GLOG.log_execution_cancel_event(
@@ -1372,7 +1360,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).warning(
-            f"Execution cancelled: {tracking_id} - {cancel_reason}",
+            msg or f"Execution cancelled: {tracking_id} - {cancel_reason}",
             _ginkgo={
                 "event_type": "EXECUTIONCANCELLATION",
                 "tracking_id": tracking_id,
@@ -1381,12 +1369,12 @@ class GinkgoLogger:
             }
         )
 
-    def log_engine_error_event(self, error_code: str, error_message: str, **kwargs):
+    def log_engine_error_event(self, error_code: str, error_message: str, msg: str = None, **kwargs):
         """
         记录引擎错误事件
 
         必需字段: error_code, error_message
-        可选字段: engine_id, task_id, progress
+        可选字段: engine_id, task_id, progress, msg
 
         Example:
             >>> GLOG.log_engine_error_event(
@@ -1397,7 +1385,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).error(
-            f"Engine error: [{error_code}] {error_message}",
+            msg or f"Engine error: [{error_code}] {error_message}",
             _ginkgo={
                 "event_type": "ENGINEERROR",
                 "error_code": error_code,
@@ -1406,11 +1394,11 @@ class GinkgoLogger:
             }
         )
 
-    def log_engine_start_event(self, **kwargs):
+    def log_engine_start_event(self, msg: str = None, **kwargs):
         """
         记录引擎启动事件
 
-        可选字段: engine_id, task_id, portfolio_id, start_time, config
+        可选字段: engine_id, task_id, portfolio_id, start_time, config, msg
 
         Example:
             >>> GLOG.log_engine_start_event(
@@ -1422,19 +1410,19 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            "Engine started",
+            msg or "Engine started",
             _ginkgo={
                 "event_type": "ENGINESTART",
                 **kwargs
             }
         )
 
-    def log_engine_pause_event(self, reason: str = "", **kwargs):
+    def log_engine_pause_event(self, reason: str = "", msg: str = None, **kwargs):
         """
         记录引擎暂停事件
 
         必需字段: reason (可选，为空表示正常暂停)
-        可选字段: engine_id, task_id, progress, pause_time
+        可选字段: engine_id, task_id, progress, pause_time, msg
 
         Example:
             >>> GLOG.log_engine_pause_event(
@@ -1445,7 +1433,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).warning(
-            f"Engine paused: {reason if reason else 'No reason'}",
+            msg or f"Engine paused: {reason if reason else 'No reason'}",
             _ginkgo={
                 "event_type": "ENGINEPAUSE",
                 "pause_reason": reason,
@@ -1453,11 +1441,11 @@ class GinkgoLogger:
             }
         )
 
-    def log_engine_resume_event(self, **kwargs):
+    def log_engine_resume_event(self, msg: str = None, **kwargs):
         """
         记录引擎恢复事件
 
-        可选字段: engine_id, task_id, resume_time, paused_duration
+        可选字段: engine_id, task_id, resume_time, paused_duration, msg
 
         Example:
             >>> GLOG.log_engine_resume_event(
@@ -1468,19 +1456,19 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            "Engine resumed",
+            msg or "Engine resumed",
             _ginkgo={
                 "event_type": "ENGINERESUME",
                 **kwargs
             }
         )
 
-    def log_engine_complete_event(self, **kwargs):
+    def log_engine_complete_event(self, msg: str = None, **kwargs):
         """
         记录引擎完成事件
 
         可选字段: engine_id, task_id, portfolio_id, end_time, duration_seconds,
-                  total_bars, total_orders, final_capital, total_return
+                  total_bars, total_orders, final_capital, total_return, msg
 
         Example:
             >>> GLOG.log_engine_complete_event(
@@ -1494,7 +1482,7 @@ class GinkgoLogger:
         """
         self.set_log_category("backtest")
         structlog.get_logger(self.logger_name).info(
-            "Engine completed",
+            msg or "Engine completed",
             _ginkgo={
                 "event_type": "ENGINECOMPLETE",
                 **kwargs

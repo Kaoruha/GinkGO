@@ -106,9 +106,7 @@ class LossLimitRisk(BaseRiskManagement):
                 risk_actual_value=loss_ratio,
                 risk_limit_value=self._loss_limit,
                 symbol=code,
-                portfolio_id=portfolio_info.get("uuid"),
-                engine_id=self.engine_id,
-                business_timestamp=getattr(self, 'current_timestamp', None),
+                msg=f"止损触发: {code} 亏损{loss_ratio:.2f}% 超过限制{self._loss_limit}%",
             )
 
             signal = self.create_signal(

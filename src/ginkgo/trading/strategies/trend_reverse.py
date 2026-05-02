@@ -203,10 +203,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    task_id=self.task_id,
-                    business_timestamp=portfolio_info.get("now"),
+                    msg=f"趋势反转信号: {signal.reason}",
                 )
 
             # 从看多 变为 非看多（看空） → 卖出
@@ -233,10 +230,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    task_id=self.task_id,
-                    business_timestamp=portfolio_info.get("now"),
+                    msg=f"趋势反转信号: {signal.reason}",
                 )
 
             # 更新状态：True=看多排列, False=其他

@@ -298,10 +298,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
                 signal_reason=signal.reason,
                 strategy_id=self.uuid,
-                portfolio_id=portfolio_info.get("uuid"),
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                business_timestamp=business_timestamp,
+                msg=f"MA交叉信号: {signal.reason}",
             )
 
         return [signal] if signal else None

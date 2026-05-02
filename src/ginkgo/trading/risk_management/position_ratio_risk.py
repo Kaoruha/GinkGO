@@ -147,9 +147,7 @@ class PositionRatioRisk(BaseRiskManagement):
                     risk_actual_value=float(current_position_ratio),
                     risk_limit_value=float(self._max_position_ratio),
                     symbol=order.code,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    business_timestamp=getattr(self, 'current_timestamp', None),
+                    msg=f"单股持仓超限: {order.code} 占比{float(current_position_ratio):.2%} 超过限制{float(self._max_position_ratio):.2%}",
                 )
                 return None
 
@@ -186,9 +184,7 @@ class PositionRatioRisk(BaseRiskManagement):
                     reason=f"Total position ratio limit reached: {float(current_total_ratio):.2%} > {float(self._max_total_position_ratio):.2%}",
                     risk_actual_value=float(current_total_ratio),
                     risk_limit_value=float(self._max_total_position_ratio),
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    business_timestamp=getattr(self, 'current_timestamp', None),
+                    msg=f"总仓位超限: 总占比{float(current_total_ratio):.2%} 超过限制{float(self._max_total_position_ratio):.2%}",
                 )
                 return None
 

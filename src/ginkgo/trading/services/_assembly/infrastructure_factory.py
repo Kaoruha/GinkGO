@@ -149,6 +149,11 @@ class InfrastructureFactory:
             else:
                 _logger.WARN("⚠️ No time range found in engine data")
 
+            GLOG.backtest.system.start(
+                name=engine_data['name'],
+                mode=exec_mode.name,
+                msg=f"引擎创建: {engine_data['name']} 模式{exec_mode.name} 周期{start_date if 'start_date' in dir() else '?'}~{end_date if 'end_date' in dir() else '?'}",
+            )
             _logger.DEBUG(f"Created base engine: {engine_data['name']} ({type(engine).__name__})")
             return engine
 
@@ -236,6 +241,9 @@ class InfrastructureFactory:
                 engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
 
             _logger.DEBUG(f"✅ Data feeder setup completed after portfolio binding (mode={exec_mode.name})")
+            GLOG.backtest.system.start(
+                msg=f"数据源接入: {type(feeder).__name__} 模式{exec_mode.name}",
+            )
             return True
         except Exception as e:
             _logger = logger or GLOG

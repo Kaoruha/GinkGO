@@ -277,6 +277,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         2. 回测模式：短超时快速处理，队列空闲时自动推进时间
         3. 实盘模式：阻塞式等待事件，由timer_loop定时推送时间更新事件
         """
+        # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
+        GLOG.bind_context(engine_context=self._engine_context)
+
         GLOG.INFO(f"{self.name}: Main loop started - Mode: {self.mode}")
         GLOG.INFO(f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")
         GLOG.INFO(f"{self.name}: main_flag id = {id(main_flag)}")

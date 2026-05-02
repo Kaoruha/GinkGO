@@ -99,8 +99,6 @@ class ProfitTargetRisk(BaseRiskManagement):
 
         # 检查是否达到止盈目标
         if current_profit_ratio >= self.profit_target:
-            # 正确初始化Signal，提供必需参数
-            portfolio_id = portfolio_info.get('uuid', 'default')
             reason = f"Partial profit target reached: {current_profit_ratio:.1%}" if self.partial_take_profit else f"Profit target reached: {current_profit_ratio:.1%}"
 
             # 记录风控事件到ClickHouse
@@ -110,8 +108,7 @@ class ProfitTargetRisk(BaseRiskManagement):
                 risk_actual_value=float(current_profit_ratio),
                 risk_limit_value=float(self.profit_target),
                 symbol=event.code,
-                portfolio_id=portfolio_id,
-                business_timestamp=getattr(self, 'current_timestamp', None),
+                msg=f"止盈触发: {event.code} 盈利{float(current_profit_ratio):.1%} 达到目标{float(self.profit_target):.1%}",
             )
 
             signal = self.create_signal(
