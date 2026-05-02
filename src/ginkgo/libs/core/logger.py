@@ -403,6 +403,7 @@ class GinkgoLogger:
 
         self.logger = logging.getLogger(logger_name)
         self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
 
         # 错误追踪相关的实例变量
         self._error_patterns = {}  # 错误模式计数 {pattern_hash: count}
