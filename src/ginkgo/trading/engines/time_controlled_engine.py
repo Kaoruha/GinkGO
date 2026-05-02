@@ -279,6 +279,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         """
         # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
         GLOG.bind_context(engine_context=self._engine_context)
+        GLOG.set_log_category("backtest")
 
         GLOG.INFO(f"{self.name}: Main loop started - Mode: {self.mode}")
         GLOG.INFO(f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")
