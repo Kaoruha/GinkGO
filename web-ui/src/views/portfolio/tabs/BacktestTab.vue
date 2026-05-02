@@ -441,20 +441,20 @@
                   <span v-if="log.signal_volume" class="log-kv">vol={{ log.signal_volume }}</span>
                   <span v-if="log.signal_reason" class="log-reason">{{ log.signal_reason }}</span>
                   <span v-if="log.strategy_id" class="log-kv dim">strategy={{ log.strategy_id.substring(0, 8) }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERSUBMITTED'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
                   <span class="log-kv">{{ log.order_type || 'MARKET' }}</span>
                   <span v-if="log.limit_price" class="log-kv">price={{ log.limit_price }}</span>
                   <span v-if="log.order_id" class="log-kv dim">{{ log.order_id }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERACK'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
                   <span class="log-kv">accepted</span>
                   <span v-if="log.broker_order_id" class="log-kv dim">{{ log.broker_order_id }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERFILLED'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
@@ -462,42 +462,42 @@
                   <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
                   <span v-if="log.commission" class="log-kv dim">fee={{ log.commission }}</span>
                   <span v-if="log.slippage" class="log-kv dim">slip={{ log.slippage }}</span>
-                  <span v-if="log.order_id" class="log-kv dim">{{ log.order_id.substring(0, 8) }}</span>
+                  <span class="log-msg-inline">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERREJECTED'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
                   <span class="log-kv text-red">REJECTED</span>
                   <span v-if="log.reject_reason" class="log-reason">{{ log.reject_reason }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ORDERCANCELACK'" class="log-detail">
                   <span class="log-symbol">{{ log.symbol }}</span>
                   <span class="log-kv dim">cancelled</span>
                   <span v-if="log.cancel_reason" class="log-reason">{{ log.cancel_reason }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'POSITIONUPDATE'" class="log-detail">
                   <span class="log-symbol">{{ log.position_code || log.symbol }}</span>
                   <span class="log-kv">vol={{ log.position_volume }}</span>
                   <span class="log-kv">cost={{ log.position_cost }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'CAPITALUPDATE'" class="log-detail">
                   <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
                   <span class="log-kv">cash={{ log.available_cash }}</span>
                   <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? '#52c41a' : '#f5222d' }">PnL={{ log.pnl }}</span>
                   <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP'" class="log-detail">
                   <span v-if="log.engine_status" class="log-kv">{{ log.engine_status }}</span>
                   <span v-if="log.progress" class="log-kv">{{ (log.progress * 100).toFixed(0) }}%</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'RISKBREACH'" class="log-detail">
                   <span class="log-kv text-red">{{ log.risk_type }}</span>
                   <span v-if="log.risk_reason" class="log-reason">{{ log.risk_reason }}</span>
-                  <span class="log-kv dim">{{ shortMsg(log.message) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <!-- 默认：纯文本 -->
                 <span v-else class="log-msg">{{ log.message }}</span>
