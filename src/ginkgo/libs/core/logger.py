@@ -7,6 +7,7 @@
 import contextvars
 import contextlib
 import platform
+import structlog
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
