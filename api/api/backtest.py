@@ -1201,6 +1201,7 @@ async def get_backtest_logs(
 
         kwargs = dict(
             task_id=task_id,
+            portfolio_id=portfolio_id,
             level=level,
             event_type=event_type,
             limit=limit,
