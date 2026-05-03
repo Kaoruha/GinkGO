@@ -525,25 +525,20 @@
                   <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'T1SETTLEMENT'" class="log-detail">
-                  <span class="log-kv">{{ log.settled_count }} 笔解冻</span>
                   <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'T1DELAYDECISION'" class="log-detail">
                   <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
-                  <span v-if="log.reason" class="log-reason">{{ log.reason }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'TIMEADVANCE'" class="log-detail">
-                  <span class="log-kv">{{ log.position_count }} 持仓</span>
-                  <span v-if="log.delayed_count > 0" class="log-kv text-orange">{{ log.delayed_count }} 延迟</span>
-                  <span v-if="log.cash" class="log-kv dim">¥{{ Number(log.cash).toFixed(0) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'PRICERECEIVED'" class="log-detail">
-                  <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
-                  <span v-if="log.price" class="log-kv">{{ Number(log.price).toFixed(2) }}</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'STRATEGYSIGNAL'" class="log-detail">
-                  <span v-if="log.strategy_name" class="log-kv">{{ log.strategy_name }}</span>
-                  <span v-if="log.signal_count" class="log-kv">{{ log.signal_count }} 信号</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
                 </span>
                 <!-- 默认：纯文本 -->
                 <span v-else class="log-msg">{{ log.message }}</span>
