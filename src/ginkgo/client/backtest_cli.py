@@ -21,6 +21,67 @@ app = typer.Typer(
 )
 
 
+@app.command("create")
+def create_task(
+    portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
+    start: str = typer.Option(..., "--start", help="Backtest start date (YYYY-MM-DD)"),
+    end: str = typer.Option(..., "--end", help="Backtest end date (YYYY-MM-DD)"),
+    cash: float = typer.Option(100000, "--cash", help="Initial capital (default: 100000)"),
+    commission: float = typer.Option(0.0003, "--commission", help="Commission rate"),
+    slippage: float = typer.Option(0.0001, "--slippage", help="Slippage rate"),
+    frequency: str = typer.Option("DAY", "--frequency", help="Frequency (DAY/HOUR/MINUTE)"),
+    name: Optional[str] = typer.Option(None, "--name", help="Task name"),
+):
+    """:plus: Create a backtest task."""
+    from ginkgo.data.containers import container
+    from ginkgo.workers.backtest_worker.task_helpers import load_portfolio_components
+
+    # 校验 portfolio 存在
+    portfolio_service = container.portfolio_service()
+    portfolio_result = portfolio_service.get_by_id(portfolio)
+    if not portfolio_result.is_success():
+        console.print(f":x: Portfolio not found: {portfolio}")
+        raise typer.Exit(1)
+
+    # 校验 portfolio 有组件绑定
+    try:
+        load_portfolio_components(portfolio, "cli-create")
+    except ValueError as e:
+        console.print(f":x: {e}")
+        raise typer.Exit(1)
+
+    # 构建 config_snapshot（与 WebUI 一致）
+    config_snapshot = {
+        "start_date": start,
+        "end_date": end,
+        "initial_cash": cash,
+        "commission_rate": commission,
+        "slippage_rate": slippage,
+        "frequency": frequency,
+        "portfolio_uuids": [portfolio],
+        "analyzers": [],
+        "broker_type": "backtest",
+    }
+
+    task_name = name or f"Backtest {start}~{end}"
+
+    service = container.backtest_task_service()
+    result = service.create(
+        name=task_name,
+        portfolio_id=portfolio,
+        config_snapshot=config_snapshot,
+    )
+
+    if not result.is_success():
+        console.print(f":x: {result.error}")
+        raise typer.Exit(1)
+
+    task = result.data
+    task_uuid = task.uuid if hasattr(task, "uuid") else str(task)
+    console.print(f":white_check_mark: Backtest task created: [bold green]{task_uuid}[/bold green]")
+    console.print(f"   Run with: [cyan]ginkgo backtest run {task_uuid}[/cyan]")
+
+
 @app.command("list")
 def list_tasks(
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio UUID"),
