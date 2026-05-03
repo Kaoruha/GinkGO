@@ -1019,7 +1019,7 @@ const formatLogTime = (ts?: string | null) => {
   if (!ts) return '-'
   const d = dayjs(ts)
   if (d.year() < 2000) return '-'
-  return d.format('MM-DD HH:mm:ss')
+  return d.format('YYYY-MM-DD HH:mm:ss')
 }
 
 const levelClass = (level?: string | null) => {

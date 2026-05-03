@@ -293,7 +293,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
             GLOG.INFO(f"{self.name}: {code} {signal.reason}")
 
             # 记录信号事件到ClickHouse（使用快捷访问）
-            GLOG.backtest.signal(
+            self.blog.signal(
                 symbol=code,
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
                 signal_reason=signal.reason,

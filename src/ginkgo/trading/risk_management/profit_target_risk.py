@@ -102,7 +102,7 @@ class ProfitTargetRisk(BaseRiskManagement):
             reason = f"Partial profit target reached: {current_profit_ratio:.1%}" if self.partial_take_profit else f"Profit target reached: {current_profit_ratio:.1%}"
 
             # 记录风控事件到ClickHouse
-            GLOG.backtest.risk(
+            self.blog.risk(
                 risk_type="PROFITTARGET",
                 reason=reason,
                 risk_actual_value=float(current_profit_ratio),

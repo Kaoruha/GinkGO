@@ -1200,7 +1200,6 @@ async def get_backtest_logs(
         log_service = logging_container.log_service()
 
         kwargs = dict(
-            portfolio_id=portfolio_id,
             task_id=task_id,
             level=level,
             event_type=event_type,
@@ -1214,7 +1213,7 @@ async def get_backtest_logs(
             kwargs['end_time'] = datetime.strptime(end_time + " 23:59:59", "%Y-%m-%d %H:%M:%S")
 
         logs = log_service.query_backtest_logs(**kwargs)
-        total = log_service.get_log_count(log_type="backtest", portfolio_id=portfolio_id, task_id=task_id, level=level)
+        total = log_service.get_log_count(log_type="backtest", task_id=task_id, level=level)
 
         return ok(data={"logs": logs, "total": total, "limit": limit, "offset": offset},
                   message="Logs retrieved successfully")
