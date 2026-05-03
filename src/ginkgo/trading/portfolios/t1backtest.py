@@ -124,7 +124,6 @@ class PortfolioT1Backtest(PortfolioBase):
                 timestamp=position.timestamp,
                 business_timestamp=self.current_timestamp,
             )
-            GLOG.DEBUG(f"Position record saved: {position.code} volume={position.volume}")
         except Exception as e:
             GLOG.ERROR(f"Failed to save position record: {e}")
 
@@ -149,43 +148,38 @@ class PortfolioT1Backtest(PortfolioBase):
                 position.process_settlement_queue(new_time)
                 if position.settlement_frozen_volume < initial_settlement_frozen:
                     settled_positions += 1
-                    GLOG.INFO(f"Position {code}: {initial_settlement_frozen - position.settlement_frozen_volume} shares settled, "
-                        f"available: {position.volume}, settlement_frozen: {position.settlement_frozen_volume}",
-                    )
 
         if settled_positions > 0:
-            GLOG.INFO(f"T+1解冻: {settled_positions}个持仓完成结算解冻")
+            GLOG.log_t1_settlement_event(settled_count=settled_positions)
 
         # ===== 步骤2: 时间推进和状态更新 =====
         # Go next TimePhase - 统一使用hook机制
         self.update_worth()
         self.update_profit()
 
-        GLOG.INFO("🔧 About to call super().advance_time")
         super().advance_time(time, *args, **kwargs)
-        GLOG.INFO("✅ super().advance_time completed")
 
         # ===== 步骤3: 批处理模式处理 =====
         if self._batch_processing_enabled and self._batch_processor:
             try:
                 pending_orders = self.force_process_pending_batches()
                 if pending_orders:
-                    GLOG.INFO(f"Processed {len(pending_orders)} pending batch orders at day transition")
+                    GLOG.log_time_advance_event(time=time, position_count=0, delayed_count=0, cash=0, pending_orders=len(pending_orders))
             except Exception as e:
-                GLOG.ERROR(f"Failed to process pending batches during day transition: {e}")
+                GLOG.log_engine_error_event(error_code="BATCH_PROCESS_FAILED", error_message=str(e))
 
         # ===== 步骤4: T+1信号批量处理 =====
         # 推进到新时间后，批量处理上期的延迟信号
         delayed_signals_count = len(self._signals)
         # 取消详细的Portfolio状态打印以避免性能开销
         # print(f"🕰️ [TIME ADVANCE] Portfolio time advance to {time}: {self}")
-        GLOG.INFO(f"时间推进: {time}, {len(self.positions)}个持仓, {delayed_signals_count}个待处理信号, 现金{self.cash:.2f}")
+        GLOG.log_time_advance_event(time=time, position_count=len(self.positions), delayed_count=delayed_signals_count, cash=float(self.cash))
 
         if delayed_signals_count > 0:
             GLOG.WARN(f"⚡ [T+1 PROCESSING] Processing {delayed_signals_count} delayed T+1 signals from previous period",
             )
             for i, signal in enumerate(self._signals):
-                GLOG.INFO(f"[T1_PROCESSING] #{i+1} Re-publishing {signal.direction.name} {signal.code}")
+                GLOG.log_t1_delay_event(code=signal.code, reason=f"Re-publishing delayed {signal.direction.name}")
                 e = EventSignalGeneration(signal)
                 event_uuid = getattr(e, "uuid", "N/A")[:8]
                 signal_uuid = getattr(signal, "uuid", "N/A")[:8]
@@ -201,7 +195,6 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # ===== 步骤5: ENDDAY钩子（移到T+1信号处理之后）=====
         # 在T+1订单成交后记录净值，确保记录的是收盘后的实际净值
-        GLOG.INFO("🔧 About to process ENDDAY analyzer hooks (after T+1 processing)")
         self.update_worth()  # 更新净值（订单成交后的最新值）
         self.update_profit()
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
@@ -275,16 +268,10 @@ class PortfolioT1Backtest(PortfolioBase):
                 current_time_normalized = normalize_time_for_comparison(current_time)
 
                 # T+1延迟机制：如果信号时间 >= 当前时间，则延迟到下一个时间点处理
-                GLOG.INFO(f"T+1 Decision: business_time={business_time_normalized} >= current_time={current_time_normalized} ? {business_time_normalized >= current_time_normalized}",
-                )
                 if business_time_normalized >= current_time_normalized:
                     if business_time_normalized > current_time_normalized:
-                        GLOG.CRITICAL(f"🚨 [FUTURE TIME] Batch Mode: Future signal from {event.business_timestamp} (current: {current_time}), delaying to next period.")
-                    else:
-                        GLOG.INFO(f"T+1 Batch Mode: delaying current day signal {event.code} to next period. {current_time}",
-                        )
+                        GLOG.log_t1_delay_event(code=event.code, reason=f"Future signal from {event.business_timestamp}")
                     self._signals.append(event.payload)
-                    GLOG.INFO(f"Signal added to _signals queue. Total signals: {len(self._signals)}")
                     return
 
                 # 使用批处理感知的信号处理
@@ -292,7 +279,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 return
 
             except Exception as e:
-                GLOG.ERROR(f"Batch signal processing failed, falling back to traditional mode: {e}")
+                GLOG.log_engine_error_event(error_code="BATCH_SIGNAL_FAILED", error_message=str(e))
                 # 继续执行传统处理逻辑
 
         # 传统T+1处理逻辑
@@ -301,41 +288,21 @@ class PortfolioT1Backtest(PortfolioBase):
         business_time_normalized = normalize_time_for_comparison(event.business_timestamp)
         current_time_normalized = normalize_time_for_comparison(current_time)
 
-        GLOG.INFO(f"=== T+1 TIME COMPARISON DEBUG ===")
-        GLOG.INFO(f"event.business_timestamp: {event.business_timestamp}")
-        GLOG.INFO(f"current_time from time_provider: {current_time}")
-        GLOG.INFO(f"normalized business_time: {business_time_normalized}")
-        GLOG.INFO(f"normalized current_time: {current_time_normalized}")
-        GLOG.INFO(f"Are they equal after normalization? {business_time_normalized == current_time_normalized}")
-        GLOG.INFO(f"=====================================")
-        GLOG.INFO(f"T+1 CHECK: business_time >= current_time? {business_time_normalized >= current_time_normalized}"
-        )
+        GLOG.log_t1_delay_event(code=event.code, reason=f"business_time({business_time_normalized}) >= current_time({current_time_normalized})")
 
         # T+1延迟机制：如果信号时间 >= 当前时间，则延迟到下一个时间点处理
         # 这确保只有过去的信号才会被立即处理，当天和未来的信号都会被延迟
         if business_time_normalized >= current_time_normalized:
-            GLOG.WARN(f"🚦 [T+1 DECISION] DELAYING signal (business_time >= current_time)")
             if business_time_normalized > current_time_normalized:
-                GLOG.CRITICAL(f"🚨 [FUTURE TIME] Individual Mode: Future signal from {event.business_timestamp} (current: {current_time}), delaying to next period.",
-                )
-            else:
-                GLOG.INFO(f"🚦 [T+1 DELAY] Signal from {event.business_timestamp} (current: {current_time}) DELAYED to next day due to T+1 trading rule!",
-                )
+                GLOG.log_t1_delay_event(code=event.code, reason=f"Future signal from {event.business_timestamp}")
             self._signals.append(event.payload)
             print(
                 f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}"
             )
-            GLOG.INFO(f"⚠️ [T+1 MECHANISM] No order will be generated today. Signal will be processed on next trading day.",
-            )
             return
 
         # 1. Transfer signal to sizer
-        GLOG.WARN(f"🎯 [SIGNAL TO ORDER] Calling sizer.cal() for signal {event.code} {event.direction}")
         portfolio_info = self.get_info()
-        GLOG.WARN(f"🎯 [PORTFOLIO INFO] cash={portfolio_info.get('cash', 'N/A')}, positions={len(portfolio_info.get('positions', {}))}",
-        )
-
-        GLOG.WARN(f"🔧 [SIZER CALL] About to call sizer.cal()...")
         try:
             order = self.sizer.cal(portfolio_info, event.payload)
             # 添加Sizer结果的关键事件流日志
@@ -358,31 +325,25 @@ class PortfolioT1Backtest(PortfolioBase):
             )
             return
         else:
-            GLOG.WARN(f"✅ [ORDER GENERATED] {order.direction.name} {order.volume} shares of {order.code} @ {order.limit_price or 'MARKET'} (uuid: {order.uuid[:8]})",
-            )
-        GLOG.WARN(f"📋 [ORDER INFO] Generated ORDER about {order.code} {order.direction} by sizer. {self.business_timestamp}",
-        )
+            GLOG.log_order_event(order_id=order.uuid, symbol=order.code, direction=order.direction.name, order_type=str(order.order_type), limit_price=float(order.limit_price) if order.limit_price else None)
 
         # 3. Transfer the order to risk_managers
-        GLOG.WARN(f"🛡️ [RISK MANAGEMENT] Processing order through {len(self.risk_managers)} risk managers")
         for i, risk_manager in enumerate(self.risk_managers):
             order_before_rm = order
             order = risk_manager.cal(self.get_info(), order)
             if order is None:
-                GLOG.INFO(f"风控拦截: {risk_manager.__class__.__name__} 拦截了{event.code}的订单")
+                GLOG.log_risk_event(risk_type="ORDERBLOCKED", risk_reason=f"{risk_manager.__class__.__name__} blocked {event.code}")
                 return
             else:
                 if order_before_rm.volume != order.volume:
-                    GLOG.INFO(f"风控调整: {risk_manager.__class__.__name__} 调整数量 {order_before_rm.volume}→{order.volume}"
-                    )
+                    GLOG.log_risk_event(risk_type="ORDERADJUSTED", risk_reason=f"{risk_manager.__class__.__name__} adjusted {order_before_rm.volume}→{order.volume}")
 
         # 4. Get the adjusted order, if so put eventorder to engine
         if order is None:
-            GLOG.WARN(f"ORDER about {event.code} prevent by risk manager. {self.business_timestamp}")
             return
         # Prevent Doing Zero Volume Order
         if order.volume == 0:
-            GLOG.WARN(f"ORDER about {event.code} prevent by zero volume. {self.business_timestamp}")
+            GLOG.log_order_rejected_event(order_id=order.uuid, reject_code="ZERO_VOLUME", reject_reason=f"Zero volume after risk management for {event.code}")
             return
         order.frozen_money = round(order.frozen_money, 2)
         order.remain = round(order.remain, 2)
@@ -392,40 +353,20 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 5. Cash/Position freezing
         if order.direction == DIRECTION_TYPES.LONG:
-            # ===== LONG SIGNAL PROCESSING START =====
-            GLOG.INFO(f"🔥 [LONG SIGNAL] === START PROCESSING {event.code} ===")
-            GLOG.INFO(f"🔥 [LONG SIGNAL] Portfolio BEFORE: cash={self.cash:.2f}, frozen={self.frozen:.2f}, total_available={self.cash + self.frozen:.2f}")
-            GLOG.INFO(f"🔥 [LONG SIGNAL] Order details: volume={order.volume}, frozen_money={order.frozen_money:.2f}, limit_price={order.limit_price}, uuid={order.uuid[:8]}")
-            GLOG.INFO(f"💰 CASH FREEZE: Attempting to freeze {order.frozen_money} for LONG order {event.code}")
-            GLOG.INFO(f"💰 Current cash before freeze: {self.cash}")
             freeze_ok = self.freeze(order.frozen_money)
             if not freeze_ok:
-                GLOG.WARN(f"❌ INSUFFICIENT CASH: Cannot afford ORDER about {event.code}. Need: {order.frozen_money}, Have: {self.cash}")
-                GLOG.ERROR(f"🔥 [LONG SIGNAL] === FAILED PROCESSING {event.code} (INSUFFICIENT CASH) ===")
+                GLOG.log_order_rejected_event(order_id=order.uuid, reject_code="INSUFFICIENT_CASH", reject_reason=f"Need {order.frozen_money}, have {self.cash}", symbol=event.code)
                 return
-            GLOG.INFO(f"✅ CASH FROZEN: {order.frozen_money}, Remaining cash: {self.cash}")
-            GLOG.INFO(f"🔥 [LONG SIGNAL] Portfolio AFTER FREEZE: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
-            GLOG.INFO(f"🔥 [LONG SIGNAL] === SUCCESSFULLY FROZEN {event.code} ===")
-            # ===== LONG SIGNAL PROCESSING END =====
         elif order.direction == DIRECTION_TYPES.SHORT:
-            GLOG.INFO(f"📉 POSITION FREEZE: Attempting to freeze {order.volume} shares for SHORT order {event.code}"
-            )
             if order.code not in self.positions.keys():
-                GLOG.WARN(f"❌ NO POSITION: Do not have position about {order.code}. {self.business_timestamp}")
+                GLOG.log_order_rejected_event(order_id=order.uuid, reject_code="NO_POSITION", reject_reason=f"No position for {event.code}", symbol=event.code)
                 return
             current_pos_volume = self.get_position(order.code).volume
-            GLOG.INFO(f"📉 Current position: {current_pos_volume} shares, Need to freeze: {order.volume}")
             freeze_ok = self.get_position(order.code).freeze(order.volume)
             if not freeze_ok:
-                GLOG.WARN(f"❌ INSUFFICIENT POSITION: Do not have enough position about {order.code}. Need: {order.volume}, Have: {current_pos_volume}")
+                GLOG.log_order_rejected_event(order_id=order.uuid, reject_code="INSUFFICIENT_POSITION", reject_reason=f"Need {order.volume}, have {current_pos_volume}", symbol=event.code)
                 return
-            GLOG.INFO(f"✅ POSITION FROZEN: {order.volume} shares of {event.code}")
         # 6. Create and submit order event to engine
-        GLOG.INFO(f"📤 ORDER SUBMISSION: Creating EventOrderAck for {order.direction.name} {order.volume} shares of {order.code}")
-        # 调试：检查引擎绑定状态
-        GLOG.INFO(f"🔍 [EVENT DEBUG] Creating EventOrderAck - portfolio_id={self.uuid}, engine_id={self.engine_id}, task_id={self.task_id}")
-        GLOG.INFO(f"🔍 [EVENT DEBUG] Bound engine: {self.bound_engine}, Engine ID: {self.bound_engine.engine_id if self.bound_engine else None}")
-
         event = EventOrderAck(order, portfolio_id=self.uuid, engine_id=self.engine_id, task_id=self.task_id)
         event.broker_order_id = f"BROKER_{order.uuid[:8]}"
         event.payload = order
@@ -462,7 +403,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             pass
 
-        GLOG.INFO(f"收到行情: {code} 收盘{event.close} {self.business_timestamp}")
+        GLOG.log_price_received_event(code=code, price=float(event.close))
 
         if not self.is_all_set():
             return
@@ -478,11 +419,11 @@ class PortfolioT1Backtest(PortfolioBase):
             self.positions[event.code].on_price_update(event.close)
             self.update_worth()
             self.update_profit()
-            GLOG.INFO(f"持仓估值更新: {event.code} 旧市值{old_worth:.2f}→新市值{pos.worth:.2f} 成本{pos.cost:.2f}")
+            GLOG.log_position_event(symbol=event.code, volume=pos.volume, position_cost=float(pos.cost), position_price=float(pos.worth))
 
         # 2. Transfer price to each strategy
         if len(self.strategies) == 0:
-            GLOG.CRITICAL(f"There is no strategy in the portfolio. Check your config. {self.business_timestamp}")
+            GLOG.log_engine_error_event(error_code="NO_STRATEGY", error_message="No strategy in portfolio")
             return
 
         # GLOG.INFO(f"Under {len(self.strategies)} Strategies Calculating... {self.business_timestamp}")
@@ -502,16 +443,16 @@ class PortfolioT1Backtest(PortfolioBase):
                         GLOG.WARN(f"Strategy {strategy.name} returned single Signal instead of List[Signal], auto-wrapped",
                         )
                     else:
-                        GLOG.ERROR(f"Strategy {strategy.name} returned invalid type {type(signals)}, ignoring")
+                        GLOG.log_engine_error_event(error_code="INVALID_SIGNAL_TYPE", error_message=f"Strategy {strategy.name} returned {type(signals)}")
                         signals = []
 
             except Exception as e:
-                GLOG.ERROR(f"Strategy {strategy.name} cal() failed: {e}")
+                GLOG.log_engine_error_event(error_code="STRATEGY_FAILED", error_message=f"Strategy {strategy.name}: {e}")
                 signals = []
             finally:
                 pass
             if signals:
-                GLOG.INFO(f"策略{strategy.name}生成{len(signals)}个信号: {[f'{s.direction.name} {s.code}' for s in signals]}")
+                GLOG.log_strategy_signal_event(strategy_name=strategy.name, signal_count=len(signals), signals_desc=str([f'{s.direction.name} {s.code}' for s in signals]))
             # 处理每个信号
             for signal in signals:
                 if signal:
@@ -537,9 +478,8 @@ class PortfolioT1Backtest(PortfolioBase):
                             source=signal.source,
                             business_timestamp=signal.business_timestamp,
                         )
-                        GLOG.DEBUG(f"Signal saved to database: {signal.code} {signal.direction}")
                     except Exception as e:
-                        GLOG.ERROR(f"Failed to save signal to database: {e}")
+                        GLOG.log_engine_error_event(error_code="SIGNAL_SAVE_FAILED", error_message=str(e))
 
                     e = EventSignalGeneration(signal)
                     e.set_source(SOURCE_TYPES.STRATEGY)
@@ -596,7 +536,7 @@ class PortfolioT1Backtest(PortfolioBase):
             return result.success
         except Exception as e:
             print(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
-            GLOG.ERROR(f"Failed to save order record: {e}")
+            GLOG.log_engine_error_event(error_code="ORDER_SAVE_FAILED", error_message=str(e))
             return False
 
     # ===== 新增：订单生命周期事件处理（ACK/部分成交/拒绝/过期/撤销确认） =====
@@ -609,17 +549,14 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDERACK, self.get_info())
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERACK]:
                 func(RECORDSTAGE_TYPES.ORDERACK, self.get_info())
-            GLOG.INFO(f"ACK: order={event.order_id[:8]} code={event.code} msg={getattr(event, 'ack_message', '')}"
-            )
+            GLOG.log_order_ack_event(order_id=event.order_id, broker_order_id=event.code, symbol=event.code)
 
             # 可选：跟踪订单
             if hasattr(self, "_orders") and event.order not in self._orders:
                 self._orders.append(event.order)
 
         except Exception as e:
-            GLOG.ERROR(f"on_order_ack failed: {e}")
-            import traceback
-            traceback.print_exc()
+            GLOG.log_engine_error_event(error_code="ORDER_ACK_HANDLER_FAILED", error_message=str(e))
 
     # [订单持久化] FILLED/PARTIAL_FILLED 状态持久化位置
     # 事件由 TradeGateway.on_order_partially_filled() 路由到此处
@@ -634,7 +571,7 @@ class PortfolioT1Backtest(PortfolioBase):
 
             order = getattr(event, "order", None)
             if order is None:
-                GLOG.ERROR("Partial fill event missing order payload")
+                GLOG.log_engine_error_event(error_code="PARTIAL_FILL_NO_ORDER", error_message="Missing order payload")
                 return
 
             # 先从事件中获取成交信息
@@ -642,9 +579,6 @@ class PortfolioT1Backtest(PortfolioBase):
             price = to_decimal(getattr(event, "fill_price", 0) or 0)
             fee = to_decimal(getattr(event, "commission", 0) or 0)
             if qty <= 0 or price <= 0:
-                GLOG.WARN(f"🚫 [FILL REJECTED] Partial fill ignored due to invalid qty/price: {qty}/{price}")
-                GLOG.WARN(f"🚫 [FILL REJECTED] Order NOT added to filled_orders list: {order.code} {order.direction.name}",
-                )
                 return
 
             # 保存订单记录（FILLED 状态）
@@ -654,11 +588,9 @@ class PortfolioT1Backtest(PortfolioBase):
             # 🎯 订单统计更新：跟踪已成交的订单
             if order not in self._orders:
                 self._orders.append(order)
-                GLOG.INFO(f"📊 [ORDER TRACKING] Added filled order to tracking: {order.code} {order.direction.name} {order.volume} shares")
 
             # 添加到成交订单列表 (只有真实成交的订单)
             self._filled_orders.append(order)
-            GLOG.INFO(f"📊 [FILLED ORDER TRACKING] Added VALID filled order: {order.code} {order.direction.name} {order.volume} shares @ {price}")
 
             direction = getattr(order, "direction", None) or getattr(event, "direction", None)
             code = event.code
@@ -685,7 +617,7 @@ class PortfolioT1Backtest(PortfolioBase):
             try:
                 order.transaction_volume = min(order.volume, order.transaction_volume + qty)
             except Exception as e:
-                GLOG.ERROR(f"Failed to update transaction_volume: {e}")
+                GLOG.log_engine_error_event(error_code="TRANSACTION_VOLUME_FAILED", error_message=str(e))
 
             if not hasattr(order, "remain") or order.remain is None:
                 order.remain = order.frozen_money
@@ -699,9 +631,6 @@ class PortfolioT1Backtest(PortfolioBase):
 
             # LONG 部分成交：从冻结资金扣除成交成本，根据是否最终成交决定是否释放剩余资金
             if direction == DIRECTION_TYPES.LONG:
-                GLOG.INFO(f"🔍 [PARTIAL FILL] BEFORE: UUID={order.uuid[:8] if hasattr(order, 'uuid') else 'NO_UUID'}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}, fill_cost={fill_cost:.2f}, is_final={is_final}",
-                )
-
                 # 如果不是最终成交，不解冻剩余资金；如果是最终成交，解冻所有剩余资金
                 unfreeze_remain = order.remain if is_final else Decimal("0")
 
@@ -713,8 +642,6 @@ class PortfolioT1Backtest(PortfolioBase):
                 if is_final:
                     order.remain = Decimal("0")
 
-                GLOG.INFO(f"🔍 [PARTIAL FILL] AFTER: order={order.uuid[:8]}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}",
-                )
                 self.add_fee(fee)
 
                 pos = self.get_position(code)
@@ -743,8 +670,6 @@ class PortfolioT1Backtest(PortfolioBase):
                         f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}"
                     )
 
-                GLOG.INFO(f"PARTIAL LONG filled {code}: {qty}@{price}, fee={fee}, remain_frozen={order.remain}",
-                )
 
             # SHORT 部分成交：入账现金（成交额-手续费），已冻结仓位随成交递减，剩余冻结保持
             elif direction == DIRECTION_TYPES.SHORT:
@@ -754,24 +679,20 @@ class PortfolioT1Backtest(PortfolioBase):
 
                 pos = self.get_position(code)
                 if pos is None:
-                    GLOG.ERROR(f"Partial SHORT fill but no position found for {code}")
+                    GLOG.log_engine_error_event(error_code="NO_POSITION_FOR_SHORT", error_message=f"No position for {code}")
                 else:
                     pos.deal(DIRECTION_TYPES.SHORT, price, qty)
                     self.clean_positions()
 
-                GLOG.INFO(f"PARTIAL SHORT filled {code}: {qty}@{price}, fee={fee}")
             else:
-                GLOG.WARN(f"Partial fill with unknown direction for {code}")
+                GLOG.log_engine_error_event(error_code="UNKNOWN_DIRECTION", error_message=f"Unknown direction for {code}")
 
             # 更新组合指标
             self.update_worth()
             self.update_profit()
 
         except Exception as e:
-            GLOG.ERROR(f"on_order_partially_filled failed: {e}")
-            import traceback
-
-            GLOG.ERROR(f"on_order_partially_filled traceback: {traceback.format_exc()}")
+            GLOG.log_engine_error_event(error_code="PARTIAL_FILL_FAILED", error_message=str(e))
 
     # [订单持久化] REJECTED 状态持久化位置
     # 事件由 engine_assembly_service.py:1562 直接注册到 Portfolio
@@ -781,7 +702,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERREJECTED]:
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
-            GLOG.WARN(f"REJECTED: order={event.order_id[:8]} code={event.code} reason={event.reject_reason}")
+            GLOG.log_order_rejected_event(order_id=event.order_id, reject_code="BROKER_REJECTED", reject_reason=event.reject_reason, symbol=event.code)
             # 添加订单拒绝的关键事件流日志
             print(
                 f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}"
@@ -803,7 +724,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 self._save_order_record(order, ORDERSTATUS_TYPES.REJECTED)
 
         except Exception as e:
-            GLOG.ERROR(f"on_order_rejected failed: {e}")
+            GLOG.log_engine_error_event(error_code="ORDER_REJECTED_HANDLER_FAILED", error_message=str(e))
 
     # TODO: [订单持久化] EXPIRED 状态缺少订单记录持久化
     #       需要添加: self._save_order_record(order, ORDERSTATUS_TYPES.EXPIRED)
@@ -814,7 +735,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDEREXPIRED, self.get_info())
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDEREXPIRED]:
                 func(RECORDSTAGE_TYPES.ORDEREXPIRED, self.get_info())
-            GLOG.WARN(f"EXPIRED: order={event.order_id[:8]} code={event.code} reason={event.expire_reason}")
+            GLOG.log_order_expired_event(order_id=event.order_id, expire_reason=event.expire_reason, symbol=event.code)
 
             # 记录订单过期事件到ClickHouse
             expire_reason = getattr(event, "expire_reason", "Unknown reason")
@@ -833,14 +754,13 @@ class PortfolioT1Backtest(PortfolioBase):
 
             # 过期一般伴随取消事件；组合在取消事件中做资金/仓位回滚
         except Exception as e:
-            GLOG.ERROR(f"on_order_expired failed: {e}")
+            GLOG.log_engine_error_event(error_code="ORDER_EXPIRED_HANDLER_FAILED", error_message=str(e))
 
 
     # [订单持久化] CANCELED 状态持久化位置
     # 事件由 engine_assembly_service.py:1559 直接注册到 Portfolio
     def on_order_cancel_ack(self, event) -> None:
         try:
-            GLOG.INFO(f"Got An Order Cancelled... {self.business_timestamp}")
             # 处理ORDERCANCELED阶段的hooks
             for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
                 func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
@@ -853,7 +773,6 @@ class PortfolioT1Backtest(PortfolioBase):
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
                 func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
 
-            GLOG.WARN(f"Dealing with CANCELED ORDER. {self.business_timestamp}")
             if self.is_event_from_future(event):
                 return
 
@@ -886,33 +805,29 @@ class PortfolioT1Backtest(PortfolioBase):
                     if remain is None:
                         remain = getattr(order, "frozen_money", 0)
                 if remain is None:
-                    GLOG.ERROR(f"Cancel event missing remain for {event.code}")
+                    GLOG.log_engine_error_event(error_code="CANCEL_MISSING_REMAIN", error_message=f"Missing remain for {event.code}")
                     return
                 remain = to_decimal(remain)
                 if remain > 0:
                     self.unfreeze(remain)
                     if order is not None:
                         order.remain = Decimal("0")
-                GLOG.INFO(f"Dealing ORDER about {event.code} CANCELED. unfrozen cash {remain} {self.business_timestamp}",
-                )
             elif direction == DIRECTION_TYPES.SHORT:
                 code = event.code
                 pos = self.positions.get(code)
                 cancel_vol = int(getattr(event, "cancelled_quantity", 0) or 0)
                 if pos is None:
-                    GLOG.ERROR(f"Cancel SHORT but position missing for {code}")
+                    GLOG.log_engine_error_event(error_code="CANCEL_NO_POSITION", error_message=f"No position for SHORT cancel {code}")
                 else:
                     if cancel_vol > 0:
                         pos.unfreeze(cancel_vol)
-                GLOG.WARN(f"DONE UNFREEZE SHORT. {self.business_timestamp}")
 
-            GLOG.INFO(f"CANCEL-ACK: order={getattr(event, 'order_id', 'N/A')[:8]} code={event.code} cancelled_qty={getattr(event, 'cancelled_quantity', 'N/A')}",
-            )
+            GLOG.log_order_cancelled_event(order_id=event.order_id, cancel_reason="cancelled", symbol=event.code)
             self.update_worth()
             self.update_profit()
 
         except Exception as e:
-            GLOG.ERROR(f"on_order_cancel_ack failed: {e}")
+            GLOG.log_engine_error_event(error_code="CANCEL_HANDLER_FAILED", error_message=str(e))
 
     def on_order_filled(self, event) -> None:
         """订单完全成交事件处理器 - 特殊的partially_filled (remain=0)"""
@@ -923,46 +838,27 @@ class PortfolioT1Backtest(PortfolioBase):
             for func in self._analyzer_record_hook.get(RECORDSTAGE_TYPES.ORDERFILLED, []):
                 func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
 
-            GLOG.INFO(f"Portfolio {self.name}: Order completely filled")
-
             # 委托给现有的部分成交处理器，复用所有现有逻辑
             # ORDERFILLED本质上是remain=0的特殊ORDERPARTIALLYFILLED
             self.on_order_partially_filled(event)
         except Exception as e:
-            GLOG.ERROR(f"on_order_filled failed: {e}")
+            GLOG.log_engine_error_event(error_code="ORDER_FILLED_HANDLER_FAILED", error_message=str(e))
 
     def deal_long_filled(self, event: EventOrderPartiallyFilled, *args, **kwargs):
-        # ===== LONG ORDER FILLED START =====
-        GLOG.INFO(f"💰 [LONG FILLED] === START PROCESSING FILLED ORDER {event.code} ===")
-        GLOG.INFO(f"💰 [LONG FILLED] Portfolio BEFORE UNFREEZE: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
-        GLOG.INFO(f"💰 [LONG FILLED] Event details: code={event.code}, transaction_volume={event.transaction_volume}, transaction_price={event.transaction_price:.2f}",
-        )
-        GLOG.INFO(f"💰 [LONG FILLED] Financial details: frozen={event.frozen:.2f}, remain={event.remain:.2f}, fee={event.fee:.2f}")
-
         if self.frozen < event.frozen:
-            GLOG.CRITICAL(f"Over flow, can not unfreeze {event.frozen} from {self.frozen}. {self.business_timestamp}")
-            GLOG.ERROR(f"💰 [LONG FILLED] === FAILED PROCESSING {event.code} (OVERFLOW) ===")
+            GLOG.log_engine_error_event(error_code="OVERFLOW_UNFREEZE", error_message=f"Cannot unfreeze {event.frozen} from {self.frozen}")
             return
         if event.remain < 0:
-            GLOG.CRITICAL(f"Order can not remain under 0.")
-            GLOG.ERROR(f"💰 [LONG FILLED] === FAILED PROCESSING {event.code} (NEGATIVE REMAIN) ===")
+            GLOG.log_engine_error_event(error_code="NEGATIVE_REMAIN", error_message="Order remain under 0")
             return
 
-        # 🚨 重要修复：使用新的deduct_from_frozen方法正确处理部分成交
+        # 重要修复：使用新的deduct_from_frozen方法正确处理部分成交
         transaction_cost = event.frozen - event.remain
-        GLOG.INFO(f"🔍 [LONG FILLED] Transaction cost: ${transaction_cost:.2f} (converted to Position)")
-        GLOG.INFO(f"🔍 [LONG FILLED] Unfreezing remaining unfilled amount: ${event.remain:.2f}")
-        GLOG.INFO(f"🔍 [LONG FILLED] Event details: original_frozen={event.frozen:.2f}, remain={event.remain:.2f}, transaction_cost={transaction_cost:.2f}",
-        )
 
         # 使用新的公共方法：扣除成交花费，只将剩余未成交部分解冻
         self.deduct_from_frozen(cost=transaction_cost, unfreeze_remain=event.remain)
 
-        GLOG.INFO(f"💰 [LONG FILLED] Processed transaction cost {transaction_cost:.2f} and unfroze remain {event.remain:.2f}")
-        GLOG.INFO(f"💰 [LONG FILLED] Portfolio AFTER: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
-
         self.add_fee(event.fee)
-        GLOG.INFO(f"💰 [LONG FILLED] Added fee: {event.fee:.2f}, New cash: {self.cash:.2f}")
 
         p = Position(
             portfolio_id=self.uuid,
@@ -977,18 +873,11 @@ class PortfolioT1Backtest(PortfolioBase):
             uuid=uuid.uuid4().hex,
         )
         self.add_position(p)
-        GLOG.INFO(f"💰 [LONG FILLED] Created position: {event.code}, volume={event.transaction_volume}, cost={event.transaction_price:.2f}",
-        )
-
-        # 🎯 成交订单统计更新 - 已在on_order_partially_filled方法中处理，此处避免重复统计
-
-        position_count = len(self.positions)
-        total_position_value = sum(pos.worth for pos in self.positions.values() if hasattr(pos, "worth"))
-        GLOG.INFO(f"💰 [LONG FILLED] Portfolio SUMMARY: cash={self.cash:.2f}, frozen={self.frozen:.2f}, positions={position_count}, total_position_worth={total_position_value:.2f}",
-        )
 
         # 记录资金更新事件到ClickHouse
         try:
+            position_count = len(self.positions)
+            total_position_value = sum(pos.worth for pos in self.positions.values() if hasattr(pos, "worth"))
             total_value = self.cash + self.frozen + total_position_value
             self.blog.trade.capital(
                 total=total_value,
@@ -999,23 +888,18 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")
 
-        GLOG.WARN(f"Fill a LONG ORDER DONE. {self.business_timestamp}")
-        GLOG.INFO(f"💰 [LONG FILLED] === SUCCESSFULLY PROCESSED FILLED ORDER {event.code} ===")
-        # ===== LONG ORDER FILLED END =====
-
     def deal_short_filled(self, event: EventOrderPartiallyFilled, *args, **kwargs):
         if event.remain < 0:
-            GLOG.CRITICAL(f"Order can not remain under 0.")
+            GLOG.log_engine_error_event(error_code="NEGATIVE_REMAIN", error_message="Short order remain under 0")
             return
         if event.code not in self.positions.keys():
-            GLOG.CRITICAL(f"Can not handler the short order about no exist {event.code}. {self.business_timestamp}")
+            GLOG.log_engine_error_event(error_code="NO_POSITION_FOR_SHORT_FILL", error_message=f"No position for {event.code}")
             return
         if event.transaction_volume > self.positions[event.code].frozen_volume:
-            GLOG.CRITICAL(f"Can not handler the short order about over flow. {self.business_timestamp}")
+            GLOG.log_engine_error_event(error_code="SHORT_OVERFLOW", error_message=f"Overflow for {event.code}")
             return
-        # 🚨 修复：不应该添加event.remain，因为这部分资金应该已经通过unfreeze正确处理了
+        # 修复：不应该添加event.remain，因为这部分资金应该已经通过unfreeze正确处理了
         # self.add_cash(event.remain)  # 已注释掉，这是导致资金重复计算的错误
-        GLOG.INFO(f"💰 [SHORT FILLED] Fixed: NOT adding remain cash {event.remain:.2f} (already handled by unfreeze). {self.business_timestamp}")
         self.add_fee(event.fee)
         self.positions[event.code].deal(DIRECTION_TYPES.SHORT, event.transaction_price, event.transaction_volume)
         self.clean_positions()
@@ -1033,8 +917,6 @@ class PortfolioT1Backtest(PortfolioBase):
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to log capital event: {e}")
-
-        GLOG.WARN(f"Fill a SHORT ORDER DONE. {self.business_timestamp}")
 
     def __repr__(self) -> str:
         """安全的__repr__实现，避免循环递归导致的性能问题"""
