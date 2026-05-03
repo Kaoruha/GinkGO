@@ -38,7 +38,7 @@ def create_task(
 
     # 校验 portfolio 存在
     portfolio_service = container.portfolio_service()
-    portfolio_result = portfolio_service.get_by_id(portfolio)
+    portfolio_result = portfolio_service.get(portfolio_id=portfolio)
     if not portfolio_result.is_success():
         console.print(f":x: Portfolio not found: {portfolio}")
         raise typer.Exit(1)
@@ -448,28 +448,26 @@ def cat_task(
 def _save_results(service, task_uuid: str, engine, portfolio_id: str):
     """保存回测结果到 backtest_task 表。"""
     try:
-        import json
         from ginkgo.data.containers import container as data_container
+        from datetime import datetime, timezone
 
-        result_data = {"status": "completed"}
+        updates = {"status": "completed", "end_time": datetime.now(timezone.utc)}
 
         # 尝试从 analyzer 获取指标
         try:
-            analyzer_crud = data_container.cruds.analyzer_record()
+            analyzer_crud = data_container.analyzer_record()
             records = analyzer_crud.find(filters={"portfolio_id": portfolio_id, "source": 15})
             if records:
                 import pandas as pd
                 df = records.to_dataframe() if hasattr(records, "to_dataframe") else pd.DataFrame()
                 if not df.empty and "net_value" in df.columns:
-                    result_data["final_net_value"] = float(df["net_value"].iloc[-1])
-                    result_data["total_return"] = (float(df["net_value"].iloc[-1]) / 100000 - 1)
+                    updates["final_portfolio_value"] = float(df["net_value"].iloc[-1])
                 if not df.empty and "pnl" in df.columns:
-                    result_data["total_pnl"] = float(df["pnl"].sum())
+                    updates["total_pnl"] = float(df["pnl"].sum())
         except Exception:
             pass
 
-        service.update_status(task_uuid, "completed")
-        service.update(task_uuid, result=json.dumps(result_data))
+        service.update(task_uuid, **updates)
 
     except Exception as e:
         from ginkgo.libs import GLOG
