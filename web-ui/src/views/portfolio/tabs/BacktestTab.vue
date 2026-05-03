@@ -417,6 +417,21 @@
                 <option value="ERROR">ERROR</option>
                 <option value="CRITICAL">CRITICAL</option>
               </select>
+              <select v-model="logFilters.event_type" class="form-select filter-select" @change="loadLogs(true)">
+                <option value="">全部事件</option>
+                <option value="SIGNALGENERATION">信号</option>
+                <option value="ORDERSUBMITTED">订单提交</option>
+                <option value="ORDERFILLED">成交</option>
+                <option value="ORDERREJECTED">订单拒绝</option>
+                <option value="ORDERCANCELACK">订单取消</option>
+                <option value="ORDEREXPIRED">订单过期</option>
+                <option value="POSITIONUPDATE">持仓更新</option>
+                <option value="CAPITALUPDATE">资金更新</option>
+                <option value="RISKBREACH">风控触发</option>
+                <option value="ENGINESTART">引擎启动</option>
+                <option value="ENGINESTOP">引擎停止</option>
+                <option value="PRICEUPDATE">行情更新</option>
+              </select>
               <input v-model="logFilters.start_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
               <span class="filter-sep">~</span>
               <input v-model="logFilters.end_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
@@ -673,7 +688,7 @@ const logsTotal = ref(0)
 const logsHasMore = ref(true)
 const logsOffset = ref(0)
 const logsPageSize = 100
-const logFilters = ref({ level: '', start_time: '', end_time: '' })
+const logFilters = ref({ level: '', event_type: '', start_time: '', end_time: '' })
 
 // 分析器详情
 const selectedAnalyzer = ref('')
@@ -890,6 +905,7 @@ const loadLogs = async (reset = false) => {
   try {
     const params: any = { limit: logsPageSize, offset: logsOffset.value }
     if (logFilters.value.level) params.level = logFilters.value.level
+    if (logFilters.value.event_type) params.event_type = logFilters.value.event_type
     if (logFilters.value.start_time) params.start_time = logFilters.value.start_time
     if (logFilters.value.end_time) params.end_time = logFilters.value.end_time
     const res = await backtestApi.getLogs(backtestId.value, params)
@@ -1040,6 +1056,7 @@ const eventClass = (et?: string | null) => {
   if (e === 'POSITIONUPDATE') return 'event-position'
   if (e === 'CAPITALUPDATE') return 'event-capital'
   if (e === 'ENGINESTART' || e === 'ENGINESTOP') return 'event-engine'
+  if (e === 'PRICEUPDATE') return 'event-price'
   if (e.startsWith('RISK')) return 'event-risk'
   return ''
 }
@@ -1795,18 +1812,32 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
 }
 .level-debug { background: rgba(255,255,255,0.06); color: #8a8a9a; }
 .level-info { background: rgba(24,144,255,0.15); color: #69c0ff; }
 .level-warning { background: rgba(250,173,20,0.15); color: #ffc53d; }
 .level-error { background: rgba(245,34,45,0.15); color: #ff7875; }
-.log-event { color: #1890ff; flex-shrink: 0; }
-.event-signal { color: #b37feb; }
-.event-order { color: #36cfc9; }
-.event-position { color: #ffc53d; }
-.event-capital { color: #73d13d; }
-.event-engine { color: #69c0ff; }
-.event-risk { color: #ff7875; }
+.log-event {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  display: inline-block;
+  min-width: 48px;
+  text-align: center;
+}
+.event-signal { background: rgba(179,127,235,0.15); color: #b37feb; }
+.event-order { background: rgba(54,207,201,0.15); color: #36cfc9; }
+.event-position { background: rgba(250,173,20,0.15); color: #ffc53d; }
+.event-capital { background: rgba(115,209,61,0.15); color: #73d13d; }
+.event-engine { background: rgba(24,144,255,0.15); color: #69c0ff; }
+.event-risk { background: rgba(245,34,45,0.15); color: #ff7875; }
+.event-price { background: rgba(255,255,255,0.06); color: #8a8a9a; }
 .log-detail { color: #ccc; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .log-symbol { color: #fff; font-weight: 600; }
 .log-kv { color: #8a8a9a; }

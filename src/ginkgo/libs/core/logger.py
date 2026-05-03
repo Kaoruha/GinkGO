@@ -1394,6 +1394,41 @@ class GinkgoLogger:
             }
         )
 
+    def log_t1_settlement_event(self, settled_count: int, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"T+1 settlement: {settled_count} positions unfrozen",
+            _ginkgo={"event_type": "T1SETTLEMENT", "settled_count": settled_count, **kwargs}
+        )
+
+    def log_t1_delay_event(self, code: str, reason: str, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"T+1 delay: {code} - {reason}",
+            _ginkgo={"event_type": "T1DELAYDECISION", "symbol": code, "reason": reason, **kwargs}
+        )
+
+    def log_time_advance_event(self, time, position_count: int, delayed_count: int, cash: float, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Time advance: {time}, {position_count} positions, {delayed_count} delayed",
+            _ginkgo={"event_type": "TIMEADVANCE", "position_count": position_count, "delayed_count": delayed_count, "cash": cash, **kwargs}
+        )
+
+    def log_price_received_event(self, code: str, price: float, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Price received: {code} close={price}",
+            _ginkgo={"event_type": "PRICERECEIVED", "symbol": code, "price": price, **kwargs}
+        )
+
+    def log_strategy_signal_event(self, strategy_name: str, signal_count: int, signals_desc: str = "", msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Strategy {strategy_name}: {signal_count} signals",
+            _ginkgo={"event_type": "STRATEGYSIGNAL", "strategy_name": strategy_name, "signal_count": signal_count, **kwargs}
+        )
+
     def log_engine_start_event(self, msg: str = None, **kwargs):
         """
         记录引擎启动事件
