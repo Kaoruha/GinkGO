@@ -15,12 +15,17 @@ from ginkgo.enums import FILE_TYPES
 from ginkgo.libs import GLOG
 
 
-def build_engine_data(config) -> Dict[str, Any]:
+def build_engine_data(config, task_id: str = None) -> Dict[str, Any]:
     """
     将 BacktestConfig 转换为 EngineAssemblyService 需要的 engine_data dict。
+
+    Args:
+        config: BacktestConfig 实例
+        task_id: 任务标识（用于 name 和 task_id 字段，可选）
     """
-    return {
-        "name": f"BacktestEngine_{config.start_date}_{config.end_date}",
+    name_prefix = f"BacktestEngine_{task_id[:8]}" if task_id else f"BacktestEngine_{config.start_date}_{config.end_date}"
+    result = {
+        "name": name_prefix,
         "backtest_start_date": config.start_date,
         "backtest_end_date": config.end_date,
         "initial_capital": config.initial_cash,
@@ -29,6 +34,9 @@ def build_engine_data(config) -> Dict[str, Any]:
         "broker": "backtest",
         "frequency": config.frequency,
     }
+    if task_id:
+        result["task_id"] = task_id
+    return result
 
 
 def load_portfolio_components(portfolio_id: str, task_uuid: str = "cli") -> Dict[str, Any]:
@@ -40,6 +48,7 @@ def load_portfolio_components(portfolio_id: str, task_uuid: str = "cli") -> Dict
 
     Raises:
         ValueError: Portfolio 不存在或无组件
+        数据库异常直接传播（如连接失败、查询错误等）
     """
     file_mapping_crud = data_container.cruds.portfolio_file_mapping()
     mappings = file_mapping_crud.find(
@@ -95,7 +104,12 @@ def load_portfolio_components(portfolio_id: str, task_uuid: str = "cli") -> Dict
         )
 
     strategy_names = [c["name"] for c in components["strategies"] if c.get("name")]
-    GLOG.INFO(f"[{task_uuid[:8]}] Assembly: strategies={strategy_names}")
+    risk_names = [c["name"] for c in components["risk_managers"] if c.get("name")]
+    sizer_names = [c["name"] for c in components["sizers"] if c.get("name")]
+    GLOG.INFO(f"[{task_uuid[:8]}] Assembly: "
+              f"strategies={strategy_names}, "
+              f"risk_managers={risk_names}, "
+              f"sizers={sizer_names}")
     return components
 
 
