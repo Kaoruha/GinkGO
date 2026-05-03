@@ -181,9 +181,7 @@ class BacktestProcessor(Thread):
                   f"capital={self.task.config.initial_cash}, commission={self.task.config.commission_rate}")
 
         # 1. 构建引擎配置（委托到 task_helpers）
-        engine_data = build_engine_data(self.task.config)
-        engine_data["name"] = f"BacktestEngine_{self.task.task_uuid[:8]}"
-        engine_data["task_id"] = self.task.task_uuid
+        engine_data = build_engine_data(self.task.config, task_id=self.task.task_uuid)
 
         # 2. 获取 Portfolio 配置和组件
         portfolio_config, portfolio_components = self._get_portfolio_config_and_components()
