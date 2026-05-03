@@ -203,6 +203,92 @@ def run_task(
         raise typer.Exit(1)
 
 
+@app.command("edit")
+def edit_task(
+    task_id: str = typer.Argument(help="Task UUID to edit"),
+    start: Optional[str] = typer.Option(None, "--start", help="New start date (YYYY-MM-DD)"),
+    end: Optional[str] = typer.Option(None, "--end", help="New end date (YYYY-MM-DD)"),
+    cash: Optional[float] = typer.Option(None, "--cash", help="New initial capital"),
+    commission: Optional[float] = typer.Option(None, "--commission", help="New commission rate"),
+    slippage: Optional[float] = typer.Option(None, "--slippage", help="New slippage rate"),
+    name: Optional[str] = typer.Option(None, "--name", help="New task name"),
+):
+    """:pencil2: Edit an uncompleted backtest task."""
+    from ginkgo.data.containers import container
+
+    service = container.backtest_task_service()
+    result = service.get_by_id(task_id)
+
+    if not result.is_success():
+        console.print(f":x: {result.error}")
+        raise typer.Exit(1)
+
+    task = result.data
+    status_val = task.status if hasattr(task, "status") else ""
+    if status_val == "completed":
+        console.print(":x: Cannot edit a completed task.")
+        raise typer.Exit(1)
+
+    config_snapshot = json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
+
+    if start:
+        config_snapshot["start_date"] = start
+    if end:
+        config_snapshot["end_date"] = end
+    if cash is not None:
+        config_snapshot["initial_cash"] = cash
+    if commission is not None:
+        config_snapshot["commission_rate"] = commission
+    if slippage is not None:
+        config_snapshot["slippage_rate"] = slippage
+
+    updates = {"config_snapshot": json.dumps(config_snapshot)}
+    if name:
+        updates["name"] = name
+
+    update_result = service.update(task.uuid, **updates)
+
+    if not update_result.is_success():
+        console.print(f":x: {update_result.error}")
+        raise typer.Exit(1)
+
+    console.print(f":white_check_mark: Task [bold]{task.uuid[:12]}[/bold] updated.")
+
+
+@app.command("delete")
+def delete_task(
+    task_id: str = typer.Argument(help="Task UUID to delete"),
+    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """:wastebasket: Delete a backtest task (soft delete)."""
+    from ginkgo.data.containers import container
+
+    service = container.backtest_task_service()
+    result = service.get_by_id(task_id)
+
+    if not result.is_success():
+        console.print(f":x: {result.error}")
+        raise typer.Exit(1)
+
+    task = result.data
+    task_name = task.name if hasattr(task, "name") else task_id
+    task_uuid = task.uuid if hasattr(task, "uuid") else task_id
+
+    if not confirm:
+        confirmed = typer.confirm(f"Delete task '{task_name}' ({task_uuid[:12]})?")
+        if not confirmed:
+            console.print("Cancelled.")
+            return
+
+    delete_result = service.update(task_uuid, is_del=True)
+
+    if not delete_result.is_success():
+        console.print(f":x: {delete_result.error}")
+        raise typer.Exit(1)
+
+    console.print(f":white_check_mark: Task [bold]{task_uuid[:12]}[/bold] deleted.")
+
+
 @app.command("list")
 def list_tasks(
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio UUID"),
