@@ -370,6 +370,11 @@ def run(
     """
     :rocket: Run engine with assembled components.
     """
+    # Deprecated warning
+    console.print(":warning: [bold yellow]Deprecated:[/bold yellow] 'ginkgo engine run' will be removed in a future version.")
+    console.print("   Use [cyan]'ginkgo backtest run <task_id>'[/cyan] instead.")
+    console.print()
+
     # 如果提供了engine_id，尝试解析为UUID
     if engine_id:
         original_identifier = engine_id
