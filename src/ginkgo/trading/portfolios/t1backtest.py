@@ -96,7 +96,7 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 记录持仓事件到ClickHouse
         try:
-            GLOG.backtest.trade.position(
+            self.blog.trade.position(
                 symbol=position.code,
                 volume=position.volume,
                 position_cost=position.cost,
@@ -442,7 +442,7 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # Submit to engine
         self.put(event)
-        GLOG.backtest.trade.order(
+        self.blog.trade.order(
             order_id=order.uuid,
             symbol=order.code,
             direction=order.direction.name,
@@ -669,7 +669,7 @@ class PortfolioT1Backtest(PortfolioBase):
             )
 
             # 记录订单成交事件到ClickHouse
-            GLOG.backtest.fill(
+            self.blog.fill(
                 order_id=order.uuid,
                 price=price,
                 volume=qty,
@@ -790,7 +790,7 @@ class PortfolioT1Backtest(PortfolioBase):
             # 记录订单拒绝事件到ClickHouse
             reject_code = getattr(event, "reject_code", "REJECTED")
             reject_reason = getattr(event, "reject_reason", "Unknown reason")
-            GLOG.backtest.order.reject(
+            self.blog.order.reject(
                 order_id=event.order_id,
                 code=reject_code,
                 reason=reject_reason,
@@ -824,7 +824,7 @@ class PortfolioT1Backtest(PortfolioBase):
             if order:
                 order_id = order_id or order.uuid
 
-            GLOG.backtest.order.expire(
+            self.blog.order.expire(
                 order_id=order_id,
                 reason=expire_reason,
                 expired_quantity=expired_quantity,
@@ -866,7 +866,7 @@ class PortfolioT1Backtest(PortfolioBase):
             if order:
                 order_id = order_id or order.uuid
 
-            GLOG.backtest.order.cancel(
+            self.blog.order.cancel(
                 order_id=order_id,
                 reason=cancel_reason,
                 cancelled_quantity=cancelled_quantity,
@@ -990,7 +990,7 @@ class PortfolioT1Backtest(PortfolioBase):
         # 记录资金更新事件到ClickHouse
         try:
             total_value = self.cash + self.frozen + total_position_value
-            GLOG.backtest.trade.capital(
+            self.blog.trade.capital(
                 total=total_value,
                 cash=self.cash,
                 frozen_cash=self.frozen,
@@ -1025,7 +1025,7 @@ class PortfolioT1Backtest(PortfolioBase):
             total_value = self.cash + self.frozen + sum(
                 pos.worth for pos in self.positions.values() if hasattr(pos, "worth")
             )
-            GLOG.backtest.trade.capital(
+            self.blog.trade.capital(
                 total=total_value,
                 cash=self.cash,
                 frozen_cash=self.frozen,

@@ -197,7 +197,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                 signals.append(signal)
                 new_holdings.add(code)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=DIRECTION_TYPES.LONG.value,
                     signal_reason=signal.reason,
@@ -216,7 +216,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=DIRECTION_TYPES.SHORT.value,
                     signal_reason=signal.reason,

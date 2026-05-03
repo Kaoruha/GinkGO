@@ -33,7 +33,7 @@ class MBacktestLog(MClickBase):
     __tablename__ = "ginkgo_logs_backtest"
     __table_args__ = (
         engines.ReplacingMergeTree(
-            order_by=("timestamp", "portfolio_id", "trace_id"),
+            order_by=("timestamp", "engine_id", "dedup_hash"),
         ),
         {"extend_existing": True},
     )
@@ -159,6 +159,11 @@ class MBacktestLog(MClickBase):
 
     # ==================== 业务时间戳 ====================
     business_timestamp: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, default=None)
+
+    # ==================== 去重哈希 ====================
+    # 基于 message 内容的确定性哈希，用于 ReplacingMergeTree 去重
+    # 同一条日志从 ginkgo.log 和 bt_ 文件分别读取时 hash 相同，会被正确去重
+    dedup_hash: Mapped[int] = mapped_column(types.UInt64, server_default=text("sipHash64(message)"))
 
 
 class MComponentLog(MClickBase):

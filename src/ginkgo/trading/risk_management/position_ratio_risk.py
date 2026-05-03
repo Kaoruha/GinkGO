@@ -141,7 +141,7 @@ class PositionRatioRisk(BaseRiskManagement):
             if max_allowed_order_value <= 0:
                 GLOG.INFO(f"PositionRatioRisk: Single position ratio limit reached for {order.code} - current ratio: {float(current_position_ratio):.2%}, limit: {float(self._max_position_ratio):.2%}")
                 # 记录风控事件到ClickHouse
-                GLOG.backtest.risk(
+                self.blog.risk(
                     risk_type="POSITIONLIMITEXCEEDED",
                     reason=f"Single position ratio limit reached: {float(current_position_ratio):.2%} > {float(self._max_position_ratio):.2%}",
                     risk_actual_value=float(current_position_ratio),
@@ -179,7 +179,7 @@ class PositionRatioRisk(BaseRiskManagement):
             if max_allowed_order_value <= 0:
                 GLOG.INFO(f"PositionRatioRisk: Total position ratio limit reached - current ratio: {float(current_total_ratio):.2%}, limit: {float(self._max_total_position_ratio):.2%}")
                 # 记录风控事件到ClickHouse
-                GLOG.backtest.risk(
+                self.blog.risk(
                     risk_type="POSITIONLIMITEXCEEDED",
                     reason=f"Total position ratio limit reached: {float(current_total_ratio):.2%} > {float(self._max_total_position_ratio):.2%}",
                     risk_actual_value=float(current_total_ratio),

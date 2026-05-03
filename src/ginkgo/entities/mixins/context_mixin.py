@@ -31,6 +31,40 @@ if TYPE_CHECKING:
     from ginkgo.trading.context.portfolio_context import PortfolioContext
 
 
+class _PortfolioLogProxy:
+    """回测日志代理，自动注入 portfolio_id 到 GLOG.backtest 调用"""
+
+    def __init__(self, portfolio_id):
+        object.__setattr__(self, '_pid', portfolio_id)
+
+    def __getattr__(self, name):
+        return _LogChain(object.__getattribute__(self, '_pid'), (name,))
+
+
+class _LogChain:
+    """属性链：self.blog.trade.order(...) → GLOG.backtest.trade.order(..., portfolio_id=pid)"""
+
+    def __init__(self, pid, path):
+        object.__setattr__(self, '_pid', pid)
+        object.__setattr__(self, '_path', path)
+
+    def __getattr__(self, name):
+        return _LogChain(
+            object.__getattribute__(self, '_pid'),
+            object.__getattribute__(self, '_path') + (name,)
+        )
+
+    def __call__(self, *args, **kwargs):
+        pid = object.__getattribute__(self, '_pid')
+        if pid:
+            kwargs.setdefault('portfolio_id', pid)
+        from ginkgo.libs import GLOG
+        obj = GLOG.backtest
+        for attr in object.__getattribute__(self, '_path'):
+            obj = getattr(obj, attr)
+        return obj(*args, **kwargs)
+
+
 class ContextMixin:
     """统一的上下文管理Mixin，整合引擎绑定和上下文信息"""
 
@@ -111,6 +145,12 @@ class ContextMixin:
     def engine_put(self):
         """获取引擎的事件发布函数"""
         return self._engine_put
+
+    @property
+    def blog(self):
+        """回测日志代理，自动注入 portfolio_id"""
+        pid = getattr(self._context, 'portfolio_id', None) if self._context else None
+        return _PortfolioLogProxy(pid)
 
     @property
     def bound_engine(self):

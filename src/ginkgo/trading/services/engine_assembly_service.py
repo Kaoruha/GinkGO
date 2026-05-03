@@ -200,8 +200,17 @@ class EngineAssemblyService(BaseService):
                 logger = GinkgoLogger(
                     logger_name="engine_logger", file_names=[f"bt_{engine_id or 'config'}_{now}"], console_log=False
                 )
-                # 将 bt_ 文件 handler 同步到 GLOG 全局实例，确保回测运行时日志也写入独立文件
-                for handler in logger.file_handlers:
+
+            # 将 bt_ 文件 handler 同步到 GLOG 全局实例
+            # 无论 logger 是新创建还是外部传入（如 task_processor），都需要同步
+            # 这样引擎运行时通过 GLOG / structlog 输出的日志也会写入独立的 bt_ 文件
+            for handler in logger.file_handlers:
+                # 去重：避免同一个 handler 被重复添加
+                handler_name = getattr(handler, '_name', None) or getattr(handler, 'baseFilename', None)
+                if not any(
+                    (getattr(h, '_name', None) or getattr(h, 'baseFilename', None)) == handler_name
+                    for h in GLOG.logger.handlers
+                ):
                     GLOG.logger.addHandler(handler)
 
             # 执行核心装配逻辑

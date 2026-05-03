@@ -198,7 +198,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,
@@ -225,7 +225,7 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,

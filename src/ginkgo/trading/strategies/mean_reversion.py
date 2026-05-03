@@ -245,7 +245,7 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
                 business_timestamp=business_timestamp,
             )
 
-            GLOG.backtest.signal(
+            self.blog.signal(
                 symbol=code,
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
                 signal_reason=signal.reason,

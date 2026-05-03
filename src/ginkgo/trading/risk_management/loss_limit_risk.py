@@ -100,7 +100,7 @@ class LossLimitRisk(BaseRiskManagement):
             GLOG.INFO(f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2f}%")
 
             # 记录风控事件到ClickHouse
-            GLOG.backtest.risk(
+            self.blog.risk(
                 risk_type="DAILYLOSSLIMITEXCEEDED",
                 reason=f"Loss limit triggered: {loss_ratio:.2f}% > {self._loss_limit}%",
                 risk_actual_value=loss_ratio,
