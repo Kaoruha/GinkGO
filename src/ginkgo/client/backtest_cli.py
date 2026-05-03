@@ -82,6 +82,127 @@ def create_task(
     console.print(f"   Run with: [cyan]ginkgo backtest run {task_uuid}[/cyan]")
 
 
+@app.command("run")
+def run_task(
+    task_id: str = typer.Argument(help="Task UUID to run"),
+    bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
+):
+    """:rocket: Run a backtest task locally."""
+    import json as _json
+    import threading
+    from ginkgo.data.containers import container
+    from ginkgo.workers.backtest_worker.models import BacktestConfig
+    from ginkgo.workers.backtest_worker.task_helpers import (
+        build_engine_data,
+        load_portfolio_components,
+        build_portfolio_config,
+    )
+    from ginkgo.libs import GinkgoLogger
+    from ginkgo.trading.time.clock import now as clock_now
+
+    service = container.backtest_task_service()
+    result = service.get_by_id(task_id)
+
+    if not result.is_success():
+        console.print(f":x: {result.error}")
+        raise typer.Exit(1)
+
+    task = result.data
+
+    # 解析 config_snapshot → BacktestConfig
+    config_snapshot = _json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
+    config = BacktestConfig(
+        start_date=config_snapshot.get("start_date", "2024-01-01"),
+        end_date=config_snapshot.get("end_date", "2024-12-31"),
+        initial_cash=config_snapshot.get("initial_cash", 100000),
+        commission_rate=config_snapshot.get("commission_rate", 0.0003),
+        slippage_rate=config_snapshot.get("slippage_rate", 0.0001),
+        frequency=config_snapshot.get("frequency", "DAY"),
+    )
+
+    portfolio_uuid = task.portfolio_id
+
+    # 更新状态为 running
+    service.update_status(task.uuid, "running")
+
+    console.print(f":rocket: Starting backtest: [bold]{task.name}[/bold]")
+    console.print(f"   Period: {config.start_date} ~ {config.end_date}")
+    console.print(f"   Capital: {config.initial_cash}")
+    console.print(f"   Portfolio: {portfolio_uuid[:12]}")
+    console.print()
+
+    try:
+        # 1. 构建 engine_data
+        engine_data = build_engine_data(config, task_id=task.uuid)
+
+        # 2. 加载 portfolio 配置和组件
+        portfolio_service = container.portfolio_service()
+        portfolio_result = portfolio_service.load_portfolio_with_components(portfolio_id=portfolio_uuid)
+        if not portfolio_result.is_success():
+            raise ValueError(f"Portfolio {portfolio_uuid} not found")
+
+        portfolio_config = build_portfolio_config(
+            portfolio_uuid, portfolio_result.data, config.initial_cash
+        )
+        components = load_portfolio_components(portfolio_uuid, task.uuid)
+
+        # 3. 构建 portfolio mappings
+        portfolio_mapping = type("PortfolioMapping", (), {"portfolio_id": portfolio_uuid})()
+        portfolio_mappings = [portfolio_mapping]
+        portfolio_configs = {portfolio_uuid: portfolio_config}
+        portfolio_components_dict = {portfolio_uuid: components}
+
+        # 4. 创建 logger
+        now = clock_now().strftime("%Y%m%d%H%M%S")
+        logger = GinkgoLogger(
+            logger_name=f"backtest_{task.uuid[:8]}",
+            file_names=[f"bt_{task.uuid[:8]}_{now}"],
+            console_log=False,
+        )
+
+        # 5. 装配引擎
+        from ginkgo.trading.core.containers import container as trading_container
+        assembly_service = trading_container.services.engine_assembly_service()
+
+        assembly_result = assembly_service.assemble_backtest_engine(
+            engine_id=task.uuid,
+            engine_data=engine_data,
+            portfolio_mappings=portfolio_mappings,
+            portfolio_configs=portfolio_configs,
+            portfolio_components=portfolio_components_dict,
+            logger=logger,
+        )
+
+        if not assembly_result.success:
+            raise RuntimeError(f"Engine assembly failed: {assembly_result.error}")
+
+        engine = assembly_result.data
+
+        # 6. 执行回测
+        if bg:
+            def _run_in_thread():
+                try:
+                    engine.start()
+                    _save_results(service, task.uuid, engine, portfolio_uuid)
+                    console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
+                except Exception as e:
+                    service.update_status(task.uuid, "failed", error_message=str(e))
+                    console.print(f":x: Backtest failed: {e}")
+
+            thread = threading.Thread(target=_run_in_thread, daemon=True)
+            thread.start()
+            console.print(f":hourglass: Backtest running in background (thread)")
+        else:
+            engine.start()
+            _save_results(service, task.uuid, engine, portfolio_uuid)
+            console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")
+
+    except Exception as e:
+        service.update_status(task.uuid, "failed", error_message=str(e))
+        console.print(f":x: Backtest failed: {e}")
+        raise typer.Exit(1)
+
+
 @app.command("list")
 def list_tasks(
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio UUID"),
@@ -236,3 +357,34 @@ def cat_task(
             if value and value != 0:
                 stats_lines.append(f"[bold]{label}:[/bold] {value}")
         console.print(Panel("\n".join(stats_lines), title=":1234: Statistics"))
+
+
+def _save_results(service, task_uuid: str, engine, portfolio_id: str):
+    """保存回测结果到 backtest_task 表。"""
+    try:
+        import json
+        from ginkgo.data.containers import container as data_container
+
+        result_data = {"status": "completed"}
+
+        # 尝试从 analyzer 获取指标
+        try:
+            analyzer_crud = data_container.cruds.analyzer_record()
+            records = analyzer_crud.find(filters={"portfolio_id": portfolio_id, "source": 15})
+            if records:
+                import pandas as pd
+                df = records.to_dataframe() if hasattr(records, "to_dataframe") else pd.DataFrame()
+                if not df.empty and "net_value" in df.columns:
+                    result_data["final_net_value"] = float(df["net_value"].iloc[-1])
+                    result_data["total_return"] = (float(df["net_value"].iloc[-1]) / 100000 - 1)
+                if not df.empty and "pnl" in df.columns:
+                    result_data["total_pnl"] = float(df["pnl"].sum())
+        except Exception:
+            pass
+
+        service.update_status(task_uuid, "completed")
+        service.update(task_uuid, result=json.dumps(result_data))
+
+    except Exception as e:
+        from ginkgo.libs import GLOG
+        GLOG.ERROR(f"Failed to save results for {task_uuid[:8]}: {e}")
