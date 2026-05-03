@@ -59,8 +59,12 @@ class _LogChain:
         if pid:
             kwargs.setdefault('portfolio_id', pid)
         from ginkgo.libs import GLOG
-        obj = GLOG.backtest
-        for attr in object.__getattribute__(self, '_path'):
+        path = object.__getattribute__(self, '_path')
+        if path[0].startswith('log_'):
+            obj = GLOG
+        else:
+            obj = GLOG.backtest
+        for attr in path:
             obj = getattr(obj, attr)
         return obj(*args, **kwargs)
 
