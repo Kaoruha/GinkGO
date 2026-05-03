@@ -430,7 +430,13 @@
                 <option value="RISKBREACH">风控触发</option>
                 <option value="ENGINESTART">引擎启动</option>
                 <option value="ENGINESTOP">引擎停止</option>
-                <option value="PRICEUPDATE">行情更新</option>
+                <option value="ENGINEERROR">引擎错误</option>
+                <option value="ENGINECOMPLETE">引擎完成</option>
+                <option value="T1SETTLEMENT">T+1结算</option>
+                <option value="T1DELAYDECISION">T+1延迟</option>
+                <option value="TIMEADVANCE">时间推进</option>
+                <option value="PRICERECEIVED">行情接收</option>
+                <option value="STRATEGYSIGNAL">策略信号</option>
               </select>
               <input v-model="logFilters.start_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
               <span class="filter-sep">~</span>
@@ -504,15 +510,40 @@
                   <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
                   <span class="log-kv dim">{{ log.message }}</span>
                 </span>
-                <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP'" class="log-detail">
+                <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP' || log.event_type === 'ENGINECOMPLETE'" class="log-detail">
                   <span v-if="log.engine_status" class="log-kv">{{ log.engine_status }}</span>
                   <span v-if="log.progress" class="log-kv">{{ (log.progress * 100).toFixed(0) }}%</span>
                   <span class="log-kv dim">{{ log.message }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'ENGINEERROR'" class="log-detail">
+                  <span v-if="log.error_code" class="log-kv text-red">{{ log.error_code }}</span>
+                  <span class="log-reason">{{ log.error_message || log.message }}</span>
                 </span>
                 <span v-else-if="log.event_type === 'RISKBREACH'" class="log-detail">
                   <span class="log-kv text-red">{{ log.risk_type }}</span>
                   <span v-if="log.risk_reason" class="log-reason">{{ log.risk_reason }}</span>
                   <span class="log-kv dim">{{ log.message }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'T1SETTLEMENT'" class="log-detail">
+                  <span class="log-kv">{{ log.settled_count }} 笔解冻</span>
+                  <span class="log-kv dim">{{ log.message }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'T1DELAYDECISION'" class="log-detail">
+                  <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
+                  <span v-if="log.reason" class="log-reason">{{ log.reason }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'TIMEADVANCE'" class="log-detail">
+                  <span class="log-kv">{{ log.position_count }} 持仓</span>
+                  <span v-if="log.delayed_count > 0" class="log-kv text-orange">{{ log.delayed_count }} 延迟</span>
+                  <span v-if="log.cash" class="log-kv dim">¥{{ Number(log.cash).toFixed(0) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'PRICERECEIVED'" class="log-detail">
+                  <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
+                  <span v-if="log.price" class="log-kv">{{ Number(log.price).toFixed(2) }}</span>
+                </span>
+                <span v-else-if="log.event_type === 'STRATEGYSIGNAL'" class="log-detail">
+                  <span v-if="log.strategy_name" class="log-kv">{{ log.strategy_name }}</span>
+                  <span v-if="log.signal_count" class="log-kv">{{ log.signal_count }} 信号</span>
                 </span>
                 <!-- 默认：纯文本 -->
                 <span v-else class="log-msg">{{ log.message }}</span>
@@ -1051,13 +1082,14 @@ const levelClass = (level?: string | null) => {
 const eventClass = (et?: string | null) => {
   if (!et) return ''
   const e = et.toUpperCase()
-  if (e === 'SIGNALGENERATION') return 'event-signal'
+  if (e === 'SIGNALGENERATION' || e === 'STRATEGYSIGNAL') return 'event-signal'
   if (e.startsWith('ORDER')) return 'event-order'
   if (e === 'POSITIONUPDATE') return 'event-position'
   if (e === 'CAPITALUPDATE') return 'event-capital'
-  if (e === 'ENGINESTART' || e === 'ENGINESTOP') return 'event-engine'
-  if (e === 'PRICEUPDATE') return 'event-price'
+  if (e.startsWith('ENGINE')) return 'event-engine'
+  if (e === 'PRICERECEIVED' || e === 'PRICEUPDATE') return 'event-price'
   if (e.startsWith('RISK')) return 'event-risk'
+  if (e.startsWith('T1') || e === 'TIMEADVANCE') return 'event-t1'
   return ''
 }
 
@@ -1838,6 +1870,8 @@ onUnmounted(() => {
 .event-engine { background: rgba(24,144,255,0.15); color: #69c0ff; }
 .event-risk { background: rgba(245,34,45,0.15); color: #ff7875; }
 .event-price { background: rgba(255,255,255,0.06); color: #8a8a9a; }
+.event-t1 { background: rgba(250,140,22,0.15); color: #fa8c16; }
+.text-orange { color: #fa8c16; }
 .log-detail { color: #ccc; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .log-symbol { color: #fff; font-weight: 600; }
 .log-kv { color: #8a8a9a; }
