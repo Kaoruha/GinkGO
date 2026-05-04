@@ -74,7 +74,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     # 内置默认分析器配置（字符串列表）
     BUILTIN_DEFAULT_ANALYZERS = {
         DEFAULT_ANALYZER_SET.MINIMAL: ['net_value', 'profit'],
-        DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate'],
+        DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate', 'trade_win_rate'],
         DEFAULT_ANALYZER_SET.FULL: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio',
                                      'win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
                                      'hold_pct', 'signal_count'],
@@ -156,6 +156,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         from ginkgo.trading.analysis.analyzers.calmar_ratio import CalmarRatio
         from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT
         from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
+        from ginkgo.trading.analysis.analyzers.trade_win_rate import TradeWinRate
 
         # 内置分析器映射
         builtin_map = {
@@ -169,6 +170,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             'calmar_ratio': CalmarRatio,
             'hold_pct': HoldPCT,
             'signal_count': SignalCount,
+            'trade_win_rate': TradeWinRate,
         }
 
         analyzer_names = self.BUILTIN_DEFAULT_ANALYZERS.get(self._default_analyzer_set, [])
