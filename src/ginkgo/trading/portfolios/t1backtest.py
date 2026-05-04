@@ -127,6 +127,15 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             GLOG.ERROR(f"Failed to save position record: {e}")
 
+    def _clean_closed_positions(self):
+        """清理 total_position == 0 的持仓"""
+        closed_codes = [
+            code for code, pos in self._positions.items()
+            if pos.total_position == 0
+        ]
+        for code in closed_codes:
+            del self._positions[code]
+
     def advance_time(self, time: any, *args, **kwargs) -> None:
         """
         时间推进到下一周期
@@ -201,6 +210,9 @@ class PortfolioT1Backtest(PortfolioBase):
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+
+        # 清理已完成平仓的 position（total_position == 0）
+        self._clean_closed_positions()
 
         # ===== 步骤5: 新时间状态初始化 =====
         activate_count = len(self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))
@@ -677,7 +689,6 @@ class PortfolioT1Backtest(PortfolioBase):
                     self.blog.log_engine_error_event(error_code="NO_POSITION_FOR_SHORT", error_message=f"No position for {code}")
                 else:
                     pos.deal(DIRECTION_TYPES.SHORT, price, qty)
-                    self.clean_positions()
 
             else:
                 self.blog.log_engine_error_event(error_code="UNKNOWN_DIRECTION", error_message=f"Unknown direction for {code}")
@@ -901,7 +912,6 @@ class PortfolioT1Backtest(PortfolioBase):
         # self.add_cash(event.remain)  # 已注释掉，这是导致资金重复计算的错误
         self.add_fee(event.fee)
         self.positions[event.code].deal(DIRECTION_TYPES.SHORT, event.transaction_price, event.transaction_volume)
-        self.clean_positions()
 
         # 记录资金更新事件到ClickHouse
         try:
