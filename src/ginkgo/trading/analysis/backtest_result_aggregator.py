@@ -49,6 +49,7 @@ class BacktestResultAggregator:
     ANALYZER_SHARPE_RATIO = "sharpe_ratio"
     ANALYZER_ANNUAL_RETURN = "annualized_return"  # 注意：与analyzer.name保持一致
     ANALYZER_WIN_RATE = "win_rate"
+    ANALYZER_TRADE_WIN_RATE = "trade_win_rate"
     ANALYZER_VOLATILITY = "volatility"
     ANALYZER_PROFIT = "ProfitAna"  # 注意：Profit分析器的name是ProfitAna
     ANALYZER_SIGNAL_COUNT = "signal_count"
@@ -113,7 +114,7 @@ class BacktestResultAggregator:
                 "max_drawdown": metrics.get("max_drawdown", 0.0),
                 "sharpe_ratio": metrics.get("sharpe_ratio", 0.0),
                 "annual_return": metrics.get("annual_return", 0.0),
-                "win_rate": metrics.get("win_rate", 0.0),
+                "win_rate": metrics.get("trade_win_rate", metrics.get("win_rate", 0.0)),
                 "total_orders": stats.get("total_orders", 0),
                 "total_signals": stats.get("total_signals", 0),
                 "total_positions": stats.get("total_positions", 0),
@@ -285,6 +286,18 @@ class BacktestResultAggregator:
             if df is not None and len(df) > 0:
                 win_rate = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
                 metrics["win_rate"] = win_rate
+
+            # 获取交易维度胜率（优先覆盖日维度胜率）
+            trade_win_rate_result = self._analyzer_service.get_by_task_id(
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=self.ANALYZER_TRADE_WIN_RATE,
+                limit=1000
+            )
+            df = self._get_dataframe(trade_win_rate_result)
+            if df is not None and len(df) > 0:
+                trade_win_rate = float(df['value'].iloc[0])
+                metrics["trade_win_rate"] = trade_win_rate
 
         except Exception as e:
             GLOG.ERROR(f"Error aggregating metrics: {e}")
