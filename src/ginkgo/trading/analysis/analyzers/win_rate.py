@@ -10,8 +10,6 @@
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
-import pandas as pd
-import numpy as np
 
 
 class WinRate(BaseAnalyzer):
