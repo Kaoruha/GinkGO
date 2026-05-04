@@ -446,28 +446,25 @@ def cat_task(
 
 
 def _save_results(service, task_uuid: str, engine, portfolio_id: str):
-    """保存回测结果到 backtest_task 表。"""
+    """保存回测结果到 backtest_task 表（复用 BacktestResultAggregator）。"""
     try:
         from ginkgo.data.containers import container as data_container
-        from datetime import datetime, timezone
+        from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 
-        updates = {"status": "completed", "end_time": datetime.now(timezone.utc)}
-
-        # 尝试从 analyzer 获取指标
-        try:
-            analyzer_crud = data_container.analyzer_record()
-            records = analyzer_crud.find(filters={"portfolio_id": portfolio_id, "source": 15})
-            if records:
-                import pandas as pd
-                df = records.to_dataframe() if hasattr(records, "to_dataframe") else pd.DataFrame()
-                if not df.empty and "net_value" in df.columns:
-                    updates["final_portfolio_value"] = float(df["net_value"].iloc[-1])
-                if not df.empty and "pnl" in df.columns:
-                    updates["total_pnl"] = float(df["pnl"].sum())
-        except Exception:
-            pass
-
-        service.update(task_uuid, **updates)
+        analyzer_service = data_container.analyzer_service()
+        aggregator = BacktestResultAggregator(
+            analyzer_service=analyzer_service,
+            backtest_task_service=service,
+        )
+        result = aggregator.aggregate_and_save(
+            task_id=task_uuid,
+            portfolio_id=portfolio_id,
+            engine_id=task_uuid,
+            status="completed",
+        )
+        if not result.is_success():
+            from ginkgo.libs import GLOG
+            GLOG.ERROR(f"Failed to aggregate results for {task_uuid[:8]}: {result.error}")
 
     except Exception as e:
         from ginkgo.libs import GLOG
