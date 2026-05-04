@@ -102,7 +102,7 @@ if exists(.ginkgo.actual_volume) { .actual_volume = .ginkgo.actual_volume }
 if exists(.ginkgo.price_deviation) { .price_deviation = .ginkgo.price_deviation }
 if exists(.ginkgo.volume_deviation) { .volume_deviation = .ginkgo.volume_deviation }
 if exists(.ginkgo.delay_seconds) { .delay_seconds = .ginkgo.delay_seconds }
-if exists(.ginkgo.source_type) { .source = to_string!(.ginkgo.source_type) }
+if exists(.ginkgo.source_type) && !is_string(.ginkgo.source_type) { .source = .ginkgo.source_type }
 
 # 字段映射：log_category → event_category
 if exists(.log_category) {
