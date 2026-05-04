@@ -30,6 +30,7 @@ Example:
 
 from ginkgo.services.logging.log_service import LogService
 from ginkgo.services.logging.level_service import LevelService
+from ginkgo.services.logging.log_ingester import LogIngester, IngestResult
 
 # Legacy Loki support (deprecated - will be removed in future version)
 try:
@@ -38,7 +39,7 @@ try:
 except ImportError:
     _legacy_loki_available = False
 
-__all__ = ["LogService", "LevelService"]
+__all__ = ["LogService", "LevelService", "LogIngester", "IngestResult"]
 
 # Provide Loki client for backward compatibility
 if _legacy_loki_available:
