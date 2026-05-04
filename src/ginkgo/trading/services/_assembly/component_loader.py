@@ -136,33 +136,6 @@ class ComponentLoader:
             self._logger.INFO(f"  Risk managers: {len(risk_managers)}")
             self._logger.INFO(f"  Analyzers: {len(analyzers)}")
 
-            # 🔥 优先加载 BASIC_ANALYZERS（在任何其他组件之前）
-            # 这样即使其他组件加载失败，分析器也能记录数据
-            self._logger.INFO(f"🔧 [ANALYZER] Loading BASIC_ANALYZERS first...")
-            try:
-                from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
-
-                GLOG.INFO(f"Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
-                basic_loaded = 0
-
-                for analyzer_class in BASIC_ANALYZERS:
-                    try:
-                        analyzer = analyzer_class()
-
-                        portfolio.add_analyzer(analyzer)
-                        basic_loaded += 1
-                        GLOG.DEBUG(f"  {analyzer_class.__name__} loaded")
-                    except Exception as e:
-                        self._logger.ERROR(f"Failed to load {analyzer_class.__name__}: {e}")
-                        GLOG.ERROR(f"  {analyzer_class.__name__} failed: {e}")
-
-                GLOG.INFO(f"BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
-                self._logger.INFO(f"✅ [ANALYZER] BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
-
-            except Exception as e:
-                self._logger.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
-                GLOG.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
-
             def _instantiate_component_from_file(file_id: str, component_type: int, mapping_uuid: str):
                 """从文件内容实例化组件"""
                 try:
@@ -591,7 +564,7 @@ class ComponentLoader:
                     portfolio.add_risk_manager(risk_manager)
                     self._logger.DEBUG(f"✅ Added risk manager: {risk_manager.__class__.__name__}")
 
-            # 加载用户配置的分析器（跳过已存在的 BASIC_ANALYZERS）
+            # 加载用户配置的分析器（跳过已存在的默认分析器）
             if len(analyzers) > 0:
                 self._logger.INFO(f"🔧 [ANALYZER] Loading {len(analyzers)} user-configured analyzers...")
                 existing_names = set(portfolio.analyzers.keys()) if hasattr(portfolio, 'analyzers') else set()

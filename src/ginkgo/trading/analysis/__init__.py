@@ -51,9 +51,6 @@ __all__ = [
     "CalmarRatio", "SortinoRatio", "Volatility", "WinRate",
     "ConsecutivePnL", "UnderwaterTime", "VarCVar", "SkewKurtosis",
 
-    # 配置
-    "BASIC_ANALYZERS",
-
     # 结果汇总
     "BacktestResultAggregator",
 

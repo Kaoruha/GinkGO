@@ -1,11 +1,6 @@
 # Upstream: BacktestEvaluator, AnalysisEngine, Portfolio
 # Downstream: BaseAnalyzer, AnnualizedReturn, MaxDrawdown, SharpeRatio, Volatility, WinRate, Profit
-# Role: 分析器包导出所有性能分析器（17个指标）及BASIC_ANALYZERS默认配置列表
-
-
-
-
-
+# Role: 分析器包导出所有性能分析器
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.trading.analysis.analyzers.annualized_returns import AnnualizedReturn
@@ -44,24 +39,5 @@ __all__ = [
     "VarCVar",
     "SkewKurtosis",
     "ConsecutivePnL",
-    # 配置
-    "BASIC_ANALYZERS",
-]
-
-
-# ============= 基础分析器配置 =============
-# BASIC_ANALYZERS: 回测时必须加载的基础分析器
-# 这些分析器用于生成 BacktestTask 详情页所需的核心指标
-
-BASIC_ANALYZERS = [
-    NetValue,           # 净值曲线 - 最终资产、总盈亏
-    MaxDrawdown,        # 最大回撤
-    SharpeRatio,        # 夏普比率
-    AnnualizedReturn,   # 年化收益
-    WinRate,            # 胜率
-    Profit,             # 每日利润
-    Volatility,         # 波动率 - 风险基础指标
-    SignalCount,        # 信号计数 - 执行统计
-    OrderCount,         # 订单计数 - 执行统计
 ]
 
