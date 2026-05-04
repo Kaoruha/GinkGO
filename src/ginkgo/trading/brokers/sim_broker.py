@@ -15,8 +15,8 @@ SimBroker - 回测模拟撮合Broker
 """
 
 import pandas as pd
-import random
 import traceback
+import numpy as np
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from scipy import stats
@@ -42,12 +42,13 @@ class SimBroker(BaseBroker):
     - 内存管理：使用BaseBroker的市场数据缓存
     """
 
-    def __init__(self, name: str = "SimBroker", **config):
+    def __init__(self, name: str = "SimBroker", random_seed=None, **config):
         """
         初始化SimBroker
 
         Args:
             name: Broker名称
+            random_seed: 随机种子，用于可复现回测。None 则不可复现
             config: 配置字典，包含：
                 - attitude: 撮合态度 (OPTIMISTIC/PESSIMISTIC/RANDOM)
                 - commission_rate: 手续费率 (默认0.0003)
@@ -55,6 +56,9 @@ class SimBroker(BaseBroker):
                 - slip_base: 滑点基数 (默认0.01)
         """
         super().__init__(name=name)
+
+        # 独立随机数生成器，不依赖全局状态
+        self._rng = np.random.default_rng(random_seed)
 
         # 模拟交易配置
         self._attitude = config.get("attitude", ATTITUDE_TYPES.RANDOM)
@@ -408,33 +412,25 @@ class SimBroker(BaseBroker):
         GLOG.DEBUG(f"🎲 [SIMBROKER] RANDOM_PARAMS: low={low}, high={high}, mean={mean}, std_dev={std_dev}, direction={direction.name}, attitude={attitude}")
 
         from ginkgo.enums import ATTITUDE_TYPES
-        from scipy import stats
-
-        # 记录随机种子状态
-        import random
-        import numpy as np
-        py_seed = random.getstate()[1][0] if len(random.getstate()[1]) > 0 else 'N/A'
-        np_seed = np.random.get_state()[1][0] if len(np.random.get_state()[1]) > 0 else 'N/A'
-        GLOG.DEBUG(f"🎲 [SIMBROKER] RANDOM_STATE: py_seed={py_seed}, np_seed={np_seed}")
 
         if attitude == ATTITUDE_TYPES.RANDOM:
             GLOG.DEBUG(f"🎲 [SIMBROKER] Using NORMAL distribution")
-            rs = stats.norm.rvs(loc=mean, scale=std_dev, size=1)
+            rs = stats.norm.rvs(loc=mean, scale=std_dev, size=1, random_state=self._rng)
         else:
             skewness_right = mean
             skewness_left = -mean
             if attitude == ATTITUDE_TYPES.OPTIMISTIC:
                 GLOG.DEBUG(f"🎲 [SIMBROKER] Using OPTIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
-                    rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
+                    rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1, random_state=self._rng)
                 else:
-                    rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
+                    rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1, random_state=self._rng)
             elif attitude == ATTITUDE_TYPES.PESSIMISTIC:
                 GLOG.DEBUG(f"🎲 [SIMBROKER] Using PESSIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
-                    rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
+                    rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1, random_state=self._rng)
                 else:
-                    rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
+                    rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1, random_state=self._rng)
 
         raw_result = rs[0]
         rs = max(low, min(high, raw_result))  # 限制在合理范围内
@@ -551,11 +547,11 @@ class SimBroker(BaseBroker):
 
         # 简化的成交概率模型
         if self._attitude == ATTITUDE_TYPES.OPTIMISTIC:
-            return True  # 乐观态度，总是成交
+            return True
         elif self._attitude == ATTITUDE_TYPES.PESSIMISTIC:
-            return random.random() > 0.3  # 悲观态度，70%成交概率
+            return self._rng.random() > 0.3
         else:  # RANDOM
-            return random.random() > 0.2  # 随机态度，80%成交概率
+            return self._rng.random() > 0.2
 
     def _is_limit_blocked(self, code: str, price: Decimal, direction: str) -> bool:
         """检查是否触发涨跌停限制"""
