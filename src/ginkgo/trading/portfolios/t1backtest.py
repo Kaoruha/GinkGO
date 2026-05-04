@@ -564,11 +564,6 @@ class PortfolioT1Backtest(PortfolioBase):
         try:
             if self.is_event_from_future(event):
                 return
-            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED]:
-                func(RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED, self.get_info())
-            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED]:
-                func(RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED, self.get_info())
-
             order = getattr(event, "order", None)
             if order is None:
                 self.blog.log_engine_error_event(error_code="PARTIAL_FILL_NO_ORDER", error_message="Missing order payload")
@@ -691,6 +686,12 @@ class PortfolioT1Backtest(PortfolioBase):
             self.update_worth()
             self.update_profit()
 
+            # 分析器 hooks：在 fill 处理完成后触发，确保 portfolio_info 包含最新状态
+            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED]:
+                func(RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED, self.get_info())
+            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED]:
+                func(RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED, self.get_info())
+
         except Exception as e:
             self.blog.log_engine_error_event(error_code="PARTIAL_FILL_FAILED", error_message=str(e))
 
@@ -761,18 +762,6 @@ class PortfolioT1Backtest(PortfolioBase):
     # 事件由 engine_assembly_service.py:1559 直接注册到 Portfolio
     def on_order_cancel_ack(self, event) -> None:
         try:
-            # 处理ORDERCANCELED阶段的hooks
-            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
-                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
-            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
-                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
-
-            # 处理ORDERCANCELACK阶段的hooks
-            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
-                func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
-            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
-                func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
-
             if self.is_event_from_future(event):
                 return
 
@@ -826,21 +815,31 @@ class PortfolioT1Backtest(PortfolioBase):
             self.update_worth()
             self.update_profit()
 
+            # 分析器 hooks：在取消处理完成后触发
+            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
+            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
+            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
+            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
+
         except Exception as e:
             self.blog.log_engine_error_event(error_code="CANCEL_HANDLER_FAILED", error_message=str(e))
 
     def on_order_filled(self, event) -> None:
         """订单完全成交事件处理器 - 特殊的partially_filled (remain=0)"""
         try:
-            # 触发分析器记录
+            # 委托给现有的部分成交处理器，复用所有现有逻辑
+            # ORDERFILLED本质上是remain=0的特殊ORDERPARTIALLYFILLED
+            self.on_order_partially_filled(event)
+
+            # 分析器 hooks：在完整成交处理完成后触发
             for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.ORDERFILLED, []):
                 func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
             for func in self._analyzer_record_hook.get(RECORDSTAGE_TYPES.ORDERFILLED, []):
                 func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
-
-            # 委托给现有的部分成交处理器，复用所有现有逻辑
-            # ORDERFILLED本质上是remain=0的特殊ORDERPARTIALLYFILLED
-            self.on_order_partially_filled(event)
         except Exception as e:
             self.blog.log_engine_error_event(error_code="ORDER_FILLED_HANDLER_FAILED", error_message=str(e))
 
