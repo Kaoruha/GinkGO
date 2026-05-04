@@ -74,7 +74,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     # 内置默认分析器配置（字符串列表）
     BUILTIN_DEFAULT_ANALYZERS = {
         DEFAULT_ANALYZER_SET.MINIMAL: ['net_value', 'profit'],
-        DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate', 'trade_win_rate'],
+        DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate',
+                                     'trade_win_rate', 'annualized_return', 'signal_count', 'order_count'],
         DEFAULT_ANALYZER_SET.FULL: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio',
                                      'win_rate', 'trade_win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
                                      'hold_pct', 'signal_count', 'order_count', 'annualized_return',
@@ -815,37 +816,6 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             GLOG.ERROR(f"Analyzer {key} not in the analyzers. Please check.")
             return
         return self.analyzers[key]
-
-    def load_basic_analyzers(self) -> None:
-        """
-        加载基础分析器
-
-        自动加载 BASIC_ANALYZERS 中定义的基础分析器，
-        确保回测结果汇总时能获取到所需的核心指标。
-        """
-        from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
-
-        print(f"[PORTFOLIO] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
-        loaded_count = 0
-        failed_analyzers = []
-
-        for analyzer_class in BASIC_ANALYZERS:
-            try:
-                analyzer = analyzer_class()
-                self.add_analyzer(analyzer)
-                loaded_count += 1
-                print(f"[PORTFOLIO]   ✅ {analyzer_class.__name__} loaded")
-            except Exception as e:
-                failed_analyzers.append(analyzer_class.__name__)
-                GLOG.ERROR(f"Failed to load basic analyzer {analyzer_class.__name__}: {e}")
-                print(f"[PORTFOLIO]   ❌ {analyzer_class.__name__} failed: {e}")
-
-        if loaded_count == len(BASIC_ANALYZERS):
-            print(f"[PORTFOLIO] ✅ All {loaded_count} BASIC_ANALYZERS loaded successfully")
-        else:
-            print(f"[PORTFOLIO] ⚠️ Loaded {loaded_count}/{len(BASIC_ANALYZERS)} analyzers. Failed: {failed_analyzers}")
-
-        GLOG.INFO(f"Loaded {loaded_count}/{len(BASIC_ANALYZERS)} basic analyzers")
 
     def _handle_analyzer_error(self, analyzer, error, stage, portfolio_info):
         """
