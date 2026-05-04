@@ -253,6 +253,7 @@ class TaskEngineBuilder:
             attitude=ATTITUDE_TYPES.OPTIMISTIC,
             commission_rate=task.config.commission_rate,
             commission_min=5,
+            random_seed=getattr(task.config, "random_seed", None),
         )
 
         gateway = TradeGateway(name="UnifiedTradeGateway", brokers=[broker])
