@@ -102,8 +102,10 @@ class BacktestProgressConsumer:
                 # 处理消息 {TopicPartition: [ConsumerRecord]}
                 for tp, records in messages.items():
                     for message in records:
-                        # message.value 已经反序列化，直接是 dict
-                        await self._process_message(message.value)
+                        value = message.value
+                        if isinstance(value, str):
+                            value = json.loads(value)
+                        await self._process_message(value)
 
             except asyncio.CancelledError:
                 # 任务被取消，正常退出

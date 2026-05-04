@@ -771,7 +771,7 @@ class TestLoadTodayRecords:
         mock_result.data = [mock_record_today, mock_record_old]
 
         mock_analyzer_svc = MagicMock()
-        mock_analyzer_svc.get_by_run_id.return_value = mock_result
+        mock_analyzer_svc.get_by_task_id.return_value = mock_result
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
@@ -788,7 +788,7 @@ class TestLoadTodayRecords:
         worker._engine = MagicMock()
 
         mock_analyzer_svc = MagicMock()
-        mock_analyzer_svc.get_by_run_id.return_value = MagicMock(
+        mock_analyzer_svc.get_by_task_id.return_value = MagicMock(
             is_success=False,
             data=None,
         )

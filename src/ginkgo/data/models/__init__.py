@@ -50,6 +50,7 @@ from ginkgo.data.models.model_notification_template import MNotificationTemplate
 from ginkgo.data.models.model_notification_record import MNotificationRecord
 from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
 from ginkgo.data.models.model_logs import MBacktestLog, MComponentLog, MPerformanceLog
+from ginkgo.data.models.model_validation_result import MValidationResult
 
 
 __all__ = [
@@ -99,5 +100,7 @@ __all__ = [
     "MBacktestLog",
     "MComponentLog",
     "MPerformanceLog",
+    # 验证系统模型
+    "MValidationResult",
 ]
 

@@ -45,7 +45,7 @@ class MTransfer(MMysqlBase, MBacktestRecordBase):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str = "",  # 新增run_id参数
+        task_id: str = "",
         direction: Optional[TRANSFERDIRECTION_TYPES] = None,
         market: Optional[MARKET_TYPES] = None,
         money: Optional[Number] = None,
@@ -57,7 +57,7 @@ class MTransfer(MMysqlBase, MBacktestRecordBase):
     ) -> None:
         self.portfolio_id = portfolio_id
         self.engine_id = engine_id
-        self.run_id = run_id  # 新增run_id字段赋值
+        self.task_id = task_id
         if direction is not None:
             self.direction = TRANSFERDIRECTION_TYPES.validate_input(direction) or -1
         if market is not None:

@@ -41,8 +41,8 @@ export function formatNumber(num: number | string | null | undefined): string {
 /**
  * 格式化百分比
  */
-export function formatPercent(val: number | string, decimals = 2): string {
-  if (val === null || val === undefined) return '-'
+export function formatPercent(val: number | string | null | undefined, decimals = 2): string {
+  if (val == null) return '-'
 
   const n = typeof val === 'string' ? parseFloat(val) : val
 

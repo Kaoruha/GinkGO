@@ -320,6 +320,20 @@ delete_bars_filtered(code="000001.SZ", start="20230101", end="20231231")
 - **Redis**: 缓存和任务状态 (Worker状态、临时数据、分布式锁)
 - **MongoDB**: 文档数据存储 (策略配置、复杂结果数据)
 
+## Git 规范
+
+### 分支命名
+- 格式：`{递增序号}-{类型}/{描述}`
+- 类型：`feat` | `fix` | `refactor` | `docs` | `test` | `chore`
+- 示例：`001-feat/webui-navigation`、`002-fix/portfolio-api-404`
+- 序号从 001 开始，全局递增
+- **创建分支前必须先查询远端最大序号**：`git branch -r | grep -oP '\d+(?=-)' | sort -n | tail -1`，取 `max(本地最大, 远端最大) + 1`
+
+### 测试目录规范
+- 所有测试统一放在项目根目录 `tests/` 下，禁止在模块内创建 `tests/` 子目录
+- 子目录划分：`tests/unit/`、`tests/integration/`、`tests/e2e/`、`tests/api/`、`tests/performance/`
+- 前端测试：`web-ui/tests/`（Playwright E2E、Vitest 单元测试）
+
 ## Key Commands
 
 ### Environment Setup
@@ -523,6 +537,31 @@ engine.stop()
 ```python
 from ginkgo.libs import GLOG, GCONF, GTM
 ```
+
+## 数据库架构与 Debug 模式
+
+### Debug 模式切换
+- `GINKGO_DEBUG_MODE` 环境变量 → `~/.ginkgo/config.yaml` 的 `debug` 字段
+- 切换方式：`ginkgo system config set --debug on/off` 或 `GCONF.set_debug(True/False)`
+
+### 双实例架构
+Docker 部署两套数据库实例，通过端口前缀区分：
+
+| 服务 | Master（非 Debug） | Test（Debug） |
+|------|-------------------|--------------|
+| ClickHouse | `clickhouse-master:8123` | `clickhouse-test:18123` |
+| MySQL | `mysql-master:3306` | `mysql-test:13306` |
+| 容器名 | `*-master` | `*-test` |
+
+- `GCONF.CLICKPORT`：DEBUG 模式端口首位加 1（8123 → 18123）
+- `.env` 默认 `GINKGO_CLICKHOUSE_HOST=clickhouse-test`
+- **Vector 默认连 `clickhouse-test`**（与 Worker/API 一致）
+- `ginkgo data init` 时根据当前 debug 模式决定连哪个实例建表
+
+### 数据库表结构规则
+- **禁止手动 ALTER TABLE**：所有表由 SQLAlchemy Model 定义，通过 `ginkgo data init` 自动创建
+- 新增字段必须先修改 Model，再重新 init 建表
+- 排查问题时先确认当前连的是哪个实例（master vs test）
 
 ## TDD测试框架设计流程
 

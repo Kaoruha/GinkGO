@@ -296,7 +296,7 @@ class PortfolioLive(PortfolioBase):
                     p = Position(
                         portfolio_id=self.uuid,
                         engine_id=self.engine_id,
-                        run_id=self.run_id,
+                        task_id=self.task_id,
                         code=code,
                         cost=price,
                         volume=qty,
@@ -419,7 +419,7 @@ class PortfolioLive(PortfolioBase):
                     m_position.set(
                         portfolio_id=self.portfolio_id,
                         engine_id=self.engine_id,
-                        run_id=self.run_id,
+                        task_id=self.task_id,
                         code=position.code,
                         direction=position.direction,
                         volume=position.volume,

@@ -48,11 +48,11 @@ def _make_tick(code="000001.SZ", timestamp=None, price=None, volume=1000):
 
 
 def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, reason="test",
-                 portfolio_id="p1", engine_id="e1", run_id="r1", volume=0):
+                 portfolio_id="p1", engine_id="e1", task_id="r1", volume=0):
     return Signal(
         portfolio_id=portfolio_id,
         engine_id=engine_id,
-        run_id=run_id,
+        task_id=task_id,
         code=code,
         direction=direction,
         reason=reason,
@@ -263,13 +263,13 @@ class TestEngineToPortfolioEventDispatch:
         signal = _make_signal(
             portfolio_id="portfolio-abc",
             engine_id="engine-xyz",
-            run_id="run-001",
+            task_id="run-001",
         )
         signal_event = EventSignalGeneration(signal=signal)
 
         assert signal_event.payload.portfolio_id == "portfolio-abc"
         assert signal_event.payload.engine_id == "engine-xyz"
-        assert signal_event.payload.run_id == "run-001"
+        assert signal_event.payload.task_id == "run-001"
 
 
 @pytest.mark.unit

@@ -100,6 +100,17 @@ class PaperTradingWorker:
 
         GLOG.INFO(f"[PAPER-WORKER] {self.worker_id}: Assembling engine...")
 
+        # 0. 清理上次异常退出残留的 RUNNING 状态（通过 Service 层）
+        try:
+            portfolio_service = container.portfolio_service()
+            result = portfolio_service.reset_stale_running()
+            if result.is_success() and result.data.get("reset_count", 0) > 0:
+                GLOG.INFO(
+                    f"[PAPER-WORKER] Reset {result.data['reset_count']} stale RUNNING portfolios"
+                )
+        except Exception as e:
+            GLOG.WARN(f"[PAPER-WORKER] Stale state cleanup failed (non-fatal): {e}")
+
         # 1. 查询所有 PAPER 模式的 Portfolio
         portfolio_crud = container.cruds.portfolio()
         db_portfolios = portfolio_crud.find(
@@ -120,8 +131,8 @@ class PaperTradingWorker:
         # 3. 创建共享组件
         feeder = BacktestFeeder()
         broker = SimBroker()
-        gateway = TradeGateway(broker=broker)
-        loader = ComponentLoader()
+        gateway = TradeGateway(brokers=[broker])
+        loader = ComponentLoader(file_service=container.file_service())
 
         # 4. 加载每个 Portfolio
         for db_portfolio in db_portfolios:
@@ -134,16 +145,20 @@ class PaperTradingWorker:
 
                 # 创建 Portfolio 实例
                 portfolio = PortfolioT1Backtest()
-                portfolio.portfolio_id = db_portfolio.uuid
-                portfolio.code = db_portfolio.code
+                portfolio.set_portfolio_id(db_portfolio.uuid)
 
-                # 加载组件（通过 ComponentLoader）
-                self._load_components(portfolio, components, loader)
+                # 加载组件（通过 ComponentLoader.perform_component_binding）
+                if not loader.perform_component_binding(portfolio, components, GLOG):
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] Component binding failed for "
+                        f"{db_portfolio.uuid}, skipping"
+                    )
+                    continue
 
                 # 添加到引擎
                 engine.add_portfolio(portfolio)
                 GLOG.INFO(
-                    f"[PAPER-WORKER] Loaded portfolio {db_portfolio.code} "
+                    f"[PAPER-WORKER] Loaded portfolio {db_portfolio.name} "
                     f"({db_portfolio.uuid[:8]})"
                 )
 
@@ -169,10 +184,10 @@ class PaperTradingWorker:
             except Exception as e:
                 GLOG.WARN(
                     f"[PAPER-WORKER] selector.pick() failed for "
-                    f"{portfolio.code}: {e}"
+                    f"{portfolio.name}: {e}"
                 )
 
-        # 8. 恢复状态 / 首次初始化（在设置 run_id 和 time provider 之前，需要读取持久化时间）
+        # 8. 恢复状态 / 首次初始化（在设置 task_id 和 time provider 之前，需要读取持久化时间）
         portfolio_service = container.portfolio_service()
         persisted_engine_time = None
         for portfolio in engine.portfolios:
@@ -182,7 +197,7 @@ class PaperTradingWorker:
                     portfolio.restore_state(state_result.data)
                     GLOG.INFO(
                         f"[PAPER-WORKER] Restored state for portfolio "
-                        f"{portfolio.code}: cash={state_result.data['cash']}"
+                        f"{portfolio.name}: cash={state_result.data['cash']}"
                     )
                     # 提取持久化的引擎时间（取最新的）
                     et = state_result.data.get("engine_current_time")
@@ -199,7 +214,7 @@ class PaperTradingWorker:
                     portfolio.add_cash(init_capital)
                     GLOG.INFO(
                         f"[PAPER-WORKER] First run for portfolio "
-                        f"{portfolio.code}: initial_capital={init_capital}"
+                        f"{portfolio.name}: initial_capital={init_capital}"
                     )
             except Exception as e:
                 GLOG.ERROR(
@@ -207,7 +222,7 @@ class PaperTradingWorker:
                     f"{portfolio.portfolio_id}: {e}"
                 )
 
-        # 9. 检测模式并配置 run_id / source_type / time_provider
+        # 9. 检测模式并配置 task_id / source_type / time_provider
         real_now = datetime.now()
         is_replay = (
             persisted_engine_time is not None
@@ -216,8 +231,8 @@ class PaperTradingWorker:
         session_ts = real_now.strftime("%Y%m%d%H%M%S")
 
         if is_replay:
-            run_id = f"replay-{session_ts}"
-            engine.set_run_id(run_id)
+            task_id = f"replay-{session_ts}"
+            engine.set_task_id(task_id)
             engine.set_source_type(SOURCE_TYPES.PAPER_REPLAY)
 
             # 用 LogicalTimeProvider 从上次位置开始
@@ -229,16 +244,33 @@ class PaperTradingWorker:
             engine._time_provider = replay_provider
             GLOG.INFO(
                 f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
-                f"run_id={run_id}"
+                f"task_id={task_id}"
             )
         else:
-            run_id = f"paper-{session_ts}"
-            engine.set_run_id(run_id)
+            task_id = f"paper-{session_ts}"
+            engine.set_task_id(task_id)
             engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
-            GLOG.INFO(f"[PAPER-WORKER] LIVE_PAPER mode: run_id={run_id}")
+            GLOG.INFO(f"[PAPER-WORKER] LIVE_PAPER mode: task_id={task_id}")
 
         # 10. 启动引擎
         engine.start()
+
+        # 10b. 将所有已加载的 portfolio 状态更新为 RUNNING
+        portfolio_service = container.portfolio_service()
+        for portfolio in engine.portfolios:
+            try:
+                portfolio_service.update(
+                    portfolio_id=portfolio.portfolio_id,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
+                )
+                GLOG.INFO(
+                    f"[PAPER-WORKER] {portfolio.name} state -> RUNNING"
+                )
+            except Exception as e:
+                GLOG.WARN(
+                    f"[PAPER-WORKER] Failed to update state for "
+                    f"{portfolio.portfolio_id[:8]}: {e}"
+                )
 
         # 11. 初始化偏差检测器
         self._deviation_detectors = {}
@@ -254,7 +286,7 @@ class PaperTradingWorker:
                     self._deviation_detectors[portfolio.portfolio_id] = detector
                     self.deviation_checker.set_detector(portfolio.portfolio_id, detector)
                     GLOG.INFO(
-                        f"[PAPER-WORKER] Deviation detector initialized for {portfolio.code}"
+                        f"[PAPER-WORKER] Deviation detector initialized for {portfolio.name}"
                     )
                 else:
                     GLOG.WARN(
@@ -391,8 +423,8 @@ class PaperTradingWorker:
 
         try:
             analyzer_service = services.data.services.analyzer_service()
-            result = analyzer_service.get_by_run_id(
-                run_id=self._engine.run_id if self._engine else "paper",
+            result = analyzer_service.get_by_task_id(
+                task_id=self._engine.task_id if self._engine else "paper",
                 portfolio_id=portfolio_id,
             )
             if result.is_success() and result.data:
@@ -443,7 +475,7 @@ class PaperTradingWorker:
 
         if level == "NORMAL":
             GLOG.DEBUG(
-                f"[PAPER-WORKER] {portfolio.code}: deviation NORMAL"
+                f"[PAPER-WORKER] {portfolio.name}: deviation NORMAL"
             )
             return
 
@@ -456,12 +488,12 @@ class PaperTradingWorker:
 
         if level == "MODERATE":
             GLOG.WARN(
-                f"[PAPER-WORKER] {portfolio.code}: MODERATE deviation - "
+                f"[PAPER-WORKER] {portfolio.name}: MODERATE deviation - "
                 f"{', '.join(severity_metrics)}"
             )
         elif level == "SEVERE":
             GLOG.ERROR(
-                f"[PAPER-WORKER] {portfolio.code}: SEVERE deviation - "
+                f"[PAPER-WORKER] {portfolio.name}: SEVERE deviation - "
                 f"{', '.join(severity_metrics)}"
             )
 
@@ -498,7 +530,7 @@ class PaperTradingWorker:
                     "type": "deviation_alert",
                     "level": level,
                     "portfolio_id": portfolio.portfolio_id,
-                    "portfolio_code": portfolio.code,
+                    "portfolio_code": portfolio.name,
                     "metrics": severity_metrics,
                     "risk_score": result.get("risk_score", 0),
                     "timestamp": datetime.now().isoformat(),
@@ -514,7 +546,7 @@ class PaperTradingWorker:
 
         from ginkgo import services
 
-        portfolio_service = services.data.container.portfolio_service()
+        portfolio_service = services.data.portfolio_service()
         engine_current_time = self._engine.now
 
         for portfolio in self._engine.portfolios:
@@ -524,16 +556,16 @@ class PaperTradingWorker:
                 result = portfolio_service.persist_portfolio_state(portfolio.portfolio_id, state)
                 if result.is_success():
                     GLOG.DEBUG(
-                        f"[PAPER-WORKER] Persisted state for {portfolio.code}"
+                        f"[PAPER-WORKER] Persisted state for {portfolio.name}"
                     )
                 else:
                     GLOG.ERROR(
-                        f"[PAPER-WORKER] Persist failed for {portfolio.code}: "
+                        f"[PAPER-WORKER] Persist failed for {portfolio.name}: "
                         f"{result.error_message}"
                     )
             except Exception as e:
                 GLOG.ERROR(
-                    f"[PAPER-WORKER] Error persisting {portfolio.code}: {e}"
+                    f"[PAPER-WORKER] Error persisting {portfolio.name}: {e}"
                 )
 
     def _is_replay_mode(self) -> bool:
@@ -630,16 +662,16 @@ class PaperTradingWorker:
         real_provider = SystemTimeProvider()
         self._engine.set_time_provider(real_provider)
 
-        # 更新 run_id 和 source_type
+        # 更新 task_id 和 source_type
         real_now = datetime.now()
         session_ts = real_now.strftime("%Y%m%d%H%M%S")
-        self._engine._run_id = f"paper-{session_ts}"
-        self._engine._engine_context.set_run_id(self._engine._run_id)
+        self._engine._task_id = f"paper-{session_ts}"
+        self._engine._engine_context.set_task_id(self._engine._task_id)
         self._engine.set_source_type(SOURCE_TYPES.PAPER_LIVE)
 
         GLOG.INFO(
             f"[PAPER-WORKER] Transitioned to LIVE_PAPER mode, "
-            f"run_id={self._engine._run_id}"
+            f"task_id={self._engine._task_id}"
         )
 
     def _run_live_paper_cycle(self) -> DailyCycleResult:
@@ -759,6 +791,13 @@ class PaperTradingWorker:
             GLOG.ERROR("[PAPER-WORKER] deploy command missing portfolio_id")
             return False
 
+        # 检查是否已在引擎中（防重复加载）
+        with self._lock:
+            for p in self._engine.portfolios:
+                if p.uuid == portfolio_id or p.portfolio_id == portfolio_id:
+                    GLOG.WARN(f"[PAPER-WORKER] Portfolio {portfolio_id[:8]} already in engine, skipping")
+                    return True
+
         from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
         from ginkgo.trading.services._assembly.component_loader import ComponentLoader
         from ginkgo.client.portfolio_cli import collect_portfolio_components
@@ -766,7 +805,7 @@ class PaperTradingWorker:
 
         try:
             # 从 DB 读取 Portfolio 配置
-            container = services.data.container
+            container = services.data
             portfolio_crud = container.cruds.portfolio()
             db_portfolios = portfolio_crud.find(filters={"uuid": portfolio_id})
 
@@ -776,6 +815,15 @@ class PaperTradingWorker:
 
             db_portfolio = db_portfolios[0]
 
+            # Mode 校验：只接受 PAPER 或 LIVE
+            portfolio_mode = getattr(db_portfolio, 'mode', -1)
+            if portfolio_mode == 0:  # BACKTEST
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Cannot deploy BACKTEST portfolio {portfolio_id}. "
+                    "Deploy first via DeploymentService.deploy()."
+                )
+                return False
+
             # 收集组件绑定信息
             components = collect_portfolio_components(
                 portfolio_id=portfolio_id,
@@ -784,21 +832,43 @@ class PaperTradingWorker:
 
             # 创建 Portfolio 实例
             portfolio = PortfolioT1Backtest()
-            portfolio.portfolio_id = db_portfolio.uuid
-            portfolio.code = db_portfolio.code
+            portfolio.set_portfolio_id(db_portfolio.uuid)
 
             # 加载组件
-            loader = ComponentLoader()
-            self._load_components(portfolio, components, loader)
+            loader = ComponentLoader(file_service=container.file_service())
+            if not loader.perform_component_binding(portfolio, components, GLOG):
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Component binding failed for "
+                    f"{portfolio_id}, skipping deploy"
+                )
+                return False
 
             # 添加到引擎
             with self._lock:
                 self._engine.add_portfolio(portfolio)
 
             GLOG.INFO(
-                f"[PAPER-WORKER] Deployed portfolio {db_portfolio.code} "
+                f"[PAPER-WORKER] Deployed portfolio {db_portfolio.name} "
                 f"({portfolio_id[:8]})"
             )
+
+            # 更新 DB state 为 RUNNING
+            try:
+                portfolio_service = container.portfolio_service()
+                portfolio_service.update(
+                    portfolio_id=portfolio_id,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING,
+                )
+                GLOG.INFO(
+                    f"[PAPER-WORKER] Portfolio {db_portfolio.name} "
+                    f"state -> RUNNING"
+                )
+            except Exception as e:
+                GLOG.WARN(
+                    f"[PAPER-WORKER] Failed to update state for "
+                    f"{portfolio_id[:8]}: {e}"
+                )
+
             return True
 
         except Exception as e:
@@ -841,6 +911,25 @@ class PaperTradingWorker:
             self._engine.remove_portfolio(target_portfolio)
 
         GLOG.INFO(f"[PAPER-WORKER] Unloaded portfolio {portfolio_id[:8]}")
+
+        # 更新 DB state 为 STOPPED
+        try:
+            from ginkgo import services
+            portfolio_service = services.data.portfolio_service()
+            portfolio_service.update(
+                portfolio_id=portfolio_id,
+                state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
+            )
+            GLOG.INFO(
+                f"[PAPER-WORKER] Portfolio {portfolio_id[:8]} "
+                f"state -> STOPPED"
+            )
+        except Exception as e:
+            GLOG.WARN(
+                f"[PAPER-WORKER] Failed to update state for "
+                f"{portfolio_id[:8]}: {e}"
+            )
+
         return True
 
     def _handle_command(self, command: str, params: Dict) -> bool:
@@ -924,19 +1013,18 @@ class PaperTradingWorker:
                             break
 
                         try:
-                            event_data = message.value
-                            command = event_data.get("command", "")
-                            params = event_data.get("params", {})
+                            from ginkgo.messages.control_command import ControlCommand
+                            cmd = ControlCommand.from_dict(message.value)
 
                             GLOG.INFO(
-                                f"[PAPER-WORKER] Received command: {command}, "
-                                f"params: {params}"
+                                f"[PAPER-WORKER] Received command: {cmd.command}, "
+                                f"params: {cmd.params}"
                             )
 
-                            success = self._handle_command(command, params)
+                            success = self._handle_command(cmd.command, cmd.params)
 
                             # 发送处理结果
-                            self._send_response(command, success, params)
+                            self._send_response(cmd.command, success, cmd.params)
 
                             # 成功处理后提交 offset
                             try:
@@ -1008,12 +1096,32 @@ class PaperTradingWorker:
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error closing producer: {e}")
 
-        # 停止引擎前持久化所有 portfolio 状态
+        # 停止引擎前：持久化快照 + 更新 state=STOPPED
         if self._engine:
             try:
                 self._persist_all_portfolios()
             except Exception as e:
                 GLOG.ERROR(f"[PAPER-WORKER] Error persisting state on stop: {e}")
+
+            try:
+                from ginkgo import services
+                portfolio_service = services.data.portfolio_service()
+                for portfolio in self._engine.portfolios:
+                    try:
+                        portfolio_service.update(
+                            portfolio_id=portfolio.portfolio_id,
+                            state=PORTFOLIO_RUNSTATE_TYPES.STOPPED,
+                        )
+                        GLOG.INFO(
+                            f"[PAPER-WORKER] {portfolio.name} state -> STOPPED"
+                        )
+                    except Exception as e:
+                        GLOG.WARN(
+                            f"[PAPER-WORKER] Failed to update state for "
+                            f"{portfolio.portfolio_id[:8]}: {e}"
+                        )
+            except Exception as e:
+                GLOG.ERROR(f"[PAPER-WORKER] Error updating states on stop: {e}")
 
         # 停止引擎
         if self._engine:

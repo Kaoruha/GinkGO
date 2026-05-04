@@ -126,11 +126,6 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         if not isinstance(current_time, datetime):
             return []
 
-        # 获取 engine_id 和 run_id（优先从上下文，后备从 portfolio_info）
-        engine_id = self.engine_id or portfolio_info.get("engine_id", "")
-        run_id = self.run_id or portfolio_info.get("run_id", "")
-        portfolio_id = portfolio_info.get("uuid", "")
-
         # 检查是否到了再平衡时间
         if self._last_rebalance is not None:
             days_since_rebalance = (current_time - self._last_rebalance).days
@@ -193,52 +188,40 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         # 买入新进入 top_n 的股票
         for code in top_codes:
             if code not in self._current_holdings:
-                signal = Signal(
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    run_id=run_id,
-                    business_timestamp=current_time,
+                signal = self.create_signal(
                     code=code,
                     direction=DIRECTION_TYPES.LONG,
                     reason=f"动量入选: 排名前{self.top_n}",
+                    business_timestamp=current_time,
                 )
                 signals.append(signal)
                 new_holdings.add(code)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=DIRECTION_TYPES.LONG.value,
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    run_id=run_id,
-                    business_timestamp=current_time,
+                    msg=f"动量入选: {code} 进入前{self.top_n}",
                 )
 
         # 卖出跌出 top_n 的持仓
         for code in self._current_holdings:
             if code not in top_codes:
-                signal = Signal(
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    run_id=run_id,
-                    business_timestamp=current_time,
+                signal = self.create_signal(
                     code=code,
                     direction=DIRECTION_TYPES.SHORT,
                     reason=f"动量调出: 跌出前{self.top_n}",
+                    business_timestamp=current_time,
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=DIRECTION_TYPES.SHORT.value,
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_id,
-                    engine_id=engine_id,
-                    run_id=run_id,
-                    business_timestamp=current_time,
+                    msg=f"动量调出: {code} 跌出前{self.top_n}",
                 )
             else:
                 new_holdings.add(code)

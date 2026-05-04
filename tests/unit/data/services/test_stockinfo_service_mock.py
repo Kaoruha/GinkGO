@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime
 
 # 将项目根目录加入路径
-_path = os.path.join(os.path.dirname(__file__
+_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
 if _path not in sys.path:
     sys.path.insert(0, _path)
 

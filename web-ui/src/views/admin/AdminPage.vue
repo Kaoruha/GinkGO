@@ -13,18 +13,6 @@
           {{ item.label }}
         </router-link>
       </div>
-      <div class="admin-nav-group">
-        <div class="admin-nav-title">系统</div>
-        <router-link
-          v-for="item in systemItems"
-          :key="item.route"
-          :to="item.route"
-          class="admin-nav-item"
-          :class="{ active: isActive(item.route) }"
-        >
-          {{ item.label }}
-        </router-link>
-      </div>
     </div>
     <div class="admin-content">
       <router-view />
@@ -38,28 +26,15 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const componentItems = [
-  { label: '策略组件', route: '/admin/components/strategies' },
-  { label: '风控组件', route: '/admin/components/risks' },
-  { label: '仓位组件', route: '/admin/components/sizers' },
-  { label: '选股器', route: '/admin/components/selectors' },
-  { label: '分析器', route: '/admin/components/analyzers' },
-  { label: '事件处理器', route: '/admin/components/handlers' },
-]
-
-const systemItems = [
-  { label: '系统状态', route: '/admin/system' },
-  { label: 'Worker 管理', route: '/admin/system/workers' },
-  { label: 'API Key', route: '/admin/system/api-keys' },
-  { label: '用户管理', route: '/admin/system/users' },
-  { label: '用户组', route: '/admin/system/groups' },
-  { label: '通知管理', route: '/admin/system/notifications' },
-  { label: '告警中心', route: '/admin/system/alerts' },
+  { label: '策略组件', route: '/components/strategies' },
+  { label: '风控组件', route: '/components/risks' },
+  { label: '仓位组件', route: '/components/sizers' },
+  { label: '选股器', route: '/components/selectors' },
+  { label: '分析器', route: '/components/analyzers' },
+  { label: '事件处理器', route: '/components/handlers' },
 ]
 
 const isActive = (itemRoute: string) => {
-  if (itemRoute === '/admin/system') {
-    return route.path === '/admin/system'
-  }
   return route.path.startsWith(itemRoute)
 }
 </script>

@@ -2,7 +2,7 @@
 组件相关API路由
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -13,7 +13,7 @@ from ginkgo.data.containers import container
 from ginkgo.enums import FILE_TYPES, COMPONENT_TYPES
 from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
 from core.logging import logger
-from core.response import ok
+from core.response import ok, paginated
 from services.component_parameter_service import get_component_parameter_service
 from models.component import ComponentParameter
 
@@ -92,7 +92,10 @@ def get_file_service():
 @router.get("/")
 async def list_components(
     component_type: Optional[str] = None,
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None,
+    keyword: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
 ):
     """获取组件列表"""
     try:
@@ -119,7 +122,6 @@ async def list_components(
             if result.is_success():
                 files = result.data.get("files", [])
                 for file_record in files:
-                    # MFile对象使用属性访问而不是字典.get()
                     component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(
                         file_type.value, "unknown"
                     )
@@ -141,10 +143,19 @@ async def list_components(
         if is_active is not None:
             components = [c for c in components if c["is_active"] == is_active]
 
+        # 关键词过滤
+        if keyword:
+            kw = keyword.lower()
+            components = [c for c in components if kw in c["name"].lower()]
+
         # 按更新时间倒序排序，没有更新时间的按创建时间排序
         components.sort(key=lambda x: x.get("updated_at") or x["created_at"], reverse=True)
 
-        return ok(data=components)
+        total = len(components)
+        start = (page - 1) * page_size
+        items = components[start:start + page_size]
+
+        return paginated(items=items, total=total, page=page, page_size=page_size)
 
     except HTTPException:
         raise
@@ -453,9 +464,7 @@ def extract_component_parameters(component_name: str, code: str, component_type:
             if arg_name == 'self':
                 continue
 
-            # 跳过name参数（通用参数）
-            if arg_name == 'name':
-                continue
+            # name参数保留，确保索引与构造函数位置一致
 
             # 获取参数的默认值
             default_value = None
@@ -475,11 +484,21 @@ def extract_component_parameters(component_name: str, code: str, component_type:
             param_type = _infer_parameter_type(arg_name, default_value)
 
             # 构建参数对象
+            # 字符串默认值但类型推断为 number 时，转换为数值
+            actual_default = default_value
+            if param_type == "number" and isinstance(default_value, str):
+                try:
+                    actual_default = float(default_value)
+                    if actual_default == int(actual_default):
+                        actual_default = int(actual_default)
+                except (ValueError, TypeError):
+                    pass
+
             param_info = {
                 "name": arg_name,
                 "label": _format_parameter_label(arg_name),
                 "type": param_type,
-                "default": default_value,
+                "default": actual_default,
                 "required": not has_default,
                 "description": f"{_format_parameter_label(arg_name)}参数"
             }
@@ -507,6 +526,16 @@ def _get_default_value(node):
             return node.s
         elif isinstance(node, ast.NameConstant):
             return node.value
+        elif isinstance(node, ast.UnaryOp):
+            operand = _get_default_value(node.operand)
+            if operand is not None:
+                if isinstance(node.op, ast.USub):
+                    return -operand
+                elif isinstance(node.op, ast.UAdd):
+                    return +operand
+                elif isinstance(node.op, ast.Not):
+                    return not operand
+            return None
         elif isinstance(node, ast.List):
             return [_get_default_value(item) for item in node.elts]
         elif isinstance(node, ast.Dict):
@@ -515,7 +544,6 @@ def _get_default_value(node):
                 for k, v in zip(node.keys, node.values)
             }
         elif isinstance(node, ast.Call):
-            # 处理函数调用（如 list(), dict()）
             return None
         return None
     except:
@@ -524,36 +552,41 @@ def _get_default_value(node):
 
 def _infer_parameter_type(param_name: str, default_value: Any) -> str:
     """推断参数类型"""
+    # 根据参数名推断是否为数字/布尔/数组类型
+    name_lower = param_name.lower()
+    is_numeric_name = any(kw in name_lower for kw in [
+        'period', 'length', 'window', 'day', 'count', 'num',
+        'volume', 'amount', 'ratio', 'percent', 'rate',
+        'limit', 'max', 'min', 'threshold', 'level',
+        'cash', 'weight', 'size', 'price', 'fee',
+    ])
+
     if default_value is not None:
         if isinstance(default_value, bool):
             return "boolean"
-        elif isinstance(default_value, int):
-            return "number"
-        elif isinstance(default_value, float):
+        elif isinstance(default_value, (int, float)):
             return "number"
         elif isinstance(default_value, list):
             return "array"
         elif isinstance(default_value, dict):
             return "object"
-        else:
+        elif isinstance(default_value, str):
+            # 字符串默认值但参数名暗示是数字，尝试解析
+            if is_numeric_name:
+                try:
+                    float(default_value)
+                    return "number"
+                except (ValueError, TypeError):
+                    pass
             return "string"
 
-    # 根据参数名推断类型
-    name_lower = param_name.lower()
-
-    # 常见的数字参数
-    if any(kw in name_lower for kw in [
-        'period', 'length', 'window', 'day', 'count', 'num',
-        'volume', 'amount', 'ratio', 'percent', 'rate',
-        'limit', 'max', 'min', 'threshold', 'level'
-    ]):
+    # 无默认值时根据参数名推断
+    if is_numeric_name:
         return "number"
 
-    # 布尔参数
     if any(kw in name_lower for kw in ['enable', 'disable', 'use', 'is_', 'has_']):
         return "boolean"
 
-    # 数组/列表参数
     if any(kw in name_lower for kw in ['codes', 'symbols', 'list', 'array']):
         return "array"
 

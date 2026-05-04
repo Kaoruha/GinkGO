@@ -11,7 +11,7 @@ import sys
 import os
 
 # 添加项目路径
-_path = os.path.join(os.path.dirname(__file__
+_path = os.path.join(os.path.dirname(__file__), '..', '..')
 if _path not in sys.path:
     sys.path.insert(0, _path)
 

@@ -51,7 +51,7 @@ def demo_live_trading_flow():
     portfolio = PortfolioLive(
         portfolio_id="demo_portfolio",
         engine_id="demo_engine",
-        run_id="demo_run",
+        task_id="demo_run",
         name="演示投资组合",
         initial_cash=Decimal("100000")
     )
@@ -72,7 +72,7 @@ def demo_live_trading_flow():
                 return [Signal(
                     portfolio_id=portfolio.portfolio_id,
                     engine_id=portfolio.engine_id or "demo_engine",
-                    run_id=portfolio.run_id or "demo_run",
+                    task_id=portfolio.task_id or "demo_run",
                     code=event.payload.code,
                     direction=DIRECTION_TYPES.LONG
                 )]
@@ -104,7 +104,7 @@ def demo_live_trading_flow():
             return Order(
                 portfolio_id=signal.portfolio_id,
                 engine_id=signal.engine_id,
-                run_id=signal.run_id,
+                task_id=signal.task_id,
                 code=signal.code,
                 direction=signal.direction,
                 order_type=ORDER_TYPES.LIMITORDER,

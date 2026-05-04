@@ -81,7 +81,7 @@ def sample_engine_id():
 
 
 @pytest.fixture
-def sample_run_id():
+def sample_task_id():
     """生成示例运行ID"""
     return "test_run_20240101_120000"
 

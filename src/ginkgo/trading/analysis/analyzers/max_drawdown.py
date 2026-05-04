@@ -46,10 +46,6 @@ class MaxDrawdown(BaseAnalyzer):
                 
         self.add_data(drawdown)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录最大回撤数据到数据库"""
-        self.add_record()
-
     @property
     def current_drawdown(self) -> float:
         """当前回撤比例（只读属性）"""

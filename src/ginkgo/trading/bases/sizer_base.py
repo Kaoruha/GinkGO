@@ -31,7 +31,7 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
 
     组合时间、上下文和引擎绑定能力，为所有资金管理组件提供基础功能：
     - 时间戳管理 (timestamp, business_timestamp)
-    - 上下文管理 (engine_id, run_id, portfolio_id)
+    - 上下文管理 (engine_id, task_id, portfolio_id)
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
@@ -57,6 +57,43 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
             feeder: 数据供给器实例
         """
         self._data_feeder = feeder
+
+    def create_order(self, code: str, direction, volume: int,
+                     limit_price=0, order_type=None, status=None,
+                     frozen_money=0, frozen_volume=0,
+                     transaction_price=0, transaction_volume=0,
+                     remain=0, fee=0, **kwargs):
+        """
+        创建带有完整上下文的订单。
+
+        自动填充 portfolio_id、engine_id、task_id，仓位管理器只需关注业务参数。
+        """
+        from ginkgo.entities import Order
+        from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES
+
+        if order_type is None:
+            order_type = ORDER_TYPES.MARKETORDER
+        if status is None:
+            status = ORDERSTATUS_TYPES.NEW
+
+        return Order(
+            portfolio_id=self.portfolio_id or "",
+            engine_id=self.engine_id or "",
+            task_id=self.task_id or "",
+            code=code,
+            direction=direction,
+            order_type=order_type,
+            status=status,
+            volume=volume,
+            limit_price=limit_price,
+            frozen_money=frozen_money,
+            frozen_volume=frozen_volume,
+            transaction_price=transaction_price,
+            transaction_volume=transaction_volume,
+            remain=remain,
+            fee=fee,
+            **kwargs,
+        )
 
     def cal(self, portfolio_info: Dict, signal: "Signal", *args, **kwargs) -> Optional["Order"]:
         """

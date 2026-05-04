@@ -65,7 +65,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
     组合完整的管理能力，为所有投资组合组件提供基础功能：
     - 时间戳管理 (timestamp, business_timestamp)
-    - 上下文管理 (engine_id, run_id, portfolio_id)
+    - 上下文管理 (engine_id, task_id, portfolio_id)
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
@@ -735,7 +735,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             )
             return
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
-            # 绑定 portfolio，让 analyzer 通过 ContextMixin 获取 run_id 等上下文信息
+            # 绑定 portfolio，让 analyzer 通过 ContextMixin 获取 task_id 等上下文信息
             if hasattr(analyzer, "bind_portfolio"):
                 analyzer.bind_portfolio(self)
                 GLOG.DEBUG(f"[add_analyzer] {analyzer.name} bind_portfolio done, _context={analyzer._context}")
@@ -827,7 +827,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         统一的分析器错误处理
         """
         error_msg = f"Analyzer {analyzer.name} failed at stage {stage}: {str(error)}"
-        analyzer.log("ERROR", error_msg)
+        GLOG.ERROR(error_msg)
 
         # 记录到Portfolio级别的错误日志
         if not hasattr(self, "_analyzer_errors"):
@@ -853,7 +853,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             positions_data.append({
                 "portfolio_id": model.portfolio_id,
                 "engine_id": model.engine_id,
-                "run_id": model.run_id,
+                "task_id": model.task_id,
                 "code": model.code,
                 "cost": model.cost,
                 "volume": model.volume,
@@ -895,7 +895,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             m_pos.update(
                 p_dict["portfolio_id"],
                 p_dict["engine_id"],
-                p_dict.get("run_id", ""),
+                p_dict.get("task_id", ""),
                 code=p_dict["code"],
                 cost=p_dict["cost"],
                 volume=p_dict["volume"],
@@ -931,7 +931,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             "selector": self._selectors,
             "portfolio_id": self.portfolio_id,
             "engine_id": self.engine_id,
-            "run_id": self.run_id,
+            "task_id": self.task_id,
             "available_cash": float(self.cash - self.frozen),
             "total_value": float(self.worth),
             "current_time": self.get_time_provider().now() if self.get_time_provider() else None,

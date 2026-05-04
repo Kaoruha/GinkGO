@@ -83,10 +83,10 @@
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                {{ authStore.displayName || authStore.username || '用户' }}
+                {{ authStore.displayName || '用户' }}
               </div>
               <div class="dropdown-divider"></div>
-              <button class="dropdown-item" @click="router.push('/system/status'); showUserMenu = false">
+              <button class="dropdown-item" @click="router.push('/admin'); showUserMenu = false">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="3"></circle>
                   <path d="M12 1v6m0 6v6"></path>
@@ -122,7 +122,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
 import {
   LayoutDashboard, Wallet, TrendingUp,
-  Wrench, Database, FileSearch,
+  Wrench, Database, FileSearch, Puzzle,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -171,6 +171,7 @@ const icons: Record<string, Component> = {
   linechart: TrendingUp,
   database: Database,
   tool: Wrench,
+  puzzle: Puzzle,
 }
 
 // 菜单定义
@@ -183,6 +184,9 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { key: 'dashboard', label: '工作台', icon: icons.dashboard },
   { key: 'portfolios', label: '组合', icon: icons.wallet },
+  { key: 'backtests', label: '回测', icon: icons.linechart },
+  { key: 'validation', label: '验证', icon: icons.filesearch },
+  { key: 'components', label: '组件', icon: icons.puzzle },
   { key: 'research', label: '研究', icon: icons.filesearch },
   { key: 'trading', label: '交易', icon: icons.linechart },
   { key: 'data', label: '数据', icon: icons.database },
@@ -204,6 +208,9 @@ const isEditorPage = computed(() => {
 const routeToKeyMap: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/portfolios': 'portfolios',
+  '/backtests': 'backtests',
+  '/validation': 'validation',
+  '/components': 'components',
   '/research': 'research',
   '/trading': 'trading',
   '/data': 'data',
@@ -214,8 +221,14 @@ const routeToKeyMap: Record<string, string> = {
 watch(() => route.path, (path) => {
   let key = routeToKeyMap[path]
   if (!key) {
-    if (path.startsWith('/portfolios/')) {
+    if (path.startsWith('/backtests')) {
+      key = 'backtests'
+    } else if (path.startsWith('/validation')) {
+      key = 'validation'
+    } else if (path.startsWith('/portfolios/')) {
       key = 'portfolios'
+    } else if (path.startsWith('/components/')) {
+      key = 'components'
     } else if (path.startsWith('/research/')) {
       key = 'research'
     } else if (path.startsWith('/trading/')) {
@@ -242,6 +255,9 @@ const getRouteForKey = (key: string): string => {
   const routeMap: Record<string, string> = {
     'dashboard': '/dashboard',
     'portfolios': '/portfolios',
+    'backtests': '/backtests',
+    'validation': '/validation',
+    'components': '/components',
     'research': '/research',
     'trading': '/trading',
     'data': '/data',

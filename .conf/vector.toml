@@ -1,0 +1,235 @@
+# Vector Configuration for Ginkgo Distributed Logging
+# Compatible with Vector 0.39.0
+#
+# 数据流：
+# 1. 读取 /var/log/ginkgo/**/*.log 文件
+# 2. 解析 JSON 格式日志
+# 3. 添加字段映射（log_category → event_category）
+# 4. 根据 log_category 路由到不同表
+# 5. 写入 ClickHouse 对应表
+#
+# 环境变量：
+#   GINKGO_LOG_PATH - 日志文件目录（与 GLOG 写入路径一致）
+#   默认值: ~/.ginkgo/logs (本地开发) 或 /var/log/ginkgo (容器部署)
+
+# ============================================================================
+# Input Sources
+# ============================================================================
+
+[sources.ginkgo_logs]
+type = "file"
+include = ["${GINKGO_LOG_PATH}/**/*.log"]
+
+# Read from the beginning on first start, then track position via checkpoint
+read_from = "beginning"
+
+# ============================================================================
+# Transforms
+# ============================================================================
+
+[transforms.parse_json]
+inputs = ["ginkgo_logs"]
+type = "remap"
+source = '''
+# File source puts line content in .message field
+# Parse it as JSON
+. = parse_json!(.message)
+'''
+
+[transforms.normalize_fields]
+inputs = ["parse_json"]
+type = "remap"
+source = '''
+# structlog ECS 格式适配：提取嵌套字段到顶层
+if exists(.log.level) { .level = upcase!(.log.level) }
+if exists(.log.logger) { .logger_name = .log.logger }
+if exists(.@timestamp) { .timestamp = .@timestamp }
+if exists(.ginkgo.log_category) { .log_category = .ginkgo.log_category }
+if exists(.ginkgo.task_id) { .task_id = .ginkgo.task_id }
+if exists(.ginkgo.portfolio_id) { .portfolio_id = .ginkgo.portfolio_id }
+if exists(.ginkgo.engine_id) { .engine_id = .ginkgo.engine_id }
+if exists(.ginkgo.business_timestamp) { .business_timestamp = .ginkgo.business_timestamp }
+if exists(.ginkgo.event_type) { .event_type = .ginkgo.event_type }
+if exists(.ginkgo.strategy_id) { .strategy_id = .ginkgo.strategy_id }
+if exists(.ginkgo.symbol) { .symbol = .ginkgo.symbol }
+if exists(.ginkgo.direction) { .direction = .ginkgo.direction }
+if exists(.ginkgo.signal_reason) { .signal_reason = .ginkgo.signal_reason }
+if exists(.ginkgo.signal_volume) { .signal_volume = .ginkgo.signal_volume }
+if exists(.ginkgo.order_id) { .order_id = .ginkgo.order_id }
+if exists(.ginkgo.transaction_price) { .transaction_price = .ginkgo.transaction_price }
+if exists(.ginkgo.transaction_volume) { .transaction_volume = .ginkgo.transaction_volume }
+if exists(.ginkgo.commission) { .commission = .ginkgo.commission }
+if exists(.ginkgo.slippage) { .slippage = .ginkgo.slippage }
+if exists(.ginkgo.position_code) { .position_code = .ginkgo.position_code }
+if exists(.ginkgo.position_volume) { .position_volume = .ginkgo.position_volume }
+if exists(.ginkgo.broker_order_id) { .broker_order_id = .ginkgo.broker_order_id }
+if exists(.ginkgo.reject_code) { .reject_code = .ginkgo.reject_code }
+if exists(.ginkgo.reject_reason) { .reject_reason = .ginkgo.reject_reason }
+if exists(.ginkgo.cancel_reason) { .cancel_reason = .ginkgo.cancel_reason }
+if exists(.ginkgo.risk_type) { .risk_type = .ginkgo.risk_type }
+if exists(.ginkgo.risk_reason) { .risk_reason = .ginkgo.risk_reason }
+if exists(.ginkgo.signal_weight) { .signal_weight = .ginkgo.signal_weight }
+if exists(.ginkgo.signal_confidence) { .signal_confidence = .ginkgo.signal_confidence }
+if exists(.ginkgo.order_type) { .order_type = .ginkgo.order_type }
+if exists(.ginkgo.limit_price) { .limit_price = .ginkgo.limit_price }
+if exists(.ginkgo.frozen_money) { .frozen_money = .ginkgo.frozen_money }
+if exists(.ginkgo.ack_message) { .ack_message = .ginkgo.ack_message }
+if exists(.ginkgo.order_status) { .order_status = .ginkgo.order_status }
+if exists(.ginkgo.remain_volume) { .remain_volume = .ginkgo.remain_volume }
+if exists(.ginkgo.trade_id) { .trade_id = .ginkgo.trade_id }
+if exists(.ginkgo.expire_reason) { .expire_reason = .ginkgo.expire_reason }
+if exists(.ginkgo.cancelled_quantity) { .cancelled_quantity = .ginkgo.cancelled_quantity }
+if exists(.ginkgo.expired_quantity) { .expired_quantity = .ginkgo.expired_quantity }
+if exists(.ginkgo.position_cost) { .position_cost = .ginkgo.position_cost }
+if exists(.ginkgo.position_price) { .position_price = .ginkgo.position_price }
+if exists(.ginkgo.total_value) { .total_value = .ginkgo.total_value }
+if exists(.ginkgo.available_cash) { .available_cash = .ginkgo.available_cash }
+if exists(.ginkgo.frozen_cash) { .frozen_cash = .ginkgo.frozen_cash }
+if exists(.ginkgo.net_value) { .net_value = .ginkgo.net_value }
+if exists(.ginkgo.drawdown) { .drawdown = .ginkgo.drawdown }
+if exists(.ginkgo.pnl) { .pnl = .ginkgo.pnl }
+if exists(.ginkgo.risk_limit_value) { .risk_limit_value = .ginkgo.risk_limit_value }
+if exists(.ginkgo.risk_actual_value) { .risk_actual_value = .ginkgo.risk_actual_value }
+if exists(.ginkgo.engine_status) { .engine_status = .ginkgo.engine_status }
+if exists(.ginkgo.progress) { .progress = .ginkgo.progress }
+if exists(.ginkgo.error_code) { .error_code = .ginkgo.error_code }
+if exists(.ginkgo.error_message) { .error_message = .ginkgo.error_message }
+if exists(.ginkgo.tracking_id) { .tracking_id = .ginkgo.tracking_id }
+if exists(.ginkgo.expected_price) { .expected_price = .ginkgo.expected_price }
+if exists(.ginkgo.actual_price) { .actual_price = .ginkgo.actual_price }
+if exists(.ginkgo.expected_volume) { .expected_volume = .ginkgo.expected_volume }
+if exists(.ginkgo.actual_volume) { .actual_volume = .ginkgo.actual_volume }
+if exists(.ginkgo.price_deviation) { .price_deviation = .ginkgo.price_deviation }
+if exists(.ginkgo.volume_deviation) { .volume_deviation = .ginkgo.volume_deviation }
+if exists(.ginkgo.delay_seconds) { .delay_seconds = .ginkgo.delay_seconds }
+if exists(.ginkgo.source_type) && !is_string(.ginkgo.source_type) { .source = .ginkgo.source_type }
+
+# 字段映射：log_category → event_category
+if exists(.log_category) {
+  .event_category = .log_category
+}
+
+# 确保必需字段存在（使用默认值）
+if !exists(.level) { .level = "INFO" }
+if !exists(.message) { .message = "" }
+if !exists(.logger_name) { .logger_name = "ginkgo" }
+if !exists(.timestamp) { .timestamp = now() }
+
+# 格式化 timestamp 为 ClickHouse DateTime 兼容格式
+# 去掉末尾的 Z 后缀再解析，兼容 ISO 8601 和空格分隔格式
+ts_str = to_string!(.timestamp)
+ts_str = replace(ts_str, "Z", "")
+ts_str = replace(ts_str, " ", "T")
+ts = parse_timestamp!(ts_str, format: "%Y-%m-%dT%H:%M:%S%.f")
+.timestamp = format_timestamp!(ts, format: "%Y-%m-%d %H:%M:%S")
+
+# 格式化 business_timestamp（如果有）
+# 注意：Python _datetime_decimal_serializer 输出空格分隔格式（非ISO）
+if exists(.business_timestamp) && .business_timestamp != "" {
+  bts_str = to_string!(.business_timestamp)
+  bts_str = replace(bts_str, "Z", "")
+  bts_str = replace(bts_str, " ", "T")
+  .business_timestamp = format_timestamp!(parse_timestamp!(bts_str, format: "%Y-%m-%dT%H:%M:%S%.f"), format: "%Y-%m-%d %H:%M:%S")
+}
+'''
+
+[transforms.route_by_category]
+inputs = ["normalize_fields"]
+type = "route"
+
+# Route logs by event_category (mapped from log_category)
+route.backtest = '.event_category == "backtest"'
+route.component = '.event_category == "component"'
+route.performance = '.event_category == "performance"'
+
+# 路由后清理：移除 ClickHouse 表中不存在的字段
+[transforms.strip_extra_backtest]
+inputs = ["route_by_category.backtest"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
+
+[transforms.strip_extra_component]
+inputs = ["route_by_category.component"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
+
+[transforms.strip_extra_performance]
+inputs = ["route_by_category.performance"]
+type = "remap"
+source = '''
+del(.log_category)
+del(.event_category)
+del(.file)
+del(.source_type)
+del(.log)
+del(."@timestamp")
+del(.logger)
+del(.ginkgo)
+del(.process)
+del(.host)
+del(.container)
+del(.trace)
+'''
+
+# ============================================================================
+# Sinks - ClickHouse
+# ============================================================================
+
+[sinks.clickhouse_backtest]
+type = "clickhouse"
+inputs = ["strip_extra_backtest"]
+database = "ginkgo"
+table = "ginkgo_logs_backtest"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
+
+[sinks.clickhouse_backtest.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_component]
+type = "clickhouse"
+inputs = ["strip_extra_component"]
+database = "ginkgo"
+table = "ginkgo_logs_component"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
+
+[sinks.clickhouse_component.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_performance]
+type = "clickhouse"
+inputs = ["strip_extra_performance"]
+database = "ginkgo"
+table = "ginkgo_logs_performance"
+endpoint = "http://${CLICKHOUSE_HOST}:8123"
+
+[sinks.clickhouse_performance.batch]
+max_events = 100
+timeout_secs = 5

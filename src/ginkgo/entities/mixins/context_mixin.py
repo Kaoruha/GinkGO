@@ -1,6 +1,6 @@
 # Upstream: BaseEngine (引擎实例绑定)、PortfolioContext/EngineContext (分级上下文对象)
 # Downstream: 所有引擎绑定组件 (Strategy/Selector/Sizer/RiskManagement/Analyzer/Broker)
-# Role: 上下文传播 Mixin，将 portfolio_id/engine_id/run_id/source_type 从引擎上下文传播到各组件
+# Role: 上下文传播 Mixin，将 portfolio_id/engine_id/task_id/source_type 从引擎上下文传播到各组件
 
 
 
@@ -12,7 +12,7 @@
 
 整合引擎绑定和上下文信息管理，提供完整的引擎集成功能：
 - 引擎实例绑定和管理
-- 上下文ID信息的存储和访问（engine_id, run_id, portfolio_id）
+- 上下文ID信息的存储和访问（engine_id, task_id, portfolio_id）
 - 事件发布功能
 - 动态获取引擎状态
 
@@ -29,6 +29,44 @@ if TYPE_CHECKING:
     from ginkgo.trading.engines.base_engine import BaseEngine
     from ginkgo.trading.context.engine_context import EngineContext
     from ginkgo.trading.context.portfolio_context import PortfolioContext
+
+
+class _PortfolioLogProxy:
+    """回测日志代理，自动注入 portfolio_id 到 GLOG.backtest 调用"""
+
+    def __init__(self, portfolio_id):
+        object.__setattr__(self, '_pid', portfolio_id)
+
+    def __getattr__(self, name):
+        return _LogChain(object.__getattribute__(self, '_pid'), (name,))
+
+
+class _LogChain:
+    """属性链：self.blog.trade.order(...) → GLOG.backtest.trade.order(..., portfolio_id=pid)"""
+
+    def __init__(self, pid, path):
+        object.__setattr__(self, '_pid', pid)
+        object.__setattr__(self, '_path', path)
+
+    def __getattr__(self, name):
+        return _LogChain(
+            object.__getattribute__(self, '_pid'),
+            object.__getattribute__(self, '_path') + (name,)
+        )
+
+    def __call__(self, *args, **kwargs):
+        pid = object.__getattribute__(self, '_pid')
+        if pid:
+            kwargs.setdefault('portfolio_id', pid)
+        from ginkgo.libs import GLOG
+        path = object.__getattribute__(self, '_path')
+        if path[0].startswith('log_'):
+            obj = GLOG
+        else:
+            obj = GLOG.backtest
+        for attr in path:
+            obj = getattr(obj, attr)
+        return obj(*args, **kwargs)
 
 
 class ContextMixin:
@@ -113,6 +151,12 @@ class ContextMixin:
         return self._engine_put
 
     @property
+    def blog(self):
+        """回测日志代理，自动注入 portfolio_id"""
+        pid = getattr(self._context, 'portfolio_id', None) if self._context else None
+        return _PortfolioLogProxy(pid)
+
+    @property
     def bound_engine(self):
         """获取绑定的引擎实例"""
         return self._bound_engine
@@ -131,20 +175,20 @@ class ContextMixin:
         return None
 
     @property
-    def run_id(self) -> Optional[str]:
+    def task_id(self) -> Optional[str]:
         """获取运行会话ID - 从上下文动态获取，支持延迟查找"""
         # 优先从自身 context 获取
         if self._context:
-            return self._context.run_id
+            return self._context.task_id
 
         # 延迟查找：如果自身没有 context，尝试从绑定的 portfolio 获取
         # 这样即使装配时 Portfolio 还没有 context，在调用时也能动态获取
         if self._bound_portfolio and hasattr(self._bound_portfolio, '_context') and self._bound_portfolio._context:
-            return self._bound_portfolio._context.run_id
+            return self._bound_portfolio._context.task_id
 
-        # 后备：使用 TimeMixin 的 _validation_run_id（当 set_run_id 被调用时设置）
-        if hasattr(self, '_validation_run_id') and self._validation_run_id is not None:
-            return self._validation_run_id
+        # 后备：使用 TimeMixin 的 _validation_task_id（当 set_task_id 被调用时设置）
+        if hasattr(self, '_validation_task_id') and self._validation_task_id is not None:
+            return self._validation_task_id
 
         return None
 

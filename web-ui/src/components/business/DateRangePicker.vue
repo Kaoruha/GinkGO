@@ -68,7 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [string, string]
+  'update:modelValue': [start: string, end: string]
 }>()
 
 const startDate = ref<string>()
@@ -123,12 +123,12 @@ const setRange = (type: string) => {
       break
   }
 
-  emit('update:modelValue', [startDate.value, endDate.value])
+  emit('update:modelValue', startDate.value!, endDate.value!)
 }
 
 // 确认
 const handleConfirm = () => {
-  emit('update:modelValue', [startDate.value, endDate.value])
+  emit('update:modelValue', startDate.value!, endDate.value!)
 }
 
 // 取消

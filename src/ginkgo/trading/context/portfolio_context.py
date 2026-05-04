@@ -1,6 +1,6 @@
 # Upstream: PortfolioBase, 分析器、策略等组合内组件
 # Downstream: context.engine_context
-# Role: 组合级上下文管理，持有portfolio_id并引用EngineContext，统一提供portfolio_id/engine_id/run_id只读访问
+# Role: 组合级上下文管理，持有portfolio_id并引用EngineContext，统一提供portfolio_id/engine_id/task_id只读访问
 
 
 
@@ -11,7 +11,7 @@
 PortfolioContext - Portfolio-level context management.
 
 This class is maintained by Portfolio and references EngineContext.
-Provides unified access to portfolio_id, engine_id, and run_id.
+Provides unified access to portfolio_id, engine_id, and task_id.
 """
 
 from typing import Optional
@@ -25,42 +25,28 @@ class PortfolioContext:
     Responsibilities:
     - Store portfolio_id (read-only)
     - Reference EngineContext (shared)
-    - Provide unified context access interface
+    - Auto-proxy all EngineContext attributes via __getattr__
 
     Design:
     - Portfolio maintains this instance
     - References EngineContext (shared across Portfolios)
-    - All read-only properties for safety
+    - Only portfolio_id is defined locally; everything else falls through to EngineContext
     """
 
     def __init__(self, portfolio_id: str, engine_context: EngineContext):
-        """
-        Initialize PortfolioContext
-
-        Args:
-            portfolio_id: Unique portfolio identifier
-            engine_context: Reference to EngineContext (shared)
-        """
         self._portfolio_id = portfolio_id
         self._engine_context = engine_context
 
     @property
     def portfolio_id(self) -> str:
-        """Read-only: Portfolio ID"""
         return self._portfolio_id
 
-    @property
-    def engine_id(self) -> str:
-        """Read-only: Engine ID (from EngineContext)"""
-        return self._engine_context.engine_id
-
-    @property
-    def run_id(self) -> Optional[str]:
-        """Read-only: Run session ID (from EngineContext)"""
-        return self._engine_context.run_id
+    def __getattr__(self, name):
+        """Auto-proxy undefined attributes to EngineContext"""
+        return getattr(self._engine_context, name)
 
     def __repr__(self) -> str:
         return (f"PortfolioContext(portfolio_id={self._portfolio_id[:8]}..., "
                 f"engine_id={self.engine_id[:8]}..., "
-                f"run_id={self.run_id[:8] if self.run_id else None}...)")
+                f"task_id={self.task_id[:8] if self.task_id else None}...)")
 

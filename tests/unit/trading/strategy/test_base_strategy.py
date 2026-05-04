@@ -17,12 +17,12 @@ from ginkgo.enums import DIRECTION_TYPES
 from datetime import datetime
 
 
-def _set_context(strategy, engine_id="test_engine", portfolio_id="test_portfolio", run_id="test_run"):
+def _set_context(strategy, engine_id="test_engine", portfolio_id="test_portfolio", task_id="test_run"):
     """Helper to set backtest context IDs on a strategy via mock context object."""
     strategy._context = type('C', (), {
         'engine_id': engine_id,
         'portfolio_id': portfolio_id,
-        'run_id': run_id,
+        'task_id': task_id,
     })()
 
 
@@ -48,7 +48,7 @@ class TestBaseStrategyConstruction:
         # 验证继承自BacktestBase和ContextMixin的属性
         assert getattr(strategy, 'engine_id', None) is None
         assert getattr(strategy, 'portfolio_id', None) is None
-        assert getattr(strategy, 'run_id', None) is None
+        assert getattr(strategy, 'task_id', None) is None
 
     def test_named_constructor(self):
         """测试命名构造"""
@@ -70,7 +70,7 @@ class TestBaseStrategyConstruction:
         # 验证ID管理属性（ContextMixin提供，默认为None）
         assert strategy.engine_id is None
         assert strategy.portfolio_id is None
-        assert strategy.run_id is None
+        assert strategy.task_id is None
 
     def test_raw_data_initialization(self):
         """测试原始数据初始化"""
@@ -130,17 +130,17 @@ class TestBaseStrategyConstruction:
         strategy2 = BaseStrategy(name="Strategy2")
 
         # 验证实例独立性
-        _set_context(strategy1, engine_id="engine1", portfolio_id="portfolio1", run_id="run1")
-        _set_context(strategy2, engine_id="engine2", portfolio_id="portfolio2", run_id="run2")
+        _set_context(strategy1, engine_id="engine1", portfolio_id="portfolio1", task_id="run1")
+        _set_context(strategy2, engine_id="engine2", portfolio_id="portfolio2", task_id="run2")
 
         # 验证各自独立设置
         assert strategy1.engine_id == "engine1"
         assert strategy1.portfolio_id == "portfolio1"
-        assert strategy1.run_id == "run1"
+        assert strategy1.task_id == "run1"
 
         assert strategy2.engine_id == "engine2"
         assert strategy2.portfolio_id == "portfolio2"
-        assert strategy2.run_id == "run2"
+        assert strategy2.task_id == "run2"
 
         # 验证名称独立性
         assert strategy1.name == "Strategy1"
@@ -261,13 +261,13 @@ class TestBaseStrategyProperties:
         # 测试从BacktestBase和ContextMixin继承的属性
         assert getattr(strategy, 'engine_id', None) is None
         assert getattr(strategy, 'portfolio_id', None) is None
-        assert getattr(strategy, 'run_id', None) is None
+        assert getattr(strategy, 'task_id', None) is None
         assert isinstance(strategy.uuid, str)
 
         # 验证默认值
         assert strategy.engine_id is None
         assert strategy.portfolio_id is None
-        assert strategy.run_id is None
+        assert strategy.task_id is None
         assert isinstance(strategy.uuid, str)
         assert len(strategy.uuid) > 0
 
@@ -278,10 +278,10 @@ class TestBaseStrategyProperties:
         # Python动态类型特性不需要运行时参数验证
 
         # 验证上下文属性可通过_set_context设置
-        _set_context(strategy, engine_id="test_engine", portfolio_id="test_portfolio", run_id="test_run")
+        _set_context(strategy, engine_id="test_engine", portfolio_id="test_portfolio", task_id="test_run")
         assert strategy.engine_id == "test_engine"
         assert strategy.portfolio_id == "test_portfolio"
-        assert strategy.run_id == "test_run"
+        assert strategy.task_id == "test_run"
 
     def test_property_type_validation(self):
         """测试属性类型验证"""
@@ -299,7 +299,7 @@ class TestBaseStrategyProperties:
         # 验证继承属性的类型（默认为None）
         assert strategy.engine_id is None
         assert strategy.portfolio_id is None
-        assert strategy.run_id is None
+        assert strategy.task_id is None
         assert isinstance(strategy.uuid, str)
 
         # 验证uuid属性类型
@@ -552,14 +552,14 @@ class TestBaseStrategyDataSetting:
         _set_context(strategy4,
             engine_id="test_engine",
             portfolio_id="test_portfolio",
-            run_id="test_run"
+            task_id="test_run"
         )
 
         # 验证配置后策略仍然功能正常
         assert strategy4.name == "ConsistencyTest"
         assert strategy4.engine_id == "test_engine"
         assert strategy4.portfolio_id == "test_portfolio"
-        assert strategy4.run_id == "test_run"
+        assert strategy4.task_id == "test_run"
 
         # 验证配置不影响核心方法
         assert callable(getattr(strategy4, 'cal', None))
@@ -652,7 +652,7 @@ class TestBaseStrategySignalGeneration:
                 signal = Signal(
                     portfolio_id=portfolio_info.get('portfolio_id', 'test_portfolio'),
                     engine_id=self.engine_id or 'test_engine',
-                    run_id=self.run_id or 'test_run',
+                    task_id=self.task_id or 'test_run',
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="test single buy"
@@ -687,7 +687,7 @@ class TestBaseStrategySignalGeneration:
                     signal = Signal(
                         portfolio_id=portfolio_info.get('portfolio_id', 'test_portfolio'),
                         engine_id=self.engine_id or 'test_engine',
-                        run_id=self.run_id or 'test_run',
+                        task_id=self.task_id or 'test_run',
                         code=code,
                         direction=DIRECTION_TYPES.LONG,
                         reason=f"test buy {code}"
@@ -743,7 +743,7 @@ class TestBaseStrategySignalGeneration:
                 return [Signal(
                     portfolio_id='test',
                     engine_id='test',
-                    run_id='test',
+                    task_id='test',
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="test valid signal"
@@ -768,7 +768,7 @@ class TestBaseStrategySignalGeneration:
                     signal = Signal(
                         portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                         engine_id=self.engine_id or 'test_engine',
-                        run_id=self.run_id or 'test_run',
+                        task_id=self.task_id or 'test_run',
                         code="000001.SZ",
                         direction=DIRECTION_TYPES.LONG,
                         reason="cash sufficient buy"
@@ -815,7 +815,7 @@ class TestBaseStrategySignalGeneration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.LONG,
                             reason="high price buy"
@@ -825,7 +825,7 @@ class TestBaseStrategySignalGeneration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.SHORT,
                             reason="low price sell"
@@ -877,7 +877,7 @@ class TestBaseStrategySignalGeneration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.LONG,
                             reason="deterministic buy"
@@ -887,7 +887,7 @@ class TestBaseStrategySignalGeneration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.SHORT,
                             reason="deterministic sell"
@@ -1000,7 +1000,7 @@ class TestBaseStrategyDataFeederIntegration:
                                 signal = Signal(
                                     portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                                     engine_id=self.engine_id or 'test_engine',
-                                    run_id=self.run_id or 'test_run',
+                                    task_id=self.task_id or 'test_run',
                                     code=code,
                                     direction=DIRECTION_TYPES.LONG,
                                     reason="historical data buy"
@@ -1066,7 +1066,7 @@ class TestBaseStrategyDataFeederIntegration:
                                 signal = Signal(
                                     portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                                     engine_id=self.engine_id or 'test_engine',
-                                    run_id=self.run_id or 'test_run',
+                                    task_id=self.task_id or 'test_run',
                                     code="000001.SZ",
                                     direction=DIRECTION_TYPES.LONG,
                                     reason="format compatible buy"
@@ -1153,7 +1153,7 @@ class TestBaseStrategyDataFeederIntegration:
                 signal = Signal(
                     portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                     engine_id=self.engine_id or 'test_engine',
-                    run_id=self.run_id or 'test_run',
+                    task_id=self.task_id or 'test_run',
                     code="000001.SZ",
                     direction=DIRECTION_TYPES.LONG,
                     reason="normal data buy"
@@ -1240,7 +1240,7 @@ class TestBaseStrategyDataFeederIntegration:
                             signal = Signal(
                                 portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                                 engine_id=self.engine_id or 'test_engine',
-                                run_id=self.run_id or 'test_run',
+                                task_id=self.task_id or 'test_run',
                                 code=code,
                                 direction=DIRECTION_TYPES.LONG,
                                 reason="validated data buy"
@@ -1334,7 +1334,7 @@ class TestBaseStrategyDataFeederIntegration:
                                 signal = Signal(
                                     portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                                     engine_id=self.engine_id or 'test_engine',
-                                    run_id=self.run_id or 'test_run',
+                                    task_id=self.task_id or 'test_run',
                                     code=symbol,
                                     direction=DIRECTION_TYPES.LONG,
                                     reason=f"multi symbol buy {symbol}"
@@ -1424,7 +1424,7 @@ class TestBaseStrategyDataFeederIntegration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.LONG,
                             reason="error handling buy"
@@ -1530,7 +1530,7 @@ class TestBaseStrategyDataFeederIntegration:
                         signal = Signal(
                             portfolio_id=portfolio_info.get('portfolio_id', 'test'),
                             engine_id=self.engine_id or 'test_engine',
-                            run_id=self.run_id or 'test_run',
+                            task_id=self.task_id or 'test_run',
                             code="000001.SZ",
                             direction=DIRECTION_TYPES.LONG,
                             reason="cached data buy"

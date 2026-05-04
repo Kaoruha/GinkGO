@@ -56,40 +56,59 @@ def docker_check():
     docker_version = os.system("docker --version")
 
 
+def get_venv_path():
+    ginkgo_dir = os.environ.get("GINKGO_DIR", os.path.expanduser("~/.ginkgo"))
+    return os.path.join(ginkgo_dir, ".venv")
+
+
+def check_uv_available():
+    try:
+        subprocess.run(["uv", "--version"], check=True, capture_output=True)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def activate_venv(venv_path):
+    """在当前进程中激活 venv（等价于 source activate）"""
+    os.environ["VIRTUAL_ENV"] = venv_path
+    os.environ["UV_ACTIVE_ENV"] = venv_path
+    bin_dir = os.path.join(venv_path, "bin")
+    os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+    if os.name == "nt":
+        bin_dir = os.path.join(venv_path, "Scripts")
+        os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+    for p in Path(venv_path).glob("lib/python*/site-packages"):
+        if str(p) not in sys.path:
+            sys.path.insert(0, str(p))
+
+
 def env_check():
-    env = os.environ.get("VIRTUAL_ENV")
-    conda_env = os.environ.get("CONDA_DEFAULT_ENV")
-    uv_env = os.environ.get("UV_ACTIVE_ENV")
-    uv_venv = os.environ.get("UV_VENV")  # UV also sets this in some cases
+    venv_path = get_venv_path()
 
-    notice_info = "NOTICE"
+    if not check_uv_available():
+        print(f"[{red('ERROR')}] uv is required but not found.")
+        print(f"  Install: {green('curl -LsSf https://astral.sh/uv/install.sh | sh')}")
+        return None
 
-    # Check for uv virtual environment
-    if uv_env or uv_venv:
-        # Verify uv environment by checking for pyvenv.cfg
-        uv_env_path = uv_env or uv_venv
-        if uv_env_path and os.path.exists(f"{uv_env_path}/pyvenv.cfg"):
-            print(f"[{green('ACTIVE')}] UV virtual environment detected: {lightblue(uv_env_path)}")
-            return uv_env_path
+    active_env = os.environ.get("VIRTUAL_ENV") or os.environ.get("UV_ACTIVE_ENV")
 
-    # Check for conda environment
-    if conda_env and conda_env != "base":
-        print(f"[{green('ACTIVE')}] Conda environment detected: {lightblue(conda_env)}")
-        return conda_env
+    if active_env:
+        if os.path.normpath(active_env) == os.path.normpath(venv_path):
+            print(f"[{green('ACTIVE')}] UV env: {lightblue(venv_path)}")
+            return venv_path
+        else:
+            print(f"[{lightyellow('WARN')}] Active env {lightblue(active_env)} != expected {lightblue(venv_path)}")
+            return active_env
 
-    # Check for venv environment
-    if env:
-        print(f"[{green('ACTIVE')}] Virtual environment detected: {lightblue(env)}")
-        return env
+    if not os.path.exists(os.path.join(venv_path, "pyvenv.cfg")):
+        print(f"[{green('CREATE')}] Creating venv at {lightblue(venv_path)}...")
+        subprocess.run(["uv", "venv", venv_path, "--python", "3.12.8"], check=True)
+    else:
+        print(f"[{green('REUSE')}] Found existing venv at {lightblue(venv_path)}")
 
-    # No active environment found
-    print(f"[{blue(notice_info)}] You should activate a {bg_red('virtual environment')}")
-    msg = f"[{blue(notice_info)}] To activate, run one of the following:\n"
-    msg += f"  • {green('python3 -m virtualenv venv; source venv/bin/activate')} (venv)\n"
-    msg += f"  • {green('conda create -n ginkgo python=3.12.8; conda activate ginkgo')} (conda)\n"
-    msg += f"  • {green('uv venv; source .venv/bin/activate')} (uv - recommended for faster operations)"
-    print(msg)
-    return None
+    activate_venv(venv_path)
+    return venv_path
 
 
 def env_print(working_directory, env, python_version):
@@ -155,117 +174,39 @@ def copy_config(path_conf, path_secure, update_config):
 
 
 def is_uv_environment():
-    """Check if we're running in a UV environment."""
-    uv_env = os.environ.get("UV_ACTIVE_ENV")
-    uv_venv = os.environ.get("UV_VENV")
-    env = os.environ.get("VIRTUAL_ENV")
-
-    # Check UV environment variables
-    if uv_env or uv_venv:
-        return True
-
-    # Check if virtual environment path indicates UV
-    if env and (".venv" in env or env.endswith("/.venv")):
-        return True
-
-    # Check pyvenv.cfg for UV markers
-    if env and os.path.exists(f"{env}/pyvenv.cfg"):
-        try:
-            with open(f"{env}/pyvenv.cfg", "r") as f:
-                content = f.read().lower()
-                if "uv" in content:
-                    return True
-        except:
-            pass
-
-    return False
+    return check_uv_available()
 
 
 def get_package_manager():
-    """Determine the appropriate package manager to use."""
-    if is_uv_environment():
-        # Check if uv command is available
-        try:
-            subprocess.run(["uv", "--version"], check=True, capture_output=True)
-            return "uv"
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            print(f"[{lightyellow('WARNING')}] UV environment detected but uv command not found. Falling back to pip.")
-            return "pip"
-    else:
-        return "pip"
+    return "uv"
 
 
 def install_ginkgo():
-    # Install Ginkgo Package using UV or pip
-    package_manager = get_package_manager()
-
+    venv_path = get_venv_path()
+    env = os.environ.copy()
+    env["UV_PROJECT_ENVIRONMENT"] = venv_path
     try:
-        print(f"Installing Ginkgo package in development mode using {package_manager}...")
-        if package_manager == "uv":
-            # For UV, use uv sync to install from pyproject.toml
-            subprocess.run(["uv", "sync"], check=True)
-        else:
-            subprocess.run(["pip", "install", "-e", "."], check=True)
+        print(f"Installing Ginkgo package in development mode using uv...")
+        subprocess.run(["uv", "sync"], env=env, check=True)
         print("Ginkgo package installed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to install Ginkgo package: {e}")
-        print("Trying alternative installation method...")
-        if package_manager == "uv":
-            # Try to create lockfile first, then sync
-            subprocess.run(["uv", "lock"])
-            subprocess.run(["uv", "sync"])
-        else:
-            subprocess.run(["pip", "install", "setuptools", "wheel"])
-            subprocess.run(["pip", "install", "-e", "."])
-
-    # Install additional required packages
-    print(f"Installing additional required packages using {package_manager}...")
-    if package_manager == "uv":
-        subprocess.run(["uv", "add", "pyyaml"])
-    else:
-        subprocess.run(["pip", "install", "pyyaml", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
+        print("Trying uv lock + sync...")
+        subprocess.run(["uv", "lock"], env=env)
+        subprocess.run(["uv", "sync"], env=env)
 
 
 def install_dependencies(path_pip):
-    # 安装依赖
-    package_manager = get_package_manager()
-
-    if package_manager == "uv":
-        print("Installing dependencies using UV (fast mode)...")
-
-        # For UV, use sync to install all dependencies from pyproject.toml
-        try:
-            subprocess.run(["uv", "sync"], check=True)
-            print("Dependencies installation success via UV.")
-        except Exception as e:
-            print(f"Failed to install dependencies via UV: {e}")
-            print("Falling back to pip...")
-            subprocess.run(["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", "https://mirrors.aliyun.com/pypi/simple/"])
-    else:
-        print("Installing dependencies using pip...")
-        source = "https://mirrors.aliyun.com/pypi/simple/"
-
-        # Upgrade pip
-        command = ["pip", "install", "--upgrade", "pip", "-i", source]
-        try:
-            subprocess.run(command, check=True)
-            print("Pip upgrade success.")
-        except Exception as e:
-            print(e)
-
-        # Install wheel
-        command = ["pip", "install", "wheel", "--default-timeout=20", "-i", source]
-        try:
-            subprocess.run(command, check=True)
-        except Exception as e:
-            print(e)
-
-        # Install requirements
-        command = ["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", source]
-        try:
-            subprocess.run(command, check=True)
-        except Exception as e:
-            print(e)
+    venv_path = get_venv_path()
+    env = os.environ.copy()
+    env["UV_PROJECT_ENVIRONMENT"] = venv_path
+    print("Installing dependencies using UV...")
+    try:
+        subprocess.run(["uv", "sync"], env=env, check=True)
+        print("Dependencies installation success via UV.")
+    except Exception as e:
+        print(f"Failed to install dependencies via UV: {e}")
+        sys.exit(1)
 
 
 def set_config_path(path_log, working_directory):
@@ -428,15 +369,17 @@ def wait_for_services():
 
 
 def create_entrypoint():
-    # Remove EntryPoint
-    print("Clean ginkgo binary.")
+    print("Install ginkgo binary.")
+    # 清理旧位置
     for path in ["/usr/bin/ginkgo", "/usr/local/bin/ginkgo"]:
         if os.path.exists(path):
-            command = ["sudo", "rm", path]
-            subprocess.run(command, check=True)
+            subprocess.run(["sudo", "rm", path], check=True)
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
-    output_file = "/usr/local/bin/ginkgo"
+    bin_dir = os.path.expanduser("~/.local/bin")
+    output_file = os.path.join(bin_dir, "ginkgo")
+    os.makedirs(bin_dir, exist_ok=True)
+
     result = subprocess.run(["which", "python"], capture_output=True, text=True)
     python_path = result.stdout.strip()
     script_content = f"""#!/bin/bash
@@ -451,22 +394,9 @@ else
 fi
 """
 
-    with tempfile.NamedTemporaryFile("w", delete=False) as tmp_file:
-        tmp_file.write(script_content)
-        temp_file_name = tmp_file.name
-
-    # 使用 sudo 命令将临时文件移动到目标目录
-    print("copy binary to bin.")
-    command = ["sudo", "mv", temp_file_name, output_file]
-    subprocess.run(command, check=True)
-
-    # 设置文件执行权限
-    print("add executable to binary")
-    command = ["sudo", "chmod", "+x", output_file]
-    subprocess.run(command, check=True)
-    if os.path.exists(temp_file_name):
-        print("remove temp file")
-        os.remove(temp_file_name)
+    with open(output_file, "w") as f:
+        f.write(script_content)
+    os.chmod(output_file, 0o755)
 
 
 def set_jupyterlab_config():
@@ -613,13 +543,14 @@ def main():
 
     working_directory = os.path.dirname(os.path.abspath(__file__))
 
-    path_log = os.path.expanduser("~") + "/.ginkgo/logs"
+    ginkgo_dir = os.environ.get("GINKGO_DIR", os.path.expanduser("~/.ginkgo"))
+    path_log = os.path.join(ginkgo_dir, "logs")
     path_db = f"{working_directory}/.db"
     path_pip = f"{working_directory}/requirements.txt"
-    path_dockercompose = f"{working_directory}/.conf/docker-compose.yml"
+    path_dockercompose = f"{working_directory}/docker-compose.yml"
     path_click = f"{working_directory}/.conf/clickhouse_users.xml"
     path_gink_conf = f"{working_directory}/src/ginkgo/config/config.yml"
-    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
+    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.template"
 
     print("======================================")
     print(f"{green('Ginkgo Trading Framework')} Installation Script")
@@ -638,45 +569,37 @@ def main():
         input(f"Press {green('ENTER')} to continue, {lightblue('Ginkgo')} will be build.")
         print("File Check:")
 
-    if os.path.exists(path_pip):
-        msg = f"[{green('CONFIRMED')}] Pip requirements."
-        print(msg)
+    ginkgo_dir = os.environ.get("GINKGO_DIR", os.path.expanduser("~/.ginkgo"))
+    ginkgo_config = os.path.join(ginkgo_dir, "config.yml")
+    ginkgo_secure = os.path.join(ginkgo_dir, "secure.yml")
+
+    # 检查 ~/.ginkgo 下配置文件，不存在则从源拷贝
+    if not os.path.exists(ginkgo_config) or not os.path.exists(ginkgo_secure):
+        print(f"[{lightblue('SETUP')}] Config files not found in {ginkgo_dir}, copying from source...")
+        if not os.path.exists(path_gink_conf):
+            print(f"[{red(' MISSING ')}] Source config file not found at {path_gink_conf}")
+            sys.exit(1)
+        if not os.path.exists(path_gink_sec):
+            print(f"[{red(' MISSING ')}] Source secure file not found at {path_gink_sec}")
+            sys.exit(1)
+        copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
     else:
-        msg = f"[{red(' MISSING ')}] Pip requirements."
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Config files in {lightblue(ginkgo_dir)}")
+
+    if os.path.exists(path_pip):
+        print(f"[{green('CONFIRMED')}] Pip requirements.")
+    else:
+        print(f"[{red(' MISSING ')}] Pip requirements.")
 
     if os.path.exists(path_dockercompose):
-        msg = f"[{green('CONFIRMED')}] Docker compose file"
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Docker compose file")
     else:
-        msg = f"[{red(' MISSING ')}] Docker Compose file"
-        print(msg)
+        print(f"[{red(' MISSING ')}] Docker Compose file")
 
     if os.path.exists(path_click):
-        msg = f"[{green('CONFIRMED')}] Clickhouse config file"
-        print(msg)
+        print(f"[{green('CONFIRMED')}] Clickhouse config file")
     else:
-        msg = f"[{red(' MISSING ')}] Clickhouse config file"
-        print(msg)
-
-    if os.path.exists(path_gink_conf):
-        msg = f"[{green('CONFIRMED')}] Ginkgo config file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Ginkgo config file"
-        print(msg)
-
-    if os.path.exists(path_gink_sec):
-        msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
-        import pdb
-
-        pdb.set_trace()
-        print(msg)
-
-    copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
+        print(f"[{red(' MISSING ')}] Clickhouse config file")
 
     install_ginkgo()
 

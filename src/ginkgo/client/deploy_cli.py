@@ -1,5 +1,5 @@
 # Upstream: CLI入口 (ginkgo deploy命令)
-# Downstream: DeploymentService, container.deployment_service()
+# Downstream: DeploymentService, trading_container.deployment_service()
 # Role: 回测结果一键部署为纸上交易/实盘的CLI命令
 
 import typer
@@ -14,14 +14,14 @@ console = Console()
 
 @app.command("")
 def deploy(
-    backtest_task_id: Annotated[str, typer.Argument(help="回测任务ID (run_id)")],
+    backtest_task_id: Annotated[str, typer.Argument(help="回测任务ID (task_id)")],
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,
 ):
     """一键部署：回测结果 → 纸上交易/实盘"""
     try:
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
         mode_map = {
@@ -40,7 +40,7 @@ def deploy(
         console.print(f"  回测任务: {backtest_task_id}")
         console.print(f"  模式: {mode}")
 
-        svc = container.deployment_service()
+        svc = trading_container.deployment_service()
         result = svc.deploy(
             backtest_task_id=backtest_task_id,
             mode=mode_map[mode],
@@ -69,9 +69,9 @@ def info(
 ):
     """查看部署详情"""
     try:
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
 
-        svc = container.deployment_service()
+        svc = trading_container.deployment_service()
         result = svc.get_deployment_info(portfolio_id)
 
         if result.success:
@@ -103,9 +103,9 @@ def list_deployments(
 ):
     """列出部署记录"""
     try:
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
 
-        svc = container.deployment_service()
+        svc = trading_container.deployment_service()
         result = svc.list_deployments(source_task_id=task_id)
 
         if result.success and result.data:

@@ -29,7 +29,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         self,
         portfolio_id: str = "",
         engine_id: str = "",
-        run_id: str = "",  # 新增run_id参数
+        task_id: str = "",  # task_id参数
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
         reason: str = "no reason",
@@ -57,7 +57,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
 
         # 通过set方法设置所有业务属性（包括上下文信息）
         try:
-            self.set(portfolio_id, engine_id, run_id, code, direction, reason, source, volume, weight, strength, confidence)
+            self.set(portfolio_id, engine_id, task_id, code, direction, reason, source, volume, weight, strength, confidence)
 
             # 注意：business_timestamp已经在TimeMixin中处理，不需要再次设置
 
@@ -77,7 +77,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,  # 新增run_id参数
+        task_id: str,  # task_id参数
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
@@ -91,23 +91,17 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
     ):
         # 对所有核心业务字段进行类型和值验证
 
-        # portfolio_id类型和值验证
+        # portfolio_id类型验证
         if not isinstance(portfolio_id, str):
             raise TypeError(f"portfolio_id must be str, got {type(portfolio_id).__name__}")
-        if not portfolio_id:
-            raise ValueError("portfolio_id cannot be empty.")
 
-        # engine_id类型和值验证
+        # engine_id类型验证
         if not isinstance(engine_id, str):
             raise TypeError(f"engine_id must be str, got {type(engine_id).__name__}")
-        if not engine_id:
-            raise ValueError("engine_id cannot be empty.")
 
-        # run_id类型和值验证
-        if not isinstance(run_id, str):
-            raise TypeError(f"run_id must be str, got {type(run_id).__name__}")
-        if not run_id:
-            raise ValueError("run_id cannot be empty.")
+        # task_id类型验证
+        if not isinstance(task_id, str):
+            raise TypeError(f"task_id must be str, got {type(task_id).__name__}")
 
         # code类型和值验证
         if not isinstance(code, str):
@@ -159,7 +153,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
 
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._code: str = code
         self._reason = reason
         self._volume: int = volume
@@ -184,7 +178,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         """
         Set from pandas Series with validation
         """
-        required_fields = {"portfolio_id", "engine_id", "run_id", "timestamp", "code", "direction", "reason"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "timestamp", "code", "direction", "reason"}
         # 检查 Series 是否包含所有必需字段
         if not required_fields.issubset(series.index):
             missing_fields = required_fields - set(series.index)
@@ -194,7 +188,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         self.set(
             series['portfolio_id'],
             series['engine_id'],
-            series.get('run_id', ''),
+            series.get('task_id', ''),
             series['timestamp'],
             series['code'],
             DIRECTION_TYPES(series['direction']),
@@ -212,7 +206,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         if df.empty:
             raise ValueError("DataFrame is empty")
 
-        required_fields = {"portfolio_id", "engine_id", "run_id", "timestamp", "code", "direction", "reason"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "timestamp", "code", "direction", "reason"}
         # 检查 DataFrame 是否包含所有必需字段
         if not required_fields.issubset(df.columns):
             missing_fields = required_fields - set(df.columns)
@@ -249,12 +243,12 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         self._engine_id = value
 
     @property
-    def run_id(self) -> str:
-        return self._run_id
+    def task_id(self) -> str:
+        return self._task_id
 
-    @run_id.setter
-    def run_id(self, value) -> None:
-        self._run_id = value
+    @task_id.setter
+    def task_id(self, value) -> None:
+        self._task_id = value
 
     @property
     def direction(self) -> DIRECTION_TYPES:
@@ -387,7 +381,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         model.update(
             self._portfolio_id,
             self._engine_id,
-            self._run_id,
+            self._task_id,
             timestamp=self._timestamp,
             code=self._code,
             direction=self._direction,
@@ -424,7 +418,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         return cls(
             portfolio_id=model.portfolio_id,
             engine_id=model.engine_id,
-            run_id=model.run_id,
+            task_id=model.task_id,
             timestamp=model.timestamp,
             code=model.code,
             direction=DIRECTION_TYPES(model.direction),

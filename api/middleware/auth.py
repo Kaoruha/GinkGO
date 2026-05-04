@@ -1,7 +1,12 @@
 """
 JWT认证中间件
-"""
 
+统一处理所有请求的 token 校验：
+1. 检查 Authorization header (Bearer token)
+2. 如果 header 没有，检查 URL query param (token=xxx)
+3. 无 token 或 token 无效/过期 → 401
+4. WebSocket 由 handler 调用 verify_token() 自行校验（BaseHTTPMiddleware 不支持 WebSocket）
+"""
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from jose import JWTError, jwt
@@ -15,8 +20,8 @@ from core.logging import logger
 class JWTAuthMiddleware(BaseHTTPMiddleware):
     """JWT认证中间件"""
 
-    # 跳过认证的路径（精确匹配）
-    SKIP_AUTH_PATHS = {
+    # 不需要认证的路径
+    PUBLIC_PATHS = {
         "/health",
         "/api/health",
         "/docs",
@@ -27,71 +32,54 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/verify",
     }
 
-    # 跳过认证的路径前缀（前缀匹配）
-    SKIP_AUTH_PREFIXES = {
-        "/api/v1/portfolios",
-        "/api/v1/backtests",
-        "/api/v1/backtest",
-        "/api/v1/node-graphs",
-        "/api/v1/components",
-        "/api/v1/data",
-        "/api/v1/dashboard",
-        "/api/v1/settings",
-    }
-
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
-
-        # 检查精确匹配的路径
-        if path in self.SKIP_AUTH_PATHS:
+        # WebSocket 无法通过 BaseHTTPMiddleware 处理，由 handler 调用 verify_token
+        if request.scope.get("type") == "websocket":
             return await call_next(request)
 
-        # 检查前缀匹配的路径
-        for prefix in self.SKIP_AUTH_PREFIXES:
-            if path.startswith(prefix):
-                return await call_next(request)
+        path = request.url.path
 
-        # 获取 token
-        token = self.get_token_from_request(request)
+        if path in self.PUBLIC_PATHS:
+            return await call_next(request)
 
+        # 统一校验 token
+        token = self._extract_token(request)
         if not token:
-            logger.warning(f"Missing token for {request.url.path}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing authentication token"
+                detail="Missing authentication token",
             )
 
-        # 验证 token
         try:
-            payload = decode_token(token)
-            # 将用户信息注入到 request.state
-            request.state.user = payload
-            request.state.user_uuid = payload.get("user_uuid")
-            request.state.credential_uuid = payload.get("credential_uuid")
-            request.state.username = payload.get("username")
-            request.state.is_admin = payload.get("is_admin", False)
+            payload = verify_token(token)
         except JWTError as e:
-            logger.warning(f"Invalid token: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
+                detail="Invalid or expired token",
             )
+
+        # 注入用户信息
+        request.state.user = payload
+        request.state.user_uuid = payload.get("user_uuid")
+        request.state.credential_uuid = payload.get("credential_uuid")
+        request.state.username = payload.get("username")
+        request.state.is_admin = payload.get("is_admin", False)
 
         return await call_next(request)
 
-    def get_token_from_request(self, request: Request) -> Optional[str]:
-        """从请求中获取 token"""
-        # 从 Authorization header 获取
+    def _extract_token(self, request: Request) -> Optional[str]:
+        """先查 header，没有再查 query param"""
         authorization = request.headers.get("Authorization")
         if authorization and authorization.startswith("Bearer "):
-            return authorization[7:]  # 去掉 "Bearer " 前缀
+            return authorization[7:]
 
-        # 从 query 参数获取（用于 WebSocket）
-        token = request.query_params.get("token")
-        if token:
-            return token
+        return request.query_params.get("token")
 
-        return None
+
+def verify_token(token: str) -> dict:
+    """验证并解码 token，供中间件和 WebSocket handler 共用"""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+    return payload
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -104,15 +92,4 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
-
-    return encoded_jwt
-
-
-def decode_token(token: str) -> dict:
-    """解码访问令牌"""
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        return payload
-    except JWTError:
-        raise
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")

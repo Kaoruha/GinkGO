@@ -60,7 +60,7 @@ def sample_signal(unique_id):
     signal = Signal(
         portfolio_id=unique_id,
         engine_id=unique_id,
-        run_id=unique_id,
+        task_id=unique_id,
         code="000001.SZ",
         direction=DIRECTION_TYPES.LONG
     )
@@ -144,7 +144,7 @@ class TestSignalTrackingServiceCRUD:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000001.SZ",
             direction=direction
         )
@@ -211,7 +211,7 @@ class TestSignalTrackingLifecycle:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG
         )
@@ -246,7 +246,7 @@ class TestSignalTrackingLifecycle:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000002.SZ",
             direction=DIRECTION_TYPES.SHORT
         )
@@ -272,7 +272,7 @@ class TestSignalTrackingLifecycle:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000003.SZ",
             direction=DIRECTION_TYPES.LONG
         )
@@ -363,7 +363,7 @@ class TestSignalTrackingServiceBusinessLogic:
             signal = Signal(
                 portfolio_id=unique_id,
                 engine_id=unique_id,
-                run_id=unique_id,
+                task_id=unique_id,
                 code=f"00000{i}.SZ",
                 direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT
             )
@@ -385,7 +385,7 @@ class TestSignalTrackingServiceBusinessLogic:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000004.SZ",
             direction=DIRECTION_TYPES.LONG
         )
@@ -433,7 +433,7 @@ class TestSignalTrackingServiceEdgeCases:
         signal = Signal(
             portfolio_id=unique_id,
             engine_id=unique_id,
-            run_id=unique_id,
+            task_id=unique_id,
             code="000005.SZ",
             direction=DIRECTION_TYPES.LONG
         )
@@ -458,7 +458,7 @@ class TestSignalTrackingServiceEdgeCases:
             signal = Signal(
                 portfolio_id=unique_id,
                 engine_id=unique_id,
-                run_id=unique_id,
+                task_id=unique_id,
                 code=code,
                 direction=DIRECTION_TYPES.LONG
             )

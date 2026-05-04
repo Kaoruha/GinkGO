@@ -29,7 +29,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
     return Order(
         portfolio_id="test-portfolio-001",
         engine_id="test-engine-001",
-        run_id="test-run-001",
+        task_id="test-run-001",
         code=code,
         direction=direction,
         order_type=order_type,
@@ -109,7 +109,7 @@ class TestOrderAckEventCreation:
             ack_message="Confirmed",
             portfolio_id="port-001",
             engine_id="eng-001",
-            run_id="run-001",
+            task_id="run-001",
         )
         assert ack.order is order
         assert ack.ack_message == "Confirmed"
@@ -161,7 +161,7 @@ class TestOrderStatusUpdateOnAck:
             order=order,
             portfolio_id=order.portfolio_id,
             engine_id=order.engine_id,
-            run_id=order.run_id,
+            task_id=order.task_id,
         )
         assert ack.order_id == order.uuid
         assert ack.code == order.code

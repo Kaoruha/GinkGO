@@ -31,17 +31,46 @@ from ginkgo.data.crud.model_conversion import ModelList
 
 
 class PortfolioService(BaseService):
-    def __init__(self, crud_repo, portfolio_file_mapping_crud):
+    def __init__(self, crud_repo, portfolio_file_mapping_crud, deployment_crud=None):
         """
         初始化PortfolioService，设置投资组合和文件映射仓储依赖
 
         Args:
             crud_repo: 投资组合数据CRUD仓储实例
             portfolio_file_mapping_crud: 投资组合文件映射CRUD仓储实例
+            deployment_crud: 部署CRUD仓储实例（可选，用于冻结判定）
         """
         super().__init__(
             crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
         )
+        self._deployment_crud = deployment_crud
+
+    def is_portfolio_frozen(self, portfolio_id: str) -> bool:
+        """检查组合是否已部署（冻结）
+
+        通过查询 MDeployment 判定：存在 source_portfolio_id 匹配且
+        target 未删除且状态为 DEPLOYED 的记录时返回 True。
+        """
+        if not hasattr(self, '_deployment_crud') or self._deployment_crud is None:
+            return False
+
+        deployments = self._deployment_crud.find(
+            filters={"source_portfolio_id": portfolio_id}
+        )
+
+        for d in deployments:
+            if getattr(d, 'status', -1) != 1:  # DEPLOYMENT_STATUS.DEPLOYED = 1
+                continue
+            target_id = getattr(d, 'target_portfolio_id', None)
+            if not target_id:
+                continue
+            targets = self._crud_repo.find(
+                filters={"uuid": target_id, "is_del": False}
+            )
+            if targets and len(targets) > 0:
+                return True
+
+        return False
 
     @retry(max_try=3)
     def add(
@@ -145,6 +174,17 @@ class PortfolioService(BaseService):
         if not portfolio_id or not portfolio_id.strip():
             return ServiceResult.error("Portfolio ID cannot be empty")
 
+        # 冻结检查（state 由 Worker 运行时控制，不阻止）
+        _only_state = state is not None and all(
+            v is None for k, v in [
+                ("name", name), ("mode", mode), ("description", description),
+                ("cash", cash), ("frozen", frozen), ("current_capital", current_capital),
+                ("total_fee", total_fee), ("total_profit", total_profit),
+            ]
+        )
+        if not _only_state and self.is_portfolio_frozen(portfolio_id):
+            return ServiceResult.error("组合已部署，不可修改")
+
         updates = {}
         if name is not None:
             if not name.strip():
@@ -157,8 +197,11 @@ class PortfolioService(BaseService):
 
 
         if mode is not None:
-            updates["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
-            updates_applied.append("mode")
+            GLOG.WARN(
+                f"Portfolio {portfolio_id}: mode modification ignored. "
+                "Use DeploymentService.deploy() or PortfolioService.add()."
+            )
+            warnings.append("mode modification is not allowed, use deploy instead")
 
         if state is not None:
             updates["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
@@ -263,7 +306,7 @@ class PortfolioService(BaseService):
                 m_pos.update(
                     p_dict["portfolio_id"],
                     p_dict["engine_id"],
-                    p_dict.get("run_id", ""),
+                    p_dict.get("task_id", ""),
                     code=p_dict["code"],
                     cost=p_dict["cost"],
                     volume=p_dict["volume"],
@@ -318,7 +361,7 @@ class PortfolioService(BaseService):
                 positions_data.append({
                     "portfolio_id": m_pos.portfolio_id,
                     "engine_id": m_pos.engine_id,
-                    "run_id": m_pos.run_id,
+                    "task_id": m_pos.task_id,
                     "code": m_pos.code,
                     "cost": str(m_pos.cost),
                     "volume": m_pos.volume,
@@ -351,6 +394,105 @@ class PortfolioService(BaseService):
         from ginkgo import services
         return services.data.cruds.position()
 
+    def reset_stale_running(self) -> ServiceResult:
+        """
+        将 PAPER/LIVE 模式下 RUNNING 或 STOPPING 状态的组合重置为 STOPPED。
+
+        用于 Worker 启动时清理上次异常退出残留的状态：
+        - RUNNING：Worker crash 后未来得及设 STOPPED
+        - STOPPING：Service.stop() 已设 STOPPING 但 Worker 未收到 unload 命令
+        """
+        try:
+            reset_count = 0
+            stale_states = (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value)
+            for mode_value in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
+                for stale_state in stale_states:
+                    portfolios = self._crud_repo.find(
+                        filters={"mode": mode_value, "state": stale_state}
+                    )
+                    for p in portfolios:
+                        self._crud_repo.modify(
+                            filters={"uuid": p.uuid},
+                            updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPED.value},
+                        )
+                        reset_count += 1
+                        state_name = "RUNNING" if stale_state == 1 else "STOPPING"
+                        GLOG.INFO(f"Reset stale {state_name} portfolio {p.uuid[:8]} -> STOPPED")
+
+            if reset_count > 0:
+                GLOG.INFO(f"Reset {reset_count} stale RUNNING portfolios")
+
+            return ServiceResult.success(
+                {"reset_count": reset_count},
+                f"重置 {reset_count} 个残留 RUNNING 组合"
+            )
+        except Exception as e:
+            GLOG.ERROR(f"重置残留 RUNNING 组合失败: {e}")
+            return ServiceResult.error(f"重置残留 RUNNING 组合失败: {str(e)}")
+
+    def stop(self, portfolio_id: str) -> ServiceResult:
+        """
+        停止 PAPER/LIVE portfolio（发送 Kafka unload 命令）
+
+        Args:
+            portfolio_id: 投资组合UUID
+
+        Returns:
+            ServiceResult: 操作结果
+        """
+        try:
+            if not portfolio_id or not portfolio_id.strip():
+                return ServiceResult.error("投资组合ID不能为空")
+
+            # 查询 portfolio 信息
+            portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
+            if not portfolios:
+                return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            portfolio = portfolios[0]
+            mode = getattr(portfolio, 'mode', -1)
+            state = getattr(portfolio, 'state', 0)
+
+            # 校验 mode
+            if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+                return ServiceResult.error("回测模式组合不支持 stop，请直接删除")
+
+            # 校验 state
+            if state == PORTFOLIO_RUNSTATE_TYPES.STOPPED.value:
+                return ServiceResult.error("组合已停止")
+            if state == PORTFOLIO_RUNSTATE_TYPES.STOPPING.value:
+                return ServiceResult.error("组合正在停止中，请等待")
+
+            # 更新 state 为 STOPPING
+            self._crud_repo.modify(
+                filters={"uuid": portfolio_id},
+                updates={"state": PORTFOLIO_RUNSTATE_TYPES.STOPPING.value},
+            )
+            GLOG.INFO(f"Portfolio {portfolio_id[:8]} state -> STOPPING")
+
+            # 发送 Kafka unload 命令
+            from ginkgo.messages.control_command import ControlCommand
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+            from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+            cmd = ControlCommand.unload(portfolio_id)
+            producer = GinkgoProducer()
+            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+
+            if success:
+                GLOG.INFO(f"[STOP] Kafka unload command sent for {portfolio_id[:8]}")
+            else:
+                GLOG.WARN(f"[STOP] Failed to send Kafka unload command for {portfolio_id[:8]}")
+
+            return ServiceResult.success(
+                {"portfolio_id": portfolio_id},
+                "停止命令已发送"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"停止投资组合失败: {e}")
+            return ServiceResult.error(f"停止投资组合失败: {str(e)}")
+
     @retry(max_try=3)
     def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
         """
@@ -374,6 +516,19 @@ class PortfolioService(BaseService):
 
             if not exists_result.data.get("exists", False):
                 return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            # 检查 PAPER/LIVE 运行状态保护
+            portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
+            if portfolios:
+                p = portfolios[0]
+                mode = getattr(p, 'mode', -1)
+                state = getattr(p, 'state', 0)
+                if mode in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
+                    if state in (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value):
+                        state_name = {v.value: k for k, v in PORTFOLIO_RUNSTATE_TYPES.__members__.items()}.get(state, str(state))
+                        return ServiceResult.error(
+                            f"组合正在{state_name}状态，请先停止后再删除"
+                        )
 
             deleted_count = 0
             mappings_deleted = 0
@@ -407,6 +562,18 @@ class PortfolioService(BaseService):
             self._crud_repo.soft_remove(
                 filters={"uuid": portfolio_id}
             )
+
+            # 如果是已部署的 target，将对应 deployment 状态更新为 STOPPED
+            if hasattr(self, '_deployment_crud') and self._deployment_crud:
+                deployments = self._deployment_crud.find(
+                    filters={"target_portfolio_id": portfolio_id}
+                )
+                for d in deployments:
+                    if getattr(d, 'status', -1) == 1:  # DEPLOYED
+                        self._deployment_crud.modify(
+                            filters={"uuid": d.uuid},
+                            updates={"status": 3},  # STOPPED
+                        )
 
             GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
 
@@ -576,6 +743,24 @@ class PortfolioService(BaseService):
 
   
     # ==================== 标准接口方法 ====================
+
+    def get_names_by_ids(self, portfolio_ids: List[str]) -> Dict[str, str]:
+        """批量查询组合名称
+
+        Args:
+            portfolio_ids: 组合 UUID 列表
+
+        Returns:
+            Dict[str, str]: {uuid: name} 映射
+        """
+        if not portfolio_ids:
+            return {}
+        try:
+            portfolios = self._crud_repo.find(filters={"uuid__in": list(portfolio_ids)})
+            return {getattr(p, 'uuid', ''): getattr(p, 'name', '') for p in portfolios}
+        except Exception as e:
+            GLOG.ERROR(f"批量查询组合名称失败: {e}")
+            return {}
 
     def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
@@ -927,12 +1112,12 @@ class PortfolioService(BaseService):
             if not hasattr(portfolio, 'frozen_cash'):
                 portfolio.frozen_cash = 0.0
 
-            # 3. 设置上下文（engine_id和run_id）
+            # 3. 设置上下文（engine_id和task_id）
             from ginkgo.trading.context.engine_context import EngineContext
             from ginkgo.trading.context.portfolio_context import PortfolioContext
 
             engine_context = EngineContext(engine_id="livecore")
-            engine_context.set_run_id(portfolio.uuid)
+            engine_context.set_task_id(portfolio.uuid)
             portfolio_context = PortfolioContext(
                 portfolio_id=portfolio.uuid,
                 engine_context=engine_context

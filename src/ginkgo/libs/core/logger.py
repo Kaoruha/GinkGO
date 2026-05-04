@@ -7,7 +7,8 @@
 import contextvars
 import contextlib
 import platform
-from datetime import datetime
+import structlog
+from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, Dict, Any, List, Union
@@ -31,8 +32,8 @@ _span_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
 _log_category_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "log_category", default=None
 )
-_business_context_ctx: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
-    "business_context", default={}
+_business_context_ctx: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "business_context", default=None
 )
 
 
@@ -161,12 +162,8 @@ def ginkgo_processor(logger, log_method, event_dict):
     """
     Ginkgo 业务字段处理器 (T010)
 
-    注入Ginkgo业务相关的扩展字段：
-    - ginkgo.log_category: 日志类别
-    - ginkgo.strategy_id: 策略ID
-    - ginkgo.portfolio_id: 组合ID
-    - ginkgo.event_type: 事件类型
-    - ginkgo.symbol: 交易标的
+    从 EngineContext/PortfolioContext 引用读取 task-level 字段，
+    从 _ginkgo event_dict key 读取 event-level 字段。
 
     Args:
         logger: structlog logger对象
@@ -179,15 +176,38 @@ def ginkgo_processor(logger, log_method, event_dict):
     if "ginkgo" not in event_dict:
         event_dict["ginkgo"] = {}
 
-    # 从 contextvars 获取业务上下文
+    # 1. Task-level fields from EngineContext reference
+    engine_ctx = _business_context_ctx.get()
+    if engine_ctx is not None:
+        if hasattr(engine_ctx, 'task_id') and engine_ctx.task_id:
+            event_dict["ginkgo"]["task_id"] = engine_ctx.task_id
+        if hasattr(engine_ctx, 'engine_id') and engine_ctx.engine_id:
+            event_dict["ginkgo"]["engine_id"] = engine_ctx.engine_id
+        if hasattr(engine_ctx, 'source_type') and engine_ctx.source_type is not None:
+            event_dict["ginkgo"]["source_type"] = engine_ctx.source_type.value if hasattr(engine_ctx.source_type, 'value') else engine_ctx.source_type
+        if hasattr(engine_ctx, 'business_timestamp') and engine_ctx.business_timestamp:
+            event_dict["ginkgo"]["business_timestamp"] = engine_ctx.business_timestamp
+        if hasattr(engine_ctx, 'portfolio_id') and engine_ctx.portfolio_id:
+            event_dict["ginkgo"]["portfolio_id"] = engine_ctx.portfolio_id
+
+    # 2. Event-level fields from _ginkgo kwargs
+    event_fields = event_dict.pop("_ginkgo", {})
+    event_dict["ginkgo"].update(event_fields)
+
+    # 3. log_category
     log_category = _log_category_ctx.get()
     if log_category:
         event_dict["ginkgo"]["log_category"] = log_category
 
-    # 获取所有绑定的业务上下文
-    business_context = _business_context_ctx.get()
-    for key, value in business_context.items():
-        event_dict["ginkgo"][key] = value
+    # 4. trace_id / span_id
+    trace_id = _trace_id_ctx.get()
+    span_id = _span_id_ctx.get()
+    if trace_id or span_id:
+        event_dict["trace"] = {}
+        if trace_id:
+            event_dict["trace"]["id"] = trace_id
+        if span_id:
+            event_dict["trace"]["span_id"] = span_id
 
     return event_dict
 
@@ -224,6 +244,24 @@ def container_metadata_processor(logger, log_method, event_dict):
     except ImportError:
         pass
 
+    return event_dict
+
+
+def _datetime_decimal_serializer(logger, method_name, event_dict):
+    """将 datetime/Decimal 转为 JSON 兼容类型"""
+    for key, value in list(event_dict.items()):
+        if isinstance(value, Decimal):
+            event_dict[key] = float(value)
+        elif isinstance(value, datetime):
+            event_dict[key] = value.replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
+        elif isinstance(value, date):
+            event_dict[key] = value.strftime('%Y-%m-%d')
+        elif isinstance(value, dict):
+            for k2, v2 in list(value.items()):
+                if isinstance(v2, Decimal):
+                    value[k2] = float(v2)
+                elif isinstance(v2, datetime):
+                    value[k2] = v2.replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
     return event_dict
 
 
@@ -302,6 +340,7 @@ def configure_structlog():
             processors=[
                 # === 快速处理器（极快）===
                 structlog.contextvars.merge_contextvars,
+                structlog.stdlib.filter_by_level,
                 structlog.stdlib.add_log_level,
                 structlog.stdlib.add_logger_name,
                 structlog.processors.UnicodeDecoder(),
@@ -315,13 +354,12 @@ def configure_structlog():
                 container_metadata_processor,
                 structlog.processors.StackInfoRenderer(),
                 structlog.processors.format_exc_info,
-                # === 最慢处理器（放在最后）===
-                structlog.processors.JSONRenderer()
+                # === 最后：交给 stdlib Handler 的 ProcessorFormatter 做最终渲染 ===
+                structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
             ],
             wrapper_class=structlog.stdlib.BoundLogger,
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
-            # T055: 缓存 logger 实例以提升性能
             cache_logger_on_first_use=True,
         )
     except ImportError:
@@ -359,14 +397,6 @@ class GinkgoLogger:
         self._file_names = file_names
         self.file_handlers = []
         self._console_handler_name = "ginkgo_console_logger"
-        self.file_formatter = logging.Formatter(
-            fmt="[%(asctime)s][%(levelname)s]:%(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-        self.console_formatter = logging.Formatter(
-            "P:%(process)d %(message)s",
-            datefmt="%m-%d %H:%M",
-        )
 
         if not os.path.exists(LOGGING_PATH):
             Path(LOGGING_PATH).mkdir(parents=True, exist_ok=True)
@@ -374,6 +404,7 @@ class GinkgoLogger:
 
         self.logger = logging.getLogger(logger_name)
         self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
 
         # 错误追踪相关的实例变量
         self._error_patterns = {}  # 错误模式计数 {pattern_hash: count}
@@ -381,24 +412,8 @@ class GinkgoLogger:
         self._error_lock = threading.RLock()  # 线程安全锁
         self._max_error_history = 1000  # 最大错误历史记录数
 
-        # T037: 检测日志模式
-        mode = getattr(GCONF, 'LOGGING_MODE', 'auto')
-        if mode == 'auto':
-            from ginkgo.libs.utils.log_utils import is_container_environment
-            self._is_container = is_container_environment()
-        elif mode == 'container':
-            self._is_container = True
-        else:  # local
-            self._is_container = False
-
         # 配置 structlog 和 handlers
-        if self._is_container:
-            # 容器模式：JSON 输出到 stdout/stderr
-            configure_structlog()
-        else:
-            # 本地模式：Rich 控制台 + 文件
-            # 在本地模式下仍然配置 structlog 用于业务逻辑
-            configure_structlog()
+        configure_structlog()
 
         self._setup_handlers(console_log)
 
@@ -409,14 +424,17 @@ class GinkgoLogger:
         self.performance = _PerformanceLogNamespace(self)
 
     def _setup_handlers(self, console_log):
-        # T037-T039: 文件日志支持
-        # 文件日志统一使用 JSON 格式（供 Vector 采集）
-        # stdout 可以根据模式选择格式
+        # 防止重复初始化（ginkgo.libs vs src.ginkgo.libs 可能触发两次 __init__）
+        existing_names = {getattr(h, '_name', None) for h in self.logger.handlers}
+
         if LOGGING_FILE_ON:
-            # 始终使用 JSON 格式文件日志（容器和本地环境统一）
-            self._setup_json_file_handler()
-        self._setup_console_handler(console_log)
-        # self._setup_error_handler()
+            file_handler_name = f"json_file_handler_{self.logger_name}.log"
+            if file_handler_name not in existing_names:
+                self._setup_json_file_handler()
+
+        console_name = getattr(self, '_console_handler_name', None)
+        if console_name and console_name not in existing_names:
+            self._setup_console_handler(console_log)
 
     def _should_log_error(self, msg: str) -> tuple[bool, str]:
         """
@@ -506,9 +524,9 @@ class GinkgoLogger:
 
     def _setup_json_file_handler(self):
         """
-        容器模式：设置 JSON 格式文件日志处理器
+        JSON 格式文件日志处理器
 
-        输出到 /var/log/ginkgo/ 目录，使用 JSON 格式供 Vector 采集解析。
+        使用 structlog ProcessorFormatter 输出 JSON，供 Vector 采集。
         """
         if not self._file_names:
             self._file_names = [LOGGING_DEFAULT_FILE]
@@ -517,66 +535,9 @@ class GinkgoLogger:
             if not file_name.endswith(".log"):
                 file_name += ".log"
 
-            # 容器模式使用 /var/log/ginkgo/ 路径
             file_path = os.path.join(LOGGING_PATH, file_name)
-
-            # 确保目录存在
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-            # 创建 JSON 格式化器
-            import json
-
-            class DecimalEncoder(json.JSONEncoder):
-                """处理 Decimal 类型的 JSON 编码器"""
-                def default(self, obj):
-                    if isinstance(obj, Decimal):
-                        return float(obj)
-                    return super().default(obj)
-
-            class JsonFormatter(logging.Formatter):
-                """JSON 格式化器 - 输出单行 JSON 供 Vector 解析"""
-
-                def format(self, record):
-                    log_obj = {
-                        "timestamp": datetime.fromtimestamp(record.created).isoformat(),
-                        "level": record.levelname.lower(),
-                        "logger_name": record.name,
-                        "message": record.getMessage(),
-                        "pid": os.getpid(),
-                        "hostname": platform.node(),
-                    }
-
-                    # 添加 trace_id (从 contextvars 获取)
-                    trace_id = _trace_id_ctx.get(None)
-                    if trace_id:
-                        log_obj["trace_id"] = trace_id
-
-                    # 添加 span_id
-                    span_id = _span_id_ctx.get(None)
-                    if span_id:
-                        log_obj["span_id"] = span_id
-
-                    # 添加 log_category
-                    log_category = _log_category_ctx.get(None)
-                    if log_category:
-                        log_obj["log_category"] = log_category
-
-                    # 添加业务上下文（转换 Decimal 为 float）
-                    business_context = _business_context_ctx.get({})
-                    if business_context:
-                        for key, value in business_context.items():
-                            if isinstance(value, Decimal):
-                                log_obj[key] = float(value)
-                            else:
-                                log_obj[key] = value
-
-                    # 异常信息
-                    if record.exc_info:
-                        log_obj["exception"] = self.formatException(record.exc_info)
-
-                    return json.dumps(log_obj, ensure_ascii=False, cls=DecimalEncoder)
-
-            # 创建文件处理器
             file_handler = RotatingFileHandler(
                 filename=file_path,
                 encoding="utf-8",
@@ -586,9 +547,21 @@ class GinkgoLogger:
             )
             file_handler.set_name(f"json_{self.gen_file_handler_name(file_name)}")
             file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
-            file_handler.setFormatter(JsonFormatter())
+            file_handler.setFormatter(self._make_json_formatter())
             self.file_handlers.append(file_handler)
             self.logger.addHandler(file_handler)
+
+    @staticmethod
+    def _make_json_formatter():
+        """创建 structlog ProcessorFormatter（JSON 输出）"""
+        import structlog
+        return structlog.stdlib.ProcessorFormatter(
+            processors=[
+                lambda logger, name, ed: (ed.pop("_record", None), ed.pop("_from_structlog", None), ed)[2],
+                _datetime_decimal_serializer,
+                structlog.processors.JSONRenderer(),
+            ]
+        )
 
     def gen_file_handler_name(self, file_name) -> str:
         return f"file_handler_{file_name}"
@@ -615,7 +588,7 @@ class GinkgoLogger:
         )
         file_handler.set_name(self.gen_file_handler_name(file_name))
         file_handler.setLevel(self.get_log_level(level))
-        file_handler.setFormatter(self.file_formatter)
+        file_handler.setFormatter(self._make_json_formatter())
         self.file_handlers.append(file_handler)
         self.logger.addHandler(file_handler)
         return file_handler
@@ -629,7 +602,14 @@ class GinkgoLogger:
         )
         self.console_handler.set_name(self._console_handler_name)
         self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
-        self.console_handler.setFormatter(self.console_formatter)
+        import structlog
+        self.console_handler.setFormatter(
+            structlog.stdlib.ProcessorFormatter(
+                processors=[
+                    lambda logger, name, ed: ed.get("event", "") or ed.get("message", ""),
+                ]
+            )
+        )
 
         if console_log:
             self.logger.addHandler(self.console_handler)
@@ -645,7 +625,7 @@ class GinkgoLogger:
         )
         error_handler.set_name("ginkgo_error")
         error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(self.file_formatter)
+        error_handler.setFormatter(self._make_json_formatter())
         self.logger.addHandler(error_handler)
 
     def reset_logfile(self, file_name: str) -> None:
@@ -731,22 +711,12 @@ class GinkgoLogger:
         if sampling_rate < 1.0:
             import random
             if random.random() > sampling_rate:
-                return  # 采样跳过此条日志
+                return
 
-        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
-        if not self._is_container:
-            # 本地模式：使用标准 logging（支持文件输出）
-            self.logger.debug(msg)
-        else:
-            # 容器模式：使用 structlog JSON 输出
-            try:
-                import structlog
-                log = structlog.get_logger(self.logger_name)
-                log.debug(msg)
-            except ImportError:
-                self.logger.debug(msg)
-
-            # 同时写入文件（供 Vector 采集）
+        try:
+            import structlog
+            structlog.get_logger(self.logger_name).debug(msg)
+        except ImportError:
             self.logger.debug(msg)
 
     def INFO(self, msg: str) -> None:
@@ -754,20 +724,10 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.INFO):
             return
 
-        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
-        if not self._is_container:
-            # 本地模式：使用标准 logging（支持文件输出）
-            self.logger.info(msg)
-        else:
-            # 容器模式：使用 structlog JSON 输出到 stdout/stderr
-            try:
-                import structlog
-                log = structlog.get_logger(self.logger_name)
-                log.info(msg)
-            except ImportError:
-                self.logger.info(msg)
-
-            # 同时写入文件（供 Vector 采集）
+        try:
+            import structlog
+            structlog.get_logger(self.logger_name).info(msg)
+        except ImportError:
             self.logger.info(msg)
 
     def WARN(self, msg: str) -> None:
@@ -775,20 +735,10 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.WARNING):
             return
 
-        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
-        if not self._is_container:
-            # 本地模式：使用标准 logging（支持文件输出）
-            self.logger.warning(msg)
-        else:
-            # 容器模式：使用 structlog JSON 输出
-            try:
-                import structlog
-                log = structlog.get_logger(self.logger_name)
-                log.warning(msg)
-            except ImportError:
-                self.logger.warning(msg)
-
-            # 同时写入文件（供 Vector 采集）
+        try:
+            import structlog
+            structlog.get_logger(self.logger_name).warning(msg)
+        except ImportError:
             self.logger.warning(msg)
 
     def WARNING(self, msg: str) -> None:
@@ -800,23 +750,12 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.ERROR):
             return
 
-        # 使用智能流量控制
         should_log, processed_msg = self._should_log_error(msg)
         if should_log:
-            # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
-            if not self._is_container:
-                # 本地模式：使用标准 logging（支持文件输出）
-                self.logger.error(processed_msg)
-            else:
-                # 容器模式：使用 structlog JSON 输出
-                try:
-                    import structlog
-                    log = structlog.get_logger(self.logger_name)
-                    log.error(processed_msg)
-                except ImportError:
-                    self.logger.error(processed_msg)
-
-                # 同时写入文件（供 Vector 采集）
+            try:
+                import structlog
+                structlog.get_logger(self.logger_name).error(processed_msg)
+            except ImportError:
                 self.logger.error(processed_msg)
 
     def CRITICAL(self, msg: str) -> None:
@@ -824,20 +763,10 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.CRITICAL):
             return
 
-        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
-        if not self._is_container:
-            # 本地模式：使用标准 logging（支持文件输出）
-            self.logger.critical(msg)
-        else:
-            # 容器模式：使用 structlog JSON 输出
-            try:
-                import structlog
-                log = structlog.get_logger(self.logger_name)
-                log.critical(msg)
-            except ImportError:
-                self.logger.critical(msg)
-
-            # 同时写入文件（供 Vector 采集）
+        try:
+            import structlog
+            structlog.get_logger(self.logger_name).critical(msg)
+        except ImportError:
             self.logger.critical(msg)
 
     # ==================== T030-T033: trace_id 上下文管理 ====================
@@ -966,56 +895,25 @@ class GinkgoLogger:
         """
         _log_category_ctx.set(category)
 
-    def bind_context(self, **kwargs) -> None:
+    def bind_context(self, engine_context=None) -> None:
         """
-        绑定业务上下文（会自动添加到所有后续日志）
+        Bind engine context reference.
 
         Args:
-            **kwargs: 业务上下文字段
-                - strategy_id: UUID
-                - portfolio_id: UUID
-                - event_type: str
-                - symbol: str
-                - direction: str
-                - 其他自定义字段
-
-        Example:
-            >>> GLOG.bind_context(
-            ...     strategy_id=strategy.uuid,
-            ...     portfolio_id=portfolio.uuid
-            ... )
-            >>> GLOG.INFO("Signal generated")  # 自动包含上述字段
+            engine_context: EngineContext or PortfolioContext instance reference
         """
-        current_context = _business_context_ctx.get()
-        if current_context is None:
-            current_context = {}
-        current_context.update(kwargs)
-        _business_context_ctx.set(current_context)
-
-    def unbind_context(self, *keys: str) -> None:
-        """
-        解绑指定的上下文字段
-
-        Args:
-            *keys: 要解绑的字段名称
-
-        Example:
-            >>> GLOG.unbind_context("strategy_id", "portfolio_id")
-        """
-        current_context = _business_context_ctx.get()
-        if current_context:
-            for key in keys:
-                current_context.pop(key, None)
-            _business_context_ctx.set(current_context)
+        if engine_context is not None:
+            from ginkgo.trading.context.engine_context import EngineContext
+            from ginkgo.trading.context.portfolio_context import PortfolioContext
+            if not isinstance(engine_context, (EngineContext, PortfolioContext)):
+                raise TypeError(
+                    f"bind_context only accepts EngineContext/PortfolioContext, got {type(engine_context).__name__}"
+                )
+            _business_context_ctx.set(engine_context)
 
     def clear_context(self) -> None:
-        """
-        清除所有业务上下文
-
-        Example:
-            >>> GLOG.clear_context()
-        """
-        _business_context_ctx.set({})
+        """Clear context reference and log category"""
+        _business_context_ctx.set(None)
         _log_category_ctx.set(None)
 
     # ==================== 内部辅助方法 ====================
@@ -1039,12 +937,12 @@ class GinkgoLogger:
 
     # ==================== 便捷方法：带字段提示的事件日志 ====================
 
-    def log_signal_event(self, symbol: str, direction: str, **kwargs):
+    def log_signal_event(self, symbol: str, direction: str, msg: str = None, **kwargs):
         """
         记录信号事件
 
         必需字段: symbol, direction
-        可选字段: signal_volume, signal_reason, signal_weight, signal_confidence, strategy_id
+        可选字段: signal_volume, signal_reason, signal_weight, signal_confidence, strategy_id, msg
 
         Example:
             >>> GLOG.log_signal_event(
@@ -1056,20 +954,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="SIGNALGENERATION",
-            symbol=symbol,
-            direction=direction,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Signal generated: {direction} {symbol}",
+            _ginkgo={
+                "event_type": "SIGNALGENERATION",
+                "symbol": symbol,
+                "direction": direction,
+                **kwargs
+            }
         )
-        self.INFO(f"Signal generated: {direction} {symbol}")
 
-    def log_order_event(self, order_id: str, **kwargs):
+    def log_order_event(self, order_id: str, msg: str = None, **kwargs):
         """
         记录订单事件
 
         必需字段: order_id
-        可选字段: order_type, limit_price, frozen_money, symbol, direction
+        可选字段: order_type, limit_price, frozen_money, symbol, direction, msg
 
         Example:
             >>> GLOG.log_order_event(
@@ -1081,131 +981,131 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(event_type="ORDERSUBMITTED", order_id=order_id, **kwargs)
-        self.INFO(f"Order submitted: {order_id}")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Order submitted: {order_id}",
+            _ginkgo={
+                "event_type": "ORDERSUBMITTED",
+                "order_id": order_id,
+                **kwargs
+            }
+        )
 
-    def log_order_fill_event(self, order_id: str, price: Number, volume: int, **kwargs):
+    def log_order_fill_event(self, order_id: str, price: Number, volume: int, msg: str = None, **kwargs):
         """
         记录成交事件
 
         必需字段: order_id, transaction_price, transaction_volume
-        可选字段: trade_id, commission, slippage
+        可选字段: trade_id, commission, slippage, msg
 
         Args:
             order_id: 订单ID
             price: 成交价格 (支持 float/int/Decimal)
             volume: 成交数量
+            msg: 自定义消息（可选，默认自动生成）
             **kwargs: 其他字段，如 commission (支持 float/int/Decimal), slippage
 
         Example:
-            >>> # 支持 float
             >>> GLOG.log_order_fill_event(
             ...     order_id=order.uuid,
             ...     price=10.52,
             ...     volume=1000,
             ...     commission=5.26
             ... )
-            >>> # 支持 Decimal
-            >>> GLOG.log_order_fill_event(
-            ...     order_id=order.uuid,
-            ...     price=Decimal("10.52"),
-            ...     volume=1000,
-            ...     commission=Decimal("5.26")
-            ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ORDERFILLED",
-            order_id=order_id,
-            transaction_price=price,
-            transaction_volume=volume,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Order filled: {order_id} @ {price} x{volume}",
+            _ginkgo={
+                "event_type": "ORDERFILLED",
+                "order_id": order_id,
+                "transaction_price": price,
+                "transaction_volume": volume,
+                **kwargs
+            }
         )
-        self.INFO(f"Order filled: {order_id} @ {price} x{volume}")
 
-    def log_position_event(self, symbol: str, volume: int, **kwargs):
+    def log_position_event(self, symbol: str, volume: int, msg: str = None, **kwargs):
         """
         记录持仓事件
 
         必需字段: position_code, position_volume
-        可选字段: position_cost, position_price (支持 float/int/Decimal)
+        可选字段: position_cost, position_price, msg
 
         Example:
             >>> GLOG.log_position_event(
             ...     symbol="000001.SZ",
             ...     volume=1000,
-            ...     position_cost=10520.00  # 支持 float
+            ...     position_cost=10520.00
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="POSITIONUPDATE",
-            position_code=symbol,
-            position_volume=volume,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Position updated: {symbol} {volume} shares",
+            _ginkgo={
+                "event_type": "POSITIONUPDATE",
+                "position_code": symbol,
+                "position_volume": volume,
+                **kwargs
+            }
         )
-        self.INFO(f"Position updated: {symbol} {volume} shares")
 
-    def log_capital_event(self, total_value: Number, available_cash: Number, **kwargs):
+    def log_capital_event(self, total_value: Number, available_cash: Number, msg: str = None, **kwargs):
         """
         记录资金事件
 
         必需字段: total_value, available_cash (支持 float/int/Decimal)
-        可选字段: net_value, drawdown, pnl (支持 float/int/Decimal)
+        可选字段: net_value, drawdown, pnl, msg
 
         Example:
-            >>> # 支持 float
             >>> GLOG.log_capital_event(
             ...     total_value=100000.00,
             ...     available_cash=50000.00,
             ...     pnl=5000.00
             ... )
-            >>> # 支持 Decimal
-            >>> GLOG.log_capital_event(
-            ...     total_value=Decimal("100000.00"),
-            ...     available_cash=Decimal("50000.00"),
-            ...     pnl=Decimal("5000.00")
-            ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="CAPITALUPDATE",
-            total_value=total_value,
-            available_cash=available_cash,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Capital updated: total={total_value}, cash={available_cash}",
+            _ginkgo={
+                "event_type": "CAPITALUPDATE",
+                "total_value": total_value,
+                "available_cash": available_cash,
+                **kwargs
+            }
         )
-        self.INFO(f"Capital updated: total={total_value}, cash={available_cash}")
 
-    def log_risk_event(self, risk_type: str, risk_reason: str, **kwargs):
+    def log_risk_event(self, risk_type: str, risk_reason: str, msg: str = None, **kwargs):
         """
         记录风控事件
 
         必需字段: risk_type, risk_reason
-        可选字段: risk_limit_value, risk_actual_value (支持 float/int/Decimal)
+        可选字段: risk_limit_value, risk_actual_value, msg
 
         Example:
             >>> GLOG.log_risk_event(
             ...     risk_type="POSITION_LIMIT",
             ...     risk_reason="单股持仓超限",
-            ...     risk_limit_value=0.2,  # 支持 float
+            ...     risk_limit_value=0.2,
             ...     risk_actual_value=0.25
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="RISKBREACH",
-            risk_type=risk_type,
-            risk_reason=risk_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"Risk event: {risk_type} - {risk_reason}",
+            _ginkgo={
+                "event_type": "RISKBREACH",
+                "risk_type": risk_type,
+                "risk_reason": risk_reason,
+                **kwargs
+            }
         )
-        self.WARN(f"Risk event: {risk_type} - {risk_reason}")
 
-    def log_component_event(self, component_name: str, message: str, **kwargs):
+    def log_component_event(self, component_name: str, message: str = None, msg: str = None, **kwargs):
         """
         记录组件日志
 
         必需字段: component_name
-        可选字段: component_version, component_instance, module_name
+        可选字段: message, component_version, component_instance, module_name
 
         Example:
             >>> GLOG.log_component_event(
@@ -1215,15 +1115,21 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("component")
-        self.bind_context(component_name=component_name, **kwargs)
-        self.INFO(message)
+        actual_msg = msg or message or f"Component event: {component_name}"
+        structlog.get_logger(self.logger_name).info(
+            actual_msg,
+            _ginkgo={
+                "component_name": component_name,
+                **kwargs
+            }
+        )
 
-    def log_performance_event(self, function_name: str, duration_ms: float, **kwargs):
+    def log_performance_event(self, function_name: str, duration_ms: float, msg: str = None, **kwargs):
         """
         记录性能日志
 
         必需字段: function_name, duration_ms
-        可选字段: memory_mb, cpu_percent, throughput, module_name, call_site
+        可选字段: memory_mb, cpu_percent, throughput, module_name, call_site, msg
 
         Example:
             >>> GLOG.log_performance_event(
@@ -1234,21 +1140,23 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("performance")
-        self.bind_context(
-            function_name=function_name,
-            duration_ms=duration_ms,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Performance: {function_name} took {duration_ms}ms",
+            _ginkgo={
+                "function_name": function_name,
+                "duration_ms": duration_ms,
+                **kwargs
+            }
         )
-        self.INFO(f"Performance: {function_name} took {duration_ms}ms")
 
     # ==================== 错误事件便捷方法 ====================
 
-    def log_order_rejected_event(self, order_id: str, reject_code: str, reject_reason: str, **kwargs):
+    def log_order_rejected_event(self, order_id: str, reject_code: str, reject_reason: str, msg: str = None, **kwargs):
         """
         记录订单拒绝事件
 
         必需字段: order_id, reject_code, reject_reason
-        可选字段: symbol, direction, limit_price
+        可选字段: symbol, direction, limit_price, msg
 
         Example:
             >>> GLOG.log_order_rejected_event(
@@ -1259,21 +1167,23 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ORDERREJECTED",
-            order_id=order_id,
-            reject_code=reject_code,
-            reject_reason=reject_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).error(
+            msg or f"Order rejected: {order_id} - {reject_code}: {reject_reason}",
+            _ginkgo={
+                "event_type": "ORDERREJECTED",
+                "order_id": order_id,
+                "reject_code": reject_code,
+                "reject_reason": reject_reason,
+                **kwargs
+            }
         )
-        self.ERROR(f"Order rejected: {order_id} - {reject_code}: {reject_reason}")
 
-    def log_order_cancelled_event(self, order_id: str, cancel_reason: str, **kwargs):
+    def log_order_cancelled_event(self, order_id: str, cancel_reason: str, msg: str = None, **kwargs):
         """
         记录订单取消事件
 
         必需字段: order_id, cancel_reason
-        可选字段: cancelled_quantity
+        可选字段: cancelled_quantity, msg
 
         Example:
             >>> GLOG.log_order_cancelled_event(
@@ -1283,20 +1193,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ORDERCANCELACK",
-            order_id=order_id,
-            cancel_reason=cancel_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"Order cancelled: {order_id} - {cancel_reason}",
+            _ginkgo={
+                "event_type": "ORDERCANCELACK",
+                "order_id": order_id,
+                "cancel_reason": cancel_reason,
+                **kwargs
+            }
         )
-        self.WARN(f"Order cancelled: {order_id} - {cancel_reason}")
 
-    def log_order_ack_event(self, order_id: str, broker_order_id: str, **kwargs):
+    def log_order_ack_event(self, order_id: str, broker_order_id: str, msg: str = None, **kwargs):
         """
         记录订单确认事件（实盘交易）
 
         必需字段: order_id, broker_order_id
-        可选字段: symbol, direction, limit_price, ack_message, order_status
+        可选字段: symbol, direction, limit_price, ack_message, order_status, msg
 
         Example:
             >>> GLOG.log_order_ack_event(
@@ -1307,20 +1219,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ORDERACK",
-            order_id=order_id,
-            broker_order_id=broker_order_id,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Order acknowledged: {order_id} -> {broker_order_id}",
+            _ginkgo={
+                "event_type": "ORDERACK",
+                "order_id": order_id,
+                "broker_order_id": broker_order_id,
+                **kwargs
+            }
         )
-        self.INFO(f"Order acknowledged: {order_id} -> {broker_order_id}")
 
-    def log_order_expired_event(self, order_id: str, expire_reason: str, **kwargs):
+    def log_order_expired_event(self, order_id: str, expire_reason: str, msg: str = None, **kwargs):
         """
         记录订单过期事件
 
         必需字段: order_id, expire_reason
-        可选字段: expired_quantity
+        可选字段: expired_quantity, msg
 
         Example:
             >>> GLOG.log_order_expired_event(
@@ -1330,20 +1244,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ORDEREXPIRED",
-            order_id=order_id,
-            expire_reason=expire_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"Order expired: {order_id} - {expire_reason}",
+            _ginkgo={
+                "event_type": "ORDEREXPIRED",
+                "order_id": order_id,
+                "expire_reason": expire_reason,
+                **kwargs
+            }
         )
-        self.WARN(f"Order expired: {order_id} - {expire_reason}")
 
-    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, **kwargs):
+    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, msg: str = None, **kwargs):
         """
         记录执行拒绝事件（实盘交易）
 
         必需字段: tracking_id, reject_reason
-        可选字段: symbol, expected_volume, reject_code
+        可选字段: symbol, expected_volume, reject_code, msg
 
         Example:
             >>> GLOG.log_execution_rejected_event(
@@ -1353,20 +1269,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="EXECUTIONREJECTION",
-            tracking_id=tracking_id,
-            reject_reason=reject_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).error(
+            msg or f"Execution rejected: {tracking_id} - {reject_reason}",
+            _ginkgo={
+                "event_type": "EXECUTIONREJECTION",
+                "tracking_id": tracking_id,
+                "reject_reason": reject_reason,
+                **kwargs
+            }
         )
-        self.ERROR(f"Execution rejected: {tracking_id} - {reject_reason}")
 
-    def log_execution_timeout_event(self, tracking_id: str, **kwargs):
+    def log_execution_timeout_event(self, tracking_id: str, msg: str = None, **kwargs):
         """
         记录执行超时事件（实盘交易）
 
         必需字段: tracking_id
-        可选字段: symbol, expected_volume, delay_seconds
+        可选字段: symbol, expected_volume, delay_seconds, msg
 
         Example:
             >>> GLOG.log_execution_timeout_event(
@@ -1376,12 +1294,14 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="EXECUTIONTIMEOUT",
-            tracking_id=tracking_id,
-            **kwargs
+        structlog.get_logger(self.logger_name).error(
+            msg or f"Execution timeout: {tracking_id}",
+            _ginkgo={
+                "event_type": "EXECUTIONTIMEOUT",
+                "tracking_id": tracking_id,
+                **kwargs
+            }
         )
-        self.ERROR(f"Execution timeout: {tracking_id}")
 
     def log_execution_confirm_event(
         self,
@@ -1390,13 +1310,14 @@ class GinkgoLogger:
         actual_price: Number,
         expected_volume: int,
         actual_volume: int,
+        msg: str = None,
         **kwargs
     ):
         """
         记录执行确认事件（实盘交易）
 
         必需字段: tracking_id, expected_price, actual_price, expected_volume, actual_volume
-        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation
+        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation, msg
 
         Example:
             >>> GLOG.log_execution_confirm_event(
@@ -1410,23 +1331,25 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="EXECUTIONCONFIRMATION",
-            tracking_id=tracking_id,
-            expected_price=expected_price,
-            actual_price=actual_price,
-            expected_volume=expected_volume,
-            actual_volume=actual_volume,
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Execution confirmed: {tracking_id}",
+            _ginkgo={
+                "event_type": "EXECUTIONCONFIRMATION",
+                "tracking_id": tracking_id,
+                "expected_price": expected_price,
+                "actual_price": actual_price,
+                "expected_volume": expected_volume,
+                "actual_volume": actual_volume,
+                **kwargs
+            }
         )
-        self.INFO(f"Execution confirmed: {tracking_id}")
 
-    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, **kwargs):
+    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, msg: str = None, **kwargs):
         """
         记录执行取消事件（实盘交易）
 
         必需字段: tracking_id, cancel_reason
-        可选字段: symbol, direction, cancel_time
+        可选字段: symbol, direction, cancel_time, msg
 
         Example:
             >>> GLOG.log_execution_cancel_event(
@@ -1436,20 +1359,22 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="EXECUTIONCANCELLATION",
-            tracking_id=tracking_id,
-            cancel_reason=cancel_reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"Execution cancelled: {tracking_id} - {cancel_reason}",
+            _ginkgo={
+                "event_type": "EXECUTIONCANCELLATION",
+                "tracking_id": tracking_id,
+                "cancel_reason": cancel_reason,
+                **kwargs
+            }
         )
-        self.WARN(f"Execution cancelled: {tracking_id} - {cancel_reason}")
 
-    def log_engine_error_event(self, error_code: str, error_message: str, **kwargs):
+    def log_engine_error_event(self, error_code: str, error_message: str, msg: str = None, **kwargs):
         """
         记录引擎错误事件
 
         必需字段: error_code, error_message
-        可选字段: engine_id, run_id, progress
+        可选字段: engine_id, task_id, progress, msg
 
         Example:
             >>> GLOG.log_engine_error_event(
@@ -1459,41 +1384,80 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ENGINEERROR",
-            error_code=error_code,
-            error_message=error_message,
-            **kwargs
+        structlog.get_logger(self.logger_name).error(
+            msg or f"Engine error: [{error_code}] {error_message}",
+            _ginkgo={
+                "event_type": "ENGINEERROR",
+                "error_code": error_code,
+                "error_message": error_message,
+                **kwargs
+            }
         )
-        self.ERROR(f"Engine error: [{error_code}] {error_message}")
 
-    def log_engine_start_event(self, **kwargs):
+    def log_t1_settlement_event(self, settled_count: int, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"T+1 settlement: {settled_count} positions unfrozen",
+            _ginkgo={"event_type": "T1SETTLEMENT", "settled_count": settled_count, **kwargs}
+        )
+
+    def log_t1_delay_event(self, code: str, reason: str, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"T+1 delay: {code} - {reason}",
+            _ginkgo={"event_type": "T1DELAYDECISION", "symbol": code, "reason": reason, **kwargs}
+        )
+
+    def log_time_advance_event(self, time, position_count: int, delayed_count: int, cash: float, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Time advance: {time}, {position_count} positions, {delayed_count} delayed",
+            _ginkgo={"event_type": "TIMEADVANCE", "position_count": position_count, "delayed_count": delayed_count, "cash": cash, **kwargs}
+        )
+
+    def log_price_received_event(self, code: str, price: float, msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Price received: {code} close={price}",
+            _ginkgo={"event_type": "PRICERECEIVED", "symbol": code, "price": price, **kwargs}
+        )
+
+    def log_strategy_signal_event(self, strategy_name: str, signal_count: int, signals_desc: str = "", msg: str = None, **kwargs):
+        self.set_log_category("backtest")
+        structlog.get_logger(self.logger_name).info(
+            msg or f"Strategy {strategy_name}: {signal_count} signals",
+            _ginkgo={"event_type": "STRATEGYSIGNAL", "strategy_name": strategy_name, "signal_count": signal_count, **kwargs}
+        )
+
+    def log_engine_start_event(self, msg: str = None, **kwargs):
         """
         记录引擎启动事件
 
-        可选字段: engine_id, run_id, portfolio_id, start_time, config
+        可选字段: engine_id, task_id, portfolio_id, start_time, config, msg
 
         Example:
             >>> GLOG.log_engine_start_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     portfolio_id=portfolio.uuid,
             ...     start_time=datetime.now()
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ENGINESTART",
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or "Engine started",
+            _ginkgo={
+                "event_type": "ENGINESTART",
+                **kwargs
+            }
         )
-        self.INFO("Engine started")
 
-    def log_engine_pause_event(self, reason: str = "", **kwargs):
+    def log_engine_pause_event(self, reason: str = "", msg: str = None, **kwargs):
         """
         记录引擎暂停事件
 
         必需字段: reason (可选，为空表示正常暂停)
-        可选字段: engine_id, run_id, progress, pause_time
+        可选字段: engine_id, task_id, progress, pause_time, msg
 
         Example:
             >>> GLOG.log_engine_pause_event(
@@ -1503,44 +1467,48 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ENGINEPAUSE",
-            pause_reason=reason,
-            **kwargs
+        structlog.get_logger(self.logger_name).warning(
+            msg or f"Engine paused: {reason if reason else 'No reason'}",
+            _ginkgo={
+                "event_type": "ENGINEPAUSE",
+                "pause_reason": reason,
+                **kwargs
+            }
         )
-        self.WARN(f"Engine paused: {reason if reason else 'No reason'}")
 
-    def log_engine_resume_event(self, **kwargs):
+    def log_engine_resume_event(self, msg: str = None, **kwargs):
         """
         记录引擎恢复事件
 
-        可选字段: engine_id, run_id, resume_time, paused_duration
+        可选字段: engine_id, task_id, resume_time, paused_duration, msg
 
         Example:
             >>> GLOG.log_engine_resume_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     resume_time=datetime.now()
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ENGINERESUME",
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or "Engine resumed",
+            _ginkgo={
+                "event_type": "ENGINERESUME",
+                **kwargs
+            }
         )
-        self.INFO("Engine resumed")
 
-    def log_engine_complete_event(self, **kwargs):
+    def log_engine_complete_event(self, msg: str = None, **kwargs):
         """
         记录引擎完成事件
 
-        可选字段: engine_id, run_id, portfolio_id, end_time, duration_seconds,
-                  total_bars, total_orders, final_capital, total_return
+        可选字段: engine_id, task_id, portfolio_id, end_time, duration_seconds,
+                  total_bars, total_orders, final_capital, total_return, msg
 
         Example:
             >>> GLOG.log_engine_complete_event(
             ...     engine_id=engine.uuid,
-            ...     run_id=run.uuid,
+            ...     task_id=run.uuid,
             ...     duration_seconds=3600,
             ...     total_bars=1000,
             ...     final_capital=110000.0,
@@ -1548,11 +1516,13 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        self.bind_context(
-            event_type="ENGINECOMPLETE",
-            **kwargs
+        structlog.get_logger(self.logger_name).info(
+            msg or "Engine completed",
+            _ginkgo={
+                "event_type": "ENGINECOMPLETE",
+                **kwargs
+            }
         )
-        self.INFO("Engine completed")
 
 
 # ==================== 简洁分组 API ====================

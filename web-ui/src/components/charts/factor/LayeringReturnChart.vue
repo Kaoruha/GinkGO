@@ -60,7 +60,7 @@ const initChart = () => {
   })
 
   // 为每个分组创建series
-  groups.value.forEach((group, index) => {
+  groups.value.forEach((group) => {
     const series = chart!.addLineSeries({
       color: group.color,
       lineWidth: 2,

@@ -7,7 +7,7 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -45,11 +45,8 @@ class CapitalRisk(BaseRiskManagement):
         capital_info = portfolio_info.get("capital_info", {})
         used_ratio = float(capital_info.get("used_ratio", 0.0))
         if used_ratio > self._max_capital_usage_ratio * 0.9:
-            signals.append(Signal(
-                portfolio_id=portfolio_info.get("uuid", "default"),
-                engine_id=self.engine_id or "capital_risk", run_id="0", timestamp=portfolio_info.get("now"),
+            signals.append(self.create_signal(
                 code="CAPITAL_WARNING", direction=DIRECTION_TYPES.SHORT,
                 reason=f"Capital usage warning: {used_ratio:.1%}",
-                source=SOURCE_TYPES.STRATEGY))
-            signals[-1].strength = 0.7
+                strength=0.7))
         return signals

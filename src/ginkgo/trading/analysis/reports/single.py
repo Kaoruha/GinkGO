@@ -26,7 +26,7 @@ class SingleReport(AnalysisReport):
     添加 report_type 元数据用于区分报告类型。
 
     Args:
-        run_id: 回测运行标识
+        task_id: 回测运行标识
         registry: 指标注册中心
         data: 数据容器
     """
@@ -35,11 +35,11 @@ class SingleReport(AnalysisReport):
 
     def __init__(
         self,
-        run_id: str,
+        task_id: str,
         registry: MetricRegistry,
         data: DataProvider,
     ):
-        super().__init__(run_id=run_id, registry=registry, data=data)
+        super().__init__(task_id=task_id, registry=registry, data=data)
 
     def to_dict(self) -> dict:
         """转换为字典，附带 report_type 元数据"""
@@ -50,5 +50,5 @@ class SingleReport(AnalysisReport):
     def to_rich(self) -> Table:
         """转换为 Rich Table，标题标注 [Single]"""
         table = super().to_rich()
-        table.title = f"[Single] Analysis Report — {self.run_id}"
+        table.title = f"[Single] Analysis Report — {self.task_id}"
         return table

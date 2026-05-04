@@ -114,6 +114,7 @@ class PortfolioCreate(BaseModel):
     # 组件配置
     selectors: List[Dict[str, Any]] = Field(default_factory=list)
     sizer_uuid: Optional[str] = None
+    sizer_config: Optional[Dict[str, Any]] = None
     strategies: List[Dict[str, Any]] = Field(default_factory=list)
     risk_managers: Optional[List[Dict[str, Any]]] = None
     analyzers: Optional[List[Dict[str, Any]]] = None

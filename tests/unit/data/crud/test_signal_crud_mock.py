@@ -49,11 +49,11 @@ class TestSignalCRUDFieldConfig:
 
     @pytest.mark.unit
     def test_field_config_structure(self, signal_crud):
-        """配置包含 portfolio_id/engine_id/run_id/code/direction/timestamp/reason/source"""
+        """配置包含 portfolio_id/engine_id/task_id/code/direction/timestamp/reason/source"""
         config = signal_crud._get_field_config()
 
         required_keys = {
-            "portfolio_id", "engine_id", "run_id", "code",
+            "portfolio_id", "engine_id", "task_id", "code",
             "direction", "timestamp", "reason", "source",
         }
         assert required_keys.issubset(set(config.keys())), \
@@ -65,7 +65,7 @@ class TestSignalCRUDFieldConfig:
         config = signal_crud._get_field_config()
 
         # 字符串字段
-        for field in ("portfolio_id", "engine_id", "run_id", "code"):
+        for field in ("portfolio_id", "engine_id", "task_id", "code"):
             assert config[field]["type"] == "string"
             assert config[field]["min"] == 1
 
@@ -114,7 +114,7 @@ class TestSignalCRUDCreateFromParams:
         params = {
             "portfolio_id": "portfolio-001",
             "engine_id": "engine-001",
-            "run_id": "run-001",
+            "task_id": "run-001",
             "code": "000001.SZ",
             "direction": DIRECTION_TYPES.LONG,
             "timestamp": datetime(2024, 1, 15, 9, 30, 0),

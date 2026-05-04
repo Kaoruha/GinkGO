@@ -4,7 +4,7 @@
 engine:
   type: "historic"          # 引擎类型：historic/backtest/live/time_controlled
   name: "SampleBacktestEngine"
-  run_id: "bt_sample_20240101"  # T6: 使用run_id作为统一标识符
+  task_id: "bt_sample_20240101"  # T6: 使用task_id作为统一标识符
   start_date: "2023-01-01"
   end_date: "2023-12-31"
 

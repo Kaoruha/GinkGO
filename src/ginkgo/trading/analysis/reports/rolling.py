@@ -30,7 +30,7 @@ class RollingReport:
     不再依赖 MetricRegistry，直接在 value 列上计算。
 
     Args:
-        run_id: 回测运行标识
+        task_id: 回测运行标识
         data: 数据容器 (DataProvider，每个分析器必须包含 timestamp 和 value 列)
         window: 窗口大小 (天数)
         step: 滑动步长 (默认 1 = 真正的滑动窗口; 设为 window 则退化为滚动窗口)
@@ -42,7 +42,7 @@ class RollingReport:
 
     def __init__(
         self,
-        run_id: str,
+        task_id: str,
         data: DataProvider,
         window: int = 60,
         step: int = 1,
@@ -51,7 +51,7 @@ class RollingReport:
         if len(data.available) == 0:
             raise ValueError("DataProvider 中无任何可用数据")
 
-        self.run_id = run_id
+        self.task_id = task_id
         self._data = data
         self.window = window
         self.step = step
@@ -151,7 +151,7 @@ class RollingReport:
             以窗口起始日期为行、每个分析器一列的 Rich Table。
             每个单元格显示 "mean=X, std=Y, final=Z" 格式。
         """
-        table = Table(title=f"[Rolling] Analysis Report — {self.run_id} (window={self.window})")
+        table = Table(title=f"[Rolling] Analysis Report — {self.task_id} (window={self.window})")
 
         # 收集所有分析器名
         all_analyzer_names: List[str] = []

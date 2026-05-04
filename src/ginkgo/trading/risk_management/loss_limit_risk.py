@@ -13,7 +13,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
@@ -100,24 +100,19 @@ class LossLimitRisk(BaseRiskManagement):
             GLOG.INFO(f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2f}%")
 
             # 记录风控事件到ClickHouse
-            GLOG.backtest.risk(
+            self.blog.risk(
                 risk_type="DAILYLOSSLIMITEXCEEDED",
                 reason=f"Loss limit triggered: {loss_ratio:.2f}% > {self._loss_limit}%",
                 risk_actual_value=loss_ratio,
                 risk_limit_value=self._loss_limit,
                 symbol=code,
-                portfolio_id=portfolio_info.get("uuid"),
-                engine_id=self.engine_id,
+                msg=f"止损触发: {code} 亏损{loss_ratio:.2f}% 超过限制{self._loss_limit}%",
             )
 
-            signal = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,  # 使用self获取engine_id
-                timestamp=portfolio_info["now"],
+            signal = self.create_signal(
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,  # 平仓
                 reason=f"Loss Limit ({loss_ratio:.2f}% > {self._loss_limit}%)",
-                source=SOURCE_TYPES.STRATEGY,  # 风控生成的信号也标记为策略来源
             )
             signals.append(signal)
 

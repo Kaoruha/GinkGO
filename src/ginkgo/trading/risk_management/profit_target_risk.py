@@ -19,7 +19,6 @@ Created: 2024-01-15
 
 from decimal import Decimal
 from typing import Dict, List, Any
-from datetime import datetime
 
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
@@ -100,31 +99,24 @@ class ProfitTargetRisk(BaseRiskManagement):
 
         # 检查是否达到止盈目标
         if current_profit_ratio >= self.profit_target:
-            # 正确初始化Signal，提供必需参数
-            portfolio_id = portfolio_info.get('uuid', 'default')
             reason = f"Partial profit target reached: {current_profit_ratio:.1%}" if self.partial_take_profit else f"Profit target reached: {current_profit_ratio:.1%}"
 
             # 记录风控事件到ClickHouse
-            GLOG.backtest.risk(
+            self.blog.risk(
                 risk_type="PROFITTARGET",
                 reason=reason,
                 risk_actual_value=float(current_profit_ratio),
                 risk_limit_value=float(self.profit_target),
                 symbol=event.code,
-                portfolio_id=portfolio_id,
+                msg=f"止盈触发: {event.code} 盈利{float(current_profit_ratio):.1%} 达到目标{float(self.profit_target):.1%}",
             )
 
-            signal = Signal(
-                portfolio_id=portfolio_id,
-                engine_id="profit_target_risk",
-                run_id="",
-                timestamp=datetime.now(),
+            signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
                 reason=reason,
-                source="ProfitTargetRisk"
+                strength=0.9,  # 高强度信号
             )
-            signal.strength = 0.9  # 高强度信号
 
             if self.partial_take_profit:
                 signal.volume_ratio = self.partial_ratio
@@ -134,12 +126,12 @@ class ProfitTargetRisk(BaseRiskManagement):
         # 检查移动止盈
         if self.trailing_stop and hasattr(event, 'close'):
             if self.check_trailing_stop(event.code, event.close):
-                signal = Signal()
-                signal.code = event.code
-                signal.direction = DIRECTION_TYPES.SHORT
-                signal.timestamp = datetime.now()
-                signal.strength = 0.95
-                signal.reason = f"Trailing stop triggered at {event.close}"
+                signal = self.create_signal(
+                    code=event.code,
+                    direction=DIRECTION_TYPES.SHORT,
+                    reason=f"Trailing stop triggered at {event.close}",
+                    strength=0.95,
+                )
                 signals.append(signal)
 
         return signals

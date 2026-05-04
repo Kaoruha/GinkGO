@@ -75,10 +75,6 @@ class CalmarRatio(BaseAnalyzer):
 
         self.add_data(calmar_ratio)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录卡尔马比率到数据库"""
-        self.add_record()
-
     @property
     def current_calmar_ratio(self) -> float:
         """当前卡尔马比率（只读属性）"""

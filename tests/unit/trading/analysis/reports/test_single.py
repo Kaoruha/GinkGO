@@ -48,7 +48,7 @@ def _make_report(*data_pairs, registry=None):
             dp.add(name, df)
     if registry is None:
         registry = MetricRegistry()
-    return AnalysisReport(run_id="test-run", registry=registry, data=dp)
+    return AnalysisReport(task_id="test-run", registry=registry, data=dp)
 
 
 # ============================================================
@@ -62,7 +62,7 @@ class TestValidation:
         """无任何可用数据时应抛出 ValueError"""
         dp = DataProvider()
         with pytest.raises(ValueError, match="无任何可用数据"):
-            AnalysisReport(run_id="test", registry=MetricRegistry(), data=dp)
+            AnalysisReport(task_id="test", registry=MetricRegistry(), data=dp)
 
     def test_no_value_column_skipped_gracefully(self):
         """不含 'value' 列的 DataFrame 在 analyzer_summary 中被跳过"""
@@ -250,7 +250,7 @@ class TestToDict:
         df = _make_df([1.0, 2.0, 3.0])
         report = _make_report(("net_value", df))
         d = report.to_dict()
-        assert d["run_id"] == "test-run"
+        assert d["task_id"] == "test-run"
         assert "analyzer_summary" in d
         assert "stability_analysis" in d
         assert "ic_analysis" in d
@@ -312,7 +312,7 @@ class TestSingleReport:
     def test_single_report_is_analysis_report(self):
         """SingleReport 应是 AnalysisReport 的子类"""
         report = SingleReport(
-            run_id="test_single",
+            task_id="test_single",
             registry=MetricRegistry(),
             data=DataProvider(net_value=pd.DataFrame({"value": [100, 105]})),
         )
@@ -321,18 +321,18 @@ class TestSingleReport:
     def test_single_report_to_dict_has_report_type(self):
         """SingleReport 的 to_dict 应包含 report_type"""
         report = SingleReport(
-            run_id="single_001",
+            task_id="single_001",
             registry=MetricRegistry(),
             data=DataProvider(net_value=pd.DataFrame({"value": [100, 105]})),
         )
         d = report.to_dict()
-        assert d["run_id"] == "single_001"
+        assert d["task_id"] == "single_001"
         assert d["report_type"] == "single"
 
     def test_single_report_to_rich_title(self):
         """SingleReport 的 to_rich 标题应标注 [Single]"""
         report = SingleReport(
-            run_id="single_001",
+            task_id="single_001",
             registry=MetricRegistry(),
             data=DataProvider(net_value=pd.DataFrame({"value": [100, 105]})),
         )

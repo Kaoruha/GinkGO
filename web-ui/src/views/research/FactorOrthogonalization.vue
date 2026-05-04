@@ -15,7 +15,7 @@
             <label class="form-label">回测任务</label>
             <select v-model="config.backtestId" class="form-select">
               <option value="">选择回测任务</option>
-              <option v-for="bt in backtestList" :key="bt.run_id" :value="bt.run_id">{{ bt.run_id }}</option>
+              <option v-for="bt in backtestList" :key="bt.task_id" :value="bt.task_id">{{ bt.task_id }}</option>
             </select>
           </div>
           <div class="form-group">
@@ -73,10 +73,10 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warnin
 
 // 简化的API调用（实际项目中需要导入真实的API）
 const backtestApi: any = {
-  list: async (params: any) => ({ data: [] })
+  list: async (_params: any) => ({ data: [] })
 }
 const researchApi: any = {
-  orthogonalize: async (params: any) => ({ data: null })
+  orthogonalize: async (_params: any) => ({ data: null })
 }
 
 interface FactorOrthogonalizeResult {

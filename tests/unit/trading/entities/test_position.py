@@ -31,7 +31,7 @@ class TestPositionConstruction:
         position = Position(
             portfolio_id="test_portfolio_001",
             engine_id="test_engine_001",
-            run_id="test_run_001",
+            task_id="test_run_001",
             code="000001.SZ",
             cost=Decimal('10.50'),
             volume=1000,
@@ -50,8 +50,8 @@ class TestPositionConstruction:
         assert position.engine_id == "test_engine_001"
         assert isinstance(position.engine_id, str)
 
-        assert position.run_id == "test_run_001"
-        assert isinstance(position.run_id, str)
+        assert position.task_id == "test_run_001"
+        assert isinstance(position.task_id, str)
 
         assert position.code == "000001.SZ"
         assert isinstance(position.code, str)
@@ -100,7 +100,7 @@ class TestPositionConstruction:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp=datetime.datetime(2023, 1, 1, 10, 0, 0)
             # 其他参数使用默认值：cost=0.0, volume=0, price=0.0等
@@ -113,8 +113,8 @@ class TestPositionConstruction:
         assert position.engine_id == "test_engine"
         assert isinstance(position.engine_id, str)
 
-        assert position.run_id == "test_run"
-        assert isinstance(position.run_id, str)
+        assert position.task_id == "test_run"
+        assert isinstance(position.task_id, str)
 
         assert position.code == "000001.SZ"
         assert isinstance(position.code, str)
@@ -156,7 +156,7 @@ class TestPositionConstruction:
         position2 = Position(
             portfolio_id="test_portfolio2",
             engine_id="test_engine2",
-            run_id="test_run2",
+            task_id="test_run2",
             code="000002.SZ",
             timestamp=datetime.datetime(2023, 1, 1, 10, 0, 0)
         )
@@ -167,7 +167,7 @@ class TestPositionConstruction:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "test_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "code": "000001.SZ",
             "timestamp": datetime.datetime(2023, 1, 1, 10, 0, 0)
         }
@@ -183,9 +183,9 @@ class TestPositionConstruction:
         with pytest.raises(ValueError):
             Position(**{**base_params, "engine_id": None})
 
-        # 测试run_id类型验证
+        # 测试task_id类型验证
         with pytest.raises(ValueError):
-            Position(**{**base_params, "run_id": []})
+            Position(**{**base_params, "task_id": []})
 
         # 测试code类型验证
         with pytest.raises(ValueError):
@@ -200,7 +200,7 @@ class TestPositionConstruction:
         base_params = {
             "portfolio_id": "test_portfolio",
             "engine_id": "test_engine",
-            "run_id": "test_run",
+            "task_id": "test_run",
             "code": "000001.SZ",
             "timestamp": datetime.datetime(2023, 1, 1, 10, 0, 0)
         }
@@ -242,7 +242,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.50,
             volume=1000,
@@ -256,7 +256,7 @@ class TestPositionProperties:
         # 测试基础字符串属性读取
         assert position.portfolio_id == "test_portfolio"
         assert position.engine_id == "test_engine"
-        assert position.run_id == "test_run"
+        assert position.task_id == "test_run"
         assert position.code == "000001.SZ"
 
         # 测试Decimal类型的金融属性
@@ -303,7 +303,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.50,
             volume=1000,
@@ -337,7 +337,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -365,7 +365,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -393,7 +393,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp="2023-01-01 10:00:00"
         )
@@ -415,11 +415,11 @@ class TestPositionProperties:
         # 测试基本string属性的setter
         position.portfolio_id = "new_portfolio"
         position.engine_id = "new_engine"
-        position.run_id = "new_run"
+        position.task_id = "new_run"
 
         assert position.portfolio_id == "new_portfolio"
         assert position.engine_id == "new_engine"
-        assert position.run_id == "new_run"
+        assert position.task_id == "new_run"
 
     def test_decimal_precision_maintained(self):
         """测试Decimal精度保持"""
@@ -433,7 +433,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=precise_cost,
             volume=1000,
@@ -463,7 +463,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -503,7 +503,7 @@ class TestPositionProperties:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -578,7 +578,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="initial_portfolio",
             engine_id="initial_engine",
-            run_id="initial_run",
+            task_id="initial_run",
             code="initial_code",
             timestamp="2023-01-01 10:00:00"
         )
@@ -587,7 +587,7 @@ class TestPositionDataSetting:
         position.set(
             "test_portfolio_001",    # portfolio_id
             "test_engine_001",       # engine_id
-            "test_run_001",          # run_id
+            "test_run_001",          # task_id
             "000001.SZ",             # code
             volume=1000,
             cost=Decimal('10.50'),
@@ -598,7 +598,7 @@ class TestPositionDataSetting:
         # 验证参数正确设置
         assert position.portfolio_id == "test_portfolio_001"
         assert position.engine_id == "test_engine_001"
-        assert position.run_id == "test_run_001"
+        assert position.task_id == "test_run_001"
         assert position.code == "000001.SZ"
         assert position.volume == 1000
         assert position.cost == Decimal('10.50')
@@ -624,7 +624,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="temp",
             engine_id="temp",
-            run_id="temp",
+            task_id="temp",
             code="temp",
             timestamp="2023-01-01 10:00:00"
         )
@@ -633,7 +633,7 @@ class TestPositionDataSetting:
         series_data = pd.Series({
             "portfolio_id": "test_portfolio_002",
             "engine_id": "test_engine_002",
-            "run_id": "test_run_002",
+            "task_id": "test_run_002",
             "code": "000002.SZ",
             "cost": 99.50,
             "volume": 2000,
@@ -650,7 +650,7 @@ class TestPositionDataSetting:
         # 验证所有数据正确设置
         assert position.portfolio_id == "test_portfolio_002"
         assert position.engine_id == "test_engine_002"
-        assert position.run_id == "test_run_002"
+        assert position.task_id == "test_run_002"
         assert position.code == "000002.SZ"
         assert position.cost == Decimal('99.50')
         assert position.volume == 2000
@@ -667,7 +667,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="original_portfolio",
             engine_id="original_engine",
-            run_id="original_run",
+            task_id="original_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -685,7 +685,7 @@ class TestPositionDataSetting:
         position.set(
             "original_portfolio",  # portfolio_id as positional
             "original_engine",     # engine_id as positional
-            "original_run",        # run_id as positional
+            "original_run",        # task_id as positional
             "000001.SZ",           # code as positional
             cost=120.0,            # 更新
             price=125.0            # 更新
@@ -708,7 +708,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp="2023-01-01 10:00:00"
         )
@@ -717,7 +717,7 @@ class TestPositionDataSetting:
         position.set(
             "test_portfolio",   # portfolio_id 位置参数
             "test_engine",      # engine_id 位置参数
-            "test_run",         # run_id 位置参数
+            "test_run",         # task_id 位置参数
             "000001.SZ",        # code 位置参数
             cost="100.50",      # 字符串
             price="110.75",     # 字符串
@@ -741,7 +741,7 @@ class TestPositionDataSetting:
         position.set(
             "test_portfolio",   # portfolio_id 位置参数
             "test_engine",      # engine_id 位置参数
-            "test_run",         # run_id 位置参数
+            "test_run",         # task_id 位置参数
             "000001.SZ",        # code 位置参数
             cost=95.25,         # float
             price=105.50        # float
@@ -759,7 +759,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp="2023-01-01 10:00:00"
         )
@@ -768,7 +768,7 @@ class TestPositionDataSetting:
         valid_result = position.set(
             "valid_portfolio",  # portfolio_id 位置参数
             "valid_engine",     # engine_id 位置参数
-            "valid_run",        # run_id 位置参数
+            "valid_run",        # task_id 位置参数
             "000002.SZ",        # code 位置参数
             cost=100.0,
             volume=1000,
@@ -781,7 +781,7 @@ class TestPositionDataSetting:
         # 验证参数正确设置
         assert position.portfolio_id == "valid_portfolio"
         assert position.engine_id == "valid_engine"
-        assert position.run_id == "valid_run"
+        assert position.task_id == "valid_run"
         assert position.code == "000002.SZ"
         assert position.cost == Decimal('100.0')
         assert position.volume == 1000
@@ -792,7 +792,7 @@ class TestPositionDataSetting:
         position.set(
             "",               # portfolio_id 空字符串 位置参数
             "test_engine",    # engine_id 位置参数
-            "test_run",       # run_id 位置参数
+            "test_run",       # task_id 位置参数
             "000001.SZ"       # code 位置参数
         )
         # set方法应该能处理空字符串（这里与构造函数不同）
@@ -804,7 +804,7 @@ class TestPositionDataSetting:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -820,7 +820,7 @@ class TestPositionDataSetting:
         position.set(
             "test_portfolio",   # portfolio_id 位置参数
             "test_engine",      # engine_id 位置参数
-            "test_run",         # run_id 位置参数
+            "test_run",         # task_id 位置参数
             "000001.SZ",        # code 位置参数
             cost=100.0,
             volume=1500,      # 增加数量
@@ -856,7 +856,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -899,7 +899,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -943,7 +943,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -978,7 +978,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('0.0'),
             volume=0,
@@ -1013,7 +1013,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1038,7 +1038,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1065,7 +1065,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1095,7 +1095,7 @@ class TestPositionTradeExecution:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1134,7 +1134,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1164,7 +1164,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1193,7 +1193,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1221,7 +1221,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1250,7 +1250,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1281,7 +1281,7 @@ class TestPositionFreezeOperations:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1310,7 +1310,7 @@ class TestPositionFreezeOperations:
         zero_position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=0,  # 零持仓
@@ -1327,7 +1327,7 @@ class TestPositionFreezeOperations:
         full_position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1361,7 +1361,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1395,7 +1395,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1431,7 +1431,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1466,7 +1466,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1500,7 +1500,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1540,7 +1540,7 @@ class TestPositionPriceUpdate:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -1599,7 +1599,7 @@ class TestPositionFeeManagement:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1628,7 +1628,7 @@ class TestPositionFeeManagement:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1657,7 +1657,7 @@ class TestPositionFeeManagement:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1684,7 +1684,7 @@ class TestPositionFeeManagement:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1714,7 +1714,7 @@ class TestPositionFeeManagement:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1754,7 +1754,7 @@ class TestPositionFeeManagement:
         position1 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1769,7 +1769,7 @@ class TestPositionFeeManagement:
         position2 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1784,7 +1784,7 @@ class TestPositionFeeManagement:
         position3 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp="2023-01-01 10:00:00"
         )
@@ -1802,7 +1802,7 @@ class TestPositionModelConversion:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.50,
             volume=1000,
@@ -1823,7 +1823,7 @@ class TestPositionModelConversion:
         # 验证所有字段正确转换
         assert model.portfolio_id == "test_portfolio"
         assert model.engine_id == "test_engine"
-        assert model.run_id == "test_run"
+        assert model.task_id == "test_run"
         assert model.code == "000001.SZ"
         assert model.cost == Decimal('100.50')  # 模型中保持Decimal类型
         assert model.volume == 1000
@@ -1845,7 +1845,7 @@ class TestPositionModelConversion:
         model.update(
             "test_portfolio",  # portfolio_id as first positional argument
             "test_engine",     # engine_id as second positional argument
-            "test_run",        # run_id as third positional argument
+            "test_run",        # task_id as third positional argument
             code="000001.SZ",
             cost=100.50,
             volume=1000,
@@ -1863,7 +1863,7 @@ class TestPositionModelConversion:
         # 验证所有字段正确转换
         assert position.portfolio_id == "test_portfolio"
         assert position.engine_id == "test_engine"
-        assert position.run_id == "test_run"
+        assert position.task_id == "test_run"
         assert position.code == "000001.SZ"
         assert position.cost == Decimal('100.50')  # float转为Decimal
         assert position.volume == 1000
@@ -1887,7 +1887,7 @@ class TestPositionModelConversion:
         original_position = Position(
             portfolio_id="complex_portfolio",
             engine_id="complex_engine",
-            run_id="complex_run",
+            task_id="complex_run",
             code="000002.SZ",
             cost=99.99,
             volume=1500,
@@ -1910,7 +1910,7 @@ class TestPositionModelConversion:
         # 验证核心字段数据完整性
         assert converted_position.portfolio_id == original_position.portfolio_id
         assert converted_position.engine_id == original_position.engine_id
-        assert converted_position.run_id == original_position.run_id
+        assert converted_position.task_id == original_position.task_id
         assert converted_position.code == original_position.code
         assert converted_position.cost == original_position.cost
         assert converted_position.volume == original_position.volume
@@ -1932,7 +1932,7 @@ class TestPositionModelConversion:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.123456'),  # 高精度Decimal
             volume=1000,
@@ -1976,7 +1976,7 @@ class TestPositionModelConversion:
         model.update(
             "test_portfolio",  # portfolio_id as first positional argument
             "test_engine",     # engine_id as second positional argument
-            "test_run",        # run_id as third positional argument
+            "test_run",        # task_id as third positional argument
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -1998,8 +1998,8 @@ class TestPositionModelConversion:
         assert position.price == Decimal('110.0')
 
         # 验证缺失字段的默认值处理
-        # run_id应该有默认值，根据from_model方法中的getattr(model, 'run_id', '')
-        assert hasattr(position, 'run_id')
+        # task_id应该有默认值，根据from_model方法中的getattr(model, 'task_id', '')
+        assert hasattr(position, 'task_id')
 
         # 其他字段应该有合理的默认值（可能为0）
         assert hasattr(position, 'frozen_volume')
@@ -2018,7 +2018,7 @@ class TestPositionModelConversion:
         original = Position(
             portfolio_id="roundtrip_portfolio",
             engine_id="roundtrip_engine",
-            run_id="roundtrip_run",
+            task_id="roundtrip_run",
             code="000003.SZ",
             cost=123.456789,
             volume=2000,
@@ -2047,7 +2047,7 @@ class TestPositionModelConversion:
         # 验证基本字段完全一致
         assert roundtrip.portfolio_id == original.portfolio_id
         assert roundtrip.engine_id == original.engine_id
-        assert roundtrip.run_id == original.run_id
+        assert roundtrip.task_id == original.task_id
         assert roundtrip.code == original.code
         assert roundtrip.volume == original.volume
         assert roundtrip.frozen_volume == original.frozen_volume
@@ -2078,7 +2078,7 @@ class TestPositionCorporateActions:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             volume=1000,
             cost=Decimal('10.00'),
@@ -2197,7 +2197,7 @@ class TestPositionPriceAdjustment:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -2291,7 +2291,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -2323,7 +2323,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2367,7 +2367,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2397,7 +2397,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2440,7 +2440,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2473,7 +2473,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2508,7 +2508,7 @@ class TestPositionAttributeUpdates:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=100.0,
             volume=1000,
@@ -2546,7 +2546,7 @@ class TestPositionQuantitativeScenarios:
         position = Position(
             portfolio_id="quant_portfolio_001",
             engine_id="backtest_engine",
-            run_id="strategy_test_20240101",
+            task_id="strategy_test_20240101",
             code="000001.SZ",  # 平安银行
             cost=Decimal('10.50'),
             volume=1000,
@@ -2578,7 +2578,7 @@ class TestPositionQuantitativeScenarios:
         position = Position(
             portfolio_id="a_share_portfolio",
             engine_id="trading_engine",
-            run_id="constraint_test",
+            task_id="constraint_test",
             code="600519.SH",  # 贵州茅台
             cost=Decimal('1800.00'),
             volume=100,  # A股通常以100股为单位交易
@@ -2613,7 +2613,7 @@ class TestPositionQuantitativeScenarios:
         position = Position(
             portfolio_id="weight_control_portfolio",
             engine_id="risk_control_engine",
-            run_id="position_weight_test",
+            task_id="position_weight_test",
             code="002594.SZ",  # 比亚迪
             cost=Decimal('250.00'),
             volume=400,  # 10万市值，占组合20%
@@ -2649,7 +2649,7 @@ class TestPositionQuantitativeScenarios:
         position = Position(
             portfolio_id="etf_precision_test",
             engine_id="precision_engine",
-            run_id="etf_test_001",
+            task_id="etf_test_001",
             code="510300.SH",  # 沪深300ETF
             cost=Decimal('4.567'),  # ETF价格精度更高
             volume=10000,
@@ -2692,7 +2692,7 @@ class TestPositionQuantTrading:
         position = Position(
             portfolio_id="quant_portfolio",
             engine_id="quant_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -2745,7 +2745,7 @@ class TestPositionQuantTrading:
         position = Position(
             portfolio_id="quant_portfolio",
             engine_id="quant_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             timestamp="2023-01-01 10:00:00"
         )
@@ -2780,7 +2780,7 @@ class TestPositionQuantTrading:
         position = Position(
             portfolio_id="quant_portfolio",
             engine_id="quant_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=2000,
@@ -2829,7 +2829,7 @@ class TestPositionQuantTrading:
         position = Position(
             portfolio_id="quant_portfolio",
             engine_id="quant_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             cost=Decimal('100.0'),
             volume=1000,
@@ -2873,7 +2873,7 @@ class TestPositionTradingRegimes:
         position_t0 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00"
@@ -2885,7 +2885,7 @@ class TestPositionTradingRegimes:
         position_t1 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -2897,7 +2897,7 @@ class TestPositionTradingRegimes:
         position_t2 = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -2912,7 +2912,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00"
@@ -2939,7 +2939,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -2974,7 +2974,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -3013,7 +3013,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -3053,7 +3053,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             volume=500,  # 初始可用持仓
@@ -3083,7 +3083,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",
@@ -3119,7 +3119,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             volume=100,  # 初始可用持仓
@@ -3153,7 +3153,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             volume=100,
@@ -3184,7 +3184,7 @@ class TestPositionTradingRegimes:
         position = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             code="000001.SZ",
             price=Decimal('10.0'),
             timestamp="2023-01-01 10:00:00",

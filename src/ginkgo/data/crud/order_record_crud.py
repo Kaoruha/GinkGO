@@ -147,7 +147,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             order_id=kwargs.get("order_id"),
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            run_id=kwargs.get("run_id", ""),
+            task_id=kwargs.get("task_id", ""),
             code=kwargs.get("code"),
             direction=self._normalize_enum_value(kwargs.get("direction"), DIRECTION_TYPES),
             order_type=self._normalize_enum_value(kwargs.get("order_type"), ORDER_TYPES),

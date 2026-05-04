@@ -72,22 +72,22 @@ from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
-from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 from ginkgo.data.services.encryption_service import EncryptionService, get_encryption_service
 from ginkgo.data.services.live_account_service import LiveAccountService
 from ginkgo.data.services.api_key_service import ApiKeyService
+from ginkgo.data.services.validation_service import ValidationService
 
 # Live trading CRUDs
 from ginkgo.data.crud.broker_instance_crud import BrokerInstanceCRUD
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
 from ginkgo.data.crud.market_subscription_crud import MarketSubscriptionCRUD
 from ginkgo.data.crud.deployment_crud import DeploymentCRUD
+from ginkgo.data.crud.validation_result_crud import ValidationResultCRUD
 
 # User management services
 from ginkgo.user.services.user_service import UserService
 from ginkgo.user.services.user_group_service import UserGroupService
 from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
-from ginkgo.data.services.backtest_task_service import BacktestTaskService
 
 
 class Container(containers.DeclarativeContainer):
@@ -199,15 +199,19 @@ class Container(containers.DeclarativeContainer):
         PortfolioService,
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        deployment_crud=deployment_crud,
     )
+
+    # Param service with ParamCRUD dependency (must be before portfolio_mapping_service)
+    param_service = providers.Singleton(ParamService, crud_repo=param_crud)
 
     # Portfolio Mapping Service - MongoDB 图结构与 MySQL Mapping+Param 双向同步
     portfolio_mapping_service = providers.Singleton(
         PortfolioMappingService,
         mapping_crud=portfolio_file_mapping_crud,
-        param_crud=param_crud,
+        param_service=param_service,
         mongo_driver=mongo_driver,
-        file_crud=file_crud,
+        file_service=file_service,
     )
 
     # Mapping Service for managing all mapping relationships
@@ -218,9 +222,6 @@ class Container(containers.DeclarativeContainer):
         engine_handler_mapping_crud=engine_handler_mapping_crud,
         param_crud=param_crud,
     )
-
-    # Parameter Metadata Service for parameter name mapping
-    parameter_metadata_service = providers.Singleton(ParameterMetadataService)
 
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 
@@ -233,9 +234,6 @@ class Container(containers.DeclarativeContainer):
 
     # Factor service with FactorCRUD dependency
     factor_service = providers.Singleton(FactorService, factor_crud=factor_crud)
-
-    # Param service with ParamCRUD dependency
-    param_service = providers.Singleton(ParamService)
 
     # Result service with AnalyzerRecordCRUD dependency
     result_service = providers.Singleton(ResultService, analyzer_crud=analyzer_record_crud)
@@ -289,52 +287,19 @@ class Container(containers.DeclarativeContainer):
         ApiKeyService
     )
 
-    # Backtest task service
-    backtest_task_service = providers.Singleton(
-        BacktestTaskService,
-        crud_repo=backtest_task_crud
-    )
+    # Validation result CRUD
+    validation_result_crud = providers.Singleton(ValidationResultCRUD)
 
-    # Mapping service with all mapping CRUD dependencies
-    mapping_service = providers.Singleton(
-        MappingService,
-        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
-        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
-        engine_handler_mapping_crud=engine_handler_mapping_crud,
-        param_crud=param_crud,
+    # Validation service for backtest validation (segment stability, monte carlo)
+    validation_service = providers.Singleton(
+        ValidationService,
+        analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),
+        validation_result_crud=validation_result_crud,
     )
-
-    # Deployment service for one-click deploy (placeholder, set after Container instantiation)
-    deployment_service = providers.Singleton(object)
 
 
 # A singleton instance of the container, accessible throughout the application
 container = Container()
-
-# Lazy-init deployment service to avoid circular import (trading.services → containers)
-_deployment_service_instance = None
-
-
-def _get_deployment_service():
-    """Lazy factory for DeploymentService to break circular import."""
-    global _deployment_service_instance
-    if _deployment_service_instance is None:
-        from ginkgo.trading.services.deployment_service import DeploymentService
-        _deployment_service_instance = DeploymentService(
-            task_service=container.backtest_task_service(),
-            portfolio_service=container.portfolio_service(),
-            mapping_service=container.portfolio_mapping_service(),
-            file_service=container.file_service(),
-            deployment_crud=container.deployment_crud(),
-            broker_instance_crud=container.broker_instance_crud(),
-            live_account_service=container.live_account_service(),
-            mongo_driver=container.mongo_driver(),
-        )
-    return _deployment_service_instance
-
-
-# Override the placeholder with the lazy factory
-container.deployment_service.override(providers.Singleton(_get_deployment_service))
 
 
 # Add special methods to the container instance for special cases

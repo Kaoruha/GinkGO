@@ -28,7 +28,7 @@ class Position(TimeMixin, Base):
         self,
         portfolio_id: str = "",
         engine_id: str = "",
-        run_id: str = "",
+        task_id: str = "",
         code: str = "",
         cost: Number = 0.0,
         volume: int = 0,
@@ -59,8 +59,8 @@ class Position(TimeMixin, Base):
         if not isinstance(engine_id, str) or not engine_id:
             raise ValueError("engine_id cannot be empty.")
 
-        if not isinstance(run_id, str) or not run_id:
-            raise ValueError("run_id cannot be empty.")
+        if not isinstance(task_id, str) or not task_id:
+            raise ValueError("task_id cannot be empty.")
 
         if not isinstance(code, str) or not code:
             raise ValueError("code cannot be empty.")
@@ -77,7 +77,7 @@ class Position(TimeMixin, Base):
 
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._code = code
         self._cost = to_decimal(cost)
         self.volume = volume  # 使用setter进行类型转换
@@ -107,7 +107,7 @@ class Position(TimeMixin, Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str,
+        task_id: str,
         code: str,
         cost: Optional[Number] = None,
         volume: Optional[int] = None,
@@ -130,7 +130,7 @@ class Position(TimeMixin, Base):
         """
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
-        self._run_id = run_id
+        self._task_id = task_id
         self._code = code
 
         # 记录是否需要重新计算和是否明确指定了last_update
@@ -184,7 +184,7 @@ class Position(TimeMixin, Base):
         """
         Set from pandas Series
         """
-        required_fields = {"portfolio_id", "engine_id", "run_id", "code"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "code"}
         # 检查 Series 是否包含所有必需字段
         if not required_fields.issubset(df.index):
             missing_fields = required_fields - set(df.index)
@@ -192,7 +192,7 @@ class Position(TimeMixin, Base):
 
         self._portfolio_id = df["portfolio_id"]
         self._engine_id = df["engine_id"]
-        self._run_id = df.get("run_id", "")
+        self._task_id = df.get("task_id", "")
         self._code = df["code"]
         self._cost = to_decimal(df.get("cost", 0))
         self._volume = int(df.get("volume", 0))
@@ -211,7 +211,7 @@ class Position(TimeMixin, Base):
         if df.empty:
             raise ValueError("DataFrame is empty")
 
-        required_fields = {"portfolio_id", "engine_id", "run_id", "code"}
+        required_fields = {"portfolio_id", "engine_id", "task_id", "code"}
         # 检查 DataFrame 是否包含所有必需字段
         if not required_fields.issubset(df.columns):
             missing_fields = required_fields - set(df.columns)
@@ -238,12 +238,12 @@ class Position(TimeMixin, Base):
         self._engine_id = value
 
     @property
-    def run_id(self, *args, **kwargs) -> str:
-        return self._run_id
+    def task_id(self, *args, **kwargs) -> str:
+        return self._task_id
 
-    @run_id.setter
-    def run_id(self, value) -> None:
-        self._run_id = value
+    @task_id.setter
+    def task_id(self, value) -> None:
+        self._task_id = value
 
     @property
     def volume(self, *args, **kwargs) -> int:
@@ -837,7 +837,7 @@ class Position(TimeMixin, Base):
         model.update(
             self._portfolio_id,  # portfolio_id as first positional argument
             self._engine_id,     # engine_id as second positional argument
-            self._run_id,        # run_id as third positional argument
+            self._task_id,        # task_id as third positional argument
             code=self._code,
             cost=self._cost,
             volume=self._volume,
@@ -879,7 +879,7 @@ class Position(TimeMixin, Base):
         position_kwargs = {
             'portfolio_id': model.portfolio_id,
             'engine_id': model.engine_id,
-            'run_id': model.run_id,
+            'task_id': model.task_id,
             'code': model.code,
             'cost': model.cost,
             'volume': model.volume,
@@ -931,7 +931,7 @@ class Position(TimeMixin, Base):
                 return False
 
             self.set(
-                self._portfolio_id, self._engine_id, self._run_id, self._code,
+                self._portfolio_id, self._engine_id, self._task_id, self._code,
                 cost=self._cost / ratio_decimal,
                 volume=int(self._volume * float(ratio_decimal)),
                 price=self._price / ratio_decimal
@@ -951,7 +951,7 @@ class Position(TimeMixin, Base):
                 return False
 
             self.set(
-                self._portfolio_id, self._engine_id, self._run_id, self._code,
+                self._portfolio_id, self._engine_id, self._task_id, self._code,
                 cost=self._cost * ratio_decimal,
                 volume=int(self._volume / float(ratio_decimal)),
                 price=self._price * ratio_decimal
@@ -974,7 +974,7 @@ class Position(TimeMixin, Base):
             new_volume = int(old_volume * (1 + ratio))
 
             self.set(
-                self._portfolio_id, self._engine_id, self._run_id, self._code,
+                self._portfolio_id, self._engine_id, self._task_id, self._code,
                 cost=self._cost * old_volume / new_volume,
                 volume=new_volume,
                 price=self._price * old_volume / new_volume
@@ -995,7 +995,7 @@ class Position(TimeMixin, Base):
 
             total_dividend = amount * self._volume
             self.set(
-                self._portfolio_id, self._engine_id, self._run_id, self._code,
+                self._portfolio_id, self._engine_id, self._task_id, self._code,
                 price=self._price - amount,
                 realized_pnl=getattr(self, '_realized_pnl', 0) + total_dividend
             )

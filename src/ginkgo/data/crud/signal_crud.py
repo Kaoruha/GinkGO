@@ -54,7 +54,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             },
 
             # 运行会话ID - 非空字符串
-            'run_id': {
+            'task_id': {
                 'type': 'string',
                 'min': 1
             },
@@ -118,7 +118,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return MSignal(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            run_id=kwargs.get("run_id", ""),
+            task_id=kwargs.get("task_id", ""),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             code=kwargs.get("code"),
             direction=direction_value,
@@ -135,7 +135,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             return MSignal(
                 portfolio_id=item.portfolio_id,
                 engine_id=item.engine_id,
-                run_id=item.run_id,
+                task_id=item.task_id,
                 timestamp=item.timestamp,
                 code=item.code,
                 direction=DIRECTION_TYPES.validate_input(item.direction),
@@ -173,7 +173,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             signal = Signal(
                 portfolio_id=model.portfolio_id,
                 engine_id=model.engine_id,
-                run_id=model.run_id,  # 添加run_id字段
+                task_id=model.task_id,  # 添加task_id字段
                 timestamp=model.timestamp,
                 code=model.code,
                 direction=model.direction,
@@ -195,7 +195,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 Signal(
                     portfolio_id=item.portfolio_id,
                     engine_id=item.engine_id,
-                    run_id=item.run_id,  # 添加run_id字段
+                    task_id=item.task_id,  # 添加task_id字段
                     timestamp=item.timestamp,
                     code=item.code,
                     direction=item.direction,

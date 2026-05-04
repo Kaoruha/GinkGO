@@ -238,25 +238,19 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
         if direction is not None:
             business_timestamp = portfolio_info.get("now")
 
-            signal = Signal(
-                portfolio_id=portfolio_info.get("uuid"),
-                engine_id=self.engine_id,
-                run_id=self.run_id,
-                business_timestamp=business_timestamp,
+            signal = self.create_signal(
                 code=code,
                 direction=direction,
                 reason=reason,
+                business_timestamp=business_timestamp,
             )
 
-            GLOG.backtest.signal(
+            self.blog.signal(
                 symbol=code,
                 direction=direction.value if hasattr(direction, 'value') else str(direction),
                 signal_reason=signal.reason,
                 strategy_id=self.uuid,
-                portfolio_id=portfolio_info.get("uuid"),
-                engine_id=self.engine_id,
-                run_id=self.run_id,
-                business_timestamp=business_timestamp,
+                msg=f"均值回归信号: {signal.reason}",
             )
 
         return [signal] if signal else None

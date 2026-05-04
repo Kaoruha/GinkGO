@@ -64,16 +64,16 @@ class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
         self._portfolio_id = value
 
     @property
-    def run_id(self) -> str:
+    def task_id(self) -> str:
         """获取运行ID"""
-        return self._run_id
+        return self._task_id
 
-    @run_id.setter
-    def run_id(self, value: str) -> None:
+    @task_id.setter
+    def task_id(self, value: str) -> None:
         """设置运行ID"""
         if not isinstance(value, str):
-            raise ValueError("run_id must be a string.")
-        self._run_id = value
+            raise ValueError("task_id must be a string.")
+        self._task_id = value
 
     @property
     def engine_id(self) -> str:

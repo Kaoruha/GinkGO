@@ -1,6 +1,6 @@
 # Upstream: API Server, CLI
 # Downstream: PortfolioService, FileService, MappingService, BacktestTaskService
-# Role: 部署编排服务 - 从回测结果一键部署到纸上交易/实盘
+# Role: 部署编排服务 - 从组合一键部署到模拟盘/实盘
 
 from typing import Optional, List
 from ginkgo.libs import GLOG
@@ -14,7 +14,6 @@ class DeploymentService(BaseService):
 
     def __init__(
         self,
-        task_service=None,
         portfolio_service=None,
         mapping_service=None,
         file_service=None,
@@ -22,8 +21,8 @@ class DeploymentService(BaseService):
         broker_instance_crud=None,
         live_account_service=None,
         mongo_driver=None,
+        param_crud=None,
     ):
-        self._task_service = task_service
         self._portfolio_service = portfolio_service
         self._mapping_service = mapping_service
         self._file_service = file_service
@@ -31,19 +30,20 @@ class DeploymentService(BaseService):
         self._broker_instance_crud = broker_instance_crud
         self._live_account_service = live_account_service
         self._mongo_driver = mongo_driver
+        self._param_crud = param_crud
 
     def deploy(
         self,
-        backtest_task_id: str,
+        portfolio_id: str,
         mode: PORTFOLIO_MODE_TYPES,
         account_id: Optional[str] = None,
         name: Optional[str] = None,
     ) -> ServiceResult:
         """
-        一键部署：从回测结果部署到纸上交易/实盘
+        一键部署：从组合部署到模拟盘/实盘
 
         Args:
-            backtest_task_id: 回测任务 run_id
+            portfolio_id: 源组合 portfolio_id
             mode: PAPER 或 LIVE
             account_id: MLiveAccount.uuid (live模式必填)
             name: 新Portfolio名称 (可选，自动生成)
@@ -51,91 +51,125 @@ class DeploymentService(BaseService):
         Returns:
             ServiceResult with data: {"portfolio_id": str, "deployment_id": str}
         """
-        # 1. 验证回测任务
-        task_result = self._task_service.get_by_run_id(backtest_task_id)
-        if not task_result.success or not task_result.data:
-            return ServiceResult(success=False, error=f"回测任务不存在: {backtest_task_id}")
+        # 1. 验证源 Portfolio 存在
+        portfolio_result = self._portfolio_service.get(portfolio_id=portfolio_id)
+        if not portfolio_result.success or not portfolio_result.data:
+            return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
 
-        task_data = task_result.data
-        if task_data.get("status") != "completed":
-            return ServiceResult(success=False, error=f"回测任务未完成，当前状态: {task_data.get('status')}")
+        portfolio_list = portfolio_result.data
+        portfolio_obj = portfolio_list[0] if portfolio_list else None
+        if not portfolio_obj:
+            return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
 
-        source_portfolio_id = task_data.get("portfolio_id")
-        if not source_portfolio_id:
-            return ServiceResult(success=False, error="回测任务缺少关联Portfolio")
+        # 2. 检查是否已冻结
+        if self._portfolio_service.is_portfolio_frozen(portfolio_id):
+            return ServiceResult(success=False, error="组合已部署，不可再次部署")
 
-        # 2. 实盘模式验证账号
+        # 3. 实盘模式验证账号
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
-        # 3. 读取原 Portfolio 的组件映射
+        # 3b. 创建 PENDING deployment 记录
+        deployment = MDeployment(
+            source_task_id=None,
+            target_portfolio_id="",
+            source_portfolio_id=portfolio_id,
+            mode=mode.value,
+            account_id=account_id,
+            status=DEPLOYMENT_STATUS.PENDING,
+        )
+        self._deployment_crud.add(deployment)
+        deployment_id = deployment.uuid
+
+        # 4-8. 核心部署流程（失败时标记 deployment 为 FAILED）
+        try:
+            return self._deploy_core(
+                source_portfolio_id=portfolio_id,
+                mode=mode,
+                account_id=account_id,
+                name=name,
+                portfolio_name=getattr(portfolio_obj, "name", None) or portfolio_id,
+                deployment_id=deployment_id,
+            )
+        except Exception as e:
+            GLOG.ERROR(f"部署流程异常: {e}")
+            try:
+                self._deployment_crud.modify(
+                    filters={"uuid": deployment_id},
+                    updates={"status": DEPLOYMENT_STATUS.FAILED},
+                )
+            except Exception:
+                pass
+            return ServiceResult(success=False, error=f"部署失败: {str(e)}")
+
+    def _deploy_core(
+        self,
+        source_portfolio_id: str,
+        mode: PORTFOLIO_MODE_TYPES,
+        account_id: Optional[str],
+        name: Optional[str],
+        portfolio_name: str,
+        deployment_id: str,
+    ) -> ServiceResult:
+        """核心部署流程: 步骤 4-8。失败时由调用方标记 FAILED。"""
+        # 4. 读取原 Portfolio 的组件映射
         mappings_result = self._mapping_service.get_portfolio_mappings(
             source_portfolio_id, include_params=True
         )
         if not mappings_result.success:
-            return ServiceResult(success=False, error=f"读取Portfolio组件映射失败: {mappings_result.error}")
+            raise RuntimeError(f"读取Portfolio组件映射失败: {mappings_result.error}")
 
         mappings = mappings_result.data if mappings_result.data else []
 
-        # 4. 创建新 Portfolio
+        # 5. 创建新 Portfolio
         if not name:
-            source_name = task_data.get("name", backtest_task_id)
             mode_label = "PAPER" if mode == PORTFOLIO_MODE_TYPES.PAPER else "LIVE"
-            name = f"{source_name}_{mode_label}"
+            name = f"{portfolio_name}_{mode_label}"
 
         portfolio_result = self._portfolio_service.add(
             name=name,
             mode=mode,
-            description=f"部署自回测任务 {backtest_task_id}",
+            description=f"部署自组合 {source_portfolio_id}",
         )
         if not portfolio_result.success:
-            return ServiceResult(success=False, error=f"创建Portfolio失败: {portfolio_result.error}")
+            raise RuntimeError(f"创建Portfolio失败: {portfolio_result.error}")
 
         new_portfolio_id = portfolio_result.data.get("uuid")
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
-        # 5. 深拷贝组件: MFile(clone) + Mapping(新建) + Param(复制)
-        try:
-            for mapping in mappings:
-                old_file_id = getattr(mapping, "file_id", None)
-                if not old_file_id:
-                    continue
-
+        # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
+        for mapping in mappings:
+            if isinstance(mapping, dict):
+                file_id = mapping.get("file_id")
+                file_type = mapping.get("type")
+                mapping_name = mapping.get("name", "")
+                mapping_uuid = mapping.get("uuid", "")
+            else:
+                file_id = getattr(mapping, "file_id", None)
                 file_type = getattr(mapping, "type", None)
                 mapping_name = getattr(mapping, "name", "")
                 mapping_uuid = getattr(mapping, "uuid", "")
+            if not file_id:
+                continue
 
-                # 5a. Clone MFile
-                clone_name = f"{mapping_name}_{new_portfolio_id[:8]}"
-                clone_result = self._file_service.clone(old_file_id, clone_name, file_type)
-                if not clone_result.success:
-                    GLOG.WARN(f"克隆文件失败 {old_file_id}: {clone_result.error}")
-                    continue
+            file_type_enum = FILE_TYPES(file_type) if file_type else None
 
-                new_file_id = clone_result.data["file_info"]["uuid"]
+            # 5a. Create new Mapping (引用源文件，不克隆)
+            add_result = self._mapping_service.add_file(
+                portfolio_uuid=new_portfolio_id,
+                file_id=file_id,
+                file_type=file_type_enum,
+                name=mapping_name,
+            )
+            if not add_result.success:
+                GLOG.WARN(f"创建映射失败: {add_result.error}")
+                continue
 
-                # 5b. Create new Mapping
-                add_result = self._mapping_service.add_file(
-                    portfolio_uuid=new_portfolio_id,
-                    file_id=new_file_id,
-                    file_type=FILE_TYPES(file_type) if file_type else None,
-                    name=mapping_name,
-                )
-                if not add_result.success:
-                    GLOG.WARN(f"创建映射失败: {add_result.error}")
-                    continue
-
-                # 5c. Copy Params from old mapping to new mapping
-                if mapping_uuid:
-                    params_result = self._mapping_service.get_mapping_params(mapping_uuid)
-                    if params_result.success and params_result.data:
-                        new_mapping_id = add_result.data.get("mapping_id")
-                        if new_mapping_id:
-                            self._copy_params(mapping_uuid, new_mapping_id, params_result.data)
-
-        except Exception as e:
-            GLOG.ERROR(f"组件拷贝失败: {e}")
-            return ServiceResult(success=False, error=f"组件拷贝失败: {str(e)}")
+            # 5b. Copy Params (原始值，不经过 json 序列化)
+            if mapping_uuid:
+                new_mapping_id = add_result.data.get("mapping_id")
+                if new_mapping_id:
+                    self._copy_params_raw(mapping_uuid, new_mapping_id)
 
         # 6. Copy MongoDB Graph
         try:
@@ -153,30 +187,41 @@ class DeploymentService(BaseService):
                 )
             except Exception as e:
                 GLOG.ERROR(f"创建Broker实例失败: {e}")
-                return ServiceResult(success=False, error=f"创建Broker实例失败: {str(e)}")
+                raise RuntimeError(f"创建Broker实例失败: {str(e)}")
 
-        # 8. 创建 MDeployment 记录
+        # 8. 更新 MDeployment 状态为 DEPLOYED
         try:
-            deployment = MDeployment(
-                source_task_id=backtest_task_id,
-                target_portfolio_id=new_portfolio_id,
-                source_portfolio_id=source_portfolio_id,
-                mode=mode.value,
-                account_id=account_id,
-                status=DEPLOYMENT_STATUS.DEPLOYED,
+            self._deployment_crud.modify(
+                filters={"uuid": deployment_id},
+                updates={
+                    "target_portfolio_id": new_portfolio_id,
+                    "status": DEPLOYMENT_STATUS.DEPLOYED,
+                },
             )
-            self._deployment_crud.add(deployment)
-            deployment_id = deployment.uuid
         except Exception as e:
-            GLOG.WARN(f"创建部署记录失败(非致命): {e}")
-            deployment_id = None
+            GLOG.WARN(f"更新部署记录状态失败(非致命): {e}")
 
-        GLOG.INFO(f"部署完成: {new_portfolio_id} <- {backtest_task_id}")
+        # 9. 发送 Kafka deploy 命令通知 PaperTradingWorker
+        try:
+            from ginkgo.messages.control_command import ControlCommand
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+            from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+            cmd = ControlCommand.deploy(new_portfolio_id)
+            producer = GinkgoProducer()
+            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+            if success:
+                GLOG.INFO(f"[DEPLOY] Kafka deploy command sent for {new_portfolio_id[:8]}")
+            else:
+                GLOG.WARN(f"[DEPLOY] Failed to send Kafka deploy command for {new_portfolio_id[:8]}")
+        except Exception as e:
+            GLOG.WARN(f"[DEPLOY] Kafka notification failed (non-fatal): {e}")
+
+        GLOG.INFO(f"部署完成: {new_portfolio_id} <- {source_portfolio_id}")
         result = ServiceResult(success=True)
         result.data = {
             "portfolio_id": new_portfolio_id,
             "deployment_id": deployment_id,
-            "source_task_id": backtest_task_id,
         }
         return result
 
@@ -199,10 +244,10 @@ class DeploymentService(BaseService):
         }
         return result
 
-    def list_deployments(self, source_task_id: str = None) -> ServiceResult:
+    def list_deployments(self, portfolio_id: str = None) -> ServiceResult:
         """列出部署记录"""
-        if source_task_id:
-            records = self._deployment_crud.get_by_source_task(source_task_id)
+        if portfolio_id:
+            records = self._deployment_crud.get_by_source_portfolio(portfolio_id)
         else:
             records = self._deployment_crud.find()
 
@@ -225,16 +270,19 @@ class DeploymentService(BaseService):
         ]
         return result
 
-    def _copy_params(self, old_mapping_id: str, new_mapping_id: str, params: List) -> None:
-        """复制参数从旧mapping到新mapping"""
-        from ginkgo.data.containers import container
-        param_crud = container.cruds.param()
+    def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
+        """原始值复制参数，不经过 json 序列化/反序列化"""
+        from ginkgo.data.models.model_param import MParam
 
-        for param in params:
-            index = getattr(param, "index", 0)
-            value = getattr(param, "value", "")
-            source = getattr(param, "source", -1)
-            param_crud.set_param_value(new_mapping_id, index, value, source)
+        source_params = self._param_crud.find_by_mapping_id(old_mapping_id)
+        for p in source_params:
+            new_param = MParam(
+                mapping_id=new_mapping_id,
+                index=p.index,
+                value=p.value,
+                source=p.source,
+            )
+            self._param_crud.add(new_param)
 
     def _copy_graph(self, source_portfolio_id: str, target_portfolio_id: str) -> None:
         """复制MongoDB图结构"""

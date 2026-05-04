@@ -44,7 +44,7 @@ class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
         """
         创建带有完整上下文的交易信号
 
-        自动填充 portfolio_id、engine_id、run_id，策略只需关注业务参数。
+        自动填充 portfolio_id、engine_id、task_id，策略只需关注业务参数。
 
         Args:
             code: 股票代码
@@ -62,7 +62,7 @@ class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
         return Signal(
             portfolio_id=self.portfolio_id,
             engine_id=self.engine_id,
-            run_id=self.run_id,
+            task_id=self.task_id,
             code=code,
             direction=direction,
             reason=reason,

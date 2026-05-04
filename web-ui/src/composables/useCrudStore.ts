@@ -1,4 +1,3 @@
-import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useApiError } from '@/composables/useApiError'
 
@@ -18,10 +17,10 @@ interface ListState {
   state?: string
 }
 
-export function useCrudStore<T>(apiModule: any, options?: {
+export function useCrudStore<T>(apiModule: any, _options?: {
     fetchListParams?: Record<string, any>
   }) {
-  const { handleError, errorMessage, clearError } = useApiError()
+  const { handleError, clearError } = useApiError()
 
   // ======================================
   // State - 状态定义
@@ -224,7 +223,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
    */
   const setFilter = (filter: Partial<ListState>) => {
     Object.assign(listState.value, filter)
-    pagination.page = 1
+    pagination.value.page = 1
   }
 
   /**
@@ -235,7 +234,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
       keyword: '',
       state: undefined
     }
-    pagination.page = 1
+    pagination.value.page = 1
   }
 
   /**
@@ -258,7 +257,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
   const loadMore = async () => {
     if (!hasMore.value || loading.value) return
 
-    pagination.page++
+    pagination.value.page++
     await fetchList()
   }
 
@@ -266,7 +265,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
    * 刷新列表
    */
   const refresh = async () => {
-    pagination.page = 1
+    pagination.value.page = 1
     await fetchList()
   }
 
@@ -311,6 +310,7 @@ export function useCrudStore<T>(apiModule: any, options?: {
     select,
     unselect,
     loadMore,
+    refresh,
     reset
   }
 }

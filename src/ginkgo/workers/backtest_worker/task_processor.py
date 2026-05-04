@@ -21,6 +21,11 @@ import time
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, EngineStage
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
+from ginkgo.workers.backtest_worker.task_helpers import (
+    build_engine_data,
+    load_portfolio_components,
+    build_portfolio_config,
+)
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 from ginkgo import services
@@ -40,7 +45,6 @@ class BacktestProcessor(Thread):
             worker_id: 所属Worker ID
             progress_tracker: 进度上报器
         """
-        GLOG.set_log_category("component")
         super().__init__(daemon=True)
         self.task = task
         self.worker_id = worker_id
@@ -61,6 +65,9 @@ class BacktestProcessor(Thread):
         self.task.started_at = datetime.utcnow()
         self.task.worker_id = self.worker_id
 
+        GLOG.clear_context()
+        GLOG.set_log_category("component")
+
         try:
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
 
@@ -76,6 +83,14 @@ class BacktestProcessor(Thread):
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
             self._engine = self._assemble_engine()
+
+            # 绑定 PortfolioContext 引用（task_id/engine_id/portfolio_id 动态读取）
+            from ginkgo.trading.context.portfolio_context import PortfolioContext
+            portfolio_context = PortfolioContext(
+                portfolio_id=self.task.portfolio_uuid,
+                engine_context=self._engine._engine_context
+            )
+            GLOG.bind_context(engine_context=portfolio_context)
 
             # 阶段3: 运行回测
             self.task.state = BacktestTaskState.RUNNING
@@ -95,7 +110,7 @@ class BacktestProcessor(Thread):
             if hasattr(self._engine, 'notify_analyzers_backtest_end'):
                 self._engine.notify_analyzers_backtest_end()
 
-            # 汇总分析器结果并保存到数据库
+            # 汇总分析器结果并保存到数据库（包含正确的sharpe_ratio等指标）
             self._aggregate_and_save_results()
 
             # 阶段4: 完成处理
@@ -104,14 +119,11 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
             self.task.result = self._result
 
-            self.progress_tracker.report_completed(self.task, self._result)
+            # report_completed 会写 result 字段到 DB，
+            # 但 _calculate_result 的指标是占位值，aggregator 已正确写入，
+            # 所以传 None 避免覆盖
+            self.progress_tracker.report_completed(self.task, None)
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
-
-        except InterruptedError:
-            self.task.state = BacktestTaskState.CANCELLED
-            self.task.completed_at = datetime.utcnow()
-            self.progress_tracker.report_cancelled(self.task)
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest cancelled")
 
         except Exception as e:
             self._exception = e
@@ -123,6 +135,8 @@ class BacktestProcessor(Thread):
             GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Backtest failed: {e}")
             import traceback
             GLOG.ERROR(traceback.format_exc())
+        finally:
+            GLOG.clear_context()
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """
@@ -162,20 +176,12 @@ class BacktestProcessor(Thread):
 
         将 BacktestTask 转换为 EngineAssemblyService 需要的参数格式
         """
-        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembling backtest engine...")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Assembling backtest engine: "
+                  f"start={self.task.config.start_date}, end={self.task.config.end_date}, "
+                  f"capital={self.task.config.initial_cash}, commission={self.task.config.commission_rate}")
 
-        # 1. 构建引擎配置
-        engine_data = {
-            "name": f"BacktestEngine_{self.task.task_uuid[:8]}",
-            "run_id": self.task.task_uuid,
-            "backtest_start_date": self.task.config.start_date,
-            "backtest_end_date": self.task.config.end_date,
-            "initial_capital": self.task.config.initial_cash,
-            "commission_rate": self.task.config.commission_rate,
-            "slippage_rate": self.task.config.slippage_rate,
-            "broker": "backtest",
-            "frequency": self.task.config.frequency,
-        }
+        # 1. 构建引擎配置（委托到 task_helpers）
+        engine_data = build_engine_data(self.task.config, task_id=self.task.task_uuid)
 
         # 2. 获取 Portfolio 配置和组件
         portfolio_config, portfolio_components = self._get_portfolio_config_and_components()
@@ -213,7 +219,10 @@ class BacktestProcessor(Thread):
             error_msg = result.error or "Unknown error"
             raise RuntimeError(f"Engine assembly failed for {self.task.task_uuid[:8]}: {error_msg}")
 
-        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
+        GLOG.INFO(f"[{self.task.task_uuid[:8]}] Engine assembled: "
+                  f"period={self.task.config.start_date}~{self.task.config.end_date}, "
+                  f"capital={self.task.config.initial_cash}, "
+                  f"broker={engine_data['broker']}")
         return result.data
 
     def _get_portfolio_config_and_components(self) -> tuple:
@@ -222,7 +231,6 @@ class BacktestProcessor(Thread):
 
         必须从数据库加载，没有组件配置视为错误
         """
-        # 从数据库加载
         portfolio_result = self._portfolio_service.load_portfolio_with_components(
             portfolio_id=self.task.portfolio_uuid
         )
@@ -230,105 +238,14 @@ class BacktestProcessor(Thread):
         if not portfolio_result.is_success() or not portfolio_result.data:
             raise ValueError(f"Portfolio {self.task.portfolio_uuid} not found in database")
 
-        # 从数据库获取配置
-        config = self._extract_portfolio_config_from_db(portfolio_result.data)
-
-        # 获取组件文件映射
-        components = self._get_portfolio_components_from_db()
-
-        if not components:
-            raise ValueError(
-                f"Portfolio {self.task.portfolio_uuid} has no component configured. "
-                f"Please bind at least one strategy to the portfolio before running backtest."
-            )
-
-        # 检查是否有策略组件
-        if not components.get("strategies"):
-            raise ValueError(
-                f"Portfolio {self.task.portfolio_uuid} has no strategy configured. "
-                f"Please bind at least one strategy to the portfolio before running backtest."
-            )
-
+        config = build_portfolio_config(
+            self.task.portfolio_uuid,
+            portfolio_result.data,
+            self.task.config.initial_cash,
+        )
+        components = load_portfolio_components(self.task.portfolio_uuid, self.task.task_uuid)
         GLOG.INFO(f"[{self.task.task_uuid[:8]}] Loaded portfolio {self.task.portfolio_uuid} from database")
         return config, components
-
-    def _extract_portfolio_config_from_db(self, portfolio_data) -> Dict[str, Any]:
-        """从数据库结果提取 Portfolio 配置"""
-        return {
-            "uuid": self.task.portfolio_uuid,
-            "name": portfolio_data.name if hasattr(portfolio_data, 'name') else f"Portfolio_{self.task.portfolio_uuid[:8]}",
-            "cash": float(portfolio_data.cash) if hasattr(portfolio_data, 'cash') else self.task.config.initial_cash,
-            "initial_capital": self.task.config.initial_cash,
-        }
-
-    def _get_portfolio_components_from_db(self) -> Dict[str, Any]:
-        """从数据库获取 Portfolio 组件配置"""
-        try:
-            from ginkgo.data.containers import container as data_container
-            from ginkgo.enums import FILE_TYPES
-
-            # 获取文件映射 CRUD
-            file_mapping_crud = data_container.cruds.portfolio_file_mapping()
-
-            # 查询映射 - 使用 find_by_portfolio 或 find
-            mappings = file_mapping_crud.find(
-                filters={"portfolio_id": self.task.portfolio_uuid, "is_del": False}
-            )
-            if not mappings:
-                GLOG.WARN(f"[{self.task.task_uuid[:8]}] No file mappings found for portfolio {self.task.portfolio_uuid}")
-                return None
-
-            components = {
-                "strategies": [],
-                "sizers": [],
-                "selectors": [],
-                "risk_managers": [],
-                "analyzers": []
-            }
-
-            # FILE_TYPES 值到组件分类的映射
-            type_mapping = {
-                FILE_TYPES.STRATEGY.value: "strategies",
-                FILE_TYPES.SIZER.value: "sizers",
-                FILE_TYPES.SELECTOR.value: "selectors",
-                FILE_TYPES.RISKMANAGER.value: "risk_managers",
-                FILE_TYPES.ANALYZER.value: "analyzers",
-            }
-
-            # 获取文件 CRUD 以读取文件名称
-            file_crud = data_container.cruds.file()
-
-            for mapping in mappings:
-                # 使用 mapping.type (不是 component_type)
-                component_type = mapping.type
-                category = type_mapping.get(component_type)
-                if category and category in components:
-                    # 获取文件信息以获取组件名称
-                    component_name = ""
-                    try:
-                        file_records = file_crud.find(filters={"uuid": mapping.file_id})
-                        if file_records and len(file_records) > 0:
-                            component_name = file_records[0].name
-                    except Exception as e:
-                        GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Failed to get file name: {e}")
-
-                    components[category].append({
-                        "file_id": mapping.file_id,
-                        "mapping_uuid": mapping.uuid,
-                        "name": component_name,  # 添加组件名称
-                        "type": component_type,  # 🔧 添加组件类型（engine_assembly_service 需要此字段）
-                    })
-
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
-                  f"sizers={len(components['sizers'])}, risk_managers={len(components['risk_managers'])}")
-
-            return components
-
-        except Exception as e:
-            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Failed to get portfolio components: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
 
     def _on_progress(self, progress: float, current_date: str, current_time: datetime = None):
         """进度回调（由引擎调用）"""

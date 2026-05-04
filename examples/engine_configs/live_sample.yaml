@@ -4,7 +4,7 @@
 engine:
   type: "live"              # 实盘引擎类型
   name: "LiveTradingEngine"
-  run_id: "live_prod_20240101"  # T6: 统一运行标识符
+  task_id: "live_prod_20240101"  # T6: 统一运行标识符
 
 # 实时数据馈送器配置
 data_feeder:

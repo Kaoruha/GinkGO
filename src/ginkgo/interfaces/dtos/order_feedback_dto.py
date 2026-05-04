@@ -19,7 +19,7 @@ class OrderFeedbackDTO(BaseModel):
     order_id: str = Field(..., description="订单ID")
     portfolio_id: str = Field(..., description="投资组合ID")
     engine_id: str = Field(..., description="引擎ID")
-    run_id: str = Field(..., description="运行ID")
+    task_id: str = Field(..., description="运行ID")
     code: str = Field(..., description="股票代码")
     direction: str = Field(..., description="交易方向")
     filled_quantity: float = Field(..., description="成交数量")

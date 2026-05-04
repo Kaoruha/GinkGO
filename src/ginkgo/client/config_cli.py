@@ -12,12 +12,48 @@ Ginkgo Config CLI - 统一的配置管理命令
 参考 cline 的简洁设计模式
 """
 
+import os
 import typer
 from typing import Optional, Any
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
 from ginkgo.libs import GLOG
+
+
+def update_env_for_debug(env_file: str, debug_on: bool) -> dict:
+    """更新 .env 文件中的数据库主机变量以匹配 debug 模式。
+
+    Args:
+        env_file: .env 文件路径
+        debug_on: True=测试环境, False=生产环境
+
+    Returns:
+        变化的变量 dict，如果无变化返回空 dict
+    """
+    host_mapping = {
+        "GINKGO_CLICKHOUSE_HOST": "clickhouse-test" if debug_on else "clickhouse-master",
+        "GINKGO_MYSQL_HOST": "mysql-test" if debug_on else "mysql-master",
+        "GINKGO_MONGODB_HOST": "mongo-master",
+    }
+
+    existing = {}
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, value = line.partition("=")
+                    existing[key.strip()] = value.strip()
+
+    changed = {k: v for k, v in host_mapping.items() if existing.get(k) != v}
+    existing.update(host_mapping)
+
+    with open(env_file, "w") as f:
+        for key, value in existing.items():
+            f.write(f"{key}={value}\n")
+
+    return changed
 
 app = typer.Typer(help=":gear: Configuration Management", rich_markup_mode="rich")
 console = Console()
@@ -87,6 +123,52 @@ def set(
             debug_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_debug(debug_value)
             console.print(f":white_check_mark: Set {key} = {debug_value}")
+
+            # 确保 config 已加载（_has_local_config 可能为 None）
+            GCONF._read_config()
+
+            # 更新 .env 文件中的数据库主机
+            env_file = GCONF.COMPOSE_FILE_PATH
+            if env_file:
+                env_path = os.path.join(os.path.dirname(env_file), ".env")
+                try:
+                    changed = update_env_for_debug(env_path, debug_on=debug_value)
+                    env_label = "test" if debug_value else "production"
+                    if changed:
+                        console.print(f":white_check_mark: .env updated → {env_label} (ClickHouse={changed.get('GINKGO_CLICKHOUSE_HOST', '?')}, MySQL={changed.get('GINKGO_MYSQL_HOST', '?')})")
+                    else:
+                        console.print(f":white_check_mark: .env already set to {env_label}")
+                except Exception as e:
+                    console.print(f":warning: Failed to update .env: {e}")
+
+            # 重启有变化的 Docker 容器
+            if env_file and os.path.exists(env_file):
+                import subprocess
+                try:
+                    compose_dir = os.path.dirname(env_file)
+                    console.print(":whale: Restarting docker containers...")
+                    result = subprocess.run(
+                        ["docker", "compose", "up", "-d"],
+                        cwd=compose_dir,
+                        capture_output=True, text=True, timeout=60,
+                    )
+                    if result.returncode == 0:
+                        # 解析输出显示重建的容器
+                        recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
+                        if recreated:
+                            for line in recreated:
+                                console.print(f"  {line.strip()}")
+                        else:
+                            console.print("  No containers changed")
+                        console.print(":white_check_mark: Docker containers restarted")
+                    else:
+                        console.print(f":warning: Docker compose: {result.stderr.strip()}")
+                except FileNotFoundError:
+                    console.print(":memo: Docker not installed, skipped container restart")
+                except subprocess.TimeoutExpired:
+                    console.print(":warning: Docker compose timed out")
+                except Exception as e:
+                    console.print(f":warning: Docker compose: {e}")
         elif key.lower() == 'quiet':
             quiet_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_quiet(quiet_value)
@@ -287,21 +369,26 @@ def containers(
 
         elif action == "deploy":
             console.print(":rocket: Deploying worker services...")
+            from ginkgo.libs import GCONF
 
-            # 检查docker-compose文件
-            compose_file = "docker-compose.worker.yml"
-            try:
-                import os
-                if os.path.exists(compose_file):
-                    console.print(f":clipboard: Using compose file: {compose_file}")
-                    console.print(":whale: docker-compose up -d")
-                else:
-                    console.print(":memo: Creating default compose file...")
-                    console.print(":bulb: Consider creating docker-compose.worker.yml")
-            except Exception as e:
-                GLOG.ERROR(f"Failed to check compose file: {e}")
-
-            console.print(":white_check_mark: Deployment completed")
+            compose_path = GCONF.COMPOSE_FILE_PATH
+            if compose_path and os.path.exists(compose_path):
+                console.print(f":whale: docker compose up -d (from {compose_path})")
+                import subprocess
+                try:
+                    result = subprocess.run(
+                        ["docker", "compose", "up", "-d"],
+                        cwd=os.path.dirname(compose_path),
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    if result.returncode == 0:
+                        console.print(":white_check_mark: Deployment completed")
+                    else:
+                        console.print(f":x: Deploy failed: {result.stderr.strip()}")
+                except FileNotFoundError:
+                    console.print(":x: Docker is not installed")
+            else:
+                console.print(":x: docker-compose.yml not found")
 
         else:
             console.print(f":x: Unknown action: {action}")

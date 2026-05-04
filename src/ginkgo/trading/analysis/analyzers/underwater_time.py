@@ -60,10 +60,6 @@ class UnderwaterTime(BaseAnalyzer):
         underwater_time = self._underwater_days
         self.add_data(underwater_time)
 
-    def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录水下时间数据到数据库"""
-        self.add_record()
-
     @property
     def current_underwater_days(self) -> int:
         """当前连续水下天数（只读属性）"""

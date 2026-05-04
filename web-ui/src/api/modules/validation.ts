@@ -77,6 +77,37 @@ export interface SensitivityResult {
   }>
 }
 
+export interface SegmentStabilityConfig {
+  task_id: string
+  portfolio_id: string
+  n_segments?: number[]
+}
+
+export interface SegmentStabilityResult {
+  windows: {
+    n_segments: number
+    segments: {
+      total_return: number
+      sharpe: number
+      max_drawdown: number
+      win_rate: number
+    }[]
+    stability_score: number
+  }[]
+}
+
+export interface ValidationRecord {
+  uuid: string
+  task_id: string
+  portfolio_id: string
+  method: string
+  config: Record<string, any>
+  result: Record<string, any> | null
+  score: number | null
+  status: number
+  create_at: string
+}
+
 // ========== API 方法 ==========
 
 export const validationApi = {
@@ -95,11 +126,12 @@ export const validationApi = {
   /**
    * 蒙特卡洛模拟
    */
-  monteCarlo(config: MonteCarloConfig): Promise<MonteCarloResult> {
-    return request.post('/api/v1/validation/montecarlo', {
-      backtest_config: { backtest_id: config.backtest_id },
-      n_simulations: config.n_simulations,
-      confidence_level: config.confidence_level,
+  monteCarlo(config: MonteCarloConfig & { portfolio_id?: string }): Promise<MonteCarloResult> {
+    return request.post('/api/v1/validation/monte-carlo', {
+      task_id: config.backtest_id,
+      portfolio_id: config.portfolio_id || '',
+      n_simulations: config.n_simulations || 10000,
+      confidence: config.confidence_level || 0.95,
     })
   },
 
@@ -111,5 +143,30 @@ export const validationApi = {
       backtest_config: { backtest_id: config.backtest_id },
       params: config.params,
     })
+  },
+
+  /**
+   * 分段稳定性分析
+   */
+  segmentStability(config: SegmentStabilityConfig): Promise<SegmentStabilityResult> {
+    return request.post('/api/v1/validation/segment-stability', {
+      task_id: config.task_id,
+      portfolio_id: config.portfolio_id,
+      n_segments: config.n_segments || [2, 4, 8],
+    })
+  },
+
+  /**
+   * 验证结果列表
+   */
+  listResults(params?: { portfolio_id?: string; method?: string; page?: number; page_size?: number }): Promise<{ data: ValidationRecord[]; total: number }> {
+    return request.get('/api/v1/validation/results', { params })
+  },
+
+  /**
+   * 验证结果详情
+   */
+  getResult(resultId: string): Promise<{ data: ValidationRecord }> {
+    return request.get(`/api/v1/validation/results/${resultId}`)
   },
 }

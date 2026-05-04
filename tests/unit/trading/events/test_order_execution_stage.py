@@ -36,7 +36,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
     return Order(
         portfolio_id="test-portfolio-001",
         engine_id="test-engine-001",
-        run_id="test-run-001",
+        task_id="test-run-001",
         code=code,
         direction=direction,
         order_type=order_type,

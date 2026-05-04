@@ -127,7 +127,7 @@ def _make_market_data(limit_up, limit_down, close):
 def _make_order(code, direction, limit_price):
     """构造最小化 Order 对象"""
     return Order(
-        portfolio_id="p-001", engine_id="e-001", run_id="r-001",
+        portfolio_id="p-001", engine_id="e-001", task_id="r-001",
         code=code, direction=direction,
         order_type=ORDER_TYPES.LIMITORDER, status=ORDERSTATUS_TYPES.SUBMITTED,
         volume=100, limit_price=limit_price,

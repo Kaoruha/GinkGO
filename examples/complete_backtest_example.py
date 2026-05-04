@@ -116,11 +116,11 @@ class SimpleBacktest:
         print(f"🎯 目标股票: {selector._interested}")
         print(f"📊 净值分析器: {self.net_value_analyzer.name} 已添加")
 
-        # 8. 设置 run_id（用于 ClickHouse 记录关联）
+        # 8. 设置 task_id（用于 ClickHouse 记录关联）
         import uuid
-        self.run_id = uuid.uuid4().hex
-        self.engine.set_run_id(self.run_id)
-        print(f"📋 Run ID: {self.run_id}")
+        self.task_id = uuid.uuid4().hex
+        self.engine.set_task_id(self.task_id)
+        print(f"📋 Task ID: {self.task_id}")
 
     def run_backtest(self):
         """运行回测 - 纯引擎组装和运行，去除监控延迟"""
@@ -413,10 +413,10 @@ def main():
 
     print(f"\n✅ 示例执行成功！")
     print(f"📈 关键指标: 收益率 {results['total_return_pct']}, 信号数 {results['signal_count']}")
-    print(f"📋 Run ID: {backtest.run_id}")
-    print(f"💡 使用 AnalysisEngine.analyze('{backtest.run_id}') 进行分析")
+    print(f"📋 Task ID: {backtest.task_id}")
+    print(f"💡 使用 AnalysisEngine.analyze('{backtest.task_id}') 进行分析")
 
-    results["run_id"] = backtest.run_id
+    results["task_id"] = backtest.task_id
     return results
 
 

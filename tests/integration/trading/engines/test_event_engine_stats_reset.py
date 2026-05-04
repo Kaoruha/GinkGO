@@ -10,7 +10,7 @@ EventEngine 统计重置测试 - 覆盖 reset_event_stats 修复
 """
 import sys
 import os
-_path = os.path.join(os.path.dirname(__file__
+_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
 if _path not in sys.path:
     sys.path.insert(0, _path)
 

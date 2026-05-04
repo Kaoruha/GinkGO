@@ -190,26 +190,20 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 if atr is not None:
                     reason += f", ATR={atr:.2f}"
 
-                signal = Signal(
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                signal = self.create_signal(
                     code=code,
                     direction=direction,
                     reason=reason,
+                    business_timestamp=portfolio_info.get("now"),
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                    msg=f"趋势反转信号: {signal.reason}",
                 )
 
             # 从看多 变为 非看多（看空） → 卖出
@@ -223,26 +217,20 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 if atr is not None:
                     reason += f", ATR={atr:.2f}"
 
-                signal = Signal(
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                signal = self.create_signal(
                     code=code,
                     direction=direction,
                     reason=reason,
+                    business_timestamp=portfolio_info.get("now"),
                 )
                 signals.append(signal)
 
-                GLOG.backtest.signal(
+                self.blog.signal(
                     symbol=code,
                     direction=direction.value if hasattr(direction, 'value') else str(direction),
                     signal_reason=signal.reason,
                     strategy_id=self.uuid,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
-                    run_id=self.run_id,
-                    business_timestamp=portfolio_info.get("now"),
+                    msg=f"趋势反转信号: {signal.reason}",
                 )
 
             # 更新状态：True=看多排列, False=其他

@@ -24,19 +24,18 @@ RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ uv
 
 ENV PATH="/root/.local/bin:${PATH}"
 
-# 复制依赖文件
-COPY requirements.txt ./
+# 只复制依赖安装所需文件（利用 Docker 层缓存：源码变动不触发重装依赖）
+COPY pyproject.toml uv.lock ./
+RUN mkdir -p src/ginkgo && touch src/ginkgo/__init__.py
 
-# 使用 uv 安装依赖（比 pip 快 10-100 倍）
-RUN uv pip install \
-    -r requirements.txt \
-    --system \
-    -i https://mirrors.aliyun.com/pypi/simple/ \
-    && rm -rf /root/.cache/uv /root/.cache/pip
+# 使用 uv 从 pyproject.toml 安装依赖到系统 Python
+RUN uv pip install --system . \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+    && rm -rf /root/.cache/uv
 
-# 复制源代码
+# 复制源代码（变动只重建这层及之后）
 COPY main.py ./
-COPY src/ ./
+COPY src/ ./src/
 
 # 复制配置文件（部分 worker 需要）
 COPY .conf/task_timer.yml ./src/ginkgo/config/task_timer.yml
