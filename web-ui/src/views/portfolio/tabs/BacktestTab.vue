@@ -259,8 +259,40 @@
               </div>
             </div>
             <div class="metric-card">
-              <div class="metric-label">胜率</div>
-              <div class="metric-value">{{ ((currentTask.win_rate ?? 0) * 100).toFixed(1) }}%</div>
+              <div class="metric-label">交易胜率</div>
+              <div class="metric-value" :style="{ color: tradeWinRate !== null ? ((tradeWinRate ?? 0) >= 0.5 ? '#52c41a' : '#f5222d') : '' }">
+                {{ tradeWinRate !== null ? ((tradeWinRate) * 100).toFixed(1) + '%' : '-' }}
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">日胜率</div>
+              <div class="metric-value" :style="{ color: dailyWinRate !== null ? ((dailyWinRate ?? 0) >= 0.5 ? '#52c41a' : '#f5222d') : '' }">
+                {{ dailyWinRate !== null ? ((dailyWinRate) * 100).toFixed(1) + '%' : '-' }}
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">盈亏比</div>
+              <div class="metric-value" :style="{ color: profitFactor !== null ? ((profitFactor ?? 0) >= 1 ? '#52c41a' : '#f5222d') : '' }">
+                {{ profitFactor !== null ? (profitFactor).toFixed(2) : '-' }}
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">平均盈亏比</div>
+              <div class="metric-value" :style="{ color: avgWinLoss !== null ? ((avgWinLoss ?? 0) >= 1 ? '#52c41a' : '#f5222d') : '' }">
+                {{ avgWinLoss !== null ? (avgWinLoss).toFixed(2) : '-' }}
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">最大连续亏损</div>
+              <div class="metric-value" :style="{ color: maxConsLosses !== null && maxConsLosses > 5 ? '#f5222d' : '' }">
+                {{ maxConsLosses !== null ? Math.round(maxConsLosses) + ' 笔' : '-' }}
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">平均持仓</div>
+              <div class="metric-value">
+                {{ avgHoldPeriod !== null ? (avgHoldPeriod).toFixed(1) + ' 天' : '-' }}
+              </div>
             </div>
           </div>
 
@@ -697,6 +729,19 @@ const analyzers = ref<AnalyzerInfo[]>([])
 const netValueData = ref<LineData[]>([])
 const benchmarkData = ref<LineData[]>([])
 const activeDetailTab = ref('overview')
+
+// Analyzer value extraction
+const analyzerValue = (name: string): number | null => {
+  const a = analyzers.value.find(a => a.name === name)
+  return a?.latest_value ?? null
+}
+
+const tradeWinRate = computed(() => analyzerValue('trade_win_rate'))
+const dailyWinRate = computed(() => analyzerValue('win_rate'))
+const profitFactor = computed(() => analyzerValue('profit_factor'))
+const avgWinLoss = computed(() => analyzerValue('avg_win_loss_ratio'))
+const maxConsLosses = computed(() => analyzerValue('max_consecutive_losses'))
+const avgHoldPeriod = computed(() => analyzerValue('avg_holding_period'))
 watch(activeDetailTab, (tab) => {
   if (tab === 'logs' && logs.value.length === 0) loadLogs(true)
 })
@@ -1050,10 +1095,12 @@ const pnlColor = computed(() => {
 const fmtAnalyzer = (name: string, value: number | null): string => {
   if (value === null || value === undefined) return '-'
   const nl = name.toLowerCase()
-  if (['max_drawdown', 'win_rate', 'hold_pct', 'annual_return'].some(a => nl.includes(a))) return `${(value * 100).toFixed(2)}%`
+  if (['max_drawdown', 'win_rate', 'trade_win_rate', 'hold_pct', 'annual_return'].some(a => nl.includes(a))) return `${(value * 100).toFixed(2)}%`
   if (['sharpe', 'sortino', 'calmar'].some(a => nl.includes(a))) return value.toFixed(3)
-  if (['signal_count', 'trade_count', 'order_count'].some(a => nl.includes(a))) return Math.round(value).toString()
+  if (['signal_count', 'trade_count', 'order_count', 'max_consecutive_losses'].some(a => nl.includes(a))) return Math.round(value).toString()
   if (['net_value', 'profit', 'pnl', 'capital'].some(a => nl.includes(a))) return `¥${value.toFixed(2)}`
+  if (['profit_factor', 'avg_win_loss_ratio'].some(a => nl.includes(a))) return value.toFixed(2)
+  if (nl.includes('avg_holding_period')) return value.toFixed(1) + ' 天'
   return value.toFixed(4)
 }
 
