@@ -194,6 +194,20 @@ def run_task(
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
             engine.start()
+
+            # engine.start() is async — starts _main_thread and returns immediately.
+            # Must join the thread to wait for backtest completion before saving results.
+            main_thread = getattr(engine, '_main_thread', None)
+            if main_thread is not None:
+                main_thread.join(timeout=3600.0)
+                if main_thread.is_alive():
+                    console.print(":x: Backtest engine did not complete within 1 hour")
+                    raise typer.Exit(1)
+
+            # Flush analyzer data before aggregating results
+            if hasattr(engine, 'notify_analyzers_backtest_end'):
+                engine.notify_analyzers_backtest_end()
+
             _save_results(service, task.uuid, engine, portfolio_uuid)
             console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")
 
