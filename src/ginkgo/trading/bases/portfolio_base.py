@@ -78,7 +78,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         DEFAULT_ANALYZER_SET.FULL: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio',
                                      'win_rate', 'trade_win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
                                      'hold_pct', 'signal_count', 'order_count', 'annualized_return',
-                                     'consecutive_pnl', 'underwater_time', 'skew_kurtosis', 'var_cvar'],
+                                     'consecutive_pnl', 'underwater_time', 'skew_kurtosis', 'var_cvar',
+                                     'profit_factor', 'avg_win_loss_ratio', 'max_consecutive_losses',
+                                     'avg_holding_period'],
     }
 
     def __init__(
@@ -163,7 +165,11 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         from ginkgo.trading.analysis.analyzers.consecutive_pnl import ConsecutivePnL
         from ginkgo.trading.analysis.analyzers.underwater_time import UnderwaterTime
         from ginkgo.trading.analysis.analyzers.skew_kurtosis import SkewKurtosis
-        from ginkgo.trading.analysis.analyzers.var_cvar import VarCvar
+        from ginkgo.trading.analysis.analyzers.var_cvar import VarCVar
+        from ginkgo.trading.analysis.analyzers.profit_factor import ProfitFactor
+        from ginkgo.trading.analysis.analyzers.avg_win_loss_ratio import AvgWinLossRatio
+        from ginkgo.trading.analysis.analyzers.max_consecutive_losses import MaxConsecutiveLosses
+        from ginkgo.trading.analysis.analyzers.avg_holding_period import AvgHoldingPeriod
 
         # 内置分析器映射
         builtin_map = {
@@ -183,7 +189,11 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             'consecutive_pnl': ConsecutivePnL,
             'underwater_time': UnderwaterTime,
             'skew_kurtosis': SkewKurtosis,
-            'var_cvar': VarCvar,
+            'var_cvar': VarCVar,
+            'profit_factor': ProfitFactor,
+            'avg_win_loss_ratio': AvgWinLossRatio,
+            'max_consecutive_losses': MaxConsecutiveLosses,
+            'avg_holding_period': AvgHoldingPeriod,
         }
 
         analyzer_names = self.BUILTIN_DEFAULT_ANALYZERS.get(self._default_analyzer_set, [])
