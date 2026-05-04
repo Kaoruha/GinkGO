@@ -51,6 +51,7 @@ class SignalCount(BaseAnalyzer):
             value=self._total_count,
             name=self.name,
             analyzer_id=self._analyzer_id,
+            source=self.source_type,
         )
 
     @property

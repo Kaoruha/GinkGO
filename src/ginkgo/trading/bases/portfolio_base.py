@@ -76,8 +76,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         DEFAULT_ANALYZER_SET.MINIMAL: ['net_value', 'profit'],
         DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate', 'trade_win_rate'],
         DEFAULT_ANALYZER_SET.FULL: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio',
-                                     'win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
-                                     'hold_pct', 'signal_count'],
+                                     'win_rate', 'trade_win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
+                                     'hold_pct', 'signal_count', 'order_count', 'annualized_return',
+                                     'consecutive_pnl', 'underwater_time', 'skew_kurtosis', 'var_cvar'],
     }
 
     def __init__(
@@ -157,6 +158,12 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT
         from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
         from ginkgo.trading.analysis.analyzers.trade_win_rate import TradeWinRate
+        from ginkgo.trading.analysis.analyzers.order_count import OrderCount
+        from ginkgo.trading.analysis.analyzers.annualized_returns import AnnualizedReturn
+        from ginkgo.trading.analysis.analyzers.consecutive_pnl import ConsecutivePnL
+        from ginkgo.trading.analysis.analyzers.underwater_time import UnderwaterTime
+        from ginkgo.trading.analysis.analyzers.skew_kurtosis import SkewKurtosis
+        from ginkgo.trading.analysis.analyzers.var_cvar import VarCvar
 
         # 内置分析器映射
         builtin_map = {
@@ -165,12 +172,18 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             'max_drawdown': MaxDrawdown,
             'sharpe_ratio': SharpeRatio,
             'win_rate': WinRate,
+            'trade_win_rate': TradeWinRate,
             'volatility': Volatility,
             'sortino_ratio': SortinoRatio,
             'calmar_ratio': CalmarRatio,
             'hold_pct': HoldPCT,
             'signal_count': SignalCount,
-            'trade_win_rate': TradeWinRate,
+            'order_count': OrderCount,
+            'annualized_return': AnnualizedReturn,
+            'consecutive_pnl': ConsecutivePnL,
+            'underwater_time': UnderwaterTime,
+            'skew_kurtosis': SkewKurtosis,
+            'var_cvar': VarCvar,
         }
 
         analyzer_names = self.BUILTIN_DEFAULT_ANALYZERS.get(self._default_analyzer_set, [])
