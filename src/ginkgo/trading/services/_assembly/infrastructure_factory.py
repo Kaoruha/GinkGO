@@ -199,7 +199,8 @@ class InfrastructureFactory:
             "name": "SimBroker",
             "attitude": broker_attitude,
             "commission_rate": 0.0003,
-            "commission_min": 5
+            "commission_min": 5,
+            "random_seed": engine_data.get("random_seed", None),
         }
 
         # 合并用户配置（如果有）
