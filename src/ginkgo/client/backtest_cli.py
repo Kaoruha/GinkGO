@@ -209,6 +209,17 @@ def run_task(
                 engine.notify_analyzers_backtest_end()
 
             _save_results(service, task.uuid, engine, portfolio_uuid)
+
+            # 灌入日志到 ClickHouse（静默降级）
+            try:
+                from ginkgo.services.logging.log_ingester import LogIngester
+                ingester = LogIngester()
+                ingest_result = ingester.ingest_task_logs(task.uuid)
+                if ingest_result.inserted > 0:
+                    console.print(f"   Logs ingested: {ingest_result.inserted} records")
+            except Exception:
+                pass
+
             console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")
 
     except Exception as e:
