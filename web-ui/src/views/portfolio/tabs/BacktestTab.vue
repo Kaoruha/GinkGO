@@ -1855,7 +1855,7 @@ onUnmounted(() => {
   font-weight: 600;
   letter-spacing: 0.3px;
   display: inline-block;
-  min-width: 48px;
+  width: 110px;
   text-align: center;
 }
 .event-signal { background: rgba(179,127,235,0.15); color: #b37feb; }

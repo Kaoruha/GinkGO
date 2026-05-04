@@ -184,7 +184,7 @@ def ginkgo_processor(logger, log_method, event_dict):
         if hasattr(engine_ctx, 'engine_id') and engine_ctx.engine_id:
             event_dict["ginkgo"]["engine_id"] = engine_ctx.engine_id
         if hasattr(engine_ctx, 'source_type') and engine_ctx.source_type is not None:
-            event_dict["ginkgo"]["source_type"] = engine_ctx.source_type
+            event_dict["ginkgo"]["source_type"] = engine_ctx.source_type.value if hasattr(engine_ctx.source_type, 'value') else engine_ctx.source_type
         if hasattr(engine_ctx, 'business_timestamp') and engine_ctx.business_timestamp:
             event_dict["ginkgo"]["business_timestamp"] = engine_ctx.business_timestamp
         if hasattr(engine_ctx, 'portfolio_id') and engine_ctx.portfolio_id:
