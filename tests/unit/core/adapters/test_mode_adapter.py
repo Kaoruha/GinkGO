@@ -174,13 +174,13 @@ class TestModeAdapterSignalConversion:
         assert matrix.loc[index[0], "000001.SZ"] == -1.0
 
     def test_adapt_matrix_to_signals(self):
-        """信号矩阵转列表 - Signal 构造需要 run_id，此处验证方法调用流程"""
+        """信号矩阵转列表 - Signal 构造需要 task_id，此处验证方法调用流程"""
         adapter = ModeAdapter()
         matrix = pd.DataFrame(
             {"000001.SZ": [1.0, 0.0, -1.0], "000002.SZ": [0.0, 0.5, 0.0]},
             index=pd.date_range("2024-01-01", periods=3)
         )
-        # Signal 构造需要 run_id，源码中未传入，创建会失败并被 try-except 捕获
+        # Signal 构造需要 task_id，源码中未传入，创建会失败并被 try-except 捕获
         signals = adapter.adapt_matrix_to_signals(matrix, portfolio_id="p1", engine_id="e1")
         # 验证方法不抛出异常（内部处理了创建失败的情况）
         assert isinstance(signals, list)

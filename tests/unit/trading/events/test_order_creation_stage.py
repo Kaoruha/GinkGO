@@ -29,7 +29,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
     return Order(
         portfolio_id="test-portfolio-001",
         engine_id="test-engine-001",
-        run_id="test-run-001",
+        task_id="test-run-001",
         code=code,
         direction=direction,
         order_type=order_type,
@@ -44,7 +44,7 @@ def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100):
     return Signal(
         portfolio_id="test-portfolio-001",
         engine_id="test-engine-001",
-        run_id="test-run-001",
+        task_id="test-run-001",
         code=code,
         direction=direction,
         volume=volume,
@@ -94,7 +94,7 @@ class TestOrderCreationFromSignal:
         order = Order(
             portfolio_id="test-portfolio-001",
             engine_id="test-engine-001",
-            run_id="test-run-001",
+            task_id="test-run-001",
             code=signal.code,
             direction=signal.direction,
             order_type=ORDER_TYPES.MARKETORDER,
@@ -117,7 +117,7 @@ class TestOrderCreationFromSignal:
         )
         assert order.portfolio_id == signal.portfolio_id
         assert order.engine_id == signal.engine_id
-        assert order.run_id == signal.run_id
+        assert order.task_id == signal.task_id
 
 
 @pytest.mark.unit
@@ -283,7 +283,7 @@ class TestOrderCreationPortfolioIntegration:
         order = _make_order()
         assert order.portfolio_id == "test-portfolio-001"
         assert order.engine_id == "test-engine-001"
-        assert order.run_id == "test-run-001"
+        assert order.task_id == "test-run-001"
 
     def test_order_id_assignment(self):
         """测试订单ID分配"""
@@ -322,7 +322,7 @@ class TestOrderCreationValidation:
             Order(
                 portfolio_id="",
                 engine_id="test-engine-001",
-                run_id="test-run-001",
+                task_id="test-run-001",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -352,7 +352,7 @@ class TestOrderCreationValidation:
             Order(
                 portfolio_id="test-portfolio-001",
                 engine_id="test-engine-001",
-                run_id="test-run-001",
+                task_id="test-run-001",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
@@ -395,7 +395,7 @@ class TestOrderCreationMultiStrategy:
         order = Order(
             portfolio_id="strategy-a-portfolio",
             engine_id="test-engine-001",
-            run_id="test-run-001",
+            task_id="test-run-001",
             code="000001.SZ",
             direction=DIRECTION_TYPES.LONG,
             order_type=ORDER_TYPES.LIMITORDER,
@@ -405,4 +405,4 @@ class TestOrderCreationMultiStrategy:
         )
         assert order.portfolio_id == "strategy-a-portfolio"
         assert order.engine_id == "test-engine-001"
-        assert order.run_id == "test-run-001"
+        assert order.task_id == "test-run-001"

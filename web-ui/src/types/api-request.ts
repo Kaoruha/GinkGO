@@ -2,7 +2,7 @@
  * API 请求相关类型定义
  */
 
-import type { PaginationMeta } from './api'
+export type { PaginationMeta } from './api'
 
 /**
  * 基础请求选项，支持 AbortSignal

@@ -74,7 +74,7 @@ def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
                 limit_price=Decimal("10.0"), **overrides):
     """Create an Order with sensible defaults."""
     defaults = dict(
-        portfolio_id="pid", engine_id="eid", run_id="rid",
+        portfolio_id="pid", engine_id="eid", task_id="rid",
         code=code, direction=direction, order_type=ORDER_TYPES.LIMITORDER,
         status=ORDERSTATUS_TYPES.NEW, volume=volume,
         limit_price=limit_price, frozen_money=volume * limit_price,
@@ -108,9 +108,9 @@ class TestBasePortfolioConstruction:
         # PortfolioBase inherits from Base, so it should have uuid, component_type
         assert isinstance(p.uuid, str) and len(p.uuid) > 0
         assert isinstance(p.portfolio_id, str) and len(p.portfolio_id) > 0
-        # engine_id and run_id are None until context injection
+        # engine_id and task_id are None until context injection
         assert p.engine_id is None
-        assert p.run_id is None
+        assert p.task_id is None
         assert callable(getattr(p, 'set_time_provider', None))
 
     def test_default_name_setting(self):
@@ -256,7 +256,7 @@ class TestBasePortfolioPositionManagement:
     def test_position_creation(self):
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -266,13 +266,13 @@ class TestBasePortfolioPositionManagement:
     def test_position_update(self):
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
         p.add_position(pos)
         pos2 = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("11.0"), volume=50,
             price=Decimal("11.0"), uuid="pos2",
         )
@@ -283,7 +283,7 @@ class TestBasePortfolioPositionManagement:
     def test_position_closing(self):
         p = _make_portfolio()
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("10.0"), uuid="pos1",
         )
@@ -457,7 +457,7 @@ class TestWorthAndProfitCalculation:
         p = _make_portfolio()
         p.add_cash(Decimal("100000"))
         pos = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("11.0"), uuid="pos1",
         )
@@ -479,12 +479,12 @@ class TestWorthAndProfitCalculation:
     def test_profit_with_multiple_positions(self):
         p = _make_portfolio()
         pos1 = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", cost=Decimal("10.0"), volume=100,
             price=Decimal("11.0"), uuid="pos1",
         )
         pos2 = Position(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000002.SZ", cost=Decimal("20.0"), volume=50,
             price=Decimal("18.0"), uuid="pos2",
         )
@@ -529,7 +529,7 @@ class TestEventDrivenStrategyExecution:
     def test_strategy_signal_aggregation(self):
         p = _make_portfolio()
         signal = Signal(
-            portfolio_id=p.uuid, engine_id="eid", run_id="rid",
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
             code="000001.SZ", direction=DIRECTION_TYPES.LONG,
             reason="test", source=SOURCE_TYPES.OTHER,
             business_timestamp=datetime.datetime(2024, 1, 2),

@@ -121,7 +121,7 @@ class EventMixin:
         parent_trace_id = kwargs.get('parent_trace_id')
         correlation_id = kwargs.get('correlation_id') or kwargs.get('correlation_id')
         causation_id = kwargs.get('causation_id')
-        session_id = kwargs.get('session_id') or getattr(self, 'run_id', None)
+        session_id = kwargs.get('session_id') or getattr(self, 'task_id', None)
         chain_id = kwargs.get('chain_id') or f"chain_{uuid.uuid4().hex[:12]}"
 
         # 确定根追踪ID

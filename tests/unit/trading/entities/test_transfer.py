@@ -31,7 +31,7 @@ class TestTransferConstruction:
         transfer = Transfer(
             portfolio_id="test_portfolio_001",
             engine_id="engine_001",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("10000.50"),
@@ -69,7 +69,7 @@ class TestTransferConstruction:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -91,7 +91,7 @@ class TestTransferConstruction:
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -106,7 +106,7 @@ class TestTransferConstruction:
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230104_001",
+            task_id="run_20230104_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -120,7 +120,7 @@ class TestTransferConstruction:
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -139,7 +139,7 @@ class TestTransferConstruction:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=direction,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -154,7 +154,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction="IN",  # 字符串而非枚举
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -167,7 +167,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=1,  # 整数而非枚举
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -192,7 +192,7 @@ class TestTransferConstruction:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -207,7 +207,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -220,7 +220,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -238,7 +238,7 @@ class TestTransferConstruction:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=market,
                 money=Decimal("1000.00"),
@@ -253,7 +253,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market="CHINA",  # 字符串而非枚举
                 money=Decimal("1000.00"),
@@ -266,7 +266,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=1,  # 整数而非枚举
                 money=Decimal("1000.00"),
@@ -290,7 +290,7 @@ class TestTransferConstruction:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -312,7 +312,7 @@ class TestTransferConstruction:
                 Transfer(
                     portfolio_id="test_portfolio",
                     engine_id="test_engine",
-                    run_id="run_20230103_001",
+                    task_id="run_20230103_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("1000.00"),
@@ -327,7 +327,7 @@ class TestTransferConstruction:
                 Transfer(
                     portfolio_id="test_portfolio",
                     engine_id="test_engine",
-                    run_id="run_20230103_001",
+                    task_id="run_20230103_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("1000.00"),
@@ -340,7 +340,7 @@ class TestTransferConstruction:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -359,7 +359,7 @@ class TestTransferProperties:
         transfer = Transfer(
             portfolio_id="test_portfolio_001",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -375,7 +375,7 @@ class TestTransferProperties:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine_001",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -385,21 +385,21 @@ class TestTransferProperties:
         assert transfer.engine_id == "test_engine_001"
         assert isinstance(transfer.engine_id, str)
 
-    def test_run_id_property(self):
+    def test_task_id_property(self):
         """测试运行ID属性"""
         # 测试运行ID属性的正确读取
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03"
         )
-        assert transfer.run_id == "run_20230103_001"
-        assert isinstance(transfer.run_id, str)
+        assert transfer.task_id == "run_20230103_001"
+        assert isinstance(transfer.task_id, str)
 
     def test_direction_property(self):
         """测试转账方向属性"""
@@ -409,7 +409,7 @@ class TestTransferProperties:
         transfer_in = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -423,7 +423,7 @@ class TestTransferProperties:
         transfer_out = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -441,7 +441,7 @@ class TestTransferProperties:
         transfer_china = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -455,7 +455,7 @@ class TestTransferProperties:
         transfer_nasdaq = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -469,7 +469,7 @@ class TestTransferProperties:
         transfer_other = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_003",
+            task_id="run_20230103_003",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.OTHER,
             money=Decimal("3000.00"),
@@ -485,7 +485,7 @@ class TestTransferProperties:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("12345.67"),
@@ -499,7 +499,7 @@ class TestTransferProperties:
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230104_001",
+            task_id="run_20230104_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=1000,  # 整数
@@ -526,7 +526,7 @@ class TestTransferProperties:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id=f"run_20230103_{status_name.lower()}",
+                task_id=f"run_20230103_{status_name.lower()}",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -544,7 +544,7 @@ class TestTransferProperties:
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -559,7 +559,7 @@ class TestTransferProperties:
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230615_001",
+            task_id="run_20230615_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -573,7 +573,7 @@ class TestTransferProperties:
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230918_001",
+            task_id="run_20230918_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.OTHER,
             money=Decimal("3000.00"),
@@ -592,7 +592,7 @@ class TestTransferProperties:
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -607,7 +607,7 @@ class TestTransferProperties:
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -622,7 +622,7 @@ class TestTransferProperties:
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_003",
+            task_id="run_20230103_003",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.OTHER,
             money=Decimal("3000.00"),
@@ -642,7 +642,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio_initial",
             engine_id="test_engine_initial",
-            run_id="run_20230103_initial",
+            task_id="run_20230103_initial",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -665,7 +665,7 @@ class TestTransferDataSetting:
         # 验证数据已正确更新
         assert transfer.portfolio_id == "test_portfolio_updated"
         assert transfer.engine_id == "test_engine_updated"
-        assert transfer.run_id == "run_20230103_updated"
+        assert transfer.task_id == "run_20230103_updated"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.OUT
         assert transfer.market == MARKET_TYPES.NASDAQ
         assert transfer.money == Decimal("2500.75")
@@ -678,7 +678,7 @@ class TestTransferDataSetting:
         series_data = pd.Series({
             "portfolio_id": "series_portfolio_001",
             "engine_id": "series_engine_001",
-            "run_id": "run_20230901_series",
+            "task_id": "run_20230901_series",
             "direction": TRANSFERDIRECTION_TYPES.OUT,
             "market": MARKET_TYPES.OTHER,
             "money": Decimal("3333.33"),
@@ -689,7 +689,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="initial_portfolio",
             engine_id="initial_engine",
-            run_id="run_initial",
+            task_id="run_initial",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -701,7 +701,7 @@ class TestTransferDataSetting:
         # 验证从Series设置的数据
         assert transfer.portfolio_id == "series_portfolio_001"
         assert transfer.engine_id == "series_engine_001"
-        assert transfer.run_id == "run_20230901_series"
+        assert transfer.task_id == "run_20230901_series"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.OUT
         assert transfer.market == MARKET_TYPES.OTHER
         assert transfer.money == Decimal("3333.33")
@@ -714,7 +714,7 @@ class TestTransferDataSetting:
         dataframe_data = pd.DataFrame({
             "portfolio_id": ["df_portfolio_001"],
             "engine_id": ["df_engine_001"],
-            "run_id": ["run_20231001_df"],
+            "task_id": ["run_20231001_df"],
             "direction": [TRANSFERDIRECTION_TYPES.IN],
             "market": [MARKET_TYPES.OTHER],
             "money": [Decimal("4444.44")],
@@ -725,7 +725,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="initial_portfolio",
             engine_id="initial_engine",
-            run_id="run_initial",
+            task_id="run_initial",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -737,7 +737,7 @@ class TestTransferDataSetting:
         # 验证从DataFrame设置的数据
         assert transfer.portfolio_id == "df_portfolio_001"
         assert transfer.engine_id == "df_engine_001"
-        assert transfer.run_id == "run_20231001_df"
+        assert transfer.task_id == "run_20231001_df"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.IN
         assert transfer.market == MARKET_TYPES.OTHER
         assert transfer.money == Decimal("4444.44")
@@ -750,7 +750,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -785,7 +785,7 @@ class TestTransferDataSetting:
         series = pd.Series({
             "portfolio_id": "series_portfolio",
             "engine_id": "series_engine",
-            "run_id": "run_series",
+            "task_id": "run_series",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.OTHER,
             "money": Decimal("5000.00"),
@@ -800,7 +800,7 @@ class TestTransferDataSetting:
         dataframe = pd.DataFrame({
             "portfolio_id": ["df_portfolio"],
             "engine_id": ["df_engine"],
-            "run_id": ["run_df"],
+            "task_id": ["run_df"],
             "direction": [TRANSFERDIRECTION_TYPES.OUT],
             "market": [MARKET_TYPES.CHINA],
             "money": [Decimal("6000.00")],
@@ -817,7 +817,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -829,7 +829,7 @@ class TestTransferDataSetting:
         transfer.set(
             "portfolio_correct",      # portfolio_id
             "engine_correct",         # engine_id
-            "run_correct",           # run_id
+            "run_correct",           # task_id
             TRANSFERDIRECTION_TYPES.OUT,  # direction
             MARKET_TYPES.NASDAQ,     # market
             Decimal("2000.00"),      # money
@@ -840,7 +840,7 @@ class TestTransferDataSetting:
         # 验证参数按正确顺序设置
         assert transfer.portfolio_id == "portfolio_correct"
         assert transfer.engine_id == "engine_correct"
-        assert transfer.run_id == "run_correct"
+        assert transfer.task_id == "run_correct"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.OUT
         assert transfer.market == MARKET_TYPES.NASDAQ
         assert transfer.money == Decimal("2000.00")
@@ -860,7 +860,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -872,7 +872,7 @@ class TestTransferDataSetting:
         complete_series = pd.Series({
             "portfolio_id": "complete_portfolio",
             "engine_id": "complete_engine",
-            "run_id": "run_complete",
+            "task_id": "run_complete",
             "direction": TRANSFERDIRECTION_TYPES.OUT,
             "market": MARKET_TYPES.NASDAQ,
             "money": Decimal("2000.00"),
@@ -884,7 +884,7 @@ class TestTransferDataSetting:
         # 测试缺少portfolio_id字段
         missing_portfolio_series = pd.Series({
             "engine_id": "test_engine",
-            "run_id": "run_test",
+            "task_id": "run_test",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.CHINA,
             "money": Decimal("1000.00"),
@@ -896,7 +896,7 @@ class TestTransferDataSetting:
         # 测试缺少engine_id字段
         missing_engine_series = pd.Series({
             "portfolio_id": "test_portfolio",
-            "run_id": "run_test",
+            "task_id": "run_test",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.CHINA,
             "money": Decimal("1000.00"),
@@ -919,7 +919,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -949,7 +949,7 @@ class TestTransferDataSetting:
         series_data = pd.Series({
             "portfolio_id": "series_portfolio",
             "engine_id": "series_engine",
-            "run_id": "run_series",
+            "task_id": "run_series",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.OTHER,
             "money": Decimal("3000.00"),
@@ -966,7 +966,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -999,7 +999,7 @@ class TestTransferDataSetting:
         series_data = pd.Series({
             "portfolio_id": "series_portfolio",
             "engine_id": "series_engine",
-            "run_id": "run_series",
+            "task_id": "run_series",
             "direction": TRANSFERDIRECTION_TYPES.IN,
             "market": MARKET_TYPES.OTHER,
             "money": Decimal("3000.00"),
@@ -1017,7 +1017,7 @@ class TestTransferDataSetting:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -1044,7 +1044,7 @@ class TestTransferDataSetting:
         # 确保设置失败后transfer状态未改变
         assert transfer.portfolio_id == "test_portfolio"
         assert transfer.engine_id == "test_engine"
-        assert transfer.run_id == "run_20230103_001"
+        assert transfer.task_id == "run_20230103_001"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.IN
         assert transfer.market == MARKET_TYPES.CHINA
         assert transfer.money == Decimal("1000.00")
@@ -1067,7 +1067,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=-100.0,  # 负金额
@@ -1079,7 +1079,7 @@ class TestTransferValidation:
         transfer_zero = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=0.0,
@@ -1092,7 +1092,7 @@ class TestTransferValidation:
         transfer_positive = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -1113,7 +1113,7 @@ class TestTransferValidation:
         transfer_small = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=small_amount,
@@ -1127,7 +1127,7 @@ class TestTransferValidation:
         transfer_integer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=integer_amount,
@@ -1141,7 +1141,7 @@ class TestTransferValidation:
         transfer_float = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=float_amount,
@@ -1162,7 +1162,7 @@ class TestTransferValidation:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=direction,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1176,7 +1176,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction="invalid_direction",  # 字符串而不是枚举
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1189,7 +1189,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=None,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1210,7 +1210,7 @@ class TestTransferValidation:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=market,
                 money=1000.0,
@@ -1224,7 +1224,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market="STOCK",  # 字符串而不是枚举
                 money=1000.0,
@@ -1250,7 +1250,7 @@ class TestTransferValidation:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1264,7 +1264,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1284,7 +1284,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="",  # 空字符串
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1297,7 +1297,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id=None,
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1317,7 +1317,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="",  # 空字符串
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1330,7 +1330,7 @@ class TestTransferValidation:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id=None,
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1349,7 +1349,7 @@ class TestTransferValidation:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -1360,7 +1360,7 @@ class TestTransferValidation:
         # 验证所有字段的一致性
         assert transfer.portfolio_id == "test_portfolio"
         assert transfer.engine_id == "test_engine"
-        assert transfer.run_id == "test_run"
+        assert transfer.task_id == "test_run"
         assert transfer.direction == TRANSFERDIRECTION_TYPES.IN
         assert transfer.market == MARKET_TYPES.CHINA
         assert transfer.money == Decimal("1000.00")
@@ -1386,7 +1386,7 @@ class TestTransferValidation:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1408,7 +1408,7 @@ class TestTransferValidation:
                 Transfer(
                     portfolio_id="test_portfolio",
                     engine_id="test_engine",
-                    run_id="test_run",
+                    task_id="test_run",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=1000.0,
@@ -1439,7 +1439,7 @@ class TestTransferStatusManagement:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1455,7 +1455,7 @@ class TestTransferStatusManagement:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -1488,7 +1488,7 @@ class TestTransferStatusManagement:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1500,7 +1500,7 @@ class TestTransferStatusManagement:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=1000.0,
@@ -1514,7 +1514,7 @@ class TestTransferStatusManagement:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -1544,7 +1544,7 @@ class TestTransferStatusManagement:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -1576,7 +1576,7 @@ class TestTransferStatusManagement:
         filled_transfer = Transfer(
             portfolio_id="transition_test_portfolio",
             engine_id="transition_test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -1595,7 +1595,7 @@ class TestTransferStatusManagement:
         reverted_transfer = Transfer(
             portfolio_id=filled_transfer.portfolio_id,
             engine_id=filled_transfer.engine_id,
-            run_id=filled_transfer.run_id,
+            task_id=filled_transfer.task_id,
             direction=filled_transfer.direction,
             market=filled_transfer.market,
             money=filled_transfer.money,
@@ -1611,7 +1611,7 @@ class TestTransferStatusManagement:
         canceled_transfer = Transfer(
             portfolio_id="canceled_transition_portfolio",
             engine_id="canceled_transition_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -1623,7 +1623,7 @@ class TestTransferStatusManagement:
         invalid_filled = Transfer(
             portfolio_id=canceled_transfer.portfolio_id,
             engine_id=canceled_transfer.engine_id,
-            run_id=canceled_transfer.run_id,
+            task_id=canceled_transfer.task_id,
             direction=canceled_transfer.direction,
             market=canceled_transfer.market,
             money=canceled_transfer.money,
@@ -1683,7 +1683,7 @@ class TestTransferStatusManagement:
             terminal_transfer = Transfer(
                 portfolio_id="terminal_test_portfolio",
                 engine_id="terminal_test_engine",
-                run_id="run_20230103_003",
+                task_id="run_20230103_003",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("3000.00"),
@@ -1703,7 +1703,7 @@ class TestTransferStatusManagement:
         consistency_transfer = Transfer(
             portfolio_id="consistency_test_portfolio",
             engine_id="consistency_test_engine",
-            run_id="run_20230103_004",
+            task_id="run_20230103_004",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("4000.00"),
@@ -1714,7 +1714,7 @@ class TestTransferStatusManagement:
         original_data = {
             'portfolio_id': consistency_transfer.portfolio_id,
             'engine_id': consistency_transfer.engine_id,
-            'run_id': consistency_transfer.run_id,
+            'task_id': consistency_transfer.task_id,
             'direction': consistency_transfer.direction,
             'market': consistency_transfer.market,
             'money': consistency_transfer.money,
@@ -1725,7 +1725,7 @@ class TestTransferStatusManagement:
         transitioned_transfer = Transfer(
             portfolio_id=original_data['portfolio_id'],
             engine_id=original_data['engine_id'],
-            run_id=original_data['run_id'],
+            task_id=original_data['task_id'],
             direction=original_data['direction'],
             market=original_data['market'],
             money=original_data['money'],
@@ -1737,7 +1737,7 @@ class TestTransferStatusManagement:
         # 验证除了状态外，其他数据保持一致
         assert transitioned_transfer.portfolio_id == original_data['portfolio_id']
         assert transitioned_transfer.engine_id == original_data['engine_id']
-        assert transitioned_transfer.run_id == original_data['run_id']
+        assert transitioned_transfer.task_id == original_data['task_id']
         assert transitioned_transfer.direction == original_data['direction']
         assert transitioned_transfer.market == original_data['market']
         assert transitioned_transfer.money == original_data['money']
@@ -1874,7 +1874,7 @@ class TestTransferStatusManagement:
                 transfer = Transfer(
                     portfolio_id=f"lifecycle_scenario_{scenario_idx}",
                     engine_id=f"lifecycle_engine_{scenario_idx}",
-                    run_id=f"run_20230103_{scenario_idx:03d}",
+                    task_id=f"run_20230103_{scenario_idx:03d}",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("1000.00"),
@@ -1925,7 +1925,7 @@ class TestTransferStatusManagement:
             terminal_transfer = Transfer(
                 portfolio_id="terminal_validation_portfolio",
                 engine_id="terminal_validation_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("5000.00"),
@@ -1959,7 +1959,7 @@ class TestTransferStatusManagement:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -1998,7 +1998,7 @@ class TestTransferBusinessLogic:
         transfer_in = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2013,7 +2013,7 @@ class TestTransferBusinessLogic:
         transfer_out = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2037,7 +2037,7 @@ class TestTransferBusinessLogic:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=market,
                 money=1000.0,
@@ -2059,7 +2059,7 @@ class TestTransferBusinessLogic:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=high_precision_amount,
@@ -2076,7 +2076,7 @@ class TestTransferBusinessLogic:
         transfer_int = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000,  # int
@@ -2090,7 +2090,7 @@ class TestTransferBusinessLogic:
         transfer_float = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=999.99,  # float
@@ -2111,7 +2111,7 @@ class TestTransferBusinessLogic:
         transfer_str = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2127,7 +2127,7 @@ class TestTransferBusinessLogic:
         transfer_dt = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2141,7 +2141,7 @@ class TestTransferBusinessLogic:
         transfer_str_with_time = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2162,7 +2162,7 @@ class TestTransferBusinessLogic:
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run_1",
+            task_id="test_run_1",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2173,7 +2173,7 @@ class TestTransferBusinessLogic:
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run_2",
+            task_id="test_run_2",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2184,7 +2184,7 @@ class TestTransferBusinessLogic:
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run_3",
+            task_id="test_run_3",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.NASDAQ,
             money=2000.0,
@@ -2215,7 +2215,7 @@ class TestTransferBusinessLogic:
         transfer = Transfer(
             portfolio_id="portfolio_001",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2255,7 +2255,7 @@ class TestTransferBusinessLogic:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="engine_001",
-            run_id="run_20230101_001",
+            task_id="run_20230101_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2265,23 +2265,23 @@ class TestTransferBusinessLogic:
 
         # 验证Engine和Run关联
         assert transfer.engine_id == "engine_001"
-        assert transfer.run_id == "run_20230101_001"
+        assert transfer.task_id == "run_20230101_001"
         assert isinstance(transfer.engine_id, str)
-        assert isinstance(transfer.run_id, str)
+        assert isinstance(transfer.task_id, str)
 
         # 测试engine_id有setter可以直接修改
         transfer.engine_id = "updated_engine_002"
         assert transfer.engine_id == "updated_engine_002"
 
-        # 测试run_id有setter可以直接修改
-        transfer.run_id = "updated_run_002"
-        assert transfer.run_id == "updated_run_002"
+        # 测试task_id有setter可以直接修改
+        transfer.task_id = "updated_run_002"
+        assert transfer.task_id == "updated_run_002"
 
-        # 测试通过set方法更新engine_id和run_id
+        # 测试通过set方法更新engine_id和task_id
         transfer.set(
             "test_portfolio",
             "final_engine_003",     # 新的engine_id
-            "run_20230102_final",   # 新的run_id
+            "run_20230102_final",   # 新的task_id
             TRANSFERDIRECTION_TYPES.OUT,
             MARKET_TYPES.NASDAQ,
             2000.0,
@@ -2291,7 +2291,7 @@ class TestTransferBusinessLogic:
 
         # 验证更新成功
         assert transfer.engine_id == "final_engine_003"
-        assert transfer.run_id == "run_20230102_final"
+        assert transfer.task_id == "run_20230102_final"
 
     def test_transfer_amount_boundary_conditions(self):
         """测试转账金额边界条件"""
@@ -2304,7 +2304,7 @@ class TestTransferBusinessLogic:
         transfer_zero = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=0,
@@ -2319,7 +2319,7 @@ class TestTransferBusinessLogic:
         transfer_small = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=small_amount,
@@ -2334,7 +2334,7 @@ class TestTransferBusinessLogic:
         transfer_large = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=large_amount,
@@ -2349,7 +2349,7 @@ class TestTransferBusinessLogic:
         transfer_precision = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=precision_amount,
@@ -2443,7 +2443,7 @@ class TestTransferConstraints:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2467,7 +2467,7 @@ class TestTransferConstraints:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="test_run",
+            task_id="test_run",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=1000.0,
@@ -2478,7 +2478,7 @@ class TestTransferConstraints:
         # 验证所有字段都有正确的值且不为None
         assert transfer.portfolio_id is not None
         assert transfer.engine_id is not None
-        assert transfer.run_id is not None
+        assert transfer.task_id is not None
         assert transfer.direction is not None
         assert transfer.market is not None
         assert transfer.money is not None
@@ -2489,7 +2489,7 @@ class TestTransferConstraints:
         # 验证字段类型正确性
         assert isinstance(transfer.portfolio_id, str)
         assert isinstance(transfer.engine_id, str)
-        assert isinstance(transfer.run_id, str)
+        assert isinstance(transfer.task_id, str)
         assert isinstance(transfer.direction, TRANSFERDIRECTION_TYPES)
         assert isinstance(transfer.market, MARKET_TYPES)
         assert isinstance(transfer.status, TRANSFERSTATUS_TYPES)
@@ -2498,7 +2498,7 @@ class TestTransferConstraints:
         # 验证字符串字段非空
         assert len(transfer.portfolio_id) > 0
         assert len(transfer.engine_id) > 0
-        assert len(transfer.run_id) > 0
+        assert len(transfer.task_id) > 0
         assert len(transfer.uuid) > 0
 
     def test_enum_value_range_validation(self):
@@ -2517,7 +2517,7 @@ class TestTransferConstraints:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=direction,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2542,7 +2542,7 @@ class TestTransferConstraints:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2564,7 +2564,7 @@ class TestTransferConstraints:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=market,
                 money=Decimal("1000.00"),
@@ -2583,7 +2583,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction="IN",  # 字符串而非枚举
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2596,7 +2596,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=999,  # 超出范围的整数
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2609,7 +2609,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2622,7 +2622,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2635,7 +2635,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market="CHINA",  # 字符串而非枚举
                 money=Decimal("1000.00"),
@@ -2648,7 +2648,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=1.5,  # 浮点数而非枚举
                 money=Decimal("1000.00"),
@@ -2661,7 +2661,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=None,  # None值
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2673,7 +2673,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=None,  # None值
                 money=Decimal("1000.00"),
@@ -2685,7 +2685,7 @@ class TestTransferConstraints:
             Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -2714,7 +2714,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="large_portfolio",
                 engine_id="large_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=amount,
@@ -2734,7 +2734,7 @@ class TestTransferFinancialOperations:
         transfer = Transfer(
             portfolio_id="extreme_portfolio",
             engine_id="extreme_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=extreme_large,
@@ -2765,7 +2765,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="precision_portfolio",
                 engine_id="precision_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=amount,
@@ -2789,7 +2789,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="ultra_precision_portfolio",
                 engine_id="ultra_precision_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.NASDAQ,
                 money=amount,
@@ -2815,7 +2815,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="scientific_portfolio",
                 engine_id="scientific_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=amount,
@@ -2835,7 +2835,7 @@ class TestTransferFinancialOperations:
         transfer = Transfer(
             portfolio_id="arithmetic_portfolio",
             engine_id="arithmetic_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=base_amount,
@@ -2875,7 +2875,7 @@ class TestTransferFinancialOperations:
         high_precision_transfer = Transfer(
             portfolio_id="precision_arithmetic_portfolio",
             engine_id="precision_arithmetic_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("123.456789"),
@@ -2894,7 +2894,7 @@ class TestTransferFinancialOperations:
         zero_transfer = Transfer(
             portfolio_id="zero_portfolio",
             engine_id="zero_engine",
-            run_id="run_20230103_003",
+            task_id="run_20230103_003",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("0.00"),
@@ -2926,7 +2926,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="rounding_portfolio",
                 engine_id="rounding_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=original_amount,
@@ -2944,7 +2944,7 @@ class TestTransferFinancialOperations:
         transfer = Transfer(
             portfolio_id="precision_rounding_portfolio",
             engine_id="precision_rounding_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=high_precision_amount,
@@ -2977,7 +2977,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="tiny_amount_portfolio",
                 engine_id="tiny_amount_engine",
-                run_id="run_20230103_003",
+                task_id="run_20230103_003",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=tiny_amount,
@@ -3005,7 +3005,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="minimum_portfolio",
                 engine_id="minimum_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=min_amount,
@@ -3022,7 +3022,7 @@ class TestTransferFinancialOperations:
         zero_transfer = Transfer(
             portfolio_id="zero_boundary_portfolio",
             engine_id="zero_boundary_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=zero_amount,
@@ -3044,7 +3044,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="maximum_portfolio",
                 engine_id="maximum_engine",
-                run_id="run_20230103_003",
+                task_id="run_20230103_003",
                 direction=TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.NASDAQ,
                 money=max_amount,
@@ -3070,7 +3070,7 @@ class TestTransferFinancialOperations:
                 transfer = Transfer(
                     portfolio_id="boundary_portfolio",
                     engine_id="boundary_engine",
-                    run_id="run_20230103_004",
+                    task_id="run_20230103_004",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=boundary_amount,
@@ -3092,7 +3092,7 @@ class TestTransferFinancialOperations:
         large_transfer = Transfer(
             portfolio_id="arithmetic_boundary_portfolio",
             engine_id="arithmetic_boundary_engine",
-            run_id="run_20230103_005",
+            task_id="run_20230103_005",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=large_amount,
@@ -3103,7 +3103,7 @@ class TestTransferFinancialOperations:
         small_transfer = Transfer(
             portfolio_id="arithmetic_boundary_portfolio",
             engine_id="arithmetic_boundary_engine",
-            run_id="run_20230103_006",
+            task_id="run_20230103_006",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=small_amount,
@@ -3129,7 +3129,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="int_conversion_portfolio",
                 engine_id="int_conversion_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=int_amount,  # 传入int类型
@@ -3147,7 +3147,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="float_conversion_portfolio",
                 engine_id="float_conversion_engine",
-                run_id="run_20230103_002",
+                task_id="run_20230103_002",
                 direction=TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.NASDAQ,
                 money=float_amount,  # 传入float类型
@@ -3171,7 +3171,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="decimal_conversion_portfolio",
                 engine_id="decimal_conversion_engine",
-                run_id="run_20230103_003",
+                task_id="run_20230103_003",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=decimal_amount,  # 传入Decimal类型
@@ -3188,7 +3188,7 @@ class TestTransferFinancialOperations:
         transfer = Transfer(
             portfolio_id="precision_loss_portfolio",
             engine_id="precision_loss_engine",
-            run_id="run_20230103_004",
+            task_id="run_20230103_004",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=problematic_float,
@@ -3206,7 +3206,7 @@ class TestTransferFinancialOperations:
         transfer = Transfer(
             portfolio_id="large_int_portfolio",
             engine_id="large_int_engine",
-            run_id="run_20230103_005",
+            task_id="run_20230103_005",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=large_int,
@@ -3227,7 +3227,7 @@ class TestTransferFinancialOperations:
             transfer = Transfer(
                 portfolio_id="conversion_test_portfolio",
                 engine_id="conversion_test_engine",
-                run_id="run_20230103_006",
+                task_id="run_20230103_006",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=input_value,
@@ -3262,7 +3262,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id=portfolio_id,
                 engine_id="test_engine",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -3279,7 +3279,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="original_portfolio",
             engine_id="test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -3315,7 +3315,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id=portfolio_id,
                 engine_id=f"engine_{i+1}",
-                run_id=f"run_20230103_{i+1:03d}",
+                task_id=f"run_20230103_{i+1:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i % 2 == 0 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 * (i+1)}.00"),
@@ -3347,7 +3347,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id=engine_id,
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -3364,7 +3364,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="original_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -3402,7 +3402,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id="multi_engine_portfolio",
                 engine_id=engine_id,
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1500.00"),
@@ -3421,7 +3421,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id=f"portfolio_{i+1}",
                 engine_id=engine_id,
-                run_id=f"run_20230103_{i+1:03d}",
+                task_id=f"run_20230103_{i+1:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i < 2 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{500 * (i+1)}.00"),
@@ -3449,7 +3449,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id="cross_engine_portfolio",
                 engine_id=engine_id,
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=market,
                 money=amount,
@@ -3465,19 +3465,19 @@ class TestTransferIntegration:
         """测试与Run的关联验证"""
         # 测试与Run的关联验证
 
-        # 测试有效的run_id关联
-        valid_run_ids = [
+        # 测试有效的task_id关联
+        valid_task_ids = [
             "run_20230103_001",
             "backtest_run_strategy_A_20230103",
             "live_run_production_001",
             "paper_trading_run_test_123"
         ]
 
-        for run_id in valid_run_ids:
+        for task_id in valid_task_ids:
             transfer = Transfer(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id=run_id,
+                task_id=task_id,
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -3485,16 +3485,16 @@ class TestTransferIntegration:
                 timestamp="2023-01-03"
             )
 
-            # 验证run_id正确设置
-            assert transfer.run_id == run_id
-            assert isinstance(transfer.run_id, str)
-            assert len(transfer.run_id) > 0
+            # 验证task_id正确设置
+            assert transfer.task_id == task_id
+            assert isinstance(transfer.task_id, str)
+            assert len(transfer.task_id) > 0
 
-        # 测试run_id的setter功能
+        # 测试task_id的setter功能
         transfer = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
-            run_id="original_run",
+            task_id="original_run",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -3502,10 +3502,10 @@ class TestTransferIntegration:
             timestamp="2023-01-03"
         )
 
-        # 更新run_id
-        new_run_id = "updated_run_20230103_v2"
-        transfer.run_id = new_run_id
-        assert transfer.run_id == new_run_id
+        # 更新task_id
+        new_task_id = "updated_run_20230103_v2"
+        transfer.task_id = new_task_id
+        assert transfer.task_id == new_task_id
 
         # 测试通过set方法更新run关联
         transfer.set(
@@ -3519,10 +3519,10 @@ class TestTransferIntegration:
             "2023-01-03"
         )
 
-        assert transfer.run_id == "final_run_production_002"
+        assert transfer.task_id == "final_run_production_002"
 
         # 测试同一run下的多笔转账序列
-        run_id = "sequential_transfers_run_20230103"
+        task_id = "sequential_transfers_run_20230103"
         run_transfers = []
 
         # 模拟一个交易运行中的多笔转账序列
@@ -3537,7 +3537,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id="sequential_portfolio",
                 engine_id="sequential_engine",
-                run_id=run_id,
+                task_id=task_id,
                 direction=direction,
                 market=MARKET_TYPES.CHINA,
                 money=amount,
@@ -3548,13 +3548,13 @@ class TestTransferIntegration:
 
         # 验证所有转账都属于同一个run
         for transfer in run_transfers:
-            assert transfer.run_id == run_id
+            assert transfer.task_id == task_id
 
         # 验证run的一致性
-        assert len(set(t.run_id for t in run_transfers)) == 1
+        assert len(set(t.task_id for t in run_transfers)) == 1
 
-        # 测试run_id的时间序列特征
-        time_based_run_ids = [
+        # 测试task_id的时间序列特征
+        time_based_task_ids = [
             "run_20230101_001",
             "run_20230102_001",
             "run_20230103_001",
@@ -3562,11 +3562,11 @@ class TestTransferIntegration:
         ]
 
         time_transfers = []
-        for i, run_id in enumerate(time_based_run_ids):
+        for i, task_id in enumerate(time_based_task_ids):
             transfer = Transfer(
                 portfolio_id="time_series_portfolio",
                 engine_id="time_series_engine",
-                run_id=run_id,
+                task_id=task_id,
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*100}.00"),
@@ -3575,9 +3575,9 @@ class TestTransferIntegration:
             )
             time_transfers.append(transfer)
 
-        # 验证不同时间的run_id都能正确设置
+        # 验证不同时间的task_id都能正确设置
         for i, transfer in enumerate(time_transfers):
-            assert transfer.run_id == time_based_run_ids[i]
+            assert transfer.task_id == time_based_task_ids[i]
 
         # 测试run关联的业务逻辑验证
         # 回测run vs 实盘run的处理差异
@@ -3587,11 +3587,11 @@ class TestTransferIntegration:
             ("paper_run_20230103", TRANSFERSTATUS_TYPES.SUBMITTED),
         ]
 
-        for run_id, expected_status in run_scenarios:
+        for task_id, expected_status in run_scenarios:
             transfer = Transfer(
                 portfolio_id="scenario_portfolio",
                 engine_id="scenario_engine",
-                run_id=run_id,
+                task_id=task_id,
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("5000.00"),
@@ -3599,21 +3599,21 @@ class TestTransferIntegration:
                 timestamp="2023-01-03"
             )
 
-            assert transfer.run_id == run_id
+            assert transfer.task_id == task_id
             assert transfer.status == expected_status
 
-        # 验证run_id格式的一致性
-        run_id_patterns = [
+        # 验证task_id格式的一致性
+        task_id_patterns = [
             "run_20230103_001",
             "RUN_20230103_002",
             "live_run_production_20230103_001"
         ]
 
-        for pattern in run_id_patterns:
+        for pattern in task_id_patterns:
             transfer = Transfer(
                 portfolio_id="pattern_portfolio",
                 engine_id="pattern_engine",
-                run_id=pattern,
+                task_id=pattern,
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -3621,8 +3621,8 @@ class TestTransferIntegration:
                 timestamp="2023-01-03"
             )
 
-            assert transfer.run_id == pattern
-            assert isinstance(transfer.run_id, str)
+            assert transfer.task_id == pattern
+            assert isinstance(transfer.task_id, str)
 
     def test_uuid_consistency_across_components(self):
         """测试UUID在组件间的一致性"""
@@ -3632,7 +3632,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="uuid_test_portfolio",
             engine_id="uuid_test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -3652,7 +3652,7 @@ class TestTransferIntegration:
         transfer2 = Transfer(
             portfolio_id="uuid_test_portfolio_2",
             engine_id="uuid_test_engine_2",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -3668,7 +3668,7 @@ class TestTransferIntegration:
         transfer_with_custom_uuid = Transfer(
             portfolio_id="custom_uuid_portfolio",
             engine_id="custom_uuid_engine",
-            run_id="run_20230103_003",
+            task_id="run_20230103_003",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("3000.00"),
@@ -3684,7 +3684,7 @@ class TestTransferIntegration:
         persistent_transfer = Transfer(
             portfolio_id="persistent_portfolio",
             engine_id="persistent_engine",
-            run_id="run_20230103_004",
+            task_id="run_20230103_004",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=Decimal("4000.00"),
@@ -3697,7 +3697,7 @@ class TestTransferIntegration:
         # 执行各种操作后UUID应该保持不变
         persistent_transfer.portfolio_id = "updated_portfolio"
         persistent_transfer.engine_id = "updated_engine"
-        persistent_transfer.run_id = "updated_run"
+        persistent_transfer.task_id = "updated_run"
 
         assert persistent_transfer.uuid == persistent_uuid
 
@@ -3723,7 +3723,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id=f"batch_portfolio_{i}",
                 engine_id=f"batch_engine_{i}",
-                run_id=f"run_20230103_{i:03d}",
+                task_id=f"run_20230103_{i:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i % 2 == 0 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*100}.00"),
@@ -3756,7 +3756,7 @@ class TestTransferIntegration:
         empty_uuid_transfer = Transfer(
             portfolio_id="empty_uuid_portfolio",
             engine_id="empty_uuid_engine",
-            run_id="run_20230103_005",
+            task_id="run_20230103_005",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -3777,7 +3777,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="component_test_portfolio",
             engine_id="component_test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -3795,7 +3795,7 @@ class TestTransferIntegration:
             t = Transfer(
                 portfolio_id=f"portfolio_{i}",
                 engine_id=f"engine_{i}",
-                run_id=f"run_20230103_{i:03d}",
+                task_id=f"run_20230103_{i:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i % 2 == 0 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*100}.00"),
@@ -3812,7 +3812,7 @@ class TestTransferIntegration:
         persistent_transfer = Transfer(
             portfolio_id="persistent_portfolio",
             engine_id="persistent_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("2000.00"),
@@ -3825,7 +3825,7 @@ class TestTransferIntegration:
         # 执行各种修改操作
         persistent_transfer.portfolio_id = "updated_portfolio"
         persistent_transfer.engine_id = "updated_engine"
-        persistent_transfer.run_id = "updated_run"
+        persistent_transfer.task_id = "updated_run"
 
         # component_type应该保持不变
         assert persistent_transfer.component_type == original_component_type
@@ -3862,7 +3862,7 @@ class TestTransferIntegration:
             Transfer(
                 portfolio_id="collection_portfolio_1",
                 engine_id="collection_engine_1",
-                run_id="run_20230103_001",
+                task_id="run_20230103_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("1000.00"),
@@ -3872,7 +3872,7 @@ class TestTransferIntegration:
             Transfer(
                 portfolio_id="collection_portfolio_2",
                 engine_id="collection_engine_2",
-                run_id="run_20230103_002",
+                task_id="run_20230103_002",
                 direction=TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.NASDAQ,
                 money=Decimal("2000.00"),
@@ -3907,7 +3907,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="lifecycle_portfolio",
             engine_id="lifecycle_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("10000.00"),
@@ -3925,7 +3925,7 @@ class TestTransferIntegration:
         submitted_transfer = Transfer(
             portfolio_id=transfer.portfolio_id,
             engine_id=transfer.engine_id,
-            run_id=transfer.run_id,
+            task_id=transfer.task_id,
             direction=transfer.direction,
             market=transfer.market,
             money=transfer.money,
@@ -3942,7 +3942,7 @@ class TestTransferIntegration:
         pending_transfer = Transfer(
             portfolio_id=submitted_transfer.portfolio_id,
             engine_id=submitted_transfer.engine_id,
-            run_id=submitted_transfer.run_id,
+            task_id=submitted_transfer.task_id,
             direction=submitted_transfer.direction,
             market=submitted_transfer.market,
             money=submitted_transfer.money,
@@ -3958,7 +3958,7 @@ class TestTransferIntegration:
         filled_transfer = Transfer(
             portfolio_id=pending_transfer.portfolio_id,
             engine_id=pending_transfer.engine_id,
-            run_id=pending_transfer.run_id,
+            task_id=pending_transfer.task_id,
             direction=pending_transfer.direction,
             market=pending_transfer.market,
             money=pending_transfer.money,
@@ -3975,7 +3975,7 @@ class TestTransferIntegration:
         canceled_transfer = Transfer(
             portfolio_id="lifecycle_portfolio_canceled",
             engine_id="lifecycle_engine_canceled",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("5000.00"),
@@ -3987,7 +3987,7 @@ class TestTransferIntegration:
         canceled_final = Transfer(
             portfolio_id=canceled_transfer.portfolio_id,
             engine_id=canceled_transfer.engine_id,
-            run_id=canceled_transfer.run_id,
+            task_id=canceled_transfer.task_id,
             direction=canceled_transfer.direction,
             market=canceled_transfer.market,
             money=canceled_transfer.money,
@@ -4007,7 +4007,7 @@ class TestTransferIntegration:
             transfer = Transfer(
                 portfolio_id="batch_lifecycle_portfolio",
                 engine_id="batch_lifecycle_engine",
-                run_id=f"run_20230103_{i+1:03d}",
+                task_id=f"run_20230103_{i+1:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i % 2 == 0 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 * (i+1)}.00"),
@@ -4026,7 +4026,7 @@ class TestTransferIntegration:
             submitted = Transfer(
                 portfolio_id=transfer.portfolio_id,
                 engine_id=transfer.engine_id,
-                run_id=transfer.run_id,
+                task_id=transfer.task_id,
                 direction=transfer.direction,
                 market=transfer.market,
                 money=transfer.money,
@@ -4047,7 +4047,7 @@ class TestTransferIntegration:
             final_transfer = Transfer(
                 portfolio_id=transfer.portfolio_id,
                 engine_id=transfer.engine_id,
-                run_id=transfer.run_id,
+                task_id=transfer.task_id,
                 direction=transfer.direction,
                 market=transfer.market,
                 money=transfer.money,
@@ -4068,7 +4068,7 @@ class TestTransferIntegration:
         lifecycle_transfer = Transfer(
             portfolio_id="consistency_portfolio",
             engine_id="consistency_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("8000.00"),
@@ -4079,7 +4079,7 @@ class TestTransferIntegration:
         original_data = {
             'portfolio_id': lifecycle_transfer.portfolio_id,
             'engine_id': lifecycle_transfer.engine_id,
-            'run_id': lifecycle_transfer.run_id,
+            'task_id': lifecycle_transfer.task_id,
             'direction': lifecycle_transfer.direction,
             'market': lifecycle_transfer.market,
             'money': lifecycle_transfer.money,
@@ -4097,7 +4097,7 @@ class TestTransferIntegration:
             updated_transfer = Transfer(
                 portfolio_id=original_data['portfolio_id'],
                 engine_id=original_data['engine_id'],
-                run_id=original_data['run_id'],
+                task_id=original_data['task_id'],
                 direction=original_data['direction'],
                 market=original_data['market'],
                 money=original_data['money'],
@@ -4109,7 +4109,7 @@ class TestTransferIntegration:
             # 验证核心数据在状态变更中保持一致
             assert updated_transfer.portfolio_id == original_data['portfolio_id']
             assert updated_transfer.engine_id == original_data['engine_id']
-            assert updated_transfer.run_id == original_data['run_id']
+            assert updated_transfer.task_id == original_data['task_id']
             assert updated_transfer.direction == original_data['direction']
             assert updated_transfer.market == original_data['market']
             assert updated_transfer.money == original_data['money']
@@ -4124,7 +4124,7 @@ class TestTransferIntegration:
         transfer = Transfer(
             portfolio_id="inheritance_test_portfolio",
             engine_id="inheritance_test_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
@@ -4161,7 +4161,7 @@ class TestTransferIntegration:
         transfer_with_custom_uuid = Transfer(
             portfolio_id="custom_inheritance_portfolio",
             engine_id="custom_inheritance_engine",
-            run_id="run_20230103_002",
+            task_id="run_20230103_002",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
@@ -4179,7 +4179,7 @@ class TestTransferIntegration:
             t = Transfer(
                 portfolio_id=f"inheritance_portfolio_{i}",
                 engine_id=f"inheritance_engine_{i}",
-                run_id=f"run_20230103_{i:03d}",
+                task_id=f"run_20230103_{i:03d}",
                 direction=TRANSFERDIRECTION_TYPES.IN if i % 2 == 0 else TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*500}.00"),
@@ -4202,7 +4202,7 @@ class TestTransferIntegration:
         base_args_transfer = Transfer(
             portfolio_id="base_args_portfolio",
             engine_id="base_args_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("3000.00"),
@@ -4222,7 +4222,7 @@ class TestTransferIntegration:
 
         # 验证Transfer特有的属性不会干扰Base类功能
         transfer_specific_attrs = [
-            'portfolio_id', 'engine_id', 'run_id', 'direction',
+            'portfolio_id', 'engine_id', 'task_id', 'direction',
             'market', 'money', 'status', 'timestamp'
         ]
 
@@ -4244,7 +4244,7 @@ class TestTransferIntegration:
         business_transfer = Transfer(
             portfolio_id="business_inheritance_portfolio",
             engine_id="business_inheritance_engine",
-            run_id="run_20230103_001",
+            task_id="run_20230103_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("5000.00"),

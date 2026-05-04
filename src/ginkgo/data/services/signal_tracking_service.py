@@ -739,7 +739,7 @@ class SignalTrackingService(BaseService):
         self,
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
-        run_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         account_type: Optional[ACCOUNT_TYPE] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None
@@ -750,7 +750,7 @@ class SignalTrackingService(BaseService):
         Args:
             portfolio_id: 投资组合ID筛选
             engine_id: 引擎ID筛选
-            run_id: 运行会话ID筛选
+            task_id: 运行会话ID筛选
             account_type: 账户类型筛选
             start_time: 开始时间筛选
             end_time: 结束时间筛选
@@ -765,8 +765,8 @@ class SignalTrackingService(BaseService):
                 filters["portfolio_id"] = portfolio_id
             if engine_id is not None:
                 filters["engine_id"] = engine_id
-            if run_id is not None:
-                filters["run_id"] = run_id
+            if task_id is not None:
+                filters["task_id"] = task_id
             if account_type is not None:
                 filters["account_type"] = account_type
             if start_time is not None:

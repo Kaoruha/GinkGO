@@ -45,7 +45,7 @@ class SignalCount(BaseAnalyzer):
         analyzer_service.add_record(
             portfolio_id=self.portfolio_id,
             engine_id=self.engine_id,
-            run_id=self.run_id,
+            task_id=self.task_id,
             timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
             business_timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
             value=self._total_count,

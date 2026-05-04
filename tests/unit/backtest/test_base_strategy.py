@@ -55,7 +55,7 @@ def _make_signal(code="TEST001", direction=DIRECTION_TYPES.LONG, reason="test_si
     return Signal(
         portfolio_id="test_portfolio",
         engine_id="test_engine",
-        run_id="test_run",
+        task_id="test_run",
         code=code,
         direction=direction,
         reason=reason,

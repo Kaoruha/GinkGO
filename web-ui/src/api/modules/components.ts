@@ -1,77 +1,32 @@
 import request from '../request'
 
-export interface ComponentSummary {
-  uuid: string
-  name: string
-  type: string
-  component_type: 'strategy' | 'selector' | 'sizer' | 'risk' | 'analyzer'
-  description?: string
-  version?: string
-  is_latest?: boolean
-  params?: any[]
-  parameters?: any[]
-}
+const BASE = '/api/v1/components/'
 
 export const componentsApi = {
-  /**
-   * 获取所有组件列表
-   */
-  async list(): Promise<ComponentSummary[]> {
-    const [strategies, selectors, risks, sizers, analyzers] = await Promise.all([
-      this.getStrategies(),
-      this.getSelectors(),
-      this.getRisks(),
-      this.getSizers(),
-      this.getAnalyzers(),
-    ])
-    return [...strategies, ...selectors, ...risks, ...sizers, ...analyzers]
+  async list(componentType?: string, params?: Record<string, any>) {
+    const p: Record<string, any> = {}
+    if (componentType) {
+      p.component_type = componentType
+    }
+    if (params) {
+      Object.assign(p, params)
+    }
+    return request.get(BASE, { params: p })
   },
 
-  /**
-   * 获取策略组件列表
-   */
-  async getStrategies(): Promise<ComponentSummary[]> {
-    const res: any = await request.get('/api/v1/components/strategies')
-    return (res.data || []).map((item: any) => ({ ...item, component_type: 'strategy', parameters: item.params }))
+  async get(uuid: string) {
+    return request.get(`${BASE}${uuid}`)
   },
 
-  /**
-   * 获取选股器组件列表
-   */
-  async getSelectors(): Promise<ComponentSummary[]> {
-    const res: any = await request.get('/api/v1/components/selectors')
-    return (res.data || []).map((item: any) => ({ ...item, component_type: 'selector', parameters: item.params }))
+  async create(data: { name: string; component_type: string; code: string; description?: string }) {
+    return request.post(BASE, data)
   },
 
-  /**
-   * 获取风控组件列表
-   */
-  async getRisks(): Promise<ComponentSummary[]> {
-    const res: any = await request.get('/api/v1/components/risks')
-    return (res.data || []).map((item: any) => ({ ...item, component_type: 'risk', parameters: item.params }))
+  async update(uuid: string, data: { name?: string; code?: string; description?: string }) {
+    return request.put(`${BASE}${uuid}`, data)
   },
 
-  /**
-   * 获取仓位组件列表
-   */
-  async getSizers(): Promise<ComponentSummary[]> {
-    const res: any = await request.get('/api/v1/components/sizers')
-    return (res.data || []).map((item: any) => ({ ...item, component_type: 'sizer', parameters: item.params }))
-  },
-
-  /**
-   * 获取分析器组件列表
-   */
-  async getAnalyzers(): Promise<ComponentSummary[]> {
-    const res: any = await request.get('/api/v1/components/analyzers')
-    return (res.data || []).map((item: any) => ({ ...item, component_type: 'analyzer', parameters: item.params }))
-  },
-
-  /**
-   * 获取指定组件的所有版本
-   */
-  async getVersions(name: string, type: number): Promise<ComponentSummary[]> {
-    const res: any = await request.get(`/api/v1/file/${name}/versions?type=${type}`)
-    return (res.data || []).map((item: any) => ({ ...item, parameters: item.params }))
+  async delete(uuid: string) {
+    return request.delete(`${BASE}${uuid}`)
   },
 }

@@ -186,6 +186,10 @@ class GinkgoConfig(object):
         Path(path).mkdir(parents=True, exist_ok=True)
 
     def generate_config_file(self, path=None) -> None:
+        # Already initialized, skip redundant file checks and prints
+        if path is None and self._has_local_config is not None:
+            return
+
         if path is None:
             path = self.get_conf_dir()
 
@@ -196,6 +200,7 @@ class GinkgoConfig(object):
         if not os.path.exists(config_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/config.yml")
             if os.path.exists(origin_path):
+                os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, config_path)
                 print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
                 self._has_local_config = True  # ✅ 更新缓存
@@ -210,6 +215,7 @@ class GinkgoConfig(object):
         if not os.path.exists(secure_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/secure.backup")
             if os.path.exists(origin_path):
+                os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, secure_path)
                 print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
                 self._has_local_secure = True  # ✅ 更新缓存
@@ -266,19 +272,24 @@ class GinkgoConfig(object):
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
         """
         配置获取优先级：
-        1. 配置文件（如果存在）
-        2. 环境变量 GINKGO_{KEY}
+        1. 环境变量 GINKGO_{KEY}
+        2. 配置文件（如果存在）
         3. 默认值
 
         支持嵌套路径：section 参数可以是 "notifications.email" 这样的路径
         """
-        # 判断是否需要读取配置文件（使用缓存）
+        # 优先级1: 环境变量
+        env_key = f"GINKGO_{key.upper()}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            return env_value
+
+        # 优先级2: 尝试从配置文件读取
         if section is None:
             has_file = self._has_local_config
         else:
             has_file = self._has_local_secure
 
-        # 优先级1: 尝试从配置文件读取
         if has_file:
             try:
                 if section is None:
@@ -301,12 +312,6 @@ class GinkgoConfig(object):
                     return config[key]
             except Exception as e:
                 print(f"[GCONF] Error reading config file: {e}")
-
-        # 优先级2: 尝试环境变量
-        env_key = f"GINKGO_{key.upper()}"
-        env_value = os.environ.get(env_key)
-        if env_value is not None:
-            return env_value
 
         # 优先级3: 返回默认值
         return default
@@ -340,10 +345,12 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_PATH(self) -> str:
+        # 优先级：环境变量 > config.yml > 默认值
+        env_path = os.environ.get("GINKGO_LOG_PATH")
+        if env_path:
+            return env_path
         path = self._get_config("log_path")
         if path is None:
-            # 提供默认日志路径
-            import os
             default_path = os.path.join(os.path.expanduser("~"), ".ginkgo", "logs")
             return default_path
         return path
@@ -359,6 +366,17 @@ class GinkgoConfig(object):
         self._write_config("working_directory", path)
 
     @property
+    def COMPOSE_FILE_PATH(self) -> str:
+        working = self.WORKING_PATH
+        if working:
+            return os.path.join(working, "docker-compose.yml")
+        # 回退：从当前目录向上查找 docker-compose.yml
+        candidate = os.path.join(os.getcwd(), "docker-compose.yml")
+        if os.path.exists(candidate):
+            return candidate
+        return ""
+
+    @property
     def UNITTEST_PATH(self) -> str:
         return self._get_config("unittest_path")
 
@@ -367,15 +385,15 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_FILE_ON(self) -> bool:
-        """
-        文件日志是否启用
-
-        默认值: True
-        配置路径: log_file_on
-        """
-        # 先初始化配置（确保 _has_local_config 被正确设置）
+        """文件日志是否启用。优先级：环境变量 GINKGO_LOG_FILE_ON > config.yml"""
+        env_val = os.environ.get("GINKGO_LOG_FILE_ON")
+        if env_val is not None:
+            return env_val.upper() == "TRUE"
         self._read_config()
-        return bool(self._get_config("log_file_on"))
+        val = self._get_config("log_file_on")
+        if val is None:
+            return True
+        return bool(val)
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:

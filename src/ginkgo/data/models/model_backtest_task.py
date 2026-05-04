@@ -19,7 +19,7 @@ import pandas as pd
 
 from typing import Optional
 from functools import singledispatchmethod
-from sqlalchemy import String, Boolean, Integer, Text, DateTime
+from sqlalchemy import String, Boolean, Integer, Float, Text, DateTime
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,7 +49,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     __tablename__ = "backtest_task"
 
     # 执行标识信息
-    run_id: Mapped[str] = mapped_column(String(32), unique=True, comment="运行会话ID（统一标识）")
+    task_id: Mapped[str] = mapped_column(String(32), unique=True, comment="运行会话ID（统一标识）")
     name: Mapped[str] = mapped_column(String(255), default="", comment="任务名称（用户可读标识）")
     engine_id: Mapped[str] = mapped_column(String(64), default="", comment="所属引擎ID")
     portfolio_id: Mapped[str] = mapped_column(String(32), default="", comment="关联投资组合ID")
@@ -79,20 +79,20 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     total_events: Mapped[int] = mapped_column(Integer, default=0, comment="事件总数")
 
     # 性能指标
-    avg_event_processing_ms: Mapped[Optional[float]] = mapped_column(String(32), default="0", comment="平均事件处理时间(毫秒)")
-    peak_memory_mb: Mapped[Optional[float]] = mapped_column(String(32), default="0", comment="峰值内存使用(MB)")
+    avg_event_processing_ms: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="平均事件处理时间(毫秒)")
+    peak_memory_mb: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="峰值内存使用(MB)")
 
     # 配置和环境信息
     config_snapshot: Mapped[str] = mapped_column(Text, default="{}", comment="配置快照JSON")
     environment_info: Mapped[str] = mapped_column(Text, default="{}", comment="环境信息JSON")
 
     # 运行结果摘要
-    final_portfolio_value: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="最终组合价值")
-    total_pnl: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="总盈亏")
-    max_drawdown: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="最大回撤")
-    sharpe_ratio: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="夏普比率")
-    annual_return: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="年化收益率")
-    win_rate: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="胜率")
+    final_portfolio_value: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="最终组合价值")
+    total_pnl: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="总盈亏")
+    max_drawdown: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="最大回撤")
+    sharpe_ratio: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="夏普比率")
+    annual_return: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="年化收益率")
+    win_rate: Mapped[Optional[float]] = mapped_column(Float, default=0.0, comment="胜率")
 
     business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
 
@@ -103,7 +103,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     @update.register(str)
     def _(
         self,
-        run_id: str,
+        task_id: str,
         name: str = "",
         engine_id: str = "",
         portfolio_id: str = "",
@@ -117,18 +117,18 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         total_events: int = 0,
         config_snapshot: str = "{}",
         environment_info: str = "{}",
-        final_portfolio_value: str = "0",
-        total_pnl: str = "0",
-        max_drawdown: str = "0",
-        sharpe_ratio: str = "0",
-        annual_return: str = "0",
-        win_rate: str = "0",
+        final_portfolio_value: float = 0.0,
+        total_pnl: float = 0.0,
+        max_drawdown: float = 0.0,
+        sharpe_ratio: float = 0.0,
+        annual_return: float = 0.0,
+        win_rate: float = 0.0,
         business_timestamp: Optional[datetime.datetime] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
-        self.run_id = run_id
+        self.task_id = task_id
         self.name = name
         self.engine_id = engine_id
         self.portfolio_id = portfolio_id
@@ -170,7 +170,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         required_fields = {
-            "run_id", "start_time", "status"
+            "task_id", "start_time", "status"
         }
 
         # 验证必填字段
@@ -178,7 +178,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         if missing_fields:
             raise ValueError(f"Missing required fields: {missing_fields}")
 
-        self.run_id = df["run_id"]
+        self.task_id = df["task_id"]
         self.start_time = datetime_normalize(df["start_time"])
         self.status = df["status"]
 
@@ -204,17 +204,17 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         if "environment_info" in df.index:
             self.environment_info = str(df["environment_info"])
         if "final_portfolio_value" in df.index:
-            self.final_portfolio_value = str(df["final_portfolio_value"])
+            self.final_portfolio_value = float(df["final_portfolio_value"])
         if "total_pnl" in df.index:
-            self.total_pnl = str(df["total_pnl"])
+            self.total_pnl = float(df["total_pnl"])
         if "max_drawdown" in df.index:
-            self.max_drawdown = str(df["max_drawdown"])
+            self.max_drawdown = float(df["max_drawdown"])
         if "sharpe_ratio" in df.index:
-            self.sharpe_ratio = str(df["sharpe_ratio"])
+            self.sharpe_ratio = float(df["sharpe_ratio"])
         if "annual_return" in df.index:
-            self.annual_return = str(df["annual_return"])
+            self.annual_return = float(df["annual_return"])
         if "win_rate" in df.index:
-            self.win_rate = str(df["win_rate"])
+            self.win_rate = float(df["win_rate"])
 
         if "business_timestamp" in df.index and pd.notna(df["business_timestamp"]):
             self.business_timestamp = datetime_normalize(df["business_timestamp"])
@@ -239,21 +239,21 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         self.update_at = datetime.datetime.now()
 
     def finish_task(self, status: str = "completed", error_message: str = "",
-                    final_portfolio_value: str = "0", total_pnl: str = "0",
-                    max_drawdown: str = "0", sharpe_ratio: str = "0",
-                    annual_return: str = "0", win_rate: str = "0") -> None:
+                    final_portfolio_value: float = 0.0, total_pnl: float = 0.0,
+                    max_drawdown: float = 0.0, sharpe_ratio: float = 0.0,
+                    annual_return: float = 0.0, win_rate: float = 0.0) -> None:
         """
         标记任务结束
 
         Args:
             status (str): 最终状态 (completed/failed/stopped)
             error_message (str): 错误信息
-            final_portfolio_value (str): 最终组合价值
-            total_pnl (str): 总盈亏
-            max_drawdown (str): 最大回撤
-            sharpe_ratio (str): 夏普比率
-            annual_return (str): 年化收益率
-            win_rate (str): 胜率
+            final_portfolio_value (float): 最终组合价值
+            total_pnl (float): 总盈亏
+            max_drawdown (float): 最大回撤
+            sharpe_ratio (float): 夏普比率
+            annual_return (float): 年化收益率
+            win_rate (float): 胜率
         """
         self.end_time = datetime.datetime.now()
         self.status = status
@@ -322,7 +322,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         """
         return {
             'uuid': self.uuid,
-            'run_id': self.run_id,
+            'task_id': self.task_id,
             'engine_id': self.engine_id,
             'portfolio_id': self.portfolio_id,
             'status': self.status,
@@ -345,11 +345,6 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
             },
             'error_message': self.error_message if self.error_message else None
         }
-
-    @property
-    def task_id(self) -> str:
-        """向后兼容属性，返回 run_id"""
-        return self.run_id
 
     def __repr__(self) -> str:
         return base_repr(self, f"BacktestTask[{self.status}]", 12, 80)

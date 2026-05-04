@@ -7,7 +7,7 @@
 # 测试范围:
 #   - 构造与基础属性
 #   - to_dict() 多 run 并排对比
-#   - to_dataframe() 以 run_id 为列、指标名为 index
+#   - to_dataframe() 以 task_id 为列、指标名为 index
 #   - to_rich() Rich Table 多列输出
 #   - 空报告列表处理
 
@@ -31,12 +31,12 @@ def _make_df(values, start="2024-01-01"):
     return pd.DataFrame({"timestamp": dates, "value": values})
 
 
-def _make_report(run_id, *data_pairs):
+def _make_report(task_id, *data_pairs):
     dp = DataProvider()
     for name, df in data_pairs:
         if df is not None:
             dp.add(name, df)
-    return AnalysisReport(run_id=run_id, registry=MetricRegistry(), data=dp)
+    return AnalysisReport(task_id=task_id, registry=MetricRegistry(), data=dp)
 
 
 # ============================================================
@@ -61,15 +61,15 @@ class TestConstruction:
 # ============================================================
 
 class TestToDict:
-    def test_run_ids_as_keys(self):
+    def test_task_ids_as_keys(self):
         r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
         r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
         report = ComparisonReport([r1, r2])
         d = report.to_dict()
         assert "run-a" in d
         assert "run-b" in d
-        assert "run_id" not in d.get("run-a", {})
-        assert "run_id" not in d.get("run-b", {})
+        assert "task_id" not in d.get("run-a", {})
+        assert "task_id" not in d.get("run-b", {})
 
     def test_contains_analyzer_summary(self):
         r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
@@ -90,7 +90,7 @@ class TestToDataFrame:
         df = report.to_dataframe()
         assert not df.empty
 
-    def test_has_run_id_columns(self):
+    def test_has_task_id_columns(self):
         r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
         r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
         report = ComparisonReport([r1, r2])
@@ -110,10 +110,10 @@ class TestToRich:
         table = report.to_rich()
         assert isinstance(table, Table)
 
-    def test_table_has_run_id_columns(self):
+    def test_table_has_task_id_columns(self):
         r1 = _make_report("run-a", ("net_value", _make_df([1.0, 2.0, 3.0])))
         r2 = _make_report("run-b", ("net_value", _make_df([1.1, 2.1, 3.1])))
         report = ComparisonReport([r1, r2])
         table = report.to_rich()
-        # Table should have Metric + run_id columns
+        # Table should have Metric + task_id columns
         assert len(table.columns) == 3  # Metric, run-a, run-b

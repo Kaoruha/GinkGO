@@ -205,9 +205,11 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         if self.mode == EXECUTION_MODE.BACKTEST:
             # 回测模式：使用逻辑时间
             self._time_provider = LogicalTimeProvider(self._logical_time_start)
+            self._engine_context.set_time_provider(self._time_provider)
         else:
             # LIVE模式：使用系统时间
             self._time_provider = SystemTimeProvider()
+            self._engine_context.set_time_provider(self._time_provider)
 
         # 注册为时间感知组件
         if hasattr(self._time_provider, "register_time_listener"):
@@ -275,6 +277,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         2. 回测模式：短超时快速处理，队列空闲时自动推进时间
         3. 实盘模式：阻塞式等待事件，由timer_loop定时推送时间更新事件
         """
+        # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
+        GLOG.bind_context(engine_context=self._engine_context)
+        GLOG.set_log_category("backtest")
+
         GLOG.INFO(f"{self.name}: Main loop started - Mode: {self.mode}")
         GLOG.INFO(f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")
         GLOG.INFO(f"{self.name}: main_flag id = {id(main_flag)}")
@@ -520,7 +526,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 if self._datafeeder:
                     try:
                         self._datafeeder.advance_time(target_time)
-                        GLOG.DEBUG(f"{self.name}: Feeder advanced to {target_time}")
+                        GLOG.INFO(f"{self.name}: Feeder advanced to {target_time.date()}")
                     except Exception as e:
                         GLOG.ERROR(f"{self.name}: Feeder time advance error: {e}")
 
@@ -528,18 +534,18 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
                 self.put(EventComponentTimeAdvance(target_time, "portfolio"))
-                GLOG.DEBUG(f"{self.name}: Feeder stage completed, Portfolio stage queued")
+                GLOG.INFO(f"{self.name}: Feeder stage completed, Portfolio stage queued")
 
             elif component_type == "portfolio":
                 # 阶段2：推进Portfolio时间（此时Broker已有新价格数据）
                 for portfolio in self.portfolios:
                     try:
                         portfolio.advance_time(target_time)
-                        GLOG.DEBUG(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
+                        GLOG.INFO(f"{self.name}: Portfolio {portfolio.name} advanced to {target_time.date()}")
                     except Exception as e:
                         GLOG.ERROR(f"{self.name}: Portfolio time advance error: {e}")
 
-                GLOG.DEBUG(f"{self.name}: Component time advance sequence completed for {target_time}")
+                GLOG.INFO(f"{self.name}: Time advance sequence completed for {target_time.date()}")
 
             else:
                 GLOG.WARN(f"{self.name}: Unknown component_type: {component_type}")
@@ -1074,7 +1080,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             # 汇总结果
             result = aggregator.aggregate_and_save(
-                task_id=self.run_id or "",
+                task_id=self.task_id or "",
                 portfolio_id=portfolio_id,
                 engine_id=self.engine_id,
                 status="completed"
@@ -1339,9 +1345,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         # 回测模式：启动前创建 BacktestTask 记录
         if self.mode == EXECUTION_MODE.BACKTEST:
-            # 确保 run_id 已生成
-            if self._run_id is None:
-                self.generate_run_id()
+            # 确保 task_id 已生成
+            if self._task_id is None:
+                self.generate_task_id()
             self._create_backtest_task()
 
         self.start()
@@ -1359,10 +1365,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             task_service = service_hub.data.backtest_task_service()
 
             # 检查任务是否已存在（由 BacktestWorker 创建）
-            if self.run_id:
-                exists_result = task_service.exists(uuid=self.run_id)
+            if self.task_id:
+                exists_result = task_service.exists(uuid=self.task_id)
                 if exists_result.is_success() and exists_result.data.get("exists"):
-                    GLOG.INFO(f"Backtest task already exists: {self.run_id}, skipping creation")
+                    GLOG.INFO(f"Backtest task already exists: {self.task_id}, skipping creation")
                     return
 
             # 获取 portfolio_id
@@ -1380,7 +1386,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             # 创建任务
             result = task_service.create(
-                task_id=self.run_id,
+                task_id=self.task_id,
                 engine_id=self.engine_id,
                 portfolio_id=portfolio_id,
                 config_snapshot={
@@ -1391,7 +1397,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             )
 
             if result.is_success():
-                GLOG.INFO(f"Created backtest task: {self.run_id}")
+                GLOG.INFO(f"Created backtest task: {self.task_id}")
             else:
                 GLOG.WARN(f"Failed to create backtest task: {result.error}")
 

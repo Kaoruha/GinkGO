@@ -39,13 +39,13 @@ def _make_price_event(code="000001.SZ", timestamp=None, price=10.0):
     return event
 
 
-def _make_strategy(engine_id="test_engine", run_id="test_run", **kwargs):
+def _make_strategy(engine_id="test_engine", task_id="test_run", **kwargs):
     """创建策略并注入 context"""
     strategy = MeanReversion(**kwargs)
     strategy._context = type('C', (), {
         'engine_id': engine_id,
         'portfolio_id': 'test_portfolio',
-        'run_id': run_id,
+        'task_id': task_id,
     })()
     return strategy
 
@@ -224,7 +224,7 @@ class TestMeanReversionCal:
         assert result2[0].code == "000001.SZ"
         assert result2[0].portfolio_id == "test_portfolio"
         assert result2[0].engine_id == "test_engine"
-        assert result2[0].run_id == "test_run"
+        assert result2[0].task_id == "test_run"
 
     def test_generates_sell_signal_when_rsi_crosses_above_overbought(self):
         """RSI 从下方穿越超买线 → 卖出信号 (SHORT)"""

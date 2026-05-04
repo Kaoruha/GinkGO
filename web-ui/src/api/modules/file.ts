@@ -13,7 +13,7 @@ export const fileApi = {
   /**
    * 获取文件列表
    */
-  async list(query: string = '', page: number = 0, size: number = 100, type?: number): Promise<FileItem[]> {
+  async list(query: string = '', page: number = 1, size: number = 100, type?: number): Promise<FileItem[]> {
     const res = await request.get<FileItem[]>('/api/v1/file_list', {
       params: { query, page, size, type }
     })

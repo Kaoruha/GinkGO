@@ -47,21 +47,21 @@ class AnalysisEngine:
     # 分析器记录加载
     # ============================================================
 
-    def _load_analyzer_records(self, run_id: str, portfolio_id: str = None) -> Dict[str, pd.DataFrame]:
+    def _load_analyzer_records(self, task_id: str, portfolio_id: str = None) -> Dict[str, pd.DataFrame]:
         """加载所有分析器记录，按 name 分组返回
 
         不使用 analyzer_name 过滤，加载该 run 下的全部分析器记录。
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
             Dict[str, pd.DataFrame]，每个 DataFrame 包含 ["timestamp", "value"] 列，
             按 timestamp 排序。无数据时返回空字典。
         """
-        result = self._analyzer_service.get_by_run_id(
-            run_id=run_id,
+        result = self._analyzer_service.get_by_task_id(
+            task_id=task_id,
             portfolio_id=portfolio_id,
             limit=100000,
         )
@@ -115,18 +115,18 @@ class AnalysisEngine:
             except Exception as e:
                 GLOG.WARNING(f"注册 IC({name}) 失败: {e}")
 
-    def _load_signals(self, run_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
+    def _load_signals(self, task_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
         """加载 Signal 记录，转换为 DataFrame
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
             Signal DataFrame，加载失败返回 None
         """
         result = self._result_service.get_signals(
-            run_id=run_id,
+            task_id=task_id,
             portfolio_id=portfolio_id,
             page=0,
             page_size=10000,
@@ -140,18 +140,18 @@ class AnalysisEngine:
 
         return self._entities_to_dataframe(records)
 
-    def _load_orders(self, run_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
+    def _load_orders(self, task_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
         """加载 Order 记录，转换为 DataFrame
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
             Order DataFrame，加载失败返回 None
         """
         result = self._result_service.get_orders(
-            run_id=run_id,
+            task_id=task_id,
             portfolio_id=portfolio_id,
         )
         if not result.is_success() or result.data is None:
@@ -163,18 +163,18 @@ class AnalysisEngine:
 
         return self._entities_to_dataframe(records)
 
-    def _load_positions(self, run_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
+    def _load_positions(self, task_id: str, portfolio_id: str = None) -> Optional[pd.DataFrame]:
         """加载 Position 记录，转换为 DataFrame
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
             Position DataFrame，加载失败返回 None
         """
         result = self._result_service.get_positions(
-            run_id=run_id,
+            task_id=task_id,
             portfolio_id=portfolio_id,
         )
         if not result.is_success() or result.data is None:
@@ -207,7 +207,7 @@ class AnalysisEngine:
             rows.append(d)
         return pd.DataFrame(rows)
 
-    def _load_data(self, run_id: str, portfolio_id: str = None) -> DataProvider:
+    def _load_data(self, task_id: str, portfolio_id: str = None) -> DataProvider:
         """加载所有数据源到 DataProvider
 
         分析器记录为必需数据，缺失时抛出 ValueError。
@@ -215,7 +215,7 @@ class AnalysisEngine:
         加载完成后自动注册与已加载分析器对应的指标实例。
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
@@ -227,10 +227,10 @@ class AnalysisEngine:
         dp = DataProvider()
 
         # 1. 加载全部分析器记录 (必需)
-        analyzer_dfs = self._load_analyzer_records(run_id, portfolio_id)
+        analyzer_dfs = self._load_analyzer_records(task_id, portfolio_id)
         if not analyzer_dfs:
             raise ValueError(
-                f"无法加载分析器记录 (run_id={run_id}, "
+                f"无法加载分析器记录 (task_id={task_id}, "
                 f"portfolio_id={portfolio_id})"
             )
         for name, df in analyzer_dfs.items():
@@ -241,7 +241,7 @@ class AnalysisEngine:
 
         # 3. 加载 signal (可选)
         try:
-            sig_df = self._load_signals(run_id, portfolio_id)
+            sig_df = self._load_signals(task_id, portfolio_id)
             if sig_df is not None and len(sig_df) > 0:
                 dp.add("signal", sig_df)
         except Exception as e:
@@ -249,7 +249,7 @@ class AnalysisEngine:
 
         # 4. 加载 order (可选)
         try:
-            ord_df = self._load_orders(run_id, portfolio_id)
+            ord_df = self._load_orders(task_id, portfolio_id)
             if ord_df is not None and len(ord_df) > 0:
                 dp.add("order", ord_df)
         except Exception as e:
@@ -257,7 +257,7 @@ class AnalysisEngine:
 
         # 5. 加载 position (可选)
         try:
-            pos_df = self._load_positions(run_id, portfolio_id)
+            pos_df = self._load_positions(task_id, portfolio_id)
             if pos_df is not None and len(pos_df) > 0:
                 dp.add("position", pos_df)
         except Exception as e:
@@ -269,11 +269,11 @@ class AnalysisEngine:
     # 分析接口
     # ============================================================
 
-    def analyze(self, run_id: str, portfolio_id: str = None) -> SingleReport:
+    def analyze(self, task_id: str, portfolio_id: str = None) -> SingleReport:
         """生成单次回测分析报告
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
 
         Returns:
@@ -282,25 +282,25 @@ class AnalysisEngine:
         Raises:
             ValueError: net_value 数据不可用时抛出
         """
-        dp = self._load_data(run_id, portfolio_id)
-        return SingleReport(run_id=run_id, registry=self._registry, data=dp)
+        dp = self._load_data(task_id, portfolio_id)
+        return SingleReport(task_id=task_id, registry=self._registry, data=dp)
 
-    def compare(self, run_ids: List[str], portfolio_id: str = None) -> ComparisonReport:
+    def compare(self, task_ids: List[str], portfolio_id: str = None) -> ComparisonReport:
         """对比多次回测运行
 
         Args:
-            run_ids: 运行标识列表
+            task_ids: 运行标识列表
             portfolio_id: 组合标识 (可选)
 
         Returns:
             ComparisonReport 实例
         """
-        reports = [self.analyze(rid, portfolio_id) for rid in run_ids]
+        reports = [self.analyze(rid, portfolio_id) for rid in task_ids]
         return ComparisonReport(reports)
 
     def time_segments(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: str = None,
         freq: str = "M",
         analyzers: Optional[List[str]] = None,
@@ -308,7 +308,7 @@ class AnalysisEngine:
         """按时间分段分析
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
             freq: 分段频率 ("M"=月, "Q"=季, "Y"=年)
             analyzers: 可选的分析器名称列表，None = 处理所有分析器
@@ -316,12 +316,12 @@ class AnalysisEngine:
         Returns:
             SegmentReport 实例
         """
-        dp = self._load_data(run_id, portfolio_id)
-        return SegmentReport(run_id=run_id, data=dp, freq=freq, analyzers=analyzers)
+        dp = self._load_data(task_id, portfolio_id)
+        return SegmentReport(task_id=task_id, data=dp, freq=freq, analyzers=analyzers)
 
     def rolling(
         self,
-        run_id: str,
+        task_id: str,
         portfolio_id: str = None,
         window: int = 60,
         step: int = 1,
@@ -330,7 +330,7 @@ class AnalysisEngine:
         """滚动窗口分析
 
         Args:
-            run_id: 运行标识
+            task_id: 运行标识
             portfolio_id: 组合标识 (可选)
             window: 窗口大小 (天数)
             step: 滑动步长 (默认 1)
@@ -339,7 +339,7 @@ class AnalysisEngine:
         Returns:
             RollingReport 实例
         """
-        dp = self._load_data(run_id, portfolio_id)
+        dp = self._load_data(task_id, portfolio_id)
         return RollingReport(
-            run_id=run_id, data=dp, window=window, step=step, analyzers=analyzers
+            task_id=task_id, data=dp, window=window, step=step, analyzers=analyzers
         )

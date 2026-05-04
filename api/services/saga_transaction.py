@@ -17,6 +17,7 @@ import uuid
 import asyncio
 
 from core.logging import logger
+from core.exceptions import BusinessError
 from models.transaction import TransactionRecord, TransactionStep
 
 
@@ -229,18 +230,18 @@ class PortfolioSagaFactory:
     @staticmethod
     def create_portfolio_saga(
         name: str,
-        is_live: bool,
-        selectors: List[Dict[str, Any]],
-        sizer: Optional[Dict[str, Any]],
-        strategies: List[Dict[str, Any]],
-        risk_managers: List[Dict[str, Any]],
-        analyzers: List[Dict[str, Any]]
+        mode: int = 0,
+        selectors: List[Dict[str, Any]] = None,
+        sizer: Optional[Dict[str, Any]] = None,
+        strategies: List[Dict[str, Any]] = None,
+        risk_managers: List[Dict[str, Any]] = None,
+        analyzers: List[Dict[str, Any]] = None
     ) -> SagaTransaction:
         """创建 Portfolio 创建 Saga
 
         Args:
             name: Portfolio 名称
-            is_live: 是否为实盘模式
+            mode: 运行模式 (0=BACKTEST, 1=PAPER, 2=LIVE)
             selectors: 选股器列表 [{"component_uuid": "...", "config": {...}}]
             sizer: 仓位管理器 {"component_uuid": "...", "config": {...}}
             strategies: 策略列表 [{"component_uuid": "...", "config": {...}}]
@@ -267,7 +268,7 @@ class PortfolioSagaFactory:
 
         # ==================== 步骤 1: 创建 Portfolio ====================
         def create_portfolio():
-            result = portfolio_service.add(name=name, is_live=is_live)
+            result = portfolio_service.add(name=name, mode=mode)
             if not result.is_success():
                 raise Exception(f"Failed to create portfolio: {result.error}")
             context['portfolio_result'] = result.data
@@ -363,6 +364,11 @@ class PortfolioSagaFactory:
         from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
 
         portfolio_service = container.portfolio_service()
+
+        # 冻结检查
+        if portfolio_service.is_portfolio_frozen(portfolio_uuid):
+            raise BusinessError(f"组合 {portfolio_uuid} 已部署，不可删除")
+
         mapping_service = container.portfolio_mapping_service()
         mongo_driver = container.mongo_driver()
         mapping_crud = PortfolioFileMappingCRUD(driver=mongo_driver)
@@ -448,6 +454,11 @@ class PortfolioSagaFactory:
         from ginkgo.enums import FILE_TYPES
 
         portfolio_service = container.portfolio_service()
+
+        # 冻结检查
+        if portfolio_service.is_portfolio_frozen(portfolio_uuid):
+            raise BusinessError(f"组合 {portfolio_uuid} 已部署，不可修改")
+
         mapping_service = container.portfolio_mapping_service()
         mongo_driver = container.mongo_driver()
         mapping_crud = PortfolioFileMappingCRUD(driver=mongo_driver)
@@ -675,4 +686,46 @@ class PortfolioSagaFactory:
                     make_compensate()
                 )
 
+        return saga
+
+    @staticmethod
+    def deploy_saga(
+        portfolio_id: str,
+        mode: int,
+        account_id: str = None,
+        name: str = None,
+    ) -> SagaTransaction:
+        """创建部署 Saga（深拷贝 + MDeployment 记录）"""
+        from ginkgo.trading.containers import trading_container
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        deployment_service = trading_container.deployment_service()
+
+        saga = SagaTransaction(f"portfolio:deploy:{portfolio_id}")
+        context = {}
+
+        def execute_deploy():
+            result = deployment_service.deploy(
+                portfolio_id=portfolio_id,
+                mode=PORTFOLIO_MODE_TYPES(mode),
+                account_id=account_id,
+                name=name,
+            )
+            if not result.success:
+                raise Exception(f"Deploy failed: {result.error}")
+            context['result'] = result.data
+            return result.data
+
+        def compensate_deploy(data):
+            portfolio_id_created = context.get('result', {}).get('portfolio_id')
+            if portfolio_id_created:
+                try:
+                    from ginkgo.data.containers import container as c
+                    portfolio_service = c.portfolio_service()
+                    portfolio_service.delete(portfolio_id=portfolio_id_created)
+                    logger.info(f"Compensated: deleted deployed portfolio {portfolio_id_created}")
+                except Exception as e:
+                    logger.error(f"Deploy compensation failed: {e}")
+
+        saga.add_step("deploy", execute_deploy, compensate_deploy)
         return saga

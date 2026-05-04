@@ -48,18 +48,18 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         注意：_get_field_config() 中的所有字段都会被视为必填字段。
         非必填字段不应添加到此配置中。
 
-        run_id 自动生成，如未指定则自动生成，因此不在此配置中。
+        task_id 自动生成，如未指定则自动生成，因此不在此配置中。
 
         Returns:
             dict: 字段配置字典
         """
-        return {}  # run_id 自动生成，无需必填验证
+        return {}  # task_id 自动生成，无需必填验证
 
     def _create_from_params(self, **kwargs) -> MBacktestTask:
         """
         Hook method: Create MBacktestTask from parameters.
 
-        设计原则：会话实体的 uuid = run_id（主键就是会话ID）
+        设计原则：会话实体的 uuid = task_id（主键就是会话ID）
         """
         from ginkgo.entities import IdentityUtils
 
@@ -69,12 +69,12 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         else:
             source_value = SOURCE_TYPES.validate_input(source_value) or -1
 
-        # 生成 run_id（如果未提供），使用与 uuid 相同的规则
-        run_id = kwargs.get("run_id") or IdentityUtils.generate_run_id()
+        # 生成 task_id（如果未提供），使用与 uuid 相同的规则
+        task_id = kwargs.get("task_id") or IdentityUtils.generate_task_id()
 
         model = MBacktestTask(
-            uuid=run_id,  # 会话实体的 uuid = run_id
-            run_id=run_id,
+            uuid=task_id,  # 会话实体的 uuid = task_id
+            task_id=task_id,
             name=kwargs.get("name", ""),  # 用户可指定名称
             engine_id=kwargs.get("engine_id", ""),
             portfolio_id=kwargs.get("portfolio_id", ""),
@@ -88,12 +88,12 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             total_events=kwargs.get("total_events", 0),
             config_snapshot=kwargs.get("config_snapshot", "{}"),
             environment_info=kwargs.get("environment_info", "{}"),
-            final_portfolio_value=kwargs.get("final_portfolio_value", "0"),
-            total_pnl=kwargs.get("total_pnl", "0"),
-            max_drawdown=kwargs.get("max_drawdown", "0"),
-            sharpe_ratio=kwargs.get("sharpe_ratio", "0"),
-            annual_return=kwargs.get("annual_return", "0"),
-            win_rate=kwargs.get("win_rate", "0"),
+            final_portfolio_value=kwargs.get("final_portfolio_value", 0.0),
+            total_pnl=kwargs.get("total_pnl", 0.0),
+            max_drawdown=kwargs.get("max_drawdown", 0.0),
+            sharpe_ratio=kwargs.get("sharpe_ratio", 0.0),
+            annual_return=kwargs.get("annual_return", 0.0),
+            win_rate=kwargs.get("win_rate", 0.0),
             source=source_value,
         )
 
@@ -179,25 +179,20 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         """
         return self.count(filters={"status": status, "is_del": False})
 
-    def get_by_run_id(self, run_id: str) -> Optional[MBacktestTask]:
+    def get_by_task_id(self, task_id: str) -> Optional[MBacktestTask]:
         """
-        通过 run_id 获取任务
+        通过 task_id 获取任务
 
         Args:
-            run_id: 运行会话ID
+            task_id: 任务ID
 
         Returns:
             MBacktestTask or None
         """
-        results = self.find(filters={"run_id": run_id, "is_del": False})
+        results = self.find(filters={"task_id": task_id, "is_del": False})
         if results and len(results) > 0:
             return results[0]
         return None
-
-    # 向后兼容
-    def get_task_by_task_id(self, task_id: str) -> Optional[MBacktestTask]:
-        """向后兼容方法，调用 get_by_run_id"""
-        return self.get_by_run_id(task_id)
 
     def get_by_uuid(self, uuid: str) -> Optional[MBacktestTask]:
         """

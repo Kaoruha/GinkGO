@@ -54,14 +54,14 @@ class TestBasicMethods:
         # 验证基本属性
         assert engine is not None, "引擎应被创建"
         assert hasattr(engine, 'engine_id'), "引擎应有engine_id"
-        assert hasattr(engine, 'run_id'), "引擎应有run_id"
+        assert hasattr(engine, 'task_id'), "引擎应有task_id"
         assert hasattr(engine, 'status'), "引擎应有status"
         assert hasattr(engine, 'mode'), "引擎应有mode"
 
         # 验证默认状态
         assert engine.status == "idle", "初始状态应为idle"
         assert not engine.is_active, "初始应未激活"
-        assert engine.run_id is None, "初始run_id应为None"
+        assert engine.task_id is None, "初始task_id应为None"
         assert engine.run_sequence == 0, "初始运行序列应为0"
 
         print("✓ 引擎创建测试通过")
@@ -118,7 +118,7 @@ class TestBasicMethods:
         start_result = engine.start()
         assert start_result is True, "启动应成功"
         assert engine.status == "running", "启动后状态应为running"
-        assert engine.run_id is not None, "启动后应有run_id"
+        assert engine.task_id is not None, "启动后应有task_id"
 
         # 停止
         engine.stop()
@@ -132,7 +132,7 @@ class TestBasicMethods:
 
         # 测试属性存在性和类型
         assert hasattr(engine, 'engine_id'), "应有engine_id属性"
-        assert hasattr(engine, 'run_id'), "应有run_id属性"
+        assert hasattr(engine, 'task_id'), "应有task_id属性"
         assert hasattr(engine, 'status'), "应有status属性"
         assert hasattr(engine, 'mode'), "应有mode属性"
         assert hasattr(engine, 'is_active'), "应有is_active属性"
@@ -561,24 +561,24 @@ class TestEngineStateManagement:
         # 验证初始状态
         assert engine.status == "idle", "初始状态应为idle"
         assert not engine.is_active, "初始应未激活"
-        assert engine.run_id is None, "初始run_id应为None"
+        assert engine.task_id is None, "初始task_id应为None"
 
         # 启动引擎
         start_result = engine.start()
         assert start_result is True, "启动应成功"
         assert engine.status == "running", "启动后状态应为running"
         assert engine.is_active, "启动后应激活"
-        assert engine.run_id is not None, "启动后应有run_id"
+        assert engine.task_id is not None, "启动后应有task_id"
 
         # 记录运行信息
-        initial_run_id = engine.run_id
+        initial_task_id = engine.task_id
         initial_sequence = engine.run_sequence
 
         # 停止引擎
         engine.stop()
         assert engine.status == "stopped", "停止后状态应为stopped"
         assert not engine.is_active, "停止后应未激活"
-        assert engine.run_id == initial_run_id, "run_id应保持"
+        assert engine.task_id == initial_task_id, "task_id应保持"
         assert engine.run_sequence == initial_sequence, "运行序列应保持"
 
         print("✓ 引擎生命周期状态测试通过")
@@ -637,14 +637,14 @@ class TestEngineStateManagement:
             for _ in range(10):
                 current_status = engine.status
                 is_active = engine.is_active
-                run_id = engine.run_id
+                task_id = engine.task_id
 
                 with access_lock:
                     access_results.append({
                         'thread_id': thread_id,
                         'status': current_status,
                         'is_active': is_active,
-                        'run_id': run_id
+                        'task_id': task_id
                     })
 
                 time_module.sleep(0.001)
@@ -703,7 +703,7 @@ class TestEngineStateManagement:
 
         # 启动引擎并设置一些状态
         engine.start()
-        original_run_id = engine.run_id
+        original_task_id = engine.task_id
         original_sequence = engine.run_sequence
 
         # 模拟一些状态变化
@@ -713,7 +713,7 @@ class TestEngineStateManagement:
         engine.stop()
 
         # 验证关键状态持久化
-        assert engine.run_id == original_run_id, "run_id应持久化"
+        assert engine.task_id == original_task_id, "task_id应持久化"
         assert engine.run_sequence == original_sequence, "运行序列应持久化"
 
         print("✓ 状态持久化测试通过")

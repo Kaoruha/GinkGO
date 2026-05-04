@@ -227,6 +227,12 @@ class BaseCRUD(Generic[T], ABC):
         if not (self._is_clickhouse or self._is_mysql or self._is_mongo):
             raise ValueError(f"Model {model_class} must inherit from MClickBase, MMysqlBase, or MMongoBase")
 
+        # 流式查询相关属性（默认禁用，不影响现有功能）
+        self._streaming_enabled = False
+        self._streaming_engine = None
+        self._streaming_config = None
+        self._streaming_initialized = False
+
     def __init_subclass__(cls, **kwargs):
         """
         🎯 关键：CRUD子类创建时自动注册关系和验证
@@ -1408,25 +1414,6 @@ class BaseCRUD(Generic[T], ABC):
     # 流式查询功能 - 新增功能，完全向后兼容
     # ============================================================================
 
-    def __init__(self, model_class: type[T]):
-        # 调用原有初始化逻辑
-        if hasattr(super(), '__init__'):
-            super().__init__()
-        
-        self.model_class = model_class
-        self._is_clickhouse = issubclass(model_class, MClickBase)
-        self._is_mysql = issubclass(model_class, MMysqlBase)
-
-        if not (self._is_clickhouse or self._is_mysql):
-            raise ValueError(f"Model {model_class} must inherit from MClickBase or MMysqlBase")
-
-        # 🆕 流式查询相关属性（默认禁用，不影响现有功能）
-        self._streaming_enabled = False
-        self._streaming_engine = None
-        self._streaming_config = None
-        
-        # 延迟加载流式查询配置（只有在使用时才加载）
-        self._streaming_initialized = False
 
     def _initialize_streaming(self) -> None:
         """延迟初始化流式查询功能"""

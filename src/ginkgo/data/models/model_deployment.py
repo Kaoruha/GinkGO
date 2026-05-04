@@ -24,7 +24,7 @@ class MDeployment(MMysqlBase):
     __abstract__ = False
     __tablename__ = "deployment"
 
-    source_task_id: Mapped[str] = mapped_column(String(32), default="", comment="回测任务ID")
+    source_task_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default=None, comment="回测任务ID（兼容旧数据）")
     target_portfolio_id: Mapped[str] = mapped_column(String(32), default="", comment="部署后的Portfolio ID")
     source_portfolio_id: Mapped[str] = mapped_column(String(32), default="", comment="原始回测Portfolio ID")
     mode: Mapped[int] = mapped_column(Integer, default=-1, comment="运行模式: 0=回测, 1=纸上交易, 2=实盘")

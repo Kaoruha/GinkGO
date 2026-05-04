@@ -14,7 +14,7 @@ class BacktestBase(Base):
     - uuid: 组件实例唯一标识（继承自Base）
     - engine_id: 引擎装配关系标识
     - portfolio_id: 投资组合标识
-    - run_id: 执行会话标识
+    - task_id: 执行会话标识
 
     注意：ID管理已移至ContextMixin，避免MRO冲突。
     注意：name管理已移至NamedMixin，避免MRO冲突。

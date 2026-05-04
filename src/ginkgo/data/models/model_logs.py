@@ -6,19 +6,14 @@ import datetime as dt
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Float, DECIMAL
+from sqlalchemy import String, Integer, DateTime, Float, DECIMAL, text
 from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import engines, types
-from sqlalchemy.orm import DeclarativeBase
 
-import uuid
-
-
-class Base(DeclarativeBase):
-    pass
+from ginkgo.data.models.model_clickbase import MClickBase
 
 
-class MBacktestLog(Base):
+class MBacktestLog(MClickBase):
     """回测日志表 Model - 宽表设计支持所有事件类型
 
     记录回测和实盘任务的业务日志，包括：
@@ -37,14 +32,14 @@ class MBacktestLog(Base):
     __abstract__ = False
     __tablename__ = "ginkgo_logs_backtest"
     __table_args__ = (
-        engines.MergeTree(
-            order_by=("timestamp", "portfolio_id", "trace_id")
+        engines.ReplacingMergeTree(
+            order_by=("timestamp", "engine_id", "dedup_hash"),
         ),
         {"extend_existing": True},
     )
 
     # ==================== 主键和基础字段 ====================
-    uuid: Mapped[str] = mapped_column(String(), primary_key=True, default=lambda: str(uuid.uuid4().hex))
+    uuid: Mapped[str] = mapped_column(String(), primary_key=True, server_default=text("generateUUIDv4()"))
     timestamp: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.now)
     source: Mapped[int] = mapped_column(types.Int8, default=-1)
 
@@ -54,21 +49,21 @@ class MBacktestLog(Base):
     logger_name: Mapped[str] = mapped_column(String(), default="")
 
     # ==================== 分布式追踪字段 ====================
-    trace_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
-    span_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
+    trace_id: Mapped[str] = mapped_column(String(), default="")
+    span_id: Mapped[str] = mapped_column(String(), default="")
 
     # ==================== 事件分类字段 ====================
-    event_type: Mapped[Optional[str]] = mapped_column(String(), default=None)  # 事件类型
-    event_category: Mapped[Optional[str]] = mapped_column(String(), default=None)  # 事件分类
+    event_type: Mapped[str] = mapped_column(String(), default="")
+    event_category: Mapped[str] = mapped_column(String(), default="")
 
     # ==================== 任务关联字段 ====================
-    portfolio_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
-    engine_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
-    run_id: Mapped[Optional[str]] = mapped_column(String(), default=None)
+    portfolio_id: Mapped[str] = mapped_column(String(), default="")
+    engine_id: Mapped[str] = mapped_column(String(), default="")
+    task_id: Mapped[str] = mapped_column(String(), default="")
 
     # ==================== 信号事件字段 ====================
-    symbol: Mapped[Optional[str]] = mapped_column(String(), default=None)
-    direction: Mapped[Optional[str]] = mapped_column(String(), default=None)
+    symbol: Mapped[str] = mapped_column(String(), default="")
+    direction: Mapped[str] = mapped_column(String(), default="")
     signal_volume: Mapped[Optional[int]] = mapped_column(Integer, default=None)
     signal_reason: Mapped[Optional[str]] = mapped_column(String(), default=None)
     signal_weight: Mapped[Optional[float]] = mapped_column(Float, default=None)
@@ -165,8 +160,13 @@ class MBacktestLog(Base):
     # ==================== 业务时间戳 ====================
     business_timestamp: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, default=None)
 
+    # ==================== 去重哈希 ====================
+    # 基于 message 内容的确定性哈希，用于 ReplacingMergeTree 去重
+    # 同一条日志从 ginkgo.log 和 bt_ 文件分别读取时 hash 相同，会被正确去重
+    dedup_hash: Mapped[int] = mapped_column(types.UInt64, server_default=text("sipHash64(message)"))
 
-class MComponentLog(Base):
+
+class MComponentLog(MClickBase):
     """组件日志表 Model
 
     记录各核心组件的运行日志，包括：
@@ -219,7 +219,7 @@ class MComponentLog(Base):
     ingested_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, default=None)
 
 
-class MPerformanceLog(Base):
+class MPerformanceLog(MClickBase):
     """性能日志表 Model
 
     记录性能监控数据，包括：

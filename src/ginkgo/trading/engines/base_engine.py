@@ -1,6 +1,6 @@
 # Upstream: CLI Commands (ginkgo engine run创建实例)、TimeControlledEventEngine等具体引擎继承
 # Downstream: EngineContext (创建并维护)、Portfolio (添加/绑定/移除)、EXECUTION_MODE/ENGINESTATUS_TYPES (状态枚举)
-# Role: 引擎抽象基类，管理 engine_id/run_id 生成、source_type 设置、Portfolio 列表和引擎状态生命周期
+# Role: 引擎抽象基类，管理 engine_id/task_id 生成、source_type 设置、Portfolio 列表和引擎状态生命周期
 
 
 
@@ -24,7 +24,7 @@ class BaseEngine(NamedMixin, ABC):
     
     统一的引擎基类，支持：
     - 基于配置的稳定engine_id生成
-    - 动态run_id会话管理
+    - 动态task_id会话管理
     - 多次执行支持
     """
 
@@ -48,7 +48,7 @@ class BaseEngine(NamedMixin, ABC):
         # === 引擎核心属性 ===
         self._mode = mode
         self._engine_id = engine_id or self._generate_engine_id()
-        self._run_id = None
+        self._task_id = None
         self._run_sequence: int = 0
         self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
         self._trace_id_token = None  # 用于清理 GLOG trace_id
@@ -104,36 +104,36 @@ class BaseEngine(NamedMixin, ABC):
         return self._engine_id
 
     @property
-    def run_id(self) -> str:
+    def task_id(self) -> str:
         """获取当前运行会话ID"""
-        return self._run_id
+        return self._task_id
 
-    def generate_run_id(self, force: bool = False) -> str:
+    def generate_task_id(self, force: bool = False) -> str:
         """
         生成新的运行会话ID
 
         Args:
-            force (bool): 是否强制生成新的run_id（即使当前已存在）
+            force (bool): 是否强制生成新的task_id（即使当前已存在）
 
         Returns:
-            str: 生成的run_id（32位UUID格式）
+            str: 生成的task_id（32位UUID格式）
         """
         from ginkgo.entities import IdentityUtils
 
-        # 只有在强制生成或当前run_id为空时才生成新的
-        if force or self._run_id is None:
+        # 只有在强制生成或当前task_id为空时才生成新的
+        if force or self._task_id is None:
             self._run_sequence += 1
-            self._run_id = IdentityUtils.generate_run_id()
+            self._task_id = IdentityUtils.generate_task_id()
             # 同时更新 EngineContext
-            self._engine_context.set_run_id(self._run_id)
+            self._engine_context.set_task_id(self._task_id)
 
             # 设置 trace_id 到 GLOG（用于分布式日志追踪）
             from ginkgo.libs import GLOG
-            self._trace_id_token = GLOG.set_trace_id(self._run_id)
+            self._trace_id_token = GLOG.set_trace_id(self._task_id)
 
-            GLOG.INFO(f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
+            GLOG.INFO(f"Generated new task_id: {self._task_id} for engine_id={self.engine_id}")
 
-        return self._run_id
+        return self._task_id
 
     def get_engine_context(self):
         """
@@ -159,20 +159,20 @@ class BaseEngine(NamedMixin, ABC):
         self._engine_context.set_engine_id(engine_id)
         GLOG.INFO(f"Engine ID updated to: {engine_id}")
 
-    def set_run_id(self, run_id: str) -> None:
+    def set_task_id(self, task_id: str) -> None:
         """
         手动设置运行会话ID（仅在start前调用）
 
         Args:
-            run_id: 新的运行会话ID
+            task_id: 新的运行会话ID
         """
         if self._state != ENGINESTATUS_TYPES.IDLE:
-            raise RuntimeError("Cannot change run_id after engine has started")
+            raise RuntimeError("Cannot change task_id after engine has started")
 
-        self._run_id = run_id
+        self._task_id = task_id
         # 同步更新 EngineContext
-        self._engine_context.set_run_id(run_id)
-        GLOG.INFO(f"Run ID updated to: {run_id}")
+        self._engine_context.set_task_id(task_id)
+        GLOG.INFO(f"Run ID updated to: {task_id}")
 
     def set_source_type(self, source_type) -> None:
         """
@@ -201,13 +201,13 @@ class BaseEngine(NamedMixin, ABC):
 
         try:
             # 判断是否需要生成新会话
-            if self._run_id is None or self._state == ENGINESTATUS_TYPES.STOPPED:
+            if self._task_id is None or self._state == ENGINESTATUS_TYPES.STOPPED:
                 # 生成新会话
-                self.generate_run_id()
-                GLOG.INFO(f"Engine '{self.name}' started new session: engine_id={self.engine_id}, run_id={self.run_id}")
+                self.generate_task_id()
+                GLOG.INFO(f"Engine '{self.name}' started new session: engine_id={self.engine_id}, task_id={self.task_id}")
             else:
-                # 从暂停状态恢复，保持原有run_id
-                GLOG.INFO(f"Engine '{self.name}' resumed: engine_id={self.engine_id}, run_id={self.run_id}")
+                # 从暂停状态恢复，保持原有task_id
+                GLOG.INFO(f"Engine '{self.name}' resumed: engine_id={self.engine_id}, task_id={self.task_id}")
 
             # 回测模式自动标记 source_type
             from ginkgo.enums import SOURCE_TYPES, EXECUTION_MODE
@@ -256,7 +256,7 @@ class BaseEngine(NamedMixin, ABC):
 
         try:
             self._state = ENGINESTATUS_TYPES.STOPPED
-            GLOG.INFO(f"Engine '{self.name}' stopped: engine_id={self.engine_id}, run_id={self.run_id}")
+            GLOG.INFO(f"Engine '{self.name}' stopped: engine_id={self.engine_id}, task_id={self.task_id}")
 
             # 清理 GLOG trace_id
             if self._trace_id_token is not None:
@@ -348,7 +348,7 @@ class BaseEngine(NamedMixin, ABC):
         return {
             'name': self.name,
             'engine_id': self.engine_id,
-            'run_id': self.run_id,
+            'task_id': self.task_id,
             'status': self.status,
             'is_active': self.is_active,
             'run_sequence': self.run_sequence,
@@ -368,7 +368,7 @@ class BaseEngine(NamedMixin, ABC):
         return {
             'engine_name': self.name,
             'engine_id': self.engine_id,
-            'run_id': self.run_id,
+            'task_id': self.task_id,
             'state': self._state.value,
             'status': self.status,
             'is_active': self.is_active,
@@ -398,7 +398,7 @@ class BaseEngine(NamedMixin, ABC):
         GLOG.INFO(f"  状态: {self.status}")
         GLOG.INFO(f"  当前时间: {self.now}")
         GLOG.INFO(f"  引擎ID: {getattr(self, 'engine_id', 'Not set')}")
-        GLOG.INFO(f"  运行ID: {getattr(self, 'run_id', 'Not set')}")
+        GLOG.INFO(f"  运行ID: {getattr(self, 'task_id', 'Not set')}")
 
         # 2. 检查TimeProvider
         GLOG.INFO(f"\n📊 2️⃣ TimeProvider状态:")

@@ -74,6 +74,7 @@ dependencies = [
     "psycopg-pool>=3.2.0",
     "pyarrow>=17.0.0",
     "pydantic>=2.10.0",
+    "pydantic-settings>=2.0.0",
     "pygments>=2.19.0",
     "pyjwt>=2.10.0",
     "pymysql>=1.1.0",
@@ -106,6 +107,10 @@ dependencies = [
     "uvloop>=0.21.0",
     "websockets>=15.0.0",
     "zstandard>=0.23.0",
+    "asyncmy>=0.2.11",
+    "python-json-logger>=4.1.0",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt>=5.0.0",
 ]
 
 # 可选依赖组
@@ -287,3 +292,7 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

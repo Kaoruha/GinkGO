@@ -141,7 +141,7 @@ class EngineMixin:
             timestamp=datetime.now(),
             source=getattr(event, 'source', None),
             correlation_id=getattr(event, 'correlation_id', None),
-            session_id=getattr(self, 'run_id', None),
+            session_id=getattr(self, 'task_id', None),
             metadata={
                 'engine_id': self.engine_id,
                 'thread_id': threading.current_thread().ident,

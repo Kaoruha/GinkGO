@@ -22,7 +22,7 @@ def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG):
     return Signal(
         portfolio_id="test_portfolio",
         engine_id="test_engine",
-        run_id="test_run",
+        task_id="test_run",
         code=code,
         direction=direction,
         reason="test",
@@ -242,7 +242,7 @@ class StrategyIntegrationTest(unittest.TestCase):
             Signal(
                 portfolio_id="test_portfolio",
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="",  # 空代码
                 direction=DIRECTION_TYPES.LONG,
                 reason="test",
@@ -254,7 +254,7 @@ class StrategyIntegrationTest(unittest.TestCase):
             Signal(
                 portfolio_id="",  # 空portfolio_id
                 engine_id="test_engine",
-                run_id="test_run",
+                task_id="test_run",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 reason="test",

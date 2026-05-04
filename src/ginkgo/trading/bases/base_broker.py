@@ -160,11 +160,11 @@ class BaseBroker(TimeMixin, ContextMixin):
             price: 价格（用于计算市值）
         """
         if code not in self._current_positions:
-            # 创建Position时需要portfolio_id, engine_id, run_id
-            # portfolio_id从事件中获取，engine_id和run_id也从事件中获取
+            # 创建Position时需要portfolio_id, engine_id, task_id
+            # portfolio_id从事件中获取，engine_id和task_id也从事件中获取
             portfolio_id = self._current_event.portfolio_id
             engine_id = self._current_event.engine_id
-            run_id = self._current_event.run_id
+            task_id = self._current_event.task_id
 
             self._current_positions[code] = Position(
                 code=code,
@@ -172,7 +172,7 @@ class BaseBroker(TimeMixin, ContextMixin):
                 price=price,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                run_id=run_id
+                task_id=task_id
             )
 
         position = self._current_positions[code]

@@ -48,7 +48,7 @@ class MSignal(MClickBase, MBacktestRecordBase):
         self,
         portfolio_id: str,
         engine_id: str,
-        run_id: str = "",  # 新增run_id参数
+        task_id: str = "",
         timestamp: Optional[any] = None,
         business_timestamp: Optional[any] = None,
         code: Optional[str] = None,
@@ -64,7 +64,7 @@ class MSignal(MClickBase, MBacktestRecordBase):
     ) -> None:
         self.portfolio_id = portfolio_id
         self.engine_id = engine_id
-        self.run_id = run_id  # 新增run_id字段赋值
+        self.task_id = task_id
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if business_timestamp is not None:

@@ -74,9 +74,9 @@ class TestEndToEndAnalyze:
         dp = DataProvider()
         dp.add("net_value", _make_df([1.0, 1.1, 1.2, 1.3, 1.4]))
 
-        report = AnalysisReport(run_id="e2e-run", registry=MetricRegistry(), data=dp)
+        report = AnalysisReport(task_id="e2e-run", registry=MetricRegistry(), data=dp)
 
-        assert report.run_id == "e2e-run"
+        assert report.task_id == "e2e-run"
         assert "net_value" in report.analyzer_summary
         assert report.analyzer_summary["net_value"]["final"] == 1.4
 
@@ -84,10 +84,10 @@ class TestEndToEndAnalyze:
         dp = DataProvider()
         dp.add("net_value", _make_df([1.0, 1.1, 1.2]))
 
-        report = AnalysisReport(run_id="e2e-run", registry=MetricRegistry(), data=dp)
+        report = AnalysisReport(task_id="e2e-run", registry=MetricRegistry(), data=dp)
         d = report.to_dict()
 
-        assert d["run_id"] == "e2e-run"
+        assert d["task_id"] == "e2e-run"
         assert "analyzer_summary" in d
         assert "stability_analysis" in d
         assert "ic_analysis" in d
@@ -98,7 +98,7 @@ class TestEndToEndAnalyze:
         dp.add("net_value", _make_df([1.0, 1.1, 1.2, 1.3, 1.4, 1.5]))
         dp.add("sharpe", _make_df([0.5, 0.6, 0.7, 0.8, 0.9, 1.0]))
 
-        report = AnalysisReport(run_id="e2e-run", registry=MetricRegistry(), data=dp)
+        report = AnalysisReport(task_id="e2e-run", registry=MetricRegistry(), data=dp)
 
         assert "net_value" in report.analyzer_summary
         assert "sharpe" in report.analyzer_summary
@@ -112,11 +112,11 @@ class TestEndToEndCompare:
     def test_compare_two_runs(self):
         dp1 = DataProvider()
         dp1.add("net_value", _make_df([1.0, 1.1, 1.2]))
-        r1 = AnalysisReport(run_id="run-a", registry=MetricRegistry(), data=dp1)
+        r1 = AnalysisReport(task_id="run-a", registry=MetricRegistry(), data=dp1)
 
         dp2 = DataProvider()
         dp2.add("net_value", _make_df([1.0, 0.9, 0.8]))
-        r2 = AnalysisReport(run_id="run-b", registry=MetricRegistry(), data=dp2)
+        r2 = AnalysisReport(task_id="run-b", registry=MetricRegistry(), data=dp2)
 
         comparison = ComparisonReport([r1, r2])
         d = comparison.to_dict()
@@ -128,11 +128,11 @@ class TestEndToEndCompare:
     def test_compare_to_dataframe(self):
         dp1 = DataProvider()
         dp1.add("net_value", _make_df([1.0, 1.1, 1.2]))
-        r1 = AnalysisReport(run_id="run-a", registry=MetricRegistry(), data=dp1)
+        r1 = AnalysisReport(task_id="run-a", registry=MetricRegistry(), data=dp1)
 
         dp2 = DataProvider()
         dp2.add("net_value", _make_df([1.0, 0.9, 0.8]))
-        r2 = AnalysisReport(run_id="run-b", registry=MetricRegistry(), data=dp2)
+        r2 = AnalysisReport(task_id="run-b", registry=MetricRegistry(), data=dp2)
 
         comparison = ComparisonReport([r1, r2])
         df = comparison.to_dataframe()
@@ -148,7 +148,7 @@ class TestEndToEndRolling:
         dp = DataProvider()
         dp.add("net_value", _make_df(list(range(120))))
 
-        report = RollingReport(run_id="e2e-run", data=dp, window=60, step=1)
+        report = RollingReport(task_id="e2e-run", data=dp, window=60, step=1)
         d = report.to_dict()
 
         assert len(d) > 0
@@ -162,7 +162,7 @@ class TestEndToEndSegment:
         dp = DataProvider()
         dp.add("net_value", _make_df(list(range(90))))
 
-        report = SegmentReport(run_id="e2e-run", data=dp, freq="M")
+        report = SegmentReport(task_id="e2e-run", data=dp, freq="M")
         d = report.to_dict()
 
         assert len(d) == 3  # Jan, Feb, Mar

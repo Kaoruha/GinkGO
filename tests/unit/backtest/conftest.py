@@ -164,7 +164,7 @@ def sample_order() -> Order:
     return Order(
         portfolio_id="test_portfolio_id",
         engine_id="test_engine_id",
-        run_id="test_run_id",
+        task_id="test_task_id",
         code="000001.SZ",
         direction=DIRECTION_TYPES.LONG,
         order_type=ORDER_TYPES.MARKETORDER,

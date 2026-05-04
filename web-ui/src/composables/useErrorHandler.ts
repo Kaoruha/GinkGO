@@ -96,7 +96,7 @@ export function useFormErrorHandler() {
       return result
     } catch (err: any) {
       error.value = err.message || '操作失败'
-      message.error(error.value)
+      message.error(error.value || '操作失败')
       return null
     } finally {
       loading.value = false

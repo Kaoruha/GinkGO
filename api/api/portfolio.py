@@ -33,6 +33,20 @@ def get_portfolio_service():
     return container.portfolio_service()
 
 
+_RUNSTATE_MAP = {
+    -1: "VOID", 0: "INITIALIZED", 1: "RUNNING", 2: "PAUSED",
+    3: "STOPPING", 4: "STOPPED", 5: "RELOADING", 6: "MIGRATING", 7: "OFFLINE",
+}
+
+
+def _map_state(state_value) -> str:
+    if isinstance(state_value, int):
+        return _RUNSTATE_MAP.get(state_value, "INITIALIZED")
+    if hasattr(state_value, "value"):
+        return _RUNSTATE_MAP.get(state_value.value, "INITIALIZED")
+    return str(state_value)
+
+
 def get_file_service():
     """获取FileService实例"""
     from ginkgo.data.containers import container
@@ -44,10 +58,10 @@ def get_mapping_service():
     from ginkgo.data.containers import container
     return container.portfolio_mapping_service()
 
-def get_param_service():
-    """获取ParameterMetadataService实例"""
-    from ginkgo.data.containers import container
-    return container.parameter_metadata_service()
+def get_param_names(component_name: str, file_type: str = None):
+    """获取组件参数名映射"""
+    from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
+    return get_component_parameter_names(component_name, None, file_type, None)
 
 
 @router.get("/")
@@ -59,30 +73,37 @@ async def list_portfolios(
         # 获取PortfolioService
         portfolio_service = get_portfolio_service()
 
+        def _check_frozen(pid):
+            try:
+                return portfolio_service.is_portfolio_frozen(pid)
+            except Exception:
+                return False
+
         # 确定筛选条件
-        is_live_filter = None
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        mode_filter = None
         if mode == PortfolioMode.BACKTEST:
-            is_live_filter = False
+            mode_filter = PORTFOLIO_MODE_TYPES.BACKTEST.value
         elif mode == PortfolioMode.LIVE:
-            is_live_filter = True
+            mode_filter = PORTFOLIO_MODE_TYPES.LIVE.value
         elif mode == PortfolioMode.PAPER:
-            is_live_filter = True
+            mode_filter = PORTFOLIO_MODE_TYPES.PAPER.value
 
         # 获取列表
-        result = portfolio_service.get(is_live=is_live_filter)
+        result = portfolio_service.get(mode=mode_filter)
 
         if not result.is_success():
             return ok(data=[], message="Portfolios retrieved successfully")
 
         portfolios = []
         for p in result.data or []:
-            mode_val = "BACKTEST" if p.is_live == 0 else "LIVE"
+            mode_val = "BACKTEST" if p.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value else ("PAPER" if p.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE")
             portfolios.append({
                 "uuid": p.uuid,
                 "name": p.name,
                 "mode": mode_val,
-                "state": "INITIALIZED",
-                "config_locked": False,
+                "state": _map_state(p.state),
+                "config_locked": _check_frozen(p.uuid),
                 "net_value": 1.0,
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None
             })
@@ -198,15 +219,20 @@ async def get_portfolio(uuid: str):
                 # 添加参数
                 params = m.get('params', {})
                 if params:
-                    # 将参数从param_0, param_1格式转换为实际参数名
-                    param_service = get_param_service()
-                    # 获取组件名称用于参数映射（不传file_type，让函数自动推断）
                     component_name = file_obj.name if file_obj else ""
-                    param_names = param_service.get_component_parameter_names(
-                        component_name=component_name
-                    )
+                    file_type_str = None
+                    if file_type is not None:
+                        file_type_val = int(file_type)
+                        type_map = {
+                            FILE_TYPES.STRATEGY.value: "strategy",
+                            FILE_TYPES.SELECTOR.value: "selector",
+                            FILE_TYPES.SIZER.value: "sizer",
+                            FILE_TYPES.RISKMANAGER.value: "risk_manager",
+                            FILE_TYPES.ANALYZER.value: "analyzer",
+                        }
+                        file_type_str = type_map.get(file_type_val)
+                    param_names = get_param_names(component_name, file_type_str)
 
-                    # 转换参数
                     config = {}
                     for key, value in params.items():
                         if key.startswith('param_'):
@@ -217,15 +243,16 @@ async def get_portfolio(uuid: str):
                     component_info['config'] = config
 
                 # 根据类型分组
-                if file_type == FILE_TYPES.SELECTOR:
+                file_type_val = int(file_type) if file_type is not None else -1
+                if file_type_val == FILE_TYPES.SELECTOR.value:
                     selectors.append(component_info)
-                elif file_type == FILE_TYPES.SIZER:
+                elif file_type_val == FILE_TYPES.SIZER.value:
                     sizers.append(component_info)
-                elif file_type == FILE_TYPES.STRATEGY:
+                elif file_type_val == FILE_TYPES.STRATEGY.value:
                     strategies.append(component_info)
-                elif file_type == FILE_TYPES.RISKMANAGER:
+                elif file_type_val == FILE_TYPES.RISKMANAGER.value:
                     risk_managers.append(component_info)
-                elif file_type == FILE_TYPES.ANALYZER:
+                elif file_type_val == FILE_TYPES.ANALYZER.value:
                     analyzers.append(component_info)
 
         from datetime import datetime
@@ -234,9 +261,9 @@ async def get_portfolio(uuid: str):
         data = {
             "uuid": uuid,
             "name": portfolio_model.name,
-            "mode": "BACKTEST" if portfolio_model.is_live == 0 else "LIVE",
-            "state": "INITIALIZED",
-            "config_locked": False,
+            "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
+            "state": _map_state(portfolio_model.state),
+            "config_locked": portfolio_service.is_portfolio_frozen(uuid),
             "net_value": 1.0,
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
             "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
@@ -279,12 +306,12 @@ async def create_portfolio(data: PortfolioCreate):
         # 准备组件数据
         sizer_data = None
         if data.sizer_uuid:
-            sizer_data = {'component_uuid': data.sizer_uuid, 'config': {}}
+            sizer_data = {'component_uuid': data.sizer_uuid, 'config': data.sizer_config or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
-            is_live=False,  # BACKTEST 模式
+            mode=0,  # BACKTEST 模式
             selectors=data.selectors,
             sizer=sizer_data,
             strategies=data.strategies,
@@ -341,7 +368,7 @@ async def update_portfolio(uuid: str, data: dict):
         # 准备更新参数
         sizer_data = None
         if data.get('sizer_uuid'):
-            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': {}}
+            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': data.get('sizer_config') or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.update_portfolio_saga(
@@ -376,6 +403,72 @@ async def update_portfolio(uuid: str, data: dict):
         raise BusinessError(f"Error updating portfolio: {str(e)}")
 
 
+@router.post("/{uuid}/start")
+async def start_portfolio(uuid: str):
+    """启动 PAPER/LIVE Portfolio（发送 Kafka deploy 命令）"""
+    try:
+        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.kafka_topics import KafkaTopics
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        portfolio_service = get_portfolio_service()
+
+        # 验证存在并获取 mode
+        result = portfolio_service.get(portfolio_id=uuid)
+        if not result.is_success() or not result.data:
+            raise NotFoundError("Portfolio", uuid)
+
+        portfolio_list = result.data
+        portfolio = portfolio_list[0] if portfolio_list else None
+        if not portfolio:
+            raise NotFoundError("Portfolio", uuid)
+
+        mode = getattr(portfolio, 'mode', -1)
+        if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+            raise BusinessError("回测模式组合不支持 start，请使用新建回测")
+
+        cmd = ControlCommand.deploy(uuid)
+        producer = GinkgoProducer()
+        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+
+        if not success:
+            raise BusinessError("Failed to send deploy command via Kafka")
+
+        logger.info(f"Start command sent for portfolio {uuid}")
+
+        return ok(data={"success": True}, message="Start command sent")
+
+    except NotFoundError:
+        raise
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error starting portfolio: {str(e)}")
+
+
+@router.post("/{uuid}/stop")
+async def stop_portfolio(uuid: str):
+    """停止 PAPER/LIVE Portfolio"""
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.stop(portfolio_id=uuid)
+
+        if not result.is_success():
+            raise BusinessError(result.error)
+
+        logger.info(f"Stop command sent for portfolio {uuid}")
+
+        return ok(data=result.data, message=result.message or "Stop command sent")
+
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error stopping portfolio: {str(e)}")
+
+
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_portfolio(uuid: str):
     """删除Portfolio（通过 service 层）"""
@@ -396,60 +489,3 @@ async def delete_portfolio(uuid: str):
     except Exception as e:
         logger.error(f"Error deleting portfolio {uuid}: {str(e)}")
         raise BusinessError(f"Error deleting portfolio: {str(e)}")
-
-
-@router.get("/stats")
-async def get_portfolio_stats():
-    """获取 Portfolio 统计数据"""
-    try:
-        # 获取 PortfolioService
-        portfolio_service = get_portfolio_service()
-
-        # 使用 count 方法获取总数
-        total_result = portfolio_service.count()
-        total = total_result.data.get("count", 0) if total_result.is_success() else 0
-
-        # 获取所有数据用于计算资产和净值
-        result = portfolio_service.get(page=0, page_size=10000)
-
-        total_assets = 0
-        avg_net_value = 1.0
-        running = 0
-
-        if result.is_success() and result.data:
-            portfolios = result.data
-            total_assets = sum(float(p.initial_capital) for p in portfolios if p.initial_capital)
-
-            # 计算平均净值和运行中数量
-            net_values = []
-            for p in portfolios:
-                # 统计运行中的投资组合
-                # 注意：旧版MPortfolio使用is_live和is_running字段
-                # 新版可能使用state字段
-                is_running = getattr(p, 'is_running', None)
-                state = getattr(p, 'state', None)
-
-                if is_running == 1 or state == 1:
-                    running += 1
-
-                if p.initial_capital and p.cash and float(p.initial_capital) > 0:
-                    net_values.append(float(p.cash) / float(p.initial_capital))
-
-            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
-
-        return ok(data={
-            "total": total,
-            "running": running,
-            "avg_net_value": round(avg_net_value, 4),
-            "total_assets": total_assets,
-        }, message="Stats retrieved successfully")
-
-    except Exception as e:
-        logger.error(f"Error getting portfolio stats: {str(e)}")
-        # 发生错误时返回默认值
-        return ok(data={
-            "total": 0,
-            "running": 0,
-            "avg_net_value": 1.0,
-            "total_assets": 0,
-        }, message="Stats retrieved successfully")

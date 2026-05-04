@@ -1,4 +1,4 @@
-# Upstream: EngineContext (提供portfolio_id/engine_id/run_id/source_type)
+# Upstream: EngineContext (提供portfolio_id/engine_id/task_id/source_type)
 # Downstream: AnalyzerService (写入ClickHouse)、ContextMixin (上下文传播)
 # Role: 分析器基类，_do_activate/_do_record模板方法，通过AnalyzerService写入ClickHouse
 
@@ -186,6 +186,8 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
         if stage not in self._active_stage:
             return
 
+        GLOG.INFO(f"[ANALYZER_ACTIVATE] {self.name}: stage={stage.name}, active_stages={[s.name for s in self._active_stage]}")
+
         start_time = time.perf_counter()
         try:
             # 调用子类实现的具体激活逻辑
@@ -210,13 +212,19 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
         Returns:
             None
         """
+        # 诊断：无论是否匹配阶段都输出（仅前3次）
+        if self._record_count < 3:
+            GLOG.INFO(f"[ANALYZER_RECORD_CHECK] {self.name}: stage={stage.name}, record_stage={self._record_stage.name}, match={stage == self._record_stage}")
+
         # Base类负责阶段检查，确保只在配置的阶段记录
         if stage != self._record_stage:
             return
 
+        GLOG.INFO(f"[ANALYZER_RECORD] {self.name}: record() called, stage={stage.name}, record_stage={self._record_stage.name}")
+
         start_time = time.perf_counter()
         try:
-            # 调用子类实现的具体记录逻辑
+            # 调用子类的落盘逻辑（base 提供默认实现）
             self._do_record(stage, portfolio_info, *args, **kwargs)
             self._record_count += 1
         except Exception as e:
@@ -244,17 +252,41 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
 
     def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """
-        子类需要重写的具体记录逻辑
-        
-        Args:
-            stage(RECORDSTAGE_TYPES): 当前记录阶段
-            portfolio_info(dict): 投资组合信息字典
-        Returns:
-            None
+        默认落盘逻辑 — 将 current_value 通过 AnalyzerService 写入数据库。
+
+        大部分分析器无需重写此方法，只需在 _do_activate 中调用 add_data() 更新数据，
+        base 的 _do_record 会自动将当前值持久化。
+        如需自定义写入逻辑（如 signal_count 直接写入累计值），可重写此方法。
         """
-        raise NotImplementedError(
-            "ANALYZER should complete the Function _do_record(), _do_record() will store the data into db."
+        task_id = self.task_id
+        if not task_id:
+            GLOG.ERROR(f"[BASE_RECORD] {self.name}: task_id is None, _context={self._context is not None}, _bound_portfolio={self._bound_portfolio is not None}")
+            return
+
+        current_time = self.get_current_time()
+        if current_time is None:
+            GLOG.ERROR(f"[BASE_RECORD] {self.name}: current_time is None")
+            return
+
+        value = self.current_value
+        if value is None:
+            GLOG.ERROR(f"[BASE_RECORD] {self.name}: value is None")
+            return
+
+        timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S")
+        analyzer_service = container.analyzer_service()
+        result = analyzer_service.add_record(
+            portfolio_id=self.portfolio_id,
+            engine_id=self.engine_id,
+            task_id=task_id,
+            timestamp=timestamp,
+            business_timestamp=timestamp,
+            value=value,
+            name=self.name,
+            analyzer_id=self._analyzer_id,
+            source=self.source_type,
         )
+        GLOG.INFO(f"[BASE_RECORD] {self.name}: success={result.is_success()}, value={value}, ts={timestamp}")
 
     def add_data(self, value: Number, *args, **kwargs) -> None:
         """
@@ -305,51 +337,6 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
             return to_decimal(self._values[idx])
         else:
             return None
-
-    def add_record(self, *args, **kwargs) -> None:
-        """
-        Add record to database using AnalyzerService.
-
-        所有 ID 信息（portfolio_id, engine_id, run_id）都通过 ContextMixin 从上下文对象获取。
-        """
-        run_id = self.run_id
-        if not run_id:
-            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: run_id is None")
-            print(f"  _context={self._context}")
-            if self._context:
-                print(f"  _context.run_id={self._context.run_id}")
-            return
-
-        current_time = self.get_current_time()
-        if current_time is None:
-            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: current_time is None")
-            return
-
-        date = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        # 使用 _index_map 检查，避免类型不匹配问题（str vs numpy.datetime64）
-        if date not in self._index_map:
-            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: date '{date}' not in _index_map")
-            print(f"  _index_map keys: {list(self._index_map.keys())[:5]}...")
-            return
-
-        value = self.get_data(date)
-        if value is not None:
-            print(f"[ANALYZER DEBUG] {self.name}.add_record() saving: run_id={run_id}, date={date}, value={value}")
-            # 使用 AnalyzerService 添加记录
-            analyzer_service = container.analyzer_service()
-            analyzer_service.add_record(
-                portfolio_id=self.portfolio_id,
-                engine_id=self.engine_id,
-                run_id=run_id,
-                timestamp=date,
-                business_timestamp=date,  # 业务时间戳使用当前时间
-                value=value,
-                name=self.name,
-                analyzer_id=self._analyzer_id,
-                source=self.source_type,
-            )
-        else:
-            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: value is None for date={date}")
 
     @property
     def mean(self) -> Decimal:

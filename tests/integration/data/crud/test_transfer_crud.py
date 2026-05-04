@@ -76,7 +76,7 @@ class TestTransferCRUDInsert:
         transfer_in = MTransfer(
             portfolio_id="test_portfolio_001",
             engine_id="test_engine_001",
-            run_id="test_run_001",
+            task_id="test_run_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("100000.00"),  # 10万元入金
@@ -90,7 +90,7 @@ class TestTransferCRUDInsert:
         transfer_out = MTransfer(
             portfolio_id="test_portfolio_001",
             engine_id="test_engine_001",
-            run_id="test_run_001",
+            task_id="test_run_001",
             direction=TRANSFERDIRECTION_TYPES.OUT,
             market=MARKET_TYPES.CHINA,
             money=Decimal("5000.00"),    # 5千元出金
@@ -159,7 +159,7 @@ class TestTransferCRUDInsert:
         test_transfer = MTransfer(
             portfolio_id="test_portfolio_002",
             engine_id="test_engine_001",
-            run_id="test_run_001",
+            task_id="test_run_001",
             direction=TRANSFERDIRECTION_TYPES.IN,
             market=MARKET_TYPES.CHINA,
             money=Decimal("50000.00"),   # 5万元入金
@@ -502,7 +502,7 @@ class TestTransferCRUDDelete:
             test_transfers = MTransfer(
                 portfolio_id="delete_test_portfolio",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("10000.00"),
@@ -513,7 +513,7 @@ class TestTransferCRUDDelete:
             test_transfer2 = MTransfer(
                 portfolio_id="delete_test_portfolio",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 direction=TRANSFERDIRECTION_TYPES.OUT,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("5000.00"),
@@ -563,7 +563,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="direction_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,    # 入金
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("8000.00"),
@@ -573,7 +573,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="direction_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.OUT,   # 出金
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("3000.00"),
@@ -583,7 +583,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="direction_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.OUT,   # 出金
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("2000.00"),
@@ -650,7 +650,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="amount_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("1000.00"),  # 小额
@@ -660,7 +660,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="amount_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("15000.00"),  # 大额
@@ -670,7 +670,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="amount_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.OUT,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("500.00"),  # 小额
@@ -741,7 +741,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="status_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("5000.00"),
@@ -751,7 +751,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="status_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.IN,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("3000.00"),
@@ -761,7 +761,7 @@ class TestTransferCRUDDelete:
                 MTransfer(
                     portfolio_id="status_test_portfolio",
                     engine_id="test_engine_001",
-                    run_id="test_run_001",
+                    task_id="test_run_001",
                     direction=TRANSFERDIRECTION_TYPES.OUT,
                     market=MARKET_TYPES.CHINA,
                     money=Decimal("2000.00"),
@@ -837,7 +837,7 @@ class TestTransferCRUDDataTypes:
             test_transfer = MTransfer(
                 portfolio_id="datatype_test_portfolio",
                 engine_id="test_engine_001",
-                run_id="test_run_001",
+                task_id="test_run_001",
                 direction=TRANSFERDIRECTION_TYPES.IN,
                 market=MARKET_TYPES.CHINA,
                 money=Decimal("10000.00"),

@@ -692,7 +692,7 @@ class TestOrderRecordCRUDDelete:
         try:
             # 准备测试数据
             print("→ 创建测试订单记录...")
-            # 使用CRUD的创建方法来避免run_id字段问题
+            # 使用CRUD的创建方法来避免task_id字段问题
             test_records = order_record_crud._create_from_params(
                 portfolio_id="delete_test_portfolio",
                 code="000001.SZ",

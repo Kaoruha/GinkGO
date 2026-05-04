@@ -40,7 +40,7 @@ class MEngine(MMysqlBase, ModelConversion):
     
     # 新增：配置和运行管理字段
     config_hash: Mapped[str] = mapped_column(String(64), default="", comment="配置哈希值")
-    current_run_id: Mapped[str] = mapped_column(String(128), default="", comment="当前运行会话ID")
+    current_task_id: Mapped[str] = mapped_column(String(128), default="", comment="当前运行会话ID")
     run_count: Mapped[int] = mapped_column(Integer, default=0, comment="运行次数计数")
     config_snapshot: Mapped[Optional[str]] = mapped_column(Text, default="{}", comment="配置快照JSON")
 
@@ -61,7 +61,7 @@ class MEngine(MMysqlBase, ModelConversion):
         name: str,
         engine_id: str = "",
         config_hash: str = "",
-        current_run_id: str = "",
+        current_task_id: str = "",
         run_count: int = 0,  # 新增run_count参数
         config_snapshot: str = "{}",  # 新增config_snapshot参数
         backtest_start_date: Optional[datetime.datetime] = None,  # 新增时间范围参数
@@ -76,7 +76,7 @@ class MEngine(MMysqlBase, ModelConversion):
         self.name = name
         self.engine_id = engine_id
         self.config_hash = config_hash
-        self.current_run_id = current_run_id
+        self.current_task_id = current_task_id
         self.run_count = run_count  # 新增run_count字段赋值
         self.config_snapshot = config_snapshot  # 新增config_snapshot字段赋值
         self.backtest_start_date = backtest_start_date  # 新增时间范围字段赋值

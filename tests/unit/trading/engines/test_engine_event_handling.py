@@ -305,49 +305,49 @@ class TestEventProcessorCore:
             except Exception as e:
                 print(f"包装处理器调用问题: {e}")
 
-        # 验证run_id生成（如果相关）
-        if getattr(engine, 'run_id', None) is not None:
-            # run_id可能在启动时生成
-            print(f"当前run_id: {engine.run_id}")
+        # 验证task_id生成（如果相关）
+        if getattr(engine, 'task_id', None) is not None:
+            # task_id可能在启动时生成
+            print(f"当前task_id: {engine.task_id}")
 
-    def test_run_id_injection(self):
-        """测试run_id注入"""
+    def test_task_id_injection(self):
+        """测试task_id注入"""
         # 创建引擎
         engine = TimeControlledEventEngine(name="RunIDTestEngine")
 
-        # 验证引擎有run_id属性
-        assert 'run_id' in dir(engine), "引擎应有run_id属性"
+        # 验证引擎有task_id属性
+        assert 'task_id' in dir(engine), "引擎应有task_id属性"
 
-        # 初始状态下run_id可能为None（未启动）
-        print(f"初始run_id: {engine.run_id}")
+        # 初始状态下task_id可能为None（未启动）
+        print(f"初始task_id: {engine.task_id}")
 
-        # 启动引擎，验证run_id生成
-        initial_run_id = engine.run_id
+        # 启动引擎，验证task_id生成
+        initial_task_id = engine.task_id
         engine.start()
 
-        # 启动后应该生成run_id
-        assert engine.run_id is not None, "启动后run_id不应为空"
-        assert isinstance(engine.run_id, str), "run_id应为字符串类型"
-        assert len(engine.run_id) > 0, "run_id长度应大于0"
+        # 启动后应该生成task_id
+        assert engine.task_id is not None, "启动后task_id不应为空"
+        assert isinstance(engine.task_id, str), "task_id应为字符串类型"
+        assert len(engine.task_id) > 0, "task_id长度应大于0"
 
-        # 验证run_id在启动时发生变化
-        assert engine.run_id != initial_run_id, "启动后run_id应与初始状态不同"
-        print(f"启动后run_id: {engine.run_id}")
+        # 验证task_id在启动时发生变化
+        assert engine.task_id != initial_task_id, "启动后task_id应与初始状态不同"
+        print(f"启动后task_id: {engine.task_id}")
 
-        # 多次启动应该生成不同的run_id
-        first_run_id = engine.run_id
+        # 多次启动应该生成不同的task_id
+        first_task_id = engine.task_id
         engine.stop()  # 停止
 
         # 创建新引擎来测试多次启动（因为线程只能启动一次）
         engine_restart = TimeControlledEventEngine(name="RunIDRestartTestEngine")
         engine_restart.start()
-        second_run_id = engine_restart.run_id
+        second_task_id = engine_restart.task_id
 
-        assert second_run_id != first_run_id, "不同引擎的run_id应不同"
-        print(f"重启引擎run_id: {second_run_id}")
+        assert second_task_id != first_task_id, "不同引擎的task_id应不同"
+        print(f"重启引擎task_id: {second_task_id}")
         engine_restart.stop()
 
-        # 验证事件注入机制中的run_id
+        # 验证事件注入机制中的task_id
         if callable(getattr(engine, '_inject_event_metadata', None)):
             # 创建测试事件
             test_event = EventTimeAdvance(dt.now(timezone.utc))
@@ -355,19 +355,19 @@ class TestEventProcessorCore:
             try:
                 enhanced_event = engine._inject_event_metadata(test_event)
 
-                # 验证注入后的event有run_id属性
-                if getattr(enhanced_event, 'run_id', None) is not None:
-                    assert enhanced_event.run_id == engine.run_id, "注入的run_id应匹配引擎run_id"
-                    print(f"事件run_id注入成功: {enhanced_event.run_id}")
+                # 验证注入后的event有task_id属性
+                if getattr(enhanced_event, 'task_id', None) is not None:
+                    assert enhanced_event.task_id == engine.task_id, "注入的task_id应匹配引擎task_id"
+                    print(f"事件task_id注入成功: {enhanced_event.task_id}")
                 else:
-                    print("事件注入后没有run_id属性")
+                    print("事件注入后没有task_id属性")
 
             except Exception as e:
-                print(f"事件run_id注入问题: {e}")
+                print(f"事件task_id注入问题: {e}")
         else:
             print("引擎没有_inject_event_metadata方法")
 
-        # 验证事件增强处理中的run_id注入
+        # 验证事件增强处理中的task_id注入
         if callable(getattr(engine, '_wrap_handler', None)):
             # 创建处理器来验证事件增强
             processed_events = []
@@ -387,22 +387,22 @@ class TestEventProcessorCore:
                 # 检查处理后的事件
                 if processed_events:
                     processed_event = processed_events[0]
-                    if getattr(processed_event, 'run_id', None) is not None:
-                        assert processed_event.run_id == engine.run_id, "处理后的事件应有正确的run_id"
-                        print(f"包装处理器成功注入run_id: {processed_event.run_id}")
+                    if getattr(processed_event, 'task_id', None) is not None:
+                        assert processed_event.task_id == engine.task_id, "处理后的事件应有正确的task_id"
+                        print(f"包装处理器成功注入task_id: {processed_event.task_id}")
                     else:
-                        print("处理后的事件没有run_id属性")
+                        print("处理后的事件没有task_id属性")
 
             except Exception as e:
-                print(f"包装处理器run_id注入问题: {e}")
+                print(f"包装处理器task_id注入问题: {e}")
 
-        # 验证不同引擎的run_id独立性
+        # 验证不同引擎的task_id独立性
         engine2 = TimeControlledEventEngine(name="RunIDTestEngine2")
         engine2.start()
 
-        # 两个运行的引擎应该有不同的run_id
-        assert engine2.run_id != engine.run_id, "不同引擎应有不同的run_id"
-        print(f"引擎1 run_id: {engine.run_id}, 引擎2 run_id: {engine2.run_id}")
+        # 两个运行的引擎应该有不同的task_id
+        assert engine2.task_id != engine.task_id, "不同引擎应有不同的task_id"
+        print(f"引擎1 task_id: {engine.task_id}, 引擎2 task_id: {engine2.task_id}")
 
         # 清理
         engine.stop()
@@ -674,16 +674,16 @@ class TestEventProcessorCore:
 
         # 验证引擎的基本标识信息
         assert getattr(engine, 'engine_id', None) is not None, "引擎应有engine_id"
-        assert getattr(engine, 'run_id', None) is not None, "引擎应有run_id"
+        assert getattr(engine, 'task_id', None) is not None, "引擎应有task_id"
         assert getattr(engine, '_event_sequence_number', None) is not None, "引擎应有序列号追踪"
 
         # 验证标识信息不为空
         assert engine.engine_id is not None, "engine_id不应为空"
-        assert engine.run_id is not None, "启动后run_id不应为空"
+        assert engine.task_id is not None, "启动后task_id不应为空"
         assert isinstance(engine._event_sequence_number, int), "序列号应为整数"
 
         print(f"引擎ID: {engine.engine_id}")
-        print(f"运行ID: {engine.run_id}")
+        print(f"运行ID: {engine.task_id}")
         print(f"事件序列号: {engine._event_sequence_number}")
 
         # 创建测试事件
@@ -715,13 +715,13 @@ class TestEventProcessorCore:
                     else:
                         print("事件缺少engine_id属性")
 
-                    # 检查run_id
-                    if getattr(processed_event, 'run_id', None) is not None:
-                        context_info['run_id'] = processed_event.run_id
-                        assert processed_event.run_id == engine.run_id, "注入的run_id应匹配"
-                        print(f"事件run_id: {processed_event.run_id}")
+                    # 检查task_id
+                    if getattr(processed_event, 'task_id', None) is not None:
+                        context_info['task_id'] = processed_event.task_id
+                        assert processed_event.task_id == engine.task_id, "注入的task_id应匹配"
+                        print(f"事件task_id: {processed_event.task_id}")
                     else:
-                        print("事件缺少run_id属性")
+                        print("事件缺少task_id属性")
 
                     # 检查sequence_number
                     if getattr(processed_event, 'sequence_number', None) is not None:
@@ -741,7 +741,7 @@ class TestEventProcessorCore:
                         print("事件缺少timestamp属性")
 
                     # 验证上下文完整性
-                    required_context_fields = ['engine_id', 'run_id', 'sequence_number', 'timestamp']
+                    required_context_fields = ['engine_id', 'task_id', 'sequence_number', 'timestamp']
                     missing_fields = [field for field in required_context_fields if field not in context_info]
 
                     if missing_fields:
@@ -753,8 +753,8 @@ class TestEventProcessorCore:
                     if 'engine_id' in context_info:
                         assert len(context_info['engine_id']) > 0, "engine_id不应为空字符串"
 
-                    if 'run_id' in context_info:
-                        assert len(context_info['run_id']) > 0, "run_id不应为空字符串"
+                    if 'task_id' in context_info:
+                        assert len(context_info['task_id']) > 0, "task_id不应为空字符串"
 
                     if 'sequence_number' in context_info:
                         assert context_info['sequence_number'] >= 0, "序列号应非负"
@@ -794,14 +794,14 @@ class TestEventProcessorCore:
 
                 # 验证多个事件的上下文一致性
                 engine_ids = []
-                run_ids = []
+                task_ids = []
                 sequence_numbers = []
 
                 for event in multiple_events:
                     if getattr(event, 'engine_id', None) is not None:
                         engine_ids.append(event.engine_id)
-                    if getattr(event, 'run_id', None) is not None:
-                        run_ids.append(event.run_id)
+                    if getattr(event, 'task_id', None) is not None:
+                        task_ids.append(event.task_id)
                     if getattr(event, 'sequence_number', None) is not None:
                         sequence_numbers.append(event.sequence_number)
 
@@ -810,10 +810,10 @@ class TestEventProcessorCore:
                     assert all(eid == engine_ids[0] for eid in engine_ids), "所有事件的engine_id应相同"
                     print(f"多个事件的engine_id一致: {engine_ids[0]}")
 
-                # 验证run_id一致性
-                if len(run_ids) > 1:
-                    assert all(rid == run_ids[0] for rid in run_ids), "所有事件的run_id应相同"
-                    print(f"多个事件的run_id一致: {run_ids[0]}")
+                # 验证task_id一致性
+                if len(task_ids) > 1:
+                    assert all(rid == task_ids[0] for rid in task_ids), "所有事件的task_id应相同"
+                    print(f"多个事件的task_id一致: {task_ids[0]}")
 
                 # 验证序列号递增
                 if len(sequence_numbers) > 1:
@@ -835,7 +835,7 @@ class TestEventProcessorCore:
             mode=EXECUTION_MODE.BACKTEST
         )
 
-        # 启动引擎以设置run_id
+        # 启动引擎以设置task_id
         backtest_engine.start()
 
         # 验证回测模式使用LogicalTimeProvider
@@ -881,7 +881,7 @@ class TestEventProcessorCore:
             mode=EXECUTION_MODE.LIVE
         )
 
-        # 启动引擎以设置run_id
+        # 启动引擎以设置task_id
         live_engine.start()
 
         # 验证实盘模式使用SystemTimeProvider

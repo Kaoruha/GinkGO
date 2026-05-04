@@ -35,7 +35,7 @@ class MMysqlBase(Base, MBase):
     - uuid: 主键，组件实例唯一标识
     - 元数据字段：create_at, update_at, is_del等
 
-    对于需要engine_id/run_id的模型，请多重继承MBacktestRecordBase。
+    对于需要engine_id/task_id的模型，请多重继承MBacktestRecordBase。
     """
     __abstract__ = True
     __tablename__ = "MysqlBaseModel"

@@ -30,7 +30,7 @@ def mock_event_base():
             self.event_type = kwargs.get('event_type', 'MockEvent')
             self.timestamp = kwargs.get('timestamp', datetime.now())
             self.code = kwargs.get('code', 'DEFAULT')
-            self.run_id = kwargs.get('run_id', 'test_run')
+            self.task_id = kwargs.get('task_id', 'test_run')
             # EventMixin is later in MRO, call super() to initialize it
             super().__init__(**kwargs)
 

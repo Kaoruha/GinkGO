@@ -187,7 +187,7 @@ class TestMPositionUpdateWithStr:
         """测试更新基本字段"""
         p = MPosition()
         p.update(
-            portfolio_id="p001", engine_id="e001", run_id="r001",
+            portfolio_id="p001", engine_id="e001", task_id="r001",
             code="000002.SZ", cost=Decimal("25.00"), volume=2000,
         )
         assert p.portfolio_id == "p001"
@@ -341,11 +341,11 @@ class TestMPositionInheritance:
         assert hasattr(p, 'cancel_delete')
         assert callable(p.cancel_delete)
 
-    def test_inherits_engine_id_and_run_id(self):
+    def test_inherits_engine_id_and_task_id(self):
         """测试继承回测记录字段"""
         p = _make_position()
         assert hasattr(p, 'engine_id')
-        assert hasattr(p, 'run_id')
+        assert hasattr(p, 'task_id')
 
 
 @pytest.mark.unit

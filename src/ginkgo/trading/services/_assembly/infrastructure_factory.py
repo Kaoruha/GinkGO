@@ -128,15 +128,15 @@ class InfrastructureFactory:
             )
             engine.set_engine_id(engine_id)
 
-            # 设置 run_id（用于回测结果聚合器和事件追踪）
-            run_id = engine_data.get("run_id", engine_id)
-            engine.set_run_id(run_id)
+            # 设置 task_id（用于回测结果聚合器和事件追踪）
+            task_id = engine_data.get("task_id", engine_id)
+            engine.set_task_id(task_id)
 
-            # 调试：验证 run_id 是否正确设置到 EngineContext
+            # 调试：验证 task_id 是否正确设置到 EngineContext
             engine_context = engine.get_engine_context()
             _logger = logger or GLOG
-            _logger.INFO(f"🔍 [RUN_ID CHECK] engine.set_run_id({run_id}) called")
-            _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.run_id = {engine_context.run_id}")
+            _logger.INFO(f"🔍 [RUN_ID CHECK] engine.set_task_id({task_id}) called")
+            _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.task_id = {engine_context.task_id}")
             _logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.engine_id = {engine_context.engine_id}")
 
             # 设置时间范围 - 使用引擎数据库中的时间配置
@@ -149,6 +149,11 @@ class InfrastructureFactory:
             else:
                 _logger.WARN("⚠️ No time range found in engine data")
 
+            GLOG.backtest.system.start(
+                name=engine_data['name'],
+                mode=exec_mode.name,
+                msg=f"引擎创建: {engine_data['name']} 模式{exec_mode.name} 周期{start_date if 'start_date' in dir() else '?'}~{end_date if 'end_date' in dir() else '?'}",
+            )
             _logger.DEBUG(f"Created base engine: {engine_data['name']} ({type(engine).__name__})")
             return engine
 
@@ -236,6 +241,9 @@ class InfrastructureFactory:
                 engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
 
             _logger.DEBUG(f"✅ Data feeder setup completed after portfolio binding (mode={exec_mode.name})")
+            GLOG.backtest.system.start(
+                msg=f"数据源接入: {type(feeder).__name__} 模式{exec_mode.name}",
+            )
             return True
         except Exception as e:
             _logger = logger or GLOG

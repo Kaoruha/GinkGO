@@ -57,8 +57,8 @@ class SliceDataManager:
 
             # 获取analyzer记录
             analyzer_crud = services.data.cruds.analyzer_record()
-            analyzer_records = analyzer_crud.get_by_run_id(
-                run_id=engine_id,
+            analyzer_records = analyzer_crud.get_by_task_id(
+                task_id=engine_id,
                 portfolio_id=portfolio_id,
                 page_size=100000,
             )

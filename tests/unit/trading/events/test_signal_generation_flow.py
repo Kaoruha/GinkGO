@@ -16,12 +16,12 @@ from ginkgo.enums import EVENT_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 
 
 def _make_signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, reason="test reason",
-                 portfolio_id="test-portfolio", engine_id="test-engine", run_id="test-run",
+                 portfolio_id="test-portfolio", engine_id="test-engine", task_id="test-run",
                  business_timestamp=None, volume=0, strength=None, confidence=None):
     kwargs = dict(
         portfolio_id=portfolio_id,
         engine_id=engine_id,
-        run_id=run_id,
+        task_id=task_id,
         code=code,
         direction=direction,
         reason=reason,
@@ -422,12 +422,12 @@ class TestSignalGenerationTimingAndContext:
 
     def test_signal_strategy_context_tracking(self):
         """测试信号策略上下文追踪"""
-        signal = _make_signal(portfolio_id="portfolio-123", engine_id="engine-456", run_id="run-789")
+        signal = _make_signal(portfolio_id="portfolio-123", engine_id="engine-456", task_id="run-789")
         event = EventSignalGeneration(signal=signal)
 
         assert event.payload.portfolio_id == "portfolio-123"
         assert event.payload.engine_id == "engine-456"
-        assert event.payload.run_id == "run-789"
+        assert event.payload.task_id == "run-789"
 
     def test_signal_historical_reference(self):
         """测试信号历史参考"""

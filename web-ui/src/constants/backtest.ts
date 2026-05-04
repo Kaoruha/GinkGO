@@ -4,6 +4,9 @@
  * Role: 回测任务状态常量，提供六态模型配置
  */
 
+/** 回测默认时间范围（单位：月） */
+export const BACKTEST_DEFAULT_RANGE_MONTHS = 12
+
 /**
  * 回测任务状态（六态模型）
  * - created: 待调度 - 任务已创建，等待调度
@@ -165,5 +168,5 @@ export function getBrokerAttitudeLabel(value: number): string {
  * @deprecated 使用 getStateBadgeStatus 代替
  */
 export function getStateStatus(state: string): string {
-  return STATE_COLORS[state] || 'default'
+  return BACKTEST_STATE_COLORS[state] || 'default'
 }

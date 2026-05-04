@@ -224,16 +224,16 @@ class ProgressTracker:
             # 完成状态时，设置结果字段
             if result:
                 result_fields.update({
-                    "total_pnl": str(result.get("total_pnl", "0")),
+                    "total_pnl": result.get("total_pnl", 0.0),
                     "total_orders": result.get("total_orders", 0),
                     "total_signals": result.get("total_signals", 0),
                     "total_positions": result.get("total_positions", 0),
                     "total_events": result.get("total_events", 0),
-                    "final_portfolio_value": str(result.get("final_portfolio_value", "0")),
-                    "max_drawdown": str(result.get("max_drawdown", "0")),
-                    "sharpe_ratio": str(result.get("sharpe_ratio", "0")),
-                    "annual_return": str(result.get("annual_return", "0")),
-                    "win_rate": str(result.get("win_rate", "0")),
+                    "final_portfolio_value": result.get("final_portfolio_value", 0.0),
+                    "max_drawdown": result.get("max_drawdown", 0.0),
+                    "sharpe_ratio": result.get("sharpe_ratio", 0.0),
+                    "annual_return": result.get("annual_return", 0.0),
+                    "win_rate": result.get("win_rate", 0.0),
                 })
 
             result_obj = self.task_service.update_status(
@@ -250,7 +250,7 @@ class ProgressTracker:
                 self._notify_ws_clients(
                     task_id, status,
                     progress=100,
-                    total_pnl=str(result.get("total_pnl", "0")),
+                    total_pnl=result.get("total_pnl", 0.0),
                     total_orders=result.get("total_orders", 0),
                     total_signals=result.get("total_signals", 0)
                 )
@@ -264,7 +264,7 @@ class ProgressTracker:
         查询任务当前状态
 
         Args:
-            task_uuid: 任务UUID (实际是 run_id)
+            task_uuid: 任务UUID (实际是 task_id)
 
         Returns:
             Optional[str]: 任务状态 (completed/failed/running/pending/created)，如果查询失败返回 None
@@ -273,7 +273,7 @@ class ProgressTracker:
             return None
 
         try:
-            # 使用 get_by_id 而不是 get，因为 get_by_id 更可靠（先尝试 uuid，再尝试 run_id）
+            # 使用 get_by_id 而不是 get，因为 get_by_id 更可靠（先尝试 uuid，再尝试 task_id）
             result = self.task_service.get_by_id(task_uuid)
             if result.is_success() and result.data:
                 # result.data 是单个 MBacktestTask 对象

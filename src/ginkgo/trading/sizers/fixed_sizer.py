@@ -8,15 +8,13 @@
 
 
 import datetime
-import uuid
 from decimal import Decimal
 from typing import Tuple, Optional
 
 
 from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
-from ginkgo.entities import Order
-from ginkgo.entities import Signal
-from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
+from ginkgo.entities import Order, Signal
+from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import to_decimal, GLOG
 from ginkgo.data.containers import container
 
@@ -122,14 +120,9 @@ class FixedSizer(BaseSizer):
                     GLOG.DEBUG(f"No order generated. {current_time}")
                     return None
 
-                o = Order(
-                    portfolio_id=portfolio_info["portfolio_id"],
-                    engine_id=self.engine_id,
-                    run_id=portfolio_info.get("run_id", ""),
+                o = self.create_order(
                     code=code,
                     direction=DIRECTION_TYPES.LONG,
-                    order_type=ORDER_TYPES.MARKETORDER,
-                    status=ORDERSTATUS_TYPES.NEW,
                     volume=planned_size,
                     limit_price=0,
                     frozen_money=planned_cost,
@@ -149,14 +142,9 @@ class FixedSizer(BaseSizer):
 
                 GLOG.WARN(f"Try Generate SHORT ORDER. {current_time}")
 
-                o = Order(
-                    portfolio_id=portfolio_info["portfolio_id"],
-                    engine_id=self.engine_id,
-                    run_id=portfolio_info.get("run_id", ""),
+                o = self.create_order(
                     code=code,
                     direction=DIRECTION_TYPES.SHORT,
-                    order_type=ORDER_TYPES.MARKETORDER,
-                    status=ORDERSTATUS_TYPES.NEW,
                     volume=pos.volume,
                     limit_price=0,
                     frozen_money=0,

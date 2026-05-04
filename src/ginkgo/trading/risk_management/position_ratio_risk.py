@@ -13,7 +13,7 @@ from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EVENT_TYPES, ORDER_TYPES
+from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES, ORDER_TYPES
 from ginkgo.libs import Number, to_decimal, GLOG
 
 
@@ -141,14 +141,13 @@ class PositionRatioRisk(BaseRiskManagement):
             if max_allowed_order_value <= 0:
                 GLOG.INFO(f"PositionRatioRisk: Single position ratio limit reached for {order.code} - current ratio: {float(current_position_ratio):.2%}, limit: {float(self._max_position_ratio):.2%}")
                 # 记录风控事件到ClickHouse
-                GLOG.backtest.risk(
+                self.blog.risk(
                     risk_type="POSITIONLIMITEXCEEDED",
                     reason=f"Single position ratio limit reached: {float(current_position_ratio):.2%} > {float(self._max_position_ratio):.2%}",
                     risk_actual_value=float(current_position_ratio),
                     risk_limit_value=float(self._max_position_ratio),
                     symbol=order.code,
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
+                    msg=f"单股持仓超限: {order.code} 占比{float(current_position_ratio):.2%} 超过限制{float(self._max_position_ratio):.2%}",
                 )
                 return None
 
@@ -180,13 +179,12 @@ class PositionRatioRisk(BaseRiskManagement):
             if max_allowed_order_value <= 0:
                 GLOG.INFO(f"PositionRatioRisk: Total position ratio limit reached - current ratio: {float(current_total_ratio):.2%}, limit: {float(self._max_total_position_ratio):.2%}")
                 # 记录风控事件到ClickHouse
-                GLOG.backtest.risk(
+                self.blog.risk(
                     risk_type="POSITIONLIMITEXCEEDED",
                     reason=f"Total position ratio limit reached: {float(current_total_ratio):.2%} > {float(self._max_total_position_ratio):.2%}",
                     risk_actual_value=float(current_total_ratio),
                     risk_limit_value=float(self._max_total_position_ratio),
-                    portfolio_id=portfolio_info.get("uuid"),
-                    engine_id=self.engine_id,
+                    msg=f"总仓位超限: 总占比{float(current_total_ratio):.2%} 超过限制{float(self._max_total_position_ratio):.2%}",
                 )
                 return None
 
@@ -319,14 +317,10 @@ class PositionRatioRisk(BaseRiskManagement):
                 GLOG.INFO(f"  Current ratio: {position_ratio_float:.2%}, Warning threshold: {warning_ratio_float:.2%}, Max allowed: {max_ratio_float:.2%}",
                 )
 
-                signal = Signal(
-                    portfolio_id=portfolio_info["uuid"],
-                    engine_id=self.engine_id,  # 使用self获取engine_id
-                    timestamp=portfolio_info["now"],
+                signal = self.create_signal(
                     code=code,
                     direction=DIRECTION_TYPES.SHORT,  # 减仓
                     reason=f"Position Ratio Warning ({position_ratio_float:.2%} > {warning_ratio_float:.2%})",
-                    source=SOURCE_TYPES.STRATEGY,  # 风控生成的信号也标记为策略来源
                 )
                 signals.append(signal)
                 GLOG.INFO(f"PositionRatioRisk: Generated reduction signal for {code}")

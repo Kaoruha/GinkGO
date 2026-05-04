@@ -19,10 +19,10 @@ class TestDeploymentIntegration:
 
     def test_deploy_paper_rejects_nonexistent_task(self):
         """部署不存在的回测任务应返回错误"""
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
-        deployment_service = container.deployment_service()
+        deployment_service = trading_container.deployment_service()
         result = deployment_service.deploy(
             backtest_task_id="nonexistent_task_id",
             mode=PORTFOLIO_MODE_TYPES.PAPER,
@@ -33,9 +33,9 @@ class TestDeploymentIntegration:
 
     def test_list_deployments_returns_list(self):
         """列出部署记录应返回列表"""
-        from ginkgo.data.containers import container
+        from ginkgo.trading.containers import trading_container
 
-        deployment_service = container.deployment_service()
+        deployment_service = trading_container.deployment_service()
         result = deployment_service.list_deployments()
 
         assert result.success
