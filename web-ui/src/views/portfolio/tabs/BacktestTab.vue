@@ -61,6 +61,7 @@
               <span class="meta-item">胜率 {{ formatPercent(task.win_rate) }}</span>
               <span class="meta-item">{{ task.total_orders || 0 }} 单</span>
               <span class="meta-item">{{ task.total_signals || 0 }} 信号</span>
+              <span v-if="task.backtest_start_date" class="meta-item date-range-item">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</span>
             </div>
           </div>
           <div class="task-card-right">
@@ -1398,6 +1399,7 @@ onUnmounted(() => {
 }
 
 .meta-item { font-size: 12px; color: #8a8a9a; }
+.date-range-item { color: #6b7280; font-variant-numeric: tabular-nums; }
 
 .task-card-right {
   display: flex;
