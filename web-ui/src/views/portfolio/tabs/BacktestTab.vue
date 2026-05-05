@@ -48,6 +48,7 @@
         >
           <div class="task-card-main">
             <div class="task-name">{{ task.name || '(未命名)' }} <span class="task-uuid">{{ task.uuid }}</span></div>
+            <div v-if="task.backtest_start_date" class="task-date-range">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</div>
             <div class="task-meta">
               <span class="tag" :class="statusTagClass(task.status)">{{ statusLabel(task.status) }}</span>
               <span v-if="task.status === 'running' || task.status === 'pending'" class="progress-info">
@@ -61,7 +62,6 @@
               <span class="meta-item">胜率 {{ formatPercent(task.win_rate) }}</span>
               <span class="meta-item">{{ task.total_orders || 0 }} 单</span>
               <span class="meta-item">{{ task.total_signals || 0 }} 信号</span>
-              <span v-if="task.backtest_start_date" class="meta-item date-range-item">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</span>
             </div>
           </div>
           <div class="task-card-right">
@@ -1399,7 +1399,14 @@ onUnmounted(() => {
 }
 
 .meta-item { font-size: 12px; color: #8a8a9a; }
-.date-range-item { color: #6b7280; font-variant-numeric: tabular-nums; }
+.task-date-range {
+  font-size: 12px;
+  color: #a0aec0;
+  margin-top: 2px;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
 
 .task-card-right {
   display: flex;
