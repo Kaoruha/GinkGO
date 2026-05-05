@@ -81,6 +81,8 @@ class BacktestTaskSummary(BaseModel):
     created_at: str = ""
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    backtest_start_date: Optional[str] = None
+    backtest_end_date: Optional[str] = None
     error_message: str = ""
 
 
@@ -401,6 +403,8 @@ async def list_backtests(
                 "started_at": getattr(task, 'start_time', None),
                 "finished_at": getattr(task, 'end_time', None),
                 "error_message": getattr(task, 'error_message', '') or '',
+                "backtest_start_date": getattr(task, 'backtest_start_date', None),
+                "backtest_end_date": getattr(task, 'backtest_end_date', None),
             }
 
             # 将 datetime 对象转换为字符串
