@@ -438,6 +438,8 @@ async def list_backtests(
                 created_at=created_at_str or "",
                 started_at=started_at_str,
                 completed_at=completed_at_str,
+                backtest_start_date=format_date(task_dict.get("backtest_start_date")),
+                backtest_end_date=format_date(task_dict.get("backtest_end_date")),
                 error_message=task_dict["error_message"],
             ))
 
