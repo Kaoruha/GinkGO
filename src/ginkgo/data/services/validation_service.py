@@ -221,7 +221,10 @@ class ValidationService(BaseService):
                 # 按段聚合每个指标
                 segments_data = []
                 for seg_idx in range(n):
-                    seg_dict = {}
+                    seg_dict = {
+                        "_start": boundaries[seg_idx].strftime("%Y-%m-%d"),
+                        "_end": boundaries[seg_idx + 1].strftime("%Y-%m-%d"),
+                    }
                     for metric_name in metrics:
                         metric_records = by_name.get(metric_name, [])
                         seg_values = [

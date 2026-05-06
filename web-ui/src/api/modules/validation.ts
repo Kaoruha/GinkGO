@@ -93,7 +93,7 @@ export interface AvailableMetric {
 export interface SegmentStabilityResult {
   windows: {
     n_segments: number
-    segments: Record<string, number>[]
+    segments: Record<string, any>[]
     available_metrics: string[]
     stability_score: number
   }[]
