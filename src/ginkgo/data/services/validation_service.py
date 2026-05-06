@@ -46,13 +46,21 @@ class ValidationService(BaseService):
         self._analyzer_crud = analyzer_record_crud
         self._result_crud = validation_result_crud
 
+    @staticmethod
+    def _get_analyzer_class(name: str):
+        """通过名称查找分析器类，读取 aggregation_type 等类属性"""
+        import inspect
+        from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+        for cls in BaseAnalyzer.__subclasses__():
+            sig = inspect.signature(cls.__init__)
+            name_param = sig.parameters.get('name')
+            if name_param and name_param.default == name:
+                return cls
+        return None
+
     def get_available_metrics(self, task_id: str, portfolio_id: str) -> ServiceResult:
         """查询 analyzer_record 表中该任务实际存在的分析器名称及中文标签"""
         try:
-            from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
-            registry = AnalyzerRegistry()
-            registry.scan_builtin()
-
             records = self._analyzer_crud.get_by_task_id(
                 task_id=task_id,
                 portfolio_id=portfolio_id,
@@ -61,7 +69,7 @@ class ValidationService(BaseService):
             names = sorted(set(r.name for r in records))
             metrics = []
             for n in names:
-                cls = registry.get(n)
+                cls = self._get_analyzer_class(n)
                 agg_type = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
                 metrics.append({"name": n, "label": ANALYZER_LABELS.get(n, n), "aggregation_type": agg_type})
             return ServiceResult.success(data={"metrics": metrics})
@@ -168,9 +176,12 @@ class ValidationService(BaseService):
 
         try:
             import datetime as dt
-            from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
-            registry = AnalyzerRegistry()
-            registry.scan_builtin()
+
+            # 构建分析器名称→聚合类型查找表
+            agg_types = {}
+            for m in metrics:
+                cls = self._get_analyzer_class(m)
+                agg_types[m] = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
 
             # 获取时间范围
             nv_records = self._get_net_value_records(task_id, portfolio_id)
@@ -217,8 +228,7 @@ class ValidationService(BaseService):
                             float(r.value) for r in metric_records
                             if boundaries[seg_idx] <= (r.business_timestamp or r.timestamp) < boundaries[seg_idx + 1]
                         ]
-                        cls = registry.get(metric_name)
-                        agg_type = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
+                        agg_type = agg_types.get(metric_name, 'mean')
                         if agg_type == "delta" and len(seg_values) >= 2:
                             seg_dict[metric_name] = round(seg_values[-1] - seg_values[0], 6)
                         else:
