@@ -8,6 +8,7 @@
       <p class="page-description">将回测区间等分为多段，对比各段表现是否一致</p>
     </div>
 
+    <div class="page-content">
     <div class="card">
       <div class="card-header"><h3>分析配置</h3></div>
       <div class="card-body">
@@ -25,7 +26,7 @@
             <label class="form-label">分段数</label>
             <div class="segment-tags">
               <button
-                v-for="opt in presetSegments"
+                v-for="opt in allSegmentOptions"
                 :key="opt"
                 class="segment-tag"
                 :class="{ active: selectedSegments.has(opt) }"
@@ -39,8 +40,8 @@
                 type="number"
                 min="2"
                 placeholder="输入"
-                @keydown.enter="addCustomSegment"
-                @blur="addCustomSegment"
+                @keydown.enter.prevent="addCustomSegment"
+                @blur="nextTick(addCustomSegment)"
               />
               <button v-else class="segment-tag segment-tag-add" @click="openCustomInput">+</button>
             </div>
@@ -112,11 +113,12 @@
     <div v-else-if="!loading" class="card">
       <div class="empty-state">选择回测任务并点击分析</div>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
@@ -130,6 +132,10 @@ const result = ref<any>(null)
 const backtestList = ref<any[]>([])
 const presetSegments = [2, 4, 8, 16, 32]
 const selectedSegments = reactive(new Set([2, 4, 8]))
+const allSegmentOptions = computed(() => {
+  const custom = Array.from(selectedSegments).filter(n => !presetSegments.includes(n))
+  return [...presetSegments, ...custom.sort((a, b) => a - b)]
+})
 const showCustomInput = ref(false)
 const customValue = ref<number | null>(null)
 const customInputRef = ref<HTMLInputElement | null>(null)
@@ -157,6 +163,7 @@ const openCustomInput = () => {
 }
 
 const addCustomSegment = () => {
+  if (!showCustomInput.value) return
   const v = customValue.value
   if (v && v >= 2 && !selectedSegments.has(v)) {
     selectedSegments.add(v)
@@ -422,10 +429,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
+.page-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .card {
