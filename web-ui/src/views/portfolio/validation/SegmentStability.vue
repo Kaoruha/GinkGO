@@ -104,13 +104,13 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>段</th>
+                  <th>时间段</th>
                   <th v-for="metric in (w.available_metrics || [])" :key="metric">{{ metricLabel(metric) }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(seg, i) in w.segments" :key="i">
-                  <td>{{ i + 1 }}</td>
+                  <td>{{ seg._start }} ~ {{ seg._end }}</td>
                   <td v-for="metric in (w.available_metrics || [])" :key="metric">
                     {{ formatMetricValue(seg[metric]) }}
                   </td>
@@ -356,7 +356,7 @@ const initDetailCharts = () => {
     const chart = echarts.init(el)
     detailCharts.set(w.n_segments, chart)
 
-    const xData = w.segments.map((_: any, i: number) => `段${i + 1}`)
+    const xData = w.segments.map((seg: any) => `${seg._start?.slice(5) || ''}~${seg._end?.slice(5) || ''}`)
     const metrics = w.available_metrics || []
 
     const yAxisDefs = metrics.slice(0, 2).map((m: string, i: number) => ({
