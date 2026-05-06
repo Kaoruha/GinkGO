@@ -46,6 +46,18 @@ class ValidationService(BaseService):
         self._analyzer_crud = analyzer_record_crud
         self._result_crud = validation_result_crud
 
+    @staticmethod
+    def _get_analyzer_class(name: str):
+        """通过名称查找分析器类，读取 aggregation_type 等类属性"""
+        import inspect
+        from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+        for cls in BaseAnalyzer.__subclasses__():
+            sig = inspect.signature(cls.__init__)
+            name_param = sig.parameters.get('name')
+            if name_param and name_param.default == name:
+                return cls
+        return None
+
     def get_available_metrics(self, task_id: str, portfolio_id: str) -> ServiceResult:
         """查询 analyzer_record 表中该任务实际存在的分析器名称及中文标签"""
         try:
@@ -55,7 +67,11 @@ class ValidationService(BaseService):
                 page_size=10000,
             )
             names = sorted(set(r.name for r in records))
-            metrics = [{"name": n, "label": ANALYZER_LABELS.get(n, n)} for n in names]
+            metrics = []
+            for n in names:
+                cls = self._get_analyzer_class(n)
+                agg_type = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
+                metrics.append({"name": n, "label": ANALYZER_LABELS.get(n, n), "aggregation_type": agg_type})
             return ServiceResult.success(data={"metrics": metrics})
         except Exception as e:
             GLOG.ERROR(f"获取可用指标失败: {e}")
@@ -161,6 +177,12 @@ class ValidationService(BaseService):
         try:
             import datetime as dt
 
+            # 构建分析器名称→聚合类型查找表
+            agg_types = {}
+            for m in metrics:
+                cls = self._get_analyzer_class(m)
+                agg_types[m] = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
+
             # 获取时间范围
             nv_records = self._get_net_value_records(task_id, portfolio_id)
             if len(nv_records) < 10:
@@ -192,23 +214,36 @@ class ValidationService(BaseService):
                 by_name = {}
                 for r in all_records:
                     by_name.setdefault(r.name, []).append(r)
+                # 确保每个分析器的记录按时间升序（delta 聚合需要首尾值）
+                for name in by_name:
+                    by_name[name].sort(key=lambda r: r.business_timestamp or r.timestamp)
 
                 # 按段聚合每个指标
                 segments_data = []
                 for seg_idx in range(n):
-                    seg_dict = {}
+                    seg_dict = {
+                        "_start": boundaries[seg_idx].strftime("%Y-%m-%d"),
+                        "_end": boundaries[seg_idx + 1].strftime("%Y-%m-%d"),
+                    }
                     for metric_name in metrics:
                         metric_records = by_name.get(metric_name, [])
                         seg_values = [
                             float(r.value) for r in metric_records
                             if boundaries[seg_idx] <= (r.business_timestamp or r.timestamp) < boundaries[seg_idx + 1]
                         ]
-                        seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
+                        agg_type = agg_types.get(metric_name, 'mean')
+                        if agg_type == "delta" and len(seg_values) >= 2:
+                            seg_dict[metric_name] = round(seg_values[-1] - seg_values[0], 6)
+                        else:
+                            seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
                     segments_data.append(seg_dict)
 
-                # 稳定性评分（基于 annualized_return 分段标准差/均值比）
-                seg_annual_returns = [s.get("annualized_return", 0) for s in segments_data]
-                stability_score = self._calc_stability_score(seg_annual_returns)
+                # 稳定性评分（基于用户选中指标的各段值计算，取均值）
+                per_metric_scores = []
+                for metric_name in metrics:
+                    seg_values = [s.get(metric_name, 0) for s in segments_data]
+                    per_metric_scores.append(self._calc_stability_score(seg_values))
+                stability_score = round(float(np.mean(per_metric_scores)), 4) if per_metric_scores else 0.0
 
                 windows.append({
                     "n_segments": n,

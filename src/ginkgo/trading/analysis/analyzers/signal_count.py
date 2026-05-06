@@ -17,6 +17,7 @@ class SignalCount(BaseAnalyzer):
     """
 
     __abstract__ = False
+    aggregation_type = "delta"
 
     def __init__(self, name: str = "signal_count", *args, **kwargs):
         super().__init__(name, *args, **kwargs)

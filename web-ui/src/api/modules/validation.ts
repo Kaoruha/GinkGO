@@ -87,12 +87,13 @@ export interface SegmentStabilityConfig {
 export interface AvailableMetric {
   name: string
   label: string
+  aggregation_type: 'mean' | 'delta'
 }
 
 export interface SegmentStabilityResult {
   windows: {
     n_segments: number
-    segments: Record<string, number>[]
+    segments: Record<string, any>[]
     available_metrics: string[]
     stability_score: number
   }[]

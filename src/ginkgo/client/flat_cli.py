@@ -517,7 +517,80 @@ def get(
         console.print(f":x: Error: {e}")
 
 
-# 将所有应用注册到get_app中
+@result_app.command(name="segment-stability")
+def segment_stability(
+    task_id: str = typer.Option(..., "--task-id", "-t", help="Backtest task ID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio-id", "-p", help="Portfolio ID"),
+    segments: str = typer.Option("2,4,8", "--segments", "-s", help="Comma-separated segment counts"),
+    metrics: Optional[str] = typer.Option(None, "--metrics", "-m", help="Comma-separated analyzer names"),
+):
+    """:bar_chart: Run segment stability validation.
+
+    Examples:
+        ginkgo get result segment-stability --task-id abc123
+        ginkgo get result segment-stability -t abc123 -s 2,4 -m sharpe_ratio,win_rate
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.data.services.validation_service import ANALYZER_LABELS
+
+    service = container.validation_service()
+
+    if portfolio_id is None:
+        result_service = container.result_service()
+        summary_result = result_service.get_run_summary(task_id)
+        if not summary_result.success:
+            console.print(f":x: [red]未找到 task_id={task_id}[/red]")
+            return
+        summary = summary_result.data
+        if summary["portfolio_count"] > 1:
+            console.print(f"[yellow]多个 portfolio，请用 --portfolio-id 指定:[/yellow]")
+            for pid in summary["portfolios"]:
+                console.print(f"  - {pid}")
+            return
+        portfolio_id = summary["portfolios"][0]
+        console.print(f":briefcase: [cyan]Portfolio: {portfolio_id}[/cyan]")
+
+    n_segments_list = [int(x.strip()) for x in segments.split(",")]
+    metrics_list = [x.strip() for x in metrics.split(",")] if metrics else None
+
+    console.print(f"\n:chart_with_upwards_trend: [bold]分段稳定性分析[/bold]")
+    console.print(f"  分段数: {n_segments_list}  指标: {metrics_list or '默认'}\n")
+
+    result = service.segment_stability(
+        task_id=task_id,
+        portfolio_id=portfolio_id,
+        n_segments_list=n_segments_list,
+        metrics=metrics_list,
+    )
+
+    if not result.success:
+        console.print(f":x: [red]{result.error}[/red]")
+        return
+
+    for w in result.data["windows"]:
+        n = w["n_segments"]
+        score = w["stability_score"]
+        score_color = "green" if score > 0.6 else "yellow" if score > 0.3 else "red"
+
+        console.print(f"[bold]{n} 段[/bold]  稳定性: [{score_color}]{score * 100:.1f}%[/{score_color}]")
+
+        segs = w["segments"]
+        avail = w.get("available_metrics", [])
+
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("时间段", style="cyan")
+        for m in avail:
+            table.add_column(ANALYZER_LABELS.get(m, m))
+
+        for seg in segs:
+            row = [f"{seg.get('_start', '')} ~ {seg.get('_end', '')}"]
+            for m in avail:
+                val = seg.get(m, 0)
+                row.append(f"{val:.4f}" if abs(val) < 1000 else f"{val:.0f}")
+            table.add_row(*row)
+
+        console.print(table)
+        console.print("")
 get_app.add_typer(component_app, name="component", help=":wrench: Get component information")
 get_app.add_typer(mapping_app, name="mapping", help=":link: Get mapping information")
 get_app.add_typer(result_app, name="result", help=":bar_chart: Get result information")
