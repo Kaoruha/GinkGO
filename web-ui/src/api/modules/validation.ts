@@ -87,6 +87,7 @@ export interface SegmentStabilityConfig {
 export interface AvailableMetric {
   name: string
   label: string
+  aggregation_type: 'mean' | 'delta'
 }
 
 export interface SegmentStabilityResult {
