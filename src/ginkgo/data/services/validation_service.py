@@ -235,9 +235,12 @@ class ValidationService(BaseService):
                             seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
                     segments_data.append(seg_dict)
 
-                # 稳定性评分（基于 annualized_return 分段标准差/均值比）
-                seg_annual_returns = [s.get("annualized_return", 0) for s in segments_data]
-                stability_score = self._calc_stability_score(seg_annual_returns)
+                # 稳定性评分（基于用户选中指标的各段值计算，取均值）
+                per_metric_scores = []
+                for metric_name in metrics:
+                    seg_values = [s.get(metric_name, 0) for s in segments_data]
+                    per_metric_scores.append(self._calc_stability_score(seg_values))
+                stability_score = round(float(np.mean(per_metric_scores)), 4) if per_metric_scores else 0.0
 
                 windows.append({
                     "n_segments": n,
