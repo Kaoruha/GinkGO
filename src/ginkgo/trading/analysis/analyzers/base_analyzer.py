@@ -31,6 +31,7 @@ class BaseAnalyzer(TimeMixin, ContextMixin, NamedMixin, Base):
     # 类级别的监控统计（所有实例共享）
     _execution_stats = {}
     _performance_log = []
+    aggregation_type = "mean"  # 子类可覆盖为 "delta"
 
     def __init__(self, name: str, timestamp=None, *args, **kwargs):
         super().__init__(name=name, *args, **kwargs)
