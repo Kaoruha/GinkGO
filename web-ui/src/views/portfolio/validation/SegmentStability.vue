@@ -73,34 +73,38 @@
         </div>
       </div>
 
-      <div class="card" v-for="w in result.windows" :key="'detail-' + w.n_segments">
-        <div class="card-header">
-          <h3>{{ w.n_segments }} 段分析</h3>
-          <span :class="scoreClass(w.stability_score)">评分 {{ (w.stability_score * 100).toFixed(1) }}%</span>
-        </div>
-        <div class="card-body">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>段</th>
-                <th>收益</th>
-                <th>夏普</th>
-                <th>最大回撤</th>
-                <th>胜率</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(seg, i) in w.segments" :key="i">
-                <td>{{ i + 1 }}</td>
-                <td :class="seg.total_return >= 0 ? 'stat-success' : 'stat-danger'">
-                  {{ (seg.total_return * 100).toFixed(2) }}%
-                </td>
-                <td>{{ seg.sharpe.toFixed(2) }}</td>
-                <td class="stat-danger">{{ (seg.max_drawdown * 100).toFixed(2) }}%</td>
-                <td>{{ (seg.win_rate * 100).toFixed(1) }}%</td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- 双列详情网格 -->
+      <div class="detail-grid">
+        <div class="card" v-for="w in result.windows" :key="'detail-' + w.n_segments">
+          <div class="card-header">
+            <h3>{{ w.n_segments }} 段分析</h3>
+            <span :class="scoreClass(w.stability_score)">评分 {{ (w.stability_score * 100).toFixed(1) }}%</span>
+          </div>
+          <div class="card-body">
+            <div :ref="(el: any) => setDetailChartRef(w.n_segments)(el)" class="detail-chart"></div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>段</th>
+                  <th>收益</th>
+                  <th>夏普</th>
+                  <th>最大回撤</th>
+                  <th>胜率</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(seg, i) in w.segments" :key="i">
+                  <td>{{ i + 1 }}</td>
+                  <td :class="seg.total_return >= 0 ? 'stat-success' : 'stat-danger'">
+                    {{ (seg.total_return * 100).toFixed(2) }}%
+                  </td>
+                  <td>{{ seg.sharpe.toFixed(2) }}</td>
+                  <td class="stat-danger">{{ (seg.max_drawdown * 100).toFixed(2) }}%</td>
+                  <td>{{ (seg.win_rate * 100).toFixed(1) }}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </template>
@@ -300,14 +304,107 @@ const initOverviewChart = () => {
   })
 }
 
+// 详情图
+const detailChartRefs = ref<Map<number, HTMLDivElement>>(new Map())
+const detailCharts = new Map<number, echarts.ECharts>()
+
+const setDetailChartRef = (nSegments: number) => (el: any) => {
+  if (el) detailChartRefs.value.set(nSegments, el as HTMLDivElement)
+}
+
+const initDetailCharts = () => {
+  if (!result.value) return
+  detailCharts.forEach(c => c.dispose())
+  detailCharts.clear()
+
+  for (const w of result.value.windows) {
+    const el = detailChartRefs.value.get(w.n_segments)
+    if (!el) continue
+
+    const chart = echarts.init(el)
+    detailCharts.set(w.n_segments, chart)
+
+    const xData = w.segments.map((_: any, i: number) => `段${i + 1}`)
+
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'axis' },
+      legend: {
+        data: ['收益', '最大回撤'],
+        textStyle: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
+        top: 0,
+      },
+      grid: { top: 36, right: 60, bottom: 24, left: 50 },
+      xAxis: {
+        type: 'category',
+        data: xData,
+        axisLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
+        axisLine: { lineStyle: { color: '#2a2a3e' } },
+      },
+      yAxis: [
+        {
+          type: 'value',
+          name: '收益',
+          nameTextStyle: { color: '#22c55e', fontSize: 11 },
+          axisLabel: { color: '#22c55e', formatter: '{value}%' },
+          splitLine: { lineStyle: { color: '#2a2a3e' } },
+        },
+        {
+          type: 'value',
+          name: '回撤',
+          nameTextStyle: { color: '#ef4444', fontSize: 11 },
+          axisLabel: { color: '#ef4444', formatter: '{value}%' },
+          splitLine: { show: false },
+        },
+      ],
+      series: [
+        {
+          name: '收益',
+          type: 'line',
+          data: w.segments.map((seg: any) => (seg.total_return * 100).toFixed(2)),
+          yAxisIndex: 0,
+          itemStyle: { color: '#22c55e' },
+          lineStyle: { width: 2 },
+          symbol: 'circle',
+          symbolSize: 6,
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(34,197,94,0.2)' },
+              { offset: 1, color: 'rgba(34,197,94,0)' },
+            ]),
+          },
+        },
+        {
+          name: '最大回撤',
+          type: 'line',
+          data: w.segments.map((seg: any) => (seg.max_drawdown * 100).toFixed(2)),
+          yAxisIndex: 1,
+          itemStyle: { color: '#ef4444' },
+          lineStyle: { width: 2 },
+          symbol: 'triangle',
+          symbolSize: 6,
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(239,68,68,0.15)' },
+              { offset: 1, color: 'rgba(239,68,68,0)' },
+            ]),
+          },
+        },
+      ],
+    })
+  }
+}
+
 watch(result, () => {
   nextTick(() => {
     initOverviewChart()
+    initDetailCharts()
   })
 })
 
 const handleResize = () => {
   overviewChart?.resize()
+  detailCharts.forEach(c => c.resize())
 }
 
 onMounted(() => {
@@ -319,6 +416,8 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   overviewChart?.dispose()
   overviewChart = null
+  detailCharts.forEach(c => c.dispose())
+  detailCharts.clear()
 })
 </script>
 
@@ -403,5 +502,18 @@ onUnmounted(() => {
 .overview-chart {
   width: 100%;
   height: 300px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.detail-chart {
+  width: 100%;
+  height: 250px;
+  margin-bottom: 12px;
 }
 </style>
