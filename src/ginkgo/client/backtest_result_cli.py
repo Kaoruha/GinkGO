@@ -419,6 +419,95 @@ def _show_by_task_id(
         _display_plot_mode(result_df, output_path)
 
 
+@app.command(name="segment-stability")
+def segment_stability(
+    task_id: Annotated[str, typer.Option("--task-id", "-t", help="Backtest task ID")],
+    portfolio_id: Annotated[
+        Optional[str], typer.Option("--portfolio-id", "-p", help="Portfolio ID")
+    ] = None,
+    segments: Annotated[
+        Optional[str], typer.Option("--segments", "-s", help="Comma-separated segment counts (e.g. 2,4,8)")
+    ] = "2,4,8",
+    metrics: Annotated[
+        Optional[str], typer.Option("--metrics", "-m", help="Comma-separated analyzer names")
+    ] = None,
+):
+    """:bar_chart: Run segment stability validation on backtest results.
+
+    Examples:
+        ginkgo result segment-stability --task-id abc123
+        ginkgo result segment-stability -t abc123 -p port1 -s 2,4 -m sharpe_ratio,win_rate
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.data.services.validation_service import ANALYZER_LABELS
+
+    service = container.data.validation_service()
+
+    # Resolve portfolio_id
+    if portfolio_id is None:
+        result_service = container.result_service()
+        summary_result = result_service.get_run_summary(task_id)
+        if not summary_result.success:
+            console.print(f":x: [red]未找到 task_id={task_id}[/red]")
+            return
+        summary = summary_result.data
+        if summary["portfolio_count"] > 1:
+            console.print(f"[yellow]多个 portfolio，请用 --portfolio-id 指定:[/yellow]")
+            for pid in summary["portfolios"]:
+                console.print(f"  - {pid}")
+            return
+        portfolio_id = summary["portfolios"][0]
+        console.print(f":briefcase: [cyan]Portfolio: {portfolio_id}[/cyan]")
+
+    # Parse segments
+    n_segments_list = [int(x.strip()) for x in segments.split(",")]
+
+    # Parse metrics
+    metrics_list = None
+    if metrics:
+        metrics_list = [x.strip() for x in metrics.split(",")]
+
+    console.print(f"\n:chart_with_upwards_trend: [bold]分段稳定性分析[/bold]")
+    console.print(f"  分段数: {n_segments_list}")
+    console.print(f"  指标: {metrics_list or '默认'}\n")
+
+    result = service.segment_stability(
+        task_id=task_id,
+        portfolio_id=portfolio_id,
+        n_segments_list=n_segments_list,
+        metrics=metrics_list,
+    )
+
+    if not result.success:
+        console.print(f":x: [red]{result.error}[/red]")
+        return
+
+    for w in result.data["windows"]:
+        n = w["n_segments"]
+        score = w["stability_score"]
+        score_color = "green" if score > 0.6 else "yellow" if score > 0.3 else "red"
+
+        console.print(f"[bold]{n} 段[/bold]  稳定性评分: [{score_color}]{score * 100:.1f}%[/{score_color}]")
+
+        segs = w["segments"]
+        avail_metrics = w.get("available_metrics", [])
+
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("时间段", style="cyan")
+        for m in avail_metrics:
+            table.add_column(ANALYZER_LABELS.get(m, m))
+
+        for seg in segs:
+            row = [f"{seg.get('_start', '')} ~ {seg.get('_end', '')}"]
+            for m in avail_metrics:
+                val = seg.get(m, 0)
+                row.append(f"{val:.4f}" if abs(val) < 1000 else f"{val:.0f}")
+            table.add_row(*row)
+
+        console.print(table)
+        console.print("")
+
+
 @app.command(name="export")
 def export():
     GLOG.INFO("export results")
