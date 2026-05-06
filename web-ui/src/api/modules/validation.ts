@@ -81,17 +81,19 @@ export interface SegmentStabilityConfig {
   task_id: string
   portfolio_id: string
   n_segments?: number[]
+  metrics?: string[]
+}
+
+export interface AvailableMetric {
+  name: string
+  label: string
 }
 
 export interface SegmentStabilityResult {
   windows: {
     n_segments: number
-    segments: {
-      total_return: number
-      sharpe: number
-      max_drawdown: number
-      win_rate: number
-    }[]
+    segments: Record<string, number>[]
+    available_metrics: string[]
     stability_score: number
   }[]
 }
@@ -153,7 +155,15 @@ export const validationApi = {
       task_id: config.task_id,
       portfolio_id: config.portfolio_id,
       n_segments: config.n_segments || [2, 4, 8],
+      metrics: config.metrics,
     })
+  },
+
+  /**
+   * 获取可用指标列表
+   */
+  availableMetrics(params: { task_id: string; portfolio_id: string }): Promise<any> {
+    return request.post('/api/v1/validation/available-metrics', params)
   },
 
   /**

@@ -1,3 +1,5 @@
+# DEPRECATED: 本文件中 _save_result / _result_crud 相关逻辑已废弃，未来将被移除。
+# 验证结果存储方案需重新设计。计算逻辑（segment_stability / monte_carlo）可保留。
 # Upstream: API Server (validation routes)
 # Downstream: BaseService, AnalyzerRecordCRUD
 # Role: 回测验证计算服务（分段稳定性、蒙特卡洛模拟）
@@ -7,14 +9,57 @@ from typing import List, Optional
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs import GLOG
 
+ANALYZER_LABELS = {
+    "net_value": "净值",
+    "ProfitAna": "每日盈亏",
+    "annualized_return": "年化收益",
+    "sharpe_ratio": "夏普比率",
+    "max_drawdown": "最大回撤",
+    "win_rate": "胜率",
+    "hold_pct": "仓位占比",
+    "order_count": "订单数",
+    "signal_count": "信号数",
+    "sortino_ratio": "Sortino 比率",
+    "calmar_ratio": "Calmar 比率",
+    "volatility": "波动率",
+    "underwater_time": "水下时间",
+    "var_cvar": "VaR",
+    "skew_kurtosis": "偏度/峰度",
+    "consecutive_pnl": "连续盈亏",
+    "trade_win_rate": "交易胜率",
+    "avg_win_loss_ratio": "盈亏比",
+    "profit_factor": "利润因子",
+    "avg_holding_period": "平均持仓天数",
+    "max_consecutive_losses": "最大连续亏损",
+}
+
 
 class ValidationService(BaseService):
-    """回测验证服务：基于已有 analyzer_record 数据计算验证指标"""
+    """回测验证服务：基于已有 analyzer_record 数据计算验证指标
+
+    DEPRECATED: _save_result / _result_crud 相关逻辑已废弃，未来将被移除。
+    验证结果存储方案需重新设计。计算逻辑（segment_stability / monte_carlo）可保留。
+    """
 
     def __init__(self, analyzer_record_crud=None, validation_result_crud=None):
         super().__init__(crud_repo=analyzer_record_crud)
         self._analyzer_crud = analyzer_record_crud
         self._result_crud = validation_result_crud
+
+    def get_available_metrics(self, task_id: str, portfolio_id: str) -> ServiceResult:
+        """查询 analyzer_record 表中该任务实际存在的分析器名称及中文标签"""
+        try:
+            records = self._analyzer_crud.get_by_task_id(
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                page_size=10000,
+            )
+            names = sorted(set(r.name for r in records))
+            metrics = [{"name": n, "label": ANALYZER_LABELS.get(n, n)} for n in names]
+            return ServiceResult.success(data={"metrics": metrics})
+        except Exception as e:
+            GLOG.ERROR(f"获取可用指标失败: {e}")
+            return ServiceResult.error(f"获取可用指标失败: {e}")
 
     def _get_net_value_records(self, task_id: str, portfolio_id: str):
         """获取指定任务的 net_value 记录，按 business_timestamp 升序"""
@@ -88,6 +133,99 @@ class ValidationService(BaseService):
         score = 1.0 - float(np.std(segment_returns) / mean_abs)
         return max(0.0, round(score, 4))
 
+    @staticmethod
+    def _get_time_range(records) -> tuple:
+        """从记录获取起止时间"""
+        if not records:
+            return None, None
+        timestamps = [r.business_timestamp or r.timestamp for r in records if (r.business_timestamp or r.timestamp)]
+        if not timestamps:
+            return None, None
+        return min(timestamps), max(timestamps)
+
+    DEFAULT_METRICS = ["annualized_return", "sharpe_ratio", "max_drawdown", "win_rate"]
+
+    def segment_stability(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        n_segments_list: Optional[List[int]] = None,
+        metrics: Optional[List[str]] = None,
+    ) -> ServiceResult:
+        """分段稳定性验证 — 按指定分析器分段聚合取均值"""
+        if n_segments_list is None:
+            n_segments_list = [2, 4, 8]
+        if metrics is None:
+            metrics = list(self.DEFAULT_METRICS)
+
+        try:
+            import datetime as dt
+
+            # 获取时间范围
+            nv_records = self._get_net_value_records(task_id, portfolio_id)
+            if len(nv_records) < 10:
+                return ServiceResult.error("数据不足：net_value 记录少于 10 条")
+
+            time_start, time_end = self._get_time_range(nv_records)
+            if not time_start or not time_end:
+                return ServiceResult.error("无法确定回测时间范围")
+
+            # 计算稳定性评分用（基于 net_value 收益率）
+            returns = self._records_to_returns(nv_records)
+
+            windows = []
+            for n in n_segments_list:
+                if n > len(returns):
+                    continue
+
+                # 时间段边界
+                total_seconds = (time_end - time_start).total_seconds()
+                seg_duration = total_seconds / n
+                boundaries = [time_start + dt.timedelta(seconds=seg_duration * i) for i in range(n + 1)]
+
+                # 一次性查询所有分析器记录，在内存中按 name 分组
+                all_records = self._analyzer_crud.get_by_task_id(
+                    task_id=task_id,
+                    portfolio_id=portfolio_id,
+                    page_size=50000,
+                )
+                by_name = {}
+                for r in all_records:
+                    by_name.setdefault(r.name, []).append(r)
+
+                # 按段聚合每个指标
+                segments_data = []
+                for seg_idx in range(n):
+                    seg_dict = {}
+                    for metric_name in metrics:
+                        metric_records = by_name.get(metric_name, [])
+                        seg_values = [
+                            float(r.value) for r in metric_records
+                            if boundaries[seg_idx] <= (r.business_timestamp or r.timestamp) < boundaries[seg_idx + 1]
+                        ]
+                        seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
+                    segments_data.append(seg_dict)
+
+                # 稳定性评分（基于 annualized_return 分段标准差/均值比）
+                seg_annual_returns = [s.get("annualized_return", 0) for s in segments_data]
+                stability_score = self._calc_stability_score(seg_annual_returns)
+
+                windows.append({
+                    "n_segments": n,
+                    "segments": segments_data,
+                    "stability_score": stability_score,
+                    "available_metrics": metrics,
+                })
+
+            if not windows:
+                return ServiceResult.error("分段数均大于数据长度，无法计算")
+
+            return ServiceResult.success(data={"windows": windows})
+
+        except Exception as e:
+            GLOG.ERROR(f"分段稳定性计算失败: {e}")
+            return ServiceResult.error(f"计算失败: {e}")
+
     def _save_result(self, task_id: str, portfolio_id: str, method: str,
                      config: dict, result_data: dict, score: float = None) -> str:
         """持久化验证结果，返回记录 uuid"""
@@ -105,59 +243,6 @@ class ValidationService(BaseService):
         )
         self._result_crud.add(record)
         return record.uuid
-
-    def segment_stability(
-        self,
-        task_id: str,
-        portfolio_id: str,
-        n_segments_list: Optional[List[int]] = None,
-    ) -> ServiceResult:
-        """分段稳定性验证"""
-        if n_segments_list is None:
-            n_segments_list = [2, 4, 8]
-
-        try:
-            records = self._get_net_value_records(task_id, portfolio_id)
-            if len(records) < 10:
-                return ServiceResult.error("数据不足：net_value 记录少于 10 条")
-
-            returns = self._records_to_returns(records)
-
-            windows = []
-            for n in n_segments_list:
-                if n > len(returns):
-                    continue
-                segments = self._split_returns(returns, n)
-                seg_metrics = [self._calc_segment_metrics(s) for s in segments]
-                seg_returns = [m["total_return"] for m in seg_metrics]
-                stability_score = self._calc_stability_score(seg_returns)
-
-                windows.append({
-                    "n_segments": n,
-                    "segments": seg_metrics,
-                    "stability_score": stability_score,
-                })
-
-            if not windows:
-                return ServiceResult.error("分段数均大于数据长度，无法计算")
-
-            # 持久化结果
-            if self._result_crud:
-                avg_score = float(np.mean([w["stability_score"] for w in windows]))
-                self._save_result(
-                    task_id=task_id,
-                    portfolio_id=portfolio_id,
-                    method="segment_stability",
-                    config={"version": 1, "n_segments_list": n_segments_list},
-                    result_data={"windows": windows},
-                    score=avg_score,
-                )
-
-            return ServiceResult.success(data={"windows": windows})
-
-        except Exception as e:
-            GLOG.ERROR(f"分段稳定性计算失败: {e}")
-            return ServiceResult.error(f"计算失败: {e}")
 
     @staticmethod
     def _calc_monte_carlo_stats(
