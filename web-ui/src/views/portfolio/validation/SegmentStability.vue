@@ -46,6 +46,24 @@
               <button v-else class="segment-tag segment-tag-add" @click="openCustomInput">+</button>
             </div>
           </div>
+          <div class="form-group">
+            <label class="form-label">
+              分析指标
+              <span v-if="availableMetrics.length" class="metric-count">已选 {{ selectedMetrics.size }} / {{ availableMetrics.length }}</span>
+            </label>
+            <div class="segment-tags" v-if="availableMetrics.length">
+              <button
+                v-for="m in availableMetrics"
+                :key="m.name"
+                class="segment-tag"
+                :class="{ active: selectedMetrics.has(m.name) }"
+                @click="toggleMetric(m.name)"
+              >{{ m.label }}</button>
+            </div>
+            <div v-else class="metric-placeholder">
+              {{ config.taskId ? '加载中...' : '请先选择任务' }}
+            </div>
+          </div>
           <div class="form-group" style="align-self: flex-end;">
             <button class="btn-primary" :disabled="loading || !config.taskId" @click="runAnalysis">
               {{ loading ? '分析中...' : '开始分析' }}
@@ -87,21 +105,15 @@
               <thead>
                 <tr>
                   <th>段</th>
-                  <th>收益</th>
-                  <th>夏普</th>
-                  <th>最大回撤</th>
-                  <th>胜率</th>
+                  <th v-for="metric in (w.available_metrics || [])" :key="metric">{{ metricLabel(metric) }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(seg, i) in w.segments" :key="i">
                   <td>{{ i + 1 }}</td>
-                  <td :class="seg.total_return >= 0 ? 'stat-success' : 'stat-danger'">
-                    {{ (seg.total_return * 100).toFixed(2) }}%
+                  <td v-for="metric in (w.available_metrics || [])" :key="metric">
+                    {{ formatMetricValue(seg[metric]) }}
                   </td>
-                  <td>{{ seg.sharpe.toFixed(2) }}</td>
-                  <td class="stat-danger">{{ (seg.max_drawdown * 100).toFixed(2) }}%</td>
-                  <td>{{ (seg.win_rate * 100).toFixed(1) }}%</td>
                 </tr>
               </tbody>
             </table>
@@ -143,6 +155,38 @@ const config = reactive({
   taskId: '',
 })
 
+const availableMetrics = ref<{ name: string; label: string }[]>([])
+const selectedMetrics = reactive(new Set<string>(['annualized_return', 'sharpe_ratio', 'max_drawdown', 'win_rate']))
+const metricsLoading = ref(false)
+
+const CHART_COLORS = ['#3b82f6', '#eab308', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#06b6d4', '#ec4899']
+
+const ANALYZER_LABELS: Record<string, string> = {
+  net_value: '净值', ProfitAna: '每日盈亏', annualized_return: '年化收益',
+  sharpe_ratio: '夏普比率', max_drawdown: '最大回撤', win_rate: '胜率',
+  hold_pct: '仓位占比', order_count: '订单数', signal_count: '信号数',
+  sortino_ratio: 'Sortino 比率', calmar_ratio: 'Calmar 比率', volatility: '波动率',
+  underwater_time: '水下时间', var_cvar: 'VaR', skew_kurtosis: '偏度/峰度',
+  consecutive_pnl: '连续盈亏', trade_win_rate: '交易胜率', avg_win_loss_ratio: '盈亏比',
+  profit_factor: '利润因子', avg_holding_period: '平均持仓天数', max_consecutive_losses: '最大连续亏损',
+}
+
+const toggleMetric = (name: string) => {
+  if (selectedMetrics.has(name)) {
+    if (selectedMetrics.size > 1) selectedMetrics.delete(name)
+  } else {
+    selectedMetrics.add(name)
+  }
+}
+
+const metricLabel = (name: string) => availableMetrics.value.find(m => m.name === name)?.label || ANALYZER_LABELS[name] || name
+
+const formatMetricValue = (val: number | undefined) => {
+  if (val === undefined || val === null) return '-'
+  if (Math.abs(val) < 10) return val.toFixed(4)
+  return val.toFixed(2)
+}
+
 const scoreClass = (score: number) => {
   if (score >= 0.7) return 'stat-success'
   if (score >= 0.4) return 'stat-warning'
@@ -182,6 +226,7 @@ const runAnalysis = async () => {
       task_id: config.taskId,
       portfolio_id: props.portfolioId || '',
       n_segments: segments.length ? segments : undefined,
+      metrics: Array.from(selectedMetrics),
     })
     result.value = (res as any).data
   } catch (e: any) {
@@ -202,6 +247,23 @@ const fetchBacktestList = async () => {
   } catch { /* ignore */ }
 }
 
+const fetchAvailableMetrics = async () => {
+  if (!config.taskId) { availableMetrics.value = []; return }
+  metricsLoading.value = true
+  try {
+    const res = await validationApi.availableMetrics({
+      task_id: config.taskId,
+      portfolio_id: props.portfolioId || '',
+    })
+    availableMetrics.value = (res as any).data?.metrics || []
+    const names = new Set(availableMetrics.value.map(m => m.name))
+    for (const s of Array.from(selectedMetrics)) {
+      if (!names.has(s)) selectedMetrics.delete(s)
+    }
+  } catch { /* ignore */ }
+  finally { metricsLoading.value = false }
+}
+
 // 概览图
 const overviewChartRef = ref<HTMLDivElement | null>(null)
 let overviewChart: echarts.ECharts | null = null
@@ -215,99 +277,62 @@ const initOverviewChart = () => {
   const windows = result.value.windows
   const xData = windows.map((w: any) => `${w.n_segments}段`)
 
+  // Collect all metrics from available_metrics across windows
+  const metricsSet = new Set<string>()
+  for (const w of windows) {
+    for (const m of (w.available_metrics || [])) {
+      metricsSet.add(m)
+    }
+  }
+  const metrics = Array.from(metricsSet)
+
+  // Create up to 3 Y-axes, metrics beyond 3 share the closest axis
+  const yAxisDefs = metrics.slice(0, 3).map((m, i) => ({
+    type: 'value' as const,
+    name: metricLabel(m),
+    nameTextStyle: { color: CHART_COLORS[i % CHART_COLORS.length], fontSize: 11 },
+    axisLabel: { color: CHART_COLORS[i % CHART_COLORS.length] },
+    splitLine: i === 0 ? { lineStyle: { color: '#2a2a3e' } } : { show: false },
+    ...(i >= 2 ? { offset: 60 } : {}),
+  }))
+
+  const series = metrics.map((m, i) => {
+    const color = CHART_COLORS[i % CHART_COLORS.length]
+    const axisIdx = i < 3 ? i : (i % 3)
+    return {
+      name: metricLabel(m),
+      type: 'line',
+      data: windows.map((w: any) => {
+        const segs = w.segments || []
+        if (!segs.length) return null
+        const avg = segs.reduce((s: number, seg: any) => s + (seg[m] ?? 0), 0) / segs.length
+        return Number(avg.toFixed(4))
+      }),
+      yAxisIndex: axisIdx,
+      itemStyle: { color },
+      lineStyle: { width: 2, ...(i >= 4 ? { type: 'dashed' as const } : {}) },
+      symbol: 'circle',
+      symbolSize: 8,
+    }
+  })
+
   overviewChart.setOption({
     backgroundColor: '#1a1a2e',
     tooltip: { trigger: 'axis' },
     legend: {
-      data: ['收益率', '夏普比率', '最大回撤', '胜率'],
+      data: metrics.map(m => metricLabel(m)),
       textStyle: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
       top: 0,
     },
-    grid: { top: 40, right: 120, bottom: 30, left: 60 },
+    grid: { top: 40, right: 120 + (yAxisDefs.length > 2 ? 60 : 0), bottom: 30, left: 60 },
     xAxis: {
       type: 'category',
       data: xData,
       axisLabel: { color: 'rgba(255,255,255,0.6)' },
       axisLine: { lineStyle: { color: '#2a2a3e' } },
     },
-    yAxis: [
-      {
-        type: 'value',
-        name: '收益率',
-        nameTextStyle: { color: '#3b82f6', fontSize: 11 },
-        axisLabel: { color: '#3b82f6', formatter: '{value}%' },
-        splitLine: { lineStyle: { color: '#2a2a3e' } },
-      },
-      {
-        type: 'value',
-        name: '夏普',
-        nameTextStyle: { color: '#eab308', fontSize: 11 },
-        axisLabel: { color: '#eab308' },
-        splitLine: { show: false },
-      },
-      {
-        type: 'value',
-        name: '回撤',
-        nameTextStyle: { color: '#ef4444', fontSize: 11 },
-        axisLabel: { color: '#ef4444', formatter: '{value}%' },
-        splitLine: { show: false },
-        offset: 60,
-      },
-    ],
-    series: [
-      {
-        name: '收益率',
-        type: 'line',
-        data: windows.map((w: any) => {
-          const avg = w.segments.reduce((s: number, seg: any) => s + seg.total_return, 0) / w.segments.length
-          return (avg * 100).toFixed(2)
-        }),
-        yAxisIndex: 0,
-        itemStyle: { color: '#3b82f6' },
-        lineStyle: { width: 2 },
-        symbol: 'circle',
-        symbolSize: 8,
-      },
-      {
-        name: '夏普比率',
-        type: 'line',
-        data: windows.map((w: any) => {
-          const avg = w.segments.reduce((s: number, seg: any) => s + seg.sharpe, 0) / w.segments.length
-          return avg.toFixed(2)
-        }),
-        yAxisIndex: 1,
-        itemStyle: { color: '#eab308' },
-        lineStyle: { width: 2 },
-        symbol: 'diamond',
-        symbolSize: 8,
-      },
-      {
-        name: '最大回撤',
-        type: 'line',
-        data: windows.map((w: any) => {
-          const avg = w.segments.reduce((s: number, seg: any) => s + seg.max_drawdown, 0) / w.segments.length
-          return (avg * 100).toFixed(2)
-        }),
-        yAxisIndex: 2,
-        itemStyle: { color: '#ef4444' },
-        lineStyle: { width: 2 },
-        symbol: 'triangle',
-        symbolSize: 8,
-      },
-      {
-        name: '胜率',
-        type: 'line',
-        data: windows.map((w: any) => {
-          const avg = w.segments.reduce((s: number, seg: any) => s + seg.win_rate, 0) / w.segments.length
-          return (avg * 100).toFixed(1)
-        }),
-        yAxisIndex: 0,
-        itemStyle: { color: '#22c55e' },
-        lineStyle: { width: 2, type: 'dashed' },
-        symbol: 'rect',
-        symbolSize: 8,
-      },
-    ],
+    yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: '#2a2a3e' } } }],
+    series,
   })
 }
 
@@ -332,12 +357,47 @@ const initDetailCharts = () => {
     detailCharts.set(w.n_segments, chart)
 
     const xData = w.segments.map((_: any, i: number) => `段${i + 1}`)
+    const metrics = w.available_metrics || []
+
+    const yAxisDefs = metrics.slice(0, 2).map((m: string, i: number) => ({
+      type: 'value' as const,
+      name: metricLabel(m),
+      nameTextStyle: { color: CHART_COLORS[i % CHART_COLORS.length], fontSize: 11 },
+      axisLabel: { color: CHART_COLORS[i % CHART_COLORS.length] },
+      splitLine: i === 0 ? { lineStyle: { color: '#2a2a3e' } } : { show: false },
+    }))
+
+    const series = metrics.map((m: string, i: number) => {
+      const color = CHART_COLORS[i % CHART_COLORS.length]
+      const axisIdx = i < 2 ? i : (i % 2)
+      return {
+        name: metricLabel(m),
+        type: 'line',
+        data: w.segments.map((seg: any) => {
+          const val = seg[m]
+          return val !== undefined ? Number(val.toFixed(4)) : null
+        }),
+        yAxisIndex: axisIdx,
+        itemStyle: { color },
+        lineStyle: { width: 2 },
+        symbol: 'circle',
+        symbolSize: 6,
+        ...(i < 2 ? {
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: color.replace(')', ',0.2)').replace('rgb', 'rgba') },
+              { offset: 1, color: 'transparent' },
+            ]),
+          },
+        } : {}),
+      }
+    })
 
     chart.setOption({
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
       legend: {
-        data: ['收益', '最大回撤'],
+        data: metrics.map((m: string) => metricLabel(m)),
         textStyle: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
         top: 0,
       },
@@ -348,59 +408,15 @@ const initDetailCharts = () => {
         axisLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
         axisLine: { lineStyle: { color: '#2a2a3e' } },
       },
-      yAxis: [
-        {
-          type: 'value',
-          name: '收益',
-          nameTextStyle: { color: '#22c55e', fontSize: 11 },
-          axisLabel: { color: '#22c55e', formatter: '{value}%' },
-          splitLine: { lineStyle: { color: '#2a2a3e' } },
-        },
-        {
-          type: 'value',
-          name: '回撤',
-          nameTextStyle: { color: '#ef4444', fontSize: 11 },
-          axisLabel: { color: '#ef4444', formatter: '{value}%' },
-          splitLine: { show: false },
-        },
-      ],
-      series: [
-        {
-          name: '收益',
-          type: 'line',
-          data: w.segments.map((seg: any) => (seg.total_return * 100).toFixed(2)),
-          yAxisIndex: 0,
-          itemStyle: { color: '#22c55e' },
-          lineStyle: { width: 2 },
-          symbol: 'circle',
-          symbolSize: 6,
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(34,197,94,0.2)' },
-              { offset: 1, color: 'rgba(34,197,94,0)' },
-            ]),
-          },
-        },
-        {
-          name: '最大回撤',
-          type: 'line',
-          data: w.segments.map((seg: any) => (seg.max_drawdown * 100).toFixed(2)),
-          yAxisIndex: 1,
-          itemStyle: { color: '#ef4444' },
-          lineStyle: { width: 2 },
-          symbol: 'triangle',
-          symbolSize: 6,
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(239,68,68,0.15)' },
-              { offset: 1, color: 'rgba(239,68,68,0)' },
-            ]),
-          },
-        },
-      ],
+      yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: '#2a2a3e' } } }],
+      series,
     })
   }
 }
+
+watch(() => config.taskId, () => {
+  fetchAvailableMetrics()
+})
 
 watch(result, () => {
   nextTick(() => {
@@ -498,6 +514,19 @@ onUnmounted(() => {
   color: #fff;
   font-size: 13px;
   outline: none;
+}
+
+.metric-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.metric-placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+  padding: 6px 0;
 }
 
 .overview-chart-card {

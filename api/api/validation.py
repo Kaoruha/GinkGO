@@ -20,6 +20,12 @@ class SegmentStabilityRequest(BaseModel):
     task_id: str = Field(..., description="回测任务 UUID")
     portfolio_id: str = Field(..., description="组合 UUID")
     n_segments: Optional[List[int]] = Field(default=[2, 4, 8], description="分段数列表")
+    metrics: Optional[List[str]] = Field(default=None, description="分析器名称列表")
+
+
+class AvailableMetricsRequest(BaseModel):
+    task_id: str = Field(..., description="回测任务 UUID")
+    portfolio_id: str = Field(..., description="组合 UUID")
 
 
 class MonteCarloRequest(BaseModel):
@@ -42,6 +48,7 @@ async def segment_stability(req: SegmentStabilityRequest):
             task_id=req.task_id,
             portfolio_id=req.portfolio_id,
             n_segments_list=req.n_segments,
+            metrics=req.metrics,
         )
         if not result.is_success():
             raise BusinessError(result.error)
@@ -51,6 +58,25 @@ async def segment_stability(req: SegmentStabilityRequest):
     except Exception as e:
         logger.error(f"分段稳定性接口异常: {e}")
         raise BusinessError(f"分段稳定性计算失败: {e}")
+
+
+@router.post("/available-metrics")
+async def available_metrics(req: AvailableMetricsRequest):
+    """查询指定回测任务可用的分析器指标"""
+    try:
+        svc = get_validation_service()
+        result = svc.get_available_metrics(
+            task_id=req.task_id,
+            portfolio_id=req.portfolio_id,
+        )
+        if not result.is_success():
+            raise BusinessError(result.error)
+        return ok(data=result.data)
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"获取可用指标异常: {e}")
+        raise BusinessError(f"获取可用指标失败: {e}")
 
 
 @router.post("/monte-carlo")
