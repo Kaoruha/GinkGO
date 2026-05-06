@@ -110,7 +110,7 @@
               </thead>
               <tbody>
                 <tr v-for="(seg, i) in w.segments" :key="i">
-                  <td>{{ seg._start }} ~ {{ seg._end }}</td>
+                  <td>{{ seg._start?.slice(5) || '' }} ~ {{ seg._end?.slice(5) || '' }}</td>
                   <td v-for="metric in (w.available_metrics || [])" :key="metric">
                     {{ formatMetricValue(seg[metric]) }}
                   </td>
