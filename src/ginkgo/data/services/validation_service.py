@@ -49,13 +49,21 @@ class ValidationService(BaseService):
     def get_available_metrics(self, task_id: str, portfolio_id: str) -> ServiceResult:
         """查询 analyzer_record 表中该任务实际存在的分析器名称及中文标签"""
         try:
+            from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
+            registry = AnalyzerRegistry()
+            registry.scan_builtin()
+
             records = self._analyzer_crud.get_by_task_id(
                 task_id=task_id,
                 portfolio_id=portfolio_id,
                 page_size=10000,
             )
             names = sorted(set(r.name for r in records))
-            metrics = [{"name": n, "label": ANALYZER_LABELS.get(n, n)} for n in names]
+            metrics = []
+            for n in names:
+                cls = registry.get(n)
+                agg_type = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
+                metrics.append({"name": n, "label": ANALYZER_LABELS.get(n, n), "aggregation_type": agg_type})
             return ServiceResult.success(data={"metrics": metrics})
         except Exception as e:
             GLOG.ERROR(f"获取可用指标失败: {e}")
@@ -160,6 +168,9 @@ class ValidationService(BaseService):
 
         try:
             import datetime as dt
+            from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
+            registry = AnalyzerRegistry()
+            registry.scan_builtin()
 
             # 获取时间范围
             nv_records = self._get_net_value_records(task_id, portfolio_id)
@@ -192,6 +203,9 @@ class ValidationService(BaseService):
                 by_name = {}
                 for r in all_records:
                     by_name.setdefault(r.name, []).append(r)
+                # 确保每个分析器的记录按时间升序（delta 聚合需要首尾值）
+                for name in by_name:
+                    by_name[name].sort(key=lambda r: r.business_timestamp or r.timestamp)
 
                 # 按段聚合每个指标
                 segments_data = []
@@ -203,7 +217,12 @@ class ValidationService(BaseService):
                             float(r.value) for r in metric_records
                             if boundaries[seg_idx] <= (r.business_timestamp or r.timestamp) < boundaries[seg_idx + 1]
                         ]
-                        seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
+                        cls = registry.get(metric_name)
+                        agg_type = getattr(cls, 'aggregation_type', 'mean') if cls else 'mean'
+                        if agg_type == "delta" and len(seg_values) >= 2:
+                            seg_dict[metric_name] = round(seg_values[-1] - seg_values[0], 6)
+                        else:
+                            seg_dict[metric_name] = round(float(np.mean(seg_values)), 6) if seg_values else 0.0
                     segments_data.append(seg_dict)
 
                 # 稳定性评分（基于 annualized_return 分段标准差/均值比）
