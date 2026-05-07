@@ -1,9 +1,9 @@
 # Upstream: CLI主入口(ginkgo logging命令调用)
-# Downstream: LevelService(动态日志级别管理)、GLOG(日志记录器)、Rich库(表格显示)
-# Role: 日志管理CLI，提供set-level设置级别、get-level获取级别、reset-level重置级别等命令
+# Downstream: LevelService(动态日志级别管理)、LogService(日志查询)、Rich库(表格显示)
+# Role: 日志管理CLI，提供日志查看、级别设置等功能
 
 """
-Ginkgo Logging CLI - 日志级别管理命令
+Ginkgo Logging CLI - 日志管理命令
 """
 
 import typer
@@ -14,6 +14,18 @@ from rich.panel import Panel
 
 app = typer.Typer(help=":memo: Logging management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
+
+LEVEL_STYLES = {"ERROR": "red", "WARNING": "yellow", "DEBUG": "dim", "CRITICAL": "bold red"}
+
+
+def _parse_time(s: str):
+    from datetime import datetime
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid time format: '{s}'. Use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS")
 
 
 @app.command()
@@ -142,3 +154,158 @@ def validate_level(value: str) -> str:
     if value.upper() not in valid_levels:
         raise typer.BadParameter(f"Invalid level. Valid levels: {', '.join(valid_levels)}")
     return value.upper()
+
+
+@app.command("logs")
+def view_logs(
+    task_id: Optional[str] = typer.Option(None, "--task", "-t", help="Backtest task ID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Portfolio ID"),
+    level: Optional[str] = typer.Option(None, "--level", "-l", help="Log level filter (ERROR/WARNING/INFO/DEBUG)"),
+    event_type: Optional[str] = typer.Option(None, "--event", "-e", help="Event type filter (e.g. SIGNALGENERATION, ORDERSEND)"),
+    symbol: Optional[str] = typer.Option(None, "--symbol", "-s", help="Symbol filter (e.g. 000001.SZ)"),
+    keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="Search keyword in message"),
+    start: Optional[str] = typer.Option(None, "--start", help="Start time (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)"),
+    end: Optional[str] = typer.Option(None, "--end", help="End time (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(50, "--page-size", help="Results per page"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw JSON"),
+):
+    """
+    :mag: View backtest logs.
+
+    Examples:
+        ginkgo logging logs --task <task_id>
+        ginkgo logging logs --task <task_id> --level ERROR
+        ginkgo logging logs --portfolio <id> --event SIGNALGENERATION
+        ginkgo logging logs --task <task_id> --start 2024-01-01 --end 2024-06-30
+        ginkgo logging logs --task <task_id> --keyword "signal" --page 2
+    """
+    from ginkgo.services.logging.containers import container
+    from datetime import datetime as dt
+    import json
+
+    log_service = container.log_service()
+
+    # 解析时间
+    start_time = _parse_time(start) if start else None
+    end_time = _parse_time(end) if end else None
+
+    offset = page * page_size
+    limit = page_size
+
+    if keyword:
+        logs = log_service.search_logs(keyword, log_type="backtest", limit=limit, offset=offset)
+    else:
+        logs = log_service.query_backtest_logs(
+            portfolio_id=portfolio_id,
+            task_id=task_id,
+            level=level.upper() if level else None,
+            event_type=event_type,
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            offset=offset,
+        )
+
+    if not logs:
+        console.print(f":information: No logs found (page {page}).")
+        return
+
+    if raw:
+        console.print(json.dumps(logs, indent=2, ensure_ascii=False, default=str))
+        return
+
+    # 获取总数用于分页提示
+    total = log_service.get_log_count(log_type="backtest", task_id=task_id, portfolio_id=portfolio_id, level=level) if not keyword else None
+    page_info = f"page {page}" + (f", total {total}" if total else "")
+
+    table = Table(title=f"Backtest Logs ({len(logs)} entries, {page_info})")
+    table.add_column("Time", style="dim", width=19)
+    table.add_column("Level", width=8)
+    table.add_column("Event", width=18)
+    table.add_column("Symbol", width=12)
+    table.add_column("Message", width=60)
+
+    for entry in logs:
+        ts = str(entry.get("timestamp", ""))[:19]
+        lvl = entry.get("level", "")
+        evt = str(entry.get("event_type", ""))[:18]
+        sym = entry.get("symbol", "") or entry.get("portfolio_id", "")[:8]
+        msg = str(entry.get("message", ""))[:60]
+        style = LEVEL_STYLES.get(lvl, "")
+        table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
+        table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
+
+    console.print(table)
+
+
+@app.command("errors")
+def view_errors(
+    task_id: Optional[str] = typer.Option(None, "--task", "-t", help="Backtest task ID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Portfolio ID"),
+    limit: int = typer.Option(30, "--limit", "-n", help="Max results"),
+):
+    """
+    :exclamation: View backtest error logs.
+
+    Examples:
+        ginkgo logging errors --task <task_id>
+        ginkgo logging errors --portfolio <id>
+    """
+    from ginkgo.services.logging.containers import container
+
+    log_service = container.log_service()
+
+    logs = log_service.query_backtest_logs(
+        portfolio_id=portfolio_id,
+        task_id=task_id,
+        level="ERROR",
+        limit=limit,
+    )
+
+    if not logs:
+        console.print(":white_check_mark: No errors found.")
+        return
+
+    console.print(f":exclamation: [red]{len(logs)} error(s) found[/red]")
+
+    for entry in logs[-10:]:
+        ts = str(entry.get("timestamp", ""))[:19]
+        msg = entry.get("message", "")
+        evt = entry.get("event_type", "")
+        console.print(f"  [dim]{ts}[/dim] [{evt}] {msg}")
+
+
+@app.command("stats")
+def log_stats(
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Portfolio ID"),
+    hours: int = typer.Option(24, "--hours", "-h", help="Lookback hours"),
+):
+    """
+    :bar_chart: Show error statistics.
+
+    Examples:
+        ginkgo logging stats
+        ginkgo logging stats --portfolio <id> --hours 48
+    """
+    from ginkgo.services.logging.containers import container
+
+    log_service = container.log_service()
+
+    stats = log_service.get_error_stats(portfolio_id=portfolio_id, hours=hours)
+
+    console.print(Panel(
+        f"[bold]Error Stats (last {hours}h)[/bold]\n"
+        f"Total errors: [red]{stats.get('total_errors', 0)}[/red]",
+        title="Error Statistics"
+    ))
+
+    patterns = stats.get("top_error_patterns", [])
+    if patterns:
+        table = Table(title="Top Error Patterns")
+        table.add_column("Pattern", style="red", width=60)
+        table.add_column("Count", style="bold", width=8)
+        for pattern, count in patterns:
+            table.add_row(str(pattern), str(count))
+        console.print(table)

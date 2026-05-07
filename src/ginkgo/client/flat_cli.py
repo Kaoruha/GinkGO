@@ -40,6 +40,155 @@ mapping_app = typer.Typer(help=":link: Mapping relationship management", rich_ma
 # Result管理命令
 result_app = typer.Typer(help=":bar_chart: Result management", rich_markup_mode="rich")
 
+def _file_type_name(type_val):
+    from ginkgo.enums import FILE_TYPES
+    mapping = {v.value: k.lower() for k, v in FILE_TYPES.__members__.items()}
+    return mapping.get(type_val, str(type_val))
+
+
+def _resolve_file(file_service, identifier):
+    """按 UUID 或名称解析文件，返回 MFile 对象"""
+    # 先按 UUID
+    result = file_service.get_by_uuid(identifier)
+    if result.success and result.data:
+        data = result.data
+        if isinstance(data, dict) and data.get('file') is not None:
+            return data['file']
+        if hasattr(data, 'uuid'):
+            return data
+    # 再按名称
+    result = file_service.get_by_name(identifier)
+    if result.success and result.data:
+        data = result.data
+        files = data.get('files', data) if isinstance(data, dict) else data
+        if hasattr(files, '__len__') and len(files) > 0:
+            return files[0]
+    raise ValueError(f"Component not found: '{identifier}'")
+
+
+def _generate_template(component_type: str, class_name: str) -> str:
+    templates = {
+        "strategy": f'''"""{class_name} Strategy"""
+from collections import deque
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
+from ginkgo.enums import DIRECTION_TYPES
+
+class {class_name}(BaseStrategy):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+        self._short_window = 5
+        self._long_window = 20
+        self._closes = {{}}
+
+    def cal(self, portfolio_info, event, *args, **kwargs):
+        super().cal(portfolio_info, event)
+        signals = []
+        code = event.code
+        close = float(event.close)
+
+        if code not in self._closes:
+            self._closes[code] = deque(maxlen=self._long_window + 2)
+        self._closes[code].append(close)
+
+        closes = list(self._closes[code])
+        if len(closes) < self._long_window + 2:
+            return signals
+
+        short_ma = sum(closes[-self._short_window:]) / self._short_window
+        long_ma = sum(closes[-self._long_window:]) / self._long_window
+        prev_short = sum(closes[-(self._short_window+1):-1]) / self._short_window
+        prev_long = sum(closes[-(self._long_window+1):-1]) / self._long_window
+
+        if prev_short <= prev_long and short_ma > long_ma:
+            signals.append(self.create_signal(code=code, direction=DIRECTION_TYPES.LONG, weight=1.0, reason="金叉"))
+        elif prev_short >= prev_long and short_ma < long_ma:
+            signals.append(self.create_signal(code=code, direction=DIRECTION_TYPES.SHORT, weight=1.0, reason="死叉"))
+
+        return signals
+
+    def reset_state(self):
+        super().reset_state()
+        self._closes = {{}}
+''',
+        "risk": f'''"""{class_name} Risk Manager"""
+from ginkgo.trading.bases.risk_base import RiskBase
+
+class {class_name}(RiskBase):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+
+    def cal(self, portfolio_info, order):
+        return order
+
+    def generate_signals(self, portfolio_info, event):
+        return []
+''',
+        "riskmanager": f'''"""{class_name} Risk Manager"""
+from ginkgo.trading.bases.risk_base import RiskBase
+
+class {class_name}(RiskBase):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+
+    def cal(self, portfolio_info, order):
+        return order
+
+    def generate_signals(self, portfolio_info, event):
+        return []
+''',
+        "selector": f'''"""{class_name} Selector"""
+from ginkgo.backtest.strategy.selectors.base_selector import BaseSelector
+
+class {class_name}(BaseSelector):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+
+    def select(self, candidates, *args, **kwargs):
+        return candidates
+''',
+        "sizer": f'''"""{class_name} Sizer"""
+from ginkgo.backtest.strategy.sizers.base_sizer import BaseSizer
+
+class {class_name}(BaseSizer):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+        self._ratio = 0.1
+
+    def _size(self, signal):
+        return self._ratio
+''',
+        "analyzer": f'''"""{class_name} Analyzer"""
+from ginkgo.backtest.strategy.analyzers.base_analyzer import BaseAnalyzer
+
+class {class_name}(BaseAnalyzer):
+    __abstract__ = False
+
+    def __init__(self, name="{class_name}", *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+
+    def _do_activate(self):
+        pass
+
+    def _do_record(self, *args, **kwargs):
+        pass
+
+    def _do_calculate(self):
+        return {{}}
+''',
+    }
+    return templates.get(component_type.lower(), templates["strategy"])
+
+
 # 状态转换函数
 def _get_engine_status_name(status):
     """将引擎状态数字转换为可读名称"""
@@ -192,35 +341,122 @@ def list(
 
 @component_app.command()
 def create(
-    component_type: str = typer.Option(..., "--type", "-t", help="Component type (strategy/risk/sizer/selector/analyzer)"),
+    component_type: str = typer.Option(..., "--type", "-t", help="Component type (strategy/risk/riskmanager/sizer/selector/analyzer)"),
     name: str = typer.Option(..., "--name", "-n", help="Component name"),
-    class_name: str = typer.Option(..., "--class", "-c", help="Python class name"),
+    template: str = typer.Option("basic", "--template", help="Template type (basic)"),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Component description"),
-    tags: Optional[str] = typer.Option(None, "--tags", help=":tag: Comma-separated tags"),
-    author: Optional[str] = typer.Option(None, "--author", help=":person: Author name"),
 ):
     """
     :plus: Create a new component.
     """
+    from ginkgo.enums import FILE_TYPES
+
     console.print(f":plus: Creating {component_type} component: {name}")
 
     try:
-        # TODO: Implement actual component creation
-        console.print(":information: Component creation not yet implemented")
+        type_mapping = {
+            "strategy": FILE_TYPES.STRATEGY,
+            "risk": FILE_TYPES.RISKMANAGER,
+            "riskmanager": FILE_TYPES.RISKMANAGER,
+            "selector": FILE_TYPES.SELECTOR,
+            "sizer": FILE_TYPES.SIZER,
+            "analyzer": FILE_TYPES.ANALYZER,
+        }
 
-        # 模拟创建
-        component_id = f"comp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        file_type = type_mapping.get(component_type.lower())
+        if file_type is None:
+            console.print(f":x: Invalid type: '{component_type}'. Valid: {', '.join(type_mapping.keys())}")
+            raise typer.Exit(1)
 
-        console.print(f":white_check_mark: Component '{name}' created successfully")
-        console.print(f"  • Component ID: {component_id}")
-        console.print(f"  • Type: {component_type}")
-        console.print(f"  • Class: {class_name}")
-        console.print(f"  • Description: {description or 'No description'}")
-        console.print(f"  • Tags: {tags or 'No tags'}")
-        console.print(f"  • Author: {author or 'Unknown'}")
+        from ginkgo.data.containers import container
+        file_service = container.file_service()
+
+        # 检查重名
+        existing = file_service.get_by_name(name, file_type)
+        if existing.success and existing.data.get('count', 0) > 0:
+            console.print(f":x: Component '{name}' already exists")
+            raise typer.Exit(1)
+
+        # 生成模板代码
+        class_name = name
+        code = _generate_template(component_type, class_name)
+
+        result = file_service.add(
+            name=name,
+            file_type=file_type,
+            data=code.encode('utf-8'),
+            description=description or f"{component_type}: {name}",
+        )
+
+        if result.success:
+            uuid = result.data.get('file_info', {}).get('uuid', 'N/A')
+            console.print(f":white_check_mark: Component '{name}' created successfully")
+            console.print(f"  • UUID: {uuid}")
+            console.print(f"  • Type: {component_type}")
+        else:
+            console.print(f":x: Failed: {result.message}")
+            raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@component_app.command()
+def delete(
+    identifier: str = typer.Argument(..., help="Component UUID or name"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """
+    :wastebasket: Delete a component.
+    """
+    from ginkgo.data.containers import container
+
+    try:
+        file_service = container.file_service()
+        mfile = _resolve_file(file_service, identifier)
+
+        if not force and not typer.confirm(f"Delete component '{mfile.name}' ({mfile.uuid[:8]}...)?"):
+            raise typer.Exit(0)
+
+        result = file_service.soft_delete(mfile.uuid)
+        if result.success:
+            console.print(f":white_check_mark: Deleted '{mfile.name}'")
+        else:
+            console.print(f":x: Failed: {result.message}")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@component_app.command()
+def show(
+    identifier: str = typer.Argument(..., help="Component UUID or name"),
+):
+    """
+    :eyes: Show component source code.
+    """
+    from ginkgo.data.containers import container
+
+    try:
+        file_service = container.file_service()
+        mfile = _resolve_file(file_service, identifier)
+
+        code = mfile.data.decode('utf-8') if isinstance(mfile.data, bytes) else str(mfile.data)
+        console.print(f":eyes: Component: {mfile.name} ({mfile.uuid[:8]}...)")
+        console.print(f"   Type: {_file_type_name(mfile.type)}")
+        console.print(f"   Description: {mfile.desc or 'N/A'}")
+        console.print()
+        console.print(code)
 
     except Exception as e:
         console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
 
 
 # Mapping 相关命令

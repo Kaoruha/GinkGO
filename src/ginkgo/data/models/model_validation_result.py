@@ -1,3 +1,4 @@
+# DEPRECATED: 本文件已废弃，未来将被移除。验证结果存储方案需重新设计。
 # Upstream: ValidationResultCRUD, ValidationService
 # Downstream: MMysqlBase, MySQL Database
 # Role: 验证结果数据模型 - 存储各类验证方法的计算结果
@@ -19,6 +20,7 @@ class VALIDATION_STATUS:
 
 
 class MValidationResult(MMysqlBase):
+    """DEPRECATED: 已废弃，未来将被移除。验证结果存储方案需重新设计。"""
     __abstract__ = False
     __tablename__ = "validation_result"
 

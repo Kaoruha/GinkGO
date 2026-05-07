@@ -279,15 +279,14 @@ def create(
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.create(
+        result = portfolio_service.add(
             name=name,
-            initial_capital=initial_capital,
-            is_live=is_live,
             description=description or ""
         )
 
         if result.success:
-            portfolio_uuid = result.data.uuid if hasattr(result.data, 'uuid') else result.data
+            data = result.data
+            portfolio_uuid = data.get('uuid', data) if isinstance(data, dict) else (data.uuid if hasattr(data, 'uuid') else str(data))
             console.print(f":white_check_mark: Portfolio '{name}' created successfully")
             console.print(f"  • Portfolio ID: {portfolio_uuid}")
             console.print(f"  • Initial Capital: ¥{initial_capital:,.2f}")
@@ -343,7 +342,7 @@ def get(
             table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
             table.add_row("Current Capital", f"¥{portfolio.current_capital:,.2f}")
             table.add_row("Cash", f"¥{portfolio.cash:,.2f}")
-            table.add_row("Is Live", "Yes" if portfolio.is_live else "No")
+            table.add_row("Mode", str(getattr(portfolio, 'mode', 'N/A')))
             table.add_row("Description", str(portfolio.desc or "No description"))
 
             console.print(table)
@@ -494,27 +493,35 @@ def bind_component(
 
         # 解析 file_id
         file_service = container.file_service()
+        _file_resolved = False
 
         # 先尝试按UUID精确查找
         file_result = file_service.get_by_uuid(file_id)
         if file_result.success and file_result.data:
-            # 处理字典格式 {"file": MFile, "exists": True}
-            if isinstance(file_result.data, dict) and 'file' in file_result.data:
-                mfile = file_result.data['file']
-                resolved_file_uuid = mfile.uuid
-                file_name = mfile.name
-            else:
-                resolved_file_uuid = file_result.data.uuid
-                file_name = file_result.data.name
-        else:
-            # 尝试按name查找
+            data = file_result.data
+            if isinstance(data, dict) and data.get('file') is not None:
+                resolved_file_uuid = data['file'].uuid
+                file_name = data['file'].name
+                _file_resolved = True
+            elif hasattr(data, 'uuid'):
+                resolved_file_uuid = data.uuid
+                file_name = data.name
+                _file_resolved = True
+
+        # 再尝试按name查找
+        if not _file_resolved:
             file_result = file_service.get_by_name(file_id)
-            if file_result.success and file_result.data and len(file_result.data) > 0:
-                resolved_file_uuid = file_result.data[0].uuid
-                file_name = file_result.data[0].name
-            else:
-                console.print(f":x: File not found: '{file_id}'")
-                raise typer.Exit(1)
+            if file_result.success and file_result.data:
+                data = file_result.data
+                files = data.get('files', data) if isinstance(data, dict) else data
+                if hasattr(files, '__len__') and len(files) > 0:
+                    resolved_file_uuid = files[0].uuid
+                    file_name = files[0].name
+                    _file_resolved = True
+
+        if not _file_resolved:
+            console.print(f":x: File not found: '{file_id}'")
+            raise typer.Exit(1)
 
         # 解析 component_type
         type_mapping = {

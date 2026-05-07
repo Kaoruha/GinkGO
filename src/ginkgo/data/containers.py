@@ -287,10 +287,10 @@ class Container(containers.DeclarativeContainer):
         ApiKeyService
     )
 
-    # Validation result CRUD
+    # DEPRECATED: validation_result_crud 已废弃，未来将被移除。验证结果存储方案需重新设计。
     validation_result_crud = providers.Singleton(ValidationResultCRUD)
 
-    # Validation service for backtest validation (segment stability, monte carlo)
+    # DEPRECATED: validation_result_crud 参数已废弃。验证结果存储方案需重新设计。
     validation_service = providers.Singleton(
         ValidationService,
         analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),

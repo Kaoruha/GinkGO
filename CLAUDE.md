@@ -376,6 +376,170 @@ python -m ginkgo.livecore.main live-status # Show live engine status
 python -m ginkgo.livecore.main live-init   # Initialize live trading environment
 ```
 
+## CLI 回测全链路操作指南
+
+### 概述
+
+CLI 回测全链路：创建 Portfolio → 创建/复用 Component → 绑定组件（含参数）→ 创建回测 → 运行回测。
+
+**Python 环境**：`/home/kaoru/.ginkgo/.venv/bin/python`（CLI wrapper 使用此路径）
+
+### 1. Portfolio 管理
+
+```bash
+# 创建
+ginkgo portfolio create --name "my_portfolio" --capital 1000000
+
+# 查看（UUID 截断，需记下完整 ID）
+ginkgo portfolio list
+ginkgo portfolio get <uuid>
+
+# 删除
+ginkgo portfolio delete <uuid>  # 需交互确认
+```
+
+### 2. Component（组件/文件）管理
+
+```bash
+# 查看已有组件
+ginkgo component list
+
+# 创建新组件（⚠️ basic template 无参数定义，见下方注意事项）
+ginkgo component create --type strategy --name "my_strategy"
+ginkgo component create --type selector --name "my_selector"
+ginkgo component create --type sizer --name "my_sizer"
+ginkgo component create --type riskmanager --name "my_risk"
+
+# 组件类型对照
+# strategy=6, selector=4, sizer=5, riskmanager=3, analyzer=7
+
+# 查看组件源码
+ginkgo component show <uuid>
+```
+
+**⚠️ 重要：`component create` 生成的 basic template 没有参数定义。** WebUI 通过解析组件源码提取参数名来展示参数，basic template 会导致 WebUI 参数为空。**建议复用已有组件**。
+
+### 3. 绑定组件到 Portfolio（含参数）
+
+```bash
+# 绑定格式
+ginkgo portfolio bind-component <portfolio_id> <file_id> --type <type> \
+  --param '<index>:<value>' [--param '<index>:<value>' ...]
+
+# 参数格式规则
+#   字符串值用引号包裹: '0:"FixedSelector"'
+#   数值直接写: '1:150'
+#   null 值: '4:null'
+#   多参数用多个 --param
+
+# 示例：绑定完整四件套
+PID="your-portfolio-uuid"
+
+# 策略
+ginkgo portfolio bind-component $PID <strategy_file_id> --type strategy \
+  --param '0:"RandomSignalStrategy"' \
+  --param '1:0.3' --param '2:0.3' \
+  --param '3:"随机信号-{direction}-{index}"' \
+  --param '4:null'
+
+# 选股器
+ginkgo portfolio bind-component $PID <selector_file_id> --type selector \
+  --param '0:"FixedSelector"' \
+  --param '1:"000001.sz"'
+
+# 仓位管理
+ginkgo portfolio bind-component $PID <sizer_file_id> --type sizer \
+  --param '0:"FixedSizer"' \
+  --param '1:150'
+
+# 风控
+ginkgo portfolio bind-component $PID <risk_file_id> --type riskmanager \
+  --param '0:"norisk"'
+
+# 解绑
+ginkgo portfolio unbind-component <portfolio_id> <file_id> --confirm
+```
+
+### 4. 参数 index 与组件源码的对应关系
+
+参数通过 index 位置与组件源码 `__init__` 的参数顺序对应。API 层 `component_parameter_extractor` 解析源码获取映射。
+
+**常用组件参数速查：**
+
+| 组件 | Index 0 | Index 1 | Index 2 | Index 3 | Index 4 |
+|---|---|---|---|---|---|
+| `random_signal_strategy` | name | buy_probability | sell_probability | signal_reason_template | max_signals |
+| `fixed_selector` | name | codes | | | |
+| `fixed_sizer` | name | volume | | | |
+| `no_risk` | name | | | | |
+| `moving_average_crossover` | name | short_window | long_window | | |
+
+**查询任意组件的参数映射：**
+```python
+/home/kaoru/.ginkgo/.venv/bin/python -c "
+from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
+print(get_component_parameter_names('组件名', None, 'strategy', None))
+"
+```
+
+### 5. 回测任务管理
+
+```bash
+# 创建回测
+ginkgo backtest create \
+  --portfolio <portfolio_id> \
+  --start 2025-05-07 --end 2026-05-07 \
+  --name "my_backtest" \
+  --cash 100000
+
+# 运行回测（本地同步执行，需等待完成）
+ginkgo backtest run <backtest_id>
+
+# 查看结果
+ginkgo backtest cat <backtest_id>
+
+# 查看回测列表
+ginkgo backtest list
+
+# 删除（需交互确认）
+ginkgo backtest delete <backtest_id>
+```
+
+### 6. 查询组件绑定关系（CLI 未实现 mapping list）
+
+`ginkgo mapping list` 尚未实现，需通过 Python 查询：
+```python
+/home/kaoru/.ginkgo/.venv/bin/python -c "
+from ginkgo.data.containers import container
+crud = container.portfolio_file_mapping_crud()
+param_crud = container.param_crud()
+mappings = crud.find(filters={'portfolio_id': 'PORTFOLIO_UUID'})
+type_map = {6:'strategy', 4:'selector', 5:'sizer', 3:'riskmanager'}
+for m in mappings:
+    params = param_crud.find(filters={'mapping_id': m.uuid})
+    pstr = ', '.join(f'{p.index}:{p.value}' for p in params)
+    print(f'{type_map.get(m.type,\"?\")} | file={m.file_id} | params: {pstr}')
+"
+```
+
+### 7. 可用组件清单（非 e2e/test 组件）
+
+**策略 (strategy)**：`random_signal_strategy`, `moving_average_crossover`, `mean_reversion`, `momentum`, `trend_follow`, `trend_reverse`, `dual_thrust`, `scalping`, `price_action`, `volume_activate`, `ml_predictor`, `social_signal`, `game_theory`, `random_choice`
+
+**选股器 (selector)**：`fixed_selector`, `cn_all_selector`, `momentum_selector`, `popularity_selector`, `multi_params_selector`
+
+**仓位管理 (sizer)**：`fixed_sizer`, `atr_sizer`, `ratio_sizer`
+
+**风控 (riskmanager)**：`no_risk`, `position_ratio_risk`, `loss_limit_risk`, `profit_target_risk`, `max_drawdown_risk`, `volatility_risk`, `concentration_risk`, `capital_risk`, `liquidity_risk`, `margin_risk`, `market_cap_risk`, `sector_rotation_risk`, `correlation_risk`, `currency_risk`, `suspension_risk`, `trading_time_risk`
+
+### 8. 注意事项
+
+1. **必须开启 DEBUG 模式**：`ginkgo debug on`
+2. **必须绑定 selector**，否则回测报 `No selector found`
+3. **basic template 组件在 WebUI 无法显示参数**，应复用已有组件
+4. **portfolio list UUID 被截断**，创建后需记下完整 UUID
+5. **backtest delete / portfolio unbind 需交互确认**，暂无 `--force` 选项
+
 ## Development Servers
 
 **IMPORTANT: When debugging issues, always check these logs first:**
