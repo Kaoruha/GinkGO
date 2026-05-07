@@ -13,6 +13,9 @@ from types import FunctionType, MethodType
 from enum import Enum
 
 from ginkgo.enums import SOURCE_TYPES, COMPONENT_TYPES
+from ginkgo.libs.data.number import convert_to_float as _convert_to_float_impl
+from ginkgo.libs.data.number import convert_to_int as _convert_to_int_impl
+from ginkgo.libs.data.number import convert_to_bool as _convert_to_bool_impl
 
 
 class Base(object):
@@ -151,22 +154,7 @@ class Base(object):
         Returns:
             float: 转换后的浮点数
         """
-        if value is None:
-            return default
-
-        if isinstance(value, float):
-            return value
-
-        if isinstance(value, int):
-            return float(value)
-
-        if isinstance(value, str):
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-
-        return default
+        return _convert_to_float_impl(value, default)
 
     def _convert_to_int(self, value, default: int = 0) -> int:
         """
@@ -179,22 +167,7 @@ class Base(object):
         Returns:
             int: 转换后的整数
         """
-        if value is None:
-            return default
-
-        if isinstance(value, int):
-            return value
-
-        if isinstance(value, float):
-            return int(value)
-
-        if isinstance(value, str):
-            try:
-                return int(float(value))  # 支持"3.0"这样的字符串
-            except (ValueError, TypeError):
-                return default
-
-        return default
+        return _convert_to_int_impl(value, default)
 
     def _convert_to_bool(self, value, default: bool = False) -> bool:
         """
@@ -207,22 +180,5 @@ class Base(object):
         Returns:
             bool: 转换后的布尔值
         """
-        if value is None:
-            return default
+        return _convert_to_bool_impl(value, default)
 
-        if isinstance(value, bool):
-            return value
-
-        if isinstance(value, (int, float)):
-            return bool(value)
-
-        if isinstance(value, str):
-            lower_val = value.lower().strip()
-            if lower_val in ('true', '1', 'yes', 'on'):
-                return True
-            elif lower_val in ('false', '0', 'no', 'off'):
-                return False
-            else:
-                return default
-
-        return default

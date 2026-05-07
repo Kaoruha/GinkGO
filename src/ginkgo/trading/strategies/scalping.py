@@ -23,7 +23,7 @@ class StrategyScalping(BaseStrategy):
         *args,
         **kwargs,
     ):
-        super().__init__(5, name, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
         self.set_name(name)
 
     def cal(self, portfolio_info, event, *args, **kwargs):

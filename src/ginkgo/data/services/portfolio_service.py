@@ -1340,7 +1340,9 @@ class PortfolioService(BaseService):
 
                 # 实例化组件
                 if component_params:
-                    component = component_class(*component_params)
+                    import inspect
+                    converted = self._convert_params(component_class, component_params)
+                    component = component_class(*converted)
                 else:
                     component = component_class()
 
@@ -1355,6 +1357,30 @@ class PortfolioService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"实例化组件失败: {e}")
             return self._get_default_component(component_type)
+
+    @staticmethod
+    def _convert_params(component_class, raw_params: list) -> list:
+        """根据构造函数类型注解自动转换参数类型"""
+        import inspect
+        from ginkgo.libs.data.number import convert_to_float, convert_to_int
+        try:
+            sig = inspect.signature(component_class.__init__)
+            params = list(sig.parameters.values())[1:]  # skip self
+            converted = []
+            for i, raw in enumerate(raw_params):
+                if i < len(params):
+                    ann = params[i].annotation
+                    if ann is int:
+                        converted.append(convert_to_int(raw))
+                    elif ann is float:
+                        converted.append(convert_to_float(raw))
+                    else:
+                        converted.append(raw)
+                else:
+                    converted.append(raw)
+            return converted
+        except Exception:
+            return raw_params
 
     def _get_default_component(self, component_type: str):
         """获取默认组件作为fallback"""
