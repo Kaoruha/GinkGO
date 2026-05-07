@@ -8,7 +8,6 @@
 
 
 import datetime
-from decimal import Decimal
 import pandas as pd
 from ginkgo.entities import Signal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
@@ -31,8 +30,6 @@ class StrategyTrendFollow(BaseStrategy):
         fast_ma_period: int = 10,
         slow_ma_period: int = 30,
         momentum_period: int = 5,
-        loss_limit: float = 8.0,
-        profit_target: float = 20.0,
         *args,
         **kwargs,
     ):
@@ -40,8 +37,6 @@ class StrategyTrendFollow(BaseStrategy):
         self._fast_ma_period = fast_ma_period
         self._slow_ma_period = slow_ma_period
         self._momentum_period = momentum_period
-        self._loss_limit = Decimal(str(loss_limit / 100))  # 转换为小数
-        self._profit_target = Decimal(str(profit_target / 100))
 
     def _calculate_moving_averages(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -67,30 +62,6 @@ class StrategyTrendFollow(BaseStrategy):
             timestamp=portfolio_info["now"],
         )
 
-    def _check_position_risk(self, portfolio_info, code: str, current_price: float) -> bool:
-        """
-        检查持仓风险，决定是否止损
-        """
-        if code not in portfolio_info["positions"]:
-            return False
-            
-        position = portfolio_info["positions"][code]
-        cost = position.cost
-        price = position.price
-        ratio = Decimal(str(price)) / Decimal(str(cost))
-        
-        # 止损检查
-        if ratio <= (Decimal('1') - self._loss_limit):
-            GLOG.INFO(f"Stop loss triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
-            return True
-            
-        # 止盈检查
-        if ratio >= (Decimal('1') + self._profit_target):
-            GLOG.INFO(f"Take profit triggered for {code}: cost={cost}, price={price}, ratio={ratio}")
-            return True
-            
-        return False
-
     def cal(self, portfolio_info, event, *args, **kwargs):
         super().cal(portfolio_info, event)
         
@@ -112,13 +83,7 @@ class StrategyTrendFollow(BaseStrategy):
         prev_row = df.iloc[-2]
         
         current_price = float(current_row['close'])
-        
-        # 检查止损
-        if self._check_position_risk(portfolio_info, event.code, current_price):
-            return [self._generate_signal(
-                portfolio_info, event.code, DIRECTION_TYPES.SHORT, "Stop Loss/Take Profit"
-            )]
-        
+
         has_position = event.code in portfolio_info["positions"]
         
         # 交易信号逻辑

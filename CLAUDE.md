@@ -21,6 +21,23 @@ Ginkgo is a Python quantitative trading library featuring:
 - **多数据库支持**: 统一接口访问 ClickHouse、MySQL、MongoDB、Redis
 - **分层架构**: LiveCore(数据层) 与 ExecutionNode(执行层) 通过Kafka解耦
 
+### 组件边界：Strategy / Selector / Sizer / Risk
+
+四类组件各司其职，单向流动：`Selector → Strategy → Sizer → Risk`
+
+| 组件 | 职责 | 输入 | 输出 | 禁止 |
+|---|---|---|---|---|
+| **Selector** | 选股 | code 列表/市场数据 | `List[str]` 股票代码 | 生成信号、计算仓位、做风控 |
+| **Strategy** | 生成交易信号 | portfolio_info + event | `List[Signal]`（方向+权重） | 选股、止损止盈、计算仓位 |
+| **Sizer** | 确定开仓手数 | portfolio_info + signal/order | volume（整数手数） | 风控校验 |
+| **Risk** | 风控拦截/主动信号 | portfolio_info + order/event | 调整后 order 或 风控 signal | 增加订单量（只能减少或拒绝） |
+
+**数据流向**：Sizer 设初始 volume → Risk 只能减少或拒绝，不能增加。
+
+**已知违规**（勿扩大，逐步修复）：
+- Strategy: DualThrust/TrendReverse 仍读取持仓（合理用法，判断是否生成信号）
+- Sizer: 当前无违规
+
 ### 分层架构：CRUD 与 Service
 
 **三层调用关系：** `API层 / CLI层 → Service层 → CRUD层 → 数据库`
