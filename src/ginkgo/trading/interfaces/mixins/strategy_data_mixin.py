@@ -103,14 +103,15 @@ class StrategyDataMixin:
 
         if start_date is None:
             # 根据count和frequency推算start_date
+            # 日频: 交易日约占日历天的 5/7，需放大系数确保足够数据
             if frequency == '1d':
-                delta = timedelta(days=count + 10)
+                delta = timedelta(days=int(count * 1.5) + 20)
             elif frequency == '1h':
-                delta = timedelta(hours=count + 10)
+                delta = timedelta(hours=int(count * 1.5) + 20)
             elif frequency == '1m':
-                delta = timedelta(minutes=count + 10)
+                delta = timedelta(minutes=int(count * 1.5) + 20)
             else:
-                delta = timedelta(days=count + 10)
+                delta = timedelta(days=int(count * 1.5) + 20)
             start_date = end_date - delta
 
         cache_key = f"bars_{symbol}_{start_date.date()}_{end_date.date()}"
@@ -154,6 +155,9 @@ class StrategyDataMixin:
 
             # 转换为Bar实体列表
             bars = result.data.to_entities()
+
+            # 过滤无效数据
+            bars = [b for b in bars if b.timestamp is not None]
 
             print(f"[DATA_MIXIN] 查询到 {len(bars)} 条原始数据")
 
