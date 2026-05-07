@@ -1,3 +1,4 @@
+# DEPRECATED: 本文件已废弃，未来将被移除。验证结果存储方案需重新设计。
 # Upstream: ValidationService
 # Downstream: BaseCRUD, MValidationResult
 # Role: 验证结果 CRUD 操作
@@ -7,7 +8,9 @@ from ginkgo.data.models.model_validation_result import MValidationResult
 
 
 class ValidationResultCRUD(BaseCRUD):
-    """验证结果 CRUD"""
+    """DEPRECATED: 已废弃，未来将被移除。验证结果存储方案需重新设计。
+
+    验证结果 CRUD"""
 
     _model_class = MValidationResult
 

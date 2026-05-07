@@ -5,8 +5,6 @@
 
 
 
-
-
 """
 Ginkgo Parameter CLI - 参数管理命令
 """
@@ -15,6 +13,7 @@ import typer
 from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
+from rich.table import Table
 from rich.prompt import Confirm
 
 app = typer.Typer(
@@ -26,125 +25,108 @@ console = Console(emoji=True, legacy_windows=False)
 
 @app.command()
 def list(
-    mapping: Annotated[str, typer.Option("--mapping", "-m", "--m", help=":id: Portfolio-file mapping ID")],
+    mapping: Annotated[str, typer.Option("--mapping", "-m", help="Portfolio-file mapping ID")],
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
 ):
     """
     :open_file_folder: List all parameters for a component mapping.
     """
     from ginkgo.data.containers import container
-    from ginkgo.libs.utils.display import display_dataframe
 
     param_crud = container.cruds.param()
-    params_df = param_crud.get_page_filtered(mapping)
+    params = param_crud.find_by_mapping_id(mapping)
 
-    # Raw output mode
     if raw:
         import json
-        raw_data = params_df.to_dict('records')
+        raw_data = []
+        for p in params:
+            raw_data.append({"uuid": p.uuid, "index": p.index, "value": p.value})
         console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
         return
 
-    # 配置列显示
-    parameters_columns_config = {
-        "uuid": {"display_name": "Parameter ID", "style": "dim"},
-        "index": {"display_name": "Index", "style": "green"},
-        "value": {"display_name": "Value", "style": "cyan"},
-        "update_at": {"display_name": "Update At", "style": "dim"}
-    }
+    if not params:
+        console.print(f":information: No parameters found for mapping {mapping[:8]}...")
+        return
 
-    display_dataframe(
-        data=params_df,
-        columns_config=parameters_columns_config,
-        title=f":wrench: [bold]Parameters for mapping {mapping}:[/bold]",
-        console=console
-    )
+    table = Table(title=f":wrench: Parameters for mapping {mapping[:8]}...")
+    table.add_column("UUID", style="dim", width=32)
+    table.add_column("Index", style="green", width=6)
+    table.add_column("Value", style="cyan", width=30)
+    table.add_column("Updated", style="dim", width=20)
+
+    for p in sorted(params, key=lambda x: x.index):
+        updated = str(p.update_at)[:19] if hasattr(p, 'update_at') and p.update_at else "N/A"
+        table.add_row(p.uuid, str(p.index), str(p.value), updated)
+
+    console.print(table)
 
 
 @app.command()
 def add(
-    mapping: Annotated[str, typer.Option("--mapping", "-m", "--m", help=":id: Portfolio-file mapping ID")],
-    value: Annotated[str, typer.Option("--value", "-v", "--v", help=":pencil: Parameter value")],
-    index: Annotated[Optional[int], typer.Option("--index", "-i", help=":1234: Specific index (auto-assign if not provided)")] = None,
+    mapping: Annotated[str, typer.Option("--mapping", "-m", help="Portfolio-file mapping ID")],
+    value: Annotated[str, typer.Option("--value", "-v", help="Parameter value")],
+    index: Annotated[Optional[int], typer.Option("--index", "-i", help="Specific index (auto-assign if not provided)")] = None,
 ):
     """
     :plus: Add a new parameter to a component.
     """
     from ginkgo.data.containers import container
 
-    # Determine index if not provided
+    param_crud = container.cruds.param()
+
     if index is None:
-        param_crud = container.cruds.param()
-        params_df = param_crud.get_page_filtered(mapping)
-        index = params_df["index"].max() + 1 if params_df.shape[0] > 0 else 0
+        existing = param_crud.find_by_mapping_id(mapping)
+        if existing:
+            index = max(p.index for p in existing) + 1
+        else:
+            index = 0
 
     try:
-        param_crud = container.cruds.param()
-        param_data = param_crud.add(mapping_id=mapping, index=index, value=value)
-        console.print(f":white_check_mark: [bold green]Added parameter[/bold green] at index {index}: [cyan]{value}[/cyan]")
-        console.print(f":id: Param ID: [dim]{param_data['uuid']}[/dim]")
+        param_crud.set_param_value(mapping, index, value)
+        console.print(f":white_check_mark: Added parameter at index {index}: [cyan]{value}[/cyan]")
     except Exception as e:
-        console.print(f":x: [bold red]Failed to add parameter:[/bold red] {e}")
+        console.print(f":x: Failed to add parameter: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
 def update(
-    param: Annotated[str, typer.Option("--param", "-p", "--p", help=":id: Parameter ID")],
-    value: Annotated[str, typer.Option("--value", "-v", "--v", help=":pencil: New parameter value")],
+    param_id: Annotated[str, typer.Option("--param", "-p", help="Parameter UUID")],
+    value: Annotated[str, typer.Option("--value", "-v", help="New parameter value")],
 ):
     """
     :memo: Update an existing parameter value.
     """
     from ginkgo.data.containers import container
 
-    # Verify parameter exists
-    param_crud = container.cruds.param()
-    param_df = param_crud.get(param)
-    if param_df.shape[0] == 0:
-        console.print(f":exclamation: Parameter [light_coral]{param}[/light_coral] not found.")
-        return
-
-    old_value = param_df.iloc[0]["value"]
-    param_index = param_df.iloc[0]["index"]
-
     try:
         param_crud = container.cruds.param()
-        param_crud.update(param, value=value)
-        console.print(f":white_check_mark: [bold green]Updated parameter[/bold green] at index {param_index}")
-        console.print(f"  Old value: [dim]{old_value}[/dim]")
-        console.print(f"  New value: [cyan]{value}[/cyan]")
+        param_crud.update_value(param_id, value)
+        console.print(f":white_check_mark: Updated parameter {param_id[:8]}... to [cyan]{value}[/cyan]")
     except Exception as e:
-        console.print(f":x: [bold red]Failed to update parameter:[/bold red] {e}")
+        console.print(f":x: Failed to update parameter: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
 def delete(
-    param: Annotated[str, typer.Option("--param", "-p", "--p", help=":id: Parameter ID")],
-    force: Annotated[bool, typer.Option("--force", "-f", help=":exclamation: Skip confirmation")] = False,
+    param_id: Annotated[str, typer.Option("--param", "-p", help="Parameter UUID")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ):
     """
     :wastebasket: Delete a parameter.
     """
     from ginkgo.data.containers import container
 
-    # Verify parameter exists
-    param_crud = container.cruds.param()
-    param_df = param_crud.get(param)
-    if param_df.shape[0] == 0:
-        console.print(f":exclamation: Parameter [light_coral]{param}[/light_coral] not found.")
-        return
-
-    param_value = param_df.iloc[0]["value"]
-    param_index = param_df.iloc[0]["index"]
-
     if not force:
-        if not Confirm.ask(f":question: Delete parameter at index {param_index} ([cyan]{param_value}[/cyan])?", default=False):
-            console.print(":relieved_face: Operation cancelled.")
+        if not Confirm.ask(f":question: Delete parameter {param_id[:8]}...?", default=False):
+            console.print("Cancelled.")
             return
 
     try:
         param_crud = container.cruds.param()
-        param_crud.delete(param)
-        console.print(f":white_check_mark: [bold green]Deleted parameter[/bold green] at index {param_index}: [dim]{param_value}[/dim]")
+        param_crud.delete_by_uuid(param_id)
+        console.print(f":white_check_mark: Deleted parameter {param_id[:8]}...")
     except Exception as e:
-        console.print(f":x: [bold red]Failed to delete parameter:[/bold red] {e}")
+        console.print(f":x: Failed to delete parameter: {e}")
+        raise typer.Exit(1)
