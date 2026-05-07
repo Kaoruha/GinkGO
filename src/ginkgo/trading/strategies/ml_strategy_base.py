@@ -20,7 +20,6 @@ import datetime
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Union, Any, Tuple
-from decimal import Decimal
 from abc import abstractmethod
 
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
@@ -59,8 +58,6 @@ class StrategyMLBase(BaseStrategy):
         name: str = "MLStrategy",
         model_path: Optional[str] = None,
         signal_threshold: float = 0.01,
-        position_sizing: str = "fixed",
-        max_position_ratio: float = 0.1,
         lookback_days: int = 252,
         feature_config: Optional[Dict] = None,
         enable_monitoring: bool = True,
@@ -69,13 +66,11 @@ class StrategyMLBase(BaseStrategy):
     ):
         """
         初始化ML策略
-        
+
         Args:
             name: 策略名称
             model_path: 模型文件路径
             signal_threshold: 信号生成阈值
-            position_sizing: 头寸管理方法 ("fixed", "proportional", "kelly")
-            max_position_ratio: 最大持仓比例
             lookback_days: 历史数据回看天数
             feature_config: 特征工程配置
             enable_monitoring: 是否启用模型监控
@@ -93,8 +88,6 @@ class StrategyMLBase(BaseStrategy):
             self._model_path = model_path
             self._model_info = {}
             self._signal_threshold = signal_threshold
-            self._position_sizing = position_sizing
-            self._max_position_ratio = max_position_ratio
             self._lookback_days = lookback_days
             self._feature_config = feature_config or {}
             self._feature_cache = {}
@@ -102,26 +95,24 @@ class StrategyMLBase(BaseStrategy):
             self._enable_monitoring = enable_monitoring
             self._prediction_history = []
             self._performance_metrics = {}
-            
+
             GLOG.INFO(f"初始化受限模式ML策略: {name}")
             return
-        
+
         # 模型相关
         self._model: Optional[BaseModel] = None
         self._model_path: Optional[str] = model_path
         self._model_info: Dict[str, Any] = {}
-        
+
         # 特征工程
         self._feature_processor: Optional[FeatureProcessor] = None
         self._alpha_factors: Optional[AlphaFactors] = None
         self._feature_config = feature_config or {}
         self._lookback_days = lookback_days
-        
+
         # 信号生成
         self._signal_threshold = signal_threshold
-        self._position_sizing = position_sizing
-        self._max_position_ratio = max_position_ratio
-        
+
         # 数据缓存
         self._feature_cache: Dict[str, pd.DataFrame] = {}
         self._prediction_cache: Dict[str, Dict] = {}
@@ -533,7 +524,6 @@ class StrategyMLBase(BaseStrategy):
             'model_loaded': self.is_model_loaded(),
             'model_info': self._model_info,
             'signal_threshold': self._signal_threshold,
-            'position_sizing': self._position_sizing,
             'performance_metrics': self._performance_metrics,
             'feature_cache_size': len(self._feature_cache),
             'prediction_history_size': len(self._prediction_history)

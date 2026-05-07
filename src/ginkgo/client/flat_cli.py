@@ -459,6 +459,105 @@ def show(
         raise typer.Exit(1)
 
 
+@component_app.command()
+def edit(
+    identifier: str = typer.Argument(..., help="Component UUID or name"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Import source code from local .py file"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="Update component name"),
+    type: Optional[str] = typer.Option(None, "--type", "-t", help="Update component type (strategy/selector/sizer/risk/analyzer)"),
+    desc: Optional[str] = typer.Option(None, "--desc", "-d", help="Update component description"),
+):
+    """
+    :pencil: Edit component source code or metadata in database.
+
+    Examples:
+      ginkgo component edit my_strategy                  # Open in editor
+      ginkgo component edit my_strategy --file code.py   # Import from file
+      ginkgo component edit my_strategy --name "new"     # Update metadata only
+    """
+    import subprocess
+    import tempfile
+    import os
+    from ginkgo.data.containers import container
+
+    try:
+        file_service = container.file_service()
+        mfile = _resolve_file(file_service, identifier)
+
+        new_data = None
+        updates = []
+
+        # 更新源码
+        if file:
+            with open(file, 'r', encoding='utf-8') as f:
+                new_data = f.read().encode('utf-8')
+            updates.append(f"source: {file}")
+        elif not (name or type or desc):
+            # 没有任何参数 → 打开编辑器
+            code = mfile.data.decode('utf-8') if isinstance(mfile.data, bytes) else str(mfile.data)
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as tmp:
+                tmp.write(code)
+                tmp_path = tmp.name
+            try:
+                editor = os.environ.get('EDITOR', 'nano')
+                subprocess.run([editor, tmp_path])
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    edited = f.read()
+                if edited != code:
+                    new_data = edited.encode('utf-8')
+                    updates.append("source: editor")
+                else:
+                    console.print(":information_source: No changes made")
+                    return
+            finally:
+                os.unlink(tmp_path)
+
+        # 构建更新参数
+        svc_kwargs = {"file_id": mfile.uuid}
+        crud_updates = {}
+        if name:
+            svc_kwargs["name"] = name
+            updates.append(f"name: {name}")
+        if desc:
+            svc_kwargs["description"] = desc
+            updates.append(f"desc: {desc}")
+        if type:
+            from ginkgo.enums import FILE_TYPES
+            type_map = {k.lower(): v for k, v in FILE_TYPES.__members__.items()}
+            type_key = type.lower().replace(' ', '_')
+            if type_key in type_map:
+                crud_updates["type"] = type_map[type_key].value
+                updates.append(f"type: {type}")
+            else:
+                valid = ', '.join(sorted(type_map.keys()))
+                console.print(f":x: Invalid type '{type}'. Valid: {valid}")
+                raise typer.Exit(1)
+        if new_data:
+            svc_kwargs["data"] = new_data
+
+        if not updates:
+            console.print(":information_source: Nothing to update")
+            return
+
+        # type 需要通过 CRUD 直接更新（file_service.update 不支持 type 参数）
+        if crud_updates:
+            crud = container.file_crud()
+            crud.modify(filters={"uuid": mfile.uuid}, updates=crud_updates)
+
+        result = file_service.update(**svc_kwargs)
+        if result.success:
+            console.print(f":white_check_mark: Component '{mfile.name}' updated ({', '.join(updates)})")
+        else:
+            console.print(f":x: Update failed: {result.message}")
+            raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
 # Mapping 相关命令
 @mapping_app.command()
 def list(

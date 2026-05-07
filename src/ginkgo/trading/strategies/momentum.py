@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (调用cal方法)
 # Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)、StrategyDataMixin (提供数据访问能力)
-# Role: Momentum动量因子策略继承BaseStrategy基于截面动量排名选股
+# Role: Momentum动量因子策略 — 对单只股票计算动量，根据阈值生成方向信号
 
 
 
@@ -8,23 +8,21 @@
 Momentum Strategy (动量因子策略)
 
 策略逻辑：
-- 计算所有关注股票在回溯期内的收益率（动量）
-- 按动量从高到低排名，买入排名前 N 的股票
-- 每隔 rebalance_days 天重新平衡
-- 卖出跌出前 N 的持仓，买入新进入前 N 的股票
+- 计算当前股票在回溯期内的收益率（动量）
+- 动量超过正阈值时生成买入信号
+- 动量低于负阈值且持仓时生成卖出信号
 
 使用示例：
     from ginkgo.trading.strategies.momentum import Momentum
 
     strategy = Momentum(
-        name="Momentum_20_5",
-        lookback_period=20,  # 回溯期
-        top_n=5,             # 选取前5名
-        rebalance_days=5,    # 每5天再平衡
+        name="Momentum_20",
+        lookback_period=20,
+        momentum_threshold=0.02,
     )
 """
 
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Optional
 from datetime import datetime
 
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
@@ -39,23 +37,21 @@ class Momentum(BaseStrategy, StrategyDataMixin):
     """
     动量因子策略 (Momentum Strategy)
 
-    通过截面动量排名选取表现最佳的股票：
+    根据单只股票的动量指标生成交易信号：
     - 计算回溯期内收益率作为动量指标
-    - 选取动量排名前 top_n 的股票
-    - 定期再平衡，调出表现变差的股票
+    - 动量超过正阈值时生成买入信号（无持仓）
+    - 动量低于负阈值时生成卖出信号（有持仓）
 
     Attributes:
         lookback_period: 回溯期天数（默认20）
-        top_n: 选取排名前N只股票（默认5）
-        rebalance_days: 再平衡间隔天数（默认5）
+        momentum_threshold: 动量信号触发阈值（默认0.02，即2%）
         frequency: 数据频率（默认'1d'日线）
 
     Example:
         >>> strategy = Momentum(
         ...     name="Momentum20",
         ...     lookback_period=20,
-        ...     top_n=5,
-        ...     rebalance_days=5
+        ...     momentum_threshold=0.02,
         ... )
     """
 
@@ -63,8 +59,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         self,
         name: str = "Momentum",
         lookback_period: int = 20,
-        top_n: int = 5,
-        rebalance_days: int = 5,
+        momentum_threshold: float = 0.02,
         frequency: str = '1d',
         **kwargs
     ):
@@ -74,8 +69,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         Args:
             name: 策略名称
             lookback_period: 回溯期天数（计算收益率的时间窗口）
-            top_n: 选取动量排名前N只股票
-            rebalance_days: 再平衡间隔天数
+            momentum_threshold: 动量信号触发阈值
             frequency: 数据频率 ('1d'=日线, '1h'=小时, '1m'=分钟)
             **kwargs: 其他参数传递给父类
         """
@@ -89,34 +83,23 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         if lookback_period < 2:
             raise ValueError(f"lookback_period ({lookback_period}) 必须 >= 2")
 
-        if top_n <= 0:
-            raise ValueError(f"top_n ({top_n}) 必须 > 0")
-
-        if rebalance_days < 1:
-            raise ValueError(f"rebalance_days ({rebalance_days}) 必须 >= 1")
-
         self.lookback_period = lookback_period
-        self.top_n = top_n
-        self.rebalance_days = rebalance_days
+        self.momentum_threshold = momentum_threshold
         self.frequency = frequency
 
-        # 再平衡状态
-        self._last_rebalance: Optional[datetime] = None
-        self._current_holdings: Set[str] = set()
-
         GLOG.INFO(f"{self.name}: 初始化动量因子策略 "
-                  f"(回溯期={lookback_period}, Top{top_n}, 再平衡={rebalance_days}天, 频率={frequency})")
+                  f"(回溯期={lookback_period}, 阈值={momentum_threshold}, 频率={frequency})")
 
     def cal(self, portfolio_info: Dict, event: EventPriceUpdate, *args, **kwargs) -> List[Signal]:
         """
-        处理价格更新事件，执行动量排名和再平衡
+        处理价格更新事件，计算动量并生成信号
 
         Args:
-            portfolio_info: 组合信息，包含 interested_codes 和 now
+            portfolio_info: 组合信息
             event: 价格更新事件
 
         Returns:
-            List[Signal]: 信号列表（买入新进入 top_n 的，卖出跌出的）
+            List[Signal]: 信号列表
         """
         # 只处理价格更新事件
         if not isinstance(event, EventPriceUpdate):
@@ -126,109 +109,79 @@ class Momentum(BaseStrategy, StrategyDataMixin):
         if not isinstance(current_time, datetime):
             return []
 
-        # 检查是否到了再平衡时间
-        if self._last_rebalance is not None:
-            days_since_rebalance = (current_time - self._last_rebalance).days
-            if days_since_rebalance < self.rebalance_days:
+        code = event.code
+        has_position = code in portfolio_info.get("positions", {})
+
+        # 获取K线数据
+        try:
+            bars = self.get_bars_cached(
+                symbol=code,
+                count=self.lookback_period + 1,
+                frequency=self.frequency,
+                use_cache=True,
+            )
+
+            if not bars or len(bars) < self.lookback_period:
                 return []
 
-        # 获取关注股票列表
-        interested_codes = portfolio_info.get("interested_codes", [])
-        if not interested_codes:
+            # 提取收盘价序列
+            closes = []
+            for bar in bars:
+                if hasattr(bar, 'close'):
+                    closes.append(float(bar.close))
+
+            if len(closes) < 2:
+                return []
+
+            # 动量 = (末期收盘价 - 期初收盘价) / 期初收盘价
+            first_close = closes[0]
+            last_close = closes[-1]
+
+            if first_close <= 0:
+                return []
+
+            momentum = (last_close - first_close) / first_close
+
+        except Exception as e:
+            GLOG.ERROR(f"{self.name}: 计算动量失败 {code}: {e}")
             return []
-
-        # 计算每只股票的动量
-        momentum_scores: List[tuple] = []
-        for code in interested_codes:
-            try:
-                bars = self.get_bars_cached(
-                    symbol=code,
-                    count=self.lookback_period + 1,
-                    frequency=self.frequency,
-                    use_cache=True,
-                )
-
-                if not bars or len(bars) < self.lookback_period:
-                    continue
-
-                # 提取收盘价序列
-                closes = []
-                for bar in bars:
-                    if hasattr(bar, 'close'):
-                        closes.append(float(bar.close))
-
-                if len(closes) < 2:
-                    continue
-
-                # 动量 = (末期收盘价 - 期初收盘价) / 期初收盘价
-                first_close = closes[0]
-                last_close = closes[-1]
-
-                if first_close <= 0:
-                    continue
-
-                momentum = (last_close - first_close) / first_close
-                momentum_scores.append((code, momentum))
-
-            except Exception as e:
-                GLOG.ERROR(f"{self.name}: 计算动量失败 {code}: {e}")
-                continue
-
-        if not momentum_scores:
-            return []
-
-        # 按动量降序排名
-        momentum_scores.sort(key=lambda x: x[1], reverse=True)
-        top_codes = set(code for code, _ in momentum_scores[:self.top_n])
 
         # 生成信号
         signals = []
-        new_holdings: Set[str] = set()
 
-        # 买入新进入 top_n 的股票
-        for code in top_codes:
-            if code not in self._current_holdings:
-                signal = self.create_signal(
-                    code=code,
-                    direction=DIRECTION_TYPES.LONG,
-                    reason=f"动量入选: 排名前{self.top_n}",
-                    business_timestamp=current_time,
-                )
-                signals.append(signal)
-                new_holdings.add(code)
+        if momentum > self.momentum_threshold and not has_position:
+            signal = self.create_signal(
+                code=code,
+                direction=DIRECTION_TYPES.LONG,
+                reason=f"动量买入: {momentum:.2%} > {self.momentum_threshold:.2%}",
+                business_timestamp=current_time,
+            )
+            signals.append(signal)
 
-                self.blog.signal(
-                    symbol=code,
-                    direction=DIRECTION_TYPES.LONG.value,
-                    signal_reason=signal.reason,
-                    strategy_id=self.uuid,
-                    msg=f"动量入选: {code} 进入前{self.top_n}",
-                )
+            self.blog.signal(
+                symbol=code,
+                direction=DIRECTION_TYPES.LONG.value,
+                signal_reason=signal.reason,
+                strategy_id=self.uuid,
+                msg=f"动量买入: {code} 动量={momentum:.4f}",
+            )
 
-        # 卖出跌出 top_n 的持仓
-        for code in self._current_holdings:
-            if code not in top_codes:
-                signal = self.create_signal(
-                    code=code,
-                    direction=DIRECTION_TYPES.SHORT,
-                    reason=f"动量调出: 跌出前{self.top_n}",
-                    business_timestamp=current_time,
-                )
-                signals.append(signal)
+        elif momentum < -self.momentum_threshold and has_position:
+            signal = self.create_signal(
+                code=code,
+                direction=DIRECTION_TYPES.SHORT,
+                reason=f"动量卖出: {momentum:.2%} < -{self.momentum_threshold:.2%}",
+                business_timestamp=current_time,
+            )
+            signals.append(signal)
 
-                self.blog.signal(
-                    symbol=code,
-                    direction=DIRECTION_TYPES.SHORT.value,
-                    signal_reason=signal.reason,
-                    strategy_id=self.uuid,
-                    msg=f"动量调出: {code} 跌出前{self.top_n}",
-                )
-            else:
-                new_holdings.add(code)
-
-        # 更新状态
-        self._last_rebalance = current_time
-        self._current_holdings = new_holdings
+            self.blog.signal(
+                symbol=code,
+                direction=DIRECTION_TYPES.SHORT.value,
+                signal_reason=signal.reason,
+                strategy_id=self.uuid,
+                msg=f"动量卖出: {code} 动量={momentum:.4f}",
+            )
 
         return signals
 
@@ -238,8 +191,6 @@ class Momentum(BaseStrategy, StrategyDataMixin):
 
         在回测或实盘切换策略时调用，清除历史状态
         """
-        self._last_rebalance = None
-        self._current_holdings = set()
         # 直接清理缓存，避免调用 clear_data_cache 中的 GLOG.debug
         self._data_cache.clear()
         self._cache_timestamps.clear()
