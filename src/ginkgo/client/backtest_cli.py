@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from ginkgo.data.services.service_result import ServiceResult
+from ginkgo.data.services.base_service import ServiceResult
 
 console = Console(emoji=True, legacy_windows=False)
 app = typer.Typer(
