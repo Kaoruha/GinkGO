@@ -520,10 +520,7 @@ def edit(
                 # 内容已更改，更新数据库
                 update_result = file_service.update(
                     file_id=component.uuid,
-                    name=component.name,
-                    file_type=component.type,
                     data=edited_content.encode('utf-8'),
-                    description=component.description
                 )
 
                 if update_result.success:
