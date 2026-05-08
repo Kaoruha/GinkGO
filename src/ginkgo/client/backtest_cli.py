@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+from ginkgo.data.services.service_result import ServiceResult
+
 console = Console(emoji=True, legacy_windows=False)
 app = typer.Typer(
     help=":chart_with_upwards_trend: Backtest task management",
@@ -384,6 +386,29 @@ def cat_task(
 
     service = container.backtest_task_service()
     result = service.get_by_id(task_id)
+
+    if not result.is_success():
+        # 精确匹配失败，尝试模糊匹配
+        fuzzy_result = service.fuzzy_search(task_id)
+        if fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) == 1:
+            result = ServiceResult.success(fuzzy_result.data[0])
+        elif fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) > 1:
+            console.print(f"[yellow]Fuzzy match found {len(fuzzy_result.data)} tasks:[/yellow]\n")
+            table = Table(show_header=True, header_style="bold")
+            table.add_column("UUID", style="cyan")
+            table.add_column("Name")
+            table.add_column("Status")
+            table.add_column("Created")
+            for t in fuzzy_result.data:
+                table.add_row(
+                    t.uuid[:12] + "...",
+                    t.name or "-",
+                    t.status or "-",
+                    str(t.create_at)[:-7] if t.create_at else "-",
+                )
+            console.print(table)
+            console.print(f"\n[yellow]Please use a more specific identifier.[/yellow]")
+            raise typer.Exit(1)
 
     if not result.is_success():
         console.print(f":x: {result.error}")
