@@ -106,6 +106,27 @@ def run_task(
     result = service.get_by_id(task_id)
 
     if not result.is_success():
+        # 精确匹配失败，尝试模糊匹配
+        fuzzy_result = service.fuzzy_search(task_id)
+        if fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) == 1:
+            result = ServiceResult.success(fuzzy_result.data[0])
+        elif fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) > 1:
+            console.print(f"[yellow]Found {len(fuzzy_result.data)} matching tasks:[/yellow]\n")
+            table = Table(show_header=True, header_style="bold")
+            table.add_column("UUID", style="cyan")
+            table.add_column("Name")
+            table.add_column("Status")
+            for t in fuzzy_result.data:
+                table.add_row(
+                    t.uuid[:12] + "...",
+                    t.name or "-",
+                    t.status or "-",
+                )
+            console.print(table)
+            console.print(f"\n[yellow]Please use a more specific UUID.[/yellow]")
+            raise typer.Exit(1)
+
+    if not result.is_success():
         console.print(f":x: {result.error}")
         raise typer.Exit(1)
 
