@@ -312,15 +312,15 @@
 4. **moving_average_crossover**: `self._ma_states = {...}` 同上
 
 ### 组件参数问题
-- **Python API创建的portfolio参数格式错误**: 通过MParam直接设置时，值不应包含CLI格式的index前缀（如 `0:"value"`），应直接设为 `"value"`。CLI的 `--param '0:value'` 格式会自动解析index和value
+- **Python API创建的portfolio参数格式错误**: 通过MParam直接设置时，值不应包含CLI格式的index前缀（如 `0:"value"`），应直接设为 `"value"`。CLI的 `--param '0:value'` 格式会自动解析index和value（使用问题，非代码bug）
 - **file_service.update()不生效**: `file_service.update(uuid, data=source)` 返回True但不更新源码，需用 `crud.modify(filters={'uuid': uuid}, updates={'data': source.encode('utf-8')})` 代替（已知bug，本分支修复中）
 
 ### CLI 不便
 1. **backtest run 需完整UUID**: 后台运行时短UUID无效
 2. **portfolio list 截断UUID**: 创建后需立即记下完整ID
-3. **无 portfolio 详情命令**: 查看映射需Python脚本
+3. ~~**无 portfolio 详情命令**~~: 已有 `portfolio get <uuid> --details` 可查看组件绑定和参数
 4. **component create 生成空模板**: 每次需手动编辑
-5. **批量创建回测不稳定**: 部分回测创建失败（shell脚本问题）
+5. **批量创建回测不稳定**: 部分回测创建失败，待定位（可能与 worker 回测上限有关）
 6. **ratio_sizer 空占位**: 无按资金比例自动计算手数的功能
 
 ### 系统性问题
