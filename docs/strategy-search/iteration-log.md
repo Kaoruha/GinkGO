@@ -321,7 +321,7 @@
 3. ~~**无 portfolio 详情命令**~~: 已有 `portfolio get <uuid> --details` 可查看组件绑定和参数
 4. **component create 生成空模板**: 每次需手动编辑
 5. **批量创建回测不稳定**: 部分回测创建失败，待定位（可能与 worker 回测上限有关）
-6. **ratio_sizer 空占位**: 无按资金比例自动计算手数的功能
+6. **ratio_sizer**: 源码已实现但数据库组件仍为空，需 `ginkgo component edit` 同步
 
 ### 系统性问题
 1. **资金限制**: 100k初始资金，茅台等高价股无法开仓
