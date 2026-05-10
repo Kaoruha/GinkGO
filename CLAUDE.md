@@ -522,21 +522,11 @@ ginkgo backtest list
 ginkgo backtest delete <backtest_id>
 ```
 
-### 6. 查询组件绑定关系（CLI 未实现 mapping list）
+### 6. 查询组件绑定关系
 
-`ginkgo mapping list` 尚未实现，需通过 Python 查询：
-```python
-/home/kaoru/.ginkgo/.venv/bin/python -c "
-from ginkgo.data.containers import container
-crud = container.portfolio_file_mapping_crud()
-param_crud = container.param_crud()
-mappings = crud.find(filters={'portfolio_id': 'PORTFOLIO_UUID'})
-type_map = {6:'strategy', 4:'selector', 5:'sizer', 3:'riskmanager'}
-for m in mappings:
-    params = param_crud.find(filters={'mapping_id': m.uuid})
-    pstr = ', '.join(f'{p.index}:{p.value}' for p in params)
-    print(f'{type_map.get(m.type,\"?\")} | file={m.file_id} | params: {pstr}')
-"
+```bash
+# 使用 portfolio get --details 查看组件绑定和参数
+ginkgo portfolio get <portfolio_uuid> --details
 ```
 
 ### 7. 可用组件清单（非 e2e/test 组件）
