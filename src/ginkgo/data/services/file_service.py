@@ -269,7 +269,7 @@ class FileService(FileSearchMixin, BaseService):
 
     @retry(max_try=3)
     def update(
-        self, file_id: str, name: str = None, data: bytes = None, description: str = None
+        self, file_id: str, name: str = None, data: bytes = None, description: str = None, file_type: int = None
     ) -> ServiceResult:
         """
         更新现有文件的内容和元数据
@@ -279,6 +279,7 @@ class FileService(FileSearchMixin, BaseService):
             name: 新的文件名称（可选）
             data: 新的文件内容（可选）
             description: Optional new description
+            file_type: 文件类型（可选）
 
         Returns:
             ServiceResult containing operation status and update information
@@ -309,6 +310,10 @@ class FileService(FileSearchMixin, BaseService):
         if description is not None:
             updates["desc"] = description
             updates_applied.append("description")
+
+        if file_type is not None:
+            updates["type"] = file_type
+            updates_applied.append("file_type")
 
         if not updates:
             warnings.append("No updates provided for file update")
