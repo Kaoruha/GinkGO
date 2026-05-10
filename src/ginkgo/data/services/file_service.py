@@ -300,8 +300,10 @@ class FileService(FileSearchMixin, BaseService):
             updates_applied.append("name")
 
         if data is not None:
-            if not isinstance(data, bytes):
-                return ServiceResult.error("File data must be bytes")
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+            elif not isinstance(data, bytes):
+                return ServiceResult.error("File data must be bytes or str")
             if len(data) == 0:
                 warnings.append("File data is empty")
             updates["data"] = data

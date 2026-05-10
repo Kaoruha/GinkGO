@@ -266,10 +266,12 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # Check future event
         if event.business_timestamp and current_time and event.business_timestamp > current_time:
+            GLOG.DEBUG(f"Signal dropped: future event {signal_payload.code} @ {event.business_timestamp}")
             return
 
         # Check portfolio setup
         if not self.is_all_set():
+            GLOG.WARN(f"Signal dropped: portfolio not ready, {signal_payload.code}")
             return
 
         if self._batch_processing_enabled and self._batch_processor:
@@ -327,9 +329,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 # FILLED 状态由 on_order_partially_filled() 保存
                 self._save_order_record(order, ORDERSTATUS_TYPES.NEW)
             else:
-                print(
-                    f"[SIZED_FAIL] {event.payload.direction.name} {event.payload.code} Reason:Sizer returned None Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
-                )
+                GLOG.WARN(f"Signal dropped: sizer returned None for {event.payload.direction.name} {event.payload.code}")
                 return
         except Exception as e:
             print(
