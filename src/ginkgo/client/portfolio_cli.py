@@ -236,7 +236,7 @@ def list(
 
             # Display portfolios
             table = Table(title=":bank: Portfolios")
-            table.add_column("UUID", style="dim", width=36)
+            table.add_column("UUID", style="cyan")
             table.add_column("Name", style="cyan", width=20)
             table.add_column("Initial Capital", style="green", width=15)
             table.add_column("Type", style="yellow", width=10)
@@ -248,7 +248,7 @@ def list(
                 status = portfolio.get('status', 'Unknown')
 
                 table.add_row(
-                    str(portfolio.get('uuid', ''))[:36],
+                    str(portfolio.get('uuid', '')),
                     str(portfolio.get('name', ''))[:18],
                     initial_capital,
                     portfolio_type,
