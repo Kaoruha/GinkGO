@@ -148,6 +148,50 @@ r58 回测已完成（`Completed: 2026-05-10 22:29:44`），但 `Status: running
 `ginkgo component list strategy` 报错 "Got unexpected extra argument"。
 需改为 `ginkgo component list --type strategy`（但此选项也不存在）。
 
+## 10. 量化研究能力分析
+
+### 10.1 全量回测结果统计（486 个 completed 任务）
+
+| 模式 | 数量 | 占比 | 特征 |
+|------|------|------|------|
+| 成功模式 | 151 | 31% | 信号<150, 订单>30, 平均年化 5.9% |
+| 失败模式 | 26 | 5% | 信号>=150, 订单<20, 平均年化 -0.1% |
+| 空结果 | 98 | 20% | 0 信号（策略条件太严格或数据缺失） |
+| 其他 | 211 | 44% | 混合情况 |
+
+**关键发现**：
+- 仅 31% 的回测进入"成功模式"，5% 进入"失败模式"（非确定性 bug）
+- 20% 完全无信号 — 策略组件条件过严或数据问题，但引擎不报错
+- 最高主动策略年化 15.4%（momentum, th=2.0-2.2%, 紫金矿业）
+- B&H 基准（紫金矿业）年化 27.6%，主动策略仅捕获 56%
+
+### 10.2 数据探索能力严重不足
+
+| 需求 | 现状 |
+|------|------|
+| 查看K线数据 | `data get day` → "Bar data get not yet implemented" |
+| 查看复权因子 | `data get adjustfactor` → "not yet implemented" |
+| 查看交易日历 | `data get calendar` → "Unknown data type" |
+| 查看数据源 | `data get sources` → "not yet implemented" |
+| 查看Tick数据 | 未测试（可能同样未实现） |
+
+**影响**：量化研究的第一步是数据探索，但 CLI 无法查看任何时序数据。只能通过 Python API 访问。
+
+### 10.3 缺少的关键量化研究工具
+
+| 工具 | 说明 |
+|------|------|
+| 因子分析 | 无因子计算和 IC/IR 分析命令 |
+| 数据统计 | 无数据摘要（均值、波动率、偏度、峰度） |
+| 相关性分析 | 无多标的相关性矩阵 |
+| 回测对比 | 无法并排对比两个回测结果 |
+| 参数热力图 | 无法可视化参数扫描结果 |
+| 风险指标 | 无 VaR、最大回撤时段分析 |
+
+### 10.4 Python 环境发现成本高
+找到正确的 Python 解释器（`/home/kaoru/.ginkgo/.venv/bin/python`）需要阅读 ginkgo 的 shell wrapper。
+**建议**：添加 `ginkgo python` 命令直接启动带 ginkgo 环境的 Python REPL，或 `ginkgo python -c "..."` 执行单行脚本。
+
 ## 5. 待深入排查
 
 - **回测引擎非确定性**：同一参数不同结果，成功率约 33%（需专门分支修复）
