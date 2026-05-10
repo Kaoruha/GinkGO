@@ -209,6 +209,64 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             return results[0]
         return None
 
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None
+    ) -> ModelList[MBacktestTask]:
+        """
+        模糊搜索回测任务，支持 UUID、名称、task_id 的部分匹配。
+
+        Args:
+            query: 搜索字符串
+            fields: 搜索字段列表。默认: ['uuid', 'name', 'task_id']
+
+        Returns:
+            ModelList of matching tasks
+        """
+        if not query or not query.strip():
+            return ModelList([], self)
+
+        query_lower = query.lower().strip()
+
+        if fields is None:
+            fields = ['uuid', 'name', 'task_id']
+
+        all_results = []
+        seen_uuids = set()
+
+        if 'uuid' in fields:
+            try:
+                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False})
+                for item in results:
+                    if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                        all_results.append(item)
+                        seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"UUID fuzzy search failed: {e}")
+
+        if 'name' in fields:
+            try:
+                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False})
+                for item in results:
+                    if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                        all_results.append(item)
+                        seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"Name fuzzy search failed: {e}")
+
+        if 'task_id' in fields:
+            try:
+                results = self.find(filters={"task_id__like": f"%{query_lower}%", "is_del": False})
+                for item in results:
+                    if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                        all_results.append(item)
+                        seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"Task ID fuzzy search failed: {e}")
+
+        return ModelList(all_results, self)
+
     def update_task_status(
         self,
         uuid: str,

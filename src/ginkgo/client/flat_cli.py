@@ -514,7 +514,6 @@ def edit(
 
         # 构建更新参数
         svc_kwargs = {"file_id": mfile.uuid}
-        crud_updates = {}
         if name:
             svc_kwargs["name"] = name
             updates.append(f"name: {name}")
@@ -526,7 +525,7 @@ def edit(
             type_map = {k.lower(): v for k, v in FILE_TYPES.__members__.items()}
             type_key = type.lower().replace(' ', '_')
             if type_key in type_map:
-                crud_updates["type"] = type_map[type_key].value
+                svc_kwargs["file_type"] = type_map[type_key].value
                 updates.append(f"type: {type}")
             else:
                 valid = ', '.join(sorted(type_map.keys()))
@@ -538,11 +537,6 @@ def edit(
         if not updates:
             console.print(":information_source: Nothing to update")
             return
-
-        # type 需要通过 CRUD 直接更新（file_service.update 不支持 type 参数）
-        if crud_updates:
-            crud = container.file_crud()
-            crud.modify(filters={"uuid": mfile.uuid}, updates=crud_updates)
 
         result = file_service.update(**svc_kwargs)
         if result.success:

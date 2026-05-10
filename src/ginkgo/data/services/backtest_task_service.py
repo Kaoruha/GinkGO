@@ -95,7 +95,7 @@ class BacktestTaskService(BaseService):
             ServiceResult: 查询结果
         """
         try:
-            # 先尝试用 uuid 查询
+            # 先尝试用 uuid 精确匹配
             result = self._crud_repo.get_by_uuid(backtest_id)
             if result is None:
                 # 如果 uuid 查不到，尝试用 task_id 查询
@@ -106,6 +106,31 @@ class BacktestTaskService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"Failed to get backtest task: {str(e)}")
+
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None
+    ) -> ServiceResult:
+        """
+        模糊搜索回测任务，支持 UUID 部分匹配、名称匹配等。
+
+        Args:
+            query: 搜索字符串
+            fields: 搜索字段列表。默认: ['uuid', 'name', 'task_id']
+
+        Returns:
+            ServiceResult: 查询结果
+        """
+        try:
+            if not query or not query.strip():
+                return ServiceResult.success(ModelList([], self._crud_repo))
+
+            results = self._crud_repo.fuzzy_search(query, fields)
+            return ServiceResult.success(results)
+
+        except Exception as e:
+            return ServiceResult.error(f"Backtest task fuzzy search failed: {str(e)}")
 
     def get_by_task_id(self, task_id: str) -> ServiceResult:
         """
