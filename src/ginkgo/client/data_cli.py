@@ -250,35 +250,88 @@ def get(
             if not code:
                 console.print(":x: Stock code required for bar data")
                 raise typer.Exit(1)
+
+            from datetime import datetime, timedelta
+            if not end:
+                end = datetime.now().strftime("%Y%m%d")
+            if not start:
+                start = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+
             from ginkgo.data.containers import container
             bar_service = container.bar_service()
-            # TODO: Implement bar data get
-            console.print(":information: Bar data get not yet implemented")
+            result = bar_service.get(code=code, start_date=start, end_date=end)
+
+            if not result.success:
+                console.print(f":x: Failed to get bar data: {result.error}")
+                raise typer.Exit(1)
+
+            import pandas as pd
+            if hasattr(result.data, 'to_dataframe'):
+                df = result.data.to_dataframe()
+            else:
+                df = pd.DataFrame(result.data)
+
+            if df.empty:
+                console.print(f":information: No bar data found for {code} ({start}-{end})")
+                return
+
+            display_cols = ["code", "timestamp", "open", "high", "low", "close", "volume", "amount"]
+            show_cols = [c for c in display_cols if c in df.columns]
+            df_display = df[show_cols].copy()
+            if "timestamp" in df_display.columns:
+                df_display["timestamp"] = df_display["timestamp"].astype(str).str[:10]
+
+            table = Table(title=f"Bar Data: {code} ({start}-{end})", show_lines=False)
+            for col in show_cols:
+                table.add_column(col, style="cyan")
+            for _, row in df_display.iterrows():
+                table.add_row(*[str(v) for v in row])
+            console.print(table)
+            console.print(f":information: {len(df)} records")
 
         elif data_type == "tick":
             if not code:
                 console.print(":x: Stock code required for tick data")
                 raise typer.Exit(1)
 
-            # 设置默认时间范围（如果未提供）
+            from datetime import datetime, timedelta
+            if not end:
+                end = datetime.now().strftime("%Y%m%d")
             if not start:
-                from datetime import datetime, timedelta
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=7)  # 默认获取最近7天的数据
+                start_date = datetime.now() - timedelta(days=7)
                 start = start_date.strftime("%Y%m%d")
-                end = end_date.strftime("%Y%m%d")
 
-            console.print(f":information: Getting tick data for {code} from {start} to {end}")
-            console.print(":information: Tick data retrieval not yet implemented")
-            console.print(f"  • Code: {code}")
-            console.print(f"  • Start: {start}")
-            console.print(f"  • End: {end}")
-            console.print(f"  • Page Size: {page_size or 'Default (1000)'}")
+            from ginkgo.data.containers import container
+            tick_service = container.tick_service()
+            result = tick_service.get(code=code, start_date=start, end_date=end)
 
-            # TODO: 实现tick数据获取
-            # from ginkgo.data.containers import container
-            # tick_service = container.tick_service()
-            # result = tick_service.get(code=code, start_date=start, end_date=end)
+            if not result.success:
+                console.print(f":x: Failed to get tick data: {result.error}")
+                raise typer.Exit(1)
+
+            import pandas as pd
+            if hasattr(result.data, 'to_dataframe'):
+                df = result.data.to_dataframe()
+            else:
+                df = pd.DataFrame(result.data)
+
+            if df.empty:
+                console.print(f":information: No tick data found for {code} ({start}-{end})")
+                return
+
+            limit = page_size or 50
+            if len(df) > limit:
+                console.print(f":information: Showing {limit} of {len(df)} records")
+                df = df.tail(limit)
+
+            table = Table(title=f"Tick Data: {code} ({start}-{end})", show_lines=False)
+            display_cols = ["code", "timestamp", "price", "volume", "amount", "direction"]
+            show_cols = [c for c in display_cols if c in df.columns]
+            for col in show_cols:
+                table.add_column(col, style="cyan")
+            for _, row in df[show_cols].iterrows():
+                table.add_row(*[str(v) for v in row])
+            console.print(table)
 
         elif data_type == "adjustfactor":
             if not code:

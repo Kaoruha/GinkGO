@@ -24,42 +24,18 @@ def _lazy_import_cli(module_name):
     if module_name == 'components_cli':
         from ginkgo.client import components_cli
         return components_cli
-    elif module_name == 'analysis_cli':
-        from ginkgo.client import analysis_cli
-        return analysis_cli
-    # infrastructure_cli has been removed, functionality moved to config_cli
     elif module_name == 'dev_cli':
         from ginkgo.client import dev_cli
         return dev_cli
     elif module_name == 'test_cli':
         from ginkgo.client import test_cli
         return test_cli
-    # Additional modules that may have unique functionality
-    elif module_name == 'config_cli':
-        from ginkgo.client import config_cli
-        return config_cli
-    # param_cli has been replaced by flat_cli.param_app
-    elif module_name == 'kafka_cli':
-        from ginkgo.client import kafka_cli
-        return kafka_cli
-    elif module_name == 'datasource_cli':
-        from ginkgo.client import datasource_cli
-        return datasource_cli
-    elif module_name == 'container_cli':
-        from ginkgo.client import container_cli
-        return container_cli
     elif module_name == 'cache_cli':
         from ginkgo.client import cache_cli
         return cache_cli
     elif module_name == 'record_cli':
         from ginkgo.client import record_cli
         return record_cli
-    elif module_name == 'interactive_cli':
-        from ginkgo.client import interactive_cli
-        return interactive_cli
-    elif module_name == 'enhanced_cli':
-        from ginkgo.client import enhanced_cli
-        return enhanced_cli
     else:
         raise ImportError(f"Unknown CLI module: {module_name}")
 
@@ -129,7 +105,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli, comparison_cli, record_cli, dev_cli, test_cli, cache_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -173,6 +149,15 @@ def _register_all_commands():
     _main_app.add_typer(flat_cli.result_app, name="result", help=":bar_chart: Result management")
 
     # 组件管理已整合到统一命令架构中 (get/list/create/delete/update components)
+
+    # 回测对比 & 交易记录查询
+    _main_app.add_typer(comparison_cli.app, name="compare", help=":balance_scale: Backtest comparison")
+    _main_app.add_typer(record_cli.app, name="record", help=":clipboard: Trading record queries")
+
+    # 开发工具
+    _main_app.add_typer(dev_cli.app, name="dev", help=":beetle: Development tools")
+    _main_app.add_typer(test_cli.app, name="test", help=":test_tube: Test runner")
+    _main_app.add_typer(cache_cli.app, name="cache", help=":droplet: Cache management")
 
     # 最后注册核心命令，确保顺序一致并简化help文本
     _main_app.command(name="init", help=":rocket: Initialize system")(core_cli.init if hasattr(core_cli, 'init') else lambda: None)
