@@ -47,6 +47,117 @@ def _map_state(state_value) -> str:
     return str(state_value)
 
 
+def _map_mode(mode_value) -> str:
+    """将 mode 数值映射为字符串"""
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+    if isinstance(mode_value, int):
+        if mode_value == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+            return "BACKTEST"
+        elif mode_value == PORTFOLIO_MODE_TYPES.PAPER.value:
+            return "PAPER"
+        else:
+            return "LIVE"
+    return str(mode_value)
+
+
+def _get_latest_backtest_metrics(portfolio_id: str) -> dict:
+    """获取 portfolio 最新已完成回测的绩效指标"""
+    try:
+        from ginkgo.data.containers import container
+        task_crud = container.cruds.backtest_task()
+        tasks = task_crud.find(
+            filters={"portfolio_id": portfolio_id, "status": "completed", "is_del": False},
+            order_by="create_at",
+            desc_order=True,
+            page_size=1,
+        )
+        if tasks and len(tasks) > 0:
+            t = tasks[0]
+            return {
+                "annual_return": float(getattr(t, "annual_return", 0) or 0),
+                "sharpe_ratio": float(getattr(t, "sharpe_ratio", 0) or 0),
+                "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
+                "win_rate": float(getattr(t, "win_rate", 0) or 0),
+                "last_backtest_date": t.create_at.isoformat() if hasattr(t, "create_at") and t.create_at else None,
+            }
+    except Exception:
+        pass
+    return {}
+
+
+def _count_backtests(portfolio_id: str) -> int:
+    """统计 portfolio 的回测次数"""
+    try:
+        from ginkgo.data.containers import container
+        task_crud = container.cruds.backtest_task()
+        return task_crud.count(filters={"portfolio_id": portfolio_id, "is_del": False}) or 0
+    except Exception:
+        return 0
+
+
+def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
+    """获取关联组合摘要"""
+    try:
+        from ginkgo.data.containers import container
+        deployment_crud = container.cruds.deployment()
+        related = []
+
+        if mode_int == 0:  # BACKTEST: find deployed PAPER/LIVE
+            deployments = deployment_crud.find(filters={"source_portfolio_id": portfolio_id})
+            if deployments:
+                portfolio_svc = get_portfolio_service()
+                for dep in deployments:
+                    target_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                    if target_list and target_list.data:
+                        t = target_list.data[0]
+                        mode_str = "PAPER" if t.mode == 1 else "LIVE"
+                        metrics = {
+                            "annual_return": float(getattr(t, "annual_return", 0) or 0),
+                            "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
+                        }
+                        related.append({
+                            "uuid": t.uuid,
+                            "name": t.name,
+                            "mode": mode_str,
+                            "state": _map_state(t.state),
+                            **metrics,
+                        })
+        else:  # PAPER/LIVE: find source BACKTEST
+            deployments = deployment_crud.find(filters={"target_portfolio_id": portfolio_id})
+            if deployments:
+                portfolio_svc = get_portfolio_service()
+                source_id = deployments[0].source_portfolio_id
+                source_list = portfolio_svc.get(portfolio_id=source_id)
+                if source_list and source_list.data:
+                    s = source_list.data[0]
+                    bt_metrics = _get_latest_backtest_metrics(source_id)
+                    related.append({
+                        "uuid": s.uuid,
+                        "name": s.name,
+                        "mode": "BACKTEST",
+                        "state": _map_state(s.state),
+                        "relation": "source",
+                        **bt_metrics,
+                    })
+                # Other deployments from same source
+                for dep in deployments:
+                    if dep.target_portfolio_id != portfolio_id:
+                        other_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                        if other_list and other_list.data:
+                            o = other_list.data[0]
+                            related.append({
+                                "uuid": o.uuid,
+                                "name": o.name,
+                                "mode": "PAPER" if o.mode == 1 else "LIVE",
+                                "state": _map_state(o.state),
+                                "annual_return": float(getattr(o, "annual_return", 0) or 0),
+                                "max_drawdown": float(getattr(o, "max_drawdown", 0) or 0),
+                            })
+        return related
+    except Exception:
+        return []
+
+
 def get_file_service():
     """获取FileService实例"""
     from ginkgo.data.containers import container
@@ -97,15 +208,41 @@ async def list_portfolios(
 
         portfolios = []
         for p in result.data or []:
-            mode_val = "BACKTEST" if p.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value else ("PAPER" if p.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE")
+            mode_int = p.mode
+
+            # Performance metrics
+            if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+                metrics = _get_latest_backtest_metrics(p.uuid)
+                backtest_count = _count_backtests(p.uuid)
+            else:  # PAPER/LIVE - read from MPortfolio fields
+                metrics = {
+                    "annual_return": float(getattr(p, "annual_return", 0) or 0),
+                    "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
+                    "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
+                    "win_rate": float(getattr(p, "win_rate", 0) or 0),
+                }
+                backtest_count = 0
+
+            # Related portfolios
+            related = _get_related_portfolios(p.uuid, mode_int)
+
             portfolios.append({
                 "uuid": p.uuid,
                 "name": p.name,
-                "mode": mode_val,
+                "mode": _map_mode(p.mode),
                 "state": _map_state(p.state),
                 "config_locked": _check_frozen(p.uuid),
-                "net_value": 1.0,
-                "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None
+                # Performance metrics
+                "annual_return": metrics.get("annual_return"),
+                "sharpe_ratio": metrics.get("sharpe_ratio"),
+                "max_drawdown": metrics.get("max_drawdown"),
+                "win_rate": metrics.get("win_rate"),
+                # Meta info
+                "backtest_count": backtest_count,
+                "last_backtest_date": metrics.get("last_backtest_date"),
+                # Related portfolios
+                "related": related,
+                "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None,
             })
 
         return ok(data=portfolios, message="Portfolios retrieved successfully")
