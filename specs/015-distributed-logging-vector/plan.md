@@ -1,6 +1,6 @@
 # Implementation Plan: 分布式日志系统优化重构
 
-**Branch**: `011-distributed-logging` | **Date**: 2026-03-10 | **Spec**: [spec.md](./spec.md)
+**Branch**: `015-distributed-logging-vector` | **Date**: 2026-03-10 | **Spec**: [spec.md](./spec.md)
 
 ## Summary
 
@@ -119,7 +119,7 @@
 ### Documentation (this feature)
 
 ```text
-specs/011-distributed-logging/
+specs/015-distributed-logging-vector/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output（技术调研）
 ├── data-model.md        # Phase 1 output（数据模型）

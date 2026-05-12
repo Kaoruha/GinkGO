@@ -7,27 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Vectorized backtesting engine with NumPy/Pandas optimizations
-- Batch processing support for multiple strategies
-- Advanced portfolio optimization algorithms
-- Real-time performance dashboard
-- International market data support (US, HK)
-- Cryptocurrency data sources integration
-- Advanced factor mining tools with ML integration
+### Added (2025-01 ~ 2026-05)
+- Web UI (Vue 3 + Ant Design) with portfolio/backtest/component management
+- FastAPI server with SSE backtest progress streaming
+- Saga transaction manager for portfolio operations
+- OKX live trading broker with heartbeat monitor and recovery service
+- Paper trading worker with Kafka-driven event processing
+- Live deviation detection system (backtest baseline vs live comparison)
+- Strategy evaluation module
+- Signal processing module with time-window batch processing
+- Redis schema design with typed key builders
+- Structured logging with trace_id/span_id (structlog + ClickHouse/Loki)
+- Notification system (Telegram, Beep, Mail, WeChat)
+- Component parameter extraction from source code AST
+- Multiple new strategies (momentum, mean_reversion, donchian_breakout, etc.)
+- MomentumSelector and PopularitySelector for dynamic stock screening
+- RatioSizer for percentage-based position sizing
+- 87-round automated strategy search with quantitative analysis
 
 ### Changed
-- Enhanced backtest performance for large datasets
-- Improved memory efficiency for big data processing
-- Extended API documentation with more examples
+- Unified component loading: removed dict/registry path, all components loaded from database
+- Selector bug fixes: MomentumSelector and PopularitySelector now use container CRUD APIs
+- CLI audit: fixed portfolio create crash, component edit, parameter binding
+- Improved worker status display and monitoring
 
-### Planned
-- Feast feature store integration for ML feature management
-- NSQ message queue integration for real-time data streaming
-- WebSocket API for live trading interfaces
-- Advanced risk analytics with Monte Carlo simulations
-- Multi-timeframe strategy support
-- Enhanced visualization tools with interactive charts
+### Fixed
+- Engine non-determinism bug identified (4x annual return variance, root cause under investigation)
+- Decimal/float type mismatch in multiple strategies
+- file_service.update() encoding issue
+- PositionRatioRisk over-restriction bug
 
 ## [0.8.2] - 2025-01-12
 
