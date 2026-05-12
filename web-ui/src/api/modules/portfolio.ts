@@ -15,6 +15,16 @@ export interface PortfolioComponents {
   analyzers: PortfolioComponent[]
 }
 
+export interface RelatedPortfolio {
+  uuid: string
+  name: string
+  mode: string
+  state: string
+  annual_return?: number | null
+  max_drawdown?: number | null
+  relation?: string
+}
+
 export interface Portfolio {
   uuid: string
   name: string
@@ -30,6 +40,16 @@ export interface Portfolio {
   components?: PortfolioComponents
   created_at: string
   updated_at: string
+  // 绩效指标
+  annual_return?: number | null
+  sharpe_ratio?: number | null
+  max_drawdown?: number | null
+  win_rate?: number | null
+  // 元信息
+  backtest_count?: number
+  last_backtest_date?: string | null
+  // 关联组合
+  related?: RelatedPortfolio[]
 }
 
 export interface PortfolioCreateRequest {
