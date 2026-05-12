@@ -1,6 +1,6 @@
 # Feature Specification: 分布式日志系统优化重构
 
-**Feature Branch**: `011-distributed-logging`
+**Feature Branch**: `015-distributed-logging-vector`
 **Created**: 2026-03-09
 **Status**: Draft
 **Input**: User description: "重构GLOG，按照分布式日志系统优化"

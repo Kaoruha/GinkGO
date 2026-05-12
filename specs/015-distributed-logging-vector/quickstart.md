@@ -1,6 +1,6 @@
 # Quickstart: 分布式日志系统优化重构
 
-**Feature**: 011-distributed-logging
+**Feature**: 015-distributed-logging-vector
 **Date**: 2026-03-10
 **Version**: 1.0.0
 

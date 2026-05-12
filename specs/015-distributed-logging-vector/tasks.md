@@ -1,6 +1,6 @@
 # Tasks: 分布式日志系统优化重构
 
-**Input**: Design documents from `/specs/011-distributed-logging/`
+**Input**: Design documents from `/specs/015-distributed-logging-vector/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
 **Tests**: ⚠️ **TDD REQUIRED** - FR-010 specifies "System MUST 遵循TDD开发流程，先写测试再实现功能"
@@ -311,7 +311,7 @@
 
 **文档和维护任务**:
 - [X] T122 [P] 更新 CLAUDE.md 添加日志系统使用说明
-- [X] T123 [P] 更新 specs/011-distributed-logging/quickstart.md 验证所有示例可运行
+- [X] T123 [P] 更新 specs/015-distributed-logging-vector/quickstart.md 验证所有示例可运行
 - [⏸️] T124 运行 scripts/generate_headers.py --force 批量更新新增文件的头部注释 - 脚本不存在
 - [⏸️] T125 [P] 运行 scripts/verify_headers.py 验证头部一致性 - 脚本不存在
 
