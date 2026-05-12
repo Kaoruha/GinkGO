@@ -263,6 +263,63 @@ class PortfolioService(BaseService):
         }
         return ServiceResult.success(result_data, f"Portfolio updated successfully")
 
+    def update_performance(
+        self,
+        portfolio_id: str,
+        annual_return: float = None,
+        sharpe_ratio: float = None,
+        max_drawdown: float = None,
+        win_rate: float = None,
+        total_trades: int = None,
+        winning_trades: int = None,
+    ) -> ServiceResult:
+        """更新 Portfolio 绩效指标字段
+
+        回测完成后由结果聚合器调用，批量更新组合的绩效指标。
+
+        Args:
+            portfolio_id: 投资组合UUID
+            annual_return: 年化收益率
+            sharpe_ratio: 夏普比率
+            max_drawdown: 最大回撤
+            win_rate: 胜率
+            total_trades: 总交易次数
+            winning_trades: 盈利交易次数
+
+        Returns:
+            ServiceResult: 更新结果
+        """
+        try:
+            if not portfolio_id or not portfolio_id.strip():
+                return ServiceResult.error("Portfolio ID cannot be empty")
+
+            updates = {}
+            if annual_return is not None:
+                updates["annual_return"] = annual_return
+            if sharpe_ratio is not None:
+                updates["sharpe_ratio"] = sharpe_ratio
+            if max_drawdown is not None:
+                updates["max_drawdown"] = max_drawdown
+            if win_rate is not None:
+                updates["win_rate"] = win_rate
+            if total_trades is not None:
+                updates["total_trades"] = total_trades
+            if winning_trades is not None:
+                updates["winning_trades"] = winning_trades
+
+            if not updates:
+                return ServiceResult.success(data=None, message="No fields to update")
+
+            self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates)
+            GLOG.INFO(f"Updated performance for portfolio {portfolio_id[:8]}: {list(updates.keys())}")
+            return ServiceResult.success(
+                data={"portfolio_id": portfolio_id, "updated_fields": list(updates.keys())},
+                message="Performance updated",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update performance for portfolio {portfolio_id}: {e}")
+            return ServiceResult.error(f"Failed to update performance: {e}")
+
     def persist_portfolio_state(self, portfolio_id: str, state: dict) -> ServiceResult:
         """
         将 Portfolio 运行时状态持久化到 MySQL
