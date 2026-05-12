@@ -305,25 +305,6 @@ class PaperTradingWorker:
             f"{len(engine.portfolios)} portfolios"
         )
 
-    def _load_components(self, portfolio, components: Dict, loader) -> None:
-        """将组件从配置字典加载到 Portfolio（消除 assemble_engine 和 _handle_deploy 的重复）"""
-        component_bindings = [
-            ("strategies", "strategy", portfolio.add_strategy),
-            ("risk_managers", "risk_manager", portfolio.add_risk_manager),
-            ("selectors", "selector", portfolio.bind_selector),
-            ("sizers", "sizer", portfolio.bind_sizer),
-            ("analyzers", "analyzer", portfolio.add_analyzer),
-        ]
-        for key, comp_type, bind_fn in component_bindings:
-            for info in components.get(key, []):
-                try:
-                    comp = loader.instantiate_component_from_dict(info, comp_type)
-                    if comp:
-                        bind_fn(comp)
-                except Exception as e:
-                    name = info.get("name", "?")
-                    GLOG.ERROR(f"[PAPER-WORKER] Failed to load {comp_type} {name}: {e}")
-
     def _get_interested_codes(self) -> List[str]:
         """
         从所有 Portfolio 的 selector._interested 收集感兴趣股票代码
