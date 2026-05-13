@@ -1160,7 +1160,9 @@ class PortfolioService(BaseService):
 
             portfolio = PortfolioLive(
                 uuid=portfolio_model.uuid,  # 使用数据库UUID
-                name=portfolio_model.name
+                name=portfolio_model.name,
+                position_writer=self._build_position_writer(),
+                redis_writer=self._build_redis_writer(),
             )
 
             # 设置初始资金
@@ -1459,3 +1461,15 @@ class PortfolioService(BaseService):
 
         else:
             return None
+
+    def _build_position_writer(self):
+        """构建持仓持久化 writer（委托给 PositionService）。"""
+        from ginkgo.data.containers import container
+        from ginkgo.data.services.position_service import PositionService
+        position_crud = container.cruds.position()
+        return PositionService(crud_repo=position_crud)
+
+    def _build_redis_writer(self):
+        """构建 Redis 状态 writer（委托给 RedisService）。"""
+        from ginkgo.data.containers import container
+        return container.redis_service()

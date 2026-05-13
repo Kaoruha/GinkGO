@@ -541,48 +541,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters["portfolio_id"] = portfolio_id
         return self.count(filters)
 
-    def get_order_summary(self, portfolio_id: str, start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> dict:
-        """
-        Business helper: Get order summary statistics for a portfolio.
-        """
-        filters = {"portfolio_id": portfolio_id}
-        
-        if start_date:
-            filters["timestamp__gte"] = datetime_normalize(start_date)
-        if end_date:
-            filters["timestamp__lte"] = datetime_normalize(end_date)
-        
-        
-        if not orders:
-            return {
-                "total_orders": 0,
-                "pending_orders": 0,
-                "filled_orders": 0,
-                "cancelled_orders": 0,
-                "total_volume": 0,
-                "avg_price": 0,
-                "total_fees": 0,
-            }
-        
-        summary = {
-            "total_orders": len(orders),
-            "pending_orders": sum(1 for o in orders if o.status == ORDERSTATUS_TYPES.NEW),
-            "filled_orders": sum(1 for o in orders if o.status == ORDERSTATUS_TYPES.FILLED),
-            "cancelled_orders": sum(1 for o in orders if o.status == ORDERSTATUS_TYPES.CANCELED),
-            "total_volume": sum(o.volume for o in orders if o.volume),
-            "total_fees": sum(float(o.fee) for o in orders if o.fee),
-        }
-        
-        filled_orders = [o for o in orders if o.status == ORDERSTATUS_TYPES.FILLED and o.transaction_price]
-        if filled_orders:
-            total_amount = sum(float(o.transaction_price) * o.volume for o in filled_orders)
-            total_volume = sum(o.volume for o in filled_orders)
-            summary["avg_price"] = total_amount / total_volume if total_volume > 0 else 0
-        else:
-            summary["avg_price"] = 0
-        
-        return summary
-
     def get_all_codes(self) -> List[str]:
         """
         Business helper: Get all distinct stock codes with orders.

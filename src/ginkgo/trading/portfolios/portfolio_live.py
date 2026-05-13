@@ -37,8 +37,6 @@ from ginkgo.enums import (
     RECORDSTAGE_TYPES,
     PORTFOLIO_RUNSTATE_TYPES,
 )
-from ginkgo.data.models import MOrder
-from ginkgo.data.drivers import add
 
 from ginkgo.libs import datetime_normalize, to_decimal, GLOG
 from ginkgo.libs.core.config import GCONF
@@ -59,10 +57,15 @@ class PortfolioLive(PortfolioBase):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
+    def __init__(self, notification_service: INotificationService = None,
+                 position_writer=None, redis_writer=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 使用依赖注入的通知服务，如果没有提供则自动创建
         self._notification_service = notification_service or NotificationServiceFactory.create_service()
+
+        # 注入的持久化服务
+        self._position_writer = position_writer
+        self._redis_writer = redis_writer
 
         # 设置日志分类
         GLOG.set_log_category("backtest")
@@ -400,47 +403,14 @@ class PortfolioLive(PortfolioBase):
 
         Returns:
             bool: 同步成功返回True
-
-        同步内容：
-            1. 所有持仓数据（Position）写入ClickHouse
-            2. Portfolio现金和元数据更新到MySQL
         """
+        if self._position_writer is None:
+            GLOG.ERROR("sync_state_to_db: no position_writer injected")
+            return False
+
         try:
-            from ginkgo.data.drivers import add
-            from ginkgo.data.models.model_position import MPosition
-            from ginkgo.data.crud.position_crud import PositionCRUD
-
-            # 1. 同步所有持仓到ClickHouse
-            position_crud = PositionCRUD()
-            for code, position in self._positions.items():
-                try:
-                    # 创建MPosition模型
-                    m_position = MPosition()
-                    m_position.set(
-                        portfolio_id=self.portfolio_id,
-                        engine_id=self.engine_id,
-                        task_id=self.task_id,
-                        code=position.code,
-                        direction=position.direction,
-                        volume=position.volume,
-                        frozen=position.frozen,
-                        cost=position.cost,
-                        price=position.price,
-                        fee=position.fee,
-                        timestamp=self.get_time_provider().now() if self.get_time_provider() else None
-                    )
-
-                    # 写入ClickHouse
-                    add(m_position)
-                    GLOG.DEBUG(f"Position {code} synced to database")
-
-                except Exception as e:
-                    GLOG.ERROR(f"Failed to sync position {code} to database: {e}")
-                    return False
-
-            # 2. 更新Portfolio元数据到MySQL（TODO: Phase 4实现）
-            # MVP阶段：暂不实现Portfolio状态更新
-            # Phase 4：通过PortfolioService更新Portfolio的current_cash, current_worth等字段
+            positions = list(self._positions.values())
+            self._position_writer.save_positions(positions)
 
             GLOG.INFO(f"Portfolio state synced to database: {len(self._positions)} positions")
             return True
@@ -490,13 +460,12 @@ class PortfolioLive(PortfolioBase):
             status: 状态枚举
         """
         try:
-            from ginkgo.data.crud import RedisCRUD
-            redis_crud = RedisCRUD()
-            redis_client = redis_crud.redis
+            if self._redis_writer is None:
+                GLOG.WARN("sync_status_to_redis: no redis_writer injected")
+                return
 
-            # Redis key: portfolio:{portfolio_id}:status
             status_key = f"portfolio:{self.portfolio_id}:status"
-            redis_client.set(status_key, status.value)
+            self._redis_writer.set(status_key, status.value)
 
             GLOG.DEBUG(f"Status synced to Redis: {status_key} = {status.value}")
 
