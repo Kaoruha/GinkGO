@@ -140,6 +140,23 @@ class BacktestResultAggregator:
                     # 不返回错误，允许汇总继续完成（任务可能未预先创建）
                     GLOG.WARN(f"Backtest task may not exist. Create it before running backtest.")
 
+            # 同步绩效指标到 MPortfolio
+            try:
+                from ginkgo.data.containers import container as data_container
+                portfolio_svc = data_container.services.portfolio()
+                perf_result = portfolio_svc.update_performance(
+                    portfolio_id=portfolio_id,
+                    annual_return=metrics.get("annual_return", 0.0),
+                    sharpe_ratio=metrics.get("sharpe_ratio", 0.0),
+                    max_drawdown=metrics.get("max_drawdown", 0.0),
+                    win_rate=metrics.get("trade_win_rate", metrics.get("win_rate", 0.0)),
+                    total_trades=stats.get("total_orders", 0),
+                )
+                if not perf_result.is_success():
+                    GLOG.WARN(f"Failed to sync performance to portfolio {portfolio_id}: {perf_result.error}")
+            except Exception as e:
+                GLOG.WARN(f"Failed to sync performance to portfolio {portfolio_id}: {e}")
+
             GLOG.INFO(f"Backtest results saved for task: {task_id}")
             return ServiceResult.success({
                 "task_id": task_id,

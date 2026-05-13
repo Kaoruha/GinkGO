@@ -132,40 +132,8 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         }
 
     def _convert_models_to_business_objects(self, models: List[MPortfolio]) -> List[Any]:
-        """
-        🎯 Convert MPortfolio models to business objects.
-
-        Args:
-            models: List of MPortfolio models with enum fields already fixed
-
-        Returns:
-            List of PortfolioBase business objects
-        """
-        from ginkgo.trading.bases.portfolio_base import PortfolioBase
-
-        business_objects = []
-        for model in models:
-            try:
-                # Create PortfolioBase from MPortfolio model
-                portfolio = PortfolioBase(
-                    name=model.name,
-                    timestamp=model.create_at
-                )
-                # Set the portfolio properties from the model
-                portfolio._uuid = model.uuid
-                portfolio._name = model.name
-                portfolio._mode = PORTFOLIO_MODE_TYPES.from_int(model.mode) or PORTFOLIO_MODE_TYPES.BACKTEST
-                portfolio._state = PORTFOLIO_RUNSTATE_TYPES.from_int(model.state) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
-                portfolio._create_at = model.create_at
-                portfolio._update_at = model.update_at
-
-                business_objects.append(portfolio)
-            except Exception as e:
-                GLOG.ERROR(f"Failed to convert MPortfolio to PortfolioBase: {e}")
-                # Fallback: return original model
-                business_objects.append(model)
-
-        return business_objects
+        # TODO: 创建 entities.Portfolio 后在此做 MPortfolio → Portfolio 转换
+        return models
 
     def _convert_output_items(self, items: List[MPortfolio], output_type: str = "model") -> List[Any]:
         """Hook method: Convert MPortfolio objects for business layer."""
@@ -222,19 +190,6 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         GLOG.WARN(f"删除组合 {uuid}")
         return self.remove({"uuid": uuid})
 
-    def update_mode(self, uuid: str, mode: PORTFOLIO_MODE_TYPES) -> None:
-        """Update portfolio mode.
-
-        .. deprecated::
-            mode 只能通过 DeploymentService.deploy() 或 PortfolioService.add() 设置。
-            直接修改 mode 已废弃。
-        """
-        raise DeprecationWarning(
-            "update_mode is deprecated. "
-            "Use DeploymentService.deploy() to create deployed portfolios, "
-            "or PortfolioService.add() for new portfolios."
-        )
-
     def update_state(self, uuid: str, state: PORTFOLIO_RUNSTATE_TYPES) -> None:
         """Update portfolio state."""
         state_value = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
@@ -283,23 +238,4 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         GLOG.WARN("find_by_live_status is deprecated, use find_by_mode instead")
         mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
         return self.find_by_mode(mode)
-
-    def update_live_status(self, uuid: str, is_live: bool) -> None:
-        """
-        [已废弃] 更新投资组合实盘状态
-
-        .. deprecated::
-            此方法已废弃，请使用 update_mode() 替代。
-
-            迁移示例:
-                旧: update_live_status(uuid, is_live=True)
-                新: update_mode(uuid, PORTFOLIO_MODE_TYPES.LIVE)
-
-        Args:
-            uuid: 投资组合UUID
-            is_live: True=实盘, False=回测
-        """
-        GLOG.WARN("update_live_status is deprecated, use update_mode instead")
-        mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
-        return self.update_mode(uuid, mode)
 

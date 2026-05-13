@@ -1,5 +1,5 @@
 # Upstream: PortfolioBase, ComponentFactoryService
-# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, container, to_decimal
+# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, to_decimal
 # Role: 固定仓位管理器，按固定数量下单并自动根据可用资金调整
 
 
@@ -16,7 +16,6 @@ from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.entities import Order, Signal
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import to_decimal, GLOG
-from ginkgo.data.containers import container
 
 
 class FixedSizer(BaseSizer):
@@ -96,18 +95,18 @@ class FixedSizer(BaseSizer):
         try:
             current_time = self.get_time_provider().now()
             if signal.direction == DIRECTION_TYPES.LONG:
+                if self._data_feeder is None:
+                    GLOG.ERROR(f"Sizer:{self.name} has no data_feeder bound")
+                    return None
                 # If LONG, get the price info of last month, in case the data is not available, use yesterday's price
                 last_month_day = current_time + datetime.timedelta(days=-30)
                 yester_day = current_time + datetime.timedelta(days=-1)
-                # 使用BarService的get方法
-                result = container.bar_service().get(code=code, start_date=last_month_day, end_date=yester_day)
-                if not result.success or len(result.data) == 0:
-                    GLOG.CRITICAL(f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}",
-                    )
-                    return None
-                # 转换为DataFrame
-                past_price = result.data.to_dataframe()
-                if past_price.shape[0] == 0:
+                past_price = self._data_feeder.get_historical_data(
+                    symbols=[code],
+                    start_time=last_month_day,
+                    end_time=yester_day,
+                )
+                if past_price is None or past_price.shape[0] == 0:
                     GLOG.CRITICAL(f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}")
                     return None
                 last_price = past_price.iloc[-1]["close"]

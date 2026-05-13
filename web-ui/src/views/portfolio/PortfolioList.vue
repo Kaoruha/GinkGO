@@ -114,16 +114,30 @@
             </div>
 
             <div class="card-body">
-              <div class="metrics">
+              <div class="metrics-grid">
                 <div class="metric">
-                  <span class="label">净值</span>
-                  <span class="value" :class="{ positive: (portfolio.net_value || 1) >= 1, negative: (portfolio.net_value || 1) < 1 }">
-                    {{ (portfolio.net_value || 1).toFixed(4) }}
+                  <span class="label">{{ getReturnLabel(portfolio.mode) }}</span>
+                  <span class="value" :class="getValueClass(portfolio.annual_return)">
+                    {{ formatPercent(portfolio.annual_return) }}
                   </span>
                 </div>
                 <div class="metric">
-                  <span class="label">初始资金</span>
-                  <span class="value">{{ formatMoney(portfolio.initial_cash) }}</span>
+                  <span class="label">Sharpe</span>
+                  <span class="value" :class="getSharpeClass(portfolio.sharpe_ratio)">
+                    {{ formatDecimal(portfolio.sharpe_ratio) }}
+                  </span>
+                </div>
+                <div class="metric">
+                  <span class="label">最大回撤</span>
+                  <span class="value negative">
+                    {{ formatDrawdown(portfolio.max_drawdown) }}
+                  </span>
+                </div>
+                <div class="metric">
+                  <span class="label">胜率</span>
+                  <span class="value" :class="getWinRateClass(portfolio.win_rate)">
+                    {{ formatPercent(portfolio.win_rate) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -135,6 +149,24 @@
                 {{ formatState(portfolio.state) }}
               </span>
               <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
+            </div>
+            <div v-if="portfolio.related && portfolio.related.length > 0" class="related-bar">
+              <div
+                v-for="rel in portfolio.related"
+                :key="rel.uuid"
+                class="related-card"
+                :class="`related-${rel.mode.toLowerCase()}`"
+                @click.stop="viewDetail({ uuid: rel.uuid })"
+              >
+                <div class="related-header">
+                  <span class="related-mode">{{ formatRelatedMode(rel.mode) }}</span>
+                  <span v-if="rel.state" class="related-state">{{ rel.state }}</span>
+                </div>
+                <div class="related-metrics">
+                  <span>收益 <strong :class="getValueClass(rel.annual_return)">{{ formatPercent(rel.annual_return) }}</strong></span>
+                  <span>回撤 <strong class="negative">{{ formatDrawdown(rel.max_drawdown) }}</strong></span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -304,6 +336,64 @@ const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const getReturnLabel = (mode: any) => {
+  const m = typeof mode === 'string' ? mode.toUpperCase() : mode
+  return m === 'BACKTEST' || m === 0 || m === '0' ? '年化收益' : '累计收益'
+}
+
+const formatPercent = (val: any) => {
+  if (val === null || val === undefined || val === 0) return '--'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n)) return '--'
+  const sign = n > 0 ? '+' : ''
+  return `${sign}${(n * 100).toFixed(2)}%`
+}
+
+const formatDecimal = (val: any) => {
+  if (val === null || val === undefined || val === 0) return '--'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n)) return '--'
+  return n.toFixed(2)
+}
+
+const formatDrawdown = (val: any) => {
+  if (val === null || val === undefined || val === 0) return '--'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n)) return '--'
+  return `-${(Math.abs(n) * 100).toFixed(1)}%`
+}
+
+const getValueClass = (val: any) => {
+  if (val === null || val === undefined) return 'neutral'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n) || n === 0) return 'neutral'
+  return n > 0 ? 'positive' : 'negative'
+}
+
+const getSharpeClass = (val: any) => {
+  if (val === null || val === undefined) return 'neutral'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n) || n === 0) return 'neutral'
+  if (n < 0.5) return 'warning'
+  return n > 0 ? 'positive' : 'negative'
+}
+
+const getWinRateClass = (val: any) => {
+  if (val === null || val === undefined) return 'neutral'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(n) || n === 0) return 'neutral'
+  return n >= 0.5 ? 'positive' : 'warning'
+}
+
+const formatRelatedMode = (mode: string) => {
+  const map: Record<string, string> = {
+    'BACKTEST': '来源回测',
+    'PAPER': '模拟',
+    'LIVE': '实盘',
+  }
+  return map[mode] || mode
 }
 
 const setFilterMode = (value: string) => { filterMode.value = value }
@@ -537,12 +627,22 @@ onUnmounted(() => {
 
 .card-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }
 
-.metrics { display: flex; gap: 24px; }
-.metric { display: flex; flex-direction: column; gap: 2px; }
-.metric .label { font-size: 11px; color: #6a6a7a; }
-.metric .value { font-size: 18px; font-weight: 600; color: #fff; }
-.metric .value.positive { color: #52c41a; }
-.metric .value.negative { color: #f5222d; }
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  padding: 10px;
+  background: #12122a;
+  border-radius: 6px;
+}
+
+.metrics-grid .metric .label { font-size: 10px; color: #888; }
+.metrics-grid .metric .value { font-size: 16px; font-weight: 700; }
+
+.value.positive { color: #4caf50; }
+.value.negative { color: #f44336; }
+.value.warning { color: #ff9800; }
+.value.neutral { color: #555; }
 
 .card-footer {
   display: flex;
@@ -559,6 +659,51 @@ onUnmounted(() => {
 }
 
 .card-footer .date { font-size: 12px; color: #6a6a7a; margin-left: auto; }
+
+.related-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid #252540;
+  margin-top: 10px;
+}
+
+.related-card {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.related-card:hover { opacity: 0.8; }
+
+.related-backtest { background: #0f0f2a; border: 1px solid #20203a; }
+.related-paper { background: #1e1e0a; border: 1px solid #3a3520; }
+.related-live { background: #0a1e1a; border: 1px solid #203a2a; }
+
+.related-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.related-mode { font-size: 10px; font-weight: 600; }
+.related-backtest .related-mode { color: #7c8aff; }
+.related-paper .related-mode { color: #ff9800; }
+.related-live .related-mode { color: #4caf50; }
+
+.related-state { font-size: 9px; color: #4caf50; }
+
+.related-metrics {
+  display: flex;
+  gap: 10px;
+  font-size: 9px;
+  color: #888;
+}
+
+.related-metrics strong { font-size: 11px; }
 
 /* Empty */
 .empty-state {
