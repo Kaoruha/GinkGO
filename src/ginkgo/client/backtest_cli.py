@@ -92,6 +92,7 @@ def run_task(
     """:rocket: Run a backtest task locally."""
     import json as _json
     import threading
+    from ginkgo import services
     from ginkgo.data.containers import container
     from ginkgo.workers.backtest_worker.models import BacktestConfig
     from ginkgo.workers.backtest_worker.task_helpers import (
