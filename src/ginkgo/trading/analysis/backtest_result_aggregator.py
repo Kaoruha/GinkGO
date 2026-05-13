@@ -143,7 +143,7 @@ class BacktestResultAggregator:
             # 同步绩效指标到 MPortfolio
             try:
                 from ginkgo.data.containers import container as data_container
-                portfolio_svc = data_container.services.portfolio()
+                portfolio_svc = data_container.portfolio_service()
                 perf_result = portfolio_svc.update_performance(
                     portfolio_id=portfolio_id,
                     annual_return=metrics.get("annual_return", 0.0),

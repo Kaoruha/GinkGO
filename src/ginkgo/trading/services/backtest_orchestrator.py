@@ -8,6 +8,9 @@ from typing import Any, Dict, Optional
 
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.libs import GLOG
+from ginkgo.workers.backtest_worker.task_helpers import (
+    load_portfolio_components,
+)
 
 
 class OrchestratorResult:
@@ -98,12 +101,7 @@ class BacktestOrchestrator:
 
     def _load_components(self, portfolio_id: str) -> Dict:
         """加载 portfolio 组件映射（由 EngineAssemblyService 的 ComponentLoader 做实例化）。"""
-        result = self._portfolio_service.get_components(portfolio_id)
-        if not result.is_success():
-            GLOG.WARN(f"No components found for {portfolio_id}")
-            return {"strategies": [], "sizers": [], "selectors": [],
-                    "risk_managers": []}
-        return result.data
+        return load_portfolio_components(portfolio_id)
 
     def _assemble_engine(self, task_id, config, portfolio_id,
                          portfolio_data, components):
