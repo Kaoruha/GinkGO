@@ -56,6 +56,7 @@ class MPortfolio(MMysqlBase):
     max_drawdown: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=0.00)
     sharpe_ratio: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 4), default=0.00)
     win_rate: Mapped[DECIMAL] = mapped_column(DECIMAL(5, 4), default=0.00)
+    annual_return: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 4), default=0.00)
     total_trades: Mapped[int] = mapped_column(default=0)
     winning_trades: Mapped[int] = mapped_column(default=0)
 
@@ -81,6 +82,7 @@ class MPortfolio(MMysqlBase):
         max_drawdown: Optional[float] = None,
         sharpe_ratio: Optional[float] = None,
         win_rate: Optional[float] = None,
+        annual_return: Optional[float] = None,
         total_trades: Optional[int] = None,
         winning_trades: Optional[int] = None,
         *args,
@@ -119,6 +121,8 @@ class MPortfolio(MMysqlBase):
             self.sharpe_ratio = sharpe_ratio
         if win_rate is not None:
             self.win_rate = win_rate
+        if annual_return is not None:
+            self.annual_return = annual_return
         if total_trades is not None:
             self.total_trades = total_trades
         if winning_trades is not None:
