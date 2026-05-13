@@ -155,83 +155,42 @@ def run_task(
     console.print()
 
     try:
-        # 1. 构建 engine_data
-        engine_data = build_engine_data(config, task_id=task.uuid)
+        from ginkgo.trading.services.backtest_orchestrator import BacktestOrchestrator
+        from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 
-        # 2. 加载 portfolio 配置和组件
-        portfolio_service = container.portfolio_service()
-        portfolio_result = portfolio_service.load_portfolio_with_components(portfolio_id=portfolio_uuid)
-        if not portfolio_result.is_success():
-            raise ValueError(f"Portfolio {portfolio_uuid} not found")
-
-        portfolio_config = build_portfolio_config(
-            portfolio_uuid, portfolio_result.data, config.initial_cash
-        )
-        components = load_portfolio_components(portfolio_uuid, task.uuid)
-
-        # 3. 构建 portfolio mappings
-        portfolio_mapping = type("PortfolioMapping", (), {"portfolio_id": portfolio_uuid})()
-        portfolio_mappings = [portfolio_mapping]
-        portfolio_configs = {portfolio_uuid: portfolio_config}
-        portfolio_components_dict = {portfolio_uuid: components}
-
-        # 4. 创建 logger
-        now = clock_now().strftime("%Y%m%d%H%M%S")
-        logger = GinkgoLogger(
-            logger_name=f"backtest_{task.uuid[:8]}",
-            file_names=[f"bt_{task.uuid[:8]}_{now}"],
-            console_log=False,
+        orchestrator = BacktestOrchestrator(
+            assembly_service=container.engine_assembly_service()
+                if hasattr(container, 'engine_assembly_service')
+                else services.trading.services.engine_assembly_service(),
+            portfolio_service=container.portfolio_service(),
+            task_service=service,
+            result_aggregator=BacktestResultAggregator(
+                analyzer_service=container.analyzer_service(),
+                backtest_task_service=service,
+            ),
         )
 
-        # 5. 装配引擎
-        from ginkgo.trading.core.containers import container as trading_container
-        assembly_service = trading_container.services.engine_assembly_service()
-
-        assembly_result = assembly_service.assemble_backtest_engine(
-            engine_id=task.uuid,
-            engine_data=engine_data,
-            portfolio_mappings=portfolio_mappings,
-            portfolio_configs=portfolio_configs,
-            portfolio_components=portfolio_components_dict,
-            logger=logger,
-        )
-
-        if not assembly_result.success:
-            raise RuntimeError(f"Engine assembly failed: {assembly_result.error}")
-
-        engine = assembly_result.data
-
-        # 6. 执行回测
         if bg:
             def _run_in_thread():
-                try:
-                    engine.start()
-                    _save_results(service, task.uuid, engine, portfolio_uuid)
+                result = orchestrator.run(
+                    task_id=task.uuid, config=config, portfolio_id=portfolio_uuid,
+                )
+                if result.is_success():
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
-                except Exception as e:
-                    service.update_status(task.uuid, "failed", error_message=str(e))
-                    console.print(f":x: Backtest failed: {e}")
+                else:
+                    console.print(f":x: Backtest failed: {result.error}")
 
             thread = threading.Thread(target=_run_in_thread, daemon=True)
             thread.start()
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
-            engine.start()
+            result = orchestrator.run(
+                task_id=task.uuid, config=config, portfolio_id=portfolio_uuid,
+            )
 
-            # engine.start() is async — starts _main_thread and returns immediately.
-            # Must join the thread to wait for backtest completion before saving results.
-            main_thread = getattr(engine, '_main_thread', None)
-            if main_thread is not None:
-                main_thread.join(timeout=3600.0)
-                if main_thread.is_alive():
-                    console.print(":x: Backtest engine did not complete within 1 hour")
-                    raise typer.Exit(1)
-
-            # Flush analyzer data before aggregating results
-            if hasattr(engine, 'notify_analyzers_backtest_end'):
-                engine.notify_analyzers_backtest_end()
-
-            _save_results(service, task.uuid, engine, portfolio_uuid)
+            if not result.is_success():
+                console.print(f":x: Backtest failed: {result.error}")
+                raise typer.Exit(1)
 
             # 灌入日志到 ClickHouse（静默降级）
             try:

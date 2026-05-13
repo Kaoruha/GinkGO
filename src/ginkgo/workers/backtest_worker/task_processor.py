@@ -77,51 +77,42 @@ class BacktestProcessor(Thread):
             self.progress_tracker.report_stage(self.task, EngineStage.DATA_PREPARING, "Preparing data...")
             time.sleep(0.5)
 
-            # 阶段2: 引擎装配
+            # 阶段2-4: 通过编排器执行完整链路
+            from ginkgo.trading.services.backtest_orchestrator import BacktestOrchestrator
+            from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
+            from ginkgo.data.containers import container as data_container
+
+            aggregator = BacktestResultAggregator(
+                analyzer_service=data_container.analyzer_service(),
+                backtest_task_service=data_container.backtest_task_service(),
+            )
+
+            orchestrator = BacktestOrchestrator(
+                assembly_service=self._assembly_service,
+                portfolio_service=self._portfolio_service,
+                task_service=data_container.backtest_task_service(),
+                result_aggregator=aggregator,
+            )
+
             self.task.state = BacktestTaskState.ENGINE_BUILDING
             self.task.current_stage = EngineStage.ENGINE_BUILDING
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
-            self._engine = self._assemble_engine()
-
-            # 绑定 PortfolioContext 引用（task_id/engine_id/portfolio_id 动态读取）
-            from ginkgo.trading.context.portfolio_context import PortfolioContext
-            portfolio_context = PortfolioContext(
+            result = orchestrator.run(
+                task_id=self.task.task_uuid,
+                config=self.task.config,
                 portfolio_id=self.task.portfolio_uuid,
-                engine_context=self._engine._engine_context
             )
-            GLOG.bind_context(engine_context=portfolio_context)
 
-            # 阶段3: 运行回测
-            self.task.state = BacktestTaskState.RUNNING
-            self.task.current_stage = EngineStage.RUNNING
-            self.progress_tracker.report_stage(self.task, EngineStage.RUNNING, "Running backtest...")
-
-            # 执行回测（run() 启动引擎后立即返回，需要等待引擎完成）
-            result = self._engine.run()
-
-            # 等待引擎主线程完成
-            self._wait_for_engine_completion()
-
-            # 计算回测结果
-            self._result = self._calculate_result(result)
-
-            # 通知分析器回测结束
-            if hasattr(self._engine, 'notify_analyzers_backtest_end'):
-                self._engine.notify_analyzers_backtest_end()
-
-            # 汇总分析器结果并保存到数据库（包含正确的sharpe_ratio等指标）
-            self._aggregate_and_save_results()
+            if not result.is_success():
+                raise RuntimeError(result.error)
 
             # 阶段4: 完成处理
             self.task.state = BacktestTaskState.COMPLETED
             self.task.progress = 100.0
             self.task.completed_at = datetime.utcnow()
-            self.task.result = self._result
+            self.task.result = result.data
 
-            # report_completed 会写 result 字段到 DB，
-            # 但 _calculate_result 的指标是占位值，aggregator 已正确写入，
-            # 所以传 None 避免覆盖
             self.progress_tracker.report_completed(self.task, None)
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
