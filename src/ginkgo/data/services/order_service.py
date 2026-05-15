@@ -153,23 +153,3 @@ class OrderService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"删除组合订单失败: {e}")
             return ServiceResult.error(str(e))
-
-
-# 向后兼容：懒加载模块级单例，避免循环导入
-_order_service_instance = None
-
-
-def _get_order_service_instance() -> OrderService:
-    """获取 OrderService 单例（首次调用时才导入容器）"""
-    global _order_service_instance
-    if _order_service_instance is None:
-        from ginkgo.data.containers import container
-        crud = container.cruds.order()
-        _order_service_instance = OrderService(crud_repo=crud)
-    return _order_service_instance
-
-
-def __getattr__(name):
-    if name == "order_service":
-        return _get_order_service_instance()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
