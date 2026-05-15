@@ -256,17 +256,19 @@ class TradeGatewayAdapter(Thread):
         Phase 4：调用TradeGateway.get_order_status()查询真实状态
         """
         from ginkgo.trading.events.order_lifecycle_events import EventOrderPartiallyFilled
-        from ginkgo.data.services import order_service
+        from ginkgo.data.containers import container as data_container
         from ginkgo.enums import ORDERSTATUS_TYPES
         from decimal import Decimal
 
         current_time = datetime.now()
 
         # ORDER QUERY: 从数据库查询待成交订单
-        pending_orders = order_service.get_orders_by_status([
+        order_svc = data_container.order_service()
+        pending_orders_result = order_svc.get_orders_by_status([
             ORDERSTATUS_TYPES.SUBMITTED,
             ORDERSTATUS_TYPES.PARTIAL_FILLED
         ])
+        pending_orders = pending_orders_result.data if pending_orders_result.is_success() else []
 
         if not pending_orders:
             return
@@ -356,15 +358,17 @@ class TradeGatewayAdapter(Thread):
 
     def _print_statistics(self):
         """打印订单统计信息"""
-        from ginkgo.data.services import order_service
+        from ginkgo.data.containers import container as data_container
         from ginkgo.enums import ORDERSTATUS_TYPES
 
         # 从数据库查询待成交订单数量
-        pending_orders = order_service.get_orders_by_status([
+        order_svc = data_container.order_service()
+        result = order_svc.get_orders_by_status([
             ORDERSTATUS_TYPES.SUBMITTED,
             ORDERSTATUS_TYPES.PARTIAL_FILLED
         ])
-        pending_count = len(pending_orders) if pending_orders else 0
+        pending_orders = result.data if result.is_success() else []
+        pending_count = len(pending_orders)
 
         GLOG.INFO(f"{'='*60}")
         GLOG.INFO(f"TradeGatewayAdapter Order Statistics:")
@@ -383,15 +387,17 @@ class TradeGatewayAdapter(Thread):
         Returns:
             dict: 订单统计字典
         """
-        from ginkgo.data.services import order_service
+        from ginkgo.data.containers import container as data_container
         from ginkgo.enums import ORDERSTATUS_TYPES
 
         # 从数据库查询待成交订单数量
-        pending_orders = order_service.get_orders_by_status([
+        order_svc = data_container.order_service()
+        result = order_svc.get_orders_by_status([
             ORDERSTATUS_TYPES.SUBMITTED,
             ORDERSTATUS_TYPES.PARTIAL_FILLED
         ])
-        pending_count = len(pending_orders) if pending_orders else 0
+        pending_orders = result.data if result.is_success() else []
+        pending_count = len(pending_orders)
 
         return {
             "total_orders": self.total_orders,
