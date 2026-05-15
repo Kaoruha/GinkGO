@@ -1,6 +1,7 @@
 # Upstream: 数据层容器(containers.py), CRUD层, 服务层
 # Downstream: GinkgoClickhouse, GinkgoMysql, GinkgoMongo, GinkgoRedis, DatabaseDriverBase
 # Role: 数据库驱动包入口，导出四大驱动类并定义熔断器(CircuitBreaker)防止级联故障
+# See #2715: 聚合导入改为 __getattr__ 懒加载，打断全量模块加载链
 
 
 
@@ -19,6 +20,22 @@ from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
 from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
 from ginkgo.libs import GLOG
+
+# See #2715: PEP 562 懒加载 — 只在访问时才导入这些重量级模块
+def __getattr__(name):
+    _lazy = {
+        "GinkgoProducer": ("ginkgo.data.drivers.ginkgo_kafka", "GinkgoProducer"),
+        "GinkgoConsumer": ("ginkgo.data.drivers.ginkgo_kafka", "GinkgoConsumer"),
+        "kafka_topic_llen": ("ginkgo.data.drivers.ginkgo_kafka", "kafka_topic_llen"),
+        "MClickBase": ("ginkgo.data.models", "MClickBase"),
+        "MMysqlBase": ("ginkgo.data.models", "MMysqlBase"),
+        "MMongoBase": ("ginkgo.data.models", "MMongoBase"),
+    }
+    if name in _lazy:
+        import importlib
+        module_path, attr_name = _lazy[name]
+        return getattr(importlib.import_module(module_path), attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class CircuitBreaker:
@@ -127,13 +144,8 @@ class CircuitBreaker:
             self._failure_count = 0
             self._last_failure_time = None
             GLOG.INFO("Circuit breaker manually reset")
-from ginkgo.data.drivers.ginkgo_kafka import (
-    GinkgoProducer,
-    GinkgoConsumer,
-    kafka_topic_llen,
-)
-from ginkgo.data.models import MClickBase, MMysqlBase, MMongoBase
-from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran, cache_with_expiration
+# See #2715: kafka/models 改为 __getattr__ 懒加载和函数内局部导入
+from ginkgo.libs import try_wait_counter, GCONF, time_logger, retry, skip_if_ran, cache_with_expiration
 
 max_try = 5
 
@@ -346,6 +358,7 @@ def create_mongo_connection() -> GinkgoMongo:
 
 
 def get_db_connection(value):
+    from ginkgo.data.models import MClickBase, MMysqlBase, MMongoBase
     if isinstance(value, type):
         if issubclass(value, MClickBase):
             return get_click_connection()
@@ -378,6 +391,7 @@ def add(value, *args, **kwargs) -> any:
     Returns:
         Added model with updated fields
     """
+    from ginkgo.data.models import MClickBase, MMysqlBase
     if not isinstance(value, (MClickBase, MMysqlBase)):
         GLOG.ERROR(f"Can not add {value} to database.")
         return
@@ -411,6 +425,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     """
     GLOG.DEBUG(f"Try add {len(values)} multi data to session.")
 
+    from ginkgo.data.models import MClickBase, MMysqlBase
     click_list = []
     click_count = 0
     mysql_list = []
@@ -584,6 +599,7 @@ def create_all_tables() -> None:
     """
     # 导入 models 包，触发所有子模块的导入，使模型类注册到 metadata
     import ginkgo.data.models
+    from ginkgo.data.models import MClickBase, MMysqlBase
 
     # Create Tables in clickhouse
     MClickBase.metadata.create_all(get_click_connection().engine)
@@ -613,6 +629,7 @@ def _create_mongo_collections() -> None:
         # 导入所有模型以触发模型注册
         import ginkgo.data.models as models_module
         import inspect
+        from ginkgo.data.models import MMongoBase
 
         created_collections = []
         created_indexes = []
@@ -679,6 +696,7 @@ def drop_all_tables() -> None:
     Returns:
         None
     """
+    from ginkgo.data.models import MClickBase, MMysqlBase
     # Drop Tables in clickhouse
     MClickBase.metadata.reflect(get_click_connection().engine)
     MClickBase.metadata.drop_all(get_click_connection().engine)

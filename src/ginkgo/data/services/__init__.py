@@ -2,11 +2,6 @@
 # Downstream: BaseService, 各CRUD类(BarCRUD, OrderCRUD等)
 # Role: 服务包入口，统一导出全部数据服务(BarService, EngineService, PortfolioService等)和ServiceResult
 
-
-
-
-
-
 """
 Services Package - Flat Architecture
 
@@ -19,29 +14,46 @@ Architecture:
     └── Legacy Aliases (Backward compatibility)
 """
 
-# Core classes
+# Core classes — kept as direct imports (lightweight base classes used everywhere)
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
-# Concrete service implementations
-from ginkgo.data.services.adjustfactor_service import AdjustfactorService
-from ginkgo.data.services.backtest_task_service import BacktestTaskService
-from ginkgo.data.services.stockinfo_service import StockinfoService
-from ginkgo.data.services.bar_service import BarService
-from ginkgo.data.services.tick_service import TickService
-from ginkgo.data.services.file_service import FileService
-from ginkgo.data.services.engine_service import EngineService
-from ginkgo.data.services.portfolio_mapping_service import PortfolioMappingService
-from ginkgo.data.services.portfolio_service import PortfolioService
-from ginkgo.data.services.redis_service import RedisService
-from ginkgo.data.services.kafka_service import KafkaService
-from ginkgo.data.services.factor_service import FactorService
-from ginkgo.data.services.result_service import ResultService
-from ginkgo.data.services.signal_tracking_service import SignalTrackingService
-from ginkgo.data.services.order_service import OrderService  # order_service 懒加载，按需获取
-# See #22: CredentialService removed — dead code, zero callers
-from ginkgo.data.services.user_service import UserService
-from ginkgo.data.services.user_group_service import UserGroupService
-from ginkgo.data.services.notification_service import NotificationService
+# See #2715: PEP 562 懒加载
+_LAZY_IMPORTS = {
+    "AdjustfactorService": ("ginkgo.data.services.adjustfactor_service", "AdjustfactorService"),
+    "BacktestTaskService": ("ginkgo.data.services.backtest_task_service", "BacktestTaskService"),
+    "StockinfoService": ("ginkgo.data.services.stockinfo_service", "StockinfoService"),
+    "BarService": ("ginkgo.data.services.bar_service", "BarService"),
+    "TickService": ("ginkgo.data.services.tick_service", "TickService"),
+    "FileService": ("ginkgo.data.services.file_service", "FileService"),
+    "EngineService": ("ginkgo.data.services.engine_service", "EngineService"),
+    "PortfolioMappingService": ("ginkgo.data.services.portfolio_mapping_service", "PortfolioMappingService"),
+    "PortfolioService": ("ginkgo.data.services.portfolio_service", "PortfolioService"),
+    "RedisService": ("ginkgo.data.services.redis_service", "RedisService"),
+    "KafkaService": ("ginkgo.data.services.kafka_service", "KafkaService"),
+    "FactorService": ("ginkgo.data.services.factor_service", "FactorService"),
+    "ResultService": ("ginkgo.data.services.result_service", "ResultService"),
+    "SignalTrackingService": ("ginkgo.data.services.signal_tracking_service", "SignalTrackingService"),
+    "OrderService": ("ginkgo.data.services.order_service", "OrderService"),
+    # See #22: CredentialService removed — dead code, zero callers
+    "UserService": ("ginkgo.data.services.user_service", "UserService"),
+    "UserGroupService": ("ginkgo.data.services.user_group_service", "UserGroupService"),
+    "NotificationService": ("ginkgo.data.services.notification_service", "NotificationService"),
+}
+
+
+def __getattr__(name):
+    if name in _LAZY_IMPORTS:
+        import importlib
+
+        module_path, attr_name = _LAZY_IMPORTS[name]
+        module = importlib.import_module(module_path)
+        return getattr(module, attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(_LAZY_IMPORTS.keys() | set(globals().keys()))
+
 
 # Legacy aliases (Backward compatibility)
 DataService = BaseService
