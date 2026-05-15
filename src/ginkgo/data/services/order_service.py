@@ -1,63 +1,175 @@
-# Upstream: Portfolio Manager (订单查询)、API Server (订单接口)
-# Downstream: BaseService (继承基类)、OrderCRUD (Phase 4订单持久化)
-# Role: OrderService订单服务Phase 3占位实现返回空结果等待持久化改造
-"""
-Order Service - Phase 3 占位实现
+# Upstream: Portfolio Manager (订单查询)、API Server (订单接口)、TradeGatewayAdapter (实盘订单状态)
+# Downstream: BaseService (继承基类)、OrderCRUD (订单数据访问)、GLOG (日志)
+# Role: OrderService订单业务服务层，编排OrderCRUD提供订单查询、更新、统计、清理等接口
 
-Phase 3: MVP阶段，使用占位实现
-Phase 4: 真实订单持久化实现
-"""
+from typing import Any, List, Optional
 
-from typing import List, Optional
-from ginkgo.data.services.base_service import BaseService
+from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.libs import GLOG
 
 
 class OrderService(BaseService):
-    """订单服务 - Phase 3 占位实现"""
+    """订单业务服务层"""
 
-    def get_orders_by_status(self, status_list: List) -> List:
+    def __init__(self, crud_repo=None, **kwargs):
+        super().__init__(crud_repo=crud_repo, **kwargs)
+
+    # See #18: 从空壳改为真实实现，支持多状态查询
+    def get_orders_by_status(self, status_list: List) -> ServiceResult:
         """
-        根据状态获取订单列表（Phase 3 占位实现）
+        根据状态列表获取订单。
 
         Args:
             status_list: 订单状态列表
 
         Returns:
-            空列表（Phase 3 不支持订单持久化）
+            ServiceResult.data: 合并后的订单列表
         """
-        # Phase 3: 返回空列表
-        return []
+        if not status_list:
+            return ServiceResult.error("status_list 不能为空")
 
-    def update_order(self, order) -> bool:
+        try:
+            all_orders = []
+            for status in status_list:
+                orders = self._crud_repo.find(filters={"status": status})
+                all_orders.extend(orders)
+            return ServiceResult.success(data=all_orders)
+        except Exception as e:
+            GLOG.ERROR(f"查询订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_orders_by_portfolio(
+        self,
+        portfolio_id: str,
+        status: Any = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> ServiceResult:
         """
-        更新订单（Phase 3 占位实现）
+        按组合查询订单。
 
         Args:
-            order: 订单对象
+            portfolio_id: 组合 UUID
+            status: 可选状态过滤
+            page: 页码
+            page_size: 每页大小
 
         Returns:
-            False（Phase 3 不支持订单持久化）
+            ServiceResult.data: 订单列表
         """
-        # Phase 3: 不支持更新
-        return False
+        if not portfolio_id:
+            return ServiceResult.error("portfolio_id 不能为空")
+
+        try:
+            kwargs = dict(portfolio_id=portfolio_id)
+            if status is not None:
+                kwargs["status"] = status
+            if page is not None:
+                kwargs["page"] = page
+            if page_size is not None:
+                kwargs["page_size"] = page_size
+
+            orders = self._crud_repo.find_by_portfolio(**kwargs)
+            return ServiceResult.success(data=orders)
+        except Exception as e:
+            GLOG.ERROR(f"查询组合订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    # See #18: 从空壳改为真实实现
+    def update_order(self, order) -> ServiceResult:
+        """
+        更新订单状态。
+
+        Args:
+            order: 订单对象（需有 uuid 属性）
+
+        Returns:
+            ServiceResult
+        """
+        if not getattr(order, "uuid", None):
+            return ServiceResult.error("订单缺少 uuid")
+
+        try:
+            updates = {}
+            for attr in ("status", "transaction_price", "transaction_volume",
+                         "remain", "fee", "exchange_order_id", "exchange_response"):
+                val = getattr(order, attr, None)
+                if val is not None:
+                    updates[attr] = val
+
+            self._crud_repo.modify(filters={"uuid": order.uuid}, updates=updates)
+            return ServiceResult.success(message="订单更新成功")
+        except Exception as e:
+            GLOG.ERROR(f"更新订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_order_summary(self, portfolio_id: str) -> ServiceResult:
+        """
+        订单统计分析。
+
+        Args:
+            portfolio_id: 组合 UUID
+
+        Returns:
+            ServiceResult.data: {"total_orders", "total_volume", "total_fee", ...}
+        """
+        if not portfolio_id:
+            return ServiceResult.error("portfolio_id 不能为空")
+
+        try:
+            total = self._crud_repo.count_by_portfolio(portfolio_id)
+            orders = self._crud_repo.find_by_portfolio(portfolio_id=portfolio_id)
+
+            total_volume = sum(getattr(o, "volume", 0) or 0 for o in orders)
+            total_fee = sum(getattr(o, "fee", 0) or 0 for o in orders)
+            filled = [o for o in orders if getattr(o, "status", 0) in (3, 4)]
+
+            return ServiceResult.success(data={
+                "total_orders": total,
+                "total_volume": total_volume,
+                "total_fee": float(total_fee),
+                "filled_count": len(filled),
+            })
+        except Exception as e:
+            GLOG.ERROR(f"获取订单统计失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def delete_orders_by_portfolio(self, portfolio_id: str) -> ServiceResult:
+        """
+        删除指定组合的所有订单。
+
+        Args:
+            portfolio_id: 组合 UUID
+
+        Returns:
+            ServiceResult
+        """
+        if not portfolio_id:
+            return ServiceResult.error("portfolio_id 不能为空")
+
+        try:
+            self._crud_repo.delete_by_portfolio(portfolio_id)
+            return ServiceResult.success(message="订单删除成功")
+        except Exception as e:
+            GLOG.ERROR(f"删除组合订单失败: {e}")
+            return ServiceResult.error(str(e))
 
 
-# 创建全局实例（模块加载时立即创建，支持直接导入使用）
+# 向后兼容：懒加载模块级单例，避免循环导入
 _order_service_instance = None
 
 
 def _get_order_service_instance() -> OrderService:
-    """
-    获取 OrderService 单例（内部函数）
-
-    Returns:
-        OrderService: 订单服务实例
-    """
+    """获取 OrderService 单例（首次调用时才导入容器）"""
     global _order_service_instance
     if _order_service_instance is None:
-        _order_service_instance = OrderService()
+        from ginkgo.data.containers import container
+        crud = container.cruds.order()
+        _order_service_instance = OrderService(crud_repo=crud)
     return _order_service_instance
 
 
-# 导出实例（支持 order_service.get_orders_by_status() 调用方式）
-order_service = _get_order_service_instance()
+def __getattr__(name):
+    if name == "order_service":
+        return _get_order_service_instance()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
