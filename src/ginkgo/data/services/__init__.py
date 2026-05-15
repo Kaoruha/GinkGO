@@ -37,7 +37,7 @@ from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.factor_service import FactorService
 from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
-from ginkgo.data.services.order_service import OrderService, order_service
+from ginkgo.data.services.order_service import OrderService  # order_service 懒加载，按需获取
 from ginkgo.data.services.credential_service import CredentialService
 from ginkgo.data.services.user_service import UserService
 from ginkgo.data.services.user_group_service import UserGroupService
