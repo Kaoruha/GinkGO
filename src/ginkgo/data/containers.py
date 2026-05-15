@@ -67,6 +67,7 @@ from ginkgo.data.services.portfolio_mapping_service import PortfolioMappingServi
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
+from ginkgo.data.services.signal_service import SignalService
 from ginkgo.data.services.factor_service import FactorService
 from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.analyzer_service import AnalyzerService
@@ -236,6 +237,11 @@ class Container(containers.DeclarativeContainer):
     # Signal tracking service with SignalTrackerCRUD dependency
     signal_tracking_service = providers.Singleton(
         SignalTrackingService, tracker_crud=providers.Singleton(get_crud, "signal_tracker")
+    )
+
+    # Signal service with SignalCRUD dependency
+    signal_service = providers.Singleton(
+        SignalService, crud_repo=providers.Singleton(get_crud, "signal")
     )
 
     # Factor service with FactorCRUD dependency
