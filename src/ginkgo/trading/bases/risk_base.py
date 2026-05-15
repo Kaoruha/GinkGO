@@ -36,6 +36,19 @@ class RiskBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
     - 引擎绑定 (bind_engine, engine_put)
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
+
+    双重风控机制：
+    - cal(): 被动拦截。Portfolio 收到 Strategy 的订单后，依次通过每个
+      RiskManager.cal()，风控可调整 volume、拒绝订单或放行。数据流：
+      Strategy → Signal → Order → Risk.cal() → 调整后 Order
+    - generate_signals(): 主动信号。每次价格事件到达时，Portfolio 调用
+      每个 RiskManager.generate_signals()，风控可主动生成平仓信号（如
+      止损、止盈）。数据流：EventPriceUpdate → Risk.generate_signals() → Signal
+
+    与 Strategy 的区别：
+    - Strategy.cal() 根据行情决定"买什么"，输出信号
+    - Risk.cal() 根据已有订单决定"能不能买"，调整或拦截
+    - Risk.generate_signals() 根据行情决定"要不要卖"，输出风控信号
     """
 
     def __init__(self, name: str = "risk", engine=None, **kwargs):

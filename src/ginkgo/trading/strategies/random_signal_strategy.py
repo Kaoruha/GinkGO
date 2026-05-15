@@ -106,6 +106,21 @@ class RandomSignalStrategy(BaseStrategy):
         self.random_seed = seed
         random.seed(seed)
 
+    # See #24: validate strategy parameters at binding time
+    def validate_parameters(self, params: Dict[str, Any]) -> bool:
+        """Validate strategy parameters: probabilities must be numeric and in [0, 1]."""
+        for key in ("buy_probability", "sell_probability"):
+            if key not in params:
+                continue
+            val = params[key]
+            try:
+                val = float(val)
+            except (ValueError, TypeError):
+                return False
+            if val < 0.0 or val > 1.0:
+                return False
+        return True
+
     def cal(self, portfolio_info: Dict[str, Any], event: EventPriceUpdate, *args, **kwargs) -> List[Signal]:
         """
         策略主要计算逻辑
