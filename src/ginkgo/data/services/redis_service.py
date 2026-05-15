@@ -43,37 +43,6 @@ class RedisService(BaseService):
 
     # ==================== Standard Interface Implementation ====================
 
-    def get(self, key: str = None, **filters) -> ServiceResult:
-        """
-        Get Redis cache data, supports single key retrieval and batch key pattern matching
-
-        Args:
-            key: Specific key name to query, supports Redis key naming conventions
-            **filters: Query filters and additional parameters - pattern: key pattern matching, supports Redis wildcards - count_only: only return key count, not specific key list
-
-        Returns:
-            ServiceResult: Query result containing cache data or key list
-        """
-
-    def count(self, pattern: str = "*") -> ServiceResult:
-        """
-        Count Redis keys matching pattern, using wildcard pattern matching
-
-        Args:
-            pattern: Key name pattern, supports Redis wildcards (*,?,[])
-
-        Returns:
-            ServiceResult: Statistical result containing key count
-        """
-        try:
-            keys = self._crud_repo.keys(pattern)
-            return ServiceResult.success(
-                data={'count': len(keys)},
-                message=f"模式{pattern}共有{len(keys)}个键"
-            )
-        except Exception as e:
-            return ServiceResult.error(f"统计键数量失败: {str(e)}")
-
     def validate(self, key: str, value: Any = None) -> ServiceResult:
         """
         Validate Redis key name validity and data integrity, check format and length limits
@@ -127,57 +96,6 @@ class RedisService(BaseService):
             )
         except Exception as e:
             return ServiceResult.error(f"完整性检查失败: {str(e)}")
-
-    @time_logger
-    def set(self, key: str, value: Any, ttl: int = 3600) -> ServiceResult:
-        """
-        设置Redis缓存键值对，支持自动JSON序列化和TTL过期时间
-
-        Args:
-            key: Redis键名
-            value: 要缓存的值，支持任意类型
-            ttl: 过期时间（秒），默认3600秒
-
-        Returns:
-            ServiceResult: 包含设置状态的操作结果
-        """
-        try:
-            # 尝试JSON序列化
-            try:
-                if isinstance(value, (dict, list)):
-                    value = json.dumps(value, ensure_ascii=False)
-            except (TypeError, ValueError):
-                pass  # 保持原值
-
-            # 设置缓存
-            self._crud_repo.set(key, value, ex=ttl)
-
-            return ServiceResult.success(
-                data={'key': key, 'ttl': ttl},
-                message=f"成功设置键{key}的缓存"
-            )
-        except Exception as e:
-            return ServiceResult.error(f"设置缓存失败: {str(e)}")
-
-    @time_logger
-    def delete(self, key: str) -> ServiceResult:
-        """
-        删除指定的Redis缓存键，支持单个键删除操作
-
-        Args:
-            key: 要删除的Redis键名
-
-        Returns:
-            ServiceResult: 包含删除状态和操作结果的详细信息
-        """
-        try:
-            result = self._crud_repo.delete(key)
-            return ServiceResult.success(
-                data={'deleted': bool(result)},
-                message=f"键{key}删除{'成功' if result else '失败'}"
-            )
-        except Exception as e:
-            return ServiceResult.error(f"删除缓存失败: {str(e)}")
 
     # ==================== 业务特定方法 ====================
 
@@ -379,64 +297,6 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to generate progress summary: {e}")
             return ServiceResult.error(
                 message=f"Failed to generate progress summary: {str(e)}"
-            )
-
-    # ==================== 任务状态管理 ====================
-    
-    def save_task_status(self, task_id: str, status: str, metadata: Dict[str, Any] = None) -> ServiceResult:
-        """
-        保存任务状态信息到Redis缓存，用于跟踪异步任务执行状态
-
-        Args:
-            task_id: 任务唯一标识符
-            status: 任务状态 (RUNNING, SUCCESS, FAILED, PENDING)
-            metadata: 任务元数据字典，包含额外信息
-
-        Returns:
-            ServiceResult: 包含保存结果的对象
-        """
-        try:
-            cache_key = f"task_status_{task_id}"
-            task_data = {
-                "task_id": task_id,
-                "status": status,
-                "updated_at": datetime.now().isoformat(),
-                "metadata": metadata or {}
-            }
-
-            self._crud_repo.set(cache_key, task_data, 60 * 60 * 24 * 7)  # 7天TTL
-            return ServiceResult.success(
-                data=True,
-                message=f"Task status saved successfully for task {task_id}: {status}"
-            )
-        except Exception as e:
-            self._logger.ERROR(f"Failed to save task status: {e}")
-            return ServiceResult.error(
-                message=f"Failed to save task status for task {task_id}: {str(e)}"
-            )
-    
-    def get_task_status(self, task_id: str) -> ServiceResult:
-        """
-        从Redis缓存获取任务状态信息，用于检查任务执行情况
-
-        Args:
-            task_id: 任务唯一标识符
-
-        Returns:
-            ServiceResult: 包含任务状态数据的对象，不存在时data为None
-        """
-        try:
-            cache_key = f"task_status_{task_id}"
-            task_data = self._crud_repo.get(cache_key)
-
-            return ServiceResult.success(
-                data=task_data,
-                message=f"Task status retrieved for task {task_id}"
-            )
-        except Exception as e:
-            self._logger.ERROR(f"Failed to get task status: {e}")
-            return ServiceResult.error(
-                message=f"Failed to get task status for task {task_id}: {str(e)}"
             )
 
     # ==================== 通用缓存操作 ====================
