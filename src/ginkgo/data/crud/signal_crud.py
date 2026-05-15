@@ -305,37 +305,6 @@ class SignalCRUD(BaseCRUD[MSignal]):
             desc_order=True,
         )
 
-    def delete_by_portfolio(self, portfolio_id: str) -> None:
-        """
-        Business helper: Delete all signals for a portfolio.
-        """
-        if not portfolio_id:
-            raise ValueError("portfolio_id不能为空")
-        
-        GLOG.WARN(f"删除组合 {portfolio_id} 的所有signal记录")
-        return self.remove({"portfolio_id": portfolio_id})
-
-    def delete_by_portfolio_and_date_range(
-        self, 
-        portfolio_id: str, 
-        start_date: Optional[Any] = None, 
-        end_date: Optional[Any] = None
-    ) -> None:
-        """
-        Business helper: Delete signals by portfolio and date range.
-        """
-        if not portfolio_id:
-            raise ValueError("portfolio_id不能为空")
-        
-        filters = {"portfolio_id": portfolio_id}
-        
-        if start_date:
-            filters["timestamp__gte"] = datetime_normalize(start_date)
-        if end_date:
-            filters["timestamp__lte"] = datetime_normalize(end_date)
-
-        return self.remove(filters)
-
     def count_by_portfolio(self, portfolio_id: str) -> int:
         """
         Business helper: Count signals for a specific portfolio.
