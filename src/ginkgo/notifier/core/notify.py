@@ -1,5 +1,5 @@
 # Upstream: Kafka Worker (通知消费)、LiveCore 各组件 (task_timer, scheduler, data_manager 等)
-# Downstream: NotificationDeliveryService (通知发送)、NotificationRecipientCRUD (接收人配置)
+# Downstream: NotificationDeliveryService (通知发送)、NotificationRecipientService (接收人配置)
 # Role: 简化的全局通知函数，提供 notify / notify_with_fields 便捷 API
 
 """
@@ -26,47 +26,34 @@ _notification_service_instance = None
 
 
 def _get_notification_service():
-    """获取 NotificationDeliveryService 单例（延迟初始化）"""
+    """获取 NotificationDeliveryService 单例（通过 notifier 容器）"""
     global _notification_service_instance
 
     if _notification_service_instance is not None:
         return _notification_service_instance
 
     try:
-        from ginkgo.data.containers import container as data_container
-        from ginkgo.data.services.notification_service import NotificationService as DataNotificationService
-        from ginkgo.user.services.user_service import UserService
-        from ginkgo.user.services.user_group_service import UserGroupService
-        from ginkgo.notifier.core.template_engine import TemplateEngine
-        from .notification_service import NotificationDeliveryService
+        from ginkgo.notifier.containers import container
 
-        template_crud = data_container.notification_template_crud()
-        template_engine = TemplateEngine(template_crud=template_crud)
-
-        user_service = UserService(
-            user_crud=data_container.user_crud(),
-            user_contact_crud=data_container.user_contact_crud()
-        )
-
-        group_service = UserGroupService(
-            user_group_crud=data_container.user_group_crud(),
-            user_group_mapping_crud=data_container.user_group_mapping_crud()
-        )
-
-        data_notification_service = DataNotificationService()
-
-        _notification_service_instance = NotificationDeliveryService(
-            notification_service=data_notification_service,
-            template_engine=template_engine,
-            user_service=user_service,
-            user_group_service=group_service,
-        )
-
+        _notification_service_instance = container.notification_service()
         return _notification_service_instance
 
     except Exception as e:
         GLOG.ERROR(f"Failed to initialize NotificationDeliveryService: {e}")
         return None
+
+
+def _get_recipient_user_uuids() -> List[str]:
+    """解析所有活跃通知接收人为去重的 user UUID 列表"""
+    try:
+        from ginkgo.data.containers import container as data_container
+
+        service = data_container.notification_recipient_service()
+        result = service.get_all_recipient_user_uuids()
+        return result.data if result.success else []
+    except Exception as e:
+        GLOG.ERROR(f"Failed to resolve recipient user uuids: {e}")
+        return []
 
 
 def notify(
@@ -111,14 +98,6 @@ def notify(
             GLOG.ERROR("NotificationService not available")
             return False
 
-        # 等级到模板ID的映射
-        level_templates = {
-            "INFO": "system_info",
-            "WARN": "system_warn",
-            "ERROR": "system_error",
-            "ALERT": "system_alert"
-        }
-
         # 构建通知内容（不使用模板，直接发送）
         # 清理内容中的换行符，避免 Markdown 渲染问题
         clean_content = content.replace('\n', ' ').replace('\r', '')
@@ -137,43 +116,11 @@ def notify(
         fields.append({"name": "模块", "value": module, "inline": True})
         fields.append({"name": "时间", "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "inline": True})
 
-        # 获取所有系统通知接收人
-        from ginkgo.data.containers import container
-        from ginkgo.enums import RECIPIENT_TYPES
-
-        recipient_crud = container.notification_recipient_crud()
-        group_mapping_crud = container.user_group_mapping_crud()
-
-        # 获取所有启用的通知接收人
-
-        if not recipients:
-            GLOG.WARN("No notification recipients found, notification not sent")
-            return False
-
-        # 收集所有需要通知的用户UUID（去重）
-        user_uuids_set = set()
-
-        for recipient in recipients:
-            recipient_type = recipient.get_recipient_type_enum()
-
-            if recipient_type == RECIPIENT_TYPES.USER:
-                # 单个用户类型
-                if recipient.user_id:
-                    user_uuids_set.add(recipient.user_id)
-
-            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
-                # 用户组类型 - 获取组内所有用户
-                if recipient.user_group_id and group_mapping_crud:
-                    mappings = group_mapping_crud.find_by_group(
-                        recipient.user_group_id,
-                    )
-                    for mapping in mappings:
-                        user_uuids_set.add(mapping.user_uuid)
-
-        user_uuids = list(user_uuids_set)
+        # 通过 service facade 解析接收人
+        user_uuids = _get_recipient_user_uuids()
 
         if not user_uuids:
-            GLOG.WARN("No users found from notification recipients")
+            GLOG.WARN("No notification recipients found, notification not sent")
             return False
 
         # 构建标题
@@ -297,43 +244,11 @@ def notify_with_fields(
             GLOG.ERROR(f"[{module}] NotificationService not available")
             return False
 
-        # 获取所有系统通知接收人
-        from ginkgo.data.containers import container
-        from ginkgo.enums import RECIPIENT_TYPES
-
-        recipient_crud = container.notification_recipient_crud()
-        group_mapping_crud = container.user_group_mapping_crud()
-
-        # 获取所有启用的通知接收人
-
-        if not recipients:
-            GLOG.WARN(f"[{module}] No notification recipients found")
-            return False
-
-        # 收集所有需要通知的用户UUID（去重）
-        user_uuids_set = set()
-
-        for recipient in recipients:
-            recipient_type = recipient.get_recipient_type_enum()
-
-            if recipient_type == RECIPIENT_TYPES.USER:
-                # 单个用户类型
-                if recipient.user_id:
-                    user_uuids_set.add(recipient.user_id)
-
-            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
-                # 用户组类型 - 获取组内所有用户
-                if recipient.user_group_id and group_mapping_crud:
-                    mappings = group_mapping_crud.find_by_group(
-                        recipient.user_group_id,
-                    )
-                    for mapping in mappings:
-                        user_uuids_set.add(mapping.user_uuid)
-
-        user_uuids = list(user_uuids_set)
+        # 通过 service facade 解析接收人
+        user_uuids = _get_recipient_user_uuids()
 
         if not user_uuids:
-            GLOG.WARN(f"[{module}] No users found from notification recipients")
+            GLOG.WARN(f"[{module}] No notification recipients found")
             return False
 
         # 异步模式：通过 Kafka 发送
