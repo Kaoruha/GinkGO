@@ -29,6 +29,12 @@ except ImportError:
 
 def pytest_configure(config):
     """pytest配置 - 添加TDD标记和DEBUG模式检查"""
+    # e2e 测试需要 playwright，缺依赖时自动跳过
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        config.option.markexpr = (config.option.markexpr + " and " if config.option.markexpr else "") + "not e2e"
+
     # CLI 单元测试通过环境变量豁免 DEBUG 检查
     if os.environ.get("GINKGO_SKIP_DEBUG_CHECK") == "1":
         return

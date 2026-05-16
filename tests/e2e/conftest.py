@@ -7,7 +7,12 @@ E2E 测试 Pytest 配置
 import pytest
 import os
 from pathlib import Path
-from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+
+try:
+    from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+except ImportError:
+    pytest.collect_ignore_glob = ["*.py"]
+    raise pytest.skip("playwright not installed (pip install ginkgo[e2e])", allow_module_level=True)
 
 from .config import config
 
