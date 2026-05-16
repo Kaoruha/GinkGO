@@ -1,4 +1,4 @@
-# Upstream: NotificationService, WebhookDispatcher (通知发送和Webhook调度)
+# Upstream: NotificationDeliveryService, WebhookDispatcher (通知发送和Webhook调度)
 # Downstream: 无（纯常量模块）
 # Role: 通知系统常量定义，包括 Discord 颜色方案和颜色映射表
 

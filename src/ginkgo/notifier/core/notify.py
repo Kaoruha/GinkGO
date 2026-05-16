@@ -95,7 +95,7 @@ def notify(
     try:
         service = _get_notification_service()
         if service is None:
-            GLOG.ERROR("NotificationService not available")
+            GLOG.ERROR("NotificationDeliveryService not available")
             return False
 
         # 构建通知内容（不使用模板，直接发送）
@@ -241,7 +241,7 @@ def notify_with_fields(
     try:
         service = _get_notification_service()
         if service is None:
-            GLOG.ERROR(f"[{module}] NotificationService not available")
+            GLOG.ERROR(f"[{module}] NotificationDeliveryService not available")
             return False
 
         # 通过 service facade 解析接收人
