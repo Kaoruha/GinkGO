@@ -90,6 +90,63 @@ class TestNotificationRecipientServiceGetUserUuids:
         assert result.data == ["user-1"]
 
 
+class TestGetAllRecipientUserUuidsUsesGroupServiceFacade:
+    """Test get_all_recipient_user_uuids() resolves groups via user_group_service, not CRUD."""
+
+    def test_calls_user_group_service_not_crud(self):
+        """USER_GROUP recipients must be resolved via user_group_service facade."""
+        from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+
+        group_r = MagicMock()
+        group_r.get_recipient_type_enum.return_value = RECIPIENT_TYPES.USER_GROUP
+        group_r.user_group_id = "group-1"
+
+        mock_recipient_crud = MagicMock()
+        mock_recipient_crud.get_active_recipients.return_value = [group_r]
+
+        mock_group_service = MagicMock()
+        mock_group_service.get_group_member_uuids.return_value = ServiceResult.success(["user-2"])
+
+        service = NotificationRecipientService(
+            recipient_crud=mock_recipient_crud,
+            user_contact_crud=MagicMock(),
+            user_group_mapping_crud=MagicMock(),
+            user_group_service=mock_group_service,
+        )
+
+        result = service.get_all_recipient_user_uuids()
+
+        assert result.success
+        assert result.data == ["user-2"]
+        mock_group_service.get_group_member_uuids.assert_called_once_with("group-1")
+
+    def test_handles_group_service_failure_gracefully(self):
+        """If user_group_service fails, skip that group's members."""
+        from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+
+        group_r = MagicMock()
+        group_r.get_recipient_type_enum.return_value = RECIPIENT_TYPES.USER_GROUP
+        group_r.user_group_id = "group-1"
+
+        mock_recipient_crud = MagicMock()
+        mock_recipient_crud.get_active_recipients.return_value = [group_r]
+
+        mock_group_service = MagicMock()
+        mock_group_service.get_group_member_uuids.return_value = ServiceResult.error("not found")
+
+        service = NotificationRecipientService(
+            recipient_crud=mock_recipient_crud,
+            user_contact_crud=MagicMock(),
+            user_group_mapping_crud=MagicMock(),
+            user_group_service=mock_group_service,
+        )
+
+        result = service.get_all_recipient_user_uuids()
+
+        assert result.success
+        assert result.data == []
+
+
 class TestGetNotificationServiceUsesContainer:
     """Test _get_notification_service() uses notifier container, not manual CRUD assembly."""
 

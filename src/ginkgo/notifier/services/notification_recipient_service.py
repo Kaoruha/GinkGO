@@ -32,7 +32,8 @@ class NotificationRecipientService(BaseService):
         self,
         recipient_crud: NotificationRecipientCRUD,
         user_contact_crud: UserContactCRUD,
-        user_group_mapping_crud: UserGroupMappingCRUD
+        user_group_mapping_crud: UserGroupMappingCRUD,
+        user_group_service=None,
     ):
         """
         初始化 NotificationRecipientService
@@ -41,11 +42,13 @@ class NotificationRecipientService(BaseService):
             recipient_crud: NotificationRecipientCRUD 实例
             user_contact_crud: UserContactCRUD 实例
             user_group_mapping_crud: UserGroupMappingCRUD 实例
+            user_group_service: UserGroupService 实例（可选，推荐）
         """
         super().__init__(crud_repo=recipient_crud)
         self.recipient_crud = recipient_crud
         self.user_contact_crud = user_contact_crud
         self.user_group_mapping_crud = user_group_mapping_crud
+        self.user_group_service = user_group_service
 
     @retry(max_try=3)
     def add_recipient(
@@ -577,11 +580,17 @@ class NotificationRecipientService(BaseService):
                 if rtype == RECIPIENT_TYPES.USER and r.user_id:
                     user_uuids.add(r.user_id)
                 elif rtype == RECIPIENT_TYPES.USER_GROUP and r.user_group_id:
-                    mappings = self.user_group_mapping_crud.find(
-                        filters={"group_uuid": r.user_group_id, "is_del": False},
-                    )
-                    for m in mappings:
-                        user_uuids.add(m.user_uuid)
+                    if self.user_group_service:
+                        member_result = self.user_group_service.get_group_member_uuids(r.user_group_id)
+                        if member_result.success and member_result.data:
+                            for uuid in member_result.data:
+                                user_uuids.add(uuid)
+                    else:
+                        mappings = self.user_group_mapping_crud.find(
+                            filters={"group_uuid": r.user_group_id, "is_del": False},
+                        )
+                        for m in mappings:
+                            user_uuids.add(m.user_uuid)
 
             return ServiceResult.success(list(user_uuids))
 
