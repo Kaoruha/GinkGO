@@ -1,5 +1,5 @@
 # Upstream: CLI Commands (ginkgo notify 命令)、Kafka Worker (通知消费)
-# Downstream: BaseService (继承提供服务基础能力)、data.services.NotificationService (模板/记录Service)、BaseNotificationChannel (通知渠道接口)
+# Downstream: data.services.NotificationService (模板/记录Service)、BaseNotificationChannel (通知渠道接口)
 # Role: NotificationDeliveryService通知交付服务提供通知发送/模板渲染/渠道选择/记录管理等交付逻辑支持通知系统功能
 
 from __future__ import annotations  # 启用延迟注解评估，避免循环导入

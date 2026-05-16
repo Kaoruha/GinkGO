@@ -56,7 +56,7 @@ class NotificationWorker:
     """
     通知 Kafka Worker
 
-    从 `ginkgo.notifications` topic 消费消息并调用 NotificationService。
+    从 `ginkgo.notifications` topic 消费消息并调用 NotificationDeliveryService。
     """
 
     # Kafka topic 名称
