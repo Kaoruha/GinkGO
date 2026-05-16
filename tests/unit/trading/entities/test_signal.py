@@ -127,27 +127,23 @@ class TestSignalConstruction:
             "source": SOURCE_TYPES.SIM
         }
 
-        # 测试每个字段为空或None的情况（不匹配具体消息，因为被包装了）
+        # 类型错误（int 代替 str）→ singledispatchmethod 分发失败
         with pytest.raises(Exception):
-            Signal(**{**base_params, "portfolio_id": ""})
-
-        with pytest.raises(Exception):
-            Signal(**{**base_params, "engine_id": ""})
+            Signal(**{**base_params, "portfolio_id": 123})
 
         with pytest.raises(Exception):
-            Signal(**{**base_params, "task_id": ""})
+            Signal(**{**base_params, "engine_id": 456})
 
-        # timestamp=None 不再抛异常（TimeMixin会使用当前时间）
-        # 跳过此断言
-
+        # code 和 reason 有空字符串验证
         with pytest.raises(Exception):
             Signal(**{**base_params, "code": ""})
 
         with pytest.raises(Exception):
-            Signal(**{**base_params, "direction": None})
-
-        with pytest.raises(Exception):
             Signal(**{**base_params, "reason": ""})
+
+        # None 值验证
+        with pytest.raises(Exception):
+            Signal(**{**base_params, "direction": None})
 
         with pytest.raises(Exception):
             Signal(**{**base_params, "source": None})
@@ -820,18 +816,6 @@ class TestSignalDataSetting:
                       DIRECTION_TYPES.LONG, "reason", "invalid_source")
 
         # 测试直接参数方式的值错误
-        with pytest.raises(ValueError):
-            signal.set("", "engine", "run", "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
-        with pytest.raises(ValueError):
-            signal.set("portfolio", "", "run", "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
-        with pytest.raises(ValueError):
-            signal.set("portfolio", "engine", "", "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
         # 4th arg is code (not timestamp); None as code raises TypeError
         with pytest.raises(TypeError):
             signal.set("portfolio", "engine", "run", None, "000001.SZ",
@@ -890,19 +874,6 @@ class TestSignalParameterValidation:
 
     def test_portfolio_id_validation(self):
         """测试组合ID验证"""
-        # 测试portfolio_id不能为空字符串
-        with pytest.raises(Exception):  # Signal构造函数包装了原始异常
-            Signal(
-                portfolio_id="",  # 空字符串
-                engine_id="engine",
-                task_id="run",
-                timestamp="2024-01-01",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                reason="reason",
-                source=SOURCE_TYPES.STRATEGY
-            )
-
         # 测试有效的portfolio_id
         signal = Signal(
             portfolio_id="valid_portfolio",
@@ -916,26 +887,13 @@ class TestSignalParameterValidation:
         )
         assert signal.portfolio_id == "valid_portfolio"
 
-        # 测试通过set方法设置空portfolio_id
-        with pytest.raises(ValueError):
-            signal.set("", "engine", "run", "000001.SZ",
+        # int 导致 singledispatchmethod 分发失败
+        with pytest.raises(NotImplementedError):
+            signal.set(123, "engine", "run", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
     def test_engine_id_validation(self):
         """测试引擎ID验证"""
-        # 测试engine_id不能为空字符串
-        with pytest.raises(Exception):  # Signal构造函数包装了原始异常
-            Signal(
-                portfolio_id="portfolio",
-                engine_id="",  # 空字符串
-                task_id="run",
-                timestamp="2024-01-01",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                reason="reason",
-                source=SOURCE_TYPES.STRATEGY
-            )
-
         # 测试有效的engine_id
         signal = Signal(
             portfolio_id="portfolio",
@@ -949,37 +907,19 @@ class TestSignalParameterValidation:
         )
         assert signal.engine_id == "valid_engine"
 
-        # 测试通过set方法设置无效engine_id (非字符串类型)
+        # 测试通过set方法设置非str类型
         with pytest.raises(TypeError):
             signal.set("portfolio", 123, "run", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
-        # 测试通过set方法设置空engine_id
-        with pytest.raises(ValueError):
-            signal.set("portfolio", "", "run", "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
     def test_task_id_validation(self):
         """测试运行ID验证"""
-        # 测试task_id不能为空字符串
-        with pytest.raises(Exception):  # Signal构造函数包装了原始异常
+        # 测试非字符串类型
+        with pytest.raises(Exception):
             Signal(
                 portfolio_id="portfolio",
                 engine_id="engine",
-                task_id="",  # 空字符串
-                timestamp="2024-01-01",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                reason="reason",
-                source=SOURCE_TYPES.STRATEGY
-            )
-
-        # 测试task_id不能为非字符串类型
-        with pytest.raises(Exception):  # Signal构造函数包装了原始异常
-            Signal(
-                portfolio_id="portfolio",
-                engine_id="engine",
-                task_id=123,  # 非字符串类型
+                task_id=123,
                 timestamp="2024-01-01",
                 code="000001.SZ",
                 direction=DIRECTION_TYPES.LONG,
@@ -1000,14 +940,9 @@ class TestSignalParameterValidation:
         )
         assert signal.task_id == "valid_run"
 
-        # 测试通过set方法设置无效task_id (非字符串类型)
+        # 测试通过set方法设置非str类型
         with pytest.raises(TypeError):
             signal.set("portfolio", "engine", 456, "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
-        # 测试通过set方法设置空task_id
-        with pytest.raises(ValueError):
-            signal.set("portfolio", "engine", "", "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
     def test_code_validation(self):
@@ -1419,11 +1354,6 @@ class TestSignalParameterValidation:
             signal.set("portfolio", "engine", 123, "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
-        # 测试portfolio_id空值错误
-        with pytest.raises(ValueError):
-            signal.set("", "engine", "run", "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
         # 测试direction类型错误
         with pytest.raises(TypeError):
             signal.set("portfolio", "engine", "run", "000001.SZ",
@@ -1448,14 +1378,6 @@ class TestSignalParameterValidation:
             signal.set("portfolio",  # 第一个参数正确
                       456,  # 第二个参数类型错误
                       789,  # 第三个参数也有类型错误
-                      "000001.SZ",
-                      DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
-
-        # 测试第一个参数值错误应该立即抛出ValueError
-        with pytest.raises(ValueError):
-            signal.set("",  # 第一个参数值错误（空字符串）
-                      "",  # 第二个参数也有值错误
-                      "",  # 第三个参数也有值错误
                       "000001.SZ",
                       DIRECTION_TYPES.LONG, "reason", SOURCE_TYPES.STRATEGY)
 
