@@ -427,9 +427,8 @@ class NotificationRecipientService(BaseService):
                 if recipient_type is not None:
                     filters["recipient_type"] = recipient_type.value
 
-            # 查询
+            recipients = self._recipient_crud.find(filters=filters)
 
-            # 获取所有用户和用户组信息用于显示
             user_ids = list(set([r.user_id for r in recipients if r.user_id]))
             group_ids = list(set([r.user_group_id for r in recipients if r.user_group_id]))
 
@@ -438,6 +437,7 @@ class NotificationRecipientService(BaseService):
                 from ginkgo.data.containers import container
                 user_crud = container.user_crud()
                 for user_id in user_ids:
+                    user_list = user_crud.find(filters={"uuid": user_id, "is_del": False}, page_size=1, page=0)
                     if user_list:
                         u = user_list[0]
                         users_map[user_id] = {"uuid": u.uuid, "username": u.username, "display_name": u.display_name}
@@ -447,6 +447,7 @@ class NotificationRecipientService(BaseService):
                 from ginkgo.data.containers import container
                 group_crud = container.user_group_crud()
                 for group_id in group_ids:
+                    group_list = group_crud.find(filters={"uuid": group_id, "is_del": False}, page_size=1, page=0)
                     if group_list:
                         g = group_list[0]
                         groups_map[group_id] = {"uuid": g.uuid, "name": g.name}
