@@ -199,7 +199,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 minversion = "7.0"
-pythonpath = [".", "src"]
+pythonpath = [".", "src", "api"]
 
 # 运行配置
 addopts = [
