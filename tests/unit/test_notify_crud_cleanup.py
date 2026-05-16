@@ -90,6 +90,37 @@ class TestNotificationRecipientServiceGetUserUuids:
         assert result.data == ["user-1"]
 
 
+class TestNotificationRecipientServiceCrudIsPrivate:
+    """CLAUDE.md: Service 层禁止直接暴露 CRUD 实例"""
+
+    def test_recipient_crud_not_public(self):
+        from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+        service = NotificationRecipientService(
+            recipient_crud=MagicMock(),
+            user_contact_crud=MagicMock(),
+            user_group_mapping_crud=MagicMock(),
+        )
+        assert not hasattr(service, "recipient_crud")
+
+    def test_user_contact_crud_not_public(self):
+        from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+        service = NotificationRecipientService(
+            recipient_crud=MagicMock(),
+            user_contact_crud=MagicMock(),
+            user_group_mapping_crud=MagicMock(),
+        )
+        assert not hasattr(service, "user_contact_crud")
+
+    def test_user_group_mapping_crud_not_public(self):
+        from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+        service = NotificationRecipientService(
+            recipient_crud=MagicMock(),
+            user_contact_crud=MagicMock(),
+            user_group_mapping_crud=MagicMock(),
+        )
+        assert not hasattr(service, "user_group_mapping_crud")
+
+
 class TestGetAllRecipientUserUuidsUsesGroupServiceFacade:
     """Test get_all_recipient_user_uuids() resolves groups via user_group_service, not CRUD."""
 
