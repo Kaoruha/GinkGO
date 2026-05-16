@@ -710,6 +710,24 @@ class UserService(BaseService):
                 message=f"Error: {str(e)}"
             )
 
+    def get_active_contacts(self, user_uuid: str, is_active: bool = True) -> ServiceResult:
+        """
+        获取用户的活跃联系方式
+
+        Args:
+            user_uuid: 用户 UUID
+            is_active: 是否只查询活跃联系方式
+
+        Returns:
+            ServiceResult: data 为 List[MUserContact]
+        """
+        try:
+            contacts = self.user_contact_crud.get_by_user(user_uuid, is_active=is_active)
+            return ServiceResult.success(contacts)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get active contacts: {e}")
+            return ServiceResult.error(str(e))
+
     def fuzzy_search(self, query: str, limit: int = 100) -> ServiceResult:
         """
         Fuzzy search users by UUID or name
