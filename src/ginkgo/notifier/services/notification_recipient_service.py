@@ -556,3 +556,35 @@ class NotificationRecipientService(BaseService):
             return ServiceResult.error(
                 f"Failed to get recipient contacts: {str(e)}"
             )
+
+    def get_all_recipient_user_uuids(self) -> ServiceResult:
+        """
+        解析所有活跃接收人为去重的 user UUID 列表
+
+        USER 类型直接取 user_id，USER_GROUP 类型通过 mapping 解析组成员。
+
+        Returns:
+            ServiceResult: data 为 List[str]（去重后的 user UUID 列表）
+        """
+        try:
+            recipients = self.recipient_crud.get_active_recipients()
+            if not recipients:
+                return ServiceResult.success([])
+
+            user_uuids = set()
+            for r in recipients:
+                rtype = r.get_recipient_type_enum()
+                if rtype == RECIPIENT_TYPES.USER and r.user_id:
+                    user_uuids.add(r.user_id)
+                elif rtype == RECIPIENT_TYPES.USER_GROUP and r.user_group_id:
+                    mappings = self.user_group_mapping_crud.find(
+                        filters={"group_uuid": r.user_group_id, "is_del": False},
+                    )
+                    for m in mappings:
+                        user_uuids.add(m.user_uuid)
+
+            return ServiceResult.success(list(user_uuids))
+
+        except Exception as e:
+            GLOG.ERROR(f"Error resolving recipient user uuids: {e}")
+            return ServiceResult.error(str(e))

@@ -96,7 +96,7 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
             if recipient_type is not None:
                 filters["recipient_type"] = recipient_type.value
 
-            return results
+            return self.find(filters=filters)
 
         except Exception as e:
             GLOG.ERROR(f"Error getting active recipients: {e}")
