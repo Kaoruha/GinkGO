@@ -2,7 +2,7 @@
 # Downstream: GinkgoTushare, GinkgoAkShare, GinkgoBaoStock, GinkgoTDX, GinkgoYahoo
 # Role: 数据源包入口，统一导出所有外部数据源适配器(Tushare/AKShare/BaoStock/TDX/Yahoo)
 
-# See #2715: PEP 562 懒加载
+# See #2715: PEP 562 懒加载（models/ 包除外，见该目录注释）
 _LAZY_IMPORTS = {
     "GinkgoAkShare": ("ginkgo.data.sources.ginkgo_akshare", "GinkgoAkShare"),
     "GinkgoBaoStock": ("ginkgo.data.sources.ginkgo_baostock", "GinkgoBaoStock"),
