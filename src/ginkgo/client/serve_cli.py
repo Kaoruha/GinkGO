@@ -798,17 +798,7 @@ def serve_worker_notify(
 
     try:
         from ginkgo.notifier.workers.notification_worker import NotificationWorker
-        from ginkgo.notifier.core.notification_service import NotificationDeliveryService
-        from ginkgo.notifier.core.template_engine import TemplateEngine
-        from ginkgo.data.services.notification_service import NotificationService as DataNotificationService
-        from ginkgo.data.crud import NotificationTemplateCRUD
-        from ginkgo.data.crud import UserCRUD
-        from ginkgo.data.crud import UserContactCRUD
-        from ginkgo.data.crud import UserGroupCRUD
-        from ginkgo.data.crud import UserGroupMappingCRUD
-        from ginkgo.user.services import UserService
-        from ginkgo.user.services import UserGroupService
-        from ginkgo import services
+        from ginkgo.notifier.containers import container
 
         console.print(Panel.fit(
             f"[bold cyan]:bell: NotificationWorker[/bold cyan]\n"
@@ -819,25 +809,7 @@ def serve_worker_notify(
 
         console.print(f"\n:rocket: [bold green]Creating NotificationWorker '{node_id}'...[/bold green]")
 
-        # 初始化 CRUD 依赖
-        template_crud = services.data.cruds.notification_template()
-        user_crud = services.data.cruds.user()
-        user_contact_crud = services.data.cruds.user_contact()
-        group_crud = services.data.cruds.user_group()
-        group_mapping_crud = services.data.cruds.user_group_mapping()
-
-        # 初始化服务
-        template_engine = TemplateEngine(template_crud)
-        user_service = UserService(user_crud, user_contact_crud)
-        user_group_service = UserGroupService(group_crud, group_mapping_crud)
-        data_notification_service = DataNotificationService()
-
-        notification_service = NotificationDeliveryService(
-            notification_service=data_notification_service,
-            template_engine=template_engine,
-            user_service=user_service,
-            user_group_service=user_group_service
-        )
+        notification_service = container.notification_service()
 
         worker = NotificationWorker(
             notification_service=notification_service,

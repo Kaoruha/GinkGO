@@ -447,7 +447,8 @@ class NotificationDeliveryService:
         """
         try:
             # 查询用户的所有活跃联系方式
-            contacts = self.user_service.get_active_contacts(user_uuid, is_active=True)
+            _contacts_result = self.user_service.get_active_contacts(user_uuid, is_active=True)
+            contacts = _contacts_result.data if _contacts_result.success else []
 
             # 优先使用主联系方式
             primary_contacts = [c for c in contacts if c.is_primary]
@@ -522,7 +523,8 @@ class NotificationDeliveryService:
             group_uuid = result.data["groups"][0]["uuid"]
 
             # 获取组内所有用户
-            return self.user_group_service.get_group_member_uuids(group_uuid)
+            _members_result = self.user_group_service.get_group_member_uuids(group_uuid)
+            return _members_result.data if _members_result.success else []
 
         except Exception as e:
             GLOG.ERROR(f"Error resolving group: {e}")
@@ -540,12 +542,14 @@ class NotificationDeliveryService:
         """
         try:
             # 根据 name 获取 group
-            group = self.user_group_service.get_group_by_name(group_name)
-            if not group:
+            _group_result = self.user_group_service.get_group_by_name(group_name)
+            if not _group_result.success or not _group_result.data:
                 return ServiceResult.error(f"Group not found: {group_name}")
+            group = _group_result.data
 
             # 获取组内所有用户
-            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
+            _members_result = self.user_group_service.get_group_member_uuids(group.uuid)
+            user_uuids = _members_result.data if _members_result.success else []
 
             return ServiceResult.success(
                 data={"group_name": group_name, "user_uuids": user_uuids}
@@ -567,7 +571,8 @@ class NotificationDeliveryService:
             Optional[str]: 联系地址 (Webhook URL 或邮箱地址)
         """
         try:
-            contacts = self.user_service.get_active_contacts(user_uuid, is_active=True)
+            _contacts_result = self.user_service.get_active_contacts(user_uuid, is_active=True)
+            contacts = _contacts_result.data if _contacts_result.success else []
 
             # 确定要查找的联系方式类型
             target_type = None
@@ -758,12 +763,14 @@ class NotificationDeliveryService:
         """
         try:
             # 根据 name 获取 group
-            group = self.user_group_service.get_group_by_name(group_name)
-            if not group:
+            _group_result = self.user_group_service.get_group_by_name(group_name)
+            if not _group_result.success or not _group_result.data:
                 return ServiceResult.error(f"Group not found: {group_name}")
+            group = _group_result.data
 
             # 获取组内所有用户
-            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
+            _members_result = self.user_group_service.get_group_member_uuids(group.uuid)
+            user_uuids = _members_result.data if _members_result.success else []
             if not user_uuids:
                 return ServiceResult.error(f"No users found in group: {group_name}")
 
@@ -831,12 +838,14 @@ class NotificationDeliveryService:
         """
         try:
             # 根据 name 获取 group
-            group = self.user_group_service.get_group_by_name(group_name)
-            if not group:
+            _group_result = self.user_group_service.get_group_by_name(group_name)
+            if not _group_result.success or not _group_result.data:
                 return ServiceResult.error(f"Group not found: {group_name}")
+            group = _group_result.data
 
             # 获取组内所有用户
-            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
+            _members_result = self.user_group_service.get_group_member_uuids(group.uuid)
+            user_uuids = _members_result.data if _members_result.success else []
             if not user_uuids:
                 return ServiceResult.error(f"No users found in group: {group_name}")
 

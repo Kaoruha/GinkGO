@@ -623,25 +623,28 @@ class NotificationWorker:
 
         # 获取组信息
         if group_uuid:
-            group = self.notification_service.user_group_service.get_group_by_uuid(group_uuid)
+            _group_result = self.notification_service.user_group_service.get_group_by_uuid(group_uuid)
         elif group_name:
-            group = self.notification_service.user_group_service.get_group_by_name(group_name)
+            _group_result = self.notification_service.user_group_service.get_group_by_name(group_name)
         else:
             GLOG.ERROR("[ERROR] Custom fields message missing group_name/group_uuid")
             return False
 
-        if not group:
+        if not _group_result.success or not _group_result.data:
             GLOG.ERROR(f"[ERROR] Group not found: {group_name or group_uuid}")
             return False
+        group = _group_result.data
 
         group_uuid = group.uuid
-        member_uuids = self.notification_service.user_group_service.get_group_member_uuids(group_uuid)
+        _members_result = self.notification_service.user_group_service.get_group_member_uuids(group_uuid)
+        member_uuids = _members_result.data if _members_result.success else []
 
         success_count = 0
         for member_uuid in member_uuids:
-            contacts = self.notification_service.user_service.user_contact_crud.find_by_user_id(
-                user_id=member_uuid,
+            _contacts_result = self.notification_service.user_service.get_active_contacts(
+                user_uuid=member_uuid,
             )
+            contacts = _contacts_result.data if _contacts_result.success else []
             for contact in contacts:
                 contact_type_enum = contact.get_contact_type_enum()
                 if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:

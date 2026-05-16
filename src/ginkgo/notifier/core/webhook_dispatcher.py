@@ -62,7 +62,8 @@ class WebhookDispatcher:
             from ginkgo.notifier.channels.webhook_channel import WebhookChannel
 
             # 获取用户的 webhook 联系方式
-            contacts = self._service.user_service.get_active_contacts(user_uuid, is_active=True)
+            _contacts_result = self._service.user_service.get_active_contacts(user_uuid, is_active=True)
+            contacts = _contacts_result.data if _contacts_result.success else []
 
             # 查找 webhook 类型的联系方式
             webhook_contact = None
@@ -517,9 +518,10 @@ class WebhookDispatcher:
                 )
             elif group_uuid:
                 # 如果提供的是 group_uuid，需要先查找 group_name
-                group = self._service.user_group_service.get_group_by_uuid(group_uuid)
-                if group is None:
+                _group_result = self._service.user_group_service.get_group_by_uuid(group_uuid)
+                if not _group_result.success or not _group_result.data:
                     return ServiceResult.error(f"Group not found: {group_uuid}")
+                group = _group_result.data
 
                 return self._service.send_template_to_group(
                     group_name=group.name,
