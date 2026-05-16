@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
 # Downstream: SMTP 邮件服务器 (外部服务)
 # Role: EmailChannel Email通知渠道实现通过SMTP协议发送邮件通知支持HTML格式和附件支持通知系统功能
 
