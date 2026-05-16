@@ -710,6 +710,25 @@ class UserService(BaseService):
                 message=f"Error: {str(e)}"
             )
 
+    def get_active_contacts(self, user_uuid: str, is_active: bool = True):
+        """
+        获取用户的活跃联系方式（返回模型列表，not ServiceResult）
+
+        供 NotificationDeliveryService 直接使用的 facade 方法。
+
+        Args:
+            user_uuid: 用户 UUID
+            is_active: 是否只查询活跃联系方式
+
+        Returns:
+            List[MUserContact]: 联系方式模型列表
+        """
+        try:
+            return self.user_contact_crud.get_by_user(user_uuid, is_active=is_active)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get active contacts: {e}")
+            return []
+
     def fuzzy_search(self, query: str, limit: int = 100) -> ServiceResult:
         """
         Fuzzy search users by UUID or name

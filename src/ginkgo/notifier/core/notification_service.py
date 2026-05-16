@@ -1,21 +1,25 @@
 # Upstream: CLI Commands (ginkgo notify 命令)、Kafka Worker (通知消费)
-# Downstream: BaseService (继承提供服务基础能力)、NotificationTemplateCRUD (模板CRUD)、NotificationRecordCRUD (记录CRUD)、BaseNotificationChannel (通知渠道接口)
-# Role: NotificationService通知业务服务提供通知发送/模板渲染/渠道选择/记录管理等业务逻辑支持通知系统功能
+# Downstream: BaseService (继承提供服务基础能力)、data.services.NotificationService (模板/记录Service)、BaseNotificationChannel (通知渠道接口)
+# Role: NotificationDeliveryService通知交付服务提供通知发送/模板渲染/渠道选择/记录管理等交付逻辑支持通知系统功能
 
 from __future__ import annotations  # 启用延迟注解评估，避免循环导入
 
 """
-Notification Service
+Notification Delivery Service
 
-提供通知发送的核心业务逻辑，包括：
+提供通知发送的交付逻辑，包括：
 - 多渠道通知发送（Discord、Email、Kafka）
 - 模板渲染和变量替换
-- 通知记录管理
+- 通知记录管理（委托 data layer NotificationService）
 - 用户和用户组批量通知
 
 注意：Webhook 相关方法已提取到 webhook_dispatcher.py
       全局通知函数已提取到 notify.py
       常量已提取到 notification_constants.py
+
+重构说明：
+- 类名从 NotificationService 改为 NotificationDeliveryService，避免与 data layer 的 NotificationService 混淆
+- 不再直接持有 CRUD 实例，通过 data layer Service 间接访问
 """
 
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
@@ -23,8 +27,7 @@ from datetime import datetime
 import uuid as uuid_lib
 
 from ginkgo.libs import GLOG, retry
-from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud import NotificationTemplateCRUD, NotificationRecordCRUD, UserContactCRUD, UserGroupCRUD, UserGroupMappingCRUD
+from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.data.models import MNotificationRecord
 from ginkgo.notifier.channels.base_channel import BaseNotificationChannel, ChannelResult
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES, SOURCE_TYPES, CONTACT_TYPES
@@ -39,56 +42,46 @@ from .webhook_dispatcher import WebhookDispatcher
 
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
+    from ginkgo.data.services.notification_service import NotificationService as DataNotificationService
     from ginkgo.notifier.core.template_engine import TemplateEngine
     from ginkgo.libs.utils.kafka_health_checker import KafkaHealthChecker
+    from ginkgo.user.services.user_service import UserService
+    from ginkgo.user.services.user_group_service import UserGroupService
 
 
-class NotificationService(BaseService):
+class NotificationDeliveryService:
     """
-    通知服务
+    通知交付服务
 
-    提供通知发送的完整业务逻辑，包括：
+    提供通知发送的完整交付逻辑，包括：
     - 单个/批量用户通知发送
     - 模板渲染和变量替换
     - 多渠道支持（Discord、Email 等）
-    - 通知记录持久化
+    - 通知记录持久化（委托 data layer NotificationService）
     """
 
     def __init__(
         self,
-        template_crud: NotificationTemplateCRUD,
-        record_crud: NotificationRecordCRUD,
-        template_engine: TemplateEngine,
+        notification_service: 'DataNotificationService',
+        template_engine: 'TemplateEngine',
         user_service: 'UserService',
         user_group_service: 'UserGroupService',
-        contact_crud: Optional[UserContactCRUD] = None,
-        group_crud: Optional[UserGroupCRUD] = None,
-        group_mapping_crud: Optional[UserGroupMappingCRUD] = None,
         kafka_producer: Optional['GinkgoProducer'] = None,
         kafka_health_checker: Optional[KafkaHealthChecker] = None
     ):
         """
-        初始化 NotificationService
+        初始化 NotificationDeliveryService
 
         Args:
-            template_crud: 通知模板 CRUD 实例
-            record_crud: 通知记录 CRUD 实例
+            notification_service: data layer NotificationService 实例（模板/记录操作）
             template_engine: 模板引擎实例
-            contact_crud: 用户联系方式 CRUD 实例（可选，用于基于用户的通知）
-            group_crud: 用户组 CRUD 实例（可选，用于组通知）
-            group_mapping_crud: 用户组映射 CRUD 实例（可选，用于获取组成员）
-            user_service: 用户服务实例（必需，用于模糊搜索）
-            user_group_service: 用户组服务实例（必需，用于模糊搜索）
+            user_service: UserService 实例（用户/联系方式查询）
+            user_group_service: UserGroupService 实例（用户组查询）
             kafka_producer: Kafka 生产者（可选，用于异步通知）
             kafka_health_checker: Kafka 健康检查器（可选，用于降级逻辑）
         """
-        super().__init__(crud_repo=record_crud)
-        self.template_crud = template_crud
-        self.record_crud = record_crud
+        self._notification_service = notification_service
         self.template_engine = template_engine
-        self.contact_crud = contact_crud
-        self.group_crud = group_crud
-        self.group_mapping_crud = group_mapping_crud
         self.user_service = user_service
         self.user_group_service = user_group_service
 
@@ -164,8 +157,10 @@ class NotificationService(BaseService):
             final_title = title
 
             if template_id:
-                template = self.template_crud.get_by_template_id(template_id)
-                if template:
+                template_result = self._notification_service.get_template_by_id(template_id)
+                if template_result.success and template_result.data:
+                    template = template_result.data
+
                     # 渲染模板（kwargs作为context传递）
                     rendered_content = self.template_engine.render(
                         template.content,
@@ -209,9 +204,11 @@ class NotificationService(BaseService):
             )
 
             # 保存记录
-            record_uuid = self.record_crud.add(record)
-            if record_uuid is None:
+            record_result = self._notification_service.create_record(record)
+            if not record_result.success:
                 return ServiceResult.error("Failed to create notification record")
+
+            record_uuid = record_result.data.get("uuid") if record_result.data else None
 
             # 发送到各个渠道
             channel_results: Dict[str, Any] = {}
@@ -281,7 +278,7 @@ class NotificationService(BaseService):
                 status = NOTIFICATION_STATUS_TYPES.SENT.value
 
             # 更新记录
-            self.record_crud.update_status(
+            self._notification_service.update_record_status(
                 message_id=message_id,
                 status=status,
                 error_message=record.error_message
@@ -301,7 +298,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorsending notification: {e}")
+            GLOG.ERROR(f"Error sending notification: {e}")
             return ServiceResult.error(
                 f"Notification send failed: {str(e)}",
                 message=str(e)
@@ -365,7 +362,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorsending batch notification: {e}")
+            GLOG.ERROR(f"Error sending batch notification: {e}")
             return ServiceResult.error(
                 f"Batch notification failed: {str(e)}"
             )
@@ -403,10 +400,11 @@ class NotificationService(BaseService):
             )
 
             # 获取模板信息
-            template = self.template_crud.get_by_template_id(template_id)
-            if template is None:
+            template_result = self._notification_service.get_template_by_id(template_id)
+            if not template_result.success or not template_result.data:
                 return ServiceResult.error(f"Template not found: {template_id}")
 
+            template = template_result.data
             content_type = template.get_template_type_enum().name.lower()
 
             # 提取 title（如果提供）
@@ -432,7 +430,7 @@ class NotificationService(BaseService):
                 message=str(e)
             )
         except Exception as e:
-            GLOG.ERROR(f"Errorsending template notification: {e}")
+            GLOG.ERROR(f"Error sending template notification: {e}")
             return ServiceResult.error(
                 f"Template notification failed: {str(e)}"
             )
@@ -447,13 +445,9 @@ class NotificationService(BaseService):
         Returns:
             List[str]: 可用渠道名称列表
         """
-        if self.contact_crud is None:
-            GLOG.WARN("UserContactCRUD not initialized, cannot get user channels")
-            return []
-
         try:
             # 查询用户的所有活跃联系方式
-            contacts = self.contact_crud.get_by_user(user_uuid, is_active=True)
+            contacts = self.user_service.get_active_contacts(user_uuid, is_active=True)
 
             # 优先使用主联系方式
             primary_contacts = [c for c in contacts if c.is_primary]
@@ -472,7 +466,7 @@ class NotificationService(BaseService):
             return channels
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting user channels: {e}")
+            GLOG.ERROR(f"Error getting user channels: {e}")
             return []
 
     def _resolve_user_uuid(self, user_input: str) -> Optional[str]:
@@ -487,9 +481,6 @@ class NotificationService(BaseService):
         Returns:
             Optional[str]: 用户 UUID，找不到返回 None
         """
-        if self.contact_crud is None:
-            return None
-
         try:
             result = self.user_service.fuzzy_search(user_input, limit=1)
 
@@ -503,7 +494,7 @@ class NotificationService(BaseService):
             return None
 
         except Exception as e:
-            GLOG.ERROR(f"Errorresolving user UUID: {e}")
+            GLOG.ERROR(f"Error resolving user UUID: {e}")
             return None
 
     def _resolve_group_uuids(self, group_input: str) -> List[str]:
@@ -518,9 +509,6 @@ class NotificationService(BaseService):
         Returns:
             List[str]: 组内用户 UUID 列表
         """
-        if self.group_crud is None or self.group_mapping_crud is None:
-            return []
-
         try:
             result = self.user_group_service.fuzzy_search(group_input, limit=1)
 
@@ -534,10 +522,10 @@ class NotificationService(BaseService):
             group_uuid = result.data["groups"][0]["uuid"]
 
             # 获取组内所有用户
-            return [m.user_uuid for m in mappings]
+            return self.user_group_service.get_group_member_uuids(group_uuid)
 
         except Exception as e:
-            GLOG.ERROR(f"Errorresolving group: {e}")
+            GLOG.ERROR(f"Error resolving group: {e}")
             return []
 
     def _get_group_users(self, group_name: str) -> ServiceResult:
@@ -550,25 +538,21 @@ class NotificationService(BaseService):
         Returns:
             ServiceResult: 包含 user_uuids 列表
         """
-        if self.group_crud is None or self.group_mapping_crud is None:
-            return ServiceResult.error("Group CRUDs not initialized")
-
         try:
-            # 根据 name 获取 group_uuid
+            # 根据 name 获取 group
+            group = self.user_group_service.get_group_by_name(group_name)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
-            group_uuid = group[0].uuid
-
             # 获取组内所有用户
-            user_uuids = [m.user_uuid for m in mappings]
+            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
 
             return ServiceResult.success(
                 data={"group_name": group_name, "user_uuids": user_uuids}
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting group users: {e}")
+            GLOG.ERROR(f"Error getting group users: {e}")
             return ServiceResult.error(f"Failed to get group users: {str(e)}")
 
     def _get_user_contact_address(self, user_uuid: str, channel: str) -> Optional[str]:
@@ -582,11 +566,8 @@ class NotificationService(BaseService):
         Returns:
             Optional[str]: 联系地址 (Webhook URL 或邮箱地址)
         """
-        if self.contact_crud is None:
-            return None
-
         try:
-            contacts = self.contact_crud.get_by_user(user_uuid, is_active=True)
+            contacts = self.user_service.get_active_contacts(user_uuid, is_active=True)
 
             # 确定要查找的联系方式类型
             target_type = None
@@ -610,7 +591,7 @@ class NotificationService(BaseService):
             return None
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting user contact address: {e}")
+            GLOG.ERROR(f"Error getting user contact address: {e}")
             return None
 
     @retry(max_try=3)
@@ -664,7 +645,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorsending user notification: {e}")
+            GLOG.ERROR(f"Error sending user notification: {e}")
             return ServiceResult.error(
                 f"User notification failed: {str(e)}"
             )
@@ -700,10 +681,11 @@ class NotificationService(BaseService):
             )
 
             # 获取模板信息
-            template = self.template_crud.get_by_template_id(template_id)
-            if template is None:
+            template_result = self._notification_service.get_template_by_id(template_id)
+            if not template_result.success or not template_result.data:
                 return ServiceResult.error(f"Template not found: {template_id}")
 
+            template = template_result.data
             content_type = template.get_template_type_enum().name.lower()
             title = kwargs.pop("title", None) or template.subject
 
@@ -745,7 +727,7 @@ class NotificationService(BaseService):
                 f"Template error: {str(e)}"
             )
         except Exception as e:
-            GLOG.ERROR(f"Errorsending template to user: {e}")
+            GLOG.ERROR(f"Error sending template to user: {e}")
             return ServiceResult.error(
                 f"Template notification failed: {str(e)}"
             )
@@ -775,22 +757,15 @@ class NotificationService(BaseService):
             ServiceResult: 包含发送结果
         """
         try:
-            if self.group_crud is None or self.group_mapping_crud is None:
-                return ServiceResult.error(
-                    "UserGroupCRUD and UserGroupMappingCRUD required for group notifications"
-                )
-
-            # 根据 name 获取 group_uuid
+            # 根据 name 获取 group
+            group = self.user_group_service.get_group_by_name(group_name)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
-            group_uuid = group[0].uuid
-
             # 获取组内所有用户
-            if not mappings:
+            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
+            if not user_uuids:
                 return ServiceResult.error(f"No users found in group: {group_name}")
-
-            user_uuids = [m.user_uuid for m in mappings]
 
             # 向所有用户发送通知
             results = []
@@ -827,7 +802,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorsending group notification: {e}")
+            GLOG.ERROR(f"Error sending group notification: {e}")
             return ServiceResult.error(
                 f"Group notification failed: {str(e)}"
             )
@@ -855,22 +830,15 @@ class NotificationService(BaseService):
             ServiceResult: 包含发送结果
         """
         try:
-            if self.group_crud is None or self.group_mapping_crud is None:
-                return ServiceResult.error(
-                    "UserGroupCRUD and UserGroupMappingCRUD required for group notifications"
-                )
-
-            # 根据 name 获取 group_uuid
+            # 根据 name 获取 group
+            group = self.user_group_service.get_group_by_name(group_name)
             if not group:
                 return ServiceResult.error(f"Group not found: {group_name}")
 
-            group_uuid = group[0].uuid
-
             # 获取组内所有用户
-            if not mappings:
+            user_uuids = self.user_group_service.get_group_member_uuids(group.uuid)
+            if not user_uuids:
                 return ServiceResult.error(f"No users found in group: {group_name}")
-
-            user_uuids = [m.user_uuid for m in mappings]
 
             # 向所有用户发送模板通知
             results = []
@@ -907,7 +875,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorsending group template notification: {e}")
+            GLOG.ERROR(f"Error sending group template notification: {e}")
             return ServiceResult.error(
                 f"Group notification failed: {str(e)}"
             )
@@ -932,12 +900,16 @@ class NotificationService(BaseService):
             ServiceResult: 包含通知记录列表
         """
         try:
-            records = self.record_crud.get_by_user(
+            result = self._notification_service.get_records_by_user(
                 user_uuid=user_uuid,
                 limit=limit,
                 status=status
             )
 
+            if not result.success:
+                return result
+
+            records = result.data if result.data else []
             return ServiceResult.success(
                 data={
                     "user_uuid": user_uuid,
@@ -947,7 +919,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting notification history: {e}")
+            GLOG.ERROR(f"Error getting notification history: {e}")
             return ServiceResult.error(
                 f"Failed to get history: {str(e)}"
             )
@@ -963,8 +935,12 @@ class NotificationService(BaseService):
             ServiceResult: 包含失败记录列表
         """
         try:
-            records = self.record_crud.get_recent_failed(limit=limit)
+            result = self._notification_service.get_recent_failed_records(limit=limit)
 
+            if not result.success:
+                return result
+
+            records = result.data if result.data else []
             return ServiceResult.success(
                 data={
                     "count": len(records),
@@ -973,7 +949,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting failed notifications: {e}")
+            GLOG.ERROR(f"Error getting failed notifications: {e}")
             return ServiceResult.error(
                 f"Failed to get failed notifications: {str(e)}"
             )
@@ -996,12 +972,16 @@ class NotificationService(BaseService):
             ServiceResult with list of notification records
         """
         try:
-            records = self.record_crud.get_by_user(
+            result = self._notification_service.get_records_by_user(
                 user_uuid=user_uuid,
                 limit=limit,
                 status=status
             )
 
+            if not result.success:
+                return result
+
+            records = result.data if result.data else []
             return ServiceResult.success(
                 data={
                     "records": records,
@@ -1011,7 +991,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting records for user '{user_uuid}': {e}")
+            GLOG.ERROR(f"Error getting records for user '{user_uuid}': {e}")
             return ServiceResult.error(
                 f"Failed to get records: {str(e)}"
             )
@@ -1032,11 +1012,15 @@ class NotificationService(BaseService):
             ServiceResult with list of notification records
         """
         try:
-            records = self.record_crud.get_by_template_id(
+            result = self._notification_service.get_records_by_template(
                 template_id=template_id,
                 limit=limit
             )
 
+            if not result.success:
+                return result
+
+            records = result.data if result.data else []
             return ServiceResult.success(
                 data={
                     "records": records,
@@ -1046,7 +1030,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            GLOG.ERROR(f"Errorgetting records for template '{template_id}': {e}")
+            GLOG.ERROR(f"Error getting records for template '{template_id}': {e}")
             return ServiceResult.error(
                 f"Failed to get records: {str(e)}"
             )
@@ -1453,3 +1437,7 @@ class NotificationService(BaseService):
             "should_degrade": self._kafka_health_checker.should_degrade(),
             "health_summary": self._kafka_health_checker.get_health_summary()
         }
+
+
+# 向后兼容别名：旧代码中 import NotificationService 仍然有效
+NotificationService = NotificationDeliveryService

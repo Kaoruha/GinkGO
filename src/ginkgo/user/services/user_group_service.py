@@ -461,6 +461,63 @@ class UserGroupService(BaseService):
                 message=f"Error: {str(e)}"
             )
 
+    def get_group_by_uuid(self, group_uuid: str):
+        """
+        根据 UUID 获取用户组（返回模型对象或 None）
+
+        供 NotificationDeliveryService 直接使用的 facade 方法。
+
+        Args:
+            group_uuid: 用户组 UUID
+
+        Returns:
+            MUserGroup 或 None
+        """
+        try:
+            groups = self.user_group_crud.find(filters={"uuid": group_uuid})
+            return groups[0] if groups else None
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group by uuid: {e}")
+            return None
+
+    def get_group_member_uuids(self, group_uuid: str) -> list:
+        """
+        获取用户组成员的 user_uuid 列表
+
+        供 NotificationDeliveryService 直接使用的 facade 方法。
+
+        Args:
+            group_uuid: 用户组 UUID
+
+        Returns:
+            List[str]: user_uuid 列表
+        """
+        try:
+            mappings = self.user_group_mapping_crud.find_by_group(group_uuid)
+            return [m.user_uuid for m in mappings]
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group member uuids: {e}")
+            return []
+
+    def get_group_by_name(self, name: str):
+        """
+        根据名称获取用户组（返回模型对象或 None）
+
+        供 NotificationDeliveryService 直接使用的 facade 方法。
+
+        Args:
+            name: 用户组名称
+
+        Returns:
+            MUserGroup 或 None
+        """
+        try:
+            groups = self.user_group_crud.find(filters={"name": name})
+            return groups[0] if groups else None
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group by name: {e}")
+            return None
+
     def fuzzy_search(self, query: str, limit: int = 100) -> ServiceResult:
         """
         Fuzzy search groups by UUID or name

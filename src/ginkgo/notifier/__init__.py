@@ -18,7 +18,8 @@ __all__ = [
     "TemplateEngine",
     "BaseNotificationChannel",
     "WebhookChannel",
-    "NotificationService",
+    "NotificationDeliveryService",
+    "NotificationService",  # backward compat alias
     "NotificationWorker",
     "container",
 ]
@@ -33,9 +34,9 @@ def __getattr__(name):
     if name == "WebhookChannel":
         from ginkgo.notifier.channels.webhook_channel import WebhookChannel
         return WebhookChannel
-    if name == "NotificationService":
-        from ginkgo.notifier.core.notification_service import NotificationService
-        return NotificationService
+    if name in ("NotificationDeliveryService", "NotificationService"):
+        from ginkgo.notifier.core.notification_service import NotificationDeliveryService
+        return NotificationDeliveryService
     if name == "NotificationWorker":
         from ginkgo.notifier.workers.notification_worker import NotificationWorker
         return NotificationWorker
@@ -43,4 +44,3 @@ def __getattr__(name):
         from ginkgo.notifier.containers import container
         return container
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
