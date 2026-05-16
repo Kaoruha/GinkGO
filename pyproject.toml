@@ -111,6 +111,7 @@ dependencies = [
     "python-json-logger>=4.1.0",
     "python-jose[cryptography]>=3.5.0",
     "bcrypt>=5.0.0",
+    "playwright>=1.59.0",
 ]
 
 # 可选依赖组
