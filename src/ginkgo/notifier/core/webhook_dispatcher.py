@@ -1,6 +1,6 @@
-# Upstream: NotificationService (依赖注入，提供 send_template_to_user 等方法)
+# Upstream: NotificationDeliveryService (依赖注入，提供 send_template_to_user 等方法)
 # Downstream: WebhookChannel (Discord Webhook 发送通道)
-# Role: WebhookDispatcher 负责所有 Webhook/Discord 直接发送逻辑，从 NotificationService 中提取
+# Role: WebhookDispatcher 负责所有 Webhook/Discord 直接发送逻辑，从 NotificationDeliveryService 中提取
 
 """
 Webhook 调度器
@@ -28,23 +28,23 @@ from .notification_constants import (
 
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
-    from .notification_service import NotificationService
+    from .notification_service import NotificationDeliveryService
 
 
 class WebhookDispatcher:
     """
     Webhook 调度器
 
-    封装所有 Webhook/Discord 相关的发送逻辑，接收 NotificationService 实例作为依赖，
-    因为部分方法（如 send_trading_signal）需要调用 NotificationService 的模板发送方法。
+    封装所有 Webhook/Discord 相关的发送逻辑，接收 NotificationDeliveryService 实例作为依赖，
+    因为部分方法（如 send_trading_signal）需要调用 NotificationDeliveryService 的模板发送方法。
     """
 
-    def __init__(self, notification_service: 'NotificationService'):
+    def __init__(self, notification_service: 'NotificationDeliveryService'):
         """
         初始化 WebhookDispatcher
 
         Args:
-            notification_service: NotificationService 实例，用于访问渠道注册和模板发送能力
+            notification_service: NotificationDeliveryService 实例，用于访问渠道注册和模板发送能力
         """
         self._service = notification_service
 
@@ -62,7 +62,8 @@ class WebhookDispatcher:
             from ginkgo.notifier.channels.webhook_channel import WebhookChannel
 
             # 获取用户的 webhook 联系方式
-            contacts = self._service.contact_crud.get_by_user(user_uuid, is_active=True)
+            _contacts_result = self._service.user_service.get_active_contacts(user_uuid, is_active=True)
+            contacts = _contacts_result.data if _contacts_result.success else []
 
             # 查找 webhook 类型的联系方式
             webhook_contact = None
@@ -517,12 +518,10 @@ class WebhookDispatcher:
                 )
             elif group_uuid:
                 # 如果提供的是 group_uuid，需要先查找 group_name
-                if self._service.group_crud is None:
-                    return ServiceResult.error("Group CRUD not initialized")
-
-                group = self._service.group_crud.get_by_uuid(group_uuid)
-                if group is None:
+                _group_result = self._service.user_group_service.get_group_by_uuid(group_uuid)
+                if not _group_result.success or not _group_result.data:
                     return ServiceResult.error(f"Group not found: {group_uuid}")
+                group = _group_result.data
 
                 return self._service.send_template_to_group(
                     group_name=group.name,

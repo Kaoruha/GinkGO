@@ -461,6 +461,61 @@ class UserGroupService(BaseService):
                 message=f"Error: {str(e)}"
             )
 
+    def get_group_by_uuid(self, group_uuid: str) -> ServiceResult:
+        """
+        根据 UUID 获取用户组
+
+        Args:
+            group_uuid: 用户组 UUID
+
+        Returns:
+            ServiceResult: data 为 MUserGroup
+        """
+        try:
+            groups = self.user_group_crud.find(filters={"uuid": group_uuid})
+            if not groups:
+                return ServiceResult.error("Group not found")
+            return ServiceResult.success(groups[0])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group by uuid: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_group_member_uuids(self, group_uuid: str) -> ServiceResult:
+        """
+        获取用户组成员的 user_uuid 列表
+
+        Args:
+            group_uuid: 用户组 UUID
+
+        Returns:
+            ServiceResult: data 为 List[str]
+        """
+        try:
+            mappings = self.user_group_mapping_crud.find_by_group(group_uuid)
+            return ServiceResult.success([m.user_uuid for m in mappings])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group member uuids: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_group_by_name(self, name: str) -> ServiceResult:
+        """
+        根据名称获取用户组
+
+        Args:
+            name: 用户组名称
+
+        Returns:
+            ServiceResult: data 为 MUserGroup
+        """
+        try:
+            groups = self.user_group_crud.find(filters={"name": name})
+            if not groups:
+                return ServiceResult.error("Group not found")
+            return ServiceResult.success(groups[0])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get group by name: {e}")
+            return ServiceResult.error(str(e))
+
     def fuzzy_search(self, query: str, limit: int = 100) -> ServiceResult:
         """
         Fuzzy search groups by UUID or name

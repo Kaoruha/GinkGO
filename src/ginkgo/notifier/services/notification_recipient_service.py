@@ -32,7 +32,8 @@ class NotificationRecipientService(BaseService):
         self,
         recipient_crud: NotificationRecipientCRUD,
         user_contact_crud: UserContactCRUD,
-        user_group_mapping_crud: UserGroupMappingCRUD
+        user_group_mapping_crud: UserGroupMappingCRUD,
+        user_group_service=None,
     ):
         """
         初始化 NotificationRecipientService
@@ -41,11 +42,13 @@ class NotificationRecipientService(BaseService):
             recipient_crud: NotificationRecipientCRUD 实例
             user_contact_crud: UserContactCRUD 实例
             user_group_mapping_crud: UserGroupMappingCRUD 实例
+            user_group_service: UserGroupService 实例（可选，推荐）
         """
         super().__init__(crud_repo=recipient_crud)
-        self.recipient_crud = recipient_crud
-        self.user_contact_crud = user_contact_crud
-        self.user_group_mapping_crud = user_group_mapping_crud
+        self._recipient_crud = recipient_crud
+        self._user_contact_crud = user_contact_crud
+        self._user_group_mapping_crud = user_group_mapping_crud
+        self.user_group_service = user_group_service
 
     @retry(max_try=3)
     def add_recipient(
@@ -100,7 +103,7 @@ class NotificationRecipientService(BaseService):
                         message="Missing user_id"
                     )
                 # 验证用户是否有主联系方式
-                contacts = self.user_contact_crud.find(
+                contacts = self._user_contact_crud.find(
                     filters={"user_id": user_id, "is_primary": True, "is_del": False},
                     page_size=1,
                 page=0,
@@ -126,7 +129,7 @@ class NotificationRecipientService(BaseService):
                 )
 
             # 检查名称是否已存在
-            existing = self.recipient_crud.get_by_name(name)
+            existing = self._recipient_crud.get_by_name(name)
             if existing is not None:
                 return ServiceResult.error(
                     f"Recipient with name '{name}' already exists",
@@ -135,7 +138,7 @@ class NotificationRecipientService(BaseService):
 
             # 如果设为默认接收人，先清除其他默认接收人（同类型）
             if is_default:
-                self.recipient_crud.clear_default_by_type(recipient_type)
+                self._recipient_crud.clear_default_by_type(recipient_type)
 
             # 创建模型实例
             recipient = MNotificationRecipient(
@@ -150,7 +153,7 @@ class NotificationRecipientService(BaseService):
             )
 
             # 添加到数据库
-            created_recipient = self.recipient_crud.add(recipient)
+            created_recipient = self._recipient_crud.add(recipient)
 
             if created_recipient is None:
                 return ServiceResult.error(
@@ -207,7 +210,7 @@ class NotificationRecipientService(BaseService):
         """
         try:
             # 检查接收人是否存在
-            recipients = self.recipient_crud.find(
+            recipients = self._recipient_crud.find(
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
@@ -221,7 +224,7 @@ class NotificationRecipientService(BaseService):
 
             # 如果更新名称，检查是否重复
             if name and name != recipient.name:
-                existing = self.recipient_crud.get_by_name(name)
+                existing = self._recipient_crud.get_by_name(name)
                 if existing is not None and existing.uuid != uuid:
                     return ServiceResult.error(
                         f"Recipient with name '{name}' already exists",
@@ -275,10 +278,10 @@ class NotificationRecipientService(BaseService):
             if is_default is True:
                 target_type = new_type or recipient.get_recipient_type_enum()
                 if target_type:
-                    self.recipient_crud.clear_default_by_type(target_type)
+                    self._recipient_crud.clear_default_by_type(target_type)
 
             # 执行更新
-            modified_count = self.recipient_crud.update_by_uuid(uuid, **update_data)
+            modified_count = self._recipient_crud.update_by_uuid(uuid, **update_data)
 
             if modified_count == 0:
                 return ServiceResult.error(
@@ -311,7 +314,7 @@ class NotificationRecipientService(BaseService):
             ServiceResult: 删除结果
         """
         try:
-            recipients = self.recipient_crud.find(
+            recipients = self._recipient_crud.find(
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
@@ -324,7 +327,7 @@ class NotificationRecipientService(BaseService):
             recipient = recipients[0]
 
             # MySQL CRUD 使用 remove() 方法进行软删除
-            self.recipient_crud.remove(filters={"uuid": uuid})
+            self._recipient_crud.remove(filters={"uuid": uuid})
 
             GLOG.INFO(f"Deleted notification recipient: {recipient.name}")
 
@@ -351,7 +354,7 @@ class NotificationRecipientService(BaseService):
             ServiceResult: 包含新状态
         """
         try:
-            recipients = self.recipient_crud.find(
+            recipients = self._recipient_crud.find(
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
@@ -369,9 +372,9 @@ class NotificationRecipientService(BaseService):
             if new_status:
                 recipient_type = recipient.get_recipient_type_enum()
                 if recipient_type:
-                    self.recipient_crud.clear_default_by_type(recipient_type)
+                    self._recipient_crud.clear_default_by_type(recipient_type)
 
-            self.recipient_crud.modify(
+            self._recipient_crud.modify(
                 filters={"uuid": uuid},
                 updates={"is_default": new_status}
             )
@@ -491,7 +494,7 @@ class NotificationRecipientService(BaseService):
             ServiceResult: 包含联系方式列表
         """
         try:
-            recipients = self.recipient_crud.find(
+            recipients = self._recipient_crud.find(
                 filters={"uuid": uuid, "is_del": False},
                 page_size=1,
                 page=0,
@@ -508,7 +511,7 @@ class NotificationRecipientService(BaseService):
 
             if recipient_type == RECIPIENT_TYPES.USER:
                 # 获取用户的主联系方式
-                user_contacts = self.user_contact_crud.find(
+                user_contacts = self._user_contact_crud.find(
                     filters={
                         "user_id": recipient.user_id,
                         "is_primary": True,
@@ -523,11 +526,11 @@ class NotificationRecipientService(BaseService):
 
             elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
                 # 获取用户组所有用户的主联系方式
-                mappings = self.user_group_mapping_crud.find(
+                mappings = self._user_group_mapping_crud.find(
                     filters={"group_uuid": recipient.user_group_id, "is_del": False},
                 )
                 for mapping in mappings:
-                    user_contacts = self.user_contact_crud.find(
+                    user_contacts = self._user_contact_crud.find(
                         filters={
                             "user_id": mapping.user_uuid,  # MUserGroupMapping uses user_uuid, MUserContact uses user_id
                             "is_primary": True,
@@ -556,3 +559,41 @@ class NotificationRecipientService(BaseService):
             return ServiceResult.error(
                 f"Failed to get recipient contacts: {str(e)}"
             )
+
+    def get_all_recipient_user_uuids(self) -> ServiceResult:
+        """
+        解析所有活跃接收人为去重的 user UUID 列表
+
+        USER 类型直接取 user_id，USER_GROUP 类型通过 mapping 解析组成员。
+
+        Returns:
+            ServiceResult: data 为 List[str]（去重后的 user UUID 列表）
+        """
+        try:
+            recipients = self._recipient_crud.get_active_recipients()
+            if not recipients:
+                return ServiceResult.success([])
+
+            user_uuids = set()
+            for r in recipients:
+                rtype = r.get_recipient_type_enum()
+                if rtype == RECIPIENT_TYPES.USER and r.user_id:
+                    user_uuids.add(r.user_id)
+                elif rtype == RECIPIENT_TYPES.USER_GROUP and r.user_group_id:
+                    if self.user_group_service:
+                        member_result = self.user_group_service.get_group_member_uuids(r.user_group_id)
+                        if member_result.success and member_result.data:
+                            for uuid in member_result.data:
+                                user_uuids.add(uuid)
+                    else:
+                        mappings = self._user_group_mapping_crud.find(
+                            filters={"group_uuid": r.user_group_id, "is_del": False},
+                        )
+                        for m in mappings:
+                            user_uuids.add(m.user_uuid)
+
+            return ServiceResult.success(list(user_uuids))
+
+        except Exception as e:
+            GLOG.ERROR(f"Error resolving recipient user uuids: {e}")
+            return ServiceResult.error(str(e))

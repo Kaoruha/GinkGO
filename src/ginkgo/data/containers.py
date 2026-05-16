@@ -287,7 +287,8 @@ class Container(containers.DeclarativeContainer):
         lambda: NotificationRecipientService(
             recipient_crud=get_crud("notification_recipient"),
             user_contact_crud=get_crud("user_contact"),
-            user_group_mapping_crud=get_crud("user_group_mapping")
+            user_group_mapping_crud=get_crud("user_group_mapping"),
+            user_group_service=user_group_service(),
         )
     )
 
