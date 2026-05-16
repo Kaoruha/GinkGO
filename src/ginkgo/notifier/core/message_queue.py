@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)
 # Downstream: Kafka Producer (GinkgoProducer)、KafkaCRUD (Kafka CRUD操作)
 # Role: MessageQueue 消息队列封装封装Kafka发送通知消息支持异步通知处理支持通知系统功能
 
