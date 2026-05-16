@@ -60,3 +60,45 @@ class PositionService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"get_portfolio_value failed: {e}")
             return ServiceResult.error(str(e))
+
+    def upsert_position(self, position) -> ServiceResult:
+        """
+        创建或更新持仓（upsert 语义）。
+
+        按 portfolio_id + code 查找已存在记录，存在则更新，不存在则创建。
+
+        Args:
+            position: Position 或 duck-typed 对象，需包含 portfolio_id, code 等属性
+
+        Returns:
+            ServiceResult
+        """
+        try:
+            existing = self._crud_repo.get_position(
+                portfolio_id=position.portfolio_id,
+                code=position.code,
+            )
+
+            if existing:
+                self._crud_repo.update_position(
+                    portfolio_id=position.portfolio_id,
+                    code=position.code,
+                    cost=position.cost,
+                    volume=position.volume,
+                    frozen_volume=position.frozen_volume,
+                    frozen_money=position.frozen_money,
+                    price=position.price,
+                    fee=position.fee,
+                )
+                GLOG.DEBUG(f"Updated position: {position.code}")
+            else:
+                self._crud_repo.add(position)
+                GLOG.DEBUG(f"Created position: {position.code}")
+
+            return ServiceResult.success(
+                data={"updated": existing is not None, "created": existing is None},
+                message="Position upserted successfully",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"upsert_position failed: {e}")
+            return ServiceResult.error(str(e))
