@@ -367,19 +367,11 @@ class NotificationWorker:
                 channels=channels,
                 priority=priority
             )
-        elif group_name:
+        elif group_name or group_uuid:
             result = self.notification_service.send_to_group(
-                group_name=group_name,
                 content=content,
-                title=title,
-                channels=channels,
-                priority=priority
-            )
-        elif group_uuid:
-            # 需要先查找 group_name
-            result = self.notification_service.send_to_group(
                 group_uuid=group_uuid,
-                content=content,
+                group_name=group_name,
                 title=title,
                 channels=channels,
                 priority=priority
@@ -428,18 +420,12 @@ class NotificationWorker:
                 context=context,
                 priority=priority
             )
-        elif group_name:
+        elif group_name or group_uuid:
             result = self.notification_service.send_template_to_group(
-                group_name=group_name,
                 template_id=template_id,
                 context=context,
-                priority=priority
-            )
-        elif group_uuid:
-            result = self.notification_service.send_template_to_group(
                 group_uuid=group_uuid,
-                template_id=template_id,
-                context=context,
+                group_name=group_name,
                 priority=priority
             )
         else:

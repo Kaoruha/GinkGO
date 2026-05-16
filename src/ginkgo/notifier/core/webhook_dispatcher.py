@@ -508,25 +508,12 @@ class WebhookDispatcher:
                     priority=priority,
                     **kwargs
                 )
-            elif group_name:
+            elif group_name or group_uuid:
                 return self._service.send_template_to_group(
+                    template_id="simple_signal",
+                    context=context,
+                    group_uuid=group_uuid,
                     group_name=group_name,
-                    template_id="simple_signal",
-                    context=context,
-                    priority=priority,
-                    **kwargs
-                )
-            elif group_uuid:
-                # 如果提供的是 group_uuid，需要先查找 group_name
-                _group_result = self._service.user_group_service.get_group_by_uuid(group_uuid)
-                if not _group_result.success or not _group_result.data:
-                    return ServiceResult.error(f"Group not found: {group_uuid}")
-                group = _group_result.data
-
-                return self._service.send_template_to_group(
-                    group_name=group.name,
-                    template_id="simple_signal",
-                    context=context,
                     priority=priority,
                     **kwargs
                 )
