@@ -34,6 +34,7 @@ class NotificationRecipientService(BaseService):
         user_contact_crud: UserContactCRUD,
         user_group_mapping_crud: UserGroupMappingCRUD,
         user_group_service=None,
+        user_service=None,
     ):
         """
         初始化 NotificationRecipientService
@@ -43,12 +44,14 @@ class NotificationRecipientService(BaseService):
             user_contact_crud: UserContactCRUD 实例
             user_group_mapping_crud: UserGroupMappingCRUD 实例
             user_group_service: UserGroupService 实例（可选，推荐）
+            user_service: UserService 实例（可选，推荐）
         """
         super().__init__(crud_repo=recipient_crud)
         self._recipient_crud = recipient_crud
         self._user_contact_crud = user_contact_crud
         self._user_group_mapping_crud = user_group_mapping_crud
         self.user_group_service = user_group_service
+        self.user_service = user_service
 
     @retry(max_try=3)
     def add_recipient(
@@ -428,27 +431,26 @@ class NotificationRecipientService(BaseService):
                     filters["recipient_type"] = recipient_type.value
 
             # 查询
+            recipients = self._recipient_crud.find(filters=filters)
 
             # 获取所有用户和用户组信息用于显示
             user_ids = list(set([r.user_id for r in recipients if r.user_id]))
             group_ids = list(set([r.user_group_id for r in recipients if r.user_group_id]))
 
             users_map = {}
-            if user_ids:
-                from ginkgo.data.containers import container
-                user_crud = container.user_crud()
+            if user_ids and self.user_service:
                 for user_id in user_ids:
-                    if user_list:
-                        u = user_list[0]
+                    _user_result = self.user_service.get_user(user_id)
+                    if _user_result.success and _user_result.data:
+                        u = _user_result.data
                         users_map[user_id] = {"uuid": u.uuid, "username": u.username, "display_name": u.display_name}
 
             groups_map = {}
-            if group_ids:
-                from ginkgo.data.containers import container
-                group_crud = container.user_group_crud()
+            if group_ids and self.user_group_service:
                 for group_id in group_ids:
-                    if group_list:
-                        g = group_list[0]
+                    _group_result = self.user_group_service.get_group_by_uuid(group_id)
+                    if _group_result.success and _group_result.data:
+                        g = _group_result.data
                         groups_map[group_id] = {"uuid": g.uuid, "name": g.name}
 
             result = []
