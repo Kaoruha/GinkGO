@@ -224,6 +224,16 @@ def _get_portfolio_management_service_class():
     from ginkgo.trading.services.portfolio_management_service import PortfolioManagementService
     return PortfolioManagementService
 
+
+def _create_portfolio_management_service():
+    """Create PortfolioManagementService with injected dependencies."""
+    from ginkgo.data.containers import container as data_container
+    PortfolioManagementService = _get_portfolio_management_service_class()
+    return PortfolioManagementService(
+        position_service=data_container.position_service(),
+        portfolio_service=data_container.portfolio_service(),
+    )
+
 # def _get_executor_factory_class():
 #     """Lazy import for ExecutorFactory class."""
 #     # TODO: ExecutorFactory removed - functionality integrated into brokers
@@ -293,7 +303,7 @@ class Container(containers.DeclarativeContainer):
     
     # Execution services
     # confirmation_handler = providers.Singleton(_get_confirmation_handler_class)  # DISABLED: not implemented
-    portfolio_management_service = providers.Singleton(_get_portfolio_management_service_class)
+    portfolio_management_service = providers.Singleton(_create_portfolio_management_service)
     # executor_factory = providers.Singleton(_get_executor_factory_class)  # DISABLED: functionality integrated into brokers
     
     # Services aggregate
