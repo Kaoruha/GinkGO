@@ -11,8 +11,11 @@ from pathlib import Path
 try:
     from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
 except ImportError:
-    pytest.collect_ignore_glob = ["*.py"]
-    raise pytest.skip("playwright not installed (pip install ginkgo[e2e])", allow_module_level=True)
+    raise pytest.skip(
+        "未安装 playwright，跳过 E2E/Web 测试。\n"
+        "安装方式: uv add playwright && playwright install chromium",
+        allow_module_level=True,
+    )
 
 from .config import config
 
