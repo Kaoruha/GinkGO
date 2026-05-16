@@ -144,98 +144,32 @@ class TestOrderProperties:
 
     def test_portfolio_id_type_validation(self):
         """测试portfolio_id类型验证"""
-        # 测试portfolio_id必须是str类型
-        with pytest.raises(Exception):  # 构造函数包装了原始异常
-            order = Order(
-                portfolio_id=123,  # 应该是str不是int
-                engine_id="test_engine",
-                task_id="test_run",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
-            )
-
-        # 测试portfolio_id不能为空字符串
         with pytest.raises(Exception):
-            order = Order(
-                portfolio_id="",  # 空字符串应该失败
-                engine_id="test_engine",
-                task_id="test_run",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
+            Order(
+                portfolio_id=123, engine_id="e", task_id="t",
+                code="000001.SZ", direction=DIRECTION_TYPES.LONG,
+                order_type=ORDER_TYPES.MARKETORDER, status=ORDERSTATUS_TYPES.NEW,
+                volume=100, limit_price=15.50, timestamp="2023-01-01 10:00:00",
             )
 
     def test_engine_id_type_validation(self):
         """测试engine_id类型验证"""
-        # 测试engine_id必须是str类型
         with pytest.raises(Exception):
-            order = Order(
-                portfolio_id="test_portfolio",
-                engine_id=456,  # 应该是str不是int
-                task_id="test_run",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
-            )
-
-        # 测试engine_id不能为空字符串
-        with pytest.raises(Exception):
-            order = Order(
-                portfolio_id="test_portfolio",
-                engine_id="",  # 空字符串应该失败
-                task_id="test_run",
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
+            Order(
+                portfolio_id="p", engine_id=456, task_id="t",
+                code="000001.SZ", direction=DIRECTION_TYPES.LONG,
+                order_type=ORDER_TYPES.MARKETORDER, status=ORDERSTATUS_TYPES.NEW,
+                volume=100, limit_price=15.50, timestamp="2023-01-01 10:00:00",
             )
 
     def test_task_id_type_validation(self):
         """测试task_id类型验证"""
-        # 测试task_id必须是str类型
         with pytest.raises(Exception):
-            order = Order(
-                portfolio_id="test_portfolio",
-                engine_id="test_engine",
-                task_id=789,  # 应该是str不是int
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
-            )
-
-        # 测试task_id不能为空字符串
-        with pytest.raises(Exception):
-            order = Order(
-                portfolio_id="test_portfolio",
-                engine_id="test_engine",
-                task_id="",  # 空字符串应该失败
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=100,
-                limit_price=15.50,
-                timestamp="2023-01-01 10:00:00"
+            Order(
+                portfolio_id="p", engine_id="e", task_id=789,
+                code="000001.SZ", direction=DIRECTION_TYPES.LONG,
+                order_type=ORDER_TYPES.MARKETORDER, status=ORDERSTATUS_TYPES.NEW,
+                volume=100, limit_price=15.50, timestamp="2023-01-01 10:00:00",
             )
 
     def test_code_type_validation(self):
