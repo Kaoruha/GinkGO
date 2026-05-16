@@ -2,6 +2,7 @@
 # Downstream: containers(Container), seeding(数据初始化), utils(get_crud)
 # Role: 数据层包入口，暴露依赖注入容器container和工具函数，统一数据访问入口
 # See #2715: 聚合导入改为 __getattr__ 懒加载，打断全量模块加载链
+# 注意: models/ 包因 SQLAlchemy relationship() 要求使用 eager import，是唯一的例外
 
 
 
@@ -26,7 +27,7 @@ Available services:
 - container.component_service() - 组件实例化服务
 """
 
-# See #2715: 懒加载注册表，避免 import 时触发全量加载
+# See #2715: 懒加载注册表，避免 import 时触发全量加载（models/ 包除外，见该目录注释）
 _LAZY_IMPORTS = {
     "container": ("ginkgo.data.containers", "container"),
     "seeding": ("ginkgo.data.seeding", None),

@@ -2,7 +2,7 @@
 # Downstream: BaseCRUD, ClickHouse/MySQL/MongoDB/Redis数据库模型
 # Role: CRUD包入口，统一导出全部CRUD类(BarCRUD、OrderCRUD、PortfolioCRUD等40+个)，供服务层和容器注册使用
 
-# See #2715: PEP 562 懒加载
+# See #2715: PEP 562 懒加载（models/ 包除外，见该目录注释）
 _LAZY_IMPORTS = {
     "AdjustfactorCRUD": ("ginkgo.data.crud.adjustfactor_crud", "AdjustfactorCRUD"),
     "AnalyzerRecordCRUD": ("ginkgo.data.crud.analyzer_record_crud", "AnalyzerRecordCRUD"),
