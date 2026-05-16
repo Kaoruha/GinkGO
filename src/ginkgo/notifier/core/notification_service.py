@@ -740,8 +740,9 @@ class NotificationDeliveryService:
     @retry(max_try=3)
     def send_to_group(
         self,
-        group_name: str,
         content: str,
+        group_uuid: Optional[str] = None,
+        group_name: Optional[str] = None,
         title: Optional[str] = None,
         content_type: str = "text",
         priority: int = 1,
@@ -751,8 +752,9 @@ class NotificationDeliveryService:
         向用户组发送通知
 
         Args:
-            group_name: 用户组名称 (业务层面，如 "traders")
             content: 通知内容
+            group_uuid: 用户组 UUID（优先）
+            group_name: 用户组名称（便捷入口，自动解析为 uuid）
             title: 通知标题（可选）
             content_type: 内容类型
             priority: 优先级
@@ -762,17 +764,23 @@ class NotificationDeliveryService:
             ServiceResult: 包含发送结果
         """
         try:
-            # 根据 name 获取 group
-            _group_result = self.user_group_service.get_group_by_name(group_name)
+            # 解析 group_uuid
+            if group_uuid:
+                _group_result = self.user_group_service.get_group_by_uuid(group_uuid)
+            elif group_name:
+                _group_result = self.user_group_service.get_group_by_name(group_name)
+            else:
+                return ServiceResult.error("Either group_uuid or group_name is required")
+
             if not _group_result.success or not _group_result.data:
-                return ServiceResult.error(f"Group not found: {group_name}")
+                return ServiceResult.error(f"Group not found: {group_uuid or group_name}")
             group = _group_result.data
 
             # 获取组内所有用户
             _members_result = self.user_group_service.get_group_member_uuids(group.uuid)
             user_uuids = _members_result.data if _members_result.success else []
             if not user_uuids:
-                return ServiceResult.error(f"No users found in group: {group_name}")
+                return ServiceResult.error(f"No users found in group: {group.name}")
 
             # 向所有用户发送通知
             results = []
@@ -797,11 +805,11 @@ class NotificationDeliveryService:
                 if result.is_success:
                     success_count += 1
 
-            GLOG.INFO(f"Group notification sent: {success_count}/{len(user_uuids)} users in group '{group_name}'")
+            GLOG.INFO(f"Group notification sent: {success_count}/{len(user_uuids)} users in group '{group.name}'")
 
             return ServiceResult.success(
                 data={
-                    "group_name": group_name,
+                    "group_name": group.name,
                     "total_users": len(user_uuids),
                     "success_count": success_count,
                     "results": results
@@ -817,9 +825,10 @@ class NotificationDeliveryService:
     @retry(max_try=3)
     def send_template_to_group(
         self,
-        group_name: str,
         template_id: str,
         context: Dict[str, Any],
+        group_uuid: Optional[str] = None,
+        group_name: Optional[str] = None,
         priority: int = 1,
         **kwargs
     ) -> ServiceResult:
@@ -827,9 +836,10 @@ class NotificationDeliveryService:
         使用模板向用户组发送通知
 
         Args:
-            group_name: 用户组名称
             template_id: 模板 ID
             context: 模板变量上下文
+            group_uuid: 用户组 UUID（优先）
+            group_name: 用户组名称（便捷入口，自动解析为 uuid）
             priority: 优先级
             **kwargs: 其他参数
 
@@ -837,17 +847,23 @@ class NotificationDeliveryService:
             ServiceResult: 包含发送结果
         """
         try:
-            # 根据 name 获取 group
-            _group_result = self.user_group_service.get_group_by_name(group_name)
+            # 解析 group_uuid
+            if group_uuid:
+                _group_result = self.user_group_service.get_group_by_uuid(group_uuid)
+            elif group_name:
+                _group_result = self.user_group_service.get_group_by_name(group_name)
+            else:
+                return ServiceResult.error("Either group_uuid or group_name is required")
+
             if not _group_result.success or not _group_result.data:
-                return ServiceResult.error(f"Group not found: {group_name}")
+                return ServiceResult.error(f"Group not found: {group_uuid or group_name}")
             group = _group_result.data
 
             # 获取组内所有用户
             _members_result = self.user_group_service.get_group_member_uuids(group.uuid)
             user_uuids = _members_result.data if _members_result.success else []
             if not user_uuids:
-                return ServiceResult.error(f"No users found in group: {group_name}")
+                return ServiceResult.error(f"No users found in group: {group.name}")
 
             # 向所有用户发送模板通知
             results = []
@@ -871,11 +887,11 @@ class NotificationDeliveryService:
                 if result.is_success:
                     success_count += 1
 
-            GLOG.INFO(f"Group template notification sent: {success_count}/{len(user_uuids)} users in group '{group_name}'")
+            GLOG.INFO(f"Group template notification sent: {success_count}/{len(user_uuids)} users in group '{group.name}'")
 
             return ServiceResult.success(
                 data={
-                    "group_name": group_name,
+                    "group_name": group.name,
                     "template_id": template_id,
                     "total_users": len(user_uuids),
                     "success_count": success_count,
