@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务)
+# Upstream: NotificationDeliveryService (通知服务)
 # Downstream: WebhookChannel, EmailChannel, KafkaChannel
 # Role: 通知渠道模块提供各类通知渠道实现支持Webhook/Email/Kafka等通知方式支持通知系统功能
 

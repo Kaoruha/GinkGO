@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
 # Downstream: Discord Webhook API (外部服务)
 # Role: WebhookChannel Webhook通知渠道实现通过Webhook发送消息到Discord/钉钉/企业微信等支持Markdown和嵌入消息支持通知系统功能
 

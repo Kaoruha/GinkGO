@@ -56,7 +56,7 @@ class NotificationWorker:
     """
     通知 Kafka Worker
 
-    从 `ginkgo.notifications` topic 消费消息并调用 NotificationService。
+    从 `ginkgo.notifications` topic 消费消息并调用 NotificationDeliveryService。
     """
 
     # Kafka topic 名称
@@ -289,7 +289,7 @@ class NotificationWorker:
         """
         处理单条消息
 
-        根据 message_type 调用对应的 NotificationService 方法。
+        根据 message_type 调用对应的 NotificationDeliveryService 方法。
 
         Args:
             message: Kafka 消息（已反序列化）
@@ -358,7 +358,7 @@ class NotificationWorker:
             GLOG.ERROR("[ERROR] Simple message missing content")
             return False
 
-        # 调用 NotificationService
+        # 调用 NotificationDeliveryService
         if user_uuid:
             result = self.notification_service.send_to_user(
                 user_uuid=user_uuid,
@@ -420,7 +420,7 @@ class NotificationWorker:
             GLOG.ERROR("[ERROR] Template message missing template_id")
             return False
 
-        # 调用 NotificationService
+        # 调用 NotificationDeliveryService
         if user_uuid:
             result = self.notification_service.send_template_to_user(
                 user_uuid=user_uuid,
@@ -484,7 +484,7 @@ class NotificationWorker:
             GLOG.ERROR("[ERROR] Trading signal message missing required fields")
             return False
 
-        # 调用 NotificationService
+        # 调用 NotificationDeliveryService
         if user_uuid:
             result = self.notification_service.send_trading_signal(
                 user_uuid=user_uuid,
@@ -549,7 +549,7 @@ class NotificationWorker:
             GLOG.ERROR("[ERROR] System notification message missing content")
             return False
 
-        # 调用 NotificationService
+        # 调用 NotificationDeliveryService
         if user_uuid:
             result = self.notification_service.send_system_notification(
                 user_uuid=user_uuid,
