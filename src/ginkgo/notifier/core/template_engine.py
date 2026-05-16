@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)、NotifierCLI (命令行工具)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)、NotifierCLI (命令行工具)
 # Downstream: NotificationTemplateCRUD (模板CRUD操作)、Jinja2 (模板渲染库)
 # Role: TemplateEngine模板引擎提供模板渲染功能支持Jinja2语法和变量替换支持通知系统功能
 

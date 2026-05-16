@@ -5,7 +5,7 @@
 """
 Webhook 调度器
 
-将 Webhook 相关的发送逻辑从 NotificationService 中分离，包括：
+将 Webhook 相关的发送逻辑从 NotificationDeliveryService 中分离，包括：
 - 直接 Webhook 发送（无需用户 UUID）
 - Discord Webhook 封装
 - 交易信号 Webhook 发送

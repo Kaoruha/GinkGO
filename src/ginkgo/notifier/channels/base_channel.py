@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)
 # Downstream: WebhookChannel, EmailChannel, KafkaChannel (具体渠道实现)
 # Role: BaseNotificationChannel通知渠道接口定义通知渠道的标准接口确保所有渠道实现一致性支持通知系统功能
 

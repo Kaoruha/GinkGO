@@ -1,4 +1,4 @@
-# Upstream: NotificationService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
+# Upstream: NotificationDeliveryService (通知服务业务逻辑)、BaseNotificationChannel (渠道接口)
 # Downstream: Console (标准输出)
 # Role: ConsoleChannel控制台通知渠道实现向标准输出打印通知消息用于测试和调试支持通知系统功能
 
