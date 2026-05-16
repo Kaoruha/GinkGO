@@ -1,22 +1,22 @@
-# Upstream: Kafka Consumer, NotificationService
-# Downstream: NotificationService (业务逻辑层)
-# Role: NotificationWorker Kafka消费者Worker解析消息并调用NotificationService业务方法
+# Upstream: Kafka Consumer, NotificationDeliveryService
+# Downstream: NotificationDeliveryService (业务逻辑层)
+# Role: NotificationWorker Kafka消费者Worker解析消息并调用NotificationDeliveryService业务方法
 
 
 """
 Notification Kafka Worker
 
-Kafka 消费者 Worker，从 `notifications` topic 消费消息并调用 NotificationService。
+Kafka 消费者 Worker，从 `notifications` topic 消费消息并调用 NotificationDeliveryService。
 
 设计原则：
-- Worker 只负责解析消息和路由到 NotificationService
-- 所有业务逻辑（查找联系方式、模板渲染、渠道发送）由 NotificationService 处理
+- Worker 只负责解析消息和路由到 NotificationDeliveryService
+- 所有业务逻辑（查找联系方式、模板渲染、渠道发送）由 NotificationDeliveryService 处理
 - 支持 user_uuid 和 group_name 参数，自动查找联系方式
 - 支持多种消息类型（simple, template, trading_signal, system_notification）
 
 功能：
 - 消费 Kafka 消息
-- 根据 message_type 调用对应的 NotificationService 方法
+- 根据 message_type 调用对应的 NotificationDeliveryService 方法
 - 记录发送结果到 MNotificationRecord
 - 失败重试逻辑
 """
@@ -30,8 +30,6 @@ from enum import IntEnum
 
 from ginkgo.libs import GLOG
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
-from ginkgo.data.crud import NotificationRecordCRUD
-from ginkgo.data.models import MNotificationRecord
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -71,7 +69,6 @@ class NotificationWorker:
     def __init__(
         self,
         notification_service,
-        record_crud: NotificationRecordCRUD,
         group_id: Optional[str] = None,
         auto_offset_reset: str = "earliest",
         node_id: Optional[str] = None
@@ -80,14 +77,12 @@ class NotificationWorker:
         初始化 NotificationWorker
 
         Args:
-            notification_service: NotificationService 实例
-            record_crud: NotificationRecordCRUD 实例
+            notification_service: NotificationDeliveryService 实例
             group_id: Consumer group ID（可选，默认为 notification_worker_group）
             auto_offset_reset: Offset 重置策略（earliest/latest）
             node_id: 节点ID（可选，用于标识和心跳）
         """
         self.notification_service = notification_service
-        self.record_crud = record_crud
         self._group_id = group_id or self.WORKER_GROUP_ID
         self._auto_offset_reset = auto_offset_reset
         self._node_id = node_id or "notification_worker"
@@ -628,11 +623,9 @@ class NotificationWorker:
 
         # 获取组信息
         if group_uuid:
-            group = self.notification_service.group_crud.find(
-            )
+            group = self.notification_service.user_group_service.get_group_by_uuid(group_uuid)
         elif group_name:
-            group = self.notification_service.group_crud.find(
-            )
+            group = self.notification_service.user_group_service.get_group_by_name(group_name)
         else:
             GLOG.ERROR("[ERROR] Custom fields message missing group_name/group_uuid")
             return False
@@ -641,13 +634,13 @@ class NotificationWorker:
             GLOG.ERROR(f"[ERROR] Group not found: {group_name or group_uuid}")
             return False
 
-        group_uuid = group[0].uuid
-        mappings = self.notification_service.group_mapping_crud.find_by_group(
-        )
+        group_uuid = group.uuid
+        member_uuids = self.notification_service.user_group_service.get_group_member_uuids(group_uuid)
 
         success_count = 0
-        for mapping in mappings:
-            contacts = self.notification_service.contact_crud.find_by_user_id(
+        for member_uuid in member_uuids:
+            contacts = self.notification_service.user_service.user_contact_crud.find_by_user_id(
+                user_id=member_uuid,
             )
             for contact in contacts:
                 contact_type_enum = contact.get_contact_type_enum()
@@ -702,33 +695,28 @@ class NotificationWorker:
 
 def create_notification_worker(
     notification_service,
-    record_crud: NotificationRecordCRUD,
     group_id: Optional[str] = None
 ) -> NotificationWorker:
     """
     创建 NotificationWorker 实例（便捷函数）
 
     Args:
-        notification_service: NotificationService 实例
-        record_crud: NotificationRecordCRUD 实例
+        notification_service: NotificationDeliveryService 实例
         group_id: Consumer group ID（可选）
 
     Returns:
         NotificationWorker: Worker 实例
 
     Examples:
-        >>> from ginkgo.notifier.core.notification_service import NotificationService
-        >>> from ginkgo.data.crud import NotificationRecordCRUD
+        >>> from ginkgo.notifier.core.notification_service import NotificationDeliveryService
         >>> from ginkgo.notifier.workers.notification_worker import create_notification_worker
         >>>
         >>> # 创建服务
-        >>> service = NotificationService(...)
-        >>> record_crud = NotificationRecordCRUD()
+        >>> service = NotificationDeliveryService(...)
         >>>
         >>> # 创建 Worker
         >>> worker = create_notification_worker(
-        >>>     notification_service=service,
-        >>>     record_crud=record_crud
+        >>>     notification_service=service
         >>> )
         >>>
         >>> if worker.start():
@@ -736,6 +724,5 @@ def create_notification_worker(
     """
     return NotificationWorker(
         notification_service=notification_service,
-        record_crud=record_crud,
         group_id=group_id
     )

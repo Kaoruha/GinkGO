@@ -1,11 +1,11 @@
 # Upstream: Kafka Worker (通知消费)、LiveCore 各组件 (task_timer, scheduler, data_manager 等)
-# Downstream: NotificationService (通知发送)、NotificationRecipientCRUD (接收人配置)
+# Downstream: NotificationDeliveryService (通知发送)、NotificationRecipientCRUD (接收人配置)
 # Role: 简化的全局通知函数，提供 notify / notify_with_fields 便捷 API
 
 """
 全局通知函数
 
-提供简化的通知发送 API，自动获取 NotificationService 单例并发送通知：
+提供简化的通知发送 API，自动获取 NotificationDeliveryService 单例并发送通知：
 - notify: 发送系统通知（支持 INFO/WARN/ERROR/ALERT 等级）
 - notify_with_fields: 发送带自定义字段的系统通知
 """
@@ -26,48 +26,46 @@ _notification_service_instance = None
 
 
 def _get_notification_service():
-    """获取 NotificationService 单例（延迟初始化）"""
+    """获取 NotificationDeliveryService 单例（延迟初始化）"""
     global _notification_service_instance
 
     if _notification_service_instance is not None:
         return _notification_service_instance
 
     try:
-        from ginkgo.data.containers import container
+        from ginkgo.data.containers import container as data_container
+        from ginkgo.data.services.notification_service import NotificationService as DataNotificationService
         from ginkgo.user.services.user_service import UserService
         from ginkgo.user.services.user_group_service import UserGroupService
         from ginkgo.notifier.core.template_engine import TemplateEngine
-        from .notification_service import NotificationService
+        from .notification_service import NotificationDeliveryService
 
-        template_crud = container.notification_template_crud()
-        record_crud = container.notification_record_crud()
+        template_crud = data_container.notification_template_crud()
         template_engine = TemplateEngine(template_crud=template_crud)
 
         user_service = UserService(
-            user_crud=container.user_crud(),
-            user_contact_crud=container.user_contact_crud()
+            user_crud=data_container.user_crud(),
+            user_contact_crud=data_container.user_contact_crud()
         )
 
         group_service = UserGroupService(
-            user_group_crud=container.user_group_crud(),
-            user_group_mapping_crud=container.user_group_mapping_crud()
+            user_group_crud=data_container.user_group_crud(),
+            user_group_mapping_crud=data_container.user_group_mapping_crud()
         )
 
-        _notification_service_instance = NotificationService(
+        data_notification_service = DataNotificationService()
+
+        _notification_service_instance = NotificationDeliveryService(
+            notification_service=data_notification_service,
+            template_engine=template_engine,
             user_service=user_service,
             user_group_service=group_service,
-            template_crud=template_crud,
-            record_crud=record_crud,
-            template_engine=template_engine,
-            group_crud=container.user_group_crud(),
-            group_mapping_crud=container.user_group_mapping_crud(),
-            contact_crud=container.user_contact_crud()
         )
 
         return _notification_service_instance
 
     except Exception as e:
-        GLOG.ERROR(f"Failed to initialize NotificationService: {e}")
+        GLOG.ERROR(f"Failed to initialize NotificationDeliveryService: {e}")
         return None
 
 
@@ -231,7 +229,7 @@ def notify(
             # 额外发送格式化的 Discord webhook 消息
             for user_uuid in user_uuids:
                 try:
-                    contacts = service.contact_crud.get_by_user(user_uuid, is_active=True) if service.contact_crud else []
+                    contacts = service.user_service.get_active_contacts(user_uuid, is_active=True)
                     for contact in contacts:
                         contact_type = CONTACT_TYPES.from_int(contact.contact_type)
                         if contact_type == CONTACT_TYPES.WEBHOOK and contact.is_primary:
@@ -372,7 +370,8 @@ def notify_with_fields(
         success_count = 0
         for user_uuid in user_uuids:
             # 获取用户的webhook联系方式
-            if service.contact_crud:
+            contacts = service.user_service.get_active_contacts(user_uuid, is_active=True)
+            if contacts:
                 for contact in contacts:
                     contact_type_enum = contact.get_contact_type_enum()
                     if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
