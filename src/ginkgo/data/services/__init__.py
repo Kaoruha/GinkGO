@@ -17,7 +17,7 @@ Architecture:
 # Core classes — kept as direct imports (lightweight base classes used everywhere)
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
-# See #2715: PEP 562 懒加载
+# See #2715: PEP 562 懒加载（models/ 包除外，见该目录注释）
 _LAZY_IMPORTS = {
     "AdjustfactorService": ("ginkgo.data.services.adjustfactor_service", "AdjustfactorService"),
     "BacktestTaskService": ("ginkgo.data.services.backtest_task_service", "BacktestTaskService"),

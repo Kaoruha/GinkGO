@@ -2,6 +2,7 @@
 # Downstream: GinkgoClickhouse, GinkgoMysql, GinkgoMongo, GinkgoRedis, DatabaseDriverBase
 # Role: 数据库驱动包入口，导出四大驱动类并定义熔断器(CircuitBreaker)防止级联故障
 # See #2715: 聚合导入改为 __getattr__ 懒加载，打断全量模块加载链
+# 注意: models/ 包因 SQLAlchemy relationship() 要求使用 eager import，是唯一的例外
 
 
 
@@ -21,7 +22,7 @@ from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
 from ginkgo.libs import GLOG
 
-# See #2715: PEP 562 懒加载 — 只在访问时才导入这些重量级模块
+# See #2715: PEP 562 懒加载 — 只在访问时才导入这些重量级模块（models/ 包除外）
 def __getattr__(name):
     _lazy = {
         "GinkgoProducer": ("ginkgo.data.drivers.ginkgo_kafka", "GinkgoProducer"),
