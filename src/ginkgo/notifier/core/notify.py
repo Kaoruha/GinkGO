@@ -229,7 +229,8 @@ def notify(
             # 额外发送格式化的 Discord webhook 消息
             for user_uuid in user_uuids:
                 try:
-                    contacts = service.user_service.get_active_contacts(user_uuid, is_active=True)
+                    _contacts_result = service.user_service.get_active_contacts(user_uuid, is_active=True)
+                    contacts = _contacts_result.data if _contacts_result.success else []
                     for contact in contacts:
                         contact_type = CONTACT_TYPES.from_int(contact.contact_type)
                         if contact_type == CONTACT_TYPES.WEBHOOK and contact.is_primary:
@@ -370,7 +371,8 @@ def notify_with_fields(
         success_count = 0
         for user_uuid in user_uuids:
             # 获取用户的webhook联系方式
-            contacts = service.user_service.get_active_contacts(user_uuid, is_active=True)
+            _contacts_result = service.user_service.get_active_contacts(user_uuid, is_active=True)
+            contacts = _contacts_result.data if _contacts_result.success else []
             if contacts:
                 for contact in contacts:
                     contact_type_enum = contact.get_contact_type_enum()
