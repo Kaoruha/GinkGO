@@ -35,15 +35,12 @@ class TestNotificationWorkerInit:
     def test_init_default(self):
         """测试默认初始化"""
         notification_service = Mock()
-        record_crud = Mock()
 
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         assert worker.notification_service == notification_service
-        assert worker.record_crud == record_crud
         assert worker._group_id == "notification_worker_group"
         assert worker.status == WorkerStatus.STOPPED
         assert worker.is_running is False
@@ -51,11 +48,9 @@ class TestNotificationWorkerInit:
     def test_init_with_group_id(self):
         """测试使用自定义 group_id"""
         notification_service = Mock()
-        record_crud = Mock()
 
         worker = NotificationWorker(
             notification_service=notification_service,
-            record_crud=record_crud,
             group_id="custom_group"
         )
 
@@ -64,10 +59,8 @@ class TestNotificationWorkerInit:
     def test_stats_initial(self):
         """测试初始统计信息"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         stats = worker.stats
@@ -86,7 +79,6 @@ class TestNotificationWorkerLifecycle:
     def test_start_success(self, mock_consumer_class):
         """测试成功启动 Worker"""
         notification_service = Mock()
-        record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
@@ -95,8 +87,7 @@ class TestNotificationWorkerLifecycle:
         mock_consumer_class.return_value = mock_consumer
 
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         result = worker.start()
@@ -112,10 +103,8 @@ class TestNotificationWorkerLifecycle:
     def test_start_when_running(self):
         """测试重复启动"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         # 模拟正在运行
@@ -129,7 +118,6 @@ class TestNotificationWorkerLifecycle:
     def test_stop_success(self, mock_consumer_class):
         """测试成功停止 Worker"""
         notification_service = Mock()
-        record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
@@ -138,8 +126,7 @@ class TestNotificationWorkerLifecycle:
         mock_consumer_class.return_value = mock_consumer
 
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
         worker.start()
 
@@ -154,10 +141,8 @@ class TestNotificationWorkerLifecycle:
     def test_stop_when_not_running(self):
         """测试停止未运行的 Worker"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         result = worker.stop()
@@ -172,10 +157,8 @@ class TestNotificationWorkerProcessMessage:
     def test_process_message_simple_success(self):
         """测试处理 simple 消息成功"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -203,10 +186,8 @@ class TestNotificationWorkerProcessMessage:
     def test_process_message_template_success(self):
         """测试处理 template 消息成功"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -233,10 +214,8 @@ class TestNotificationWorkerProcessMessage:
     def test_process_message_trading_signal(self):
         """测试处理交易信号消息"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -260,10 +239,8 @@ class TestNotificationWorkerProcessMessage:
     def test_process_message_system_notification(self):
         """测试处理系统通知消息"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -285,10 +262,8 @@ class TestNotificationWorkerProcessMessage:
     def test_process_message_invalid(self):
         """测试处理无效消息"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -308,10 +283,8 @@ class TestNotificationWorkerGroupMessaging:
     def test_process_simple_message_to_group(self):
         """测试发送 simple 消息到用户组"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         message = {
@@ -329,6 +302,7 @@ class TestNotificationWorkerGroupMessaging:
         assert result is True
         notification_service.send_to_group.assert_called_once_with(
             group_name="test_group",
+            group_uuid=None,
             content="Group test message",
             title=None,
             channels=None,
@@ -343,10 +317,8 @@ class TestNotificationWorkerHealthStatus:
     def test_get_health_status_stopped(self):
         """测试获取健康状态（已停止）"""
         notification_service = Mock()
-        record_crud = Mock()
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         status = worker.get_health_status()
@@ -359,7 +331,6 @@ class TestNotificationWorkerHealthStatus:
     def test_get_health_status_running(self, mock_consumer_class):
         """测试获取健康状态（运行中）"""
         notification_service = Mock()
-        record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
@@ -368,8 +339,7 @@ class TestNotificationWorkerHealthStatus:
         mock_consumer_class.return_value = mock_consumer
 
         worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
         worker.start()
 
@@ -392,25 +362,20 @@ class TestConvenienceFunctions:
     def test_create_notification_worker(self):
         """测试创建 Worker 便捷函数"""
         notification_service = Mock()
-        record_crud = Mock()
 
         worker = create_notification_worker(
-            notification_service=notification_service,
-            record_crud=record_crud
+            notification_service=notification_service
         )
 
         assert isinstance(worker, NotificationWorker)
         assert worker.notification_service == notification_service
-        assert worker.record_crud == record_crud
 
     def test_create_notification_worker_with_group_id(self):
         """测试创建 Worker 便捷函数（带 group_id）"""
         notification_service = Mock()
-        record_crud = Mock()
 
         worker = create_notification_worker(
             notification_service=notification_service,
-            record_crud=record_crud,
             group_id="custom_group"
         )
 
