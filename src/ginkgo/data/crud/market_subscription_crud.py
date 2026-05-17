@@ -9,7 +9,8 @@ from datetime import datetime
 from sqlalchemy import and_
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_market_subscription import MMarketSubscription, SubscriptionDataType
+from ginkgo.data.models import MMarketSubscription
+from ginkgo.enums import SubscriptionDataType
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG
 

@@ -4,7 +4,7 @@
 # Role: 验证结果 CRUD 操作
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_validation_result import MValidationResult
+from ginkgo.data.models import MValidationResult
 
 
 class ValidationResultCRUD(BaseCRUD):

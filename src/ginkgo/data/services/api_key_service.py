@@ -10,8 +10,9 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 
 from ginkgo.data.crud.api_key_crud import ApiKeyCRUD
-from ginkgo.data.models.model_api_key import MApiKey, PermissionType
-from ginkgo.data.models.model_live_account import ExchangeType, EnvironmentType
+from ginkgo.data.models import MApiKey
+from ginkgo.enums import PermissionType
+from ginkgo.enums import ExchangeType, EnvironmentType
 from ginkgo.libs import GLOG
 from ginkgo.data.services.encryption_service import get_encryption_service
 

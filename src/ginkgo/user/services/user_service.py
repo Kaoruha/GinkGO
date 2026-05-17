@@ -103,7 +103,7 @@ class UserService(BaseService):
 
             # Auto-create credential with password=username
             import bcrypt
-            from ginkgo.data.models.model_user_credential import MUserCredential
+            from ginkgo.data.models import MUserCredential
 
             password_hash = bcrypt.hashpw(name.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             credential = MUserCredential(

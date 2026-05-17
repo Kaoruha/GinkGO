@@ -647,7 +647,7 @@ class Order(TimeMixin, Base):
         Raises:
             TypeError: If model is not an MOrder instance
         """
-        from ginkgo.data.models.model_order import MOrder
+        from ginkgo.data.models import MOrder
 
         # Validate model type
         if not isinstance(model, MOrder):

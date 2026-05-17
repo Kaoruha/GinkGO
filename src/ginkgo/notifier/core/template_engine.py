@@ -17,7 +17,7 @@ from jinja2.exceptions import UndefinedError
 if TYPE_CHECKING:
     from ginkgo.data.crud.notification_template_crud import NotificationTemplateCRUD
 
-from ginkgo.data.models.model_notification_template import MNotificationTemplate
+from ginkgo.data.models import MNotificationTemplate
 from ginkgo.libs import GLOG
 
 

@@ -24,7 +24,7 @@ except ImportError:
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
-from ginkgo.data.models.model_live_account import ExchangeType, EnvironmentType
+from ginkgo.enums import ExchangeType, EnvironmentType
 from ginkgo.libs import GLOG, GCONF
 from ginkgo.data.services.encryption_service import get_encryption_service
 from ginkgo.data.containers import container

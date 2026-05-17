@@ -887,7 +887,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
         for p_dict in state.get("positions", []):
             # 利用 MPosition 的 update 方法，再通过 Position.from_model 转换
-            from ginkgo.data.models.model_position import MPosition
+            from ginkgo.data.models import MPosition
             m_pos = MPosition()
             m_pos.update(
                 p_dict["portfolio_id"],

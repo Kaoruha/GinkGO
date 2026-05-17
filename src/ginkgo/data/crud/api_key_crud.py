@@ -6,8 +6,9 @@
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 
-from ginkgo.data.models.model_api_key import MApiKey, PermissionType
-from ginkgo.data.models.model_live_account import MLiveAccount
+from ginkgo.data.models import MApiKey
+from ginkgo.enums import PermissionType
+from ginkgo.data.models import MLiveAccount
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.libs import GLOG
 from ginkgo.data.services.encryption_service import get_encryption_service

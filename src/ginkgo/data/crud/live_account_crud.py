@@ -9,7 +9,8 @@ from datetime import datetime
 from sqlalchemy import and_, or_, update
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_live_account import MLiveAccount, ExchangeType, EnvironmentType, AccountStatusType
+from ginkgo.data.models import MLiveAccount
+from ginkgo.enums import ExchangeType, EnvironmentType, AccountStatusType
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
@@ -358,7 +359,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
 
         # 检查是否有Portfolio绑定
         if cascade:
-            from ginkgo.data.models.model_portfolio import MPortfolio
+            from ginkgo.data.models import MPortfolio
             # TODO: 检查是否有Portfolio使用此账号
             # 如果有，需要先解绑或提示用户
             pass

@@ -242,4 +242,5 @@ graphify-out/
 # claude-flow / ruv-swarm local state
 .claude-flow/
 .swarm/
+.mcp.json
 ruvector.db

@@ -135,7 +135,7 @@ class Tick(Base):
         Returns:
             MTick: Database model instance
         """
-        from ginkgo.data.models.model_tick import MTick
+        from ginkgo.data.models import MTick
 
         model = MTick()
         model.update(
@@ -162,7 +162,7 @@ class Tick(Base):
         Raises:
             TypeError: If model is not an MTick instance
         """
-        from ginkgo.data.models.model_tick import MTick
+        from ginkgo.data.models import MTick
         from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
 
         # Validate model type

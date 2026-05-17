@@ -3,7 +3,7 @@
 # Role: 部署记录CRUD操作
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_deployment import MDeployment
+from ginkgo.data.models import MDeployment
 
 
 class DeploymentCRUD(BaseCRUD):

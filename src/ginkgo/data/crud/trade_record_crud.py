@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, desc
 
-from ginkgo.data.models.model_trade_record import MTradeRecord
+from ginkgo.data.models import MTradeRecord
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.libs import GLOG
 

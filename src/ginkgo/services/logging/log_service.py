@@ -8,7 +8,7 @@ from sqlalchemy import and_, or_, select, func, text
 from sqlalchemy.orm import Session
 
 from ginkgo.data.drivers import get_db_connection
-from ginkgo.data.models.model_logs import MBacktestLog, MComponentLog, MPerformanceLog
+from ginkgo.data.models import MBacktestLog, MComponentLog, MPerformanceLog
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs import GLOG, time_logger, cache_with_expiration
 from ginkgo.enums import LEVEL_TYPES

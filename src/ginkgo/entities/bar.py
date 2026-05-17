@@ -258,7 +258,7 @@ class Bar(Base):
         Returns:
             MBar: Database model instance
         """
-        from ginkgo.data.models.model_bar import MBar
+        from ginkgo.data.models import MBar
 
         model = MBar()
         model.update(
@@ -288,7 +288,7 @@ class Bar(Base):
         Raises:
             TypeError: If model is not an MBar instance
         """
-        from ginkgo.data.models.model_bar import MBar
+        from ginkgo.data.models import MBar
         from ginkgo.enums import FREQUENCY_TYPES
 
         # Validate model type

@@ -14,7 +14,7 @@ from typing import List, Optional
 from sqlalchemy import and_, or_
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
+from ginkgo.data.models import MNotificationRecipient
 from ginkgo.libs import GLOG
 from ginkgo.enums import RECIPIENT_TYPES
 

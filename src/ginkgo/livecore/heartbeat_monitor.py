@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 
 from ginkgo.libs import GLOG
 from ginkgo.data.containers import container
-from ginkgo.data.models.model_broker_instance import MBrokerInstance, BrokerStateType
+from ginkgo.data.models import MBrokerInstance
+from ginkgo.enums import BrokerStateType
 
 
 class HeartbeatMonitor:

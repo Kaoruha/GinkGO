@@ -6,7 +6,8 @@ from typing import Optional, List
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.enums import PORTFOLIO_MODE_TYPES, FILE_TYPES
-from ginkgo.data.models.model_deployment import MDeployment, DEPLOYMENT_STATUS
+from ginkgo.data.models import MDeployment
+from ginkgo.enums import DEPLOYMENT_STATUS
 
 
 class DeploymentService(BaseService):
@@ -272,7 +273,7 @@ class DeploymentService(BaseService):
 
     def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
         """原始值复制参数，不经过 json 序列化/反序列化"""
-        from ginkgo.data.models.model_param import MParam
+        from ginkgo.data.models import MParam
 
         source_params = self._param_crud.find_by_mapping_id(old_mapping_id)
         for p in source_params:

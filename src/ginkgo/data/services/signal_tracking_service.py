@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
-from ginkgo.data.models.model_signal_tracker import MSignalTracker
+from ginkgo.data.models import MSignalTracker
 from ginkgo.entities import Signal
 from ginkgo.enums import EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import GLOG, retry, to_decimal, datetime_normalize
@@ -63,7 +63,7 @@ class SignalTrackingService(BaseService):
             signal_business_time = signal.business_timestamp or signal.timestamp
 
             # Create MSignalTracker object directly
-            from ginkgo.data.models.model_signal_tracker import MSignalTracker
+            from ginkgo.data.models import MSignalTracker
 
             tracker = MSignalTracker(
                 signal_id=signal.uuid,
