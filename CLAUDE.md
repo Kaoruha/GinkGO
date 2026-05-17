@@ -346,6 +346,15 @@ delete_bars_filtered(code="000001.SZ", start="20230101", end="20231231")
 - 序号从 001 开始，全局递增
 - **创建分支前必须先查询远端最大序号**：`git branch -r | grep -oP '\d+(?=-)' | sort -n | tail -1`，取 `max(本地最大, 远端最大) + 1`
 
+### Issue 处理流程
+1. **Pick Issue** — 读取 issue 内容，理解问题
+2. **验证问题是否存在** — 用代码/测试确认可复现，展示给用户确认。不存在则评论 issue 并停止
+3. **创建本地分支与 Worktree** — 验证通过后，按命名规范创建分支和 worktree
+4. **设计方案** — 与用户讨论后再实现
+5. **TDD 实现** — 调用 `/tdd` 红绿循环
+6. **提交推送** — git push
+7. **创建 PR**
+
 ### 测试目录规范
 - 所有测试统一放在项目根目录 `tests/` 下，禁止在模块内创建 `tests/` 子目录
 - 子目录划分：`tests/unit/`、`tests/integration/`、`tests/e2e/`、`tests/api/`、`tests/performance/`
