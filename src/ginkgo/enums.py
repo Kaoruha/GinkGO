@@ -1,6 +1,6 @@
 # Upstream: 全项目所有模块(策略/风控/数据/引擎等依赖这些枚举值)
 # Downstream: Python标准库Enum/IntEnum (基类提供枚举转换validate_input/from_int/to_int方法)
-# Role: 枚举类型定义中心统一管理27个核心枚举类EnumBase提供转换方法
+# Role: 枚举类型定义中心，统一管理核心枚举类，EnumBase提供转换方法
 
 
 
