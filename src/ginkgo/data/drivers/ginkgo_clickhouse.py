@@ -14,6 +14,9 @@ from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.libs.utils.health_check import check_clickhouse_ready
 from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 
+# 确保所有 ORM 模型在 mapper 配置前加载（#3880）
+import ginkgo.data.models  # noqa: F401
+
 
 class GinkgoClickhouse(DatabaseDriverBase):
     """ClickHouse数据库驱动 - 继承DatabaseDriverBase"""

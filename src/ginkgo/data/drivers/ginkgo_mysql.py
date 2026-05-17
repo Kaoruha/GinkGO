@@ -15,6 +15,11 @@ from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.libs.utils.health_check import check_mysql_ready
 from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 
+# 确保所有 ORM 模型在 mapper 配置前加载（#3880）
+# SQLAlchemy 的 relationship() 使用字符串引用，mapper 配置时需要目标类已在 registry 中。
+# 此 import 触发 models/__init__.py 的 eager import，保证所有模型就绪。
+import ginkgo.data.models  # noqa: F401
+
 
 class GinkgoMysql(DatabaseDriverBase):
     """MySQL数据库驱动 - 继承DatabaseDriverBase"""
