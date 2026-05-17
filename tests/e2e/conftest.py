@@ -7,7 +7,15 @@ E2E 测试 Pytest 配置
 import pytest
 import os
 from pathlib import Path
-from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+
+try:
+    from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+except ImportError:
+    raise pytest.skip(
+        "未安装 playwright，跳过 E2E/Web 测试。\n"
+        "安装方式: uv add playwright && playwright install chromium",
+        allow_module_level=True,
+    )
 
 from .config import config
 

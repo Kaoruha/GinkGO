@@ -138,6 +138,10 @@ optimization = [
     "optuna>=3.3.0",
     "deap>=1.4.0",
 ]
+# E2E 测试依赖（浏览器自动化，非库必需）
+e2e = [
+    "playwright>=1.40.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/Kaoruha/GinkGO"
@@ -199,7 +203,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 minversion = "7.0"
-pythonpath = [".", "src"]
+pythonpath = [".", "src", "api"]
 
 # 运行配置
 addopts = [
