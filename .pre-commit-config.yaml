@@ -1,0 +1,17 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-PyYAML, types-requests, types-redis, types-pytz]
+        args: [--ignore-missing-imports, --no-strict-optional]
+        pass_filenames: false
