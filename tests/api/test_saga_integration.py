@@ -7,11 +7,11 @@ Saga 事务管理器集成测试
 import sys
 from pathlib import Path
 
-# 添加项目路径
-current_dir = Path(__file__).parent
-project_root = current_dir.parent
-sys.path.insert(0, str(current_dir))  # 添加 apiserver 目录
-sys.path.insert(0, str(project_root / "src"))  # 添加 ginkgo 源码目录
+# 添加 ginkgo 源码目录
+src_dir = Path(__file__).parent.parent.parent / "src"
+src_str = str(src_dir)
+if src_str not in sys.path:
+    sys.path.insert(0, src_str)
 
 
 def test_saga_step_creation():

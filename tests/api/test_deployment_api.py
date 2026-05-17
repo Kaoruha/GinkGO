@@ -1,11 +1,5 @@
 import pytest
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-# Add api directory to path for imports
-api_path = Path(__file__).parent.parent.parent / "api"
-sys.path.insert(0, str(api_path))
 
 
 def test_update_saga_rejects_frozen_portfolio():
