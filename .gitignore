@@ -238,3 +238,8 @@ web-ui/dist/
 
 # graphify knowledge graph output
 graphify-out/
+
+# claude-flow / ruv-swarm local state
+.claude-flow/
+.swarm/
+ruvector.db
