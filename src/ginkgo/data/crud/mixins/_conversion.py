@@ -13,7 +13,6 @@ class _Conversion:
 
     依赖 CoreCRUD.__init__ 设置的实例属性：
     - self.model_class
-    - self._is_clickhouse
     """
 
     def _validate_item_enum_fields(self, item: Any) -> Any:

@@ -174,6 +174,15 @@ class _CoreCRUD(Generic[T], ABC):
     - _Streaming: 流式查询和监控
 
     公开 API 是 BaseCRUD，子类继承 BaseCRUD 即可。
+
+    Validation Architecture:
+    - create() → _validate_before_database() → validate_data_by_config(_get_field_config())
+    - Subclasses define validation rules by overriding _get_field_config()
+    - All validation is configuration-driven and executed automatically
+
+    Subclass Requirements:
+    - Must override _model_class with the appropriate Model class
+    - Must implement _get_field_config() for validation
     """
 
     # 抽象属性：子类必须重写

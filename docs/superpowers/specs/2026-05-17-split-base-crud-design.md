@@ -18,20 +18,20 @@ Mixin 平铺 + 向后兼容。BaseCRUD 作为组合入口，子类零改动。
 
 ```
 data/crud/
-  base_crud.py                    # CoreCRUD + CRUDResult + BaseCRUD 组合入口 ~500 行
+  base_crud.py                    # _CoreCRUD + CRUDResult + BaseCRUD 组合入口 ~500 行
   mixins/
-    __init__.py                   # 导出所有 Mixin
-    conversion_mixin.py           # 类型/枚举转换 ~400 行
-    validation_mixin.py           # 验证 + ClickHouse 特殊处理 ~200 行
-    streaming_mixin.py            # 流式查询/checkpoint/监控 ~900 行
+    __init__.py                   # 导出所有内部类
+    _conversion.py                # 类型/枚举转换 ~400 行
+    _validation.py                # 验证 + ClickHouse 特殊处理 ~200 行
+    _streaming.py                 # 流式查询/checkpoint/监控 ~900 行
 ```
 
-### CoreCRUD（base_crud.py 内部）
+### _CoreCRUD（base_crud.py 内部）
 
 保留在 `base_crud.py` 的内容：
 
 - `CRUDResult` 类（165 行，和 CRUD 操作紧密关联）
-- `CoreCRUD` 类：
+- `_CoreCRUD` 类：
   - `__init__`, `__init_subclass__` — 初始化和子类注册
   - `_get_connection`, `get_session` — 连接管理
   - 公开模板方法：`add`, `add_batch`, `create`, `find`, `remove`, `modify`, `replace`, `count`, `exists`, `soft_remove`
@@ -39,7 +39,7 @@ data/crud/
   - `_parse_filters` — 过滤器构建（和 `_do_find` 紧密耦合）
 - `BaseCRUD` 组合入口类
 
-### ConversionMixin（mixins/conversion_mixin.py）
+### _Conversion（mixins/_conversion.py）
 
 - `_create_from_params`
 - `_convert_input_batch`, `_convert_input_item`
@@ -49,7 +49,7 @@ data/crud/
 - `_process_dataframe_output`
 - `_convert_to_business_objects`, `_convert_models_to_business_objects`, `_convert_models_to_dataframe`
 
-### ValidationMixin（mixins/validation_mixin.py）
+### _Validation（mixins/_validation.py）
 
 - `CLICKHOUSE_STRING_FIELDS` 类属性
 - `_validate_before_database`
@@ -57,7 +57,7 @@ data/crud/
 - `_get_mysql_required_config`, `_get_clickhouse_required_config`
 - `_clean_clickhouse_strings`
 
-### StreamingMixin（mixins/streaming_mixin.py）
+### _Streaming（mixins/_streaming.py）
 
 - `_initialize_streaming`, `_get_streaming_engine`, `_build_streaming_query`
 - `stream_find`, `stream_find_with_progress`, `stream_find_resumable`
@@ -77,29 +77,29 @@ data/crud/
 ### 组合方式
 
 ```python
-class BaseCRUD(CoreCRUD, ConversionMixin, ValidationMixin, StreamingMixin, Generic[T], ABC):
-    """CRUD 基类，通过 Mixin 组合所有能力。子类继承此类即可获得全部功能。"""
+class BaseCRUD(_CoreCRUD, _Conversion, _Validation, _Streaming, Generic[T], ABC):
+    """CRUD 基类，通过文件拆分组合所有能力。子类继承此类即可获得全部功能。"""
     pass
 ```
 
-MRO: `BaseCRUD → CoreCRUD → ConversionMixin → ValidationMixin → StreamingMixin → Generic → ABC`
+MRO: `BaseCRUD → _CoreCRUD → _Conversion → _Validation → _Streaming → Generic → ABC`
 
-各 Mixin 方法名不冲突，MRO 安全。
+各部分方法名不冲突，MRO 安全。
 
-### Mixin 间依赖
+### 各部分间依赖
 
-- `ConversionMixin` — 无外部依赖，纯类型转换
-- `ValidationMixin` — 无外部依赖，纯验证逻辑
-- `StreamingMixin` — 调用 `self.find()`, `self.count()`（CoreCRUD 方法），通过 Mixin 组合自动获得
-- `CoreCRUD` — 调用 `self._convert_input_item()`（ConversionMixin）、`self._validate_before_database()`（ValidationMixin），通过 Mixin 组合自动获得
+- `_Conversion` — 依赖 `self.model_class`（_CoreCRUD.__init__ 设置）
+- `_Validation` — 依赖 `self._is_clickhouse`（_CoreCRUD.__init__ 设置）
+- `_Streaming` — 调用 `self.find()`, `self.count()`（_CoreCRUD 方法），通过组合自动获得；依赖 `self._is_clickhouse`
+- `_CoreCRUD` — 调用 `self._convert_input_item()`（_Conversion）、`self._validate_before_database()`（_Validation），通过组合自动获得
 
 ### 向后兼容保证
 
 - 38 个子类（如 `BarCRUD(BaseCRUD[MBar])`）**零改动**
 - `__init__.py` 的懒加载注册表**零改动**
 - 公开 API（所有方法签名）**零改动**
-- `@restrict_crud_access` 装饰器保留在 `CoreCRUD` 上
-- `ModelCRUDMapping` 注册保留在 `CoreCRUD.__init_subclass__` 中
+- `@restrict_crud_access` 装饰器保留在 `_CoreCRUD` 上
+- `ModelCRUDMapping` 注册保留在 `_CoreCRUD.__init_subclass__` 中
 
 ### 测试策略
 
@@ -111,10 +111,10 @@ MRO: `BaseCRUD → CoreCRUD → ConversionMixin → ValidationMixin → Streamin
 ### 实施步骤
 
 1. 创建 `mixins/` 目录和 `__init__.py`
-2. 提取 `ConversionMixin` — 从 base_crud.py 剪切相关方法到 `conversion_mixin.py`
-3. 提取 `ValidationMixin` — 同上
-4. 提取 `StreamingMixin` — 同上
-5. 重构 `base_crud.py` — 保留 CoreCRUD + CRUDResult + BaseCRUD 组合入口
+2. 提取 `_Conversion` — 从 base_crud.py 剪切相关方法到 `_conversion.py`
+3. 提取 `_Validation` — 同上
+4. 提取 `_Streaming` — 同上
+5. 重构 `base_crud.py` — 保留 _CoreCRUD + CRUDResult + BaseCRUD 组合入口
 6. 运行测试验证
 7. 更新 `__init__.py` 如有需要
 8. 提交并关联 #3833
