@@ -1,0 +1,58 @@
+{
+  "agents": {
+    "architect-reviewer": {
+      "agentId": "architect-reviewer",
+      "agentType": "reviewer",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-05-17T12:27:05.080Z",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "code-quality-analyzer": {
+      "agentId": "code-quality-analyzer",
+      "agentType": "analyst",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-05-17T12:27:06.968Z",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "test-coverage-analyst": {
+      "agentId": "test-coverage-analyst",
+      "agentType": "tester",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-05-17T12:27:08.642Z",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "agent-1779021376090-irskz9": {
+      "agentId": "agent-1779021376090-irskz9",
+      "agentType": "researcher",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "instructions": "Search GitHub for quantitative trading strategies. Look for repos with algorithmic trading strategies, technical indicators, factor models. For each strategy found, document: 1) Strategy name, 2) Algorithm description, 3) Source repo URL. Use WebFetch to access repos. Report findings back to the orchestrator."
+      },
+      "createdAt": "2026-05-17T12:36:16.102Z",
+      "domain": "quant-research",
+      "model": "haiku",
+      "modelRoutedBy": "router"
+    }
+  },
+  "version": "3.0.0"
+}

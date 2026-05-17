@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ruflo": {
+      "type": "stdio",
+      "command": "ruflo",
+      "args": [
+        "mcp",
+        "start"
+      ],
+      "env": {}
+    }
+  }
+}
