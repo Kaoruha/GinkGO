@@ -16,8 +16,8 @@ from datetime import datetime
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud import NotificationRecipientCRUD, UserContactCRUD, UserGroupMappingCRUD
-from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
-from ginkgo.data.models.model_user_contact import MUserContact
+from ginkgo.data.models import MNotificationRecipient
+from ginkgo.data.models import MUserContact
 from ginkgo.enums import RECIPIENT_TYPES, CONTACT_TYPES, SOURCE_TYPES
 
 

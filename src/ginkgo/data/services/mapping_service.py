@@ -22,10 +22,10 @@ Mapping Service - 统一管理所有映射关系
 from typing import List, Dict, Any, Optional
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.models.model_engine_portfolio_mapping import MEnginePortfolioMapping
-from ginkgo.data.models.model_portfolio_file_mapping import MPortfolioFileMapping
-from ginkgo.data.models.model_engine_handler_mapping import MEngineHandlerMapping
-from ginkgo.data.models.model_param import MParam
+from ginkgo.data.models import MEnginePortfolioMapping
+from ginkgo.data.models import MPortfolioFileMapping
+from ginkgo.data.models import MEngineHandlerMapping
+from ginkgo.data.models import MParam
 from ginkgo.enums import FILE_TYPES
 
 

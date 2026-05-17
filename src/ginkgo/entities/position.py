@@ -869,7 +869,7 @@ class Position(TimeMixin, Base):
         """
         import json
         import datetime
-        from ginkgo.data.models.model_position import MPosition
+        from ginkgo.data.models import MPosition
 
         # Validate model type
         if not isinstance(model, MPosition):

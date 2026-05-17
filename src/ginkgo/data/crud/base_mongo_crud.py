@@ -9,7 +9,7 @@ import pandas as pd
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
-from ginkgo.data.models.model_mongobase import MMongoBase
+from ginkgo.data.models import MMongoBase
 from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
 from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping

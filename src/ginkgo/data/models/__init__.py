@@ -53,6 +53,9 @@ from ginkgo.data.models.model_notification_record import MNotificationRecord
 from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
 from ginkgo.data.models.model_logs import MBacktestLog, MComponentLog, MPerformanceLog
 from ginkgo.data.models.model_validation_result import MValidationResult
+from ginkgo.data.models.model_api_key import MApiKey
+from ginkgo.data.models.model_market_subscription import MMarketSubscription
+from ginkgo.data.models.model_signal_tracker import MSignalTracker
 
 __all__ = [
     "MAdjustfactor",
@@ -101,4 +104,7 @@ __all__ = [
     "MComponentLog",
     "MPerformanceLog",
     "MValidationResult",
+    "MApiKey",
+    "MMarketSubscription",
+    "MSignalTracker",
 ]

@@ -102,7 +102,7 @@ BATCH_SIZE = 500
 def _get_category_models():
     global _CATEGORY_MODEL
     if not _CATEGORY_MODEL:
-        from ginkgo.data.models.model_logs import (
+        from ginkgo.data.models import (
             MBacktestLog, MComponentLog, MPerformanceLog,
         )
         _CATEGORY_MODEL = {

@@ -11,23 +11,7 @@ from sqlalchemy import String, DateTime, Boolean, Text, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-
-
-class PermissionType(str):
-    """权限类型枚举"""
-    READ = "read"       # 查询权限
-    TRADE = "trade"     # 交易权限
-    ADMIN = "admin"     # 管理权限
-
-    @classmethod
-    def validate(cls, value: str) -> bool:
-        """验证权限类型是否有效"""
-        return value in [cls.READ, cls.TRADE, cls.ADMIN]
-
-    @classmethod
-    def all_permissions(cls) -> list:
-        """获取所有权限类型"""
-        return [cls.READ, cls.TRADE, cls.ADMIN]
+from ginkgo.enums import PermissionType  # noqa: F401 — re-export (#3880)
 
 
 class Base(DeclarativeBase):

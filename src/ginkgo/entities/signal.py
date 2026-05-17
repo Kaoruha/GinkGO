@@ -409,7 +409,7 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
         Raises:
             TypeError: If model is not an MSignal instance
         """
-        from ginkgo.data.models.model_signal import MSignal
+        from ginkgo.data.models import MSignal
 
         # Validate model type
         if not isinstance(model, MSignal):

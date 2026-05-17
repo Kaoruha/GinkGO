@@ -11,32 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.mysql import TINYINT
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-
-
-class SubscriptionDataType(str):
-    """订阅数据类型枚举"""
-    TICKER = "ticker"
-    CANDLESTICKS = "candlesticks"
-    TRADES = "trades"
-    ORDERBOOK = "orderbook"
-
-    @classmethod
-    def from_str(cls, value: str) -> str:
-        """从字符串转换为枚举值"""
-        value = value.lower()
-        if value in [cls.TICKER, cls.CANDLESTICKS, cls.TRADES, cls.ORDERBOOK]:
-            return value
-        raise ValueError(f"Unknown data type: {value}")
-
-    @classmethod
-    def validate(cls, value: str) -> bool:
-        """验证数据类型是否有效"""
-        return value in [cls.TICKER, cls.CANDLESTICKS, cls.TRADES, cls.ORDERBOOK]
-
-    @classmethod
-    def all_types(cls) -> list[str]:
-        """返回所有数据类型"""
-        return [cls.TICKER, cls.CANDLESTICKS, cls.TRADES, cls.ORDERBOOK]
+from ginkgo.enums import SubscriptionDataType  # noqa: F401 — re-export (#3880)
 
 
 class MMarketSubscription(MMysqlBase):

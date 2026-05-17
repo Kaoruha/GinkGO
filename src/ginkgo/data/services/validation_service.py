@@ -265,7 +265,8 @@ class ValidationService(BaseService):
                      config: dict, result_data: dict, score: float = None) -> str:
         """持久化验证结果，返回记录 uuid"""
         import json
-        from ginkgo.data.models.model_validation_result import MValidationResult, VALIDATION_STATUS
+        from ginkgo.data.models import MValidationResult
+        from ginkgo.enums import VALIDATION_STATUS
 
         record = MValidationResult(
             task_id=task_id,

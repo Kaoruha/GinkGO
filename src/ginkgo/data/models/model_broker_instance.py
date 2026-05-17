@@ -9,72 +9,7 @@ from sqlalchemy import String, DateTime, Boolean, Text, Integer, Float as SQLFlo
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-
-
-class BrokerStateType(str):
-    """Broker状态机枚举"""
-    UNINITIALIZED = "uninitialized"
-    INITIALIZING = "initializing"
-    RUNNING = "running"
-    PAUSED = "paused"
-    STOPPED = "stopped"
-    ERROR = "error"
-    RECOVERING = "recovering"
-
-    @classmethod
-    def from_str(cls, value: str) -> str:
-        """从字符串转换为枚举值"""
-        value = value.lower()
-        valid_states = {
-            "uninitialized": cls.UNINITIALIZED,
-            "initializing": cls.INITIALIZING,
-            "running": cls.RUNNING,
-            "paused": cls.PAUSED,
-            "stopped": cls.STOPPED,
-            "error": cls.ERROR,
-            "recovering": cls.RECOVERING,
-        }
-        if value in valid_states:
-            return valid_states[value]
-        else:
-            raise ValueError(f"Unknown broker state: {value}")
-
-    @classmethod
-    def validate(cls, value: str) -> bool:
-        """验证Broker状态是否有效"""
-        return value in [
-            cls.UNINITIALIZED,
-            cls.INITIALIZING,
-            cls.RUNNING,
-            cls.PAUSED,
-            cls.STOPPED,
-            cls.ERROR,
-            cls.RECOVERING,
-        ]
-
-    @classmethod
-    def is_terminal(cls, state: str) -> bool:
-        """检查状态是否为终止状态"""
-        return state in [cls.STOPPED, cls.ERROR]
-
-    @classmethod
-    def is_active(cls, state: str) -> bool:
-        """检查状态是否为活跃状态（可接收订单）"""
-        return state in [cls.RUNNING]
-
-    @classmethod
-    def can_transition(cls, from_state: str, to_state: str) -> bool:
-        """检查状态转换是否合法"""
-        valid_transitions = {
-            cls.UNINITIALIZED: [cls.INITIALIZING, cls.STOPPED],
-            cls.INITIALIZING: [cls.RUNNING, cls.ERROR, cls.STOPPED],
-            cls.RUNNING: [cls.PAUSED, cls.STOPPED, cls.ERROR, cls.RECOVERING],
-            cls.PAUSED: [cls.RUNNING, cls.STOPPED, cls.ERROR],
-            cls.STOPPED: [cls.INITIALIZING, cls.RECOVERING],
-            cls.ERROR: [cls.RECOVERING, cls.STOPPED],
-            cls.RECOVERING: [cls.RUNNING, cls.ERROR, cls.STOPPED],
-        }
-        return to_state in valid_transitions.get(from_state, [])
+from ginkgo.enums import BrokerStateType  # noqa: F401 — re-export (#3880)
 
 
 class Base(DeclarativeBase):

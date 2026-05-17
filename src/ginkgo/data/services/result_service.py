@@ -18,7 +18,7 @@ from datetime import datetime
 import pandas as pd
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
-from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
+from ginkgo.data.models import MAnalyzerRecord
 from ginkgo.libs import GLOG, retry, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 

@@ -17,7 +17,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
-from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
+from ginkgo.data.models import MAnalyzerRecord
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 

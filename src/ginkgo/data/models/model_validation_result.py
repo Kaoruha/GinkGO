@@ -11,12 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.libs.utils.display import base_repr
-
-
-class VALIDATION_STATUS:
-    RUNNING = 0
-    COMPLETED = 1
-    FAILED = 2
+from ginkgo.enums import VALIDATION_STATUS  # noqa: F401 — re-export (#3880)
 
 
 class MValidationResult(MMysqlBase):

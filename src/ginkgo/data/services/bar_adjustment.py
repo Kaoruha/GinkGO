@@ -71,7 +71,7 @@ def convert_dataframe_to_modellist(df: pd.DataFrame, crud_repo) -> 'ModelList':
         return ModelList([], crud_repo)
 
     try:
-        from ginkgo.data.models.model_bar import MBar
+        from ginkgo.data.models import MBar
         from ginkgo.libs.data.number import to_decimal
         from ginkgo.data.crud.model_conversion import ModelList
 
@@ -368,7 +368,7 @@ def apply_price_adjustment(
             return adjusted_df
         else:
             # 转换回模型列表
-            from ginkgo.data.models.model_bar import MBar
+            from ginkgo.data.models import MBar
 
             adjusted_bars = []
             for _, row in adjusted_df.iterrows():

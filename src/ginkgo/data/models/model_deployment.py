@@ -10,14 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.libs.utils.display import base_repr
-
-
-class DEPLOYMENT_STATUS:
-    """部署状态"""
-    PENDING = 0
-    DEPLOYED = 1
-    FAILED = 2
-    STOPPED = 3
+from ginkgo.enums import DEPLOYMENT_STATUS  # noqa: F401 — re-export (#3880)
 
 
 class MDeployment(MMysqlBase):

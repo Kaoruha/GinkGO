@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
 from ginkgo.data.crud.base_mongo_crud import BaseMongoCRUD
-from ginkgo.data.models.model_notification_record import MNotificationRecord
+from ginkgo.data.models import MNotificationRecord
 from ginkgo.libs import GLOG
 
 

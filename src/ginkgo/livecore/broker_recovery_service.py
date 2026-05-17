@@ -9,7 +9,7 @@ from datetime import datetime
 
 from ginkgo.libs import GLOG
 from ginkgo.data.containers import container
-from ginkgo.data.models.model_broker_instance import BrokerStateType
+from ginkgo.enums import BrokerStateType
 
 
 class BrokerRecoveryService:

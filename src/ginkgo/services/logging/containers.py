@@ -15,7 +15,7 @@ from ginkgo.services.logging.log_service import LogService
 from ginkgo.services.logging.level_service import LevelService
 from ginkgo.services.logging.alert_service import AlertService
 from ginkgo.data.drivers import get_db_connection
-from ginkgo.data.models.model_logs import MBacktestLog
+from ginkgo.data.models import MBacktestLog
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.libs import GLOG
 

@@ -9,7 +9,8 @@ from datetime import datetime
 from ginkgo.data.services.base_service import BaseService
 from ginkgo.data.services.encryption_service import get_encryption_service
 from ginkgo.data.crud.live_account_crud import LiveAccountCRUD
-from ginkgo.data.models.model_live_account import MLiveAccount, AccountStatusType, ExchangeType
+from ginkgo.data.models import MLiveAccount
+from ginkgo.enums import AccountStatusType, ExchangeType
 from ginkgo.libs import GLOG, retry, GCONF
 
 

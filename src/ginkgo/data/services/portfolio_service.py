@@ -335,7 +335,7 @@ class PortfolioService(BaseService):
             ServiceResult
         """
         try:
-            from ginkgo.data.models.model_position import MPosition
+            from ginkgo.data.models import MPosition
             from decimal import Decimal
 
             # 1. 更新 portfolio 表的运行时字段

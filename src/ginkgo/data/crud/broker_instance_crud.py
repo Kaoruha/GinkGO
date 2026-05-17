@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.models.model_broker_instance import MBrokerInstance, BrokerStateType
+from ginkgo.data.models import MBrokerInstance
+from ginkgo.enums import BrokerStateType
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access

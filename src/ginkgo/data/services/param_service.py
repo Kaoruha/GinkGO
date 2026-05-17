@@ -6,7 +6,7 @@ import pandas as pd
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.param_crud import ParamCRUD
-from ginkgo.data.models.model_param import MParam
+from ginkgo.data.models import MParam
 from ginkgo.libs import GLOG, retry
 
 

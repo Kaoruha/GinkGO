@@ -626,6 +626,233 @@ class LOG_CATEGORY_TYPES(EnumBase):
     PERFORMANCE = 2  # 性能监控日志
 
 
+# ==================== 实盘交易枚举 (从模型文件迁移, #3880) ====================
+
+class ExchangeType(str):
+    """交易所类型枚举"""
+
+    OKX = "okx"
+    BINANCE = "binance"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "okx":
+            return cls.OKX
+        elif value == "binance":
+            return cls.BINANCE
+        else:
+            raise ValueError(f"Unknown exchange type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证交易所类型是否有效"""
+        return value in [cls.OKX, cls.BINANCE]
+
+
+class EnvironmentType(str):
+    """环境类型枚举"""
+
+    PRODUCTION = "production"
+    TESTNET = "testnet"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "production":
+            return cls.PRODUCTION
+        elif value == "testnet":
+            return cls.TESTNET
+        else:
+            raise ValueError(f"Unknown environment type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证环境类型是否有效"""
+        return value in [cls.PRODUCTION, cls.TESTNET]
+
+
+class AccountStatusType(str):
+    """账号状态类型枚举"""
+
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    CONNECTING = "connecting"
+    DISCONNECTED = "disconnected"
+    ERROR = "error"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "enabled":
+            return cls.ENABLED
+        elif value == "disabled":
+            return cls.DISABLED
+        elif value == "connecting":
+            return cls.CONNECTING
+        elif value == "disconnected":
+            return cls.DISCONNECTED
+        elif value == "error":
+            return cls.ERROR
+        else:
+            raise ValueError(f"Unknown account status type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证账号状态是否有效"""
+        return value in [cls.ENABLED, cls.DISABLED, cls.CONNECTING, cls.DISCONNECTED, cls.ERROR]
+
+
+class PermissionType(str):
+    """API Key 权限类型枚举"""
+
+    READ = "read"
+    TRADE = "trade"
+    ADMIN = "admin"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "read":
+            return cls.READ
+        elif value == "trade":
+            return cls.TRADE
+        elif value == "admin":
+            return cls.ADMIN
+        else:
+            raise ValueError(f"Unknown permission type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证权限类型是否有效"""
+        return value in [cls.READ, cls.TRADE, cls.ADMIN]
+
+    @classmethod
+    def all_permissions(cls) -> list:
+        """获取所有权限类型"""
+        return [cls.READ, cls.TRADE, cls.ADMIN]
+
+
+class SubscriptionDataType(str):
+    """市场订阅数据类型枚举"""
+
+    TICKER = "ticker"
+    CANDLESTICKS = "candlesticks"
+    TRADES = "trades"
+    ORDERBOOK = "orderbook"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "ticker":
+            return cls.TICKER
+        elif value == "candlesticks":
+            return cls.CANDLESTICKS
+        elif value == "trades":
+            return cls.TRADES
+        elif value == "orderbook":
+            return cls.ORDERBOOK
+        else:
+            raise ValueError(f"Unknown subscription data type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证订阅数据类型是否有效"""
+        return value in [cls.TICKER, cls.CANDLESTICKS, cls.TRADES, cls.ORDERBOOK]
+
+    @classmethod
+    def all_types(cls) -> list[str]:
+        """返回所有数据类型"""
+        return [cls.TICKER, cls.CANDLESTICKS, cls.TRADES, cls.ORDERBOOK]
+
+
+class BrokerStateType(str):
+    """Broker 状态类型枚举"""
+
+    UNINITIALIZED = "uninitialized"
+    INITIALIZING = "initializing"
+    RUNNING = "running"
+    PAUSED = "paused"
+    STOPPED = "stopped"
+    ERROR = "error"
+    RECOVERING = "recovering"
+
+    @classmethod
+    def from_str(cls, value: str) -> str:
+        """从字符串转换为枚举值"""
+        value = value.lower()
+        if value == "uninitialized":
+            return cls.UNINITIALIZED
+        elif value == "initializing":
+            return cls.INITIALIZING
+        elif value == "running":
+            return cls.RUNNING
+        elif value == "paused":
+            return cls.PAUSED
+        elif value == "stopped":
+            return cls.STOPPED
+        elif value == "error":
+            return cls.ERROR
+        elif value == "recovering":
+            return cls.RECOVERING
+        else:
+            raise ValueError(f"Unknown broker state type: {value}")
+
+    @classmethod
+    def validate(cls, value: str) -> bool:
+        """验证 Broker 状态是否有效"""
+        return value in [
+            cls.UNINITIALIZED, cls.INITIALIZING, cls.RUNNING,
+            cls.PAUSED, cls.STOPPED, cls.ERROR, cls.RECOVERING,
+        ]
+
+    @classmethod
+    def is_terminal(cls, state: str) -> bool:
+        """检查状态是否为终止状态"""
+        return state in [cls.STOPPED, cls.ERROR]
+
+    @classmethod
+    def is_active(cls, state: str) -> bool:
+        """检查状态是否为活跃状态（可接收订单）"""
+        return state in [cls.RUNNING]
+
+    @classmethod
+    def can_transition(cls, from_state: str, to_state: str) -> bool:
+        """检查状态转换是否合法"""
+        valid_transitions = {
+            cls.UNINITIALIZED: [cls.INITIALIZING, cls.STOPPED],
+            cls.INITIALIZING: [cls.RUNNING, cls.ERROR, cls.STOPPED],
+            cls.RUNNING: [cls.PAUSED, cls.STOPPED, cls.ERROR, cls.RECOVERING],
+            cls.PAUSED: [cls.RUNNING, cls.STOPPED, cls.ERROR],
+            cls.STOPPED: [cls.INITIALIZING, cls.RECOVERING],
+            cls.ERROR: [cls.RECOVERING, cls.STOPPED],
+            cls.RECOVERING: [cls.RUNNING, cls.ERROR, cls.STOPPED],
+        }
+        return to_state in valid_transitions.get(from_state, [])
+
+
+class DEPLOYMENT_STATUS:
+    """部署状态"""
+
+    PENDING = 0
+    DEPLOYED = 1
+    FAILED = 2
+    STOPPED = 3
+
+
+class VALIDATION_STATUS:
+    """验证状态"""
+
+    RUNNING = 0
+    COMPLETED = 1
+    FAILED = 2
+
+
 # ==================== 导出所有枚举 ====================
 
 __all__ = [
@@ -676,5 +903,14 @@ __all__ = [
     # 日志系统枚举 (011-distributed-logging)
     "LEVEL_TYPES",
     "LOG_CATEGORY_TYPES",
+    # 实盘交易枚举 (#3880)
+    "ExchangeType",
+    "EnvironmentType",
+    "AccountStatusType",
+    "PermissionType",
+    "SubscriptionDataType",
+    "BrokerStateType",
+    "DEPLOYMENT_STATUS",
+    "VALIDATION_STATUS",
 ]
 
