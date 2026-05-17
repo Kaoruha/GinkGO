@@ -1,13 +1,17 @@
-"""Type conversion and enum handling Mixin for CRUD operations."""
+"""BaseCRUD 内部实现：类型转换和枚举处理。
+
+此模块是 BaseCRUD 的文件拆分部分，不是独立的 Mixin。
+仅通过 BaseCRUD 使用，不对外导出。
+"""
 
 from typing import Any, Dict, List, Optional
 import pandas as pd
 
 
-class ConversionMixin:
-    """Mixin providing type conversion and enum handling for CRUD operations.
+class _Conversion:
+    """BaseCRUD 的类型转换和枚举处理实现。
 
-    Depends on instance attributes set by CoreCRUD.__init__:
+    依赖 CoreCRUD.__init__ 设置的实例属性：
     - self.model_class
     - self._is_clickhouse
     """

@@ -1,5 +1,6 @@
-from ginkgo.data.crud.mixins.conversion_mixin import ConversionMixin
-from ginkgo.data.crud.mixins.validation_mixin import ValidationMixin
-from ginkgo.data.crud.mixins.streaming_mixin import StreamingMixin
+# BaseCRUD 内部实现模块，不对外导出。
+# 这些类是 BaseCRUD 的文件拆分部分，不可独立使用。
 
-__all__ = ["ConversionMixin", "ValidationMixin", "StreamingMixin"]
+from ginkgo.data.crud.mixins._conversion import _Conversion
+from ginkgo.data.crud.mixins._validation import _Validation
+from ginkgo.data.crud.mixins._streaming import _Streaming

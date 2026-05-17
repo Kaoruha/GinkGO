@@ -1,4 +1,8 @@
-"""Streaming query, checkpoint, and monitoring Mixin for CRUD operations."""
+"""BaseCRUD 内部实现：流式查询、检查点和监控。
+
+此模块是 BaseCRUD 的文件拆分部分，不是独立的 Mixin。
+仅通过 BaseCRUD 使用，不对外导出。
+"""
 
 import time
 from typing import Any, Dict, Optional, List, Callable
@@ -6,10 +10,10 @@ from typing import Any, Dict, Optional, List, Callable
 from ginkgo.libs import GLOG, time_logger
 
 
-class StreamingMixin:
-    """Mixin providing streaming query capabilities for CRUD operations.
+class _Streaming:
+    """BaseCRUD 的流式查询能力实现。
 
-    Depends on instance attributes set by CoreCRUD.__init__:
+    依赖 CoreCRUD.__init__ 设置的实例属性：
     - self._streaming_enabled
     - self._streaming_engine
     - self._streaming_config

@@ -1,4 +1,8 @@
-"""Validation and ClickHouse-specific handling Mixin for CRUD operations."""
+"""BaseCRUD 内部实现：数据验证和 ClickHouse 特殊处理。
+
+此模块是 BaseCRUD 的文件拆分部分，不是独立的 Mixin。
+仅通过 BaseCRUD 使用，不对外导出。
+"""
 
 from typing import Any, Dict
 
@@ -7,10 +11,10 @@ import pandas as pd
 from ginkgo.libs import GLOG
 
 
-class ValidationMixin:
-    """Mixin providing validation and ClickHouse-specific handling for CRUD operations.
+class _Validation:
+    """BaseCRUD 的数据验证和 ClickHouse 字符串清理实现。
 
-    Depends on instance attributes set by CoreCRUD.__init__:
+    依赖 CoreCRUD.__init__ 设置的实例属性：
     - self._is_clickhouse
     - self._is_mysql
     - self._is_mongo

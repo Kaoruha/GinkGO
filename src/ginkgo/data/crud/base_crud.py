@@ -17,7 +17,7 @@ from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.data.crud.mixins import ConversionMixin, ValidationMixin, StreamingMixin
+from ginkgo.data.crud.mixins import _Conversion, _Validation, _Streaming
 
 T = TypeVar("T", bound=Union[MClickBase, MMysqlBase, MMongoBase])
 
@@ -163,22 +163,17 @@ class CRUDResult:
 
 
 @restrict_crud_access
-class CoreCRUD(Generic[T], ABC):
+class _CoreCRUD(Generic[T], ABC):
     """
-    Generic core CRUD class with template method pattern for unified decorator management.
+    BaseCRUD 的核心 CRUD 实现（内部类，不对外导出）。
 
-    Features:
-    - Template methods with unified decorators (@time_logger, @retry, @cache_with_expiration)
-    - Hook methods that subclasses can override without worrying about decorators
-    - Type-safe operations with TypeVar
-    - Automatic database detection (ClickHouse vs MySQL)
-    - Database-specific operation handling (ClickHouse limitations)
+    通过 Python 多重继承将实现分散到多个文件：
+    - _CoreCRUD: 核心 CRUD 操作（本文件）
+    - _Conversion: 类型转换和枚举处理
+    - _Validation: 数据验证和 ClickHouse 处理
+    - _Streaming: 流式查询和监控
 
-    Validation, conversion, and streaming capabilities are provided via Mixins.
-    Use BaseCRUD (which combines CoreCRUD + all Mixins) for full functionality.
-
-    Subclass Requirements:
-    - Must override _model_class with the appropriate Model class
+    公开 API 是 BaseCRUD，子类继承 BaseCRUD 即可。
     """
 
     # 抽象属性：子类必须重写
@@ -930,6 +925,12 @@ class CoreCRUD(Generic[T], ABC):
         return conditions
 
 
-class BaseCRUD(CoreCRUD, ConversionMixin, ValidationMixin, StreamingMixin, Generic[T], ABC):
-    """CRUD 基类，通过 Mixin 组合所有能力。子类继承此类即可获得全部功能。"""
+class BaseCRUD(_CoreCRUD, _Conversion, _Validation, _Streaming, Generic[T], ABC):
+    """CRUD 基类。
+
+    将 _CoreCRUD、_Conversion、_Validation、_Streaming 通过多重继承组合。
+    这是为了文件组织的拆分，不是 Mixin 模式——各部分不可独立使用。
+
+    子类继承此类即可获得全部功能，38 个现有子类零改动。
+    """
     pass
