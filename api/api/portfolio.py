@@ -60,26 +60,24 @@ def _map_mode(mode_value) -> str:
     return str(mode_value)
 
 
+def _get_backtest_task_service():
+    """获取BacktestTaskService实例"""
+    from ginkgo.data.containers import container
+    return container.backtest_task_service()
+
+
+def _get_deployment_service():
+    """获取DeploymentService实例"""
+    from ginkgo.trading.containers import trading_container
+    return trading_container.deployment_service()
+
+
 def _get_latest_backtest_metrics(portfolio_id: str) -> dict:
     """获取 portfolio 最新已完成回测的绩效指标"""
     try:
-        from ginkgo.data.containers import container
-        task_crud = container.cruds.backtest_task()
-        tasks = task_crud.find(
-            filters={"portfolio_id": portfolio_id, "status": "completed", "is_del": False},
-            order_by="create_at",
-            desc_order=True,
-            page_size=1,
-        )
-        if tasks and len(tasks) > 0:
-            t = tasks[0]
-            return {
-                "annual_return": float(getattr(t, "annual_return", 0) or 0),
-                "sharpe_ratio": float(getattr(t, "sharpe_ratio", 0) or 0),
-                "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
-                "win_rate": float(getattr(t, "win_rate", 0) or 0),
-                "last_backtest_date": t.create_at.isoformat() if hasattr(t, "create_at") and t.create_at else None,
-            }
+        result = _get_backtest_task_service().get_latest_completed(portfolio_id=portfolio_id)
+        if result.is_success():
+            return result.data
     except Exception:
         pass
     return {}
@@ -88,22 +86,23 @@ def _get_latest_backtest_metrics(portfolio_id: str) -> dict:
 def _count_backtests(portfolio_id: str) -> int:
     """统计 portfolio 的回测次数"""
     try:
-        from ginkgo.data.containers import container
-        task_crud = container.cruds.backtest_task()
-        return task_crud.count(filters={"portfolio_id": portfolio_id, "is_del": False}) or 0
+        result = _get_backtest_task_service().count_by_portfolio(portfolio_id=portfolio_id)
+        if result.is_success():
+            return result.data
     except Exception:
-        return 0
+        pass
+    return 0
 
 
 def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
     """获取关联组合摘要"""
     try:
-        from ginkgo.data.containers import container
-        deployment_crud = container.cruds.deployment()
+        deployment_svc = _get_deployment_service()
         related = []
 
         if mode_int == 0:  # BACKTEST: find deployed PAPER/LIVE
-            deployments = deployment_crud.find(filters={"source_portfolio_id": portfolio_id})
+            dep_result = deployment_svc.find_by_source_portfolio(source_portfolio_id=portfolio_id)
+            deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
                 portfolio_svc = get_portfolio_service()
                 for dep in deployments:
@@ -123,7 +122,8 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
                             **metrics,
                         })
         else:  # PAPER/LIVE: find source BACKTEST
-            deployments = deployment_crud.find(filters={"target_portfolio_id": portfolio_id})
+            dep_result = deployment_svc.find_by_target_portfolio(target_portfolio_id=portfolio_id)
+            deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
                 portfolio_svc = get_portfolio_service()
                 source_id = deployments[0].source_portfolio_id

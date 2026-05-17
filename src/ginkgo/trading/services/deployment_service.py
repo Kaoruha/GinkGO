@@ -270,6 +270,26 @@ class DeploymentService(BaseService):
         ]
         return result
 
+    # #3867: API 层不再直调 CRUD，通过 Service 封装
+
+    def find_by_source_portfolio(self, source_portfolio_id: str) -> ServiceResult:
+        """查找源组合的所有部署记录"""
+        try:
+            records = self._deployment_crud.get_by_source_portfolio(source_portfolio_id)
+            return ServiceResult.success(data=records or [])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to find deployments by source: {e}")
+            return ServiceResult.error(f"Failed to find deployments: {str(e)}")
+
+    def find_by_target_portfolio(self, target_portfolio_id: str) -> ServiceResult:
+        """查找目标组合的所有部署记录"""
+        try:
+            records = self._deployment_crud.get_by_target_portfolio(target_portfolio_id)
+            return ServiceResult.success(data=records or [])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to find deployments by target: {e}")
+            return ServiceResult.error(f"Failed to find deployments: {str(e)}")
+
     def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
         """原始值复制参数，不经过 json 序列化/反序列化"""
         from ginkgo.data.models.model_param import MParam

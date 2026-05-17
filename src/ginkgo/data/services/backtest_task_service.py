@@ -814,6 +814,40 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to cancel backtest task: {e}")
             return ServiceResult.error(f"Failed to cancel backtest task: {str(e)}")
 
+    # #3867: API 层不再直调 CRUD，通过 Service 封装
+
+    def get_latest_completed(self, portfolio_id: str) -> ServiceResult:
+        """获取 portfolio 最新已完成回测的绩效指标"""
+        try:
+            tasks = self._crud_repo.find(
+                filters={"portfolio_id": portfolio_id, "status": "completed", "is_del": False},
+                order_by="create_at",
+                desc_order=True,
+                page_size=1,
+            )
+            if not tasks:
+                return ServiceResult.success(data={})
+            t = tasks[0]
+            return ServiceResult.success(data={
+                "annual_return": float(getattr(t, "annual_return", 0) or 0),
+                "sharpe_ratio": float(getattr(t, "sharpe_ratio", 0) or 0),
+                "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
+                "win_rate": float(getattr(t, "win_rate", 0) or 0),
+                "last_backtest_date": t.create_at.isoformat() if hasattr(t, "create_at") and t.create_at else None,
+            })
+        except Exception as e:
+            return ServiceResult.error(f"Failed to get latest backtest metrics: {str(e)}")
+
+    def count_by_portfolio(self, portfolio_id: str) -> ServiceResult:
+        """统计 portfolio 的回测次数"""
+        try:
+            count = self._crud_repo.count(
+                filters={"portfolio_id": portfolio_id, "is_del": False}
+            )
+            return ServiceResult.success(data=count or 0)
+        except Exception as e:
+            return ServiceResult.error(f"Failed to count backtests: {str(e)}")
+
 
 # 向后兼容别名
 RunRecordService = BacktestTaskService
