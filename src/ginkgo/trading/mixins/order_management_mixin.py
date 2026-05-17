@@ -29,9 +29,9 @@ class OrderManagementMixin:
     不涉及任何数据库操作，纯内存操作以保证性能。
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """初始化订单管理数据结构"""
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
         # 待处理订单队列 - 按照FIFO顺序处理
         self._pending_orders: List[Order] = []

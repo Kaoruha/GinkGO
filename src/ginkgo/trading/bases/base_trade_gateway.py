@@ -18,10 +18,11 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
 from ginkgo.trading.mixins.order_management_mixin import OrderManagementMixin
 from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.entities.base import Base
 from ginkgo.libs import GLOG
 
 
-class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBindableMixin):
+class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBindableMixin, Base):
     """
     TradeGateway基础类
 
@@ -33,14 +34,14 @@ class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBind
     子类继承后只需要专注于具体的路由逻辑。
     """
 
-    def __init__(self, name: str = "BaseTradeGateway"):
+    def __init__(self, name: str = "BaseTradeGateway", *args, **kwargs):
         """
         初始化TradeGateway基础功能
 
         Args:
             name: TradeGateway名称
         """
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
         # 设置名称
         self._gateway_name = name
