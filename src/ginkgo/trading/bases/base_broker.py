@@ -19,12 +19,13 @@ from typing import Optional, Dict, Any
 
 from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities.base import Base
 from ginkgo.entities import Position
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
 
-class BaseBroker(TimeMixin, ContextMixin):
+class BaseBroker(TimeMixin, ContextMixin, Base):
     """
     Broker基础类
 
@@ -39,14 +40,14 @@ class BaseBroker(TimeMixin, ContextMixin):
     - LiveBroker: SDK管理订单状态，不需要本地队列
     """
 
-    def __init__(self, name: str = "BaseBroker"):
+    def __init__(self, name: str = "BaseBroker", *args, **kwargs):
         """
         初始化Broker基础功能
 
         Args:
             name: Broker名称
         """
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
         # 设置名称
         self._broker_name = name

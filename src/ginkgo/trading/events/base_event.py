@@ -22,9 +22,10 @@ from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
+from ginkgo.entities.base import Base
 
 
-class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
+class EventBase(TimeMixin, ContextMixin, Base, metaclass=ABCMeta):
     """
     事件基类
 
