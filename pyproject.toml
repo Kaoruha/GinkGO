@@ -308,10 +308,6 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
 ignore = ["E501"]
 fixable = ["ALL"]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
