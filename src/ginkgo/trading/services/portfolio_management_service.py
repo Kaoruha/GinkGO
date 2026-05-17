@@ -1,5 +1,5 @@
 # Upstream: API Server, CLI commands
-# Downstream: PortfolioT1Backtest, Position, ComponentFactoryService, container, FILE_TYPES, EventPositionUpdate
+# Downstream: PortfolioT1Backtest, Position, ComponentFactoryService, PositionService, PortfolioService, FILE_TYPES, EventPositionUpdate
 # Role: 投资组合管理服务，处理Portfolio生命周期、组件绑定和回测状态跟踪
 
 
@@ -30,32 +30,32 @@ from ginkgo.trading.events.execution_confirmation import (
     EventExecutionCanceled
 )
 from ginkgo.trading.events.position_update import EventPositionUpdate
-from ginkgo.data.containers import container
 
 
 class PortfolioManagementService:
     """
     Service for managing portfolio lifecycle and configuration.
-    
+
     This service handles:
     - Portfolio creation and configuration
     - Component binding to portfolios
     - Portfolio performance tracking
     - Portfolio state management during backtests
     """
-    
-    def __init__(self, component_factory=None):
+
+    def __init__(self, component_factory=None, position_service=None, portfolio_service=None):
         """
         Initialize the portfolio management service.
-        
+
         Args:
             component_factory: Factory service for creating components
+            position_service: PositionService instance for position persistence
+            portfolio_service: PortfolioService instance for portfolio data access
         """
         self._component_factory = component_factory
         self._logger = GLOG
-        
-        # Data service access through container
-        self._portfolio_service = container.portfolio_service()
+        self._position_service = position_service
+        self._portfolio_service = portfolio_service
         self._active_portfolios = {}  # Track active portfolio instances
     
     def initialize(self) -> bool:
@@ -601,57 +601,19 @@ class PortfolioManagementService:
     
     def _save_position(self, position: Position) -> ServiceResult:
         """
-        保存Position到数据库
-        
+        保存Position到数据库（通过 PositionService）
+
         Args:
             position: Position实例
-            
+
         Returns:
             ServiceResult: 保存结果
         """
-        try:
-            position_crud = container.cruds.position()
-            
-            # 检查是否已存在
-            existing_positions = position_crud.get_items_filtered(
-                portfolio_id=position.portfolio_id,
-                code=position.code
-            )
-            
-            if existing_positions:
-                # 更新现有Position
-                existing_position = existing_positions[0]
-                updated_position = position_crud.update(
-                    existing_position.uuid,
-                    cost=position.cost,
-                    volume=position.volume,
-                    frozen_volume=position.frozen_volume,
-                    frozen_money=position.frozen_money,
-                    price=position.price,
-                    fee=position.fee
-                )
-                self._logger.DEBUG(f"Updated position in database: {position.code}")
-            else:
-                # 创建新Position
-                new_position = position_crud.add(
-                    portfolio_id=position.portfolio_id,
-                    engine_id=position.engine_id,
-                    code=position.code,
-                    cost=position.cost,
-                    volume=position.volume,
-                    frozen_volume=position.frozen_volume,
-                    frozen_money=position.frozen_money,
-                    price=position.price,
-                    fee=position.fee,
-                    uuid=position.uuid
-                )
-                self._logger.DEBUG(f"Created position in database: {position.code}")
-            
-            return ServiceResult.success(position, "Position saved successfully")
-            
-        except Exception as e:
-            self._logger.ERROR(f"Failed to save position: {e}")
-            return ServiceResult.error(f"Position save failed: {e}")
+        if self._position_service is None:
+            self._logger.ERROR("PositionService not configured")
+            return ServiceResult.error("PositionService not configured")
+
+        return self._position_service.upsert_position(position)
     
     def _publish_event(self, event) -> None:
         """
