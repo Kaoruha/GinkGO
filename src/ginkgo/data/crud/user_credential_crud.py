@@ -67,4 +67,4 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
 
     def get_by_user_id(self, user_id: str) -> Optional[MUserCredential]:
         results = self.find(filters={"user_id": user_id})
-        return results[0] if results else None
+        return results.first()
