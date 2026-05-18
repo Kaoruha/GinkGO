@@ -32,7 +32,7 @@ class PositionService(BaseService):
         """
         try:
             for pos in positions:
-                self._crud_repo.create(pos)
+                self._crud_repo.add(pos)
             GLOG.DEBUG(f"Saved {len(positions)} positions")
             return ServiceResult.success(data={"count": len(positions)})
         except Exception as e:

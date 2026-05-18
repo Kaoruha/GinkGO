@@ -325,3 +325,48 @@ class TestPositionCRUDBusinessHelpers:
         assert "business_timestamp__lte" in call_kwargs["filters"]
         assert call_kwargs["order_by"] == "business_timestamp"
         assert call_kwargs["desc_order"] is True
+
+
+class TestPositionCRUDBatchCreate:
+    """batch_create 应委托给 add_batch 实现真正的批量操作"""
+
+    @pytest.mark.unit
+    def test_delegates_to_add_batch(self, position_crud):
+        """batch_create 应调用 add_batch 而非逐条 create"""
+        position_crud.add_batch = MagicMock(return_value=[])
+
+        positions = [MagicMock(), MagicMock()]
+        result = position_crud.batch_create(positions)
+
+        position_crud.add_batch.assert_called_once_with(positions)
+        assert result == len(positions)
+
+    @pytest.mark.unit
+    def test_returns_zero_on_error(self, position_crud):
+        """batch_create 出错时返回 0"""
+        position_crud.add_batch = MagicMock(side_effect=Exception("db error"))
+
+        result = position_crud.batch_create([MagicMock()])
+
+        assert result == 0
+
+
+class TestPositionCRUDDeleteByPortfolio:
+    """delete_by_portfolio 应使用 remove 而非不存在的 delete"""
+
+    @pytest.mark.unit
+    def test_uses_remove(self, position_crud):
+        """delete_by_portfolio 应调用 self.remove"""
+        position_crud.remove = MagicMock(return_value=2)
+
+        result = position_crud.delete_by_portfolio("portfolio-001")
+
+        position_crud.remove.assert_called_once()
+        call_kwargs = position_crud.remove.call_args[1]
+        assert call_kwargs["filters"]["portfolio_id"] == "portfolio-001"
+
+    @pytest.mark.unit
+    def test_raises_on_empty_id(self, position_crud):
+        """delete_by_portfolio 传入空 portfolio_id 应抛出 ValueError"""
+        with pytest.raises(ValueError, match="portfolio_id"):
+            position_crud.delete_by_portfolio("")

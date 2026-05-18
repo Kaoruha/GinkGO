@@ -300,10 +300,12 @@ class PositionCRUD(BaseCRUD[MPosition]):
         Returns:
             int: 删除的记录数
         """
+        if not portfolio_id:
+            raise ValueError("portfolio_id must not be empty")
         try:
-            self.delete(filters={"portfolio_id": portfolio_id})
+            result = self.remove(filters={"portfolio_id": portfolio_id})
             GLOG.DEBUG(f"Deleted all position snapshots for portfolio {portfolio_id[:8]}")
-            return 1
+            return result
         except Exception as e:
             GLOG.ERROR(f"Failed to delete positions for portfolio {portfolio_id[:8]}: {e}")
             return 0
@@ -319,8 +321,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             int: 创建的记录数
         """
         try:
-            for pos in positions:
-                self.create(pos)
+            self.add_batch(positions)
             return len(positions)
         except Exception as e:
             GLOG.ERROR(f"Failed to batch create positions: {e}")
