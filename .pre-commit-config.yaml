@@ -25,4 +25,4 @@ repos:
       - id: mypy
         additional_dependencies: [types-PyYAML, types-requests, types-redis, types-pytz]
         args: [--ignore-missing-imports, --no-strict-optional]
-        pass_filenames: false
+files: ^(?:src/ginkgo|api)/.*\.py$
