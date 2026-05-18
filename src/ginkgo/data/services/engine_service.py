@@ -76,6 +76,7 @@ class EngineService(BaseService):
             filters['is_del'] = False
 
             # Execute query - always return ModelList
+            result = self._crud_repo.find(filters=filters)
 
             return ServiceResult.success(result, f"Successfully retrieved engine data")
 
