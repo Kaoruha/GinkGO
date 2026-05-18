@@ -510,9 +510,15 @@ class ExecutionNode:
             if not portfolio_model.is_live:
                 raise ValueError(f"Portfolio {portfolio_id} is not a live portfolio")
 
-            # 3. 使用PortfolioService加载完整的Portfolio（包含所有组件）
-            logger.info(f"[LOAD] Loading portfolio with all components via PortfolioService...")
-            load_result = portfolio_service.load_portfolio_with_components(portfolio_id)
+            # 3. #3866: 通过 trading 层装配 Portfolio（data 层提供 writer 基础设施）
+            logger.info(f"[LOAD] Loading portfolio with all components via EngineAssemblyService...")
+            from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
+            assembly = EngineAssemblyService(portfolio_service=portfolio_service)
+            load_result = assembly.assemble_live_portfolio(
+                portfolio_id=portfolio_id,
+                position_writer=portfolio_service.build_position_writer(),
+                redis_writer=portfolio_service.build_redis_writer(),
+            )
 
             if not load_result.is_success:
                 logger.error(f"[LOAD] Failed to load portfolio with components: {load_result.error}")

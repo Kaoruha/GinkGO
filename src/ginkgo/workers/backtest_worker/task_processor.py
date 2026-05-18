@@ -222,8 +222,13 @@ class BacktestProcessor(Thread):
 
         必须从数据库加载，没有组件配置视为错误
         """
-        portfolio_result = self._portfolio_service.load_portfolio_with_components(
-            portfolio_id=self.task.portfolio_uuid
+        # #3866: 通过 trading 层装配
+        from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
+        assembly = EngineAssemblyService(portfolio_service=self._portfolio_service)
+        portfolio_result = assembly.assemble_live_portfolio(
+            portfolio_id=self.task.portfolio_uuid,
+            position_writer=self._portfolio_service.build_position_writer(),
+            redis_writer=self._portfolio_service.build_redis_writer(),
         )
 
         if not portfolio_result.is_success() or not portfolio_result.data:
