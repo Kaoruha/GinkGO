@@ -520,7 +520,7 @@ class ExecutionNode:
                 redis_writer=portfolio_service.build_redis_writer(),
             )
 
-            if not load_result.is_success:
+            if not load_result.is_success():
                 logger.error(f"[LOAD] Failed to load portfolio with components: {load_result.error}")
                 return False
 

@@ -319,9 +319,9 @@ class EngineAssemblyService(BaseService):
 
             if mount_id:
                 try:
-                    from ginkgo.data.containers import container
-                    param_crud = container.cruds.param()
-                    param_records = param_crud.find(filters={"mapping_id": mount_id})
+                    from ginkgo import services
+                    param_service = services.data.param_service()
+                    param_records = param_service.find_by_mapping_id(mount_id)
                     if param_records:
                         sorted_params = sorted(param_records, key=lambda p: p.index)
                         component_params = [param.value for param in sorted_params]
