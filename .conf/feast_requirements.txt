@@ -25,7 +25,7 @@ hf-xet==1.1.7
 hiredis==2.4.0
 httptools==0.6.4
 huggingface-hub==0.34.4
-idna==3.10
+idna==3.15
 importlib_metadata==8.7.0
 Jinja2==3.1.6
 jsonschema==4.25.0
