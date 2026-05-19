@@ -119,8 +119,14 @@ class TaskEngineBuilder:
         for attempt in range(max_retries):
             try:
                 portfolio_service = services.data.services.portfolio_service()
-                result = portfolio_service.load_portfolio_with_components(
-                    portfolio_id=task.portfolio_uuid
+
+                # #3866: 通过 trading 层装配，data 层提供 writer 基础设施
+                from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
+                assembly = EngineAssemblyService(portfolio_service=portfolio_service)
+                result = assembly.assemble_live_portfolio(
+                    portfolio_id=task.portfolio_uuid,
+                    position_writer=portfolio_service.build_position_writer(),
+                    redis_writer=portfolio_service.build_redis_writer(),
                 )
 
                 if result.is_success() and result.data:
