@@ -49,12 +49,13 @@ class TestSavePositions:
         # Should delete existing then create none
         mock_crud.delete_by_portfolio.assert_not_called()
 
-    def test_saves_positions_via_crud(self, service, mock_crud, mock_position):
+    def test_saves_positions_via_add(self, service, mock_crud, mock_position):
         result = service.save_positions([mock_position])
 
         assert result.is_success()
-        # Should convert and create via CRUD
-        mock_crud.create.assert_called_once()
+        # 应使用 add 而非 create（model 实例应走 add 路径）
+        mock_crud.add.assert_called_once_with(mock_position)
+        mock_crud.create.assert_not_called()
 
     def test_multiple_positions(self, service, mock_crud, mock_position):
         pos2 = MagicMock()
@@ -72,10 +73,10 @@ class TestSavePositions:
 
         result = service.save_positions([mock_position, pos2])
         assert result.is_success()
-        assert mock_crud.create.call_count == 2
+        assert mock_crud.add.call_count == 2
 
     def test_crud_failure_returns_error(self, service, mock_crud, mock_position):
-        mock_crud.create.side_effect = Exception("DB write failed")
+        mock_crud.add.side_effect = Exception("DB write failed")
 
         result = service.save_positions([mock_position])
         assert result.is_success() is False

@@ -335,7 +335,6 @@ class PortfolioService(BaseService):
             ServiceResult
         """
         try:
-            from ginkgo.data.models import MPosition
             from decimal import Decimal
 
             # 1. 更新 portfolio 表的运行时字段
@@ -354,30 +353,11 @@ class PortfolioService(BaseService):
             }
             self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=portfolio_updates)
 
-            # 2. 全量替换 position 表
-            position_crud = self._get_position_crud()
-            position_crud.delete_by_portfolio(portfolio_id)
-
-            for p_dict in positions:
-                m_pos = MPosition()
-                m_pos.update(
-                    p_dict["portfolio_id"],
-                    p_dict["engine_id"],
-                    p_dict.get("task_id", ""),
-                    code=p_dict["code"],
-                    cost=p_dict["cost"],
-                    volume=p_dict["volume"],
-                    frozen_volume=p_dict["frozen_volume"],
-                    settlement_frozen_volume=p_dict["settlement_frozen_volume"],
-                    settlement_days=p_dict["settlement_days"],
-                    settlement_queue_json=p_dict["settlement_queue_json"],
-                    frozen_money=p_dict["frozen_money"],
-                    price=p_dict["price"],
-                    fee=p_dict["fee"],
-                )
-                if p_dict.get("uuid"):
-                    m_pos.uuid = p_dict["uuid"]
-                position_crud.create(m_pos)
+            # 2. 全量替换 position 表（通过 CRUD 层 batch_create）
+            if positions:
+                position_crud = self._get_position_crud()
+                position_crud.delete_by_portfolio(portfolio_id)
+                position_crud.batch_create(positions)
 
             GLOG.INFO(
                 f"Persisted state for portfolio {portfolio_id[:8]}: "
