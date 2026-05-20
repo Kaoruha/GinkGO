@@ -44,7 +44,6 @@ def validate(
     show_trace: Annotated[bool, typer.Option("--show-trace", "-T", help=":mag: Enable runtime signal tracing with database data")] = False,
     code: Annotated[str, typer.Option("--code", "-c", help=":1234: Stock code for tracing (default: 000001.SZ)")] = "000001.SZ",
     events: Annotated[int, typer.Option("--events", "-e", help=":1234: Number of events to process (default: all)")] = 0,
-    visualize: Annotated[bool, typer.Option("--visualize", "-V", help=":art: Generate HTML chart visualization")] = False,
     # Database options (T102-T108)
     file_id: Annotated[str, typer.Option("--file-id", help=":database: Load component from database by file_id")] = None,
     list_strategies: Annotated[bool, typer.Option("--list", help=":list: List all components in database")] = False,
@@ -57,7 +56,6 @@ def validate(
     This command validates component structure, logic, and best practices.
     Use --type to specify component type (strategy/selector/sizer/risk_manager).
     Use --show-trace to trace runtime signal generation with database data.
-    Use --visualize to generate interactive HTML chart visualization.
     Use --format to specify output format (text/json/markdown).
     Use --output to save report to a file.
     Use --file-id to validate components stored in database.
@@ -327,21 +325,8 @@ def _validate_single_strategy(
         if show_trace:
             if result.passed:
                 tracer_report = _run_signal_tracing(file_path, code, events, verbose)
-
-                # Generate visualization if requested (T110)
-                if visualize:
-                    viz_output = output if output else "./signal_chart.html"
-                    _generate_visualization(file_path, tracer_report, viz_output, verbose)
             else:
                 console.print(":warning: [yellow]Skipping signal tracing - validation failed[/yellow]")
-        elif visualize:
-            # Visualization without tracing
-            if result.passed:
-                tracer_report = _run_signal_tracing(file_path, code, events, verbose, silent=True)
-                viz_output = output if output else "./signal_chart.html"
-                _generate_visualization(file_path, tracer_report, viz_output, verbose)
-            else:
-                console.print(":warning: [yellow]Skipping visualization - validation failed[/yellow]")
 
         # Exit with appropriate code
         if result.passed:
@@ -686,62 +671,6 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
             import traceback
             console.print(traceback.format_exc())
         return None
-
-
-def _generate_visualization(strategy_file: str, report: Any, output_path: str, verbose: bool = False) -> None:
-    """
-    Generate HTML visualization for signal tracing report.
-
-    Includes K-line chart with signal markers showing price context
-    for each signal generation event.
-
-    Args:
-        strategy_file: Path to the strategy file
-        report: SignalTraceReport object
-        output_path: Path to output HTML file
-        verbose: Show detailed output
-    """
-    from pathlib import Path
-    from ginkgo.trading.evaluation.reporters.html_visualizer import HTMLSignalVisualizer
-
-    try:
-        console.print(f"\n:art: [bold cyan]Generating HTML visualization[/bold cyan]")
-
-        # Get event_bars from report metadata (K-line data)
-        event_bars = report.metadata.get("event_bars", [])
-
-        # Use traces directly (contains event timestamp, not signal timestamp)
-        traces = report.traces
-
-        console.print(f"  K-line bars: {len(event_bars)}")
-        console.print(f"  Signals: {len(traces)}")
-
-        # Create visualizer
-        visualizer = HTMLSignalVisualizer()
-
-        # Generate chart with K-line and signal markers from traces
-        visualizer.generate_signal_chart_from_traces(
-            bars=event_bars,
-            traces=traces,
-            output_path=output_path,
-            title=f"Strategy Signal Chart - {Path(strategy_file).stem}",
-            width=1200,
-            height=600,
-        )
-
-        console.print(f":white_check_mark: [green]HTML chart saved to: {output_path}[/green]")
-        console.print(f"  Total signals: {report.signal_count}")
-        console.print(f"  Buy signals: {report.buy_count}")
-        console.print(f"  Sell signals: {report.sell_count}")
-
-        if verbose:
-            console.print(f"\n  Open in browser: file://{Path(output_path).absolute()}")
-
-    except Exception as e:
-        console.print(f":x: [red]Error generating visualization: {e}[/red]")
-        if verbose:
-            import traceback
-            console.print(traceback.format_exc())
 
 
 def _get_format_extension(format_name: str) -> str:
