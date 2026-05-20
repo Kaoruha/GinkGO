@@ -412,6 +412,11 @@ class OKXBroker(IBroker):
             GLOG.ERROR(f"Unsupported order type: {order.order_type}")
             return False
 
+        # 限价单必须有价格
+        if order.order_type == ORDER_TYPES.LIMITORDER and not order.price:
+            GLOG.ERROR("Limit order requires a price")
+            return False
+
         return True
 
     def submit_order_event(self, event) -> BrokerExecutionResult:
