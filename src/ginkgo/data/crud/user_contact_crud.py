@@ -141,7 +141,7 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         if is_active is not None:
             filters["is_active"] = is_active
 
-
+        return self.find(filters=filters)
     def find_by_user_id(
         self,
         user_id: str,

@@ -217,6 +217,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
 
 
         # 应用额外过滤
+        results = self.find(filters=filters)
         filtered_results = []
         for account in results:
             if exchange and account.exchange != exchange:
@@ -240,6 +241,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         Returns:
             MLiveAccount or None: 账号对象
         """
+        results = self.find(filters={"uuid": uuid})
         if not results:
             return None
         return results[0]
@@ -436,6 +438,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         filters = {"user_id": user_id, "is_del": False}
 
         # 应用过滤
+        all_accounts = self.find(filters=filters)
         filtered_accounts = []
         for account in all_accounts:
             if exchange and account.exchange != exchange:

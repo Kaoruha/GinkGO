@@ -133,6 +133,7 @@ class UserCRUD(BaseCRUD[MUser]):
             raise ValueError("filters参数必须提供")
 
         # 1. 查询要删除的用户
+        users = self.find(filters=filters)
         user_uuids = [u.uuid for u in users]
 
         if not user_uuids:
