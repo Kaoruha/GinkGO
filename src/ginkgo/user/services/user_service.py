@@ -98,7 +98,7 @@ class UserService(BaseService):
                     message="Database insert operation returned None"
                 )
 
-            # Extract UUID from created user object
+Extract UUID from created user object
             user_uuid = created_user.uuid
 
             # Auto-create credential with password=username
@@ -211,7 +211,7 @@ class UserService(BaseService):
                     message="Database insert operation returned None"
                 )
 
-            # Extract UUID from created contact object
+Extract UUID from created contact object
             contact_uuid = created_contact.uuid
 
             GLOG.INFO(f"Added contact: {contact_uuid} for user: {user_uuid}, type={CONTACT_TYPES.from_int(validated_type).name}")

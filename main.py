@@ -81,7 +81,7 @@ def _register_all_commands():
     # 获取typer依赖
     typer, Console = _get_imports()
 
-    # Direct import of core commands to preserve typer signatures
+Direct import of core commands to preserve typer signatures
     from ginkgo.client import core_cli
 
     # 延迟加载typer应用
@@ -135,7 +135,7 @@ def _register_all_commands():
     _main_app.command(name="validate", help=":white_check_mark: Component validation (code check)")(validate)
 
     # Note: validation_cli.app is NOT added as a typer to avoid double 'validate' command
-    # from ginkgo.client import validation_cli
+from ginkgo.client import validation_cli
     # _main_app.add_typer(validation_cli.app, name="validate", help=":white_check_mark: Strategy validation (code check)")
 
     # Evaluation command (backtest result analysis and monitoring)

@@ -93,7 +93,7 @@ class BarDataAdapter(DataSourceAdapter):
             "volume": None,
         }
 
-        # Extract from event if it's a price update event
+Extract from event if it's a price update event
         if hasattr(event, "timestamp"):
             data["timestamp"] = event.timestamp
         if hasattr(event, "code"):

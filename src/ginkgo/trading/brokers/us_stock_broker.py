@@ -78,7 +78,7 @@ class USStockBroker(LiveBrokerBase):
         try:
             # TODO: 实现具体的美股券商API连接逻辑
             # 例如：
-            # import alpaca_trade_api as tradeapi
+import alpaca_trade_api as tradeapi
             # self._api = tradeapi.REST(
             #     key_id=self._api_key,
             #     secret_key=self._api_secret,

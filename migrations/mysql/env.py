@@ -12,7 +12,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Add project root to path to import ginkgo modules
+Add project root to path to import ginkgo modules
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -24,7 +24,7 @@ from ginkgo.libs import GCONF
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set the database URL from GCONF
+Set the database URL from GCONF
 mysql_url = (
     f"mysql+pymysql://{GCONF.MYSQLUSER}:{GCONF.MYSQLPWD}"
     f"@{GCONF.MYSQLHOST}:{GCONF.MYSQLPORT}/{GCONF.MYSQLDB}"
@@ -38,17 +38,17 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import all models here for autogenerate support
-# We need to import all models that have tables to be migrated
+We need to import all models that have tables to be migrated
 target_metadata = None
 
 # Add your model's MetaData object here for 'autogenerate' support
 # Uncomment and modify as needed when creating migrations:
-# from ginkgo.data.models import *
+from ginkgo.data.models import *
 # target_metadata = SQLModel.metadata
 
-# other values from the config, defined by the needs of env.py,
+other values from the config, defined by the needs of env.py,
 # can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
+my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
 

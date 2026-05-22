@@ -270,12 +270,12 @@ def create_test_data_factory():
         
         def _cleanup_stock_data(self, code):
             """Clean up specific stock data."""
-            # Implementation would remove test stock from database
+Implementation would remove test stock from database
             pass
         
         def _cleanup_bar_data(self, code):
             """Clean up specific bar data."""
-            # Implementation would remove test bar data from database
+Implementation would remove test bar data from database
             pass
     
     return TestDataFactory()
@@ -344,9 +344,9 @@ def _get_database_config_info():
     """Get formatted database configuration information for display."""
     config_lines = ["    CURRENT DATABASE CONFIGURATION:"]
     
-    # Try to get configuration from different sources
+Try to get configuration from different sources
     try:
-        # Try to import and get GCONF
+Try to import and get GCONF
         if GCONF is None:
             try:
                 from ginkgo.libs.core.config import GCONF as LocalGCONF

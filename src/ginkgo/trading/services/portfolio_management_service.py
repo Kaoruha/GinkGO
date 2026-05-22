@@ -283,7 +283,7 @@ class PortfolioManagementService:
             if portfolio_id in self._active_portfolios:
                 config = self._active_portfolios[portfolio_id]['config']
             else:
-                # Fetch from database
+Fetch from database
                 portfolio_data = self._portfolio_service.get_portfolio(portfolio_id)
                 if portfolio_data.shape[0] == 0:
                     return None

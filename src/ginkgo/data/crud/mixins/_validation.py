@@ -21,7 +21,7 @@ class _Validation:
     - self.model_class
     """
 
-    # ClickHouse string fields that need null byte cleaning (from external sources or user input)
+ClickHouse string fields that need null byte cleaning (from external sources or user input)
     CLICKHOUSE_STRING_FIELDS = [
         "code",  # Stock code (from external data sources like Tushare, Yahoo)
         "name",  # Names (user-defined)

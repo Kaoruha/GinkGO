@@ -778,11 +778,11 @@ class TestT1ConstraintValidation:
         _setup_portfolio(
             p, time_val=datetime.datetime(2024, 1, 3)
         )
-        # Signal from yesterday (past) should be processed immediately
+Signal from yesterday (past) should be processed immediately
         signal = _make_signal(ts=datetime.datetime(2024, 1, 1))
         event = EventSignalGeneration(signal)
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
              patch.object(p, '_save_order_record'):
             p.on_signal(event)
-        # Sizer should be called because signal is from the past
+Sizer should be called because signal is from the past
         p.sizer.cal.assert_called()

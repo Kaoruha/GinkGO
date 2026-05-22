@@ -48,7 +48,7 @@ class TestBaseSizerConstruction:
         """测试默认参数构造"""
         sizer = BaseSizer()
 
-        # 验证name默认为"sizer" (lowercase, from NamedMixin)
+验证name默认为"sizer" (lowercase, from NamedMixin)
         assert sizer.name == "sizer"
 
         # 验证_data_feeder初始化为None

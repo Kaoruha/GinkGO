@@ -17,7 +17,7 @@ from ginkgo.data.containers import container
 
 
 class RatioSizer(BaseSizer):
-    # The class with this __abstract__  will rebuild the class from bytes.
+The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     """
     RatioSizer, dynamically calculate order size based on cash ratio.

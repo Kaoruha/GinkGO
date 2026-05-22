@@ -51,7 +51,7 @@ console = Console()
 
 
 class PortfolioT1Backtest(PortfolioBase):
-    # The class with this __abstract__  will rebuild the class from bytes.
+The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 

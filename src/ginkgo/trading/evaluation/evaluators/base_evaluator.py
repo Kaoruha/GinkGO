@@ -92,7 +92,7 @@ class BaseEvaluator(ABC):
             # Convert to stdlib Path for compatibility
             file_path_std = StdPath(str(file_path))
 
-            # Create module name from file path
+Create module name from file path
             module_name = file_path_std.stem
 
             # Load the module

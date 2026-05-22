@@ -67,7 +67,7 @@ class TestBarModelComprehensive:
 
     def test_mbar_time_range_validation(self):
         """测试MBar时间范围验证"""
-        # MBar inherits timestamp from MClickBase
+MBar inherits timestamp from MClickBase
         assert hasattr(MBar, 'timestamp')
 
     def test_mbar_data_consistency_checks(self):
@@ -117,7 +117,7 @@ class TestTickModelComprehensive:
 
     def test_mtick_microsecond_timestamp(self):
         """测试MTick微秒时间戳"""
-        # MTick inherits timestamp from MClickBase (DateTime)
+MTick inherits timestamp from MClickBase (DateTime)
         assert hasattr(MTick, 'timestamp')
 
     def test_mtick_market_microstructure_data(self):

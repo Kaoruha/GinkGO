@@ -86,7 +86,7 @@ class DatabaseStrategyLoader:
         try:
             GLOG.DEBUG(f"Loading strategy by file_id: {file_id}")
 
-            # Query file from database
+Query file from database
             files = self.file_crud.find(filters={"uuid": file_id}, page_size=1)
 
             if not files or len(files) == 0:

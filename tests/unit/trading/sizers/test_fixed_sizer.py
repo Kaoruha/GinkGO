@@ -58,7 +58,7 @@ class TestFixedSizerUsesDataFeeder:
         order = sizer.cal(info, signal)
 
         mock_feeder.get_historical_data.assert_called_once()
-        # should NOT import container
+should NOT import container
         assert order is not None
         assert order.code == "000001.SZ"
 

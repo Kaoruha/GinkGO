@@ -1,10 +1,10 @@
-# import sys
-# import unittest
-# import datetime
-# from time import sleep
-# import pandas as pd
-# from ginkgo.backtest.engines.engine_assembler_factory import *
-# from ginkgo.data import get_engines
+import sys
+import unittest
+import datetime
+from time import sleep
+import pandas as pd
+from ginkgo.backtest.engines.engine_assembler_factory import *
+from ginkgo.data import get_engines
 
 
 # class EngineAssembleTest(unittest.TestCase):
@@ -16,14 +16,14 @@
 #         super(EngineAssembleTest, self).__init__(*args, **kwargs)
 
 #     def test_example_engine_assemble(self):
-#         from ginkgo.data import init_example_data, fetch_and_update_cn_daybar, fetch_and_update_stockinfo
+from ginkgo.data import init_example_data, fetch_and_update_cn_daybar, fetch_and_update_stockinfo
 
 #         fetch_and_update_stockinfo()
 #         fetch_and_update_cn_daybar("600594.SH")
 #         fetch_and_update_cn_daybar("600000.SH")
 
 #         init_example_data()
-#         import time
+import time
 
 #         time.sleep(2)
 #         engine_name = "backtest_example"

@@ -364,7 +364,7 @@ class TestDeploy:
             "analyzers": [], "selectors": [], "sizers": [],
         }
 
-        # Mock services for the _handle_deploy's internal import
+Mock services for the _handle_deploy's internal import
         mock_container = MagicMock()
         mock_crud = MagicMock()
         mock_db_portfolio = MagicMock()
@@ -585,7 +585,7 @@ class TestGetBaseline:
         worker = self._make_worker()
 
         # _get_baseline delegates to self.deviation_checker.get_baseline(),
-        # which does its own `from ginkgo import services` internally.
+which does its own `from ginkgo import services` internally.
         # Use patch.object on the real method instead of patching the services module.
         expected = {"slice_period_days": 14, "baseline_stats": {}}
         with patch.object(worker.deviation_checker, 'get_baseline', return_value=expected):

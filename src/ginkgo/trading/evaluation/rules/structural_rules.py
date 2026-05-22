@@ -58,13 +58,13 @@ class StrategyBaseInheritanceRule(ASTBasedRule):
 
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                # Check if this class inherits from BaseStrategy
+Check if this class inherits from BaseStrategy
                 for base in node.bases:
                     base_name = self._get_name(base)
                     if base_name == "BaseStrategy" or base_name == BaseStrategy.__name__:
                         return None  # Found a valid strategy class
 
-        # No class inherits from BaseStrategy
+No class inherits from BaseStrategy
         return self.get_issue(
             message="Strategy class must inherit from BaseStrategy",
             suggestion='Change class definition to: class MyStrategy(BaseStrategy):',

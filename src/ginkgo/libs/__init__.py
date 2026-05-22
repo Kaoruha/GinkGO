@@ -1,4 +1,4 @@
-# Upstream: 全局所有模块 (from ginkgo.libs import GLOG/GCONF/GTM等)
+Upstream: 全局所有模块 (from ginkgo.libs import GLOG/GCONF/GTM等)
 # Downstream: GinkgoConfig, GinkgoLogger, GinkgoThreadManager, datetime_normalize, Number/to_decimal, t_test/chi2_test, cal_fee, retry/time_logger/cache_with_expiration等装饰器, validate_component/test_component等验证器, ensure_services_ready等健康检查
 # Role: 工具库统一入口，创建GLOG/GCONF/GTM全局单例并导出装饰器/数据工具/验证器/健康检查等全部基础工具，处理循环依赖
 

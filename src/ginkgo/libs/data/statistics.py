@@ -10,8 +10,8 @@
 import numpy as np
 import pandas as pd
 # scipy使用延迟导入避免启动时冲突
-# import scipy.stats as stats
-# import matplotlib.pyplot as plt
+import scipy.stats as stats
+import matplotlib.pyplot as plt
 
 
 def t_test(
@@ -46,8 +46,8 @@ def chi2_test(backtest_values: list, observe_values: list, category_count: int =
     # Independent test
     # H0: There is no relation between backtest_values and observe_values.
     # H1: There is relation between backtest_values and observe_values.
-    # if p < 0.05, refuse H0. accept H1. Two samples are from the same distribution.
-    # if p > 0.05, accept H0. refuse H1. Two samples are from different distribution.
+if p < 0.05, refuse H0. accept H1. Two samples are from the same distribution.
+if p > 0.05, accept H0. refuse H1. Two samples are from different distribution.
     # 卡方检验要求观测频数表中的每个分类的观测频数都大于或等于 5。
 
     # 延迟导入scipy以避免启动时冲突

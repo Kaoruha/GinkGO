@@ -180,7 +180,7 @@ class GinkgoThreadManager:
                 fetch_and_update_tradeday()
 
                 # 或者使用container中的TradeDayCRUD进行基础操作
-                # from ginkgo.data.containers import container
+from ginkgo.data.containers import container
                 # trade_day_crud = container.cruds.trade_day()
 
                 worker_logger.INFO("✅ Trading calendar update completed (placeholder)")
@@ -406,12 +406,12 @@ class GinkgoThreadManager:
             from ginkgo.data.worker.worker import DataWorker
             from ginkgo import service_hub
 
-            # Get node_id from kwargs or environment
+Get node_id from kwargs or environment
             node_id = kwargs.get('node_id') or os.getenv("GINKGO_NODE_ID")
             if node_id is None:
                 node_id = f"data_worker_{socket.gethostname()}"
 
-            # Get services from service_hub
+Get services from service_hub
             bar_crud = service_hub.data.cruds.bar()
 
             # Create DataWorker instance
@@ -1003,7 +1003,7 @@ if __name__ == "__main__":
             if data is None:
                 continue
             
-            # Calculate task running time from timestamp
+Calculate task running time from timestamp
             try:
                 if "time_stamp" in data:
                     task_start_time = datetime.datetime.strptime(data["time_stamp"], "%Y%m%d%H%M%S")

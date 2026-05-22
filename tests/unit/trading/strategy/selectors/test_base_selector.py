@@ -38,7 +38,7 @@ class TestBaseSelectorConstruction:
         """测试默认参数构造"""
         selector = BaseSelector()
 
-        # 验证name默认为"selector" (lowercase, from NamedMixin)
+验证name默认为"selector" (lowercase, from NamedMixin)
         assert selector.name == "selector"
 
         # 验证_data_feeder初始化为None
