@@ -100,6 +100,8 @@ class UserGroupService(BaseService):
                 return protection_error
 
             # Check if name already exists
+            # #3956
+            existing = self.user_group_crud.find(filters={"name": name}, page_size=1)
             if existing:
                 return ServiceResult.error(
                     f"Group already exists: {name}",
@@ -166,6 +168,8 @@ class UserGroupService(BaseService):
             # For now, assume user exists
 
             # Check if group exists
+            # #3956
+            groups = self.user_group_crud.find(filters={"uuid": group_uuid}, page_size=1)
             if not groups:
                 return ServiceResult.error(
                     f"Group not found: {group_uuid}",
@@ -308,6 +312,8 @@ class UserGroupService(BaseService):
             ServiceResult with group data
         """
         try:
+            # #3956
+            groups = self.user_group_crud.find(filters={"uuid": group_uuid}, page_size=1)
 
             if not groups:
                 return ServiceResult.error(
@@ -357,6 +363,8 @@ class UserGroupService(BaseService):
             if is_active is not None:
                 filters["is_active"] = is_active
 
+            # #3956
+            groups = self.user_group_crud.find(filters=filters)
 
             group_list = []
             for group in groups:
@@ -400,6 +408,8 @@ class UserGroupService(BaseService):
             member_list = []
             for mapping in mappings:
                 # Get user info to fetch user display name
+                # #3956
+                users = user_crud.find(filters={"uuid": mapping.user_uuid}, page_size=1)
                 user_name = users[0].display_name if users else "Unknown"
 
                 member_list.append({

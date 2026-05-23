@@ -202,6 +202,8 @@ class FileCRUD(BaseCRUD[MFile]):
         Business helper: Get total size of files by type (not supported by MFile model).
         """
         GLOG.DEBUG("File size calculation not supported by MFile model")
+        # #3955 补回缺失的查询
+        files = self.find(filters={"type": file_type})
         return len(files)
 
     def delete_by_file_id(self, file_id: str) -> None:

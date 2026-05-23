@@ -272,7 +272,8 @@ class Container(containers.DeclarativeContainer):
     user_service = providers.Singleton(
         UserService,
         user_crud=user_crud,
-        user_contact_crud=user_contact_crud
+        user_contact_crud=user_contact_crud,
+        user_credential_crud=user_credential_crud
     )
 
     user_group_service = providers.Singleton(

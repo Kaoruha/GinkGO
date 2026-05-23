@@ -556,28 +556,23 @@ class OrderCRUD(BaseCRUD[MOrder]):
     def modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
         """
         Override modify to handle enum type conversions.
+        Uses _get_enum_mappings() for generic conversion — new enum fields
+        added to the mapping are automatically supported.
 
         Args:
             filters: Dictionary of field -> value filters for selection
             updates: Dictionary of field -> value updates to apply (supports both enum and int values)
             session: Optional SQLAlchemy session to use for the operation
         """
-        # 处理枚举类型转换
+        enum_mappings = self._get_enum_mappings()
         converted_updates = {}
 
         for field, value in updates.items():
-            if field == "direction" and isinstance(value, DIRECTION_TYPES):
-                converted_updates[field] = value.value
-            elif field == "order_type" and isinstance(value, ORDER_TYPES):
-                converted_updates[field] = value.value
-            elif field == "status" and isinstance(value, ORDERSTATUS_TYPES):
-                converted_updates[field] = value.value
-            elif field == "source" and isinstance(value, SOURCE_TYPES):
+            if field in enum_mappings and isinstance(value, enum_mappings[field]):
                 converted_updates[field] = value.value
             else:
                 converted_updates[field] = value
 
-        # 调用父类的modify方法
         super().modify(filters, converted_updates, session)
 
     def get_portfolio_ids(self) -> List[str]:

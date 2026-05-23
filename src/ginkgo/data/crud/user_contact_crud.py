@@ -141,6 +141,8 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         if is_active is not None:
             filters["is_active"] = is_active
 
+        # #3955 补回缺失的 return
+        return self.find(filters=filters)
 
     def find_by_user_id(
         self,
