@@ -6,6 +6,8 @@
 import datetime
 
 from typing import Optional
+
+import pandas as pd
 from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,6 +64,60 @@ class MUserCredential(MMysqlBase, ModelConversion):
             self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.OTHER.value
         else:
             self.source = SOURCE_TYPES.OTHER.value
+
+    def update(self, *args, **kwargs) -> None:
+        """更新凭据信息 - 支持关键字参数、字符串位置参数和 pd.Series"""
+        if not args and kwargs:
+            self._update_from_kwargs(**kwargs)
+        elif args:
+            self._update_dispatch(args[0], *args[1:], **kwargs)
+        else:
+            raise NotImplementedError("Unsupported type for update")
+
+    def _update_dispatch(self, first_arg, *args, **kwargs) -> None:
+        if isinstance(first_arg, str):
+            self._update_from_str(first_arg, *args, **kwargs)
+        elif isinstance(first_arg, pd.Series):
+            self._update_from_series(first_arg, *args, **kwargs)
+        else:
+            raise NotImplementedError(f"Unsupported type for update: {type(first_arg)}")
+
+    def _update_from_kwargs(self, password_hash=None, is_active=None, is_admin=None, source=None, **kwargs) -> None:
+        if password_hash is not None:
+            self.password_hash = password_hash
+        if is_active is not None:
+            self.is_active = is_active
+        if is_admin is not None:
+            self.is_admin = is_admin
+        if source is not None:
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else self.source
+        self.update_at = datetime.datetime.now()
+
+    def _update_from_str(self, password_hash=None, is_active=None, is_admin=None, source=None, *args, **kwargs) -> None:
+        if password_hash is not None:
+            self.password_hash = password_hash
+        if is_active is not None:
+            self.is_active = is_active
+        if is_admin is not None:
+            self.is_admin = is_admin
+        if source is not None:
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else self.source
+        self.update_at = datetime.datetime.now()
+
+    def _update_from_series(self, series: pd.Series, *args, **kwargs) -> None:
+        if 'password_hash' in series.index and pd.notna(series['password_hash']):
+            self.password_hash = str(series['password_hash'])
+        if 'is_active' in series.index and pd.notna(series['is_active']):
+            self.is_active = bool(series['is_active'])
+        if 'is_admin' in series.index and pd.notna(series['is_admin']):
+            self.is_admin = bool(series['is_admin'])
+        if 'source' in series.index and pd.notna(series['source']):
+            validated = SOURCE_TYPES.validate_input(series['source'])
+            if validated is not None:
+                self.source = validated
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
         status = "Active" if self.is_active else "Disabled"
