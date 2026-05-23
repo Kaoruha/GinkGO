@@ -1,6 +1,5 @@
 # Related: #3625
 # 测试签名已更新匹配当前 deploy(portfolio_id, mode, account_id, name) 接口
-# 但因 #3626 (MUserCredential mapper) 导致 import 失败，暂时 skip
 import sys
 from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent
@@ -12,8 +11,9 @@ import pytest
 from unittest.mock import MagicMock
 from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
-# 跳过整个文件：import DeploymentService 触发 SQLAlchemy mapper 链失败 (#3626)
-pytestmark = pytest.mark.skip(reason="blocked by #3626 MUserCredential mapper failure")
+# Note: 只有第 4 个测试 (test_deploy_paper_creates_deployment_and_calls_core) 会触发
+# #3626 的 MUserCredential mapper 错误（MDeployment() 实例化时），前 3 个测试在
+# _make_svc() 构造前就短路返回，可以正常运行。
 
 from ginkgo.trading.services.deployment_service import DeploymentService
 
@@ -68,6 +68,7 @@ class TestDeploymentServiceDeploy:
         assert not result.success
         assert "account_id" in result.error
 
+    @pytest.mark.skip(reason="blocked by #3626 MUserCredential mapper failure")
     def test_deploy_paper_creates_deployment_and_calls_core(self):
         """PAPER 模式应创建 deployment 记录并调用 _deploy_core"""
         svc = _make_svc()
