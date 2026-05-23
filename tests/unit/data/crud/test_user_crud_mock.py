@@ -171,6 +171,39 @@ class TestUserCRUDBusinessHelpers:
 # ============================================================
 
 
+class TestUserCRUDCascadeCredentials:
+    """级联软删除凭据测试 — #3896"""
+
+    @pytest.mark.unit
+    def test_cascade_delete_credentials_method_exists(self, crud_instance):
+        """UserCRUD 拥有 _cascade_delete_credentials 方法"""
+        assert hasattr(crud_instance, "_cascade_delete_credentials")
+
+    @pytest.mark.unit
+    def test_delete_calls_cascade_delete_credentials(self, crud_instance):
+        """delete() 应调用 _cascade_delete_credentials"""
+        crud_instance._cascade_delete_credentials = MagicMock(return_value=0)
+        crud_instance._cascade_delete_group_mappings = MagicMock(return_value=0)
+        crud_instance._cascade_delete_contacts = MagicMock(return_value=0)
+
+        mock_user = MagicMock()
+        mock_user.uuid = "test-uuid-123"
+        crud_instance.find = MagicMock(return_value=[mock_user])
+
+        mock_conn = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 1
+        mock_session.execute.return_value = mock_result
+        mock_conn.get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_conn.get_session.return_value.__exit__ = MagicMock(return_value=False)
+        crud_instance._get_connection = MagicMock(return_value=mock_conn)
+
+        crud_instance.delete(filters={"uuid": "test-uuid-123"})
+
+        crud_instance._cascade_delete_credentials.assert_called_once_with(["test-uuid-123"])
+
+
 class TestUserCRUDConstruction:
     """UserCRUD 构造和类型检查测试"""
 

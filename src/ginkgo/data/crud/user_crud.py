@@ -11,7 +11,7 @@ import re
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.data.models import MUser, MUserContact, MUserGroupMapping
+from ginkgo.data.models import MUser, MUserContact, MUserGroupMapping, MUserCredential
 from ginkgo.enums import SOURCE_TYPES, USER_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
@@ -23,6 +23,7 @@ class UserCRUD(BaseCRUD[MUser]):
     User CRUD operations with cascade soft delete.
 
     支持用户管理和级联软删除：
+    - 删除用户时，自动软删除所有相关凭据（MUserCredential）
     - 删除用户时，自动软删除所有相关联系方式（MUserContact）
     - 删除用户时，自动软删除所有用户组映射（MUserGroupMapping）
     """
@@ -148,7 +149,10 @@ class UserCRUD(BaseCRUD[MUser]):
         # 3. 级联软删除联系方式
         self._cascade_delete_contacts(user_uuids)
 
-        # 4. 最后软删除用户本身（直接执行 UPDATE）
+        # 4. 级联软删除凭据
+        self._cascade_delete_credentials(user_uuids)
+
+        # 5. 最后软删除用户本身（直接执行 UPDATE）
         import datetime
         from sqlalchemy import update
 
@@ -209,6 +213,38 @@ class UserCRUD(BaseCRUD[MUser]):
 
         except Exception as e:
             GLOG.ERROR(f"级联删除联系方式失败: {e}")
+            return 0
+
+    def _cascade_delete_credentials(self, user_uuids: List[str]) -> int:
+        """
+        级联软删除用户凭据 — #3896
+
+        Args:
+            user_uuids: 用户UUID列表
+
+        Returns:
+            删除的凭据数量
+        """
+        try:
+            conn = self._get_connection()
+
+            with conn.get_session() as session:
+                stmt = (
+                    update(MUserCredential.__table__)
+                    .where(MUserCredential.user_id.in_(user_uuids))
+                    .where(MUserCredential.is_del == False)
+                    .values(is_del=True, update_at=datetime.now())
+                )
+
+                result = session.execute(stmt)
+                session.commit()
+
+                cred_count = result.rowcount
+                GLOG.INFO(f"已级联软删除凭据: {cred_count} 条")
+                return cred_count
+
+        except Exception as e:
+            GLOG.ERROR(f"级联删除凭据失败: {e}")
             return 0
 
     def _cascade_delete_group_mappings(self, user_uuids: List[str]) -> int:
