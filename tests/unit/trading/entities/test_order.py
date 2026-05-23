@@ -571,19 +571,20 @@ class TestOrderDataSetting:
                 10.50  # 必需的limit_price
             )
 
-        # 测试空字符串组合
-        with pytest.raises(Exception):
-            order.set(
-                "",  # 空portfolio_id
-                "test_engine",
-                "test_run",
-                "000001.SZ",
-                DIRECTION_TYPES.LONG,
-                ORDER_TYPES.MARKETORDER,
-                ORDERSTATUS_TYPES.NEW,
-                100,  # 必需的volume
-                10.50  # 必需的limit_price
-            )
+        # 空字符串不再抛异常，实现改为日志记录
+        order.set(
+            "",  # 空portfolio_id
+            "test_engine",
+            "test_run",
+            "000001.SZ",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.MARKETORDER,
+            ORDERSTATUS_TYPES.NEW,
+            100,
+            10.50
+        )
+        # 验证空字符串被接受（日志记录而非抛异常）
+        assert order.portfolio_id == ""
 
     def test_parameter_type_conversion(self):
         """测试参数类型转换"""
