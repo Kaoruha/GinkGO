@@ -94,8 +94,8 @@ class ProfitTargetRisk(BaseRiskManagement):
 
         position = portfolio_info['positions'][event.code]
 
-        # 计算当前盈利比例
-        current_profit_ratio = position.get('profit_loss_ratio', 0)
+        # #3957 计算当前盈利比例 - Position 对象使用 getattr 而非 dict.get
+        current_profit_ratio = getattr(position, 'profit_loss_ratio', 0)
 
         # 检查是否达到止盈目标
         if current_profit_ratio >= self.profit_target:
@@ -155,7 +155,8 @@ class ProfitTargetRisk(BaseRiskManagement):
         if order.direction == DIRECTION_TYPES.SHORT:
             position = portfolio_info.get('positions', {}).get(order.code)
             if position:
-                max_sellable = position.get('volume', 0)
+                # #3957 Position 对象使用 getattr
+                max_sellable = getattr(position, 'volume', 0)
                 if order.volume > max_sellable:
                     order.volume = max_sellable
 

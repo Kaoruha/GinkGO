@@ -32,7 +32,7 @@ class DataSyncService:
         """初始化DataSyncService"""
         self._active_syncs: Dict[str, dict] = {}  # broker_uuid -> sync_info
         self._running = False
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # #3960 使用可重入锁避免嵌套获取死锁
 
     def start_sync_for_broker(self, broker: MBrokerInstance) -> bool:
         """

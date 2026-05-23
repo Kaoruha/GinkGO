@@ -13,7 +13,7 @@ from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.entities import Order
 from ginkgo.entities import Signal
 from ginkgo.libs import GLOG
-# from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # Temporarily disabled
+from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # #3958 restored import
 from ginkgo.data.containers import container
 
 import datetime

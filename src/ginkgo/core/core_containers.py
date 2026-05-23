@@ -147,9 +147,10 @@ class Container(containers.DeclarativeContainer):
 
     # ============= CORE SERVICES =============
     # Service factories - using Singleton for shared state services
-    config_service = providers.Singleton(_get_config_service_class)
-    logger_service = providers.Singleton(_get_logger_service_class)
-    thread_service = providers.Singleton(_get_thread_service_class)
+    # #3963 调用工厂函数获取类，再传给 Singleton 实例化
+    config_service = providers.Singleton(_get_config_service_class())
+    logger_service = providers.Singleton(_get_logger_service_class())
+    thread_service = providers.Singleton(_get_thread_service_class())
     system_service = providers.Singleton(_get_system_service_instance)
 
     # Services aggregate - similar to data module's cruds
@@ -197,7 +198,7 @@ def get_utility(utility_type: str):
     utility_mapping = {
         'validator': container.utilities.validator,
         'health_check': container.utilities.health_check,
-        'stability': container.utilities.stability
+        'stability': container.utilities.stability_util
     }
     
     if utility_type in utility_mapping:
