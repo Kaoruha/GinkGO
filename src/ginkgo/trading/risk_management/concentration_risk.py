@@ -285,9 +285,11 @@ class ConcentrationRisk(BaseRiskManagement):
         if order.direction != DIRECTION_TYPES.LONG:
             return current_ratio
 
-        # 简化计算：假设订单金额按当前价格计算
-        # 在实际实现中，需要考虑订单的实际价格
-        order_value = order.volume * 100  # 假设每股100元
+        # #3959 使用实际价格计算订单金额
+        price = getattr(order, 'limit_price', None)
+        if not price or price <= 0:
+            price = portfolio_info.get("prices", {}).get(order.code, 100)
+        order_value = order.volume * price
         positions = portfolio_info.get("positions", {})
         total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
 
@@ -316,8 +318,11 @@ class ConcentrationRisk(BaseRiskManagement):
                 if stock_industry == industry:
                     current_industry_value += position.market_value
 
-        # 计算订单价值
-        order_value = order.volume * 100  # 假设每股100元
+        # #3959 使用实际价格计算订单价值
+        price = getattr(order, 'limit_price', None)
+        if not price or price <= 0:
+            price = portfolio_info.get("prices", {}).get(order.code, 100)
+        order_value = order.volume * price
 
         projected_industry_value = current_industry_value + order_value
         projected_total = total_value + order_value

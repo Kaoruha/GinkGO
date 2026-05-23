@@ -216,8 +216,8 @@ class TradeGatewayAdapter(Thread):
 
     def _start_monitor_thread(self):
         """启动订单监控线程"""
-        monitor_thread = Thread(target=self._monitor_orders_loop, daemon=True)
-        monitor_thread.start()
+        self.monitor_thread = Thread(target=self._monitor_orders_loop, daemon=True)
+        self.monitor_thread.start()
         GLOG.INFO("Order monitor thread started")
 
     def _monitor_orders_loop(self):
@@ -292,7 +292,12 @@ class TradeGatewayAdapter(Thread):
                     self.expired_orders += 1
                     continue
 
-                # MVP阶段：模拟成交（1秒后自动成交）
+                # #3961 MVP阶段：模拟成交逻辑 - 仅在非生产环境执行
+                import os
+                is_production = os.getenv("GINKGO_ENV", "development") == "production"
+                if is_production:
+                    continue
+
                 if time_elapsed >= 1.0 and order.status == ORDERSTATUS_TYPES.SUBMITTED:
                     # 生成成交事件
                     fill_event = EventOrderPartiallyFilled(
