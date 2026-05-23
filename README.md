@@ -1,411 +1,212 @@
 # Ginkgo
 
+Modern Python Quantitative Trading Library
 
-🚀 **Modern Python Quantitative Trading Library**
+Ginkgo is a quantitative trading framework featuring event-driven backtesting, multi-database support, complete risk management, and a Web UI for strategy management.
 
-Ginkgo is a comprehensive quantitative trading framework featuring event-driven backtesting, multi-database support, and complete risk management systems.
+## Features
 
-## ✨ Features
+- **Event-Driven Backtesting**: `PriceUpdate -> Strategy -> Signal -> Portfolio -> Order -> Fill`
+- **Multi-Database Support**: ClickHouse (time-series), MySQL (relational), MongoDB (documents), Redis (cache)
+- **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX
+- **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
+- **Web UI**: Vue 3 + Ant Design Vue dashboard for backtest/portfolio/component management
+- **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery
+- **CLI Interface**: Typer-based CLI with Rich formatting
 
-- 🎯 **Event-Driven Backtesting Engine**: Complete event chain from price updates to order fills
-- 💾 **Multi-Database Support**: ClickHouse, MySQL, MongoDB, Redis with unified interfaces
-- 📊 **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX integration
-- ⚡ **High-Performance Architecture**: Dependency injection, lazy loading, caching optimization
-- 🛡️ **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
-- 📈 **Deviation Detection**: Live/paper trading vs backtest baseline comparison with daily point-in-time checks
-- 🔧 **Rich CLI Interface**: Beautiful terminal UI with comprehensive management commands
-- 🧠 **ML Integration**: Machine learning strategies and factor engineering support
+## Architecture
 
-## 🏗️ Architecture
+### Four-Component Boundary
+
+Trading logic is split into four components with unidirectional data flow:
 
 ```
-Event-Driven Flow: PriceUpdate → Strategy → Signal → Portfolio → Order → Fill
-
-Core Components:
-├── Data Layer        # Multi-database unified access
-├── Strategy Layer    # Trading strategies with risk control
-├── Execution Layer   # Order matching and portfolio management
-├── Analysis Layer    # Performance analysis and visualization
-├── Monitoring Layer  # Deviation detection, alerting, auto-takedown
-└── Service Layer     # Dependency injection and global utilities
+Selector -> Strategy -> Sizer -> Risk
+  |           |          |        |
+  v           v          v        v
+codes    signals     volume   adjusted order
 ```
 
-### ⏰ TimeRelated Architecture Design
+| Component | Responsibility | Can |
+|-----------|---------------|-----|
+| **Selector** | Stock selection | Output `List[str]` of codes |
+| **Strategy** | Generate trading signals | Output `List[Signal]` (direction + weight) |
+| **Sizer** | Determine position size | Output integer volume |
+| **Risk** | Risk control intercept | Only reduce or reject orders |
 
-**Design Principle**: TimeRelated mixin provides time advancement capabilities for components that need active time progression in backtesting scenarios.
+### Three-Layer Architecture
 
-**Entity Classification**:
+```
+API / CLI Layer -> Service Layer -> CRUD Layer -> Database
+```
 
-📦 **Data Containers** (No TimeRelated inheritance needed):
-- `Bar`, `Tick`, `Adjustfactor`: Pure data containers with timestamp attributes
-- These entities store **data timestamps** but don't need **time progression**
-- Their timestamp represents when the data occurred, not current processing time
+- **CRUD Layer**: Pure data access, one class per table, inherits `BaseCRUD`
+- **Service Layer**: Business logic orchestration, cross-CRUD operations, returns `ServiceResult`
+- **API Layer**: Must call Service, never bypass to CRUD directly
 
-🎯 **Business Logic Entities** (TimeRelated inheritance appropriate):
-- `Order`, `Signal`: May need time progression for business logic (expiry, decay)
-- `Position`: May track holding duration and time-based calculations
-- `Transfer`: May need time progression for transaction processing
-
-🏗️ **System Components** (TimeRelated inheritance essential):
-- Backtesting engines: Drive time progression across the entire system
-- Strategy components: Need current time awareness for decision making
-- Portfolio managers: Require time progression for state updates
-
-**Key Methods**:
-- `advance_time(target_time)`: Move forward in time (no backward movement allowed)
-- `now`: Current processing time (distinct from data timestamps)
-- `is_before(other_time)` / `is_after(other_time)`: Time comparison utilities
-- `time_elapsed_since(start_time)`: Calculate time differences
-- `can_advance_to(target_time)`: Validate time advancement
-- `reset_time()`: Reset time state for testing/restarting
-
-This design ensures clean separation between **data time** (when something happened) and **processing time** (current system state), critical for accurate backtesting.
-
-### 📈 Deviation Detection Architecture
-
-**Design Goal**: Detect when live/paper trading performance deviates from backtest baseline.
-
-**Three Trading Modes** — all records are tagged via `source` field (`SOURCE_TYPES` enum):
-- **`BACKTEST=15`**: Historical backtest engine output
-- **`PAPER_REPLAY=18`**: Historical simulation (out-of-sample validation after backtest period)
-- **`PAPER_LIVE=19`**: Real-time paper trading (live market data)
-
-The PaperTradingWorker auto-detects mode on startup: if the persisted engine time is behind today, it enters **REPLAY** mode (batch-advances historical days with `LogicalTimeProvider`), then switches to **LIVE_PAPER** mode (`SystemTimeProvider`) once caught up.
+### Service Access
 
 ```python
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo import services
 
-# Filter records by trading mode (works on all CRUDs with source field)
-records = analyzer_crud.find(filters={"source": SOURCE_TYPES.PAPER_REPLAY.value})
-orders = order_crud.find(filters={"source": SOURCE_TYPES.BACKTEST.value, "portfolio_id": "xxx"})
+bar_crud = services.data.cruds.bar()
+stockinfo_service = services.data.services.stockinfo_service()
+engine = services.trading.engines.historic()
 ```
 
-**Dual-Mode Detection (Mode C)**:
-- **Daily Point-in-Time**: Compare live day-N metrics against backtest day-N distribution using z-scores — lightweight, runs every day
-- **Slice-Complete Check**: Full slice comparison when a monitoring period ends — deep analysis
-
-**Data Flow**:
-```
-BacktestEvaluator.evaluate_backtest_stability()
-  → extracts daily_curves from slices  →  monitoring_baseline (with daily_curves)
-
-PaperTradingWorker (daily loop)
-  → loads today's analyzer/signal/order records
-  → run_daily_point_check(day_index, metrics)
-    → DeviationChecker → LiveDeviationDetector.check_point_in_time()
-      → z-score against daily curve distribution
-      → NORMAL / MODERATE / SEVERE
-      → auto-takedown on SEVERE (if configured)
-      → alert to Kafka SYSTEM_EVENTS topic
-```
-
-**Key Components**:
-- `BacktestEvaluator` — orchestrates backtest evaluation, extracts daily curves per metric/day
-- `LiveDeviationDetector` — z-score based deviation detection against baseline
-- `DeviationChecker` — shared logic for Paper/Live modes (alerting, takedown)
-- `PaperTradingWorker` — REPLAY batch loop + LIVE_PAPER daily cycle, runs both detection modes
-
-### ⏱️ Time Provider Architecture
-
-- **`LogicalTimeProvider`**: Controllable logical time for backtest and historical replay
-- **`SystemTimeProvider`**: Real-time system clock for live trading
-- **`clock_now()`**: Global time entry (`ginkgo.trading.time.clock`), reads from the active provider
-- **`EngineContext`**: Engine-level context holding `engine_id` / `run_id` / `source_type`
-- **`ContextMixin`**: Component base mixin that propagates context properties (portfolio_id, run_id, source_type)
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
-Create virtual environment and install:
-
 ```bash
-# Using virtualenv
+# virtualenv
 python3 -m virtualenv venv && source venv/bin/activate
 python ./install.py
 
-# Using conda
+# conda
 conda create -n ginkgo python=3.12.8
 conda activate ginkgo
 python ./install.py
 ```
 
-**Docker 服务配置（可选）**:
+Docker containers (Kafka, Redis, MySQL, ClickHouse, MongoDB) start automatically.
+
+### Global CLI
+
+After installation, `ginkgo` is globally available:
 
 ```bash
-# 启动 2 个 ExecutionNode 副本（负载均衡）
-GINKGO_EXECUTIONNODE_REPLICAS=2 python ./install.py
-
-# 启动 3 个副本
-GINKGO_EXECUTIONNODE_REPLICAS=3 python ./install.py
-```
-
-安装脚本会自动启动以下 Docker 容器：
-- **Kafka 集群** (3节点) - 消息队列
-- **Redis** - 缓存和心跳
-- **MySQL/ClickHouse/MongoDB** - 数据存储
-- **TaskTimer** - 定时任务调度
-- **LiveCore** - 实时数据管理
-- **ExecutionNode** (可扩展) - Portfolio 执行节点
-
-### ⭐ Global Command Access
-
-**After installation, Ginkgo becomes globally available - no environment activation needed!**
-
-```bash
-# Works from anywhere, any Python environment, any directory
-ginkgo version                    # Check installation
-ginkgo status                     # System status overview
-ginkgo data update --stockinfo    # Update stock data
-ginkgo worker start --count 4     # Start data workers
-ginkgo backtest run {engine_id}   # Run backtests
-
-# 🎯 Key Advantage: No need to activate environments or be in project directory
-```
-
-This design makes Ginkgo perfect for:
-- **System services** and **cron jobs** (no environment switching)
-- **Production deployment** (consistent command interface)
-- **Multi-environment usage** (same command works everywhere)
-
-### Docker 服务管理
-
-```bash
-# 查看运行状态
-docker compose -f .conf/docker-compose.yml -p ginkgo ps
-
-# 查看 ExecutionNode 状态
-ginkgo execution status
-
-# 扩容/缩容 ExecutionNode
-docker compose -f .conf/docker-compose.yml -p ginkgo up -d --scale executionnode=3
-
-# 查看日志
-docker compose -f .conf/docker-compose.yml -p ginkgo logs -f executionnode
+ginkgo version
+ginkgo status
+ginkgo debug on          # Required for database operations
 ```
 
 ### Configuration
 
-Configure databases and data sources:
-
 ```bash
-# Edit main configuration
-vi ~/.ginkgo/config.yaml
-
-# Set secure credentials (base64 encoded)
-vi ~/.ginkgo/secure.yml
+vi ~/.ginkgo/config.yaml   # Main config
+vi ~/.ginkgo/secure.yml    # Credentials (base64 encoded)
 ```
 
-**Secure Configuration Template (~/.ginkgo/secure.yml):**
-```yaml
-database:
-  clickhouse:
-    database: ginkgo
-    username: admin
-    password: {password ==> base64encoder}
-    host: localhost
-    port: 8123
-  mysql:
-    database: ginkgo
-    username: ginkgoadmin
-    password: {password ==> base64encoder}
-    host: localhost
-    port: 3306
-  mongodb:
-    database: ginkgo
-    username: ginkgoadm
-    password: {password ==> base64encoder}
-tushare:
-  token: {tokenhere}
+## CLI Reference
+
+### Data Management
+
+```bash
+ginkgo data init                           # Initialize database tables
+ginkgo data update --stockinfo             # Update stock information
+ginkgo data update day --code 000001.SZ    # Update daily bar data
+ginkgo data list stockinfo --page 50       # List stock info
 ```
 
-## 📊 Core Commands
+### Portfolio & Components
 
-### System Management
 ```bash
-# System status and configuration
-ginkgo version                        # Show version info
-ginkgo status                         # System status overview
-ginkgo debug on/off                   # Toggle debug mode
-ginkgo config                         # Show configuration
+ginkgo portfolio create --name "my_portfolio" --capital 1000000
+ginkgo portfolio list
+ginkgo portfolio get <uuid> --details
 
-# Quick setup
-ginkgo init                           # Initialize system and database
-```
+ginkgo component list
+ginkgo component create --type strategy --name "my_strategy"
+ginkgo component show <uuid>
 
-### Data Operations
-```bash
-# Data fetching (simplified commands)
-ginkgo get stockinfo                  # Fetch stock information
-ginkgo get calendar                   # Fetch trading calendar
-ginkgo get bars --code 000001.SZ     # Fetch daily bar data
-ginkgo get ticks --code 000001.SZ    # Fetch tick data
-
-# Data exploration
-ginkgo show stocks                    # List available stocks
-ginkgo show bars --code 000001.SZ    # Show bar data
-ginkgo plot 000001.SZ --start 20230101 # Plot candlestick charts
-
-# Advanced data management
-ginkgo data init                      # Initialize database tables
-ginkgo data update --stockinfo        # Update stock information
-ginkgo data update day --code 000001.SZ  # Update daily data
-ginkgo data list stockinfo --page 50 # List with pagination
+# Bind component with parameters
+ginkgo portfolio bind-component <portfolio_id> <file_id> --type strategy \
+  --param '0:"MyStrategy"' --param '1:0.3'
 ```
 
 ### Backtesting
-```bash
-# Strategy and backtest management
-ginkgo list strategies                # List available strategies
-ginkgo list engines                   # List backtest engines
-ginkgo run {engine_id}               # Run backtest (simplified)
-ginkgo results {engine_id}           # Show backtest results
 
-# Advanced backtesting
-ginkgo backtest run {engine_id}      # Full backtest command
-ginkgo backtest result show {id}     # Detailed results
-ginkgo backtest component list strategy # List strategy components
+```bash
+ginkgo backtest create --portfolio <id> --start 2025-01-01 --end 2026-01-01 --name "test"
+ginkgo backtest run <backtest_id>
+ginkgo backtest cat <backtest_id>
+ginkgo backtest list
 ```
 
 ### Worker Management
+
 ```bash
-# Worker operations
-ginkgo worker status                  # Show worker processes
-ginkgo worker start --count 4         # Start data workers
-ginkgo worker stop --all              # Stop all workers
-ginkgo worker run --debug             # Debug single worker
-ginkgo worker scale 6                 # Scale to 6 workers
+ginkgo worker status
+ginkgo worker start --count 4
+ginkgo worker run --debug
 ```
 
-### Development Tools
+### Development Servers
+
 ```bash
-# Testing
-ginkgo test --all                     # Run all tests (simplified)
-ginkgo test run --all                 # Full test command
-
-# Development services
-ginkgo dev server                     # Start FastAPI server
-ginkgo dev jupyter                    # Launch Jupyter Lab
-
-# Advanced tools
-ginkgo kafka status                   # Kafka cluster status
-ginkgo cache clear                    # Clear cache
-ginkgo datasource list                # List data sources
-ginkgo container status               # Container management
-ginkgo evaluation run                 # Performance evaluation
+ginkgo serve api      # FastAPI server on :8000
+ginkgo serve webui    # Vue dev server on :5173
 ```
 
-## 🔄 Strategy Development
-
-### Basic Strategy Template
+## Strategy Development
 
 ```python
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.trading.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 
 class MyStrategy(BaseStrategy):
     def cal(self, portfolio_info, event):
-        # Your trading logic here
-        if self.should_buy():
-            return [Signal(
-                code="000001.SZ",
-                direction=DIRECTION_TYPES.LONG,
-                reason="Buy signal"
-            )]
+        bars = self.data_feeder.get_bars(code, start, end)
+        if self.should_buy(bars):
+            return [Signal(code=code, direction=DIRECTION_TYPES.LONG)]
         return []
 ```
 
-### Risk Management Integration
+### Risk Management
 
 ```python
-from ginkgo.trading.strategy.risk_managements import (
-    PositionRatioRisk, 
-    LossLimitRisk, 
-    ProfitLimitRisk
+from ginkgo.trading.risk_managements import (
+    PositionRatioRisk, LossLimitRisk, ProfitLimitRisk
 )
 
-# Position control (max 20% per stock, 80% total)
-portfolio.add_risk_manager(PositionRatioRisk(
-    max_position_ratio=0.2,
-    max_total_position_ratio=0.8
-))
-
-# Stop-loss at 10%
+portfolio.add_risk_manager(PositionRatioRisk(max_position_ratio=0.2))
 portfolio.add_risk_manager(LossLimitRisk(loss_limit=10.0))
-
-# Take-profit at 20%  
 portfolio.add_risk_manager(ProfitLimitRisk(profit_limit=20.0))
 ```
 
-## 🛠️ API Usage
+## Web UI
 
-### Service Access Pattern
+Vue 3 + Ant Design Vue + Lightweight Charts + ECharts dashboard:
 
-```python
-from ginkgo import services
-
-# Data services
-bar_crud = services.data.cruds.bar()
-stockinfo_service = services.data.services.stockinfo_service()
-
-# Trading services  
-engine = services.trading.engines.historic()
+```bash
+ginkgo serve webui    # http://localhost:5173
 ```
 
-### Common Operations
+Features: portfolio management, backtest creation/monitoring, component editor, real-time charts.
 
-```python
-from ginkgo.libs import GLOG, GCONF, GTM
+## Live Trading
 
-# Configuration
-debug_mode = GCONF.DEBUGMODE
-db_host = GCONF.get("database.host")
+OKX exchange integration with:
 
-# Logging
-GLOG.info("Processing data...")
-GLOG.ERROR("Connection failed")
+- **LiveEngine**: Unified lifecycle management
+- **OKXBroker**: Exchange adapter implementing IBroker interface
+- **BrokerManager**: Instance lifecycle (start/pause/resume/stop)
+- **HeartbeatMonitor**: Timeout detection and recovery
 
-# Worker management
-GTM.start_multi_worker(count=4)
-status = GTM.get_workers_status()
+```bash
+python -m ginkgo.livecore.main live-start   # Start live engine
+python -m ginkgo.livecore.main live-status  # Check status
 ```
 
-## 🎯 Performance Features
-
-- **Lazy Loading**: Dynamic imports for faster startup
-- **Multi-Level Caching**: Redis + Memory + Method-level caching  
-- **Batch Processing**: Optimized data operations
-- **Event-Driven**: Asynchronous processing pipeline
-- **Decorator Optimization**: `@time_logger`, `@retry`, `@cache_with_expiration`
-
-## 📋 System Requirements
+## System Requirements
 
 - **Python**: 3.12.8+
-- **Databases**: ClickHouse (time-series), MySQL (relational), Redis (cache), MongoDB (documents)
+- **Databases**: ClickHouse, MySQL, MongoDB, Redis
 - **OS**: Linux, macOS, Windows
 - **Memory**: 4GB+ recommended for backtesting
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
+2. Create feature branch: `git checkout -b {seq}-{type}/{description}`
+   - Branch format: `{incrementing-number}-{type}/{description}`
+   - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
+   - Example: `4128-feat/webui-navigation`
+3. Commit and push to branch
+4. Open Pull Request
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **Rich**: Beautiful terminal interfaces
-- **Typer**: Modern CLI framework
-- **Dependency-Injector**: Professional DI container
-- **ClickHouse**: High-performance analytics database
-- **Tushare**: Financial data provider
-
----
-
-**Made with ❤️ for quantitative trading research**
+MIT License - see the LICENSE file for details.
