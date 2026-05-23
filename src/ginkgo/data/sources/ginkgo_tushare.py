@@ -189,7 +189,7 @@ class GinkgoTushare(GinkgoSourceBase):
     def fetch_cn_stock_min(
         self, code: str, start_date: any = GCONF.DEFAULTSTART, end_date: any = GCONF.DEFAULTEND, *args, **kwargs
     ) -> pd.DataFrame:
-        pass
+        raise NotImplementedError("fetch_cn_stock_min 尚未实现，请使用其他数据源获取分钟级数据")
 
     def _calculate_optimal_window_size(self, total_days: int) -> int:
         """
