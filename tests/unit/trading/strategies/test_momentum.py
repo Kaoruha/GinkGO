@@ -191,6 +191,43 @@ class TestMomentumCal:
 
         assert result == []
 
+    def test_returns_empty_when_current_time_not_datetime(self):
+        """Related: #3820 — current_time 非 datetime 应返回空"""
+        s = Momentum()
+        portfolio_info = _make_portfolio_info()
+        portfolio_info["now"] = "not-a-datetime"
+        result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
+        assert result == []
+
+    def test_returns_empty_when_closes_less_than_two(self):
+        """Related: #3820 — closes 列表不足 2 个数据点应返回空"""
+        s = Momentum(lookback_period=3)
+        portfolio_info = _make_portfolio_info()
+        bars = _make_bars([100.0])
+
+        with patch.object(s, "get_bars_cached", return_value=bars):
+            result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
+        assert result == []
+
+    def test_returns_empty_when_first_close_zero_or_negative(self):
+        """Related: #3820 — first_close <= 0 应返回空"""
+        s = Momentum(lookback_period=3)
+        portfolio_info = _make_portfolio_info()
+        bars = _make_bars([0.0, 50.0, 60.0, 70.0])
+
+        with patch.object(s, "get_bars_cached", return_value=bars):
+            result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
+        assert result == []
+
+    def test_returns_empty_on_get_bars_cached_exception(self):
+        """Related: #3820 — get_bars_cached 抛异常应返回空"""
+        s = Momentum()
+        portfolio_info = _make_portfolio_info()
+
+        with patch.object(s, "get_bars_cached", side_effect=RuntimeError("db error")):
+            result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
+        assert result == []
+
     def test_signals_contain_correct_portfolio_context(self, bound_strategy):
         """信号应包含正确的 portfolio_id、engine_id、business_timestamp"""
         s = bound_strategy
@@ -198,8 +235,6 @@ class TestMomentumCal:
         s._context.task_id = "run-abc"
         now = datetime(2024, 3, 15, 14, 30, 0)
         portfolio_info = _make_portfolio_info(now=now, interested_codes=["000001.SZ"])
-        portfolio_info["engine_id"] = "engine-xyz"
-        portfolio_info["task_id"] = "run-abc"
         bars = _make_bars([100.0, 101.0, 102.0, 103.0, 104.0, 110.0])
 
         with patch.object(s, "get_bars_cached", return_value=bars):
