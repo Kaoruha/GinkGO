@@ -531,3 +531,97 @@ class TestValidate:
         result = service.validate("not a dict")
         assert result.success is False
         assert "字典" in result.error
+
+
+# ============================================================================
+# persist_state 测试
+# ============================================================================
+
+
+class TestPersistState:
+    """persist_state 应通过 position_crud.add_batch 替代手动 MPosition 构造"""
+
+    def _make_state(self):
+        return {
+            "cash": "500000",
+            "frozen": "0",
+            "fee": "100",
+            "positions": [
+                {
+                    "portfolio_id": "port-001",
+                    "engine_id": "eng-001",
+                    "task_id": "task-001",
+                    "code": "000001.SZ",
+                    "cost": "10.50",
+                    "volume": 100,
+                    "frozen_volume": 0,
+                    "settlement_frozen_volume": 0,
+                    "settlement_days": 0,
+                    "settlement_queue_json": "[]",
+                    "frozen_money": "0",
+                    "price": "11.00",
+                    "fee": "5.25",
+                },
+                {
+                    "portfolio_id": "port-001",
+                    "engine_id": "eng-001",
+                    "task_id": "",
+                    "code": "600000.SH",
+                    "cost": "20.00",
+                    "volume": 50,
+                    "frozen_volume": 0,
+                    "settlement_frozen_volume": 0,
+                    "settlement_days": 0,
+                    "settlement_queue_json": "[]",
+                    "frozen_money": "0",
+                    "price": "21.00",
+                    "fee": "10.50",
+                },
+            ],
+        }
+
+    @pytest.mark.unit
+    def test_uses_batch_create_for_positions(self, service, mock_deps):
+        """persist_portfolio_state 应通过 batch_create 批量写入持仓，而非手动 MPosition + 逐条 create"""
+        mock_position_crud = MagicMock()
+        mock_deps["crud_repo"].modify = MagicMock()
+
+        with patch.object(service, "_get_position_crud", return_value=mock_position_crud):
+            result = service.persist_portfolio_state("port-001", self._make_state())
+
+        assert result.is_success()
+        mock_position_crud.batch_create.assert_called_once()
+        # 传入 batch_create 的列表应包含 2 个元素
+        args = mock_position_crud.batch_create.call_args[0][0]
+        assert len(args) == 2
+        # 不应直接调用 create
+        mock_position_crud.create.assert_not_called()
+
+    @pytest.mark.unit
+    def test_deletes_before_batch_create(self, service, mock_deps):
+        """persist_state 应先 delete_by_portfolio 再 add_batch"""
+        mock_position_crud = MagicMock()
+        mock_deps["crud_repo"].modify = MagicMock()
+
+        call_order = []
+        mock_position_crud.delete_by_portfolio.side_effect = lambda *a, **k: call_order.append("delete")
+        mock_position_crud.batch_create.side_effect = lambda *a, **k: call_order.append("batch_create")
+
+        with patch.object(service, "_get_position_crud", return_value=mock_position_crud):
+            service.persist_portfolio_state("port-001", self._make_state())
+
+        assert call_order == ["delete", "batch_create"]
+
+    @pytest.mark.unit
+    def test_no_positions_skips_add_batch(self, service, mock_deps):
+        """无持仓时不应调用 add_batch"""
+        mock_deps["crud_repo"].modify = MagicMock()
+
+        state = self._make_state()
+        state["positions"] = []
+
+        with patch.object(service, "_get_position_crud") as mock_get:
+            result = service.persist_portfolio_state("port-001", state)
+
+        assert result.is_success()
+        mock_get.assert_not_called()

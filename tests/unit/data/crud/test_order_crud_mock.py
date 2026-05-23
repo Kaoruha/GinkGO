@@ -292,21 +292,65 @@ class TestOrderBusinessMethods:
         assert result == 0
 
     @pytest.mark.unit
-    def test_modify_converts_enum_to_value(self, crud_instance):
-        """modify 应将枚举类型更新值转换为整数值"""
-        crud_instance.count = MagicMock(return_value=1)
+    def test_modify_converts_all_enum_fields(self, crud_instance):
+        """modify 应将所有 _get_enum_mappings 中的枚举字段转为 .value"""
+        captured_updates = {}
+        original_modify = type(crud_instance).__mro__[1].modify
 
-        with patch.object(type(crud_instance).__mro__[1], 'modify', MagicMock()) as mock_super_modify:
-            # 需要绕过装饰器来测试 modify 的枚举转换逻辑
-            with patch("ginkgo.data.crud.base_crud.GLOG") as mock_glog:
+        def capture_modify(self_inner, filters, updates, session=None):
+            captured_updates.update(updates)
+
+        with patch.object(type(crud_instance).__mro__[1], 'modify', capture_modify):
+            with patch("ginkgo.data.crud.base_crud.GLOG"):
                 crud_instance.modify(
                     filters={"portfolio_id": "p1"},
-                    updates={"status": ORDERSTATUS_TYPES.CANCELED},
+                    updates={
+                        "direction": DIRECTION_TYPES.LONG,
+                        "order_type": ORDER_TYPES.LIMITORDER,
+                        "status": ORDERSTATUS_TYPES.FILLED,
+                        "source": SOURCE_TYPES.BACKTEST,
+                        "volume": 100,
+                    },
                 )
 
-        # 验证父类 modify 被调用（枚举已转换）
-        # 这里主要测试 modify 方法存在且可调用
-        assert callable(getattr(crud_instance, 'modify', None))
+        # 所有枚举字段应被转换为 .value（整数）
+        assert captured_updates["direction"] == DIRECTION_TYPES.LONG.value
+        assert captured_updates["order_type"] == ORDER_TYPES.LIMITORDER.value
+        assert captured_updates["status"] == ORDERSTATUS_TYPES.FILLED.value
+        assert captured_updates["source"] == SOURCE_TYPES.BACKTEST.value
+        # 非枚举字段保持原样
+        assert captured_updates["volume"] == 100
+
+    @pytest.mark.unit
+    def test_modify_uses_enum_mappings_generically(self, crud_instance):
+        """modify 应通过 _get_enum_mappings 泛化转换，新增映射字段应自动支持"""
+        from enum import IntEnum
+
+        class FakePriority(IntEnum):
+            LOW = 1
+            HIGH = 2
+
+        captured_updates = {}
+
+        def capture_modify(self_inner, filters, updates, session=None):
+            captured_updates.update(updates)
+
+        # 模拟新增一个枚举映射字段
+        original_mappings = crud_instance._get_enum_mappings()
+        extended_mappings = {**original_mappings, "priority": FakePriority}
+
+        with patch.object(crud_instance, "_get_enum_mappings", return_value=extended_mappings):
+            with patch.object(type(crud_instance).__mro__[1], 'modify', capture_modify):
+                with patch("ginkgo.data.crud.base_crud.GLOG"):
+                    crud_instance.modify(
+                        filters={"portfolio_id": "p1"},
+                        updates={"priority": FakePriority.HIGH},
+                    )
+
+        # 新增的 priority 字段应被自动转换，无需在 modify 中硬编码
+        assert captured_updates["priority"] == FakePriority.HIGH.value
+        assert not isinstance(captured_updates["priority"], FakePriority), \
+            "枚举应被转换为 int，而非保留为枚举实例"
 
     @pytest.mark.unit
     def test_get_order_summary_empty_orders(self, crud_instance):

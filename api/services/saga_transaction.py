@@ -361,7 +361,6 @@ class PortfolioSagaFactory:
             SagaTransaction: 配置好的 Saga 事务
         """
         from ginkgo.data.containers import container
-        from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
 
         portfolio_service = container.portfolio_service()
 
@@ -370,8 +369,6 @@ class PortfolioSagaFactory:
             raise BusinessError(f"组合 {portfolio_uuid} 已部署，不可删除")
 
         mapping_service = container.portfolio_mapping_service()
-        mongo_driver = container.mongo_driver()
-        mapping_crud = PortfolioFileMappingCRUD(driver=mongo_driver)
 
         saga = SagaTransaction(f"portfolio:delete:{portfolio_uuid}")
 
@@ -382,7 +379,8 @@ class PortfolioSagaFactory:
 
         # ==================== 步骤 1: 获取所有映射 ====================
         def get_mappings():
-            mappings = mapping_crud.find_by_portfolio(portfolio_uuid)
+            result = mapping_service.get_portfolio_mappings(portfolio_uuid, include_params=True)
+            mappings = result.data if result.is_success() else []
             context['mappings'] = mappings
             return mappings
 
@@ -395,9 +393,10 @@ class PortfolioSagaFactory:
         # ==================== 步骤 2: 删除所有映射 ====================
         def remove_mappings():
             for mapping in context['mappings']:
+                file_id = mapping['file_id'] if isinstance(mapping, dict) else mapping.file_id
                 mapping_service.remove_file(
                     portfolio_uuid=portfolio_uuid,
-                    file_id=mapping.file_id
+                    file_id=file_id
                 )
             return len(context['mappings'])
 
@@ -450,7 +449,6 @@ class PortfolioSagaFactory:
             SagaTransaction: 配置好的 Saga 事务
         """
         from ginkgo.data.containers import container
-        from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
         from ginkgo.enums import FILE_TYPES
 
         portfolio_service = container.portfolio_service()
@@ -460,8 +458,6 @@ class PortfolioSagaFactory:
             raise BusinessError(f"组合 {portfolio_uuid} 已部署，不可修改")
 
         mapping_service = container.portfolio_mapping_service()
-        mongo_driver = container.mongo_driver()
-        mapping_crud = PortfolioFileMappingCRUD(driver=mongo_driver)
         file_service = container.file_service()
 
         saga = SagaTransaction(f"portfolio:update:{portfolio_uuid}")
@@ -475,12 +471,13 @@ class PortfolioSagaFactory:
         # ==================== 步骤 1: 备份当前状态 ====================
         def backup_current_state():
             # 备份映射
-            mappings = mapping_crud.find_by_portfolio(portfolio_uuid)
+            mappings_result = mapping_service.get_portfolio_mappings(portfolio_uuid, include_params=True)
+            mappings = mappings_result.data if mappings_result.is_success() else []
             context['old_mappings'] = [
                 {
-                    'file_id': m.file_id,
-                    'type': m.type,
-                    'params': m.params
+                    'file_id': m['file_id'] if isinstance(m, dict) else m.file_id,
+                    'type': m['type'] if isinstance(m, dict) else m.type,
+                    'params': m.get('params', {}) if isinstance(m, dict) else m.params,
                 }
                 for m in mappings
             ]
