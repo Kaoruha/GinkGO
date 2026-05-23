@@ -142,8 +142,8 @@ ginkgo serve webui    # Vue dev server on :5173
 ## Strategy Development
 
 ```python
-from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.trading.entities import Signal
+from ginkgo.trading.strategies.strategy_base import BaseStrategy
+from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 
 class MyStrategy(BaseStrategy):
@@ -157,13 +157,13 @@ class MyStrategy(BaseStrategy):
 ### Risk Management
 
 ```python
-from ginkgo.trading.risk_managements import (
-    PositionRatioRisk, LossLimitRisk, ProfitLimitRisk
-)
+from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+from ginkgo.trading.risk_management.loss_limit_risk import LossLimitRisk
+from ginkgo.trading.risk_management.profit_target_risk import ProfitTargetRisk
 
 portfolio.add_risk_manager(PositionRatioRisk(max_position_ratio=0.2))
 portfolio.add_risk_manager(LossLimitRisk(loss_limit=10.0))
-portfolio.add_risk_manager(ProfitLimitRisk(profit_limit=20.0))
+portfolio.add_risk_manager(ProfitTargetRisk(profit_limit=20.0))
 ```
 
 ## Web UI
