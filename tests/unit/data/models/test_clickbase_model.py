@@ -1,5 +1,5 @@
 """
-性能: 220MB RSS, 1.83s, 42 tests [PASS]
+性能: 220MB RSS, 1.92s, 42 tests [PASS]
 ClickHouse基础模型测试 - Pytest最佳实践重构
 
 测试MClickBase模型的ClickHouse特有功能
@@ -20,29 +20,6 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.models.model_clickbase import MClickBase
-
-
-# 具体子类用于实例化测试
-class ConcreteClickModel(MClickBase):
-    __abstract__ = False
-    __tablename__ = "test_concrete_click"
-
-
-def _make_model(**kwargs):
-    """工厂方法：创建具体子类实例并设置默认值（模拟mapped_column default行为）"""
-    m = ConcreteClickModel(**kwargs)
-    # 仅在未显式传入且值为None时设置默认值
-    if 'uuid' not in kwargs and m.uuid is None:
-        m.uuid = str(uuid.uuid4().hex)
-    if 'meta' not in kwargs and m.meta is None:
-        m.meta = "{}"
-    if 'desc' not in kwargs and m.desc is None:
-        m.desc = "This man is lazy, there is no description."
-    if 'timestamp' not in kwargs and m.timestamp is None:
-        m.timestamp = datetime.datetime.now()
-    if 'source' not in kwargs and m.source is None:
-        m.source = -1
-    return m
 
 
 @pytest.mark.unit
@@ -71,29 +48,29 @@ class TestMClickBaseFields:
 
     def test_uuid_field_default(self):
         """测试uuid字段默认值"""
-        model = _make_model()
+        model = MClickBase()
         assert model.uuid is not None
         assert len(model.uuid) == 32  # UUID hex格式
 
     def test_meta_field_default(self):
         """测试meta字段默认值"""
-        model = _make_model()
+        model = MClickBase()
         assert model.meta == "{}"
 
     def test_desc_field_default(self):
         """测试desc字段默认值"""
-        model = _make_model()
+        model = MClickBase()
         assert model.desc == "This man is lazy, there is no description."
 
     def test_timestamp_field_default(self):
         """测试timestamp字段默认值"""
-        model = _make_model()
+        model = MClickBase()
         assert model.timestamp is not None
         assert isinstance(model.timestamp, datetime.datetime)
 
     def test_source_field_default(self):
         """测试source字段默认值"""
-        model = _make_model()
+        model = MClickBase()
         assert model.source == -1
 
 
@@ -105,25 +82,25 @@ class TestMClickBaseSourceHandling:
         """测试使用枚举设置source"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model()
+        model = MClickBase()
         model.set_source(SOURCE_TYPES.TUSHARE)
         assert model.source == SOURCE_TYPES.TUSHARE.value
 
     def test_set_source_with_int(self):
         """测试使用整数设置source"""
-        model = _make_model()
+        model = MClickBase()
         model.set_source(1)
         assert model.source == 1
 
     def test_set_source_with_invalid_value(self):
         """测试使用无效值设置source"""
-        model = _make_model()
+        model = MClickBase()
         model.set_source("invalid")
         assert model.source == -1
 
     def test_set_source_with_none(self):
         """测试使用None设置source"""
-        model = _make_model()
+        model = MClickBase()
         model.set_source(None)
         assert model.source == -1
 
@@ -131,14 +108,14 @@ class TestMClickBaseSourceHandling:
         """测试获取枚举值"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model()
+        model = MClickBase()
         model.source = SOURCE_TYPES.TUSHARE.value
         enum_result = model.get_source_enum()
         assert enum_result == SOURCE_TYPES.TUSHARE
 
     def test_get_source_enum_with_invalid_source(self):
         """测试无效source的枚举转换"""
-        model = _make_model()
+        model = MClickBase()
         model.source = 9999
         result = model.get_source_enum()
         # 应该返回None或默认值
@@ -151,7 +128,7 @@ class TestMClickBaseUpdateMethod:
 
     def test_update_raises_not_implemented(self):
         """测试update方法抛出NotImplementedError"""
-        model = _make_model()
+        model = MClickBase()
         with pytest.raises(NotImplementedError, match="Model Class need to overload"):
             model.update()
 
@@ -162,13 +139,13 @@ class TestMClickBaseRepr:
 
     def test_repr_returns_string(self):
         """测试__repr__返回字符串"""
-        model = _make_model()
+        model = MClickBase()
         result = model.__repr__()
         assert isinstance(result, str)
 
     def test_repr_contains_tablename(self):
         """测试__repr__包含表名"""
-        model = _make_model()
+        model = MClickBase()
         result = model.__repr__()
         assert "DB" in result or "ClickBaseModel" in result
 
@@ -179,29 +156,29 @@ class TestMClickBaseInit:
 
     def test_init_with_empty_kwargs(self):
         """测试空参数初始化"""
-        model = _make_model()
+        model = MClickBase()
         assert model is not None
 
     def test_init_with_source_enum(self):
         """测试使用source枚举初始化"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model(source=SOURCE_TYPES.TUSHARE)
+        model = MClickBase(source=SOURCE_TYPES.TUSHARE)
         assert model.source == SOURCE_TYPES.TUSHARE.value
 
     def test_init_with_source_int(self):
         """测试使用source整数初始化"""
-        model = _make_model(source=1)
+        model = MClickBase(source=1)
         assert model.source == 1
 
     def test_init_with_meta(self):
         """测试使用meta初始化"""
-        model = _make_model(meta='{"key": "value"}')
+        model = MClickBase(meta='{"key": "value"}')
         assert model.meta == '{"key": "value"}'
 
     def test_init_with_desc(self):
         """测试使用desc初始化"""
-        model = _make_model(desc="Test description")
+        model = MClickBase(desc="Test description")
         assert model.desc == "Test description"
 
 
@@ -238,7 +215,7 @@ class TestMClickBaseInheritance:
 
     def test_has_to_dataframe_method(self):
         """测试有to_dataframe方法"""
-        model = _make_model()
+        model = MClickBase()
         assert hasattr(model, 'to_dataframe')
         assert callable(model.to_dataframe)
 
@@ -249,13 +226,13 @@ class TestMClickBaseUUIDGeneration:
 
     def test_uuid_uniqueness(self):
         """测试UUID唯一性"""
-        model1 = _make_model()
-        model2 = _make_model()
+        model1 = MClickBase()
+        model2 = MClickBase()
         assert model1.uuid != model2.uuid
 
     def test_uuid_format(self):
         """测试UUID格式"""
-        model = _make_model()
+        model = MClickBase()
         # 验证hex格式
         assert len(model.uuid) == 32
         try:
@@ -270,12 +247,12 @@ class TestMClickBaseTimestampHandling:
 
     def test_timestamp_is_datetime(self):
         """测试timestamp是datetime对象"""
-        model = _make_model()
+        model = MClickBase()
         assert isinstance(model.timestamp, datetime.datetime)
 
     def test_timestamp_current_time(self):
         """测试timestamp是当前时间"""
-        model = _make_model()
+        model = MClickBase()
         now = datetime.datetime.now()
         # 允许5秒误差
         time_diff = abs((now - model.timestamp).total_seconds())
@@ -288,12 +265,12 @@ class TestMClickBaseEdgeCases:
 
     def test_empty_string_meta(self):
         """测试空字符串meta"""
-        model = _make_model(meta="")
+        model = MClickBase(meta="")
         assert model.meta == ""
 
     def test_none_desc_allowed(self):
         """测试None desc"""
-        model = _make_model(desc=None)
+        model = MClickBase(desc=None)
         assert model.desc is None
 
     @pytest.mark.parametrize("invalid_source", [
@@ -303,8 +280,7 @@ class TestMClickBaseEdgeCases:
     ])
     def test_invalid_source_handling(self, invalid_source):
         """测试无效source处理"""
-        model = _make_model(source=invalid_source)
-        # __init__ calls set_source for invalid values, which sets -1
+        model = MClickBase(source=invalid_source)
         assert model.source == -1
 
 
@@ -314,13 +290,21 @@ class TestMClickBaseConcreteSubclass:
 
     def test_concrete_subclass_creation(self):
         """测试创建具体子类"""
-        model = ConcreteClickModel()
+        class ConcreteModel(MClickBase):
+            __abstract__ = False
+            __tablename__ = "concrete_test"
+
+        model = ConcreteModel()
         assert isinstance(model, MClickBase)
-        assert isinstance(model, ConcreteClickModel)
+        assert isinstance(model, ConcreteModel)
 
     def test_concrete_subclass_fields(self):
         """测试具体子类字段"""
-        model = ConcreteClickModel()
+        class ConcreteModel(MClickBase):
+            __abstract__ = False
+            __tablename__ = "concrete_test"
+
+        model = ConcreteModel()
         assert hasattr(model, 'uuid')
         assert hasattr(model, 'timestamp')
         assert hasattr(model, 'source')
@@ -336,7 +320,7 @@ class TestMClickBaseConcurrentOperations:
 
         models = []
         def create_model():
-            model = _make_model()
+            model = MClickBase()
             models.append(model)
 
         threads = [threading.Thread(target=create_model) for _ in range(100)]
@@ -356,7 +340,7 @@ class TestMClickBaseDataIntegrity:
 
     def test_field_types(self):
         """测试字段类型"""
-        model = _make_model()
+        model = MClickBase()
         assert isinstance(model.uuid, str)
         assert isinstance(model.meta, str)
         assert isinstance(model.desc, str)
@@ -365,8 +349,8 @@ class TestMClickBaseDataIntegrity:
 
     def test_default_values_consistency(self):
         """测试默认值一致性"""
-        model1 = _make_model()
-        model2 = _make_model()
+        model1 = MClickBase()
+        model2 = MClickBase()
 
         # source默认值应该一致
         assert model1.source == model2.source == -1
@@ -384,7 +368,7 @@ class TestMClickBaseErrorHandling:
 
     def test_set_source_exception_handling(self):
         """测试set_source异常处理"""
-        model = _make_model()
+        model = MClickBase()
         # 应该不抛出异常
         model.set_source("completely_invalid")
         assert model.source == -1
@@ -392,7 +376,7 @@ class TestMClickBaseErrorHandling:
     def test_init_exception_handling(self):
         """测试init异常处理"""
         # 应该优雅地处理各种参数
-        model = _make_model(
+        model = MClickBase(
             source="invalid",
             meta=None,
             desc=123  # 非字符串

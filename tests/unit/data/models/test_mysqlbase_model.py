@@ -1,5 +1,5 @@
 """
-性能: 220MB RSS, 1.92s, 54 tests [PASS]
+性能: 218MB RSS, 1.86s, 52 tests [PASS]
 MySQL基础模型测试 - Pytest最佳实践重构
 
 测试MMysqlBase模型的MySQL特有功能
@@ -20,23 +20,6 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-
-
-# 具体子类用于实例化测试
-class ConcreteMysqlModel(MMysqlBase):
-    __abstract__ = False
-    __tablename__ = "test_concrete_mysql"
-
-
-def _make_model(**kwargs):
-    """工厂方法：创建具体子类实例并补充默认值（meta/desc不在__init__中初始化）"""
-    m = ConcreteMysqlModel(**kwargs)
-    # 仅在未显式传入且值为None时设置默认值
-    if 'meta' not in kwargs and m.meta is None:
-        m.meta = "{}"
-    if 'desc' not in kwargs and m.desc is None:
-        m.desc = "This man is lazy, there is no description."
-    return m
 
 
 @pytest.mark.unit
@@ -67,44 +50,40 @@ class TestMMysqlBaseFields:
 
     def test_uuid_field_default(self):
         """测试uuid字段默认值"""
-        model = _make_model()
+        model = MMysqlBase()
         assert model.uuid is not None
         assert len(model.uuid) == 32  # UUID hex格式
 
     def test_meta_field_default(self):
         """测试meta字段默认值"""
-        model = _make_model()
+        model = MMysqlBase()
         assert model.meta == "{}"
 
     def test_desc_field_default(self):
         """测试desc字段默认值"""
-        model = _make_model()
+        model = MMysqlBase()
         assert model.desc == "This man is lazy, there is no description."
 
     def test_create_at_field_default(self):
         """测试create_at字段默认值"""
-        model = ConcreteMysqlModel()
-        # __init__ handles create_at
+        model = MMysqlBase()
         assert model.create_at is not None
         assert isinstance(model.create_at, datetime.datetime)
 
     def test_update_at_field_default(self):
         """测试update_at字段默认值"""
-        model = ConcreteMysqlModel()
-        # __init__ handles update_at
+        model = MMysqlBase()
         assert model.update_at is not None
         assert isinstance(model.update_at, datetime.datetime)
 
     def test_is_del_field_default(self):
         """测试is_del字段默认值"""
-        model = ConcreteMysqlModel()
-        # __init__ handles is_del
+        model = MMysqlBase()
         assert model.is_del is False
 
     def test_source_field_default(self):
         """测试source字段默认值"""
-        model = ConcreteMysqlModel()
-        # __init__ handles source
+        model = MMysqlBase()
         assert model.source == -1
 
 
@@ -116,19 +95,19 @@ class TestMMysqlBaseSourceHandling:
         """测试使用枚举设置source"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model()
+        model = MMysqlBase()
         model.set_source(SOURCE_TYPES.TUSHARE)
         assert model.source == SOURCE_TYPES.TUSHARE.value
 
     def test_set_source_with_int(self):
         """测试使用整数设置source"""
-        model = _make_model()
+        model = MMysqlBase()
         model.set_source(1)
         assert model.source == 1
 
     def test_set_source_with_invalid_value(self):
         """测试使用无效值设置source"""
-        model = _make_model()
+        model = MMysqlBase()
         model.set_source("invalid")
         assert model.source == -1
 
@@ -136,7 +115,7 @@ class TestMMysqlBaseSourceHandling:
         """测试获取枚举值"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model()
+        model = MMysqlBase()
         model.source = SOURCE_TYPES.TUSHARE.value
         enum_result = model.get_source_enum()
         assert enum_result == SOURCE_TYPES.TUSHARE
@@ -148,20 +127,20 @@ class TestMMysqlBaseSoftDelete:
 
     def test_delete_method_sets_is_del_true(self):
         """测试delete方法设置is_del为True"""
-        model = _make_model()
+        model = MMysqlBase()
         model.delete()
         assert model.is_del is True
 
     def test_cancel_delete_method_sets_is_del_false(self):
         """测试cancel_delete方法设置is_del为False"""
-        model = _make_model()
+        model = MMysqlBase()
         model.is_del = True
         model.cancel_delete()
         assert model.is_del is False
 
     def test_delete_cancel_delete_cycle(self):
         """测试删除和取消删除循环"""
-        model = _make_model()
+        model = MMysqlBase()
         assert model.is_del is False
 
         model.delete()
@@ -180,7 +159,7 @@ class TestMMysqlBaseUpdateMethod:
 
     def test_update_raises_not_implemented(self):
         """测试update方法抛出NotImplementedError"""
-        model = _make_model()
+        model = MMysqlBase()
         with pytest.raises(NotImplementedError):
             model.update()
 
@@ -191,17 +170,17 @@ class TestMMysqlBaseTimestampManagement:
 
     def test_create_at_is_datetime(self):
         """测试create_at是datetime对象"""
-        model = ConcreteMysqlModel()
+        model = MMysqlBase()
         assert isinstance(model.create_at, datetime.datetime)
 
     def test_update_at_is_datetime(self):
         """测试update_at是datetime对象"""
-        model = ConcreteMysqlModel()
+        model = MMysqlBase()
         assert isinstance(model.update_at, datetime.datetime)
 
     def test_timestamps_are_current(self):
         """测试时间戳是当前时间"""
-        model = ConcreteMysqlModel()
+        model = MMysqlBase()
         now = datetime.datetime.now()
         # 允许5秒误差
         time_diff = abs((now - model.create_at).total_seconds())
@@ -209,7 +188,7 @@ class TestMMysqlBaseTimestampManagement:
 
     def test_create_at_and_update_at_simultaneous(self):
         """测试create_at和update_at同时生成"""
-        model = ConcreteMysqlModel()
+        model = MMysqlBase()
         time_diff = abs((model.create_at - model.update_at).total_seconds())
         assert time_diff < 1  # 应该几乎同时
 
@@ -220,29 +199,29 @@ class TestMMysqlBaseInit:
 
     def test_init_with_empty_kwargs(self):
         """测试空参数初始化"""
-        model = _make_model()
+        model = MMysqlBase()
         assert model is not None
 
     def test_init_with_source(self):
         """测试使用source初始化"""
         from ginkgo.enums import SOURCE_TYPES
 
-        model = _make_model(source=SOURCE_TYPES.TUSHARE)
+        model = MMysqlBase(source=SOURCE_TYPES.TUSHARE)
         assert model.source == SOURCE_TYPES.TUSHARE.value
 
     def test_init_with_meta(self):
         """测试使用meta初始化"""
-        model = _make_model(meta='{"key": "value"}')
+        model = MMysqlBase(meta='{"key": "value"}')
         assert model.meta == '{"key": "value"}'
 
     def test_init_with_desc(self):
         """测试使用desc初始化"""
-        model = _make_model(desc="Test description")
+        model = MMysqlBase(desc="Test description")
         assert model.desc == "Test description"
 
     def test_init_with_is_del(self):
         """测试使用is_del初始化"""
-        model = _make_model(is_del=True)
+        model = MMysqlBase(is_del=True)
         assert model.is_del is True
 
 
@@ -257,13 +236,13 @@ class TestMMysqlBaseInheritance:
 
     def test_has_to_dataframe_method(self):
         """测试有to_dataframe方法"""
-        model = _make_model()
+        model = MMysqlBase()
         assert hasattr(model, 'to_dataframe')
         assert callable(model.to_dataframe)
 
     def test_has_delete_methods(self):
         """测试有软删除方法"""
-        model = _make_model()
+        model = MMysqlBase()
         assert hasattr(model, 'delete')
         assert hasattr(model, 'cancel_delete')
         assert callable(model.delete)
@@ -276,13 +255,13 @@ class TestMMysqlBaseUUIDGeneration:
 
     def test_uuid_uniqueness(self):
         """测试UUID唯一性"""
-        model1 = _make_model()
-        model2 = _make_model()
+        model1 = MMysqlBase()
+        model2 = MMysqlBase()
         assert model1.uuid != model2.uuid
 
     def test_uuid_format(self):
         """测试UUID格式"""
-        model = _make_model()
+        model = MMysqlBase()
         # 验证hex格式
         assert len(model.uuid) == 32
         try:
@@ -292,7 +271,7 @@ class TestMMysqlBaseUUIDGeneration:
 
     def test_uuid_persistence(self):
         """测试UUID持久性"""
-        model = _make_model()
+        model = MMysqlBase()
         original_uuid = model.uuid
         # UUID不应该改变
         assert model.uuid == original_uuid
@@ -304,13 +283,13 @@ class TestMMysqlBaseRepr:
 
     def test_repr_returns_string(self):
         """测试__repr__返回字符串"""
-        model = _make_model()
+        model = MMysqlBase()
         result = model.__repr__()
         assert isinstance(result, str)
 
     def test_repr_contains_tablename(self):
         """测试__repr__包含表名"""
-        model = _make_model()
+        model = MMysqlBase()
         result = model.__repr__()
         assert "DB" in result or "MysqlBaseModel" in result
 
@@ -321,17 +300,17 @@ class TestMMysqlBaseEdgeCases:
 
     def test_empty_string_meta(self):
         """测试空字符串meta"""
-        model = _make_model(meta="")
+        model = MMysqlBase(meta="")
         assert model.meta == ""
 
     def test_none_meta_allowed(self):
         """测试None meta"""
-        model = _make_model(meta=None)
+        model = MMysqlBase(meta=None)
         assert model.meta is None
 
     def test_none_desc_allowed(self):
         """测试None desc"""
-        model = _make_model(desc=None)
+        model = MMysqlBase(desc=None)
         assert model.desc is None
 
     @pytest.mark.parametrize("invalid_source", [
@@ -341,28 +320,8 @@ class TestMMysqlBaseEdgeCases:
     ])
     def test_invalid_source_handling(self, invalid_source):
         """测试无效source处理"""
-        model = _make_model(source=invalid_source)
-        # __init__ calls set_source for invalid values, which sets -1
+        model = MMysqlBase(source=invalid_source)
         assert model.source == -1
-
-
-@pytest.mark.unit
-class TestMMysqlBaseConcreteSubclass:
-    """测试MMysqlBase具体子类"""
-
-    def test_concrete_subclass_creation(self):
-        """测试创建具体子类"""
-        model = ConcreteMysqlModel()
-        assert isinstance(model, MMysqlBase)
-        assert isinstance(model, ConcreteMysqlModel)
-
-    def test_concrete_subclass_fields(self):
-        """测试具体子类字段"""
-        model = ConcreteMysqlModel()
-        assert hasattr(model, 'uuid')
-        assert hasattr(model, 'create_at')
-        assert hasattr(model, 'update_at')
-        assert hasattr(model, 'is_del')
 
 
 @pytest.mark.unit
@@ -371,7 +330,7 @@ class TestMMysqlBaseDataIntegrity:
 
     def test_field_types(self):
         """测试字段类型"""
-        model = _make_model()
+        model = MMysqlBase()
         assert isinstance(model.uuid, str)
         assert isinstance(model.meta, str)
         assert isinstance(model.desc, str)
@@ -382,8 +341,8 @@ class TestMMysqlBaseDataIntegrity:
 
     def test_default_values_consistency(self):
         """测试默认值一致性"""
-        model1 = _make_model()
-        model2 = _make_model()
+        model1 = MMysqlBase()
+        model2 = MMysqlBase()
 
         # source默认值应该一致
         assert model1.source == model2.source == -1
@@ -401,7 +360,7 @@ class TestMMysqlBaseSoftDeleteWorkflow:
 
     def test_delete_workflow(self):
         """测试完整删除工作流"""
-        model = _make_model()
+        model = MMysqlBase()
 
         # 初始状态
         assert model.is_del is False
@@ -416,14 +375,14 @@ class TestMMysqlBaseSoftDeleteWorkflow:
 
     def test_multiple_delete_calls(self):
         """测试多次调用delete"""
-        model = _make_model()
+        model = MMysqlBase()
         model.delete()
         model.delete()  # 应该安全
         assert model.is_del is True
 
     def test_multiple_cancel_delete_calls(self):
         """测试多次调用cancel_delete"""
-        model = _make_model()
+        model = MMysqlBase()
         model.cancel_delete()  # 初始已经是False
         model.cancel_delete()  # 应该安全
         assert model.is_del is False
@@ -435,7 +394,7 @@ class TestMMysqlBaseErrorHandling:
 
     def test_set_source_exception_handling(self):
         """测试set_source异常处理"""
-        model = _make_model()
+        model = MMysqlBase()
         # 应该不抛出异常
         model.set_source("completely_invalid")
         assert model.source == -1
@@ -443,7 +402,7 @@ class TestMMysqlBaseErrorHandling:
     def test_init_exception_handling(self):
         """测试init异常处理"""
         # 应该优雅地处理各种参数
-        model = _make_model(
+        model = MMysqlBase(
             source="invalid",
             meta=None,
             desc=123  # 非字符串
@@ -458,7 +417,7 @@ class TestMMysqlBaseTimezoneSupport:
 
     def test_timezone_aware_timestamps(self):
         """测试时区感知时间戳"""
-        model = ConcreteMysqlModel()
+        model = MMysqlBase()
         # 在Python 3.8+中，timezone=True参数使时间戳时区感知
         # 验证时间戳可以正常工作
         assert model.create_at is not None
@@ -471,13 +430,13 @@ class TestMMysqlBaseFieldConstraints:
 
     def test_uuid_length_constraint(self):
         """测试UUID长度约束"""
-        model = _make_model()
+        model = MMysqlBase()
         assert len(model.uuid) == 32
 
     def test_meta_length_constraint(self):
         """测试meta长度约束"""
         # 默认是String(255)
-        model = _make_model()
+        model = MMysqlBase()
         long_meta = "x" * 255
         model.meta = long_meta
         assert model.meta == long_meta
@@ -485,7 +444,7 @@ class TestMMysqlBaseFieldConstraints:
     def test_desc_length_constraint(self):
         """测试desc长度约束"""
         # 默认是String(255)
-        model = _make_model()
+        model = MMysqlBase()
         long_desc = "x" * 255
         model.desc = long_desc
         assert model.desc == long_desc
