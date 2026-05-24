@@ -313,8 +313,12 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy")
+            strategy = StrategyMLBase(name="TestStrategy", signal_threshold=0.01)
             strategy.load_model(model_path)
+
+            # 绑定上下文，否则 Signal 初始化会失败
+            mock_ctx = Mock(portfolio_id="test_portfolio", engine_id="test_engine", task_id="test_task")
+            strategy._context = mock_ctx
 
             # mock data_feeder
             strategy._data_feeder = Mock()
