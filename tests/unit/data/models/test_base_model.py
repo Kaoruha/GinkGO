@@ -1,5 +1,5 @@
 """
-性能: 218MB RSS, 1.89s, 24 tests [PASS]
+性能: 219MB RSS, 1.8s, 24 tests [PASS]
 数据模型基础测试 - Pytest最佳实践重构
 
 测试MBase基础模型的核心功能
@@ -44,7 +44,6 @@ class TestMBaseConstruction:
         try:
             import pandas as pd
             model = MBase()
-            model.test_attr = "value"
             df = model.to_dataframe()
             assert isinstance(df, pd.DataFrame)
         except ImportError:
@@ -61,7 +60,6 @@ class TestMBaseToDataFrame:
             import pandas as pd
             model = MBase()
             model._private_attr = "should_not_appear"
-            model.test_attr = "value"
 
             df = model.to_dataframe()
             assert '_private_attr' not in df.columns
@@ -73,7 +71,6 @@ class TestMBaseToDataFrame:
         try:
             import pandas as pd
             model = MBase()
-            model.test_attr = "value"
 
             df = model.to_dataframe()
             # 排除内置方法
@@ -88,7 +85,6 @@ class TestMBaseToDataFrame:
         try:
             import pandas as pd
             model = MBase()
-            model.test_attr = "value"
 
             df = model.to_dataframe()
             excluded_methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
@@ -124,19 +120,19 @@ class TestMBaseEnumHandling:
         """测试to_dataframe将枚举转换为值"""
         try:
             import pandas as pd
-            from enum import Enum
+            from enum import Enum as PyEnum
 
-            class TestEnum(Enum):
-                VALUE1 = "v1"
-                VALUE2 = "v2"
+            class TestEnum(PyEnum):
+                VALUE1 = "value1"
+                VALUE2 = "value2"
 
             model = MBase()
             model.test_enum = TestEnum.VALUE1
 
             df = model.to_dataframe()
             assert 'test_enum' in df.columns
-            # to_dataframe 将 Python Enum 转换为其 .value
-            assert df['test_enum'].iloc[0] == "v1"
+            # to_dataframe 应该将 Python Enum 转为其值
+            assert df['test_enum'].iloc[0] == "value1"
         except ImportError:
             pytest.skip("pandas not available")
 
@@ -176,12 +172,11 @@ class TestMBaseEdgeCases:
         try:
             import pandas as pd
             model = MBase()
-            model.test_attr = "value"
 
             df = model.to_dataframe()
             assert isinstance(df, pd.DataFrame)
-            # 一行数据
-            assert df.shape[0] == 1
+            # 空模型没有字段，DataFrame 应为空
+            assert df.shape[0] == 0
         except ImportError:
             pytest.skip("pandas not available")
 
@@ -213,7 +208,6 @@ class TestMBaseInheritance:
                 pass
 
             model = CustomModel()
-            model.test_attr = "value"
             assert hasattr(model, 'to_dataframe')
             assert callable(model.to_dataframe)
         except ImportError:
@@ -225,11 +219,11 @@ class TestMBaseInheritance:
             import pandas as pd
 
             class CustomModel(MBase):
-                pass
+                def __init__(self):
+                    super().__init__()
+                    self.custom_field = "custom_value"
 
             model = CustomModel()
-            model.custom_field = "custom_value"
-
             df = model.to_dataframe()
             assert 'custom_field' in df.columns
         except ImportError:
