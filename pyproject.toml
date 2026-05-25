@@ -247,6 +247,12 @@ markers = [
     "error_handling: 错误处理测试",
     "infrastructure: 基础设施测试",
     "refactor: 重构验证测试",
+    "engine: 引擎测试",
+    "time_controlled: 时间控制引擎测试",
+    "event_processing: 事件处理测试",
+    "lifecycle: 生命周期测试",
+    "clickhouse: ClickHouse数据库测试",
+    "mysql: MySQL数据库测试",
 ]
 
 # 警告过滤
