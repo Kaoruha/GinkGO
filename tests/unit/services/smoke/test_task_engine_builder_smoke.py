@@ -56,6 +56,6 @@ class TestTaskEngineBuilderSmoke:
                     builder = TaskEngineBuilder()
                     try:
                         result = builder.build_engine_from_task(mock_task)
-                    except Exception:
-                        # Import-level failures are OK for smoke tests
+                    except (ImportError, AttributeError, TypeError):
+                        # 结构/导入级异常在冒烟测试中可接受
                         pass
