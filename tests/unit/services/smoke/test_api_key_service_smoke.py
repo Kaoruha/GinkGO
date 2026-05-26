@@ -47,7 +47,6 @@ class TestApiKeyServiceSmoke:
         mock_key.get_permissions_list.return_value = ["read"]
         mock_key.is_expired.return_value = False
         mock_crud.get_api_key_by_uuid.return_value = mock_key
-        mock_crud._verify_account.return_value = MagicMock()
         result = svc.get_api_key(uuid="u1")
         assert result is not None
         assert isinstance(result, dict)
