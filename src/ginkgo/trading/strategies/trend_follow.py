@@ -12,6 +12,7 @@ import pandas as pd
 from ginkgo.entities import Signal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.libs import GLOG
 
 
 class StrategyTrendFollow(BaseStrategy):
@@ -67,6 +68,7 @@ class StrategyTrendFollow(BaseStrategy):
 
         now = portfolio_info.get("now")
         if now is None:
+            GLOG.DEBUG(f"[TrendFollow] now is None, returning empty")
             return []
 
         # 获取历史数据
@@ -76,51 +78,67 @@ class StrategyTrendFollow(BaseStrategy):
             end_time=now, data_type="bar"
         )
 
-        if df is None or df.empty or df.shape[0] < self._slow_ma_period + 5:
+        if df is None or df.empty:
+            GLOG.DEBUG(f"[TrendFollow] No data for {event.code}, df={'None' if df is None else 'empty'}")
+            return []
+
+        if df.shape[0] < self._slow_ma_period + 5:
+            GLOG.DEBUG(f"[TrendFollow] Insufficient data for {event.code}: {df.shape[0]} rows, need {self._slow_ma_period + 5}")
             return []
 
         # 计算技术指标
         df = self._calculate_moving_averages(df)
-        
+
         # 获取最新的指标值
         current_row = df.iloc[-1]
         prev_row = df.iloc[-2]
-        
-        current_price = float(current_row['close'])
 
+        current_price = float(current_row['close'])
         has_position = event.code in portfolio_info["positions"]
-        
+
+        # Debug logging for signal conditions
+        GLOG.DEBUG(f"[TrendFollow] {event.code}: price={current_price:.2f}, "
+                   f"fast_ma={current_row['fast_ma']:.2f}, slow_ma={current_row['slow_ma']:.2f}, "
+                   f"momentum={current_row['momentum']:.4f}, has_pos={has_position}, "
+                   f"prev_fast_ma={prev_row['fast_ma']:.2f}, prev_slow_ma={prev_row['slow_ma']:.2f}")
+
         # 交易信号逻辑
         signals = []
-        
+
         # 金叉买入信号
-        if (prev_row['fast_ma'] <= prev_row['slow_ma'] and 
+        if (prev_row['fast_ma'] <= prev_row['slow_ma'] and
             current_row['fast_ma'] > current_row['slow_ma'] and
             current_row['momentum'] > 0 and
             not has_position):
-            
+
+            GLOG.INFO(f"[TrendFollow] GOLDEN CROSS signal for {event.code}")
             signals.append(self._generate_signal(
                 portfolio_info, event.code, DIRECTION_TYPES.LONG, "Golden Cross"
             ))
-        
+
         # 死叉卖出信号
-        elif (prev_row['fast_ma'] >= prev_row['slow_ma'] and 
+        elif (prev_row['fast_ma'] >= prev_row['slow_ma'] and
               current_row['fast_ma'] < current_row['slow_ma'] and
               has_position):
-            
+
+            GLOG.INFO(f"[TrendFollow] DEATH CROSS signal for {event.code}")
             signals.append(self._generate_signal(
                 portfolio_info, event.code, DIRECTION_TYPES.SHORT, "Death Cross"
             ))
-        
+
         # 趋势强度确认
         elif not has_position and current_row['momentum'] > 0.05:  # 5%动量
             # 检查是否处于上升趋势
             if (current_row['fast_ma'] > current_row['slow_ma'] and
                 current_row['close'] > current_row['fast_ma']):
-                
+
+                GLOG.INFO(f"[TrendFollow] MOMENTUM CONFIRMATION signal for {event.code}")
                 signals.append(self._generate_signal(
                     portfolio_info, event.code, DIRECTION_TYPES.LONG, "Momentum Confirmation"
                 ))
-        
+
+        if not signals:
+            GLOG.DEBUG(f"[TrendFollow] No signal generated for {event.code}")
+
         return signals
 

@@ -29,20 +29,20 @@ class PopularitySelector(BaseSelector):
         self._last_pick = None
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
-        if self.now is None:
+        if self.current_timestamp is None:
             GLOG.ERROR("No date set. skip picking.")
             return []
 
         if self._last_pick is None:
-            self._last_pick = self.now
+            self._last_pick = self.current_timestamp
 
-        if self.now - self._last_pick < datetime.timedelta(days=self.interval):
+        if self.current_timestamp - self._last_pick < datetime.timedelta(days=self.interval):
             if len(self._interested) > 0:
                 return self._interested
         else:
-            self._last_pick = self.now
+            self._last_pick = self.current_timestamp
 
-        if self.now is None:
+        if self.current_timestamp is None:
             GLOG.ERROR("No date set. skip picking.")
             return self._interested
 
@@ -51,7 +51,7 @@ class PopularitySelector(BaseSelector):
         if not codes:
             return self._interested
 
-        date_start = self.now + datetime.timedelta(days=int(self.span * -1))
+        date_start = self.current_timestamp + datetime.timedelta(days=int(self.span * -1))
         bar_crud = container.cruds.bar()
 
         GLOG.INFO(f"PopularitySelector: scanning {len(codes)} stocks, span={self.span}d")
@@ -63,7 +63,7 @@ class PopularitySelector(BaseSelector):
                 progress.update(task, advance=1, description=f"Scanning {code}")
                 try:
                     bars = bar_crud.find(
-                        filters={"code": code, "timestamp__gte": date_start, "timestamp__lte": self.now},
+                        filters={"code": code, "timestamp__gte": date_start, "timestamp__lte": self.current_timestamp},
                         page_size=self.span + 10,
                     )
                     if not bars or len(bars) == 0:

@@ -174,8 +174,8 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
             changes = changes[-self.rsi_period:]
 
             # 分离涨跌
-            gains = [max(c, 0.0) for c in changes]
-            losses = [abs(min(c, 0.0)) for c in changes]
+            gains = [float(max(c, 0.0)) for c in changes]
+            losses = [float(abs(min(c, 0.0))) for c in changes]
 
             # 计算平均涨跌幅
             avg_gain = sum(gains) / self.rsi_period
