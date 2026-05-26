@@ -121,10 +121,13 @@ class Container(containers.DeclarativeContainer):
     # ==================== SERVICE DEPENDENCIES ====================
 
     # User services (constructed from CRUDs)
+    user_credential_crud = providers.Singleton(get_crud, "user_credential")
+
     user_service = providers.Singleton(
-        lambda crud, contact_crud: UserService(crud, contact_crud),
+        lambda crud, contact_crud, credential_crud: UserService(crud, contact_crud, credential_crud),
         crud=user_crud,
-        contact_crud=user_contact_crud
+        contact_crud=user_contact_crud,
+        credential_crud=user_credential_crud
     )
 
     user_group_service = providers.Singleton(
