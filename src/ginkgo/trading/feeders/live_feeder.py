@@ -493,13 +493,24 @@ class LiveDataFeeder(ILiveDataFeeder):
     
     async def _async_main(self):
         """异步主循环"""
-        # 建立连接
         self.status = DataFeedStatus.CONNECTING
-        if await self.connection_manager.connect():
+
+        # 优先使用子类的自定义连接方式（如 EastMoneyFeeder._async_connect）
+        if hasattr(self, '_async_connect'):
+            connected = await self._async_connect()
+        elif self.connection_manager is not None:
+            connected = await self.connection_manager.connect()
+        else:
+            GLOG.ERROR("No connection method available (neither _async_connect nor connection_manager)")
+            self.status = DataFeedStatus.ERROR
+            return
+
+        if connected:
             self.status = DataFeedStatus.CONNECTED
-            
-            # 启动消息接收循环
-            await self._message_loop()
+            if hasattr(self, '_async_message_loop'):
+                await self._async_message_loop()
+            elif self.connection_manager is not None:
+                await self._message_loop()
         else:
             self.status = DataFeedStatus.ERROR
     
