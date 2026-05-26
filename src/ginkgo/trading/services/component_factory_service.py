@@ -61,7 +61,7 @@ class ComponentFactoryService:
             from ginkgo.trading.analysis.analyzers import BaseAnalyzer
             from ginkgo.trading.selectors import BaseSelector
             from ginkgo.trading.sizers import BaseSizer
-            from ginkgo.trading.risk_managementss import BaseRiskManagement as BaseRisk
+            from ginkgo.trading.risk_management import BaseRiskManagement as BaseRisk
 
             self._base_class_mapping = {
                 FILE_TYPES.STRATEGY: BaseStrategy,

@@ -138,7 +138,7 @@ class TestBasePortfolioConstruction:
         assert portfolio.analyzers == []
         assert portfolio.sizers == []
         assert portfolio.selectors == []
-        assert portfolio.risk_managementss == []
+        assert portfolio.risk_managements == []
 
     def test_initial_cash_equals_capital(self):
         """初始现金等于初始资金"""
@@ -197,7 +197,7 @@ class TestBasePortfolioComponentManagement:
         portfolio = ConcretePortfolio()
         risk = MagicMock()
         portfolio.add_risk_managements(risk)
-        assert risk in portfolio.risk_managementss
+        assert risk in portfolio.risk_managements
 
 
 # ── BasePortfolio 策略权重测试 ─────────────────────────────────────────

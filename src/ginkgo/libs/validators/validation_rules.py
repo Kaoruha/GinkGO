@@ -112,7 +112,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.trading.risk_managementss.base_risk'
+            'ginkgo.trading.risk_management.base_risk'
         ],
         'forbidden_operations': [
             'os.system',
