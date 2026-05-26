@@ -137,9 +137,6 @@ class ApiKeyService:
                     "message": "API Key not found"
                 }
 
-            # 获取账号信息
-            account = self.crud._verify_account(api_key.account_uuid)
-
             return {
                 "success": True,
                 "data": {
