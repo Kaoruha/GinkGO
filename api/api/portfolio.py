@@ -255,54 +255,16 @@ async def list_portfolios(
 async def get_portfolio_stats():
     """获取 Portfolio 统计数据"""
     try:
-        # 获取 PortfolioService
         portfolio_service = get_portfolio_service()
-
-        # 使用 count 方法获取总数
-        total_result = portfolio_service.count()
-        total = total_result.data.get("count", 0) if total_result.is_success() else 0
-
-        # 获取所有数据用于计算资产和净值
-        result = portfolio_service.get(page=0, page_size=10000)
-
-        total_assets = 0
-        avg_net_value = 1.0
-        running = 0
-
-        if result.is_success() and result.data:
-            portfolios = result.data
-            total_assets = sum(float(p.initial_capital) for p in portfolios if p.initial_capital)
-
-            # 计算平均净值和运行中数量
-            net_values = []
-            for p in portfolios:
-                # 统计运行中的投资组合
-                # 注意：旧版MPortfolio使用is_running字段
-                is_running = getattr(p, 'is_running', None)
-
-                if is_running == 1:
-                    running += 1
-
-                if p.initial_capital and p.cash and float(p.initial_capital) > 0:
-                    net_values.append(float(p.cash) / float(p.initial_capital))
-
-            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
-
-        return ok(data={
-            "total": total,
-            "running": running,
-            "avg_net_value": round(avg_net_value, 4),
-            "total_assets": total_assets,
-        }, message="Stats retrieved successfully")
-
+        result = portfolio_service.get_stats()
+        data = result.data if result.is_success() else {
+            "total": 0, "running": 0, "avg_net_value": 1.0, "total_assets": 0,
+        }
+        return ok(data=data, message="Stats retrieved successfully")
     except Exception as e:
-        logger.error(f"Error getting portfolio stats: {str(e)}")
-        # 发生错误时返回默认值
+        logger.error(f"Error getting portfolio stats: {e}")
         return ok(data={
-            "total": 0,
-            "running": 0,
-            "avg_net_value": 1.0,
-            "total_assets": 0,
+            "total": 0, "running": 0, "avg_net_value": 1.0, "total_assets": 0,
         }, message="Stats retrieved successfully")
 
 

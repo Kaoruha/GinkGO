@@ -877,6 +877,45 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"统计投资组合失败: {str(e)}")
             return ServiceResult.error(f"统计投资组合失败: {str(e)}")
 
+    def get_stats(self) -> ServiceResult:
+        """获取 Portfolio 聚合统计（数据库级别 O(1)）"""
+        try:
+            from sqlalchemy import func
+            from ginkgo.data.models.model_portfolio import MPortfolio
+
+            crud = self._crud_repo
+
+            total = crud.count(filters={"is_del": False})
+            running = crud.count(filters={"is_del": False, "state": 1})
+
+            conn = crud._get_connection()
+            with conn.get_session() as s:
+                row = s.query(
+                    func.sum(MPortfolio.initial_capital),
+                    func.avg(MPortfolio.cash / MPortfolio.initial_capital),
+                ).filter(
+                    MPortfolio.is_del == False,
+                    MPortfolio.initial_capital > 0,
+                ).one()
+
+            total_assets = float(row[0] or 0)
+            avg_net_value = round(float(row[1] or 1.0), 4)
+
+            return ServiceResult.success({
+                "total": total,
+                "running": running,
+                "avg_net_value": avg_net_value,
+                "total_assets": total_assets,
+            })
+        except Exception as e:
+            GLOG.ERROR(f"获取 Portfolio 统计失败: {e}")
+            return ServiceResult.success({
+                "total": 0,
+                "running": 0,
+                "avg_net_value": 1.0,
+                "total_assets": 0,
+            })
+
     def exists(self, portfolio_id: str = None, name: str = None, **kwargs) -> ServiceResult:
         """
         检查投资组合是否存在
