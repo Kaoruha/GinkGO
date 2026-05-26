@@ -59,7 +59,7 @@ class BasePortfolio(ABC):
         self._analyzers = []
         self._sizers = []
         self._selectors = []
-        self._risk_managementss = []
+        self._risk_managements = []
         
         # 组合配置
         self._rebalance_frequency = RebalanceFrequency.DAILY
@@ -96,9 +96,9 @@ class BasePortfolio(ABC):
         return self._selectors
     
     @property
-    def risk_managementss(self) -> List[BaseRiskManagement]:
+    def risk_managements(self) -> List[BaseRiskManagement]:
         """风险管理器列表"""
-        return self._risk_managementss
+        return self._risk_managements
     
     @property
     def current_cash(self) -> float:
@@ -161,8 +161,8 @@ class BasePortfolio(ABC):
             
     def add_risk_managements(self, risk_mgmt: BaseRiskManagement) -> None:
         """添加风险管理器"""
-        if risk_mgmt not in self._risk_managementss:
-            self._risk_managementss.append(risk_mgmt)
+        if risk_mgmt not in self._risk_managements:
+            self._risk_managements.append(risk_mgmt)
     
     def set_strategy_weight(self, strategy_name: str, weight: float) -> None:
         """设置策略权重"""
