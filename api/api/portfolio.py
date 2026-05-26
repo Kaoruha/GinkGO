@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Request
 from typing import Optional
 from core.database import get_db
 from core.logging import logger
-from core.response import ok
+from core.response import ok, pagination_meta
 from core.exceptions import NotFoundError, ValidationError, BusinessError
 from datetime import datetime
 import sys
@@ -177,44 +177,47 @@ def get_param_names(component_name: str, file_type: str = None):
 
 @router.get("/")
 async def list_portfolios(
-    mode: Optional[PortfolioMode] = Query(None, description="按运行模式筛选")
+    mode: Optional[PortfolioMode] = Query(None, description="按运行模式筛选"),
+    page: int = Query(0, ge=0, description="页码（0-based）"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    keyword: Optional[str] = Query(None, description="按名称搜索"),
 ):
-    """获取Portfolio列表（使用PortfolioService）"""
+    """获取Portfolio列表（分页）"""
     try:
-        # 获取PortfolioService
         portfolio_service = get_portfolio_service()
-
-        def _check_frozen(pid):
-            try:
-                return portfolio_service.is_portfolio_frozen(pid)
-            except Exception:
-                return False
 
         # 确定筛选条件
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
-        mode_filter = None
+        filters = {"is_del": False}
         if mode == PortfolioMode.BACKTEST:
-            mode_filter = PORTFOLIO_MODE_TYPES.BACKTEST.value
+            filters["mode"] = PORTFOLIO_MODE_TYPES.BACKTEST.value
         elif mode == PortfolioMode.LIVE:
-            mode_filter = PORTFOLIO_MODE_TYPES.LIVE.value
+            filters["mode"] = PORTFOLIO_MODE_TYPES.LIVE.value
         elif mode == PortfolioMode.PAPER:
-            mode_filter = PORTFOLIO_MODE_TYPES.PAPER.value
+            filters["mode"] = PORTFOLIO_MODE_TYPES.PAPER.value
+        if keyword:
+            filters["name"] = keyword
 
-        # 获取列表
-        result = portfolio_service.get(mode=mode_filter)
+        # 分页查询
+        crud = portfolio_service._crud_repo
+        portfolios = crud.find(
+            filters=filters,
+            page=page,
+            page_size=page_size,
+            order_by="update_at",
+            desc_order=True,
+        )
+        total = crud.count(filters=filters)
 
-        if not result.is_success():
-            return ok(data=[], message="Portfolios retrieved successfully")
-
-        portfolios = []
-        for p in result.data or []:
+        items = []
+        for p in (portfolios or []):
             mode_int = p.mode
 
             # Performance metrics
             if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
                 metrics = _get_latest_backtest_metrics(p.uuid)
                 backtest_count = _count_backtests(p.uuid)
-            else:  # PAPER/LIVE - read from MPortfolio fields
+            else:
                 metrics = {
                     "annual_return": float(getattr(p, "annual_return", 0) or 0),
                     "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
@@ -223,29 +226,23 @@ async def list_portfolios(
                 }
                 backtest_count = 0
 
-            # Related portfolios
-            related = _get_related_portfolios(p.uuid, mode_int)
-
-            portfolios.append({
+            items.append({
                 "uuid": p.uuid,
                 "name": p.name,
                 "mode": _map_mode(p.mode),
                 "state": _map_state(p.state),
-                "config_locked": _check_frozen(p.uuid),
-                # Performance metrics
+                "config_locked": portfolio_service.is_portfolio_frozen(p.uuid),
                 "annual_return": metrics.get("annual_return"),
                 "sharpe_ratio": metrics.get("sharpe_ratio"),
                 "max_drawdown": metrics.get("max_drawdown"),
                 "win_rate": metrics.get("win_rate"),
-                # Meta info
                 "backtest_count": backtest_count,
                 "last_backtest_date": metrics.get("last_backtest_date"),
-                # Related portfolios
-                "related": related,
+                "related": _get_related_portfolios(p.uuid, mode_int),
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None,
             })
 
-        return ok(data=portfolios, message="Portfolios retrieved successfully")
+        return ok(data=items, message="Portfolios retrieved successfully", meta=pagination_meta(page + 1, total, page_size))
     except Exception as e:
         logger.error(f"Error listing portfolios: {str(e)}")
         raise BusinessError(f"Error listing portfolios: {str(e)}")
