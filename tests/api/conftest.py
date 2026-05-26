@@ -11,7 +11,7 @@ import pytest
 _API_DIR = str(Path(__file__).parent.parent.parent / "api")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(autouse=True, scope="session")
 def api_modules():
     """仅在测试执行时将 api/ 临时加入 sys.path，完成后移除。
 

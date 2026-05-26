@@ -3,32 +3,12 @@ Saga 事务管理器测试
 
 测试 Saga 模式的事务一致性和补偿机制。
 
-Issue #4080: 使用 autouse fixture 延迟添加 api/ 到 sys.path，
-避免收集阶段 api/core/ 和 api/services/ 与 tests/unit/core/ 等产生命名空间冲突。
+Issue #4080: 延迟导入 api 模块，避免收集阶段 api/core/ 和 api/services/
+与 tests/unit/core/ 等产生命名空间冲突。sys.path 由 conftest.py 的 api_modules fixture 管理。
 """
-import sys
-from pathlib import Path
-
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
-
-_API_DIR = str(Path(__file__).parent.parent.parent / "api")
-
-
-@pytest.fixture(autouse=True, scope="session")
-def _setup_api_path():
-    """仅在测试执行阶段（非收集阶段）将 api/ 加入 sys.path。
-
-    session scope 确保只在 saga 测试实际运行时添加路径，
-    而在 pytest 收集其他测试文件时不会污染命名空间。
-    收集完成后执行 teardown 移除路径。
-    """
-    if _API_DIR not in sys.path:
-        sys.path.insert(0, _API_DIR)
-    yield
-    if _API_DIR in sys.path:
-        sys.path.remove(_API_DIR)
 
 
 # 延迟导入：在 fixture 执行后才能导入 api 模块
