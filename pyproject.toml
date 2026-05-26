@@ -112,6 +112,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "bcrypt>=5.0.0",
     "playwright>=1.59.0",
+    "mcp>=1.10.0",
 ]
 
 # 可选依赖组
@@ -311,3 +312,8 @@ fixable = ["ALL"]
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
+
+[tool.uv]
+override-dependencies = [
+    "httpx>=0.27",
+]
