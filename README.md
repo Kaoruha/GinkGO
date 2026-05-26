@@ -59,15 +59,11 @@ engine = services.trading.engines.historic()
 ### Installation
 
 ```bash
-# virtualenv
-python3 -m virtualenv venv && source venv/bin/activate
-python ./install.py
-
-# conda
-conda create -n ginkgo python=3.12.8
-conda activate ginkgo
-python ./install.py
+# uv (recommended)
+uv sync
 ```
+
+> **Note:** You need [uv](https://docs.astral.sh/uv/) installed. If you don't have it, run `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 
 Docker containers (Kafka, Redis, MySQL, ClickHouse, MongoDB) start automatically.
 

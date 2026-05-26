@@ -355,14 +355,8 @@ delete_bars_filtered(code="000001.SZ", start="20230101", end="20231231")
 
 ### Environment Setup
 ```bash
-# Create virtual environment and install
-python3 -m virtualenv venv && source venv/bin/activate
-python ./install.py
-
-# Or with conda
-conda create -n ginkgo python=3.12.8
-conda activate ginkgo
-python ./install.py
+# uv (recommended)
+uv sync
 ```
 
 ### Core CLI Commands
