@@ -233,3 +233,7 @@ endpoint = "http://${CLICKHOUSE_HOST}:8123"
 [sinks.clickhouse_performance.batch]
 max_events = 100
 timeout_secs = 5
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
