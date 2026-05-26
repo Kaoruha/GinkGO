@@ -64,12 +64,16 @@ class StrategyTrendFollow(BaseStrategy):
 
     def cal(self, portfolio_info, event, *args, **kwargs):
         super().cal(portfolio_info, event)
-        
+
+        now = portfolio_info.get("now")
+        if now is None:
+            return []
+
         # 获取历史数据
-        date_start = self.business_timestamp - datetime.timedelta(days=(self._slow_ma_period + 10))
+        date_start = now - datetime.timedelta(days=(self._slow_ma_period + 10))
         df = self.data_feeder.get_historical_data(
             symbols=[event.code], start_time=date_start,
-            end_time=self.business_timestamp, data_type="bar"
+            end_time=now, data_type="bar"
         )
 
         if df is None or df.empty or df.shape[0] < self._slow_ma_period + 5:
