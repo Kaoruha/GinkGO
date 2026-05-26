@@ -1,6 +1,6 @@
 # Triage Labels
 
-Three-dimensional label system: **Type** + **Priority** + **Module**, plus Triage flow labels.
+Three-dimensional label system: **Type** + **Priority** + **Module**, plus Triage flow and Lifecycle labels.
 
 ## Type Labels
 
@@ -45,6 +45,23 @@ Three-dimensional label system: **Type** + **Priority** + **Module**, plus Triag
 | `needs-info` | `needs-info` | Waiting on reporter for more information |
 | `ready-for-agent` | `ready-for-agent` | Fully specified, ready for an AFK agent |
 | `ready-for-human` | `ready-for-human` | Requires human implementation |
+| `wontfix` | `wontfix` | Will not be actioned |
+
+## Lifecycle Labels
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `in-progress` | green | Claimed and actively being worked on |
+| `in-review` | light blue | PR submitted, waiting for code review |
+| `blocked` | dark red | Blocked by another issue or external dependency |
+
+## Suppression Labels
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `strategy-recommendation` | light purple | AI-generated strategy recommendation (not engineering work) |
+
+查看 issue 时排除策略推荐：`gh issue list --label strategy-recommendation` 或排除 `--search "-label:strategy-recommendation"`
 
 ## Usage
 
