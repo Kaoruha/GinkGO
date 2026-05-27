@@ -559,6 +559,48 @@ class FileService(FileSearchMixin, BaseService):
             self._logger.ERROR(f"Failed to get file by name: {e}")
             return ServiceResult.error(f"Failed to get file by name: {str(e)}")
 
+    def list_components(self, file_types: list = None, keyword: str = None,
+                        is_del: bool = False, page: int = 0, page_size: int = 20,
+                        order_by: str = "update_at", desc_order: bool = True) -> ServiceResult:
+        """
+        分页获取组件列表，支持类型/关键词过滤，服务端分页。
+
+        Args:
+            file_types: FILE_TYPES 列表，为空时返回所有组件类型
+            keyword: 按文件名模糊搜索
+            is_del: 是否已删除（默认 False 只返回活跃文件）
+            page: 页码（0-based）
+            page_size: 每页数量
+            order_by: 排序字段
+            desc_order: 是否倒序
+
+        Returns:
+            ServiceResult with data={"data": ModelList, "total": int}
+        """
+        try:
+            crud = self._crud_repo
+
+            filters = {"is_del": is_del}
+            if file_types:
+                filters["type__in"] = [ft.value for ft in file_types]
+            if keyword:
+                filters["name__like"] = keyword
+
+            total = crud.count(filters=filters)
+            results = crud.find(
+                filters=filters, page=page, page_size=page_size,
+                order_by=order_by, desc_order=desc_order,
+            )
+
+            return ServiceResult.success(
+                data={"data": results, "total": total},
+                message=f"Found {total} components"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to list components: {e}")
+            return ServiceResult.error(f"Failed to list components: {str(e)}")
+
     def get_by_type(self, file_type: FILE_TYPES) -> ServiceResult:
         """
         获取指定类型的所有文件

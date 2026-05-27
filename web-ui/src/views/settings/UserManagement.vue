@@ -5,7 +5,7 @@
         <span class="tag tag-blue">系统</span>
         用户管理
       </div>
-      <button class="btn btn-primary" @click="showCreateModal = true">添加用户</button>
+      <button class="btn btn-primary" @click="openCreateModal">添加用户</button>
     </div>
 
     <div class="card">
@@ -20,11 +20,11 @@
             type="text"
             placeholder="搜索用户名"
             class="search-input"
-            @keyup.enter="handleSearch"
+            @keyup.enter="loadUsers"
           />
-          <button class="search-btn" @click="handleSearch">搜索</button>
+          <button class="search-btn" @click="loadUsers">搜索</button>
         </div>
-        <select v-model="statusFilter" class="form-select" @change="handleSearch">
+        <select v-model="statusFilter" class="form-select" @change="loadUsers">
           <option value="">全部状态</option>
           <option value="active">启用</option>
           <option value="disabled">禁用</option>
@@ -39,16 +39,18 @@
           <thead>
             <tr>
               <th>用户名</th>
+              <th>显示名</th>
               <th>邮箱</th>
               <th>状态</th>
               <th>角色</th>
-              <th>最后登录</th>
+              <th>创建时间</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="record in users" :key="record.uuid">
               <td>{{ record.username }}</td>
+              <td>{{ record.display_name || '-' }}</td>
               <td>{{ record.email }}</td>
               <td>
                 <span class="tag" :class="record.status === 'active' ? 'tag-green' : 'tag-gray'">
@@ -60,26 +62,29 @@
                   {{ role }}
                 </span>
               </td>
-              <td>{{ record.last_login }}</td>
+              <td>{{ formatDate(record.created_at) }}</td>
               <td>
                 <div class="action-links">
                   <a @click="editUser(record)">编辑</a>
-                  <a @click="resetPassword(record)">重置密码</a>
+                  <a @click="openResetPassword(record)">重置密码</a>
                   <a class="danger-link" @click="deleteUserWithConfirm(record)">删除</a>
                 </div>
               </td>
+            </tr>
+            <tr v-if="users.length === 0">
+              <td colspan="7" class="empty-state">暂无用户数据</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="resetForm">
+    <!-- 创建/编辑用户 Modal -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ editingUser ? '编辑用户' : '添加用户' }}</h3>
-          <button class="modal-close" @click="resetForm">
+          <button class="modal-close" @click="closeModal">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -96,17 +101,12 @@
             <input v-model="userForm.password" type="password" class="form-input" placeholder="输入密码" />
           </div>
           <div class="form-group">
-            <label class="form-label">邮箱 <span class="required">*</span></label>
-            <input v-model="userForm.email" type="email" class="form-input" placeholder="输入邮箱" />
+            <label class="form-label">显示名 <span class="required">*</span></label>
+            <input v-model="userForm.display_name" type="text" class="form-input" placeholder="输入显示名" />
           </div>
           <div class="form-group">
-            <label class="form-label">用户组</label>
-            <div class="multi-select">
-              <label v-for="group in userGroups" :key="group.uuid" class="checkbox-label">
-                <input type="checkbox" :value="group.uuid" v-model="userForm.groups" />
-                <span>{{ group.name }}</span>
-              </label>
-            </div>
+            <label class="form-label">邮箱 <span class="required">*</span></label>
+            <input v-model="userForm.email" type="email" class="form-input" placeholder="输入邮箱" />
           </div>
           <div class="form-group">
             <label class="form-label">状态</label>
@@ -118,8 +118,33 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="resetForm">取消</button>
+          <button class="btn btn-secondary" @click="closeModal">取消</button>
           <button class="btn btn-primary" @click="handleSubmit">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 重置密码 Modal -->
+    <div v-if="showResetModal" class="modal-overlay" @click.self="showResetModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>重置密码 - {{ resetTarget?.username }}</h3>
+          <button class="modal-close" @click="showResetModal = false">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">新密码 <span class="required">*</span></label>
+            <input v-model="newPassword" type="password" class="form-input" placeholder="输入新密码" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showResetModal = false">取消</button>
+          <button class="btn btn-primary" @click="handleResetPassword">确定</button>
         </div>
       </div>
     </div>
@@ -128,85 +153,142 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-
-// 简化的通知函数
-const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-}
+import { usersApi, type UserInfo } from '@/api/modules/settings'
+import { message as toast } from '@/utils/toast'
 
 const loading = ref(false)
 const showCreateModal = ref(false)
-const editingUser = ref<any>(null)
+const showResetModal = ref(false)
+const editingUser = ref<UserInfo | null>(null)
+const resetTarget = ref<UserInfo | null>(null)
 const searchText = ref('')
-const statusFilter = ref<string | undefined>(undefined)
+const statusFilter = ref<string>('')
+const newPassword = ref('')
 
-const users = ref([
-  { uuid: '1', username: 'admin', email: 'admin@example.com', status: 'active', roles: ['管理员'], last_login: '2024-01-01 10:00:00' },
-  { uuid: '2', username: 'researcher1', email: 'researcher1@example.com', status: 'active', roles: ['研究员'], last_login: '2024-01-02 09:00:00' },
-  { uuid: '3', username: 'trader1', email: 'trader1@example.com', status: 'disabled', roles: ['交易员'], last_login: '2023-12-01 08:00:00' },
-])
-
-const userGroups = ref([
-  { uuid: '1', name: '管理员' },
-  { uuid: '2', name: '研究员' },
-  { uuid: '3', name: '交易员' },
-])
+const users = ref<UserInfo[]>([])
 
 const userForm = reactive({
   username: '',
   password: '',
+  display_name: '',
   email: '',
-  groups: [] as string[],
+  roles: [] as string[],
   active: true,
 })
 
-const handleSearch = () => { showToast('搜索功能', 'info') }
-const editUser = (record: any) => {
-  editingUser.value = record
-  Object.assign(userForm, { username: record.username, email: record.email, groups: [], active: record.status === 'active' })
-  showCreateModal.value = true
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
 }
-const resetPassword = (record: any) => { showToast(`已发送重置密码邮件到 ${record.email}`) }
 
-const deleteUserWithConfirm = (record: any) => {
-  if (confirm(`确定删除用户 "${record.username}" 吗？`)) {
-    deleteUser(record)
+const loadUsers = async () => {
+  loading.value = true
+  try {
+    const params: { status?: string; search?: string } = {}
+    if (statusFilter.value) params.status = statusFilter.value
+    if (searchText.value) params.search = searchText.value
+    const res = await usersApi.list(params) as any
+    users.value = res.data || res || []
+  } catch (e: any) {
+    toast.error(e.message || '加载用户失败')
+  } finally {
+    loading.value = false
   }
 }
 
-const deleteUser = (record: any) => {
-  users.value = users.value.filter(u => u.uuid !== record.uuid)
-  showToast('用户已删除')
+const openCreateModal = () => {
+  editingUser.value = null
+  Object.assign(userForm, { username: '', password: '', display_name: '', email: '', roles: [], active: true })
+  showCreateModal.value = true
 }
 
-const handleSubmit = () => {
+const editUser = (record: UserInfo) => {
+  editingUser.value = record
+  Object.assign(userForm, {
+    username: record.username,
+    display_name: record.display_name,
+    email: record.email,
+    roles: [...record.roles],
+    active: record.status === 'active',
+  })
+  showCreateModal.value = true
+}
+
+const closeModal = () => {
+  showCreateModal.value = false
+  editingUser.value = null
+}
+
+const handleSubmit = async () => {
   if (!userForm.username || !userForm.email) {
-    showToast('请填写必填项', 'warning')
+    toast.warning('请填写必填项')
     return
   }
   if (!editingUser.value && !userForm.password) {
-    showToast('请输入密码', 'warning')
+    toast.warning('请输入密码')
     return
   }
-  if (editingUser.value) {
-    editingUser.value.email = userForm.email
-    editingUser.value.status = userForm.active ? 'active' : 'disabled'
-    showToast('用户已更新')
-  } else {
-    users.value.push({ uuid: Date.now().toString(), username: userForm.username, email: userForm.email, status: userForm.active ? 'active' : 'disabled', roles: ['新用户'], last_login: '-' })
-    showToast('用户已创建')
+
+  try {
+    if (editingUser.value) {
+      await usersApi.update(editingUser.value.uuid, {
+        display_name: userForm.display_name,
+        email: userForm.email,
+        status: userForm.active ? 'active' : 'disabled',
+      })
+      toast.success('用户已更新')
+    } else {
+      await usersApi.create({
+        username: userForm.username,
+        password: userForm.password,
+        display_name: userForm.display_name,
+        email: userForm.email,
+        roles: userForm.roles,
+        status: userForm.active ? 'active' : 'disabled',
+      })
+      toast.success('用户已创建')
+    }
+    closeModal()
+    await loadUsers()
+  } catch (e: any) {
+    toast.error(e.message || '操作失败')
   }
-  showCreateModal.value = false
-  resetForm()
 }
 
-const resetForm = () => {
-  editingUser.value = null
-  Object.assign(userForm, { username: '', password: '', email: '', groups: [], active: true })
-  showCreateModal.value = false
+const openResetPassword = (record: UserInfo) => {
+  resetTarget.value = record
+  newPassword.value = ''
+  showResetModal.value = true
 }
 
-onMounted(() => {})
+const handleResetPassword = async () => {
+  if (!resetTarget.value || !newPassword.value) {
+    toast.warning('请输入新密码')
+    return
+  }
+  try {
+    await usersApi.resetPassword(resetTarget.value.uuid, newPassword.value)
+    toast.success('密码已重置')
+    showResetModal.value = false
+  } catch (e: any) {
+    toast.error(e.message || '重置失败')
+  }
+}
+
+const deleteUserWithConfirm = async (record: UserInfo) => {
+  if (!confirm(`确定删除用户 "${record.username}" 吗？`)) return
+  try {
+    await usersApi.delete(record.uuid)
+    toast.success('用户已删除')
+    await loadUsers()
+  } catch (e: any) {
+    toast.error(e.message || '删除失败')
+  }
+}
+
+onMounted(() => {
+  loadUsers()
+})
 </script>
 
 <style scoped>
@@ -229,9 +311,9 @@ onMounted(() => {})
   max-height: 90vh;
 }
 
-
 .page-container {
-  padding: 24px;
+  padding: 0;
+  background: transparent;
 }
 
 .page-header {
@@ -249,8 +331,6 @@ onMounted(() => {})
   gap: 12px;
   color: #ffffff;
 }
-
-/* Card */
 
 /* Filter Row */
 .filter-row {
@@ -299,8 +379,6 @@ onMounted(() => {})
   cursor: pointer;
 }
 
-/* Loading */
-
 /* Table */
 .table-wrapper {
   overflow-x: auto;
@@ -333,8 +411,6 @@ onMounted(() => {})
   background: #2a2a3e;
 }
 
-/* Tag */
-
 /* Action Links */
 .action-links {
   display: flex;
@@ -355,41 +431,8 @@ onMounted(() => {})
   color: #f5222d !important;
 }
 
-/* Modal */
-
-/* Form */
-
 .required {
   color: #f5222d;
-}
-
-/* Multi Select Checkbox */
-.multi-select {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
-.checkbox-label span {
-  color: #ffffff;
 }
 
 /* Switch */
@@ -436,6 +479,9 @@ onMounted(() => {})
   color: #ffffff;
 }
 
-/* Button */
-
+.empty-state {
+  text-align: center;
+  color: #8a8a9a;
+  padding: 32px !important;
+}
 </style>

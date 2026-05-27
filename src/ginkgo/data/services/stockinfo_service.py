@@ -326,6 +326,47 @@ class StockinfoService(BaseService):
             )
 
     
+    def search(self, keyword: str, page: int = 0, page_size: int = 50,
+               order_by: str = "code") -> ServiceResult:
+        """
+        Search stock info by keyword matching code OR code_name (OR condition).
+        Returns paginated results with total count from DB.
+
+        Args:
+            keyword: Search keyword (matches code or code_name)
+            page: Page number (0-based)
+            page_size: Items per page
+            order_by: Sort field
+
+        Returns:
+            ServiceResult with data={"data": ModelList, "total": int}
+        """
+        try:
+            crud = self._crud_repo
+
+            filters = {
+                "__or__": [
+                    {"code__like": keyword},
+                    {"code_name__like": keyword},
+                ]
+            }
+
+            total = crud.count(filters=filters)
+            results = crud.find(
+                filters=filters, page=page, page_size=page_size,
+                order_by=order_by,
+            )
+
+            return ServiceResult.success(
+                data={"data": results, "total": total},
+                message=f"Search found {total} results",
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to search stock info: {e}")
+            return ServiceResult.failure(
+                message=f"Failed to search stock info: {str(e)}"
+            )
+
     def get(self, code: str = None, name: str = None, exchange: str = None,
             industry: str = None, market: str = None, status: str = None,
             limit: int = None, offset: int = None, order_by: str = None,
@@ -357,7 +398,7 @@ class StockinfoService(BaseService):
             if code is not None:
                 filters['code'] = code
             if name is not None:
-                filters['name__contains'] = name
+                filters['name__like'] = name
             if exchange is not None:
                 filters['exchange'] = exchange
             if industry is not None:
@@ -413,7 +454,7 @@ class StockinfoService(BaseService):
             if code is not None:
                 filters['code'] = code
             if name is not None:
-                filters['name__contains'] = name
+                filters['name__like'] = name
             if exchange is not None:
                 filters['exchange'] = exchange
             if industry is not None:

@@ -891,12 +891,13 @@ class _CoreCRUD(Generic[T], ABC):
     def _parse_filters(self, filters: Dict[str, Any]) -> List[Any]:
         """
         Parse enhanced filters with operator support.
-        Supports operators: gte, lte, gt, lt, in, like
+        Supports operators: gte, lte, gt, lt, in, like, and __or__ combinator.
         Uses _get_enum_mappings() for precise enum-to-integer conversion.
 
         Args:
             filters: Dictionary with field__operator keys
                    Examples: {"timestamp__gte": "2023-01-01", "volume__in": [100, 200]}
+                   OR combinator: {"__or__": [{"code__like": "x"}, {"name__like": "x"}]}
 
         Returns:
             List of SQLAlchemy filter conditions
@@ -907,7 +908,15 @@ class _CoreCRUD(Generic[T], ABC):
         conditions = []
 
         for key, value in converted_filters.items():
-            if "__" in key:
+            # __or__ combinator: each sub-dict is parsed recursively, combined with or_()
+            if key == "__or__":
+                from sqlalchemy import or_
+                or_conditions = []
+                for sub_filters in value:
+                    or_conditions.extend(self._parse_filters(sub_filters))
+                if or_conditions:
+                    conditions.append(or_(*or_conditions))
+            elif "__" in key:
                 field, operator = key.split("__", 1)
                 if hasattr(self.model_class, field):
                     attr = getattr(self.model_class, field)

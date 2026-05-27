@@ -268,7 +268,8 @@ class AdjustfactorService(BaseService):
         return models
 
     def get(self, code: str = None, start_date: datetime = None, end_date: datetime = None,
-            adjust_type: str = None, limit: int = None) -> ServiceResult:
+            adjust_type: str = None, limit: int = None,
+            page: int = None, page_size: int = None) -> ServiceResult:
         """
         Query adjustment factor data with stock code, time range and adjustment type filtering.
 
@@ -278,6 +279,8 @@ class AdjustfactorService(BaseService):
             end_date (datetime, optional): End time, query factors before this time
             adjust_type (str, optional): Adjustment type filter ('fore', 'back', 'original', etc.)
             limit (int, optional): Maximum number of records to return
+            page (int, optional): Page number (0-based) for server-side pagination
+            page_size (int, optional): Items per page for server-side pagination
 
         Returns:
             ServiceResult: Query result with adjustment factor data list
@@ -294,10 +297,21 @@ class AdjustfactorService(BaseService):
                 filters['adjust_type'] = adjust_type
 
             if self._crud_repo:
-                adjustfactor_data = self._crud_repo.find(filters=filters)
+                find_kwargs = {}
+                if page is not None:
+                    find_kwargs['page'] = page
+                if page_size is not None:
+                    find_kwargs['page_size'] = page_size
+                adjustfactor_data = self._crud_repo.find(filters=filters, **find_kwargs)
+
+                # Compute total count when paginating
+                total = None
+                if page is not None and page_size is not None:
+                    total = self._crud_repo.count(filters=filters)
+
                 return ServiceResult(success=True,
                                    message=f"Retrieved {len(adjustfactor_data)} adjustfactor records",
-                                   data=adjustfactor_data)
+                                   data={"data": adjustfactor_data, "total": total} if total is not None else adjustfactor_data)
             else:
                 return ServiceResult(success=False,
                                    message="CRUD repository not available",

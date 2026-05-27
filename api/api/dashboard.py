@@ -78,22 +78,13 @@ async def get_dashboard_stats(request: Request):
         try:
             ps = container.portfolio_service()
 
-            # Portfolio 总数
-            count_result = ps.count()
-            if count_result.is_success():
-                portfolio_count = count_result.data.get("count", 0)
-
-            # Portfolio 详情（用于计算资产等）
-            result = ps.get(page=0, page_size=10000)
-            if result.is_success() and result.data:
-                portfolios = result.data
-                total_asset = sum(
-                    float(p.initial_capital or 0) for p in portfolios
-                )
-                for p in portfolios:
-                    is_running = getattr(p, 'is_running', None)
-                    if is_running == 1:
-                        running_strategies += 1
+            # 使用 SQL 聚合获取统计（O(1) 查询）
+            stats_result = ps.get_stats()
+            if stats_result.is_success() and stats_result.data:
+                stats_data = stats_result.data
+                portfolio_count = stats_data.get("total", 0)
+                total_asset = stats_data.get("total_assets", 0)
+                running_strategies = stats_data.get("running", 0)
         except Exception as e:
             logger.warning(f"Portfolio stats failed, using defaults: {e}")
 

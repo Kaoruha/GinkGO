@@ -97,36 +97,37 @@ async def list_users(
                 detail="Failed to list users"
             )
 
-        users = result.data
+        # list_users 返回 {"users": [...], "count": N}
+        raw_data = result.data
+        if isinstance(raw_data, dict) and "users" in raw_data:
+            users = raw_data["users"]
+        elif isinstance(raw_data, list):
+            users = raw_data
+        else:
+            users = []
 
         # 搜索过滤
         if search:
             search_lower = search.lower()
-            users = [u for u in users if search_lower in u.username.lower() or (u.display_name and search_lower in u.display_name.lower())]
+            users = [u for u in users if search_lower in u.get("username", "").lower() or (u.get("display_name") and search_lower in u.get("display_name", "").lower())]
 
         result_list = []
         for user in users:
-            # 跳过没有用户名的记录
-            if not user.username:
+            username = user.get("username")
+            if not username:
                 continue
 
-            # 获取关联的凭证（get_credential 返回单个对象或 None）
-            credential = user_service.get_credential(user.uuid)
-
-            # 确定角色
-            roles = ["admin"] if credential and credential.is_admin else []
-
-            # 确定状态
-            user_status = "active" if user.is_active and (credential and credential.is_active) else "disabled"
+            is_admin = user.get("is_admin", False)
+            is_active = user.get("is_active", True)
 
             result_list.append({
-                "uuid": user.uuid,
-                "username": user.username,
-                "display_name": user.display_name or user.username,
-                "email": user.email or "",
-                "roles": roles,
-                "status": user_status,
-                "created_at": user.create_at.isoformat() if user.create_at else datetime.utcnow().isoformat() + "Z"
+                "uuid": user.get("uuid", ""),
+                "username": username,
+                "display_name": user.get("display_name") or username,
+                "email": user.get("email", ""),
+                "roles": ["admin"] if is_admin else [],
+                "status": "active" if is_active else "disabled",
+                "created_at": user.get("created_at") or datetime.utcnow().isoformat() + "Z"
             })
 
         return ok(data=result_list)
@@ -684,16 +685,19 @@ async def list_user_groups():
             )
 
         raw_groups = result.data
+
+        # 批量获取成员数（避免 N+1）
+        member_counts = group_service.count_all_members()
+
         group_list = []
         for group_data in raw_groups:
             group_uuid = group_data["uuid"]
-            member_count = group_service.count_members(group_uuid)
 
             group_list.append({
                 "uuid": group_uuid,
                 "name": group_data["name"],
                 "description": group_data.get("description", ""),
-                "user_count": member_count,
+                "user_count": member_counts.get(group_uuid, 0),
                 "permissions": []
             })
 

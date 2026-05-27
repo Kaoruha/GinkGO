@@ -107,14 +107,14 @@ export const systemApi = {
    * 启动 Worker
    */
   startWorker(workerId: string): Promise<{ message: string }> {
-    return request.post(`/v1/system/workers/${workerId}/start`)
+    return request.post(`/api/v1/system/workers/${workerId}/start`)
   },
 
   /**
    * 停止 Worker
    */
   stopWorker(workerId: string): Promise<{ message: string }> {
-    return request.post(`/v1/system/workers/${workerId}/stop`)
+    return request.post(`/api/v1/system/workers/${workerId}/stop`)
   },
 
   /**

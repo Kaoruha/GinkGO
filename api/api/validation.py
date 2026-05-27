@@ -120,7 +120,15 @@ async def list_results(
         if method:
             filters["method"] = method
 
-        records = crud.find(filters=filters) if filters else crud.find()
+        total = crud.count(filters=filters) if filters else crud.count()
+        records = crud.find(
+            filters=filters if filters else None,
+            page=page - 1,
+            page_size=page_size,
+            order_by="create_at",
+            desc_order=True,
+        )
+
         items = []
         for r in records:
             items.append({
@@ -135,10 +143,7 @@ async def list_results(
                 "create_at": r.create_at.isoformat() if hasattr(r.create_at, 'isoformat') else str(r.create_at),
             })
 
-        total = len(items)
-        start = (page - 1) * page_size
-        end = start + page_size
-        return paginated(items=items[start:end], total=total, page=page, page_size=page_size)
+        return paginated(items=items, total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"验证结果列表异常: {e}")
         raise BusinessError(f"获取验证结果失败: {e}")

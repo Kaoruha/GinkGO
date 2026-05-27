@@ -5,11 +5,14 @@
         <span class="tag tag-blue">系统</span>
         用户组管理
       </div>
-      <button class="btn-primary" @click="showCreateModal = true">添加用户组</button>
+      <button class="btn-primary" @click="openCreateModal">添加用户组</button>
     </div>
 
     <div class="card">
-      <div class="table-wrapper">
+      <div v-if="loading" class="loading-container">
+        <div class="spinner"></div>
+      </div>
+      <div v-else class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
@@ -20,7 +23,7 @@
               <th>操作</th>
             </tr>
           </thead>
-          <tbody v-if="!loading">
+          <tbody>
             <tr v-for="record in userGroups" :key="record.uuid">
               <td>{{ record.name }}</td>
               <td>{{ record.description || '-' }}</td>
@@ -40,6 +43,9 @@
                   <a class="link text-red" @click="confirmDelete(record)">删除</a>
                 </div>
               </td>
+            </tr>
+            <tr v-if="userGroups.length === 0">
+              <td colspan="5" class="empty-state">暂无用户组数据</td>
             </tr>
           </tbody>
         </table>
@@ -85,34 +91,15 @@
     <div v-if="showPermissionModal" class="modal-overlay" @click.self="closePermissionModal">
       <div class="modal modal-large">
         <div class="modal-header">
-          <h3>权限管理</h3>
+          <h3>权限管理 - {{ permissionTarget?.name }}</h3>
           <button class="modal-close" @click="closePermissionModal">×</button>
         </div>
         <div class="modal-body">
-          <div class="transfer-container">
-            <div class="transfer-panel">
-              <h4>可用权限</h4>
-              <div class="transfer-list">
-                <label v-for="perm in availablePermissions" :key="perm.value" class="transfer-item" :class="{ disabled: selectedPermissions.includes(perm.value) }">
-                  <input
-                    v-model="selectedPermissions"
-                    type="checkbox"
-                    :value="perm.value"
-                    :disabled="selectedPermissions.includes(perm.value)"
-                  />
-                  {{ perm.label }}
-                </label>
-              </div>
-            </div>
-            <div class="transfer-panel">
-              <h4>已有权限</h4>
-              <div class="transfer-list">
-                <label v-for="permValue in selectedPermissions" :key="permValue" class="transfer-item">
-                  <input v-model="selectedPermissions" type="checkbox" :value="permValue" />
-                  {{ getPermissionLabel(permValue) }}
-                </label>
-              </div>
-            </div>
+          <div class="multi-select" style="margin-bottom: 16px">
+            <label v-for="perm in availablePermissions" :key="perm.value" class="checkbox-label" :class="{ selected: selectedPermissions.includes(perm.value) }">
+              <input v-model="selectedPermissions" type="checkbox" :value="perm.value" />
+              {{ perm.label }}
+            </label>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="closePermissionModal">取消</button>
@@ -126,22 +113,16 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-
-// 简化的通知函数
-const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-}
+import { userGroupsApi, type UserGroupInfo } from '@/api/modules/settings'
+import { message as toast } from '@/utils/toast'
 
 const loading = ref(false)
 const showCreateModal = ref(false)
 const showPermissionModal = ref(false)
-const editingGroup = ref<any>(null)
+const editingGroup = ref<UserGroupInfo | null>(null)
+const permissionTarget = ref<UserGroupInfo | null>(null)
 
-const userGroups = ref([
-  { uuid: '1', name: '管理员', description: '系统管理员组', user_count: 2, permissions: ['system:admin', 'data:manage'] },
-  { uuid: '2', name: '研究员', description: '策略研究员组', user_count: 5, permissions: ['backtest:view', 'backtest:create', 'portfolio:view'] },
-  { uuid: '3', name: '交易员', description: '交易执行组', user_count: 3, permissions: ['portfolio:create'] },
-])
+const userGroups = ref<UserGroupInfo[]>([])
 
 const groupForm = reactive({ name: '', description: '', permissions: [] as string[] })
 const selectedPermissions = ref<string[]>([])
@@ -155,31 +136,50 @@ const availablePermissions = [
   { value: 'system:admin', label: '系统管理' },
 ]
 
-const getPermissionLabel = (value: string) => {
-  return availablePermissions.find(p => p.value === value)?.label || value
+const loadGroups = async () => {
+  loading.value = true
+  try {
+    const res = await userGroupsApi.list() as any
+    userGroups.value = res.data || res || []
+  } catch (e: any) {
+    toast.error(e.message || '加载用户组失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const editGroup = (record: any) => {
-  editingGroup.value = record
-  Object.assign(groupForm, { name: record.name, description: record.description, permissions: record.permissions || [] })
+const openCreateModal = () => {
+  editingGroup.value = null
+  Object.assign(groupForm, { name: '', description: '', permissions: [] })
   showCreateModal.value = true
 }
 
-const managePermissions = (record: any) => {
+const editGroup = (record: UserGroupInfo) => {
   editingGroup.value = record
-  selectedPermissions.value = record.permissions || []
+  Object.assign(groupForm, { name: record.name, description: record.description || '', permissions: record.permissions || [] })
+  showCreateModal.value = true
+}
+
+const managePermissions = (record: UserGroupInfo) => {
+  permissionTarget.value = record
+  selectedPermissions.value = [...(record.permissions || [])]
   showPermissionModal.value = true
 }
 
-const confirmDelete = (record: any) => {
+const confirmDelete = (record: UserGroupInfo) => {
   if (confirm(`确定要删除用户组 "${record.name}" 吗？`)) {
     deleteGroup(record)
   }
 }
 
-const deleteGroup = (record: any) => {
-  userGroups.value = userGroups.value.filter(g => g.uuid !== record.uuid)
-  showToast('用户组已删除')
+const deleteGroup = async (record: UserGroupInfo) => {
+  try {
+    await userGroupsApi.delete(record.uuid)
+    toast.success('用户组已删除')
+    await loadGroups()
+  } catch (e: any) {
+    toast.error(e.message || '删除失败')
+  }
 }
 
 const closeModal = () => {
@@ -191,39 +191,54 @@ const closeModal = () => {
 const closePermissionModal = () => {
   showPermissionModal.value = false
   selectedPermissions.value = []
+  permissionTarget.value = null
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!groupForm.name) {
-    showToast('请输入组名称', 'warning')
+    toast.warning('请输入组名称')
     return
   }
 
-  if (editingGroup.value) {
-    Object.assign(editingGroup.value, groupForm)
-    showToast('用户组已更新')
-  } else {
-    userGroups.value.push({
-      uuid: Date.now().toString(),
-      ...groupForm,
-      user_count: 0
-    })
-    showToast('用户组已创建')
+  try {
+    if (editingGroup.value) {
+      await userGroupsApi.update(editingGroup.value.uuid, {
+        name: groupForm.name,
+        description: groupForm.description,
+        permissions: groupForm.permissions,
+      })
+      toast.success('用户组已更新')
+    } else {
+      await userGroupsApi.create({
+        name: groupForm.name,
+        description: groupForm.description,
+        permissions: groupForm.permissions,
+      })
+      toast.success('用户组已创建')
+    }
+    closeModal()
+    await loadGroups()
+  } catch (e: any) {
+    toast.error(e.message || '操作失败')
   }
-
-  closeModal()
 }
 
-const savePermissions = () => {
-  if (editingGroup.value) {
-    editingGroup.value.permissions = [...selectedPermissions.value]
-    showToast('权限已更新')
+const savePermissions = async () => {
+  if (!permissionTarget.value) return
+  try {
+    await userGroupsApi.update(permissionTarget.value.uuid, {
+      permissions: selectedPermissions.value,
+    })
+    toast.success('权限已更新')
+    closePermissionModal()
+    await loadGroups()
+  } catch (e: any) {
+    toast.error(e.message || '保存失败')
   }
-  closePermissionModal()
 }
 
 onMounted(() => {
-  // 加载数据
+  loadGroups()
 })
 </script>
 
@@ -247,11 +262,9 @@ onMounted(() => {
   max-height: 90vh;
 }
 
-
 .page-container {
-  padding: 24px;
-  background: #0f0f1a;
-  min-height: calc(100vh - 64px);
+  padding: 0;
+  background: transparent;
 }
 
 .page-header {
@@ -262,7 +275,7 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #ffffff;
   display: flex;
@@ -342,8 +355,6 @@ onMounted(() => {
   color: #f5222d;
 }
 
-/* 模态框样式 */
-
 .required {
   color: #f5222d;
 }
@@ -373,67 +384,18 @@ onMounted(() => {
   border-color: #1890ff;
 }
 
+.checkbox-label.selected {
+  border-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+}
+
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
 }
 
-/* Transfer 组件样式 */
-.transfer-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.transfer-panel h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 12px 0;
-}
-
-.transfer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 250px;
-  overflow-y: auto;
-  padding: 12px;
-  background: #2a2a3e;
-  border-radius: 4px;
-}
-
-.transfer-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: #1a1a2e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 13px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s;
-}
-
-.transfer-item:hover {
-  border-color: #1890ff;
-}
-
-.transfer-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.transfer-item input[type="checkbox"] {
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .transfer-container {
-    grid-template-columns: 1fr;
-  }
+.empty-state {
+  text-align: center;
+  color: #8a8a9a;
+  padding: 32px !important;
 }
 </style>
