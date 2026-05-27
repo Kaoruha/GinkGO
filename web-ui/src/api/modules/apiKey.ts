@@ -72,7 +72,7 @@ export const apiKeyApi = {
   listApiKeys: (params?: {
     user_id?: string
   }) => {
-    return request.get<APIResponse<ApiKey[]>>(`/api/v1/api-keys/`, { params })
+    return request.get<APIResponse<ApiKey[]>>(`/api/v1/settings/api-keys`, { params })
   },
 
   /**
@@ -80,7 +80,7 @@ export const apiKeyApi = {
    */
   createApiKey: (data: CreateApiKeyRequest) => {
     return request.post<APIResponse<CreateApiKeyResponse>>(
-      `/api/v1/api-keys/`,
+      `/api/v1/settings/api-keys`,
       data
     )
   },
@@ -89,21 +89,21 @@ export const apiKeyApi = {
    * 获取 API Key 详情
    */
   getApiKey: (uuid: string) => {
-    return request.get<APIResponse<ApiKey>>(`/api/v1/api-keys/${uuid}`)
+    return request.get<APIResponse<ApiKey>>(`/api/v1/settings/api-keys/${uuid}`)
   },
 
   /**
    * 更新 API Key
    */
   updateApiKey: (uuid: string, data: UpdateApiKeyRequest) => {
-    return request.put<APIResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`, data)
+    return request.put<APIResponse<{ uuid: string }>>(`/api/v1/settings/api-keys/${uuid}`, data)
   },
 
   /**
    * 删除 API Key
    */
   deleteApiKey: (uuid: string) => {
-    return request.delete<APIResponse<{ uuid: string }>>(`/api/v1/api-keys/${uuid}`)
+    return request.delete<APIResponse<{ uuid: string }>>(`/api/v1/settings/api-keys/${uuid}`)
   },
 
   /**
@@ -111,7 +111,7 @@ export const apiKeyApi = {
    */
   revealApiKey: (uuid: string) => {
     return request.post<APIResponse<{ uuid: string; name: string; key_value: string }>>(
-      `/api/v1/api-keys/${uuid}/reveal`
+      `/api/v1/settings/api-keys/${uuid}/reveal`
     )
   },
 
@@ -120,7 +120,7 @@ export const apiKeyApi = {
    */
   verifyApiKey: (apiKey: string, requiredPermission?: string) => {
     return request.post<APIResponse<VerifyApiKeyResponse | null>>(
-      `/api/v1/api-keys/verify?required_permission=${requiredPermission || ''}`,
+      `/api/v1/settings/api-keys/verify?required_permission=${requiredPermission || ''}`,
       {},
       {
         headers: {
@@ -135,7 +135,7 @@ export const apiKeyApi = {
    */
   checkPermission: (apiKey: string, permission: string) => {
     return request.post<APIResponse<{ has_permission: boolean; permission: string }>>(
-      `/api/v1/api-keys/check-permission?permission=${permission}`,
+      `/api/v1/settings/api-keys/check-permission?permission=${permission}`,
       {},
       {
         headers: {

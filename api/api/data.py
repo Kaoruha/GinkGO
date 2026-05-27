@@ -221,64 +221,64 @@ async def get_stockinfo(
     page: int = 1,
     page_size: int = 50
 ):
-    """获取股票信息列表（分页）"""
+    """获取股票信息列表（分页，搜索下推到DB层）"""
     try:
         stockinfo_service = get_stockinfo_service()
 
-        # 获取总数
-        count_result = stockinfo_service.count()
-        total_count = count_result.data if count_result.is_success() else 0
+        if search:
+            # 搜索：下推到 DB 层 OR 条件查询
+            result = stockinfo_service.search(
+                keyword=search,
+                page=page - 1,
+                page_size=page_size,
+            )
+            if not result.is_success() or not result.data:
+                return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        # 计算offset
-        offset = (page - 1) * page_size
+            result_data = result.data
+            total_count = result_data.get("total", 0) if isinstance(result_data, dict) else 0
+            items = result_data.get("data", []) if isinstance(result_data, dict) else []
+        else:
+            # 无搜索：标准分页查询
+            count_result = stockinfo_service.count()
+            total_count = count_result.data if count_result.is_success() else 0
 
-        # 获取数据
-        result = stockinfo_service.get(
-            limit=page_size,
-            offset=offset,
-            order_by="code"
-        )
+            result = stockinfo_service.get(
+                limit=page_size,
+                offset=(page - 1) * page_size,
+                order_by="code"
+            )
 
-        if not result.is_success() or not result.data:
-            return paginated(items=[], total=total_count, page=page, page_size=page_size)
+            if not result.is_success() or not result.data:
+                return paginated(items=[], total=total_count, page=page, page_size=page_size)
 
-        # 处理股票数据 - result.data 是 ModelList 对象，可直接迭代
-        items = result.data
+            items = result.data
+
         stock_summaries = []
-
         for stock in items:
             code = stock.code if hasattr(stock, 'code') else ""
             code_name = stock.code_name if hasattr(stock, 'code_name') else ""
+            market_value = stock.market if hasattr(stock, 'market') else None
+            is_del = stock.is_del if hasattr(stock, 'is_del') else False
+            industry = stock.industry if hasattr(stock, 'industry') else None
+            uuid_val = stock.uuid if hasattr(stock, 'uuid') else ""
+            update_at = stock.update_at if hasattr(stock, 'update_at') else None
+
             code_str = str(code) if code is not None else ""
             name_str = str(code_name) if code_name is not None else ""
-
-            # 搜索过滤
-            if search:
-                search_lower = search.lower()
-                if search_lower not in code_str.lower() and search_lower not in name_str.lower():
-                    continue
-
-            # 将 market 整数值转换为字符串
-            market_value = stock.market if hasattr(stock, 'market') else None
             market_str = MARKET_ID_TO_NAME.get(market_value) if market_value is not None else None
 
             stock_summaries.append({
-                "uuid": stock.uuid if hasattr(stock, 'uuid') else "",
+                "uuid": uuid_val,
                 "code": code_str,
                 "name": name_str if name_str else None,
                 "market": market_str,
-                "industry": stock.industry if hasattr(stock, 'industry') else None,
-                "is_active": stock.is_active if hasattr(stock, 'is_active') else True,
-                "updated_at": stock.update_at.isoformat() if hasattr(stock, 'update_at') and stock.update_at else None
+                "industry": industry,
+                "is_active": not is_del,
+                "updated_at": update_at.isoformat() if update_at else None
             })
 
-        # 如果有搜索，重新计算过滤后的总数
-        if search:
-            filtered_count = len(stock_summaries)
-        else:
-            filtered_count = total_count
-
-        return paginated(items=stock_summaries, total=filtered_count, page=page, page_size=page_size)
+        return paginated(items=stock_summaries, total=total_count, page=page, page_size=page_size)
 
     except Exception as e:
         logger.error(f"Error getting stockinfo: {e}")
@@ -383,28 +383,32 @@ async def get_ticks(
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
 
-        # 使用TickService.get方法
+        # 使用TickService.get方法（支持分页）
         result = tick_service.get(
             code=code,
             start_date=start_dt,
             end_date=end_dt,
-            adjustment_type=ADJUSTMENT_TYPES.NONE
+            adjustment_type=ADJUSTMENT_TYPES.NONE,
+            page=page - 1,
+            page_size=page_size,
         )
 
         if not result.is_success() or not result.data:
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        # 处理返回的数据
-        ticks_data = result.data
+        # 处理返回的数据（已是分页后的结果）
+        result_data = result.data
+        total_count = 0
+        if isinstance(result_data, dict):
+            total_count = result_data.get("total", 0) or 0
+            ticks_data = result_data.get("data", [])
+        else:
+            ticks_data = result_data
+
         ticks_list = ticks_data.to_entities() if hasattr(ticks_data, 'to_entities') else []
 
-        # 手动分页（TickService的get方法暂不支持分页参数）
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_ticks = ticks_list[start_idx:end_idx]
-
         tick_summaries = []
-        for tick in paginated_ticks:
+        for tick in ticks_list:
             # 处理direction字段：可能是枚举类型或整数
             direction_value = 0
             if hasattr(tick, 'direction'):
@@ -427,7 +431,7 @@ async def get_ticks(
 
         return paginated(
             items=tick_summaries,
-            total=len(ticks_list),
+            total=total_count,
             page=page,
             page_size=page_size
         )
@@ -458,32 +462,34 @@ async def get_adjust_factors(
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
 
-        # 获取数据
+        # 获取数据（支持服务端分页）
         result = adjustfactor_service.get(
             code=code,
             start_date=start_dt,
-            end_date=end_dt
+            end_date=end_dt,
+            page=page - 1,
+            page_size=page_size,
         )
 
         if not result.is_success() or not result.data:
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        # 获取因子数据
-        factors_data = result.data
-        if isinstance(factors_data, dict):
-            factors_list = factors_data.get("items", [])
-        elif hasattr(factors_data, 'to_entities'):
+        # 获取因子数据（已是分页后的结果）
+        result_data = result.data
+        total_count = 0
+        if isinstance(result_data, dict):
+            total_count = result_data.get("total", 0) or 0
+            factors_data = result_data.get("data", [])
+        else:
+            factors_data = result_data
+
+        if hasattr(factors_data, 'to_entities'):
             factors_list = factors_data.to_entities()
         else:
             factors_list = list(factors_data) if factors_data else []
 
-        # 分页处理
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_factors = factors_list[start_idx:end_idx]
-
         factor_summaries = []
-        for factor in paginated_factors:
+        for factor in factors_list:
             factor_summaries.append({
                 "uuid": factor.uuid if hasattr(factor, 'uuid') else "",
                 "code": str(factor.code) if hasattr(factor, 'code') else "",
@@ -493,7 +499,7 @@ async def get_adjust_factors(
 
         return paginated(
             items=factor_summaries,
-            total=len(factors_list),
+            total=total_count,
             page=page,
             page_size=page_size
         )

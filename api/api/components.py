@@ -97,65 +97,58 @@ async def list_components(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """获取组件列表"""
+    """获取组件列表（服务端分页）"""
     try:
         file_service = get_file_service()
-        components = []
 
-        # 根据组件类型过滤
-        types_to_check = []
+        # 构建类型列表
         if component_type:
-            if component_type in COMPONENT_FILE_TYPE_MAP:
-                types_to_check.append(COMPONENT_FILE_TYPE_MAP[component_type])
-            else:
+            if component_type not in COMPONENT_FILE_TYPE_MAP:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid component type: {component_type}"
                 )
+            types_to_check = [COMPONENT_FILE_TYPE_MAP[component_type]]
         else:
-            # 检查所有组件类型
             types_to_check = list(COMPONENT_FILE_TYPE_MAP.values())
 
-        # 获取各类型的文件
-        for file_type in types_to_check:
-            result = file_service.get_by_type(file_type)
-            if result.is_success():
-                files = result.data.get("files", [])
-                for file_record in files:
-                    component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(
-                        file_type.value, "unknown"
-                    )
+        # 调用 service 层分页查询
+        result = file_service.list_components(
+            file_types=types_to_check,
+            keyword=keyword,
+            is_del=False if is_active else (not is_active if is_active is not None else False),
+            page=page - 1,
+            page_size=page_size,
+        )
 
-                    created_at = file_record.create_at if file_record.create_at else datetime.utcnow()
-                    updated_at = file_record.update_at if file_record.update_at else None
-                    components.append({
-                        "uuid": file_record.uuid,
-                        "name": file_record.name,
-                        "component_type": component_type_name,
-                        "file_type": file_type.value,
-                        "description": f"{component_type_name.capitalize()} component",
-                        "created_at": created_at.isoformat(),
-                        "updated_at": updated_at.isoformat() if updated_at else None,
-                        "is_active": not file_record.is_del
-                    })
+        if not result.is_success() or not result.data:
+            return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        # 过滤和排序
-        if is_active is not None:
-            components = [c for c in components if c["is_active"] == is_active]
+        result_data = result.data
+        total_count = result_data.get("total", 0)
+        files = result_data.get("data", [])
 
-        # 关键词过滤
-        if keyword:
-            kw = keyword.lower()
-            components = [c for c in components if kw in c["name"].lower()]
+        items = []
+        for file_record in files:
+            file_type_value = file_record.type if hasattr(file_record, 'type') else 0
+            component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(file_type_value, "unknown")
+            created_at = file_record.create_at if hasattr(file_record, 'create_at') else None
+            updated_at = file_record.update_at if hasattr(file_record, 'update_at') else None
+            if not created_at:
+                created_at = datetime.utcnow()
+            is_del = file_record.is_del if hasattr(file_record, 'is_del') else False
+            items.append({
+                "uuid": file_record.uuid,
+                "name": file_record.name,
+                "component_type": component_type_name,
+                "file_type": file_type_value,
+                "description": f"{component_type_name.capitalize()} component",
+                "created_at": created_at.isoformat(),
+                "updated_at": updated_at.isoformat() if updated_at else None,
+                "is_active": not is_del,
+            })
 
-        # 按更新时间倒序排序，没有更新时间的按创建时间排序
-        components.sort(key=lambda x: x.get("updated_at") or x["created_at"], reverse=True)
-
-        total = len(components)
-        start = (page - 1) * page_size
-        items = components[start:start + page_size]
-
-        return paginated(items=items, total=total, page=page, page_size=page_size)
+        return paginated(items=items, total=total_count, page=page, page_size=page_size)
 
     except HTTPException:
         raise

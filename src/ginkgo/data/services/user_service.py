@@ -151,6 +151,15 @@ class UserService:
         """根据用户ID获取凭据"""
         return self.credential_crud.get_by_user_id(user_id)
 
+    def get_all_credentials(self) -> dict:
+        """批量获取所有凭证，返回 {user_id: credential} 字典"""
+        try:
+            credentials = self.credential_crud.find()
+            return {c.user_id: c for c in credentials if hasattr(c, 'user_id')}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get all credentials: {e}")
+            return {}
+
     def update_last_login(self, credential_uuid: str, ip: str = "") -> bool:
         """更新最后登录时间和IP"""
         from datetime import datetime

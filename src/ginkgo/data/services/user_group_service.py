@@ -127,3 +127,19 @@ class UserGroupService:
     def count_members(self, group_uuid: str) -> int:
         """统计用户组成员数"""
         return len(self.mapping_crud.find_by_group(group_uuid))
+
+    def count_all_members(self) -> dict:
+        """批量统计所有用户组成员数，返回 {group_uuid: count} 字典"""
+        try:
+            from sqlalchemy import func
+            model = self.mapping_crud.model_class
+            conn = self.mapping_crud._get_connection()
+            with conn.get_session() as s:
+                rows = s.query(
+                    model.group_id,
+                    func.count(model.uuid),
+                ).group_by(model.group_id).all()
+                return {str(row[0]): row[1] for row in rows}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to count all members: {e}")
+            return {}

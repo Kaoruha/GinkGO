@@ -356,17 +356,24 @@ async def list_backtests(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """获取回测任务列表（使用 service 层）"""
+    """获取回测任务列表（使用 service 层分页）"""
     try:
         task_service = get_backtest_task_service()
 
-        # 使用服务层获取任务
-        result = task_service.get(portfolio_id=portfolio_id, status=status)
+        # 使用 list() 实现服务端分页
+        result = task_service.list(
+            page=page - 1,
+            page_size=page_size,
+            portfolio_id=portfolio_id,
+            status=status,
+        )
 
         if not result.is_success():
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        tasks = result.data or []
+        result_data = result.data or {}
+        tasks = result_data.get("data", [])
+        total = result_data.get("total", 0)
 
         # 批量获取 portfolio 名称
         portfolio_ids = set()
@@ -443,19 +450,13 @@ async def list_backtests(
                 error_message=task_dict["error_message"],
             ))
 
-        # 排序
+        # 排序（仅在当前页内排序）
         sortable_fields = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "created_at", "total_pnl"}
         if sort_by in sortable_fields:
             reverse = sort_order != "asc"
             summaries.sort(key=lambda s: getattr(s, sort_by, 0) or 0, reverse=reverse)
 
-        # 分页
-        total = len(summaries)
-        start = (page - 1) * page_size
-        end = start + page_size
-        paged_summaries = summaries[start:end]
-
-        return paginated(items=[s.dict() for s in paged_summaries], total=total, page=page, page_size=page_size)
+        return paginated(items=[s.dict() for s in summaries], total=total, page=page, page_size=page_size)
 
     except Exception as e:
         logger.error(f"Error listing backtests: {str(e)}")

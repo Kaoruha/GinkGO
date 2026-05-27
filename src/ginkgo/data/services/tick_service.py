@@ -350,7 +350,8 @@ class TickService(BaseService):
             return False
 
     def get(self, code: str = None, start_date: Union[datetime, str, Any] = None, end_date: Union[datetime, str, Any] = None,
-            adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE) -> ServiceResult:
+            adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
+            page: int = None, page_size: int = None) -> ServiceResult:
         """
         Query tick data with multiple filter conditions and price adjustment support.
 
@@ -389,14 +390,25 @@ class TickService(BaseService):
             if not self._crud_repo:
                 return ServiceResult.error("CRUD repository not available")
 
-            model_list = self._crud_repo.find(filters=filters)
+            find_kwargs = {}
+            if page is not None:
+                find_kwargs['page'] = page
+            if page_size is not None:
+                find_kwargs['page_size'] = page_size
+
+            model_list = self._crud_repo.find(filters=filters, **find_kwargs)
+
+            # Compute total count when paginating
+            total = None
+            if page is not None and page_size is not None:
+                total = self._crud_repo.count(filters=filters)
 
             # Return original data if no adjustment needed
             if adjustment_type == ADJUSTMENT_TYPES.NONE:
                 duration = time.time() - start_time
                 self._log_operation_end("get", True, duration)
                 return ServiceResult.success(
-                    data=model_list,
+                    data={"data": model_list, "total": total} if total is not None else model_list,
                     message=f"Retrieved {len(model_list) if model_list else 0} tick records"
                 )
 

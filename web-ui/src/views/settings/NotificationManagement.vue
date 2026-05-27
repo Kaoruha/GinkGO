@@ -5,7 +5,7 @@
         <span class="tag tag-blue">系统</span>
         通知管理
       </div>
-      <button class="btn-primary" @click="showTemplateModal = true">新建通知模板</button>
+      <button class="btn-primary" @click="openTemplateModal">新建通知模板</button>
     </div>
 
     <div class="card">
@@ -15,7 +15,7 @@
           :key="tab.key"
           class="tab-button"
           :class="{ active: activeTab === tab.key }"
-          @click="activeTab = tab.key"
+          @click="switchTab(tab.key)"
         >
           {{ tab.label }}
         </button>
@@ -23,22 +23,28 @@
 
       <!-- 通知模板标签页 -->
       <div v-if="activeTab === 'templates'" class="tab-content">
-        <div class="table-wrapper">
+        <div v-if="loading" class="loading-container">
+          <div class="spinner"></div>
+        </div>
+        <div v-else class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
                 <th>模板名称</th>
                 <th>类型</th>
+                <th>主题</th>
                 <th>状态</th>
+                <th>更新时间</th>
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody v-if="!loading">
+            <tbody>
               <tr v-for="record in templates" :key="record.uuid">
                 <td>{{ record.name }}</td>
                 <td>
                   <span class="tag" :class="getTypeClass(record.type)">{{ getTypeLabel(record.type) }}</span>
                 </td>
+                <td>{{ record.subject || '-' }}</td>
                 <td>
                   <div class="switch-container">
                     <input
@@ -51,12 +57,17 @@
                     <label :for="`switch-${record.uuid}`" class="switch-label"></label>
                   </div>
                 </td>
+                <td>{{ formatDate(record.updated_at) }}</td>
                 <td>
                   <div class="action-links">
                     <a class="link" @click="editTemplate(record)">编辑</a>
+                    <a class="link" @click="testTemplate(record)">测试</a>
                     <a class="link text-red" @click="confirmDeleteTemplate(record)">删除</a>
                   </div>
                 </td>
+              </tr>
+              <tr v-if="templates.length === 0">
+                <td colspan="6" class="empty-state">暂无通知模板</td>
               </tr>
             </tbody>
           </table>
@@ -65,71 +76,95 @@
 
       <!-- 发送记录标签页 -->
       <div v-if="activeTab === 'history'" class="tab-content">
-        <div class="table-wrapper">
+        <div v-if="loading" class="loading-container">
+          <div class="spinner"></div>
+        </div>
+        <div v-else class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>模板</th>
+                <th>类型</th>
+                <th>主题</th>
                 <th>接收者</th>
                 <th>状态</th>
                 <th>发送时间</th>
               </tr>
             </thead>
-            <tbody v-if="!loading">
-              <tr v-for="record in notificationHistory" :key="record.uuid">
-                <td>{{ record.template }}</td>
+            <tbody>
+              <tr v-for="record in history" :key="record.uuid">
+                <td>
+                  <span class="tag" :class="getTypeClass(record.type)">{{ getTypeLabel(record.type) }}</span>
+                </td>
+                <td>{{ record.subject || '-' }}</td>
                 <td>{{ record.recipient }}</td>
                 <td>
                   <span class="tag" :class="record.status === 'success' ? 'tag-green' : 'tag-red'">
                     {{ record.status === 'success' ? '成功' : '失败' }}
                   </span>
                 </td>
-                <td>{{ record.sent_at }}</td>
+                <td>{{ formatDate(record.created_at) }}</td>
+              </tr>
+              <tr v-if="history.length === 0">
+                <td colspan="5" class="empty-state">暂无发送记录</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- 通知设置标签页 -->
-      <div v-if="activeTab === 'settings'" class="tab-content">
-        <div class="settings-form">
-          <div class="form-group">
-            <label class="form-label">邮件通知</label>
-            <div class="switch-container">
-              <input v-model="settings.emailEnabled" type="checkbox" id="email-enabled" class="switch-input" />
-              <label for="email-enabled" class="switch-label"></label>
-              <span>{{ settings.emailEnabled ? '启用' : '禁用' }}</span>
-            </div>
-          </div>
-          <div v-if="settings.emailEnabled" class="form-group">
-            <label class="form-label">SMTP服务器</label>
-            <input v-model="settings.smtpServer" type="text" placeholder="smtp.example.com" class="form-input" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Webhook通知</label>
-            <div class="switch-container">
-              <input v-model="settings.webhookEnabled" type="checkbox" id="webhook-enabled" class="switch-input" />
-              <label for="webhook-enabled" class="switch-label"></label>
-              <span>{{ settings.webhookEnabled ? '启用' : '禁用' }}</span>
-            </div>
-          </div>
-          <div v-if="settings.webhookEnabled" class="form-group">
-            <label class="form-label">Webhook URL</label>
-            <input v-model="settings.webhookUrl" type="text" placeholder="https://example.com/webhook" class="form-input" />
-          </div>
-          <div class="form-group">
-            <button class="btn-primary" @click="saveSettings">保存设置</button>
-          </div>
+      <!-- 接收人标签页 -->
+      <div v-if="activeTab === 'recipients'" class="tab-content">
+        <div class="tab-toolbar">
+          <button class="btn-primary btn-sm" @click="openRecipientModal">添加接收人</button>
+        </div>
+        <div v-if="loading" class="loading-container">
+          <div class="spinner"></div>
+        </div>
+        <div v-else class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>关联对象</th>
+                <th>描述</th>
+                <th>默认</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in recipients" :key="record.uuid">
+                <td>{{ record.name }}</td>
+                <td>
+                  <span class="tag tag-blue">{{ record.recipient_type === 'USER' ? '用户' : '用户组' }}</span>
+                </td>
+                <td>{{ record.recipient_type === 'USER' ? (record.user_info?.display_name || record.user_info?.username) : record.user_group_info?.name }}</td>
+                <td>{{ record.description || '-' }}</td>
+                <td>
+                  <span v-if="record.is_default" class="tag tag-green">默认</span>
+                </td>
+                <td>
+                  <div class="action-links">
+                    <a class="link" @click="editRecipient(record)">编辑</a>
+                    <a class="link" @click="testRecipient(record)">测试</a>
+                    <a class="link text-red" @click="confirmDeleteRecipient(record)">删除</a>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="recipients.length === 0">
+                <td colspan="6" class="empty-state">暂无接收人</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- 新建通知模板模态框 -->
+    <!-- 新建/编辑通知模板模态框 -->
     <div v-if="showTemplateModal" class="modal-overlay" @click.self="closeTemplateModal">
       <div class="modal">
         <div class="modal-header">
-          <h3>新建通知模板</h3>
+          <h3>{{ editingTemplate ? '编辑通知模板' : '新建通知模板' }}</h3>
           <button class="modal-close" @click="closeTemplateModal">×</button>
         </div>
         <div class="modal-body">
@@ -142,21 +177,57 @@
               <label class="form-label">通知类型 <span class="required">*</span></label>
               <select v-model="templateForm.type" class="form-select">
                 <option value="email">邮件</option>
-                <option value="webhook">Webhook</option>
-                <option value="wechat">微信</option>
+                <option value="discord">Discord</option>
+                <option value="system">系统通知</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">标题模板</label>
               <input v-model="templateForm.subject" type="text" placeholder="通知标题" class="form-input" />
             </div>
-            <div class="form-group">
-              <label class="form-label">内容模板</label>
-              <textarea v-model="templateForm.content" :rows="4" placeholder="通知内容，支持变量替换" class="form-textarea"></textarea>
-            </div>
             <div class="modal-actions">
               <button type="button" class="btn-secondary" @click="closeTemplateModal">取消</button>
-              <button type="submit" class="btn-primary">创建</button>
+              <button type="submit" class="btn-primary">{{ editingTemplate ? '保存' : '创建' }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑接收人模态框 -->
+    <div v-if="showRecipientModal" class="modal-overlay" @click.self="closeRecipientModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingRecipient ? '编辑接收人' : '添加接收人' }}</h3>
+          <button class="modal-close" @click="closeRecipientModal">×</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="handleRecipientSubmit">
+            <div class="form-group">
+              <label class="form-label">名称 <span class="required">*</span></label>
+              <input v-model="recipientForm.name" type="text" placeholder="接收人名称" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">类型</label>
+              <select v-model="recipientForm.recipient_type" class="form-select">
+                <option value="USER">用户</option>
+                <option value="USER_GROUP">用户组</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">描述</label>
+              <input v-model="recipientForm.description" type="text" placeholder="描述（可选）" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">设为默认</label>
+              <label class="switch-label">
+                <input type="checkbox" v-model="recipientForm.is_default" class="switch-input-inline" />
+                <span>{{ recipientForm.is_default ? '是' : '否' }}</span>
+              </label>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" @click="closeRecipientModal">取消</button>
+              <button type="submit" class="btn-primary">{{ editingRecipient ? '保存' : '创建' }}</button>
             </div>
           </form>
         </div>
@@ -167,105 +238,242 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-
-// 简化的通知函数
-const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-}
+import { notificationsApi, type NotificationTemplate, type NotificationHistory, type NotificationRecipient } from '@/api/modules/settings'
+import { message as toast } from '@/utils/toast'
 
 const activeTab = ref('templates')
 const loading = ref(false)
 const showTemplateModal = ref(false)
+const showRecipientModal = ref(false)
+const editingTemplate = ref<NotificationTemplate | null>(null)
+const editingRecipient = ref<NotificationRecipient | null>(null)
 
-const templates = ref([
-  { uuid: '1', name: '交易通知', type: 'email', enabled: true },
-  { uuid: '2', name: '风控告警', type: 'webhook', enabled: true },
-])
+const templates = ref<NotificationTemplate[]>([])
+const history = ref<NotificationHistory[]>([])
+const recipients = ref<NotificationRecipient[]>([])
 
-const notificationHistory = ref([
-  { uuid: '1', template: '交易通知', recipient: 'user@example.com', status: 'success', sent_at: '2024-01-01 10:00:00' },
-  { uuid: '2', template: '风控告警', recipient: 'webhook', status: 'success', sent_at: '2024-01-01 11:00:00' },
-])
-
-const settings = reactive({ emailEnabled: true, smtpServer: '', webhookEnabled: false, webhookUrl: '' })
-const templateForm = reactive({ name: '', type: 'email', subject: '', content: '' })
+const templateForm = reactive({ name: '', type: 'email' as 'email' | 'discord' | 'system', subject: '' })
+const recipientForm = reactive({
+  name: '',
+  recipient_type: 'USER' as 'USER' | 'USER_GROUP',
+  description: '',
+  is_default: false,
+})
 
 const tabs = [
   { key: 'templates', label: '通知模板' },
   { key: 'history', label: '发送记录' },
-  { key: 'settings', label: '通知设置' },
+  { key: 'recipients', label: '接收人' },
 ]
 
 const getTypeClass = (type: string) => {
-  const classMap: Record<string, string> = {
-    email: 'tag-blue',
-    webhook: 'tag-green',
-    wechat: 'tag-orange'
-  }
+  const classMap: Record<string, string> = { email: 'tag-blue', discord: 'tag-green', system: 'tag-orange' }
   return classMap[type] || 'tag-gray'
 }
 
 const getTypeLabel = (type: string) => {
-  const labelMap: Record<string, string> = {
-    email: '邮件',
-    webhook: 'Webhook',
-    wechat: '微信'
-  }
+  const labelMap: Record<string, string> = { email: '邮件', discord: 'Discord', system: '系统', webhook: 'Webhook' }
   return labelMap[type] || type
 }
 
-const toggleTemplate = (record: any, checked: boolean) => {
-  record.enabled = checked
-  showToast(`模板已${checked ? '启用' : '禁用'}`)
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
 }
 
-const editTemplate = (record: any) => {
-  Object.assign(templateForm, record)
+// ===== 数据加载 =====
+
+const loadTemplates = async () => {
+  loading.value = true
+  try {
+    const res = await notificationsApi.listTemplates() as any
+    templates.value = res.data || res || []
+  } catch (e: any) {
+    toast.error(e.message || '加载模板失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadHistory = async () => {
+  loading.value = true
+  try {
+    const res = await notificationsApi.listHistory() as any
+    history.value = res.data || res || []
+  } catch (e: any) {
+    toast.error(e.message || '加载记录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadRecipients = async () => {
+  loading.value = true
+  try {
+    const res = await notificationsApi.listRecipients() as any
+    recipients.value = res.data || res || []
+  } catch (e: any) {
+    toast.error(e.message || '加载接收人失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const switchTab = (key: string) => {
+  activeTab.value = key
+  if (key === 'templates') loadTemplates()
+  else if (key === 'history') loadHistory()
+  else if (key === 'recipients') loadRecipients()
+}
+
+// ===== 模板操作 =====
+
+const openTemplateModal = () => {
+  editingTemplate.value = null
+  Object.assign(templateForm, { name: '', type: 'email', subject: '' })
   showTemplateModal.value = true
 }
 
-const confirmDeleteTemplate = (record: any) => {
+const editTemplate = (record: NotificationTemplate) => {
+  editingTemplate.value = record
+  Object.assign(templateForm, { name: record.name, type: record.type, subject: record.subject })
+  showTemplateModal.value = true
+}
+
+const closeTemplateModal = () => {
+  showTemplateModal.value = false
+  editingTemplate.value = null
+}
+
+const toggleTemplate = async (record: NotificationTemplate, checked: boolean) => {
+  try {
+    await notificationsApi.toggleTemplate(record.uuid, checked)
+    record.enabled = checked
+    toast.success(`模板已${checked ? '启用' : '禁用'}`)
+  } catch (e: any) {
+    toast.error(e.message || '操作失败')
+  }
+}
+
+const testTemplate = async (record: NotificationTemplate) => {
+  try {
+    await notificationsApi.testTemplate(record.uuid)
+    toast.success('测试通知已发送')
+  } catch (e: any) {
+    toast.error(e.message || '测试失败')
+  }
+}
+
+const confirmDeleteTemplate = (record: NotificationTemplate) => {
   if (confirm(`确定要删除模板 "${record.name}" 吗？`)) {
     deleteTemplate(record)
   }
 }
 
-const deleteTemplate = (record: any) => {
-  templates.value = templates.value.filter(t => t.uuid !== record.uuid)
-  showToast('模板已删除')
+const deleteTemplate = async (record: NotificationTemplate) => {
+  try {
+    await notificationsApi.deleteTemplate(record.uuid)
+    toast.success('模板已删除')
+    await loadTemplates()
+  } catch (e: any) {
+    toast.error(e.message || '删除失败')
+  }
 }
 
-const closeTemplateModal = () => {
-  showTemplateModal.value = false
-  resetTemplateForm()
-}
-
-const handleTemplateSubmit = () => {
+const handleTemplateSubmit = async () => {
   if (!templateForm.name) {
-    showToast('请输入模板名称', 'warning')
+    toast.warning('请输入模板名称')
     return
   }
 
-  templates.value.push({
-    uuid: Date.now().toString(),
-    ...templateForm,
-    enabled: true
+  try {
+    if (editingTemplate.value) {
+      await notificationsApi.updateTemplate(editingTemplate.value.uuid, templateForm)
+      toast.success('模板已更新')
+    } else {
+      await notificationsApi.createTemplate(templateForm)
+      toast.success('模板创建成功')
+    }
+    closeTemplateModal()
+    await loadTemplates()
+  } catch (e: any) {
+    toast.error(e.message || '操作失败')
+  }
+}
+
+// ===== 接收人操作 =====
+
+const openRecipientModal = () => {
+  editingRecipient.value = null
+  Object.assign(recipientForm, { name: '', recipient_type: 'USER', description: '', is_default: false })
+  showRecipientModal.value = true
+}
+
+const editRecipient = (record: NotificationRecipient) => {
+  editingRecipient.value = record
+  Object.assign(recipientForm, {
+    name: record.name,
+    recipient_type: record.recipient_type,
+    description: record.description || '',
+    is_default: record.is_default,
   })
-
-  showToast('模板创建成功')
-  closeTemplateModal()
+  showRecipientModal.value = true
 }
 
-const resetTemplateForm = () => {
-  Object.assign(templateForm, { name: '', type: 'email', subject: '', content: '' })
+const closeRecipientModal = () => {
+  showRecipientModal.value = false
+  editingRecipient.value = null
 }
 
-const saveSettings = () => {
-  showToast('设置保存成功')
+const testRecipient = async (record: NotificationRecipient) => {
+  try {
+    const res = await notificationsApi.testRecipient(record.uuid) as any
+    const data = res.data || res
+    toast.success(`测试通知已发送 (${data.success_count || 0} 成功, ${data.failed_count || 0} 失败)`)
+  } catch (e: any) {
+    toast.error(e.message || '测试失败')
+  }
+}
+
+const confirmDeleteRecipient = (record: NotificationRecipient) => {
+  if (confirm(`确定要删除接收人 "${record.name}" 吗？`)) {
+    deleteRecipient(record)
+  }
+}
+
+const deleteRecipient = async (record: NotificationRecipient) => {
+  try {
+    await notificationsApi.deleteRecipient(record.uuid)
+    toast.success('接收人已删除')
+    await loadRecipients()
+  } catch (e: any) {
+    toast.error(e.message || '删除失败')
+  }
+}
+
+const handleRecipientSubmit = async () => {
+  if (!recipientForm.name) {
+    toast.warning('请输入接收人名称')
+    return
+  }
+
+  try {
+    if (editingRecipient.value) {
+      await notificationsApi.updateRecipient(editingRecipient.value.uuid, recipientForm)
+      toast.success('接收人已更新')
+    } else {
+      await notificationsApi.createRecipient(recipientForm)
+      toast.success('接收人已创建')
+    }
+    closeRecipientModal()
+    await loadRecipients()
+  } catch (e: any) {
+    toast.error(e.message || '操作失败')
+  }
 }
 
 onMounted(() => {
-  // 加载数据
+  loadTemplates()
 })
 </script>
 
@@ -289,11 +497,9 @@ onMounted(() => {
   max-height: 90vh;
 }
 
-
 .page-container {
-  padding: 24px;
-  background: #0f0f1a;
-  min-height: calc(100vh - 64px);
+  padding: 0;
+  background: transparent;
 }
 
 .page-header {
@@ -304,7 +510,7 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #ffffff;
   display: flex;
@@ -341,6 +547,17 @@ onMounted(() => {
 
 .tab-content {
   padding: 20px;
+}
+
+.tab-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 6px 12px;
 }
 
 /* 表格样式 */
@@ -436,15 +653,28 @@ onMounted(() => {
   transform: translateX(22px);
 }
 
-/* 设置表单 */
-.settings-form {
-  max-width: 600px;
+.switch-label-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.switch-input-inline {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .required {
   color: #f5222d;
 }
 
-/* 模态框样式 */
-
+.empty-state {
+  text-align: center;
+  color: #8a8a9a;
+  padding: 32px !important;
+}
 </style>
