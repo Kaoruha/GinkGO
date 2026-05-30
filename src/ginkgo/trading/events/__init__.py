@@ -57,12 +57,6 @@ from ginkgo.trading.events.component_time_advance import (
     EventComponentTimeAdvance,
     ComponentTimeAdvanceInfo
 )
-from ginkgo.trading.events.execution_confirmation import (
-    EventExecutionConfirmed,
-    EventExecutionRejected,
-    EventExecutionTimeout,
-    EventExecutionCanceled
-)
 
 
 # === 导出所有事件类 ===
@@ -102,9 +96,5 @@ __all__ = [
     "EventTimeAdvance",
     "EventComponentTimeAdvance",
     "ComponentTimeAdvanceInfo",
-    "EventExecutionConfirmed",
-    "EventExecutionRejected",
-    "EventExecutionTimeout",
-    "EventExecutionCanceled",
 ]
 

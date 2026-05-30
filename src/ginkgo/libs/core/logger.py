@@ -1412,14 +1412,12 @@ class GinkgoLogger:
 # ==================== 简洁分组 API ====================
 # API分层设计：
 # 1. GLOG.backtest.*      - 回测业务日志（按事件性质分组）
-# 2. GLOG.execution.*     - 实盘执行日志（独立命名空间）
-# 3. GLOG.component.*     - 组件日志
-# 4. GLOG.performance.*   - 性能日志
+# 2. GLOG.component.*     - 组件日志
+# 3. GLOG.performance.*   - 性能日志
 #
 # 使用示例:
 #   GLOG.backtest.trade.signal(symbol, direction)
 #   GLOG.backtest.order.reject(order_id, code, reason)
-#   GLOG.execution.confirm(tracking_id, expected_price, actual_price, ...)
 
 
 class _BacktestTradeNamespace:
