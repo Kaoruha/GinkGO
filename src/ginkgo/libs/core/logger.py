@@ -50,6 +50,9 @@ import threading
 import hashlib
 import time
 import re
+
+# #3900: 线程本地存储，用于 Filter 在 emit 前修补 LogRecord 的调用方
+_caller_local = threading.local()
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 from pathlib import Path
@@ -634,21 +637,26 @@ class GinkgoLogger:
         self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
         import structlog
 
-        def _patch_record_caller(logger, name, ed):
-            """#3900: 修补 LogRecord 的 pathname/lineno 为实际调用方"""
-            record = ed.get("_record")
-            if record:
-                origin = ed.get("log", {}).get("origin")
-                if origin:
-                    record.pathname = origin.get("file", record.pathname)
-                    record.lineno = origin.get("line", record.lineno)
-                    record.funcName = origin.get("func", record.funcName)
-            return ed
+        # #3900: Filter 在 emit() 之前运行，修补 LogRecord 的 pathname/lineno
+        # RichHandler.emit() 在调用 format() 之前就读取 record.pathname，
+        # 所以不能在 ProcessorFormatter 里修补，必须用 Filter。
+        # Filter 从 _caller_local（线程本地）读取调用方信息，
+        # 由 INFO/DEBUG/ERROR 等方法在调用 structlog 前写入。
+        class _CallerPatchFilter(logging.Filter):
+            def filter(self, record):
+                caller = getattr(_caller_local, 'caller', None)
+                if caller:
+                    record.pathname = caller.get('file', record.pathname)
+                    record.lineno = caller.get('line', record.lineno)
+                    record.funcName = caller.get('func', record.funcName)
+                    _caller_local.caller = None
+                return True
+
+        self.console_handler.addFilter(_CallerPatchFilter())
 
         self.console_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
                 processors=[
-                    _patch_record_caller,
                     lambda logger, name, ed: ed.get("event", "") or ed.get("message", ""),
                 ]
             )
@@ -759,12 +767,14 @@ class GinkgoLogger:
         # #3900: 注入调用方来源信息
         frame = sys._getframe(1)
         _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-
+        _caller_local.caller = _caller
         try:
             import structlog
             structlog.get_logger(self.logger_name).debug(msg, _caller=_caller)
         except ImportError:
             self.logger.debug(msg)
+        finally:
+            _caller_local.caller = None
 
     def INFO(self, msg: str) -> None:
         """记录 INFO 级别日志"""
@@ -774,12 +784,14 @@ class GinkgoLogger:
         # #3900: 注入调用方来源信息
         frame = sys._getframe(1)
         _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-
+        _caller_local.caller = _caller
         try:
             import structlog
             structlog.get_logger(self.logger_name).info(msg, _caller=_caller)
         except ImportError:
             self.logger.info(msg)
+        finally:
+            _caller_local.caller = None
 
     def WARN(self, msg: str) -> None:
         """记录 WARNING 级别日志"""
@@ -789,12 +801,14 @@ class GinkgoLogger:
         # #3900: 注入调用方来源信息
         frame = sys._getframe(1)
         _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-
+        _caller_local.caller = _caller
         try:
             import structlog
             structlog.get_logger(self.logger_name).warning(msg, _caller=_caller)
         except ImportError:
             self.logger.warning(msg)
+        finally:
+            _caller_local.caller = None
 
     def WARNING(self, msg: str) -> None:
         """记录 WARNING 级别日志（WARN 方法的别名）"""
@@ -810,12 +824,14 @@ class GinkgoLogger:
             # #3900: 注入调用方来源信息
             frame = sys._getframe(1)
             _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-
+            _caller_local.caller = _caller
             try:
                 import structlog
                 structlog.get_logger(self.logger_name).error(processed_msg, _caller=_caller)
             except ImportError:
                 self.logger.error(processed_msg)
+            finally:
+                _caller_local.caller = None
 
     def CRITICAL(self, msg: str) -> None:
         """记录 CRITICAL 级别日志"""
@@ -825,12 +841,14 @@ class GinkgoLogger:
         # #3900: 注入调用方来源信息
         frame = sys._getframe(1)
         _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-
+        _caller_local.caller = _caller
         try:
             import structlog
             structlog.get_logger(self.logger_name).critical(msg, _caller=_caller)
         except ImportError:
             self.logger.critical(msg)
+        finally:
+            _caller_local.caller = None
 
     # ==================== T030-T033: trace_id 上下文管理 ====================
 
