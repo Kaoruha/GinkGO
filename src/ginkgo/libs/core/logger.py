@@ -419,7 +419,6 @@ class GinkgoLogger:
 
         # 初始化分组命名空间（简洁API）
         self.backtest = _BacktestLogNamespace(self)
-        self.execution = _ExecutionLogNamespace(self)
         self.component = _ComponentLogNamespace(self)
         self.performance = _PerformanceLogNamespace(self)
 
@@ -1254,121 +1253,6 @@ class GinkgoLogger:
             }
         )
 
-    def log_execution_rejected_event(self, tracking_id: str, reject_reason: str, msg: str = None, **kwargs):
-        """
-        记录执行拒绝事件（实盘交易）
-
-        必需字段: tracking_id, reject_reason
-        可选字段: symbol, expected_volume, reject_code, msg
-
-        Example:
-            >>> GLOG.log_execution_rejected_event(
-            ...     tracking_id="track-123",
-            ...     reject_reason="券商拒绝订单",
-            ...     symbol="000001.SZ"
-            ... )
-        """
-        self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).error(
-            msg or f"Execution rejected: {tracking_id} - {reject_reason}",
-            _ginkgo={
-                "event_type": "EXECUTIONREJECTION",
-                "tracking_id": tracking_id,
-                "reject_reason": reject_reason,
-                **kwargs
-            }
-        )
-
-    def log_execution_timeout_event(self, tracking_id: str, msg: str = None, **kwargs):
-        """
-        记录执行超时事件（实盘交易）
-
-        必需字段: tracking_id
-        可选字段: symbol, expected_volume, delay_seconds, msg
-
-        Example:
-            >>> GLOG.log_execution_timeout_event(
-            ...     tracking_id="track-123",
-            ...     symbol="000001.SZ",
-            ...     delay_seconds=30
-            ... )
-        """
-        self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).error(
-            msg or f"Execution timeout: {tracking_id}",
-            _ginkgo={
-                "event_type": "EXECUTIONTIMEOUT",
-                "tracking_id": tracking_id,
-                **kwargs
-            }
-        )
-
-    def log_execution_confirm_event(
-        self,
-        tracking_id: str,
-        expected_price: Number,
-        actual_price: Number,
-        expected_volume: int,
-        actual_volume: int,
-        msg: str = None,
-        **kwargs
-    ):
-        """
-        记录执行确认事件（实盘交易）
-
-        必需字段: tracking_id, expected_price, actual_price, expected_volume, actual_volume
-        可选字段: symbol, direction, slippage, delay_seconds, commission, price_deviation, volume_deviation, msg
-
-        Example:
-            >>> GLOG.log_execution_confirm_event(
-            ...     tracking_id="track-123",
-            ...     expected_price=10.50,
-            ...     actual_price=10.52,
-            ...     expected_volume=1000,
-            ...     actual_volume=1000,
-            ...     symbol="000001.SZ",
-            ...     slippage=0.02
-            ... )
-        """
-        self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
-            msg or f"Execution confirmed: {tracking_id}",
-            _ginkgo={
-                "event_type": "EXECUTIONCONFIRMATION",
-                "tracking_id": tracking_id,
-                "expected_price": expected_price,
-                "actual_price": actual_price,
-                "expected_volume": expected_volume,
-                "actual_volume": actual_volume,
-                **kwargs
-            }
-        )
-
-    def log_execution_cancel_event(self, tracking_id: str, cancel_reason: str, msg: str = None, **kwargs):
-        """
-        记录执行取消事件（实盘交易）
-
-        必需字段: tracking_id, cancel_reason
-        可选字段: symbol, direction, cancel_time, msg
-
-        Example:
-            >>> GLOG.log_execution_cancel_event(
-            ...     tracking_id="track-123",
-            ...     cancel_reason="策略停止",
-            ...     symbol="000001.SZ"
-            ... )
-        """
-        self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
-            msg or f"Execution cancelled: {tracking_id} - {cancel_reason}",
-            _ginkgo={
-                "event_type": "EXECUTIONCANCELLATION",
-                "tracking_id": tracking_id,
-                "cancel_reason": cancel_reason,
-                **kwargs
-            }
-        )
-
     def log_engine_error_event(self, error_code: str, error_message: str, msg: str = None, **kwargs):
         """
         记录引擎错误事件
@@ -1645,32 +1529,6 @@ class _BacktestLogNamespace:
     def risk(self, risk_type: str, reason: str, **kwargs):
         """快捷访问：记录风控事件"""
         self.system.risk(risk_type, reason, **kwargs)
-
-
-class _ExecutionLogNamespace:
-    """实盘执行日志命名空间 - 实盘交易执行事件"""
-
-    def __init__(self, logger: GinkgoLogger):
-        self._logger = logger
-
-    def confirm(self, tracking_id: str, expected_price: Number, actual_price: Number,
-                expected_volume: int, actual_volume: int, **kwargs):
-        """记录执行确认事件"""
-        self._logger.log_execution_confirm_event(
-            tracking_id, expected_price, actual_price, expected_volume, actual_volume, **kwargs
-        )
-
-    def reject(self, tracking_id: str, reason: str, **kwargs):
-        """记录执行拒绝事件"""
-        self._logger.log_execution_rejected_event(tracking_id, reason, **kwargs)
-
-    def timeout(self, tracking_id: str, **kwargs):
-        """记录执行超时事件"""
-        self._logger.log_execution_timeout_event(tracking_id, **kwargs)
-
-    def cancel(self, tracking_id: str, reason: str, **kwargs):
-        """记录执行取消事件"""
-        self._logger.log_execution_cancel_event(tracking_id, reason, **kwargs)
 
 
 class _ComponentLogNamespace:

@@ -121,12 +121,6 @@ class EVENT_TYPES(EnumBase):
     # Strategy Events (100-119)
     SIGNALGENERATION = 100
     
-    # Execution Events (10-19)
-    EXECUTIONCONFIRMATION = 11
-    EXECUTIONREJECTION = 12
-    EXECUTIONTIMEOUT = 13
-    EXECUTIONCANCELLATION = 14
-    
     # News and External Events (120-139)
     NEWSRECIEVE = 120
 
