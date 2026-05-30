@@ -42,6 +42,7 @@ _business_context_ctx: contextvars.ContextVar[Optional[Any]] = contextvars.Conte
 
 
 from typing import List
+import sys
 import os
 import inspect
 import logging
@@ -291,6 +292,35 @@ def masking_processor(logger, log_method, event_dict):
     return event_dict
 
 
+# ==================== #3900: 调用方来源处理器 ====================
+
+
+def caller_processor(logger, log_method, event_dict):
+    """
+    调用方来源处理器 (相关issue: #3900)
+
+    将 INFO/DEBUG/ERROR 等方法注入的 _caller 字段提取并映射为
+    ECS 标准的 log.origin 字段，使 JSON 日志输出包含实际业务
+    调用方的文件名、行号和函数名（而非 structlog 内部地址）。
+
+    Args:
+        logger: structlog logger对象
+        log_method: 日志方法
+        event_dict: 日志事件字典
+
+    Returns:
+        Dict: 更新后的日志事件字典
+    """
+    caller = event_dict.pop("_caller", None)
+    if caller:
+        # merge 到 ecs_processor 已创建的 log dict
+        if "log" in event_dict:
+            event_dict["log"]["origin"] = caller
+        else:
+            event_dict["log"] = {"origin": caller}
+    return event_dict
+
+
 # ==================== T013: structlog 配置 ====================
 
 
@@ -350,6 +380,7 @@ def configure_structlog():
                 # === 中等处理器（格式化）===
                 structlog.processors.TimeStamper(fmt="iso"),
                 ecs_processor,
+                caller_processor,  # #3900: 调用方来源信息（必须在 ecs_processor 之后，因为 ecs 会覆盖 log 字段）
                 # === 慢速处理器（可选）===
                 container_metadata_processor,
                 structlog.processors.StackInfoRenderer(),
@@ -712,9 +743,13 @@ class GinkgoLogger:
             if random.random() > sampling_rate:
                 return
 
+        # #3900: 注入调用方来源信息
+        frame = sys._getframe(1)
+        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+
         try:
             import structlog
-            structlog.get_logger(self.logger_name).debug(msg)
+            structlog.get_logger(self.logger_name).debug(msg, _caller=_caller)
         except ImportError:
             self.logger.debug(msg)
 
@@ -723,9 +758,13 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.INFO):
             return
 
+        # #3900: 注入调用方来源信息
+        frame = sys._getframe(1)
+        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+
         try:
             import structlog
-            structlog.get_logger(self.logger_name).info(msg)
+            structlog.get_logger(self.logger_name).info(msg, _caller=_caller)
         except ImportError:
             self.logger.info(msg)
 
@@ -734,9 +773,13 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.WARNING):
             return
 
+        # #3900: 注入调用方来源信息
+        frame = sys._getframe(1)
+        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+
         try:
             import structlog
-            structlog.get_logger(self.logger_name).warning(msg)
+            structlog.get_logger(self.logger_name).warning(msg, _caller=_caller)
         except ImportError:
             self.logger.warning(msg)
 
@@ -751,9 +794,13 @@ class GinkgoLogger:
 
         should_log, processed_msg = self._should_log_error(msg)
         if should_log:
+            # #3900: 注入调用方来源信息
+            frame = sys._getframe(1)
+            _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+
             try:
                 import structlog
-                structlog.get_logger(self.logger_name).error(processed_msg)
+                structlog.get_logger(self.logger_name).error(processed_msg, _caller=_caller)
             except ImportError:
                 self.logger.error(processed_msg)
 
@@ -762,9 +809,13 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.CRITICAL):
             return
 
+        # #3900: 注入调用方来源信息
+        frame = sys._getframe(1)
+        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+
         try:
             import structlog
-            structlog.get_logger(self.logger_name).critical(msg)
+            structlog.get_logger(self.logger_name).critical(msg, _caller=_caller)
         except ImportError:
             self.logger.critical(msg)
 

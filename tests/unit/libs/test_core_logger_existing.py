@@ -786,6 +786,89 @@ class TestLoggingModeConfig:
             else:
                 os.environ["GINKGO_LOGGING_MODE"] = original_mode
 
+@pytest.mark.tdd
+class TestLogCallerSource:
+    """
+    测试日志调用方来源信息 (相关issue: #3900)
+
+    验证 caller_processor 将 _caller 注入为 log.origin 字段，
+    使 JSON 日志输出包含实际业务调用方而非 structlog 内部文件。
+    """
+
+    def test_caller_processor_maps_caller_to_log_origin(self):
+        """
+        验证 caller_processor 将 _caller 提取为 ECS log.origin
+
+        _caller 由 INFO/DEBUG 等方法通过 sys._getframe() 注入，
+        caller_processor 负责将其映射为标准化的 log.origin 字段。
+        """
+        from ginkgo.libs.core.logger import caller_processor
+
+        event_dict = {
+            "event": "Test message",
+            "level": "info",
+            "logger_name": "test",
+            "_caller": {
+                "file": "/path/to/my_module.py",
+                "line": 42,
+                "func": "do_something",
+            },
+        }
+
+        result = caller_processor(None, None, event_dict)
+
+        # _caller 被消费，不应残留
+        assert "_caller" not in result
+        # log.origin 包含调用方信息
+        assert "log" in result
+        assert "origin" in result["log"]
+        assert result["log"]["origin"]["file"] == "/path/to/my_module.py"
+        assert result["log"]["origin"]["line"] == 42
+        assert result["log"]["origin"]["func"] == "do_something"
+
+    def test_caller_processor_noop_when_no_caller(self):
+        """无 _caller 时不注入 origin，不崩溃"""
+        from ginkgo.libs.core.logger import caller_processor
+
+        event_dict = {"event": "test", "level": "info"}
+        result = caller_processor(None, None, event_dict)
+        assert "log" not in result or "origin" not in result.get("log", {})
+
+    def test_info_json_output_contains_real_caller(self):
+        """
+        验证 INFO 日志的 JSON 文件输出包含实际调用方文件名
+
+        端到端验证：调用 INFO → 写入文件 → JSON 包含非 structlog 的文件名
+        """
+        from ginkgo.libs.core.config import GCONF
+
+        logger = GinkgoLogger(
+            "test_caller_info",
+            file_names=["test_caller_info.log"],
+            console_log=False,
+        )
+        logger.add_file_handler("test_caller_info.log", "DEBUG")
+
+        # #3900: 这行日志的调用方是本测试文件
+        logger.INFO("caller source test")
+
+        log_path = os.path.join(GCONF.LOGGING_PATH, "test_caller_info.log")
+        assert os.path.exists(log_path), f"Log file not found at {log_path}"
+
+        with open(log_path, "r") as f:
+            last_line = [l for l in f.readlines() if l.strip()][-1]
+            parsed = json.loads(last_line)
+
+        # 调用方文件应是本测试文件，而非 structlog 的 _base.py
+        origin = parsed.get("log", {}).get("origin", {})
+        assert "test_core_logger_existing" in origin.get("file", ""), (
+            f"Expected test file in caller, got: {origin}"
+        )
+        assert origin.get("line") > 0
+        assert "test_" in origin.get("func", ""), (
+            f"Expected test function in caller, got: {origin}"
+        )
+
     def test_default_mode_is_auto(self):
         """
         测试默认模式为 auto (T038-3)
