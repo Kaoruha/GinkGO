@@ -633,9 +633,22 @@ class GinkgoLogger:
         self.console_handler.set_name(self._console_handler_name)
         self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
         import structlog
+
+        def _patch_record_caller(logger, name, ed):
+            """#3900: 修补 LogRecord 的 pathname/lineno 为实际调用方"""
+            record = ed.get("_record")
+            if record:
+                origin = ed.get("log", {}).get("origin")
+                if origin:
+                    record.pathname = origin.get("file", record.pathname)
+                    record.lineno = origin.get("line", record.lineno)
+                    record.funcName = origin.get("func", record.funcName)
+            return ed
+
         self.console_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
                 processors=[
+                    _patch_record_caller,
                     lambda logger, name, ed: ed.get("event", "") or ed.get("message", ""),
                 ]
             )
