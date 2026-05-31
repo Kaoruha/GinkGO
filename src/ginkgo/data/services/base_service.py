@@ -214,6 +214,46 @@ class BaseService(ABC):
         """
         return self._service_name
 
+    # fix(#4589): 通用分页查询方法，消除 Service 层重复 boilerplate
+    def _paginated_query(
+        self,
+        filters=None,
+        page: int = 0,
+        page_size: int = 20,
+        order_by: str = None,
+        desc_order: bool = True,
+        crud_repo=None,
+    ) -> ServiceResult:
+        """通用分页查询：find + count → ServiceResult({items, total})
+
+        子类可直接调用，避免重复 find/count/信封组装。
+        支持传入自定义 crud_repo，适用于 Service 持有多个 CRUD 实例的场景。
+
+        Args:
+            filters: 查询过滤条件
+            page: 页码（从0开始）
+            page_size: 每页数量
+            order_by: 排序字段
+            desc_order: 是否降序
+            crud_repo: 可选 CRUD 实例，默认使用 self._crud_repo
+
+        Returns:
+            ServiceResult: data 包含 items（列表）和 total（总数）
+        """
+        try:
+            crud = crud_repo or self._crud_repo
+            items = crud.find(
+                filters=filters,
+                page=page,
+                page_size=page_size,
+                order_by=order_by,
+                desc_order=desc_order,
+            )
+            total = crud.count(filters=filters)
+            return ServiceResult.success(data={"items": items or [], "total": total})
+        except Exception as e:
+            return ServiceResult.error(str(e))
+
     def create_result(self, success: bool = False, error: str = None) -> ServiceResult:
         """
         Create standardized ServiceResult instance for operation response
