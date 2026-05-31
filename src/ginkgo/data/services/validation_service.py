@@ -75,9 +75,9 @@ class ValidationService(BaseService):
             if method:
                 filters["method"] = method
 
-            total = self._result_crud.count(filters=filters) if filters else self._result_crud.count()
+            total = self._result_crud.count(filters=filters)
             records = self._result_crud.find(
-                filters=filters if filters else None,
+                filters=filters or None,
                 page=page,
                 page_size=page_size,
                 order_by="create_at",
@@ -102,10 +102,11 @@ class ValidationService(BaseService):
             if not self._result_crud:
                 return ServiceResult.error("验证结果存储不可用")
 
-            record = self._result_crud.get(result_id)
-            if not record:
+            # fix(#4582): ValidationResultCRUD 继承 BaseCRUD，无 get()，用 find() 替代
+            records = self._result_crud.find(filters={"uuid": result_id})
+            if not records:
                 return ServiceResult.error("验证结果不存在")
-            return ServiceResult.success(record)
+            return ServiceResult.success(records[0])
         except Exception as e:
             GLOG.ERROR(f"获取验证结果失败: {e}")
             return ServiceResult.error(f"获取验证结果失败: {e}")

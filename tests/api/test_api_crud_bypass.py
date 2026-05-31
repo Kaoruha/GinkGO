@@ -149,14 +149,14 @@ class TestValidationServiceListResults:
 
 
 class TestValidationServiceGetResult:
-    """ValidationService.get_result should wrap CRUD get."""
+    """ValidationService.get_result should wrap CRUD find by uuid."""
 
     def test_returns_service_result_with_record(self):
         from ginkgo.data.services.validation_service import ValidationService
 
         mock_record = MagicMock(uuid="r-1", task_id="t-1")
         mock_result_crud = MagicMock()
-        mock_result_crud.get.return_value = mock_record
+        mock_result_crud.find.return_value = [mock_record]
 
         svc = ValidationService(
             analyzer_record_crud=MagicMock(),
@@ -167,7 +167,7 @@ class TestValidationServiceGetResult:
         assert isinstance(result, ServiceResult)
         assert result.success
         assert result.data == mock_record
-        mock_result_crud.get.assert_called_once_with("r-1")
+        mock_result_crud.find.assert_called_once_with(filters={"uuid": "r-1"})
 
 
 class TestValidationApiNoCrudBypass:

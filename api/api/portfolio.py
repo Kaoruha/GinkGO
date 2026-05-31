@@ -206,8 +206,10 @@ async def list_portfolios(
             order_by="update_at",
             desc_order=True,
         )
-        portfolios = result.data["items"] if result.success else []
-        total = result.data["total"] if result.success else 0
+        if not result.success:
+            raise BusinessError(result.error or "查询投资组合失败")
+        portfolios = result.data["items"]
+        total = result.data["total"]
 
         items = []
         for p in (portfolios or []):

@@ -1066,7 +1066,9 @@ async def get_backtest_analyzers(uuid: str):
         # fix(#4582): 通过 AnalyzerService 查询，不再直调 container.analyzer_record_crud()
         analyzer_service = container.analyzer_service()
         result = analyzer_service.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
-        records = result.data if result.success else []
+        if not result.success:
+            raise BusinessError(result.error or "查询分析器记录失败")
+        records = result.data
 
         from collections import OrderedDict
         grouped = OrderedDict()
