@@ -795,41 +795,40 @@ class TestLogCallerSource:
     使 JSON 日志输出包含实际业务调用方而非 structlog 内部文件。
     """
 
-    def test_caller_processor_maps_caller_to_log_origin(self):
+    def test_caller_processor_reads_from_thread_local(self):
         """
-        验证 caller_processor 将 _caller 提取为 ECS log.origin
+        caller_processor 从 _caller_local 读取调用方信息写入 log.origin
 
-        _caller 由 INFO/DEBUG 等方法通过 sys._getframe() 注入，
-        caller_processor 负责将其映射为标准化的 log.origin 字段。
+        单一数据源：_caller_local 是调用方的唯一来源，
+        caller_processor 直接从中读取，不再依赖 event_dict 的 _caller 字段。
         """
-        from ginkgo.libs.core.logger import caller_processor
+        import threading
+        from ginkgo.libs.core.logger import caller_processor, _caller_local
 
-        event_dict = {
-            "event": "Test message",
-            "level": "info",
-            "logger_name": "test",
-            "_caller": {
-                "file": "/path/to/my_module.py",
-                "line": 42,
-                "func": "do_something",
-            },
+        # 模拟 _emit 设置 thread-local
+        _caller_local.caller = {
+            "file": "/path/to/my_module.py",
+            "line": 42,
+            "func": "do_something",
         }
 
-        result = caller_processor(None, None, event_dict)
+        try:
+            # event_dict 不含 _caller key
+            event_dict = {"event": "Test message", "level": "info"}
+            result = caller_processor(None, None, event_dict)
 
-        # _caller 被消费，不应残留
-        assert "_caller" not in result
-        # log.origin 包含调用方信息
-        assert "log" in result
-        assert "origin" in result["log"]
-        assert result["log"]["origin"]["file"] == "/path/to/my_module.py"
-        assert result["log"]["origin"]["line"] == 42
-        assert result["log"]["origin"]["func"] == "do_something"
+            assert "log" in result
+            assert result["log"]["origin"]["file"] == "/path/to/my_module.py"
+            assert result["log"]["origin"]["line"] == 42
+            assert result["log"]["origin"]["func"] == "do_something"
+        finally:
+            _caller_local.caller = None
 
-    def test_caller_processor_noop_when_no_caller(self):
-        """无 _caller 时不注入 origin，不崩溃"""
-        from ginkgo.libs.core.logger import caller_processor
+    def test_caller_processor_noop_when_no_thread_local(self):
+        """_caller_local 为空时不注入 origin，不崩溃"""
+        from ginkgo.libs.core.logger import caller_processor, _caller_local
 
+        _caller_local.caller = None
         event_dict = {"event": "test", "level": "info"}
         result = caller_processor(None, None, event_dict)
         assert "log" not in result or "origin" not in result.get("log", {})

@@ -302,21 +302,12 @@ def caller_processor(logger, log_method, event_dict):
     """
     调用方来源处理器 (相关issue: #3900)
 
-    将 INFO/DEBUG/ERROR 等方法注入的 _caller 字段提取并映射为
-    ECS 标准的 log.origin 字段，使 JSON 日志输出包含实际业务
-    调用方的文件名、行号和函数名（而非 structlog 内部地址）。
-
-    Args:
-        logger: structlog logger对象
-        log_method: 日志方法
-        event_dict: 日志事件字典
-
-    Returns:
-        Dict: 更新后的日志事件字典
+    从 _caller_local（线程本地）读取调用方信息，映射为 ECS 标准的
+    log.origin 字段。单一数据源：_caller_local 由 _emit() 设置，
+    同时被本处理器（JSON 输出）和 _CallerPatchFilter（控制台输出）消费。
     """
-    caller = event_dict.pop("_caller", None)
+    caller = getattr(_caller_local, 'caller', None)
     if caller:
-        # merge 到 ecs_processor 已创建的 log dict
         if "log" in event_dict:
             event_dict["log"]["origin"] = caller
         else:
@@ -744,13 +735,13 @@ class GinkgoLogger:
         return levels
 
     def log(self, level, msg: str):
-        caller = inspect.stack()[2]
-        function = caller.function
-        filename = caller.filename.split("/")[-1]
-        lineno = caller.lineno
-        log_method = getattr(self.logger, level.lower())
-        # log_method(f"{msg}  [{filename} -> {function}()  L:{lineno}]", stacklevel=2)
-        log_method(msg, stacklevel=4)
+        # 通过 _emit 统一发射，caller 信息自动注入
+        level_map = {
+            "DEBUG": "debug", "INFO": "info", "WARNING": "warning",
+            "WARN": "warning", "ERROR": "error", "CRITICAL": "critical",
+        }
+        structlog_level = level_map.get(level.upper(), level.lower())
+        self._emit(structlog_level, msg)
 
     def DEBUG(self, msg: str) -> None:
         """记录 DEBUG 级别日志"""
@@ -764,55 +755,29 @@ class GinkgoLogger:
             if random.random() > sampling_rate:
                 return
 
-        # #3900: 注入调用方来源信息
-        frame = sys._getframe(1)
-        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-        _caller_local.caller = _caller
-        try:
-            import structlog
-            structlog.get_logger(self.logger_name).debug(msg, _caller=_caller)
-        except ImportError:
-            self.logger.debug(msg)
-        finally:
-            _caller_local.caller = None
+        # #3900: 调用方来源通过 _emit 统一注入
+        self._emit("debug", msg)
 
     def INFO(self, msg: str) -> None:
         """记录 INFO 级别日志"""
         if not self.logger.isEnabledFor(logging.INFO):
             return
 
-        # #3900: 注入调用方来源信息
-        frame = sys._getframe(1)
-        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-        _caller_local.caller = _caller
-        try:
-            import structlog
-            structlog.get_logger(self.logger_name).info(msg, _caller=_caller)
-        except ImportError:
-            self.logger.info(msg)
-        finally:
-            _caller_local.caller = None
+        self._emit("info", msg)
 
     def WARN(self, msg: str) -> None:
         """记录 WARNING 级别日志"""
         if not self.logger.isEnabledFor(logging.WARNING):
             return
 
-        # #3900: 注入调用方来源信息
-        frame = sys._getframe(1)
-        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-        _caller_local.caller = _caller
-        try:
-            import structlog
-            structlog.get_logger(self.logger_name).warning(msg, _caller=_caller)
-        except ImportError:
-            self.logger.warning(msg)
-        finally:
-            _caller_local.caller = None
+        self._emit("warning", msg)
 
     def WARNING(self, msg: str) -> None:
         """记录 WARNING 级别日志（WARN 方法的别名）"""
-        self.WARN(msg)
+        if not self.logger.isEnabledFor(logging.WARNING):
+            return
+
+        self._emit("warning", msg)
 
     def ERROR(self, msg: str) -> None:
         """记录 ERROR 级别日志（含智能流量控制）"""
@@ -821,34 +786,14 @@ class GinkgoLogger:
 
         should_log, processed_msg = self._should_log_error(msg)
         if should_log:
-            # #3900: 注入调用方来源信息
-            frame = sys._getframe(1)
-            _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-            _caller_local.caller = _caller
-            try:
-                import structlog
-                structlog.get_logger(self.logger_name).error(processed_msg, _caller=_caller)
-            except ImportError:
-                self.logger.error(processed_msg)
-            finally:
-                _caller_local.caller = None
+            self._emit("error", processed_msg)
 
     def CRITICAL(self, msg: str) -> None:
         """记录 CRITICAL 级别日志"""
         if not self.logger.isEnabledFor(logging.CRITICAL):
             return
 
-        # #3900: 注入调用方来源信息
-        frame = sys._getframe(1)
-        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
-        _caller_local.caller = _caller
-        try:
-            import structlog
-            structlog.get_logger(self.logger_name).critical(msg, _caller=_caller)
-        except ImportError:
-            self.logger.critical(msg)
-        finally:
-            _caller_local.caller = None
+        self._emit("critical", msg)
 
     # ==================== T030-T033: trace_id 上下文管理 ====================
 
@@ -999,6 +944,27 @@ class GinkgoLogger:
 
     # ==================== 内部辅助方法 ====================
 
+    def _emit(self, level: str, msg: str, **kwargs) -> None:
+        """
+        统一日志发射入口 (#3900)
+
+        封装调用方来源注入 + structlog 调用 + thread-local 清理。
+        所有公开日志方法（DEBUG/INFO/WARN/ERROR/CRITICAL 及 log_*_event）
+        都应通过此方法发射，确保调用方信息一致。
+
+        Args:
+            level: structlog 方法名 ("debug"/"info"/"warning"/"error"/"critical")
+            msg: 日志消息
+            **kwargs: 传递给 structlog 的额外字段（如 _ginkgo）
+        """
+        frame = sys._getframe(2)
+        _caller = {"file": frame.f_code.co_filename, "line": frame.f_lineno, "func": frame.f_code.co_name}
+        _caller_local.caller = _caller
+        try:
+            getattr(structlog.get_logger(self.logger_name), level)(msg, **kwargs)
+        finally:
+            _caller_local.caller = None
+
     def _normalize_number(self, value: Union[Number, None]) -> Optional[float]:
         """
         统一数值类型为 float（用于 JSON 序列化）
@@ -1035,7 +1001,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Signal generated: {direction} {symbol}",
             _ginkgo={
                 "event_type": "SIGNALGENERATION",
@@ -1062,7 +1028,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Order submitted: {order_id}",
             _ginkgo={
                 "event_type": "ORDERSUBMITTED",
@@ -1094,7 +1060,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Order filled: {order_id} @ {price} x{volume}",
             _ginkgo={
                 "event_type": "ORDERFILLED",
@@ -1120,7 +1086,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Position updated: {symbol} {volume} shares",
             _ginkgo={
                 "event_type": "POSITIONUPDATE",
@@ -1145,7 +1111,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Capital updated: total={total_value}, cash={available_cash}",
             _ginkgo={
                 "event_type": "CAPITALUPDATE",
@@ -1171,7 +1137,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
+        self._emit("warning", 
             msg or f"Risk event: {risk_type} - {risk_reason}",
             _ginkgo={
                 "event_type": "RISKBREACH",
@@ -1197,7 +1163,7 @@ class GinkgoLogger:
         """
         self.set_log_category("component")
         actual_msg = msg or message or f"Component event: {component_name}"
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             actual_msg,
             _ginkgo={
                 "component_name": component_name,
@@ -1221,7 +1187,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("performance")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Performance: {function_name} took {duration_ms}ms",
             _ginkgo={
                 "function_name": function_name,
@@ -1248,7 +1214,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).error(
+        self._emit("error", 
             msg or f"Order rejected: {order_id} - {reject_code}: {reject_reason}",
             _ginkgo={
                 "event_type": "ORDERREJECTED",
@@ -1274,7 +1240,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
+        self._emit("warning", 
             msg or f"Order cancelled: {order_id} - {cancel_reason}",
             _ginkgo={
                 "event_type": "ORDERCANCELACK",
@@ -1300,7 +1266,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Order acknowledged: {order_id} -> {broker_order_id}",
             _ginkgo={
                 "event_type": "ORDERACK",
@@ -1325,7 +1291,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
+        self._emit("warning", 
             msg or f"Order expired: {order_id} - {expire_reason}",
             _ginkgo={
                 "event_type": "ORDEREXPIRED",
@@ -1350,7 +1316,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).error(
+        self._emit("error", 
             msg or f"Engine error: [{error_code}] {error_message}",
             _ginkgo={
                 "event_type": "ENGINEERROR",
@@ -1362,35 +1328,35 @@ class GinkgoLogger:
 
     def log_t1_settlement_event(self, settled_count: int, msg: str = None, **kwargs):
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"T+1 settlement: {settled_count} positions unfrozen",
             _ginkgo={"event_type": "T1SETTLEMENT", "settled_count": settled_count, **kwargs}
         )
 
     def log_t1_delay_event(self, code: str, reason: str, msg: str = None, **kwargs):
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
+        self._emit("warning", 
             msg or f"T+1 delay: {code} - {reason}",
             _ginkgo={"event_type": "T1DELAYDECISION", "symbol": code, "reason": reason, **kwargs}
         )
 
     def log_time_advance_event(self, time, position_count: int, delayed_count: int, cash: float, msg: str = None, **kwargs):
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Time advance: {time}, {position_count} positions, {delayed_count} delayed",
             _ginkgo={"event_type": "TIMEADVANCE", "position_count": position_count, "delayed_count": delayed_count, "cash": cash, **kwargs}
         )
 
     def log_price_received_event(self, code: str, price: float, msg: str = None, **kwargs):
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Price received: {code} close={price}",
             _ginkgo={"event_type": "PRICERECEIVED", "symbol": code, "price": price, **kwargs}
         )
 
     def log_strategy_signal_event(self, strategy_name: str, signal_count: int, signals_desc: str = "", msg: str = None, **kwargs):
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or f"Strategy {strategy_name}: {signal_count} signals",
             _ginkgo={"event_type": "STRATEGYSIGNAL", "strategy_name": strategy_name, "signal_count": signal_count, **kwargs}
         )
@@ -1410,7 +1376,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or "Engine started",
             _ginkgo={
                 "event_type": "ENGINESTART",
@@ -1433,7 +1399,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).warning(
+        self._emit("warning", 
             msg or f"Engine paused: {reason if reason else 'No reason'}",
             _ginkgo={
                 "event_type": "ENGINEPAUSE",
@@ -1456,7 +1422,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or "Engine resumed",
             _ginkgo={
                 "event_type": "ENGINERESUME",
@@ -1482,7 +1448,7 @@ class GinkgoLogger:
             ... )
         """
         self.set_log_category("backtest")
-        structlog.get_logger(self.logger_name).info(
+        self._emit("info", 
             msg or "Engine completed",
             _ginkgo={
                 "event_type": "ENGINECOMPLETE",
