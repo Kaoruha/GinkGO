@@ -116,7 +116,7 @@ async def list_results(
             page=page - 1, page_size=page_size,
         )
         if not result.success:
-            return paginated(items=[], total=0, page=page, page_size=page_size)
+            raise BusinessError(result.error or "查询验证结果失败")
 
         records = result.data["items"]
         total = result.data["total"]
