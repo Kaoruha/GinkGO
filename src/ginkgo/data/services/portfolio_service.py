@@ -70,6 +70,41 @@ class PortfolioService(BaseService):
 
         return False
 
+    # fix(#4582): 封装分页查询，避免 API 层直调 _crud_repo
+    def list_paginated(
+        self,
+        filters: Optional[Dict] = None,
+        page: int = 0,
+        page_size: int = 20,
+        order_by: str = "update_at",
+        desc_order: bool = True,
+    ) -> ServiceResult:
+        """分页查询投资组合列表
+
+        Args:
+            filters: 查询过滤条件
+            page: 页码（从0开始）
+            page_size: 每页数量
+            order_by: 排序字段
+            desc_order: 是否降序
+
+        Returns:
+            ServiceResult: data 包含 items（列表）和 total（总数）
+        """
+        try:
+            items = self._crud_repo.find(
+                filters=filters,
+                page=page,
+                page_size=page_size,
+                order_by=order_by,
+                desc_order=desc_order,
+            )
+            total = self._crud_repo.count(filters=filters)
+            return ServiceResult.success(data={"items": items or [], "total": total})
+        except Exception as e:
+            GLOG.ERROR(f"分页查询投资组合失败: {e}")
+            return ServiceResult.error(f"分页查询投资组合失败: {e}")
+
     @retry(max_try=3)
     def add(
         self,

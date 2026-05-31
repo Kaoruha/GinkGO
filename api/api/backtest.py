@@ -1063,9 +1063,10 @@ async def get_backtest_analyzers(uuid: str):
 
         result_service = get_result_service()
 
-        # Get analyzer records for this portfolio filtered by task_id
-        analyzer_crud = container.analyzer_record_crud()
-        records = analyzer_crud.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
+        # fix(#4582): 通过 AnalyzerService 查询，不再直调 container.analyzer_record_crud()
+        analyzer_service = container.analyzer_service()
+        result = analyzer_service.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
+        records = result.data if result.success else []
 
         from collections import OrderedDict
         grouped = OrderedDict()

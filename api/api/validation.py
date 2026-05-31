@@ -110,24 +110,16 @@ async def list_results(
     try:
         import json
         svc = get_validation_service()
-        crud = svc._result_crud
-        if not crud:
+        # fix(#4582): 通过 Service 方法查询，不再直调 _result_crud
+        result = svc.list_results(
+            portfolio_id=portfolio_id, method=method,
+            page=page - 1, page_size=page_size,
+        )
+        if not result.success:
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        filters = {}
-        if portfolio_id:
-            filters["portfolio_id"] = portfolio_id
-        if method:
-            filters["method"] = method
-
-        total = crud.count(filters=filters) if filters else crud.count()
-        records = crud.find(
-            filters=filters if filters else None,
-            page=page - 1,
-            page_size=page_size,
-            order_by="create_at",
-            desc_order=True,
-        )
+        records = result.data["items"]
+        total = result.data["total"]
 
         items = []
         for r in records:
@@ -155,13 +147,12 @@ async def get_result(result_id: str):
     try:
         import json
         svc = get_validation_service()
-        crud = svc._result_crud
-        if not crud:
-            raise BusinessError("验证结果存储不可用")
+        # fix(#4582): 通过 Service 方法查询，不再直调 _result_crud
+        result = svc.get_result(result_id)
+        if not result.success:
+            raise BusinessError(result.error or "验证结果查询失败")
 
-        record = crud.get(result_id)
-        if not record:
-            raise BusinessError("验证结果不存在")
+        record = result.data
 
         return ok(data={
             "uuid": record.uuid,
