@@ -46,6 +46,71 @@ class ValidationService(BaseService):
         self._analyzer_crud = analyzer_record_crud
         self._result_crud = validation_result_crud
 
+    # fix(#4582): 封装验证结果查询，避免 API 层直调 _result_crud
+    def list_results(
+        self,
+        portfolio_id: str = None,
+        method: str = None,
+        page: int = 0,
+        page_size: int = 20,
+    ) -> ServiceResult:
+        """分页查询验证结果列表
+
+        Args:
+            portfolio_id: 投资组合ID（可选）
+            method: 验证方法（可选）
+            page: 页码（从0开始）
+            page_size: 每页数量
+
+        Returns:
+            ServiceResult: data 包含 items 和 total
+        """
+        try:
+            if not self._result_crud:
+                return ServiceResult.success(data={"items": [], "total": 0})
+
+            filters = {}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+            if method:
+                filters["method"] = method
+
+            total = self._result_crud.count(filters=filters)
+            records = self._result_crud.find(
+                filters=filters or None,
+                page=page,
+                page_size=page_size,
+                order_by="create_at",
+                desc_order=True,
+            )
+            return ServiceResult.success(data={"items": records or [], "total": total})
+        except Exception as e:
+            GLOG.ERROR(f"查询验证结果列表失败: {e}")
+            return ServiceResult.error(f"查询验证结果列表失败: {e}")
+
+    # fix(#4582): 封装单条验证结果查询
+    def get_result(self, result_id: str) -> ServiceResult:
+        """获取单条验证结果
+
+        Args:
+            result_id: 验证结果UUID
+
+        Returns:
+            ServiceResult: data 为验证结果记录
+        """
+        try:
+            if not self._result_crud:
+                return ServiceResult.error("验证结果存储不可用")
+
+            # fix(#4582): ValidationResultCRUD 继承 BaseCRUD，无 get()，用 find() 替代
+            records = self._result_crud.find(filters={"uuid": result_id})
+            if not records:
+                return ServiceResult.error("验证结果不存在")
+            return ServiceResult.success(records[0])
+        except Exception as e:
+            GLOG.ERROR(f"获取验证结果失败: {e}")
+            return ServiceResult.error(f"获取验证结果失败: {e}")
+
     @staticmethod
     def _get_analyzer_class(name: str):
         """通过名称查找分析器类，读取 aggregation_type 等类属性"""

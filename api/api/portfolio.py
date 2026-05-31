@@ -198,16 +198,18 @@ async def list_portfolios(
         if keyword:
             filters["name"] = keyword
 
-        # 分页查询
-        crud = portfolio_service._crud_repo
-        portfolios = crud.find(
+        # fix(#4582): 通过 Service 方法分页查询，不再直调 _crud_repo
+        result = portfolio_service.list_paginated(
             filters=filters,
             page=page,
             page_size=page_size,
             order_by="update_at",
             desc_order=True,
         )
-        total = crud.count(filters=filters)
+        if not result.success:
+            raise BusinessError(result.error or "查询投资组合失败")
+        portfolios = result.data["items"]
+        total = result.data["total"]
 
         items = []
         for p in (portfolios or []):

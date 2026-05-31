@@ -127,6 +127,41 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"按 task_id 查询失败: {e}")
             return ServiceResult.error(f"按 task_id 查询失败: {e}")
 
+    # fix(#4582): 封装 find_by_portfolio，避免 API 层直调 CRUD
+    def find_by_portfolio(
+        self,
+        portfolio_id: str,
+        analyzer_name: Optional[str] = None,
+        task_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> ServiceResult:
+        """按 portfolio 查询 analyzer 记录
+
+        Args:
+            portfolio_id: 投资组合ID
+            analyzer_name: 分析器名称（可选）
+            task_id: 运行会话ID（可选）
+            start_date: 起始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            ServiceResult: 查询结果
+        """
+        try:
+            records = self._crud_repo.find_by_portfolio(
+                portfolio_id=portfolio_id,
+                analyzer_name=analyzer_name,
+                task_id=task_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            GLOG.INFO(f"按 portfolio 查询成功: portfolio_id={portfolio_id}, count={len(records) if records else 0}")
+            return ServiceResult.success(records)
+        except Exception as e:
+            GLOG.ERROR(f"按 portfolio 查询失败: {e}")
+            return ServiceResult.error(f"按 portfolio 查询失败: {e}")
+
     def get_latest_by_portfolio(
         self,
         portfolio_id: str,
