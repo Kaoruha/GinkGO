@@ -197,6 +197,18 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 
+# Third-party packages without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "clickhouse_sqlalchemy.*",
+    "kafka.*",
+    "baostock.*",
+    "tushare.*",
+    "mootdx.*",
+    "dependency_injector.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 # 测试发现配置
 testpaths = ["tests"]
