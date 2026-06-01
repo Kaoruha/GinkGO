@@ -194,6 +194,23 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 
+# 第三方库缺少 type stubs，仅对这些模块放宽缺失导入检查
+[[tool.mypy.overrides]]
+module = [
+    "apscheduler.*",
+    "asyncmy.*",
+    "baostock.*",
+    "clickhouse_sqlalchemy.*",
+    "jose.*",
+    "kafka.*",
+    "mootdx.*",
+    "plotext.*",
+    "pymysql.*",
+    "textual.*",
+    "tushare.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 # 测试发现配置
 testpaths = ["tests"]
