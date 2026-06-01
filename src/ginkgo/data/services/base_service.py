@@ -252,7 +252,8 @@ class BaseService(ABC):
             total = crud.count(filters=filters)
             return ServiceResult.success(data={"items": items or [], "total": total})
         except Exception as e:
-            return ServiceResult.error(str(e))
+            GLOG.ERROR(f"{self._service_name} 分页查询失败: {e}")
+            return ServiceResult.error(f"{self._service_name} 分页查询失败: {e}")
 
     def create_result(self, success: bool = False, error: str = None) -> ServiceResult:
         """
