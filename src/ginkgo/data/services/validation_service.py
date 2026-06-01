@@ -47,6 +47,7 @@ class ValidationService(BaseService):
         self._result_crud = validation_result_crud
 
     # fix(#4582): 封装验证结果查询，避免 API 层直调 _result_crud
+    # fix(#4589): 改用 BaseService._paginated_query() 通用方法
     def list_results(
         self,
         portfolio_id: str = None,
@@ -54,39 +55,21 @@ class ValidationService(BaseService):
         page: int = 0,
         page_size: int = 20,
     ) -> ServiceResult:
-        """分页查询验证结果列表
+        """分页查询验证结果列表"""
+        if not self._result_crud:
+            return ServiceResult.success(data={"items": [], "total": 0})
 
-        Args:
-            portfolio_id: 投资组合ID（可选）
-            method: 验证方法（可选）
-            page: 页码（从0开始）
-            page_size: 每页数量
+        filters = {}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if method:
+            filters["method"] = method
 
-        Returns:
-            ServiceResult: data 包含 items 和 total
-        """
-        try:
-            if not self._result_crud:
-                return ServiceResult.success(data={"items": [], "total": 0})
-
-            filters = {}
-            if portfolio_id:
-                filters["portfolio_id"] = portfolio_id
-            if method:
-                filters["method"] = method
-
-            total = self._result_crud.count(filters=filters)
-            records = self._result_crud.find(
-                filters=filters or None,
-                page=page,
-                page_size=page_size,
-                order_by="create_at",
-                desc_order=True,
-            )
-            return ServiceResult.success(data={"items": records or [], "total": total})
-        except Exception as e:
-            GLOG.ERROR(f"查询验证结果列表失败: {e}")
-            return ServiceResult.error(f"查询验证结果列表失败: {e}")
+        return self._paginated_query(
+            filters=filters or None, page=page, page_size=page_size,
+            order_by="create_at", desc_order=True,
+            crud_repo=self._result_crud,
+        )
 
     # fix(#4582): 封装单条验证结果查询
     def get_result(self, result_id: str) -> ServiceResult:
