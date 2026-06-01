@@ -22,9 +22,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9", 
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
@@ -164,7 +161,7 @@ where = ["src"]
 # 工具配置
 [tool.black]
 line-length = 120
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -196,6 +193,23 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+
+# 第三方库缺少 type stubs，仅对这些模块放宽缺失导入检查
+[[tool.mypy.overrides]]
+module = [
+    "apscheduler.*",
+    "asyncmy.*",
+    "baostock.*",
+    "clickhouse_sqlalchemy.*",
+    "jose.*",
+    "kafka.*",
+    "mootdx.*",
+    "plotext.*",
+    "pymysql.*",
+    "textual.*",
+    "tushare.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 # 测试发现配置
@@ -308,7 +322,7 @@ directory = "htmlcov"
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
