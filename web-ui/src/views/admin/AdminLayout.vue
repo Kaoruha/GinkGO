@@ -85,5 +85,6 @@ const isActive = (itemRoute: string) => {
 .admin-content {
   flex: 1;
   overflow: auto;
+  padding: 24px;
 }
 </style>
