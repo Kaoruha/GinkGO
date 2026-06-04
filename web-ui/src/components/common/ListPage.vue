@@ -116,7 +116,7 @@
         </table>
 
         <!-- 分页 -->
-        <div v-if="totalCount > 0" class="pagination-bar">
+        <div v-if="totalCount > 0 && !infiniteScroll" class="pagination-bar">
           <div class="pagination-info">
             共 {{ totalCount }} 条{{ totalPages > 1 ? `，第 ${innerPage} / ${totalPages} 页` : '' }}
           </div>
@@ -134,7 +134,11 @@
             </select>
           </div>
         </div>
+
       </div>
+
+      <!-- 无限滚动触发器插槽（在 list-content 内、table-card 外） -->
+      <slot name="afterTable" />
     </div>
   </div>
 </template>
@@ -170,6 +174,7 @@ const props = withDefaults(defineProps<{
   pageSize?: number
   pageSizes?: number[]
   serverPagination?: boolean
+  infiniteScroll?: boolean
 }>(), {
   loading: false,
   rowKey: 'id',
@@ -186,6 +191,7 @@ const props = withDefaults(defineProps<{
   pageSize: 20,
   pageSizes: () => [10, 20, 50, 100],
   serverPagination: false,
+  infiniteScroll: false,
 })
 
 const emit = defineEmits<{
@@ -217,9 +223,9 @@ const resolvedColumns = computed(() => {
   return cols
 })
 
-// Client-side pagination
+// Client-side pagination (infiniteScroll always shows all data)
 const pageData = computed(() => {
-  if (props.serverPagination || props.total != null) return props.dataSource
+  if (props.serverPagination || props.total != null || props.infiniteScroll) return props.dataSource
   const start = (innerPage.value - 1) * innerPageSize.value
   return props.dataSource.slice(start, start + innerPageSize.value)
 })
@@ -381,6 +387,7 @@ function formatValue(val: any): string {
 /* Content */
 .list-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
