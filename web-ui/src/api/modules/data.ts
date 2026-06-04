@@ -29,6 +29,34 @@ export interface DataStats {
   total_adjust_factors: number
 }
 
+export interface TickData {
+  uuid: string
+  code: string
+  timestamp: string
+  price: number
+  volume: number
+  direction: number
+}
+
+export interface AdjustFactorData {
+  uuid: string
+  code: string
+  timestamp: string
+  foreadjustfactor: number
+  backadjustfactor: number
+  adjustfactor: number
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  meta: {
+    total: number
+    page: number
+    page_size: number
+    total_pages: number
+  }
+}
+
 export const dataApi = {
   /**
    * 获取数据统计
@@ -126,5 +154,33 @@ export const dataApi = {
    */
   getSyncStatus(taskId: string): Promise<{ status: string; progress: number; message: string }> {
     return request.get(`/api/v1/data/sync/status/${taskId}`)
+  },
+
+  // ===== Tick 数据 =====
+  /**
+   * 获取 Tick 数据（code 必填）
+   */
+  getTicks(params: {
+    code: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+  }): Promise<PaginatedResponse<TickData>> {
+    return request.get('/api/v1/data/ticks', { params })
+  },
+
+  // ===== 复权因子 =====
+  /**
+   * 获取复权因子数据
+   */
+  getAdjustFactors(params?: {
+    code?: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+  }): Promise<PaginatedResponse<AdjustFactorData>> {
+    return request.get('/api/v1/data/adjustfactors', { params })
   },
 }

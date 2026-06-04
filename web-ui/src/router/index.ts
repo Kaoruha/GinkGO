@@ -79,6 +79,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/data', name: 'DataOverview', component: () => import('@/views/data/DataOverview.vue'), meta: { title: '数据概览' } },
   { path: '/data/stocks', name: 'StockList', component: () => import('@/views/data/StockList.vue'), meta: { title: '股票信息' } },
   { path: '/data/bars', name: 'BarData', component: () => import('@/views/data/BarData.vue'), meta: { title: 'K线数据' } },
+  { path: '/data/ticks', name: 'TickData', component: () => import('@/views/data/TickData.vue'), meta: { title: 'Tick 数据' } },
+  { path: '/data/adjustfactors', name: 'AdjustFactorData', component: () => import('@/views/data/AdjustFactorData.vue'), meta: { title: '复权因子' } },
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
 
   // ===== 管理（系统级功能）=====
