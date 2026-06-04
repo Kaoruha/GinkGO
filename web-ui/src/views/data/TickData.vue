@@ -6,7 +6,10 @@
         Tick 数据
       </div>
       <div class="header-controls">
-        <input v-model="selectedCode" type="text" placeholder="股票代码 (必填)" class="control-input" />
+        <select v-model="selectedCode" class="control-select">
+          <option value="">选择股票</option>
+          <option v-for="opt in stockOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
         <input v-model="startDate" type="date" class="control-input" />
         <input v-model="endDate" type="date" class="control-input" />
         <button class="btn-primary" @click="loadData" :disabled="!selectedCode || loading">查询</button>
@@ -97,6 +100,12 @@ import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
 
 const route = useRoute()
+
+const stockOptions = [
+  { value: '000001.SZ', label: '000001.SZ 平安银行' },
+  { value: '000002.SZ', label: '000002.SZ 万科A' },
+  { value: '600519.SH', label: '600519.SH 贵州茅台' },
+]
 
 const selectedCode = ref((route.query.code as string) || '')
 const startDate = ref(dayjs().subtract(7, 'day').format('YYYY-MM-DD'))
@@ -281,6 +290,8 @@ onUnmounted(() => {
 .header-controls { display: flex; gap: 10px; align-items: center; }
 .control-input { padding: 6px 12px; background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 4px; color: #fff; font-size: 13px; }
 .control-input:focus { outline: none; border-color: #1890ff; }
+.control-select { padding: 7px 12px; background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 4px; color: #fff; font-size: 13px; cursor: pointer; min-width: 160px; }
+.control-select:focus { outline: none; border-color: #1890ff; }
 .control-input[type="date"] { width: 140px; }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
