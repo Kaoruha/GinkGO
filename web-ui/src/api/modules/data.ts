@@ -88,7 +88,7 @@ export const dataApi = {
   },
 
   /**
-   * 获取数据状态
+   * 获取数据状态（对接 /api/v1/data/stats）
    */
   getStatus(): Promise<{
     bar_count: number
@@ -96,7 +96,15 @@ export const dataApi = {
     stock_count: number
     last_sync: string
   }> {
-    return request.get('/api/v1/data/status')
+    return request.get('/api/v1/data/stats').then((res: any) => {
+      const d = res.data || res
+      return {
+        bar_count: d.total_bars || 0,
+        tick_count: d.total_ticks || 0,
+        stock_count: d.total_stocks || 0,
+        last_sync: d.latest_update || '-',
+      }
+    })
   },
 
   /**

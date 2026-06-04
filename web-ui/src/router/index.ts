@@ -40,16 +40,28 @@ const routes: RouteRecordRaw[] = [
 
   // ===== 研究 =====
   { path: '/research', name: 'Research', redirect: '/research/factor', meta: { title: '研究' } },
-  { path: '/research/factor', name: 'FactorResearch', component: () => import('@/views/research/ResearchPage.vue'), meta: { title: '因子分析' } },
-  { path: '/research/factor/ic', name: 'ICAnalysis', component: () => import('@/views/research/ICAnalysis.vue'), meta: { title: 'IC 分析' } },
-  { path: '/research/factor/layering', name: 'FactorLayering', component: () => import('@/views/research/FactorLayering.vue'), meta: { title: '因子分层' } },
-  { path: '/research/factor/orthogonal', name: 'FactorOrthogonalization', component: () => import('@/views/research/FactorOrthogonalization.vue'), meta: { title: '因子正交化' } },
-  { path: '/research/factor/comparison', name: 'FactorComparison', component: () => import('@/views/research/FactorComparison.vue'), meta: { title: '因子比较' } },
-  { path: '/research/factor/decay', name: 'FactorDecay', component: () => import('@/views/research/FactorDecay.vue'), meta: { title: '因子衰减' } },
-  { path: '/research/optimization', name: 'Optimization', component: () => import('@/views/research/ResearchPage.vue'), meta: { title: '参数优化' } },
-  { path: '/research/optimization/grid', name: 'GridSearch', component: () => import('@/views/optimization/GridSearch.vue'), meta: { title: '网格搜索' } },
-  { path: '/research/optimization/genetic', name: 'GeneticOptimizer', component: () => import('@/views/optimization/GeneticOptimizer.vue'), meta: { title: '遗传算法' } },
-  { path: '/research/optimization/bayesian', name: 'BayesianOptimizer', component: () => import('@/views/optimization/BayesianOptimizer.vue'), meta: { title: '贝叶斯优化' } },
+  {
+    path: '/research/factor',
+    component: () => import('@/views/research/ResearchPage.vue'),
+    children: [
+      { path: '', name: 'FactorResearch', redirect: '/research/factor/ic' },
+      { path: 'ic', name: 'ICAnalysis', component: () => import('@/views/research/ICAnalysis.vue'), meta: { title: 'IC 分析' } },
+      { path: 'layering', name: 'FactorLayering', component: () => import('@/views/research/FactorLayering.vue'), meta: { title: '因子分层' } },
+      { path: 'orthogonal', name: 'FactorOrthogonalization', component: () => import('@/views/research/FactorOrthogonalization.vue'), meta: { title: '因子正交化' } },
+      { path: 'comparison', name: 'FactorComparison', component: () => import('@/views/research/FactorComparison.vue'), meta: { title: '因子比较' } },
+      { path: 'decay', name: 'FactorDecay', component: () => import('@/views/research/FactorDecay.vue'), meta: { title: '因子衰减' } },
+    ],
+  },
+  {
+    path: '/research/optimization',
+    component: () => import('@/views/research/ResearchPage.vue'),
+    children: [
+      { path: '', name: 'Optimization', redirect: '/research/optimization/grid' },
+      { path: 'grid', name: 'GridSearch', component: () => import('@/views/optimization/GridSearch.vue'), meta: { title: '网格搜索' } },
+      { path: 'genetic', name: 'GeneticOptimizer', component: () => import('@/views/optimization/GeneticOptimizer.vue'), meta: { title: '遗传算法' } },
+      { path: 'bayesian', name: 'BayesianOptimizer', component: () => import('@/views/optimization/BayesianOptimizer.vue'), meta: { title: '贝叶斯优化' } },
+    ],
+  },
 
   // ===== 回测中心 =====
   { path: '/backtests', name: 'BacktestCenter', component: () => import('@/views/backtest/BacktestListPage.vue'), meta: { title: '回测中心' } },
