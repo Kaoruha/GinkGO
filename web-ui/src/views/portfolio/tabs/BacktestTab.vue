@@ -1821,6 +1821,7 @@ onUnmounted(() => {
 .picker-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
   margin-bottom: 4px;
 }
 
@@ -1836,6 +1837,7 @@ onUnmounted(() => {
 .picker-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
 }
 
 .picker-day {

@@ -594,6 +594,7 @@ onMounted(() => {
 .process-info {
   display: flex;
   align-items: center;
+  gap: 6px;
   color: #8a8a9a;
   font-size: 12px;
 }

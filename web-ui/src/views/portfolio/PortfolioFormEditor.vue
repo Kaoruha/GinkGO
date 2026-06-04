@@ -1029,6 +1029,7 @@ onMounted(() => {
 .input-group {
   display: flex;
   align-items: center;
+  gap: 8px;
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
   border-radius: 4px;

@@ -238,6 +238,7 @@ const toggleFactor = (name: string) => {
 
 .tabs-header {
   display: flex;
+  gap: 4px;
   border-bottom: 1px solid #2a2a3e;
 }
 

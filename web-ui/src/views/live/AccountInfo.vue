@@ -821,6 +821,7 @@ onUnmounted(() => {
 .section-title {
   display: flex;
   align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #8a8a9a;
@@ -891,6 +892,7 @@ onUnmounted(() => {
 .position-stat.pnl .stat-value {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .pnl-percent {

@@ -308,6 +308,7 @@ onUnmounted(() => {
   color: #e0e0e0;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .file-name {
@@ -349,6 +350,7 @@ onUnmounted(() => {
 .status-bar {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 4px 16px;
   background: #007acc;
   color: #fff;
