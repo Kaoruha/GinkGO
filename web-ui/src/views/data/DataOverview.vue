@@ -140,6 +140,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { dataApi } from '@/api'
 
 const router = useRouter()
 const refreshing = ref(false)
@@ -151,25 +152,48 @@ const dataStats = reactive({
   totalAdjustFactors: 0
 })
 
-const recentSyncs = ref([
-  { type: 'K线数据', code: '000001.SZ', time: '2024-02-17 10:30:00', status: 'success' },
-  { type: '股票信息', code: '全市场', time: '2024-02-17 09:00:00', status: 'success' },
-])
+interface SyncRecord {
+  type: string
+  code: string
+  time: string
+  status: string
+}
 
-const dataSources = ref([
-  { name: 'Tushare', description: 'A股行情数据', status: 'online' },
-  { name: 'AKShare', description: '多市场数据', status: 'online' },
-  { name: 'BaoStock', description: '证券宝数据', status: 'offline' },
-])
+const recentSyncs = ref<SyncRecord[]>([])
+
+interface DataSource {
+  name: string
+  description: string
+  status: string
+}
+
+const dataSources = ref<DataSource[]>([])
 
 const refreshStats = async () => {
   refreshing.value = true
   try {
-    // TODO: 调用API获取统计数据
-    dataStats.totalStocks = 5420
-    dataStats.totalBars = 12500000
-    dataStats.totalTicks = 250000000
-    dataStats.totalAdjustFactors = 54200
+    const [statsRes, sourcesRes] = await Promise.allSettled([
+      dataApi.getStats(),
+      dataApi.getSources(),
+    ])
+
+    if (statsRes.status === 'fulfilled') {
+      const stats = (statsRes.value as any)?.data ?? statsRes.value
+      dataStats.totalStocks = stats.total_stocks ?? 0
+      dataStats.totalBars = stats.total_bars ?? 0
+      dataStats.totalTicks = stats.total_ticks ?? 0
+      dataStats.totalAdjustFactors = stats.total_adjust_factors ?? 0
+    }
+
+    if (sourcesRes.status === 'fulfilled') {
+      const raw = (sourcesRes.value as any)?.data ?? sourcesRes.value
+      const list: DataSource[] = (Array.isArray(raw) ? raw : []).map((s: any) => ({
+        name: s.name,
+        description: s.description || '',
+        status: s.status === 'active' ? 'online' : 'offline',
+      }))
+      dataSources.value = list
+    }
   } catch (error: any) {
     console.error(`刷新失败: ${error.message}`)
   } finally {

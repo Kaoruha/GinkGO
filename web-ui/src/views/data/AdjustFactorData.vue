@@ -7,8 +7,6 @@
       </div>
       <div class="header-controls">
         <input v-model="selectedCode" type="text" placeholder="股票代码 (可选)" class="control-input" />
-        <input v-model="startDate" type="date" class="control-input" />
-        <input v-model="endDate" type="date" class="control-input" />
         <button class="btn-primary" @click="loadData" :disabled="loading">查询</button>
       </div>
     </div>
@@ -88,8 +86,6 @@ import dayjs from 'dayjs'
 const route = useRoute()
 
 const selectedCode = ref((route.query.code as string) || '')
-const startDate = ref(dayjs().subtract(30, 'day').format('YYYY-MM-DD'))
-const endDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const factors = ref<AdjustFactorData[]>([])
 
@@ -120,8 +116,6 @@ async function loadData() {
       page_size: pagination.value.pageSize,
     }
     if (selectedCode.value) params.code = selectedCode.value
-    if (startDate.value) params.start_date = startDate.value
-    if (endDate.value) params.end_date = endDate.value
 
     const res: any = await dataApi.getAdjustFactors(params)
     factors.value = res?.data || []

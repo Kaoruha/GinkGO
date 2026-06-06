@@ -65,8 +65,10 @@ class AdjustFactorSummary(BaseModel):
     """复权因子摘要"""
     uuid: str
     code: str
-    date: str
-    factor: float
+    timestamp: str
+    foreadjustfactor: float
+    backadjustfactor: float
+    adjustfactor: float
 
 
 class DataStats(BaseModel):
@@ -493,8 +495,10 @@ async def get_adjust_factors(
             factor_summaries.append({
                 "uuid": factor.uuid if hasattr(factor, 'uuid') else "",
                 "code": str(factor.code) if hasattr(factor, 'code') else "",
-                "date": factor.timestamp.isoformat() if hasattr(factor, 'timestamp') and factor.timestamp else "",
-                "factor": float(factor.factor) if hasattr(factor, 'factor') else 1.0
+                "timestamp": factor.timestamp.isoformat() if hasattr(factor, 'timestamp') and factor.timestamp else "",
+                "foreadjustfactor": float(factor.fore_adjustfactor) if hasattr(factor, 'fore_adjustfactor') else 1.0,
+                "backadjustfactor": float(factor.back_adjustfactor) if hasattr(factor, 'back_adjustfactor') else 1.0,
+                "adjustfactor": float(factor.adjustfactor) if hasattr(factor, 'adjustfactor') else 1.0,
             })
 
         return paginated(

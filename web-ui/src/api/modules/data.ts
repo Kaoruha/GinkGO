@@ -170,6 +170,14 @@ export const dataApi = {
     return request.get('/api/v1/data/ticks', { params })
   },
 
+  // ===== 数据源 =====
+  /**
+   * 获取数据源列表
+   */
+  getSources(): Promise<{ name: string; enabled: boolean; description: string; status: string }[]> {
+    return request.get('/api/v1/data/sources')
+  },
+
   // ===== 复权因子 =====
   /**
    * 获取复权因子数据
