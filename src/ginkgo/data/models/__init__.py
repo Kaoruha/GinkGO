@@ -56,6 +56,8 @@ from ginkgo.data.models.model_validation_result import MValidationResult
 from ginkgo.data.models.model_api_key import MApiKey
 from ginkgo.data.models.model_market_subscription import MMarketSubscription
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
+from ginkgo.data.models.model_task_timer_execution import MTaskTimerExecution
+from ginkgo.data.models.model_data_sync_record import MDataSyncRecord
 
 __all__ = [
     "MAdjustfactor",
@@ -107,4 +109,6 @@ __all__ = [
     "MApiKey",
     "MMarketSubscription",
     "MSignalTracker",
+    "MTaskTimerExecution",
+    "MDataSyncRecord",
 ]

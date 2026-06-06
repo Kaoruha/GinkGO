@@ -582,7 +582,7 @@ class DataWorker(threading.Thread):
                     heartbeat_key = RedisKeyBuilder.data_worker_heartbeat(self._node_id)
                     heartbeat = DataWorkerHeartbeat.create(
                         node_id=self._node_id,
-                        status=str(self._status),
+                        status=self._status.name.lower(),
                         stats=self._stats.copy()
                     )
 

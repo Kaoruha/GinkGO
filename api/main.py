@@ -132,6 +132,10 @@ app.include_router(validation.router, prefix=f"{API_PREFIX}/validation", tags=["
 app.include_router(deployment.router, prefix=f"{API_PREFIX}/deploy", tags=["deploy"])
 app.include_router(system_router.router, prefix=f"{API_PREFIX}/system", tags=["system"])
 
+# TaskTimer
+from api import task_timer as task_timer_router
+app.include_router(task_timer_router.router, prefix=f"{API_PREFIX}/task-timer", tags=["task-timer"])
+
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
 

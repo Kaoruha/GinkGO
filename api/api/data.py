@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import time as _time
 
 from ginkgo.data.containers import container
 from ginkgo.enums import MARKET_TYPES, FREQUENCY_TYPES, ADJUSTMENT_TYPES
@@ -118,6 +119,11 @@ def get_tick_service():
 def get_adjustfactor_service():
     """获取AdjustFactorService实例"""
     return container.adjustfactor_service()
+
+
+def get_sync_record_service():
+    """获取DataSyncRecordService实例"""
+    return container.data_sync_record_service()
 
 
 # ==================== API路由 ====================
@@ -516,106 +522,167 @@ async def get_adjust_factors(
         )
 
 
-@router.post("/update")
-async def update_data(request: DataUpdateRequest):
-    """触发数据更新"""
+def _record_sync_result(service, record_uuid: str, result, started_at: float):
+    """从 ServiceResult/DataSyncResult 提取统计并更新同步记录"""
+    duration_ms = int((_time.time() - started_at) * 1000)
+    if result is None:
+        service.record_fail(uuid=record_uuid, error_message="sync method returned None")
+        return
+    if hasattr(result, 'is_success') and result.is_success() and result.data:
+        dsr = result.data
+        if hasattr(dsr, 'records_processed'):
+            status = "success" if dsr.is_successful() else "partial"
+            service.record_complete(
+                uuid=record_uuid,
+                status=status,
+                duration_ms=duration_ms,
+                records_processed=dsr.records_processed,
+                records_added=dsr.records_added,
+                records_updated=dsr.records_updated,
+                records_failed=dsr.records_failed,
+                sync_strategy=getattr(dsr, 'sync_strategy', ''),
+            )
+        else:
+            service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+    elif hasattr(result, 'is_success') and not result.is_success():
+        service.record_fail(uuid=record_uuid, error_message=getattr(result, 'message', 'Unknown error'))
+    else:
+        service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+
+
+@router.post("/sync")
+async def sync_data(request: DataUpdateRequest):
+    """触发数据同步"""
+    sync_svc = get_sync_record_service()
+
     try:
         if request.type == "stockinfo":
             # 更新股票信息
-            stockinfo_service = get_stockinfo_service()
-            result = stockinfo_service.sync()
+            rec = sync_svc.record_start(sync_type="stockinfo", code="ALL")
+            started_at = _time.time()
+            try:
+                stockinfo_service = get_stockinfo_service()
+                result = stockinfo_service.sync()
+                if rec.is_success():
+                    _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
 
-            if result.is_success():
-                return ok(data={"type": "stockinfo"}, message="Stock info update initiated")
-            else:
-                raise HTTPException(
-                    status_code=500,
-                    detail=result.message
-                )
+                if not result.is_success():
+                    raise HTTPException(status_code=500, detail=result.message)
+                return ok(data={"type": "stockinfo"}, message="Stock info update completed")
+            except Exception as e:
+                if rec.is_success():
+                    sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
+                raise
 
         elif request.type == "bars":
-            # 更新K线数据
             codes = request.codes or []
             if not codes:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Codes are required for bars update"
-                )
+                raise HTTPException(status_code=400, detail="Codes are required for bars update")
 
             bar_service = get_bar_service()
-
-            # 对每个代码调用同步
             for code in codes:
-                bar_service.sync_full(code)
+                rec = sync_svc.record_start(sync_type="bars", code=code)
+                started_at = _time.time()
+                try:
+                    result = bar_service.sync_smart(code)
+                    if rec.is_success():
+                        _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
+                except Exception as e:
+                    if rec.is_success():
+                        sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
                 data={"type": "bars", "codes": codes},
-                message=f"Bars update initiated for {len(codes)} codes"
+                message=f"Bars update completed for {len(codes)} codes"
             )
 
         elif request.type == "ticks":
-            # 更新Tick数据
             codes = request.codes or []
             if not codes:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Codes are required for ticks update"
-                )
+                raise HTTPException(status_code=400, detail="Codes are required for ticks update")
 
             tick_service = get_tick_service()
-
-            # 将日期字符串转换为datetime
             start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
             end_dt = datetime.fromisoformat(request.end_date) if request.end_date else None
 
-            # 对每个代码调用同步
             for code in codes:
-                tick_service.sync_smart(code, start_date=start_dt, end_date=end_dt)
+                rec = sync_svc.record_start(sync_type="ticks", code=code)
+                started_at = _time.time()
+                try:
+                    result = tick_service.sync_smart(code, start_date=start_dt, end_date=end_dt)
+                    if rec.is_success():
+                        _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
+                except Exception as e:
+                    if rec.is_success():
+                        sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
                 data={"type": "ticks", "codes": codes},
-                message=f"Ticks update initiated for {len(codes)} codes"
+                message=f"Ticks update completed for {len(codes)} codes"
             )
 
         elif request.type == "adjustfactor":
-            # 更新复权因子
             codes = request.codes or []
             if not codes:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Codes are required for adjust factors update"
-                )
+                raise HTTPException(status_code=400, detail="Codes are required for adjust factors update")
 
             adjustfactor_service = get_adjustfactor_service()
+            # 批量同步复权因子，整体记录
+            rec = sync_svc.record_start(sync_type="adjustfactor", code=",".join(codes))
+            started_at = _time.time()
+            try:
+                result = adjustfactor_service.sync_batch(codes)
+                if rec.is_success():
+                    _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
+                if not result.is_success():
+                    raise HTTPException(status_code=500, detail=result.message)
+            except HTTPException:
+                raise
+            except Exception as e:
+                if rec.is_success():
+                    sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
+                raise
 
-            # 批量同步复权因子
-            result = adjustfactor_service.sync_batch(codes)
-
-            if result.is_success():
-                return ok(
-                    data={"type": "adjustfactor", "codes": codes},
-                    message=f"Adjust factors update initiated for {len(codes)} codes"
-                )
-            else:
-                raise HTTPException(
-                    status_code=500,
-                    detail=result.message
-                )
+            return ok(
+                data={"type": "adjustfactor", "codes": codes},
+                message=f"Adjust factors update completed for {len(codes)} codes"
+            )
 
         else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported data type: {request.type}"
-            )
+            raise HTTPException(status_code=400, detail=f"Unsupported data type: {request.type}")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating data: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update data: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"Failed to update data: {str(e)}")
+
+
+@router.get("/sync/history")
+async def get_sync_history(
+    sync_type: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """获取同步历史记录"""
+    try:
+        sync_record_service = get_sync_record_service()
+        result = sync_record_service.get_history(
+            sync_type=sync_type,
+            page=page - 1,
+            page_size=page_size,
         )
+
+        if not result.is_success() or not result.data:
+            return paginated(items=[], total=0, page=page, page_size=page_size)
+
+        items = result.data.get("items", [])
+        total = result.data.get("total", 0)
+
+        return paginated(items=items, total=total, page=page, page_size=page_size)
+    except Exception as e:
+        logger.error(f"Error getting sync history: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get sync history: {str(e)}")
 
 
 @router.get("/sources")

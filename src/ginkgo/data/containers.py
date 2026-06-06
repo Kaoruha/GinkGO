@@ -369,3 +369,21 @@ def get_service_info():
 container.create_tick_crud = create_tick_crud
 container.get_service_info = get_service_info
 
+# TaskTimer 执行记录
+from ginkgo.data.services.task_timer_execution_service import TaskTimerExecutionService
+
+container.task_timer_execution_crud = providers.Singleton(get_crud, "task_timer_execution")
+container.task_timer_execution_service = providers.Singleton(
+    TaskTimerExecutionService,
+    crud_repo=container.task_timer_execution_crud,
+)
+
+# 数据同步记录
+from ginkgo.data.services.data_sync_record_service import DataSyncRecordService
+
+container.data_sync_record_crud = providers.Singleton(get_crud, "data_sync_record")
+container.data_sync_record_service = providers.Singleton(
+    DataSyncRecordService,
+    crud_repo=container.data_sync_record_crud,
+)
+

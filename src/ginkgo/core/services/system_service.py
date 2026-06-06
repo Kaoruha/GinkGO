@@ -95,12 +95,21 @@ class SystemService:
         """将组件数据格式化为统一的Worker列表"""
         workers = []
 
+        def _normalize_status(status: str) -> str:
+            """统一 status 为小写字符串，兼容枚举格式如 WORKER_STATUS_TYPES.RUNNING"""
+            if not status or status == "unknown":
+                return "unknown"
+            # 兼容 "WORKER_STATUS_TYPES.RUNNING" 格式，取最后一段
+            if "." in status:
+                status = status.split(".")[-1]
+            return status.lower()
+
         # DataWorker
         for w in components.get("data_workers", []):
             workers.append({
                 "id": w.get("worker_id", "unknown"),
                 "type": "data_worker",
-                "status": w.get("status", "unknown"),
+                "status": _normalize_status(w.get("status", "unknown")),
                 "task_count": w.get("task_count", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
             })
@@ -110,7 +119,7 @@ class SystemService:
             workers.append({
                 "id": w.get("worker_id", "unknown"),
                 "type": "backtest_worker",
-                "status": w.get("status", "unknown"),
+                "status": _normalize_status(w.get("status", "unknown")),
                 "task_count": w.get("active_tasks", 0),
                 "max_tasks": w.get("max_tasks", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
@@ -121,7 +130,7 @@ class SystemService:
             workers.append({
                 "id": w.get("node_id", "unknown"),
                 "type": "execution_node",
-                "status": w.get("status", "unknown"),
+                "status": _normalize_status(w.get("status", "unknown")),
                 "portfolio_count": w.get("active_portfolios", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
             })
@@ -131,7 +140,7 @@ class SystemService:
             workers.append({
                 "id": w.get("node_id", "unknown"),
                 "type": "scheduler",
-                "status": w.get("status", "unknown"),
+                "status": _normalize_status(w.get("status", "unknown")),
                 "running_tasks": w.get("running_tasks", 0),
                 "pending_tasks": w.get("pending_tasks", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
@@ -142,7 +151,7 @@ class SystemService:
             workers.append({
                 "id": w.get("node_id", "unknown"),
                 "type": "task_timer",
-                "status": w.get("status", "unknown"),
+                "status": _normalize_status(w.get("status", "unknown")),
                 "jobs_count": w.get("jobs_count", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
             })

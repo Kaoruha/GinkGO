@@ -49,6 +49,8 @@ _LAZY_IMPORTS = {
     "MarketSubscriptionCRUD": ("ginkgo.data.crud.market_subscription_crud", "MarketSubscriptionCRUD"),
     "ApiKeyCRUD": ("ginkgo.data.crud.api_key_crud", "ApiKeyCRUD"),
     "ValidationError": ("ginkgo.data.crud.validation", "ValidationError"),
+    "TaskTimerExecutionCRUD": ("ginkgo.data.crud.task_timer_execution_crud", "TaskTimerExecutionCRUD"),
+    "DataSyncRecordCRUD": ("ginkgo.data.crud.data_sync_record_crud", "DataSyncRecordCRUD"),
 }
 
 
@@ -112,4 +114,6 @@ __all__ = [
     "MarketSubscriptionCRUD",
     "ApiKeyCRUD",
     "ValidationError",
+    "TaskTimerExecutionCRUD",
+    "DataSyncRecordCRUD",
 ]

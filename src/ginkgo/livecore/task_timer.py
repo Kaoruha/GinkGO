@@ -207,6 +207,72 @@ class TaskTimer:
 
         return status
 
+    def _record_trigger(self, func_name: str) -> Optional[str]:
+        """
+        记录任务触发（由 safe_job_wrapper 调用）
+
+        从 _jobs 和 _config 中推断 job_name/command/cron_expr，
+        通过 service_hub 写入执行记录。
+
+        Returns:
+            记录的 uuid，失败返回 None
+        """
+        try:
+            from ginkgo import service_hub
+            service = service_hub.data.task_timer_execution_service()
+            if not service:
+                return None
+
+            # 从方法名推断 job 信息
+            job_name = func_name.lstrip("_").replace("_job", "")
+
+            # 从配置中查找对应的 command 和 cron
+            command = ""
+            cron_expr = ""
+            for task in self._config.get("scheduled_tasks", []):
+                if task.get("name") == job_name:
+                    command = task.get("command", "")
+                    cron_expr = task.get("cron", "")
+                    break
+
+            result = service.record_trigger(
+                job_name=job_name,
+                command=command,
+                node_id=self.node_id,
+                cron_expr=cron_expr,
+            )
+            if result and result.success:
+                return result.data.get("uuid") if result.data else None
+            return None
+        except Exception as e:
+            GLOG.WARN(f"Failed to record trigger: {e}")
+            return None
+
+    def _complete_record(
+        self,
+        uuid: str,
+        status: str,
+        duration_ms: int = 0,
+        error: Optional[str] = None,
+    ) -> None:
+        """
+        更新执行记录为完成状态（由 safe_job_wrapper 调用）
+        """
+        try:
+            from ginkgo import service_hub
+            service = service_hub.data.task_timer_execution_service()
+            if not service:
+                return
+
+            service.complete_record(
+                uuid=uuid,
+                status=status,
+                duration_ms=duration_ms,
+                error_message=error,
+            )
+        except Exception as e:
+            GLOG.WARN(f"Failed to complete record: {e}")
+
     def start(self) -> bool:
         """
         启动TaskTimer
