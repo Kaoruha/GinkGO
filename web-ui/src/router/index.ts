@@ -95,6 +95,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'groups', name: 'UserGroupManagement', component: () => import('@/views/settings/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
       { path: 'notifications', name: 'NotificationManagement', component: () => import('@/views/settings/NotificationManagement.vue'), meta: { title: '通知管理' } },
       { path: 'alerts', name: 'AlertCenter', component: () => import('@/views/system/AlertCenter.vue'), meta: { title: '告警中心' } },
+      { path: 'task-timer', name: 'TaskTimerHistory', component: () => import('@/views/system/TaskTimerHistory.vue'), meta: { title: '定时任务' } },
     ],
   },
 

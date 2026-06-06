@@ -47,6 +47,22 @@ export interface AdjustFactorData {
   adjustfactor: number
 }
 
+export interface SyncHistoryRecord {
+  uuid: string
+  sync_type: string
+  code: string
+  status: string
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number
+  records_processed: number
+  records_added: number
+  records_updated: number
+  records_failed: number
+  error_message: string | null
+  sync_strategy: string
+}
+
 interface PaginatedResponse<T> {
   data: T[]
   meta: {
@@ -91,10 +107,9 @@ export const dataApi = {
     frequency?: string
     adjustment?: string
     page?: number
-    size?: number
-  }): Promise<{ data: BarData[]; total: number }> {
-    const { code, ...queryParams } = params
-    return request.get(`/api/v1/data/bars/${code}`, { params: queryParams })
+    page_size?: number
+  }): Promise<PaginatedResponse<BarData>> {
+    return request.get('/api/v1/data/bars', { params })
   },
 
   // ===== 数据同步 =====
@@ -103,15 +118,15 @@ export const dataApi = {
    */
   sync(params: {
     type: string
-    codes: string[]
-    full?: boolean
-    overwrite?: boolean
-  }): Promise<{ status: string }> {
+    codes?: string[]
+    start_date?: string
+    end_date?: string
+  }): Promise<any> {
     return request.post('/api/v1/data/sync', {
       type: params.type,
       codes: params.codes,
-      full: params.full,
-      overwrite: params.overwrite,
+      start_date: params.start_date,
+      end_date: params.end_date,
     })
   },
 
@@ -154,6 +169,17 @@ export const dataApi = {
    */
   getSyncStatus(taskId: string): Promise<{ status: string; progress: number; message: string }> {
     return request.get(`/api/v1/data/sync/status/${taskId}`)
+  },
+
+  /**
+   * 获取同步历史记录
+   */
+  getSyncHistory(params?: {
+    sync_type?: string
+    page?: number
+    page_size?: number
+  }): Promise<PaginatedResponse<SyncHistoryRecord>> {
+    return request.get('/api/v1/data/sync/history', { params })
   },
 
   // ===== Tick 数据 =====

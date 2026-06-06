@@ -169,12 +169,26 @@ interface DataSource {
 
 const dataSources = ref<DataSource[]>([])
 
+const formatTime = (iso: string | null): string => {
+  if (!iso) return '--'
+  const d = new Date(iso)
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+const SYNC_TYPE_LABELS: Record<string, string> = {
+  stockinfo: '股票信息',
+  bars: 'K线数据',
+  ticks: 'Tick数据',
+  adjustfactor: '复权因子',
+}
+
 const refreshStats = async () => {
   refreshing.value = true
   try {
-    const [statsRes, sourcesRes] = await Promise.allSettled([
+    const [statsRes, sourcesRes, syncHistoryRes] = await Promise.allSettled([
       dataApi.getStats(),
       dataApi.getSources(),
+      dataApi.getSyncHistory({ page: 1, page_size: 10 }),
     ])
 
     if (statsRes.status === 'fulfilled') {
@@ -193,6 +207,17 @@ const refreshStats = async () => {
         status: s.status === 'active' ? 'online' : 'offline',
       }))
       dataSources.value = list
+    }
+
+    if (syncHistoryRes.status === 'fulfilled') {
+      const raw = (syncHistoryRes.value as any)?.data ?? []
+      const items: any[] = Array.isArray(raw) ? raw : []
+      recentSyncs.value = items.map((s: any) => ({
+        type: SYNC_TYPE_LABELS[s.sync_type] || s.sync_type,
+        code: s.code,
+        time: formatTime(s.completed_at || s.started_at),
+        status: s.status,
+      }))
     }
   } catch (error: any) {
     console.error(`刷新失败: ${error.message}`)
@@ -362,6 +387,14 @@ onMounted(() => {
 
 .timeline-dot.success {
   background: #52c41a;
+}
+
+.timeline-dot.running {
+  background: #faad14;
+}
+
+.timeline-dot.partial {
+  background: #faad14;
 }
 
 .timeline-dot.error {

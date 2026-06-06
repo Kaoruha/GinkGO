@@ -100,10 +100,10 @@
       <div class="component-stats">
         <div v-for="(count, type) in componentTypeMap" :key="type" class="component-stat-card">
           <div class="component-stat-label">{{ count.label }}</div>
-          <div class="component-stat-value" :style="{ color: count.color }">
-            {{ getComponentCount(type) }}
+          <div class="component-stat-row">
+            <span class="component-stat-value" :style="{ color: count.color }">{{ getOnlineCount(type) }}</span>
+            <span class="component-stat-total"> / {{ getComponentCount(type) }} 在线</span>
           </div>
-          <div class="component-stat-total">/ {{ count.total }} 在线</div>
         </div>
       </div>
     </div>
@@ -212,12 +212,18 @@ const componentCounts = computed(() => {
 })
 
 // 组件类型映射
-const componentTypeMap: Record<string, { label: string; color: string; total: number }> = {
-  data_workers: { label: 'DataWorker', color: '#722ed1', total: 0 },
-  backtest_workers: { label: 'BacktestWorker', color: '#1890ff', total: 0 },
-  execution_nodes: { label: 'ExecutionNode', color: '#52c41a', total: 0 },
-  schedulers: { label: 'Scheduler', color: '#fa8c16', total: 0 },
-  task_timers: { label: 'TaskTimer', color: '#eb2f96', total: 0 },
+const componentTypeMap: Record<string, { label: string; color: string; typeKey: string }> = {
+  data_workers: { label: 'DataWorker', color: '#722ed1', typeKey: 'data_worker' },
+  backtest_workers: { label: 'BacktestWorker', color: '#1890ff', typeKey: 'backtest_worker' },
+  execution_nodes: { label: 'ExecutionNode', color: '#52c41a', typeKey: 'execution_node' },
+  schedulers: { label: 'Scheduler', color: '#fa8c16', typeKey: 'scheduler' },
+  task_timers: { label: 'TaskTimer', color: '#eb2f96', typeKey: 'task_timer' },
+}
+
+const getOnlineCount = (type: string): number => {
+  const typeKey = componentTypeMap[type]?.typeKey
+  if (!typeKey) return 0
+  return workers.value.filter(w => w.type === typeKey && (w.status === 'running' || w.status === 'healthy' || w.status === 'active')).length
 }
 
 // ========== 方法 ==========
@@ -522,11 +528,10 @@ onUnmounted(() => {
 .component-stat-value {
   font-size: 20px;
   font-weight: 600;
-  margin-bottom: 4px;
 }
 
 .component-stat-total {
-  font-size: 11px;
+  font-size: 12px;
   color: #8a8a9a;
 }
 

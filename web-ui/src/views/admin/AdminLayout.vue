@@ -33,6 +33,7 @@ const systemItems = [
   { label: '用户组', route: '/admin/groups' },
   { label: '通知管理', route: '/admin/notifications' },
   { label: '告警中心', route: '/admin/alerts' },
+  { label: '定时任务', route: '/admin/task-timer' },
 ]
 
 const isActive = (itemRoute: string) => {

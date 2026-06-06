@@ -12,10 +12,10 @@
           <div class="form-group">
             <label class="form-label">命令类型</label>
             <select v-model="command.type" class="form-select">
-              <option value="BAR_SNAPSHOT">K线快照 (BAR_SNAPSHOT)</option>
-              <option value="TICK">Tick数据 (TICK)</option>
-              <option value="STOCKINFO">股票信息 (STOCKINFO)</option>
-              <option value="ADJUSTFACTOR">复权因子 (ADJUSTFACTOR)</option>
+              <option value="bars">K线数据</option>
+              <option value="ticks">Tick数据</option>
+              <option value="stockinfo">股票信息</option>
+              <option value="adjustfactor">复权因子</option>
             </select>
           </div>
 
@@ -119,7 +119,7 @@ const sending = ref(false)
 const commandHistory = ref<CommandRecord[]>([])
 
 const command = reactive({
-  type: 'BAR_SNAPSHOT',
+  type: 'bars',
   codes: '',
   fullSync: false,
   overwrite: false,
@@ -145,15 +145,13 @@ const sendCommand = async () => {
     const response = await dataApi.sync({
       type: command.type,
       codes,
-      full: command.fullSync,
-      overwrite: command.overwrite,
     })
 
     commandHistory.value.unshift({
       type: command.type,
       codes: codes.join(', '),
       time: new Date().toLocaleString('zh-CN'),
-      success: response.status === 'success',
+      success: true,
     })
 
     console.log('命令已发送')

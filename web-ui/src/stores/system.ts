@@ -123,8 +123,8 @@ export const useSystemStore = defineStore('system', () => {
   /**
    * 获取系统状态
    */
-  async function fetchStatus() {
-    loading.value = true
+  async function fetchStatus(silent = false) {
+    if (!silent) loading.value = true
     try {
       const result = await systemApi.getFullStatus()
       const statusPayload = (result.status as any).data !== undefined ? (result.status as any).data : result.status
@@ -219,7 +219,7 @@ export const useSystemStore = defineStore('system', () => {
 
     // 设置新定时器
     refreshTimer = setInterval(() => {
-      fetchStatus()
+      fetchStatus(true)
     }, refreshInterval.value)
   }
 
