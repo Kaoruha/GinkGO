@@ -1,861 +1,99 @@
 # CLAUDE.md
-输出内容控制在一屏内,不要滚动。
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Chat in madarin.
+输出内容控制在一屏内,不要滚动。Chat in mandarin.
 
 ## Project Overview
+Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/MySQL/MongoDB/Redis，多数据源，完整风控。
 
-Ginkgo is a Python quantitative trading library featuring:
-- **Event-driven backtesting engine** with multi-database support (ClickHouse, MySQL, MongoDB, Redis)
-- **Multiple data sources** (Tushare, Yahoo, AKShare, BaoStock, TDX)
-- **Complete risk control system** with position management and stop-loss/profit mechanisms
-- **CLI interface** using Typer with rich formatting
-- **Unified services architecture** with dependency injection containers
+## 核心架构规则
 
-## 核心设计理念
+### 事件链路
+`PriceUpdate → Strategy → Signal → Portfolio → Order → Fill`
 
-### 架构原则
-- **事件驱动**: 回测引擎采用 `PriceUpdate → Strategy → Signal → Portfolio → Order → Fill` 事件链路
-- **依赖注入**: 通过 `from ginkgo import services` 统一访问所有服务
-- **装饰器优化**: 使用 `@time_logger`、`@retry`、`@cache_with_expiration` 进行性能优化
-- **多数据库支持**: 统一接口访问 ClickHouse、MySQL、MongoDB、Redis
-- **分层架构**: LiveCore(数据层) 与 ExecutionNode(执行层) 通过Kafka解耦
+### 组件边界（单向流动：`Selector → Strategy → Sizer → Risk`）
 
-### 组件边界：Strategy / Selector / Sizer / Risk
+| 组件 | 职责 | 输出 | 禁止 |
+|---|---|---|---|
+| Selector | 选股 | `List[str]` | 生成信号、计算仓位、做风控 |
+| Strategy | 交易信号 | `List[Signal]` | 选股、止损止盈、计算仓位 |
+| Sizer | 开仓手数 | volume | 风控校验 |
+| Risk | 风控拦截 | 调整后 order/signal | 增加订单量 |
 
-四类组件各司其职，单向流动：`Selector → Strategy → Sizer → Risk`
-
-| 组件 | 职责 | 输入 | 输出 | 禁止 |
-|---|---|---|---|---|
-| **Selector** | 选股 | code 列表/市场数据 | `List[str]` 股票代码 | 生成信号、计算仓位、做风控 |
-| **Strategy** | 生成交易信号 | portfolio_info + event | `List[Signal]`（方向+权重） | 选股、止损止盈、计算仓位 |
-| **Sizer** | 确定开仓手数 | portfolio_info + signal/order | volume（整数手数） | 风控校验 |
-| **Risk** | 风控拦截/主动信号 | portfolio_info + order/event | 调整后 order 或 风控 signal | 增加订单量（只能减少或拒绝） |
-
-**数据流向**：Sizer 设初始 volume → Risk 只能减少或拒绝，不能增加。
-
-**已知违规**（勿扩大，逐步修复）：
-- Strategy: DualThrust/TrendReverse 仍读取持仓（合理用法，判断是否生成信号）
-- Sizer: 当前无违规
-
-### 分层架构：CRUD 与 Service
-
-**三层调用关系：** `API层 / CLI层 → Service层 → CRUD层 → 数据库`
-
-**CRUD 层（数据访问层）：**
-- 定位：纯粹的数据读写操作，每张表对应一个 CRUD 类
-- 继承 `BaseCRUD`，提供标准的 `add/find/get/modify/remove/count` 方法
-- 可以包含字段的格式转换（如 `datetime_normalize`、`to_decimal`、枚举转换）
-- 可以包含基于单表的查询便捷方法（如 `find_by_portfolio`、`get_by_user_id`）
-- **禁止**：跨表业务逻辑、业务规则校验、事务编排
-
-**Service 层（业务服务层）：**
-- 定位：业务逻辑编排，可跨多个 CRUD，提供业务语义
-- 方法名体现业务含义（如 `register`、`update_last_login`、`reset_password`）
-- 负责事务管理、跨表操作、业务规则校验、权限检查
-- 返回 `ServiceResult` 标准化结果
-
-**强制规则：**
-1. **API 层禁止直接调用 CRUD**，必须通过 Service 层
-2. **Service 层禁止直接暴露 CRUD 实例**（如 `service.crud`），应封装为 Service 方法
-3. **CRUD 方法返回 `ModelList`**，调用方按需链式转换：`.to_dataframe()`、`.to_entities()`、`.first()`
+### 分层架构（`API/CLI → Service → CRUD → DB`）
+1. **API 禁止直接调 CRUD**，必须通过 Service
+2. **Service 禁止暴露 CRUD 实例**
+3. **CRUD 返回 `ModelList`**，调用方按需转换
 
 ### 全局实例
-- **`GLOG`**: 日志记录，支持Rich格式化
-- **`GCONF`**: 配置管理，分层配置系统 (环境变量 → 配置文件 → 默认值)
-- **`GTM`**: 线程管理，Kafka驱动的分布式worker系统
-
-## 常用开发模式
-
-### 服务访问模式
-```python
-from ginkgo import services
-
-# 数据服务
-bar_crud = services.data.cruds.bar()
-stockinfo_service = services.data.services.stockinfo_service()
-
-# 回测服务
-engine = services.trading.engines.historic()
-portfolio = services.trading.portfolios.base()
-```
-
-### 策略开发模式
-```python
-class MyStrategy(BaseStrategy):
-    def cal(self, portfolio_info: Dict, event: EventBase) -> List[Signal]:
-        # 获取当前价格数据
-        bars = self.data_feeder.get_bars(code, start, end)
-        
-        # 策略逻辑实现
-        if self.should_buy(bars):
-            return [Signal(code=code, direction=DIRECTION_TYPES.LONG)]
-        
-        return []
-```
-
-### CRUD扩展模式  
-```python
-class MyDataCRUD(BaseCRUD):
-    """继承BaseCRUD，自动获得装饰器和标准方法"""
-    
-    @time_logger  # 自动性能监控
-    @retry(max_try=3)  # 自动重试
-    def get_my_data_filtered(self, **filters) -> List:
-        # 实现数据查询逻辑
-        pass
-    
-    # 自动服务注册，通过 services.data.cruds.mydata() 访问
-```
-
-### 风控开发模式
-```python
-class MyRiskManager(BaseRiskManagement):
-    def cal(self, portfolio_info: Dict, order: Order) -> Order:
-        """订单风控检查 - 被动拦截"""
-        if self.exceeds_position_limit(portfolio_info, order):
-            order.volume = self.adjust_volume(order)
-        return order
-        
-    def generate_signals(self, portfolio_info: Dict, event: EventBase) -> List[Signal]:
-        """主动风控信号生成"""
-        if self.should_stop_loss(portfolio_info, event):
-            return [Signal(direction=DIRECTION_TYPES.SHORT, reason="Stop Loss")]
-        return []
-```
-
-## 关键API速查
-
-### 数据操作
-```python
-# K线数据
-bars = bar_crud.get_bars_page_filtered(code="000001.SZ", start="20230101", end="20231231")
-bar_crud.add_bars([bar1, bar2])  # 批量添加
-
-# 股票信息  
-stocks = stockinfo_service.get_stockinfos()
-stockinfo_service.sync_all()  # 同步所有股票信息
-
-# Tick数据
-ticks = tick_crud.get_ticks_page_filtered(code="000001.SZ", limit=1000)
-```
-
-### 回测操作
-```python
-# 创建回测引擎
-engine = EngineAssemblerFactory().create_engine(engine_type="historic")
-
-# 组件装配
-portfolio.add_strategy(strategy)
-portfolio.add_risk_manager(PositionRatioRisk(max_position_ratio=0.2))
-portfolio.add_risk_manager(LossLimitRisk(loss_limit=10.0))
-
-# 运行回测
-result = engine.run()
-```
-
-### 配置和日志操作
-```python
-# 配置管理
-GCONF.get("database.host")  # 获取配置
-GCONF.set_debug(True)  # 设置调试模式
-GCONF.DEBUGMODE  # 检查调试状态
-
-# 日志记录
-GLOG.info("Processing data...")  # 信息日志
-GLOG.ERROR("Database connection failed")  # 错误日志
-```
-
-### Worker管理操作  
-```python
-# Worker管理
-GTM.start_multi_worker(count=4)  # 启动4个worker
-worker_status = GTM.get_workers_status()  # 获取worker状态
-GTM.reset_all_workers()  # 停止所有worker
-```
-
-## 风控体系
-
-### 运行模式（SOURCE_TYPES）
-所有回测/模拟盘记录通过 `source` 字段标记运行模式，支持按模式筛选和对比：
-- **`BACKTEST=15`**: 回测引擎产出（`engine.start()` 自动设置）
-- **`PAPER_REPLAY=18`**: 历史数据模拟（回测区间外样本外验证）
-- **`PAPER_LIVE=19`**: 实盘模拟（真实市场数据实时推进）
-
-```python
-from ginkgo.enums import SOURCE_TYPES
-
-# BaseCRUD filter 按模式筛选（所有有 source 字段的 CRUD 通用）
-analyzer_crud.find(filters={"source": SOURCE_TYPES.PAPER_REPLAY.value})
-order_crud.find(filters={"source": SOURCE_TYPES.BACKTEST.value, "portfolio_id": "xxx"})
-signal_crud.find(filters={"source": SOURCE_TYPES.PAPER_LIVE.value})
-
-# 模拟盘自动切换：Worker 启动时检测 REPLAY → LIVE_PAPER
-# REPLAY 用 LogicalTimeProvider 批量快进历史数据，追上后切换 SystemTimeProvider
-# Analyzer 写入时通过 EngineContext.source_type 自动标记，无需手动传
-```
-
-### 时间体系
-- **`LogicalTimeProvider`**: 回测/历史模拟用，可控逻辑时间，支持 `set_current_time()`
-- **`SystemTimeProvider`**: 实盘/实盘模拟用，系统实时时间
-- **`clock_now()`**: 全局时间入口（`ginkgo.trading.time.clock`），优先读全局 provider
-- **`EngineContext`**: 引擎级上下文，持有 `engine_id` / `run_id` / `source_type`
-- **`ContextMixin`**: 组件基类 Mixin，通过 `_context` 透传上下文属性
-
-### 偏差检测体系
-回测基准建立 → 模拟盘每日检测 → 分级告警 → 自动下线：
-```python
-# 链路: BacktestEvaluator → monitoring_baseline(含daily_curves) → LiveDeviationDetector
-#       PaperTradingWorker → DeviationChecker → check_point_in_time() / check_deviation_on_slice_complete()
-#       告警: MODERATE/SEVERE → Kafka SYSTEM_EVENTS → 可选 auto_takedown
-
-# Redis key 设计:
-#   deviation:source:{portfolio_id}   → 回测源 portfolio 映射
-#   deviation:baseline:{portfolio_id} → baseline JSON 缓存
-#   deviation:config:{portfolio_id}  → 检测配置（auto_takedown, slice_period_days 等）
-```
-
-### 风控类型
-- **`PositionRatioRisk`**: 持仓比例控制，支持单股和总持仓限制，智能调整订单量
-- **`LossLimitRisk`**: 止损控制，监控持仓亏损自动生成平仓信号  
-- **`ProfitLimitRisk`**: 止盈控制，监控持仓盈利自动生成平仓信号
-- **`NoRiskManagement`**: 无风控实现，用于测试对比
-
-### 风控机制
-- **双重机制**: 被动订单拦截(`cal`) + 主动风控信号生成(`generate_signals`)
-- **事件驱动**: 响应`EventPriceUpdate`事件进行实时风控监控
-- **智能调整**: 调整订单量而非简单拒绝，最大化交易执行
-
-### 风控集成示例
-```python
-# 在Portfolio中集成多个风控管理器
-portfolio.add_risk_manager(PositionRatioRisk(
-    max_position_ratio=0.2,  # 单股最大20%仓位
-    max_total_position_ratio=0.8  # 总仓位最大80%
-))
-portfolio.add_risk_manager(LossLimitRisk(loss_limit=10.0))  # 10%止损
-portfolio.add_risk_manager(ProfitLimitRisk(profit_limit=20.0))  # 20%止盈
-```
-
-## 分布式日志系统
-
-### 架构概述
-- **GLOG**: 基于 structlog 的结构化日志，支持 JSON 格式和 Rich 控制台
-- **三表存储**: ClickHouse 分别存储 backtest/component/performance 日志
-- **Vector 采集**: 文件日志采集并路由到 ClickHouse
-- **追踪支持**: trace_id/span_id 实现分布式链路追踪
-
-### 日志服务访问
-```python
-from ginkgo import services
-
-# 访问日志查询服务
-log_service = services.logging.log_service()
-
-# 查询回测日志
-logs = log_service.query_backtest_logs(
-    portfolio_id="portfolio-001",
-    level="ERROR",
-    limit=50
-)
-
-# 按 trace_id 跨表查询
-trace_logs = log_service.query_by_trace_id("trace-123")
-
-# 错误统计
-stats = log_service.get_error_stats(portfolio_id="portfolio-001", hours=24)
-```
-
-### 动态日志级别管理
-```bash
-# 查看白名单
-ginkgo logging whitelist
-
-# 设置模块日志级别
-ginkgo logging set-level backtest DEBUG
-
-# 查看所有级别
-ginkgo logging get-level
-
-# 重置为默认值
-ginkgo logging reset-level
-```
-
-### GLOG 追踪上下文
-```python
-from ginkgo.libs import GLOG
-
-# 设置追踪 ID
-GLOG.set_trace_id("trace-123")
-
-# 绑定业务上下文
-GLOG.bind_context(
-    portfolio_id=portfolio.uuid,
-    strategy_id=strategy.uuid
-)
-
-# 记录日志（自动包含 trace_id 和业务字段）
-GLOG.INFO("回测任务启动")
-
-# 使用 span_id 标记子操作
-with GLOG.with_span_id("span-456"):
-    GLOG.DEBUG("计算信号中...")
-
-# 清除上下文
-GLOG.clear_context()
-```
-
-### 数据库设计约定
-
-### 模型命名约定
-- **`MBar`** - K线数据模型 (ClickHouse存储)
-- **`MTick`** - Tick数据模型 (ClickHouse存储)  
-- **`MStockInfo`** - 股票信息模型 (MySQL存储)
-- **`MAdjustFactor`** - 复权因子模型
-- 所有ClickHouse模型继承 `MClickBase`，MySQL模型继承 `MMysqlBase`
-
-### CRUD操作命名约定
-```python
-# 创建操作
-add_bar(data)           # 单条添加
-add_bars([data1, data2]) # 批量添加
-
-# 查询操作  
-get_bars_page_filtered(code="000001.SZ", start="20230101", limit=1000)
-get_bar_by_uuid(uuid)   # 按UUID查询
-
-# 更新操作
-update_bar(uuid, new_data)
-
-# 删除操作  
-delete_bars_filtered(code="000001.SZ", start="20230101", end="20231231")
-```
-
-### 数据库选择原则
-- **ClickHouse**: 时序数据存储 (K线、Tick、因子数据)，支持高效的分析查询
-- **MySQL**: 关系数据存储 (股票信息、系统配置、用户数据)，支持事务
-- **Redis**: 缓存和任务状态 (Worker状态、临时数据、分布式锁)
-- **MongoDB**: 文档数据存储 (策略配置、复杂结果数据)
+`GLOG`(日志) | `GCONF`(配置) | `GTM`(线程管理)，通过 `from ginkgo import services` 统一访问
 
 ## Git 规范
+- 分支：`{递增序号}-{类型}/{描述}`，类型：feat/fix/refactor/docs/test/chore
+- 创建前查远端最大序号：`git branch -r | grep -oP '\d+(?=-)' | sort -n | tail -1`
+- 测试统一放 `tests/`，禁止模块内 `tests/` 子目录
 
-### 分支命名
-- 格式：`{递增序号}-{类型}/{描述}`
-- 类型：`feat` | `fix` | `refactor` | `docs` | `test` | `chore`
-- 示例：`001-feat/webui-navigation`、`002-fix/portfolio-api-404`
-- 序号从 001 开始，全局递增
-- **创建分支前必须先查询远端最大序号**：`git branch -r | grep -oP '\d+(?=-)' | sort -n | tail -1`，取 `max(本地最大, 远端最大) + 1`
+## 开发约束
 
-### 测试目录规范
-- 所有测试统一放在项目根目录 `tests/` 下，禁止在模块内创建 `tests/` 子目录
-- 子目录划分：`tests/unit/`、`tests/integration/`、`tests/e2e/`、`tests/api/`、`tests/performance/`
-- 前端测试：`web-ui/tests/`（Playwright E2E、Vitest 单元测试）
+### 数据库
+- **禁止手动 ALTER TABLE**，表由 Model 定义 + `ginkgo init` 自动创建
+- Docker 双实例：Master(非Debug) | Test(Debug，端口首位+1)
+- ClickHouse=时序 | MySQL=关系 | Redis=缓存 | MongoDB=文档
+
+### Debug 模式
+数据库操作前必须开启：`ginkgo system config set --debug on`
+
+### 基础组件
+**禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
 
 ## Key Commands
-
-### Environment Setup
 ```bash
-# uv (recommended)
-uv sync
+ginkgo version / status                       # 版本/状态
+ginkgo system config set --debug on           # 开启 debug（必须）
+ginkgo serve api                              # API 服务器 (:8000)
+ginkgo serve webui                            # Web UI (:5173)
+ginkgo serve worker-backtest -id test2        # 回测 Worker
 ```
-
-### Core CLI Commands
-```bash
-# System management
-ginkgo version
-ginkgo status                              # Quick system status
-ginkgo system config set --debug on       # Enable debug mode (REQUIRED for database operations)
-
-# Data management
-ginkgo data init                           # Initialize database tables
-ginkgo data update --stockinfo             # Update stock information
-ginkgo data update day --code 000001.SZ    # Update daily bar data
-ginkgo data list stockinfo --page 50       # List stock info
-
-# Backtesting
-ginkgo backtest run {engine_id}            # Run specific backtest
-ginkgo backtest component list strategy    # List strategies
-
-# Worker management
-ginkgo worker status                       # Show worker processes (detailed table)
-ginkgo worker start --count 4              # Start 4 workers
-ginkgo worker run --debug                  # Run single worker in foreground
-
-# Live Trading (OKX)
-python -m ginkgo.livecore.main live-start  # Start live trading engine
-python -m ginkgo.livecore.main live-status # Show live engine status
-python -m ginkgo.livecore.main live-init   # Initialize live trading environment
-```
-
-## CLI 回测全链路操作指南
-
-### 概述
-
-CLI 回测全链路：创建 Portfolio → 创建/复用 Component → 绑定组件（含参数）→ 创建回测 → 运行回测。
-
-**Python 环境**：`/home/kaoru/.ginkgo/.venv/bin/python`（CLI wrapper 使用此路径）
-
-### 1. Portfolio 管理
-
-```bash
-# 创建
-ginkgo portfolio create --name "my_portfolio" --capital 1000000
-
-# 查看（UUID 截断，需记下完整 ID）
-ginkgo portfolio list
-ginkgo portfolio get <uuid>
-
-# 删除
-ginkgo portfolio delete <uuid>  # 需交互确认
-```
-
-### 2. Component（组件/文件）管理
-
-```bash
-# 查看已有组件
-ginkgo component list
-
-# 创建新组件（⚠️ basic template 无参数定义，见下方注意事项）
-ginkgo component create --type strategy --name "my_strategy"
-ginkgo component create --type selector --name "my_selector"
-ginkgo component create --type sizer --name "my_sizer"
-ginkgo component create --type riskmanager --name "my_risk"
-
-# 组件类型对照
-# strategy=6, selector=4, sizer=5, riskmanager=3, analyzer=7
-
-# 查看组件源码
-ginkgo component show <uuid>
-```
-
-**⚠️ 重要：`component create` 生成的 basic template 没有参数定义。** WebUI 通过解析组件源码提取参数名来展示参数，basic template 会导致 WebUI 参数为空。**建议复用已有组件**。
-
-### 3. 绑定组件到 Portfolio（含参数）
-
-```bash
-# 绑定格式
-ginkgo portfolio bind-component <portfolio_id> <file_id> --type <type> \
-  --param '<index>:<value>' [--param '<index>:<value>' ...]
-
-# 参数格式规则
-#   字符串值用引号包裹: '0:"FixedSelector"'
-#   数值直接写: '1:150'
-#   null 值: '4:null'
-#   多参数用多个 --param
-
-# 示例：绑定完整四件套
-PID="your-portfolio-uuid"
-
-# 策略
-ginkgo portfolio bind-component $PID <strategy_file_id> --type strategy \
-  --param '0:"RandomSignalStrategy"' \
-  --param '1:0.3' --param '2:0.3' \
-  --param '3:"随机信号-{direction}-{index}"' \
-  --param '4:null'
-
-# 选股器
-ginkgo portfolio bind-component $PID <selector_file_id> --type selector \
-  --param '0:"FixedSelector"' \
-  --param '1:"000001.sz"'
-
-# 仓位管理
-ginkgo portfolio bind-component $PID <sizer_file_id> --type sizer \
-  --param '0:"FixedSizer"' \
-  --param '1:150'
-
-# 风控
-ginkgo portfolio bind-component $PID <risk_file_id> --type riskmanager \
-  --param '0:"norisk"'
-
-# 解绑
-ginkgo portfolio unbind-component <portfolio_id> <file_id> --confirm
-```
-
-### 4. 参数 index 与组件源码的对应关系
-
-参数通过 index 位置与组件源码 `__init__` 的参数顺序对应。API 层 `component_parameter_extractor` 解析源码获取映射。
-
-**常用组件参数速查：**
-
-| 组件 | Index 0 | Index 1 | Index 2 | Index 3 | Index 4 |
-|---|---|---|---|---|---|
-| `random_signal_strategy` | name | buy_probability | sell_probability | signal_reason_template | max_signals |
-| `fixed_selector` | name | codes | | | |
-| `fixed_sizer` | name | volume | | | |
-| `no_risk` | name | | | | |
-| `moving_average_crossover` | name | short_window | long_window | | |
-
-**查询任意组件的参数映射：**
-```python
-/home/kaoru/.ginkgo/.venv/bin/python -c "
-from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
-print(get_component_parameter_names('组件名', None, 'strategy', None))
-"
-```
-
-### 5. 回测任务管理
-
-```bash
-# 创建回测
-ginkgo backtest create \
-  --portfolio <portfolio_id> \
-  --start 2025-05-07 --end 2026-05-07 \
-  --name "my_backtest" \
-  --cash 100000
-
-# 运行回测（本地同步执行，需等待完成）
-ginkgo backtest run <backtest_id>
-
-# 查看结果
-ginkgo backtest cat <backtest_id>
-
-# 查看回测列表
-ginkgo backtest list
-
-# 删除（需交互确认）
-ginkgo backtest delete <backtest_id>
-```
-
-### 6. 查询组件绑定关系
-
-```bash
-# 使用 portfolio get --details 查看组件绑定和参数
-ginkgo portfolio get <portfolio_uuid> --details
-```
-
-### 7. 可用组件清单（非 e2e/test 组件）
-
-**策略 (strategy)**：`random_signal_strategy`, `moving_average_crossover`, `mean_reversion`, `momentum`, `trend_follow`, `trend_reverse`, `dual_thrust`, `scalping`, `price_action`, `volume_activate`, `ml_predictor`, `social_signal`, `game_theory`, `random_choice`
-
-**选股器 (selector)**：`fixed_selector`, `cn_all_selector`, `momentum_selector`, `popularity_selector`, `multi_params_selector`
-
-**仓位管理 (sizer)**：`fixed_sizer`, `atr_sizer`, `ratio_sizer`
-
-**风控 (riskmanager)**：`no_risk`, `position_ratio_risk`, `loss_limit_risk`, `profit_target_risk`, `max_drawdown_risk`, `volatility_risk`, `concentration_risk`, `capital_risk`, `liquidity_risk`, `margin_risk`, `market_cap_risk`, `sector_rotation_risk`, `correlation_risk`, `currency_risk`, `suspension_risk`, `trading_time_risk`
-
-### 8. 注意事项
-
-1. **必须开启 DEBUG 模式**：`ginkgo debug on`
-2. **必须绑定 selector**，否则回测报 `No selector found`
-3. **basic template 组件在 WebUI 无法显示参数**，应复用已有组件
-4. **portfolio list UUID 被截断**，创建后需记下完整 UUID
-5. **backtest delete / portfolio unbind 需交互确认**，暂无 `--force` 选项
-
-## Development Servers
-
-**IMPORTANT: When debugging issues, always check these logs first:**
-
-### API Server
-```bash
-# 启动
-ginkgo serve api 2>&1 | tee /tmp/ginkgo-api.log
-
-# 查看日志
-tail -f /tmp/ginkgo-api.log
-tail -100 /tmp/ginkgo-api.log | grep -i "error\|exception"
-```
-**日志位置：** `/tmp/ginkgo-api.log`
-**端口：** 8000
-
-### Web UI Dev Server
-```bash
-# 启动
-ginkgo serve webui 2>&1 | tee /tmp/webui.log
-
-# 查看日志
-tail -f /tmp/webui.log
-```
-**日志位置：** `/tmp/webui.log`
-**端口：** 5173
-
-### 常见问题排查流程
-1. **前端页面报错** → 先看 `/tmp/webui.log`
-2. **API 请求失败** → 先看 `/tmp/ginkgo-api.log`
-3. **回测任务问题** → 先看 `/tmp/ginkgo-backtest.log`
-4. **实盘交易问题** → 检查三个日志中的相关错误
-
-### Testing Requirements
-**CRITICAL**: Always enable debug mode before database operations:
-```bash
-ginkgo system config set --debug on    # Required for database operations
-# Perform database operations or tests...
-ginkgo system config set --debug off   # Disable after operations
-```
-
-## 开发最佳实践
-
-### 性能优化
-- 使用 **`@time_logger`** 监控方法执行时间，识别性能瓶颈
-- 使用 **`@cache_with_expiration(60)`** 缓存频繁访问的数据  
-- 使用 **`@retry(max_try=3)`** 处理网络不稳定和临时故障
-- 使用 **`@skip_if_ran`** Redis去重机制避免重复执行
-
-### 数据库操作准则
-- **必须先开启调试模式**: `ginkgo system config set --debug on`
-- **批处理优先**: 使用 `add_bars([])` 而非逐条插入，提高性能
-- **合理分页**: 使用 `limit=1000` 参数避免大结果集内存问题
-- **事务管理**: 重要操作在事务中执行，确保数据一致性
-
-### 错误处理模式
-- 使用 **`ServiceResult`** 标准化返回结果，统一错误处理
-- 重要操作记录日志: `GLOG.info()` (信息) 或 `GLOG.ERROR()` (错误)
-- 数据库异常自动重试，网络异常需要手动处理
-- 使用 `try-except` 捕获特定异常，避免程序崩溃
-
-### 模块扩展指南
-- **策略扩展**: 继承 `BaseStrategy` 实现 `cal(portfolio_info, event)` 方法
-- **数据源扩展**: 实现 `GinkgoSourceBase` 接口，支持新的数据提供商
-- **风控扩展**: 继承 `BaseRiskManagement` 实现双重风控机制
-- **分析器扩展**: 继承 `BaseAnalyzer` 实现 `_do_activate()` 和 `_do_record()` 模板方法
-- **CRUD扩展**: 继承 `BaseCRUD` 自动获得装饰器支持和服务容器注册
-
-## 实盘交易架构
-
-### 组件说明
-- **LiveEngine**: 实盘交易引擎，统一生命周期管理
-- **OKXBroker**: OKX交易所适配器，实现IBroker接口
-- **BrokerManager**: Broker实例管理器，负责创建/销毁/启动/停止
-- **HeartbeatMonitor**: 心跳监控，检测Broker超时并触发恢复
-- **BrokerRecoveryService**: Broker恢复服务，处理崩溃恢复
-- **DataSyncService**: 数据同步服务，同步账户余额、持仓、订单
-
-### Broker状态机
-```
-uninitialized → initializing → running → paused → stopped
-                     ↓             ↓
-                   error      recovering
-```
-
-### 实盘账号管理
-```python
-from ginkgo.data.containers import container
-
-# 创建实盘账号
-service = container.live_account_service()
-result = service.create_account(
-    user_id="user123",
-    exchange="okx",
-    name="我的OKX账号",
-    api_key="...",
-    api_secret="...",
-    passphrase="...",  # OKX需要
-    environment="testnet",  # or "production"
-    auto_validate=True
-)
-
-# 验证账号
-result = service.validate_account(account_uuid)
-
-# 获取余额
-result = service.get_account_balance(account_uuid)
-```
-
-### Broker控制
-```python
-from ginkgo.trading.brokers.broker_manager import get_broker_manager
-
-manager = get_broker_manager()
-
-# 启动Broker
-manager.start_broker(portfolio_id)
-
-# 暂停Broker
-manager.pause_broker(portfolio_id)
-
-# 恢复Broker
-manager.resume_broker(portfolio_id)
-
-# 停止Broker
-manager.stop_broker(portfolio_id)
-
-# 紧急停止全部
-manager.emergency_stop_all()
-```
-
-### LiveEngine使用
-```python
-from ginkgo.livecore import get_live_engine
-
-engine = get_live_engine()
-
-# 初始化（创建Broker实例）
-engine.initialize()
-
-# 启动（启动监控和同步服务）
-engine.start()
-
-# 等待退出信号
-engine.wait()
-
-# 停止（优雅关闭）
-engine.stop()
-```
-
-## Configuration
-
-**Key Config Files:**
-- `~/.ginkgo/config.yaml` - Main configuration  
-- `~/.ginkgo/secure.yml` - Sensitive credentials
-- Environment variables override config files
-
-**Global Access:**
-```python
-from ginkgo.libs import GLOG, GCONF, GTM
-```
-
-## 数据库架构与 Debug 模式
-
-### Debug 模式切换
-- `GINKGO_DEBUG_MODE` 环境变量 → `~/.ginkgo/config.yaml` 的 `debug` 字段
-- 切换方式：`ginkgo system config set --debug on/off` 或 `GCONF.set_debug(True/False)`
-
-### 双实例架构
-Docker 部署两套数据库实例，通过端口前缀区分：
-
-| 服务 | Master（非 Debug） | Test（Debug） |
-|------|-------------------|--------------|
-| ClickHouse | `clickhouse-master:8123` | `clickhouse-test:18123` |
-| MySQL | `mysql-master:3306` | `mysql-test:13306` |
-| 容器名 | `*-master` | `*-test` |
-
-- `GCONF.CLICKPORT`：DEBUG 模式端口首位加 1（8123 → 18123）
-- `.env` 默认 `GINKGO_CLICKHOUSE_HOST=clickhouse-test`
-- **Vector 默认连 `clickhouse-test`**（与 Worker/API 一致）
-- `ginkgo data init` 时根据当前 debug 模式决定连哪个实例建表
-
-### 数据库表结构规则
-- **禁止手动 ALTER TABLE**：所有表由 SQLAlchemy Model 定义，通过 `ginkgo data init` 自动创建
-- 新增字段必须先修改 Model，再重新 init 建表
-- 排查问题时先确认当前连的是哪个实例（master vs test）
-
-## TDD测试框架设计流程
-
-### 标准化TDD测试设计方法
-
-#### 第一阶段：实体分析和架构理解
-
-**步骤1：源码分析**
-- 使用`Read`工具分析现有实体实现
-- 识别核心属性、方法和业务逻辑
-- 理解继承关系和依赖模式
-
-**步骤2：架构组件分析**
-- 分析项目整体架构职责分离
-- 明确各组件边界（Strategy/Sizer/RiskManagement等）
-- 避免跨职责的功能设计
-
-#### 第二阶段：测试边界确定
-
-**边界原则：**
-- **保留**：实体自身的核心功能和属性管理
-- **删除**：属于其他专门组件的功能
-- **扩展**：基于量化交易需求的合理增强
-
-**确认流程：**
-- 逐一与用户确认每个测试类别
-- 说明作用、业务价值和具体测试场景
-- 根据用户反馈调整或删除不合适的类别
-
-#### 第三阶段：测试用例设计模式
-
-**基础功能测试模式（7个标准类别）：**
-1. **Construction** - 构造和初始化测试
-2. **Properties** - 属性访问测试
-3. **DataSetting** - 数据设置测试（singledispatchmethod）
-4. **Validation** - 参数/业务规则验证测试
-5. **StateManagement** - 状态管理测试
-6. **BusinessLogic** - 核心业务逻辑测试
-7. **Constraints** - 约束检查测试（如枚举类型）
-
-**扩展功能测试模式：**
-- 基于量化交易特有需求设计
-- 每个扩展模块包含5-8个测试方法
-- 使用`@pytest.mark.financial`标记
-
-#### 第四阶段：测试文件生成规范
-
-**文件结构标准：**
-```python
-# 1. 文档字符串 - 说明测试目的和覆盖范围
-# 2. 导入声明 - 路径设置和依赖导入（TODO标记）
-# 3. 测试类 - 按功能模块分组，使用@pytest.mark.tdd标记
-# 4. 测试方法 - 详细TODO注释 + assert False占位
-```
-
-**命名规范：**
-- 测试类：`TestEntityFunctionality`
-- 测试方法：`test_specific_scenario()`
-- 文件：`test_entity.py`
-
-**标记策略：**
-- `@pytest.mark.tdd` - 所有TDD测试
-- `@pytest.mark.financial` - 量化交易特有功能
-
-#### 第五阶段：质量控制
-
-**Red阶段验证：**
-- 运行单个测试确认失败
-- 统计测试用例总数
-- 验证pytest配置正确
-
-**一致性检查：**
-- TODO注释格式统一
-- 错误消息格式："TDD Red阶段：测试用例尚未实现"
-- 测试方法命名符合规范
-
-### 成功案例
-
-**已完成的实体测试框架：**
-- **Position** - 11个测试类，70个测试方法
-- **Signal** - 9个测试类，62个测试方法
-- **Order** - 10个测试类，70个测试方法
-
-**方法优势：**
-- **系统性**：完整的分析到实现流程
-- **可重复**：标准化模式适用于任何实体
-- **用户驱动**：每个决策都经过用户确认
-- **边界清晰**：职责分离原则确保设计合理
-
-## Important Notes
-
-- Python 3.12.8 required
-- **Debug mode required** for all database operations and testing
-- Event-driven architecture for backtesting with complete risk control
-- Rich library integration for beautiful CLI output
-- Lazy-loading and caching for performance optimization
-
-## Active Technologies
-- Python 3.12.8 + ast (标准库), pathlib, re, typing (003-code-context-headers)
-- 无需数据库操作（仅文件系统） (003-code-context-headers)
-- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic (006-notification-system)
-- ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
-- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic, APScheduler, websockets, pyyaml (008-live-data-module)
-- ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存/心跳) (009-data-worker)
-- Python 3.12.8 + FastAPI, uvicorn, Pydantic, kafka-python, websockets (001-web-ui-api - API Server)
-- TypeScript + Vue 3, Vite, Pinia, TailwindCSS, Ant Design Vue, Lightweight Charts, ECharts (001-web-ui-api - Web UI)
-
-## Recent Changes
-- 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing
+日志：`/tmp/ginkgo-api.log` | `/tmp/webui.log` | `/tmp/ginkgo-backtest.log`
 
 ## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+知识图谱在 `graphify-out/`。架构问题先看 `GRAPH_REPORT.md`，改代码后跑 `graphify update .`
 
 ## Agent skills
+- Issue tracker → `docs/agents/issue-tracker.md`
+- Triage labels → `docs/agents/triage-labels.md`
+- Domain docs → `docs/agents/domain.md`
 
-### Issue tracker
+## 详细参考文档（按需查阅）
+- **开发模式/API/风控/日志/实盘** → `docs/claude-dev-reference.md`
+- **CLI 回测全链路操作指南** → 见下方
 
-Issues tracked in GitHub Issues (Kaoruha/GinkGO). See `docs/agents/issue-tracker.md`.
+## CLI 回测全链路
 
-### Triage labels
+### 流程
+创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行
 
-Default five-label vocabulary. See `docs/agents/triage-labels.md`.
+**Python 环境**：`/home/kaoru/.ginkgo/.venv/bin/python`
 
-### Domain docs
+```bash
+# Portfolio
+ginkgo portfolio create --name "my" --capital 1000000
+ginkgo portfolio list
+ginkgo portfolio get <uuid> --details
 
-Single-context layout. See `docs/agents/domain.md`.
+# Component（建议复用已有，basic template 无参数定义）
+ginkgo component list
+
+# 绑定（参数格式：'index:value'，字符串带引号，数值直接写）
+ginkgo portfolio bind-component <pid> <file_id> --type strategy \
+  --param '0:"StrategyName"' --param '1:0.3'
+
+# 回测
+ginkgo backtest create --portfolio <pid> --start 2025-05-07 --end 2026-05-07 --name "test" --cash 100000
+ginkgo backtest run <backtest_id>
+ginkgo backtest cat <backtest_id>
+```
+
+### 可用组件
+- **Strategy**: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor, social_signal, game_theory, random_choice
+- **Selector**: fixed, cn_all, momentum, popularity, multi_params
+- **Sizer**: fixed, atr, ratio
+- **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time
