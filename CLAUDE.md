@@ -54,9 +54,6 @@ ginkgo serve worker-backtest -id test2        # 回测 Worker
 ```
 日志：`/tmp/ginkgo-api.log` | `/tmp/webui.log` | `/tmp/ginkgo-backtest.log`
 
-## graphify
-知识图谱在 `graphify-out/`。架构问题先看 `GRAPH_REPORT.md`，改代码后跑 `graphify update .`
-
 ## Agent skills
 - Issue tracker → `docs/agents/issue-tracker.md`
 - Triage labels → `docs/agents/triage-labels.md`
