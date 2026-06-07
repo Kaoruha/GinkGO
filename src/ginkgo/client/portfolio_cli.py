@@ -818,7 +818,7 @@ def _store_deploy_source(paper_portfolio_id: str, source_portfolio_id: str) -> N
         from ginkgo import services
         redis_svc = services.data.redis_service()
         if redis_svc:
-            redis_svc.set(f"deviation:source:{paper_portfolio_id}", source_portfolio_id)
+            redis_svc.set_cache(f"deviation:source:{paper_portfolio_id}", source_portfolio_id)
             GLOG.INFO(f"[DEPLOY] Stored source mapping: {source_portfolio_id[:8]} -> {paper_portfolio_id[:8]}")
     except Exception as e:
         GLOG.WARN(f"[DEPLOY] Failed to store source mapping in Redis: {e}")
@@ -876,7 +876,7 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
         # 缓存到 Redis
         redis_svc = services.data.redis_service()
         if redis_svc:
-            redis_svc.set(f"deviation:baseline:{paper_portfolio_id}", json.dumps(baseline, default=str))
+            redis_svc.set_cache(f"deviation:baseline:{paper_portfolio_id}", json.dumps(baseline, default=str))
             GLOG.INFO(f"[DEPLOY] Baseline cached: slice_period={baseline.get('slice_period_days')}, "
                        f"metrics={len(baseline.get('baseline_stats', {}))}")
 
@@ -904,7 +904,8 @@ def generate_baseline(
     redis_svc = services.data.redis_service()
     source_id = None
     if redis_svc:
-        source_id = redis_svc.get(f"deviation:source:{portfolio_id}")
+        src_result = redis_svc.get_cache(f"deviation:source:{portfolio_id}")
+        source_id = src_result.data if src_result and src_result.is_success() else None
 
     if not source_id:
         source_id = source

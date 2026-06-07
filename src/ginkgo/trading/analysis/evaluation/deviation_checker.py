@@ -31,7 +31,8 @@ class DeviationChecker:
         try:
             redis_svc = services.data.redis_service()
             if redis_svc:
-                cached = redis_svc.get(f"deviation:baseline:{portfolio_id}")
+                result = redis_svc.get_cache(f"deviation:baseline:{portfolio_id}")
+                cached = result.data if result and result.is_success() else None
                 if cached:
                     return json.loads(cached)
         except Exception:
@@ -41,7 +42,8 @@ class DeviationChecker:
             redis_svc = services.data.redis_service()
             source_id = None
             if redis_svc:
-                source_id = redis_svc.get(f"deviation:source:{portfolio_id}")
+                src_result = redis_svc.get_cache(f"deviation:source:{portfolio_id}")
+                source_id = src_result.data if src_result and src_result.is_success() else None
 
             if not source_id:
                 GLOG.DEBUG(f"[DEV-CHECKER] No source portfolio for {portfolio_id[:8]}")
@@ -54,7 +56,11 @@ class DeviationChecker:
             if not task_result.is_success() or not task_result.data:
                 return None
 
-            latest_task = task_result.data[0] if isinstance(task_result.data, list) else task_result.data
+            # task_service.list() returns paginated dict: {"data": [...], "total": N, ...}
+            tasks = task_result.data.get("data", []) if isinstance(task_result.data, dict) else task_result.data
+            if not tasks:
+                return None
+            latest_task = tasks[0]
             task_id = getattr(latest_task, "task_id", None)
             engine_id = getattr(latest_task, "engine_id", None)
             if not task_id:
@@ -73,7 +79,7 @@ class DeviationChecker:
                 return None
 
             if redis_svc:
-                redis_svc.set(
+                redis_svc.set_cache(
                     f"deviation:baseline:{portfolio_id}",
                     json.dumps(baseline, default=str),
                 )
@@ -89,7 +95,8 @@ class DeviationChecker:
         try:
             redis_svc = services.data.redis_service()
             if redis_svc:
-                config_json = redis_svc.get(f"deviation:config:{portfolio_id}")
+                cfg_result = redis_svc.get_cache(f"deviation:config:{portfolio_id}")
+                config_json = cfg_result.data if cfg_result and cfg_result.is_success() else None
                 if config_json:
                     return json.loads(config_json)
         except Exception:
