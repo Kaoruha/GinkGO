@@ -11,8 +11,6 @@ import bcrypt
 from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
-from ginkgo.data.services.user_service import UserService
-from ginkgo.data.services.user_group_service import UserGroupService
 from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
 from core.response import ok
@@ -22,14 +20,14 @@ router = APIRouter()
 
 # ==================== 通用函数 ====================
 
-def get_user_service() -> UserService:
+def get_user_service():
     """获取UserService实例"""
-    return UserService()
+    return container.user_service()
 
 
-def get_user_group_service() -> UserGroupService:
+def get_user_group_service():
     """获取UserGroupService实例"""
-    return UserGroupService()
+    return container.user_group_service()
 
 
 def get_notification_service() -> NotificationService:

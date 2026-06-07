@@ -797,3 +797,75 @@ class UserService(BaseService):
                 f"Failed to search users: {str(e)}",
                 message=f"Error: {str(e)}"
             )
+
+    # ==================== 凭据方法 (#4604 迁移自 data/services) ====================
+
+    def get_credential(self, user_id: str):
+        """根据用户 ID 获取凭据对象，未找到返回 None"""
+        return self.user_credential_crud.get_by_user_id(user_id)
+
+    def get_all_credentials(self) -> dict:
+        """批量获取所有凭证，返回 {user_id: credential} 字典"""
+        try:
+            credentials = self.user_credential_crud.find()
+            return {c.user_id: c for c in credentials if hasattr(c, 'user_id')}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get all credentials: {e}")
+            return {}
+
+    def update_last_login(self, credential_uuid: str, ip: str = "") -> bool:
+        """更新最后登录时间和 IP"""
+        from datetime import datetime
+        try:
+            self.user_credential_crud.modify(
+                {"uuid": credential_uuid},
+                {"last_login_at": datetime.now(), "last_login_ip": ip},
+            )
+            return True
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update last login: {e}")
+            return False
+
+    def update_password(self, credential_uuid: str, new_password_hash: str) -> bool:
+        """更新密码哈希"""
+        try:
+            self.user_credential_crud.modify(
+                {"uuid": credential_uuid},
+                {"password_hash": new_password_hash},
+            )
+            return True
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update password: {e}")
+            return False
+
+    def reset_password(self, user_uuid: str, new_password_hash: str) -> ServiceResult:
+        """通过用户 UUID 重置密码"""
+        try:
+            credential = self.user_credential_crud.get_by_user_id(user_uuid)
+            if not credential:
+                return ServiceResult.error("Credential not found")
+            self.user_credential_crud.modify(
+                {"uuid": credential.uuid},
+                {"password_hash": new_password_hash},
+            )
+            return ServiceResult.success({"reset": True})
+        except Exception as e:
+            GLOG.ERROR(f"Failed to reset password: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_contact(self, contact_uuid: str) -> ServiceResult:
+        """获取单个联系方式"""
+        try:
+            contacts = self.user_contact_crud.find(filters={"uuid": contact_uuid})
+            if not contacts:
+                return ServiceResult.error("Contact not found")
+            return ServiceResult.success(contacts[0])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get contact: {e}")
+            return ServiceResult.error(str(e))
+
+    # ==================== 别名 (#4604 兼容薄版 API 调用) ====================
+
+    create_user = add_user
+    create_contact = add_contact
+    get_contacts = get_user_contacts

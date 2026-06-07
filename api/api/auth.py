@@ -12,7 +12,7 @@ from middleware.auth import create_access_token
 from core.config import settings
 from core.logging import logger
 from core.response import ok
-from ginkgo.data.services.user_service import UserService
+from ginkgo.data.containers import container
 
 router = APIRouter()
 
@@ -55,7 +55,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def get_user_service():
-    return UserService()
+    return container.user_service()
 
 
 @router.post("/login")
