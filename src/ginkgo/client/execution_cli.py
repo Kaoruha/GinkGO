@@ -171,13 +171,13 @@ def list_portfolios(
 
     Display Portfolio IDs and their subscription status.
     """
-    console.print(f":information: Listing Portfolios for ExecutionNode '{node_id}'")
-    console.print(":information: (Portfolio listing will be implemented with database integration)")
-
-    # TODO: 实现 Portfolio 列表逻辑
-    # 1. 从数据库查询 Portfolio 配置
-    # 2. 显示每个 Portfolio 的订阅股票
-    # 3. 显示 Portfolio 运行状态
+    # STUB: Portfolio 热管理功能尚未实现
+    # See: https://github.com/Kaoruha/GinkGO/issues/4637
+    console.print(
+        f"[yellow]:warning: STUB: list_portfolios 尚未实现。[/yellow]\n"
+        f"[dim]Portfolio 热加载/卸载/列表功能待开发，参见 #4637。[/dim]"
+    )
+    return
 
 
 @app.command()
@@ -194,15 +194,13 @@ def load(
       ginkgo execution load portfolio_123
       ginkgo execution load portfolio_123 --node-id node_1
     """
-    console.print(f":information: Loading Portfolio '{portfolio_id}' into ExecutionNode '{node_id}'")
-    console.print(":information: (Portfolio loading will be implemented with database integration)")
-
-    # TODO: 实现 Portfolio 加载逻辑
-    # 1. 从数据库读取 Portfolio 配置
-    # 2. 创建 PortfolioLive 实例
-    # 3. 添加策略、Sizer、RiskManager
-    # 4. 创建 PortfolioProcessor
-    # 5. 添加到 ExecutionNode
+    # STUB: Portfolio 热加载功能尚未实现
+    # See: https://github.com/Kaoruha/GinkGO/issues/4637
+    console.print(
+        f"[yellow]:warning: STUB: load 尚未实现。[/yellow]\n"
+        f"[dim]Portfolio 热加载/卸载/列表功能待开发，参见 #4637。[/dim]"
+    )
+    return
 
 
 @app.command()
@@ -219,13 +217,13 @@ def unload(
       ginkgo execution unload portfolio_123
       ginkgo execution unload portfolio_123 --node-id node_1
     """
-    console.print(f":information: Unloading Portfolio '{portfolio_id}' from ExecutionNode '{node_id}'")
-    console.print(":information: (Portfolio unloading will be implemented)")
-
-    # TODO: 实现 Portfolio 卸载逻辑
-    # 1. 停止 PortfolioProcessor
-    # 2. 从 InterestMap 移除订阅
-    # 3. 从 ExecutionNode 移除
+    # STUB: Portfolio 热卸载功能尚未实现
+    # See: https://github.com/Kaoruha/GinkGO/issues/4637
+    console.print(
+        f"[yellow]:warning: STUB: unload 尚未实现。[/yellow]\n"
+        f"[dim]Portfolio 热加载/卸载/列表功能待开发，参见 #4637。[/dim]"
+    )
+    return
 
 
 @app.command()

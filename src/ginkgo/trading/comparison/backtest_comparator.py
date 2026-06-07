@@ -120,17 +120,50 @@ class BacktestComparator:
         从数据库加载回测结果
 
         Args:
-            backtest_id: 回测 ID
+            backtest_id: 回测任务 ID (task_id)
 
         Returns:
             回测结果字典，如果不存在返回 None
         """
-        # TODO: 从数据库加载
-        # from ginkgo import services
-        # result_crud = services.data.cruds.backtest_result()
-        # return result_crud.get_by_id(backtest_id)
+        try:
+            from ginkgo.data.containers import Container
 
-        return None
+            # 1. 查 backtest_task 获取关联信息
+            task_crud = Container.backtest_task_crud()
+            task = task_crud.get_by_task_id(backtest_id)
+            if not task:
+                GLOG.WARN(f"Backtest task not found: {backtest_id}")
+                return None
+
+            # 2. 查 analyzer_record 获取指标
+            result_svc = Container.result_service()
+            result = result_svc.get_analyzer_values(
+                task_id=backtest_id,
+                portfolio_id=task.portfolio_id,
+            )
+            if not result.success or not result.data:
+                GLOG.WARN(f"No analyzer records for task: {backtest_id}")
+                return None
+
+            # 3. 组装指标字典 {name: value}
+            records = result.data
+            metrics: Dict[str, Any] = {}
+            for r in records:
+                if r.name and r.value is not None:
+                    metrics[r.name] = Decimal(str(r.value))
+
+            if not metrics:
+                return None
+
+            # 附加元信息
+            metrics["_engine_id"] = task.engine_id
+            metrics["_portfolio_id"] = task.portfolio_id
+
+            return metrics
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to load backtest result: {e}")
+            return None
 
     def _load_mock_data(self, data: Dict[str, Dict[str, Decimal]]) -> None:
         """

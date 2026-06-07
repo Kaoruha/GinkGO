@@ -146,6 +146,7 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
         if active_only:
             filters["is_active"] = True
 
+        results = self.find(filters=filters)
 
         # 应用额外过滤
         filtered_results = []
@@ -305,7 +306,7 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
         Returns:
             List[Dict]: 交易对信息列表 [{"user_id", "exchange", "symbol", "data_types"}]
         """
-        filters = {"is_active": True, "is_del": False}
+        results = self.find(filters={"is_active": True, "is_del": False})
 
         # 应用额外过滤并转换为字典
         symbol_list = []
@@ -341,6 +342,7 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
             int: 停用的订阅数量
         """
         filters = {"user_id": user_id, "is_del": False}
+        results = self.find(filters=filters)
 
         count = 0
         for subscription in results:

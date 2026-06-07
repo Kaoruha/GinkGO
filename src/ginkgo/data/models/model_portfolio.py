@@ -60,6 +60,12 @@ class MPortfolio(MMysqlBase):
     total_trades: Mapped[int] = mapped_column(default=0)
     winning_trades: Mapped[int] = mapped_column(default=0)
 
+    @property
+    def is_live(self) -> bool:
+        """是否为实盘或模拟盘模式（非回测）"""
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        return self.mode is not None and self.mode >= PORTFOLIO_MODE_TYPES.PAPER.value
+
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
         raise NotImplementedError("Unsupported type")

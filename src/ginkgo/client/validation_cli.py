@@ -49,6 +49,7 @@ def validate(
     list_strategies: Annotated[bool, typer.Option("--list", help=":list: List all components in database")] = False,
     all_db: Annotated[bool, typer.Option("--all", help=":globe_with_meridians: Validate all database strategies")] = False,
     name_filter: Annotated[str, typer.Option("--filter", help=":filter: Filter strategies by name (for --list or --all)")] = None,
+    visualize: Annotated[bool, typer.Option("--visualize", help=":chart: Generate HTML visualization report")] = False,
 ):
     """
     :mag: Validate a trading component file.

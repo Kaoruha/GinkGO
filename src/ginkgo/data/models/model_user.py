@@ -37,6 +37,7 @@ class MUser(MMysqlBase, ModelConversion):
     __tablename__ = "users"
 
     # 用户核心字段
+    name: Mapped[str] = mapped_column(String(128), nullable=False, default="", comment="用户名称")
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True, comment="登录用户名（唯一）")
     display_name: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="显示名称")
     email: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="邮箱地址")
@@ -76,6 +77,7 @@ class MUser(MMysqlBase, ModelConversion):
         super().__init__(**kwargs)
 
         self.username = username or ""
+        self.name = self.username
         self.display_name = display_name or username or ""
         self.email = email or ""
         self.description = description or ""
