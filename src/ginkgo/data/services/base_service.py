@@ -9,15 +9,17 @@ Remove intermediate DataService, ManagementService, BusinessService classificati
 """
 
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, Generic, Optional, TypeVar
 
 from ginkgo.libs import GLOG
 
+T = TypeVar("T")
 
-class ServiceResult:
+
+class ServiceResult(Generic[T]):
     """Standardized service operation result structure."""
 
-    def __init__(self, success: bool = False, error: str = "", data: Any = None, message: str = ""):
+    def __init__(self, success: bool = False, error: str = "", data: Optional[T] = None, message: str = ""):
         """
         Initialize service result with success status, error info, data and message
 
@@ -45,13 +47,11 @@ class ServiceResult:
 
     def set_data(self, key: str, value: Any):
         """
-        Set key-value pair in result data dictionary
-
-        Args:
-            key: Data field name
-            value: Data value to store
+        Set key-value pair in result data dictionary.
+        Only works when data is a dict; no-op otherwise.
         """
-        self.data[key] = value
+        if isinstance(self.data, dict):
+            self.data[key] = value
 
     def set_metadata(self, key: str, value: Any):
         """
