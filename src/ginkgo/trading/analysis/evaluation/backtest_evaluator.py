@@ -70,11 +70,11 @@ class BacktestEvaluator:
         Returns:
             Dict: 完整的评估结果
         """
-        GLOG.info(f"开始回测稳定性评估: portfolio={portfolio_id}, engine={engine_id}")
+        GLOG.INFO(f"开始回测稳定性评估: portfolio={portfolio_id}, engine={engine_id}")
         
         try:
             # 1. 获取回测数据
-            GLOG.info("步骤1: 获取回测数据")
+            GLOG.INFO("步骤1: 获取回测数据")
             backtest_data = self.data_manager.get_backtest_data(
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
@@ -84,11 +84,11 @@ class BacktestEvaluator:
             
             # 验证数据完整性
             if self._validate_backtest_data(backtest_data):
-                GLOG.error("回测数据验证失败")
+                GLOG.ERROR("回测数据验证失败")
                 return {'status': 'failed', 'reason': 'invalid_data'}
                 
             # 2. 寻找最佳切片周期
-            GLOG.info("步骤2: 寻找最佳切片周期")
+            GLOG.INFO("步骤2: 寻找最佳切片周期")
             optimal_period, stability_score, period_analysis = self.period_optimizer.find_optimal_slice_period(
                 analyzer_data=backtest_data['analyzer_data'],
                 signal_data=backtest_data['signal_data'],
@@ -96,7 +96,7 @@ class BacktestEvaluator:
             )
             
             # 3. 使用最佳周期重新切片
-            GLOG.info(f"步骤3: 使用最佳周期({optimal_period}天)重新切片")
+            GLOG.INFO(f"步骤3: 使用最佳周期({optimal_period}天)重新切片")
             optimal_slices = self.data_manager.slice_data_by_period(backtest_data, optimal_period)
             
             # 4. 平衡切片
@@ -107,15 +107,15 @@ class BacktestEvaluator:
             )
             
             # 5. 计算每个切片的指标
-            GLOG.info("步骤4: 计算切片指标")
+            GLOG.INFO("步骤4: 计算切片指标")
             slice_metrics = self._calculate_slice_metrics(balanced_slices)
             
             # 6. 计算稳定性分析
-            GLOG.info("步骤5: 计算稳定性分析")
+            GLOG.INFO("步骤5: 计算稳定性分析")
             stability_analysis = self._analyze_metric_stability(slice_metrics)
             
             # 7. 生成基准数据
-            GLOG.info("步骤6: 生成监控基准")
+            GLOG.INFO("步骤6: 生成监控基准")
             monitoring_baseline = self._create_monitoring_baseline(slice_metrics, optimal_period, balanced_slices)
             
             # 8. 生成综合评估报告
@@ -142,11 +142,11 @@ class BacktestEvaluator:
                 'recommendations': self._generate_recommendations(stability_analysis, optimal_period)
             }
             
-            GLOG.info("回测稳定性评估完成")
+            GLOG.INFO("回测稳定性评估完成")
             return evaluation_result
             
         except Exception as e:
-            GLOG.error(f"回测稳定性评估失败: {e}")
+            GLOG.ERROR(f"回测稳定性评估失败: {e}")
             return {'status': 'error', 'error': str(e)}
             
     def create_live_monitor(self, 
@@ -162,7 +162,7 @@ class BacktestEvaluator:
         Returns:
             LiveDeviationDetector: 实盘偏离检测器实例
         """
-        GLOG.info("创建实盘监控器")
+        GLOG.INFO("创建实盘监控器")
         
         baseline_stats = monitoring_baseline.get('baseline_stats', {})
         slice_period = monitoring_baseline.get('slice_period_days', 30)
@@ -175,7 +175,7 @@ class BacktestEvaluator:
         )
         monitor._daily_curves = daily_curves
         
-        GLOG.info(f"实盘监控器创建完成，切片周期: {slice_period}天")
+        GLOG.INFO(f"实盘监控器创建完成，切片周期: {slice_period}天")
         return monitor
         
     def _validate_backtest_data(self, backtest_data: Dict[str, pd.DataFrame]) -> bool:
@@ -194,18 +194,18 @@ class BacktestEvaluator:
         
         # 检查基本数据存在
         if analyzer_data.empty:
-            GLOG.error("Analyzer数据为空")
+            GLOG.ERROR("Analyzer数据为空")
             return True
             
         # 检查必要列存在
         required_analyzer_cols = ['timestamp', 'name', 'value']
         if not all(col in analyzer_data.columns for col in required_analyzer_cols):
-            GLOG.error(f"Analyzer数据缺少必要列: {required_analyzer_cols}")
+            GLOG.ERROR(f"Analyzer数据缺少必要列: {required_analyzer_cols}")
             return True
             
         # 检查数据量
         if len(analyzer_data) < 10:
-            GLOG.error(f"Analyzer数据量太少: {len(analyzer_data)}")
+            GLOG.ERROR(f"Analyzer数据量太少: {len(analyzer_data)}")
             return True
             
         return False
@@ -457,8 +457,8 @@ class BacktestEvaluator:
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(evaluation_result, f, indent=2, ensure_ascii=False, default=str)
-            GLOG.info(f"评估报告已导出到: {file_path}")
+            GLOG.INFO(f"评估报告已导出到: {file_path}")
             return True
         except Exception as e:
-            GLOG.error(f"导出评估报告失败: {e}")
+            GLOG.ERROR(f"导出评估报告失败: {e}")
             return False
