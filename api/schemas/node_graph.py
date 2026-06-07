@@ -126,43 +126,33 @@ class ValidationResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
-class AnalyzerConfig(BaseModel):
-    """分析器配置"""
-    uuid: Optional[str] = None  # 已有分析器的UUID
-    name: str = Field(..., description="分析器名称")
-    type: str = Field(..., description="分析器类型")
-    config: Optional[Dict[str, Any]] = Field(default_factory=dict, description="分析器参数")
+# 复用 Service 层的回测 Schema，避免重复定义
+from ginkgo.data.services.backtest_task_schemas import (
+    AnalyzerConfig as _AnalyzerConfig,
+    EngineConfig as _EngineConfig,
+    ComponentConfig as _ComponentConfig,
+    BacktestTaskCreate as _BacktestTaskCreate,
+)
 
 
-class EngineConfig(BaseModel):
-    """Engine 配置"""
-    start_date: str
-    end_date: str
-    broker_type: str = "backtest"
-    initial_cash: Optional[float] = Field(None, gt=0, description="初始资金覆盖")
-    commission_rate: float = 0.0003
-    slippage_rate: float = 0.0001
-    broker_attitude: int = Field(default=2, ge=1, le=3)
-    # 分析器配置（Engine 级别）
-    analyzers: Optional[List[AnalyzerConfig]] = Field(default_factory=list, description="分析器列表")
+class AnalyzerConfig(_AnalyzerConfig):
+    """分析器配置（扩展：支持已有分析器 UUID）"""
+    uuid: Optional[str] = None
 
 
-class ComponentConfig(BaseModel):
-    """组件配置"""
-    max_position_ratio: Optional[float] = Field(None, ge=0, le=1)
-    stop_loss_ratio: Optional[float] = Field(None, ge=0, le=1)
-    take_profit_ratio: Optional[float] = Field(None, ge=0, le=1)
-    benchmark_return: float = 0.0
-    frequency: str = "DAY"
+class EngineConfig(_EngineConfig):
+    """Engine 配置（复用 Service 层定义）"""
+    pass
 
 
-class BacktestTaskCreate(BaseModel):
-    """回测任务创建配置"""
-    name: str
-    engine_uuid: Optional[str] = None
-    portfolio_uuids: List[str]
-    engine_config: EngineConfig
-    component_config: Optional[ComponentConfig] = None
+class ComponentConfig(_ComponentConfig):
+    """组件配置（复用 Service 层定义）"""
+    pass
+
+
+class BacktestTaskCreate(_BacktestTaskCreate):
+    """回测任务创建配置（复用 Service 层定义）"""
+    pass
 
 
 class CompileResult(BaseModel):
