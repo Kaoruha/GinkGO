@@ -120,6 +120,16 @@ ginkgo backtest cat <backtest_id>
 ginkgo backtest list
 ```
 
+#### Programmatic Backtest
+
+完整事件驱动回测流程示例（无需数据库，可直接运行）：
+
+```bash
+python examples/complete_backtest_example.py
+```
+
+> 也可以参考 [`examples/ma_crossover_backtest_example.py`](examples/ma_crossover_backtest_example.py)（金叉死叉策略）和 [`examples/backtest_with_task_example.py`](examples/backtest_with_task_example.py)（带 Task 记录的回测）。
+
 ### Worker Management
 
 ```bash
