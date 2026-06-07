@@ -19,6 +19,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/portfolio/PortfolioDetail.vue'),
     children: [
       { path: '', name: 'PortfolioDetail', component: () => import('@/views/portfolio/tabs/OverviewTab.vue'), meta: { title: '组合详情' } },
+      { path: 'paper', name: 'PortfolioPaper', component: () => import('@/views/portfolio/tabs/PaperTab.vue'), meta: { title: '模拟盘' } },
+      { path: 'live', name: 'PortfolioLive', component: () => import('@/views/portfolio/tabs/LiveTab.vue'), meta: { title: '实盘' } },
       { path: 'backtests', name: 'PortfolioBacktests', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测' } },
       { path: 'backtests/:backtestId', name: 'BacktestDetail', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测详情' } },
       { path: 'validation', name: 'PortfolioValidation', component: () => import('@/views/portfolio/tabs/ValidationTab.vue'), meta: { title: '验证' } },
@@ -70,10 +72,26 @@ const routes: RouteRecordRaw[] = [
   { path: '/validation', name: 'ValidationCenter', component: () => import('@/views/validation/ValidationListPage.vue'), meta: { title: '策略验证' } },
 
   // ===== 交易 =====
-  { path: '/trading', name: 'Trading', redirect: '/trading/paper', meta: { title: '交易' } },
-  { path: '/trading/paper', name: 'TradingPaper', component: () => import('@/views/stage3/PaperTrading.vue'), meta: { title: '模拟盘监控' } },
-  { path: '/trading/live', name: 'TradingLive', component: () => import('@/views/stage4/LiveTrading.vue'), meta: { title: '实盘监控' } },
-  { path: '/trading/live/market', name: 'MarketData', component: () => import('@/views/stage4/MarketData.vue'), meta: { title: '市场数据', requiresAuth: false } },
+  {
+    path: '/trading',
+    component: () => import('@/views/trading/TradingPage.vue'),
+    children: [
+      { path: '', redirect: '/trading/paper' },
+      { path: 'paper', name: 'TradingPaper', component: () => import('@/views/stage3/PaperTrading.vue'), meta: { title: '模拟盘监控' } },
+      {
+        path: 'live',
+        component: () => import('@/views/live/LivePage.vue'),
+        children: [
+          { path: '', name: 'TradingLive', component: () => import('@/views/stage4/LiveTrading.vue'), meta: { title: '实盘监控' } },
+          { path: 'accounts', name: 'LiveAccountConfig', component: () => import('@/views/live/AccountConfig.vue'), meta: { title: '账号配置' } },
+          { path: 'monitor', name: 'LiveAccountInfo', component: () => import('@/views/live/AccountInfo.vue'), meta: { title: '账户监控' } },
+          { path: 'brokers', name: 'LiveBrokers', component: () => import('@/views/live/BrokerManagement.vue'), meta: { title: 'Broker 管理' } },
+          { path: 'market', name: 'MarketData', component: () => import('@/views/stage4/MarketData.vue'), meta: { title: '市场数据', requiresAuth: false } },
+          { path: 'history', name: 'TradeHistory', component: () => import('@/views/live/TradeHistory.vue'), meta: { title: '交易历史' } },
+        ],
+      },
+    ],
+  },
 
   // ===== 数据 =====
   { path: '/data', name: 'DataOverview', component: () => import('@/views/data/DataOverview.vue'), meta: { title: '数据概览' } },
@@ -122,11 +140,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/live/orders', redirect: '/trading/live' },
   { path: '/live/positions', redirect: '/trading/live' },
   { path: '/live/market', redirect: '/trading/live/market' },
-  { path: '/live/account-config', redirect: '/trading/live' },
-  { path: '/live/account-info', redirect: '/trading/live' },
-  { path: '/live/broker-management', redirect: '/trading/live' },
-  { path: '/live/trade-history', redirect: '/trading/live' },
-  { path: '/live/trading-control', redirect: '/trading/live' },
+  { path: '/live/account-config', redirect: '/trading/live/accounts' },
+  { path: '/live/account-info', redirect: '/trading/live/monitor' },
+  { path: '/live/broker-management', redirect: '/trading/live/brokers' },
+  { path: '/live/trade-history', redirect: '/trading/live/history' },
+  { path: '/live/trading-control', redirect: '/trading/live/brokers' },
   // 研究旧路径
   { path: '/research/ic', redirect: '/research/factor/ic' },
   { path: '/research/layering', redirect: '/research/factor/layering' },
