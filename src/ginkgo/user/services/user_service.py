@@ -51,7 +51,10 @@ class UserService(BaseService):
         name: str,
         user_type: Union[USER_TYPES, int, str] = USER_TYPES.PERSON,
         description: Optional[str] = None,
-        is_active: bool = True
+        is_active: bool = True,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        password_hash: Optional[str] = None,
     ) -> ServiceResult:
         """
         Add a new user (automatically creates credential with password=username)
@@ -82,10 +85,18 @@ class UserService(BaseService):
                     message="User type must be PERSON, CHANNEL, or ORGANIZATION"
                 )
 
+            # Check for duplicate username (exclude soft-deleted)
+            existing = self.user_crud.find(filters={"username": name, "is_del": False}, page_size=1)
+            if existing:
+                return ServiceResult.error(
+                    f"Username '{name}' already exists",
+                    message="Username already exists"
+                )
+
             # Create user - name is used as both username and display_name
             user = MUser(
                 username=name,
-                display_name=name,
+                display_name=display_name or name,
                 description=description,
                 user_type=validated_type,
                 is_active=is_active,
@@ -108,7 +119,7 @@ class UserService(BaseService):
             import bcrypt
             from ginkgo.data.models import MUserCredential
 
-            password_hash = bcrypt.hashpw(name.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            password_hash = password_hash or bcrypt.hashpw(name.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             credential = MUserCredential(
                 user_id=user_uuid,
                 password_hash=password_hash,
@@ -127,14 +138,28 @@ class UserService(BaseService):
 
             GLOG.INFO(f"Created user: {user_uuid}, username={name}, type={USER_TYPES.from_int(validated_type).name}")
 
+            # Auto-create email contact if provided
+            if email:
+                email_type = CONTACT_TYPES.validate_input(CONTACT_TYPES.EMAIL)
+                self.user_contact_crud.add(MUserContact(
+                    user_id=user_uuid,
+                    contact_type=email_type,
+                    address=email,
+                    is_primary=True,
+                    is_active=is_active,
+                    source=SOURCE_TYPES.OTHER
+                ))
+
             return ServiceResult.success(
                 data={
                     "uuid": user_uuid,
                     "username": name,
-                    "display_name": name,
+                    "display_name": display_name or name,
                     "description": description or "",
                     "user_type": USER_TYPES.from_int(validated_type).name,
-                    "is_active": is_active
+                    "is_active": is_active,
+                    "is_admin": False,
+                    "email": email or "",
                 },
                 message=f"User '{name}' created successfully"
             )
@@ -297,11 +322,23 @@ class UserService(BaseService):
 
             user = users[0]
 
+            # Fetch email from contacts
+            email = ""
+            try:
+                contacts = self.user_contact_crud.find_by_user_id(user_id=user.uuid)
+                for c in contacts:
+                    if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
+                        email = c.address
+                        break
+            except Exception:
+                pass
+
             return ServiceResult.success(
                 data={
                     "uuid": user.uuid,
                     "username": user.username,
                     "display_name": user.display_name,
+                    "email": email,
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
@@ -370,7 +407,10 @@ class UserService(BaseService):
         user_uuid: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        is_active: Optional[bool] = None
+        is_active: Optional[bool] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        is_admin: Optional[bool] = None,
     ) -> ServiceResult:
         """
         Update user information
@@ -402,19 +442,59 @@ class UserService(BaseService):
                 # Update both username and display_name when name is provided
                 updates["username"] = name
                 updates["display_name"] = name
+            if display_name is not None:
+                # Update only display_name without touching username
+                updates["display_name"] = display_name
             if description is not None:
                 updates["description"] = description
             if is_active is not None:
                 updates["is_active"] = is_active
 
-            if not updates:
+            if not updates and email is None and is_admin is None:
                 return ServiceResult.error(
                     "No updates provided",
                     message="At least one field must be specified for update"
                 )
 
-            # Use modify to update
-            self.user_crud.modify(filters={"uuid": user_uuid}, updates=updates)
+            # Apply user table updates
+            if updates:
+                self.user_crud.modify(filters={"uuid": user_uuid}, updates=updates)
+
+            # Sync credential fields (is_admin and is_active)
+            credential_updates = {}
+            if is_admin is not None:
+                credential_updates["is_admin"] = is_admin
+            if is_active is not None:
+                credential_updates["is_active"] = is_active
+            if credential_updates:
+                credential = self.user_credential_crud.get_by_user_id(user_uuid)
+                if credential:
+                    self.user_credential_crud.modify(
+                        filters={"uuid": credential.uuid},
+                        updates=credential_updates,
+                    )
+
+            # Update/create email contact if requested
+            if email is not None:
+                existing_contacts = self.user_contact_crud.find_by_user_id(user_id=user_uuid)
+                email_contacts = [c for c in existing_contacts
+                                  if hasattr(c, 'contact_type') and
+                                  CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL]
+                if email_contacts:
+                    self.user_contact_crud.modify(
+                        filters={"uuid": email_contacts[0].uuid},
+                        updates={"address": email},
+                    )
+                else:
+                    email_type = CONTACT_TYPES.validate_input(CONTACT_TYPES.EMAIL)
+                    self.user_contact_crud.add(MUserContact(
+                        user_id=user_uuid,
+                        contact_type=email_type,
+                        address=email,
+                        is_primary=True,
+                        is_active=True,
+                        source=SOURCE_TYPES.OTHER,
+                    ))
 
             GLOG.INFO(f"Updated user: {user_uuid}")
 
@@ -429,6 +509,10 @@ class UserService(BaseService):
 
             updated_user = users[0]
 
+            # Fetch credential for is_admin
+            credential = self.user_credential_crud.get_by_user_id(user_uuid)
+            is_admin_val = credential.is_admin if credential and hasattr(credential, 'is_admin') else False
+
             return ServiceResult.success(
                 data={
                     "uuid": user_uuid,
@@ -436,7 +520,8 @@ class UserService(BaseService):
                     "display_name": updated_user.display_name,
                     "description": updated_user.description,
                     "user_type": USER_TYPES.from_int(updated_user.user_type).name,
-                    "is_active": updated_user.is_active
+                    "is_active": updated_user.is_active,
+                    "is_admin": is_admin_val,
                 },
                 message="User updated successfully"
             )
@@ -453,6 +538,8 @@ class UserService(BaseService):
         user_type: Optional[Union[USER_TYPES, int]] = None,
         is_active: Optional[bool] = None,
         name: Optional[str] = None,
+        username: Optional[str] = None,
+        is_del: Optional[bool] = None,
         limit: int = 100
     ) -> ServiceResult:
         """
@@ -468,7 +555,7 @@ class UserService(BaseService):
             ServiceResult with list of users
         """
         try:
-            filters = {"is_del": False}  # 默认过滤已删除的用户
+            filters = {"is_del": is_del if is_del is not None else False}
             if user_type is not None:
                 validated = USER_TYPES.validate_input(user_type)
                 if validated is not None:
@@ -479,21 +566,44 @@ class UserService(BaseService):
             # #3956
             users = self.user_crud.find(filters=filters)
 
+            # 按 username 精确匹配（优先级高于模糊 name 搜索）
+            if username:
+                users = [u for u in users if u.username == username]
+
             # 按 name 过滤（在 Python 端实现模糊匹配，搜索 username 和 display_name）
             if name:
                 name_lower = name.lower()
                 users = [u for u in users if name_lower in u.username.lower() or (u.display_name and name_lower in u.display_name.lower())]
 
+            # Batch-fetch credentials for is_admin enrichment
+            credentials_map = self.get_all_credentials()
+
+            # Batch-fetch email contacts
+            email_map = {}
+            try:
+                all_contacts = self.user_contact_crud.find()
+                for c in all_contacts:
+                    if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
+                        if hasattr(c, 'user_id') and c.user_id not in email_map:
+                            email_map[c.user_id] = c.address
+            except Exception:
+                pass
+
             user_list = []
             for user in users:
+                cred = credentials_map.get(user.uuid)
+                is_admin_val = cred.is_admin if cred and hasattr(cred, 'is_admin') else False
                 user_list.append({
                     "uuid": user.uuid,
                     "username": user.username,
                     "display_name": user.display_name,
+                    "email": email_map.get(user.uuid, ""),
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
-                    "create_at": user.create_at.isoformat() if user.create_at else None
+                    "is_admin": is_admin_val,
+                    "create_at": user.create_at.isoformat() if user.create_at else None,
+                    "created_at": user.create_at.isoformat() if user.create_at else None,
                 })
 
             return ServiceResult.success(
@@ -514,17 +624,18 @@ class UserService(BaseService):
         contact_uuid: str,
         contact_type: Optional[Union[CONTACT_TYPES, int, str]] = None,
         address: Optional[str] = None,
-        is_active: Optional[bool] = None
+        is_active: Optional[bool] = None,
+        is_primary: Optional[bool] = None,
     ) -> ServiceResult:
         """
-        Update contact information (type, address and active status).
-        Use set_primary() to change primary status.
+        Update contact information (type, address, active and primary status).
 
         Args:
             contact_uuid: Contact UUID
             contact_type: New contact type (optional)
             address: New address (optional)
             is_active: New active status (optional)
+            is_primary: Set as primary contact (optional; True delegates to set_primary logic)
 
         Returns:
             ServiceResult with updated contact info
@@ -565,14 +676,21 @@ class UserService(BaseService):
             if is_active is not None:
                 updates["is_active"] = is_active
 
-            if not updates:
+            if not updates and is_primary is None:
                 return ServiceResult.error(
                     "No updates provided",
                     message="At least one field must be specified for update"
                 )
 
+            # Handle is_primary=True via set_primary logic (clears others first)
+            if is_primary is True:
+                self.set_primary(contact_uuid)
+            elif is_primary is False:
+                updates["is_primary"] = False
+
             # Use modify to update
-            self.user_contact_crud.modify(filters={"uuid": contact_uuid}, updates=updates)
+            if updates:
+                self.user_contact_crud.modify(filters={"uuid": contact_uuid}, updates=updates)
 
             GLOG.INFO(f"Updated contact: {contact_uuid}")
 
@@ -797,3 +915,70 @@ class UserService(BaseService):
                 f"Failed to search users: {str(e)}",
                 message=f"Error: {str(e)}"
             )
+
+    # ==================== 凭据方法 (#4604 迁移自 data/services) ====================
+
+    def get_credential(self, user_id: str):
+        """根据用户 ID 获取凭据对象，未找到返回 None"""
+        return self.user_credential_crud.get_by_user_id(user_id)
+
+    def get_all_credentials(self) -> dict:
+        """批量获取所有凭证，返回 {user_id: credential} 字典"""
+        try:
+            credentials = self.user_credential_crud.find()
+            return {c.user_id: c for c in credentials if hasattr(c, 'user_id')}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get all credentials: {e}")
+            return {}
+
+    def update_last_login(self, credential_uuid: str, ip: str = "") -> bool:
+        """更新最后登录时间和 IP"""
+        from datetime import datetime
+        try:
+            self.user_credential_crud.modify(
+                {"uuid": credential_uuid},
+                {"last_login_at": datetime.now(), "last_login_ip": ip},
+            )
+            return True
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update last login: {e}")
+            return False
+
+    def update_password(self, credential_uuid: str, new_password_hash: str) -> bool:
+        """更新密码哈希"""
+        try:
+            self.user_credential_crud.modify(
+                {"uuid": credential_uuid},
+                {"password_hash": new_password_hash},
+            )
+            return True
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update password: {e}")
+            return False
+
+    def reset_password(self, user_uuid: str, new_password_hash: str) -> ServiceResult:
+        """通过用户 UUID 重置密码"""
+        try:
+            credential = self.user_credential_crud.get_by_user_id(user_uuid)
+            if not credential:
+                return ServiceResult.error("Credential not found")
+            self.user_credential_crud.modify(
+                {"uuid": credential.uuid},
+                {"password_hash": new_password_hash},
+            )
+            return ServiceResult.success({"reset": True})
+        except Exception as e:
+            GLOG.ERROR(f"Failed to reset password: {e}")
+            return ServiceResult.error(str(e))
+
+    def get_contact(self, contact_uuid: str) -> ServiceResult:
+        """获取单个联系方式"""
+        try:
+            contacts = self.user_contact_crud.find(filters={"uuid": contact_uuid})
+            if not contacts:
+                return ServiceResult.error("Contact not found")
+            return ServiceResult.success(contacts[0])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get contact: {e}")
+            return ServiceResult.error(str(e))
+

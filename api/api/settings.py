@@ -11,8 +11,6 @@ import bcrypt
 from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
-from ginkgo.data.services.user_service import UserService
-from ginkgo.data.services.user_group_service import UserGroupService
 from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
 from core.response import ok
@@ -22,14 +20,14 @@ router = APIRouter()
 
 # ==================== 通用函数 ====================
 
-def get_user_service() -> UserService:
+def get_user_service():
     """获取UserService实例"""
-    return UserService()
+    return container.user_service()
 
 
-def get_user_group_service() -> UserGroupService:
+def get_user_group_service():
     """获取UserGroupService实例"""
-    return UserGroupService()
+    return container.user_group_service()
 
 
 def get_notification_service() -> NotificationService:
@@ -150,7 +148,7 @@ async def create_user(data: UserCreate):
 
         # 检查用户名是否已存在
         existing_result = user_service.list_users(username=data.username, is_del=False)
-        existing_users = existing_result.data if existing_result.success else []
+        existing_users = existing_result.data.get("users", []) if existing_result.success else []
         if existing_users:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -163,8 +161,8 @@ async def create_user(data: UserCreate):
         is_active = data.status == "active"
 
         # 通过 Service 创建用户（含凭据）
-        result = user_service.create_user(
-            username=data.username,
+        result = user_service.add_user(
+            name=data.username,
             display_name=data.display_name,
             email=data.email,
             description=f"User created via API: {data.username}",
@@ -375,26 +373,26 @@ async def list_user_contacts(user_uuid: str):
             )
 
         # 获取联系方式
-        contacts_result = user_service.get_contacts(user_uuid)
+        contacts_result = user_service.get_user_contacts(user_uuid)
         if not contacts_result.success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to list contacts"
             )
 
-        contacts = contacts_result.data
+        contacts_data = contacts_result.data
+        contacts = contacts_data.get("contacts", []) if isinstance(contacts_data, dict) else contacts_data
 
         result = []
         for contact in contacts:
-            contact_type_enum = contact.get_contact_type_enum()
             result.append({
-                "uuid": contact.uuid,
-                "user_id": contact.user_id,
-                "contact_type": contact_type_enum.name.lower() if contact_type_enum else "email",
-                "address": contact.address,
-                "is_primary": contact.is_primary,
-                "is_active": contact.is_active,
-                "created_at": contact.create_at.isoformat() if contact.create_at else datetime.utcnow().isoformat() + "Z"
+                "uuid": contact.get("uuid", ""),
+                "user_id": contact.get("user_id", ""),
+                "contact_type": contact.get("contact_type", "EMAIL").lower(),
+                "address": contact.get("address", ""),
+                "is_primary": contact.get("is_primary", False),
+                "is_active": contact.get("is_active", True),
+                "created_at": contact.get("created_at") or contact.get("create_at") or datetime.utcnow().isoformat() + "Z"
             })
 
         return ok(data=result)
@@ -431,10 +429,10 @@ async def create_user_contact(user_uuid: str, data: UserContactCreate):
         contact_type_enum = type_map.get(data.contact_type.lower(), CONTACT_TYPES.EMAIL)
 
         # 通过 Service 创建联系方式
-        result = user_service.create_contact(
-            user_id=user_uuid,
+        result = user_service.add_contact(
+            user_uuid=user_uuid,
             contact_type=contact_type_enum,
-            contact_value=data.address,
+            address=data.address,
             is_primary=data.is_primary,
         )
         if not result.success:
@@ -623,11 +621,13 @@ async def set_primary_contact(contact_uuid: str):
         contact = contact_result.data
 
         # 取消该用户的其他主联系方式
-        contacts_result = user_service.get_contacts(contact.user_id)
+        contacts_result = user_service.get_user_contacts(contact.user_id)
         if contacts_result.success:
-            for c in contacts_result.data:
-                if c.uuid != contact_uuid and c.is_primary:
-                    user_service.update_contact(c.uuid, is_primary=False)
+            contacts_data = contacts_result.data
+            contacts = contacts_data.get("contacts", []) if isinstance(contacts_data, dict) else contacts_data
+            for c in contacts:
+                if c.get("uuid") != contact_uuid and c.get("is_primary"):
+                    user_service.update_contact(c.get("uuid"), is_primary=False)
 
         # 设置为主联系方式
         user_service.update_contact(contact_uuid, is_primary=True)
@@ -887,10 +887,10 @@ async def list_group_members(group_uuid: str):
                 user = user_result.data
                 result.append({
                     "uuid": member_data.get("group_uuid", ""),
-                    "user_uuid": user.uuid,
-                    "username": user.username,
-                    "display_name": user.display_name or user.username,
-                    "email": user.email or ""
+                    "user_uuid": user["uuid"],
+                    "username": user["username"],
+                    "display_name": user.get("display_name") or user["username"],
+                    "email": user.get("email", "")
                 })
 
         return ok(data=result)
