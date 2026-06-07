@@ -78,11 +78,13 @@ class ComponentLoader:
                     component_kwargs = {}
                     if param_records:
                         sorted_params = sorted(param_records, key=lambda p: p.index)
+                        param_indices = []
                         for p in sorted_params:
                             try:
                                 component_params.append(json.loads(p.value) if p.value else p.value)
                             except (json.JSONDecodeError, TypeError):
                                 component_params.append(p.value)
+                            param_indices.append(p.index)
                         self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
 
                         # 用动态参数提取器获取参数名，构建 kwargs
@@ -96,9 +98,10 @@ class ComponentLoader:
                                 file_type_str = type_map.get(component_type)
                                 if file_type_str:
                                     param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
-                                    for idx, val in enumerate(component_params):
-                                        if idx in param_names:
-                                            component_kwargs[param_names[idx]] = val
+                                    for i, val in enumerate(component_params):
+                                        orig_idx = param_indices[i]
+                                        if orig_idx in param_names:
+                                            component_kwargs[param_names[orig_idx]] = val
                         except Exception as e:
                             self._logger.WARN(f"Failed to resolve param names, falling back to positional: {e}")
                     else:
@@ -337,7 +340,7 @@ class ComponentLoader:
                 """统一加载组件：ORM 对象或 dict（必须含 file_id）"""
                 if isinstance(mapping, dict) and "file_id" in mapping:
                     return _instantiate_component_from_file(
-                        mapping["file_id"], mapping.get("type", component_type_int), mapping["mapping_uuid"]
+                        mapping["file_id"], mapping.get("type", component_type_int), mapping.get("mapping_uuid") or mapping.get("mount_id")
                     )
                 else:
                     return _instantiate_component_from_file(
