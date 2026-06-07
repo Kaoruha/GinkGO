@@ -1,39 +1,32 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
+    <div class="page-header" style="flex-direction: row !important; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div class="page-title" style="margin-bottom: 0;">
         <button class="back-btn" @click="$router.push('/data')">←</button>
         <span class="tag tag-green">K线</span>
         K线数据
+        <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
         <span v-if="isLoadingMore" class="tag tag-blue" style="margin-left: 8px">
-          <span class="spin">↻</span> 加载历史数据...
+          <span class="spin">↻</span> 加载中...
         </span>
       </div>
-      <div class="header-controls">
-        <span v-if="lastSyncTime" class="last-sync-hint">
-          最近同步: {{ lastSyncTime }}
-        </span>
-        <button
-          class="btn-sync"
-          :disabled="!selectedCode || syncing"
-          @click="handleSync"
-        >
-          <span v-if="syncing" class="spin">↻</span>
-          {{ syncing ? '同步中...' : '同步' }}
-        </button>
-        <select v-model="selectedCode" class="form-select" @change="handleCodeChange">
-          <option value="">选择股票</option>
-          <option v-for="opt in stockOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </div>
+      <span style="flex: 1;"></span>
+      <span v-if="lastSyncTime" class="last-sync-hint">{{ lastSyncTime }}</span>
+      <button class="btn-sync" :disabled="!selectedCode || syncing" @click="handleSync">
+        <span v-if="syncing" class="spin">↻</span>
+        {{ syncing ? '同步中' : '同步' }}
+      </button>
+      <SearchSelect
+        :search-fn="searchStocks"
+        placeholder="搜索股票代码..."
+        style="width: 200px;"
+        @select="handleSelectStock"
+      />
     </div>
 
     <!-- K线图表 + 行内统计 -->
     <div class="card">
       <div class="chart-header">
-        <h3 class="card-title">K线图</h3>
         <div v-if="barData.length > 0" class="stats-inline">
           <span class="stat-item">最新 <strong>{{ latestBar?.close?.toFixed(2) }}</strong></span>
           <span class="stat-item" :class="priceChange >= 0 ? 'text-up' : 'text-down'">
@@ -64,63 +57,38 @@
     <!-- K线数据表格 -->
     <div class="card">
       <h3 class="card-title">数据明细</h3>
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>开盘</th>
-              <th>最高</th>
-              <th>最低</th>
-              <th>收盘</th>
-              <th>涨跌幅</th>
-              <th>成交量</th>
-              <th>成交额</th>
-            </tr>
-          </thead>
-          <tbody v-if="!loading && barData.length > 0">
-            <tr v-for="(bar, idx) in paginatedBars" :key="idx">
-              <td>{{ formatDate(bar.timestamp) }}</td>
-              <td>{{ bar.open?.toFixed(2) }}</td>
-              <td>{{ bar.high?.toFixed(2) }}</td>
-              <td>{{ bar.low?.toFixed(2) }}</td>
-              <td>{{ bar.close?.toFixed(2) }}</td>
-              <td :class="bar.change >= 0 ? 'text-up' : 'text-down'">
-                {{ bar.change >= 0 ? '+' : '' }}{{ bar.change?.toFixed(2) }}%
-              </td>
-              <td>{{ formatNumber(bar.volume) }}</td>
-              <td>{{ formatNumber(bar.amount) }}</td>
-            </tr>
-          </tbody>
-          <tbody v-else-if="loading">
-            <tr>
-              <td colspan="8" class="text-center">加载中...</td>
-            </tr>
-          </tbody>
-          <tbody v-else>
-            <tr>
-              <td colspan="8" class="text-center">暂无数据</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="barData.length > 0" class="pagination">
-        <button @click="pagination.current = 1" :disabled="pagination.current === 1" class="btn-small">«</button>
-        <button @click="pagination.current--" :disabled="pagination.current === 1" class="btn-small">‹</button>
-        <span class="pagination-info">
-          {{ (pagination.current - 1) * pagination.pageSize + 1 }} -
-          {{ Math.min(pagination.current * pagination.pageSize, pagination.total) }} / {{ pagination.total }}
-        </span>
-        <button @click="pagination.current++" :disabled="pagination.current * pagination.pageSize >= pagination.total" class="btn-small">›</button>
-        <button @click="pagination.current = Math.ceil(pagination.total / pagination.pageSize)" :disabled="pagination.current * pagination.pageSize >= pagination.total" class="btn-small">»</button>
-      </div>
+      <DataTable
+        :columns="barColumns"
+        :data-source="barData"
+        :loading="loading"
+        :page="tablePage"
+        :page-size="50"
+        :max-height="340"
+        row-key="timestamp"
+        @update:page="tablePage = $event"
+      >
+        <template #colDate="{ record }">{{ formatDate(record.timestamp) }}</template>
+        <template #colOpen="{ record }">{{ record.open?.toFixed(2) }}</template>
+        <template #colHigh="{ record }">{{ record.high?.toFixed(2) }}</template>
+        <template #colLow="{ record }">{{ record.low?.toFixed(2) }}</template>
+        <template #colClose="{ record }">{{ record.close?.toFixed(2) }}</template>
+        <template #colChange="{ record }">
+          <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
+            {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
+          </span>
+        </template>
+        <template #colVolume="{ record }">{{ formatNumber(record.volume) }}</template>
+        <template #colAmount="{ record }">{{ formatNumber(record.amount) }}</template>
+      </DataTable>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import DataTable from '@/components/data/DataTable.vue'
+import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
 import {
@@ -143,6 +111,7 @@ const selectedCode = ref<string>('')
 const barData = ref<any[]>([])
 const lastSyncTime = ref<string>('')
 const syncing = ref(false)
+const selectedLabel = ref('')
 
 const hasMoreHistory = ref(true)
 const earliestDate = ref<Dayjs | null>(null)
@@ -154,19 +123,31 @@ let chart: IChartApi | null = null
 let candlestickSeries: ISeriesApi<'Candlestick'> | null = null
 let volumeSeries: ISeriesApi<'Histogram'> | null = null
 let isLoadingLocked = false
+let resizeObserver: ResizeObserver | null = null
 
-const pagination = reactive({ current: 1, pageSize: 50, total: 0 })
+const tablePage = ref(1)
 
-const stockOptions = [
-  { value: '000001.SZ', label: '000001.SZ 平安银行' },
-  { value: '000002.SZ', label: '000002.SZ 万科A' },
-  { value: '600519.SH', label: '600519.SH 贵州茅台' },
+const barColumns = [
+  { title: '日期', dataIndex: 'timestamp', slotName: 'colDate' },
+  { title: '开盘', dataIndex: 'open', slotName: 'colOpen' },
+  { title: '最高', dataIndex: 'high', slotName: 'colHigh' },
+  { title: '最低', dataIndex: 'low', slotName: 'colLow' },
+  { title: '收盘', dataIndex: 'close', slotName: 'colClose' },
+  { title: '涨跌幅', dataIndex: 'change', slotName: 'colChange' },
+  { title: '成交量', dataIndex: 'volume', slotName: 'colVolume' },
+  { title: '成交额', dataIndex: 'amount', slotName: 'colAmount' },
 ]
 
-const paginatedBars = computed(() => {
-  const start = (pagination.current - 1) * pagination.pageSize
-  return barData.value.slice(start, start + pagination.pageSize)
-})
+const stockOptions: { value: string; label: string }[] = []
+
+const searchStocks = async (query: string) => {
+  const res = await dataApi.listStocks({ query, page_size: 50 })
+  const items = (res as any)?.data ?? res ?? []
+  return (Array.isArray(items) ? items : []).map((s: any) => ({
+    value: s.code,
+    label: `${s.code} ${s.name || ''}`,
+  }))
+}
 
 const latestBar = computed(() => barData.value[barData.value.length - 1])
 const prevBar = computed(() => barData.value[barData.value.length - 2])
@@ -227,7 +208,7 @@ const initChart = () => {
       horzLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
     },
     rightPriceScale: { borderColor: '#2a2a3e', scaleMargins: { top: 0.1, bottom: 0.25 } },
-    timeScale: { borderColor: '#2a2a3e', timeVisible: true, secondsVisible: false },
+    timeScale: { borderColor: '#2a2a3e', timeVisible: true, secondsVisible: false, fixRightEdge: true, fixLeftEdge: false },
   })
 
   candlestickSeries = chart.addCandlestickSeries({
@@ -255,13 +236,14 @@ const initChart = () => {
     checkLoadMore()
   })
 
-  window.addEventListener('resize', () => {
+  // 监听容器尺寸变化
+  resizeObserver?.disconnect()
+  resizeObserver = new ResizeObserver(() => {
     if (chart && chartContainer.value) {
       chart.applyOptions({ width: chartContainer.value.clientWidth })
-      // resize 后检查是否需要加载更多数据填充新宽度
-      setTimeout(() => checkLoadMore(), 100)
     }
   })
+  resizeObserver.observe(chartContainer.value)
 }
 
 let cachedCandleData: CandlestickData[] = []
@@ -277,20 +259,26 @@ const convertToChartData = (data: any[]) => {
   return { candles, volumes }
 }
 
-const updateChartDataPrepend = (newData: any[]) => {
-  if (!candlestickSeries || !volumeSeries || newData.length === 0) return
-  const { candles, volumes } = convertToChartData(newData)
-  requestAnimationFrame(() => {
-    if (!candlestickSeries || !volumeSeries) return
-    cachedCandleData = [...candles, ...cachedCandleData]
-    cachedVolumeData = [...volumes, ...cachedVolumeData]
-    if (cachedCandleData.length > MAX_DATA_POINTS) {
-      cachedCandleData = cachedCandleData.slice(0, MAX_DATA_POINTS)
-      cachedVolumeData = cachedVolumeData.slice(0, MAX_DATA_POINTS)
-    }
-    candlestickSeries.setData(cachedCandleData)
-    volumeSeries.setData(cachedVolumeData)
-  })
+const updateChartDataPrepend = (_newData: any[], visibleTimeRange: { from: Time; to: Time } | null) => {
+  if (!candlestickSeries || !volumeSeries || barData.value.length === 0) return
+
+  // 从 barData（source of truth）重建，避免缓存不同步
+  const { candles, volumes } = convertToChartData(barData.value)
+
+  // 去重 + 升序排列
+  const deduped = (arr: any[]) => [...new Map(arr.map(d => [d.time, d])).values()]
+    .sort((a, b) => (a.time as any).localeCompare?.(b.time as any) || 0)
+
+  cachedCandleData = deduped(candles).slice(-MAX_DATA_POINTS)
+  cachedVolumeData = deduped(volumes).slice(-MAX_DATA_POINTS)
+
+  candlestickSeries.setData(cachedCandleData)
+  volumeSeries.setData(cachedVolumeData)
+
+  // 用时间范围恢复（不受逻辑索引位移影响）
+  if (chart && visibleTimeRange) {
+    chart.timeScale().setVisibleRange(visibleTimeRange)
+  }
 }
 
 const updateChartData = () => {
@@ -303,24 +291,20 @@ const updateChartData = () => {
   if (chart) chart.timeScale().scrollToRealTime()
 }
 
-const loadMoreHistory = async () => {
+const loadMoreHistory = async (preserveView = true) => {
   if (!selectedCode.value || isLoadingLocked || !hasMoreHistory.value || !earliestDate.value) return
   isLoadingLocked = true
   isLoadingMore.value = true
   try {
     const newStartDate = earliestDate.value.subtract(BATCH_SIZE, 'day')
     const newEndDate = earliestDate.value.subtract(1, 'day')
-    const scrollPosition = chart?.timeScale().scrollPosition()
+    const visibleTimeRange = preserveView ? (chart?.timeScale().getVisibleRange() ?? null) : null
     const historicalData = await fetchBarsFromAPI(selectedCode.value, newStartDate, BATCH_SIZE, newEndDate)
     computeChanges(historicalData)
     if (historicalData.length === 0) { hasMoreHistory.value = false; return }
     barData.value = [...historicalData, ...barData.value]
     earliestDate.value = dayjs(historicalData[0].timestamp)
-    updateChartDataPrepend(historicalData)
-    if (chart && scrollPosition !== undefined) {
-      requestAnimationFrame(() => { chart?.timeScale().scrollToPosition(scrollPosition, false) })
-    }
-    pagination.total = barData.value.length
+    updateChartDataPrepend(historicalData, visibleTimeRange)
   } catch (error: any) {
     console.error(`加载历史数据失败: ${error.message}`)
   } finally {
@@ -338,14 +322,20 @@ const handleCodeChange = () => {
   loadBars()
 }
 
+const handleSelectStock = (opt: { value: string; label: string }) => {
+  selectedCode.value = opt.value
+  selectedLabel.value = opt.label
+  handleCodeChange()
+}
+
 const fillChart = async () => {
   const TARGET_BARS = 1200
   let attempts = 0
   while (hasMoreHistory.value && barData.value.length < TARGET_BARS && attempts < 20) {
     isLoadingLocked = false
-    await loadMoreHistory()
+    await loadMoreHistory(false)
     if (!hasMoreHistory.value) break
-    await new Promise(r => setTimeout(r, 900))
+    await new Promise(r => setTimeout(r, 300))
     attempts++
   }
 }
@@ -361,18 +351,17 @@ const loadBars = async () => {
     const data = await fetchBarsFromAPI(selectedCode.value, dayjs().subtract(6, 'month'), BATCH_SIZE)
     computeChanges(data)
     barData.value = data
-    pagination.total = data.length
-    pagination.current = 1
+    tablePage.value = 1
     if (data.length > 0) earliestDate.value = dayjs(data[0].timestamp)
     await nextTick()
     if (!chart) initChart()
     updateChartData()
-    // 初始加载后自动填充图表左侧空白
-    await fillChart()
+    // 初始数据已就绪，立即解除表格 loading
+    loading.value = false
+    // 后台静默填充历史数据，不阻塞表格
+    fillChart().then(() => { if (chart) chart.timeScale().scrollToRealTime() })
   } catch (error: any) {
     console.error(`加载失败: ${error.message}`)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -401,13 +390,29 @@ const handleSync = async () => {
   }
 }
 
-onMounted(() => {
-  selectedCode.value = (route.query.code as string) || stockOptions[0]?.value || ''
-  if (selectedCode.value) loadBars()
+onMounted(async () => {
+  const code = route.query.code as string
+  if (code) {
+    selectedCode.value = code
+    loadBars()
+  } else {
+    // 无指定代码时，默认选择第一只可用股票
+    try {
+      const opts = await searchStocks('')
+      if (opts.length > 0) {
+        selectedCode.value = opts[0].value
+        selectedLabel.value = opts[0].label
+        loadBars()
+      }
+    } catch { /* ignore */ }
+  }
   fetchLastSyncTime()
 })
 
-onUnmounted(() => { if (chart) { chart.remove(); chart = null } })
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  if (chart) { chart.remove(); chart = null }
+})
 </script>
 
 <style scoped>
@@ -539,36 +544,4 @@ onUnmounted(() => { if (chart) { chart.remove(); chart = null } })
 
 .text-up { color: #ef5350 !important; }
 .text-down { color: #26a69a !important; }
-.text-center { text-align: center; color: #8a8a9a; padding: 20px; }
-
-.table-wrapper { overflow-x: auto; }
-
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th, .data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #2a2a3e;
-}
-.data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
-  font-weight: 500;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.data-table td { color: #ffffff; font-size: 13px; }
-.data-table tbody tr:hover { background: #2a2a3e; }
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 0;
-  margin-top: 16px;
-}
-
-.pagination-info { color: #8a8a9a; font-size: 13px; }
-
-.btn-small:hover:not(:disabled) { border-color: #1890ff; color: #1890ff; }
-.btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

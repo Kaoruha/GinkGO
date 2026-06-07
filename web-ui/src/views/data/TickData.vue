@@ -1,99 +1,89 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
+    <div class="page-header" style="flex-direction: row !important; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div class="page-title" style="margin-bottom: 0;">
+        <button class="back-btn" @click="$router.push('/data')">←</button>
         <span class="tag tag-orange">Tick</span>
         Tick 数据
+        <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
       </div>
-      <div class="header-controls">
-        <select v-model="selectedCode" class="control-select">
-          <option value="">选择股票</option>
-          <option v-for="opt in stockOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
-        <input v-model="startDate" type="date" class="control-input" />
-        <input v-model="endDate" type="date" class="control-input" />
-        <button class="btn-primary" @click="loadData" :disabled="!selectedCode || loading">查询</button>
-      </div>
+      <span style="flex: 1;"></span>
+      <input v-model="startDate" type="date" class="control-input" />
+      <input v-model="endDate" type="date" class="control-input" />
+      <button class="btn-query" :disabled="!selectedCode || loading" @click="loadData">
+        {{ loading ? '查询中' : '查询' }}
+      </button>
+      <SearchSelect
+        :search-fn="searchStocks"
+        placeholder="搜索股票代码..."
+        style="width: 200px;"
+        @select="handleSelectStock"
+      />
     </div>
 
-    <!-- 散点图 -->
+    <!-- K线图 + 成交量 -->
     <div class="card" v-if="tickData.length > 0">
-      <div class="card-header-simple">时间-价格散点图</div>
-      <div ref="chartContainer" class="chart-wrapper"></div>
-    </div>
-
-    <!-- 统计卡片 -->
-    <div class="stats-grid" v-if="tickData.length > 0">
-      <div class="stat-card-small">
-        <div class="stat-value-small">{{ formatNumber(stats.total) }}</div>
-        <div class="stat-label-small">数据条数</div>
-      </div>
-      <div class="stat-card-small">
-        <div class="stat-value-small">{{ stats.latestPrice }}</div>
-        <div class="stat-label-small">最新价</div>
-      </div>
-      <div class="stat-card-small">
-        <div class="stat-value-small">{{ formatVolume(stats.totalVolume) }}</div>
-        <div class="stat-label-small">总成交量</div>
-      </div>
-      <div class="stat-card-small">
-        <div class="stat-value-small" :class="stats.buyRatio >= 0.5 ? 'text-green' : 'text-red'">
-          {{ (stats.buyRatio * 100).toFixed(1) }}%
+      <div class="chart-header">
+        <div class="stats-inline">
+          <span class="stat-item">最新 <strong>{{ stats.latestPrice }}</strong></span>
+          <span class="stat-item">总量 {{ formatVolume(stats.totalVolume) }}</span>
+          <span class="stat-item" :class="stats.buyRatio >= 0.5 ? 'text-up' : 'text-down'">
+            买入 {{ (stats.buyRatio * 100).toFixed(1) }}%
+          </span>
+          <span class="stat-item">{{ stats.totalTicks }} 条</span>
+          <span class="stat-item" v-if="ohlcBuckets.length > 0">
+            聚合为 {{ ohlcBuckets.length }} 根K线
+          </span>
         </div>
-        <div class="stat-label-small">买入占比</div>
+        <div class="bucket-selector">
+          <button
+            v-for="b in bucketOptions" :key="b.value"
+            class="bucket-btn" :class="{ active: bucketSize === b.value }"
+            @click="bucketSize = b.value"
+          >{{ b.label }}</button>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <div ref="chartContainer" class="chart-container"></div>
       </div>
     </div>
 
     <!-- 数据表格 -->
     <div class="card">
-      <div class="card-header-simple">数据明细</div>
-      <div class="table-wrapper">
-        <table class="data-table" v-if="tickData.length > 0">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>代码</th>
-              <th>价格</th>
-              <th>成交量</th>
-              <th>方向</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="tick in paginatedData" :key="tick.uuid">
-              <td>{{ formatTime(tick.timestamp) }}</td>
-              <td>{{ tick.code }}</td>
-              <td class="num">{{ tick.price?.toFixed(2) }}</td>
-              <td class="num">{{ tick.volume?.toLocaleString() }}</td>
-              <td>
-                <span :class="directionClass(tick.direction)">{{ directionLabel(tick.direction) }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else-if="!loading" class="empty-state-small">请输入股票代码并点击查询</div>
+      <h3 class="card-title">数据明细</h3>
+      <DataTable
+        :columns="tickColumns"
+        :data-source="tickData"
+        :loading="loading"
+        :page="tablePage"
+        :page-size="tablePageSize"
+        :max-height="340"
+        row-key="uuid"
+        @update:page="tablePage = $event"
+        @update:page-size="tablePageSize = $event"
+      >
+        <template #colTime="{ record }">{{ formatTime(record.timestamp) }}</template>
+        <template #colPrice="{ record }">{{ record.price?.toFixed(2) }}</template>
+        <template #colVolume="{ record }">{{ formatVolume(record.volume) }}</template>
+        <template #colDirection="{ record }">
+          <span :class="directionClass(record.direction)">{{ directionLabel(record.direction) }}</span>
+        </template>
+      </DataTable>
+      <div v-if="!loading && selectedCode && tickData.length === 0 && searched" class="empty-state">
+        当前股票在所选日期范围内无 Tick 数据，请尝试其他股票
       </div>
-
-      <!-- 分页 -->
-      <div class="pagination" v-if="pagination.total > 0">
-        <span class="pagination-info">
-          共 {{ pagination.total }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
-        </span>
-        <div class="pagination-controls">
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(1)">«</button>
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(pagination.current - 1)">‹</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(pagination.current + 1)">›</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(totalPages)">»</button>
-        </div>
+      <div v-if="!loading && !selectedCode" class="empty-state">
+        请搜索并选择一只股票
       </div>
     </div>
-
-    <div v-if="loading" class="loading-overlay"><div class="spinner"></div></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import DataTable from '@/components/data/DataTable.vue'
+import SearchSelect from '@/components/common/SearchSelect.vue'
 import * as echarts from 'echarts'
 import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
@@ -101,54 +91,121 @@ import dayjs from 'dayjs'
 
 const route = useRoute()
 
-const stockOptions = [
-  { value: '000001.SZ', label: '000001.SZ 平安银行' },
-  { value: '000002.SZ', label: '000002.SZ 万科A' },
-  { value: '600519.SH', label: '600519.SH 贵州茅台' },
+const loading = ref(false)
+const searched = ref(false)
+const selectedCode = ref('')
+const selectedLabel = ref('')
+const startDate = ref(dayjs().subtract(1, 'year').format('YYYY-MM-DD'))
+const endDate = ref(dayjs().format('YYYY-MM-DD'))
+const tickData = ref<TickData[]>([])
+
+// 表格客户端分页（全量数据已加载，前端切页）
+const tablePage = ref(1)
+const tablePageSize = ref(50)
+
+// 图表：时间桶聚合
+const bucketSize = ref(5) // 分钟
+const bucketOptions = [
+  { label: '1分', value: 1 },
+  { label: '5分', value: 5 },
+  { label: '15分', value: 15 },
+  { label: '1时', value: 60 },
+  { label: '1日', value: 1440 },
 ]
 
-const selectedCode = ref((route.query.code as string) || '')
-const startDate = ref(dayjs().subtract(7, 'day').format('YYYY-MM-DD'))
-const endDate = ref(dayjs().format('YYYY-MM-DD'))
-const loading = ref(false)
-const tickData = ref<TickData[]>([])
-const totalRecords = ref(0)
+interface OHLCBucket {
+  time: string
+  ts: number
+  open: number
+  close: number
+  high: number
+  low: number
+  volume: number
+  buyCount: number
+  sellCount: number
+  count: number
+}
 
-const pagination = ref({ current: 1, pageSize: 50, total: 0 })
+/** 将逐笔 tick 聚合为 OHLC 桶 */
+function aggregateTicks(data: TickData[], bucketMinutes: number): OHLCBucket[] {
+  if (data.length === 0) return []
+  const sorted = [...data].sort((a, b) =>
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+  const bucketMs = bucketMinutes * 60 * 1000
+  const map = new Map<number, { prices: number[]; vol: number; buy: number; sell: number }>()
 
-const totalPages = computed(() => Math.max(1, Math.ceil(pagination.value.total / pagination.value.pageSize)))
+  for (const tick of sorted) {
+    const ts = new Date(tick.timestamp).getTime()
+    const key = Math.floor(ts / bucketMs) * bucketMs
+    if (!map.has(key)) map.set(key, { prices: [], vol: 0, buy: 0, sell: 0 })
+    const b = map.get(key)!
+    b.prices.push(tick.price)
+    b.vol += tick.volume || 0
+    if (tick.direction === 1) b.buy++
+    else if (tick.direction === -1) b.sell++
+  }
 
-const paginatedData = computed(() => {
-  // 数据已从服务端分页，直接返回
-  return tickData.value
-})
+  const result: OHLCBucket[] = []
+  for (const [ts, b] of map) {
+    result.push({
+      time: new Date(ts).toISOString().replace('T', ' ').slice(0, 16),
+      ts,
+      open: b.prices[0],
+      close: b.prices[b.prices.length - 1],
+      high: Math.max(...b.prices),
+      low: Math.min(...b.prices),
+      volume: b.vol,
+      buyCount: b.buy,
+      sellCount: b.sell,
+      count: b.prices.length,
+    })
+  }
+  return result.sort((a, b) => a.ts - b.ts)
+}
+
+const ohlcBuckets = computed(() => aggregateTicks(tickData.value, bucketSize.value))
+
+const chartContainer = ref<HTMLElement>()
+let chart: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
+
+const tickColumns = [
+  { title: '时间', dataIndex: 'timestamp', slotName: 'colTime' },
+  { title: '代码', dataIndex: 'code' },
+  { title: '价格', dataIndex: 'price', slotName: 'colPrice' },
+  { title: '成交量', dataIndex: 'volume', slotName: 'colVolume' },
+  { title: '方向', dataIndex: 'direction', slotName: 'colDirection' },
+]
+
+const searchStocks = async (query: string) => {
+  const res: any = await dataApi.listStocks({ query, page_size: 50 })
+  const payload = res?.data !== undefined ? res.data : res
+  const items = Array.isArray(payload) ? payload : (payload?.data ?? payload?.items ?? [])
+  return items.map((s: any) => ({
+    value: s.code,
+    label: `${s.code} ${s.name || ''}`,
+  }))
+}
 
 const stats = computed(() => {
-  if (tickData.value.length === 0) return { total: 0, latestPrice: '-', totalVolume: 0, buyRatio: 0 }
+  if (tickData.value.length === 0) return { totalTicks: 0, latestPrice: '-', totalVolume: 0, buyRatio: 0 }
   const data = tickData.value
   const latest = data[data.length - 1]
   const totalVol = data.reduce((s, t) => s + (t.volume || 0), 0)
   const buyCount = data.filter(t => t.direction === 1).length
   return {
-    total: pagination.value.total,
+    totalTicks: data.length,
     latestPrice: latest?.price?.toFixed(2) || '-',
     totalVolume: totalVol,
     buyRatio: data.length > 0 ? buyCount / data.length : 0,
   }
 })
 
-const chartContainer = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
-
-function formatNumber(n: number) {
-  if (n >= 100000000) return (n / 100000000).toFixed(2) + ' 亿'
-  if (n >= 10000) return (n / 10000).toFixed(1) + ' 万'
-  return n.toLocaleString()
-}
-
 function formatVolume(v: number) {
-  if (v >= 100000000) return (v / 100000000).toFixed(2) + ' 亿'
-  if (v >= 10000) return (v / 10000).toFixed(1) + ' 万'
+  if (!v) return '-'
+  if (v >= 100000000) return (v / 100000000).toFixed(2) + '亿'
+  if (v >= 10000) return (v / 10000).toFixed(2) + '万'
   return v.toLocaleString()
 }
 
@@ -164,185 +221,248 @@ function directionLabel(d: number) {
 }
 
 function directionClass(d: number) {
-  if (d === 1) return 'dir-buy'
-  if (d === -1) return 'dir-sell'
-  return 'dir-neutral'
+  if (d === 1) return 'text-up'
+  if (d === -1) return 'text-down'
+  return 'text-neutral'
 }
+
+function extractItems(res: any): { items: any[]; total: number } {
+  const payload = res?.data !== undefined ? res.data : res
+  const items = Array.isArray(payload) ? payload : (payload?.data ?? payload?.items ?? [])
+  const total = res?.meta?.total ?? res?.total ?? items.length ?? 0
+  return { items, total }
+}
+
+/** 加载全量 tick（大批次供图表聚合 + 表格客户端分页） */
+const CHART_PAGE_SIZE = 10000
 
 async function loadData() {
   if (!selectedCode.value) return
   loading.value = true
+  searched.value = true
+  tablePage.value = 1
   try {
     const res: any = await dataApi.getTicks({
       code: selectedCode.value,
       start_date: startDate.value,
       end_date: endDate.value,
-      page: pagination.value.current,
-      page_size: pagination.value.pageSize,
+      page: 1,
+      page_size: CHART_PAGE_SIZE,
     })
-    tickData.value = res?.data || []
-    pagination.value.total = res?.meta?.total || 0
-    totalRecords.value = res?.meta?.total || 0
+    const { items } = extractItems(res)
+    tickData.value = items
     nextTick(() => updateChart())
   } catch {
     tickData.value = []
-    pagination.value.total = 0
   } finally {
     loading.value = false
   }
 }
 
-function goPage(p: number) {
-  if (p < 1 || p > totalPages.value) return
-  pagination.value.current = p
+function handleSelectStock(opt: { value: string; label: string }) {
+  selectedCode.value = opt.value
+  selectedLabel.value = opt.label
   loadData()
+}
+
+async function autoSelectStock() {
+  const opts = await searchStocks('')
+  if (opts.length === 0) return
+
+  const maxTries = Math.min(opts.length, 10)
+  for (let i = 0; i < maxTries; i++) {
+    selectedCode.value = opts[i].value
+    selectedLabel.value = opts[i].label
+    searched.value = true
+    loading.value = true
+    try {
+      const res: any = await dataApi.getTicks({
+        code: opts[i].value,
+        start_date: startDate.value,
+        end_date: endDate.value,
+        page: 1,
+        page_size: CHART_PAGE_SIZE,
+      })
+      const { items } = extractItems(res)
+      tickData.value = items
+      if (items.length > 0) {
+        nextTick(() => updateChart())
+        return
+      }
+    } catch { /* continue */ }
+    finally { loading.value = false }
+  }
+}
+
+// ---- 图表 ----
+
+function initChart() {
+  if (!chartContainer.value) return
+  if (chart) { chart.dispose(); chart = null }
+  chart = echarts.init(chartContainer.value, 'dark')
+  resizeObserver?.disconnect()
+  resizeObserver = new ResizeObserver(() => { chart?.resize() })
+  resizeObserver.observe(chartContainer.value)
 }
 
 function updateChart() {
   if (!chartContainer.value || tickData.value.length === 0) return
-  if (!chart) {
-    chart = echarts.init(chartContainer.value, 'dark')
-    window.addEventListener('resize', handleResize)
-  }
+  if (!chart) initChart()
 
-  // 按方向分组
-  const buyData: [number, number, number][] = []
-  const sellData: [number, number, number][] = []
-  const neutralData: [number, number, number][] = []
+  const buckets = ohlcBuckets.value
+  if (buckets.length === 0) return
 
-  tickData.value.forEach(t => {
-    const ts = new Date(t.timestamp).getTime()
-    const point: [number, number, number] = [ts, t.price, t.volume || 1]
-    if (t.direction === 1) buyData.push(point)
-    else if (t.direction === -1) sellData.push(point)
-    else neutralData.push(point)
+  const times = buckets.map(b => b.time)
+  // ECharts candlestick: [open, close, low, high]
+  const ohlc = buckets.map(b => [+b.open.toFixed(2), +b.close.toFixed(2), +b.low.toFixed(2), +b.high.toFixed(2)])
+  const volumes = buckets.map(b => b.volume)
+  const volColors = buckets.map(b => {
+    const ratio = b.buyCount / (b.buyCount + b.sellCount || 1)
+    return ratio >= 0.5 ? 'rgba(82,196,26,0.6)' : 'rgba(245,34,45,0.6)'
   })
-
-  const maxVol = Math.max(...tickData.value.map(t => t.volume || 1), 1)
 
   chart.setOption({
     backgroundColor: '#1a1a2e',
-    grid: { left: 60, right: 30, top: 30, bottom: 40 },
+    animation: false,
     tooltip: {
-      trigger: 'item',
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
       formatter: (params: any) => {
-        const d = new Date(params.value[0])
-        return `${d.toLocaleString()}<br/>价格: ${params.value[1]?.toFixed(2)}<br/>成交量: ${params.value[2]?.toLocaleString()}<br/>方向: ${params.seriesName}`
+        const idx = params[0]?.dataIndex
+        if (idx == null || !buckets[idx]) return ''
+        const b = buckets[idx]
+        const chg = b.close - b.open
+        const chgPct = b.open ? ((chg / b.open) * 100).toFixed(2) : '0.00'
+        const color = chg >= 0 ? '#52c41a' : '#f5222d'
+        return `<div style="font-size:12px">
+          <div style="margin-bottom:4px;color:#8a8a9a">${b.time}</div>
+          <div>开 <strong>${b.open.toFixed(2)}</strong> 高 <strong>${b.high.toFixed(2)}</strong></div>
+          <div>低 <strong>${b.low.toFixed(2)}</strong> 收 <strong>${b.close.toFixed(2)}</strong></div>
+          <div style="color:${color}">涨跌 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct}%)</div>
+          <div>量 ${formatVolume(b.volume)} | ${b.count} 笔</div>
+          <div>买 ${b.buyCount} 卖 ${b.sellCount}</div>
+        </div>`
       },
     },
-    legend: { data: ['买入', '卖出', '中性'], top: 4, textStyle: { color: '#8a8a9a' } },
-    xAxis: {
-      type: 'time',
-      axisLabel: { color: '#8a8a9a', fontSize: 11 },
-      splitLine: { lineStyle: { color: '#2a2a3e' } },
-    },
-    yAxis: {
-      type: 'value',
-      scale: true,
-      axisLabel: { color: '#8a8a9a', fontSize: 11 },
-      splitLine: { lineStyle: { color: '#2a2a3e' } },
-    },
+    legend: { data: ['K线', '成交量'], top: 4, textStyle: { color: '#8a8a9a' } },
+    grid: [
+      { left: 60, right: 30, top: 40, height: '52%' },
+      { left: 60, right: 30, top: '72%', height: '18%' },
+    ],
+    xAxis: [
+      { type: 'category', data: times, gridIndex: 0, axisLabel: { color: '#8a8a9a', fontSize: 10 }, axisLine: { lineStyle: { color: '#3a3a4e' } }, splitLine: { show: false } },
+      { type: 'category', data: times, gridIndex: 1, axisLabel: { show: false }, axisLine: { lineStyle: { color: '#3a3a4e' } }, splitLine: { show: false } },
+    ],
+    yAxis: [
+      { type: 'value', scale: true, gridIndex: 0, axisLabel: { color: '#8a8a9a', fontSize: 10 }, splitLine: { lineStyle: { color: '#2a2a3e' } } },
+      { type: 'value', gridIndex: 1, axisLabel: { color: '#8a8a9a', fontSize: 10 }, splitLine: { lineStyle: { color: '#2a2a3e' } } },
+    ],
+    dataZoom: [
+      { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
+      { type: 'slider', xAxisIndex: [0, 1], top: '93%', height: 16, borderColor: '#3a3a4e', fillerColor: 'rgba(24,144,255,0.15)', handleStyle: { color: '#1890ff' }, textStyle: { color: '#8a8a9a' } },
+    ],
     series: [
       {
-        name: '买入',
-        type: 'scatter',
-        data: buyData,
-        symbolSize: (val: number[]) => Math.max(3, Math.min(20, (val[2] / maxVol) * 20)),
-        itemStyle: { color: '#52c41a', opacity: 0.7 },
+        name: 'K线', type: 'candlestick', data: ohlc,
+        xAxisIndex: 0, yAxisIndex: 0,
+        itemStyle: {
+          color: '#52c41a', color0: '#f5222d',
+          borderColor: '#52c41a', borderColor0: '#f5222d',
+        },
       },
       {
-        name: '卖出',
-        type: 'scatter',
-        data: sellData,
-        symbolSize: (val: number[]) => Math.max(3, Math.min(20, (val[2] / maxVol) * 20)),
-        itemStyle: { color: '#f5222d', opacity: 0.7 },
-      },
-      {
-        name: '中性',
-        type: 'scatter',
-        data: neutralData,
-        symbolSize: (val: number[]) => Math.max(3, Math.min(20, (val[2] / maxVol) * 20)),
-        itemStyle: { color: '#8a8a9a', opacity: 0.5 },
+        name: '成交量', type: 'bar', data: volumes,
+        xAxisIndex: 1, yAxisIndex: 1,
+        itemStyle: {
+          color: (params: any) => volColors[params.dataIndex] || 'rgba(138,138,154,0.4)',
+        },
       },
     ],
   }, true)
 }
 
-function handleResize() {
-  chart?.resize()
-}
+// 桶大小变化时刷新图表（数据不变，只需重新聚合渲染）
+watch(bucketSize, () => { nextTick(() => updateChart()) })
 
-onMounted(() => {
-  if (selectedCode.value) loadData()
+onMounted(async () => {
+  const code = route.query.code as string
+  if (code) {
+    selectedCode.value = code
+    loadData()
+  } else {
+    try { await autoSelectStock() } catch { /* ignore */ }
+  }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  chart?.dispose()
-  chart = null
+  resizeObserver?.disconnect()
+  if (chart) { chart.dispose(); chart = null }
 })
 </script>
 
 <style scoped>
-.page-container { position: relative; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.page-title { font-size: 20px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
-.header-controls { display: flex; gap: 10px; align-items: center; }
-.control-input { padding: 6px 12px; background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 4px; color: #fff; font-size: 13px; }
+.page-container { padding: 0; background: transparent; }
+.page-container :deep(.card) { overflow: visible; }
+
+.page-header { margin-bottom: 24px; }
+
+.page-title {
+  font-size: 24px; font-weight: 600; color: #ffffff;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.back-btn {
+  background: none; border: 1px solid #2a2a3e; color: #8a8a9a;
+  font-size: 16px; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+}
+.back-btn:hover { border-color: #1890ff; color: #1890ff; }
+
+.control-input {
+  padding: 7px 12px; background: #2a2a3e; border: 1px solid #3a3a4e;
+  border-radius: 4px; color: #fff; font-size: 13px; width: 140px;
+}
 .control-input:focus { outline: none; border-color: #1890ff; }
-.control-select { padding: 7px 12px; background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 4px; color: #fff; font-size: 13px; cursor: pointer; min-width: 160px; }
-.control-select:focus { outline: none; border-color: #1890ff; }
-.control-input[type="date"] { width: 140px; }
+
+.btn-query {
+  display: inline-flex; align-items: center; padding: 7px 16px;
+  background: #1890ff; border: none; border-radius: 4px; color: #fff;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.btn-query:hover:not(:disabled) { background: #40a9ff; }
+.btn-query:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.chart-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+
+.card-title { font-size: 16px; font-weight: 600; color: #ffffff; margin: 0 0 16px 0; }
+
+.stats-inline { display: flex; gap: 16px; font-size: 13px; color: #8a8a9a; }
+.stats-inline strong { color: #ffffff; }
+.stat-item { white-space: nowrap; }
+
+.bucket-selector { display: flex; gap: 4px; }
+.bucket-btn {
+  padding: 4px 10px; background: #2a2a3e; border: 1px solid #3a3a4e;
+  border-radius: 4px; color: #8a8a9a; font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.bucket-btn:hover { border-color: #1890ff; color: #1890ff; }
+.bucket-btn.active { background: #1890ff; border-color: #1890ff; color: #fff; }
+
+.chart-wrapper { position: relative; }
+.chart-container { width: 100%; height: 420px; }
+
+.empty-state {
+  padding: 40px 16px; text-align: center; color: #6a6a7a;
+  font-size: 13px; border-top: 1px solid #2a2a3e;
+}
+
+.text-up { color: #52c41a !important; }
+.text-down { color: #f5222d !important; }
+.text-neutral { color: #8a8a9a; }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 .tag-orange { background: rgba(250,173,20,0.15); color: #faad14; }
-
-.btn-primary { display: inline-flex; align-items: center; padding: 7px 16px; background: #1890ff; border: none; border-radius: 4px; color: #fff; font-size: 13px; cursor: pointer; }
-.btn-primary:hover { background: #40a9ff; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Chart */
-.card { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
-.card-header-simple { padding: 12px 16px; font-size: 14px; font-weight: 600; color: #fff; border-bottom: 1px solid #2a2a3e; }
-.chart-wrapper { width: 100%; height: 400px; }
-
-/* Stats */
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-.stat-card-small { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 16px; }
-.stat-value-small { font-size: 20px; font-weight: 600; color: #fff; }
-.stat-label-small { font-size: 12px; color: #8a8a9a; margin-top: 4px; }
-.text-green { color: #52c41a !important; }
-.text-red { color: #f5222d !important; }
-
-/* Table */
-.table-wrapper { overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { padding: 10px 12px; text-align: left; color: #fff; background: #2a2a3e; font-weight: 600; white-space: nowrap; }
-.data-table td { padding: 10px 12px; color: #fff; border-bottom: 1px solid #2a2a3e; }
-.data-table tbody tr:hover { background: #22223a; }
-.data-table .num { font-variant-numeric: tabular-nums; }
-
-.dir-buy { color: #52c41a; font-weight: 500; }
-.dir-sell { color: #f5222d; font-weight: 500; }
-.dir-neutral { color: #8a8a9a; }
-
-.empty-state-small { padding: 40px; text-align: center; color: #8a8a9a; }
-
-/* Pagination */
-.pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #2a2a3e; }
-.pagination-info { font-size: 13px; color: #8a8a9a; }
-.pagination-controls { display: flex; gap: 4px; }
-.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: #2a2a3e; border: 1px solid #3a3a4e; border-radius: 4px; color: #fff; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.pg-btn:hover:not(:disabled) { background: #3a3a4e; border-color: #1890ff; }
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Loading */
-.loading-overlay { display: flex; justify-content: center; padding: 40px; }
-.spinner { width: 32px; height: 32px; border: 3px solid #2a2a3e; border-top-color: #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-@media (max-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .header-controls { flex-wrap: wrap; }
-}
+.tag-blue { background: rgba(24,144,255,0.15); color: #1890ff; }
 </style>

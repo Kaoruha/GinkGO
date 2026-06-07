@@ -1,6 +1,6 @@
 <template>
   <div class="data-table">
-    <div class="table-wrapper">
+    <div class="table-wrapper" :style="wrapperStyle">
       <table class="pro-table">
         <thead>
           <tr>
@@ -103,6 +103,7 @@ const props = withDefaults(defineProps<{
   total?: number
   page?: number
   pageSize?: number
+  maxHeight?: number | string
   showToolbar?: boolean
   showExport?: boolean
 }>(), {
@@ -143,6 +144,13 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / inner
 const currentPage = computed(() => Math.min(props.page, totalPages.value))
 
 const showPagination = computed(() => totalCount.value > 0)
+
+const wrapperStyle = computed(() => {
+  if (!props.maxHeight) return {}
+  const raw = props.maxHeight
+  const h = typeof raw === 'number' || /^\d+$/.test(String(raw)) ? `${raw}px` : raw
+  return { maxHeight: h, overflowY: 'auto' }
+})
 
 // Auto-add action column
 const computedColumns = computed(() => {
@@ -199,20 +207,21 @@ function formatCellValue(val: any): string {
 
 .pro-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
   background: #1a1a2e;
 }
 
-.pro-table thead {
-  background: #2a2a3e;
-}
-
 .pro-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   padding: 12px;
   text-align: left;
   font-weight: 600;
   color: #ffffff;
+  background: #2a2a3e;
   border-bottom: 1px solid #3a3a4e;
   white-space: nowrap;
 }

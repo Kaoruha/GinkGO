@@ -80,7 +80,13 @@ function updatePosition() {
 const fetchedOptions = ref<SearchOption[]>([])
 
 const filteredOptions = computed(() => {
-  const source = props.searchFn ? fetchedOptions.value : props.options
+  let source = props.searchFn ? fetchedOptions.value : props.options
+  if (!props.searchFn && query.value) {
+    const q = query.value.toLowerCase()
+    source = source.filter(o =>
+      o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+    )
+  }
   return source.filter(o => !props.excludeValues.includes(o.value))
 })
 
