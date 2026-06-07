@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Download, Filter } from 'lucide-vue-next'
+import { tradeHistoryApi, liveAccountApi } from '@/api'
 import {
   DialogRoot,
   DialogPortal,
@@ -58,15 +59,15 @@ interface DailySummary {
 const trades = ref<TradeRecord[]>([])
 const statistics = ref<TradeStatistics | null>(null)
 const dailySummary = ref<DailySummary[]>([])
-const loading = ref(true)
+const loading = ref(false)
 const selectedAccount = ref<string | null>(null)
+const accounts = ref<Array<{ uuid: string; name: string; exchange: string }>>([])
 const dateFilter = reactive({
   start_date: '',
   end_date: ''
 })
 
 const showFilterDialog = ref(false)
-const csvContent = ref('')
 
 // 计算属性
 const totalVolume = computed(() => {
@@ -97,27 +98,39 @@ const getSideBadgeVariant = (side: string) => {
   return side === 'buy' ? 'success' : 'destructive'
 }
 
+// 加载账户列表
+const loadAccounts = async () => {
+  try {
+    const result = await liveAccountApi.getAccounts()
+    const payload = (result as any)?.data
+    const list = payload?.accounts || payload || []
+    accounts.value = list
+    // 自动选中第一个账户
+    if (list.length > 0 && !selectedAccount.value) {
+      selectedAccount.value = list[0].uuid
+      await loadTrades()
+    }
+  } catch (error) {
+    console.error('Failed to load accounts:', error)
+  }
+}
+
 // 加载交易历史
 const loadTrades = async () => {
   if (!selectedAccount.value) return
 
   loading.value = true
   try {
-    let url = `/api/v1/accounts/${selectedAccount.value}/trades`
-    const params = new URLSearchParams()
-    if (dateFilter.start_date) params.append('start_date', dateFilter.start_date)
-    if (dateFilter.end_date) params.append('end_date', dateFilter.end_date)
-    if (params.toString()) url += '?' + params.toString()
+    const params: Record<string, string> = {}
+    if (dateFilter.start_date) params.start_date = dateFilter.start_date
+    if (dateFilter.end_date) params.end_date = dateFilter.end_date
 
-    const response = await fetch(url)
-    if (response.ok) {
-      const result = await response.json()
-      trades.value = result.data || []
+    const result = await tradeHistoryApi.getTrades(selectedAccount.value, params)
+    trades.value = (result as any)?.data || []
 
-      // 同时加载统计数据
-      await loadStatistics()
-      await loadDailySummary()
-    }
+    // 同时加载统计数据
+    await loadStatistics()
+    await loadDailySummary()
   } catch (error) {
     console.error('Failed to load trades:', error)
   } finally {
@@ -130,17 +143,8 @@ const loadStatistics = async () => {
   if (!selectedAccount.value) return
 
   try {
-    let url = `/api/v1/accounts/${selectedAccount.value}/trades/statistics`
-    const params = new URLSearchParams()
-    if (dateFilter.start_date) params.append('start_date', dateFilter.start_date)
-    if (dateFilter.end_date) params.append('end_date', dateFilter.end_date)
-    if (params.toString()) url += '?' + params.toString()
-
-    const response = await fetch(url)
-    if (response.ok) {
-      const result = await response.json()
-      statistics.value = result.data
-    }
+    const result = await tradeHistoryApi.getStatistics(selectedAccount.value)
+    statistics.value = (result as any)?.data ?? null
   } catch (error) {
     console.error('Failed to load statistics:', error)
   }
@@ -151,11 +155,8 @@ const loadDailySummary = async () => {
   if (!selectedAccount.value) return
 
   try {
-    const response = await fetch(`/api/v1/accounts/${selectedAccount.value}/trades/daily-summary?days=30`)
-    if (response.ok) {
-      const result = await response.json()
-      dailySummary.value = result.data || []
-    }
+    const result = await tradeHistoryApi.getDailySummary(selectedAccount.value)
+    dailySummary.value = (result as any)?.data || []
   } catch (error) {
     console.error('Failed to load daily summary:', error)
   }
@@ -166,26 +167,13 @@ const exportCSV = async () => {
   if (!selectedAccount.value) return
 
   try {
-    let url = `/api/v1/accounts/${selectedAccount.value}/trades/export`
-    const params = new URLSearchParams()
-    if (dateFilter.start_date) params.append('start_date', dateFilter.start_date)
-    if (dateFilter.end_date) params.append('end_date', dateFilter.end_date)
-    if (params.toString()) url += '?' + params.toString()
-
-    const response = await fetch(url)
-    if (response.ok) {
-      const result = await response.json()
-      csvContent.value = result.data.content
-
-      // 下载CSV文件
-      const blob = new Blob([result.data.content], { type: 'text/csv' })
-      const url_download = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url_download
-      a.download = result.data.filename
-      a.click()
-      window.URL.revokeObjectURL(url_download)
-    }
+    const blob = await tradeHistoryApi.exportCSV(selectedAccount.value) as any
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trades_${selectedAccount.value.slice(0, 8)}.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
   } catch (error) {
     console.error('Failed to export CSV:', error)
   }
@@ -197,11 +185,17 @@ const applyDateFilter = () => {
   loadTrades()
 }
 
+// 切换账户
+const onAccountChange = () => {
+  trades.value = []
+  statistics.value = null
+  dailySummary.value = []
+  loadTrades()
+}
+
 // 组件挂载
 onMounted(() => {
-  // 默认选择第一个账号（如果有）
-  // 实际应用中应该从路由参数或用户选择获取
-  loadTrades()
+  loadAccounts()
 })
 </script>
 
@@ -214,16 +208,26 @@ onMounted(() => {
             <CardTitle>交易历史</CardTitle>
             <CardDescription>查看实盘交易记录和统计数据</CardDescription>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 items-center">
+            <select
+              v-model="selectedAccount"
+              @change="onAccountChange"
+              class="px-3 py-1.5 border rounded-md text-sm bg-background"
+            >
+              <option :value="null" disabled>选择账户</option>
+              <option v-for="acc in accounts" :key="acc.uuid" :value="acc.uuid">
+                {{ acc.name }} ({{ acc.exchange.toUpperCase() }})
+              </option>
+            </select>
             <Button variant="outline" size="sm" @click="showFilterDialog = true">
               <Filter class="w-4 h-4 mr-2" />
               筛选
             </Button>
-            <Button variant="outline" size="sm" @click="exportCSV">
+            <Button variant="outline" size="sm" @click="exportCSV" :disabled="!selectedAccount">
               <Download class="w-4 h-4 mr-2" />
               导出CSV
             </Button>
-            <Button variant="outline" size="sm" @click="loadTrades">
+            <Button variant="outline" size="sm" @click="loadTrades" :disabled="!selectedAccount">
               <RefreshCw class="w-4 h-4 mr-2" />
               刷新
             </Button>
@@ -275,6 +279,11 @@ onMounted(() => {
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-8">
           <p>加载中...</p>
+        </div>
+
+        <!-- 未选择账户 -->
+        <div v-else-if="!selectedAccount" class="text-center py-8">
+          <p class="text-muted-foreground">{{ accounts.length === 0 ? '暂无交易账户，请先在账号配置中添加' : '请选择一个交易账户' }}</p>
         </div>
 
         <!-- 交易记录表格 -->
