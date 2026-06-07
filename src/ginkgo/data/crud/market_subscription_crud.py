@@ -169,6 +169,7 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
         Returns:
             MMarketSubscription or None: 订阅对象
         """
+        results = self.find(filters={"uuid": uuid, "is_del": False})
         if not results:
             return None
         return results[0]

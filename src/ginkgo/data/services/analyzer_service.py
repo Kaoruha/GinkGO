@@ -162,6 +162,39 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"按 portfolio 查询失败: {e}")
             return ServiceResult.error(f"按 portfolio 查询失败: {e}")
 
+    def get_records(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        page_size: int = 50,
+    ) -> ServiceResult:
+        """
+        通用查询 analyzer 记录（支持可选 portfolio/engine 过滤）。
+
+        Args:
+            portfolio_id: 组合 ID（可选）
+            engine_id: 引擎 ID（可选）
+            page_size: 返回数量限制，0 表示全部
+
+        Returns:
+            ServiceResult.data: ModelList
+        """
+        try:
+            filters = {"is_del": False}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+            if engine_id:
+                filters["engine_id"] = engine_id
+
+            results = self._crud_repo.find(
+                filters=filters,
+                page_size=page_size if page_size > 0 else None,
+            )
+            return ServiceResult.success(data=results)
+        except Exception as e:
+            GLOG.ERROR(f"查询 analyzer 记录失败: {e}")
+            return ServiceResult.error(f"查询 analyzer 记录失败: {e}")
+
     def get_latest_by_portfolio(
         self,
         portfolio_id: str,

@@ -49,7 +49,6 @@ def validate(
     list_strategies: Annotated[bool, typer.Option("--list", help=":list: List all components in database")] = False,
     all_db: Annotated[bool, typer.Option("--all", help=":globe_with_meridians: Validate all database strategies")] = False,
     name_filter: Annotated[str, typer.Option("--filter", help=":filter: Filter strategies by name (for --list or --all)")] = None,
-    visualize: Annotated[bool, typer.Option("--visualize", help=":chart: Generate HTML visualization report")] = False,
 ):
     """
     :mag: Validate a trading component file.
@@ -155,7 +154,6 @@ def validate(
             show_trace=show_trace,
             code=code,
             events=events,
-            visualize=visualize,
             console=console,
         )
         return
@@ -187,7 +185,7 @@ def validate(
                     console.print(f":file_folder: Temp file: {temp_path} (auto-cleaned)")
                 _validate_single_strategy(
                     temp_path, component_type, report_format, output, verbose,
-                    show_trace, code, events, visualize, source_info, console
+                    show_trace, code, events, source_info, console
                 )
                 return
         except FileNotFoundError as e:
@@ -208,7 +206,7 @@ def validate(
         source_info = f"Local file: {file_path.name}"
         _validate_single_strategy(
             file_path, component_type, report_format, output, verbose,
-            show_trace, code, events, visualize, source_info, console
+            show_trace, code, events, source_info, console
         )
 
 def _validate_single_strategy(
@@ -220,7 +218,6 @@ def _validate_single_strategy(
     show_trace: bool,
     code: str,
     events: int,
-    visualize: bool,
     source_info: str,
     console: Console,
 ):
@@ -236,7 +233,6 @@ def _validate_single_strategy(
         show_trace: Enable signal tracing
         code: Stock code for tracing
         events: Number of events to process
-        visualize: Generate HTML visualization
         source_info: Source description for report (T111)
         console: Rich console instance
     """
@@ -313,7 +309,7 @@ def _validate_single_strategy(
         # Save to file if output specified (T049)
         if output_file:
             _save_report_to_file(report_content, output_file, console)
-            if not visualize and not show_trace:
+            if not show_trace:
                 console.print(f"\n:white_check_mark: [green]Report saved to: {output_file}[/green]")
         else:
             # Display results to console (only for text format or when no output file)
@@ -395,7 +391,6 @@ def _batch_validate_database_strategies(
     show_trace: bool,
     code: str,
     events: int,
-    visualize: bool,
     console: Console,
 ) -> None:
     """
@@ -409,7 +404,6 @@ def _batch_validate_database_strategies(
         show_trace: Enable signal tracing
         code: Stock code for tracing
         events: Number of events to process
-        visualize: Generate HTML visualization
         console: Rich console instance
     """
     from pathlib import Path

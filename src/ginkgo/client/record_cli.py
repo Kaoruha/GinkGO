@@ -1,4 +1,4 @@
-# Upstream: Data Layer (Service/CRUD)
+# Upstream: Data Layer (Service)
 # Downstream: CLI 用户交互
 # Role: 记录管理CLI，提供signal信号、order委托、position持仓、analyzer分析等命令，支持交易记录的查询与管理
 
@@ -58,8 +58,13 @@ def signal(
 
         # 第二层：如果有 engine 但没有 portfolio，显示该 engine 下绑定的所有 portfolios
         if portfolio is None:
-            mapping_crud = Container.engine_portfolio_mapping_crud()
-            mappings = mapping_crud.find(filters={"engine_id": engine, "is_del": False})
+            engine_svc = Container.engine_service()
+            mapping_result = engine_svc.get_portfolios(engine_id=engine)
+            if not mapping_result.success or not mapping_result.data.get("mappings"):
+                console.print(f":exclamation: [yellow]No portfolios found for engine {engine}.[/yellow]")
+                return
+
+            mappings = mapping_result.data["mappings"]
             mappings_df = mappings.to_dataframe()
 
             if mappings_df.shape[0] == 0:
@@ -84,11 +89,16 @@ def signal(
 
         # 第三层：有 engine 和 portfolio，显示具体的 signals
         signal_svc = Container.signal_service()
-        signals = signal_svc._crud_repo.find(
-            filters={"engine_id": engine, "portfolio_id": portfolio, "is_del": False},
-            page_size=page if page > 0 else None,
+        result = signal_svc.get_signals(
+            engine_id=engine,
+            portfolio_id=portfolio,
+            page_size=page,
         )
-        signals_df = signals.to_dataframe()
+        if not result.success:
+            console.print(f":x: [red]{result.error}[/red]")
+            return
+
+        signals_df = result.data.to_dataframe()
 
         if signals_df.shape[0] == 0:
             console.print(f":exclamation: [yellow]No signals found for engine {engine} and portfolio {portfolio}.[/yellow]")
@@ -128,18 +138,19 @@ def order(
     :clipboard: List order records.
     """
     from ginkgo.data.containers import Container
+    from ginkgo.libs.utils.display import display_dataframe
 
     try:
         order_svc = Container.order_service()
-        filters = {"is_del": False}
-        if portfolio:
-            filters["portfolio_id"] = portfolio
-
-        orders = order_svc._crud_repo.find(
-            filters=filters,
-            page_size=page if page > 0 else None,
+        result = order_svc.get_orders(
+            portfolio_id=portfolio,
+            page_size=page,
         )
-        orders_df = orders.to_dataframe()
+        if not result.success:
+            console.print(f":x: [red]{result.error}[/red]")
+            return
+
+        orders_df = result.data.to_dataframe()
 
         order_columns_config = {
             "uuid": {"display_name": "Order ID", "style": "dim"},
@@ -177,18 +188,19 @@ def position(
     :bar_chart: List position records.
     """
     from ginkgo.data.containers import Container
+    from ginkgo.libs.utils.display import display_dataframe
 
     try:
         position_svc = Container.position_service()
-        filters = {"is_del": False}
-        if portfolio:
-            filters["portfolio_id"] = portfolio
-
-        positions = position_svc._crud_repo.find(
-            filters=filters,
-            page_size=page if page > 0 else None,
+        result = position_svc.get_all_positions(
+            portfolio_id=portfolio,
+            page_size=page,
         )
-        positions_df = positions.to_dataframe()
+        if not result.success:
+            console.print(f":x: [red]{result.error}[/red]")
+            return
+
+        positions_df = result.data.to_dataframe()
 
         position_columns_config = {
             "uuid": {"display_name": "Position ID", "style": "dim"},
@@ -225,20 +237,20 @@ def analyzer(
     :bar_chart: List analyzer records.
     """
     from ginkgo.data.containers import Container
+    from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        analyzer_crud = Container.analyzer_record_crud()
-        filters = {"is_del": False}
-        if portfolio:
-            filters["portfolio_id"] = portfolio
-        if engine:
-            filters["engine_id"] = engine
-
-        records = analyzer_crud.find(
-            filters=filters,
-            page_size=page if page > 0 else None,
+        analyzer_svc = Container.analyzer_service()
+        result = analyzer_svc.get_records(
+            portfolio_id=portfolio,
+            engine_id=engine,
+            page_size=page,
         )
-        analyzer_df = records.to_dataframe()
+        if not result.success:
+            console.print(f":x: [red]{result.error}[/red]")
+            return
+
+        analyzer_df = result.data.to_dataframe()
 
         title_parts = []
         if portfolio:

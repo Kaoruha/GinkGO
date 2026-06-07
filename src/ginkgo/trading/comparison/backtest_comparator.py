@@ -129,11 +129,12 @@ class BacktestComparator:
             from ginkgo.data.containers import Container
 
             # 1. 查 backtest_task 获取关联信息
-            task_crud = Container.backtest_task_crud()
-            task = task_crud.get_by_task_id(backtest_id)
-            if not task:
+            task_svc = Container.backtest_task_service()
+            task_result = task_svc.get_by_task_id(backtest_id)
+            if not task_result.success or not task_result.data:
                 GLOG.WARN(f"Backtest task not found: {backtest_id}")
                 return None
+            task = task_result.data
 
             # 2. 查 analyzer_record 获取指标
             result_svc = Container.result_service()
