@@ -35,7 +35,6 @@ _LAZY_IMPORTS = {
     "SignalTrackingService": ("ginkgo.data.services.signal_tracking_service", "SignalTrackingService"),
     "OrderService": ("ginkgo.data.services.order_service", "OrderService"),
     # See #22: CredentialService removed — dead code, zero callers
-    "UserService": ("ginkgo.data.services.user_service", "UserService"),
     "UserGroupService": ("ginkgo.data.services.user_group_service", "UserGroupService"),
     "NotificationService": ("ginkgo.data.services.notification_service", "NotificationService"),
 }

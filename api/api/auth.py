@@ -68,14 +68,14 @@ async def login(login_request: LoginRequest, req: Request):
     # 根据username查找用户
     result = user_service.list_users(username=login_request.username)
 
-    if not result.success or not result.data:
+    if not result.success or not result.data or not result.data.get("users"):
         logger.warning(f"Login failed for user: {login_request.username} - user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
         )
 
-    user_info = result.data[0]
+    user_info = result.data["users"][0]
     user_uuid = user_info["uuid"]
 
     # 获取关联的Credential
@@ -143,8 +143,8 @@ async def register(data: RegisterRequest, req: Request):
     user_service = get_user_service()
 
     password_hash = hash_password(data.password)
-    result = user_service.create_user(
-        username=data.username,
+    result = user_service.add_user(
+        name=data.username,
         display_name=data.display_name,
         description=f"Registered user: {data.username}",
         password_hash=password_hash,
@@ -248,9 +248,9 @@ async def get_current_user(req: Request):
     credential = user_service.get_credential(user_uuid)
 
     user_data = {
-        "uuid": user.uuid,
-        "username": user.username,
-        "display_name": user.display_name or user.username,
+        "uuid": user["uuid"],
+        "username": user["username"],
+        "display_name": user.get("display_name") or user["username"],
         "is_admin": credential.is_admin if credential else False
     }
     return ok(data=user_data)
