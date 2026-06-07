@@ -50,6 +50,35 @@ class PositionService(BaseService):
             GLOG.ERROR(f"get_positions failed: {e}")
             return ServiceResult.error(str(e))
 
+    def get_all_positions(
+        self,
+        portfolio_id: Optional[str] = None,
+        page_size: int = 50,
+    ) -> ServiceResult:
+        """
+        查询持仓记录（支持可选 portfolio 过滤）。
+
+        Args:
+            portfolio_id: 组合 ID（可选，为空则返回全部）
+            page_size: 返回数量限制，0 表示全部
+
+        Returns:
+            ServiceResult.data: ModelList
+        """
+        try:
+            filters = {"is_del": False}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            results = self._crud_repo.find(
+                filters=filters,
+                page_size=page_size if page_size > 0 else None,
+            )
+            return ServiceResult.success(data=results)
+        except Exception as e:
+            GLOG.ERROR(f"查询持仓失败: {e}")
+            return ServiceResult.error(str(e))
+
     def get_portfolio_value(self, portfolio_id: str) -> ServiceResult:
         """
         获取 portfolio 持仓总市值。

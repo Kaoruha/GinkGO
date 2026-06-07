@@ -96,49 +96,40 @@ def evaluate_strategy(
     registry.register_rule_class(
         StrategyBaseInheritanceRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.BASIC,
     )
     registry.register_rule_class(
         CalMethodRequiredRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.BASIC,
     )
     registry.register_rule_class(
         SuperInitCallRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.BASIC,
     )
 
     # Standard level rules
     registry.register_rule_class(
         CalSignatureValidationRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
     registry.register_rule_class(
         ReturnStatementRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
     registry.register_rule_class(
         SignalFieldRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
     registry.register_rule_class(
         DirectionValidationRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
     registry.register_rule_class(
         TimeProviderUsageRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
     registry.register_rule_class(
         ForbiddenOperationsRule,
         ComponentType.STRATEGY,
-        EvaluationLevel.STANDARD,
     )
 
     # Create evaluator and run evaluation
@@ -188,10 +179,10 @@ def evaluate_stability(
     """
     :chart_with_upwards_trend: Evaluate backtest stability using slice analysis.
     """
-    from ginkgo.trading.evaluation import BacktestEvaluator
-    from ginkgo.data.operations import get_portfolio_ids_from_analyzer_records, get_engine_ids_from_analyzer_records
-    from ginkgo.libs.utils.display import display_dataframe
-    
+    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
+    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
+    return
+    # TODO(#4639): Implement BacktestEvaluator for stability analysis
     try:
         # Step 1: Validate inputs or show available options
         if portfolio is None:
@@ -266,8 +257,10 @@ def create_monitor(
     """
     :telescope: Create monitoring baseline from backtest data.
     """
-    from ginkgo.trading.evaluation import BacktestEvaluator
-    
+    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
+    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
+    return
+    # TODO(#4639): Implement BacktestEvaluator for monitor baseline
     try:
         console.print(f":hourglass_flowing_sand: [yellow]Creating monitoring baseline from portfolio {portfolio}, engine {engine}...[/yellow]")
         
@@ -310,9 +303,10 @@ def monitor_live(
     """
     :eyes: Start live monitoring using baseline (demo mode).
     """
-    from ginkgo.trading.evaluation import BacktestEvaluator
-    import time
-    
+    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
+    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
+    return
+    # TODO(#4639): Implement BacktestEvaluator for live monitoring
     try:
         # Load baseline
         with open(baseline, 'r', encoding='utf-8') as f:

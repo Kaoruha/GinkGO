@@ -1,6 +1,6 @@
 # Upstream: PortfolioService (删除组合时清理信号)、BacktestTaskService (重跑前清理旧信号)
 # Downstream: SignalCRUD (信号数据访问)、GLOG (日志)
-# Role: 信号业务服务，提供 delete_signals_by_portfolio 等接口
+# Role: 信号业务服务，提供查询、delete_signals_by_portfolio 等接口
 
 
 from typing import Any, Optional
@@ -18,6 +18,39 @@ class SignalService(BaseService):
 
     def __init__(self, crud_repo=None, **kwargs):
         super().__init__(crud_repo=crud_repo, **kwargs)
+
+    def get_signals(
+        self,
+        engine_id: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+        page_size: int = 50,
+    ) -> ServiceResult:
+        """
+        查询信号记录。
+
+        Args:
+            engine_id: 引擎 ID（可选）
+            portfolio_id: 组合 ID（可选）
+            page_size: 返回数量限制，0 表示全部
+
+        Returns:
+            ServiceResult.data: ModelList
+        """
+        try:
+            filters = {"is_del": False}
+            if engine_id:
+                filters["engine_id"] = engine_id
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            results = self._crud_repo.find(
+                filters=filters,
+                page_size=page_size if page_size > 0 else None,
+            )
+            return ServiceResult.success(data=results)
+        except Exception as e:
+            GLOG.ERROR(f"查询信号失败: {e}")
+            return ServiceResult.error(str(e))
 
     def delete_signals_by_portfolio(self, portfolio_id: str) -> ServiceResult:
         """

@@ -502,7 +502,7 @@ class TaskTimer:
     def _load_config(self) -> None:
         """加载配置文件"""
         try:
-            if not os.path.exists(self.config_path):
+            if not os.path.exists(self.config_path) or not os.path.isfile(self.config_path):
                 GLOG.WARN(f"Config file not found: {self.config_path}, using defaults")
                 self._config = self._get_default_config()
                 return
@@ -953,8 +953,8 @@ class TaskTimer:
             bool: 配置是否有效
         """
         try:
-            if not os.path.exists(self.config_path):
-                GLOG.ERROR(f"Config file not found: {self.config_path}")
+            if not os.path.exists(self.config_path) or not os.path.isfile(self.config_path):
+                GLOG.ERROR(f"Config file not found or not a file: {self.config_path}")
                 return False
 
             with open(self.config_path, 'r') as f:

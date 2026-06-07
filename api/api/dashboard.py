@@ -44,16 +44,17 @@ def _check_health() -> list[SystemHealthItem]:
     try:
         from ginkgo.data.containers import container
         rs = container.redis_service()
-        result = rs.count()
-        if result.is_success():
+        if rs.ping():
+            info = rs.get_redis_info()
+            keys = info.get("db0", {}).get("keys", "N/A") if isinstance(info, dict) else "N/A"
             health_items.append(SystemHealthItem(
                 name="Redis", status="ONLINE",
-                detail=f"keys: {result.data.get('count', 0)}"
+                detail=f"keys: {keys}"
             ))
         else:
             health_items.append(SystemHealthItem(
                 name="Redis", status="WARNING",
-                detail=result.message or "ping failed"
+                detail="ping failed"
             ))
     except Exception as e:
         health_items.append(SystemHealthItem(

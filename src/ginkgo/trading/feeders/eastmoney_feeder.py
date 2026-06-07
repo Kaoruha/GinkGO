@@ -88,7 +88,7 @@ class EastMoneyFeeder(LiveDataFeeder):
             self.websocket = await asyncio.wait_for(
                 websockets.connect(
                     self._websocket_uri,
-                    extra_headers=headers,
+                    additional_headers=headers,
                     ping_interval=self.HEARTBEAT_INTERVAL,
                     ping_timeout=60,
                 ),

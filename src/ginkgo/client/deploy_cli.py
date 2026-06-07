@@ -14,12 +14,12 @@ console = Console()
 
 @app.command("")
 def deploy(
-    backtest_task_id: Annotated[str, typer.Argument(help="回测任务ID (task_id)")],
+    portfolio_id: Annotated[str, typer.Argument(help="Portfolio ID")],
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,
 ):
-    """一键部署：回测结果 → 纸上交易/实盘"""
+    """一键部署：Portfolio → 纸上交易/实盘"""
     try:
         from ginkgo.trading.containers import trading_container
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
@@ -37,12 +37,12 @@ def deploy(
             raise typer.Exit(1)
 
         console.print(f"[bold]部署中...[/bold]")
-        console.print(f"  回测任务: {backtest_task_id}")
+        console.print(f"  Portfolio: {portfolio_id}")
         console.print(f"  模式: {mode}")
 
         svc = trading_container.deployment_service()
         result = svc.deploy(
-            backtest_task_id=backtest_task_id,
+            portfolio_id=portfolio_id,
             mode=mode_map[mode],
             account_id=account,
             name=name,
@@ -99,14 +99,14 @@ def info(
 
 @app.command("list")
 def list_deployments(
-    task_id: Annotated[Optional[str], typer.Option("--task", "-t", help="按回测任务ID筛选")] = None,
+    portfolio_id: Annotated[Optional[str], typer.Option("--portfolio", "-p", help="按Portfolio ID筛选")] = None,
 ):
     """列出部署记录"""
     try:
         from ginkgo.trading.containers import trading_container
 
         svc = trading_container.deployment_service()
-        result = svc.list_deployments(source_task_id=task_id)
+        result = svc.list_deployments(portfolio_id=portfolio_id)
 
         if result.success and result.data:
             table = Table(title="部署记录")
