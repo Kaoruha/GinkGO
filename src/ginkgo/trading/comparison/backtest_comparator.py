@@ -60,6 +60,7 @@ class BacktestComparator:
     def __init__(self):
         """初始化回测对比器"""
         self._results_cache: Dict[str, Dict[str, Any]] = {}
+        self._metadata_cache: Dict[str, Dict[str, str]] = {}
         self._mock_data: Dict[str, Dict[str, Decimal]] = {}
         GLOG.INFO("BacktestComparator 初始化")
 
@@ -156,9 +157,11 @@ class BacktestComparator:
             if not metrics:
                 return None
 
-            # 附加元信息
-            metrics["_engine_id"] = task.engine_id
-            metrics["_portfolio_id"] = task.portfolio_id
+            # 附加元信息（独立存储，不污染指标字典）
+            self._metadata_cache[backtest_id] = {
+                "engine_id": task.engine_id,
+                "portfolio_id": task.portfolio_id,
+            }
 
             return metrics
 
