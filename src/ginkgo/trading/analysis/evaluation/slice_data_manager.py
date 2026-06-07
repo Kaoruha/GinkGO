@@ -50,7 +50,7 @@ class SliceDataManager:
         Returns:
             Dict: 包含analyzer_data, signal_data, order_data的字典
         """
-        GLOG.info(f"获取回测数据: portfolio={portfolio_id}, engine={engine_id}")
+        GLOG.INFO(f"获取回测数据: portfolio={portfolio_id}, engine={engine_id}")
         
         try:
             from ginkgo import services
@@ -83,7 +83,7 @@ class SliceDataManager:
             signal_data = self._preprocess_signal_data(signal_data)
             order_data = self._preprocess_order_data(order_data)
             
-            GLOG.info(f"数据获取完成: analyzer={len(analyzer_data)}, signal={len(signal_data)}, order={len(order_data)}")
+            GLOG.INFO(f"数据获取完成: analyzer={len(analyzer_data)}, signal={len(signal_data)}, order={len(order_data)}")
             
             return {
                 'analyzer_data': analyzer_data,
@@ -92,7 +92,7 @@ class SliceDataManager:
             }
             
         except Exception as e:
-            GLOG.error(f"获取回测数据失败: {e}")
+            GLOG.ERROR(f"获取回测数据失败: {e}")
             raise
             
     def _preprocess_analyzer_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -192,10 +192,10 @@ class SliceDataManager:
         start_date, end_date = self._get_data_time_range(analyzer_data, signal_data, order_data)
         
         if start_date is None or end_date is None:
-            GLOG.warn("无法确定数据时间范围")
+            GLOG.WARN("无法确定数据时间范围")
             return []
             
-        GLOG.info(f"数据时间范围: {start_date} 到 {end_date}")
+        GLOG.INFO(f"数据时间范围: {start_date} 到 {end_date}")
         
         # 创建切片
         slices = []
@@ -227,7 +227,7 @@ class SliceDataManager:
             current_start = current_end
             slice_index += 1
             
-        GLOG.info(f"数据切片完成: 共{len(slices)}个切片")
+        GLOG.INFO(f"数据切片完成: 共{len(slices)}个切片")
         return slices
         
     def _get_data_time_range(self, *dataframes) -> Tuple[Optional[datetime], Optional[datetime]]:
@@ -324,7 +324,7 @@ class SliceDataManager:
             else:
                 balanced_slices.append(current_slice)
                 
-        GLOG.info(f"切片平衡调整完成: {len(slices)} -> {len(balanced_slices)}")
+        GLOG.INFO(f"切片平衡调整完成: {len(slices)} -> {len(balanced_slices)}")
         return balanced_slices
         
     def _merge_slices(self, slice1: Dict, slice2: Dict) -> Dict:
