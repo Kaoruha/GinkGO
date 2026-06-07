@@ -842,12 +842,13 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
             GLOG.WARN(f"[DEPLOY] No completed backtest found for source {source_portfolio_id[:8]}, skipping baseline")
             return
 
-        tasks = task_result.data
+        # task_service.list() returns paginated dict: {"data": [...], "total": N, ...}
+        tasks = task_result.data.get("data", []) if isinstance(task_result.data, dict) else task_result.data
         if not tasks:
             GLOG.WARN(f"[DEPLOY] No completed backtest found for source {source_portfolio_id[:8]}, skipping baseline")
             return
 
-        latest_task = tasks[0] if isinstance(tasks, list) else tasks
+        latest_task = tasks[0]
         task_id = getattr(latest_task, 'task_id', None)
         engine_id = getattr(latest_task, 'engine_id', None)
 

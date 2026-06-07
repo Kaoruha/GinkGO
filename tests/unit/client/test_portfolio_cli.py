@@ -527,3 +527,85 @@ class TestPortfolioUnbindComponent:
         ])
         assert result.exit_code == 1
         assert "Failed to delete binding" in result.output
+
+
+# ============================================================================
+# #4666 Bug 2: _generate_baseline_if_possible pagination handling
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestGenerateBaselinePagination:
+    """#4666 Bug 2: task_service.list() returns paginated dict, not plain list.
+
+    BacktestTaskService.list() returns ServiceResult.success({
+        "data": [...], "total": N, "page": 0, "page_size": 20
+    }).
+    The code must extract the inner "data" list, not treat the outer dict as a list.
+    """
+
+    def test_extracts_task_id_from_paginated_result(self):
+        """_generate_baseline_if_possible must extract task_id from paginated dict.
+
+        BacktestTaskService.list() returns ServiceResult.data = {"data": [...], "total": N}.
+        The function must unwrap the inner list, not treat the outer dict as a task.
+        """
+        from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
+
+        # Mock backtest_task_service returning paginated dict
+        mock_task = MagicMock()
+        mock_task.task_id = "task-abc-123"
+        mock_task.engine_id = "engine-xyz"
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = ServiceResult.success({
+            "data": [mock_task],
+            "total": 1,
+            "page": 0,
+            "page_size": 20,
+        })
+
+        # Mock evaluator (prevent real evaluation)
+        mock_evaluator = MagicMock()
+        mock_evaluator.evaluate_backtest_stability.return_value = {
+            "status": "success",
+            "monitoring_baseline": {"slice_period_days": 30, "baseline_stats": {"sharpe": {}}},
+        }
+
+        # Mock redis service
+        mock_redis = MagicMock()
+
+        mock_services = MagicMock()
+        mock_services.data.backtest_task_service.return_value = mock_task_svc
+        mock_services.data.redis_service.return_value = mock_redis
+
+        with patch("ginkgo.services", mock_services), \
+             patch("ginkgo.trading.analysis.evaluation.backtest_evaluator.BacktestEvaluator",
+                   return_value=mock_evaluator):
+            _generate_baseline_if_possible("paper-id", "source-id")
+
+        # The evaluator must have been called with the correct engine_id
+        mock_evaluator.evaluate_backtest_stability.assert_called_once_with(
+            portfolio_id="source-id",
+            engine_id="engine-xyz",
+        )
+
+    def test_handles_empty_paginated_result(self):
+        """When paginated result has empty data list, function must not crash."""
+        from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = ServiceResult.success({
+            "data": [],
+            "total": 0,
+            "page": 0,
+            "page_size": 20,
+        })
+
+        mock_services = MagicMock()
+        mock_services.data.backtest_task_service.return_value = mock_task_svc
+
+        with patch("ginkgo.services", mock_services):
+            # Should not crash — just return silently
+            _generate_baseline_if_possible("paper-id", "source-id")
