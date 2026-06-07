@@ -85,8 +85,8 @@ class UserService(BaseService):
                     message="User type must be PERSON, CHANNEL, or ORGANIZATION"
                 )
 
-            # Check for duplicate username
-            existing = self.user_crud.find(filters={"username": name}, page_size=1)
+            # Check for duplicate username (exclude soft-deleted)
+            existing = self.user_crud.find(filters={"username": name, "is_del": False}, page_size=1)
             if existing:
                 return ServiceResult.error(
                     f"Username '{name}' already exists",
@@ -322,11 +322,23 @@ class UserService(BaseService):
 
             user = users[0]
 
+            # Fetch email from contacts
+            email = ""
+            try:
+                contacts = self.user_contact_crud.find_by_user_id(user_id=user.uuid)
+                for c in contacts:
+                    if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
+                        email = c.address
+                        break
+            except Exception:
+                pass
+
             return ServiceResult.success(
                 data={
                     "uuid": user.uuid,
                     "username": user.username,
                     "display_name": user.display_name,
+                    "email": email,
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
@@ -566,6 +578,17 @@ class UserService(BaseService):
             # Batch-fetch credentials for is_admin enrichment
             credentials_map = self.get_all_credentials()
 
+            # Batch-fetch email contacts
+            email_map = {}
+            try:
+                all_contacts = self.user_contact_crud.find()
+                for c in all_contacts:
+                    if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
+                        if hasattr(c, 'user_id') and c.user_id not in email_map:
+                            email_map[c.user_id] = c.address
+            except Exception:
+                pass
+
             user_list = []
             for user in users:
                 cred = credentials_map.get(user.uuid)
@@ -574,6 +597,7 @@ class UserService(BaseService):
                     "uuid": user.uuid,
                     "username": user.username,
                     "display_name": user.display_name,
+                    "email": email_map.get(user.uuid, ""),
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
