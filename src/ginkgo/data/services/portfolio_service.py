@@ -172,6 +172,7 @@ class PortfolioService(BaseService):
         current_capital=None,
         total_fee=None,
         total_profit=None,
+        live_account_id=None,
         **kwargs
     ) -> ServiceResult:
         """
@@ -250,6 +251,10 @@ class PortfolioService(BaseService):
         if total_profit is not None:
             updates["total_profit"] = total_profit
             updates_applied.append("total_profit")
+
+        if live_account_id is not None:
+            updates["live_account_id"] = live_account_id
+            updates_applied.append("live_account_id")
 
         if not updates:
             return ServiceResult.success({}, "No updates provided for portfolio update", warnings)
