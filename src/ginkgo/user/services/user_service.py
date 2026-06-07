@@ -85,6 +85,14 @@ class UserService(BaseService):
                     message="User type must be PERSON, CHANNEL, or ORGANIZATION"
                 )
 
+            # Check for duplicate username
+            existing = self.user_crud.find(filters={"username": name}, page_size=1)
+            if existing:
+                return ServiceResult.error(
+                    f"Username '{name}' already exists",
+                    message="Username already exists"
+                )
+
             # Create user - name is used as both username and display_name
             user = MUser(
                 username=name,
@@ -440,13 +448,18 @@ class UserService(BaseService):
             if updates:
                 self.user_crud.modify(filters={"uuid": user_uuid}, updates=updates)
 
-            # Update credential is_admin if requested
+            # Sync credential fields (is_admin and is_active)
+            credential_updates = {}
             if is_admin is not None:
+                credential_updates["is_admin"] = is_admin
+            if is_active is not None:
+                credential_updates["is_active"] = is_active
+            if credential_updates:
                 credential = self.user_credential_crud.get_by_user_id(user_uuid)
                 if credential:
                     self.user_credential_crud.modify(
                         filters={"uuid": credential.uuid},
-                        updates={"is_admin": is_admin},
+                        updates=credential_updates,
                     )
 
             # Update/create email contact if requested
