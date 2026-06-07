@@ -1163,3 +1163,132 @@ class PortfolioService(BaseService):
         """构建 Redis 状态 writer（委托给 RedisService）。"""
         from ginkgo.data.containers import container
         return container.redis_service()
+
+    # ── Analytics & Event Timeline ──────────────────────────────
+
+    def get_analytics(self, portfolio_id: str) -> ServiceResult:
+        """获取组合绩效指标 + 净值曲线数据。
+
+        Returns:
+            ServiceResult.data = {
+                "metrics": { net_value, annual_return, ... },
+                "net_value_series": [{ time, value }, ...]
+            }
+        """
+        try:
+            # 1. 读取 Portfolio ORM 绩效字段
+            result = self._crud_repo.find(filters={"uuid": portfolio_id})
+            portfolios = result if isinstance(result, list) else getattr(result, "data", [])
+            if not portfolios:
+                return ServiceResult.error("组合不存在")
+            p = portfolios[0]
+
+            initial = float(getattr(p, "initial_capital", 0) or 0)
+            current = float(getattr(p, "current_capital", 0) or 0)
+            net_value = round(current / initial, 4) if initial > 0 else None
+
+            metrics = {
+                "net_value": net_value,
+                "annual_return": float(getattr(p, "annual_return", 0) or 0),
+                "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
+                "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
+                "win_rate": float(getattr(p, "win_rate", 0) or 0),
+                "total_pnl": float(getattr(p, "total_profit", 0) or 0),
+                "total_trades": int(getattr(p, "total_trades", 0) or 0),
+                # 以下指标暂从 ORM 读取，后续可从 Analyzer 补充
+                "sortino_ratio": None,
+                "calmar_ratio": None,
+                "signal_count": None,
+                "profit_factor": None,
+                "volatility": None,
+            }
+
+            # 2. 信号计数
+            try:
+                from ginkgo.data.containers import container
+                signal_crud = container.cruds.signal()
+                metrics["signal_count"] = signal_crud.count({"portfolio_id": portfolio_id})
+            except Exception:
+                GLOG.WARN("信号计数查询失败，跳过")
+
+            # 3. 净值曲线
+            net_value_series = []
+            try:
+                from ginkgo.data.containers import container
+                analyzer_crud = container.cruds.analyzer_record()
+                records = analyzer_crud.find(
+                    filters={"portfolio_id": portfolio_id, "name": "net_value"},
+                    page=0, page_size=5000, order_by="timestamp", desc_order=False,
+                )
+                items = records if isinstance(records, list) else getattr(records, "data", [])
+                for r in items:
+                    t = getattr(r, "timestamp", None)
+                    v = getattr(r, "value", None)
+                    if t and v is not None:
+                        ts = t if isinstance(t, str) else t.strftime("%Y-%m-%d")
+                        net_value_series.append({"time": ts, "value": float(v)})
+            except Exception:
+                GLOG.WARN("净值序列查询失败，跳过")
+
+            data = {
+                "metrics": metrics,
+                "net_value_series": net_value_series,
+            }
+            return ServiceResult.success(data, "绩效数据获取成功")
+
+        except Exception as e:
+            GLOG.ERROR(f"获取组合绩效失败: {e}")
+            return ServiceResult.error(f"获取绩效失败: {e}")
+
+    def list_events(self, portfolio_id: str, limit: int = 50, offset: int = 0) -> ServiceResult:
+        """获取统一事件时间线（信号/订单/成交/拒绝/风控）。
+
+        Returns:
+            ServiceResult.data = {
+                "data": [...events], "total": N, "limit": 50, "offset": 0
+            }
+        """
+        try:
+            from ginkgo.services.logging import LogService
+
+            EVENT_TYPES = [
+                "SIGNALGENERATION",
+                "ORDERSUBMITTED",
+                "ORDERFILLED",
+                "ORDERPARTIALLYFILLED",
+                "ORDERREJECTED",
+                "ORDERCANCELACK",
+                "ORDEREXPIRED",
+                "RISKBREACH",
+            ]
+
+            log_service = LogService()
+            all_events = []
+
+            for et in EVENT_TYPES:
+                try:
+                    rows = log_service.query_backtest_logs(
+                        portfolio_id=portfolio_id,
+                        event_type=et,
+                        limit=limit,
+                        offset=0,
+                    )
+                    all_events.extend(rows)
+                except Exception:
+                    continue
+
+            # 按时间倒序排序
+            all_events.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+
+            # 计算总数后分页
+            total = len(all_events)
+            paged = all_events[offset: offset + limit]
+
+            return ServiceResult.success(
+                {"data": paged, "total": total, "limit": limit, "offset": offset},
+                "事件列表获取成功",
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"获取事件时间线失败: {e}")
+            return ServiceResult.error(f"获取事件时间线失败: {e}")
