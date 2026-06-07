@@ -464,9 +464,8 @@ class StockinfoService(BaseService):
             if status is not None:
                 filters['status'] = status
 
-            # Use CRUD repository to count data
-            model_list = self._crud_repo.find(filters=filters)
-            count = len(model_list) if model_list else 0
+            # Use CRUD count directly (避免全量加载到内存)
+            count = self._crud_repo.count(filters=filters)
 
             return ServiceResult.success(
                 data=count,
