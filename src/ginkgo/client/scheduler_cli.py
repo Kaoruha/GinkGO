@@ -384,7 +384,7 @@ def migrate(
         # Send migration command to Kafka
         console.print(f"\\n:satellite: Sending migration command to Kafka...")
         producer = GinkgoProducer()
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, migration_dto.model_dump_json())
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, migration_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Migration command sent successfully[/green]")
@@ -444,7 +444,7 @@ def reload(
         # Send reload command to Kafka
         console.print(f"\\n:satellite: Sending reload command to Kafka...")
         producer = GinkgoProducer()
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, reload_dto.model_dump_json())
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, reload_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Reload command sent successfully[/green]")
@@ -532,7 +532,7 @@ def recalculate(
             source="cli"
         )
 
-        success = producer.send("scheduler.commands", command_dto.model_dump_json())
+        success = producer.send("scheduler.commands", command_dto.model_dump())
 
         if success:
             console.print(f":white_check_mark: [green]Recalculate command sent successfully[/green]")
@@ -639,7 +639,7 @@ def schedule(
             source="cli"
         )
 
-        success = producer.send("scheduler.commands", command_dto.model_dump_json())
+        success = producer.send("scheduler.commands", command_dto.model_dump())
 
         if success:
             console.print(f":white_check_mark: [green]Schedule command sent successfully[/green]")
@@ -676,7 +676,7 @@ def pause():
             source="cli"
         )
 
-        success = producer.send("scheduler.commands", command_dto.model_dump_json())
+        success = producer.send("scheduler.commands", command_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Pause command sent successfully[/green]")
@@ -714,7 +714,7 @@ def resume():
             source="cli"
         )
 
-        success = producer.send("scheduler.commands", command_dto.model_dump_json())
+        success = producer.send("scheduler.commands", command_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Resume command sent successfully[/green]")
@@ -755,7 +755,7 @@ def status():
             source="cli"
         )
 
-        success = producer.send("scheduler.commands", command_dto.model_dump_json())
+        success = producer.send("scheduler.commands", command_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Status command sent successfully[/green]")

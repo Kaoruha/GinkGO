@@ -122,7 +122,7 @@ class SchedulePublisher:
 
             success = self.kafka_producer.send(
                 topic=KafkaTopics.SCHEDULE_UPDATES,
-                msg=command_dto.model_dump_json()
+                msg=command_dto.model_dump()
             )
 
             if not success:

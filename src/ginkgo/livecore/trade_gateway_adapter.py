@@ -355,7 +355,7 @@ class TradeGatewayAdapter(Thread):
             )
 
             # 发布到Kafka
-            self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, feedback_dto.model_dump_json())
+            self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, feedback_dto.model_dump())
             GLOG.INFO(f"Fill event sent to Kafka for order {fill_event.order.uuid[:8]}")
 
         except Exception as e:

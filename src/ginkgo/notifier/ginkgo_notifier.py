@@ -102,7 +102,7 @@ class GinkgoNotifier(INotificationService):
         # Fallback到原来的实现
         if self._producer:
             notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP)
-            self._producer.send("notify", notification_dto.model_dump_json())
+            self._producer.send("notify", notification_dto.model_dump())
         # beepbeep(2000, 1, 20, 30)
 
     def beep_coin(self) -> None:
@@ -122,7 +122,7 @@ class GinkgoNotifier(INotificationService):
         # Fallback到原来的实现
         if self._producer:
             notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP)
-            self._producer.send("notify", notification_dto.model_dump_json())
+            self._producer.send("notify", notification_dto.model_dump())
         # beepbeep(1920, 1, 30, 40)
         # beepbeep(2180, 1, 60, 230)
     
