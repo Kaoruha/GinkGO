@@ -70,6 +70,12 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
+        # 3c. 检查 live_account 是否已被其他 Portfolio 绑定
+        if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
+            existing_brokers = self._broker_instance_crud.get_broker_by_live_account(account_id)
+            if existing_brokers:
+                return ServiceResult(success=False, error="该实盘账号已被其他组合绑定")
+
         # 3b. 创建 PENDING deployment 记录
         deployment = MDeployment(
             source_task_id=None,
@@ -138,6 +144,13 @@ class DeploymentService(BaseService):
 
         new_portfolio_id = portfolio_result.data.get("uuid")
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
+
+        # 5c. Live模式: 回写 live_account_id 到 Portfolio
+        if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
+            self._portfolio_service.update(
+                portfolio_id=new_portfolio_id,
+                live_account_id=account_id,
+            )
 
         # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
         for mapping in mappings:
