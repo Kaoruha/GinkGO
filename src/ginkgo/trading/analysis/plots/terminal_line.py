@@ -239,11 +239,11 @@ class TerminalLine:
             # 直接使用分页数据的所有时间点作为标签
             try:
                 time_labels = page_data["timestamp"].dt.strftime("%d/%m/%Y")
-                print(f"DEBUG[分页]: 时间标签转换成功，前3个: {time_labels.head(3).tolist()}")
+                GLOG.DEBUG(f"DEBUG[分页]: 时间标签转换成功，前3个: {time_labels.head(3).tolist()}")
                 display_labels = time_labels.tolist()  # 直接使用所有分页数据的时间
-                print(f"DEBUG[分页]: 标签数量: {len(display_labels)}")
+                GLOG.DEBUG(f"DEBUG[分页]: 标签数量: {len(display_labels)}")
             except Exception as e:
-                print(f"DEBUG[分页]: 日期转换错误: {e}")
+                GLOG.DEBUG(f"DEBUG[分页]: 日期转换错误: {e}")
                 display_labels = [str(i) for i in range(len(page_data))]
             
             plt.plot(display_labels, page_data["value"].to_list())
@@ -252,7 +252,7 @@ class TerminalLine:
             plt.show()
             
             # 显示操作提示
-            print(f"\\n操作: ← 上一页 | → 下一页 | q 退出 | 当前: {self._current_page + 1}/{total_pages}")
+            GLOG.INFO(f"\\n操作: ← 上一页 | → 下一页 | q 退出 | 当前: {self._current_page + 1}/{total_pages}")
             
             # 等待用户输入
             key = self._wait_for_keypress()
@@ -267,26 +267,26 @@ class TerminalLine:
     def show(self):
         """显示线图，支持智能采样和分页"""
         if self._raw.shape[0] == 0:
-            print("没有数据可显示")
+            GLOG.INFO("没有数据可显示")
             return
         
         max_points = self._calculate_max_points()
         data_size = self._raw.shape[0]
         
         # 显示数据统计信息
-        print(f"数据统计: 总计 {data_size} 个数据点，最大显示 {max_points} 个点")
+        GLOG.INFO(f"数据统计: 总计 {data_size} 个数据点，最大显示 {max_points} 个点")
         
         # 分页模式
         if self._pagination_enabled:
-            print("分页模式已启用，使用方向键翻页")
+            GLOG.INFO("分页模式已启用，使用方向键翻页")
             self._paginate_display(self._raw)
             return
         
         # 智能采样模式
         if data_size > max_points:
-            print(f"数据点过多，使用智能采样 (保留峰值和转折点)")
+            GLOG.INFO(f"数据点过多，使用智能采样 (保留峰值和转折点)")
             show_data = self._smart_resample(self._raw, max_points)
-            print(f"采样后显示 {show_data.shape[0]} 个关键数据点")
+            GLOG.INFO(f"采样后显示 {show_data.shape[0]} 个关键数据点")
         else:
             show_data = self._raw.copy()
         
@@ -296,21 +296,21 @@ class TerminalLine:
         plt.plotsize(self._width, self._height)
         
         # 调试：打印时间戳信息
-        print(f"DEBUG: timestamp 列类型: {type(show_data['timestamp'].iloc[0])}")
-        print(f"DEBUG: timestamp 前3个值: {show_data['timestamp'].head(3).tolist()}")
+        GLOG.DEBUG(f"DEBUG: timestamp 列类型: {type(show_data['timestamp'].iloc[0])}")
+        GLOG.DEBUG(f"DEBUG: timestamp 前3个值: {show_data['timestamp'].head(3).tolist()}")
         
         # 直接使用重新采样后所有数据点的时间作为标签
         try:
             time_labels = show_data["timestamp"].dt.strftime("%d/%m/%Y")
-            print(f"DEBUG: 转换后的时间标签前3个: {time_labels.head(3).tolist()}")
+            GLOG.DEBUG(f"DEBUG: 转换后的时间标签前3个: {time_labels.head(3).tolist()}")
             display_labels = time_labels.tolist()  # 直接使用所有采样点的时间
-            print(f"DEBUG: 最终显示标签数量: {len(display_labels)}, 前5个: {display_labels[:5]}")
+            GLOG.DEBUG(f"DEBUG: 最终显示标签数量: {len(display_labels)}, 前5个: {display_labels[:5]}")
         except Exception as e:
-            print(f"DEBUG: 日期转换错误: {e}")
+            GLOG.DEBUG(f"DEBUG: 日期转换错误: {e}")
             # 回退到索引
             display_labels = [str(i) for i in range(len(show_data))]
         
-        print(f"DEBUG: 准备绘制，x轴标签数量: {len(display_labels)}, y轴数据数量: {len(show_data['value'])}")
+        GLOG.DEBUG(f"DEBUG: 准备绘制，x轴标签数量: {len(display_labels)}, y轴数据数量: {len(show_data['value'])}")
         plt.plot(display_labels, show_data["value"].to_list())
         plt.grid(True)
         plt.theme("pro")
@@ -334,6 +334,6 @@ class TerminalLine:
             return True
         else:
             missing = required - existing
-            print("Missing columns: ", missing)
+            GLOG.INFO("Missing columns: ", missing)
             return False
 

@@ -70,7 +70,7 @@ class EngineBindableMixin:
             if hasattr(self, 'log'):
                 GLOG.ERROR("Engine put not bind. Events can not put back to the engine.")
             else:
-                print(f"ERROR: Engine put not bind in {self.__class__.__name__}. Events can not put back to the engine.")
+                GLOG.INFO(f"Engine put not bind in {self.__class__.__name__}. Events can not put back to the engine.")
             return
         self._engine_put(event)
 

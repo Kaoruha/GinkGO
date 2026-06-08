@@ -35,6 +35,7 @@ Usage Examples:
         pass
 """
 
+from ginkgo.libs import GLOG
 from dependency_injector import containers, providers
 
 
@@ -67,11 +68,11 @@ def _get_logger_service_class():
             def __init__(self):
                 pass
             def info(self, msg):
-                print(f"INFO: {msg}")
+                GLOG.INFO(f"INFO: {msg}")
             def debug(self, msg):
-                print(f"DEBUG: {msg}")
+                GLOG.DEBUG(f"DEBUG: {msg}")
             def error(self, msg):
-                print(f"ERROR: {msg}")
+                GLOG.INFO(f"{msg}")
         return MockLoggerService
 
 def _get_thread_service_class():

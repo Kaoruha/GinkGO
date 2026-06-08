@@ -14,6 +14,7 @@ SimBroker - 回测模拟撮合Broker
 支持滑点、态度设置、手续费计算等回测功能。
 """
 
+from ginkgo.libs import GLOG
 import pandas as pd
 import traceback
 import numpy as np
@@ -94,7 +95,7 @@ class SimBroker(BaseBroker):
         """
         order = event.payload
         # 添加SimBroker接收订单的关键事件流日志
-        print(f"[BROKER_RECV] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Broker:SIM Order:{order.uuid[:8]}")
+        GLOG.INFO(f"{order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Broker:SIM Order:{order.uuid[:8]}")
 
         # 保存事件上下文，用于后续Position创建
         self._current_event = event
@@ -102,7 +103,7 @@ class SimBroker(BaseBroker):
         # 基础验证
         if not self.validate_order(order):
             # 添加SimBroker验证失败的订单拒绝日志
-            print(f"[BROKER_REJECT] {order.direction.name} {order.code} Reason:Validation Failed Broker:SIM Order:{order.uuid[:8]}")
+            GLOG.INFO(f"{order.direction.name} {order.code} Reason:Validation Failed Broker:SIM Order:{order.uuid[:8]}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                 order=order,
@@ -119,11 +120,11 @@ class SimBroker(BaseBroker):
 
             # 添加SimBroker撮合完成的关键事件流日志
             if result.status == ORDERSTATUS_TYPES.FILLED:
-                print(f"[BROKER_FILL] {order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
+                GLOG.INFO(f"{order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
             elif result.status == ORDERSTATUS_TYPES.PARTIALLY_FILLED:
-                print(f"[BROKER_PARTIAL] {order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
+                GLOG.INFO(f"{order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
             elif result.status == ORDERSTATUS_TYPES.REJECTED:
-                print(f"[BROKER_REJECT] {order.direction.name} {order.code} Reason:{result.error_message} Broker:SIM Order:{order.uuid[:8]}")
+                GLOG.INFO(f"{order.direction.name} {order.code} Reason:{result.error_message} Broker:SIM Order:{order.uuid[:8]}")
 
             GLOG.INFO(f"✅ [SIMBROKER] EXECUTION COMPLETE: {result.status.name} "
                            f"{result.filled_volume} {order.code} @ {result.filled_price} (trade_id: {result.trade_id})")

@@ -68,7 +68,7 @@ class ATRSizer(BaseSizer):
             if not result.success or not result.data:
                 return None
             df = result.data.to_dataframe()
-            print(df)
+            GLOG.INFO(df)
 
             # 检查数据是否足够
             if df is None or len(df) < self.period + 1:
@@ -100,7 +100,7 @@ class ATRSizer(BaseSizer):
                 fee=0,
                 timestamp=self.now,
             )
-            print("Order Generated.")
-            print(o)
+            GLOG.INFO("Order Generated.")
+            GLOG.INFO(o)
         return o
 

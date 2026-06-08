@@ -12,6 +12,7 @@ Alpha158因子工厂 - 基于QLib Alpha158实现
 提供批量创建和管理Alpha因子的接口
 """
 
+from ginkgo.libs import GLOG
 from typing import Dict, List, Union
 import pandas as pd
 import numpy as np
@@ -127,7 +128,7 @@ class Alpha158Factory:
             try:
                 factors[name] = cls.create_factor(name)
             except Exception as e:
-                print(f"Warning: Failed to create factor {name}: {e}")
+                GLOG.WARNING(f"Warning: Failed to create factor {name}: {e}")
                 continue
         
         return factors
@@ -161,7 +162,7 @@ class Alpha158Factory:
                 if factor_name in factor_result.columns:
                     base_df[factor_name] = factor_result[factor_name]
             except Exception as e:
-                print(f"Warning: Failed to calculate factor {factor_name}: {e}")
+                GLOG.WARNING(f"Warning: Failed to calculate factor {factor_name}: {e}")
                 base_df[factor_name] = np.nan
         
         return base_df
@@ -196,7 +197,7 @@ class Alpha158Factory:
                 factor_matrix = factor.cal_vectorized(matrix_data, dates, codes)
                 factor_matrices[factor_name] = factor_matrix
             except Exception as e:
-                print(f"Warning: Failed to calculate factor matrix {factor_name}: {e}")
+                GLOG.WARNING(f"Warning: Failed to calculate factor matrix {factor_name}: {e}")
                 # 创建空矩阵
                 factor_matrices[factor_name] = pd.DataFrame(
                     index=dates, columns=codes, dtype=float

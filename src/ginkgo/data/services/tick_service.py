@@ -16,6 +16,7 @@ It coordinates between data sources (e.g., TDX) and CRUD operations.
 Enhanced with comprehensive error handling, retry mechanisms, and structured returns.
 """
 
+from ginkgo.libs import GLOG
 import time
 import os
 from datetime import datetime, timedelta
@@ -114,9 +115,9 @@ class TickService(BaseService):
 
             # Fetch data from source with retry mechanism
             try:
-                print(f"[DEBUG] Fetching data for {code} on {normalized_date}")
+                GLOG.DEBUG(f"Fetching data for {code} on {normalized_date}")
                 raw_data = self._fetch_data_with_validation(code, normalized_date)
-                print(f"[DEBUG] Fetched data: {len(raw_data) if raw_data is not None else 0} records")
+                GLOG.DEBUG(f"Fetched data: {len(raw_data) if raw_data is not None else 0} records")
             except Exception as e:
                 sync_result = DataSyncResult.create_for_entity(
                     entity_type="tick",
@@ -145,9 +146,9 @@ class TickService(BaseService):
                                    data=sync_result)
 
             # Validate tick data quality
-            print(f"[DEBUG] Validating data quality for {len(raw_data)} records")
+            GLOG.DEBUG(f"Validating data quality for {len(raw_data)} records")
             validation_result = self._validate_data_quality(raw_data)
-            print(f"[DEBUG] Validation result: {validation_result}")
+            GLOG.DEBUG(f"Validation result: {validation_result}")
             if not validation_result:
                 sync_result = DataSyncResult.create_for_entity(
                     entity_type="tick",
@@ -161,7 +162,7 @@ class TickService(BaseService):
                                    message="Data quality validation failed",
                                    data=sync_result)
 
-            print(f"[DEBUG] Validation passed, proceeding to database operations")
+            GLOG.DEBUG(f"Validation passed, proceeding to database operations")
             # Enhanced database operations with remove-and-replace strategy
             records_added = 0
             records_failed = 0
@@ -170,9 +171,9 @@ class TickService(BaseService):
             batch_size = 1000  # Smaller batches for tick data
 
             try:
-                print(f"[DEBUG] Starting database operations try block")
+                GLOG.DEBUG(f"Starting database operations try block")
                 # TickCRUD will handle table creation internally
-                print(f"[DEBUG] TickCRUD will handle table creation")
+                GLOG.DEBUG(f"TickCRUD will handle table creation")
 
                 # Remove existing data for the date range (non-transactional for ClickHouse)
                 GLOG.INFO(f"Removing existing tick data for {code} on {normalized_date.date()}")
@@ -184,9 +185,9 @@ class TickService(BaseService):
                     GLOG.INFO(f"Removed {removed_count} existing tick records for {code}")
 
                 # Convert data to Tick business entities with error handling
-                print(f"[DEBUG] Converting {len(raw_data)} raw records to Tick entities")
+                GLOG.DEBUG(f"Converting {len(raw_data)} raw records to Tick entities")
                 tick_entities = mappers.dataframe_to_tick_entities(raw_data, code)
-                print(f"[DEBUG] Converted to {len(tick_entities)} Tick entities")
+                GLOG.DEBUG(f"Converted to {len(tick_entities)} Tick entities")
 
                 # Insert new data in optimized batches for large tick datasets
                 total_added = 0
@@ -195,12 +196,12 @@ class TickService(BaseService):
                 for i in range(0, len(tick_entities), batch_size):
                     batch = tick_entities[i : i + batch_size]
                     try:
-                        print(f"[DEBUG] Attempting to insert batch of {len(batch)} Tick entities for {code}")
-                        print(f"[DEBUG] First entity in batch: {batch[0] if batch else 'N/A'}")
+                        GLOG.DEBUG(f"Attempting to insert batch of {len(batch)} Tick entities for {code}")
+                        GLOG.DEBUG(f"First entity in batch: {batch[0] if batch else 'N/A'}")
                         result = self._crud_repo.add_batch(batch)
                         batch_added = len(result) if result else 0
                         total_added += batch_added
-                        print(f"[DEBUG] Batch insert successful: {batch_added} entities added")
+                        GLOG.DEBUG(f"Batch insert successful: {batch_added} entities added")
 
                         # Progress feedback for large datasets
                         if len(tick_entities) > 5000 and i % (batch_size * 5) == 0:
@@ -210,9 +211,9 @@ class TickService(BaseService):
                         records_failed += len(batch)
                         error_msg = f"Batch insert failed at index {i}: {str(e)}"
                         errors.append((i, error_msg))
-                        print(f"[ERROR] {error_msg}")
+                        GLOG.ERROR(f"{error_msg}")
                         import traceback
-                        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+                        GLOG.ERROR(f"Traceback: {traceback.format_exc()}")
                         GLOG.ERROR(error_msg)
 
                 records_added = total_added

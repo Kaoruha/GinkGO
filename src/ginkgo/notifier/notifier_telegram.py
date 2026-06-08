@@ -7,6 +7,7 @@
 
 
 
+from ginkgo.libs import GLOG
 from ginkgo.libs.core.config import GCONF
 from ginkgo.data.containers import container
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -304,7 +305,7 @@ def compare_backtest(message):
     try:
         shutil.os.remove(pic_path)
     except Exception as e:
-        print(e)
+        GLOG.INFO(e)
         pass
     bot.send_photo(message.chat.id, photo)
 
@@ -388,7 +389,7 @@ def res_backtest(message):
         try:
             shutil.os.remove(pic_path)
         except Exception as e:
-            print(e)
+            GLOG.INFO(e)
             pass
         bot.send_photo(message.chat.id, photo)
 
@@ -402,7 +403,7 @@ def refresh(call):
             try:
                 bot.send_message(call.message.chat.id, i)
             except Exception as e:
-                print(e)
+                GLOG.INFO(e)
 
         bot.answer_callback_query(call.id)
     elif call.data == "list_live_strategies":
@@ -435,13 +436,13 @@ def echo(message: str) -> None:
         try:
             bot.send_message(chat_id, message)
         except Exception as e:
-            print(e)
+            GLOG.INFO(e)
 
 
 def run_telebot():
     # 检查 bot 是否真正配置
     if not _check_bot_enabled():
-        print("[WARNING] Telegram Bot not configured, skipping bot startup")
+        GLOG.WARNING(f"Telegram Bot not configured, skipping bot startup")
         return
     bot.infinity_polling()
 

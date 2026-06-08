@@ -14,6 +14,7 @@
 支持事件驱动、矩阵和混合等不同回测模式。
 """
 
+from ginkgo.libs import GLOG
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
@@ -116,7 +117,7 @@ class BaseEngine(ABC):
             try:
                 callback(self)
             except Exception as e:
-                print(f"启动回调执行失败: {e}")
+                GLOG.INFO(f"启动回调执行失败: {e}")
     
     def stop(self) -> None:
         """停止运行"""
@@ -135,7 +136,7 @@ class BaseEngine(ABC):
                 try:
                     callback(self)
                 except Exception as e:
-                    print(f"完成回调执行失败: {e}")
+                    GLOG.INFO(f"完成回调执行失败: {e}")
     
     def pause(self) -> None:
         """暂停运行"""
@@ -233,7 +234,7 @@ class BaseEngine(ABC):
             try:
                 callback(self, error)
             except Exception as e:
-                print(f"错误回调执行失败: {e}")
+                GLOG.INFO(f"错误回调执行失败: {e}")
     
     def get_status_report(self) -> Dict[str, Any]:
         """获取状态报告"""

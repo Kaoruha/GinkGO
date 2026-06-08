@@ -7,6 +7,7 @@
 
 
 
+from ginkgo.libs import GLOG
 from cmd import Cmd
 from rich.console import Console
 import signal
@@ -46,7 +47,7 @@ ans = "Ginkgo > "
 mem = ""
 
 
-def print(string):
+GLOG.INFO(string):)
     """
     Override the global print function.
     Support Emoji and Style in rich.
@@ -61,7 +62,7 @@ def print(string):
     console.print(f"{ans}{string}")
 
 
-def chunk_print(response):
+GLOG.INFO(response):)
     global mem
     # 逐块读取流式数据
     console.print(ans, end="")
@@ -89,7 +90,7 @@ def ask_ollama(msg: str):
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, json=payload, headers=headers, stream=True)
     # 逐块读取流式数据
-    chunk_print(response)
+    GLOG.INFO(response)
 
 
 class MyPrompt(Cmd):
@@ -108,7 +109,7 @@ class MyPrompt(Cmd):
     intro += f"\n{ans}You can type ? to list commands"
 
     def app_exit(self, msg):
-        print(f"Bye. See you soon. :four_leaf_clover:")
+        GLOG.INFO(f"Bye. See you soon. :four_leaf_clover:")
         return True
 
     def default(self, msg):
@@ -131,7 +132,7 @@ class MyPrompt(Cmd):
 
     def do_add(self, msg):
         # TODO
-        print(f"add {msg}")
+        GLOG.INFO(f"add {msg}")
 
     def do_code_check(self, file_name):
         def find_and_read_file(directory, filename):
@@ -162,7 +163,7 @@ class MyPrompt(Cmd):
 
     def do_log_analyze(self, id):
         # TODO
-        print(f"analyze {id}")
+        GLOG.INFO(f"analyze {id}")
         file_name = f"bt_{id}.log"
         path = "/home/kaoru/.ginkgo/logs"
         content = ""
@@ -188,13 +189,13 @@ class MyPrompt(Cmd):
                     ask_ollama(mem)
                     time.sleep(5)
         except Exception as e:
-            print(e)
+            GLOG.INFO(e)
         finally:
             pass
 
     def help_add(self):
         # TODO
-        print("Add a new entry to the system.")
+        GLOG.INFO("Add a new entry to the system.")
 
     def do_data_update(self, msg):
         if msg == "fast":
@@ -204,32 +205,32 @@ class MyPrompt(Cmd):
 
     def help_data_update(self):
         # TODO
-        print("Update All Data.")
+        GLOG.INFO("Update All Data.")
 
     def do_health_check(self, msg):
         # TODO
-        print("call ginkgo status later")
+        GLOG.INFO("call ginkgo status later")
 
     def help_health_check(self):
         # TODO
-        print("Check the status of Ginkgo.")
+        GLOG.INFO("Check the status of Ginkgo.")
 
     def do_unittest(self, msg):
         # TODO
-        print("call ginkgo test later")
+        GLOG.INFO("call ginkgo test later")
 
     def help_unittest(self):
-        print("Usage: pytest run --[mode] (unittest deprecated)")
-        print("  -db     Run database units.")
-        print("  -data   Run data-source relative units.")
-        print("  -base   Run framework basic units.")
-        print("  -libs   Run framework base libs.")
-        print("  -backtest   Run Backtest Untis.")
+        GLOG.INFO("Usage: pytest run --[mode] (unittest deprecated)")
+        GLOG.INFO("  -db     Run database units.")
+        GLOG.INFO("  -data   Run data-source relative units.")
+        GLOG.INFO("  -base   Run framework basic units.")
+        GLOG.INFO("  -libs   Run framework base libs.")
+        GLOG.INFO("  -backtest   Run Backtest Untis.")
 
     def do_plt_daybar(self, msg):
         # TODO
-        print("call ginkgo plt later")
+        GLOG.INFO("call ginkgo plt later")
 
     def help_plt_daybar(self):
-        print("Plot Candle Chart.")
+        GLOG.INFO("Plot Candle Chart.")
 

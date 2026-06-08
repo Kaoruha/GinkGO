@@ -173,7 +173,7 @@ class TaskTimer:
             )
 
         except Exception as e:
-            print(f"[ERROR] Failed to send heartbeat: {e}")
+            GLOG.ERROR(f"Failed to send heartbeat: {e}")
 
     def _cleanup_old_heartbeat_data(self):
         """清理旧的心跳数据"""

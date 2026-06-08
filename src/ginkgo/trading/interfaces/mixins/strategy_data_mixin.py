@@ -89,17 +89,17 @@ class StrategyDataMixin:
                 # 优先使用 time_controller.now()（回测时的业务时间，需要调用）
                 if hasattr(self.data_feeder, 'time_controller') and self.data_feeder.time_controller:
                     end_date = self.data_feeder.time_controller.now()
-                    print(f"[DATA_MIXIN] 使用 time_controller.now(): {end_date}")
+                    GLOG.INFO(f"使用 time_controller.now(): {end_date}")
                 # 然后尝试 data_feeder.now（如果存在）
                 elif hasattr(self.data_feeder, 'now'):
                     end_date = self.data_feeder.now
-                    print(f"[DATA_MIXIN] 使用 data_feeder.now: {end_date}")
+                    GLOG.INFO(f"使用 data_feeder.now: {end_date}")
                 else:
                     end_date = datetime.now()
-                    print(f"[DATA_MIXIN] 使用 datetime.now: {end_date}")
+                    GLOG.INFO(f"使用 datetime.now: {end_date}")
             else:
                 end_date = datetime.now()
-                print(f"[DATA_MIXIN] data_feeder 不存在，使用 datetime.now: {end_date}")
+                GLOG.INFO(f"data_feeder 不存在，使用 datetime.now: {end_date}")
 
         if start_date is None:
             # 根据count和frequency推算start_date
@@ -129,17 +129,17 @@ class StrategyDataMixin:
             has_bar_service = hasattr(feeder_value, 'bar_service') if feeder_value else False
 
             if not has_feeder:
-                print(f"[DATA_MIXIN] 没有 data_feeder 属性")
+                GLOG.INFO(f"没有 data_feeder 属性")
                 return []
             if not feeder_value:
-                print(f"[DATA_MIXIN] data_feeder 为 None")
+                GLOG.INFO(f"data_feeder 为 None")
                 return []
             if not has_bar_service:
-                print(f"[DATA_MIXIN] data_feeder 没有 bar_service 属性")
+                GLOG.INFO(f"data_feeder 没有 bar_service 属性")
                 return []
 
             # 🔍 调试日志
-            print(f"[DATA_MIXIN] 查询数据 {symbol}, 时间范围: {start_date.date()} ~ {end_date.date()}")
+            GLOG.INFO(f"查询数据 {symbol}, 时间范围: {start_date.date()} ~ {end_date.date()}")
 
             # 直接使用 bar_service 获取数据
             result = self.data_feeder.bar_service.get(
@@ -149,7 +149,7 @@ class StrategyDataMixin:
             )
 
             if not result.success or not result.data:
-                print(f"[DATA_MIXIN] 查询失败或无数据, success={result.success}, data={result.data}")
+                GLOG.INFO(f"查询失败或无数据, success={result.success}, data={result.data}")
                 self._data_stats['cache_misses'] += 1
                 return []
 
@@ -159,7 +159,7 @@ class StrategyDataMixin:
             # 过滤无效数据
             bars = [b for b in bars if b.timestamp is not None]
 
-            print(f"[DATA_MIXIN] 查询到 {len(bars)} 条原始数据")
+            GLOG.INFO(f"查询到 {len(bars)} 条原始数据")
 
             # 按时间排序，取最新的count条
             bars = sorted(bars, key=lambda x: x.timestamp, reverse=True)
