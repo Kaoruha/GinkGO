@@ -86,9 +86,8 @@ class ServiceHub:
             return container
         except Exception as e:
             self._module_errors[name] = str(e)
-            if self._debug_mode:
-                GLOG.ERROR(f"{name} module error: {e}")
-            return None
+            GLOG.ERROR(f"ServiceHub: failed to load module '{name}': {e}")
+            raise ServiceHubError(f"Failed to load module '{name}': {e}") from e
 
     def _configure_features(self, container) -> None:
         """features 模块后置配置"""

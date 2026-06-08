@@ -309,8 +309,3 @@ class BaseService(ABC):
             Service name with memory location for debugging
         """
         return f"<{self._service_name} at {hex(id(self))}>"
-
-# Backward compatibility - Keep empty classes as aliases
-DataService = BaseService
-ManagementService = BaseService
-BusinessService = BaseService
