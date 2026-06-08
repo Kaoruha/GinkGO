@@ -124,3 +124,33 @@ class TestBacktestListProgressFormat:
         plain = _strip_ansi(invoke_result.output)
         assert "100%" in plain
         assert "10000%" not in plain
+
+
+class TestBacktestCatNoTradesWarning:
+    """#5322 completed 回测无交易时应显示警告"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_shows_no_trades_warning_when_zero_stats(self, mock_container):
+        """#5322 completed 回测 stats 全为 0 时应显示 'No trades' 提示"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        # stats 全为 0（默认值）
+        task.total_signals = 0
+        task.total_orders = 0
+        task.total_positions = 0
+        task.total_events = 0
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = True
+        result.data = task
+        mock_service.get_by_id.return_value = result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc123456789"])
+        assert invoke_result.exit_code == 0
+
+        plain = _strip_ansi(invoke_result.output)
+        assert "No trades" in plain or "未产生" in plain or "no trades" in plain.lower()

@@ -475,6 +475,11 @@ def cat_task(
             if value and value != 0:
                 stats_lines.append(f"[bold]{label}:[/bold] {value}")
         console.print(Panel("\n".join(stats_lines), title=":1234: Statistics"))
+    elif status_val == "completed":
+        console.print(Panel(
+            "[yellow]⚠️ No trades generated — selector may have returned empty symbols.[/yellow]",
+            title=":warning: Warning",
+        ))
 
 
 def _save_results(service, task_uuid: str, engine, portfolio_id: str):
