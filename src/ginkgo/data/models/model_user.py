@@ -37,9 +37,6 @@ class MUser(MMysqlBase, ModelConversion):
     __tablename__ = "users"
 
     # 用户核心字段
-    # NOTE: `name` 是 `username` 的历史镜像列（22459ac4 初始建表时创建，94e647f7 重构后保留）。
-    # 新代码请使用 `username`（登录标识）和 `display_name`（展示名称），勿直接读写 `name`。
-    name: Mapped[str] = mapped_column(String(128), nullable=False, default="", comment="用户名称（= username 镜像，历史遗留）")
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True, comment="登录用户名（唯一）")
     display_name: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="显示名称")
     email: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="邮箱地址")
@@ -79,7 +76,6 @@ class MUser(MMysqlBase, ModelConversion):
         super().__init__(**kwargs)
 
         self.username = username or ""
-        self.name = self.username
         self.display_name = display_name or username or ""
         self.email = email or ""
         self.description = description or ""
@@ -212,9 +208,6 @@ class MUser(MMysqlBase, ModelConversion):
 
         if 'display_name' in df.index and pd.notna(df['display_name']):
             self.display_name = str(df['display_name'])
-        elif 'name' in df.index and pd.notna(df['name']):
-            # 兼容旧的 name 字段
-            self.display_name = str(df['name'])
 
         if 'email' in df.index and pd.notna(df['email']):
             self.email = str(df['email'])
