@@ -521,16 +521,16 @@ class DataManager(threading.Thread):
             GLOG.ERROR(f"Failed to handle control command: {e}")
 
     @retry(max_try=3, backoff_factor=2)
-    def _publish_to_kafka(self, topic: str, message: str) -> None:
+    def _publish_to_kafka(self, topic: str, message) -> None:
         """
         发布消息到 Kafka（带重试）
 
         Args:
             topic: Kafka 主题
-            message: JSON 消息
+            message: dict (GinkgoProducer.value_serializer 会自动 json.dumps)
         """
         if self._producer:
-            self._producer.send(topic=topic, message=message)
+            self._producer.send(topic, message)
             GLOG.DEBUG(f"Published to {topic}")
 
     def _on_live_data_received(self, event: EventBase, source: str) -> None:
@@ -568,7 +568,7 @@ class DataManager(threading.Thread):
                 # 发布到 Kafka（带重试）
                 self._publish_to_kafka(
                     topic=KafkaTopics.MARKET_DATA,
-                    message=dto.model_dump_json(),
+                    message=dto.model_dump(),
                 )
                 GLOG.DEBUG(f"Published PriceUpdateDTO to Kafka: {event.code} (source: {source})")
 

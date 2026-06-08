@@ -113,3 +113,50 @@ class TestExecutionCliDoubleEncoding:
             f"Expected dict (model_dump), got {type(value).__name__}. "
             "Use model_dump() not model_dump_json() to avoid double encoding."
         )
+
+
+# ============================================================================
+# data_manager.py — 实时行情发布 (round 3: double encoding + TypeError)
+# ============================================================================
+
+
+@pytest.mark.tdd
+class TestDataManagerPublishToKafka:
+    """data_manager._publish_to_kafka must use correct send() signature and pass dict."""
+
+    def test_publish_uses_positional_args_not_kwargs(self):
+        """GinkgoProducer.send(self, topic, msg) — 'message' kwarg causes TypeError."""
+        import ginkgo.livecore.data_manager as mod
+
+        source = inspect.getsource(mod)
+        bad = re.findall(r"_producer\.send\(.*message=", source)
+        assert len(bad) == 0, (
+            "Found send(message=...) in data_manager.py — GinkgoProducer.send() "
+            "parameter is 'msg' not 'message'. Use positional args: send(topic, value)."
+        )
+
+    def test_live_data_publishes_dict_not_str(self):
+        """_on_live_data_received must pass model_dump() dict, not model_dump_json() str."""
+        import ginkgo.livecore.data_manager as mod
+
+        source = inspect.getsource(mod)
+        bad = re.findall(r"model_dump_json", source)
+        assert len(bad) == 0, (
+            f"Found model_dump_json() in data_manager.py ({len(bad)} sites). "
+            "GinkgoProducer.value_serializer calls json.dumps() — use model_dump() instead."
+        )
+
+    def test_price_update_dto_model_dump_returns_dict(self):
+        """PriceUpdateDTO.model_dump() must return dict for Kafka serializer."""
+        from ginkgo.interfaces.dtos import PriceUpdateDTO
+
+        dto = PriceUpdateDTO(
+            symbol="000001.SZ",
+            timestamp="2026-01-01T10:00:00",
+            price=10.5,
+            source="test",
+        )
+        result = dto.model_dump()
+        assert isinstance(result, dict), (
+            f"PriceUpdateDTO.model_dump() returned {type(result).__name__}, expected dict."
+        )
