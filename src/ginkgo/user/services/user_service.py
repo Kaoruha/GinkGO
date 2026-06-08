@@ -331,7 +331,8 @@ class UserService(BaseService):
                     if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
                         email = c.address
                         break
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             return ServiceResult.success(
@@ -587,7 +588,8 @@ class UserService(BaseService):
                     if hasattr(c, 'contact_type') and CONTACT_TYPES.from_int(c.contact_type) == CONTACT_TYPES.EMAIL:
                         if hasattr(c, 'user_id') and c.user_id not in email_map:
                             email_map[c.user_id] = c.address
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             user_list = []

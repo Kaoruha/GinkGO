@@ -84,6 +84,7 @@ class InfrastructureFactory:
         try:
             return EXECUTION_MODE(int(raw))
         except (ValueError, TypeError):
+            GLOG.DEBUG(f"handled error")
             pass
 
         GLOG.WARN(f"Unknown execution_mode '{raw}', falling back to BACKTEST")

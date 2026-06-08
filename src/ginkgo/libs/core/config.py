@@ -991,7 +991,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return logging_config.get("mode", "auto")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_MODE", "auto")
@@ -1012,7 +1014,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return logging_config.get("format", "json")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_FORMAT", "json")
@@ -1031,7 +1035,9 @@ class GinkgoConfig(object):
                 container_config = config.get("logging", {}).get("container", {})
                 value = container_config.get("enabled", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_ENABLED", "true")
@@ -1051,7 +1057,9 @@ class GinkgoConfig(object):
                 container_config = config.get("logging", {}).get("container", {})
                 value = container_config.get("json_output", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_JSON_OUTPUT", "true")
@@ -1071,7 +1079,9 @@ class GinkgoConfig(object):
                 local_config = config.get("logging", {}).get("local", {})
                 value = local_config.get("file_enabled", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_LOCAL_FILE_ENABLED", "true")
@@ -1090,7 +1100,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 local_config = config.get("logging", {}).get("local", {})
                 return local_config.get("file_path", "ginkgo.log")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_LOCAL_FILE_PATH", "ginkgo.log")
@@ -1132,7 +1144,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("backtest", 180))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180)
 
@@ -1150,7 +1164,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("component", 90))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90)
 
@@ -1168,7 +1184,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("performance", 30))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30)
 
@@ -1186,7 +1204,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return float(logging_config.get("sampling_rate", 0.1))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return float(os.environ.get("GINKGO_LOGGING_SAMPLING_RATE", 0.1))
 
@@ -1207,7 +1227,9 @@ class GinkgoConfig(object):
                 if isinstance(whitelist, list):
                     return whitelist
                 return []
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量（逗号分隔）
         env_value = os.environ.get("GINKGO_LOGGING_LEVEL_WHITELIST")

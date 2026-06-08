@@ -11,6 +11,7 @@ Global Clock Adapter
 - 否则回退为系统 UTC 时间
 """
 
+from ginkgo.libs import GLOG
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -35,7 +36,8 @@ def now() -> datetime:
     if _GLOBAL_TIME_PROVIDER is not None:
         try:
             return _GLOBAL_TIME_PROVIDER.now()
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
     # 回退到系统 UTC 时间
     return datetime.now(timezone.utc)

@@ -390,7 +390,8 @@ class EngineAssemblyService(BaseService):
             finally:
                 try:
                     os.unlink(temp_file_path)
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
 
         except Exception as e:

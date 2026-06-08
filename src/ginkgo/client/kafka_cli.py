@@ -447,6 +447,7 @@ def _start_queue_monitor(duration: int, interval: int):
                     time.sleep(interval)
                     
             except KeyboardInterrupt:
+                GLOG.DEBUG(f"interrupted by user")
                 pass
         
         console.print(f"\n[bold green]:white_check_mark: Queue monitoring completed after {time.time() - start_time:.1f} seconds[/]")

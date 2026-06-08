@@ -87,7 +87,8 @@ class GinkgoThreadManager:
         if self._on_task_complete:
             try:
                 self._on_task_complete(task_name, detail)
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
     def _notify_error(self, task_name: str, error: str = ""):
@@ -95,7 +96,8 @@ class GinkgoThreadManager:
         if self._on_task_error:
             try:
                 self._on_task_error(task_name, error)
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
     def get_redis_key_about_worker_status(self, pid: str, *args, **kwargs) -> str:
@@ -488,6 +490,7 @@ if __name__ == "__main__":
                 except psutil.NoSuchProcess:
                     self.unregister_worker_pid(pid)
                 except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
         console.print(":world_map:  Reset all data worker cache in REDIS.")
 
@@ -929,6 +932,7 @@ if __name__ == "__main__":
                     # Handle cases where pid cannot be converted to int
                     self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, pid_str)
                 except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
                 finally:
                     pass
@@ -953,6 +957,7 @@ if __name__ == "__main__":
                     # Handle cases where pid cannot be converted to int
                     self.unregister_worker_pid(pid_str)
                 except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
                 finally:
                     pass
@@ -1076,6 +1081,7 @@ if __name__ == "__main__":
                 key = self.get_redis_key_about_worker_status(pid)
                 self.redis_service.delete_cache(key)
             except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
             finally:
                 pass

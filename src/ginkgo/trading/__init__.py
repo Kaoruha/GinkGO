@@ -26,6 +26,7 @@ Ginkgo Backtest Module - 量化回测框架
 """
 
 # === 核心基础设施 ===
+from ginkgo.libs import GLOG
 from ginkgo.entities.base import Base
 from ginkgo.entities.identity import IdentityUtils
 from ginkgo.trading.core.backtest_base import BacktestBase
@@ -136,6 +137,7 @@ try:
         __all__.append('BaseIndex')
         
 except ImportError:
+    GLOG.DEBUG(f"optional import unavailable")
     pass
 
 # === 模块元数据 ===

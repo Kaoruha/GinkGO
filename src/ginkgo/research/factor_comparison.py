@@ -302,7 +302,8 @@ class FactorComparator:
                     y = group_returns.values
                     slope, intercept, r_value, p_value, std_err = scipy_stats.linregress(x, y)
                     metrics["monotonicity"] = float(r_value ** 2)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         return metrics

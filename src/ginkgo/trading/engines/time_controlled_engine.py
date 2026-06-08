@@ -170,7 +170,8 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         try:
             from ginkgo.trading.time.clock import set_global_time_provider
             set_global_time_provider(provider)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
         GLOG.INFO(f"Time provider swapped to: {type(provider).__name__}")
 
@@ -217,7 +218,8 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 设置全局时钟提供者，便于未完全注入处统一取时
         try:
             set_global_time_provider(self._time_provider)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         # 初始化并发控制（实盘模式）

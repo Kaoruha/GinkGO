@@ -31,6 +31,8 @@ def ensure_list(val: Any) -> List[str]:
             if isinstance(parsed, list):
                 return [str(v) for v in parsed]
         except (json.JSONDecodeError, TypeError):
+            from ginkgo.libs import GLOG
+            GLOG.DEBUG("handled error")
             pass
         return [s.strip() for s in val.split(',') if s.strip()]
     if val is None:

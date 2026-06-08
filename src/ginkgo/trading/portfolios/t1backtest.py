@@ -15,6 +15,7 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 - Generating reports and metrics related to the performance of the portfolio. The reports also contain charts.
 """
 
+from ginkgo.libs import GLOG
 import time
 import uuid
 import datetime
@@ -413,6 +414,7 @@ class PortfolioT1Backtest(PortfolioBase):
         try:
             code = event.code
         except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         self.blog.log_price_received_event(code=code, price=float(event.close))

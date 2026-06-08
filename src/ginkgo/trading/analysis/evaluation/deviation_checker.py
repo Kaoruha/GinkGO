@@ -35,7 +35,8 @@ class DeviationChecker:
                 cached = result.data if result and result.is_success() else None
                 if cached:
                     return json.loads(cached)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         try:
@@ -99,7 +100,8 @@ class DeviationChecker:
                 config_json = cfg_result.data if cfg_result and cfg_result.is_success() else None
                 if config_json:
                     return json.loads(config_json)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         return {

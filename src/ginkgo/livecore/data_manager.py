@@ -302,7 +302,8 @@ class DataManager(threading.Thread):
                     module="DataManager",
                     details={"组件": "DataManager", "错误信息": str(e)},
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             return False
@@ -375,7 +376,8 @@ class DataManager(threading.Thread):
                         "错误信息": str(e),
                     },
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
             return False
 

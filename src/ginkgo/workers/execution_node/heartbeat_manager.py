@@ -18,6 +18,7 @@ HeartbeatManager - 心跳管理器
 - ExecutionNode 状态更新到 Redis
 """
 
+from ginkgo.libs import GLOG
 import logging
 import time
 from datetime import datetime
@@ -394,7 +395,8 @@ class HeartbeatManager:
                     from datetime import datetime
                     started = datetime.fromisoformat(node.started_at)
                     uptime_seconds = int((datetime.now() - started).total_seconds())
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
 
             # 构造状态字典

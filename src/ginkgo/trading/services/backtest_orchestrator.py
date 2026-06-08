@@ -153,11 +153,13 @@ class BacktestOrchestrator:
             try:
                 backtest_start = datetime.strptime(str(config.start_date)[:10], "%Y-%m-%d")
             except ValueError:
+                GLOG.DEBUG(f"handled error")
                 pass
         if hasattr(config, 'end_date') and config.end_date:
             try:
                 backtest_end = datetime.strptime(str(config.end_date)[:10], "%Y-%m-%d")
             except ValueError:
+                GLOG.DEBUG(f"handled error")
                 pass
 
         return self._result_aggregator.aggregate_and_save(

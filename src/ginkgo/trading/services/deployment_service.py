@@ -99,7 +99,8 @@ class DeploymentService(BaseService):
                     filters={"uuid": deployment_id},
                     updates={"status": DEPLOYMENT_STATUS.FAILED},
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
             return ServiceResult(success=False, error=f"部署失败: {str(e)}")
 

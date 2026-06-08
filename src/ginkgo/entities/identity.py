@@ -19,6 +19,7 @@ Author: Ginkgo Team
 Version: 1.0.0
 """
 
+from ginkgo.libs import GLOG
 import uuid
 import hashlib
 from datetime import datetime
@@ -122,6 +123,7 @@ class IdentityUtils:
                 uuid.UUID(hex=task_id)
                 return {'valid': True, 'format': 'uuid32'}
         except ValueError:
+            GLOG.DEBUG(f"handled error")
             pass
 
         return {'valid': False, 'error': 'Invalid task_id format'}

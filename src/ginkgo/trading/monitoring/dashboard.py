@@ -225,6 +225,7 @@ class AlertManager:
             try:
                 await self._check_task
             except asyncio.CancelledError:
+                GLOG.DEBUG(f"task cancelled")
                 pass
         GLOG.INFO("告警监控已停止")
     

@@ -24,16 +24,22 @@ from ginkgo.libs.utils.display import (
 try:
     from ginkgo.libs.utils.codes import cn_index
 except ImportError:
+    from ginkgo.libs import GLOG
+    GLOG.DEBUG("optional import unavailable: codes")
     pass
 
 try:
     from ginkgo.libs.utils.process import find_process_by_keyword
 except ImportError:
+    from ginkgo.libs import GLOG
+    GLOG.DEBUG("optional import unavailable: process")
     pass
 
 try:
     from ginkgo.libs.utils.log_utils import is_container_environment, get_container_metadata
 except ImportError:
+    from ginkgo.libs import GLOG
+    GLOG.DEBUG("optional import unavailable: log_utils")
     pass
 
 __all__ = [
