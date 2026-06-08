@@ -52,18 +52,23 @@ class CommandHandler:
 
     def check_commands(self, command_consumer):
         """
-        非阻塞检查并处理命令
+        非阻塞检查并处理命令 (#3856)
+
+        通过 consumer.consumer.poll() 非阻塞读取 Kafka 消息，
+        遍历并分发给 process_command() 处理。
 
         Args:
-            command_consumer: Kafka 命令消费者
+            command_consumer: GinkgoConsumer 命令消费者实例
         """
         if not command_consumer:
             return
 
         try:
-            import json
-            # TODO: 适配 GinkgoConsumer 的接口
-            pass
+            messages = command_consumer.consumer.poll(timeout_ms=1000)
+            for tp, records in messages.items():
+                for record in records:
+                    if record.value:
+                        self.process_command(record.value)
         except Exception as e:
             logger.error(f"Error checking commands: {e}")
 
