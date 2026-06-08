@@ -221,7 +221,9 @@ class ProgressTracker:
                 if current_stage:
                     result_fields["current_stage"] = current_stage
 
-            # 完成状态时，设置结果字段
+            # 完成状态时，设置结果字段和进度 100%
+            if status == "completed":
+                result_fields["progress"] = 100
             if result:
                 result_fields.update({
                     "total_pnl": result.get("total_pnl", 0.0),

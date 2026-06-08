@@ -350,7 +350,7 @@ def list_tasks(
             name[:20],
             portfolio_id,
             f"[{status_style}]{status_val}[/{status_style}]",
-            f"{progress:.0%}" if isinstance(progress, (int, float)) else str(progress),
+            f"{int(progress)}%" if isinstance(progress, (int, float)) else str(progress),
             created,
         )
 

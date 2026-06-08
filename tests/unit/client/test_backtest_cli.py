@@ -74,3 +74,53 @@ class TestBacktestCatResultHint:
         assert "result show --run-id" in plain
         # 提示应包含实际的 task_id
         assert "task-run-id-001" in plain
+
+
+class TestBacktestListProgressFormat:
+    """#5323 list 命令 progress 格式化应为 N% 而非 N00%"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_shows_correct_progress_percentage(self, mock_container):
+        """#5323 progress=50 应显示 50% 而非 5000%"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.progress = 50
+
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list"])
+        assert invoke_result.exit_code == 0
+
+        plain = _strip_ansi(invoke_result.output)
+        # progress=50 应显示 "50%" 而非 "5000%"
+        assert "50%" in plain
+        assert "5000%" not in plain
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_shows_100_percent_on_completed(self, mock_container):
+        """#5323 completed 任务 progress=100 应显示 100%"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.progress = 100
+        task.status = "completed"
+
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list"])
+        assert invoke_result.exit_code == 0
+
+        plain = _strip_ansi(invoke_result.output)
+        assert "100%" in plain
+        assert "10000%" not in plain
