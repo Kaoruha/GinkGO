@@ -68,11 +68,11 @@ def _get_logger_service_class():
             def __init__(self):
                 pass
             def info(self, msg):
-                GLOG.INFO(f"INFO: {msg}")
+                print(f"INFO: {msg}")
             def debug(self, msg):
-                GLOG.DEBUG(f"DEBUG: {msg}")
+                print(f"DEBUG: {msg}")
             def error(self, msg):
-                GLOG.INFO(f"{msg}")
+                print(f"ERROR: {msg}")
         return MockLoggerService
 
 def _get_thread_service_class():

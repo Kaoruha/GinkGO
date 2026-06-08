@@ -2,25 +2,22 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from ginkgo.service_hub import ServiceHub, ServiceHubError, _MODULE_REGISTRY
+from ginkgo.service_hub import ServiceHub, _MODULE_REGISTRY
 
 
-class TestServiceHubLoadModuleRaisesOnError:
-    """_load_module should raise ServiceHubError when import fails, not return None."""
+class TestServiceHubLoadModuleReturnsNoneOnError:
+    """_load_module should return None and log error when import fails."""
 
-    def test_load_module_raises_on_bad_import(self):
-        hub = ServiceHub()
-        # Patch the registry to point to a non-existent module
-        with patch.dict(_MODULE_REGISTRY, {"bad": ("nonexistent.module.path", "attr", None)}):
-            with pytest.raises(ServiceHubError, match="bad"):
-                hub._load_module("bad")
-
-    def test_load_module_does_not_return_none_on_error(self):
+    def test_load_module_returns_none_on_bad_import(self):
         hub = ServiceHub()
         with patch.dict(_MODULE_REGISTRY, {"bad": ("nonexistent.module.path", "attr", None)}):
-            with pytest.raises(ServiceHubError):
-                hub._load_module("bad")
-        # Ensure error was recorded
+            result = hub._load_module("bad")
+            assert result is None
+
+    def test_load_module_records_error_on_failure(self):
+        hub = ServiceHub()
+        with patch.dict(_MODULE_REGISTRY, {"bad": ("nonexistent.module.path", "attr", None)}):
+            hub._load_module("bad")
         assert "bad" in hub._module_errors
 
     def test_getattr_raises_on_missing_module(self):

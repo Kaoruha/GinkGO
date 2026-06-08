@@ -412,7 +412,7 @@ class WebhookDispatcher:
             )
 
         except Exception as e:
-            GLOG.INFO(f"Error sending system notification webhook: {e}")
+            GLOG.ERROR(f"Error sending system notification webhook: {e}")
             return ServiceResult.error(
                 f"System notification webhook failed: {str(e)}"
             )

@@ -77,7 +77,7 @@ class GinkgoConfig(object):
                     os.environ["GINKGO_FROM_ADDRESS"] = from_addr
                 os.environ["GINKGO_FROM_NAME"] = from_name
             except Exception as e:
-                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error loading config to env: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error loading config to env: {e}")
 
         if self._has_local_secure:
             try:
@@ -145,7 +145,7 @@ class GinkgoConfig(object):
                     if fushu.get("api_key"):
                         os.environ["GINKGO_FUSHU_API_KEY"] = fushu["api_key"]
             except Exception as e:
-                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error loading secure config to env: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error loading secure config to env: {e}")
 
         self._env_vars_initialized = True
 
@@ -244,7 +244,7 @@ class GinkgoConfig(object):
 
             return self._config_cache
         except Exception as e:
-            from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error reading config: {e}")
+            from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading config: {e}")
             return {}
 
     def _read_secure(self) -> dict:
@@ -266,7 +266,7 @@ class GinkgoConfig(object):
 
             return self._secure_cache
         except Exception as e:
-            from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error reading secure config: {e}")
+            from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading secure config: {e}")
             return {}
 
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
@@ -311,7 +311,7 @@ class GinkgoConfig(object):
                 if key in config and config[key] is not None:
                     return config[key]
             except Exception as e:
-                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error reading config file: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading config file: {e}")
 
         # 优先级3: 返回默认值
         return default
@@ -324,7 +324,7 @@ class GinkgoConfig(object):
             with open(self.setting_path, "w") as file:
                 yaml.safe_dump(data, file)
         except Exception as e:
-            from ginkgo.libs import GLOG; GLOG.INFO(e)
+            from ginkgo.libs import GLOG; GLOG.ERROR(e)
             return {}
 
     @property
@@ -1122,7 +1122,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return logging_config.get("mask_fields", [])
             except Exception as e:
-                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Error reading logging.mask_fields: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading logging.mask_fields: {e}")
                 return []
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_MASK_FIELDS")

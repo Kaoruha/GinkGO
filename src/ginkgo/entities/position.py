@@ -545,7 +545,7 @@ class Position(TimeMixin, Base):
             GLOG.DEBUG(f"Available: {self.volume}, Frozen: {self.frozen_volume}, Settlement: {self.settlement_frozen_volume}")
             return True
         except Exception as e:
-            GLOG.INFO(e)
+            GLOG.ERROR(e)
             return False
         finally:
             pass

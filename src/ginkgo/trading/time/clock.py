@@ -11,11 +11,12 @@ Global Clock Adapter
 - 否则回退为系统 UTC 时间
 """
 
-from ginkgo.libs import GLOG
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional
+
+from ginkgo.libs import GLOG
 
 from .interfaces import ITimeProvider
 

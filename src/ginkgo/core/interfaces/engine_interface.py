@@ -117,7 +117,7 @@ class BaseEngine(ABC):
             try:
                 callback(self)
             except Exception as e:
-                GLOG.INFO(f"启动回调执行失败: {e}")
+                GLOG.ERROR(f"启动回调执行失败: {e}")
     
     def stop(self) -> None:
         """停止运行"""
@@ -136,7 +136,7 @@ class BaseEngine(ABC):
                 try:
                     callback(self)
                 except Exception as e:
-                    GLOG.INFO(f"完成回调执行失败: {e}")
+                    GLOG.ERROR(f"完成回调执行失败: {e}")
     
     def pause(self) -> None:
         """暂停运行"""
@@ -234,7 +234,7 @@ class BaseEngine(ABC):
             try:
                 callback(self, error)
             except Exception as e:
-                GLOG.INFO(f"错误回调执行失败: {e}")
+                GLOG.ERROR(f"错误回调执行失败: {e}")
     
     def get_status_report(self) -> Dict[str, Any]:
         """获取状态报告"""

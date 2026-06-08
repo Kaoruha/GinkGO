@@ -32,7 +32,7 @@ Usage:
     try:
         validated_data = validate_data_by_config(data, field_config)
     except ValidationError as e:
-        GLOG.INFO(f"Validation failed: {e}")
+        GLOG.ERROR(f"Validation failed: {e}")
 """
 
 import re

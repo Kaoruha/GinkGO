@@ -193,7 +193,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 e = EventSignalGeneration(signal)
                 event_uuid = getattr(e, "uuid", "N/A")[:8]
                 signal_uuid = getattr(signal, "uuid", "N/A")[:8]
-                GLOG.INFO()
+                GLOG.INFO(
                     f"[T1_PUBLISH] #{i+1}/{len(self._signals)} {signal.direction.name} {signal.code} {signal.business_timestamp} Event:{event_uuid} Signal:{signal_uuid} Portfolio:{self.uuid[:8]}"
                 )
 
@@ -239,7 +239,7 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 添加Signal接收的关键事件流日志
         if signal_payload:
-            GLOG.INFO()
+            GLOG.INFO(
                 f"[SIGNAL_RECV] {signal_payload.direction.name} {signal_payload.code} {signal_payload.business_timestamp} Portfolio:{self.uuid[:8]} Signal:{signal_payload.uuid[:8]}"
             )
         else:
@@ -311,7 +311,7 @@ class PortfolioT1Backtest(PortfolioBase):
             if business_time_normalized > current_time_normalized:
                 self.blog.log_t1_delay_event(code=event.code, reason=f"Future signal from {event.business_timestamp}")
             self._signals.append(event.payload)
-            GLOG.INFO()
+            GLOG.INFO(
                 f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}"
             )
             return
@@ -322,7 +322,7 @@ class PortfolioT1Backtest(PortfolioBase):
             order = self.sizer.cal(portfolio_info, event.payload)
             # 添加Sizer结果的关键事件流日志
             if order:
-                GLOG.INFO()
+                GLOG.INFO(
                     f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}"
                 )
                 # [订单持久化] NEW 状态持久化位置
@@ -333,7 +333,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 GLOG.WARN(f"Signal dropped: sizer returned None for {event.payload.direction.name} {event.payload.code}")
                 return
         except Exception as e:
-            GLOG.INFO()
+            GLOG.ERROR(
                 f"[SIZED_ERROR] {event.payload.direction.name} {event.payload.code} Error:{e} Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
             )
             return
@@ -384,7 +384,7 @@ class PortfolioT1Backtest(PortfolioBase):
         event.broker_order_id = f"BROKER_{order.uuid[:8]}"
         event.payload = order
 
-        GLOG.INFO()
+        GLOG.INFO(
             f"[ORDER] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Frozen:{order.frozen_money} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
         )
 
@@ -605,7 +605,7 @@ class PortfolioT1Backtest(PortfolioBase):
             code = event.code
 
             # 添加订单部分成交的关键事件流日志
-            GLOG.INFO()
+            GLOG.INFO(
                 f"[FILL] {direction.name} {code} {qty}shares @ {price} Fee:{fee} TotalFilled:{order.transaction_volume}/{order.volume} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
             )
 
@@ -669,13 +669,13 @@ class PortfolioT1Backtest(PortfolioBase):
                     )
                     self.add_position(p)
                     # 添加Position创建的关键事件流日志
-                    GLOG.INFO()
+                    GLOG.INFO(
                         f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}"
                     )
                 else:
                     pos.deal(DIRECTION_TYPES.LONG, price, qty)
                     # 添加Position更新的关键事件流日志
-                    GLOG.INFO()
+                    GLOG.INFO(
                         f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}"
                     )
 
@@ -718,7 +718,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
             self.blog.log_order_rejected_event(order_id=event.order_id, reject_code="BROKER_REJECTED", reject_reason=event.reject_reason, symbol=event.code)
             # 添加订单拒绝的关键事件流日志
-            GLOG.INFO()
+            GLOG.INFO(
                 f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}"
             )
 

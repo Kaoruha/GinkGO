@@ -27,6 +27,9 @@ _ALLOWED_PRINT_FILES = {
     "notifier/channels/console_channel.py",
     # Logging infrastructure - can't use GLOG
     "libs/core/logger.py",
+    # GLOG fallback - print() used when GLOG is unavailable (ImportError branch)
+    "core/core_containers.py",  # MockLoggerService in except ImportError
+    "trading/strategies/random_signal_strategy.py",  # log_error() ImportError fallback
 }
 
 

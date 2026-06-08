@@ -305,7 +305,7 @@ def compare_backtest(message):
     try:
         shutil.os.remove(pic_path)
     except Exception as e:
-        GLOG.INFO(e)
+        GLOG.ERROR(e)
         pass
     bot.send_photo(message.chat.id, photo)
 
@@ -389,7 +389,7 @@ def res_backtest(message):
         try:
             shutil.os.remove(pic_path)
         except Exception as e:
-            GLOG.INFO(e)
+            GLOG.ERROR(e)
             pass
         bot.send_photo(message.chat.id, photo)
 
@@ -403,7 +403,7 @@ def refresh(call):
             try:
                 bot.send_message(call.message.chat.id, i)
             except Exception as e:
-                GLOG.INFO(e)
+                GLOG.ERROR(e)
 
         bot.answer_callback_query(call.id)
     elif call.data == "list_live_strategies":
@@ -436,7 +436,7 @@ def echo(message: str) -> None:
         try:
             bot.send_message(chat_id, message)
         except Exception as e:
-            GLOG.INFO(e)
+            GLOG.ERROR(e)
 
 
 def run_telebot():

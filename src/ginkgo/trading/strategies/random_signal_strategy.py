@@ -364,7 +364,7 @@ class RandomSignalStrategy(BaseStrategy):
             GLOG.ERROR(f"[RandomSignalStrategy] {message}")
         except ImportError:
             # 如果GLOG不可用，使用print
-            GLOG.INFO(f"ERROR [RandomSignalStrategy] {message}")
+            print(f"ERROR [RandomSignalStrategy] {message}")
 
     def __repr__(self) -> str:
         """策略字符串表示"""

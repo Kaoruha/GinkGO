@@ -334,6 +334,6 @@ class TerminalLine:
             return True
         else:
             missing = required - existing
-            GLOG.INFO("Missing columns: ", missing)
+            GLOG.INFO(f"Missing columns: {missing}")
             return False
 

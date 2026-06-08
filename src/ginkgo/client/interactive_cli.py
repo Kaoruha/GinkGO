@@ -47,7 +47,7 @@ ans = "Ginkgo > "
 mem = ""
 
 
-GLOG.INFO(string):)
+def print(string):
     """
     Override the global print function.
     Support Emoji and Style in rich.
@@ -62,7 +62,7 @@ GLOG.INFO(string):)
     console.print(f"{ans}{string}")
 
 
-GLOG.INFO(response):)
+def chunk_print(response):
     global mem
     # 逐块读取流式数据
     console.print(ans, end="")
