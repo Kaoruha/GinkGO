@@ -401,6 +401,7 @@ def cat_task(
     info_lines = []
     info_lines.append(f"[bold]UUID:[/bold]         {task.uuid}")
     info_lines.append(f"[bold]Task ID:[/bold]      {task.task_id}")
+    info_lines.append(f"[dim]  \U0001f4a1 查看分析结果: ginkgo result show --run-id {task.task_id}[/dim]")
     info_lines.append(f"[bold]Name:[/bold]         {task.name}")
     info_lines.append(f"[bold]Portfolio:[/bold]    {task.portfolio_id}")
     info_lines.append(f"[bold]Engine:[/bold]       {task.engine_id}")
