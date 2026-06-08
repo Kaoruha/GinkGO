@@ -79,7 +79,7 @@ class UserCRUD(BaseCRUD[MUser]):
         Hook method: Create MUser from parameters.
         """
         return MUser(
-            name=kwargs.get("name", ""),
+            username=kwargs.get("username", ""),
             user_type=USER_TYPES.validate_input(kwargs.get("user_type", USER_TYPES.PERSON)),
             is_active=kwargs.get("is_active", True),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
@@ -281,18 +281,6 @@ class UserCRUD(BaseCRUD[MUser]):
             return 0
 
     # ==================== 业务辅助方法 ====================
-
-    def find_by_name(self, name: str) -> List[MUser]:
-        """
-        按名称查询用户
-
-        Args:
-            name: 用户名称
-
-        Returns:
-            用户列表
-        """
-        return self.find(filters={"name": name})
 
     def find_by_user_type(
         self,

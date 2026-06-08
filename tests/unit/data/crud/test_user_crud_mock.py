@@ -128,17 +128,6 @@ class TestUserCRUDBusinessHelpers:
     """Business Helper 方法测试"""
 
     @pytest.mark.unit
-    def test_find_by_name(self, crud_instance):
-        """find_by_name 构造正确的 filters 并调用 self.find"""
-        crud_instance.find = MagicMock(return_value=[])
-
-        crud_instance.find_by_name(name="Alice")
-
-        crud_instance.find.assert_called_once()
-        call_kwargs = crud_instance.find.call_args[1]
-        assert call_kwargs["filters"]["name"] == "Alice"
-
-    @pytest.mark.unit
     def test_find_active_users(self, crud_instance):
         """find_active_users 构造正确的 filters 并调用 self.find"""
         crud_instance.find = MagicMock(return_value=[])
