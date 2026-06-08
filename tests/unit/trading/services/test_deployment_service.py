@@ -83,3 +83,22 @@ class TestDeploymentServiceDeploy:
         assert result.success
         svc._deployment_crud.add.assert_called_once()
         svc._deploy_core.assert_called_once()
+
+
+class TestDeploymentServiceErrorMessages:
+    """#5327 错误信息不应重复"""
+
+    def test_error_message_no_duplicate_prefix(self):
+        """#5327 deploy 异常时 service error 不应包含 '部署失败:' 前缀（CLI 负责加）"""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        svc._deployment_crud.add.return_value = MagicMock(success=True, data=MagicMock(uuid="d1"))
+
+        # _deploy_core 抛 RuntimeError（如 line 136: 创建Portfolio失败: ...）
+        svc._deploy_core = MagicMock(side_effect=RuntimeError("创建Portfolio失败: 投资组合名称已存在"))
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER, name="Dup")
+        assert not result.success
+        # service error 不应有 "部署失败:" 前缀（CLI 层加）
+        assert not result.error.startswith("部署失败:")
