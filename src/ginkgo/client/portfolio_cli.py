@@ -290,7 +290,8 @@ def create(
         portfolio_service = container.portfolio_service()
         result = portfolio_service.add(
             name=name,
-            description=description or ""
+            description=description or "",
+            initial_capital=initial_capital,
         )
 
         if result.success:

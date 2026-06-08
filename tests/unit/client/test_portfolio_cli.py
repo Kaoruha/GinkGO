@@ -13,6 +13,7 @@ Portfolio CLI 单元测试
 """
 
 import os
+import re
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
@@ -24,6 +25,11 @@ from typer.testing import CliRunner
 
 from ginkgo.client import portfolio_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言"""
+    return re.sub(r'\x1b\[[0-9;]*m', '', text)
 
 
 @pytest.fixture
@@ -189,22 +195,45 @@ class TestPortfolioCreate:
     def test_create_success(self, mock_container, cli_runner, mock_portfolio):
         """成功创建 portfolio"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "new-portfolio-uuid", "name": "MyPortfolio"}
+        )
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
             "create", "--name", "MyPortfolio", "--capital", "500000"
         ])
         assert result.exit_code == 0
-        assert "created successfully" in result.output
-        assert "MyPortfolio" in result.output
-        assert "500,000" in result.output
+        output = _strip_ansi(result.output)
+        assert "created successfully" in output
+        assert "MyPortfolio" in output
+        assert "500,000" in output
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_passes_initial_capital_to_service(self, mock_container, cli_runner):
+        """#5331 create 命令必须将 initial_capital 传给 service.add()"""
+        mock_service = MagicMock()
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "new-uuid", "name": "CapTest"}
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "CapTest", "--capital", "2000000"
+        ])
+        assert result.exit_code == 0
+        # 验证 service.add 被调用时传入了 initial_capital
+        call_kwargs = mock_service.add.call_args
+        assert call_kwargs is not None
+        # 传入的 capital 值应为 2000000
+        passed_capital = call_kwargs.kwargs.get("initial_capital") or call_kwargs[1].get("initial_capital")
+        assert passed_capital == 2000000.0
 
     @patch("ginkgo.data.containers.container")
     def test_create_live_portfolio(self, mock_container, cli_runner, mock_portfolio):
         """创建实盘 portfolio"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_service.add.return_value = ServiceResult.success(data={"uuid": "live-uuid", "name": "LivePF"})
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
@@ -223,7 +252,7 @@ class TestPortfolioCreate:
     def test_create_service_error(self, mock_container, cli_runner):
         """服务返回错误时创建失败"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.error(error="Name already exists")
+        mock_service.add.return_value = ServiceResult.error(error="Name already exists")
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
