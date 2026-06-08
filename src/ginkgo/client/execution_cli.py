@@ -254,7 +254,7 @@ def pause(
             source="cli"
         )
 
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump_json())
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Pause command sent successfully[/green]")
@@ -296,7 +296,7 @@ def resume(
             source="cli"
         )
 
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump_json())
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump())
 
         if success:
             console.print(":white_check_mark: [green]Resume command sent successfully[/green]")

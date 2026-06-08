@@ -5,6 +5,8 @@ import types
 from unittest.mock import MagicMock, patch
 import sys
 
+from ginkgo.data.services.base_service import ServiceResult
+
 
 @pytest.fixture()
 def _deviation_checker_env(monkeypatch):
@@ -56,19 +58,19 @@ class TestGetBaseline:
         checker = DeviationChecker()
         baseline = {"net_value": {"mean": 1.0, "std": 0.1}}
         mock_redis = MagicMock()
-        mock_redis.get.return_value = json.dumps(baseline)
+        mock_redis.get_cache.return_value = ServiceResult.success(data=json.dumps(baseline))
 
         _setup_redis_service(mock_services, mock_redis)
         result = checker.get_baseline("p-001")
 
         assert result == baseline
-        mock_redis.get.assert_called_once_with("deviation:baseline:p-001")
+        mock_redis.get_cache.assert_called_once_with("deviation:baseline:p-001")
 
     def test_returns_none_when_no_source_mapping(self, _deviation_checker_env):
         DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         mock_redis = MagicMock()
-        mock_redis.get.return_value = None
+        mock_redis.get_cache.return_value = ServiceResult.success(data=None)
 
         _setup_redis_service(mock_services, mock_redis)
         result = checker.get_baseline("p-001")
@@ -82,7 +84,7 @@ class TestGetDeviationConfig:
         DeviationChecker, mock_services = _deviation_checker_env
         checker = DeviationChecker()
         mock_redis = MagicMock()
-        mock_redis.get.return_value = None
+        mock_redis.get_cache.return_value = ServiceResult.success(data=None)
 
         _setup_redis_service(mock_services, mock_redis)
         result = checker.get_deviation_config("p-001")
@@ -95,7 +97,7 @@ class TestGetDeviationConfig:
         checker = DeviationChecker()
         config = {"auto_takedown": True, "check_time": "21:00"}
         mock_redis = MagicMock()
-        mock_redis.get.return_value = json.dumps(config)
+        mock_redis.get_cache.return_value = ServiceResult.success(data=json.dumps(config))
 
         _setup_redis_service(mock_services, mock_redis)
         result = checker.get_deviation_config("p-001")
@@ -169,3 +171,133 @@ class TestSendDeviationAlert:
         checker = DeviationChecker()
         checker._producer = None
         checker.send_deviation_alert("p-001", "MODERATE", {})
+
+
+# ============================================================================
+# #4662: RedisService API contract — get_cache()/set_cache(), not get()/set()
+# ============================================================================
+
+
+@pytest.mark.tdd
+class TestDeviationCheckerRedisAPI:
+    """#4662: DeviationChecker must use get_cache()/set_cache() returning ServiceResult.
+
+    RedisService exposes:
+      - set_cache(key, value, expire_seconds=3600) → ServiceResult
+      - get_cache(key) → ServiceResult  (extract .data for the value)
+
+    The methods .get() and .set() do NOT exist on RedisService.
+    """
+
+    def test_get_baseline_uses_get_cache_for_cached_value(self, _deviation_checker_env):
+        """get_baseline must call get_cache() not get() for baseline lookup."""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        DeviationChecker, mock_services = _deviation_checker_env
+        checker = DeviationChecker()
+
+        mock_redis = MagicMock()
+        mock_redis.get_cache.return_value = ServiceResult.success(
+            data=json.dumps({"net_value": {"mean": 1.0, "std": 0.1}})
+        )
+
+        _setup_redis_service(mock_services, mock_redis)
+        result = checker.get_baseline("p-001")
+
+        # Must call get_cache, not the non-existent get()
+        mock_redis.get_cache.assert_called_once_with("deviation:baseline:p-001")
+        mock_redis.get.assert_not_called()
+        assert result is not None
+
+    def test_get_baseline_uses_get_cache_for_source_lookup(self, _deviation_checker_env):
+        """When baseline not cached, must use get_cache() to find source portfolio."""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        DeviationChecker, mock_services = _deviation_checker_env
+        checker = DeviationChecker()
+
+        mock_redis = MagicMock()
+        # First call: baseline miss (None)
+        # Second call: source miss (None)
+        mock_redis.get_cache.return_value = ServiceResult.success(data=None)
+
+        _setup_redis_service(mock_services, mock_redis)
+        result = checker.get_baseline("p-001")
+
+        # get_cache should have been called for both baseline and source
+        assert mock_redis.get_cache.call_count >= 1
+        mock_redis.get.assert_not_called()
+        assert result is None
+
+    def test_get_baseline_uses_set_cache_to_store(self, _deviation_checker_env):
+        """When computing baseline, must use set_cache() not set() to store."""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        DeviationChecker, mock_services = _deviation_checker_env
+        checker = DeviationChecker()
+
+        mock_task = MagicMock()
+        mock_task.task_id = "task-123"
+        mock_task.engine_id = "engine-456"
+
+        mock_task_svc = MagicMock()
+        mock_task_svc.list.return_value = ServiceResult.success(data=[mock_task])
+
+        mock_evaluator_cls = MagicMock()
+        mock_evaluator = mock_evaluator_cls.return_value
+        mock_evaluator.evaluate_backtest_stability.return_value = {
+            "status": "success",
+            "monitoring_baseline": {"slice_period_days": 30, "baseline_stats": {}},
+        }
+
+        mock_redis = MagicMock()
+        # get_cache is called multiple times with different keys:
+        # 1st: baseline lookup → miss (None)
+        # 2nd: source lookup → hit ("source-789")
+        mock_redis.get_cache.side_effect = [
+            ServiceResult.success(data=None),
+            ServiceResult.success(data="source-789"),
+        ]
+        mock_redis.set_cache.return_value = ServiceResult.success()
+
+        mock_services.data.redis_service.return_value = mock_redis
+        mock_services.data.backtest_task_service.return_value = mock_task_svc
+
+        # Patch the module-level import by injecting into sys.modules
+        import types
+        evaluator_mod = types.ModuleType("ginkgo.trading.analysis.evaluation.backtest_evaluator")
+        evaluator_mod.BacktestEvaluator = mock_evaluator_cls
+
+        import sys
+        saved = sys.modules.get("ginkgo.trading.analysis.evaluation.backtest_evaluator")
+        sys.modules["ginkgo.trading.analysis.evaluation.backtest_evaluator"] = evaluator_mod
+        try:
+            result = checker.get_baseline("p-001")
+        finally:
+            if saved is not None:
+                sys.modules["ginkgo.trading.analysis.evaluation.backtest_evaluator"] = saved
+            else:
+                del sys.modules["ginkgo.trading.analysis.evaluation.backtest_evaluator"]
+
+        # Must call set_cache, not the non-existent set()
+        mock_redis.set_cache.assert_called_once()
+        mock_redis.set.assert_not_called()
+        assert result is not None
+
+    def test_get_deviation_config_uses_get_cache(self, _deviation_checker_env):
+        """get_deviation_config must use get_cache() not get()."""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        DeviationChecker, mock_services = _deviation_checker_env
+        checker = DeviationChecker()
+
+        config = {"auto_takedown": True, "check_time": "21:00"}
+        mock_redis = MagicMock()
+        mock_redis.get_cache.return_value = ServiceResult.success(data=json.dumps(config))
+
+        _setup_redis_service(mock_services, mock_redis)
+        result = checker.get_deviation_config("p-001")
+
+        mock_redis.get_cache.assert_called_once_with("deviation:config:p-001")
+        mock_redis.get.assert_not_called()
+        assert result["auto_takedown"] is True

@@ -80,7 +80,7 @@ class LiveDeviationDetector:
         # 初始化当前切片
         if self.current_slice_data['start_date'] is None:
             self.current_slice_data['start_date'] = current_time
-            GLOG.info(f"开始新的切片: {current_time}")
+            GLOG.INFO(f"开始新的切片: {current_time}")
             
         # 添加新数据
         if analyzer_records:
@@ -96,7 +96,7 @@ class LiveDeviationDetector:
         slice_end_time = self.current_slice_data['start_date'] + timedelta(days=self.slice_period_days)
         
         if current_time >= slice_end_time:
-            GLOG.info(f"切片完成: {self.current_slice_data['start_date']} 到 {slice_end_time}")
+            GLOG.INFO(f"切片完成: {self.current_slice_data['start_date']} 到 {slice_end_time}")
             return True
             
         return False
@@ -109,7 +109,7 @@ class LiveDeviationDetector:
             Dict: 偏离分析结果
         """
         if not self.current_slice_data['analyzer_data']:
-            GLOG.warn("当前切片无analyzer数据，跳过偏离检测")
+            GLOG.WARN("当前切片无analyzer数据，跳过偏离检测")
             return {'status': 'no_data'}
             
         # 计算当前切片指标
@@ -146,7 +146,7 @@ class LiveDeviationDetector:
         # 重置当前切片
         self._reset_current_slice()
         
-        GLOG.info(f"偏离检测完成，整体等级: {overall_deviation_level}")
+        GLOG.INFO(f"偏离检测完成，整体等级: {overall_deviation_level}")
         
         return {
             'status': 'completed',

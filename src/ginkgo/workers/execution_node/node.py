@@ -1030,7 +1030,7 @@ class ExecutionNode:
                         )
 
                         # 发送到Kafka
-                        success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_dto.model_dump_json())
+                        success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_dto.model_dump())
                         if success:
                             GLOG.INFO(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:

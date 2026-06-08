@@ -160,18 +160,24 @@ class PlanManager:
 
     @staticmethod
     def _get_all_portfolios() -> List[Dict]:
-        """获取所有 live Portfolio（静态方法便于测试）"""
+        """获取所有 PAPER + LIVE Portfolio（静态方法便于测试）
+
+        is_live 是 MPortfolio 的 @property (mode >= PAPER)，不是数据库字段。
+        必须按 mode 分别查询 PAPER 和 LIVE。
+        """
         try:
             from ginkgo import services
+            from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
             portfolio_service = services.data.portfolio_service()
-            result = portfolio_service.get(is_live=True)
 
-            if result.success:
-                return result.data
-            else:
-                logger.error(f"Failed to get portfolios: {result.message}")
-                return []
+            all_portfolios = []
+            for mode in (PORTFOLIO_MODE_TYPES.PAPER, PORTFOLIO_MODE_TYPES.LIVE):
+                result = portfolio_service.get(mode=mode)
+                if result.success and result.data:
+                    all_portfolios.extend(result.data)
+
+            return all_portfolios
 
         except Exception as e:
             logger.error(f"Failed to get portfolios: {e}")

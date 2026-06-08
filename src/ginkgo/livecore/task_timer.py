@@ -642,8 +642,8 @@ class TaskTimer:
                 source="task_timer"
             )
 
-            # 直接发送到 ginkgo.data.commands
-            self._publish_to_data_commands(command_dto.model_dump_json())
+            # 直接发送到 ginkgo.data.commands (pass dict to avoid double encoding, #4667)
+            self._publish_to_data_commands(command_dto.model_dump())
             GLOG.INFO("Sent stockinfo command to DataWorker")
 
             # 发送Discord通知
@@ -757,8 +757,8 @@ class TaskTimer:
                 source="task_timer"
             )
 
-            # 发布到Kafka（带重试）
-            self._publish_to_kafka(command_dto.model_dump_json())
+            # 发布到Kafka（带重试, pass dict to avoid double encoding, #4667）
+            self._publish_to_kafka(command_dto.model_dump())
             GLOG.INFO("Sent update_selector command to Kafka")
             self._send_notification("Selector更新命令已发送", "UPDATE_SELECTOR")
 
@@ -816,7 +816,7 @@ class TaskTimer:
                 params={},
                 source="task_timer"
             )
-            self._publish_to_kafka(command_dto.model_dump_json())
+            self._publish_to_kafka(command_dto.model_dump())
             GLOG.INFO("Sent paper_trading advance command")
 
             self._send_notification("纸上交易推进命令已发送", "PAPER_TRADING")
@@ -874,7 +874,7 @@ class TaskTimer:
                         params=cmd_payload,
                         source="task_timer"
                     )
-                    self._publish_to_data_commands(command_dto.model_dump_json())
+                    self._publish_to_data_commands(command_dto.model_dump())
 
                 processed += len(batch)
                 GLOG.INFO(f"Progress: {processed}/{total} ({processed*100//total}%)")
@@ -886,12 +886,12 @@ class TaskTimer:
         except Exception as e:
             GLOG.ERROR(f"Failed to send batch {command} commands: {e}")
 
-    def _publish_to_data_commands(self, message: str) -> None:
+    def _publish_to_data_commands(self, message: dict) -> None:
         """
         发布命令到 ginkgo.data.commands topic（带重试）
 
         Args:
-            message: JSON格式的命令
+            message: 命令字典（dict，由 model_dump() 生成）
         """
         if self._producer:
             try:
@@ -985,7 +985,7 @@ class TaskTimer:
             return False
 
     @retry(max_try=3, backoff_factor=2)
-    def _publish_to_kafka(self, message: str) -> None:
+    def _publish_to_kafka(self, message: dict) -> None:
         """
         发布控制命令到Kafka（带重试）
 
@@ -994,28 +994,19 @@ class TaskTimer:
         - 其他控制命令 → ginkgo.live.control.commands
 
         Args:
-            message: JSON格式的控制命令
+            message: 命令字典（dict，由 model_dump() 生成）
         """
         if self._producer:
-            # 解析消息判断命令类型
-            try:
-                import json
-                message_data = json.loads(message)
-                command = message_data.get("command", "")
+            # 从 dict 读取 command 字段路由到正确的 topic (#4667)
+            command = message.get("command", "")
 
-                # 数据采集命令发送到专用 topic
-                if command in ("bar_snapshot", "stockinfo", "adjustfactor", "tick"):
-                    topic = KafkaTopics.DATA_COMMANDS
-                else:
-                    topic = KafkaTopics.CONTROL_COMMANDS
+            # 数据采集命令发送到专用 topic
+            if command in ("bar_snapshot", "stockinfo", "adjustfactor", "tick"):
+                topic = KafkaTopics.DATA_COMMANDS
+            else:
+                topic = KafkaTopics.CONTROL_COMMANDS
 
-                self._producer.send(
-                    topic=topic,
-                    msg=message,
-                )
-            except json.JSONDecodeError:
-                # 如果解析失败，发送到默认 topic
-                self._producer.send(
-                    topic=KafkaTopics.CONTROL_COMMANDS,
-                    msg=message,
-                )
+            self._producer.send(
+                topic=topic,
+                msg=message,
+            )

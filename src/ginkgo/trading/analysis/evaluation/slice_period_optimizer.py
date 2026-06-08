@@ -55,14 +55,14 @@ class SlicePeriodOptimizer:
         Returns:
             tuple: (最优周期, 稳定性评分, 详细分析结果)
         """
-        GLOG.info("开始寻找最佳切片周期...")
+        GLOG.INFO("开始寻找最佳切片周期...")
         
         best_period = None
         best_score = 0
         analysis_results = {}
         
         for period in self.candidate_periods:
-            GLOG.info(f"测试周期: {period}天")
+            GLOG.INFO(f"测试周期: {period}天")
             
             # 1. 按周期切片
             slices = self._slice_data_by_period(analyzer_data, signal_data, order_data, period)
@@ -70,7 +70,7 @@ class SlicePeriodOptimizer:
             # 2. 检查平衡性
             balance_check = self._check_slice_balance(slices)
             if not balance_check['is_balanced']:
-                GLOG.warn(f"周期{period}天不满足平衡性要求: {balance_check['reason']}")
+                GLOG.WARN(f"周期{period}天不满足平衡性要求: {balance_check['reason']}")
                 continue
                 
             # 3. 计算稳定性评分
@@ -91,7 +91,7 @@ class SlicePeriodOptimizer:
         if best_period is None:
             raise ValueError("未找到满足条件的切片周期")
             
-        GLOG.info(f"最优切片周期: {best_period}天, 稳定性评分: {best_score:.4f}")
+        GLOG.INFO(f"最优切片周期: {best_period}天, 稳定性评分: {best_score:.4f}")
         return best_period, best_score, analysis_results
         
     def _slice_data_by_period(self, 
