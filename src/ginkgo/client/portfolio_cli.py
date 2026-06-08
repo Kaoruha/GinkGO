@@ -20,10 +20,19 @@ from rich.table import Table
 from rich.tree import Tree
 from rich import print as rprint
 
+from ginkgo.enums import PORTFOLIO_MODE_TYPES
 from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
+
+
+def _format_portfolio_mode(mode_value) -> str:
+    """将 Portfolio mode 字段格式化为可读文本。#5326"""
+    if mode_value is None:
+        return "N/A"
+    enum_val = PORTFOLIO_MODE_TYPES.from_int(mode_value)
+    return enum_val.name if enum_val else str(mode_value)
 
 
 def collect_portfolio_components(portfolio_id: str, container) -> dict:
@@ -342,7 +351,7 @@ def get(
             table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
             table.add_row("Current Capital", f"¥{portfolio.current_capital:,.2f}")
             table.add_row("Cash", f"¥{portfolio.cash:,.2f}")
-            table.add_row("Mode", str(getattr(portfolio, 'mode', 'N/A')))
+            table.add_row("Mode", _format_portfolio_mode(getattr(portfolio, 'mode', None)))
             table.add_row("Description", str(portfolio.desc or "No description"))
 
             console.print(table)

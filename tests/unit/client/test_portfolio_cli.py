@@ -66,6 +66,7 @@ def mock_portfolio():
     p.current_capital = 950000.0
     p.cash = 500000.0
     p.is_live = False
+    p.mode = 0  # BACKTEST 枚举值（整数）
     p.desc = "Test description"
     return p
 
@@ -314,6 +315,36 @@ class TestPortfolioGet:
         result = cli_runner.invoke(portfolio_cli.app, ["get", "some-uuid"])
         assert result.exit_code == 1
         assert "Error" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_mode_shows_readable_text_backtest(self, mock_container, cli_runner, mock_portfolio):
+        """#5326 Mode 字段显示 BACKTEST 而非数字 0"""
+        mock_portfolio.mode = 0
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "portfolio-uuid-001"])
+        assert result.exit_code == 0
+        assert "BACKTEST" in result.output
+        # 不应出现裸数字 0 作为 Mode
+        lines = result.output.split("\n")
+        mode_line = next((l for l in lines if "Mode" in l), None)
+        assert mode_line is not None
+        # Mode 行不应以数字结尾（排除表格边框中的数字）
+        assert "BACKTEST" in mode_line
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_mode_shows_readable_text_paper(self, mock_container, cli_runner, mock_portfolio):
+        """#5326 Mode 字段显示 PAPER 而非数字 1"""
+        mock_portfolio.mode = 1
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "portfolio-uuid-001"])
+        assert result.exit_code == 0
+        assert "PAPER" in result.output
 
 
 # ============================================================================
