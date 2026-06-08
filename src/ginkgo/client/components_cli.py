@@ -219,6 +219,41 @@ def show(
         console.print(f"[red]:x:[/red] Error: {e}")
 
 @app.command()
+def info(
+    name: str = typer.Argument(..., help="Component name (e.g. moving_average_crossover)"),
+):
+    """
+    [blue]:information:[/blue] Show component parameter definitions.
+
+    Examples:
+        ginkgo component info moving_average_crossover
+        ginkgo component info fixed_selector
+    """
+    from ginkgo.data.services.component_parameter_extractor import ComponentParameterExtractor
+
+    extractor = ComponentParameterExtractor()
+    params = extractor.extract_component_parameters(name)
+    defaults = extractor.extract_component_parameter_defaults(name)
+
+    console.print(f"\n[bold]:information_source: Component:[/bold] {name}")
+
+    if not params:
+        console.print("[dim]  No parameters defined (uses default template).[/dim]")
+        return
+
+    param_table = Table(show_header=True, header_style="bold cyan")
+    param_table.add_column("Index", style="dim", width=8)
+    param_table.add_column("Parameter", style="white", width=25)
+    param_table.add_column("Default", style="green", width=20)
+
+    for idx in sorted(params.keys()):
+        param_name = params[idx]
+        default_val = defaults.get(param_name, "-")
+        param_table.add_row(str(idx), param_name, str(default_val))
+
+    console.print(param_table)
+
+@app.command()
 def validate(
     component_id: str = typer.Argument(..., help="Component UUID"),
 ):
