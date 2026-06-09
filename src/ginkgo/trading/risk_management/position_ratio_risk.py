@@ -158,8 +158,9 @@ class PositionRatioRisk(BaseRiskManagement):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for single position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_position_ratio):.2%} to {float(self._max_position_ratio):.2%})",
                 )
                 order.volume = int(adjusted_volume)
-                order.frozen = adjusted_volume * execution_price
-                order.remain = order.frozen
+                order.frozen_money = adjusted_volume * execution_price
+                order.frozen_volume = int(adjusted_volume)
+                order.remain = order.frozen_money
 
         # 检查总持仓比例
         expected_total_ratio = expected_total_value / total_worth
@@ -195,8 +196,9 @@ class PositionRatioRisk(BaseRiskManagement):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for total position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_total_ratio):.2%} to {float(self._max_total_position_ratio):.2%})",
                 )
                 order.volume = int(adjusted_volume)
-                order.frozen = adjusted_volume * execution_price
-                order.remain = order.frozen
+                order.frozen_money = adjusted_volume * execution_price
+                order.frozen_volume = int(adjusted_volume)
+                order.remain = order.frozen_money
 
         # 如果调整后的订单量为0，则拒绝订单
         if order.volume <= 0:

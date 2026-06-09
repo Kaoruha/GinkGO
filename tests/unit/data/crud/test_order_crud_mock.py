@@ -61,7 +61,7 @@ class TestOrderFieldConfig:
         required_fields = [
             'portfolio_id', 'engine_id', 'code', 'direction',
             'order_type', 'status', 'volume', 'limit_price',
-            'frozen', 'transaction_price', 'transaction_volume',
+            'frozen_money', 'frozen_volume', 'transaction_price', 'transaction_volume',
             'remain', 'fee', 'timestamp', 'source',
         ]
         for field in required_fields:
@@ -85,7 +85,7 @@ class TestOrderFieldConfig:
         """验证数值类型字段有 min 限制"""
         config = crud_instance._get_field_config()
 
-        for field_name in ['volume', 'limit_price', 'frozen', 'fee']:
+        for field_name in ['volume', 'limit_price', 'frozen_money', 'fee']:
             assert 'min' in config[field_name], f"字段 {field_name} 缺少 'min' 配置"
 
 
@@ -149,7 +149,7 @@ class TestOrderCreateFromParams:
 
         assert model.status == ORDERSTATUS_TYPES.NEW.value
         assert model.limit_price == Decimal("0")
-        assert model.frozen == 0
+        assert model.frozen_money == 0
         assert model.transaction_price == Decimal("0")
         assert model.fee == 0.0
 
@@ -166,7 +166,8 @@ class TestOrderCreateFromParams:
             status=ORDERSTATUS_TYPES.FILLED,
             volume=5000,
             limit_price=Decimal("20.00"),
-            frozen=Decimal("100000"),
+            frozen_money=Decimal("100000"),
+            frozen_volume=0,
             transaction_price=Decimal("19.80"),
             transaction_volume=5000,
             remain=Decimal("0"),

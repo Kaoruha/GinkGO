@@ -36,7 +36,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
     status: Mapped[int] = mapped_column(types.Int8, default=-1)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    frozen: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
     transaction_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     transaction_volume: Mapped[int] = mapped_column(Integer, default=0)
     remain: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -59,7 +60,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         status: Optional[ORDERSTATUS_TYPES] = None,
         volume: Optional[int] = None,
         limit_price: Optional[Number] = None,
-        frozen: Optional[int] = None,
+        frozen_money: Optional[Number] = None,
+        frozen_volume: Optional[int] = None,
         transaction_price: Optional[Number] = None,
         transaction_volume: Optional[int] = None,
         remain: Optional[Number] = None,
@@ -85,8 +87,10 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
             self.volume = volume
         if limit_price is not None:
             self.limit_price = to_decimal(limit_price)
-        if frozen is not None:
-            self.frozen = frozen
+        if frozen_money is not None:
+            self.frozen_money = to_decimal(frozen_money)
+        if frozen_volume is not None:
+            self.frozen_volume = frozen_volume
         if transaction_price is not None:
             self.transaction_price = to_decimal(transaction_price)
         if transaction_volume is not None:
@@ -113,7 +117,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
-        self.frozen = df["frozen"]
+        self.frozen_money = df["frozen_money"] if "frozen_money" in df else 0
+        self.frozen_volume = df["frozen_volume"] if "frozen_volume" in df else 0
         self.transaction_price = to_decimal(df["transaction_price"])
         self.transaction_volume = df["transaction_volume"]
         self.remain = to_decimal(df["remain"])
