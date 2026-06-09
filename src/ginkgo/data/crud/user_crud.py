@@ -65,10 +65,6 @@ class UserCRUD(BaseCRUD[MUser]):
                 'min': 0,
                 'max': 64
             },
-                'type': 'string',
-                'min': 0,
-                'max': 128
-            },
 
             # 是否激活 - 布尔值
             'is_active': {
@@ -320,11 +316,11 @@ class UserCRUD(BaseCRUD[MUser]):
         query: str
     ) -> ModelList[MUser]:
         """
-        模糊搜索用户 - 在 uuid 和 name 字段中搜索
+        模糊搜索用户 - 在 uuid、username 和 display_name 字段中搜索
 
         支持的输入格式：
         - UUID格式（32位16进制字符）：精确匹配uuid字段
-        - 其他格式：在uuid和name字段中进行模糊匹配
+        - 其他格式：在uuid、username和display_name字段中进行模糊匹配
 
         Args:
             query: 搜索关键词（UUID或用户名）

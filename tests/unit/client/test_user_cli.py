@@ -83,7 +83,8 @@ class TestUserCreate:
         mock_user_service.add_user.return_value = ServiceResult.success(
             data={
                 "uuid": "user-uuid-001",
-                "name": "John Doe",
+                "username": "john_doe",
+                "display_name": "John Doe",
                 "description": "Test user",
                 "user_type": "PERSON",
                 "is_active": True,
@@ -100,7 +101,7 @@ class TestUserCreate:
         """创建 channel 类型用户"""
         mock_container.user_service.return_value = mock_user_service
         mock_user_service.add_user.return_value = ServiceResult.success(
-            data={"uuid": "user-uuid-002", "name": "Trading Bot", "description": "", "user_type": "CHANNEL", "is_active": True}
+            data={"uuid": "user-uuid-002", "username": "trading_bot", "display_name": "Trading Bot", "description": "", "user_type": "CHANNEL", "is_active": True}
         )
         result = cli_runner.invoke(user_cli.app, ["create", "--name", "Trading Bot", "--type", "channel"])
         assert result.exit_code == 0
@@ -111,7 +112,7 @@ class TestUserCreate:
         """创建非活跃用户"""
         mock_container.user_service.return_value = mock_user_service
         mock_user_service.add_user.return_value = ServiceResult.success(
-            data={"uuid": "user-uuid-003", "name": "Inactive User", "description": "", "user_type": "PERSON", "is_active": False}
+            data={"uuid": "user-uuid-003", "username": "inactive_user", "display_name": "Inactive User", "description": "", "user_type": "PERSON", "is_active": False}
         )
         result = cli_runner.invoke(user_cli.app, ["create", "--name", "Inactive User", "--inactive"])
         assert result.exit_code == 0
@@ -204,7 +205,7 @@ class TestUserUpdate:
         """更新用户信息成功"""
         mock_container.user_service.return_value = mock_user_service
         mock_user_service.update_user.return_value = ServiceResult.success(
-            data={"uuid": "user-uuid-001", "name": "New Name", "user_type": "PERSON", "description": "Updated", "is_active": True}
+            data={"uuid": "user-uuid-001", "username": "new_name", "display_name": "New Name", "user_type": "PERSON", "description": "Updated", "is_active": True}
         )
         result = cli_runner.invoke(user_cli.app, ["update", "user-uuid-001", "--name", "New Name"])
         assert result.exit_code == 0
