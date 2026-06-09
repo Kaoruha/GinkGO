@@ -300,6 +300,10 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
 
         logger.info(f"Password reset for user: {uuid} by: {caller_uuid}")
 
+        # 撤销该用户所有旧 token（防止被重置密码的账户旧 session 仍可用）
+        from middleware.auth import token_blacklist
+        token_blacklist.revoke_user(uuid)
+
         # #5770: 响应不包含明文密码
         return ok(message=f"Password for user {uuid} has been reset")
 
