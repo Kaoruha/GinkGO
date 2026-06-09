@@ -206,3 +206,46 @@ class TestSecretKeyConfig:
         from core.config import Settings
         with pytest.raises(ValueError, match="SECRET_KEY"):
             Settings(SECRET_KEY="your-secret-key-change-in-production")
+
+
+# ============================================================
+# PR #6057 review: delete_user 后旧 token 应被撤销
+# ============================================================
+
+class TestTokenBlacklistOnDeleteUser:
+    """删除用户后该用户所有 token 应失效"""
+
+    def test_delete_user_revokes_tokens(self):
+        """delete_user 应调用 token_blacklist.revoke_user 撤销旧 token"""
+        from api.settings import delete_user
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.delete_user.return_value = MagicMock(success=True)
+
+            with patch("middleware.auth.token_blacklist") as mock_bl:
+                asyncio.run(delete_user("user-to-delete"))
+
+                mock_bl.revoke_user.assert_called_once_with("user-to-delete")
+
+    def test_delete_user_without_revoke_leaves_token_valid(self):
+        """验证问题存在：未 revoke 时旧 token 仍然有效"""
+        from middleware.auth import token_blacklist, verify_token
+        from jose import JWTError
+
+        token_blacklist._store.clear()
+        token_blacklist._user_revoked.clear()
+
+        payload = _default_payload(user_uuid="doomed-user")
+        payload["jti"] = "delete-test-jti"
+        token = _make_token(payload)
+
+        # 确认 token 有效
+        decoded = verify_token(token)
+        assert decoded["user_uuid"] == "doomed-user"
+
+        # 撤销（模拟 delete_user 应做的操作）
+        token_blacklist.revoke_user("doomed-user")
+
+        # 确认被拒绝
+        with pytest.raises(JWTError, match="revoked"):
+            verify_token(token)

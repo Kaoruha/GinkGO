@@ -332,6 +332,10 @@ async def delete_user(uuid: str):
 
         logger.info(f"User deleted: {uuid}")
 
+        # 撤销该用户所有 token（防止已删除账户的旧 session 仍可用）
+        from middleware.auth import token_blacklist
+        token_blacklist.revoke_user(uuid)
+
         return ok(message=f"User {uuid} deleted")
 
     except HTTPException:
