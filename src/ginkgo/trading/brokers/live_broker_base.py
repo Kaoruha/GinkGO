@@ -128,7 +128,7 @@ class LiveBrokerBase(BaseBroker, ABC):
         if not self.validate_order(order):
             GLOG.WARN(f"❌ Order validation failed: {order.uuid[:8]}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message="Order validation failed by LiveBroker"
             )
 
@@ -136,7 +136,7 @@ class LiveBrokerBase(BaseBroker, ABC):
         if not self._api_connected:
             GLOG.ERROR(f"❌ API not connected for {self.market}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message=f"API not connected for {self.market}"
             )
 
@@ -157,7 +157,7 @@ class LiveBrokerBase(BaseBroker, ABC):
         except Exception as e:
             GLOG.ERROR(f"❌ Submit to exchange failed: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"Exchange submission error: {str(e)}"
             )
@@ -208,7 +208,7 @@ class LiveBrokerBase(BaseBroker, ABC):
 
         if not self._api_connected:
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message="API not connected"
             )
 
@@ -228,7 +228,7 @@ class LiveBrokerBase(BaseBroker, ABC):
         except Exception as e:
             GLOG.ERROR(f"❌ Cancel from exchange failed: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"Exchange cancel error: {str(e)}"
             )

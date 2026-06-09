@@ -138,7 +138,7 @@ class FuturesBroker(LiveBrokerBase):
             # 期货规则检查
             if not self._validate_futures_order_rules(order):
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Order violates 期货交易规则"
                 )
@@ -146,7 +146,7 @@ class FuturesBroker(LiveBrokerBase):
             # 保证金检查
             if not self._check_margin_requirement(order):
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Insufficient margin for futures position"
                 )
@@ -162,7 +162,7 @@ class FuturesBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 期货订单提交失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message=f"期货订单提交失败: {str(e)}"
             )
 
@@ -189,7 +189,7 @@ class FuturesBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 期货撤单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"期货撤单失败: {str(e)}"
             )
@@ -219,7 +219,7 @@ class FuturesBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 期货查单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"期货查单失败: {str(e)}"
             )

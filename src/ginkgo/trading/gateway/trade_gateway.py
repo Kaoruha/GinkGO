@@ -301,7 +301,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}\n{traceback.format_exc()}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 order=order,
                 error_message=f"Sync execution error: {str(e)}"
             )
@@ -399,7 +399,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"Async execution failed for {order.uuid[:8]}: {e}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 order=order,
                 error_message=f"Async execution error: {str(e)}"
             )
@@ -619,7 +619,7 @@ class TradeGateway(BaseTradeGateway):
         self._handle_execution_result(result)
 
         # 移除订单跟踪（仅在最终状态时）
-        if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.NEW,  # REJECTED
+        if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.REJECTED,
                              ORDERSTATUS_TYPES.CANCELED]:
             self.remove_tracked_order(result.broker_order_id)
             GLOG.DEBUG(f"Removed tracking for completed order: {result.broker_order_id}")

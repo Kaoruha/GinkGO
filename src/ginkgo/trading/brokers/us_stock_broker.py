@@ -135,7 +135,7 @@ class USStockBroker(LiveBrokerBase):
             # 美股规则检查
             if not self._validate_us_order_rules(order):
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Order violates 美股交易规则"
                 )
@@ -151,7 +151,7 @@ class USStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 美股订单提交失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message=f"美股订单提交失败: {str(e)}"
             )
 
@@ -178,7 +178,7 @@ class USStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 美股撤单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"美股撤单失败: {str(e)}"
             )
@@ -208,7 +208,7 @@ class USStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 美股查单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"美股查单失败: {str(e)}"
             )

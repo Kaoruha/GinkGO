@@ -131,7 +131,7 @@ class HKStockBroker(LiveBrokerBase):
             # 港股规则检查
             if not self._validate_hk_order_rules(order):
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Order violates 港股交易规则"
                 )
@@ -147,7 +147,7 @@ class HKStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 港股订单提交失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message=f"港股订单提交失败: {str(e)}"
             )
 
@@ -174,7 +174,7 @@ class HKStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 港股撤单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"港股撤单失败: {str(e)}"
             )
@@ -204,7 +204,7 @@ class HKStockBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ 港股查单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"港股查单失败: {str(e)}"
             )
