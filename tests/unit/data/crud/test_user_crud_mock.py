@@ -48,7 +48,7 @@ class TestUserCRUDFieldConfig:
         """配置包含 user_type, name, is_active"""
         config = crud_instance._get_field_config()
 
-        required_keys = {"user_type", "name", "is_active"}
+        required_keys = {"user_type", "username", "is_active"}
         assert required_keys.issubset(set(config.keys())), \
             f"缺少字段: {required_keys - set(config.keys())}"
 

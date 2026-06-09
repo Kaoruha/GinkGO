@@ -65,10 +65,6 @@ class UserCRUD(BaseCRUD[MUser]):
                 'min': 0,
                 'max': 64
             },
-                'type': 'string',
-                'min': 0,
-                'max': 128
-            },
 
             # 是否激活 - 布尔值
             'is_active': {
