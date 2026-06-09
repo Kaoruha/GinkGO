@@ -2,7 +2,7 @@
 系统设置相关API路由
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -262,8 +262,24 @@ async def update_user(uuid: str, data: UserUpdate):
 
 
 @router.post("/users/{uuid}/reset-password")
-async def reset_user_password(uuid: str, data: dict):
-    """重置用户密码"""
+async def reset_user_password(uuid: str, data: dict, req: Request):
+    """重置用户密码（#5770, #5679: 增加 admin 权限校验）
+
+    权限规则：
+    - admin 可重置任意用户密码
+    - 普通用户只能重置自己的密码
+    - 响应不返回明文密码
+    """
+    # 权限校验（#5770, #5679）
+    caller_uuid = getattr(req.state, "user_uuid", None)
+    is_admin = getattr(req.state, "is_admin", False)
+
+    if not is_admin and caller_uuid != uuid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can reset other users' passwords",
+        )
+
     try:
         user_service = get_user_service()
 
@@ -282,9 +298,14 @@ async def reset_user_password(uuid: str, data: dict):
                 detail="Failed to update password"
             )
 
-        logger.info(f"Password reset for user: {uuid}")
+        logger.info(f"Password reset for user: {uuid} by: {caller_uuid}")
 
-        return ok(data={"new_password": new_password}, message=f"Password for user {uuid} has been reset")
+        # 撤销该用户所有旧 token（防止被重置密码的账户旧 session 仍可用）
+        from middleware.auth import token_blacklist
+        token_blacklist.revoke_user(uuid)
+
+        # #5770: 响应不包含明文密码
+        return ok(message=f"Password for user {uuid} has been reset")
 
     except HTTPException:
         raise
