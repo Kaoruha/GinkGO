@@ -63,6 +63,24 @@ def _get_portfolio_service():
     return container.portfolio_service()
 
 
+def _get_pt_status(account_id: str) -> str:
+    """查询模拟盘账户实际运行状态
+
+    优先从 Redis 缓存查询 Worker 上报的状态，
+    如果无法获取则返回 'stopped'。
+    """
+    try:
+        from core.redis_client import get_redis
+        redis = get_redis()
+        if redis:
+            status = redis.get(f"pt:status:{account_id}")
+            if status:
+                return status if isinstance(status, str) else status.decode()
+    except Exception:
+        pass
+    return "stopped"
+
+
 def _get_result_service():
     """获取 ResultService 实例"""
     from ginkgo.data.containers import container
@@ -116,6 +134,12 @@ def _require_portfolio(portfolio_id: str):
 # Endpoints
 # ============================================================
 
+@router.get("/")
+async def list_paper_accounts_root():
+    """[兼容旧路由] GET / → 等价于 GET /accounts"""
+    return await list_paper_accounts()
+
+
 @router.get("/accounts")
 async def list_paper_accounts():
     """获取模拟盘账户列表（PAPER 模式的 Portfolio）"""
@@ -144,7 +168,7 @@ async def list_paper_accounts():
                 "total_asset": cash,   # TODO: 现金 + 持仓市值
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": "stopped",  # TODO: 从 Redis/Worker 状态查询
+                "status": _get_pt_status(p.uuid),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
             })
 
@@ -234,7 +258,7 @@ async def get_paper_account(account_id: str):
                 "total_asset": cash,
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": "stopped",
+                "status": _get_pt_status(account_id),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
                 "positions": positions,
                 "active_orders": orders,

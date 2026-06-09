@@ -305,21 +305,31 @@ async def list_analyzers():
     """
     获取可用的分析器类型列表
 
-    返回系统中所有可用的分析器类型及其参数
+    返回系统中所有可用的分析器类型及其参数。
+    优先从 service 获取，失败时使用内置回退列表。
     """
+    # 内置分析器回退列表（与 Analyzer 注册表同步）
+    _BUILTIN_ANALYZERS = [
+        {"name": "returns", "type": "returns", "description": "收益率分析"},
+        {"name": "sharpe", "type": "sharpe", "description": "夏普比率"},
+        {"name": "drawdown", "type": "drawdown", "description": "最大回撤分析"},
+        {"name": "trades", "type": "trades", "description": "交易统计"},
+        {"name": "vwr", "type": "vwr", "description": "变异加权收益率"},
+    ]
+
     try:
         analyzer_service = container.analyzer_service()
         result = analyzer_service.get_analyzer_types()
 
-        if not result.is_success():
-            return ok(data=[])
+        if result.is_success() and result.data:
+            return ok(data=result.data)
 
-        return ok(data=result.data or [])
+        # service 返回空或失败，使用内置列表
+        return ok(data=_BUILTIN_ANALYZERS)
 
     except Exception as e:
         logger.error(f"Error listing analyzers: {str(e)}")
-        # 返回空列表而不是抛出异常
-        return ok(data=[], message="Analyzers retrieved successfully")
+        return ok(data=_BUILTIN_ANALYZERS, message="Analyzers retrieved from built-in catalog")
 
 
 @router.get("/{uuid}")
@@ -385,11 +395,31 @@ async def start_backtest(uuid: str):
         if not result.is_success() or not result.data:
             raise NotFoundError("BacktestTask", uuid)
 
+        task = result.data
+
         # 启动任务（使用正确的参数）
         result = task_service.start_task(uuid)
 
         if not result.is_success():
             raise BusinessError(f"Failed to start task: {result.error}")
+
+        # 从已保存的 config_snapshot 读取配置，发送到 Kafka
+        config_snapshot = getattr(task, 'config_snapshot', None)
+        if config_snapshot:
+            try:
+                config = json.loads(config_snapshot) if isinstance(config_snapshot, str) else config_snapshot
+            except (json.JSONDecodeError, TypeError):
+                config = {}
+            portfolio_uuids = config.get("portfolio_uuids", [])
+            portfolio_id = getattr(task, 'portfolio_id', None)
+            if not portfolio_uuids and portfolio_id:
+                portfolio_uuids = [portfolio_id]
+            await send_task_to_kafka(
+                task_uuid=uuid,
+                portfolio_uuids=portfolio_uuids,
+                name=getattr(task, 'name', ''),
+                config=config,
+            )
 
         task_id = result.data.get("task_id", uuid) if isinstance(result.data, dict) else uuid
         return ok(data={"uuid": uuid, "task_id": task_id, "state": "PENDING"},
@@ -499,20 +529,33 @@ async def backtest_events(uuid: str):
 
     async def event_stream():
         """生成SSE事件流"""
+        import json as _json
+
+        # 连续无数据的最大次数，超过则判定任务不存在/超时
+        max_empty_iterations = 3
+        empty_count = 0
+
         try:
             while True:
                 # 从Redis获取进度
                 progress_data = await get_backtest_progress(uuid)
 
                 if not progress_data:
-                    # 如果没有进度数据，发送心跳
+                    empty_count += 1
+                    if empty_count >= max_empty_iterations:
+                        # 连续多次无数据，判定为任务不存在或超时
+                        yield f"event: timeout\ndata: {_json.dumps({'reason': 'no_progress_data'})}\n\n"
+                        break
+                    # 发送心跳
                     yield "event: keepalive\ndata: {}\n\n"
                     await asyncio.sleep(1)
                     continue
 
+                # 有数据时重置计数器
+                empty_count = 0
+
                 # 发送进度事件
-                import json
-                data = json.dumps(progress_data)
+                data = _json.dumps(progress_data)
                 yield f"event: progress\ndata: {data}\n\n"
 
                 # 如果任务完成，结束流
@@ -524,7 +567,7 @@ async def backtest_events(uuid: str):
 
         except Exception as e:
             logger.error(f"Error in event stream for {uuid}: {e}")
-            error_data = json.dumps({"error": str(e)})
+            error_data = _json.dumps({"error": str(e)})
             yield f"event: error\ndata: {error_data}\n\n"
 
     return StreamingResponse(
@@ -573,13 +616,14 @@ async def get_backtest_orders(uuid: str):
         result = task_service.list_orders(uuid)
 
         if not result.is_success():
-            return ok(data={"data": [], "total": 0},
-                      message=result.error or "Failed to retrieve orders")
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve orders")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return ok(data={"data": [o.dict() for o in items], "total": total},
-                  message="Orders retrieved successfully")
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=len(items) or total,
+                         message="Orders retrieved successfully")
 
     except NotFoundError:
         raise
@@ -596,13 +640,14 @@ async def get_backtest_positions(uuid: str):
         result = task_service.list_positions(uuid)
 
         if not result.is_success():
-            return ok(data={"data": [], "total": 0},
-                      message=result.error or "Failed to retrieve positions")
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve positions")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return ok(data={"data": [p.dict() for p in items], "total": total},
-                  message="Positions retrieved successfully")
+        return paginated(items=[p.dict() for p in items], total=total,
+                         page=1, page_size=len(items) or total,
+                         message="Positions retrieved successfully")
 
     except NotFoundError:
         raise
