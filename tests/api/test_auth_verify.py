@@ -148,3 +148,32 @@ class TestVerifyInvalidToken:
 
         # cleanup
         token_blacklist._store.clear()
+
+
+# ============================================================
+# Test 4: DB 异常时 fail-closed（is_admin=False）
+# ============================================================
+
+class TestVerifyDBFailure:
+    """#5899: DB 查询异常时 is_admin 必须 fail-closed，不回退 JWT"""
+
+    @pytest.mark.asyncio
+    async def test_db_exception_is_admin_false(self):
+        """DB 抛异常时 is_admin=False，不回退到 JWT 中的 is_admin=True"""
+        from api.auth import verify_token_endpoint
+
+        # JWT 中 is_admin=True（伪造的）
+        payload = _default_payload(user_uuid="u-fake-admin", username="attacker", is_admin=True)
+        token = _make_token(payload)
+
+        # mock DB 查询抛异常
+        mock_svc = MagicMock()
+        mock_svc.get_credential.side_effect = Exception("connection pool exhausted")
+
+        with patch("api.auth.get_user_service", return_value=mock_svc):
+            req = _mock_request(headers={"Authorization": f"Bearer {token}"})
+            result = await verify_token_endpoint(req)
+
+        # fail-closed: token 有效但 is_admin 必须为 False
+        assert result["data"]["valid"] is True
+        assert result["data"]["is_admin"] is False

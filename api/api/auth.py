@@ -203,9 +203,9 @@ async def verify_token_endpoint(req: Request):
             credential = svc.get_credential(user_uuid)
             if credential:
                 is_admin = credential.is_admin
-        except Exception:
-            pass  # DB 查询失败时回退到 JWT 中的值
-            is_admin = payload.get("is_admin", False)
+        except Exception as e:
+            # #5899: fail-closed — DB 不可用时 is_admin=False，与 /auth/me 一致
+            logger.warning(f"#5899: DB query failed for is_admin, user={user_uuid}: {e}")
 
     return ok(data={
         "valid": True,
