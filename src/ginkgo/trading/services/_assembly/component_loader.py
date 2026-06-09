@@ -11,9 +11,54 @@ ComponentLoader - 组件加载器
 """
 
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.portfolios import PortfolioT1Backtest
+
+
+def resolve_param_kwargs(
+    component_params: list,
+    param_indices: List[int],
+    param_names: Dict[int, str],
+) -> Dict[str, Any]:
+    """将 DB 参数值映射到组件构造函数的 kwargs。
+
+    #5974: 支持新旧两种索引方案：
+    - 新组合（#5955 后创建）：索引从 0 开始，name 已跳过
+    - 旧组合（#5955 前创建）：索引从 1 开始（0=name）
+
+    策略：先尝试直接匹配，若全部失败则尝试整体偏移 -1。
+    """
+    if not component_params or not param_indices:
+        return {}
+
+    # 第一轮：直接匹配（新组合）
+    kwargs: Dict[str, Any] = {}
+    mapped = 0
+    for i, val in enumerate(component_params):
+        orig_idx = param_indices[i]
+        if orig_idx in param_names:
+            kwargs[param_names[orig_idx]] = val
+            mapped += 1
+
+    if mapped == len(component_params):
+        return kwargs
+
+    # 第二轮：旧组合，索引整体偏移 -1（name 曾在 index 0）
+    shifted: Dict[str, Any] = {}
+    shifted_mapped = 0
+    for i, val in enumerate(component_params):
+        orig_idx = param_indices[i]
+        shifted_idx = orig_idx - 1
+        if shifted_idx >= 0 and shifted_idx in param_names:
+            shifted[param_names[shifted_idx]] = val
+            shifted_mapped += 1
+
+    # 选择匹配更多的方案
+    if shifted_mapped > mapped:
+        return shifted
+
+    return kwargs
 
 
 class ComponentLoader:
@@ -88,6 +133,7 @@ class ComponentLoader:
                         self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
 
                         # 用动态参数提取器获取参数名，构建 kwargs
+                        # #5974: 使用 resolve_param_kwargs 处理新旧索引兼容
                         try:
                             from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
                             file_crud_local = container.cruds.file()
@@ -98,10 +144,9 @@ class ComponentLoader:
                                 file_type_str = type_map.get(component_type)
                                 if file_type_str:
                                     param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
-                                    for i, val in enumerate(component_params):
-                                        orig_idx = param_indices[i]
-                                        if orig_idx in param_names:
-                                            component_kwargs[param_names[orig_idx]] = val
+                                    component_kwargs = resolve_param_kwargs(
+                                        component_params, param_indices, param_names,
+                                    )
                         except Exception as e:
                             self._logger.WARN(f"Failed to resolve param names, falling back to positional: {e}")
                     else:
