@@ -27,6 +27,11 @@ class GinkgoConfig(object):
         return GinkgoConfig._instance
 
     def __init__(self) -> None:
+        # #5510: 单例模式下 __new__ 返回已有实例，但 __init__ 每次都执行。
+        # 使用 _initialized 标志避免重复初始化清除缓存。
+        if getattr(self, "_initialized", False):
+            return
+
         # 初始化缓存变量
         self._config_cache = {}
         self._config_mtime = 0
@@ -37,19 +42,21 @@ class GinkgoConfig(object):
         self._has_local_secure = None
         # 环境变量是否已初始化的标记
         self._env_vars_initialized = False
+        self._initialized = True
 
     def _ensure_env_vars(self) -> None:
         """
         确保环境变量已设置（从配置文件加载）
         只执行一次，将配置文件中的值设置到环境变量
-        配置文件优先级最高：覆盖环境变量
+        #5875: 环境变量优先级高于配置文件（Docker/container 场景）
         """
         if self._env_vars_initialized:
             return
 
         self.generate_config_file()
 
-        # 如果有本地配置文件，将配置设置到环境变量（覆盖环境变量）
+        # 如果有本地配置文件，将配置设置到环境变量
+        # #5875: 使用 setdefault 保证环境变量（Docker/container）优先
         if self._has_local_config:
             try:
                 config = self._read_config()
@@ -58,24 +65,23 @@ class GinkgoConfig(object):
                 discord = notifications.get("discord", {})
                 email = notifications.get("email", {})
 
-                os.environ["GINKGO_NOTIFICATION_DISCORD_TIMEOUT"] = str(discord.get("timeout", 3))
-                os.environ["GINKGO_NOTIFICATION_DISCORD_MAX_RETRIES"] = str(discord.get("max_retries", 3))
-                os.environ["GINKGO_NOTIFICATION_EMAIL_TIMEOUT"] = str(email.get("timeout", 10))
-                os.environ["GINKGO_NOTIFICATION_EMAIL_MAX_RETRIES"] = str(email.get("max_retries", 3))
+                os.environ.setdefault("GINKGO_NOTIFICATION_DISCORD_TIMEOUT", str(discord.get("timeout", 3)))
+                os.environ.setdefault("GINKGO_NOTIFICATION_DISCORD_MAX_RETRIES", str(discord.get("max_retries", 3)))
+                os.environ.setdefault("GINKGO_NOTIFICATION_EMAIL_TIMEOUT", str(email.get("timeout", 10)))
+                os.environ.setdefault("GINKGO_NOTIFICATION_EMAIL_MAX_RETRIES", str(email.get("max_retries", 3)))
 
                 # Email SMTP 配置（从 config.yml）
                 smtp_host = email.get("smtp_host", "")
                 smtp_port = email.get("smtp_port", "")
                 from_addr = email.get("from_address", "")
                 from_name = email.get("from_name", "Ginkgo Notification")
-                # 只有配置文件中有值时才设置（保留容器环境变量的优先级）
                 if smtp_host:
-                    os.environ["GINKGO_SMTP_HOST"] = smtp_host
+                    os.environ.setdefault("GINKGO_SMTP_HOST", smtp_host)
                 if smtp_port:
-                    os.environ["GINKGO_SMTP_PORT"] = str(smtp_port)
+                    os.environ.setdefault("GINKGO_SMTP_PORT", str(smtp_port))
                 if from_addr:
-                    os.environ["GINKGO_FROM_ADDRESS"] = from_addr
-                os.environ["GINKGO_FROM_NAME"] = from_name
+                    os.environ.setdefault("GINKGO_FROM_ADDRESS", from_addr)
+                os.environ.setdefault("GINKGO_FROM_NAME", from_name)
             except Exception as e:
                 print(f"[GCONF] Error loading config to env: {e}")
 
@@ -84,39 +90,43 @@ class GinkgoConfig(object):
                 secure_data = self._read_secure()
                 database = secure_data.get("database", {})
 
+                # #5875: Use setdefault so Docker/container env vars take
+                # priority over secure.yml values.  Direct assignment would
+                # unconditionally overwrite any env var already set by
+                # docker-compose or the orchestration layer.
                 # Kafka
                 kafka = database.get("kafka", {})
-                os.environ["GINKGO_KAFKA_HOST"] = kafka.get("host", "localhost")
-                os.environ["GINKGO_KAFKA_PORT"] = str(kafka.get("port", "9092"))
+                os.environ.setdefault("GINKGO_KAFKA_HOST", kafka.get("host", "localhost"))
+                os.environ.setdefault("GINKGO_KAFKA_PORT", str(kafka.get("port", "9092")))
 
                 # Redis
                 redis = database.get("redis", {})
-                os.environ["GINKGO_REDIS_HOST"] = redis.get("host", "localhost")
-                os.environ["GINKGO_REDIS_PORT"] = str(redis.get("port", "6379"))
+                os.environ.setdefault("GINKGO_REDIS_HOST", redis.get("host", "localhost"))
+                os.environ.setdefault("GINKGO_REDIS_PORT", str(redis.get("port", "6379")))
 
                 # ClickHouse
                 clickhouse = database.get("clickhouse", {})
-                os.environ["GINKGO_CLICKHOUSE_HOST"] = clickhouse.get("host", "localhost")
-                os.environ["GINKGO_CLICKHOUSE_PORT"] = str(clickhouse.get("port", "8123"))
-                os.environ["GINKGO_CLICKHOUSE_USER"] = clickhouse.get("username", "default")
-                os.environ["GINKGO_CLICKHOUSE_PASSWORD"] = self._decode_password(clickhouse.get("password", ""))
-                os.environ["GINKGO_CLICKHOUSE_DATABASE"] = clickhouse.get("database", "ginkgo")
+                os.environ.setdefault("GINKGO_CLICKHOUSE_HOST", clickhouse.get("host", "localhost"))
+                os.environ.setdefault("GINKGO_CLICKHOUSE_PORT", str(clickhouse.get("port", "8123")))
+                os.environ.setdefault("GINKGO_CLICKHOUSE_USER", clickhouse.get("username", "default"))
+                os.environ.setdefault("GINKGO_CLICKHOUSE_PASSWORD", self._decode_password(clickhouse.get("password", "")))
+                os.environ.setdefault("GINKGO_CLICKHOUSE_DATABASE", clickhouse.get("database", "ginkgo"))
 
                 # MySQL
                 mysql = database.get("mysql", {})
-                os.environ["GINKGO_MYSQL_HOST"] = mysql.get("host", "localhost")
-                os.environ["GINKGO_MYSQL_PORT"] = str(mysql.get("port", "3306"))
-                os.environ["GINKGO_MYSQL_USER"] = mysql.get("username", "root")
-                os.environ["GINKGO_MYSQL_PASSWORD"] = self._decode_password(mysql.get("password", ""))
-                os.environ["GINKGO_MYSQL_DATABASE"] = mysql.get("database", "ginkgo")
+                os.environ.setdefault("GINKGO_MYSQL_HOST", mysql.get("host", "localhost"))
+                os.environ.setdefault("GINKGO_MYSQL_PORT", str(mysql.get("port", "3306")))
+                os.environ.setdefault("GINKGO_MYSQL_USER", mysql.get("username", "root"))
+                os.environ.setdefault("GINKGO_MYSQL_PASSWORD", self._decode_password(mysql.get("password", "")))
+                os.environ.setdefault("GINKGO_MYSQL_DATABASE", mysql.get("database", "ginkgo"))
 
                 # MongoDB
                 mongodb = database.get("mongodb", {})
-                os.environ["GINKGO_MONGODB_HOST"] = mongodb.get("host", "localhost")
-                os.environ["GINKGO_MONGODB_PORT"] = str(mongodb.get("port", "27017"))
-                os.environ["GINKGO_MONGODB_USERNAME"] = mongodb.get("username", "root")
-                os.environ["GINKGO_MONGODB_PASSWORD"] = self._decode_password(mongodb.get("password", ""))
-                os.environ["GINKGO_MONGODB_DATABASE"] = mongodb.get("database", "ginkgo")
+                os.environ.setdefault("GINKGO_MONGODB_HOST", mongodb.get("host", "localhost"))
+                os.environ.setdefault("GINKGO_MONGODB_PORT", str(mongodb.get("port", "27017")))
+                os.environ.setdefault("GINKGO_MONGODB_USERNAME", mongodb.get("username", "root"))
+                os.environ.setdefault("GINKGO_MONGODB_PASSWORD", self._decode_password(mongodb.get("password", "")))
+                os.environ.setdefault("GINKGO_MONGODB_DATABASE", mongodb.get("database", "ginkgo"))
 
                 # 通知系统敏感配置（从 secure.yml）
                 notifications = secure_data.get("notifications", {})
@@ -124,44 +134,69 @@ class GinkgoConfig(object):
                 smtp_user = email_secure.get("smtp_user", "")
                 smtp_pwd = email_secure.get("smtp_password", "")
                 if smtp_user:
-                    os.environ["GINKGO_SMTP_USER"] = smtp_user
+                    os.environ.setdefault("GINKGO_SMTP_USER", smtp_user)
                 if smtp_pwd:
-                    os.environ["GINKGO_SMTP_PASSWORD"] = smtp_pwd
+                    os.environ.setdefault("GINKGO_SMTP_PASSWORD", smtp_pwd)
 
                 # 数据源API密钥配置（从 secure.yml）
                 data_sources = secure_data.get("data_sources", {})
                 if data_sources:
                     eastmoney = data_sources.get("eastmoney", {})
                     if eastmoney.get("api_key"):
-                        os.environ["GINKGO_EASTMONEY_API_KEY"] = eastmoney["api_key"]
+                        os.environ.setdefault("GINKGO_EASTMONEY_API_KEY", eastmoney["api_key"])
 
                     alpaca = data_sources.get("alpaca", {})
                     if alpaca.get("api_key"):
-                        os.environ["GINKGO_ALPACA_API_KEY"] = alpaca["api_key"]
+                        os.environ.setdefault("GINKGO_ALPACA_API_KEY", alpaca["api_key"])
                     if alpaca.get("api_secret"):
-                        os.environ["GINKGO_ALPACA_API_SECRET"] = alpaca["api_secret"]
+                        os.environ.setdefault("GINKGO_ALPACA_API_SECRET", alpaca["api_secret"])
 
                     fushu = data_sources.get("fushu", {})
                     if fushu.get("api_key"):
-                        os.environ["GINKGO_FUSHU_API_KEY"] = fushu["api_key"]
+                        os.environ.setdefault("GINKGO_FUSHU_API_KEY", fushu["api_key"])
             except Exception as e:
                 print(f"[GCONF] Error loading secure config to env: {e}")
 
         self._env_vars_initialized = True
 
     def _decode_password(self, pwd: str) -> str:
-        """解码密码（Base64编码）"""
+        """
+        解码密码
+
+        #5569: 优先使用 Fernet 解密（真正的对称加密），
+        向后兼容 Base64 编码的旧密码。
+        解密/解码均失败时返回原文（明文密码）。
+        """
         if not pwd:
             return ""
-        # 尝试Base64解码，如果能解码就返回解码值
+
+        # 优先级 1: Fernet 解密（需要 GINKGO_SECRET_KEY）
+        secret_key = os.environ.get("GINKGO_SECRET_KEY")
+        if secret_key:
+            try:
+                from cryptography.fernet import Fernet
+
+                f = Fernet(secret_key.encode("utf-8"))
+                decrypted = f.decrypt(pwd.encode("utf-8"))
+                return decrypted.decode("utf-8")
+            except Exception:
+                pass  # Not a Fernet token or wrong key, try next
+
+        # 优先级 2: Base64 解码（向后兼容旧配置文件）
         try:
             import base64
+
             decoded = base64.b64decode(pwd)
-            decoded = str(decoded, "utf-8")
-            return decoded.replace("\n", "")
+            decoded_str = decoded.decode("utf-8")
+            # Heuristic: if the decoded result contains only printable chars
+            # and no Fernet-style prefix (gAAAAA), it's likely a real password
+            if not decoded_str.startswith("gAAAAA"):
+                return decoded_str.replace("\n", "")
         except Exception:
-            # 解码失败，返回原值
-            return pwd
+            pass
+
+        # 优先级 3: 明文密码
+        return pwd
 
     @property
     def setting_path(self) -> str:
@@ -673,7 +708,8 @@ class GinkgoConfig(object):
         config["decorator"]["time_logger_enabled"] = enabled
         with open(self.setting_path, "w") as file:
             yaml.safe_dump(config, file)
-        os.environ["GINKGO_DECORATOR_TIME_LOGGER_ENABLED"] = str(enabled)
+        # #5508: env key must match getter's _get_config key (GINKGO_TIME_LOGGER_ENABLED)
+        os.environ["GINKGO_TIME_LOGGER_ENABLED"] = str(enabled)
 
     @property
     def DECORATOR_TIME_LOGGER_THRESHOLD(self) -> float:
@@ -689,7 +725,8 @@ class GinkgoConfig(object):
         config["decorator"]["time_logger_threshold"] = threshold
         with open(self.setting_path, "w") as file:
             yaml.safe_dump(config, file)
-        os.environ["GINKGO_DECORATOR_TIME_LOGGER_THRESHOLD"] = str(threshold)
+        # #5508: env key must match getter's _get_config key
+        os.environ["GINKGO_TIME_LOGGER_THRESHOLD"] = str(threshold)
 
     @property
     def DECORATOR_TIME_LOGGER_PROFILE_MODE(self) -> bool:
@@ -705,7 +742,8 @@ class GinkgoConfig(object):
         config["decorator"]["time_logger_profile_mode"] = profile_mode
         with open(self.setting_path, "w") as file:
             yaml.safe_dump(config, file)
-        os.environ["GINKGO_DECORATOR_TIME_LOGGER_PROFILE_MODE"] = str(profile_mode)
+        # #5508: env key must match getter's _get_config key
+        os.environ["GINKGO_TIME_LOGGER_PROFILE_MODE"] = str(profile_mode)
 
     @property
     def DECORATOR_RETRY_ENABLED(self) -> bool:
@@ -1134,7 +1172,8 @@ class GinkgoConfig(object):
                 return int(ttl_config.get("backtest", 180))
             except Exception:
                 pass
-        return os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180)
+        # #5507: os.environ.get returns str; wrap with int() for type safety
+        return int(os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180))
 
     @property
     def LOGGING_TTL_COMPONENT(self) -> int:
@@ -1152,7 +1191,7 @@ class GinkgoConfig(object):
                 return int(ttl_config.get("component", 90))
             except Exception:
                 pass
-        return os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90)
+        return int(os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90))
 
     @property
     def LOGGING_TTL_PERFORMANCE(self) -> int:
@@ -1170,7 +1209,7 @@ class GinkgoConfig(object):
                 return int(ttl_config.get("performance", 30))
             except Exception:
                 pass
-        return os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30)
+        return int(os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30))
 
     @property
     def LOGGING_SAMPLING_RATE(self) -> float:

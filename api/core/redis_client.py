@@ -19,13 +19,14 @@ async def get_redis_pool() -> aioredis.ConnectionPool:
     """获取 Redis 连接池（单例）"""
     global _redis_pool
     if _redis_pool is None:
+        # #5447: property names are REDISHOST/REDISPORT, not GINKGO_REDISHOST
         _redis_pool = aioredis.ConnectionPool(
-            host=settings.GINKGO_REDISHOST,
-            port=settings.GINKGO_REDISPORT,
+            host=settings.REDISHOST,
+            port=int(settings.REDISPORT),
             db=0,
             decode_responses=True,
         )
-        logger.info(f"Redis pool created: {settings.GINKGO_REDISHOST}:{settings.GINKGO_REDISPORT}")
+        logger.info(f"Redis pool created: {settings.REDISHOST}:{settings.REDISPORT}")
     return _redis_pool
 
 
