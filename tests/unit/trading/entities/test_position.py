@@ -3210,3 +3210,154 @@ class TestPositionTradingRegimes:
         assert position.settlement_frozen_volume == 0
         expected_unrealized_after = Decimal('100') * (Decimal('12.0') - Decimal('10.0'))
         assert abs(position.unrealized_pnl - expected_unrealized_after) < Decimal('0.01')
+
+
+@pytest.mark.unit
+class TestPositionT1SettlementWorth:
+    """T+1 结算冻结持仓市值计算测试 (#5494)"""
+
+    def test_worth_includes_settlement_frozen_volume(self):
+        """update_worth 应使用 total_position（含 settlement_frozen_volume）计算市值
+
+        场景：T+1 买入日，所有股份在结算冻结中
+        - volume=0, frozen_volume=0, settlement_frozen_volume=1000
+        - worth 应 = 1000 * price，而非 0 * price = 0
+        """
+        position = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            cost=Decimal('10.0'),
+            volume=0,                          # 可用为 0（T+1 买入日）
+            frozen_volume=0,
+            settlement_frozen_volume=1000,      # 全部在结算冻结
+            price=Decimal('15.0'),
+            timestamp="2023-01-01 10:00:00"
+        )
+
+        # worth 应等于 total_position * price = 1000 * 15 = 15000
+        # 而非 (volume + frozen_volume) * price = 0 * 15 = 0
+        assert position.total_position == 1000
+        assert position.worth == Decimal('15000.00')
+
+    def test_worth_equals_total_position_times_price(self):
+        """worth 计算应与 total_position * price 一致（混合持仓）"""
+        position = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            cost=Decimal('10.0'),
+            volume=500,
+            frozen_volume=200,
+            settlement_frozen_volume=300,
+            price=Decimal('20.0'),
+            timestamp="2023-01-01 10:00:00"
+        )
+
+        assert position.total_position == 1000  # 500 + 200 + 300
+        # worth = total_position * price = 1000 * 20 = 20000
+        assert position.worth == Decimal('20000.00')
+
+    def test_worth_consistent_with_total_pnl(self):
+        """worth 和 total_pnl 应使用相同的持仓基数
+
+        total_pnl 用 total_position，worth 也应用 total_position
+        确保 净值 = worth + cash 与 PnL 计算一致
+        """
+        position = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            cost=Decimal('10.0'),
+            volume=300,
+            frozen_volume=100,
+            settlement_frozen_volume=600,
+            price=Decimal('12.0'),
+            fee=Decimal('10.0'),
+            timestamp="2023-01-01 10:00:00"
+        )
+
+        # total_position = 1000
+        assert position.total_position == 1000
+
+        # worth = total_position * price = 1000 * 12 = 12000
+        assert position.worth == Decimal('12000.00')
+
+        # total_pnl = total_position * (price - cost) - fee = 1000 * 2 - 10 = 1990
+        assert position.total_pnl == Decimal('1990.0')
+
+        # 验证一致性：worth - cost_basis ≈ total_pnl
+        # cost_basis = total_position * cost = 1000 * 10 = 10000
+        cost_basis = Decimal(position.total_position) * position.cost
+        assert position.worth - cost_basis - position.fee == position.total_pnl
+
+    def test_update_worth_after_settlement_change(self):
+        """手动调整 settlement_frozen_volume 后 update_worth 应反映变化"""
+        position = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            cost=Decimal('10.0'),
+            volume=500,
+            price=Decimal('12.0'),
+            timestamp="2023-01-01 10:00:00"
+        )
+
+        # 初始 worth = 500 * 12 = 6000
+        assert position.worth == Decimal('6000.00')
+
+        # 模拟 T+1 买入：直接设置 settlement_frozen_volume
+        position._settlement_frozen_volume = 500
+        position.update_worth()
+
+        # worth 应 = (500 + 0 + 500) * 12 = 12000
+        assert position.total_position == 1000
+        assert position.worth == Decimal('12000.00')
+
+
+@pytest.mark.unit
+class TestPositionSoldExceptionHandling:
+    """_sold 异常处理测试 (#5483)"""
+
+    def test_sold_exception_does_not_enter_debugger(self):
+        """_sold 异常应向上传播而非进入 pdb
+
+        验证：即使 _sold 内部出错，进程不应挂起
+        """
+        import inspect
+        from ginkgo.entities.position import Position as PositionClass
+
+        # 静态检查：源码中不应包含 pdb
+        source = inspect.getsource(PositionClass._sold)
+        assert 'pdb' not in source, "_sold 方法中不应包含 pdb 调试代码"
+        assert 'set_trace' not in source, "_sold 方法中不应包含 set_trace 调试代码"
+
+    def test_sold_exception_propagates_or_returns_gracefully(self):
+        """_sold 异常应被正确处理：日志记录 + 返回 False
+
+        而非进入交互式调试器挂起进程
+        """
+        from decimal import Decimal
+        from unittest.mock import patch
+
+        position = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            cost=Decimal('100.0'),
+            volume=1000,
+            frozen_volume=500,
+            price=Decimal('100.0'),
+            timestamp="2023-01-01 10:00:00"
+        )
+
+        # 模拟 _sold 内部抛出异常
+        with patch.object(position, 'on_price_update', side_effect=RuntimeError("test error")):
+            # _sold 应捕获异常，记录日志，返回 False（不挂起）
+            result = position._sold(Decimal('110.0'), 100)
+            assert result is False

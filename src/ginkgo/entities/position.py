@@ -281,7 +281,7 @@ class Position(TimeMixin, Base):
 
 
     def update_worth(self, *args, **kwargs) -> None:
-        w = (self.volume + self.frozen_volume) * self.price
+        w = self.total_position * self.price
         self._worth = round(w, 2)
         self._last_update = self.get_current_time()
 
@@ -596,10 +596,11 @@ class Position(TimeMixin, Base):
                 f"cost: ${self.cost}, frozen: {self.frozen_volume}")
             return True
         except Exception as e:
-            import pdb
-
-            pdb.set_trace()
-            GLOG.ERROR(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Error during sell operation - code: {self.code}, "
+                f"price: {price}, volume: {volume}, "
+                f"available: {self.volume}, frozen: {self.frozen_volume}, "
+                f"error: {e}")
+            return False
         finally:
             pass
 
