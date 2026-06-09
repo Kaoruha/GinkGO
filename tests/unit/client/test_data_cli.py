@@ -287,15 +287,34 @@ class TestSync:
     @patch("ginkgo.service_hub")
     def test_sync_day_with_code(self, mock_hub, cli_runner):
         """同步指定股票的日K线"""
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+        from datetime import datetime
+
         mock_bar_service = MagicMock()
-        mock_sync_result = MagicMock()
-        mock_sync_result.is_success.return_value = True
-        mock_bar_service.sync_smart.return_value = mock_sync_result
+        sync_data = DataSyncResult(
+            entity_type="bars",
+            entity_identifier="000001.SZ",
+            sync_range=(datetime(2025, 1, 1), datetime(2025, 6, 1)),
+            records_processed=10,
+            records_added=10,
+            records_updated=0,
+            records_skipped=0,
+            records_failed=0,
+            sync_duration=0.5,
+            is_idempotent=True,
+            sync_strategy="smart",
+        )
+        mock_bar_service.sync_smart.return_value = ServiceResult.success(
+            data=sync_data,
+            message="Successfully synced 10 bar records for 000001.SZ",
+        )
         mock_hub.data.bar_service.return_value = mock_bar_service
 
         result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "000001.SZ"])
         assert result.exit_code == 0
-        assert "000001.SZ" in result.output
+        import re
+        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+        assert "000001.SZ" in output_clean
 
     def test_sync_day_unknown_type_error(self, cli_runner):
         """sync 未知数据类型返回错误"""
@@ -368,6 +387,73 @@ class TestSync:
         result = cli_runner.invoke(data_cli.app, ["sync", "adjustfactor", "--code", "000001.SZ", "--daemon"])
         assert result.exit_code == 0
         assert "queued" in result.output
+
+    @patch("ginkgo.service_hub")
+    def test_sync_day_no_data_available(self, mock_hub, cli_runner):
+        """sync 返回成功但 records_added=0 时不应显示误导性的 sync completed"""
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+        from datetime import datetime
+
+        mock_bar_service = MagicMock()
+        sync_data = DataSyncResult(
+            entity_type="bars",
+            entity_identifier="SH600000",
+            sync_range=(datetime(2025, 1, 1), datetime(2025, 6, 1)),
+            records_processed=0,
+            records_added=0,
+            records_updated=0,
+            records_skipped=0,
+            records_failed=0,
+            sync_duration=0.5,
+            is_idempotent=True,
+            sync_strategy="range",
+            warnings=["No new data available from source"],
+        )
+        mock_bar_service.sync_smart.return_value = ServiceResult.success(
+            data=sync_data,
+            message="No new data available from source",
+        )
+        mock_hub.data.bar_service.return_value = mock_bar_service
+
+        result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "SH600000"])
+        assert result.exit_code == 0
+        # 不应显示 ✅ 误导性的 per-code 成功消息（汇总行中的 "Day sync completed" 是允许的）
+        assert "✅ SH600000 sync completed" not in result.output
+        # 应显示无数据的提示
+        assert "no data" in result.output.lower() or "warning" in result.output.lower()
+
+    @patch("ginkgo.service_hub")
+    def test_sync_day_with_records_shows_success(self, mock_hub, cli_runner):
+        """sync 返回 records_added>0 时显示成功消息含记录数"""
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+        from datetime import datetime
+
+        mock_bar_service = MagicMock()
+        sync_data = DataSyncResult(
+            entity_type="bars",
+            entity_identifier="600000.SH",
+            sync_range=(datetime(2025, 1, 1), datetime(2025, 6, 1)),
+            records_processed=120,
+            records_added=120,
+            records_updated=0,
+            records_skipped=0,
+            records_failed=0,
+            sync_duration=1.2,
+            is_idempotent=True,
+            sync_strategy="range",
+        )
+        mock_bar_service.sync_smart.return_value = ServiceResult.success(
+            data=sync_data,
+            message="Successfully synced 120 bar records for 600000.SH",
+        )
+        mock_hub.data.bar_service.return_value = mock_bar_service
+
+        result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "600000.SH"])
+        assert result.exit_code == 0
+        import re
+        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+        assert "600000.SH" in output_clean
+        assert "120" in output_clean or "sync completed" in output_clean
 
     @patch("ginkgo.data.containers.container")
     def test_sync_daemon_exception(self, mock_container, cli_runner):

@@ -487,8 +487,18 @@ def sync(
                             result = bar_service.sync_smart(code=current_code)
 
                         if result and result.is_success():
-                            success_count += 1
-                            console.print(f":white_check_mark: {current_code} sync completed")
+                            # 检查实际同步的记录数，避免误导性成功消息
+                            records_added = 0
+                            try:
+                                raw = getattr(result.data, 'records_added', 0)
+                                records_added = int(raw) if isinstance(raw, (int, float)) else 0
+                            except (AttributeError, TypeError, ValueError):
+                                records_added = 0
+                            if records_added > 0:
+                                success_count += 1
+                                console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
+                            else:
+                                console.print(f":warning: {current_code} — no data available from source")
                         else:
                             error_count += 1
                             error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
