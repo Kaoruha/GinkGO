@@ -617,6 +617,11 @@ class EngineAssemblyService(BaseService):
             # 监控：创建引擎后的状态
             self._logger.INFO(f"🔍 [STATE] After create_base_engine: {engine.status} (state: {engine.state})")
 
+            # 将回测任务的 task_id 注入引擎，使分析器写入的记录与回测任务关联
+            # 修复 #5841：缺少此步骤导致引擎启动时自生成随机 task_id，分析器数据无法被 API 查到
+            if self._current_task_id:
+                engine.set_task_id(self._current_task_id)
+
             # Setup basic engine infrastructure (router only, not feeder yet)
             InfrastructureFactory.setup_engine_infrastructure(engine, logger, engine_data, skip_feeder=True)
 

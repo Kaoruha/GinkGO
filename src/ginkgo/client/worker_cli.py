@@ -6,6 +6,7 @@
 Ginkgo Worker CLI - Worker管理命令
 """
 
+import sys
 import typer
 from typing import Optional
 from rich.console import Console
@@ -249,6 +250,9 @@ def backtest_run(
         try:
             while worker.is_running:
                 time.sleep(1)
+            # Worker 引擎自行停止（非 Ctrl+C），退出进程让 supervisor 重启
+            console.print("\n[yellow]:warning: Worker stopped unexpectedly, exiting process...[/yellow]")
+            sys.exit(1)
         except KeyboardInterrupt:
             console.print("\n\n[yellow]:warning: Shutting down...[/yellow]")
             worker.stop()

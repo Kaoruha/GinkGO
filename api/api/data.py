@@ -312,8 +312,8 @@ async def get_bars(
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
 
-        # 如果没有提供任何筛选条件，默认查询最近1年的数据
-        if not code and not start_dt and not end_dt:
+        # 未提供日期范围时，默认查询最近1年数据
+        if not start_dt and not end_dt:
             from datetime import timedelta
             end_dt = datetime.utcnow()
             start_dt = end_dt - timedelta(days=365)
@@ -328,7 +328,7 @@ async def get_bars(
             page=page - 1,  # Service层page是0-based
             page_size=page_size,
             order_by="timestamp",
-            desc_order=False
+            desc_order=True
         )
 
         if not result.is_success() or not result.data:
