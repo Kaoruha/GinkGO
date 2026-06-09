@@ -57,7 +57,8 @@ def create_user(
             console.print(Panel.fit(
                 f"[green]:white_check_mark: User created successfully![/green]\n\n"
                 f"[cyan]UUID:[/cyan] {result.data['uuid']}\n"
-                f"[cyan]Name:[/cyan] {result.data['name']}\n"
+                f"[cyan]Username:[/cyan] {result.data.get('username', '')}\n"
+                f"[cyan]Display Name:[/cyan] {result.data.get('display_name', '')}\n"
                 f"[cyan]Description:[/cyan] {result.data['description']}\n"
                 f"[cyan]Type:[/cyan] {result.data['user_type']}\n"
                 f"[cyan]Active:[/cyan] {result.data['is_active']}",
@@ -254,7 +255,8 @@ def update_user(
             console.print(Panel.fit(
                 f"[green]:white_check_mark: User updated successfully![/green]\n\n"
                 f"[cyan]UUID:[/cyan] {result.data['uuid']}\n"
-                f"[cyan]Name:[/cyan] {result.data['name']}\n"
+                f"[cyan]Username:[/cyan] {result.data.get('username', '')}\n"
+                f"[cyan]Display Name:[/cyan] {result.data.get('display_name', '')}\n"
                 f"[cyan]Type:[/cyan] {result.data['user_type']}\n"
                 f"[cyan]Description:[/cyan] {result.data['description'] or 'N/A'}\n"
                 f"[cyan]Active:[/cyan] {result.data['is_active']}",

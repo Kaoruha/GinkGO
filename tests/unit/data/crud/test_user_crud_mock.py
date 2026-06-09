@@ -45,10 +45,10 @@ class TestUserCRUDFieldConfig:
 
     @pytest.mark.unit
     def test_field_config_has_required_keys(self, crud_instance):
-        """配置包含 user_type, name, is_active"""
+        """配置包含 user_type, username, is_active"""
         config = crud_instance._get_field_config()
 
-        required_keys = {"user_type", "name", "is_active"}
+        required_keys = {"user_type", "username", "is_active"}
         assert required_keys.issubset(set(config.keys())), \
             f"缺少字段: {required_keys - set(config.keys())}"
 
@@ -101,14 +101,14 @@ class TestUserCRUDCreateFromParams:
         from ginkgo.data.models import MUser
 
         params = {
-            "name": "测试用户",
+            "username": "测试用户",
             "user_type": USER_TYPES.PERSON,
         }
 
         model = crud_instance._create_from_params(**params)
 
         assert isinstance(model, MUser)
-        # MUser 没有 name 列，_create_from_params 传入 name 参数但模型不映射
+        assert model.username == "测试用户"
         assert model.is_active is True
 
     @pytest.mark.unit

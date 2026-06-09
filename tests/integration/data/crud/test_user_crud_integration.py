@@ -7,7 +7,7 @@ UserCRUD 继承 BaseCRUD，使用 MUser 模型，存储在 MySQL 中。
 
 测试范围：
 1. 插入操作 - create 创建用户
-2. 查询操作 - find_by_name, find_active_users, fuzzy_search
+2. 查询操作 - find_active_users, fuzzy_search
 3. 更新操作 - modify 更新用户属性
 4. 删除操作 - delete 级联软删除
 """
