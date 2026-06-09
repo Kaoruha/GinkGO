@@ -20,10 +20,20 @@ from rich.table import Table
 from rich.tree import Tree
 from rich import print as rprint
 
+from ginkgo.enums import PORTFOLIO_MODE_TYPES
+from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
 from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
+
+
+def _format_portfolio_mode(mode_value) -> str:
+    """将 Portfolio mode 字段格式化为可读文本。#5326"""
+    if mode_value is None:
+        return "N/A"
+    enum_val = PORTFOLIO_MODE_TYPES.from_int(mode_value)
+    return enum_val.name if enum_val else str(mode_value)
 
 
 def collect_portfolio_components(portfolio_id: str, container) -> dict:
@@ -281,7 +291,8 @@ def create(
         portfolio_service = container.portfolio_service()
         result = portfolio_service.add(
             name=name,
-            description=description or ""
+            description=description or "",
+            initial_capital=initial_capital,
         )
 
         if result.success:
@@ -342,7 +353,7 @@ def get(
             table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
             table.add_row("Current Capital", f"¥{portfolio.current_capital:,.2f}")
             table.add_row("Cash", f"¥{portfolio.cash:,.2f}")
-            table.add_row("Mode", str(getattr(portfolio, 'mode', 'N/A')))
+            table.add_row("Mode", _format_portfolio_mode(getattr(portfolio, 'mode', None)))
             table.add_row("Description", str(portfolio.desc or "No description"))
 
             console.print(table)
@@ -542,17 +553,32 @@ def bind_component(
         # 解析参数
         parameters = {}
         if params:
+            # 获取组件参数名映射（用于关键字解析）
+            param_names = {}
+            try:
+                param_names = get_component_parameter_names(
+                    file_name, file_id=resolved_file_uuid, component_type=component_type
+                ) or {}
+            except Exception:
+                pass  # 参数名提取失败时回退到纯 index 模式
+            name_to_index = {v: k for k, v in param_names.items()} if param_names else {}
+
             for param in params:
                 if ':' not in param:
-                    console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' format.")
+                    console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' or 'key:value' format.")
                     raise typer.Exit(1)
+                key_str, value = param.split(':', 1)
                 try:
-                    index_str, value = param.split(':', 1)
-                    index = int(index_str)
+                    index = int(key_str)
                     parameters[index] = value
                 except ValueError:
-                    console.print(f":x: Invalid parameter format: '{param}'. Index must be an integer.")
-                    raise typer.Exit(1)
+                    # 非整数，尝试作为关键字解析
+                    if key_str in name_to_index:
+                        parameters[name_to_index[key_str]] = value
+                    else:
+                        valid_keys = ", ".join(sorted(name_to_index.keys())) if name_to_index else "(无法获取参数定义)"
+                        console.print(f":x: Unknown parameter '{key_str}'. Valid keys: {valid_keys}")
+                        raise typer.Exit(1)
 
         # 使用 MappingService 创建绑定
         mapping_service = container.mapping_service()

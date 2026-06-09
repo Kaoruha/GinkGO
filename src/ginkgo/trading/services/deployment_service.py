@@ -101,7 +101,7 @@ class DeploymentService(BaseService):
                 )
             except Exception:
                 pass
-            return ServiceResult(success=False, error=f"部署失败: {str(e)}")
+            return ServiceResult(success=False, error=str(e))
 
     def _deploy_core(
         self,

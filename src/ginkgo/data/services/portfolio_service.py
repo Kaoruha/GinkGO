@@ -92,6 +92,7 @@ class PortfolioService(BaseService):
         name: str,
         mode: PORTFOLIO_MODE_TYPES = PORTFOLIO_MODE_TYPES.BACKTEST,
         description: str = None,
+        initial_capital: float = None,
         **kwargs
     ) -> ServiceResult:
         """
@@ -101,6 +102,7 @@ class PortfolioService(BaseService):
             name: 投资组合名称
             mode: 运行模式 (BACKTEST/PAPER/LIVE)
             description: 可选描述
+            initial_capital: 初始资金（默认 1000000.0）
 
         Returns:
             ServiceResult: 操作结果
@@ -125,12 +127,16 @@ class PortfolioService(BaseService):
             mode_name = mode.name if hasattr(mode, 'name') else str(mode)
 
             # 创建投资组合
+            capital = initial_capital if initial_capital is not None else 1000000.0
             with self._crud_repo.get_session() as session:
                 portfolio_record = self._crud_repo.create(
                     name=name,
                     mode=PORTFOLIO_MODE_TYPES.validate_input(mode) or PORTFOLIO_MODE_TYPES.BACKTEST.value,
                     state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                     desc=description or f"{mode_name} portfolio: {name}",
+                    initial_capital=capital,
+                    current_capital=capital,
+                    cash=capital,
                     session=session,
                 )
 

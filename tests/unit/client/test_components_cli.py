@@ -212,3 +212,39 @@ class TestComponentsExceptions:
         assert result.exit_code == 0
         # 验证 Rich Table 被渲染（虽然表头由 Rich 格式化，但 ID 列应该存在）
         assert "ID" in result.output
+
+
+# ============================================================================
+# #5324 component info 命令
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestComponentInfoCommand:
+    """#5324 component info 显示参数定义"""
+
+    @patch("ginkgo.data.services.component_parameter_extractor.ComponentParameterExtractor")
+    def test_info_shows_parameter_names_and_defaults(self, MockExtractor, cli_runner):
+        """#5324 info 命令应显示组件参数名和默认值"""
+        mock_extractor = MagicMock()
+        mock_extractor.extract_component_parameters.return_value = {0: "fast_period", 1: "slow_period"}
+        mock_extractor.extract_component_parameter_defaults.return_value = {"fast_period": 10, "slow_period": 30}
+        MockExtractor.return_value = mock_extractor
+
+        result = cli_runner.invoke(components_cli.app, ["info", "moving_average_crossover"])
+        assert result.exit_code == 0
+        assert "fast_period" in result.output
+        assert "slow_period" in result.output
+
+    @patch("ginkgo.data.services.component_parameter_extractor.ComponentParameterExtractor")
+    def test_info_shows_component_not_found(self, MockExtractor, cli_runner):
+        """#5324 info 命令对不存在的组件显示错误"""
+        mock_extractor = MagicMock()
+        mock_extractor.extract_component_parameters.return_value = {}
+        mock_extractor.extract_component_parameter_defaults.return_value = {}
+        MockExtractor.return_value = mock_extractor
+
+        result = cli_runner.invoke(components_cli.app, ["info", "nonexistent_component"])
+        assert result.exit_code == 0
+        assert "No parameters" in result.output or "no parameters" in result.output.lower() or "未找到" in result.output

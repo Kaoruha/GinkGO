@@ -350,7 +350,7 @@ def list_tasks(
             name[:20],
             portfolio_id,
             f"[{status_style}]{status_val}[/{status_style}]",
-            f"{progress:.0%}" if isinstance(progress, (int, float)) else str(progress),
+            f"{int(progress)}%" if isinstance(progress, (int, float)) else str(progress),
             created,
         )
 
@@ -401,6 +401,7 @@ def cat_task(
     info_lines = []
     info_lines.append(f"[bold]UUID:[/bold]         {task.uuid}")
     info_lines.append(f"[bold]Task ID:[/bold]      {task.task_id}")
+    info_lines.append(f"[dim]  \U0001f4a1 查看分析结果: ginkgo result show --run-id {task.task_id}[/dim]")
     info_lines.append(f"[bold]Name:[/bold]         {task.name}")
     info_lines.append(f"[bold]Portfolio:[/bold]    {task.portfolio_id}")
     info_lines.append(f"[bold]Engine:[/bold]       {task.engine_id}")
@@ -474,6 +475,11 @@ def cat_task(
             if value and value != 0:
                 stats_lines.append(f"[bold]{label}:[/bold] {value}")
         console.print(Panel("\n".join(stats_lines), title=":1234: Statistics"))
+    elif status_val == "completed":
+        console.print(Panel(
+            "[yellow]⚠️ No trades generated — selector may have returned empty symbols.[/yellow]",
+            title=":warning: Warning",
+        ))
 
 
 def _save_results(service, task_uuid: str, engine, portfolio_id: str):

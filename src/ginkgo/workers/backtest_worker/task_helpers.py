@@ -104,9 +104,11 @@ def load_portfolio_components(portfolio_id: str, task_uuid: str = "cli") -> Dict
         )
 
     strategy_names = [c["name"] for c in components["strategies"] if c.get("name")]
+    selector_names = [c["name"] for c in components["selectors"] if c.get("name")]
     risk_names = [c["name"] for c in components["risk_managers"] if c.get("name")]
     sizer_names = [c["name"] for c in components["sizers"] if c.get("name")]
     GLOG.INFO(f"[{task_uuid[:8]}] Assembly: "
+              f"selectors={selector_names}, "
               f"strategies={strategy_names}, "
               f"risk_managers={risk_names}, "
               f"sizers={sizer_names}")

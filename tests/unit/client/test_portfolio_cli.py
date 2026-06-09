@@ -13,6 +13,7 @@ Portfolio CLI 单元测试
 """
 
 import os
+import re
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
@@ -24,6 +25,11 @@ from typer.testing import CliRunner
 
 from ginkgo.client import portfolio_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言"""
+    return re.sub(r'\x1b\[[0-9;]*m', '', text)
 
 
 @pytest.fixture
@@ -66,6 +72,7 @@ def mock_portfolio():
     p.current_capital = 950000.0
     p.cash = 500000.0
     p.is_live = False
+    p.mode = 0  # BACKTEST 枚举值（整数）
     p.desc = "Test description"
     return p
 
@@ -188,22 +195,45 @@ class TestPortfolioCreate:
     def test_create_success(self, mock_container, cli_runner, mock_portfolio):
         """成功创建 portfolio"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "new-portfolio-uuid", "name": "MyPortfolio"}
+        )
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
             "create", "--name", "MyPortfolio", "--capital", "500000"
         ])
         assert result.exit_code == 0
-        assert "created successfully" in result.output
-        assert "MyPortfolio" in result.output
-        assert "500,000" in result.output
+        output = _strip_ansi(result.output)
+        assert "created successfully" in output
+        assert "MyPortfolio" in output
+        assert "500,000" in output
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_passes_initial_capital_to_service(self, mock_container, cli_runner):
+        """#5331 create 命令必须将 initial_capital 传给 service.add()"""
+        mock_service = MagicMock()
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "new-uuid", "name": "CapTest"}
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "CapTest", "--capital", "2000000"
+        ])
+        assert result.exit_code == 0
+        # 验证 service.add 被调用时传入了 initial_capital
+        call_kwargs = mock_service.add.call_args
+        assert call_kwargs is not None
+        # 传入的 capital 值应为 2000000
+        passed_capital = call_kwargs.kwargs.get("initial_capital") or call_kwargs[1].get("initial_capital")
+        assert passed_capital == 2000000.0
 
     @patch("ginkgo.data.containers.container")
     def test_create_live_portfolio(self, mock_container, cli_runner, mock_portfolio):
         """创建实盘 portfolio"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_service.add.return_value = ServiceResult.success(data={"uuid": "live-uuid", "name": "LivePF"})
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
@@ -222,7 +252,7 @@ class TestPortfolioCreate:
     def test_create_service_error(self, mock_container, cli_runner):
         """服务返回错误时创建失败"""
         mock_service = MagicMock()
-        mock_service.create.return_value = ServiceResult.error(error="Name already exists")
+        mock_service.add.return_value = ServiceResult.error(error="Name already exists")
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
@@ -315,6 +345,36 @@ class TestPortfolioGet:
         assert result.exit_code == 1
         assert "Error" in result.output
 
+    @patch("ginkgo.data.containers.container")
+    def test_get_mode_shows_readable_text_backtest(self, mock_container, cli_runner, mock_portfolio):
+        """#5326 Mode 字段显示 BACKTEST 而非数字 0"""
+        mock_portfolio.mode = 0
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "portfolio-uuid-001"])
+        assert result.exit_code == 0
+        assert "BACKTEST" in result.output
+        # 不应出现裸数字 0 作为 Mode
+        lines = result.output.split("\n")
+        mode_line = next((l for l in lines if "Mode" in l), None)
+        assert mode_line is not None
+        # Mode 行不应以数字结尾（排除表格边框中的数字）
+        assert "BACKTEST" in mode_line
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_mode_shows_readable_text_paper(self, mock_container, cli_runner, mock_portfolio):
+        """#5326 Mode 字段显示 PAPER 而非数字 1"""
+        mock_portfolio.mode = 1
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=mock_portfolio)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "portfolio-uuid-001"])
+        assert result.exit_code == 0
+        assert "PAPER" in result.output
+
 
 # ============================================================================
 # 5. Delete 测试
@@ -371,8 +431,9 @@ class TestPortfolioDelete:
 class TestPortfolioBindComponent:
     """portfolio bind-component 命令"""
 
+    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_success(self, mock_container, cli_runner, mock_portfolio):
+    def test_bind_success(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
         """成功绑定组件到 portfolio"""
         mock_pf_service = MagicMock()
         # bind 源码检查 len(data) > 0，需要传列表
@@ -402,9 +463,10 @@ class TestPortfolioBindComponent:
         assert result.exit_code == 0
         assert "binding created successfully" in result.output
 
+    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_with_params(self, mock_container, cli_runner, mock_portfolio):
-        """绑定组件并设置参数"""
+    def test_bind_with_params(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
+        """绑定组件并设置参数（index 格式向后兼容）"""
         mock_pf_service = MagicMock()
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
 
@@ -431,8 +493,9 @@ class TestPortfolioBindComponent:
             "--type", "risk", "--param", "0:0.1", "--param", "1:100"
         ])
         assert result.exit_code == 0
-        assert "binding created successfully" in result.output
-        assert "2 parameter(s) set" in result.output
+        output = _strip_ansi(result.output)
+        assert "binding created successfully" in output
+        assert "2 parameter(s) set" in output
 
     def test_bind_missing_type(self, cli_runner):
         """缺少 --type 参数时失败"""
@@ -441,8 +504,9 @@ class TestPortfolioBindComponent:
         ])
         assert result.exit_code != 0
 
+    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_invalid_type(self, mock_container, cli_runner, mock_portfolio):
+    def test_bind_invalid_type(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
         """无效的组件类型时失败"""
         mock_pf_service = MagicMock()
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
@@ -460,6 +524,49 @@ class TestPortfolioBindComponent:
         ])
         assert result.exit_code == 1
         assert "Invalid component type" in result.output
+
+    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names")
+    @patch("ginkgo.data.containers.container")
+    def test_bind_with_keyword_params(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
+        """#5325 支持关键字格式 --param short_period:20"""
+        mock_pf_service = MagicMock()
+        mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
+
+        mock_file = MagicMock()
+        mock_file.uuid = "file-uuid-kw"
+        mock_file.name = "moving_average_crossover"
+
+        mock_file_service = MagicMock()
+        mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=mock_file)
+
+        mock_mapping = MagicMock()
+        mock_mapping.uuid = "mapping-uuid-kw"
+
+        mock_mapping_service = MagicMock()
+        mock_mapping_service.create_portfolio_file_binding.return_value = ServiceResult.success(data=mock_mapping)
+        mock_mapping_service.create_component_parameters.return_value = ServiceResult.success(data=None)
+
+        mock_container.portfolio_service.return_value = mock_pf_service
+        mock_container.file_service.return_value = mock_file_service
+        mock_container.mapping_service.return_value = mock_mapping_service
+
+        # 返回参数名映射 {0: "short_period", 1: "long_period"}
+        mock_get_names.return_value = {0: "short_period", 1: "long_period"}
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "bind-component", "TestPortfolio", "moving_average_crossover",
+            "--type", "strategy",
+            "--param", "short_period:20",
+            "--param", "long_period:60"
+        ])
+        assert result.exit_code == 0
+        assert "binding created successfully" in result.output
+        # 验证 create_component_parameters 收到的是 index 格式
+        call_args = mock_mapping_service.create_component_parameters.call_args
+        params_arg = call_args.kwargs.get("parameters") or call_args[1].get("parameters")
+        assert params_arg is not None
+        assert params_arg[0] == "20"
+        assert params_arg[1] == "60"
 
 
 @pytest.mark.unit
