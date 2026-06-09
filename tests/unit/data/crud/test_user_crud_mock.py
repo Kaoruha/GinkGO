@@ -3,10 +3,10 @@
 UserCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
-- _get_field_config: 字段配置（user_type, name, is_active）
+- _get_field_config: 字段配置（user_type, username, is_active）
 - _get_enum_mappings: 枚举映射（USER_TYPES, SOURCE_TYPES）
 - _create_from_params: 参数转 MUser 模型
-- Business Helper: find_by_name, find_active_users, fuzzy_search
+- Business Helper: find_active_users, fuzzy_search
 - 构造与类型检查
 """
 
@@ -60,12 +60,12 @@ class TestUserCRUDFieldConfig:
         assert config["user_type"]["type"] == "enum"
 
     @pytest.mark.unit
-    def test_field_config_name_validation(self, crud_instance):
-        """name 字段为 string 类型，max=128"""
+    def test_field_config_username_validation(self, crud_instance):
+        """username 字段为 string 类型，max=64"""
         config = crud_instance._get_field_config()
 
-        assert config["name"]["type"] == "string"
-        assert config["name"]["max"] == 128
+        assert config["username"]["type"] == "string"
+        assert config["username"]["max"] == 64
 
 
 # ============================================================
@@ -126,17 +126,6 @@ class TestUserCRUDCreateFromParams:
 
 class TestUserCRUDBusinessHelpers:
     """Business Helper 方法测试"""
-
-    @pytest.mark.unit
-    def test_find_by_name(self, crud_instance):
-        """find_by_name 构造正确的 filters 并调用 self.find"""
-        crud_instance.find = MagicMock(return_value=[])
-
-        crud_instance.find_by_name(name="Alice")
-
-        crud_instance.find.assert_called_once()
-        call_kwargs = crud_instance.find.call_args[1]
-        assert call_kwargs["filters"]["name"] == "Alice"
 
     @pytest.mark.unit
     def test_find_active_users(self, crud_instance):

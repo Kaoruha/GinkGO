@@ -93,9 +93,8 @@ class UserService(BaseService):
                     message="Username already exists"
                 )
 
-            # Create user - name 为可读标识，username 为登录名
+            # Create user
             user = MUser(
-                name=name,
                 username=name,
                 display_name=display_name or name,
                 description=description,

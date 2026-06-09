@@ -59,8 +59,12 @@ class UserCRUD(BaseCRUD[MUser]):
                 'choices': [t for t in USER_TYPES]
             },
 
-            # 用户名 - 非空字符串，最大128字符
-            'name': {
+            # 用户名 - 非空字符串，最大64字符
+            'username': {
+                'type': 'string',
+                'min': 0,
+                'max': 64
+            },
                 'type': 'string',
                 'min': 0,
                 'max': 128
@@ -79,7 +83,7 @@ class UserCRUD(BaseCRUD[MUser]):
         Hook method: Create MUser from parameters.
         """
         return MUser(
-            name=kwargs.get("name", ""),
+            username=kwargs.get("username", ""),
             user_type=USER_TYPES.validate_input(kwargs.get("user_type", USER_TYPES.PERSON)),
             is_active=kwargs.get("is_active", True),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
@@ -122,7 +126,7 @@ class UserCRUD(BaseCRUD[MUser]):
         3. 最后软删除用户本身（set is_del=True）
 
         Args:
-            filters: 过滤条件，如 {"uuid": "xxx"} 或 {"name": "test"}
+            filters: 过滤条件，如 {"uuid": "xxx"} 或 {"username": "test"}
 
         Returns:
             删除的用户数量
@@ -281,18 +285,6 @@ class UserCRUD(BaseCRUD[MUser]):
             return 0
 
     # ==================== 业务辅助方法 ====================
-
-    def find_by_name(self, name: str) -> List[MUser]:
-        """
-        按名称查询用户
-
-        Args:
-            name: 用户名称
-
-        Returns:
-            用户列表
-        """
-        return self.find(filters={"name": name})
 
     def find_by_user_type(
         self,
