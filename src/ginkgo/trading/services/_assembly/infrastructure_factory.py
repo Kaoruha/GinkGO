@@ -255,32 +255,34 @@ class InfrastructureFactory:
     def setup_engine_infrastructure(
         engine: Any, logger: GinkgoLogger = None, engine_data: Dict[str, Any] = None, skip_feeder: bool = False
     ) -> bool:
-        """Set up matchmaking and data feeding for the engine."""
+        """Set up matchmaking and data feeding for the engine.
+
+        #5937: skip_feeder=True 时跳过 feeder 创建，等待后续
+               setup_data_feeder_for_engine() 在 portfolio 绑定后再创建。
+        """
         try:
             _logger = logger or GLOG
 
-            # 📝 修复事件处理顺序：先添加Portfolio，后添加Router，与Example保持一致
-            # 将在后面Portfolio添加完成后再绑定Router
+            # #5937: 仅在 skip_feeder=False 时创建并绑定 feeder
+            if not skip_feeder:
+                feeder = BacktestFeeder("ExampleFeeder")
 
-            # Set up data feeder
-            feeder = BacktestFeeder("ExampleFeeder")
+                # 使用时间控制引擎的数据馈送接入，以确保 advance_time_to 能触发数据更新
+                if hasattr(engine, "set_data_feeder"):
+                    engine.set_data_feeder(feeder)
+                else:
+                    # 兼容老接口
+                    engine.bind_datafeeder(feeder)
+                # 去订阅/广播：由引擎推进直接调用 Feeder.advance_to_time 注入事件
+                # 同时确保 Feeder 能够直接回注事件（可选）
+                if hasattr(feeder, "set_event_publisher"):
+                    feeder.set_event_publisher(engine.put)
+                # 注册兴趣更新事件给Feeder
+                from ginkgo.trading.events import EventInterestUpdate
 
-            # 使用时间控制引擎的数据馈送接入，以确保 advance_time_to 能触发数据更新
-            if hasattr(engine, "set_data_feeder"):
-                engine.set_data_feeder(feeder)
-            else:
-                # 兼容老接口
-                engine.bind_datafeeder(feeder)
-            # 去订阅/广播：由引擎推进直接调用 Feeder.advance_to_time 注入事件
-            # 同时确保 Feeder 能够直接回注事件（可选）
-            if hasattr(feeder, "set_event_publisher"):
-                feeder.set_event_publisher(engine.put)
-            # 注册兴趣更新事件给Feeder
-            from ginkgo.trading.events import EventInterestUpdate
+                engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
 
-            engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
-
-            # Set up gateway and broker (restored original binding logic)
+            # Set up gateway and broker (always needed, regardless of skip_feeder)
             from ginkgo.trading.gateway.trade_gateway import TradeGateway
             broker = InfrastructureFactory.create_broker_from_config(engine_data or {})
             gateway = TradeGateway(brokers=[broker])
@@ -289,7 +291,7 @@ class InfrastructureFactory:
             if hasattr(gateway, "set_event_publisher"):
                 gateway.set_event_publisher(engine.put)
 
-            _logger.DEBUG("Engine infrastructure setup completed")
+            _logger.DEBUG(f"Engine infrastructure setup completed (skip_feeder={skip_feeder})")
             return True
 
         except Exception as e:
