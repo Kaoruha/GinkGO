@@ -10,39 +10,185 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 - **Multi-Database Support**: ClickHouse (time-series), MySQL (relational), MongoDB (documents), Redis (cache)
 - **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX
 - **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
-- **Web UI**: Vue 3 + Ant Design Vue dashboard for backtest/portfolio/component management
+- **Web UI**: Vue 3 + shadcn-vue + Tailwind CSS dashboard for backtest/portfolio/component management
 - **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery
 - **CLI Interface**: Typer-based CLI with Rich formatting
 
 ## Architecture
 
-### Four-Component Boundary
+### System Overview
 
-Trading logic is split into four components with unidirectional data flow:
+```mermaid
+graph TB
+    subgraph "🖥️ Application Layer"
+        CLI["<b>CLI</b><br/>Typer + Rich<br/><i>40 commands</i>"]
+        API["<b>REST API</b><br/>FastAPI<br/><i>15 routers</i>"]
+        WEB["<b>Web UI</b><br/>Vue 3 + shadcn-vue<br/><i>19 views</i>"]
+    end
 
+    subgraph "⚙️ Worker Layer"
+        BW["<b>Backtest Worker</b><br/>Kafka consumer"]
+        EN["<b>Execution Node</b><br/>Live order routing"]
+    end
+
+    subgraph "🧠 Service Hub (Dependency Injection)"
+        SH["ServiceHub<br/><i>11 module containers</i>"]
+        SH --- M1["data"] & M2["trading"] & M3["core"]
+        SH --- M4["features"] & M5["quant_ml"] & M6["research"]
+        SH --- M7["validation"] & M8["notifier"] & M9["optimization"]
+        SH --- M10["comparison"] & M11["logging"]
+    end
+
+    subgraph "📊 Trading Engine"
+        EE["EventEngine<br/><i>事件队列 + 线程分发</i>"] --> TCE["TimeControlledEngine<br/><i>回测/实盘统一</i>"]
+        EE --> FDR["Data Feeders (6)"]
+        EE --> PTF["Portfolio<br/><i>中央编排器</i>"]
+        PTF --> STR["Strategy (15)"]
+        PTF --> RSK["Risk (18)"]
+        PTF --> SIZ["Sizer (3)"]
+        PTF --> SEL2["Selector (5)"]
+    end
+
+    subgraph "🔀 Gateway & Brokers"
+        GW["TradeGateway<br/><i>多市场路由</i>"]
+        GW --- B1["AShare (T+1)"] & B2["HK Stock"]
+        GW --- B3["US Stock"] & B4["Futures"]
+        GW --- B5["OKX Crypto"] & B6["Sim"]
+        GW --- B7["Auto"] & B8["Manual"]
+    end
+
+    subgraph "🗄️ Data Layer"
+        DRV["Drivers"]
+        DRV --- CH["ClickHouse<br/><i>时序数据</i>"]
+        DRV --- MY["MySQL<br/><i>关系数据</i>"]
+        DRV --- MO["MongoDB<br/><i>文档数据</i>"]
+        DRV --- RD["Redis<br/><i>缓存</i>"]
+        DRV --- KF["Kafka<br/><i>消息队列</i>"]
+        SRC["Data Sources"]
+        SRC --- S1["Tushare"] & S2["AKShare"]
+        SRC --- S3["Yahoo"] & S4["BaoStock"] & S5["TDX"]
+    end
+
+    CLI & API & WEB --> SH
+    BW & EN --> SH
+    SH --> EE & DRV & SRC
+    EE --> PTF
+    PTF --> GW
+
+    style SH fill:#4A90D9,color:#fff
+    style EE fill:#E8A838,color:#fff
+    style PTF fill:#D94A7A,color:#fff
+    style GW fill:#7A4AD9,color:#fff
+    style DRV fill:#50B87E,color:#fff
 ```
-Selector -> Strategy -> Sizer -> Risk
-  |           |          |        |
-  v           v          v        v
-codes    signals     volume   adjusted order
+
+### Trading Pipeline — Event Flow
+
+```mermaid
+sequenceDiagram
+    participant F as Feeder
+    participant E as EventEngine
+    participant P as Portfolio
+    participant STR as Strategy
+    participant RSK as Risk
+    participant SIZ as Sizer
+    participant GW as TradeGateway
+    participant BRK as Broker
+
+    F->>E: ① EventPriceUpdate (Bar/Tick)
+    E->>P: dispatch → on_price_received()
+    P->>STR: ② strategy.cal(portfolio, event) → Signal[]
+    P->>RSK: ③ risk.generate_signals() → Signal[] (止损/止盈)
+    P->>E: put(EventSignalGeneration) per signal
+    Note over E: ④ T+1 延迟（当日信号延迟到下一时段）
+    E->>P: dispatch → on_signal()
+    P->>SIZ: ⑤ sizer.cal(signal) → Order
+    P->>RSK: ⑥ risk.cal(order) → adjusted Order (减量/拒绝)
+    Note over RSK: 双模风控：被动拦截 + 主动信号
+    P->>E: put(EventOrderAck)
+    E->>GW: ⑦ route to market broker
+    GW->>BRK: AShare / HK / US / Futures / OKX
+    BRK-->>E: EventOrderPartiallyFilled
+    E->>P: ⑧ update position, PnL, frozen funds
 ```
 
-| Component | Responsibility | Can |
-|-----------|---------------|-----|
-| **Selector** | Stock selection | Output `List[str]` of codes |
-| **Strategy** | Generate trading signals | Output `List[Signal]` (direction + weight) |
-| **Sizer** | Determine position size | Output integer volume |
-| **Risk** | Risk control intercept | Only reduce or reject orders |
+### Module Map
 
-### Three-Layer Architecture
+```mermaid
+graph LR
+    subgraph "ginkgo"
+        direction TB
 
+        subgraph "trading/"
+            direction TB
+            engines["engines/<br/>BaseEngine → EventEngine → TimeControlled"]
+            events["events/<br/>PriceUpdate · Signal · Order<br/>TimeAdvance · Portfolio"]
+            bases["bases/<br/>Portfolio · Position · Order<br/>Strategy · Selector · Sizer · Risk"]
+            strat["strategies/ (15)"]
+            risk["risk_management/ (18)"]
+            sel["selectors/ (5)"]
+            sizer["sizers/ (3)"]
+            brk["brokers/ (8)"]
+            fdr["feeders/ (6)"]
+            analysis["analysis/<br/>analyzers (24) · reports · plots"]
+            evl["evaluation/<br/>pipeline · rules · visualization"]
+        end
+
+        subgraph "data/"
+            direction TB
+            drv["drivers/<br/>ClickHouse · MySQL<br/>MongoDB · Redis · Kafka"]
+            mdl["models/ (51)"]
+            crud["crud/ (52)"]
+            svc["services/ (33)"]
+            src["sources/ (5)"]
+            stm["streaming/<br/>cache · checkpoint · recovery"]
+        end
+
+        subgraph "core/"
+            direction TB
+            adapters["adapters/"]
+            factories["factories/"]
+            ifaces["interfaces/"]
+        end
+
+        subgraph "Supporting"
+            feat["features/<br/>definitions (17) · expression engine"]
+            ml["quant_ml/<br/>models · features · strategies"]
+            res["research/<br/>IC · factor · orthogonal · decay"]
+            val["validation/<br/>MonteCarlo · WalkForward · Sensitivity"]
+            live["livecore/<br/>scheduler · heartbeat"]
+            ntf["notifier/<br/>channels · workers"]
+        end
+    end
 ```
-API / CLI Layer -> Service Layer -> CRUD Layer -> Database
-```
 
-- **CRUD Layer**: Pure data access, one class per table, inherits `BaseCRUD`
-- **Service Layer**: Business logic orchestration, cross-CRUD operations, returns `ServiceResult`
-- **API Layer**: Must call Service, never bypass to CRUD directly
+### Key Design Rules
+
+| Rule | Description |
+|------|-------------|
+| **单向数据流** | `Selector → Strategy → Sizer → Risk`，禁止反向调用 |
+| **三层分离** | `API → Service → CRUD`，API 禁止直接调 CRUD |
+| **事件驱动** | 引擎通过 Queue 分发事件，解耦数据与交易逻辑 |
+| **容器注入** | ServiceHub 懒加载 11 个 DI 容器，按需初始化 |
+| **引擎双模** | 仅分 `BACKTEST` / `LIVE`，共享 EventEngine 机制 |
+| **Portfolio 编排** | Portfolio 持有全部组件（策略/风控/Sizer/分析器），是交易核心 |
+| **双模风控** | 被动拦截 `cal(order)` + 主动信号 `generate_signals()` |
+| **T+1 延迟** | 当日信号延迟到下一时段才执行（A 股规则） |
+
+### Component Inventory
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| **Strategies** | 15 | MA Crossover, Momentum, Mean Reversion, Dual Thrust, Scalping, ML Predictor |
+| **Risk Managers** | 18 | Position Ratio, Loss Limit, Profit Target, Max Drawdown, Volatility, Concentration |
+| **Selectors** | 5 | Fixed, CN All, Momentum, Popularity |
+| **Sizers** | 3 | Fixed, ATR, Ratio |
+| **Brokers** | 8 | Sim, AShare, HK Stock, US Stock, Futures, OKX, Manual, Auto |
+| **Feeders** | 6 | Backtest, Live, OKX, Alpaca, EastMoney, Fushu |
+| **Analyzers** | 24 | Net Value, Max Drawdown, Sharpe, Calmar, Profit Factor, Annualized Returns |
+| **Data Sources** | 5 | Tushare, AKShare, Yahoo, BaoStock, TDX |
+| **DB Drivers** | 5 | ClickHouse, MySQL, MongoDB, Redis, Kafka |
+| **Factors** | 158+ | Alpha158, Barra, Fama-French, WorldQuant Alpha101 |
 
 ### Service Access
 
@@ -164,13 +310,13 @@ portfolio.add_risk_manager(ProfitTargetRisk(profit_limit=20.0))
 
 ## Web UI
 
-Vue 3 + Ant Design Vue + Lightweight Charts + ECharts dashboard:
+Vue 3 + shadcn-vue + Tailwind CSS + ECharts + Lightweight Charts dashboard:
 
 ```bash
 ginkgo serve webui    # http://localhost:5173
 ```
 
-Features: portfolio management, backtest creation/monitoring, component editor, real-time charts.
+Features: portfolio management, backtest creation/monitoring, component editor (Monaco), factor research, real-time charts.
 
 ## Live Trading
 
