@@ -231,6 +231,11 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                     order_type=item.order_type,
                     volume=item.volume,
                     limit_price=item.limit_price,
+                    frozen_money=item.frozen_money,
+                    frozen_volume=item.frozen_volume,
+                    transaction_price=item.transaction_price,
+                    transaction_volume=item.transaction_volume,
+                    remain=item.remain,
                     timestamp=item.timestamp,
                     status=item.status,
                 )

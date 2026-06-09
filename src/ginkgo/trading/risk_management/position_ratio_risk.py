@@ -159,6 +159,7 @@ class PositionRatioRisk(BaseRiskManagement):
                 )
                 order.volume = int(adjusted_volume)
                 order.frozen_money = adjusted_volume * execution_price
+                order.frozen_volume = int(adjusted_volume)
                 order.remain = order.frozen_money
 
         # 检查总持仓比例
@@ -196,6 +197,7 @@ class PositionRatioRisk(BaseRiskManagement):
                 )
                 order.volume = int(adjusted_volume)
                 order.frozen_money = adjusted_volume * execution_price
+                order.frozen_volume = int(adjusted_volume)
                 order.remain = order.frozen_money
 
         # 如果调整后的订单量为0，则拒绝订单
