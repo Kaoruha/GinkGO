@@ -176,18 +176,49 @@ async def logout(req: Request):
     return ok(message="Logged out successfully")
 
 
-@router.get("/verify")
-async def verify_token(req: Request):
-    user_uuid = req.state.user_uuid if hasattr(req.state, "user_uuid") else None
-    username = req.state.username if hasattr(req.state, "username") else None
-    is_admin = req.state.is_admin if hasattr(req.state, "is_admin") else False
+async def verify_token_endpoint(req: Request):
+    """#5899: 手动验证 token（端点在 PUBLIC_PATHS，中间件不处理）"""
+    # 从 header 或 query param 提取 token
+    authorization = req.headers.get("Authorization", "")
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+    else:
+        token = req.query_params.get("token")
+
+    if not token:
+        return ok(data={"valid": False, "user_uuid": None, "username": None, "is_admin": False})
+
+    try:
+        from middleware.auth import verify_token as _verify_jwt
+        payload = _verify_jwt(token)
+    except Exception:
+        return ok(data={"valid": False, "user_uuid": None, "username": None, "is_admin": False})
+
+    # #5899: is_admin 从 DB 查询（与 /auth/me 一致），不信任 JWT 中的值
+    user_uuid = payload.get("user_uuid")
+    is_admin = False
+    if user_uuid:
+        try:
+            svc = get_user_service()
+            credential = svc.get_credential(user_uuid)
+            if credential:
+                is_admin = credential.is_admin
+        except Exception:
+            pass  # DB 查询失败时回退到 JWT 中的值
+            is_admin = payload.get("is_admin", False)
 
     return ok(data={
         "valid": True,
         "user_uuid": user_uuid,
-        "username": username,
-        "is_admin": is_admin
+        "username": payload.get("username"),
+        "is_admin": is_admin,
     })
+
+
+@router.get("/verify")
+async def verify_token_route(req: Request):
+    """#5899: /auth/verify 路由入口"""
+    return await verify_token_endpoint(req)
 
 
 @router.post("/change-password")
