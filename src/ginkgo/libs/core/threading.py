@@ -611,30 +611,16 @@ if __name__ == "__main__":
         return "NOT EXIST"
 
     def process_main_control_command(self, value: str) -> None:
-        # TODO
+        # TODO: live engine lifecycle management
         control_logger.INFO(f"Deal with main control. {value}")
         if value["type"] == "run_live":
-            # Get status
             id = value["id"]
-            pid = GDATA.get_pid_of_liveengine(id)
-            control_logger.INFO(f"LiveEngine is running on PROCESS: {pid}")
-            if pid is None:
-                control_logger.INFO(f"{pid} not exist in redis, try run new live engine.")
-                self.run_live_daemon(id)
-                return
-            try:
-                proc = psutil.Process(pid)
-                if proc.is_running():
-                    control_logger.INFO(f"PID:{pid} is running, pass running new live engine.")
-                    return
-            except Exception as e:
-                control_logger.INFO(f"{pid} in redis, but proc {pid} not exist, try run new live engine..")
-                GLOG.ERROR(f"Error: {e}")
-            self.run_live(id)
+            control_logger.INFO(f"Run live engine for {id}.")
+            self.run_live_daemon(id)
         elif value["type"] == "stop_live":
-            console.print("Stop live.")
             id = value["id"]
-            GDATA.remove_liveengine(id)
+            console.print(f"Stop live engine {id}.")
+            # TODO: implement live engine stop via process signal
         else:
             control_logger.WARN(f"Can not process {type}.")
 
@@ -647,8 +633,7 @@ if __name__ == "__main__":
         e.start()
 
     def run_live_daemon(self, id: str, *args, **kwargs):
-        # TODO
-        GDATA.clean_live_status()
+        # TODO: live engine daemon management
         content = f"""
 from ginkgo.trading.engines.live_engine import LiveEngine
 
@@ -914,7 +899,7 @@ if __name__ == "__main__":
 
     def clean_thread_pool(self, *args, **kwargs) -> None:
         cursor = 0
-        while cursor != 0:
+        while True:
             cursor, elements = self.redis_service.scan_thread_pool(self.thread_pool_name, cursor=cursor, count=100)
             for pid_str in elements:
                 try:
@@ -936,10 +921,12 @@ if __name__ == "__main__":
                     pass
                 finally:
                     pass
+            if cursor == 0:
+                break
 
     def clean_worker_pool(self, *args, **kwargs) -> None:
         cursor = 0
-        while cursor != 0:
+        while True:
             cursor, elements = self.redis_service.scan_worker_pool(self.dataworker_pool_name, cursor=cursor, count=100)
             for pid_str in elements:
                 try:
@@ -961,14 +948,18 @@ if __name__ == "__main__":
                     pass
                 finally:
                     pass
+            if cursor == 0:
+                break
 
     def get_thread_pids(self) -> List:
         res = []
         cursor = 0
-        while cursor != 0:
+        while True:
             cursor, elements = self.redis_service.scan_thread_pool(self.thread_pool_name, cursor=cursor, count=100)
             for item in elements:
                 res.append(item)
+            if cursor == 0:
+                break
         return res
 
     def get_worker_pids(self) -> List:
