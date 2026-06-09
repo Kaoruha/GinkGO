@@ -709,7 +709,7 @@ def create_notification_worker(
         >>> )
         >>>
         >>> if worker.start():
-        GLOG.INFO("Worker started successfully")
+        >>>     print("Worker started successfully")
     """
     return NotificationWorker(
         notification_service=notification_service,
