@@ -47,11 +47,13 @@ class ServiceResult(Generic[T]):
 
     def set_data(self, key: str, value: Any):
         """
-        Set key-value pair in result data dictionary.
-        Only works when data is a dict; no-op otherwise.
+        Set key-value pair in result data dictionary
+
+        Args:
+            key: Data field name
+            value: Data value to store
         """
-        if isinstance(self.data, dict):
-            self.data[key] = value
+        self.data[key] = value
 
     def set_metadata(self, key: str, value: Any):
         """
