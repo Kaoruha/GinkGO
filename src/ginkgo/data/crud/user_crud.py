@@ -59,8 +59,12 @@ class UserCRUD(BaseCRUD[MUser]):
                 'choices': [t for t in USER_TYPES]
             },
 
-            # 用户名 - 非空字符串，最大128字符
-            'name': {
+            # 用户名 - 非空字符串，最大64字符
+            'username': {
+                'type': 'string',
+                'min': 0,
+                'max': 64
+            },
                 'type': 'string',
                 'min': 0,
                 'max': 128
@@ -122,7 +126,7 @@ class UserCRUD(BaseCRUD[MUser]):
         3. 最后软删除用户本身（set is_del=True）
 
         Args:
-            filters: 过滤条件，如 {"uuid": "xxx"} 或 {"name": "test"}
+            filters: 过滤条件，如 {"uuid": "xxx"} 或 {"username": "test"}
 
         Returns:
             删除的用户数量

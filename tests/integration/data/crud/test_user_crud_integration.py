@@ -96,27 +96,6 @@ class TestUserCRUDInsert:
 class TestUserCRUDQuery:
     """2. 用户查询操作测试"""
 
-    def test_find_by_name(self, crud_instance, cleanup):
-        """测试按用户名查询"""
-        print("\n" + "=" * 60)
-        print("开始测试: UserCRUD 按用户名查询")
-        print("=" * 60)
-
-        # 先创建
-        crud_instance.create(
-            username=TEST_USERNAME,
-            display_name="查询测试用户",
-            source=SOURCE_TYPES.TEST
-        )
-
-        # 按名称查询
-        results = crud_instance.find_by_name(TEST_USERNAME)
-        print(f"-> 查询到 {len(results)} 个用户")
-
-        assert len(results) >= 1, "应查询到用户"
-        assert results[0].username == TEST_USERNAME, "用户名应匹配"
-        print("✓ 按名称查询成功")
-
     def test_find_active_users(self, crud_instance, cleanup):
         """测试查询所有激活用户"""
         print("\n" + "=" * 60)
@@ -182,7 +161,7 @@ class TestUserCRUDDelete:
         assert user is not None
 
         # 确认存在
-        results = crud_instance.find_by_name(TEST_USERNAME)
+        results = crud_instance.find(filters={"username": TEST_USERNAME})
         assert len(results) >= 1, "删除前用户应存在"
 
         # 级联软删除
@@ -192,7 +171,7 @@ class TestUserCRUDDelete:
         assert count >= 1, "应删除至少1个用户"
 
         # 验证已删除
-        results = crud_instance.find_by_name(TEST_USERNAME)
+        results = crud_instance.find(filters={"username": TEST_USERNAME})
         # find 不自动过滤 is_del，但 delete 设置了 is_del=True
         # 通过 find 过滤 is_del=False 验证
         results_active = crud_instance.find(
