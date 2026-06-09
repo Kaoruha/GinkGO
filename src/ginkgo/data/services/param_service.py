@@ -599,7 +599,8 @@ class ParamService(BaseService):
                     if all_params is not None and not all_params.empty:
                         unique_mappings = all_params["mapping_id"].nunique()
                         summary_data["unique_mappings"] = unique_mappings
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
 
             return ServiceResult.success(summary_data, "参数汇总信息获取成功")

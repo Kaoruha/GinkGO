@@ -231,7 +231,8 @@ class BaseBroker(IBroker):
         try:
             price = Decimal(str(row["close"])) if isinstance(row, dict) else Decimal(str(row.close))
             self.update_current_price(code, price)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
     
     # === 订单管理 ===

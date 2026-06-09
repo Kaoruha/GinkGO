@@ -77,7 +77,7 @@ class GinkgoConfig(object):
                     os.environ["GINKGO_FROM_ADDRESS"] = from_addr
                 os.environ["GINKGO_FROM_NAME"] = from_name
             except Exception as e:
-                print(f"[GCONF] Error loading config to env: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error loading config to env: {e}")
 
         if self._has_local_secure:
             try:
@@ -145,7 +145,7 @@ class GinkgoConfig(object):
                     if fushu.get("api_key"):
                         os.environ["GINKGO_FUSHU_API_KEY"] = fushu["api_key"]
             except Exception as e:
-                print(f"[GCONF] Error loading secure config to env: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error loading secure config to env: {e}")
 
         self._env_vars_initialized = True
 
@@ -202,10 +202,10 @@ class GinkgoConfig(object):
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, config_path)
-                print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
                 self._has_local_config = True  # ✅ 更新缓存
             else:
-                print(f"[GCONF] Source config not found, will use environment variables")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Source config not found, will use environment variables")
                 self._has_local_config = False  # ✅ 更新缓存
         else:
             self._has_local_config = True  # ✅ 文件已存在
@@ -217,10 +217,10 @@ class GinkgoConfig(object):
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, secure_path)
-                print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
                 self._has_local_secure = True  # ✅ 更新缓存
             else:
-                print(f"[GCONF] Source secure config not found, will use environment variables")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Source secure config not found, will use environment variables")
                 self._has_local_secure = False  # ✅ 更新缓存
         else:
             self._has_local_secure = True  # ✅ 文件已存在
@@ -240,11 +240,11 @@ class GinkgoConfig(object):
                     config_data = yaml.safe_load(file)
                 self._config_cache = config_data
                 self._config_mtime = current_mtime
-                print(f"[GCONF] Config cache updated (mtime: {current_mtime})")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Config cache updated (mtime: {current_mtime})")
 
             return self._config_cache
         except Exception as e:
-            print(f"[GCONF] Error reading config: {e}")
+            from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading config: {e}")
             return {}
 
     def _read_secure(self) -> dict:
@@ -262,11 +262,11 @@ class GinkgoConfig(object):
                     secure_data = yaml.safe_load(file)
                 self._secure_cache = secure_data
                 self._secure_mtime = current_mtime
-                print(f"[GCONF] Secure cache updated (mtime: {current_mtime})")
+                from ginkgo.libs import GLOG; GLOG.INFO(f"[GCONF] Secure cache updated (mtime: {current_mtime})")
 
             return self._secure_cache
         except Exception as e:
-            print(f"[GCONF] Error reading secure config: {e}")
+            from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading secure config: {e}")
             return {}
 
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
@@ -311,7 +311,7 @@ class GinkgoConfig(object):
                 if key in config and config[key] is not None:
                     return config[key]
             except Exception as e:
-                print(f"[GCONF] Error reading config file: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading config file: {e}")
 
         # 优先级3: 返回默认值
         return default
@@ -324,7 +324,7 @@ class GinkgoConfig(object):
             with open(self.setting_path, "w") as file:
                 yaml.safe_dump(data, file)
         except Exception as e:
-            print(e)
+            from ginkgo.libs import GLOG; GLOG.ERROR(e)
             return {}
 
     @property
@@ -991,7 +991,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return logging_config.get("mode", "auto")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_MODE", "auto")
@@ -1012,7 +1014,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return logging_config.get("format", "json")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_FORMAT", "json")
@@ -1031,7 +1035,9 @@ class GinkgoConfig(object):
                 container_config = config.get("logging", {}).get("container", {})
                 value = container_config.get("enabled", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_ENABLED", "true")
@@ -1051,7 +1057,9 @@ class GinkgoConfig(object):
                 container_config = config.get("logging", {}).get("container", {})
                 value = container_config.get("json_output", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_JSON_OUTPUT", "true")
@@ -1071,7 +1079,9 @@ class GinkgoConfig(object):
                 local_config = config.get("logging", {}).get("local", {})
                 value = local_config.get("file_enabled", True)
                 return str(value).upper() == "TRUE"
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_LOCAL_FILE_ENABLED", "true")
@@ -1090,7 +1100,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 local_config = config.get("logging", {}).get("local", {})
                 return local_config.get("file_path", "ginkgo.log")
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_LOCAL_FILE_PATH", "ginkgo.log")
@@ -1110,7 +1122,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return logging_config.get("mask_fields", [])
             except Exception as e:
-                print(f"[GCONF] Error reading logging.mask_fields: {e}")
+                from ginkgo.libs import GLOG; GLOG.ERROR(f"[GCONF] Error reading logging.mask_fields: {e}")
                 return []
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_MASK_FIELDS")
@@ -1132,7 +1144,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("backtest", 180))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180)
 
@@ -1150,7 +1164,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("component", 90))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90)
 
@@ -1168,7 +1184,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("performance", 30))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30)
 
@@ -1186,7 +1204,9 @@ class GinkgoConfig(object):
                 config = self._read_config()
                 logging_config = config.get("logging", {})
                 return float(logging_config.get("sampling_rate", 0.1))
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         return float(os.environ.get("GINKGO_LOGGING_SAMPLING_RATE", 0.1))
 
@@ -1207,7 +1227,9 @@ class GinkgoConfig(object):
                 if isinstance(whitelist, list):
                     return whitelist
                 return []
-            except Exception:
+            except Exception as e:
+                from ginkgo.libs import GLOG
+                GLOG.WARNING(f"config read failed: {e}")
                 pass
         # 尝试环境变量（逗号分隔）
         env_value = os.environ.get("GINKGO_LOGGING_LEVEL_WHITELIST")

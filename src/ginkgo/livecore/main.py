@@ -300,27 +300,27 @@ class LiveCore:
         这是014-okx-live-account特性的核心组件
         """
         try:
-            print("LiveEngine starting...")
+            GLOG.INFO("LiveEngine starting...")
 
             self.live_engine = get_live_engine()
 
             # 初始化LiveEngine
             if not self.live_engine.initialize():
-                print("[WARNING] LiveEngine initialization failed, continuing without live trading")
+                GLOG.WARNING(f"LiveEngine initialization failed, continuing without live trading")
                 self.live_engine = None
                 return
 
             # 启动LiveEngine
             if not self.live_engine.start():
-                print("[WARNING] LiveEngine start failed, continuing without live trading")
+                GLOG.WARNING(f"LiveEngine start failed, continuing without live trading")
                 self.live_engine = None
                 return
 
-            print("LiveEngine started successfully")
+            GLOG.INFO("LiveEngine started successfully")
 
         except Exception as e:
-            print(f"[ERROR] Failed to start LiveEngine: {e}")
-            print("[WARNING] Continuing without live trading")
+            GLOG.ERROR(f"Failed to start LiveEngine: {e}")
+            GLOG.WARNING(f"Continuing without live trading")
             self.live_engine = None
 
     def _start_data_manager(self):
@@ -402,9 +402,9 @@ class LiveCore:
             self.trade_gateway_adapter = TradeGatewayAdapter(brokers=brokers)
             self.trade_gateway_adapter.start()
             self.threads.append(self.trade_gateway_adapter)
-            print("TradeGatewayAdapter started successfully")
+            GLOG.INFO("TradeGatewayAdapter started successfully")
         else:
-            print("[WARNING] No brokers configured, TradeGatewayAdapter not started")
+            GLOG.WARNING(f"No brokers configured, TradeGatewayAdapter not started")
         """
 
     def _trade_gateway_placeholder(self):
@@ -572,7 +572,7 @@ def live_start(
     from ginkgo.libs import GLOG, GCONF
 
     if not LIVE_ENGINE_AVAILABLE:
-        print("[ERROR] LiveEngine is not available. Please check dependencies.")
+        GLOG.ERROR(f"LiveEngine is not available. Please check dependencies.")
         sys.exit(1)
 
     # 设置日志级别
@@ -591,18 +591,18 @@ def live_start(
     try:
         # 初始化引擎
         if not engine.initialize():
-            print("[ERROR] Failed to initialize LiveEngine")
+            GLOG.ERROR(f"Failed to initialize LiveEngine")
             sys.exit(1)
 
         # 启动引擎
         if not engine.start():
-            print("[ERROR] Failed to start LiveEngine")
+            GLOG.ERROR(f"Failed to start LiveEngine")
             sys.exit(1)
 
-        print("=" * 60)
-        print("LiveEngine is running")
-        print("Press Ctrl+C to stop")
-        print("=" * 60)
+        GLOG.INFO("=" * 60)
+        GLOG.INFO("LiveEngine is running")
+        GLOG.INFO("Press Ctrl+C to stop")
+        GLOG.INFO("=" * 60)
 
         # 等待退出信号
         engine.wait()
@@ -610,10 +610,10 @@ def live_start(
         sys.exit(0)
 
     except KeyboardInterrupt:
-        print("\n[INFO] Received keyboard interrupt")
+        GLOG.INFO("\n[INFO] Received keyboard interrupt")
         sys.exit(0)
     except Exception as e:
-        print(f"[ERROR] Error in live engine: {e}")
+        GLOG.ERROR(f"Error in live engine: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -631,22 +631,22 @@ def live_status() -> None:
         ginkgo-live live-status
     """
     if not LIVE_ENGINE_AVAILABLE:
-        print("[ERROR] LiveEngine is not available")
+        GLOG.ERROR(f"LiveEngine is not available")
         sys.exit(1)
 
     engine = get_live_engine()
 
     if engine.is_running():
-        print("LiveEngine status: RUNNING")
+        GLOG.INFO("LiveEngine status: RUNNING")
 
         # 显示组件状态
         component_status = engine.get_component_status()
-        print("Component Status:")
+        GLOG.INFO("Component Status:")
         for component, active in component_status.items():
             status_icon = "✓" if active else "✗"
-            print(f"  [{status_icon}] {component}: {'ACTIVE' if active else 'INACTIVE'}")
+            GLOG.INFO(f"  [{status_icon}] {component}: {'ACTIVE' if active else 'INACTIVE'}")
     else:
-        print("LiveEngine status: STOPPED")
+        GLOG.INFO("LiveEngine status: STOPPED")
 
 
 @cli.command()
@@ -661,7 +661,7 @@ def live_init(
         ginkgo-live live-init --force            # 强制重新初始化
     """
     if not LIVE_ENGINE_AVAILABLE:
-        print("[ERROR] LiveEngine is not available")
+        GLOG.ERROR(f"LiveEngine is not available")
         sys.exit(1)
 
     engine = get_live_engine()
@@ -673,15 +673,15 @@ def live_init(
         existing = broker_crud.find(filters={"is_del": False})
 
         if existing:
-            print(f"Found {len(existing)} existing broker(s)")
-            print("Use --force to reinitialize")
+            GLOG.INFO(f"Found {len(existing)} existing broker(s)")
+            GLOG.INFO("Use --force to reinitialize")
             return
 
     # 执行初始化
     if engine.initialize():
-        print("LiveEngine initialized successfully")
+        GLOG.INFO("LiveEngine initialized successfully")
     else:
-        print("[ERROR] Failed to initialize LiveEngine")
+        GLOG.ERROR(f"Failed to initialize LiveEngine")
         sys.exit(1)
 
 
@@ -728,17 +728,17 @@ if __name__ == "__main__":
 
         try:
             livecore.start()
-            print("LiveCore is running. Press Ctrl+C to stop.")
+            GLOG.INFO("LiveCore is running. Press Ctrl+C to stop.")
             livecore.wait()
         except KeyboardInterrupt:
-            print("\n[INFO] Received keyboard interrupt, shutting down...")
+            GLOG.INFO("\n[INFO] Received keyboard interrupt, shutting down...")
         except Exception as e:
-            print(f"[ERROR] LiveCore error: {e}")
+            GLOG.ERROR(f"LiveCore error: {e}")
             import traceback
             traceback.print_exc()
         finally:
             # 确保清理资源（即使启动失败或运行时出错）
             if livecore.is_running:
-                print("[INFO] Cleaning up LiveCore resources...")
+                GLOG.INFO(f"Cleaning up LiveCore resources...")
                 livecore.stop()
             GLOG.INFO("LiveCore shutdown complete")

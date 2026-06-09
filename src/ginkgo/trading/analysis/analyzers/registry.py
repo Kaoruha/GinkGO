@@ -138,7 +138,8 @@ class AnalyzerRegistry:
             default_name = sig.parameters.get('name')
             if default_name and default_name.default is not inspect.Parameter.empty:
                 return default_name.default
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
         return analyzer_class.__name__
 
@@ -150,7 +151,8 @@ class AnalyzerRegistry:
                 return ANALYZER_CATEGORY_TYPES.CORE
             if 'ANALYZER_CATEGORY_TYPES.CUSTOM' in source:
                 return ANALYZER_CATEGORY_TYPES.CUSTOM
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
         return ANALYZER_CATEGORY_TYPES.EXTENDED
 
@@ -188,5 +190,6 @@ class AnalyzerRegistry:
         finally:
             try:
                 os.unlink(temp_path)
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass

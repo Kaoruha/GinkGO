@@ -7,6 +7,7 @@
 
 
 
+from ginkgo.libs import GLOG
 import pandas as pd
 import numpy
 import datetime
@@ -544,7 +545,7 @@ class Position(TimeMixin, Base):
             GLOG.DEBUG(f"Available: {self.volume}, Frozen: {self.frozen_volume}, Settlement: {self.settlement_frozen_volume}")
             return True
         except Exception as e:
-            print(e)
+            GLOG.ERROR(e)
             return False
         finally:
             pass

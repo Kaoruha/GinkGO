@@ -167,7 +167,7 @@ class RandomSignalStrategy(BaseStrategy):
 
             if signal:
                 signals.append(signal)
-                print(f"[SIGNAL] #{self.signal_count}/{self.max_signals} {decision.upper()} {signal.code} {signal.business_timestamp} Strategy:{self.uuid[:8]} Signal:{signal.uuid[:8]}")
+                GLOG.INFO(f"#{self.signal_count}/{self.max_signals} {decision.upper()} {signal.code} {signal.business_timestamp} Strategy:{self.uuid[:8]} Signal:{signal.uuid[:8]}")
                 self._record_signal(signal, event)
             return signals
 

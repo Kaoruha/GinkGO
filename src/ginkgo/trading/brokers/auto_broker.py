@@ -442,6 +442,7 @@ class AutoBroker(BaseBroker):
             try:
                 await task
             except asyncio.CancelledError:
+                GLOG.DEBUG(f"task cancelled")
                 pass
         
         self._active_orders.discard(order_id)

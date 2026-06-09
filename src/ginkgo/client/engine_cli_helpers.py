@@ -540,6 +540,7 @@ def _is_param_for_component(param_value: str, component_name: str, component_typ
         if 0 < float_val <= 1:
             return component_type == 'strategy' and ('random' in component_name or 'choice' in component_name)
     except ValueError:
+        GLOG.DEBUG(f"handled error")
         pass
 
     return False

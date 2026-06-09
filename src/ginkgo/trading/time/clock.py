@@ -16,6 +16,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
+from ginkgo.libs import GLOG
+
 from .interfaces import ITimeProvider
 
 _GLOBAL_TIME_PROVIDER: Optional[ITimeProvider] = None
@@ -35,7 +37,8 @@ def now() -> datetime:
     if _GLOBAL_TIME_PROVIDER is not None:
         try:
             return _GLOBAL_TIME_PROVIDER.now()
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
     # 回退到系统 UTC 时间
     return datetime.now(timezone.utc)

@@ -274,14 +274,16 @@ class TimeBoundaryValidator:
                     tz = self._time_provider.now().tzinfo
                     if tz is not None:
                         request_time = request_time.replace(tzinfo=tz)
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
             if data_timestamp.tzinfo is None and hasattr(self._time_provider, 'now'):
                 try:
                     tz = self._time_provider.now().tzinfo
                     if tz is not None:
                         data_timestamp = data_timestamp.replace(tzinfo=tz)
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
             if data_timestamp > request_time:
                 current_time = request_time

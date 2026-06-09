@@ -2,6 +2,7 @@
 # Downstream: ExecutionNode (通过Kafka控制命令)
 # Role: 定时任务调度器 - 使用APScheduler发送控制命令到Kafka
 
+from ginkgo.libs import GLOG
 import os
 import time
 import yaml
@@ -172,7 +173,7 @@ class TaskTimer:
             )
 
         except Exception as e:
-            print(f"[ERROR] Failed to send heartbeat: {e}")
+            GLOG.ERROR(f"Failed to send heartbeat: {e}")
 
     def _cleanup_old_heartbeat_data(self):
         """清理旧的心跳数据"""
@@ -351,7 +352,8 @@ class TaskTimer:
                         "错误信息": str(e),
                     },
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             return False
@@ -424,7 +426,8 @@ class TaskTimer:
                         "错误信息": str(e),
                     },
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             return False
@@ -494,7 +497,8 @@ class TaskTimer:
                         "错误信息": str(e),
                     },
                 )
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             return False
@@ -942,7 +946,8 @@ class TaskTimer:
                     "错误": str(error),
                 },
             )
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
     def validate_config(self) -> bool:

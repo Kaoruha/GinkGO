@@ -200,7 +200,8 @@ def run_task(
                 ingest_result = ingester.ingest_task_logs(task.uuid)
                 if ingest_result.inserted > 0:
                     console.print(f"   Logs ingested: {ingest_result.inserted} records")
-            except Exception:
+            except Exception as e:
+                GLOG.WARNING(f"{e}")
                 pass
 
             console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")

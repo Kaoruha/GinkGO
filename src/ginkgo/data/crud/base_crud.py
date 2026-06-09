@@ -822,7 +822,7 @@ class _CoreCRUD(Generic[T], ABC):
                 stmt = update(self.model_class).where(and_(*filter_conditions)).values(updates)
                 result = s.execute(stmt)
                 updated_rows = result.rowcount if result else 0
-                print(f"Updated {self.model_class.__name__} records: {updated_rows}")
+                GLOG.INFO(f"Updated {self.model_class.__name__} records: {updated_rows}")
                 return updated_rows
             return 0
 

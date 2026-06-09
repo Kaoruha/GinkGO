@@ -39,7 +39,7 @@ class GinkgoNotifier(INotificationService):
             self._kafka_service = container.kafka_service()
             self._redis_service = container.redis_service()
         except Exception as e:
-            print(e)
+            GLOG.ERROR(e)
         self.telebot_pname = gtm.get_thread_cache_name("telebot")
         pass
 

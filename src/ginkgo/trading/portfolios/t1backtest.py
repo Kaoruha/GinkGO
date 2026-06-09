@@ -15,6 +15,7 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 - Generating reports and metrics related to the performance of the portfolio. The reports also contain charts.
 """
 
+from ginkgo.libs import GLOG
 import time
 import uuid
 import datetime
@@ -192,7 +193,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 e = EventSignalGeneration(signal)
                 event_uuid = getattr(e, "uuid", "N/A")[:8]
                 signal_uuid = getattr(signal, "uuid", "N/A")[:8]
-                print(
+                GLOG.INFO(
                     f"[T1_PUBLISH] #{i+1}/{len(self._signals)} {signal.direction.name} {signal.code} {signal.business_timestamp} Event:{event_uuid} Signal:{signal_uuid} Portfolio:{self.uuid[:8]}"
                 )
 
@@ -217,7 +218,7 @@ class PortfolioT1Backtest(PortfolioBase):
         # ===== 步骤5: 新时间状态初始化 =====
         activate_count = len(self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))
         record_count = len(self._analyzer_record_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))
-        print(f"[NEWDAY HOOK] activate_count={activate_count}, record_count={record_count}")
+        GLOG.INFO(f"[NEWDAY HOOK] activate_count={activate_count}, record_count={record_count}")
         for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []):
             if func is not None and callable(func):
                 func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
@@ -238,11 +239,11 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 添加Signal接收的关键事件流日志
         if signal_payload:
-            print(
+            GLOG.INFO(
                 f"[SIGNAL_RECV] {signal_payload.direction.name} {signal_payload.code} {signal_payload.business_timestamp} Portfolio:{self.uuid[:8]} Signal:{signal_payload.uuid[:8]}"
             )
         else:
-            print(f"[SIGNAL_ERROR] Signal payload missing Event:{event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}")
+            GLOG.INFO(f"[SIGNAL_ERROR] Signal payload missing Event:{event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}")
             return
 
         def normalize_time_for_comparison(t):
@@ -310,7 +311,7 @@ class PortfolioT1Backtest(PortfolioBase):
             if business_time_normalized > current_time_normalized:
                 self.blog.log_t1_delay_event(code=event.code, reason=f"Future signal from {event.business_timestamp}")
             self._signals.append(event.payload)
-            print(
+            GLOG.INFO(
                 f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}"
             )
             return
@@ -321,7 +322,7 @@ class PortfolioT1Backtest(PortfolioBase):
             order = self.sizer.cal(portfolio_info, event.payload)
             # 添加Sizer结果的关键事件流日志
             if order:
-                print(
+                GLOG.INFO(
                     f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}"
                 )
                 # [订单持久化] NEW 状态持久化位置
@@ -332,7 +333,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 GLOG.WARN(f"Signal dropped: sizer returned None for {event.payload.direction.name} {event.payload.code}")
                 return
         except Exception as e:
-            print(
+            GLOG.ERROR(
                 f"[SIZED_ERROR] {event.payload.direction.name} {event.payload.code} Error:{e} Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
             )
             return
@@ -383,7 +384,7 @@ class PortfolioT1Backtest(PortfolioBase):
         event.broker_order_id = f"BROKER_{order.uuid[:8]}"
         event.payload = order
 
-        print(
+        GLOG.INFO(
             f"[ORDER] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Frozen:{order.frozen_money} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
         )
 
@@ -413,6 +414,7 @@ class PortfolioT1Backtest(PortfolioBase):
         try:
             code = event.code
         except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         self.blog.log_price_received_event(code=code, price=float(event.close))
@@ -470,11 +472,11 @@ class PortfolioT1Backtest(PortfolioBase):
                 if signal:
                     # 🔍 调试：跟踪信号处理
                     signal_uuid = getattr(signal, "uuid", "N/A")[:8]
-                    print(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
-                    print(f"    Strategy Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
-                    print(f"    Signal UUID: {signal_uuid}")
-                    print(f"    Signal Reason: {signal.reason}")
-                    print(f"    From Strategy: {strategy.name if strategy else 'Unknown'}")
+                    GLOG.INFO(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
+                    GLOG.INFO(f"    Strategy Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
+                    GLOG.INFO(f"    Signal UUID: {signal_uuid}")
+                    GLOG.INFO(f"    Signal Reason: {signal.reason}")
+                    GLOG.INFO(f"    From Strategy: {strategy.name if strategy else 'Unknown'}")
 
                     # 将信号保存到数据库
                     try:
@@ -497,18 +499,18 @@ class PortfolioT1Backtest(PortfolioBase):
                     e.set_source(SOURCE_TYPES.STRATEGY)
                     # 🔍 [CRITICAL] LOG: 追踪事件发布
                     event_uuid = getattr(e, "uuid", "N/A")[:8]
-                    print(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
-                    print(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
-                    print(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
+                    GLOG.INFO(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
+                    GLOG.INFO(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
+                    GLOG.INFO(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
 
                     for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
                         func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
                     for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
                         func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
 
-                    print(f"📤 [PUTTING] EventSignalGeneration to engine: {event_uuid}")
+                    GLOG.INFO(f"📤 [PUTTING] EventSignalGeneration to engine: {event_uuid}")
                     self.put(e)
-                    print(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
+                    GLOG.INFO(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
 
     # ===== 订单记录保存辅助方法 =====
     def _save_order_record(self, order, status, transaction_price=0, transaction_volume=0, fee=0):
@@ -544,10 +546,10 @@ class PortfolioT1Backtest(PortfolioBase):
                 timestamp=order.timestamp,
                 business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
             )
-            print(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
+            GLOG.INFO(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
             return result.success
         except Exception as e:
-            print(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
+            GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
             self.blog.log_engine_error_event(error_code="ORDER_SAVE_FAILED", error_message=str(e))
             return False
 
@@ -603,7 +605,7 @@ class PortfolioT1Backtest(PortfolioBase):
             code = event.code
 
             # 添加订单部分成交的关键事件流日志
-            print(
+            GLOG.INFO(
                 f"[FILL] {direction.name} {code} {qty}shares @ {price} Fee:{fee} TotalFilled:{order.transaction_volume}/{order.volume} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
             )
 
@@ -667,13 +669,13 @@ class PortfolioT1Backtest(PortfolioBase):
                     )
                     self.add_position(p)
                     # 添加Position创建的关键事件流日志
-                    print(
+                    GLOG.INFO(
                         f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}"
                     )
                 else:
                     pos.deal(DIRECTION_TYPES.LONG, price, qty)
                     # 添加Position更新的关键事件流日志
-                    print(
+                    GLOG.INFO(
                         f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}"
                     )
 
@@ -716,7 +718,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
             self.blog.log_order_rejected_event(order_id=event.order_id, reject_code="BROKER_REJECTED", reject_reason=event.reject_reason, symbol=event.code)
             # 添加订单拒绝的关键事件流日志
-            print(
+            GLOG.INFO(
                 f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}"
             )
 

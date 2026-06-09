@@ -537,7 +537,8 @@ class RuntimeAnalyzer:
                     attr = getattr(cls, name, None)
                     if not callable(attr):
                         attributes[name] = str(type(attr))
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
         return attributes
 

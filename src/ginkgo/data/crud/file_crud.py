@@ -303,6 +303,7 @@ class FileCRUD(BaseCRUD[MFile]):
                 major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
                 return f"{major}.{minor}.{patch + 1}"
         except (ValueError, AttributeError):
+            GLOG.DEBUG(f"handled error")
             pass
         return "1.0.1"  # 默认新版本
 

@@ -35,6 +35,7 @@ Usage Examples:
         pass
 """
 
+from ginkgo.libs import GLOG
 from dependency_injector import containers, providers
 
 

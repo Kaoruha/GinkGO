@@ -65,6 +65,7 @@ def _is_service_layer_call() -> bool:
                     if isinstance(caller_class, type) and issubclass(caller_class, BaseService):
                         return True
                 except (ImportError, AttributeError):
+                    GLOG.DEBUG(f"optional import unavailable")
                     pass
 
     finally:

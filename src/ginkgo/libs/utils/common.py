@@ -31,6 +31,8 @@ def ensure_list(val: Any) -> List[str]:
             if isinstance(parsed, list):
                 return [str(v) for v in parsed]
         except (json.JSONDecodeError, TypeError):
+            from ginkgo.libs import GLOG
+            GLOG.DEBUG("handled error")
             pass
         return [s.strip() for s in val.split(',') if s.strip()]
     if val is None:
@@ -407,15 +409,15 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                             # console.print(f":fire::fire::fire: 从缓存中获取结果: {f.__name__} :fire::fire::fire:")
                             return result
                         else:
-                            print("缓存过期，重新计算并缓存")
+                            from ginkgo.libs import GLOG; GLOG.INFO("缓存过期，重新计算并缓存")
                     else:
-                        print("缓存值为None，重新计算并缓存")
+                        from ginkgo.libs import GLOG; GLOG.INFO("缓存值为None，重新计算并缓存")
 
                 # 执行函数，获取结果
                 result = f(*args, **kwargs)
                 # 存入缓存并记录时间戳
                 cache_data[cache_key] = (result, time.time())
-                print("缓存结果")
+                from ginkgo.libs import GLOG; GLOG.INFO("缓存结果")
                 if len(cache_data) > max_cache_size:
                     cache_data.popitem(last=False)
                 return result
@@ -439,9 +441,9 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                         # console.print(f":fire::fire::fire: 从缓存中获取结果: {func.__name__} :fire::fire::fire:")
                         return result
                     else:
-                        print("缓存过期，重新计算并缓存")
+                        from ginkgo.libs import GLOG; GLOG.INFO("缓存过期，重新计算并缓存")
                 else:
-                    print("缓存值为None，重新计算并缓存")
+                    from ginkgo.libs import GLOG; GLOG.INFO("缓存值为None，重新计算并缓存")
 
             # 执行函数，获取结果
             result = func(*args, **kwargs)

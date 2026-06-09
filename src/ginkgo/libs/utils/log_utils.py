@@ -38,6 +38,8 @@ def is_container_environment() -> bool:
             if "docker" in content or "kubepods" in content:
                 return True
     except (FileNotFoundError, PermissionError, IOError):
+        from ginkgo.libs import GLOG
+        GLOG.DEBUG("handled error")
         pass
 
     # 3. 检查 /.dockerenv 文件

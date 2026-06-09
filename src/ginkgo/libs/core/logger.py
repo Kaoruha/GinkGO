@@ -246,6 +246,7 @@ def container_metadata_processor(logger, log_method, event_dict):
         if "process" in metadata:
             event_dict["process"] = metadata["process"]
     except ImportError:
+        import logging; logging.getLogger(__name__).debug("optional import unavailable")
         pass
 
     return event_dict

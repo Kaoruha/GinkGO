@@ -410,6 +410,8 @@ def display_dataframe_interactive(data: pd.DataFrame,
                             while True:
                                 sys.stdin.read(1)
                         except:
+                            from ginkgo.libs import GLOG
+                            GLOG.WARNING("handled error")
                             pass
 
                         # 非阻塞检查用户输入，等待0.5秒
@@ -435,6 +437,8 @@ def display_dataframe_interactive(data: pd.DataFrame,
                                     break
                                 # 忽略其他按键
                             except:
+                                from ginkgo.libs import GLOG
+                                GLOG.WARNING("handled error")
                                 pass
                         else:
                             # 没有输入时，等待一段时间再检查

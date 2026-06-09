@@ -294,7 +294,8 @@ class FactorDecayAnalyzer:
                 if b > 0:
                     half_life = np.log(2) / b
                     return float(half_life)
-        except Exception:
+        except Exception as e:
+            GLOG.WARNING(f"{e}")
             pass
 
         return None

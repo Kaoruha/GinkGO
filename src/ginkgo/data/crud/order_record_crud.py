@@ -7,6 +7,7 @@
 
 
 
+from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict
@@ -134,6 +135,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             try:
                 return enum_class[value]
             except KeyError:
+                GLOG.DEBUG(f"handled error")
                 pass
         
         # 如果都不匹配，返回原值（让后续验证处理）

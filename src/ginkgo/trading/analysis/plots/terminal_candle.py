@@ -7,6 +7,7 @@
 
 
 
+from ginkgo.libs import GLOG
 import pandas as pd
 import shutil
 import plotext as plt
@@ -70,5 +71,5 @@ class TerminalCandle:
             return True
         else:
             missing = required - existing
-            print("Missing columns: ", missing)
+            GLOG.INFO(f"Missing columns: {missing}")
             return False

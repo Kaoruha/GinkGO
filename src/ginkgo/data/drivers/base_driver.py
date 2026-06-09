@@ -12,6 +12,7 @@
 提供统一的数据库连接管理、日志记录、健康检查等功能
 """
 
+from ginkgo.libs import GLOG
 import time
 import threading
 from abc import ABC, abstractmethod
@@ -100,7 +101,8 @@ class DatabaseDriverBase(ABC):
                 # 兼容不同logger接口
                 try:
                     logger.log(level_method, formatted_msg)
-                except Exception:
+                except Exception as e:
+                    GLOG.WARNING(f"{e}")
                     pass
             except Exception:
                 # 避免logger错误影响主逻辑
