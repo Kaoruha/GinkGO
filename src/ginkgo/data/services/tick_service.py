@@ -214,7 +214,6 @@ class TickService(BaseService):
                         GLOG.ERROR(f"{error_msg}")
                         import traceback
                         GLOG.ERROR(f"Traceback: {traceback.format_exc()}")
-                        GLOG.ERROR(error_msg)
 
                 records_added = total_added
 
