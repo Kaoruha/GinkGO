@@ -71,18 +71,30 @@ const statusLabel = computed(() => statusLabels[portfolioStatus.value] || '')
 
 const activeTab = computed(() => {
   const path = route.path
+  if (path.includes('/paper')) return 'paper'
+  if (path.includes('/live')) return 'live'
   if (path.includes('/backtests')) return 'backtests'
   if (path.includes('/validation')) return 'validation'
   if (path.includes('/components')) return 'components'
   return 'overview'
 })
 
-const tabs = computed(() => [
-  { key: 'overview', label: '概况', route: `/portfolios/${portfolioId.value}` },
-  { key: 'backtests', label: '回测', route: `/portfolios/${portfolioId.value}/backtests` },
-  { key: 'validation', label: '验证', route: `/portfolios/${portfolioId.value}/validation` },
-  { key: 'components', label: '组件', route: `/portfolios/${portfolioId.value}/components` },
-])
+const tabs = computed(() => {
+  const base = [
+    { key: 'overview', label: '概况', route: `/portfolios/${portfolioId.value}` },
+  ]
+  if (portfolioStatus.value === 'paper') {
+    base.push({ key: 'paper', label: '运行', route: `/portfolios/${portfolioId.value}/paper` })
+  }
+  if (portfolioStatus.value === 'live') {
+    base.push({ key: 'live', label: '运行', route: `/portfolios/${portfolioId.value}/live` })
+  }
+  base.push(
+    { key: 'backtests', label: '回测', route: `/portfolios/${portfolioId.value}/backtests` },
+    { key: 'components', label: '组件', route: `/portfolios/${portfolioId.value}/components` },
+  )
+  return base
+})
 
 function startBacktest() {
   router.push(`/portfolios/${portfolioId.value}/backtests?action=create`)

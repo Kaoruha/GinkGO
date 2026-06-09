@@ -502,8 +502,8 @@ async def get_adjust_factors(
                 "uuid": factor.uuid if hasattr(factor, 'uuid') else "",
                 "code": str(factor.code) if hasattr(factor, 'code') else "",
                 "timestamp": factor.timestamp.isoformat() if hasattr(factor, 'timestamp') and factor.timestamp else "",
-                "foreadjustfactor": float(factor.fore_adjustfactor) if hasattr(factor, 'fore_adjustfactor') else 1.0,
-                "backadjustfactor": float(factor.back_adjustfactor) if hasattr(factor, 'back_adjustfactor') else 1.0,
+                "foreadjustfactor": float(factor.foreadjustfactor) if hasattr(factor, 'foreadjustfactor') else 1.0,
+                "backadjustfactor": float(factor.backadjustfactor) if hasattr(factor, 'backadjustfactor') else 1.0,
                 "adjustfactor": float(factor.adjustfactor) if hasattr(factor, 'adjustfactor') else 1.0,
             })
 

@@ -105,11 +105,17 @@ class BrokerManager:
                 GLOG.ERROR(f"Live account {live_account_id} is not enabled: {live_account.status}")
                 return False
 
-            # 检查是否已存在Broker实例
+            # 先清理当前 Portfolio 的旧 Broker 实例
             existing_broker = broker_crud.get_broker_by_portfolio(portfolio_id)
             if existing_broker:
                 GLOG.WARNING(f"Broker already exists for portfolio {portfolio_id}, recreating...")
                 self.destroy_broker(portfolio_id)
+
+            # 检查 live_account 是否已被其他 Portfolio 使用
+            existing_brokers = broker_crud.get_broker_by_live_account(live_account_id)
+            if existing_brokers:
+                GLOG.ERROR(f"Live account {live_account_id} already bound to portfolio {[b.portfolio_id for b in existing_brokers]}")
+                return False
 
             # 创建数据库记录
             broker = broker_crud.add_broker_instance(

@@ -219,7 +219,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import request from '@/api/request'
+import { liveAccountApi } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -256,14 +256,13 @@ const columns = [
 const fetchAccounts = async () => {
   loading.value = true
   try {
-    const response = await request.get('/api/v1/accounts')
-    if (response.code === 0) {
-      accounts.value = response.data || []
-    } else {
-      console.error('获取账号列表失败')
+    const result = await liveAccountApi.getAccounts()
+    if (result.code === 0) {
+      // 兼容分页响应和数组响应
+      accounts.value = result.data?.accounts || result.data || []
     }
   } catch (error) {
-    console.error('网络错误：' + error.message)
+    console.error('获取账号列表失败：', error)
   } finally {
     loading.value = false
   }
@@ -273,15 +272,19 @@ const fetchAccounts = async () => {
 const testConnection = async (uuid) => {
   testing.value[uuid] = true
   try {
-    const response = await request.post(`/api/v1/accounts/${uuid}/validate`)
-    if (response.code === 0) {
-      console.log('连接测试成功')
+    const result = await liveAccountApi.validateAccount(uuid)
+    if (result.code === 0) {
+      const info = result.data
+      validationResult.value = {
+        success: info?.valid,
+        message: info?.message || '连接测试成功',
+        account_info: info?.account_info
+      }
       await fetchAccounts()
-    } else {
-      console.error('连接测试失败：' + response.message)
     }
   } catch (error) {
-    console.error('网络错误：' + error.message)
+    console.error('连接测试失败：', error)
+    validationResult.value = { success: false, message: '连接测试失败' }
   } finally {
     testing.value[uuid] = false
   }
@@ -321,15 +324,10 @@ const confirmDelete = (record) => {
 const confirmDeleteAccount = async () => {
   if (!recordToDelete.value) return
   try {
-    const response = await request.delete(`/api/v1/accounts/${recordToDelete.value.uuid}`)
-    if (response.code === 0) {
-      console.log('账号删除成功')
-      await fetchAccounts()
-    } else {
-      console.error('删除失败：' + response.message)
-    }
+    await liveAccountApi.deleteAccount(recordToDelete.value.uuid)
+    await fetchAccounts()
   } catch (error) {
-    console.error('网络错误：' + error.message)
+    console.error('删除失败：', error)
   } finally {
     deleteConfirmVisible.value = false
     recordToDelete.value = null
@@ -350,30 +348,30 @@ const handleModalOk = async () => {
 
   saving.value = true
 
-  const data = { ...formData }
-
   try {
     if (isEditMode.value) {
-      const response = await request.put(`/api/v1/accounts/${data.uuid}`, data)
-      if (response.code === 0) {
-        console.log('账号更新成功')
-        modalVisible.value = false
-        await fetchAccounts()
-      } else {
-        console.error('更新失败：' + response.message)
-      }
+      await liveAccountApi.updateAccount(formData.uuid, {
+        name: formData.name,
+        api_key: formData.api_key,
+        api_secret: formData.api_secret,
+        passphrase: formData.passphrase || undefined,
+        description: formData.description || undefined,
+      })
     } else {
-      const response = await request.post('/api/v1/accounts', data)
-      if (response.code === 0) {
-        console.log('账号创建成功')
-        modalVisible.value = false
-        await fetchAccounts()
-      } else {
-        console.error('创建失败：' + response.message)
-      }
+      await liveAccountApi.createAccount({
+        exchange: formData.exchange,
+        name: formData.name,
+        api_key: formData.api_key,
+        api_secret: formData.api_secret,
+        passphrase: formData.passphrase || undefined,
+        environment: formData.environment,
+        description: formData.description || undefined,
+      })
     }
+    modalVisible.value = false
+    await fetchAccounts()
   } catch (error) {
-    console.error('操作失败：' + error.message)
+    console.error('操作失败：', error)
   } finally {
     saving.value = false
   }

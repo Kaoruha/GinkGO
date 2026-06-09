@@ -41,6 +41,14 @@ export { liveAccountApi } from './modules/live'
 // 部署模块
 export { deploymentApi } from './modules/deployment'
 export type { DeployRequest, DeployResponse, DeploymentInfo } from './modules/deployment'
+
+// Broker 管理模块
+export { brokerApi } from './modules/broker'
+export type { BrokerInstance, BrokerState } from './modules/broker'
+
+// 交易历史模块
+export { tradeHistoryApi } from './modules/tradeHistory'
+export type { TradeRecord, TradeStatistics, DailySummary, TradeHistoryParams } from './modules/tradeHistory'
 export type {
   LiveAccount,
   CreateLiveAccountRequest,

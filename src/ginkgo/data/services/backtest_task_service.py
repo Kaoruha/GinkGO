@@ -874,6 +874,433 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to count backtests: {str(e)}")
 
+    # ==================== Schema 方法（返回 Pydantic 对象） ====================
+
+    def _format_dt(self, dt) -> Optional[str]:
+        """datetime → ISO 字符串"""
+        if dt is None:
+            return None
+        if isinstance(dt, str):
+            return dt
+        return dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+
+    def _task_to_summary(self, task, portfolio_names: dict = None) -> "BacktestTaskSummary":
+        """ORM task → BacktestTaskSummary"""
+        from ginkgo.data.services.backtest_task_schemas import BacktestTaskSummary
+        pid = getattr(task, "portfolio_id", "") or ""
+        return BacktestTaskSummary(
+            uuid=getattr(task, "uuid", ""),
+            name=getattr(task, "name", ""),
+            portfolio_id=pid,
+            portfolio_name=(portfolio_names or {}).get(pid, ""),
+            status=getattr(task, "status", "created") or "created",
+            progress=getattr(task, "progress", 0) or 0,
+            total_pnl=float(getattr(task, "total_pnl", 0) or 0),
+            total_orders=int(getattr(task, "total_orders", 0) or 0),
+            total_signals=int(getattr(task, "total_signals", 0) or 0),
+            total_positions=int(getattr(task, "total_positions", 0) or 0),
+            max_drawdown=float(getattr(task, "max_drawdown", 0) or 0),
+            sharpe_ratio=float(getattr(task, "sharpe_ratio", 0) or 0),
+            annual_return=float(getattr(task, "annual_return", 0) or 0),
+            win_rate=float(getattr(task, "win_rate", 0) or 0),
+            final_portfolio_value=float(getattr(task, "final_portfolio_value", 0) or 0),
+            created_at=self._format_dt(getattr(task, "create_at", None)) or "",
+            started_at=self._format_dt(getattr(task, "start_time", None)),
+            completed_at=self._format_dt(getattr(task, "end_time", None)),
+            backtest_start_date=self._format_dt(getattr(task, "backtest_start_date", None)),
+            backtest_end_date=self._format_dt(getattr(task, "backtest_end_date", None)),
+            error_message=getattr(task, "error_message", "") or "",
+        )
+
+    def list_summaries(
+        self,
+        page: int = 0,
+        page_size: int = 20,
+        portfolio_id: str = None,
+        status: str = None,
+        sort_by: str = None,
+        sort_order: str = "desc",
+    ) -> "ServiceResult":
+        """
+        分页获取回测摘要列表，返回 BacktestTaskSummary 列表。
+
+        内部完成：CRUD 查询 → portfolio 名称解析 → ORM→Schema 转换 → 排序。
+        """
+        from ginkgo.data.services.backtest_task_schemas import BacktestTaskSummary
+
+        try:
+            result = self.list(
+                page=page, page_size=page_size,
+                portfolio_id=portfolio_id, status=status,
+            )
+            if not result.is_success():
+                return result
+
+            result_data = result.data or {}
+            tasks = result_data.get("data", [])
+            total = result_data.get("total", 0)
+
+            # 批量获取 portfolio 名称
+            portfolio_ids = set()
+            for t in tasks:
+                pid = t.get("portfolio_id") if isinstance(t, dict) else getattr(t, "portfolio_id", "")
+                if pid:
+                    portfolio_ids.add(pid)
+
+            portfolio_names = {}
+            if portfolio_ids and self._portfolio_service:
+                try:
+                    portfolio_names = self._portfolio_service.get_names_by_ids(list(portfolio_ids))
+                except Exception:
+                    pass
+
+            summaries: list[BacktestTaskSummary] = []
+            for t in tasks:
+                summaries.append(self._task_to_summary(t, portfolio_names))
+
+            # 当前页内排序
+            sortable = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "created_at", "total_pnl"}
+            if sort_by in sortable:
+                reverse = sort_order != "asc"
+                summaries.sort(key=lambda s: getattr(s, sort_by, 0) or 0, reverse=reverse)
+
+            sr = ServiceResult.success(data=summaries, message="Backtest summaries retrieved")
+            sr.set_metadata("total", total)
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_summaries failed: {e}")
+            return ServiceResult.error(f"Failed to list summaries: {e}")
+
+    def get_detail(self, uuid: str) -> "ServiceResult":
+        """
+        获取回测任务详情，返回 BacktestTaskDetail。
+        """
+        from ginkgo.data.services.backtest_task_schemas import BacktestTaskDetail
+
+        try:
+            result = self.get_by_id(uuid)
+            if not result.is_success() or not result.data:
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
+
+            task = result.data
+            if isinstance(task, list):
+                task = task[0] if task else None
+            if task is None:
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
+
+            # 解析 config JSON
+            config_str = getattr(task, "config_snapshot", "{}") or "{}"
+            config = json.loads(config_str) if isinstance(config_str, str) else (config_str or {})
+
+            detail = BacktestTaskDetail(
+                uuid=getattr(task, "uuid", uuid),
+                name=getattr(task, "name", ""),
+                portfolio_id=getattr(task, "portfolio_id", ""),
+                status=getattr(task, "status", "created") or "created",
+                progress=getattr(task, "progress", 0) or 0,
+                total_pnl=float(getattr(task, "total_pnl", 0) or 0),
+                total_orders=int(getattr(task, "total_orders", 0) or 0),
+                total_signals=int(getattr(task, "total_signals", 0) or 0),
+                total_positions=int(getattr(task, "total_positions", 0) or 0),
+                total_events=int(getattr(task, "total_events", 0) or 0),
+                max_drawdown=float(getattr(task, "max_drawdown", 0) or 0),
+                sharpe_ratio=float(getattr(task, "sharpe_ratio", 0) or 0),
+                annual_return=float(getattr(task, "annual_return", 0) or 0),
+                win_rate=float(getattr(task, "win_rate", 0) or 0),
+                final_portfolio_value=float(getattr(task, "final_portfolio_value", 0) or 0),
+                backtest_start_date=self._format_dt(getattr(task, "backtest_start_date", None)),
+                backtest_end_date=self._format_dt(getattr(task, "backtest_end_date", None)),
+                engine_uuid=config.get("engine_uuid"),
+                created_at=self._format_dt(getattr(task, "create_at", None)) or "",
+                started_at=self._format_dt(getattr(task, "start_time", None)),
+                completed_at=self._format_dt(getattr(task, "end_time", None)),
+                config=config,
+                error_message=getattr(task, "error_message", "") or "",
+            )
+
+            return ServiceResult.success(data=detail, message="Backtest detail retrieved")
+        except Exception as e:
+            GLOG.ERROR(f"get_detail failed: {e}")
+            return ServiceResult.error(f"Failed to get detail: {e}")
+
+    def _resolve_task_id(self, uuid: str) -> "tuple[Optional[str], Optional[str], ServiceResult | None]":
+        """解析 uuid → (task_id, portfolio_id, error_result)"""
+        result = self.get_by_id(uuid)
+        if not result.is_success() or not result.data:
+            return None, None, ServiceResult.error(f"Backtest task not found: {uuid}")
+        task = result.data
+        if isinstance(task, list):
+            task = task[0] if task else None
+        if task is None:
+            return None, None, ServiceResult.error(f"Backtest task not found: {uuid}")
+        task_id = getattr(task, "task_id", uuid)
+        portfolio_id = getattr(task, "portfolio_id", "")
+        return task_id, portfolio_id, None
+
+    def list_signals(self, uuid: str, page: int = 1, page_size: int = 100) -> "ServiceResult":
+        """获取回测信号列表，返回 list[BacktestSignalItem]"""
+        from ginkgo.data.services.backtest_task_schemas import BacktestSignalItem
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_signals(task_id=task_id, page=page, page_size=page_size)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            signals = result.data.get("data", [])
+            total = result.data.get("total", 0)
+
+            items = []
+            for s in signals:
+                items.append(BacktestSignalItem(
+                    uuid=getattr(s, "uuid", ""),
+                    portfolio_id=getattr(s, "portfolio_id", ""),
+                    engine_id=getattr(s, "engine_id", ""),
+                    task_id=getattr(s, "task_id", ""),
+                    code=getattr(s, "code", ""),
+                    direction=str(getattr(s, "direction", "")) if getattr(s, "direction", None) is not None else None,
+                    reason=getattr(s, "reason", ""),
+                    timestamp=self._format_dt(getattr(s, "timestamp", None)),
+                    source=str(getattr(s, "source", "")) if getattr(s, "source", None) is not None else None,
+                ))
+
+            sr = ServiceResult.success(data=items, message="Signals retrieved")
+            sr.set_metadata("total", total)
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_signals failed: {e}")
+            return ServiceResult.error(f"Failed to list signals: {e}")
+
+    def list_orders(self, uuid: str) -> "ServiceResult":
+        """获取回测订单列表，返回 list[BacktestOrderItem]"""
+        from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_orders(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            orders = result.data.get("data", [])
+            total = result.data.get("total", 0)
+
+            items = []
+            for o in orders:
+                items.append(BacktestOrderItem(
+                    uuid=getattr(o, "uuid", ""),
+                    portfolio_id=getattr(o, "portfolio_id", ""),
+                    engine_id=getattr(o, "engine_id", ""),
+                    task_id=getattr(o, "task_id", ""),
+                    code=getattr(o, "code", ""),
+                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
+                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
+                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
+                    volume=int(getattr(o, "volume", 0) or 0),
+                    limit_price=str(getattr(o, "limit_price", 0)),
+                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
+                    fee=str(getattr(o, "fee", 0)),
+                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                ))
+
+            sr = ServiceResult.success(data=items, message="Orders retrieved")
+            sr.set_metadata("total", total)
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_orders failed: {e}")
+            return ServiceResult.error(f"Failed to list orders: {e}")
+
+    def list_positions(self, uuid: str) -> "ServiceResult":
+        """获取回测持仓列表，返回 list[BacktestPositionItem]"""
+        from ginkgo.data.services.backtest_task_schemas import BacktestPositionItem
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_positions(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            positions = result.data.get("data", [])
+            total = result.data.get("total", 0)
+
+            items = []
+            for p in positions:
+                items.append(BacktestPositionItem(
+                    uuid=getattr(p, "uuid", ""),
+                    portfolio_id=getattr(p, "portfolio_id", ""),
+                    engine_id=getattr(p, "engine_id", ""),
+                    task_id=getattr(p, "task_id", ""),
+                    code=getattr(p, "code", ""),
+                    cost=str(getattr(p, "cost", 0)),
+                    volume=int(getattr(p, "volume", 0) or 0),
+                    frozen_volume=int(getattr(p, "frozen_volume", 0) or 0),
+                    price=str(getattr(p, "price", 0)),
+                    fee=str(getattr(p, "fee", 0)),
+                ))
+
+            sr = ServiceResult.success(data=items, message="Positions retrieved")
+            sr.set_metadata("total", total)
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_positions failed: {e}")
+            return ServiceResult.error(f"Failed to list positions: {e}")
+
+    def list_analyzer_groups(self, uuid: str) -> "ServiceResult":
+        """
+        获取分析器聚合列表，返回 list[BacktestAnalyzerGroup]。
+        包含分组聚合逻辑（latest, count, change）。
+        """
+        from collections import OrderedDict
+        from ginkgo.data.services.backtest_task_schemas import BacktestAnalyzerGroup
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            analyzer_service = container.analyzer_service()
+            result = analyzer_service.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
+            if not getattr(result, "success", False):
+                return ServiceResult.error(getattr(result, "error", "查询分析器失败"))
+            records = result.data
+
+            grouped = OrderedDict()
+            for r in records:
+                name = getattr(r, "name", None)
+                if name is None:
+                    continue
+                if name not in grouped:
+                    grouped[name] = []
+                val = float(r.value) if r.value is not None else None
+                if val is not None:
+                    grouped[name].append(val)
+
+            groups = []
+            for name, values in grouped.items():
+                latest = values[0] if values else None
+                count = len(values)
+                change = (values[0] - values[-1]) if len(values) > 1 else 0
+                groups.append(BacktestAnalyzerGroup(
+                    name=name,
+                    latest_value=latest,
+                    record_count=count,
+                    stats={"count": count, "latest": latest, "change": change},
+                ))
+
+            return ServiceResult.success(data=groups, message="Analyzer groups retrieved")
+        except Exception as e:
+            GLOG.ERROR(f"list_analyzer_groups failed: {e}")
+            return ServiceResult.error(f"Failed to list analyzer groups: {e}")
+
+    def get_netvalue(self, uuid: str) -> "ServiceResult":
+        """获取净值数据，返回 BacktestNetValueData"""
+        from ginkgo.data.services.backtest_task_schemas import (
+            BacktestAnalyzerDataPoint, BacktestNetValueData,
+        )
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_analyzer_values(
+                task_id=task_id, portfolio_id=portfolio_id, analyzer_name="net_value",
+            )
+            if not result.is_success() or not result.data:
+                return ServiceResult.success(
+                    data=BacktestNetValueData(),
+                    message="No net value data",
+                )
+
+            records = result.data
+            strategy = []
+            for r in records:
+                ts = r.business_timestamp.isoformat() if r.business_timestamp else (
+                    r.timestamp.isoformat() if r.timestamp else ""
+                )
+                strategy.append(BacktestAnalyzerDataPoint(
+                    time=ts,
+                    value=float(r.value) if r.value is not None else None,
+                ))
+
+            return ServiceResult.success(
+                data=BacktestNetValueData(strategy=strategy),
+                message="Net value retrieved",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"get_netvalue failed: {e}")
+            return ServiceResult.error(f"Failed to get netvalue: {e}")
+
+    def get_analyzer_data(self, uuid: str, analyzer_name: str) -> "ServiceResult":
+        """获取单个分析器的完整时序数据，返回 BacktestAnalyzerDetail"""
+        from ginkgo.data.services.backtest_task_schemas import (
+            BacktestAnalyzerDataPoint, BacktestAnalyzerDetail,
+        )
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_analyzer_values(
+                task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer_name,
+            )
+            if not result.is_success() or not result.data:
+                return ServiceResult.success(
+                    data=BacktestAnalyzerDetail(),
+                    message="No analyzer data found",
+                )
+
+            records = result.data
+            data_points = []
+            values = []
+            for r in records:
+                ts = r.business_timestamp.isoformat() if r.business_timestamp else r.timestamp.isoformat()
+                val = float(r.value) if r.value is not None else None
+                data_points.append(BacktestAnalyzerDataPoint(time=ts, value=val))
+                if val is not None:
+                    values.append(val)
+
+            stats = None
+            if values:
+                stats = {
+                    "count": len(values),
+                    "min": min(values),
+                    "max": max(values),
+                    "avg": sum(values) / len(values),
+                    "first": values[0],
+                    "latest": values[-1],
+                    "change": (values[-1] - values[0]) if len(values) > 1 else 0,
+                }
+
+            return ServiceResult.success(
+                data=BacktestAnalyzerDetail(data=data_points, stats=stats),
+                message="Analyzer data retrieved",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"get_analyzer_data failed: {e}")
+            return ServiceResult.error(f"Failed to get analyzer data: {e}")
+
 
 # 向后兼容别名
 RunRecordService = BacktestTaskService

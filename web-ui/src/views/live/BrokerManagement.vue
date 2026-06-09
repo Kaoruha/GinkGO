@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Play, Pause, Square, AlertTriangle, Activity, Clock, Settings } from 'lucide-vue-next'
+import { brokerApi } from '@/api'
 
 // Types
 interface BrokerInfo {
@@ -84,11 +85,8 @@ const stateConfig: Record<string, {
 const loadBrokers = async () => {
   loading.value = true
   try {
-    const response = await fetch('/api/v1/accounts/brokers')
-    if (response.ok) {
-      const result = await response.json()
-      brokers.value = result.data || []
-    }
+    const result = await brokerApi.list()
+    brokers.value = (result as any)?.data || []
   } catch (error) {
     console.error('Failed to load brokers:', error)
   } finally {
@@ -100,18 +98,10 @@ const loadBrokers = async () => {
 const startBroker = async (brokerUuid: string) => {
   actionLoading.value = brokerUuid
   try {
-    const response = await fetch(`/api/v1/accounts/brokers/${brokerUuid}/start`, {
-      method: 'POST'
-    })
-    if (response.ok) {
-      await loadBrokers()
-    } else {
-      const error = await response.json()
-      alert(error.message || '启动失败')
-    }
-  } catch (error) {
-    console.error('Failed to start broker:', error)
-    alert('启动失败')
+    await brokerApi.start(brokerUuid)
+    await loadBrokers()
+  } catch (error: any) {
+    alert(error?.message || '启动失败')
   } finally {
     actionLoading.value = null
   }
@@ -120,18 +110,10 @@ const startBroker = async (brokerUuid: string) => {
 const pauseBroker = async (brokerUuid: string) => {
   actionLoading.value = brokerUuid
   try {
-    const response = await fetch(`/api/v1/accounts/brokers/${brokerUuid}/pause`, {
-      method: 'POST'
-    })
-    if (response.ok) {
-      await loadBrokers()
-    } else {
-      const error = await response.json()
-      alert(error.message || '暂停失败')
-    }
-  } catch (error) {
-    console.error('Failed to pause broker:', error)
-    alert('暂停失败')
+    await brokerApi.pause(brokerUuid)
+    await loadBrokers()
+  } catch (error: any) {
+    alert(error?.message || '暂停失败')
   } finally {
     actionLoading.value = null
   }
@@ -140,18 +122,10 @@ const pauseBroker = async (brokerUuid: string) => {
 const resumeBroker = async (brokerUuid: string) => {
   actionLoading.value = brokerUuid
   try {
-    const response = await fetch(`/api/v1/accounts/brokers/${brokerUuid}/resume`, {
-      method: 'POST'
-    })
-    if (response.ok) {
-      await loadBrokers()
-    } else {
-      const error = await response.json()
-      alert(error.message || '恢复失败')
-    }
-  } catch (error) {
-    console.error('Failed to resume broker:', error)
-    alert('恢复失败')
+    await brokerApi.resume(brokerUuid)
+    await loadBrokers()
+  } catch (error: any) {
+    alert(error?.message || '恢复失败')
   } finally {
     actionLoading.value = null
   }
@@ -162,18 +136,10 @@ const stopBroker = async (brokerUuid: string) => {
 
   actionLoading.value = brokerUuid
   try {
-    const response = await fetch(`/api/v1/accounts/brokers/${brokerUuid}/stop`, {
-      method: 'POST'
-    })
-    if (response.ok) {
-      await loadBrokers()
-    } else {
-      const error = await response.json()
-      alert(error.message || '停止失败')
-    }
-  } catch (error) {
-    console.error('Failed to stop broker:', error)
-    alert('停止失败')
+    await brokerApi.stop(brokerUuid)
+    await loadBrokers()
+  } catch (error: any) {
+    alert(error?.message || '停止失败')
   } finally {
     actionLoading.value = null
   }
@@ -183,19 +149,11 @@ const emergencyStopAll = async () => {
   if (!confirm('确定要紧急停止所有 Broker 吗？此操作不可逆！')) return
 
   try {
-    const response = await fetch('/api/v1/accounts/brokers/emergency-stop', {
-      method: 'POST'
-    })
-    if (response.ok) {
-      const result = await response.json()
-      alert(result.message || '已紧急停止所有 Broker')
-      await loadBrokers()
-    } else {
-      alert('紧急停止失败')
-    }
-  } catch (error) {
-    console.error('Failed to emergency stop:', error)
-    alert('紧急停止失败')
+    await brokerApi.emergencyStop()
+    alert('已发送紧急停止指令')
+    await loadBrokers()
+  } catch (error: any) {
+    alert(error?.message || '紧急停止失败')
   }
 }
 

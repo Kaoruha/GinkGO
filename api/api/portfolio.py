@@ -567,6 +567,52 @@ async def stop_portfolio(uuid: str):
         raise BusinessError(f"Error stopping portfolio: {str(e)}")
 
 
+@router.get("/{uuid}/analytics")
+async def get_portfolio_analytics(uuid: str):
+    """获取组合绩效指标 + 净值曲线数据"""
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.get_analytics(uuid)
+
+        if not result.is_success():
+            raise BusinessError(result.error or "获取绩效数据失败")
+
+        return ok(data=result.data, message=result.message or "Analytics retrieved")
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting analytics for portfolio {uuid}: {e}")
+        raise BusinessError(f"Error getting analytics: {e}")
+
+
+@router.get("/{uuid}/events")
+async def get_portfolio_events(
+    uuid: str,
+    limit: int = Query(50, ge=1, le=200, description="每页数量"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+):
+    """获取统一事件时间线（信号/订单/成交/拒绝/风控）"""
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.list_events(uuid, limit=limit, offset=offset)
+
+        if not result.is_success():
+            raise BusinessError(result.error or "获取事件列表失败")
+
+        data = result.data
+        meta = pagination_meta(
+            page=(offset // limit) + 1,
+            total=data.get("total", 0),
+            page_size=limit,
+        )
+        return ok(data=data.get("data", []), message="Events retrieved", meta=meta)
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting events for portfolio {uuid}: {e}")
+        raise BusinessError(f"Error getting events: {e}")
+
+
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_portfolio(uuid: str):
     """删除Portfolio（通过 service 层）"""

@@ -136,4 +136,24 @@ export const portfolioApi = {
   }> {
     return request.get('/api/v1/portfolios/stats')
   },
+
+  /**
+   * 获取组合绩效指标 + 净值曲线
+   */
+  getAnalytics(uuid: string): Promise<{
+    metrics: Record<string, number | null>
+    net_value_series: { time: string; value: number }[]
+  }> {
+    return request.get(`/api/v1/portfolios/${uuid}/analytics`)
+  },
+
+  /**
+   * 获取统一事件时间线
+   */
+  listEvents(uuid: string, params?: { limit?: number; offset?: number }): Promise<{
+    data: any[]
+    total: number
+  }> {
+    return request.get(`/api/v1/portfolios/${uuid}/events`, { params })
+  },
 }

@@ -21,6 +21,10 @@ from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.data.containers import container
 from ginkgo.data.services.result_service import ResultService
+from ginkgo.data.services.backtest_task_schemas import (
+    BacktestTaskSummary, BacktestTaskDetail, BacktestTaskCreate,
+    AnalyzerConfig, EngineConfig, ComponentConfig,
+)
 
 router = APIRouter()
 
@@ -59,101 +63,7 @@ def get_kafka_producer() -> GinkgoProducer:
     return _kafka_producer
 
 
-# ==================== 数据模型 ====================
-
-class BacktestTaskSummary(BaseModel):
-    """回测任务摘要"""
-    uuid: str
-    name: str
-    portfolio_id: str = ""
-    portfolio_name: str = ""
-    status: str = "created"
-    progress: float = 0
-    total_pnl: float = 0.0
-    total_orders: int = 0
-    total_signals: int = 0
-    total_positions: int = 0
-    max_drawdown: float = 0.0
-    sharpe_ratio: float = 0.0
-    annual_return: float = 0.0
-    win_rate: float = 0.0
-    final_portfolio_value: float = 0.0
-    created_at: str = ""
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    backtest_start_date: Optional[str] = None
-    backtest_end_date: Optional[str] = None
-    error_message: str = ""
-
-
-class BacktestTaskDetail(BaseModel):
-    """回测任务详情"""
-    uuid: str
-    name: str
-    portfolio_id: str = ""
-    status: str = "created"
-    progress: float = 0
-    total_pnl: float = 0.0
-    total_orders: int = 0
-    total_signals: int = 0
-    total_positions: int = 0
-    total_events: int = 0
-    max_drawdown: float = 0.0
-    sharpe_ratio: float = 0.0
-    annual_return: float = 0.0
-    win_rate: float = 0.0
-    final_portfolio_value: float = 0.0
-    backtest_start_date: Optional[str] = None
-    backtest_end_date: Optional[str] = None
-    engine_uuid: Optional[str] = None
-    created_at: str = ""
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    config: dict = {}
-    result: Optional[dict] = None
-    error_message: str = ""
-
-
-class AnalyzerConfig(BaseModel):
-    """分析器配置"""
-    name: str = Field(..., description="分析器名称")
-    type: str = Field(..., description="分析器类型，如 SharpeAnalyzer, DrawdownAnalyzer")
-    config: Optional[Dict[str, Any]] = Field(default_factory=dict, description="分析器参数")
-
-
-class EngineConfig(BaseModel):
-    """Engine 配置"""
-    # 时间范围
-    start_date: str = Field(..., description="回测开始日期 (YYYY-MM-DD)")
-    end_date: str = Field(..., description="回测结束日期 (YYYY-MM-DD)")
-
-    # Broker 类型选择
-    broker_type: str = Field("backtest", description="Broker类型: backtest(SimBroker)")
-
-    # 初始资金（可选，用于覆盖 Portfolio 的 initial_cash）
-    initial_cash: Optional[float] = Field(None, gt=0, description="初始资金覆盖（可选）")
-
-    # Broker 配置
-    commission_rate: float = Field(0.0003, ge=0, description="手续费率")
-    slippage_rate: float = Field(0.0001, ge=0, description="滑点率")
-    broker_attitude: int = Field(2, description="Broker态度: 1=PESSIMISTIC, 2=OPTIMISTIC, 3=RANDOM")
-    commission_min: Optional[int] = Field(5, ge=0, description="最小手续费")
-
-    # 分析器配置（Engine 级别）
-    analyzers: Optional[List[AnalyzerConfig]] = Field(default_factory=list, description="分析器列表")
-
-
-class ComponentConfig(BaseModel):
-    """组件配置"""
-    # 风控参数
-    max_position_ratio: Optional[float] = Field(0.3, gt=0, le=1, description="最大持仓比例")
-    stop_loss_ratio: Optional[float] = Field(0.05, ge=0, le=1, description="止损比例")
-    take_profit_ratio: Optional[float] = Field(0.15, ge=0, le=1, description="止盈比例")
-
-    # 其他参数
-    benchmark_return: Optional[float] = Field(0.0, description="基准收益率")
-    frequency: Optional[str] = Field("DAY", description="数据频率")
-
+# ==================== 仅 API 层使用的模型 ====================
 
 class AnalyzerTypeInfo(BaseModel):
     """分析器类型信息"""
@@ -161,31 +71,6 @@ class AnalyzerTypeInfo(BaseModel):
     type: str
     description: str = ""
     parameters: Dict[str, Any] = {}
-
-
-class BacktestTaskCreate(BaseModel):
-    """
-    创建回测任务
-
-    按照 Engine 装配逻辑设计：
-    1. Engine 配置：时间范围、Broker 参数
-    2. Portfolio 选择：支持多个投资组合
-    3. 组件配置：策略、风控等参数
-    """
-    # 基本信息
-    name: str = Field(..., min_length=1, max_length=255, description="任务名称")
-
-    # 可选：选择现有 Engine（会预填充配置）
-    engine_uuid: Optional[str] = Field(None, description="Engine UUID（可选，用于预填充配置）")
-
-    # Portfolio 选择（支持多个）
-    portfolio_uuids: List[str] = Field(..., min_items=1, description="Portfolio UUID 列表")
-
-    # Engine 配置（如果选择 Engine 则可选覆盖）
-    engine_config: EngineConfig
-
-    # 组件配置（可选）
-    component_config: Optional[ComponentConfig] = None
 
 
 # ==================== Service 层操作 ====================
@@ -356,106 +241,23 @@ async def list_backtests(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """获取回测任务列表（使用 service 层分页）"""
+    """获取回测任务列表"""
     try:
         task_service = get_backtest_task_service()
-
-        # 使用 list() 实现服务端分页
-        result = task_service.list(
+        result = task_service.list_summaries(
             page=page - 1,
             page_size=page_size,
             portfolio_id=portfolio_id,
             status=status,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
 
         if not result.is_success():
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        result_data = result.data or {}
-        tasks = result_data.get("data", [])
-        total = result_data.get("total", 0)
-
-        # 批量获取 portfolio 名称
-        portfolio_ids = set()
-        for task in tasks:
-            pid = task.get("portfolio_id") if isinstance(task, dict) else getattr(task, 'portfolio_id', '')
-            if pid:
-                portfolio_ids.add(pid)
-        portfolio_names = {}
-        if portfolio_ids:
-            try:
-                portfolio_names = get_portfolio_service().get_names_by_ids(list(portfolio_ids))
-            except Exception:
-                pass
-
-        # 转换为 API 模型
-        summaries = []
-        for task in tasks:
-            task_dict = task if isinstance(task, dict) else {
-                "uuid": getattr(task, 'uuid', ''),
-                "name": getattr(task, 'name', ''),
-                "portfolio_id": getattr(task, 'portfolio_id', ''),
-                "status": getattr(task, 'status', 'created'),
-                "progress": getattr(task, 'progress', 0) or 0,
-                "total_pnl": getattr(task, 'total_pnl', 0.0) or 0.0,
-                "total_orders": getattr(task, 'total_orders', 0) or 0,
-                "total_signals": getattr(task, 'total_signals', 0) or 0,
-                "total_positions": getattr(task, 'total_positions', 0) or 0,
-                "max_drawdown": getattr(task, 'max_drawdown', 0.0) or 0.0,
-                "sharpe_ratio": getattr(task, 'sharpe_ratio', 0.0) or 0.0,
-                "annual_return": getattr(task, 'annual_return', 0.0) or 0.0,
-                "win_rate": getattr(task, 'win_rate', 0.0) or 0.0,
-                "final_portfolio_value": getattr(task, 'final_portfolio_value', 0.0) or 0.0,
-                "created_at": getattr(task, 'create_at', None),
-                "started_at": getattr(task, 'start_time', None),
-                "finished_at": getattr(task, 'end_time', None),
-                "error_message": getattr(task, 'error_message', '') or '',
-                "backtest_start_date": getattr(task, 'backtest_start_date', None),
-                "backtest_end_date": getattr(task, 'backtest_end_date', None),
-            }
-
-            # 将 datetime 对象转换为字符串
-            def format_date(dt):
-                if dt is None:
-                    return None
-                if isinstance(dt, str):
-                    return dt
-                return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
-
-            created_at_str = format_date(task_dict.get("created_at"))
-            started_at_str = format_date(task_dict.get("started_at"))
-            completed_at_str = format_date(task_dict.get("finished_at"))
-
-            summaries.append(BacktestTaskSummary(
-                uuid=task_dict["uuid"],
-                name=task_dict["name"],
-                portfolio_id=task_dict["portfolio_id"],
-                portfolio_name=portfolio_names.get(task_dict["portfolio_id"], ""),
-                status=task_dict["status"],
-                progress=task_dict["progress"],
-                total_pnl=task_dict["total_pnl"],
-                total_orders=task_dict["total_orders"],
-                total_signals=task_dict["total_signals"],
-                total_positions=task_dict["total_positions"],
-                max_drawdown=task_dict["max_drawdown"],
-                sharpe_ratio=task_dict["sharpe_ratio"],
-                annual_return=task_dict["annual_return"],
-                win_rate=task_dict["win_rate"],
-                final_portfolio_value=task_dict["final_portfolio_value"],
-                created_at=created_at_str or "",
-                started_at=started_at_str,
-                completed_at=completed_at_str,
-                backtest_start_date=format_date(task_dict.get("backtest_start_date")),
-                backtest_end_date=format_date(task_dict.get("backtest_end_date")),
-                error_message=task_dict["error_message"],
-            ))
-
-        # 排序（仅在当前页内排序）
-        sortable_fields = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "created_at", "total_pnl"}
-        if sort_by in sortable_fields:
-            reverse = sort_order != "asc"
-            summaries.sort(key=lambda s: getattr(s, sort_by, 0) or 0, reverse=reverse)
-
+        summaries = result.data
+        total = result.metadata.get("total", 0)
         return paginated(items=[s.dict() for s in summaries], total=total, page=page, page_size=page_size)
 
     except Exception as e:
@@ -522,89 +324,15 @@ async def list_analyzers():
 
 @router.get("/{uuid}")
 async def get_backtest(uuid: str):
-    """获取回测任务详情（使用 service 层）"""
+    """获取回测任务详情"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
+        result = task_service.get_detail(uuid)
 
-        if not result.is_success() or not result.data:
+        if not result.is_success():
             raise NotFoundError("BacktestTask", uuid)
 
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-        elif isinstance(task, list):
-            raise NotFoundError("BacktestTask", uuid)
-
-        # 转换为字典
-        task_dict = task if isinstance(task, dict) else {
-            "uuid": getattr(task, 'uuid', uuid),
-            "name": getattr(task, 'name', ''),
-            "portfolio_id": getattr(task, 'portfolio_id', ''),
-            "status": getattr(task, 'status', 'created'),
-            "progress": getattr(task, 'progress', 0) or 0,
-            "total_pnl": getattr(task, 'total_pnl', 0.0) or 0.0,
-            "total_orders": getattr(task, 'total_orders', 0) or 0,
-            "total_signals": getattr(task, 'total_signals', 0) or 0,
-            "total_positions": getattr(task, 'total_positions', 0) or 0,
-            "total_events": getattr(task, 'total_events', 0) or 0,
-            "max_drawdown": getattr(task, 'max_drawdown', 0.0) or 0.0,
-            "sharpe_ratio": getattr(task, 'sharpe_ratio', 0.0) or 0.0,
-            "annual_return": getattr(task, 'annual_return', 0.0) or 0.0,
-            "win_rate": getattr(task, 'win_rate', 0.0) or 0.0,
-            "final_portfolio_value": getattr(task, 'final_portfolio_value', 0.0) or 0.0,
-            "config_snapshot": getattr(task, 'config_snapshot', '{}'),
-            "created_at": getattr(task, 'create_at', None),
-            "started_at": getattr(task, 'start_time', None),
-            "finished_at": getattr(task, 'end_time', None),
-            "error_message": getattr(task, 'error_message', '') or '',
-            "backtest_start_date": getattr(task, 'backtest_start_date', None),
-            "backtest_end_date": getattr(task, 'backtest_end_date', None),
-        }
-
-        # 解析 config JSON
-        import json
-        config_str = task_dict.get("config_snapshot", "{}")
-        if isinstance(config_str, str):
-            config = json.loads(config_str)
-        else:
-            config = config_str or {}
-
-        # 将 datetime 对象转换为字符串
-        def format_date(dt):
-            if dt is None:
-                return None
-            if isinstance(dt, str):
-                return dt
-            return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
-
-        detail = BacktestTaskDetail(
-            uuid=task_dict["uuid"],
-            name=task_dict["name"],
-            portfolio_id=task_dict["portfolio_id"],
-            status=task_dict["status"],
-            progress=task_dict["progress"],
-            total_pnl=task_dict["total_pnl"],
-            total_orders=task_dict["total_orders"],
-            total_signals=task_dict["total_signals"],
-            total_positions=task_dict["total_positions"],
-            total_events=task_dict["total_events"],
-            max_drawdown=task_dict["max_drawdown"],
-            sharpe_ratio=task_dict["sharpe_ratio"],
-            annual_return=task_dict["annual_return"],
-            win_rate=task_dict["win_rate"],
-            final_portfolio_value=task_dict["final_portfolio_value"],
-            backtest_start_date=format_date(task_dict.get("backtest_start_date")),
-            backtest_end_date=format_date(task_dict.get("backtest_end_date")),
-            engine_uuid=config.get("engine_uuid"),
-            created_at=format_date(task_dict.get("created_at")) or "",
-            started_at=format_date(task_dict.get("started_at")),
-            completed_at=format_date(task_dict.get("finished_at")),
-            config=config,
-            error_message=task_dict.get("error_message", ""),
-        )
-
-        return ok(data=detail.dict(), message="Backtest task retrieved successfully")
+        return ok(data=result.data.dict(), message="Backtest task retrieved successfully")
 
     except NotFoundError:
         raise
@@ -816,57 +544,18 @@ async def get_backtest_signals(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(100, ge=1, le=1000, description="每页数量")
 ):
-    """
-    获取回测信号记录（按 task_id 过滤）
-
-    Args:
-        uuid: BacktestTask.uuid 或 BacktestTask.task_id
-        page: 页码（1-based）
-        page_size: 每页数量
-
-    Returns:
-        按 task_id 过滤的信号列表
-    """
+    """获取回测信号记录"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
-
-        if not result.is_success() or not result.data:
-            raise NotFoundError("BacktestTask", uuid)
-
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        task_id = getattr(task, 'task_id', uuid)
-
-        # 使用 ResultService 查询信号
-        result_service = get_result_service()
-        result = result_service.get_signals(task_id=task_id, page=page, page_size=page_size)
+        result = task_service.list_signals(uuid, page=page, page_size=page_size)
 
         if not result.is_success():
             return paginated(items=[], total=0, page=page, page_size=page_size,
                              message=result.error or "Failed to retrieve signals")
 
-        signals = result.data.get("data", [])
-        total = result.data.get("total", 0)
-
-        # 转换信号为字典格式
-        signals_data = []
-        for s in signals:
-            signals_data.append({
-                "uuid": getattr(s, 'uuid', ''),
-                "portfolio_id": getattr(s, 'portfolio_id', ''),
-                "engine_id": getattr(s, 'engine_id', ''),
-                "task_id": getattr(s, 'task_id', ''),
-                "code": getattr(s, 'code', ''),
-                "direction": getattr(s, 'direction', None),
-                "reason": getattr(s, 'reason', ''),
-                "timestamp": getattr(s, 'timestamp', None),
-                "source": getattr(s, 'source', None),
-            })
-
-        return paginated(items=signals_data, total=total, page=page, page_size=page_size,
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return paginated(items=[s.dict() for s in items], total=total, page=page, page_size=page_size,
                          message="Signals retrieved successfully")
 
     except NotFoundError:
@@ -878,60 +567,18 @@ async def get_backtest_signals(
 
 @router.get("/{uuid}/orders")
 async def get_backtest_orders(uuid: str):
-    """
-    获取回测订单记录（按 task_id 过滤）
-
-    Args:
-        uuid: BacktestTask.uuid 或 BacktestTask.task_id
-
-    Returns:
-        按 task_id 过滤的订单列表
-    """
+    """获取回测订单记录"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
-
-        if not result.is_success() or not result.data:
-            raise NotFoundError("BacktestTask", uuid)
-
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        task_id = getattr(task, 'task_id', uuid)
-
-        # 使用 ResultService 查询订单
-        result_service = get_result_service()
-        result = result_service.get_orders(task_id=task_id)
+        result = task_service.list_orders(uuid)
 
         if not result.is_success():
             return ok(data={"data": [], "total": 0},
                       message=result.error or "Failed to retrieve orders")
 
-        orders = result.data.get("data", [])
-        total = result.data.get("total", 0)
-
-        # 转换订单为字典格式
-        orders_data = []
-        for o in orders:
-            orders_data.append({
-                "uuid": getattr(o, 'uuid', ''),
-                "portfolio_id": getattr(o, 'portfolio_id', ''),
-                "engine_id": getattr(o, 'engine_id', ''),
-                "task_id": getattr(o, 'task_id', ''),
-                "code": getattr(o, 'code', ''),
-                "direction": getattr(o, 'direction', None),
-                "order_type": getattr(o, 'order_type', None),
-                "status": getattr(o, 'status', None),
-                "volume": getattr(o, 'volume', 0),
-                "limit_price": str(getattr(o, 'limit_price', 0)),
-                "transaction_price": str(getattr(o, 'transaction_price', 0)),
-                "transaction_volume": getattr(o, 'transaction_volume', 0),
-                "fee": str(getattr(o, 'fee', 0)),
-                "timestamp": getattr(o, 'timestamp', None),
-            })
-
-        return ok(data={"data": orders_data, "total": total},
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return ok(data={"data": [o.dict() for o in items], "total": total},
                   message="Orders retrieved successfully")
 
     except NotFoundError:
@@ -943,56 +590,18 @@ async def get_backtest_orders(uuid: str):
 
 @router.get("/{uuid}/positions")
 async def get_backtest_positions(uuid: str):
-    """
-    获取回测持仓记录（按 task_id 过滤）
-
-    Args:
-        uuid: BacktestTask.uuid 或 BacktestTask.task_id
-
-    Returns:
-        按 task_id 过滤的持仓列表
-    """
+    """获取回测持仓记录"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
-
-        if not result.is_success() or not result.data:
-            raise NotFoundError("BacktestTask", uuid)
-
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        task_id = getattr(task, 'task_id', uuid)
-
-        # 使用 ResultService 查询持仓
-        result_service = get_result_service()
-        result = result_service.get_positions(task_id=task_id)
+        result = task_service.list_positions(uuid)
 
         if not result.is_success():
             return ok(data={"data": [], "total": 0},
                       message=result.error or "Failed to retrieve positions")
 
-        positions = result.data.get("data", [])
-        total = result.data.get("total", 0)
-
-        # 转换持仓为字典格式
-        positions_data = []
-        for p in positions:
-            positions_data.append({
-                "uuid": getattr(p, 'uuid', ''),
-                "portfolio_id": getattr(p, 'portfolio_id', ''),
-                "engine_id": getattr(p, 'engine_id', ''),
-                "task_id": getattr(p, 'task_id', ''),
-                "code": getattr(p, 'code', ''),
-                "cost": str(getattr(p, 'cost', 0)),
-                "volume": getattr(p, 'volume', 0),
-                "frozen_volume": getattr(p, 'frozen_volume', 0),
-                "price": str(getattr(p, 'price', 0)),
-                "fee": str(getattr(p, 'fee', 0)),
-            })
-
-        return ok(data={"data": positions_data, "total": total},
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return ok(data={"data": [p.dict() for p in items], "total": total},
                   message="Positions retrieved successfully")
 
     except NotFoundError:
@@ -1007,35 +616,14 @@ async def get_backtest_netvalue(uuid: str):
     """获取回测净值数据"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
+        result = task_service.get_netvalue(uuid)
 
-        if not result.is_success() or not result.data:
-            raise NotFoundError("BacktestTask", uuid)
-
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        task_id = getattr(task, 'task_id', uuid)
-        portfolio_id = task.portfolio_id
-
-        result_service = get_result_service()
-        result = result_service.get_analyzer_values(
-            task_id=task_id,
-            portfolio_id=portfolio_id,
-            analyzer_name="net_value",
-        )
-
-        if not result.is_success() or not result.data:
+        if not result.is_success():
             return ok(data={"strategy": [], "benchmark": []}, message="No net value data")
 
-        records = result.data
-        strategy = []
-        for r in records:
-            ts = r.business_timestamp.isoformat() if r.business_timestamp else (r.timestamp.isoformat() if r.timestamp else "")
-            strategy.append({"time": ts, "value": float(r.value) if r.value is not None else None})
-
-        return ok(data={"strategy": strategy, "benchmark": []}, message="Net value retrieved")
+        nv = result.data
+        return ok(data={"strategy": [p.dict() for p in nv.strategy], "benchmark": []},
+                  message="Net value retrieved")
 
     except NotFoundError:
         raise
@@ -1049,53 +637,13 @@ async def get_backtest_analyzers(uuid: str):
     """获取回测任务的分析器列表"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
+        result = task_service.list_analyzer_groups(uuid)
 
-        if not result.is_success() or not result.data:
+        if not result.is_success():
             raise NotFoundError("BacktestTask", uuid)
 
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        task_id = getattr(task, 'task_id', uuid)
-        portfolio_id = task.portfolio_id
-
-        result_service = get_result_service()
-
-        # fix(#4582): 通过 AnalyzerService 查询，不再直调 container.analyzer_record_crud()
-        analyzer_service = container.analyzer_service()
-        result = analyzer_service.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
-        if not result.success:
-            raise BusinessError(result.error or "查询分析器记录失败")
-        records = result.data
-
-        from collections import OrderedDict
-        grouped = OrderedDict()
-        for r in records:
-            name = getattr(r, 'name', None)
-            if name is None:
-                continue
-            if name not in grouped:
-                grouped[name] = []
-            val = float(r.value) if r.value is not None else None
-            if val is not None:
-                grouped[name].append(val)
-
-        analyzers = []
-        for name, values in grouped.items():
-            # records are desc_order=True, so values[0] is newest
-            latest = values[0] if values else None
-            count = len(values)
-            change = (values[0] - values[-1]) if len(values) > 1 else 0
-            analyzers.append({
-                "name": name,
-                "latest_value": latest,
-                "record_count": count,
-                "stats": {"count": count, "latest": latest, "change": change}
-            })
-
-        return ok(data={"analyzers": analyzers}, message="Analyzers retrieved")
+        groups = result.data
+        return ok(data={"analyzers": [g.dict() for g in groups]}, message="Analyzers retrieved")
 
     except NotFoundError:
         raise
@@ -1109,72 +657,16 @@ async def get_backtest_analyzer_data(
     uuid: str,
     analyzer_name: str
 ):
-    """
-    获取回测分析器数据
-
-    Args:
-        uuid: BacktestTask.uuid 或 task_id
-        analyzer_name: 分析器名称（如 net_value, drawdown 等）
-
-    Returns:
-        分析器时序数据和统计信息
-    """
+    """获取回测分析器时序数据和统计信息"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.get_by_id(uuid)
+        result = task_service.get_analyzer_data(uuid, analyzer_name)
 
-        if not result.is_success() or not result.data:
-            raise NotFoundError("BacktestTask", uuid)
-
-        task = result.data
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
-
-        # 使用任务的 task_id（支持历史运行查看）
-        task_id = getattr(task, 'task_id', uuid)
-        portfolio_id = task.portfolio_id
-
-        # 使用 ResultService 查询分析器记录
-        result_service = get_result_service()
-        result = result_service.get_analyzer_values(
-            task_id=task_id,
-            portfolio_id=portfolio_id,
-            analyzer_name=analyzer_name,
-        )
-
-        if not result.is_success() or not result.data:
+        if not result.is_success():
             return ok(data={"data": [], "stats": None}, message="No analyzer data found")
 
-        records = result.data
-
-        if not records:
-            return ok(data={"data": [], "stats": None}, message="No analyzer data found")
-
-        # 转换为前端格式
-        data = []
-        values = []
-        for r in records:
-            data.append({
-                "time": r.business_timestamp.isoformat() if r.business_timestamp else r.timestamp.isoformat(),
-                "value": float(r.value) if r.value is not None else None
-            })
-            if r.value is not None:
-                values.append(float(r.value))
-
-        # 计算统计信息
-        stats = None
-        if values:
-            stats = {
-                "count": len(values),
-                "min": min(values),
-                "max": max(values),
-                "avg": sum(values) / len(values),
-                "first": values[0] if values else None,
-                "latest": values[-1] if values else None,
-                "change": (values[-1] - values[0]) if len(values) > 1 else 0
-            }
-
-        return ok(data={"data": data, "stats": stats},
+        detail = result.data
+        return ok(data={"data": [p.dict() for p in detail.data], "stats": detail.stats},
                   message="Analyzer data retrieved successfully")
 
     except NotFoundError:
