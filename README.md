@@ -54,6 +54,7 @@ graph TB
         GW --- B1["AShare (T+1)"] & B2["HK Stock"]
         GW --- B3["US Stock"] & B4["Futures"]
         GW --- B5["OKX Crypto"] & B6["Sim"]
+        GW --- B7["Auto"] & B8["Manual"]
     end
 
     subgraph "🗄️ Data Layer"
