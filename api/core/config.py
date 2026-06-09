@@ -9,11 +9,14 @@ import sys
 from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 
 # 添加 Ginkgo 源码路径
 ginkgo_path = Path(__file__).parent.parent.parent / "src"
 sys.path.insert(0, str(ginkgo_path))
+
+# #5464: 已知的默认 SECRET_KEY，禁止在生产使用
+_INSECURE_DEFAULT_KEY = "your-secret-key-change-in-production"
 
 
 class Settings(BaseSettings):
@@ -24,7 +27,8 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, description="API服务端口")
 
     # JWT 配置
-    SECRET_KEY: str = Field(default="your-secret-key-change-in-production", description="JWT密钥")
+    # #5464: SECRET_KEY 必须通过环境变量设置，不提供安全默认值
+    SECRET_KEY: str = Field(default=_INSECURE_DEFAULT_KEY, description="JWT密钥（必须通过环境变量 SECRET_KEY 设置）")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440, description="Token过期时间（分钟）")
 
     # CORS 配置
@@ -41,6 +45,17 @@ class Settings(BaseSettings):
     # 调试模式
     DEBUG: bool = Field(default=False, description="调试模式")
 
+    @model_validator(mode="after")
+    def _validate_secret_key(self) -> "Settings":
+        """#5464: 拒绝不安全的默认 SECRET_KEY"""
+        if self.SECRET_KEY == _INSECURE_DEFAULT_KEY:
+            raise ValueError(
+                "SECRET_KEY must be set via environment variable and cannot use "
+                f"the default value '{_INSECURE_DEFAULT_KEY}'. "
+                "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        return self
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -48,7 +63,7 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 
-# 全局配置实例
+# 全局配置实例（需要 SECRET_KEY 环境变量）
 settings = Settings()
 
 

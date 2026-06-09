@@ -163,7 +163,16 @@ async def register(data: RegisterRequest, req: Request):
 
 
 @router.post("/logout")
-async def logout():
+async def logout(req: Request):
+    """登出 — 将当前 token 加入黑名单（#5802）"""
+    from middleware.auth import token_blacklist
+
+    # 从 user state 获取 jti 并加入黑名单
+    user_state = getattr(req.state, "user", {})
+    jti = user_state.get("jti") if isinstance(user_state, dict) else None
+    if jti:
+        token_blacklist.add(jti)
+
     return ok(message="Logged out successfully")
 
 
@@ -221,6 +230,11 @@ async def change_password(data: ChangePasswordRequest, req: Request):
         )
 
     logger.info(f"Password changed for user: {user_uuid}")
+
+    # 撤销该用户所有旧 token（#5582, #5448）
+    from middleware.auth import token_blacklist
+    token_blacklist.revoke_user(user_uuid)
+
     return ok(message="Password changed successfully")
 
 
