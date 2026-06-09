@@ -493,7 +493,7 @@ class ResourceOptimizer:
                         order.volume = adjusted_volume
                         order.frozen_money = order.limit_price * adjusted_volume
                         validated_orders.append(order)
-                        total_frozen += order.frozen
+                        total_frozen += order.frozen_money
                         
         self.logger.INFO(f"Order validation: {len(validated_orders)}/{len(orders)} orders approved, "
                         f"total frozen: {total_frozen:.2f}")

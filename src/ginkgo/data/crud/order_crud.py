@@ -89,8 +89,14 @@ class OrderCRUD(BaseCRUD[MOrder]):
             },
             
             # 冻结资金 - 非负数
-            'frozen': {
+            'frozen_money': {
                 'type': ['int', 'float', 'decimal'],
+                'min': 0
+            },
+
+            # 冻结股数 - 非负整数
+            'frozen_volume': {
+                'type': ['int', 'float'],
                 'min': 0
             },
             
@@ -174,7 +180,8 @@ class OrderCRUD(BaseCRUD[MOrder]):
             status=status_value,
             volume=kwargs.get("volume"),
             limit_price=to_decimal(kwargs.get("limit_price", 0)),
-            frozen=kwargs.get("frozen", 0),
+            frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
+            frozen_volume=kwargs.get("frozen_volume", 0),
             transaction_price=to_decimal(kwargs.get("transaction_price", 0)),
             transaction_volume=kwargs.get("transaction_volume", 0),
             remain=kwargs.get("remain", 0.0),
@@ -199,7 +206,8 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 status=ORDERSTATUS_TYPES.validate_input(getattr(item, 'status', ORDERSTATUS_TYPES.NEW)),
                 volume=getattr(item, 'volume', 0),
                 limit_price=to_decimal(getattr(item, 'limit_price', 0)),
-                frozen=to_decimal(getattr(item, 'frozen', 0)),
+                frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
+                frozen_volume=getattr(item, 'frozen_volume', 0),
                 transaction_price=to_decimal(getattr(item, 'transaction_price', 0)),
                 transaction_volume=getattr(item, 'transaction_volume', 0),
                 remain=to_decimal(getattr(item, 'remain', 0)),
@@ -246,7 +254,8 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 order_type=model.order_type,
                 volume=model.volume,
                 limit_price=model.limit_price,
-                frozen_money=model.frozen,
+                frozen_money=model.frozen_money,
+                frozen_volume=model.frozen_volume,
                 transaction_price=model.transaction_price,
                 transaction_volume=model.transaction_volume,
                 remain=model.remain,
@@ -274,7 +283,8 @@ class OrderCRUD(BaseCRUD[MOrder]):
                     order_type=item.order_type,
                     volume=item.volume,
                     limit_price=item.limit_price,
-                    frozen_money=item.frozen,
+                    frozen_money=item.frozen_money,
+                    frozen_volume=item.frozen_volume,
                     transaction_price=item.transaction_price,
                     transaction_volume=item.transaction_volume,
                     remain=item.remain,
