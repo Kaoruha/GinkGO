@@ -69,7 +69,7 @@ class UserCRUD(BaseCRUD[MUser]):
             # 是否激活 - 布尔值
             'is_active': {
                 'type': 'bool'
-            }
+            },
 
             # source字段使用模型默认值 SOURCE_TYPES.OTHER
         }
