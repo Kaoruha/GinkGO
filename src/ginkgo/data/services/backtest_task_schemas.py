@@ -156,7 +156,7 @@ class EngineConfig(BaseModel):
     initial_cash: Optional[float] = Field(None, gt=0, description="初始资金覆盖")
     commission_rate: float = Field(0.0003, ge=0, description="手续费率")
     slippage_rate: float = Field(0.0001, ge=0, description="滑点率")
-    broker_attitude: int = Field(2, description="Broker态度")
+    broker_attitude: int = Field(2, ge=1, le=3, description="Broker态度")
     commission_min: Optional[int] = Field(5, ge=0, description="最小手续费")
     analyzers: Optional[List[AnalyzerConfig]] = Field(default_factory=list, description="分析器列表")
 
