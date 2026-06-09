@@ -234,7 +234,7 @@ class ManualBroker(BaseBroker):
                 
                 result = ExecutionResult(
                     order_id=order_id,
-                    status=ExecutionStatus.CANCELED,
+                    status=ExecutionStatus.CANCELLED,
                     message="Order cancelled before confirmation",
                     execution_mode=self.execution_mode,
                     requires_confirmation=True
@@ -257,7 +257,7 @@ class ManualBroker(BaseBroker):
             # 默认取消结果
             result = ExecutionResult(
                 order_id=order_id,
-                status=ExecutionStatus.CANCELED,
+                status=ExecutionStatus.CANCELLED,
                 message="Order cancelled",
                 execution_mode=self.execution_mode,
                 requires_confirmation=True
@@ -529,7 +529,7 @@ ginkgo confirm {order.uuid[:8]} 15.25 1000 "Manual execution completed"
             del self._pending_orders[order_id]
             
             if self._auto_cancel_on_timeout:
-                status = ExecutionStatus.CANCELED
+                status = ExecutionStatus.CANCELLED
                 message = "Auto-cancelled due to confirmation timeout"
             else:
                 status = ExecutionStatus.EXPIRED
@@ -563,7 +563,7 @@ ginkgo confirm {order.uuid[:8]} 15.25 1000 "Manual execution completed"
                 
                 result = ExecutionResult(
                     order_id=order_id,
-                    status=ExecutionStatus.CANCELED,
+                    status=ExecutionStatus.CANCELLED,
                     message=reason,
                     execution_mode=self.execution_mode,
                     requires_confirmation=True
