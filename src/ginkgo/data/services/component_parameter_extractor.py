@@ -226,8 +226,8 @@ class ComponentParameterExtractor:
             param_index = 0
 
             for param_name, param in init_signature.parameters.items():
-                # 跳过self, args, kwargs（name保留，确保索引与构造函数位置一致）
-                if param_name in ['self', 'args', 'kwargs']:
+                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
+                if param_name in ['self', 'args', 'kwargs', 'name']:
                     continue
 
                 parameters[param_index] = param_name
@@ -277,8 +277,8 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self, args, kwargs（name保留）
-                if arg_name in ['self', 'args', 'kwargs']:
+                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
+                if arg_name in ['self', 'args', 'kwargs', 'name']:
                     continue
 
                 parameters[param_index] = arg_name
@@ -331,8 +331,8 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self, args, kwargs（name保留）
-                if arg_name in ['self', 'args', 'kwargs']:
+                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
+                if arg_name in ['self', 'args', 'kwargs', 'name']:
                     continue
 
                 parameters[param_index] = arg_name
