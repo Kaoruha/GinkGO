@@ -238,8 +238,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                     remain=item.remain,
                     timestamp=item.timestamp,
                     status=item.status,
-                    frozen_money=item.frozen_money,
-                    frozen_volume=item.frozen_volume,
                 )
                 for item in items
             ]
