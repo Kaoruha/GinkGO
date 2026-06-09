@@ -77,6 +77,14 @@ class BrokerExecutionResult:
             )
             event.broker_order_id = self.broker_order_id or ""
         elif self.status in [ORDERSTATUS_TYPES.PARTIAL_FILLED, ORDERSTATUS_TYPES.FILLED]:
+            # 同步 order 的 transaction_price/volume —— Broker 是成交价格的权威来源
+            # 事件携带 fill_price（事件字段，正确），但 order 对象自身字段也需更新，
+            # 否则下游报告读取 order.transaction_price 恒为 0
+            if self.filled_price and self.filled_price > 0:
+                from decimal import Decimal as _Decimal
+                self.order.transaction_price = _Decimal(str(self.filled_price))
+                self.order.transaction_volume = self.filled_volume
+
             event = EventOrderPartiallyFilled(
                 order=self.order,
                 filled_quantity=self.filled_volume,
