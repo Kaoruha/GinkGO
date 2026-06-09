@@ -671,11 +671,22 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
 
-            # 如果没有提供日期，使用数据库中的日期
+            # 从 config_snapshot 恢复配置作为基础
+            try:
+                snapshot_config = json.loads(task.config_snapshot) if task.config_snapshot else {}
+            except (json.JSONDecodeError, TypeError):
+                snapshot_config = {}
+
+            # 如果没有提供日期，依次尝试数据库列和 config_snapshot
             if not start_date and task.backtest_start_date:
                 start_date = task.backtest_start_date.strftime("%Y-%m-%d")
+            elif not start_date:
+                start_date = snapshot_config.get("start_date", "")
+
             if not end_date and task.backtest_end_date:
                 end_date = task.backtest_end_date.strftime("%Y-%m-%d")
+            elif not end_date:
+                end_date = snapshot_config.get("end_date", "")
 
             # 先更新状态为 pending，确保 Worker 查询时能看到正确的状态
             status_result = self.update_status(real_uuid, status="pending")
@@ -684,18 +695,33 @@ class BacktestTaskService(BaseService):
 
             GLOG.DEBUG(f"Updated task {real_uuid} status to pending")
 
+            # 构建 Kafka config：从 config_snapshot 恢复，显式参数覆盖
+            kafka_config = {}
+            # 从 snapshot 恢复所有字段作为基础
+            for key in ("initial_cash", "commission_rate", "slippage_rate", "frequency",
+                        "broker_type", "broker_attitude", "commission_min",
+                        "benchmark_return", "max_position_ratio",
+                        "stop_loss_ratio", "take_profit_ratio"):
+                if key in snapshot_config:
+                    kafka_config[key] = snapshot_config[key]
+
+            # 显式参数覆盖（start_date/end_date 已在上面处理）
+            kafka_config.update({
+                "start_date": start_date,
+                "end_date": end_date,
+                "analyzers": analyzers or [],
+            })
+            # initial_cash: snapshot 中的值优先，仅当调用方显式指定非默认值时覆盖
+            if initial_cash != 100000.0 or "initial_cash" not in kafka_config:
+                kafka_config["initial_cash"] = initial_cash
+
             producer = GinkgoProducer()
             assignment = {
                 "task_uuid": task_id,  # task_id 保持不变
                 "portfolio_uuid": portfolio_uuid or task.portfolio_id,
                 "name": name or task.name or f"backtest_{task_id[:8]}",
                 "command": "start",
-                "config": {
-                    "start_date": start_date,
-                    "end_date": end_date,
-                    "initial_cash": initial_cash,
-                    "analyzers": analyzers or [],
-                }
+                "config": kafka_config,
             }
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
