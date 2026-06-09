@@ -6,6 +6,7 @@
 from typing import List, Optional, Dict, Any
 import json
 import uuid
+from datetime import datetime
 
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -543,10 +544,10 @@ class PortfolioMappingService(BaseService):
             "metadata": {
                 "source": source,
                 "auto_generated": False,
-                "synced_at": GLOG.now()
+                "synced_at": datetime.now()
             },
-            "created_at": GLOG.now(),
-            "updated_at": GLOG.now()
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
         }
 
         collection.insert_one(document)
@@ -583,8 +584,8 @@ class PortfolioMappingService(BaseService):
             # 更新现有文档
             update_data = {
                 "graph_data": graph_data,
-                "updated_at": GLOG.now(),
-                "metadata.synced_at": GLOG.now()
+                "updated_at": datetime.now(),
+                "metadata.synced_at": datetime.now()
             }
             if name:
                 update_data["name"] = name

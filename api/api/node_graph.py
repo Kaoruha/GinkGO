@@ -37,6 +37,40 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
+def _resolve_file_type(raw):
+    """解析 file_type 参数：支持整数、数字字符串、枚举名、别名 (#5774)"""
+    from ginkgo.enums import FILE_TYPES
+
+    if isinstance(raw, int):
+        result = FILE_TYPES.from_int(raw)
+        if result is None:
+            raise ValueError(f"Invalid file_type integer: {raw}")
+        return result
+
+    s = str(raw).strip()
+
+    # 数字字符串
+    if s.isdigit():
+        result = FILE_TYPES.from_int(int(s))
+        if result is None:
+            raise ValueError(f"Invalid file_type: {s}")
+        return result
+
+    # 别名映射（短名 → 枚举全名）
+    alias_map = {
+        "RISK": FILE_TYPES.RISKMANAGER,
+    }
+    upper = s.upper()
+    if upper in alias_map:
+        return alias_map[upper]
+
+    # 枚举名匹配
+    result = FILE_TYPES.enum_convert(s)
+    if result is None:
+        raise ValueError(f"Unknown file_type: {s}")
+    return result
+
+
 def get_file_service():
     """获取 FileService 实例"""
     from ginkgo.data.containers import container
@@ -441,10 +475,13 @@ async def add_file_to_portfolio(
 
         service = get_portfolio_mapping_service()
 
+        # 解析 file_type：支持整数、数字字符串、枚举名、别名（#5774）
+        resolved_type = _resolve_file_type(file_type)
+
         result = service.add_file(
             portfolio_uuid=portfolio_uuid,
             file_id=file_id,
-            file_type=FILE_TYPES[file_type.upper()],
+            file_type=resolved_type,
             name=name,
             params=params,
         )
