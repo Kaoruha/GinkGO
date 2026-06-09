@@ -72,12 +72,20 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         # 生成 task_id（如果未提供），使用与 uuid 相同的规则
         task_id = kwargs.get("task_id") or IdentityUtils.generate_task_id()
 
+        # #5577 #5443: 日期字段从字符串转为 datetime
+        raw_start = kwargs.get("backtest_start_date")
+        raw_end = kwargs.get("backtest_end_date")
+        backtest_start_date = datetime_normalize(raw_start) if raw_start else None
+        backtest_end_date = datetime_normalize(raw_end) if raw_end else None
+
         model = MBacktestTask(
             uuid=task_id,  # 会话实体的 uuid = task_id
             task_id=task_id,
             name=kwargs.get("name", ""),  # 用户可指定名称
             engine_id=kwargs.get("engine_id", ""),
             portfolio_id=kwargs.get("portfolio_id", ""),
+            backtest_start_date=backtest_start_date,
+            backtest_end_date=backtest_end_date,
             start_time=kwargs.get("start_time"),
             end_time=kwargs.get("end_time"),
             status=kwargs.get("status", "created"),
