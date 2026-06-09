@@ -126,7 +126,7 @@ class AShareBroker(LiveBrokerBase):
             # 基础风控检查
             if not self._validate_order_rules(order):
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Order violates A股交易规则"
                 )
@@ -144,7 +144,7 @@ class AShareBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ A股订单提交失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 error_message=f"A股订单提交失败: {str(e)}"
             )
 
@@ -174,7 +174,7 @@ class AShareBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ A股撤单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"A股撤单失败: {str(e)}"
             )
@@ -210,7 +210,7 @@ class AShareBroker(LiveBrokerBase):
         except Exception as e:
             GLOG.ERROR(f"❌ A股查单失败: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 broker_order_id=broker_order_id,
                 error_message=f"A股查单失败: {str(e)}"
             )

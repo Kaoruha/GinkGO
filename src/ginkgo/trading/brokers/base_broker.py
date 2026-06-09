@@ -96,7 +96,7 @@ class ExecutionResult:
     def is_final_status(self) -> bool:
         return self.status in {
             ExecutionStatus.FILLED,
-            ExecutionStatus.CANCELED,
+            ExecutionStatus.CANCELLED,
             ExecutionStatus.REJECTED,
             ExecutionStatus.FAILED,
             ExecutionStatus.EXPIRED,
@@ -288,7 +288,7 @@ class BaseBroker(IBroker):
                 return False
             
             # 更新订单状态
-            order.status = OrderStatus.CANCELED
+            order.status = OrderStatus.CANCELLED
             order.updated_time = clock_now()
             
             # 从活跃订单中移除

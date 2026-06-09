@@ -417,7 +417,7 @@ class IBroker(ABC):
                 self._stats.total_orders += 1
             elif order.status == OrderStatus.FILLED:
                 self._stats.filled_orders += 1
-            elif order.status == OrderStatus.CANCELED:
+            elif order.status == OrderStatus.CANCELLED:
                 self._stats.cancelled_orders += 1
             elif order.status == OrderStatus.REJECTED:
                 self._stats.rejected_orders += 1
