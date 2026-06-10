@@ -177,3 +177,33 @@ class TestVerifyDBFailure:
         # fail-closed: token 有效但 is_admin 必须为 False
         assert result["data"]["valid"] is True
         assert result["data"]["is_admin"] is False
+
+
+# ============================================================
+# Test 5: 被禁用用户 → valid=False（is_active 检查）
+# ============================================================
+
+class TestVerifyDisabledUser:
+    """#5899: is_active=False 的用户 token 应返回 valid=False"""
+
+    @pytest.mark.asyncio
+    async def test_disabled_user_returns_invalid(self):
+        """credential.is_active=False 时 verify 返回 valid=False"""
+        from api.auth import verify_token_endpoint
+
+        payload = _default_payload(user_uuid="u-disabled", username="disabled")
+        token = _make_token(payload)
+
+        # mock: credential 存在但 is_active=False
+        mock_cred = MagicMock()
+        mock_cred.is_admin = False
+        mock_cred.is_active = False
+        mock_svc = MagicMock()
+        mock_svc.get_credential.return_value = mock_cred
+
+        with patch("api.auth.get_user_service", return_value=mock_svc):
+            req = _mock_request(headers={"Authorization": f"Bearer {token}"})
+            result = await verify_token_endpoint(req)
+
+        assert result["data"]["valid"] is False
+        assert result["data"]["is_admin"] is False
