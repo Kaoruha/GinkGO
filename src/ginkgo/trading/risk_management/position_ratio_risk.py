@@ -157,11 +157,7 @@ class PositionRatioRisk(BaseRiskManagement):
             if adjusted_volume < to_decimal(order.volume):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for single position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_position_ratio):.2%} to {float(self._max_position_ratio):.2%})",
                 )
-                truncated_volume = int(adjusted_volume)
-                order.volume = truncated_volume
-                order.frozen_money = to_decimal(truncated_volume) * execution_price
-                order.frozen_volume = truncated_volume
-                order.remain = order.frozen_money
+                self._apply_volume_adjustment(order, adjusted_volume, execution_price)
 
         # 检查总持仓比例
         expected_total_ratio = expected_total_value / total_worth
@@ -196,11 +192,7 @@ class PositionRatioRisk(BaseRiskManagement):
             if adjusted_volume < to_decimal(order.volume):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for total position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_total_ratio):.2%} to {float(self._max_total_position_ratio):.2%})",
                 )
-                truncated_volume = int(adjusted_volume)
-                order.volume = truncated_volume
-                order.frozen_money = to_decimal(truncated_volume) * execution_price
-                order.frozen_volume = truncated_volume
-                order.remain = order.frozen_money
+                self._apply_volume_adjustment(order, adjusted_volume, execution_price)
 
         # 如果调整后的订单量为0，则拒绝订单
         if order.volume <= 0:
@@ -216,6 +208,24 @@ class PositionRatioRisk(BaseRiskManagement):
         GLOG.INFO(f"PositionRatioRisk: Order approved - Final volume: {order.volume}, Final position ratio: {float(final_position_ratio):.2%}, Final total ratio: {float(final_total_ratio):.2%}")
 
         return order
+
+    def _apply_volume_adjustment(
+        self,
+        order: Order,
+        adjusted_volume: Decimal,
+        execution_price: Decimal,
+    ) -> None:
+        """
+        将调整后的手数同步写入订单的成交/冻结字段
+
+        单股比例超限与总仓位比例超限两处共用，避免字段赋值逻辑漂移
+        (#6056 frozen 拆分后 frozen_money/frozen_volume 必须成对设置)。
+        """
+        truncated_volume = int(adjusted_volume)
+        order.volume = truncated_volume
+        order.frozen_money = to_decimal(truncated_volume) * execution_price
+        order.frozen_volume = truncated_volume
+        order.remain = order.frozen_money
 
     def _get_current_price(self, portfolio_info: Dict, code: str) -> Decimal:
         """
