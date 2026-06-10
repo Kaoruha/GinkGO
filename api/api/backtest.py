@@ -176,13 +176,20 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
         portfolio_name = "Unknown Portfolio"
 
     # 使用服务层创建任务
+    # #5577 #5443: engine_config 日期映射到 task 级别字段
+    create_kwargs = {
+        "name": data.name,
+        "portfolio_id": primary_portfolio_uuid,
+        "portfolio_name": portfolio_name,
+        "config_snapshot": config,
+    }
+    if data.engine_config.start_date:
+        create_kwargs["backtest_start_date"] = data.engine_config.start_date
+    if data.engine_config.end_date:
+        create_kwargs["backtest_end_date"] = data.engine_config.end_date
+
     task_service = get_backtest_task_service()
-    result = task_service.create(
-        name=data.name,
-        portfolio_id=primary_portfolio_uuid,
-        portfolio_name=portfolio_name,
-        config_snapshot=config,
-    )
+    result = task_service.create(**create_kwargs)
 
     if not result.is_success():
         raise BusinessError(f"Failed to create backtest task: {result.error}")
