@@ -308,28 +308,30 @@ async def list_analyzers():
     返回系统中所有可用的分析器类型及其参数。
     优先从 service 获取，失败时使用内置回退列表。
     """
-    # 内置分析器回退列表（与 Analyzer 注册表同步）
-    _BUILTIN_ANALYZERS = [
-        {"name": "returns", "type": "returns", "description": "收益率分析"},
-        {"name": "sharpe", "type": "sharpe", "description": "夏普比率"},
-        {"name": "drawdown", "type": "drawdown", "description": "最大回撤分析"},
-        {"name": "trades", "type": "trades", "description": "交易统计"},
-        {"name": "vwr", "type": "vwr", "description": "变异加权收益率"},
-    ]
-
     try:
-        analyzer_service = container.analyzer_service()
-        result = analyzer_service.get_analyzer_types()
-
-        if result.is_success() and result.data:
-            return ok(data=result.data)
-
-        # service 返回空或失败，使用内置列表
-        return ok(data=_BUILTIN_ANALYZERS)
-
+        # 从 AnalyzerRegistry 直接获取已注册的分析器
+        from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
+        registry = AnalyzerRegistry()
+        count = registry.scan_builtin()
+        if count > 0:
+            analyzers = []
+            for name in registry.all_analyzers:
+                analyzers.append({"name": name, "type": name, "description": name})
+            return ok(data=analyzers)
     except Exception as e:
-        logger.error(f"Error listing analyzers: {str(e)}")
-        return ok(data=_BUILTIN_ANALYZERS, message="Analyzers retrieved from built-in catalog")
+        logger.error(f"Error scanning analyzer registry: {str(e)}")
+
+    # Registry 扫描失败时的回退列表（名称与实际 __init__ default name 一致）
+    _FALLBACK_ANALYZERS = [
+        {"name": "annualized_return", "type": "annualized_return", "description": "年化收益率"},
+        {"name": "sharpe_ratio", "type": "sharpe_ratio", "description": "夏普比率"},
+        {"name": "max_drawdown", "type": "max_drawdown", "description": "最大回撤"},
+        {"name": "order_count", "type": "order_count", "description": "订单统计"},
+        {"name": "volatility", "type": "volatility", "description": "波动率"},
+        {"name": "profit_factor", "type": "profit_factor", "description": "盈亏比"},
+        {"name": "win_rate", "type": "win_rate", "description": "胜率"},
+    ]
+    return ok(data=_FALLBACK_ANALYZERS, message="Analyzers retrieved from fallback catalog")
 
 
 @router.get("/{uuid}")
@@ -397,29 +399,11 @@ async def start_backtest(uuid: str):
 
         task = result.data
 
-        # 启动任务（使用正确的参数）
+        # 启动任务（service 层 start_task 内部已发送 Kafka 消息，无需重复发送）
         result = task_service.start_task(uuid)
 
         if not result.is_success():
             raise BusinessError(f"Failed to start task: {result.error}")
-
-        # 从已保存的 config_snapshot 读取配置，发送到 Kafka
-        config_snapshot = getattr(task, 'config_snapshot', None)
-        if config_snapshot:
-            try:
-                config = json.loads(config_snapshot) if isinstance(config_snapshot, str) else config_snapshot
-            except (json.JSONDecodeError, TypeError):
-                config = {}
-            portfolio_uuids = config.get("portfolio_uuids", [])
-            portfolio_id = getattr(task, 'portfolio_id', None)
-            if not portfolio_uuids and portfolio_id:
-                portfolio_uuids = [portfolio_id]
-            await send_task_to_kafka(
-                task_uuid=uuid,
-                portfolio_uuids=portfolio_uuids,
-                name=getattr(task, 'name', ''),
-                config=config,
-            )
 
         task_id = result.data.get("task_id", uuid) if isinstance(result.data, dict) else uuid
         return ok(data={"uuid": uuid, "task_id": task_id, "state": "PENDING"},
@@ -622,7 +606,7 @@ async def get_backtest_orders(uuid: str):
         items = result.data
         total = result.metadata.get("total", 0)
         return paginated(items=[o.dict() for o in items], total=total,
-                         page=1, page_size=len(items) or total,
+                         page=1, page_size=max(total, 1),
                          message="Orders retrieved successfully")
 
     except NotFoundError:
@@ -646,7 +630,7 @@ async def get_backtest_positions(uuid: str):
         items = result.data
         total = result.metadata.get("total", 0)
         return paginated(items=[p.dict() for p in items], total=total,
-                         page=1, page_size=len(items) or total,
+                         page=1, page_size=max(total, 1),
                          message="Positions retrieved successfully")
 
     except NotFoundError:

@@ -26,44 +26,46 @@ class TestBacktestEventsTimeout:
         """当 Redis 无进度数据时，SSE 流应在有限时间内终止（非无限循环）"""
         from api.backtest import backtest_events
 
-        with patch("api.backtest.get_backtest_progress", new_callable=AsyncMock) as mock_progress:
-            # 永远返回 None — 模拟任务不存在或 Redis 无数据
-            mock_progress.return_value = None
+        async def _run():
+            with patch("api.backtest.get_backtest_progress", new_callable=AsyncMock) as mock_progress:
+                # 永远返回 None — 模拟任务不存在或 Redis 无数据
+                mock_progress.return_value = None
 
-            response = run_async(backtest_events("nonexistent-uuid"))
-            assert response.media_type == "text/event-stream"
+                response = await backtest_events("nonexistent-uuid")
+                assert response.media_type == "text/event-stream"
 
-            # 消费整个 SSE 流，应在 5 秒内结束（如果修好了的话）
-            events = asyncio.run(
-                asyncio.wait_for(
+                # 在同一事件循环中消费 SSE 流
+                events = await asyncio.wait_for(
                     _collect_sse_events(response.body_iterator),
                     timeout=5.0,
                 )
-            )
 
-            # 流应该已终止，收集到至少一个事件
-            assert len(events) >= 1
-            # 最后一个事件应包含 timeout 或 stream_end 标记
-            last = events[-1]
-            assert "timeout" in last or "stream_end" in last or "error" in last
+                # 流应该已终止，收集到至少一个事件
+                assert len(events) >= 1
+                # 最后一个事件应包含 timeout 或 stream_end 标记
+                last = events[-1]
+                assert "timeout" in last or "stream_end" in last or "error" in last
+
+        asyncio.run(_run())
 
     def test_events_stream_exits_on_terminal_state(self):
         """当任务状态为 COMPLETED/FAILED/CANCELLED 时，流应终止"""
         from api.backtest import backtest_events
 
-        with patch("api.backtest.get_backtest_progress", new_callable=AsyncMock) as mock_progress:
-            mock_progress.return_value = {"state": "COMPLETED", "progress": 100}
+        async def _run():
+            with patch("api.backtest.get_backtest_progress", new_callable=AsyncMock) as mock_progress:
+                mock_progress.return_value = {"state": "COMPLETED", "progress": 100}
 
-            response = run_async(backtest_events("done-uuid"))
-            events = asyncio.run(
-                asyncio.wait_for(
+                response = await backtest_events("done-uuid")
+                events = await asyncio.wait_for(
                     _collect_sse_events(response.body_iterator),
                     timeout=3.0,
                 )
-            )
 
-            assert len(events) >= 1
-            assert any("progress" in e for e in events)
+                assert len(events) >= 1
+                assert any("progress" in e for e in events)
+
+        asyncio.run(_run())
 
 
 async def _collect_sse_events(body_iterator):
@@ -172,23 +174,16 @@ class TestBacktestCreateCompatibility:
 # ============================================================
 
 class TestBacktestStartConfig:
-    """start_backtest 应读取 config_snapshot 并发送到 Kafka"""
+    """start_backtest 应委托 service 层启动（service 内部负责 Kafka 发送）"""
 
-    def test_start_reads_config_and_sends_to_kafka(self):
-        """start_backtest 应从已保存的 task 读取 config_snapshot，发到 Kafka"""
+    def test_start_delegates_to_service(self):
+        """start_backtest 应调用 task_service.start_task，Kafka 由 service 层统一处理"""
         from api.backtest import start_backtest
         from ginkgo.data.services.base_service import ServiceResult
 
-        config = {
-            "start_date": "2025-01-01",
-            "end_date": "2025-12-31",
-            "portfolio_uuids": ["pf-1"],
-        }
         task = MagicMock()
         task.uuid = "test-uuid"
         task.task_id = "task-123"
-        task.portfolio_id = "pf-1"
-        task.config_snapshot = json.dumps(config)
 
         mock_task_svc = MagicMock()
         mock_task_svc.get_by_id.return_value = ServiceResult.success(data=task)
@@ -196,19 +191,12 @@ class TestBacktestStartConfig:
             data={"task_id": "task-123"}
         )
 
-        with patch("api.backtest.get_backtest_task_service", return_value=mock_task_svc), \
-             patch("api.backtest.get_kafka_producer") as mock_kafka_cls:
-            mock_producer = MagicMock()
-            mock_kafka_cls.return_value = mock_producer
-
+        with patch("api.backtest.get_backtest_task_service", return_value=mock_task_svc):
             result = run_async(start_backtest("test-uuid"))
 
-        # Kafka producer.send 应被调用，且消息包含 config
-        mock_producer.send.assert_called_once()
-        call_args = mock_producer.send.call_args
-        msg = call_args[1]["msg"] if "msg" in call_args[1] else call_args[0][1]
-        assert msg["config"]["start_date"] == "2025-01-01"
-        assert msg["portfolio_uuids"] == ["pf-1"]
+        # API 层应调用 service.start_task（内部已发 Kafka）
+        mock_task_svc.start_task.assert_called_once_with("test-uuid")
+        assert result["data"]["uuid"] == "test-uuid"
 
 
 # ============================================================

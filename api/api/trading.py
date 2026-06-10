@@ -63,17 +63,20 @@ def _get_portfolio_service():
     return container.portfolio_service()
 
 
-def _get_pt_status(account_id: str) -> str:
+async def _get_pt_status(account_id: str) -> str:
     """查询模拟盘账户实际运行状态
 
     优先从 Redis 缓存查询 Worker 上报的状态，
     如果无法获取则返回 'stopped'。
+
+    TODO: Paper Trading Worker 需要在启动/停止时写入 Redis key
+          `pt:status:{account_id}`，当前无生产者，始终走 fallback。
     """
     try:
         from core.redis_client import get_redis
-        redis = get_redis()
+        redis = await get_redis()
         if redis:
-            status = redis.get(f"pt:status:{account_id}")
+            status = await redis.get(f"pt:status:{account_id}")
             if status:
                 return status if isinstance(status, str) else status.decode()
     except Exception:
@@ -168,7 +171,7 @@ async def list_paper_accounts():
                 "total_asset": cash,   # TODO: 现金 + 持仓市值
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": _get_pt_status(p.uuid),
+                "status": await _get_pt_status(p.uuid),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
             })
 
@@ -258,7 +261,7 @@ async def get_paper_account(account_id: str):
                 "total_asset": cash,
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": _get_pt_status(account_id),
+                "status": await _get_pt_status(account_id),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
                 "positions": positions,
                 "active_orders": orders,
