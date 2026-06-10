@@ -858,15 +858,16 @@ class PortfolioT1Backtest(PortfolioBase):
             self.blog.log_engine_error_event(error_code="ORDER_FILLED_HANDLER_FAILED", error_message=str(e))
 
     def deal_long_filled(self, event: EventOrderPartiallyFilled, *args, **kwargs):
-        if self.frozen < event.frozen:
-            self.blog.log_engine_error_event(error_code="OVERFLOW_UNFREEZE", error_message=f"Cannot unfreeze {event.frozen} from {self.frozen}")
+        # #6036: event.frozen 已拆分为 frozen_money + frozen_volume，使用 frozen_money
+        if self.frozen < event.frozen_money:
+            self.blog.log_engine_error_event(error_code="OVERFLOW_UNFREEZE", error_message=f"Cannot unfreeze {event.frozen_money} from {self.frozen}")
             return
         if event.remain < 0:
             self.blog.log_engine_error_event(error_code="NEGATIVE_REMAIN", error_message="Order remain under 0")
             return
 
         # 重要修复：使用新的deduct_from_frozen方法正确处理部分成交
-        transaction_cost = event.frozen - event.remain
+        transaction_cost = event.frozen_money - event.remain
 
         # 使用新的公共方法：扣除成交花费，只将剩余未成交部分解冻
         self.deduct_from_frozen(cost=transaction_cost, unfreeze_remain=event.remain)
