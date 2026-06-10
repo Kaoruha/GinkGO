@@ -202,6 +202,8 @@ async def verify_token_endpoint(req: Request):
             svc = get_user_service()
             credential = svc.get_credential(user_uuid)
             if credential:
+                if not credential.is_active:
+                    return ok(data={"valid": False, "user_uuid": None, "username": None, "is_admin": False})
                 is_admin = credential.is_admin
         except Exception as e:
             # #5899: fail-closed — DB 不可用时 is_admin=False，与 /auth/me 一致
