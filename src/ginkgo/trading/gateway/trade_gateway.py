@@ -343,7 +343,10 @@ class TradeGateway(BaseTradeGateway):
                 status=ORDERSTATUS_TYPES.SUBMITTED,
                 volume=order.volume,
                 limit_price=order.limit_price,
-                frozen=order.frozen_money if hasattr(order, 'frozen_money') else 0,
+                # #5940: frozen 已拆分为 frozen_money + frozen_volume，
+                # kwarg 名必须匹配 OrderRecordCRUD，否则冻结金额静默写 0
+                frozen_money=order.frozen_money if hasattr(order, 'frozen_money') else 0,
+                frozen_volume=order.frozen_volume if hasattr(order, 'frozen_volume') else 0,
                 transaction_price=0,
                 transaction_volume=0,
                 remain=order.volume,
