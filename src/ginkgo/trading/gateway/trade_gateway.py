@@ -301,7 +301,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"Sync execution failed for {order.uuid[:8]}: {e}\n{traceback.format_exc()}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 order=order,
                 error_message=f"Sync execution error: {str(e)}"
             )
@@ -399,7 +399,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"Async execution failed for {order.uuid[:8]}: {e}")
             # 发布错误事件
             error_result = BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,
                 order=order,
                 error_message=f"Async execution error: {str(e)}"
             )
@@ -562,7 +562,7 @@ class TradeGateway(BaseTradeGateway):
         # 更新订单跟踪状态
         if result.broker_order_id and hasattr(self, '_processing_orders'):
             # 如果有跟踪的订单，移除跟踪
-            if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.CANCELED, ORDERSTATUS_TYPES.NEW]:
+            if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.CANCELED, ORDERSTATUS_TYPES.REJECTED]:
                 self.remove_tracked_order(result.broker_order_id)
 
     def _update_position(self, order: Order, result: BrokerExecutionResult):
@@ -610,7 +610,7 @@ class TradeGateway(BaseTradeGateway):
         # 处理不同的执行结果
         if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.PARTIAL_FILLED]:
             GLOG.INFO(f"✅ ASYNC FILL: {result.filled_volume} {order.code} @ {result.filled_price}")
-        elif result.status == ORDERSTATUS_TYPES.NEW:  # REJECTED
+        elif result.status == ORDERSTATUS_TYPES.REJECTED:
             GLOG.WARN(f"❌ ASYNC REJECT: {result.error_message}")
         elif result.status == ORDERSTATUS_TYPES.CANCELED:
             GLOG.INFO(f"🚫 ASYNC CANCEL: {result.broker_order_id}")
@@ -619,7 +619,7 @@ class TradeGateway(BaseTradeGateway):
         self._handle_execution_result(result)
 
         # 移除订单跟踪（仅在最终状态时）
-        if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.NEW,  # REJECTED
+        if result.status in [ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.REJECTED,
                              ORDERSTATUS_TYPES.CANCELED]:
             self.remove_tracked_order(result.broker_order_id)
             GLOG.DEBUG(f"Removed tracking for completed order: {result.broker_order_id}")
