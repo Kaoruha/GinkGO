@@ -8,7 +8,7 @@ ORM → Schema 转换在 Service 内完成，API handler 只负责 ok(data=resul
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ==================== 回测任务 ====================
@@ -177,3 +177,16 @@ class BacktestTaskCreate(BaseModel):
     portfolio_uuids: List[str] = Field(..., min_length=1, description="Portfolio UUID 列表")
     engine_config: EngineConfig
     component_config: Optional[ComponentConfig] = None
+    # 旧字段兼容：旧客户端可能发送 portfolio_id (str) 而非 portfolio_uuids (list)
+    portfolio_id: Optional[str] = Field(None, exclude=True, description="[已废弃] 请使用 portfolio_uuids")
+
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_portfolio_id(cls, values: Any) -> Any:
+        """将旧 portfolio_id (str) 转为 portfolio_uuids (list)"""
+        if isinstance(values, dict):
+            if 'portfolio_uuids' not in values and 'portfolio_id' in values:
+                pid = values['portfolio_id']
+                if pid:
+                    values['portfolio_uuids'] = [pid]
+        return values

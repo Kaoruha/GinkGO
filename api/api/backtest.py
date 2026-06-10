@@ -312,21 +312,33 @@ async def list_analyzers():
     """
     获取可用的分析器类型列表
 
-    返回系统中所有可用的分析器类型及其参数
+    返回系统中所有可用的分析器类型及其参数。
+    优先从 service 获取，失败时使用内置回退列表。
     """
     try:
-        analyzer_service = container.analyzer_service()
-        result = analyzer_service.get_analyzer_types()
-
-        if not result.is_success():
-            return ok(data=[])
-
-        return ok(data=result.data or [])
-
+        # 从 AnalyzerRegistry 直接获取已注册的分析器
+        from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
+        registry = AnalyzerRegistry()
+        count = registry.scan_builtin()
+        if count > 0:
+            analyzers = []
+            for name in registry.all_analyzers:
+                analyzers.append({"name": name, "type": name, "description": name})
+            return ok(data=analyzers)
     except Exception as e:
-        logger.error(f"Error listing analyzers: {str(e)}")
-        # 返回空列表而不是抛出异常
-        return ok(data=[], message="Analyzers retrieved successfully")
+        logger.error(f"Error scanning analyzer registry: {str(e)}")
+
+    # Registry 扫描失败时的回退列表（名称与实际 __init__ default name 一致）
+    _FALLBACK_ANALYZERS = [
+        {"name": "annualized_return", "type": "annualized_return", "description": "年化收益率"},
+        {"name": "sharpe_ratio", "type": "sharpe_ratio", "description": "夏普比率"},
+        {"name": "max_drawdown", "type": "max_drawdown", "description": "最大回撤"},
+        {"name": "order_count", "type": "order_count", "description": "订单统计"},
+        {"name": "volatility", "type": "volatility", "description": "波动率"},
+        {"name": "profit_factor", "type": "profit_factor", "description": "盈亏比"},
+        {"name": "win_rate", "type": "win_rate", "description": "胜率"},
+    ]
+    return ok(data=_FALLBACK_ANALYZERS, message="Analyzers retrieved from fallback catalog")
 
 
 @router.get("/{uuid}")
@@ -392,7 +404,9 @@ async def start_backtest(uuid: str):
         if not result.is_success() or not result.data:
             raise NotFoundError("BacktestTask", uuid)
 
-        # 启动任务（使用正确的参数）
+        task = result.data
+
+        # 启动任务（service 层 start_task 内部已发送 Kafka 消息，无需重复发送）
         result = task_service.start_task(uuid)
 
         if not result.is_success():
@@ -506,20 +520,33 @@ async def backtest_events(uuid: str):
 
     async def event_stream():
         """生成SSE事件流"""
+        import json as _json
+
+        # 连续无数据的最大次数，超过则判定任务不存在/超时
+        max_empty_iterations = 3
+        empty_count = 0
+
         try:
             while True:
                 # 从Redis获取进度
                 progress_data = await get_backtest_progress(uuid)
 
                 if not progress_data:
-                    # 如果没有进度数据，发送心跳
+                    empty_count += 1
+                    if empty_count >= max_empty_iterations:
+                        # 连续多次无数据，判定为任务不存在或超时
+                        yield f"event: timeout\ndata: {_json.dumps({'reason': 'no_progress_data'})}\n\n"
+                        break
+                    # 发送心跳
                     yield "event: keepalive\ndata: {}\n\n"
                     await asyncio.sleep(1)
                     continue
 
+                # 有数据时重置计数器
+                empty_count = 0
+
                 # 发送进度事件
-                import json
-                data = json.dumps(progress_data)
+                data = _json.dumps(progress_data)
                 yield f"event: progress\ndata: {data}\n\n"
 
                 # 如果任务完成，结束流
@@ -531,7 +558,7 @@ async def backtest_events(uuid: str):
 
         except Exception as e:
             logger.error(f"Error in event stream for {uuid}: {e}")
-            error_data = json.dumps({"error": str(e)})
+            error_data = _json.dumps({"error": str(e)})
             yield f"event: error\ndata: {error_data}\n\n"
 
     return StreamingResponse(
@@ -580,13 +607,14 @@ async def get_backtest_orders(uuid: str):
         result = task_service.list_orders(uuid)
 
         if not result.is_success():
-            return ok(data={"data": [], "total": 0},
-                      message=result.error or "Failed to retrieve orders")
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve orders")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return ok(data={"data": [o.dict() for o in items], "total": total},
-                  message="Orders retrieved successfully")
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Orders retrieved successfully")
 
     except NotFoundError:
         raise
@@ -603,13 +631,14 @@ async def get_backtest_positions(uuid: str):
         result = task_service.list_positions(uuid)
 
         if not result.is_success():
-            return ok(data={"data": [], "total": 0},
-                      message=result.error or "Failed to retrieve positions")
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve positions")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return ok(data={"data": [p.dict() for p in items], "total": total},
-                  message="Positions retrieved successfully")
+        return paginated(items=[p.dict() for p in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Positions retrieved successfully")
 
     except NotFoundError:
         raise
