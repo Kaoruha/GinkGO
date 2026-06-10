@@ -312,3 +312,55 @@ class TestCheckOrderTimeouts:
         })
         timed_out = gw.check_order_timeouts()
         assert "fresh-001" not in timed_out
+
+
+class TestSaveSubmittedOrderRecordFrozen:
+    """
+    _save_submitted_order_record 冻结字段传递 (#6056 frozen 拆分后)
+
+    #6056 将 Order.frozen 拆分为 frozen_money + frozen_volume，
+    OrderRecordCRUD.create_order_record 现在读 frozen_money/frozen_volume kwargs。
+    trade_gateway 必须传对 kwarg 名，否则冻结金额静默写 0。
+    """
+    from decimal import Decimal
+
+    @pytest.fixture
+    def gw_with_engine(self):
+        broker = make_mock_broker("SIM")
+        gw = TradeGateway(brokers=broker, name="test")
+        engine = Mock()
+        engine.engine_id = "engine-uuid-1"
+        engine.task_id = "task-uuid-1"
+        gw._bound_engine = engine
+        gw.set_event_publisher(Mock())
+        return gw
+
+    def test_passes_frozen_money_and_volume_not_frozen_kwarg(self, gw_with_engine):
+        """SUBMITTED 记录必须传 frozen_money/frozen_volume，禁止残留 frozen= kwarg"""
+        from ginkgo.data.containers import container
+
+        order = make_order()
+        order.frozen_money = self.Decimal("15000")
+        order.frozen_volume = 500
+        order.limit_price = self.Decimal("20")
+        order.timestamp = datetime.now()
+        order.business_timestamp = order.timestamp
+
+        event = Mock()
+        event.portfolio_id = "portfolio-uuid-1"
+
+        mock_service = Mock()
+        with patch.object(container, "result_service", return_value=mock_service):
+            gw_with_engine._save_submitted_order_record(order, event)
+
+        mock_service.create_order_record.assert_called_once()
+        kwargs = mock_service.create_order_record.call_args.kwargs
+        assert "frozen" not in kwargs, (
+            "不应再用 frozen= kwarg (#6056 拆分后改用 frozen_money/frozen_volume)"
+        )
+        assert kwargs.get("frozen_money") == self.Decimal("15000"), (
+            f"frozen_money 未正确传递: {kwargs}"
+        )
+        assert kwargs.get("frozen_volume") == 500, (
+            f"frozen_volume 未正确传递: {kwargs}"
+        )
