@@ -84,3 +84,135 @@ class TestMOrderRecordFrozenSplit:
         """MOrderRecord 应有 frozen_volume 列"""
         m = MOrderRecord()
         assert hasattr(m, "frozen_volume")
+
+
+class TestMOrderUpdateSeriesFrozenMoney:
+    """#6079: update(Series) 中 frozen_money 应使用 to_decimal()"""
+
+    @pytest.mark.unit
+    def test_frozen_money_to_decimal_from_float(self):
+        """update(Series) 传入 float frozen_money 应转为 Decimal"""
+        import pandas as pd
+        from decimal import Decimal
+
+        df = pd.DataFrame([{
+            "uuid": "test-uuid",
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "r1",
+            "code": "000001.SZ",
+            "direction": 1,
+            "order_type": 1,
+            "status": 1,
+            "volume": 100,
+            "limit_price": 10.33,
+            "frozen_money": 1549.50,
+            "frozen_volume": 150,
+            "transaction_price": 0,
+            "transaction_volume": 0,
+            "remain": 0,
+            "fee": 0,
+            "timestamp": "2024-01-15 10:00:00",
+            "business_timestamp": "2024-01-15 10:00:00",
+        }])
+        m = MOrder()
+        m.update(df.iloc[0])
+        assert isinstance(m.frozen_money, Decimal)
+        assert m.frozen_money == Decimal("1549.50")
+
+    @pytest.mark.unit
+    def test_frozen_volume_int_from_series(self):
+        """update(Series) 传入 float frozen_volume 应转为 int"""
+        import pandas as pd
+
+        df = pd.DataFrame([{
+            "uuid": "test-uuid",
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "r1",
+            "code": "000001.SZ",
+            "direction": 1,
+            "order_type": 1,
+            "status": 1,
+            "volume": 100,
+            "limit_price": 10.0,
+            "frozen_money": 1000.0,
+            "frozen_volume": 150.7,
+            "transaction_price": 0,
+            "transaction_volume": 0,
+            "remain": 0,
+            "fee": 0,
+            "timestamp": "2024-01-15 10:00:00",
+            "business_timestamp": "2024-01-15 10:00:00",
+        }])
+        m = MOrder()
+        m.update(df.iloc[0])
+        assert isinstance(m.frozen_volume, int)
+        assert m.frozen_volume == 150
+
+    @pytest.mark.unit
+    def test_backward_compat_legacy_frozen_column(self):
+        """旧 DataFrame 只有 frozen 列时，应拆分到 frozen_money"""
+        import pandas as pd
+        from decimal import Decimal
+
+        df = pd.DataFrame([{
+            "uuid": "test-uuid",
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "r1",
+            "code": "000001.SZ",
+            "direction": 1,
+            "order_type": 1,
+            "status": 1,
+            "volume": 100,
+            "limit_price": 10.0,
+            "frozen": 1000.0,
+            "transaction_price": 0,
+            "transaction_volume": 0,
+            "remain": 0,
+            "fee": 0,
+            "timestamp": "2024-01-15 10:00:00",
+            "business_timestamp": "2024-01-15 10:00:00",
+        }])
+        m = MOrder()
+        m.update(df.iloc[0])
+        # frozen_money 应从旧 frozen 列继承
+        assert isinstance(m.frozen_money, Decimal)
+        assert m.frozen_money == Decimal("1000.0")
+
+
+class TestMOrderRecordUpdateSeriesFrozenMoney:
+    """#6079: MOrderRecord update(Series) 中 frozen_money 应使用 to_decimal()"""
+
+    @pytest.mark.unit
+    def test_frozen_money_to_decimal_from_float(self):
+        """update(Series) 传入 float frozen_money 应转为 Decimal"""
+        import pandas as pd
+        from decimal import Decimal
+
+        df = pd.DataFrame([{
+            "uuid": "test-uuid",
+            "order_id": "o1",
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "r1",
+            "code": "000001.SZ",
+            "direction": 1,
+            "order_type": 1,
+            "status": 1,
+            "volume": 100,
+            "limit_price": 10.33,
+            "frozen_money": 1549.50,
+            "frozen_volume": 150,
+            "transaction_price": 0,
+            "transaction_volume": 0,
+            "remain": 0,
+            "fee": 0,
+            "timestamp": "2024-01-15 10:00:00",
+            "business_timestamp": "2024-01-15 10:00:00",
+        }])
+        m = MOrderRecord()
+        m.update(df.iloc[0])
+        assert isinstance(m.frozen_money, Decimal)
+        assert m.frozen_money == Decimal("1549.50")

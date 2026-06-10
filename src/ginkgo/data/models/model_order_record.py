@@ -117,8 +117,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
-        self.frozen_money = df["frozen_money"] if "frozen_money" in df else 0
-        self.frozen_volume = df["frozen_volume"] if "frozen_volume" in df else 0
+        self.frozen_money = to_decimal(df["frozen_money"] if "frozen_money" in df else df.get("frozen", 0))
+        self.frozen_volume = int(df["frozen_volume"] if "frozen_volume" in df else 0)
         self.transaction_price = to_decimal(df["transaction_price"])
         self.transaction_volume = df["transaction_volume"]
         self.remain = to_decimal(df["remain"])

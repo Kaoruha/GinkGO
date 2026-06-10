@@ -225,3 +225,55 @@ class TestPositionRatioRiskPerformance:
             r.cal(info, order)
         elapsed = time.perf_counter() - start
         assert elapsed < 30.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.bug
+class TestPositionRatioRiskFrozenConsistency:
+    """#6079: frozen_money 必须等于 volume × price（截断后一致）"""
+
+    def test_frozen_money_equals_volume_times_price_after_single_adjustment(self):
+        """单股持仓比例调整后，frozen_money == volume × price"""
+        from decimal import Decimal
+
+        r = PositionRatioRisk(max_position_ratio=0.1, max_total_position_ratio=0.9)
+        pos = _make_position(code="000001.SZ", volume=500, price=10.0, market_value=5000)
+        order = _make_order(volume=600, limit_price=10.33, code="000001.SZ")
+        info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
+        result = r.cal(info, order)
+
+        if result is not None and result.frozen_money is not None:
+            expected = Decimal(str(result.volume)) * Decimal(str(result.limit_price))
+            assert result.frozen_money == expected, (
+                f"frozen_money={result.frozen_money} != volume({result.volume}) × price({result.limit_price}) = {expected}"
+            )
+
+    def test_frozen_money_equals_volume_times_price_after_total_adjustment(self):
+        """总仓位比例调整后，frozen_money == volume × price"""
+        from decimal import Decimal
+
+        r = PositionRatioRisk(max_position_ratio=0.5, max_total_position_ratio=0.2)
+        pos = _make_position(code="000001.SZ", volume=500, price=10.0, market_value=5000)
+        order = _make_order(volume=2000, limit_price=10.33, code="000002.SZ")
+        info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
+        result = r.cal(info, order)
+
+        if result is not None and result.frozen_money is not None:
+            expected = Decimal(str(result.volume)) * Decimal(str(result.limit_price))
+            assert result.frozen_money == expected, (
+                f"frozen_money={result.frozen_money} != volume({result.volume}) × price({result.limit_price}) = {expected}"
+            )
+
+    def test_frozen_volume_equals_volume_after_adjustment(self):
+        """调整后 frozen_volume == volume"""
+        r = PositionRatioRisk(max_position_ratio=0.1, max_total_position_ratio=0.9)
+        pos = _make_position(code="000001.SZ", volume=500, price=10.0, market_value=5000)
+        order = _make_order(volume=600, limit_price=10.33, code="000001.SZ")
+        info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
+        result = r.cal(info, order)
+
+        if result is not None:
+            assert result.frozen_volume == result.volume, (
+                f"frozen_volume={result.frozen_volume} != volume={result.volume}"
+            )
