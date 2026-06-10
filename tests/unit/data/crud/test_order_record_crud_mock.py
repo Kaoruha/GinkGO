@@ -216,3 +216,36 @@ class TestOrderRecordCRUDConstruction:
         assert order_record_crud._is_clickhouse is True
         assert order_record_crud._is_mysql is False
 
+
+@pytest.mark.tdd
+@pytest.mark.bug
+class TestOrderRecordCRUDFrozenVolumeIntConversion:
+    """#6079: frozen_volume 应强制 int() 转换"""
+
+    @pytest.mark.unit
+    def test_frozen_volume_float_to_int(self, order_record_crud):
+        """传入 float frozen_volume 应被转为 int"""
+        model = order_record_crud._create_from_params(
+            order_id="o1",
+            portfolio_id="p1",
+            engine_id="e1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+            frozen_volume=484.03,
+        )
+        assert isinstance(model.frozen_volume, int)
+        assert model.frozen_volume == 484
+
+    @pytest.mark.unit
+    def test_frozen_volume_default_zero_is_int(self, order_record_crud):
+        """默认值 0 应为 int 类型"""
+        model = order_record_crud._create_from_params(
+            order_id="o1",
+            portfolio_id="p1",
+        )
+        assert isinstance(model.frozen_volume, int)
+        assert model.frozen_volume == 0
+

@@ -376,3 +376,40 @@ class TestOrderBusinessMethods:
 
         crud_instance.count.assert_called_once_with({"portfolio_id": "portfolio-001"})
         assert result == 5
+
+
+@pytest.mark.tdd
+@pytest.mark.bug
+class TestOrderCRUDFrozenVolumeIntConversion:
+    """#6079: frozen_volume 应强制 int() 转换，防止 float 写入 Integer 列"""
+
+    @pytest.mark.unit
+    def test_frozen_volume_float_to_int(self, crud_instance):
+        """传入 float frozen_volume 应被转为 int"""
+        model = crud_instance._create_from_params(
+            portfolio_id="p1",
+            engine_id="e1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+            frozen_volume=484.03,
+        )
+        assert isinstance(model.frozen_volume, int)
+        assert model.frozen_volume == 484
+
+    @pytest.mark.unit
+    def test_frozen_volume_default_zero_is_int(self, crud_instance):
+        """默认值 0 应为 int 类型"""
+        model = crud_instance._create_from_params(
+            portfolio_id="p1",
+            engine_id="e1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+        )
+        assert isinstance(model.frozen_volume, int)
+        assert model.frozen_volume == 0

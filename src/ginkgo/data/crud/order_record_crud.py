@@ -157,7 +157,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             volume=kwargs.get("volume"),
             limit_price=to_decimal(kwargs.get("limit_price", 0)),
             frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
-            frozen_volume=kwargs.get("frozen_volume", 0),
+            frozen_volume=int(kwargs.get("frozen_volume", 0)),
             transaction_price=to_decimal(kwargs.get("transaction_price", 0)),
             transaction_volume=kwargs.get("transaction_volume", 0),
             remain=to_decimal(kwargs.get("remain", 0)),

@@ -157,9 +157,10 @@ class PositionRatioRisk(BaseRiskManagement):
             if adjusted_volume < to_decimal(order.volume):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for single position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_position_ratio):.2%} to {float(self._max_position_ratio):.2%})",
                 )
-                order.volume = int(adjusted_volume)
-                order.frozen_money = adjusted_volume * execution_price
-                order.frozen_volume = int(adjusted_volume)
+                truncated_volume = int(adjusted_volume)
+                order.volume = truncated_volume
+                order.frozen_money = to_decimal(truncated_volume) * execution_price
+                order.frozen_volume = truncated_volume
                 order.remain = order.frozen_money
 
         # 检查总持仓比例
@@ -195,9 +196,10 @@ class PositionRatioRisk(BaseRiskManagement):
             if adjusted_volume < to_decimal(order.volume):
                 GLOG.INFO(f"PositionRatioRisk: Adjusting order volume for total position ratio - {order.code}: {original_volume} → {int(adjusted_volume)} (from {float(expected_total_ratio):.2%} to {float(self._max_total_position_ratio):.2%})",
                 )
-                order.volume = int(adjusted_volume)
-                order.frozen_money = adjusted_volume * execution_price
-                order.frozen_volume = int(adjusted_volume)
+                truncated_volume = int(adjusted_volume)
+                order.volume = truncated_volume
+                order.frozen_money = to_decimal(truncated_volume) * execution_price
+                order.frozen_volume = truncated_volume
                 order.remain = order.frozen_money
 
         # 如果调整后的订单量为0，则拒绝订单
