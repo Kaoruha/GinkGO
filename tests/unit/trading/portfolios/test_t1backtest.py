@@ -635,7 +635,7 @@ class TestLongShortFillHandling:
         event.code = "000001.SZ"
         event.transaction_volume = 100
         event.transaction_price = Decimal("10.0")
-        event.frozen = Decimal("1000")
+        event.frozen_money = Decimal("1000")
         event.remain = Decimal("0")
         event.fee = Decimal("5")
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
@@ -681,7 +681,7 @@ class TestLongShortFillHandling:
         event.code = "000001.SZ"
         event.transaction_volume = 100
         event.transaction_price = Decimal("10.0")
-        event.frozen = Decimal("1000")
+        event.frozen_money = Decimal("1000")
         event.remain = Decimal("0")
         event.fee = Decimal("5")
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
@@ -728,7 +728,7 @@ class TestLongShortFillHandling:
         event.code = "000001.SZ"
         event.transaction_volume = 100
         event.transaction_price = Decimal("10.0")
-        event.frozen = Decimal("1000")  # frozen > self.frozen
+        event.frozen_money = Decimal("1000")  # frozen > self.frozen
         event.remain = Decimal("-10")  # negative remain
         event.fee = Decimal("0")
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'):
