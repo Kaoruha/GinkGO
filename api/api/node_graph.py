@@ -37,6 +37,9 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
+from _file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
+
+
 def get_file_service():
     """获取 FileService 实例"""
     from ginkgo.data.containers import container
@@ -441,10 +444,13 @@ async def add_file_to_portfolio(
 
         service = get_portfolio_mapping_service()
 
+        # 解析 file_type：支持整数、数字字符串、枚举名、别名（#5774）
+        resolved_type = _resolve_file_type(file_type)
+
         result = service.add_file(
             portfolio_uuid=portfolio_uuid,
             file_id=file_id,
-            file_type=FILE_TYPES[file_type.upper()],
+            file_type=resolved_type,
             name=name,
             params=params,
         )
