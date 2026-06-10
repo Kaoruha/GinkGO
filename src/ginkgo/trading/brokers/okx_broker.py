@@ -212,6 +212,7 @@ class OKXBroker(IBroker):
         # OKX API客户端 (延迟连接)
         self._account_api = None
         self._trade_api = None
+        self.public_api = None  # PublicAPI instance for market data (initialized in connect())
 
         # 连接状态
         self._is_connected = False
@@ -360,6 +361,13 @@ class OKXBroker(IBroker):
                 flag=flag,
                 timeout=10  # 设置超时时间
             )
+            # Initialize PublicAPI for market data (reuse single instance)
+            from okx.PublicData import PublicAPI
+            self.public_api = PublicAPI(
+                domain=domain,
+                debug=False,
+                timeout=10
+            )
 
             # 测试连接
             result = self._account_api.get_account_balance()
@@ -383,6 +391,7 @@ class OKXBroker(IBroker):
         self._is_connected = False
         self._account_api = None
         self._trade_api = None
+        self.public_api = None  # Clean up PublicAPI instance
         GLOG.INFO(f"OKX API disconnected: {self.broker_uuid}")
 
     def is_connected(self) -> bool:
@@ -735,13 +744,9 @@ class OKXBroker(IBroker):
 
         def _do_get_ticker():
             try:
-                from okx.PublicData import PublicAPI
-                public_api = PublicAPI(
-                    domain=self._account_api.domain if self._account_api else self.OKX_DOMAIN,
-                    debug=False,
-                    timeout=10
-                )
-                result = public_api.get_ticker(instId=inst_id)
+                if self.public_api is None:
+                    raise Exception("PublicAPI not initialized - call connect() first")
+                result = self.public_api.get_ticker(instId=inst_id)
 
                 if result and result.get('code') == '0':
                     return result.get('data', [{}])[0]
@@ -776,13 +781,9 @@ class OKXBroker(IBroker):
 
         def _do_get_top_volume():
             try:
-                from okx.PublicData import PublicAPI
-                public_api = PublicAPI(
-                    domain=self._account_api.domain if self._account_api else self.OKX_DOMAIN,
-                    debug=False,
-                    timeout=10
-                )
-                result = public_api.get_tickers(instType='SPOT')
+                if self.public_api is None:
+                    raise Exception("PublicAPI not initialized - call connect() first")
+                result = self.public_api.get_tickers(instType='SPOT')
 
                 if result and result.get('code') == '0':
                     tickers = result.get('data', [])
