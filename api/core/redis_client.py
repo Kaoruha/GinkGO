@@ -7,8 +7,13 @@ from typing import Optional, Any
 import asyncio
 import redis.asyncio as aioredis
 
-from core.config import settings
 from core.logging import logger
+
+
+# 数据库/Redis 配置从 GCONF 读取（与 get_db_config() 保持一致）
+def _get_redis_config():
+    from ginkgo.libs import GCONF
+    return {"host": GCONF.REDISHOST, "port": GCONF.REDISPORT}
 
 
 # 全局 Redis 连接池
@@ -19,14 +24,15 @@ async def get_redis_pool() -> aioredis.ConnectionPool:
     """获取 Redis 连接池（单例）"""
     global _redis_pool
     if _redis_pool is None:
-        # #5447: property names are REDISHOST/REDISPORT, not GINKGO_REDISHOST
+        # #5447: Redis 配置从 GCONF 读取，与 get_db_config() 模式一致
+        redis_cfg = _get_redis_config()
         _redis_pool = aioredis.ConnectionPool(
-            host=settings.REDISHOST,
-            port=int(settings.REDISPORT),
+            host=redis_cfg["host"],
+            port=int(redis_cfg["port"]),
             db=0,
             decode_responses=True,
         )
-        logger.info(f"Redis pool created: {settings.REDISHOST}:{settings.REDISPORT}")
+        logger.info(f"Redis pool created: {redis_cfg['host']}:{redis_cfg['port']}")
     return _redis_pool
 
 
