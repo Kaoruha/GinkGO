@@ -87,3 +87,36 @@ class TestAShareBrokerRejectedStatus:
         # 不应存在 NEW + REJECTED 注释的组合
         assert 'ORDERSTATUS_TYPES.NEW,  # REJECTED' not in source, \
             "Found ORDERSTATUS_TYPES.NEW with # REJECTED comment - should use ORDERSTATUS_TYPES.REJECTED"
+
+
+class TestTradeGatewayRejectedStatus:
+    """#5533: trade_gateway 中不应有 NEW 伪装为 REJECTED 的任何变体"""
+
+    def test_no_new_with_rejected_comment(self):
+        """trade_gateway.py 中不应存在任何形式的 NEW + # REJECTED 组合"""
+        import inspect
+        from ginkgo.trading.gateway.trade_gateway import TradeGateway
+
+        source = inspect.getsource(TradeGateway)
+        # 覆盖逗号和冒号两种语法
+        assert 'NEW,  # REJECTED' not in source, \
+            "Found ORDERSTATUS_TYPES.NEW, with # REJECTED comment"
+        assert 'NEW:  # REJECTED' not in source, \
+            "Found ORDERSTATUS_TYPES.NEW: with # REJECTED comment"
+
+    def test_handle_execution_result_removes_rejected_tracking(self):
+        """_handle_execution_result 应对 REJECTED 状态移除订单跟踪"""
+        import inspect
+        from ginkgo.trading.gateway.trade_gateway import TradeGateway
+
+        source = inspect.getsource(TradeGateway._handle_execution_result)
+        # 终态列表应包含 REJECTED 而非 NEW
+        assert 'ORDERSTATUS_TYPES.REJECTED' in source, \
+            "_handle_execution_result should include REJECTED in terminal status list"
+        # 终态列表不应包含 NEW（NEW 不是终态）
+        # 排除注释和字符串中的 NEW
+        for line in source.split('\n'):
+            stripped = line.strip()
+            if 'result.status in [' in stripped and 'ORDERSTATUS_TYPES' in stripped:
+                assert 'ORDERSTATUS_TYPES.NEW' not in stripped, \
+                    f"Terminal status list should not contain NEW: {stripped}"
