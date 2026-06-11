@@ -76,8 +76,11 @@ class TestStartReturnsCurrentStatus:
         portfolio = SimpleNamespace(uuid="acc-1",
                                     state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED)
 
+        # #6095 review: 真实 PortfolioService.get 经 _crud_repo.find 返回的是 list，
+        # FakeResult.data 必须是 list 形状，否则测试退化成"测 mock"而非"测生产契约"。
+        # 旧实现 FakeResult.data = portfolio（单对象）掩盖了 start 端点未解包 list 的 bug。
         class FakeResult:
-            data = portfolio
+            data = [portfolio]
             def is_success(self): return True
 
         class FakeSvc:

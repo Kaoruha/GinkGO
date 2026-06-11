@@ -300,6 +300,10 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
 
         # 验证 portfolio 存在
         portfolio = _require_portfolio(account_id)
+        # #6095 review: _require_portfolio 经 PortfolioService.get → _crud_repo.find 返回 list，
+        # 与 get_paper_account(L258) 一致地解包取首元素，否则 _map_pt_status 收到 list → 恒为 "error"
+        if isinstance(portfolio, list):
+            portfolio = portfolio[0]
 
         # 发送 Kafka deploy 命令
         producer = _get_kafka_producer()
