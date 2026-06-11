@@ -563,14 +563,17 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         orders = self.find({"portfolio_id": portfolio_id}) or []
 
+        # 注意：find() 返回的订单经 _convert_output_items 转换后，
+        # status 为 ORDERSTATUS_TYPES 枚举实例（非 int），故须按枚举比较，而非 .value。
+        # 关联 #6092
         pending_states = {
-            ORDERSTATUS_TYPES.NEW.value,
-            ORDERSTATUS_TYPES.SUBMITTED.value,
-            ORDERSTATUS_TYPES.PARTIAL_FILLED.value,
+            ORDERSTATUS_TYPES.NEW,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            ORDERSTATUS_TYPES.PARTIAL_FILLED,
         }
         cancelled_states = {
-            ORDERSTATUS_TYPES.CANCELED.value,
-            ORDERSTATUS_TYPES.REJECTED.value,
+            ORDERSTATUS_TYPES.CANCELED,
+            ORDERSTATUS_TYPES.REJECTED,
         }
 
         pending = filled = cancelled = 0
@@ -584,7 +587,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
             total_volume += int(getattr(o, "volume", 0) or 0)
             total_fees += to_decimal(getattr(o, "fee", 0) or 0)
 
-            if status == ORDERSTATUS_TYPES.FILLED.value:
+            if status == ORDERSTATUS_TYPES.FILLED:
                 filled += 1
                 tv = int(getattr(o, "transaction_volume", 0) or 0)
                 filled_volume += tv

@@ -369,6 +369,37 @@ class TestOrderBusinessMethods:
         assert summary['total_fees'] == 0
 
     @pytest.mark.unit
+    def test_get_order_summary_non_empty_buckets(self, crud_instance):
+        """get_order_summary 非空时应按状态正确分桶（status 为枚举实例，模拟 find 经 _convert_output_items 转换后的真实形态）。关联 #6092"""
+        def mk(status, volume, tv=0, tp=0, fee=0):
+            o = MagicMock()
+            o.status = status
+            o.volume = volume
+            o.transaction_volume = tv
+            o.transaction_price = tp
+            o.fee = fee
+            return o
+
+        orders = [
+            mk(ORDERSTATUS_TYPES.NEW, volume=100, fee=1),       # pending
+            mk(ORDERSTATUS_TYPES.SUBMITTED, volume=200, fee=2),  # pending
+            mk(ORDERSTATUS_TYPES.FILLED, volume=300, tv=300, tp=10.5, fee=3),  # filled
+            mk(ORDERSTATUS_TYPES.CANCELED, volume=400, fee=4),   # cancelled
+            mk(ORDERSTATUS_TYPES.REJECTED, volume=500, fee=5),   # cancelled
+        ]
+        crud_instance.find = MagicMock(return_value=orders)
+
+        summary = crud_instance.get_order_summary("portfolio-001")
+
+        assert summary['total_orders'] == 5
+        assert summary['pending_orders'] == 2      # NEW + SUBMITTED
+        assert summary['filled_orders'] == 1
+        assert summary['cancelled_orders'] == 2    # CANCELED + REJECTED
+        assert summary['total_volume'] == 1500     # 100+200+300+400+500
+        assert summary['avg_price'] == 10.5        # 成交加权 (10.5*300)/300
+        assert summary['total_fees'] == 15         # 1+2+3+4+5
+
+    @pytest.mark.unit
     def test_count_by_portfolio(self, crud_instance):
         """count_by_portfolio 应调用 count 并传入正确的 filters"""
         crud_instance.count = MagicMock(return_value=5)
