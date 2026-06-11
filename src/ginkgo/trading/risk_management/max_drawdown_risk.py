@@ -20,6 +20,7 @@
 - 自动减仓机制
 """
 
+import copy
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
@@ -54,8 +55,22 @@ class MaxDrawdownRisk(BaseRiskManagement):
             max_drawdown(float): 最大允许回撤，百分比（例如：15.0表示15%）
             warning_drawdown(float): 预警回撤阈值，百分比
             critical_drawdown(float): 严重回撤阈值，百分比
+
+        Constraint:
+            critical_drawdown 必须 > max_drawdown。减仓分支仅在
+            max_drawdown < drawdown <= critical_drawdown 区间生效，
+            若 critical <= max 则该区间为空，参数无意义。
         """
         super().__init__(name, *args, **kwargs)
+
+        # 参数语义校验：critical 必须严格大于 max，否则减仓区间为空、减仓分支不可达
+        if critical_drawdown <= max_drawdown:
+            raise ValueError(
+                f"critical_drawdown({critical_drawdown}) must be strictly greater than "
+                f"max_drawdown({max_drawdown}); otherwise the reduction band "
+                f"(max_drawdown, critical_drawdown] is empty and reduction never triggers."
+            )
+
         self._max_drawdown = float(max_drawdown)
         self._warning_drawdown = float(warning_drawdown)
         self._critical_drawdown = float(critical_drawdown)
@@ -101,9 +116,14 @@ class MaxDrawdownRisk(BaseRiskManagement):
                 return None
             elif current_drawdown > self._max_drawdown:
                 # 超过最大回撤，减少开仓规模
-                reduction_factor = (self._critical_drawdown - current_drawdown) / (self._critical_drawdown - self._max_drawdown)
-                order.volume = int(order.volume * max(reduction_factor, 0.1))
+                # 分母 floor 防御 (#5486)：构造器已保证 critical>max 使分母恒正，此处为纵深保护
+                denominator = max(self._critical_drawdown - self._max_drawdown, 0.001)
+                reduction_factor = (self._critical_drawdown - current_drawdown) / denominator
+                # 返回副本而非原地修改 (#5495)：避免多风险链共享同一 order 引用导致过度缩减与状态污染
+                reduced_order = copy.deepcopy(order)
+                reduced_order.volume = int(reduced_order.volume * max(reduction_factor, 0.1))
                 GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
+                return reduced_order
 
         # 卖出订单允许通过（减仓）
         return order
