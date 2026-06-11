@@ -81,6 +81,13 @@ class TestMaxDrawdownRiskConstruction:
         assert r.warning_drawdown == 10.0
         assert r.critical_drawdown == 20.0
 
+    def test_constructor_rejects_critical_le_max(self):
+        """critical_drawdown 必须严格大于 max_drawdown，否则减仓区间(max<dd<=critical)无意义"""
+        with pytest.raises(ValueError):
+            MaxDrawdownRisk(max_drawdown=15, critical_drawdown=15)
+        with pytest.raises(ValueError):
+            MaxDrawdownRisk(max_drawdown=20, critical_drawdown=15)
+
 
 @pytest.mark.tdd
 @pytest.mark.risk
@@ -158,6 +165,35 @@ class TestMaxDrawdownRiskOrderProcessing:
         result = r.cal(info, order)
         if result is not None:
             assert isinstance(result.volume, int)
+
+    def test_reduction_returns_copy_original_order_unchanged(self):
+        """减仓时返回新 Order 副本，原 order 对象的 volume 保持不变（#5495）"""
+        r = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
+        r._portfolio_peak = Decimal("100000")
+        order = _make_order(volume=1000)
+        original_volume = order.volume
+        info = _make_portfolio_info(worth=85000)  # dd=15%, 落在(10,20]减仓区间
+        result = r.cal(info, order)
+        assert result is not None
+        assert result is not order  # 返回副本，非原对象
+        assert result.volume < original_volume  # 副本被缩减
+        assert order.volume == original_volume  # 原对象保持不变
+
+    def test_multi_risk_chain_does_not_mutate_original(self):
+        """多风险链串联：原 order 经历整条链后仍不变，后续 manager 拒绝时可回退（#5495）"""
+        r1 = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
+        r2 = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
+        r1._portfolio_peak = Decimal("100000")
+        r2._portfolio_peak = Decimal("100000")
+        order = _make_order(volume=1000)
+        original_volume = order.volume
+        info = _make_portfolio_info(worth=85000)  # dd=15%, 触发减仓
+        after_r1 = r1.cal(info, order)
+        after_r2 = r2.cal(info, after_r1)
+        # 原 order 在整条链后保持不变（后续若 reject 可安全回退）
+        assert order.volume == original_volume
+        assert after_r1 is not order
+        assert after_r1.volume < original_volume
 
 
 @pytest.mark.tdd
