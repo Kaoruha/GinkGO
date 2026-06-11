@@ -551,6 +551,61 @@ class OrderCRUD(BaseCRUD[MOrder]):
             filters["portfolio_id"] = portfolio_id
         return self.count(filters)
 
+    def get_order_summary(self, portfolio_id: str) -> Dict:
+        """
+        Business helper: 订单统计摘要。
+
+        #6080: RED 测试要求无订单时返回全零统计。
+
+        Returns:
+            Dict: total_orders / pending_orders / filled_orders / cancelled_orders /
+                  total_volume / avg_price / total_fees（无订单时全 0）。
+        """
+        orders = self.find({"portfolio_id": portfolio_id}) or []
+
+        pending_states = {
+            ORDERSTATUS_TYPES.NEW.value,
+            ORDERSTATUS_TYPES.SUBMITTED.value,
+            ORDERSTATUS_TYPES.PARTIAL_FILLED.value,
+        }
+        cancelled_states = {
+            ORDERSTATUS_TYPES.CANCELED.value,
+            ORDERSTATUS_TYPES.REJECTED.value,
+        }
+
+        pending = filled = cancelled = 0
+        total_volume = 0
+        filled_volume = 0
+        filled_value = to_decimal(0)
+        total_fees = to_decimal(0)
+
+        for o in orders:
+            status = getattr(o, "status", None)
+            total_volume += int(getattr(o, "volume", 0) or 0)
+            total_fees += to_decimal(getattr(o, "fee", 0) or 0)
+
+            if status == ORDERSTATUS_TYPES.FILLED.value:
+                filled += 1
+                tv = int(getattr(o, "transaction_volume", 0) or 0)
+                filled_volume += tv
+                filled_value += to_decimal(getattr(o, "transaction_price", 0) or 0) * tv
+            elif status in pending_states:
+                pending += 1
+            elif status in cancelled_states:
+                cancelled += 1
+
+        avg_price = float(filled_value) / filled_volume if filled_volume > 0 else 0
+
+        return {
+            "total_orders": len(orders),
+            "pending_orders": pending,
+            "filled_orders": filled,
+            "cancelled_orders": cancelled,
+            "total_volume": total_volume,
+            "avg_price": avg_price,
+            "total_fees": float(total_fees),
+        }
+
     def get_all_codes(self) -> List[str]:
         """
         Business helper: Get all distinct stock codes with orders.
