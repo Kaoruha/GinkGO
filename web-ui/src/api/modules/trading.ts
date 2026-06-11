@@ -124,7 +124,7 @@ export function getPaperAccount(accountId: string) {
     active_orders: Order[]
     today_trades: Order[]
   }>>({
-    url: `/v1/paper-trading/accounts/${accountId}`,
+    url: `/api/v1/paper-trading/accounts/${accountId}`,
     method: 'GET'
   })
 }
@@ -134,7 +134,7 @@ export function getPaperAccount(accountId: string) {
  */
 export function startPaperTrading(accountId: string, strategyIds: string[]) {
   return request<APIResponse<void>>({
-    url: `/v1/paper-trading/${accountId}/start`,
+    url: `/api/v1/paper-trading/${accountId}/start`,
     method: 'POST',
     data: { strategy_ids: strategyIds }
   })
@@ -145,7 +145,7 @@ export function startPaperTrading(accountId: string, strategyIds: string[]) {
  */
 export function stopPaperTrading(accountId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/paper-trading/${accountId}/stop`,
+    url: `/api/v1/paper-trading/${accountId}/stop`,
     method: 'POST'
   })
 }
@@ -155,7 +155,7 @@ export function stopPaperTrading(accountId: string) {
  */
 export function getPaperPositions(accountId: string) {
   return request<APIResponse<Position[]>>({
-    url: `/v1/paper-trading/${accountId}/positions`,
+    url: `/api/v1/paper-trading/${accountId}/positions`,
     method: 'GET'
   })
 }
@@ -165,7 +165,7 @@ export function getPaperPositions(accountId: string) {
  */
 export function getPaperOrders(accountId: string, status?: OrderStatus[]) {
   return request<APIResponse<Order[]>>({
-    url: `/v1/paper-trading/${accountId}/orders`,
+    url: `/api/v1/paper-trading/${accountId}/orders`,
     method: 'GET',
     params: { status }
   })
@@ -176,7 +176,7 @@ export function getPaperOrders(accountId: string, status?: OrderStatus[]) {
  */
 export function cancelPaperOrder(accountId: string, orderId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/paper-trading/${accountId}/orders/${orderId}`,
+    url: `/api/v1/paper-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
 }
@@ -192,7 +192,7 @@ export function getPaperReport(accountId: string, date: string) {
     trades_count: number
     positions_count: number
   }>>({
-    url: `/v1/paper-trading/${accountId}/report/daily`,
+    url: `/api/v1/paper-trading/${accountId}/report/daily`,
     method: 'GET',
     params: { date }
   })
@@ -215,7 +215,7 @@ export function getLiveAccounts() {
  */
 export function connectBroker(accountId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/live-trading/accounts/${accountId}/connect`,
+    url: `/api/v1/live-trading/accounts/${accountId}/connect`,
     method: 'POST'
   })
 }
@@ -225,7 +225,7 @@ export function connectBroker(accountId: string) {
  */
 export function disconnectBroker(accountId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/live-trading/accounts/${accountId}/disconnect`,
+    url: `/api/v1/live-trading/accounts/${accountId}/disconnect`,
     method: 'POST'
   })
 }
@@ -235,7 +235,7 @@ export function disconnectBroker(accountId: string) {
  */
 export function getLivePositions(accountId: string) {
   return request<APIResponse<Position[]>>({
-    url: `/v1/live-trading/${accountId}/positions`,
+    url: `/api/v1/live-trading/${accountId}/positions`,
     method: 'GET'
   })
 }
@@ -245,7 +245,7 @@ export function getLivePositions(accountId: string) {
  */
 export function getLiveActiveOrders(accountId: string) {
   return request<APIResponse<Order[]>>({
-    url: `/v1/live-trading/${accountId}/active-orders`,
+    url: `/api/v1/live-trading/${accountId}/active-orders`,
     method: 'GET'
   })
 }
@@ -255,7 +255,7 @@ export function getLiveActiveOrders(accountId: string) {
  */
 export function cancelLiveOrder(accountId: string, orderId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/live-trading/${accountId}/orders/${orderId}`,
+    url: `/api/v1/live-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
 }
@@ -271,7 +271,7 @@ export function getLiveCapital(accountId: string) {
     frozen_cash: number
     today_pnl: number
   }>>({
-    url: `/v1/live-trading/${accountId}/capital`,
+    url: `/api/v1/live-trading/${accountId}/capital`,
     method: 'GET'
   })
 }
@@ -281,7 +281,7 @@ export function getLiveCapital(accountId: string) {
  */
 export function getRiskStatus(accountId: string) {
   return request<APIResponse<RiskStatus>>({
-    url: `/v1/live-trading/${accountId}/risk/status`,
+    url: `/api/v1/live-trading/${accountId}/risk/status`,
     method: 'GET'
   })
 }
@@ -291,7 +291,7 @@ export function getRiskStatus(accountId: string) {
  */
 export function triggerCircuitBreaker(accountId: string) {
   return request<APIResponse<void>>({
-    url: `/v1/live-trading/${accountId}/risk/circuit-breaker`,
+    url: `/api/v1/live-trading/${accountId}/risk/circuit-breaker`,
     method: 'POST'
   })
 }
