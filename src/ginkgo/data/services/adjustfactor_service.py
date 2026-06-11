@@ -125,11 +125,11 @@ class AdjustfactorService(BaseService):
 
             for i, model in enumerate(adjustfactor_models):
                 try:
-                    # Check if record exists
+                    # Check if record exists. 真实模型唯一键为 (code, timestamp)，
+                    # 不存在 adjust_type 维度（前/后复权是同一行的不同列）。
                     existing_filters = {
                         'code': model.code,
                         'timestamp': model.timestamp,
-                        'adjust_type': model.adjust_type
                     }
 
                     if self._crud_repo and self._crud_repo.exists(filters=existing_filters):
@@ -228,12 +228,15 @@ class AdjustfactorService(BaseService):
         Returns:
             pd.DataFrame: 包含复权因子数据
         """
-        # This would integrate with actual data source (e.g., Tushare, etc.)
-        # For now, return empty DataFrame to be implemented
-        if hasattr(self._data_source, 'get_adjustfactor_data'):
-            return self._data_source.get_adjustfactor_data(code, start_date, end_date)
-        else:
-            raise NotImplementedError("Adjustfactor data source not implemented")
+        # 数据源方法名不统一：Tushare 暴露 fetch_cn_stock_adjustfactor，tdx 暴露 fetch_adjustfactor。
+        # 按优先级探测首个可用方法。#5909 根因A：旧代码探测不存在的 get_adjustfactor_data，
+        # 而真实源只有 fetch_cn_stock_adjustfactor → 永远 NotImplementedError → 永远落不了库。
+        for method_name in ("fetch_cn_stock_adjustfactor", "fetch_adjustfactor", "get_adjustfactor_data"):
+            method = getattr(self._data_source, method_name, None)
+            if method is None:
+                continue
+            return method(code, start_date, end_date)
+        raise NotImplementedError("Adjustfactor data source not implemented")
 
     def _convert_to_adjustfactor_models(self, raw_data: pd.DataFrame, code: str) -> List[Any]:
         """
@@ -246,20 +249,64 @@ class AdjustfactorService(BaseService):
         Returns:
             List[Any]: Adjustment factor model objects list
         """
-        from ginkgo.data.models.madjustfactor import MAdjustFactor
+        # #5909 根因A2：旧 import 的模块 madjustfactor(类 MAdjustFactor) 根本不存在 → ImportError。
+        # 真实模型在 model_adjustfactor.MAdjustfactor，字段为 code/foreadjustfactor/backadjustfactor/adjustfactor。
+        from ginkgo.data.models.model_adjustfactor import MAdjustfactor
 
+        df = raw_data.copy()
+
+        # 日期列：Tushare 给 trade_date(YYYYMMDD)，Baostock/本库给 timestamp
+        if "trade_date" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["trade_date"], format="%Y%m%d", errors="coerce")
+        elif "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+        # 原始复权因子列：Tushare adj_factor / 本库 adjustfactor
+        if "adj_factor" in df.columns:
+            raw_col = "adj_factor"
+        elif "adjustfactor" in df.columns:
+            raw_col = "adjustfactor"
+        else:
+            raw_col = None
+
+        # 按日期升序，供 fore/back 推导（与 calculate() 同约定）
+        df = df.sort_values("timestamp").reset_index(drop=True)
+
+        # 仅当源只给原始因子时，按 calculate() 约定推导前/后复权：
+        #   fore = latest / raw ；back = raw / earliest
+        # 源若直接给 fore/back 列（如 Baostock），下方用源值覆盖，避免被推导值盖掉。
+        if raw_col is not None and len(df) > 0:
+            raws = df[raw_col].astype(float)
+            latest = float(raws.iloc[-1])
+            earliest = float(raws.iloc[0])
+            df["_fore"] = latest / raws
+            df["_back"] = raws / earliest
+
+        if "foreadjustfactor" not in df.columns:
+            df["foreadjustfactor"] = df.get("_fore")
+        if "backadjustfactor" not in df.columns:
+            df["backadjustfactor"] = df.get("_back")
+
+        # #5909 根因A3：旧代码读 timestamp/adjust_type/adjust_factor/before_price 等列，
+        # 全部错位 → 每行 KeyError 被 except 吞掉 → 返回空 models → 落库 0 条。
         models = []
-        for _, row in raw_data.iterrows():
+        for _, row in df.iterrows():
             try:
-                model = MAdjustFactor()
+                model = MAdjustfactor()
                 model.code = code
-                model.timestamp = datetime_normalize(row['timestamp'])
-                model.adjust_type = row.get('adjust_type', 'fore')  # Default to fore adjustment
-                model.adjust_factor = to_decimal(row.get('adjust_factor', 1.0))
-                model.before_price = to_decimal(row.get('before_price', 0))
-                model.after_price = to_decimal(row.get('after_price', 0))
-                model.dividend = to_decimal(row.get('dividend', 0))
-                model.split_ratio = to_decimal(row.get('split_ratio', 1.0))
+                ts = row.get("timestamp")
+                model.timestamp = datetime_normalize(ts) if (ts is not None and pd.notna(ts)) else None
+
+                raw_val = row.get(raw_col) if raw_col else row.get("adjustfactor")
+                if raw_val is None:
+                    raw_val = 1.0
+
+                fore = row.get("foreadjustfactor")
+                back = row.get("backadjustfactor")
+                # 三列均 nullable=False，缺失则回退原始因子，保证落库不违约
+                model.adjustfactor = to_decimal(raw_val)
+                model.foreadjustfactor = to_decimal(fore if (fore is not None and pd.notna(fore)) else raw_val)
+                model.backadjustfactor = to_decimal(back if (back is not None and pd.notna(back)) else raw_val)
                 models.append(model)
             except Exception as e:
                 self._logger.WARN(f"Failed to convert adjustfactor row to model: {e}")
@@ -521,7 +568,9 @@ class AdjustfactorService(BaseService):
         for i, code in enumerate(codes):
             try:
                 result = self.sync(code=code, start_date=start_date, end_date=end_date, fast_mode=fast_mode)
-                sync_results.append(result.data if result.success else result)
+                # 始终收集 DataSyncResult（result.data 即是），让失败 code 的 records_failed
+                # 也进入统计；旧代码失败时收集的是 ServiceResult 本身，无 records_* 属性 → 被求和忽略。
+                sync_results.append(result.data if result.data is not None else result)
             except Exception as e:
                 error_result = DataSyncResult.create_for_entity(
                     entity_type="adjustfactors",
@@ -539,13 +588,25 @@ class AdjustfactorService(BaseService):
         total_records_updated = sum(r.records_updated for r in sync_results if hasattr(r, 'records_updated'))
         total_records_failed = sum(r.records_failed for r in sync_results if hasattr(r, 'records_failed'))
 
+        # #5909 根因B：旧代码无条件 success=True，吞掉全部逐 code 失败 → handler 误报 200。
+        # 诚实规则：请求了 code 却一条都没落库（added+updated==0）即视为失败，
+        # 让 handler/history 诚实报错；空 code 列表不算错误。
+        any_persisted = (total_records_added + total_records_updated) > 0
+        batch_success = (total_codes == 0) or any_persisted
+        if batch_success:
+            message = f"Batch adjustfactor sync completed: {total_records_added} added, {total_records_updated} updated, {total_records_failed} failed"
+        else:
+            message = f"Batch adjustfactor sync failed: 0 records persisted across {total_codes} codes ({total_records_failed} failed)"
+
         batch_result = ServiceResult(
-            success=True,
-            message=f"Batch adjustfactor sync completed: {total_records_added} added, {total_records_updated} updated, {total_records_failed} failed",
+            success=batch_success,
+            message=message,
             data=sync_results
         )
         batch_result.set_metadata("total_codes", total_codes)
         batch_result.set_metadata("total_records_processed", total_records_processed)
+        batch_result.set_metadata("total_records_added", total_records_added)
+        batch_result.set_metadata("total_records_failed", total_records_failed)
         batch_result.set_metadata("batch_duration", time.time() - start_time)
 
         return batch_result
