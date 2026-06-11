@@ -621,14 +621,16 @@ async def sync_data(request: DataUpdateRequest):
                 message=f"Ticks update completed for {len(codes)} codes"
             )
 
-        elif request.type == "adjustfactor":
+        elif request.type in ("adjustfactor", "adjustfactors"):
+            # #5868: GET 端点用复数 /adjustfactors，sync type 接受单复数双别名，归一化为单数
+            sync_type = "adjustfactor"
             codes = request.codes or []
             if not codes:
                 raise HTTPException(status_code=400, detail="Codes are required for adjust factors update")
 
             adjustfactor_service = get_adjustfactor_service()
             # 批量同步复权因子，整体记录
-            rec = sync_svc.record_start(sync_type="adjustfactor", code=",".join(codes))
+            rec = sync_svc.record_start(sync_type=sync_type, code=",".join(codes))
             started_at = _time.time()
             try:
                 result = adjustfactor_service.sync_batch(codes)
