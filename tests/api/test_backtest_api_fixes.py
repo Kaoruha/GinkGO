@@ -232,9 +232,15 @@ class TestAnalyzerCatalog:
 class TestPaperTradingStatus:
     """Paper Trading status 应从实际状态查询，不应硬编码"""
 
-    def test_account_status_queries_redis(self):
-        """list_paper_accounts 应从 Redis/Worker 查询 status，而非硬编码 stopped"""
+    def test_account_status_reflects_db_state(self):
+        """list_paper_accounts 的 status 应反映 DB portfolio.state，而非硬编码 stopped
+
+        #5392 #5401: 早期 _get_pt_status 读死 Redis 导致永远 stopped；现由
+        _map_pt_status 读 portfolio.state 映射。此处通过给 mock portfolio 设
+        RUNNING 状态，验证端点正确产出 'running'。
+        """
         from api.trading import list_paper_accounts
+        from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
 
         mock_portfolio = MagicMock()
         mock_portfolio.uuid = "pt-1"
@@ -242,6 +248,8 @@ class TestPaperTradingStatus:
         mock_portfolio.initial_capital = 100000
         mock_portfolio.cash = 95000
         mock_portfolio.create_at = None
+        # worker deploy 时写入的运行状态；_map_pt_status 据此映射
+        mock_portfolio.state = PORTFOLIO_RUNSTATE_TYPES.RUNNING
 
         mock_svc = MagicMock()
         result_mock = MagicMock()
@@ -249,14 +257,12 @@ class TestPaperTradingStatus:
         result_mock.data = [mock_portfolio]
         mock_svc.get.return_value = result_mock
 
-        with patch("api.trading._get_portfolio_service", return_value=mock_svc), \
-             patch("api.trading._get_pt_status") as mock_status:
-            mock_status.return_value = "running"
+        with patch("api.trading._get_portfolio_service", return_value=mock_svc):
             result = run_async(list_paper_accounts())
 
         accounts = result["data"]
         assert len(accounts) == 1
-        # status 不应是硬编码的 "stopped"
+        # status 不应是硬编码的 "stopped"，应反映 RUNNING
         assert accounts[0]["status"] == "running"
 
 

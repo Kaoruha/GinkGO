@@ -63,25 +63,39 @@ def _get_portfolio_service():
     return container.portfolio_service()
 
 
-async def _get_pt_status(account_id: str) -> str:
-    """查询模拟盘账户实际运行状态
+def _map_pt_status(portfolio) -> str:
+    """根据 DB portfolio.state 返回前端账户状态字符串。
 
-    优先从 Redis 缓存查询 Worker 上报的状态，
-    如果无法获取则返回 'stopped'。
+    Paper account 即 mode=PAPER 的 Portfolio，运行状态由 Worker 在
+    deploy/unload 时写入 portfolio.state（RUNNING/STOPPED/...）。
 
-    TODO: Paper Trading Worker 需要在启动/停止时写入 Redis key
-          `pt:status:{account_id}`，当前无生产者，始终走 fallback。
+    #5392 #5401: 早期实现 _get_pt_status 读 Redis key pt:status:{id}，但该
+    key 从无生产者写入，导致状态永远 fallback 为 "stopped"。改为直接读已持有的
+    portfolio.state（list/detail 端点均已持有 portfolio 对象，无需额外查询）。
     """
-    try:
-        from core.redis_client import get_redis
-        redis = await get_redis()
-        if redis:
-            status = await redis.get(f"pt:status:{account_id}")
-            if status:
-                return status if isinstance(status, str) else status.decode()
-    except Exception:
-        pass
-    return "stopped"
+    from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+    state = getattr(portfolio, "state", None)
+
+    # 规范化：DB 枚举字段可能以裸 int 返回（参考 _map_order_status）
+    if isinstance(state, int) and not hasattr(state, 'value'):
+        try:
+            state = PORTFOLIO_RUNSTATE_TYPES(state)
+        except ValueError:
+            return "error"
+
+    return {
+        # 运行中（含过渡态：暂停/停止中/重载/迁移，账户仍在 worker 内）
+        PORTFOLIO_RUNSTATE_TYPES.RUNNING: "running",
+        PORTFOLIO_RUNSTATE_TYPES.PAUSED: "running",
+        PORTFOLIO_RUNSTATE_TYPES.STOPPING: "running",
+        PORTFOLIO_RUNSTATE_TYPES.RELOADING: "running",
+        PORTFOLIO_RUNSTATE_TYPES.MIGRATING: "running",
+        # 未运行
+        PORTFOLIO_RUNSTATE_TYPES.VOID: "stopped",
+        PORTFOLIO_RUNSTATE_TYPES.INITIALIZED: "stopped",
+        PORTFOLIO_RUNSTATE_TYPES.STOPPED: "stopped",
+        PORTFOLIO_RUNSTATE_TYPES.OFFLINE: "stopped",
+    }.get(state, "error")
 
 
 def _get_result_service():
@@ -171,7 +185,7 @@ async def list_paper_accounts():
                 "total_asset": cash,   # TODO: 现金 + 持仓市值
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": await _get_pt_status(p.uuid),
+                "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
             })
 
@@ -261,7 +275,7 @@ async def get_paper_account(account_id: str):
                 "total_asset": cash,
                 "today_pnl": 0,
                 "total_pnl": 0,
-                "status": await _get_pt_status(account_id),
+                "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
                 "positions": positions,
                 "active_orders": orders,
@@ -285,7 +299,7 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
         # 验证 portfolio 存在
-        _require_portfolio(account_id)
+        portfolio = _require_portfolio(account_id)
 
         # 发送 Kafka deploy 命令
         producer = _get_kafka_producer()
@@ -297,9 +311,11 @@ async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = 
 
         logger.info(f"Start paper trading command sent for {account_id}")
 
+        # #5401: 即发即忘——Kafka 命令已投递，但 worker 异步处理，状态不会立即变
+        # RUNNING。返回当前真实状态 + 诚实消息，避免前端误以为已启动。
         return ok(
-            data={"success": True},
-            message="Paper trading start command sent"
+            data={"success": True, "current_status": _map_pt_status(portfolio)},
+            message="Deploy command sent. Worker starts asynchronously; status will update shortly."
         )
 
     except NotFoundError:
