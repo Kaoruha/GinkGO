@@ -114,7 +114,8 @@ class PositionRatioRisk(BaseRiskManagement):
 
         if execution_price <= 0:
             GLOG.WARN(f"PositionRatioRisk: Invalid execution price {execution_price} for {order.code}, order type: {order.order_type}, limit_price: {order.limit_price}")
-            return order
+            # fail-closed: 无法定价则拒绝，不让未风控订单漏网 (#6080)
+            return None
 
         # 计算订单执行后的预期持仓价值
         order_value = to_decimal(order.volume) * execution_price
