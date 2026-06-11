@@ -79,8 +79,15 @@ class TestSegmentStability:
         records = _make_net_value_records("2024-01-02", daily_returns, task_id="test-task")
         mock_get_records.return_value = records
 
-        svc = ValidationService.__new__(ValidationService)
-        result = svc.segment_stability(task_id="test-task", portfolio_id="pf-001", n_segments_list=[2, 4])
+        # fix(#5756): 用真 __init__ 构造；analyzer_crud 的全量查询(L257)也返回同一批记录；
+        # records 全是 net_value，故 metrics 取 ["net_value"] 使数据自洽
+        mock_crud = MagicMock()
+        mock_crud.get_by_task_id.return_value = records
+        svc = ValidationService(analyzer_record_crud=mock_crud, validation_result_crud=None)
+        result = svc.segment_stability(
+            task_id="test-task", portfolio_id="pf-001",
+            n_segments_list=[2, 4], metrics=["net_value"],
+        )
 
         assert result.is_success()
         data = result.data
@@ -101,7 +108,8 @@ class TestMonteCarlo:
         records = _make_net_value_records("2024-01-02", daily_returns, task_id="test-task")
         mock_get_records.return_value = records
 
-        svc = ValidationService.__new__(ValidationService)
+        # fix(#5756): 用真 __init__ 构造，_result_crud=None 跳过持久化分支
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
         result = svc.monte_carlo(
             task_id="test-task",
             portfolio_id="pf-001",
@@ -118,6 +126,52 @@ class TestMonteCarlo:
         assert "loss_probability" in data
         assert 0 <= data["percentile"] <= 100
         assert data["loss_probability"] >= 0
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_monte_carlo_flat_equity_returns_error(self, mock_get_records):
+        """fix(#5756): 净值无波动（收益率恒定）时，应返回明确错误，而非全零伪结果"""
+        from ginkgo.data.services.validation_service import ValidationService
+        # 恒定净值（如无交易回测）→ 收益率全零
+        records = _make_net_value_records("2024-01-02", [0.0] * 100, task_id="test-task")
+        mock_get_records.return_value = records
+
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.monte_carlo(
+            task_id="test-task",
+            portfolio_id="pf-001",
+            n_simulations=1000,
+            confidence=0.95,
+        )
+
+        # 关键：不能返回"成功 + 全零"——那是误导用户的风险体检结果
+        assert not result.is_success()
+        assert result.error  # 必须有明确错误信息
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_monte_carlo_volatile_produces_meaningful_distribution(self, mock_get_records):
+        """fix(#5756): 波动净值必须产出非零 VaR/CVaR 且分布跨多 bin（非全零/单 bin 退化）"""
+        from ginkgo.data.services.validation_service import ValidationService
+        np.random.seed(42)  # 稳定 bootstrap 抽样，保证断言可复现
+        daily_returns = [0.005] * 50 + [-0.003] * 50
+        records = _make_net_value_records("2024-01-02", daily_returns, task_id="test-task")
+        mock_get_records.return_value = records
+
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.monte_carlo(
+            task_id="test-task",
+            portfolio_id="pf-001",
+            n_simulations=1000,
+            confidence=0.95,
+        )
+
+        assert result.is_success()
+        data = result.data
+        # 波动数据 → VaR/CVaR 必须非零（全零即 #5756 退化）；CVaR ≤ VaR 恒成立
+        assert data["var"] != 0
+        assert data["cvar"] <= data["var"]
+        # 1000 次模拟应分散到多个 bin，不能塌成单 bin（=模拟全相同）
+        counts = data["distribution"]["counts"]
+        assert sum(1 for c in counts if c > 0) > 1
 
     def test_monte_carlo_var_cvar(self):
         """VaR 应小于 CVaR（绝对值）"""

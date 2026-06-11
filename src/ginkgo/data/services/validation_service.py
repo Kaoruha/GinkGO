@@ -372,6 +372,15 @@ class ValidationService(BaseService):
                 return ServiceResult.error("数据不足：net_value 记录少于 10 条")
 
             returns = self._records_to_returns(records)
+
+            # fix(#5756): 收益率恒定（净值无波动，如无交易回测）时 bootstrap 退化，
+            # 所有模拟结果相同 → VaR/CVaR/loss_probability 全零、分布塌成单 bin，
+            # 伪装成有效结果会误导风险分析。应明确报错而非吐零。
+            if float(np.std(returns)) == 0.0:
+                return ServiceResult.error(
+                    "净值曲线无波动（日收益率恒定），蒙特卡洛模拟无意义；请确认回测是否产生了实际交易"
+                )
+
             actual_return = float(np.prod(1 + returns) - 1)
 
             # Bootstrap：有放回抽样
