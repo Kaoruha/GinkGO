@@ -84,3 +84,28 @@ class TestSyncDataAdjustfactorAlias:
             run_async(sync_data(request))
 
         mock_svc.sync_batch.assert_called_once_with(["000001.SZ"])
+
+    @pytest.mark.unit
+    def test_sync_success_chains_calculate_per_code(self):
+        """收敛：API sync 成功后应衔接 calculate（与 task_timer/worker 主力路径对齐）
+
+        sync 只落原始 adjustfactor，fore/back 占位 1.0，需 calculate 推导覆盖。
+        当前 handler 仅 sync_batch 不调 calculate → 本测试红。
+        """
+        from api.data import sync_data, DataUpdateRequest
+
+        mock_svc = MagicMock()
+        mock_svc.sync_batch.return_value = make_ok_result()
+        mock_svc.calculate.return_value = make_ok_result()
+
+        request = DataUpdateRequest(type="adjustfactor", codes=["000001.SZ", "000002.SZ"])
+
+        with patch("api.data.get_adjustfactor_service", return_value=mock_svc), \
+                patch("api.data.get_sync_record_service", return_value=make_sync_record_mock()):
+            run_async(sync_data(request))
+
+        mock_svc.sync_batch.assert_called_once_with(["000001.SZ", "000002.SZ"])
+        # sync 成功后，每个 code 都应衔接 calculate 推导 fore/back
+        assert mock_svc.calculate.call_count == 2
+        called_codes = {call.args[0] for call in mock_svc.calculate.call_args_list}
+        assert called_codes == {"000001.SZ", "000002.SZ"}

@@ -128,6 +128,41 @@ class TestAdjustfactorServiceSync:
         assert result.success is True
         assert result.data.records_added == 1
 
+    @pytest.mark.unit
+    def test_sync_models_keep_raw_factor_placeholder_foreback(self, service, mock_deps):
+        """收敛契约：sync 入库只存原始 adjustfactor，fore/back 占位 1.0（交 calculate 推导）
+
+        前后复权推导是 calculate() 的职责（task_timer/worker 在 sync 后立即调 calculate
+        覆盖 fore/back）。sync 内推导属冗余的第三套逻辑，会与 calculate 漂移。
+        多行数据下旧 _convert 推导 fore=latest/raw(≠1.0) → 本测试红；
+        收敛为复用 mappers（fore/back 恒 1.0）后 → 本测试绿。
+        """
+        from decimal import Decimal
+
+        mock_deps["stockinfo_service"].exists.return_value = True
+        mock_deps["crud_repo"].find.return_value = []
+        mock_deps["crud_repo"].exists.return_value = False     # 走 add 分支
+        df = pd.DataFrame({
+            "trade_date": ["20240101", "20240102"],
+            "adj_factor": [1.5, 3.0],
+        })
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.return_value = df
+
+        result = service.sync(code="000001.SZ")
+
+        assert result.success is True
+        added = [call.args[0] for call in mock_deps["crud_repo"].add.call_args_list]
+        assert len(added) == 2
+        raw_expected = {Decimal("1.5"), Decimal("3.0")}
+        for m in added:
+            # adjustfactor 保留原始因子
+            assert m.adjustfactor in raw_expected
+            # fore/back 占位 1.0，交 calculate 推导
+            assert m.foreadjustfactor == Decimal("1.0"), \
+                f"foreadjustfactor 应占位 1.0（交 calculate），实际 {m.foreadjustfactor}"
+            assert m.backadjustfactor == Decimal("1.0"), \
+                f"backadjustfactor 应占位 1.0（交 calculate），实际 {m.backadjustfactor}"
+
 
 # ============================================================
 # get 方法测试
