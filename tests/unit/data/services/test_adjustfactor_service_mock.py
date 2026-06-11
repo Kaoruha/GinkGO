@@ -88,7 +88,7 @@ class TestAdjustfactorServiceSync:
         """数据源返回空数据时返回成功，提示无新数据"""
         mock_deps["stockinfo_service"].exists.return_value = True
         mock_deps["crud_repo"].find.return_value = []
-        mock_deps["data_source"].get_adjustfactor_data.return_value = pd.DataFrame()
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.return_value = pd.DataFrame()
 
         result = service.sync(code="000001.SZ")
 
@@ -100,12 +100,33 @@ class TestAdjustfactorServiceSync:
         """数据源抛出异常时返回失败"""
         mock_deps["stockinfo_service"].exists.return_value = True
         mock_deps["crud_repo"].find.return_value = []
-        mock_deps["data_source"].get_adjustfactor_data.side_effect = Exception("网络超时")
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.side_effect = Exception("网络超时")
 
         result = service.sync(code="000001.SZ")
 
         assert result.success is False
         assert "Failed to fetch data from source" in result.message
+
+    @pytest.mark.unit
+    def test_sync_fetches_and_persists_via_real_source_method(self, service, mock_deps):
+        """sync 应通过真实方法 fetch_cn_stock_adjustfactor 拉数据并落库 (#5909 根因A/A2/A3)
+
+        真实数据源（Tushare/Baostock）只提供 fetch_cn_stock_adjustfactor，旧代码调
+        不存在的 get_adjustfactor_data → 永远 NotImplementedError → 永远落不了库。
+        """
+        mock_deps["stockinfo_service"].exists.return_value = True
+        mock_deps["crud_repo"].find.return_value = []          # _get_fetch_start_date 走默认窗口
+        mock_deps["crud_repo"].exists.return_value = False     # 记录不存在 → 走 add 分支
+        df = pd.DataFrame({"trade_date": ["20240101"], "adj_factor": [1.5]})
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.return_value = df
+
+        result = service.sync(code="000001.SZ")
+
+        # 必须调真实方法（而非 get_adjustfactor_data）
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.assert_called_once()
+        # 数据成功落库：success + added=1
+        assert result.success is True
+        assert result.data.records_added == 1
 
 
 # ============================================================
@@ -285,3 +306,51 @@ class TestAdjustfactorServiceCalculate:
 
         assert result.success is False
         assert "复权因子计算失败" in result.message
+
+
+# ============================================================
+# sync_batch 方法测试
+# ============================================================
+
+
+class TestAdjustfactorServiceSyncBatch:
+    """sync_batch 批量同步方法测试（#5909 根因B：诚实传播失败）"""
+
+    @pytest.mark.unit
+    def test_sync_batch_propagates_failure_when_all_codes_fail(self, service, mock_deps):
+        """所有 code 拉取都失败时，sync_batch 必须 success=False
+
+        旧代码 L589 无条件 success=True，吞掉逐 code 失败 → handler 误报 200，
+        history 写 0，无数据落库。这正是 #5909 "返回成功但无效果" 的根因。
+        """
+        mock_deps["stockinfo_service"].exists.return_value = True
+        mock_deps["crud_repo"].find.return_value = []
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.side_effect = Exception("source down")
+
+        result = service.sync_batch(codes=["000001.SZ", "000002.SZ"])
+
+        assert result.success is False
+        assert result.metadata["total_codes"] == 2
+
+    @pytest.mark.unit
+    def test_sync_batch_success_when_at_least_one_code_persists(self, service, mock_deps):
+        """至少一个 code 成功落库时，sync_batch success=True（允许部分失败）"""
+        mock_deps["stockinfo_service"].exists.return_value = True
+        mock_deps["crud_repo"].find.return_value = []
+        mock_deps["crud_repo"].exists.return_value = False
+        df = pd.DataFrame({"trade_date": ["20240101"], "adj_factor": [1.5]})
+
+        # 逐 code 返回不同结果：第一个正常，第二个抛错
+        mock_deps["data_source"].fetch_cn_stock_adjustfactor.side_effect = [df, Exception("boom")]
+
+        result = service.sync_batch(codes=["000001.SZ", "000002.SZ"])
+
+        assert result.success is True
+
+    @pytest.mark.unit
+    def test_sync_batch_empty_codes_returns_success(self, service, mock_deps):
+        """空 code 列表不算错误，返回 success=True"""
+        result = service.sync_batch(codes=[])
+
+        assert result.success is True
+        assert result.metadata["total_codes"] == 0
