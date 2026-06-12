@@ -121,6 +121,7 @@ class EngineAssemblyService(BaseService):
         engine_service=None,
         portfolio_service=None,
         file_service=None,
+        param_service=None,
         analyzer_record_crud=None,
         config_manager=None,
     ):
@@ -137,6 +138,7 @@ class EngineAssemblyService(BaseService):
         self._engine_service = engine_service
         self._portfolio_service = portfolio_service
         self._file_service = file_service
+        self._param_service = param_service
         self._analyzer_record_crud = analyzer_record_crud
         self._logger = GLOG
 
@@ -148,7 +150,7 @@ class EngineAssemblyService(BaseService):
         self.config_manager = config_manager
 
         # 初始化子模块
-        self._component_loader = ComponentLoader(file_service=file_service, logger=self._logger)
+        self._component_loader = ComponentLoader(file_service=file_service, param_service=param_service, logger=self._logger)
         self._task_engine_builder = TaskEngineBuilder(
             file_service=file_service,
             portfolio_service=portfolio_service,
