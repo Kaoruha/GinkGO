@@ -32,30 +32,51 @@ def resolve_param_kwargs(
     if not component_params or not param_indices:
         return {}
 
+    def _score_mapping(mapped_kwargs: Dict[str, Any], source_indices: List[int]) -> tuple[int, int, int]:
+        """给候选映射打分，优先保留业务参数映射更完整、索引起点更合理的方案。"""
+        mapped_count = len(mapped_kwargs)
+        if not source_indices:
+            return (mapped_count, 0, 0)
+
+        min_index = min(source_indices)
+        # 更偏向 0 起始的新索引；旧索引在平分时由调用方显式选择
+        zero_based_bonus = 1 if min_index == 0 else 0
+        contiguous_bonus = 1 if source_indices == list(range(min_index, min_index + len(source_indices))) else 0
+        return (mapped_count, zero_based_bonus, contiguous_bonus)
+
     # 第一轮：直接匹配（新组合）
     kwargs: Dict[str, Any] = {}
-    mapped = 0
     for i, val in enumerate(component_params):
         orig_idx = param_indices[i]
         if orig_idx in param_names:
             kwargs[param_names[orig_idx]] = val
-            mapped += 1
 
-    if mapped == len(component_params):
+    if len(kwargs) == len(component_params) and (not param_indices or min(param_indices) == 0):
         return kwargs
 
     # 第二轮：旧组合，索引整体偏移 -1（name 曾在 index 0）
     shifted: Dict[str, Any] = {}
-    shifted_mapped = 0
+    shifted_indices: List[int] = []
     for i, val in enumerate(component_params):
         orig_idx = param_indices[i]
         shifted_idx = orig_idx - 1
         if shifted_idx >= 0 and shifted_idx in param_names:
             shifted[param_names[shifted_idx]] = val
-            shifted_mapped += 1
+            shifted_indices.append(shifted_idx)
 
-    # 选择匹配更多的方案
-    if shifted_mapped > mapped:
+    direct_score = _score_mapping(kwargs, param_indices)
+    shifted_score = _score_mapping(shifted, shifted_indices)
+
+    # 平分时优先旧索引兼容方案，避免 [1,2] 被误解释为第二、第三个业务参数
+    if shifted_score[0] > direct_score[0]:
+        return shifted
+    if (
+        shifted_score[0] == direct_score[0]
+        and shifted
+        and param_indices
+        and len(component_params) > 1
+        and min(param_indices) > 0
+    ):
         return shifted
 
     return kwargs

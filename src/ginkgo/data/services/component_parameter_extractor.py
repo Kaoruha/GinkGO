@@ -167,6 +167,11 @@ class ComponentParameterExtractor:
 
         return {}
 
+    @staticmethod
+    def _normalize_component_name(name: str) -> str:
+        """统一类名/文件名比较，兼容 snake_case 与 CamelCase。"""
+        return "".join(ch for ch in str(name).lower() if ch.isalnum())
+
     def _extract_from_file(self, file_path: str, component_name: str) -> Dict[int, str]:
         """从Python文件中提取参数信息"""
         try:
@@ -201,7 +206,7 @@ class ComponentParameterExtractor:
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
                 if (inspect.isclass(attr) and
-                    component_name.lower().replace('_', '') in attr_name.lower().replace('_', '')):
+                    self._normalize_component_name(component_name) in self._normalize_component_name(attr_name)):
                     component_class = attr
                     break
 
@@ -251,7 +256,9 @@ class ComponentParameterExtractor:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     class_name = node.name.lower()
-                    if (component_name.lower() in class_name or
+                    normalized_class_name = self._normalize_component_name(node.name)
+                    normalized_component_name = self._normalize_component_name(component_name)
+                    if (normalized_component_name in normalized_class_name or
                         any(keyword in class_name for keyword in
                            ['strategy', 'selector', 'sizer', 'risk', 'analyzer'])):
                         component_class = node
@@ -305,7 +312,9 @@ class ComponentParameterExtractor:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     class_name = node.name.lower()
-                    if (component_name.lower() in class_name or
+                    normalized_class_name = self._normalize_component_name(node.name)
+                    normalized_component_name = self._normalize_component_name(component_name)
+                    if (normalized_component_name in normalized_class_name or
                         any(keyword in class_name for keyword in
                            ['strategy', 'selector', 'sizer', 'risk', 'analyzer'])):
                         component_class = node
@@ -420,10 +429,12 @@ class ComponentParameterExtractor:
 
     @staticmethod
     def _find_component_class(tree: ast.AST, component_name: str) -> Optional[ast.ClassDef]:
+        normalized_component_name = ComponentParameterExtractor._normalize_component_name(component_name)
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 class_name = node.name.lower()
-                if (component_name.lower() in class_name or
+                normalized_class_name = ComponentParameterExtractor._normalize_component_name(node.name)
+                if (normalized_component_name in normalized_class_name or
                     any(kw in class_name for kw in ['strategy', 'selector', 'sizer', 'risk', 'analyzer'])):
                     return node
         return None
