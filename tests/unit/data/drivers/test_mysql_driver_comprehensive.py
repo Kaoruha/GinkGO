@@ -492,3 +492,28 @@ class TestMySQLDriverErrorHandling:
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs['pool_pre_ping'] is True
         assert call_kwargs['pool_recycle'] == 3600
+
+
+@pytest.mark.unit
+@pytest.mark.database
+class TestMySQLStreamingCursorConfig:
+    """流式引擎游标配置 (#5502)
+
+    cursorclass 必须是类引用。传字符串名时，pymysql 在构造期静默接受，
+    直到真实流式查询执行 cursor 才抛 TypeError —— 缺陷会潜伏到生产。
+    """
+
+    def test_streaming_cursorclass_is_sscursor_class_reference(self):
+        """流式引擎 connect_args.cursorclass 应为 SSCursor 类本身，而非字符串名"""
+        import pymysql.cursors
+
+        mock_engine = Mock()
+        with patch(
+            "ginkgo.data.drivers.ginkgo_mysql.create_engine", return_value=mock_engine
+        ) as mock_create:
+            with patch.object(GinkgoMysql, "_create_engine", return_value=Mock()):
+                driver = GinkgoMysql("user", "pwd", "localhost", "3306", "testdb")
+            driver._create_streaming_engine()
+
+        connect_args = mock_create.call_args.kwargs["connect_args"]
+        assert connect_args["cursorclass"] is pymysql.cursors.SSCursor

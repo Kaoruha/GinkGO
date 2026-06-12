@@ -54,6 +54,10 @@ class MySQLStreamingEngine(BaseStreamingEngine):
         """
         super().__init__(connection, config)
 
+        # 借出的池连接：_create_streaming_cursor 从池借出，_cleanup_cursor 归还
+        # 引擎只借出，不拥有底层 dbapi 连接，无权销毁它（#5505）
+        self._borrowed_connection = None
+
         # MySQL专用配置
         self._cursor_type = CursorType.SERVER_SIDE
         self._use_buffered = False
@@ -83,8 +87,10 @@ class MySQLStreamingEngine(BaseStreamingEngine):
             MySQL服务器端游标对象
         """
         try:
-            # 获取原生MySQL连接
+            # 获取原生MySQL连接（从 SQLAlchemy 池借出的代理）
             raw_connection = self.connection.raw_connection()
+            # 记录借出的连接，供 _cleanup_cursor 归还（归还 ≠ 销毁底层连接）#5505
+            self._borrowed_connection = raw_connection
 
             # 创建服务器端游标 (SSCursor)
             cursor = raw_connection.cursor(pymysql.cursors.SSCursor)
@@ -212,9 +218,10 @@ class MySQLStreamingEngine(BaseStreamingEngine):
                 # 关闭游标
                 cursor.close()
 
-                # 关闭底层连接
-                if hasattr(cursor, "connection") and cursor.connection:
-                    cursor.connection.close()
+                # 归还借出的池连接（对池代理 close = 归还，而非销毁底层 dbapi 连接）#5505
+                if self._borrowed_connection is not None:
+                    self._borrowed_connection.close()
+                    self._borrowed_connection = None
 
                 GLOG.DEBUG("MySQL streaming cursor cleaned up successfully")
 
