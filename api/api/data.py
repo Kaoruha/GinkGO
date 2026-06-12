@@ -645,6 +645,17 @@ async def sync_data(request: DataUpdateRequest):
                     sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
                 raise
 
+            # 同步成功后衔接 calculate（与 task_timer/worker 主力路径对齐）：
+            # sync 只落原始 adjustfactor，fore/back 占位 1.0，需 calculate 推导覆盖。
+            # 单 code 计算失败不阻断整体响应（原始因子已落库，可后续补算）。
+            for code in codes:
+                try:
+                    calc_result = adjustfactor_service.calculate(code)
+                    if not calc_result.is_success():
+                        logger.warning(f"Adjustfactor calculate failed for {code}: {calc_result.message}")
+                except Exception as e:
+                    logger.warning(f"Adjustfactor calculate exception for {code}: {e}")
+
             return ok(
                 data={"type": "adjustfactor", "codes": codes},
                 message=f"Adjust factors update completed for {len(codes)} codes"

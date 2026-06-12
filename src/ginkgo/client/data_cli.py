@@ -583,7 +583,9 @@ def sync(
 
         elif data_type == "adjustfactor":
             from ginkgo.data.containers import container
-            from ginkgo.data import fetch_and_update_adjustfactor, recalculate_adjust_factors_for_code
+            # CLI → Service 直调（分层规则）。旧 import 的两个自由函数从未在 src/ 实现，
+            # 每次执行必 ImportError。sync 带 fast_mode 参数，full/force 语义无损透传。
+            adjustfactor_service = container.adjustfactor_service()
 
             # 确定同步哪些股票
             if code:
@@ -610,17 +612,17 @@ def sync(
 
                         if full:
                             if force:
-                                # 强制全量同步：直接pass参数，删除已有数据重新插入
+                                # 强制全量同步：fast_mode=False 重算覆盖
                                 console.print(f":information: Force full sync for {current_code} (overwrite existing)")
-                                result = fetch_and_update_adjustfactor(current_code, fast_mode=False)
+                                result = adjustfactor_service.sync(current_code, fast_mode=False)
                             else:
-                                # 全量同步：直接pass参数，跳过已有数据
+                                # 全量同步：fast_mode=True 跳过已有数据
                                 console.print(f":information: Full sync for {current_code} (skip existing)")
-                                result = fetch_and_update_adjustfactor(current_code, fast_mode=True)
+                                result = adjustfactor_service.sync(current_code, fast_mode=True)
                         else:
                             # 增量同步：从最新日期开始到当下
                             console.print(f":information: Incremental sync for {current_code} (from latest date)")
-                            result = fetch_and_update_adjustfactor(current_code, fast_mode=True)
+                            result = adjustfactor_service.sync(current_code, fast_mode=True)
 
                         # Check sync result - ServiceResult has success property, other results may not
                         sync_success = False
@@ -636,7 +638,7 @@ def sync(
 
                             # 同步完成后立即计算该股票的复权因子
                             console.print(f":information: Calculating adjustment factors for {current_code}...")
-                            calc_result = recalculate_adjust_factors_for_code(current_code)
+                            calc_result = adjustfactor_service.calculate(current_code)
                             if calc_result and hasattr(calc_result, 'success') and calc_result.success:
                                 console.print(f":white_check_mark: {current_code} adjustment factor calculation completed")
                             else:

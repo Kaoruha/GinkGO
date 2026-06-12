@@ -102,7 +102,7 @@ class AdjustfactorService(BaseService):
 
             # Convert to models
             try:
-                adjustfactor_models = self._convert_to_adjustfactor_models(raw_data, code)
+                adjustfactor_models = mappers.dataframe_to_adjustfactor_models(raw_data, code)
             except Exception as e:
                 sync_result = DataSyncResult.create_for_entity(
                     entity_type="adjustfactors",
@@ -238,81 +238,6 @@ class AdjustfactorService(BaseService):
             return method(code, start_date, end_date)
         raise NotImplementedError("Adjustfactor data source not implemented")
 
-    def _convert_to_adjustfactor_models(self, raw_data: pd.DataFrame, code: str) -> List[Any]:
-        """
-        Convert raw adjustment factor data to standardized model objects list.
-
-        Args:
-            raw_data: Raw DataFrame data
-            code: Stock code
-
-        Returns:
-            List[Any]: Adjustment factor model objects list
-        """
-        # #5909 根因A2：旧 import 的模块 madjustfactor(类 MAdjustFactor) 根本不存在 → ImportError。
-        # 真实模型在 model_adjustfactor.MAdjustfactor，字段为 code/foreadjustfactor/backadjustfactor/adjustfactor。
-        from ginkgo.data.models.model_adjustfactor import MAdjustfactor
-
-        df = raw_data.copy()
-
-        # 日期列：Tushare 给 trade_date(YYYYMMDD)，Baostock/本库给 timestamp
-        if "trade_date" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["trade_date"], format="%Y%m%d", errors="coerce")
-        elif "timestamp" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-
-        # 原始复权因子列：Tushare adj_factor / 本库 adjustfactor
-        if "adj_factor" in df.columns:
-            raw_col = "adj_factor"
-        elif "adjustfactor" in df.columns:
-            raw_col = "adjustfactor"
-        else:
-            raw_col = None
-
-        # 按日期升序，供 fore/back 推导（与 calculate() 同约定）
-        df = df.sort_values("timestamp").reset_index(drop=True)
-
-        # 仅当源只给原始因子时，按 calculate() 约定推导前/后复权：
-        #   fore = latest / raw ；back = raw / earliest
-        # 源若直接给 fore/back 列（如 Baostock），下方用源值覆盖，避免被推导值盖掉。
-        if raw_col is not None and len(df) > 0:
-            raws = df[raw_col].astype(float)
-            latest = float(raws.iloc[-1])
-            earliest = float(raws.iloc[0])
-            df["_fore"] = latest / raws
-            df["_back"] = raws / earliest
-
-        if "foreadjustfactor" not in df.columns:
-            df["foreadjustfactor"] = df.get("_fore")
-        if "backadjustfactor" not in df.columns:
-            df["backadjustfactor"] = df.get("_back")
-
-        # #5909 根因A3：旧代码读 timestamp/adjust_type/adjust_factor/before_price 等列，
-        # 全部错位 → 每行 KeyError 被 except 吞掉 → 返回空 models → 落库 0 条。
-        models = []
-        for _, row in df.iterrows():
-            try:
-                model = MAdjustfactor()
-                model.code = code
-                ts = row.get("timestamp")
-                model.timestamp = datetime_normalize(ts) if (ts is not None and pd.notna(ts)) else None
-
-                raw_val = row.get(raw_col) if raw_col else row.get("adjustfactor")
-                if raw_val is None:
-                    raw_val = 1.0
-
-                fore = row.get("foreadjustfactor")
-                back = row.get("backadjustfactor")
-                # 三列均 nullable=False，缺失则回退原始因子，保证落库不违约
-                model.adjustfactor = to_decimal(raw_val)
-                model.foreadjustfactor = to_decimal(fore if (fore is not None and pd.notna(fore)) else raw_val)
-                model.backadjustfactor = to_decimal(back if (back is not None and pd.notna(back)) else raw_val)
-                models.append(model)
-            except Exception as e:
-                self._logger.WARN(f"Failed to convert adjustfactor row to model: {e}")
-                continue
-
-        return models
 
     def get(self, code: str = None, start_date: datetime = None, end_date: datetime = None,
             adjust_type: str = None, limit: int = None,
