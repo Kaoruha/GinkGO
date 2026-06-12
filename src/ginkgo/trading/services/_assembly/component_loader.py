@@ -27,7 +27,12 @@ def resolve_param_kwargs(
     - 新组合（#5955 后创建）：索引从 0 开始，name 已跳过
     - 旧组合（#5955 前创建）：索引从 1 开始（0=name）
 
-    策略：先尝试直接匹配，若全部失败则尝试整体偏移 -1。
+    策略（两轮打分择优）：
+    1. 直接匹配：param_indices[i] → param_names[该索引]。当全部命中且
+       min(param_indices)==0（确属新组合 0 起始）时立即返回。
+    2. 偏移匹配：整体 -1（name 曾占 index 0）。
+    选择规则：按 _score_mapping 的「命中数」优先；命中数相同时，若为多参数
+    旧组合（min>0）则偏好偏移方案，避免 [1,2] 被误读为第二、第三业务参数。
     """
     if not component_params or not param_indices:
         return {}
