@@ -87,3 +87,13 @@ class TestParamIndexBackwardCompat:
             param_names=param_names,
         )
         assert result == {"codes": '"000001.SH"', "period": 20, "threshold": 0.8}
+
+    def test_old_style_indices_prefer_shifted_mapping_on_tie(self):
+        """旧组合 [1,2] 与新索引都能“匹配”时，应优先选择偏移后的业务参数。"""
+        param_names = {0: "short_period", 1: "long_period", 2: "frequency"}
+        result = resolve_param_kwargs(
+            component_params=[5, 20],
+            param_indices=[1, 2],
+            param_names=param_names,
+        )
+        assert result == {"short_period": 5, "long_period": 20}

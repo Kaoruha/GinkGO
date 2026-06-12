@@ -93,3 +93,18 @@ class SimpleStrategy:
         )
         # period + threshold = 2 (not 3 with name)
         assert len(result) == 2
+
+    def test_snake_case_component_name_matches_camel_case_class(self):
+        """组件名来自文件名时，snake_case 也应匹配 CamelCase 类名。"""
+        code = '''
+class MovingAverageCrossover:
+    def __init__(self, name="MovingAverageCrossover", short_period=20, long_period=60, **kwargs):
+        self.short_period = short_period
+        self.long_period = long_period
+'''
+        result = get_component_parameter_names(
+            "moving_average_crossover",
+            file_content=code,
+            component_type="strategy",
+        )
+        assert result == {0: "short_period", 1: "long_period"}

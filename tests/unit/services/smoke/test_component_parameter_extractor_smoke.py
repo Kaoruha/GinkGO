@@ -36,8 +36,8 @@ class FixedSelector:
         )
         assert isinstance(result, dict)
         assert 0 in result
-        assert result[0] == "name"
-        assert result[1] == "codes"
+        assert result[0] == "codes"
+        assert "name" not in result.values()
 
     def test_get_parameter_info_callable(self):
         ext = ComponentParameterExtractor()
