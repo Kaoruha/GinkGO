@@ -26,7 +26,7 @@ from decimal import Decimal
 
 import pandas as pd
 from ginkgo.libs import GLOG, GinkgoLogger
-from ginkgo.enums import EVENT_TYPES
+from ginkgo.enums import EVENT_TYPES, FILE_TYPES
 from ginkgo.trading.engines import BaseEngine, BacktestEngine
 from ginkgo.trading.portfolios import PortfolioT1Backtest
 from ginkgo.trading.time.clock import now as clock_now
@@ -39,6 +39,70 @@ from ginkgo.trading.services._assembly.component_loader import ComponentLoader
 from ginkgo.trading.services._assembly.infrastructure_factory import InfrastructureFactory
 from ginkgo.trading.services._assembly.task_engine_builder import TaskEngineBuilder
 from ginkgo.trading.services._assembly.data_preparer import DataPreparer, EngineConfigurationError
+
+
+# #6098: component_type int → perform_component_binding 的桶名
+# FILE_TYPES: STRATEGY=6, SELECTOR=4, SIZER=5, RISKMANAGER=3, ANALYZER=1
+_BUCKET_BY_TYPE = {
+    FILE_TYPES.STRATEGY.value: "strategies",
+    FILE_TYPES.SELECTOR.value: "selectors",
+    FILE_TYPES.SIZER.value: "sizers",
+    FILE_TYPES.RISKMANAGER.value: "risk_managers",
+    FILE_TYPES.ANALYZER.value: "analyzers",
+}
+
+
+def _resolve_component_type(comp_type) -> Optional[int]:
+    """把 component_type 解析为 FILE_TYPES int 值。
+
+    兼容三种形态：int、数字串（"6"）、枚举名（"STRATEGY"）。
+    无法识别返回 None（与旧 _bind_components_from_config 的跳过行为一致）。
+    """
+    if isinstance(comp_type, str):
+        if comp_type.isdigit():
+            return int(comp_type)
+        try:
+            return FILE_TYPES[comp_type].value
+        except KeyError:
+            return None
+    try:
+        return int(comp_type)
+    except (TypeError, ValueError):
+        return None
+
+
+def group_components_by_type(components: list) -> Dict[str, List[Dict[str, Any]]]:
+    """把 portfolio 配置的扁平组件 list 转成 perform_component_binding 期望的分桶 dict。
+
+    #6098: 统一 live 与 backtest 的组件装配入口，消除 B（_bind_components_from_config）
+    与 A（ComponentLoader）的复制后差异（copy-then-diverge：迁移只提取新路径给部分调用者，
+    却未完成对剩余路径的替换+旧路径删除）。
+
+    字段映射: component_id→file_id, mount_id→mapping_uuid, component_type→type(int)。
+    无法识别的 component_type 静默跳过；必需组件缺失由 perform_component_binding 硬失败兜底。
+    """
+    grouped: Dict[str, List[Dict[str, Any]]] = {
+        "strategies": [],
+        "selectors": [],
+        "sizers": [],
+        "risk_managers": [],
+        "analyzers": [],
+    }
+    for component in components or []:
+        type_int = _resolve_component_type(component.get("component_type"))
+        if type_int is None:
+            continue
+        bucket = _BUCKET_BY_TYPE.get(type_int)
+        if bucket is None:
+            continue
+        grouped[bucket].append(
+            {
+                "file_id": component.get("component_id"),
+                "type": type_int,
+                "mapping_uuid": component.get("mount_id"),
+            }
+        )
+    return grouped
 
 
 class EngineAssemblyService(BaseService):
@@ -213,7 +277,17 @@ class EngineAssemblyService(BaseService):
                 if not components or len(components) == 0:
                     self._bind_default_components(portfolio)
                 else:
-                    self._bind_components_from_config(portfolio, components)
+                    # #6098: 统一走 ComponentLoader（与回测同路径），消除 _bind_components_from_config
+                    # 的复制后差异。部分配置（缺必需组件）由 loader 硬失败，不再静默补默认。
+                    grouped = group_components_by_type(components)
+                    bound = self._component_loader.perform_component_binding(
+                        portfolio, grouped, self._logger
+                    )
+                    if not bound:
+                        return ServiceResult(
+                            success=False,
+                            error=f"组件绑定失败: portfolio {portfolio_id} 缺少必需组件或实例化失败",
+                        )
 
             self._logger.INFO(f"✓ Portfolio {portfolio_id[:8]}... 加载成功，包含所有组件")
             return ServiceResult(success=True, data=portfolio)
@@ -235,208 +309,6 @@ class EngineAssemblyService(BaseService):
         portfolio.bind_selector(CNAllSelector())
         portfolio.bind_sizer(FixedSizer())
         portfolio.add_risk_manager(PositionRatioRisk())
-
-    def _bind_components_from_config(self, portfolio, components: list):
-        """从组件配置实例化并绑定到Portfolio"""
-        from ginkgo.enums import FILE_TYPES
-
-        strategies_list = []
-        selectors_list = []
-        sizers_list = []
-        risk_managers_list = []
-
-        for component in components:
-            comp_type = component.get('component_type')
-            if isinstance(comp_type, str):
-                if comp_type.isdigit():
-                    comp_type_int = int(comp_type)
-                else:
-                    try:
-                        comp_type_int = FILE_TYPES[comp_type].value
-                    except Exception:
-                        continue
-            else:
-                comp_type_int = int(comp_type)
-
-            if comp_type_int == FILE_TYPES.STRATEGY.value:
-                strategies_list.append(component)
-            elif comp_type_int == FILE_TYPES.SELECTOR.value:
-                selectors_list.append(component)
-            elif comp_type_int == FILE_TYPES.SIZER.value:
-                sizers_list.append(component)
-            elif comp_type_int == FILE_TYPES.RISKMANAGER.value:
-                risk_managers_list.append(component)
-
-        # 加载策略
-        if len(strategies_list) == 0:
-            from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
-            portfolio.add_strategy(RandomSignalStrategy())
-        else:
-            for strategy_config in strategies_list:
-                strategy = self._instantiate_component(strategy_config, 'strategy')
-                if strategy:
-                    portfolio.add_strategy(strategy)
-
-        # 加载选股器
-        if len(selectors_list) == 0:
-            from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
-            portfolio.bind_selector(CNAllSelector())
-        else:
-            selector_config = selectors_list[0]
-            selector = self._instantiate_component(selector_config, 'selector')
-            if selector:
-                portfolio.bind_selector(selector)
-
-        # 加载Sizer
-        if len(sizers_list) == 0:
-            from ginkgo.trading.sizers.fixed_sizer import FixedSizer
-            portfolio.bind_sizer(FixedSizer())
-        else:
-            sizer_config = sizers_list[0]
-            sizer = self._instantiate_component(sizer_config, 'sizer')
-            if sizer:
-                portfolio.bind_sizer(sizer)
-
-        # 加载风控
-        if len(risk_managers_list) == 0:
-            from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
-            portfolio.add_risk_manager(PositionRatioRisk())
-        else:
-            for risk_config in risk_managers_list:
-                risk_manager = self._instantiate_component(risk_config, 'risk_management')
-                if risk_manager:
-                    portfolio.add_risk_manager(risk_manager)
-
-    def _instantiate_component(self, component_config: dict, component_type: str):
-        """从组件配置实例化组件"""
-        try:
-            file_id = component_config.get('component_id')
-            if not file_id:
-                return self._get_default_component(component_type)
-
-            mount_id = component_config.get('mount_id')
-            component_params = []
-
-            if mount_id:
-                try:
-                    from ginkgo import services
-                    param_service = services.data.param_service()
-                    param_records = param_service.find_by_mapping_id(mount_id)
-                    if param_records:
-                        sorted_params = sorted(param_records, key=lambda p: p.index)
-                        component_params = [param.value for param in sorted_params]
-                except Exception as e:
-                    self._logger.WARN(f"获取参数失败: {e}")
-
-            from ginkgo import services
-            file_service = services.data.file_service()
-            file_result = file_service.get_by_uuid(file_id)
-
-            if not file_result.success or not file_result.data:
-                return self._get_default_component(component_type)
-
-            file_info = file_result.data
-            if isinstance(file_info, dict) and "file" in file_info:
-                mfile = file_info["file"]
-                if hasattr(mfile, "data") and mfile.data:
-                    code_content = mfile.data.decode("utf-8", errors="ignore") if isinstance(mfile.data, bytes) else str(mfile.data)
-                else:
-                    return self._get_default_component(component_type)
-            else:
-                return self._get_default_component(component_type)
-
-            import tempfile
-            import importlib.util
-            import os
-
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
-                temp_file.write(code_content)
-                temp_file_path = temp_file.name
-
-            try:
-                spec = importlib.util.spec_from_file_location("dynamic_component", temp_file_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                component_class = None
-                for attr_name in dir(module):
-                    if attr_name.startswith("_"):
-                        continue
-                    attr = getattr(module, attr_name)
-                    if isinstance(attr, type) and hasattr(attr, "__bases__"):
-                        is_component = False
-                        if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
-                            is_component = True
-                        else:
-                            for base in attr.__bases__:
-                                base_name = base.__name__
-                                if base_name.endswith(("Strategy", "Selector", "Sizer", "RiskManagement")) or \
-                                   base_name in ("BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement"):
-                                    is_component = True
-                                    break
-                        if is_component:
-                            component_class = attr
-                            break
-
-                if component_class is None:
-                    return self._get_default_component(component_type)
-
-                import inspect
-                if component_params:
-                    converted = self._convert_params(component_class, component_params)
-                    return component_class(*converted)
-                return component_class()
-
-            finally:
-                try:
-                    os.unlink(temp_file_path)
-                except Exception as e:
-                    GLOG.WARNING(f"{e}")
-                    pass
-
-        except Exception as e:
-            self._logger.ERROR(f"实例化组件失败: {e}")
-            return self._get_default_component(component_type)
-
-    @staticmethod
-    def _convert_params(component_class, raw_params: list) -> list:
-        """根据构造函数类型注解自动转换参数类型"""
-        import inspect
-        from ginkgo.libs.data.number import convert_to_float, convert_to_int
-        try:
-            sig = inspect.signature(component_class.__init__)
-            params = list(sig.parameters.values())[1:]
-            converted = []
-            for i, raw in enumerate(raw_params):
-                if i < len(params):
-                    ann = params[i].annotation
-                    if ann is int:
-                        converted.append(convert_to_int(raw))
-                    elif ann is float:
-                        converted.append(convert_to_float(raw))
-                    else:
-                        converted.append(raw)
-                else:
-                    converted.append(raw)
-            return converted
-        except Exception:
-            return raw_params
-
-    def _get_default_component(self, component_type: str):
-        """获取默认组件"""
-        from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
-        from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
-        from ginkgo.trading.sizers.fixed_sizer import FixedSizer
-        from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
-
-        defaults = {
-            'strategy': RandomSignalStrategy,
-            'selector': CNAllSelector,
-            'sizer': FixedSizer,
-            'risk_management': PositionRatioRisk,
-        }
-        cls = defaults.get(component_type)
-        return cls() if cls else None
 
     # ========== 公共 API ==========
 

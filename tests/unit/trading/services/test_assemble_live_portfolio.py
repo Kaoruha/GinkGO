@@ -156,3 +156,124 @@ class TestAssembleLivePortfolioBasic:
         portfolio = result.data
         assert portfolio._position_writer is mock_pw
         assert portfolio._redis_writer is mock_rw
+
+
+@pytest.mark.unit
+class TestGroupComponentsByType:
+    """#6098: group_components_by_type 形状转换测试
+
+    把 assemble_live_portfolio 拿到的扁平组件 list（B 的输入格式）
+    转成 ComponentLoader.perform_component_binding 期望的分桶 dict（A 的输入格式）。
+    字段重命名: component_id→file_id, mount_id→mapping_uuid, component_type→type(int)
+    """
+
+    def test_buckets_and_renames_fields(self):
+        """int / 数字串 / 枚举名 三种 component_type 都能正确分桶并重命名字段"""
+        from ginkgo.trading.services.engine_assembly_service import group_components_by_type
+
+        components = [
+            {"component_type": 6, "component_id": "strat-file-1", "mount_id": "strat-mount-1"},
+            {"component_type": "4", "component_id": "sel-file-1", "mount_id": "sel-mount-1"},
+            {"component_type": "SELECTOR", "component_id": "sel-file-2"},
+            {"component_type": 5, "component_id": "sizer-file-1", "mount_id": "sizer-mount-1"},
+            {"component_type": "RISKMANAGER", "component_id": "risk-file-1", "mount_id": "risk-mount-1"},
+            {"component_type": 1, "component_id": "analyzer-file-1", "mount_id": "an-mount-1"},
+        ]
+
+        grouped = group_components_by_type(components)
+
+        # int 类型 + 字段重命名 + mount_id 透传
+        assert grouped["strategies"] == [
+            {"file_id": "strat-file-1", "type": 6, "mapping_uuid": "strat-mount-1"}
+        ]
+        # 数字串 "4" 与 枚举名 "SELECTOR" 都归入 selectors，第二个无 mount_id → None
+        assert grouped["selectors"] == [
+            {"file_id": "sel-file-1", "type": 4, "mapping_uuid": "sel-mount-1"},
+            {"file_id": "sel-file-2", "type": 4, "mapping_uuid": None},
+        ]
+        assert grouped["sizers"] == [
+            {"file_id": "sizer-file-1", "type": 5, "mapping_uuid": "sizer-mount-1"}
+        ]
+        # 枚举名 "RISKMANAGER" → FILE_TYPES.RISKMANAGER.value = 3
+        assert grouped["risk_managers"] == [
+            {"file_id": "risk-file-1", "type": 3, "mapping_uuid": "risk-mount-1"}
+        ]
+        assert grouped["analyzers"] == [
+            {"file_id": "analyzer-file-1", "type": 1, "mapping_uuid": "an-mount-1"}
+        ]
+
+    def test_empty_input_returns_all_buckets_empty(self):
+        """空 list → 五个桶都为空（A 的 perform_component_binding 对空桶走严格失败）"""
+        from ginkgo.trading.services.engine_assembly_service import group_components_by_type
+
+        grouped = group_components_by_type([])
+
+        assert grouped == {
+            "strategies": [],
+            "selectors": [],
+            "sizers": [],
+            "risk_managers": [],
+            "analyzers": [],
+        }
+
+
+@pytest.mark.unit
+class TestAssembleLivePortfolioRoutesThroughLoader:
+    """#6098: live 有组件配置时，统一走 ComponentLoader.perform_component_binding
+
+    取代旧的 _bind_components_from_config（B 路径），消除与回测路径的复制后差异。
+    """
+
+    def _make_service_with_components(self, components):
+        portfolio_model = _make_portfolio_model()
+        mock_portfolio_service = MagicMock()
+        mock_portfolio_service.get.return_value = _make_service_result(data=portfolio_model)
+        mock_portfolio_service.get_components.return_value = _make_service_result(data=components)
+
+        from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
+        service = EngineAssemblyService(portfolio_service=mock_portfolio_service)
+        # 替换真实 loader，隔离文件 I/O 与动态执行
+        mock_loader = MagicMock()
+        service._component_loader = mock_loader
+        return service, mock_loader
+
+    def test_routes_configured_components_through_component_loader(self):
+        """有组件配置 → 用分桶 dict + PortfolioLive 调 loader，True 则成功返回 portfolio"""
+        service, mock_loader = self._make_service_with_components([
+            {"component_type": 6, "component_id": "strat-1", "mount_id": "m-strat"},
+            {"component_type": 4, "component_id": "sel-1", "mount_id": "m-sel"},
+            {"component_type": 5, "component_id": "sizer-1", "mount_id": "m-sizer"},
+        ])
+        mock_loader.perform_component_binding.return_value = True
+
+        result = service.assemble_live_portfolio(
+            portfolio_id="test-pf-001",
+            position_writer=MagicMock(),
+            redis_writer=MagicMock(),
+        )
+
+        assert result.is_success(), f"Expected success, got: {result.error}"
+        mock_loader.perform_component_binding.assert_called_once()
+        bound_portfolio, grouped = mock_loader.perform_component_binding.call_args.args[:2]
+        from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
+        assert isinstance(bound_portfolio, PortfolioLive)
+        assert grouped["strategies"] == [{"file_id": "strat-1", "type": 6, "mapping_uuid": "m-strat"}]
+        assert grouped["selectors"] == [{"file_id": "sel-1", "type": 4, "mapping_uuid": "m-sel"}]
+        assert grouped["sizers"] == [{"file_id": "sizer-1", "type": 5, "mapping_uuid": "m-sizer"}]
+
+    def test_returns_failure_when_loader_reports_binding_failed(self):
+        """loader 返回 False（如缺必需组件）→ assemble_live_portfolio 返回失败，不再静默补默认"""
+        service, mock_loader = self._make_service_with_components([
+            {"component_type": 6, "component_id": "strat-1", "mount_id": "m-strat"},
+            # 故意缺 selector/sizer，模拟部分配置 → loader 应判失败
+        ])
+        mock_loader.perform_component_binding.return_value = False
+
+        result = service.assemble_live_portfolio(
+            portfolio_id="test-pf-001",
+            position_writer=MagicMock(),
+            redis_writer=MagicMock(),
+        )
+
+        assert not result.is_success()
+        mock_loader.perform_component_binding.assert_called_once()
