@@ -157,6 +157,44 @@ class TestOrchestratorHappyPath:
         assert agg_kwargs["task_id"] == task_id
         assert agg_kwargs["portfolio_id"] == portfolio_id
 
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_run_passes_progress_callback_to_assembly(
+        self,
+        mock_load_components,
+        orchestrator,
+        mock_assembly_service,
+        mock_portfolio_service,
+        mock_aggregator,
+    ):
+        config = _make_config()
+        portfolio_id = "portfolio-001"
+        task_id = "task-001"
+        engine = _make_engine_mock()
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True,
+            data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True,
+            data=engine,
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        progress_callback = MagicMock()
+        result = orchestrator.run(
+            task_id=task_id,
+            config=config,
+            portfolio_id=portfolio_id,
+            progress_callback=progress_callback,
+        )
+
+        assert result.is_success()
+        call_kwargs = mock_assembly_service.assemble_backtest_engine.call_args.kwargs
+        assert call_kwargs["progress_callback"] is progress_callback
+
 
 class TestOrchestratorPortfolioLoading:
     """Verify portfolio loading is lightweight - no component binding."""

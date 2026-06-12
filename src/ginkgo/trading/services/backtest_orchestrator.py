@@ -41,7 +41,7 @@ class BacktestOrchestrator:
         self._result_aggregator = result_aggregator
 
     def run(self, task_id: str, config, portfolio_id: str,
-            timeout: float = 3600.0) -> OrchestratorResult:
+            timeout: float = 3600.0, progress_callback=None) -> OrchestratorResult:
         """
         执行完整回测链路。
 
@@ -63,7 +63,7 @@ class BacktestOrchestrator:
 
             # 3. 装配引擎
             engine = self._assemble_engine(task_id, config, portfolio_id,
-                                           portfolio_data, components)
+                                           portfolio_data, components, progress_callback)
 
             # 4. 运行引擎
             engine.start()
@@ -104,7 +104,7 @@ class BacktestOrchestrator:
         return load_portfolio_components(portfolio_id)
 
     def _assemble_engine(self, task_id, config, portfolio_id,
-                         portfolio_data, components):
+                         portfolio_data, components, progress_callback=None):
         """构建引擎装配参数并调用 EngineAssemblyService。"""
         from ginkgo.workers.backtest_worker.task_helpers import (
             build_engine_data,
@@ -125,6 +125,7 @@ class BacktestOrchestrator:
             portfolio_mappings=[mapping],
             portfolio_configs={portfolio_id: portfolio_config},
             portfolio_components={portfolio_id: components},
+            progress_callback=progress_callback,
         )
 
         if not result.success:

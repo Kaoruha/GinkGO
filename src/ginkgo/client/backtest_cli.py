@@ -171,12 +171,29 @@ def run_task(
             ),
         )
 
+        def _progress_callback(progress: float, current_date: str):
+            service.update_progress(
+                task.uuid,
+                progress=progress,
+                current_stage="RUNNING",
+                current_date=current_date,
+            )
+
         if bg:
             def _run_in_thread():
                 result = orchestrator.run(
-                    task_id=task.uuid, config=config, portfolio_id=portfolio_uuid,
+                    task_id=task.uuid,
+                    config=config,
+                    portfolio_id=portfolio_uuid,
+                    progress_callback=_progress_callback,
                 )
                 if result.is_success():
+                    service.update_progress(
+                        task.uuid,
+                        progress=100,
+                        current_stage="FINALIZING",
+                        current_date=str(config.end_date),
+                    )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
                 else:
                     console.print(f":x: Backtest failed: {result.error}")
@@ -186,12 +203,22 @@ def run_task(
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
             result = orchestrator.run(
-                task_id=task.uuid, config=config, portfolio_id=portfolio_uuid,
+                task_id=task.uuid,
+                config=config,
+                portfolio_id=portfolio_uuid,
+                progress_callback=_progress_callback,
             )
 
             if not result.is_success():
                 console.print(f":x: Backtest failed: {result.error}")
                 raise typer.Exit(1)
+
+            service.update_progress(
+                task.uuid,
+                progress=100,
+                current_stage="FINALIZING",
+                current_date=str(config.end_date),
+            )
 
             # 灌入日志到 ClickHouse（静默降级）
             try:
