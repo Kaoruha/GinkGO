@@ -1,8 +1,9 @@
 """TransferMapper — Transfer Entity ↔ MTransfer ORM 转换（ADR-010）。
 
 承接原 Transfer.from_model 内嵌逻辑（entities/transfer.py:218-239，含 task_id）。
-to_model 按 from_model 反向实现（原 entity 无 to_model，但 CRUD
-_convert_input_item 提供了完整 entity→ORM 构造逻辑作为旁证）。
+to_model 按 from_model 反向实现（原 entity 无 to_model，CRUD
+_convert_input_item 提供构造手法旁证——注：CRUD 该 hook 漏传 task_id，
+Mapper.to_model 已补全，比 CRUD 更正确）。
 
 铁律：不 import CRUD；不含 to_dataframe（DF 出口留 CRUD）。
 """
