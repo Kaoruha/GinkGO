@@ -100,7 +100,6 @@ class TestStockInfoCRUDInsert:
             print(f"✓ 查询到 {len(query_result)} 条记录 (ModelList)")
             assert len(query_result) >= 3
             assert hasattr(query_result, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
-            assert hasattr(query_result, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
 
             # 验证数据内容 - 使用新的API
             entities = StockInfoMapper.from_models(query_result)  # 转换为业务实体对象
@@ -175,10 +174,10 @@ class TestStockInfoCRUDInsert:
             assert inserted_stock.code == "000858.SZ"
             assert inserted_stock.code_name == "五粮液"
 
-            # 测试单个Model的to_entity方法
+            # 测试单个Model的转换方法
             model_instance = query_result[0]  # 原始Model
             entity = StockInfoMapper.from_model(model_instance)  # 转换为业务实体
-            print(f"✅ 单个Model to_entity()测试: {entity.code_name}")
+            print(f"✅ 单个Model Mapper.from_model()测试: {entity.code_name}")
             assert entity.code == "000858.SZ"
             assert hasattr(entity, 'market'), "业务实体应该有market字段"
 
@@ -275,10 +274,10 @@ class TestStockInfoCRUDQuery:
             print(f"✓ to_dataframe()返回: {type(df).__name__}, 形状: {df.shape}")
             assert hasattr(df, 'columns'), "应该是DataFrame"
 
-            # 测试转换API：to_entities()返回List[Entity]
-            print("\n→ 测试to_entities()转换...")
+            # 测试转换API：Mapper.from_models()返回List[Entity]
+            print("\n→ 测试Mapper.from_models()转换...")
             entities = StockInfoMapper.from_models(stocks)
-            print(f"✓ to_entities()返回: {len(entities)} 个Entity")
+            print(f"✓ Mapper.from_models()返回: {len(entities)} 个Entity")
             assert len(entities) >= 1
 
             # 验证Entity具有正确的枚举字段
@@ -289,7 +288,7 @@ class TestStockInfoCRUDQuery:
                 assert entity.code == "000001.SZ"
 
             # API设计验证完成
-            print("✅ find() + to_dataframe() + to_entities() API设计验证通过")
+            print("✅ find() + to_dataframe() + Mapper.from_models() API设计验证通过")
 
         except Exception as e:
             print(f"✗ 查询失败: {e}")
@@ -920,10 +919,10 @@ class TestStockInfoCRUDAPIDesign:
             assert added_model.code == "API_TEST002.SZ"
             print(f"✓ add()返回单个Model验证通过: {added_model.code_name}")
 
-            # 测试单个Model的to_entity方法
-            print("\n→ 测试单个Model.to_entity()...")
+            # 测试单个Model的转换方法
+            print("\n→ 测试单个Model Mapper.from_model()...")
             entity = StockInfoMapper.from_model(created_model)
-            print(f"✓ to_entity()返回类型: {type(entity).__name__}")
+            print(f"✓ Mapper.from_model()返回类型: {type(entity).__name__}")
             assert hasattr(entity, 'market'), "Entity应该有market字段"
             assert hasattr(entity.market, 'name'), "Entity的market应该是枚举对象"
             print(f"✓ 单个Model转换Entity验证通过: {entity.code_name}, market={entity.market.name}")
@@ -1004,9 +1003,9 @@ class TestStockInfoCRUDAPIDesign:
             assert hasattr(df, 'columns'), "应该是DataFrame"
             assert len(df) == len(returned_models), "DataFrame行数应该等于Model数量"
 
-            # 测试to_entities()返回List[Entity]
+            # 测试Mapper.from_models()返回List[Entity]
             entities = StockInfoMapper.from_models(model_list)
-            print(f"✓ to_entities()返回: {len(entities)} 个Entity")
+            print(f"✓ Mapper.from_models()返回: {len(entities)} 个Entity")
             assert len(entities) == len(returned_models), "Entity数量应该等于Model数量"
 
             # 验证Entity的枚举字段
@@ -1055,9 +1054,9 @@ class TestStockInfoCRUDAPIDesign:
                 print(f"✓ to_dataframe(): {type(df).__name__}, 形状: {df.shape}")
                 assert len(df) == len(models), "DataFrame行数应该等于Model数量"
 
-                # to_entities() → List[Entity]
+                # Mapper.from_models() → List[Entity]
                 entities = StockInfoMapper.from_models(models)
-                print(f"✓ to_entities(): {len(entities)} 个Entity")
+                print(f"✓ Mapper.from_models(): {len(entities)} 个Entity")
                 assert len(entities) == len(models), "Entity数量应该等于Model数量"
 
                 # 验证Entity枚举字段
@@ -1073,9 +1072,9 @@ class TestStockInfoCRUDAPIDesign:
             raise
 
     def test_single_model_to_entity(self):
-        """验证单个Model的to_entity方法"""
+        """验证单个Model的转换方法（Mapper.from_model）"""
         print("\n" + "="*60)
-        print("开始测试: 单个Model.to_entity()")
+        print("开始测试: 单个Model Mapper.from_model()")
         print("="*60)
 
         stock_crud = StockInfoCRUD()
@@ -1095,12 +1094,12 @@ class TestStockInfoCRUDAPIDesign:
 
             print(f"✓ 创建Model: {created_model.code_name}")
 
-            # 测试to_entity()方法
-            print("→ 执行to_entity()转换...")
+            # 测试Mapper.from_model()方法
+            print("→ 执行Mapper.from_model()转换...")
             entity = StockInfoMapper.from_model(created_model)
 
             # 验证返回Entity
-            print(f"✓ to_entity()返回类型: {type(entity).__name__}")
+            print(f"✓ Mapper.from_model()返回类型: {type(entity).__name__}")
             assert entity.code == created_model.code, "Entity应该保持相同的code"
             assert entity.code_name == created_model.code_name, "Entity应该保持相同的code_name"
 
@@ -1114,10 +1113,10 @@ class TestStockInfoCRUDAPIDesign:
             assert entity.market == MARKET_TYPES.CHINA, "market枚举值应该正确"
             assert entity.currency == CURRENCY_TYPES.CNY, "currency枚举值应该正确"
 
-            print("✅ 单个Model.to_entity()测试成功")
+            print("✅ 单个Model Mapper.from_model()测试成功")
 
         except Exception as e:
-            print(f"✗ 单个Model.to_entity()测试失败: {e}")
+            print(f"✗ 单个Model Mapper.from_model()测试失败: {e}")
             raise
 
     def test_api_design_consistency(self):
@@ -1159,12 +1158,12 @@ class TestStockInfoCRUDAPIDesign:
             # 验证转换方法
             print("→ 验证转换方法...")
             entity = StockInfoMapper.from_model(created)
-            assert hasattr(entity, 'market'), "to_entity()应该返回Entity"
-            print("✓ to_entity()返回Entity")
+            assert hasattr(entity, 'market'), "Mapper.from_model()应该返回Entity"
+            print("✓ Mapper.from_model()返回Entity")
 
             entities = StockInfoMapper.from_models(found)
-            assert isinstance(entities, list), "to_entities()应该返回List"
-            print("✓ to_entities()返回List[Entity]")
+            assert isinstance(entities, list), "Mapper.from_models()应该返回List"
+            print("✓ Mapper.from_models()返回List[Entity]")
 
             df = found.to_dataframe()
             import pandas as pd
@@ -1225,9 +1224,9 @@ class TestStockInfoCRUDNewFeatures:
             # to_entities 已删除（ADR-010），转换出口改用 StockInfoMapper
             assert hasattr(model_list, 'first')
 
-            # 测试to_entities()
+            # 测试Mapper.from_models()
             entities = StockInfoMapper.from_models(model_list)
-            print(f"✓ to_entities()返回: {len(entities)} 个业务实体")
+            print(f"✓ Mapper.from_models()返回: {len(entities)} 个业务实体")
             assert len(entities) >= 1
 
             entity = entities[0]
@@ -1254,9 +1253,9 @@ class TestStockInfoCRUDNewFeatures:
             raise
 
     def test_single_model_to_entity(self):
-        """测试单个Model的to_entity方法"""
+        """测试单个Model的转换方法（Mapper.from_model）"""
         print("\n" + "="*60)
-        print("开始测试: 单个Model to_entity方法")
+        print("开始测试: 单个Model Mapper.from_model()方法")
         print("="*60)
 
         stock_crud = StockInfoCRUD()
@@ -1272,7 +1271,7 @@ class TestStockInfoCRUDNewFeatures:
             model = result[0]
             print(f"✓ 获取Model: {model.code}")
 
-            # 测试to_entity方法
+            # 测试Mapper.from_model()方法
             entity = StockInfoMapper.from_model(model)
             print(f"✓ 转换为业务实体: {entity.code_name}")
 
@@ -1287,10 +1286,10 @@ class TestStockInfoCRUDNewFeatures:
             assert hasattr(entity.currency, 'name'), "currency应该是枚举对象"
             print(f"✓ 枚举字段验证: market={entity.market.name}, currency={entity.currency.name}")
 
-            print("✅ 单个Model to_entity测试成功")
+            print("✅ 单个Model Mapper.from_model()测试成功")
 
         except Exception as e:
-            print(f"✗ 单个Model to_entity测试失败: {e}")
+            print(f"✗ 单个Model Mapper.from_model()测试失败: {e}")
             raise
 
     def test_model_list_filtering(self):
@@ -1411,7 +1410,7 @@ class TestStockInfoCRUDConversions:
     """7. CRUD层转换方法测试 - StockInfo ModelList转换功能验证"""
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和to_entities转换功能"""
+        """测试ModelList的to_dataframe和Mapper.from_models()转换功能"""
         import pandas as pd
         print("\n" + "="*60)
         print("开始测试: StockInfo ModelList转换功能")
@@ -1508,8 +1507,8 @@ class TestStockInfoCRUDConversions:
                 print(f"  - 股票{i+1}: {row['code']} market={market_val.name} currency={currency_val.name}")
             print("✓ 枚举字段转换验证通过")
 
-            # 测试2: to_entities转换
-            print("\n→ 测试to_entities转换...")
+            # 测试2: Mapper.from_models()转换
+            print("\n→ 测试Mapper.from_models()转换...")
             entities = StockInfoMapper.from_models(model_list)
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
@@ -1561,8 +1560,8 @@ class TestStockInfoCRUDConversions:
             assert len(empty_entities) == 0, "空实体列表长度应为0"
             print("✓ 空ModelList转换验证正确")
 
-            # 测试6: 单个Model的to_entity转换
-            print("\n→ 测试单个Model的to_entity转换...")
+            # 测试6: 单个Model的Mapper.from_model()转换
+            print("\n→ 测试单个Model的Mapper.from_model()转换...")
             single_model = model_list[0]  # 获取第一个Model
             single_entity = StockInfoMapper.from_model(single_model)
             print(f"✓ 单个Model转换: {single_model.code} → {single_entity.code_name}")
@@ -1571,7 +1570,7 @@ class TestStockInfoCRUDConversions:
             assert single_entity.code == single_model.code
             assert hasattr(single_entity.market, 'name'), "转换后market应为枚举对象"
             assert hasattr(single_entity.currency, 'name'), "转换后currency应为枚举对象"
-            print("✓ 单个Model to_entity转换验证通过")
+            print("✓ 单个Model Mapper.from_model()转换验证通过")
 
             print("\n✓ 所有StockInfo ModelList转换功能测试通过！")
 

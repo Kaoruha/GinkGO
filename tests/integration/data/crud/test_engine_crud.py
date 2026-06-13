@@ -661,7 +661,7 @@ class TestEngineCRUDDataConversion:
     """测试EngineCRUD数据转换方法"""
 
     def test_engine_data_conversion_api(self):
-        """测试Engine数据转换API - to_dataframe(), to_entities()"""
+        """测试Engine数据转换API - to_dataframe(), identity 转换"""
         print("\n" + "="*60)
         print("开始测试: Engine数据转换API")
         print("="*60)
@@ -702,13 +702,12 @@ class TestEngineCRUDDataConversion:
 
             # 验证返回的是ModelList，支持转换方法
             assert hasattr(engine_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
-            assert hasattr(engine_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
             print("✓ 返回结果支持转换方法")
 
-            # 测试 to_entities() 方法
-            print("\n→ 测试 to_entities() 转换...")
+            # 测试转换方法（engine hook 为 identity，无业务 Entity，直接取 ORM）
+            print("\n→ 测试转换...")
             entities = list(engine_models)  # engine hook 为 identity（无业务 Entity），直接取 ORM
-            print(f"✓ to_entities() 返回 {len(entities)} 个业务实体")
+            print(f"✓ 转换返回 {len(entities)} 个业务实体")
 
             # 验证实体字段（identity hook 返 ORM，status/source 为 int 存储）
             for i, entity in enumerate(entities):
@@ -723,7 +722,7 @@ class TestEngineCRUDDataConversion:
                 assert hasattr(entity, 'status'), "应有status字段"
                 assert hasattr(entity, 'source'), "应有source字段"
 
-            print("✓ to_entities() 枚举字段验证通过")
+            print("✓ 转换枚举字段验证通过")
 
             # 测试 to_dataframe() 方法
             print("\n→ 测试 to_dataframe() 转换...")
@@ -758,7 +757,7 @@ class TestEngineCRUDDataConversion:
                 print("\n→ 测试单个Model的转换...")
                 model_instance = engine_models[0]
                 entity = model_instance  # identity：ORM 模型本身即业务对象
-                print(f"✓ 单个Model to_entity(): {entity.name}")
+                print(f"✓ 单个Model identity转换: {entity.name}")
                 status_name = ENGINESTATUS_TYPES(entity.status).name if isinstance(entity.status, int) else entity.status.name
                 source_name = SOURCE_TYPES(entity.source).name if isinstance(entity.source, int) else entity.source.name
                 print(f"  - status: {status_name}")

@@ -394,7 +394,7 @@ class TestPortfolioCRUDQuery:
             raise
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和to_entities转换功能"""
+        """测试ModelList的to_dataframe和identity转换功能"""
         import pandas as pd
 
         print("\n" + "="*60)
@@ -468,8 +468,8 @@ class TestPortfolioCRUDQuery:
             assert "convert_test_portfolio" in first_row['name']
             print(f"✓ 数据内容验证通过: name={first_row['name']}, mode={PORTFOLIO_MODE_TYPES(first_row['mode']).name}")
 
-            # 测试2: to_entities转换
-            print("\n→ 测试to_entities转换...")
+            # 测试2: identity转换
+            print("\n→ 测试identity转换...")
             from ginkgo.trading.bases.portfolio_base import PortfolioBase
             entities = list(model_list)  # portfolio hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ 实体列表类型: {type(entities).__name__}")
@@ -1160,7 +1160,7 @@ class TestPortfolioCRUDEnumValidation:
 
         assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试投资组合"
 
-        # 验证to_entities()方法中的枚举转换
+        # 验证转换方法中的枚举转换
         entities = list(model_list)
         our_entities = [e for e in entities if hasattr(e, 'name') and e.name in expected_map]
 
