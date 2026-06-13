@@ -2,7 +2,6 @@
 # Downstream: ginkgo.data.mappers.CapitalAdjustmentMapper
 # Role: CapitalAdjustmentMapper roundtrip + TypeError 守卫 + source 转换测试
 
-import datetime
 from decimal import Decimal
 
 import pytest

@@ -2,8 +2,6 @@
 # Downstream: ginkgo.data.mappers.TradeDayMapper
 # Role: TradeDayMapper roundtrip + TypeError 守卫 + market int→enum 测试
 
-import datetime
-
 import pytest
 
 from ginkgo.data.mappers import TradeDayMapper

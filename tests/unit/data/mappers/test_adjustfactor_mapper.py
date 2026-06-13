@@ -2,8 +2,6 @@
 # Downstream: ginkgo.data.mappers.AdjustfactorMapper
 # Role: AdjustfactorMapper roundtrip + TypeError 守卫测试
 
-import datetime
-
 import pytest
 
 from ginkgo.data.mappers import AdjustfactorMapper

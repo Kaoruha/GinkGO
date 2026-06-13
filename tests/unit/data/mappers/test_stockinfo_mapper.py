@@ -2,8 +2,6 @@
 # Downstream: ginkgo.data.mappers.StockInfoMapper
 # Role: StockInfoMapper roundtrip + TypeError 守卫 + market/currency int→enum 测试
 
-import datetime
-
 import pytest
 
 from ginkgo.data.mappers import StockInfoMapper
