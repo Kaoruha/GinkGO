@@ -619,8 +619,8 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
 
                     # Create event from bar data
                     # Need to convert MBar to Bar entity first for EventPriceUpdate.set() to work
-                    from ginkgo.entities import Bar as BarEntity
-                    bar_entity = BarEntity.from_model(bar)
+                    from ginkgo.data.mappers import BarMapper
+                    bar_entity = BarMapper.from_model(bar)
                     event = EventPriceUpdate(payload=bar_entity, name="PriceUpdate")
 
                     # Call strategy cal()

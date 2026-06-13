@@ -131,32 +131,5 @@ class Adjustfactor(Base):
     def adjustfactor(self) -> Decimal:
         return self._adjustfactor
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建Adjustfactor实例"""
-        return cls(
-            code=getattr(model, 'code', 'defaultcode'),
-            timestamp=getattr(model, 'timestamp', '1990-01-01'),
-            fore_adjustfactor=getattr(model, 'fore_adjustfactor', 0),
-            back_adjustfactor=getattr(model, 'back_adjustfactor', 0),
-            adjustfactor=getattr(model, 'adjustfactor', 0),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            code=self.code,
-            timestamp=self.timestamp,
-            fore_adjustfactor=self.fore_adjustfactor,
-            back_adjustfactor=self.back_adjustfactor,
-            adjustfactor=self.adjustfactor,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, Adjustfactor.__name__, 12, 60)

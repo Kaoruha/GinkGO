@@ -1167,62 +1167,6 @@ class TestTickDataSetting:
         with pytest.raises(TypeError):
             tick.set(None)
 
-    def test_model_conversion_methods(self):
-        """测试模型转换方法"""
-        # 创建原始Tick实例
-        original_tick = Tick(
-            code="000001.SZ",
-            price=10.5,
-            volume=1000,
-            direction=TICKDIRECTION_TYPES.ACTIVEBUY,
-            timestamp="2024-01-01 09:30:00",
-            source=SOURCE_TYPES.SINA
-        )
-
-        # 测试to_model转换
-        model = original_tick.to_model()
-        assert model.code == "000001.SZ"
-        assert model.price == Decimal('10.5')
-        assert model.volume == 1000
-        # 注意：模型中存储的是枚举的整数值
-        assert model.direction == TICKDIRECTION_TYPES.ACTIVEBUY.value
-        assert model.source == SOURCE_TYPES.SINA.value
-
-        # 测试from_model转换
-        converted_tick = Tick.from_model(model)
-        assert converted_tick.code == original_tick.code
-        assert converted_tick.price == original_tick.price
-        assert converted_tick.volume == original_tick.volume
-        assert converted_tick.direction == original_tick.direction
-        assert converted_tick.source == original_tick.source
-
-        # 验证时间戳转换
-        assert isinstance(converted_tick.timestamp, datetime.datetime)
-        assert converted_tick.timestamp.year == 2024
-        assert converted_tick.timestamp.month == 1
-        assert converted_tick.timestamp.day == 1
-
-        # 测试往返转换的一致性
-        model2 = converted_tick.to_model()
-        assert model2.code == model.code
-        assert model2.price == model.price
-        assert model2.volume == model.volume
-        assert model2.direction == model.direction
-        assert model2.source == model.source
-
-        # 测试from_model的类型验证
-        with pytest.raises(TypeError):
-            Tick.from_model("invalid_string")
-
-        with pytest.raises(TypeError):
-            Tick.from_model(123)
-
-        with pytest.raises(TypeError):
-            Tick.from_model({"invalid": "dict"})
-
-        with pytest.raises(TypeError):
-            Tick.from_model(None)
-
 
 @pytest.mark.unit
 class TestTickValidation:

@@ -139,41 +139,6 @@ class TradeDay(Base):
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建TradeDay实例"""
-        # 处理market字段 - 支持整数和枚举类型
-        market_value = getattr(model, 'market', MARKET_TYPES.OTHER)
-        if isinstance(market_value, int):
-            # 如果是整数，转换为枚举对象
-            market = MARKET_TYPES(market_value)
-        elif isinstance(market_value, MARKET_TYPES):
-            # 如果已经是枚举对象，直接使用
-            market = market_value
-        else:
-            # 其他情况，使用默认值
-            market = MARKET_TYPES.OTHER
-
-        return cls(
-            market=market,
-            is_open=getattr(model, 'is_open', True),
-            timestamp=getattr(model, 'timestamp', '1990-01-01'),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            market=self.market,
-            is_open=self.is_open,
-            timestamp=self.timestamp,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, TradeDay.__name__, 20, 60)
 

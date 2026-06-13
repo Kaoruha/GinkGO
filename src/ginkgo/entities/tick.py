@@ -128,62 +128,6 @@ class Tick(Base):
     def source(self) -> SOURCE_TYPES:
         return self._source
 
-    def to_model(self):
-        """
-        Convert Tick entity to MTick database model.
-
-        Returns:
-            MTick: Database model instance
-        """
-        from ginkgo.data.models import MTick
-
-        model = MTick()
-        model.update(
-            self._code,  # code作为第一个位置参数
-            price=self._price,
-            volume=self._volume,
-            direction=self._direction,
-            timestamp=self._timestamp,
-            source=self._source
-        )
-        return model
-
-    @classmethod
-    def from_model(cls, model):
-        """
-        Create Tick entity from MTick database model.
-
-        Args:
-            model (MTick): Database model instance
-
-        Returns:
-            Tick: Tick entity instance
-
-        Raises:
-            TypeError: If model is not an MTick instance
-        """
-        from ginkgo.data.models import MTick
-        from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
-
-        # Validate model type
-        if not isinstance(model, MTick):
-            raise TypeError(f"Expected MTick instance, got {type(model).__name__}")
-
-        # Convert direction from int back to enum
-        direction = TICKDIRECTION_TYPES.from_int(model.direction) or TICKDIRECTION_TYPES.VOID
-
-        # Convert source from int back to enum
-        source = SOURCE_TYPES.from_int(model.source) or SOURCE_TYPES.OTHER
-
-        return cls(
-            code=model.code,
-            price=model.price,
-            volume=model.volume,
-            direction=direction,
-            timestamp=model.timestamp,
-            source=source
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, "DB" + Tick.__name__.capitalize(), 12, 46)
 

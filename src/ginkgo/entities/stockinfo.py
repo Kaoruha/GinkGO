@@ -183,49 +183,6 @@ class StockInfo(Base):
     def delist_date(self):
         return self._delist_date
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建StockInfo实例"""
-        # 处理枚举字段的int到enum转换
-        market_value = getattr(model, 'market', MARKET_TYPES.CHINA)
-        if isinstance(market_value, (int, str)):
-            market = MARKET_TYPES(market_value)
-        else:
-            market = market_value
-
-        currency_value = getattr(model, 'currency', CURRENCY_TYPES.CNY)
-        if isinstance(currency_value, (int, str)):
-            currency = CURRENCY_TYPES(currency_value)
-        else:
-            currency = currency_value
-
-        return cls(
-            code=getattr(model, 'code', ''),
-            code_name=getattr(model, 'code_name', ''),
-            industry=getattr(model, 'industry', ''),
-            market=market,
-            currency=currency,
-            list_date=getattr(model, 'list_date', '1990-01-01'),
-            delist_date=getattr(model, 'delist_date', '2099-12-31'),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            code=self.code,
-            code_name=self.code_name,
-            industry=self.industry,
-            currency=self.currency,
-            list_date=self.list_date,
-            delist_date=self.delist_date,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, StockInfo.__name__, 20, 60)
 

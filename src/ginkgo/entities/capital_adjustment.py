@@ -184,32 +184,5 @@ class CapitalAdjustment(Base):
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建CapitalAdjustment实例"""
-        return cls(
-            portfolio_id=getattr(model, 'portfolio_id', ''),
-            amount=getattr(model, 'amount', Decimal('0')),
-            timestamp=getattr(model, 'timestamp', datetime.datetime.now()),
-            reason=getattr(model, 'reason', ''),
-            source=getattr(model, 'source', SOURCE_TYPES.SIM),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            portfolio_id=self.portfolio_id,
-            amount=self.amount,
-            timestamp=self.timestamp,
-            reason=self.reason,
-            source=self.source,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, CapitalAdjustment.__name__, 20, 60)

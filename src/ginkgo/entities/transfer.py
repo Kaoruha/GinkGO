@@ -214,26 +214,3 @@ class Transfer(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, Transfer.__name__, 20, 60)
-
-    @classmethod
-    def from_model(cls, model):
-        """
-        从MTransfer模型创建Transfer业务对象
-
-        Args:
-            model: MTransfer数据库模型实例
-
-        Returns:
-            Transfer: Transfer业务对象实例
-        """
-        return cls(
-            portfolio_id=model.portfolio_id,
-            engine_id=model.engine_id,
-            task_id=model.task_id,
-            direction=model.direction,  # 此时已经是枚举对象
-            market=model.market,       # 此时已经是枚举对象
-            money=model.money,
-            status=model.status,      # 此时已经是枚举对象
-            timestamp=model.timestamp,
-            uuid=model.uuid
-        )
