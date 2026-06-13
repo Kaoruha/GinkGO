@@ -1,0 +1,28 @@
+"""
+Data Mappers — 转换收敛层（ADR-010）
+
+每个 Mapper 类负责 Entity/ORM/DTO 三态互转，五方法矩阵：
+from_model / to_model / from_dto / to_dto / model_to_dto。
+
+铁律：不 import CRUD（独立于持久层）；不含 to_dataframe（DF 出口留 CRUD）。
+套C（外部数据源 DataFrame→ORM 入站）见本包 _legacy.py。
+"""
+from ginkgo.data.mappers._legacy import (
+    dataframe_to_adjustfactor_models,
+    row_to_stockinfo_upsert_dict,
+    dataframe_to_stockinfo_upsert_list,
+    dataframe_to_bar_models,
+    dataframe_to_bar_entities,
+    dataframe_to_tick_entities,
+    dataframe_to_tick_models,
+)
+
+__all__ = [
+    "dataframe_to_adjustfactor_models",
+    "row_to_stockinfo_upsert_dict",
+    "dataframe_to_stockinfo_upsert_list",
+    "dataframe_to_bar_models",
+    "dataframe_to_bar_entities",
+    "dataframe_to_tick_entities",
+    "dataframe_to_tick_models",
+]
