@@ -19,6 +19,7 @@ from ginkgo.data.mappers._legacy import (
 from ginkgo.data.mappers.order_mapper import OrderMapper
 from ginkgo.data.mappers.bar_mapper import BarMapper
 from ginkgo.data.mappers.position_mapper import PositionMapper
+from ginkgo.data.mappers.signal_mapper import SignalMapper
 
 __all__ = [
     "dataframe_to_adjustfactor_models",
@@ -31,4 +32,5 @@ __all__ = [
     "OrderMapper",
     "BarMapper",
     "PositionMapper",
+    "SignalMapper",
 ]
