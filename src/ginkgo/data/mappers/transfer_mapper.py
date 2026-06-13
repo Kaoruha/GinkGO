@@ -1,13 +1,8 @@
 """TransferMapper — Transfer Entity ↔ MTransfer ORM 转换（ADR-010）。
 
-承接原 Transfer.from_model 内嵌逻辑（entities/transfer.py:218-239）。
+承接原 Transfer.from_model 内嵌逻辑（entities/transfer.py:218-239，含 task_id）。
 to_model 按 from_model 反向实现（原 entity 无 to_model，但 CRUD
 _convert_input_item 提供了完整 entity→ORM 构造逻辑作为旁证）。
-
-已知问题（#6125，留后续 issue 不擅修）：
-- 原码 from_model 构造不传 task_id（transfer.py:229-238），但 Transfer.__init__
-  强制 task_id 非空 str（transfer.py:30/52-55）→ from_model 必触发 TypeError。
-  忠实搬运保留此 bug。
 
 铁律：不 import CRUD；不含 to_dataframe（DF 出口留 CRUD）。
 """
@@ -59,25 +54,25 @@ class TransferMapper:
         return model
 
     # ------------------------------------------------------------------
-    # ORM → Entity（忠实原码 transfer.py:218-239，含 task_id bug）
+    # ORM → Entity（忠实原码 transfer.py:218-239，含 task_id）
     # ------------------------------------------------------------------
     @staticmethod
     def from_model(model: MTransfer) -> Transfer:
         """ORM → Entity。
 
-        忠实原码（transfer.py:218-239）：direction/market/status 注释为
-        "此时已经是枚举对象"（ORM __init__ 已转），uuid 直接传。
-        **原码不传 task_id** → 触发 Transfer.__init__ TypeError（已知 bug）。
+        忠实原码（transfer.py:218-239，含 task_id）：direction/market/status
+        注释为 "此时已经是枚举对象"（ORM __init__ 已转），uuid 直接传。
         """
         return Transfer(
             portfolio_id=model.portfolio_id,
             engine_id=model.engine_id,
+            task_id=model.task_id,
             direction=model.direction,  # 此时已经是枚举对象
             market=model.market,       # 此时已经是枚举对象
             money=model.money,
             status=model.status,      # 此时已经是枚举对象
             timestamp=model.timestamp,
-            uuid=model.uuid,
+            uuid=model.uuid
         )
 
     @staticmethod
