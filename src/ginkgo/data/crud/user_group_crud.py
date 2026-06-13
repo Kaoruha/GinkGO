@@ -131,12 +131,11 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
             query: 搜索关键词（UUID或组名）
 
         Returns:
-            ModelList[MUserGroup]: 用户组模型列表，支持 .to_dataframe() 和 .to_entity() 转换
+            ModelList[MUserGroup]: 用户组模型列表，支持 .to_dataframe() 转换
 
         Examples:
             groups = group_crud.fuzzy_search("traders")
             df = groups.to_dataframe()  # 转换为DataFrame
-            entities = groups.to_entity()  # 转换为实体
             first_10 = groups.head(10)  # 获取前10条
         """
         # 检测是否为完整UUID格式（32位16进制字符）

@@ -326,12 +326,11 @@ class UserCRUD(BaseCRUD[MUser]):
             query: 搜索关键词（UUID或用户名）
 
         Returns:
-            ModelList[MUser]: 用户模型列表，支持 .to_dataframe() 和 .to_entity() 转换
+            ModelList[MUser]: 用户模型列表，支持 .to_dataframe() 转换
 
         Examples:
             users = user_crud.fuzzy_search("Alice")
             df = users.to_dataframe()  # 转换为DataFrame
-            entities = users.to_entity()  # 转换为实体
             first_10 = users.head(10)  # 获取前10条
         """
         # 检测是否为完整UUID格式（32位16进制字符）

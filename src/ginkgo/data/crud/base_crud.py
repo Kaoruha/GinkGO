@@ -27,7 +27,7 @@ class CRUDResult:
     CRUD查询结果包装器
 
     统一处理CRUD操作的结果，支持链式转换：
-    - to_entities(): 转换为实体
+    - to_business_objects(): 转换为业务对象
     - to_dataframe(): 转换为DataFrame
     - first(): 获取第一个结果
     - count(): 获取结果数量
@@ -374,7 +374,7 @@ class _CoreCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList[T] - 支持to_dataframe()和to_entities()方法
+            ModelList[T] - 支持to_dataframe()方法
         """
         try:
             # Execute query using existing _do_find method

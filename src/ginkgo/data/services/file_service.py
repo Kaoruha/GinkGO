@@ -551,7 +551,8 @@ class FileService(FileSearchMixin, BaseService):
             files = self._crud_repo.find(filters=filters)
 
             return ServiceResult.success(
-                data={"files": files.to_entities(), "count": len(files)},
+                # ADR-010: file_crud hook 为 identity（返 MFile），to_entities() 已删，直接用 ORM 列表
+                data={"files": files, "count": len(files)},
                 message=f"Found {len(files)} files with name '{name}'"
             )
 
@@ -616,7 +617,8 @@ class FileService(FileSearchMixin, BaseService):
             files = self._crud_repo.find(filters=filters)
 
             return ServiceResult.success(
-                data={"files": files.to_entities(), "count": len(files)},
+                # ADR-010: file_crud hook 为 identity（返 MFile），to_entities() 已删，直接用 ORM 列表
+                data={"files": files, "count": len(files)},
                 message=f"Found {len(files)} files of type {file_type.value}"
             )
 

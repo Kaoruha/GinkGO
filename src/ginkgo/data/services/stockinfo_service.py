@@ -390,7 +390,7 @@ class StockinfoService(BaseService):
             ServiceResult: Query result with ModelList object and statistics
 
         Note:
-            Returned ModelList object supports to_entities() and to_dataframe() conversion methods
+            Returned ModelList object supports to_dataframe() conversion method
         """
         try:
             # Build filters from specific parameters

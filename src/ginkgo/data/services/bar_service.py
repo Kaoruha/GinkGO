@@ -676,10 +676,9 @@ class BarService(BaseService):
             desc_order (bool): 是否降序排列
 
         Returns:
-            ServiceResult: 查询结果，data中包含ModelList，支持转换为entities和dataframe
+            ServiceResult: 查询结果，data中包含ModelList，支持转换为dataframe
 
         Note:
-            - to_entities: 可通过result.data.to_entities()转换为实体对象列表
             - to_dataframe: 可通过result.data.to_dataframe()转换为pandas DataFrame
         """
         start_time = time.time()

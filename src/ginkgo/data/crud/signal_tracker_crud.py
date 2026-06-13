@@ -230,7 +230,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             execution_mode: 执行模式筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -256,7 +256,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             account_type: 账户类型筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
         """
         filters = {"engine_id": engine_id}
 
@@ -280,7 +280,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             account_type: 账户类型筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
         """
         filters = {"tracking_status": tracking_status}
 
