@@ -17,6 +17,7 @@ _path = str(project_root / "src")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
+from ginkgo.data.mappers import TickMapper
 from ginkgo.data.services.tick_service import TickService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -321,7 +322,7 @@ class TestTickServiceQuery:
         assert isinstance(df, pd.DataFrame)
 
         # 验证to_entities方法
-        entities = model_list.to_entities()
+        entities = TickMapper.from_models(model_list)
         assert isinstance(entities, list)
 
         # 验证实体属性

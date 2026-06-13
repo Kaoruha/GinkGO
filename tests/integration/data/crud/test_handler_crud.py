@@ -928,12 +928,12 @@ class TestHandlerCRUDDataConversion:
 
             # 验证返回的是ModelList，支持转换方法
             assert hasattr(handler_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
-            assert hasattr(handler_models, 'to_entities'), "返回结果应该是ModelList，支持to_entities()方法"
+            assert hasattr(handler_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
             print("✓ 返回结果支持转换方法")
 
             # 测试 to_entities() 方法
             print("\n→ 测试 to_entities() 转换...")
-            entities = handler_models.to_entities()
+            entities = list(handler_models)  # handler hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ to_entities() 返回 {len(entities)} 个业务实体")
 
             # 验证实体具有正确的字段
@@ -965,7 +965,7 @@ class TestHandlerCRUDDataConversion:
             if len(handler_models) > 0:
                 print("\n→ 测试单个Model的转换...")
                 model_instance = handler_models[0]
-                entity = model_instance.to_entity()
+                entity = model_instance  # identity：ORM 模型本身即业务对象
                 print(f"✓ 单个Model to_entity(): {entity.name}")
                 print(f"  - lib_path: {entity.lib_path}")
                 print(f"  - func_name: {entity.func_name}")

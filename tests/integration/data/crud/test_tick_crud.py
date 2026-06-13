@@ -62,6 +62,7 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.crud.tick_crud import TickCRUD, get_tick_model
+from ginkgo.data.mappers import TickMapper
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
 
@@ -627,7 +628,7 @@ class TestTickCRUDConversion:
 
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
-            entities = model_list.to_entities()
+            entities = TickMapper.from_models(model_list)
             assert len(entities) == len(model_list), "实体列表长度应等于ModelList长度"
 
             # 验证实体类型

@@ -471,7 +471,7 @@ class TestPortfolioCRUDQuery:
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
             from ginkgo.trading.bases.portfolio_base import PortfolioBase
-            entities = model_list.to_entities()
+            entities = list(model_list)  # portfolio hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
             assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
@@ -479,25 +479,24 @@ class TestPortfolioCRUDQuery:
             # 验证实体类型和内容
             first_entity = entities[0]
             print(f"✓ 第一个实体类型: {type(first_entity).__name__}")
-            # Portfolio转换为BasePortfolio业务对象
-            assert isinstance(first_entity, PortfolioBase), "应转换为PortfolioBase业务对象"
+            # portfolio hook 为 identity（无 Portfolio Entity），转换结果即 ORM 模型
+            assert isinstance(first_entity, MPortfolio), "identity hook 应返回 ORM 模型"
 
             # 验证业务对象字段
             assert "convert_test_portfolio" in first_entity.name
             print(f"✓ 业务对象字段验证通过: name={first_entity.name}")
 
-            # 测试3: 验证BasePortfolio特有字段
-            print("\n→ 验证BasePortfolio特有字段...")
+            # 测试3: 验证 ORM 模型字段（identity 语义）
+            print("\n→ 验证 ORM 模型字段...")
             for entity in entities:
                 assert hasattr(entity, 'name'), "应有name字段"
                 assert hasattr(entity, 'uuid'), "应有uuid字段"
-                assert hasattr(entity, 'portfolio_id'), "应有portfolio_id字段"
-            print("✓ BasePortfolio字段验证正确")
+            print("✓ ORM 模型字段验证正确")
 
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
             df2 = model_list.to_dataframe()
-            entities2 = model_list.to_entities()
+            entities2 = list(model_list)
 
             # 验证结果一致性
             assert df.equals(df2), "缓存的DataFrame应该相同"
@@ -510,7 +509,7 @@ class TestPortfolioCRUDQuery:
             assert len(empty_model_list) == 0, "空ModelList长度应为0"
 
             empty_df = empty_model_list.to_dataframe()
-            empty_entities = empty_model_list.to_entities()
+            empty_entities = list(empty_model_list)
 
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert len(empty_df) == 0, "空DataFrame长度应为0"
@@ -1162,7 +1161,7 @@ class TestPortfolioCRUDEnumValidation:
         assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试投资组合"
 
         # 验证to_entities()方法中的枚举转换
-        entities = model_list.to_entities()
+        entities = list(model_list)
         our_entities = [e for e in entities if hasattr(e, 'name') and e.name in expected_map]
 
         for entity in our_entities:

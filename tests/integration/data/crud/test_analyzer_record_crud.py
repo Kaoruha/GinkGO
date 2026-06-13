@@ -123,9 +123,10 @@ class TestAnalyzerRecordCRUDInsert:
             # 验证返回类型
             from ginkgo.data.crud.model_conversion import ModelList
             assert isinstance(result, ModelList), f"add_batch应返回ModelList对象，实际返回: {type(result)}"
-            assert isinstance(result.count(), int), f"ModelList.count()应返回int类型，实际: {type(result.count())}"
-            assert len(result) == result.count(), f"len(ModelList)应与count()一致，len={len(result)}, count={result.count()}"
-            print(f"✓ 批量插入成功，返回ModelList(count={result.count()}, 包含{len(result)}个MAnalyzerRecord对象)")
+            # ModelList.count() mock 已删除（ADR-010），改用原生 len()
+            assert isinstance(len(result), int), f"len(ModelList)应返回int类型，实际: {type(len(result))}"
+            assert len(result) >= 0
+            print(f"✓ 批量插入成功，返回ModelList(count={len(result)}, 包含{len(result)}个MAnalyzerRecord对象)")
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
@@ -220,9 +221,9 @@ class TestAnalyzerRecordCRUDQuery:
             # 验证返回类型
             from ginkgo.data.crud.model_conversion import ModelList
             assert isinstance(portfolio_records, ModelList), f"find应返回ModelList对象，实际返回: {type(portfolio_records)}"
-            assert isinstance(portfolio_records.count(), int), f"ModelList.count()应返回int类型，实际: {type(portfolio_records.count())}"
-            assert len(portfolio_records) == portfolio_records.count(), f"len(ModelList)应与count()一致，len={len(portfolio_records)}, count={portfolio_records.count()}"
-            print(f"✓ 查询到 {len(portfolio_records)} 条记录，返回ModelList(count={portfolio_records.count()})")
+            # ModelList.count() mock 已删除（ADR-010），改用原生 len()
+            assert isinstance(len(portfolio_records), int), f"len(ModelList)应返回int类型，实际: {type(len(portfolio_records))}"
+            print(f"✓ 查询到 {len(portfolio_records)} 条记录，返回ModelList(count={len(portfolio_records)})")
 
             # 验证查询结果
             for record in portfolio_records:

@@ -33,6 +33,7 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.crud.transfer_crud import TransferCRUD
+from ginkgo.data.mappers import TransferMapper
 from ginkgo.data.models.model_transfer import MTransfer
 from ginkgo.enums import (
     SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES,
@@ -932,7 +933,7 @@ class TestTransferCRUDDataTypes:
                 pytest.skip("没有找到数据，跳过业务对象转换测试")
 
             # 使用ModelList的to_entities方法转换为业务对象
-            business_objects = model_results.to_entities()
+            business_objects = TransferMapper.from_models(model_results)
             business_object = business_objects[0]
 
             # 验证返回的对象（可能是MTransfer模型或Transfer业务对象）
@@ -970,7 +971,7 @@ class TestTransferCRUDDataTypes:
             results = transfer_crud.find(filters={})
 
             assert hasattr(results, 'to_dataframe')
-            assert hasattr(results, 'to_entities')
+            assert hasattr(results, 'to_dataframe')  # to_entities 已删除（ADR-010），改验证 ModelList 形态
             print("✓ ModelList具有转换方法")
 
             # 测试转换为DataFrame
@@ -979,7 +980,7 @@ class TestTransferCRUDDataTypes:
             print(f"✓ 转换为DataFrame: {df.shape}")
 
             # 测试转换为业务对象
-            entities = results.to_entities()
+            entities = TransferMapper.from_models(results)
             print(f"✓ 转换为业务对象: {len(entities)}个")
 
             # 验证转换后的对象类型

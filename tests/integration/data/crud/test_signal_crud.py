@@ -108,6 +108,7 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.crud.signal_crud import SignalCRUD
+from ginkgo.data.mappers import SignalMapper
 from ginkgo.data.models.model_signal import MSignal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
@@ -477,7 +478,7 @@ class TestSignalCRUDQuery:
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
             from ginkgo.trading import Signal
-            entities = model_list.to_entities()
+            entities = SignalMapper.from_models(model_list)
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
             assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
@@ -506,7 +507,7 @@ class TestSignalCRUDQuery:
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
             df2 = model_list.to_dataframe()
-            entities2 = model_list.to_entities()
+            entities2 = SignalMapper.from_models(model_list)
 
             # 验证结果一致性
             assert df.equals(df2), "缓存的DataFrame应该相同"
@@ -519,7 +520,7 @@ class TestSignalCRUDQuery:
             assert len(empty_model_list) == 0, "空ModelList长度应为0"
 
             empty_df = empty_model_list.to_dataframe()
-            empty_entities = empty_model_list.to_entities()
+            empty_entities = SignalMapper.from_models(empty_model_list)
 
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert len(empty_df) == 0, "空DataFrame长度应为0"
@@ -1372,7 +1373,7 @@ class TestSignalCRUDEnumValidation:
         assert len(model_list) == len(enum_combinations), "ModelList应该包含所有测试信号"
 
         # 验证to_entities()方法中的枚举转换
-        entities = model_list.to_entities()
+        entities = SignalMapper.from_models(model_list)
         for entity in entities:
             assert isinstance(entity.direction, DIRECTION_TYPES), "业务对象direction应该是枚举类型"
             assert isinstance(entity.source, SOURCE_TYPES), "业务对象source应该是枚举类型"

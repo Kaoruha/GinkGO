@@ -49,6 +49,7 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.crud.trade_day_crud import TradeDayCRUD
+from ginkgo.data.mappers import TradeDayMapper
 from ginkgo.data.models.model_trade_day import MTradeDay
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 
@@ -194,7 +195,7 @@ class TestTradeDayCRUDQuery:
         """测试根据市场查询TradeDay"""
         # 查询中国市场
         china_result = self.crud.find(filters={"market": MARKET_TYPES.CHINA})
-        china_entities = china_result.to_entities()
+        china_entities = TradeDayMapper.from_models(china_result)
 
         assert len(china_entities) >= 0, "应能查询中国市场数据"
         for entity in china_entities[:5]:
@@ -209,7 +210,7 @@ class TestTradeDayCRUDQuery:
     def test_find_by_market_parametrized(self, market):
         """参数化测试不同市场的查询"""
         result = self.crud.find(filters={"market": market})
-        entities = result.to_entities()
+        entities = TradeDayMapper.from_models(result)
 
         # 验证查询结果市场类型正确
         for entity in entities:
@@ -225,7 +226,7 @@ class TestTradeDayCRUDQuery:
             "timestamp__lte": end_date
         })
 
-        entities = result.to_entities()
+        entities = TradeDayMapper.from_models(result)
         for entity in entities:
             assert start_date <= entity.timestamp <= end_date, \
                 "查询结果应在时间范围内"
@@ -234,11 +235,11 @@ class TestTradeDayCRUDQuery:
         """测试仅查询交易日"""
         # 查询交易日
         trading_result = self.crud.find(filters={"is_open": True})
-        trading_count = trading_result.count()
+        trading_count = len(trading_result)
 
         # 查询休市日
         non_trading_result = self.crud.find(filters={"is_open": False})
-        non_trading_count = non_trading_result.count()
+        non_trading_count = len(non_trading_result)
 
         # 验证数据一致性
         total = self.crud.count()
@@ -253,7 +254,7 @@ class TestTradeDayCRUDQuery:
         """参数化测试按状态查询"""
         result = self.crud.find(filters={"is_open": is_open})
 
-        for entity in result.to_entities():
+        for entity in TradeDayMapper.from_models(result):
             assert entity.is_open == is_open, \
                 f"查询结果应全是{expected_name}"
 
@@ -283,7 +284,7 @@ class TestTradeDayCRUDQuery:
 
         # 验证DataFrame属性
         assert isinstance(df, pd.DataFrame), "应返回DataFrame对象"
-        assert len(df) == result.count(), "DataFrame行数应与查询结果一致"
+        assert len(df) == len(result), "DataFrame行数应与查询结果一致"
         assert 'market' in df.columns, "DataFrame应包含market列"
         assert 'is_open' in df.columns, "DataFrame应包含is_open列"
         assert 'timestamp' in df.columns, "DataFrame应包含timestamp列"
@@ -688,7 +689,7 @@ class TestTradeDayCRUDCreate:
 
         # 验证数据已插入
         result = self.crud.find(filters={"uuid": created_day.uuid})
-        assert result.count() == 1, "应能查询到创建的数据"
+        assert len(result) == 1, "应能查询到创建的数据"
 
     @pytest.mark.parametrize("market,is_open,timestamp", [
         (MARKET_TYPES.CHINA, True, datetime(2023, 1, 3)),
@@ -720,9 +721,9 @@ class TestTradeDayCRUDCreate:
 
         # 验证创建的数据
         result = self.crud.find(filters={"uuid": created_day.uuid})
-        assert result.count() == 1
+        assert len(result) == 1
 
-        entity = result.to_entities()[0]
+        entity = TradeDayMapper.from_models(result)[0]
         assert entity.market == MARKET_TYPES.NASDAQ, "市场应为NASDAQ"
         assert entity.is_open == False, "应为休市状态"
 
