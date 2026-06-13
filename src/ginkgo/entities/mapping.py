@@ -18,11 +18,11 @@
 """
 
 from typing import Any, Dict, Optional
-from ginkgo.entities.base import Base
-from ginkgo.enums import COMPONENT_TYPES, SOURCE_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import SOURCE_TYPES
 
 
-class Mapping(Base):
+class Mapping(ValueObject):
     """
     通用映射业务对象
 
@@ -48,13 +48,9 @@ class Mapping(Base):
         *args,
         **kwargs
     ):
-        # 使用Base类初始化，传入ENGINE组件类型
-        super().__init__(
-            uuid=uuid,
-            component_type=COMPONENT_TYPES.ENGINE,
-            *args,
-            **kwargs
-        )
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 验证核心字段
         if not left_key:
@@ -70,6 +66,10 @@ class Mapping(Base):
         self._mapping_type = mapping_type
         self._metadata = metadata or {}
         self._source = source
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def left_key(self) -> str:

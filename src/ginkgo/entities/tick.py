@@ -12,11 +12,11 @@ import pandas as pd
 from decimal import Decimal
 from functools import singledispatchmethod
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.entities.base import Base
-from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
-class Tick(Base):
+class Tick(ValueObject):
     def __init__(
         self,
         code: str,
@@ -29,7 +29,9 @@ class Tick(Base):
         *args,
         **kwargs,
     ) -> None:
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.TICK, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
         self.set(code, price, volume, direction, timestamp, source)
 
     @singledispatchmethod
@@ -97,7 +99,11 @@ class Tick(Base):
         self._timestamp = datetime_normalize(df["timestamp"])
 
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df["source"]))
+            self._source = SOURCE_TYPES(df["source"])
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def symbol(self) -> str:

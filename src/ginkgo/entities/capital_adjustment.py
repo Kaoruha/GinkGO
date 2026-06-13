@@ -12,12 +12,12 @@ import pandas as pd
 from decimal import Decimal
 from functools import singledispatchmethod
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import SOURCE_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, base_repr, to_decimal
 
 
-class CapitalAdjustment(Base):
+class CapitalAdjustment(ValueObject):
     """
     资金调整业务实体类
 
@@ -35,13 +35,9 @@ class CapitalAdjustment(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(
-            uuid=uuid,
-            component_type=COMPONENT_TYPES.CAPITALADJUSTMENT,
-            *args,
-            **kwargs
-        )
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格类型验证
         if not isinstance(portfolio_id, str) or not portfolio_id.strip():
@@ -163,6 +159,10 @@ class CapitalAdjustment(Base):
         self._reason = reason
         self._source = source
         self._timestamp = normalized_timestamp
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def portfolio_id(self) -> str:

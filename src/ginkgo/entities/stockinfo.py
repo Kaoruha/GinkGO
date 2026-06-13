@@ -11,7 +11,7 @@ import pandas as pd
 import datetime
 
 from ginkgo.entities.value_object import ValueObject
-from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES, SOURCE_TYPES
+from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES
 from functools import singledispatchmethod
 from ginkgo.libs import datetime_normalize, base_repr
 
