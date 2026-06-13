@@ -5,6 +5,7 @@ Ginkgo Entities - 业务实体对象
 """
 
 from ginkgo.entities.base import Base
+from ginkgo.entities.value_object import ValueObject
 from ginkgo.entities.bar import Bar
 from ginkgo.entities.order import Order
 from ginkgo.entities.position import Position
@@ -21,7 +22,7 @@ from ginkgo.entities.identity import IdentityUtils
 from ginkgo.entities.mixins import TimeMixin, ContextMixin, NamedMixin, EngineBindableMixin
 
 __all__ = [
-    "Base",
+    "Base", "ValueObject",
     "Bar", "Order", "Position", "Signal", "StockInfo", "Tick",
     "TradeDay", "Transfer", "Adjustfactor", "CapitalAdjustment",
     "Mapping", "FileInfo", "IdentityUtils",
