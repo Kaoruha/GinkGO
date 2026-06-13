@@ -87,6 +87,31 @@ class TestPositionMapperRoundtrip:
         assert back.frozen_money == 3000
         assert back.fee == 12.5
 
+    def test_roundtrip_non_empty_settlement_queue(self):
+        """非空 settlement_queue roundtrip：volume 保真 + buy_date 还原为 datetime。"""
+        entity = _make_position()
+        # batch 结构与 Position._on_price_update 一致：volume/buy_date/settlement_date
+        now = datetime.datetime(2026, 6, 13, 10, 30, 0)
+        entity._settlement_queue = [{
+            'volume': 500,
+            'buy_date': now,
+            'settlement_date': now + datetime.timedelta(days=1),
+        }]
+        model = PositionMapper.to_model(entity)
+        back = PositionMapper.from_model(model)
+        # mapper 直读/直写 _settlement_queue（无公开 property），测试忠实其访问方式
+        assert len(back._settlement_queue) == 1
+        assert back._settlement_queue[0]['volume'] == 500
+        assert isinstance(back._settlement_queue[0]['buy_date'], datetime.datetime)
+
+    def test_from_model_bad_json_fallback_empty(self):
+        """settlement_queue_json 坏值时 from_model fallback []（验异常路径）。"""
+        entity = _make_position()
+        model = PositionMapper.to_model(entity)
+        model.settlement_queue_json = "not-json"
+        back = PositionMapper.from_model(model)
+        assert back._settlement_queue == []
+
 
 class TestPositionMapperFromModelGuard:
     def test_from_model_rejects_non_mposition(self):

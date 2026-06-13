@@ -93,6 +93,7 @@ class PositionMapper:
 
         # 反序列化结算队列JSON（失败 fallback []）
         # Position 无 settlement_queue property，直写私有属性（忠实原码）
+        # (Task 1.6: Position 加 settlement_queue property 后改读公开属性)
         try:
             settlement_queue_data = json.loads(model.settlement_queue_json or "[]")
             position._settlement_queue = []

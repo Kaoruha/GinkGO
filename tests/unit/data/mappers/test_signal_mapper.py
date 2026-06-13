@@ -72,6 +72,7 @@ class TestSignalMapperRoundtrip:
         model = SignalMapper.to_model(entity)
         back = SignalMapper.from_model(model)
         assert back.reason == "momentum breakout"
+        assert back.source == SOURCE_TYPES.SIM
 
 
 class TestSignalMapperFromModelGuard:
