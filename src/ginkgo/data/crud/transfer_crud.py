@@ -18,6 +18,7 @@ from ginkgo.data.models import MTransfer
 from ginkgo.enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 from ginkgo.entities import Transfer
+from ginkgo.data.mappers import TransferMapper
 
 
 @restrict_crud_access
@@ -150,7 +151,7 @@ class TransferCRUD(BaseCRUD[MTransfer]):
         business_objects = []
         for model in models:
             # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            transfer = Transfer.from_model(model)
+            transfer = TransferMapper.from_model(model)
             business_objects.append(transfer)
 
         return business_objects
