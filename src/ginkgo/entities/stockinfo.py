@@ -1,6 +1,6 @@
 # Upstream: Data Services (StockinfoService同步股票信息)、Strategies (查询股票基础信息)
-# Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES/CURRENCY_TYPES (枚举)
-# Role: StockInfo股票基础信息实体继承Base定义代码/名称/行业/市场/上市日期等核心属性
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、MARKET_TYPES/CURRENCY_TYPES (枚举)
+# Role: StockInfo股票基础信息值对象继承ValueObject定义代码/名称/行业/市场/上市日期等核心属性；uuid 自留
 
 
 
@@ -10,13 +10,13 @@
 import pandas as pd
 import datetime
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import CURRENCY_TYPES, COMPONENT_TYPES, MARKET_TYPES, SOURCE_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES, SOURCE_TYPES
 from functools import singledispatchmethod
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class StockInfo(Base):
+class StockInfo(ValueObject):
     def __init__(
         self,
         code: str = "",
@@ -30,8 +30,9 @@ class StockInfo(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.STOCKINFO, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格参数验证 - 与Signal和Position保持一致，要求核心业务参数
         if not code:
@@ -149,6 +150,10 @@ class StockInfo(Base):
         self._currency = row["currency"]
         self._list_date = datetime_normalize(row["list_date"])
         self._delist_date = datetime_normalize(row["delist_date"])
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def symbol(self) -> str:

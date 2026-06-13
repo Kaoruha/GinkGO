@@ -1,6 +1,6 @@
 # Upstream: Portfolio Manager (创建资金流转记录)、Backtest Engines (记录出入金)
-# Downstream: Base (继承提供uuid/component_type)、TRANSFERDIRECTION_TYPES/TRANSFERSTATUS_TYPES/MARKET_TYPES (枚举)
-# Role: Transfer资金流转实体继承Base定义投资组合/引擎/运行/方向/市场/金额/状态/时间/UUID等核心属性
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、TRANSFERDIRECTION_TYPES/TRANSFERSTATUS_TYPES/MARKET_TYPES (枚举)
+# Role: Transfer资金流转值对象继承ValueObject定义投资组合/引擎/运行/方向/市场/金额/状态/时间；uuid 自留
 
 
 
@@ -12,13 +12,13 @@ import pandas as pd
 from functools import singledispatchmethod
 from decimal import Decimal
 
-from ginkgo.entities.base import Base
+from ginkgo.entities.value_object import ValueObject
 from ginkgo.libs import base_repr
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, DIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES, COMPONENT_TYPES
+from ginkgo.enums import MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 from ginkgo.libs import datetime_normalize, Number
 
 
-class Transfer(Base):
+class Transfer(ValueObject):
     """
     Holding Position Class.
     """
@@ -37,8 +37,9 @@ class Transfer(Base):
         *args,
         **kwargs,
     ):
-        # 使用新的Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.TRANSFER, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格参数验证 - 要求所有核心参数必须传入且类型正确
         if not isinstance(portfolio_id, str):
@@ -167,6 +168,10 @@ class Transfer(Base):
         if "status" in df.columns:
             self._status = TRANSFERSTATUS_TYPES(row["status"])
         self._timestamp = datetime_normalize(row["timestamp"])
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def portfolio_id(self) -> str:

@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (判断交易日)、Data Services (同步交易日历)
-# Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES (枚举CHINA/NASDAQ)
-# Role: TradeDay交易日历实体继承Base定义核心属性提供枚举验证和转换方法
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、MARKET_TYPES (枚举CHINA/NASDAQ)
+# Role: TradeDay交易日历值对象继承ValueObject定义核心属性提供枚举验证和转换方法；uuid 自留
 
 
 
@@ -11,12 +11,12 @@ import datetime
 import pandas as pd
 from functools import singledispatchmethod
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import MARKET_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import MARKET_TYPES
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class TradeDay(Base):
+class TradeDay(ValueObject):
     def __init__(
         self,
         market: MARKET_TYPES,
@@ -26,8 +26,9 @@ class TradeDay(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.TRADEDAY, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格类型验证 - 确保参数类型正确
         if not isinstance(market, MARKET_TYPES):
@@ -126,6 +127,10 @@ class TradeDay(Base):
         self._market = market
         self._is_open = is_open
         self._timestamp = normalized_timestamp
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def market(self) -> MARKET_TYPES:
