@@ -132,7 +132,11 @@ class PaperTradingWorker:
         feeder = BacktestFeeder()
         broker = SimBroker()
         gateway = TradeGateway(brokers=[broker])
-        loader = ComponentLoader(file_service=container.file_service())
+        # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
+        loader = ComponentLoader(
+            file_service=container.file_service(),
+            param_service=container.param_service(),
+        )
 
         # 4. 加载每个 Portfolio
         for db_portfolio in db_portfolios:
@@ -816,7 +820,11 @@ class PaperTradingWorker:
             portfolio.set_portfolio_id(db_portfolio.uuid)
 
             # 加载组件
-            loader = ComponentLoader(file_service=container.file_service())
+            # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
+            loader = ComponentLoader(
+                file_service=container.file_service(),
+                param_service=container.param_service(),
+            )
             if not loader.perform_component_binding(portfolio, components, GLOG):
                 GLOG.ERROR(
                     f"[PAPER-WORKER] Component binding failed for "

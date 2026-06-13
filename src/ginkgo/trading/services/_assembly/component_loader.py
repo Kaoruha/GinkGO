@@ -108,8 +108,15 @@ class ComponentLoader:
         component_params = []
         param_indices = []
         if self._param_service is None:
-            self._logger.WARN("param_service not injected; skip param resolution")
-            return component_params, param_indices
+            # #6103: param_service 未注入 = 装配接线 bug，禁止静默 WARN+返空
+            # （否则组件以默认参数实例化，用户策略阈值/手数/风控比例静默丢失）。
+            # 生产链路必须经 containers.py DI 注入，或显式传 services.data.param_service()。
+            raise ValueError(
+                "param_service not injected; cannot resolve component params. "
+                "Inject via ComponentLoader(param_service=...) / "
+                "EngineAssemblyService(param_service=...) — wiring must come from "
+                "containers.py DI or services.data.param_service()."
+            )
         param_records = self._param_service.find_by_mapping_id(mapping_uuid)
         if not param_records:
             self._logger.WARN(f"No params found for mapping_id: {mapping_uuid}")

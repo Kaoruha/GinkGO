@@ -122,7 +122,11 @@ class TaskEngineBuilder:
 
                 # #3866: 通过 trading 层装配，data 层提供 writer 基础设施
                 from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
-                assembly = EngineAssemblyService(portfolio_service=portfolio_service)
+                # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
+                assembly = EngineAssemblyService(
+                    portfolio_service=portfolio_service,
+                    param_service=services.data.param_service(),
+                )
                 result = assembly.assemble_live_portfolio(
                     portfolio_id=task.portfolio_uuid,
                     position_writer=portfolio_service.build_position_writer(),

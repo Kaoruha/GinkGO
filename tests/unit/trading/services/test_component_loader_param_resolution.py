@@ -59,3 +59,17 @@ class TestResolveComponentParams:
 
         assert params == []
         assert indices == []
+
+    def test_none_param_service_raises_not_silently_drops(self):
+        """#6103 回归防护：param_service 未注入必须抛异常，禁止 WARN+返空。
+
+        重构前 loader 内部用 container.cruds.param() 全局查找，对所有调用方生效；
+        重构后改注入，凡漏传 param_service 的调用方（实盘/模拟盘/回测手写构造），
+        若静默返空会让组件以默认参数实例化 → 用户策略阈值/手数/风控比例丢失。
+        故 None 必须装配期即炸，而非静默退化。
+        """
+        from ginkgo.trading.services._assembly.component_loader import ComponentLoader
+
+        loader = ComponentLoader(param_service=None)  # 模拟漏传的调用方
+        with pytest.raises(ValueError, match="param_service not injected"):
+            loader._resolve_component_params("mapping-x")
