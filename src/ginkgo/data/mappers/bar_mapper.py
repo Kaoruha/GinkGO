@@ -38,7 +38,13 @@ class BarMapper:
 
     @staticmethod
     def from_model(model: MBar) -> Bar:
-        """ORM → Entity。frequency int→enum（from_int，兜底 DAY）。"""
+        """ORM → Entity。frequency int→enum。
+
+        frequency 三态：正常值往返；-1（validate_input 未设频哨兵）经 from_int→VOID
+        （语义=未知，不伪造为 DAY）；None（DB NULL）兜底 DAY 防 None.frequency 下游
+        崩溃。uuid 未还原：Bar 业务键为 code+timestamp+frequency，BarDTO 不携带 uuid
+        （与 OrderMapper 修 uuid 保真不同——Bar 无 uuid 丢失 bug，uuid 装饰性）。
+        """
         if not isinstance(model, MBar):
             raise TypeError(f"Expected MBar, got {type(model).__name__}")
         frequency = FREQUENCY_TYPES.from_int(model.frequency) or FREQUENCY_TYPES.DAY
@@ -64,6 +70,8 @@ class BarMapper:
     # BarDTO 是 Kafka 出站 K 线载荷。字段与 Bar 实体不同名：DTO 用 symbol（非
     # code）、period（非 frequency）。to_dto 搬运自原 BarDTO.from_bar——不映射
     # frequency（period 默认 "1d"），OHLCV 依赖 pydantic 将 Decimal 强转 float。
+    # amount/turnover/change/change_pct 用 getattr 兜底：Bar 实体仅有 amount，其余
+    # 恒 None（保留 from_bar 原样，并为 ORM 直读路径预留兼容）。
     # Bar 无 from_dto（BarDTO 出站单向，YAGNI）。
     # ------------------------------------------------------------------
     @staticmethod
@@ -85,5 +93,5 @@ class BarMapper:
 
     @staticmethod
     def model_to_dto(model: MBar) -> BarDTO:
-        """ORM → DTO 直转（路径①，经 Entity）。"""
+        """ORM → DTO（经 Entity 组合；Bar 非热路径，省字段映射重复）。"""
         return BarMapper.to_dto(BarMapper.from_model(model))

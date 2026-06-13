@@ -37,6 +37,7 @@ def test_bar_roundtrip():
     back = BarMapper.from_model(model)
     assert back.code == "000001.SZ"
     assert back.close == Decimal("10.5")
+    assert back.frequency == FREQUENCY_TYPES.DAY
 
 
 def test_from_model_rejects_wrong_type():
@@ -68,3 +69,17 @@ def test_model_to_dto_smoke():
     dto = BarMapper.model_to_dto(model)
     assert dto.symbol == "000001.SZ"
     assert dto.close == 10.5
+
+
+def test_from_model_frequency_handling():
+    """frequency 还原语义锁定：正常往返；-1 哨兵→VOID；None(DB NULL)→DAY 兜底。"""
+    bar = _make_bar()  # DAY
+    model = BarMapper.to_model(bar)
+    # 正常值往返（DAY→1→DAY）
+    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.DAY
+    # -1（validate_input 未设频哨兵）→ VOID（from_int(-1)，不伪造为 DAY）
+    model.frequency = -1
+    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.VOID
+    # None（DB NULL）→ DAY 兜底（or 防止 None.frequency 下游崩溃）
+    model.frequency = None
+    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.DAY
