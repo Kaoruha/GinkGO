@@ -110,3 +110,39 @@ def test_get_bars_returns_entity_list():
     assert len(result.data) == 1
     assert isinstance(result.data[0], Bar)
     assert result.data[0].code == "000001"
+
+
+# ===== 异常路径：find 抛异常 -> ServiceResult.error（error/message 分离） =====
+
+
+@pytest.mark.unit
+def test_get_bars_df_db_failure_returns_error():
+    """出口① get_bars_df：crud_repo.find 抛异常时返 error，error 含异常信息。
+
+    BarService 两出口用 ServiceResult.error(error=...)——error 字段携带
+    "Database operation failed: {exc}"；message 未传时默认取 error（== error），
+    与 StockinfoService 的 failure 语义不同（error 与 message 此处相等但来源不同）。
+    """
+    svc = _make_service(_make_empty_modellist())
+    svc._crud_repo.find.side_effect = Exception("db down")
+    result = svc.get_bars_df(
+        code="000001", start_date=datetime(2024, 1, 1),
+        end_date=datetime(2024, 1, 2),
+    )
+    assert result.success is False
+    assert "db down" in result.error
+    assert "Database operation failed" in result.error
+
+
+@pytest.mark.unit
+def test_get_bars_db_failure_returns_error():
+    """出口② get_bars：crud_repo.find 抛异常时返 error，error 含异常信息。"""
+    svc = _make_service(_make_empty_modellist())
+    svc._crud_repo.find.side_effect = Exception("db down")
+    result = svc.get_bars(
+        code="000001", start_date=datetime(2024, 1, 1),
+        end_date=datetime(2024, 1, 2),
+    )
+    assert result.success is False
+    assert "db down" in result.error
+    assert "Database operation failed" in result.error

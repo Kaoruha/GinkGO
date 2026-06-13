@@ -23,6 +23,11 @@ from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.entities import StockInfo
 
+# get() 已加 DeprecationWarning（ADR-010 Phase 4.2 Task 4.2）。
+# 本文件全部测试是 get() 向后兼容契约验证——仍需调用 get() 才能验证其行为，
+# 故模块级抑制 DeprecationWarning（不删测试、不改掉 get 调用）。
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
 
 @pytest.fixture
 def service():

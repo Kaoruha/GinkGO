@@ -178,7 +178,12 @@ class TestCount:
 
 
 class TestGet:
-    """get 查询方法测试"""
+    """get 查询方法测试。"""
+
+    # get() 已加 DeprecationWarning（ADR-010 Phase 4.2）。
+    # 本类测试验证 get() 向后兼容行为（委托 Entity 出口），仍需调用 get()，
+    # 故类级抑制 DeprecationWarning（不删测试、不改掉 get 调用）。
+    pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
     @pytest.mark.unit
     def test_get_all(self, service, mock_deps):

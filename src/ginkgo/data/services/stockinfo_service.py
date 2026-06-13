@@ -17,8 +17,9 @@ Following BarService standard for unified architecture.
 """
 
 import time
+import warnings
 import pandas as pd
-from typing import List, Any, Union, Dict, Optional
+from typing import Optional, Any
 from datetime import datetime
 
 from ginkgo.libs import RichProgress, cache_with_expiration, retry
@@ -493,6 +494,11 @@ class StockinfoService(BaseService):
         Returns:
             ServiceResult: data 为 List[StockInfo]（原 ModelList 迭代/.code/len 语义兼容）
         """
+        warnings.warn(
+            "StockinfoService.get() 已废弃：DataFrame 消费用 get_stockinfos_df()，Entity 列表用 get_stockinfos()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_stockinfos(
             code=code, name=name, exchange=exchange, industry=industry,
             market=market, status=status, limit=limit, offset=offset,

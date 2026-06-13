@@ -117,6 +117,7 @@ def test_get_stockinfos_returns_entity_list():
 
 
 @pytest.mark.unit
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_backward_compat_get_no_longer_leaks_modellist():
     """get() 向后兼容，但 data 不再是裸 ModelList。"""
     svc = _make_service(_make_empty_modellist())
@@ -126,6 +127,7 @@ def test_backward_compat_get_no_longer_leaks_modellist():
 
 
 @pytest.mark.unit
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_backward_compat_get_returns_entity_list():
     """get() 委托到 Entity 出口 get_stockinfos()，返 List[StockInfo]。
 
@@ -151,3 +153,49 @@ def test_backward_compat_get_returns_entity_list():
 def test_build_filters_extracted():
     """_build_filters 辅助方法已抽出（DRY）。"""
     assert hasattr(StockinfoService, "_build_filters")
+
+
+# ============================================================
+# 异常路径：find 抛异常 -> ServiceResult.failure（error==message）
+# ============================================================
+
+
+@pytest.mark.unit
+def test_get_stockinfos_df_db_failure_returns_failure():
+    """出口① get_stockinfos_df：crud_repo.find 抛异常时返 failure，error 含异常信息。
+
+    StockinfoService 两出口用 ServiceResult.failure——failure 让
+    ``error == message``（与 BarService 的 ServiceResult.error 分离语义不同）。
+    """
+    svc = _make_service(_make_empty_modellist())
+    svc._crud_repo.find.side_effect = Exception("db down")
+    result = svc.get_stockinfos_df()
+    assert result.success is False
+    # failure 语义：error == message，且都含异常信息
+    assert "db down" in result.message
+    assert result.error == result.message
+
+
+@pytest.mark.unit
+def test_get_stockinfos_db_failure_returns_failure():
+    """出口② get_stockinfos：crud_repo.find 抛异常时返 failure，error 含异常信息。"""
+    svc = _make_service(_make_empty_modellist())
+    svc._crud_repo.find.side_effect = Exception("db down")
+    result = svc.get_stockinfos()
+    assert result.success is False
+    assert "db down" in result.message
+    assert result.error == result.message
+
+
+# ============================================================
+# get() DeprecationWarning 生效断言（证明警告真触发，非仅 docstring 标注）
+# ============================================================
+
+
+@pytest.mark.unit
+def test_get_emits_deprecation_warning():
+    """get() 调用必须触发 DeprecationWarning（ADR-010 Phase 4.2）。"""
+    import warnings as _warnings
+    svc = _make_service(_make_empty_modellist())
+    with pytest.warns(DeprecationWarning):
+        svc.get()

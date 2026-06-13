@@ -693,21 +693,10 @@ class BarService(BaseService):
                     "查询参数不能为空，至少需要提供code、start_date或end_date中的一个"
                 )
 
-            # 构建filters字典
-            filters = {}
-
-            if code:
-                filters["code"] = code
-            if start_date:
-                # 使用datetime_normalize处理时间
-                normalized_start = datetime_normalize(start_date)
-                filters["timestamp__gte"] = normalized_start
-            if end_date:
-                # 使用datetime_normalize处理时间
-                normalized_end = datetime_normalize(end_date)
-                filters["timestamp__lte"] = normalized_end
-            if frequency:
-                filters["frequency"] = frequency
+            # 构建filters字典（ADR-010 Phase 4.2 DRY：与 get_bars_df/get_bars 共用 _build_bar_filters）
+            filters = self._build_bar_filters(
+                code=code, start_date=start_date, end_date=end_date, frequency=frequency,
+            )
 
             # Get original bar data - 返回ModelList
             model_list = self._crud_repo.find(
