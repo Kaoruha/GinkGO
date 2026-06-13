@@ -24,6 +24,9 @@ from ginkgo.data.mappers.adjustfactor_mapper import AdjustfactorMapper
 from ginkgo.data.mappers.tradeday_mapper import TradeDayMapper
 from ginkgo.data.mappers.capital_adjustment_mapper import CapitalAdjustmentMapper
 from ginkgo.data.mappers.stockinfo_mapper import StockInfoMapper
+from ginkgo.data.mappers.tick_mapper import TickMapper
+from ginkgo.data.mappers.mapping_mapper import MappingMapper
+from ginkgo.data.mappers.transfer_mapper import TransferMapper
 
 __all__ = [
     "dataframe_to_adjustfactor_models",
@@ -41,4 +44,7 @@ __all__ = [
     "TradeDayMapper",
     "CapitalAdjustmentMapper",
     "StockInfoMapper",
+    "TickMapper",
+    "MappingMapper",
+    "TransferMapper",
 ]
