@@ -253,4 +253,3 @@ class Bar(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, Bar.__name__, 12, 60)
-

@@ -909,4 +909,3 @@ class Position(TimeMixin, Base):
 
     # def __repr__(self) -> str:
     #     return base_repr(self, self._code, 12, 60)
-

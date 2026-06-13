@@ -603,4 +603,3 @@ class Order(TimeMixin, Base):
 
     def __repr__(self) -> str:
         return base_repr(self, Order.__name__, 20, 60)
-

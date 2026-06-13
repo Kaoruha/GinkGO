@@ -141,4 +141,3 @@ class TradeDay(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, TradeDay.__name__, 20, 60)
-

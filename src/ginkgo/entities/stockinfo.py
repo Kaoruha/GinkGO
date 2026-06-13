@@ -185,4 +185,3 @@ class StockInfo(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, StockInfo.__name__, 20, 60)
-

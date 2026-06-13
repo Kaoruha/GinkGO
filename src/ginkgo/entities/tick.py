@@ -130,4 +130,3 @@ class Tick(Base):
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + Tick.__name__.capitalize(), 12, 46)
-

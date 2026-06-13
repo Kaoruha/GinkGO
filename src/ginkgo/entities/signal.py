@@ -367,4 +367,3 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, Base):
             pass
 
         return True
-
