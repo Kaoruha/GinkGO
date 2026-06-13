@@ -62,8 +62,9 @@ class TestTransferConstruction:
         assert isinstance(transfer.timestamp, datetime.datetime)
 
     def test_base_class_inheritance(self):
-        """测试Base类继承验证"""
-        # 验证正确继承Base类的功能 - 使用有效参数创建实例
+        """测试ValueObject继承验证（ADR-010: Base→ValueObject 迁移）"""
+        # ADR-010 Phase 2 后：Transfer 不再继承 Base，改为 ValueObject
+        from ginkgo.entities.value_object import ValueObject
         from ginkgo.entities.base import Base
 
         transfer = Transfer(
@@ -77,17 +78,18 @@ class TestTransferConstruction:
             timestamp="2023-01-03"
         )
 
-        # 验证继承关系
-        assert isinstance(transfer, Base)
+        # 验证继承关系：VO 不再继承 Base
+        assert isinstance(transfer, ValueObject)
+        assert not isinstance(transfer, Base)
 
-        # 验证Base类的基本功能（如UUID）
-        assert len(transfer.uuid) > 0
+        # ValueObject 不自动生成 uuid，默认 ""
+        assert transfer.uuid == ""
+        # VO 无 component_type（无身份分类）
+        assert not hasattr(transfer, 'component_type')
 
     def test_uuid_initialization(self):
-        """测试UUID初始化"""
-        # 测试UUID的设置和生成
-
-        # 测试自动生成UUID
+        """测试UUID初始化（ADR-010: VO 不自动生成 uuid，传入则保真）"""
+        # 不传 uuid 时默认 ""（持久化时由 ORM default 生成）
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -98,10 +100,10 @@ class TestTransferConstruction:
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03"
         )
-        assert len(transfer1.uuid) > 0
+        assert transfer1.uuid == ""
         assert isinstance(transfer1.uuid, str)
 
-        # 测试自定义UUID
+        # 测试自定义UUID保真
         custom_uuid = "custom-uuid-12345"
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
@@ -116,7 +118,7 @@ class TestTransferConstruction:
         )
         assert transfer2.uuid == custom_uuid
 
-        # 测试UUID唯一性（自动生成的不同）
+        # 不传 uuid 的实例默认空串，与传入的 uuid 不同
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -125,7 +127,8 @@ class TestTransferConstruction:
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-03"
+            timestamp="2023-01-03",
+            uuid="another-uuid-67890"
         )
         assert transfer1.uuid != transfer3.uuid
 
@@ -585,10 +588,9 @@ class TestTransferProperties:
         assert isinstance(transfer3.timestamp, datetime.datetime)
 
     def test_uuid_property(self):
-        """测试UUID属性"""
-        # 测试UUID属性的正确读取和唯一性
+        """测试UUID属性（ADR-010: VO 不自动生成 uuid，传入则保真）"""
 
-        # 测试自动生成的UUID
+        # 不传 uuid 时默认 ""
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -599,10 +601,10 @@ class TestTransferProperties:
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03"
         )
-        assert len(transfer1.uuid) > 0
+        assert transfer1.uuid == ""
         assert isinstance(transfer1.uuid, str)
 
-        # 测试自定义UUID
+        # 测试自定义UUID保真
         custom_uuid = "custom-transfer-uuid-12345"
         transfer2 = Transfer(
             portfolio_id="test_portfolio",
@@ -618,7 +620,7 @@ class TestTransferProperties:
         assert transfer2.uuid == custom_uuid
         assert isinstance(transfer2.uuid, str)
 
-        # 测试UUID唯一性（自动生成的应该不同）
+        # 传入不同 uuid 与默认空串不同
         transfer3 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -627,7 +629,8 @@ class TestTransferProperties:
             market=MARKET_TYPES.OTHER,
             money=Decimal("3000.00"),
             status=TRANSFERSTATUS_TYPES.PENDING,
-            timestamp="2023-01-03"
+            timestamp="2023-01-03",
+            uuid="transfer-uuid-003"
         )
         assert transfer1.uuid != transfer3.uuid
 
@@ -928,7 +931,8 @@ class TestTransferDataSetting:
         )
 
         original_uuid = transfer.uuid
-        assert len(original_uuid) > 0
+        # ADR-010: VO 不自动生成 uuid，默认 ""（set 不会重新生成）
+        assert original_uuid == ""
 
         # 设置数据时UUID应该保持不变（不会重新生成）
         transfer.set(
@@ -2158,7 +2162,7 @@ class TestTransferBusinessLogic:
         from ginkgo.entities.transfer import Transfer
         from ginkgo.enums import TRANSFERDIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES
 
-        # 创建多个Transfer实例
+        # ADR-010: VO 不自动生成 uuid，需显式传入作为持久化键
         transfer1 = Transfer(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -2167,7 +2171,8 @@ class TestTransferBusinessLogic:
             market=MARKET_TYPES.CHINA,
             money=1000.0,
             status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-01"
+            timestamp="2023-01-01",
+            uuid="rec-uuid-1"
         )
 
         transfer2 = Transfer(
@@ -2178,7 +2183,8 @@ class TestTransferBusinessLogic:
             market=MARKET_TYPES.CHINA,
             money=1000.0,
             status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-01"
+            timestamp="2023-01-01",
+            uuid="rec-uuid-2"
         )
 
         transfer3 = Transfer(
@@ -2189,10 +2195,11 @@ class TestTransferBusinessLogic:
             market=MARKET_TYPES.NASDAQ,
             money=2000.0,
             status=TRANSFERSTATUS_TYPES.FILLED,
-            timestamp="2023-01-02"
+            timestamp="2023-01-02",
+            uuid="rec-uuid-3"
         )
 
-        # 验证UUID唯一性
+        # 验证传入的 UUID 唯一性
         assert transfer1.uuid != transfer2.uuid
         assert transfer1.uuid != transfer3.uuid
         assert transfer2.uuid != transfer3.uuid
@@ -2435,32 +2442,8 @@ class TestTransferConstraints:
         assert MARKET_TYPES.OTHER is not None
 
     def test_component_type_constraint(self):
-        """测试component_type必须为COMPONENT_TYPES.TRANSFER"""
-        # 验证component_type的正确设置
-        from ginkgo.entities.transfer import Transfer
-        from ginkgo.enums import TRANSFERDIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, COMPONENT_TYPES
-
-        transfer = Transfer(
-            portfolio_id="test_portfolio",
-            engine_id="test_engine",
-            task_id="test_run",
-            direction=TRANSFERDIRECTION_TYPES.IN,
-            market=MARKET_TYPES.CHINA,
-            money=1000.0,
-            status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-01"
-        )
-
-        # 验证component_type设置正确
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
-        assert isinstance(transfer.component_type, COMPONENT_TYPES)
-
-        # 验证component_type是继承自Base类的属性
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
-
-    def test_data_integrity_checks(self):
-        """测试数据完整性检查"""
-        # 验证数据完整性约束
+        """测试component_type约束（ADR-010: VO 无 component_type）"""
+        # ADR-010 Phase 2 后：Transfer 迁为 ValueObject，无 component_type（VO 无身份分类）
         from ginkgo.entities.transfer import Transfer
         from ginkgo.enums import TRANSFERDIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES
 
@@ -2473,6 +2456,28 @@ class TestTransferConstraints:
             money=1000.0,
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-01"
+        )
+
+        # VO 无 component_type 属性
+        assert not hasattr(transfer, 'component_type')
+
+    def test_data_integrity_checks(self):
+        """测试数据完整性检查"""
+        # 验证数据完整性约束
+        from ginkgo.entities.transfer import Transfer
+        from ginkgo.enums import TRANSFERDIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES
+
+        # ADR-010: 传入 uuid 作为持久化键（VO 不自动生成）
+        transfer = Transfer(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            direction=TRANSFERDIRECTION_TYPES.IN,
+            market=MARKET_TYPES.CHINA,
+            money=1000.0,
+            status=TRANSFERSTATUS_TYPES.NEW,
+            timestamp="2023-01-01",
+            uuid="integrity-uuid-1"
         )
 
         # 验证所有字段都有正确的值且不为None
@@ -3628,7 +3633,7 @@ class TestTransferIntegration:
         """测试UUID在组件间的一致性"""
         # 验证UUID在不同组件间保持一致
 
-        # 测试自动生成UUID的一致性
+        # ADR-010: VO 不自动生成 uuid，需显式传入作为持久化键
         transfer = Transfer(
             portfolio_id="uuid_test_portfolio",
             engine_id="uuid_test_engine",
@@ -3637,7 +3642,8 @@ class TestTransferIntegration:
             market=MARKET_TYPES.CHINA,
             money=Decimal("1000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-03"
+            timestamp="2023-01-03",
+            uuid="consistency-uuid-1"
         )
 
         # 验证UUID存在且格式正确
@@ -3657,7 +3663,8 @@ class TestTransferIntegration:
             market=MARKET_TYPES.NASDAQ,
             money=Decimal("2000.00"),
             status=TRANSFERSTATUS_TYPES.SUBMITTED,
-            timestamp="2023-01-03"
+            timestamp="2023-01-03",
+            uuid="consistency-uuid-2"
         )
 
         # 验证不同实例有不同的UUID
@@ -3689,7 +3696,8 @@ class TestTransferIntegration:
             market=MARKET_TYPES.CHINA,
             money=Decimal("4000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
-            timestamp="2023-01-03"
+            timestamp="2023-01-03",
+            uuid="persistent-uuid-1"
         )
 
         persistent_uuid = persistent_transfer.uuid
@@ -3728,7 +3736,8 @@ class TestTransferIntegration:
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*100}.00"),
                 status=TRANSFERSTATUS_TYPES.NEW,
-                timestamp="2023-01-03"
+                timestamp="2023-01-03",
+                uuid=f"batch-uuid-{i:03d}"
             )
             transfers_batch.append(transfer)
 
@@ -3752,7 +3761,7 @@ class TestTransferIntegration:
             # UUID应该是可打印字符
             assert transfer.uuid.isprintable()
 
-        # 测试空UUID的处理
+        # 测试空UUID的处理（ADR-010: VO 不自动生成，空 uuid 保持空）
         empty_uuid_transfer = Transfer(
             portfolio_id="empty_uuid_portfolio",
             engine_id="empty_uuid_engine",
@@ -3762,18 +3771,16 @@ class TestTransferIntegration:
             money=Decimal("1000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03",
-            uuid=""  # 空UUID应该触发自动生成
+            uuid=""  # 空UUID保持空（持久化时由 ORM default 生成）
         )
 
-        # 验证空UUID被自动生成替换
-        assert empty_uuid_transfer.uuid != ""
-        assert len(empty_uuid_transfer.uuid) > 0
+        # ADR-010: VO 不自动生成 uuid，空 uuid 保持空
+        assert empty_uuid_transfer.uuid == ""
 
     def test_component_type_integration(self):
-        """测试component_type的集成验证"""
-        # 验证component_type在系统中正确识别
+        """测试component_type的集成验证（ADR-010: VO 无 component_type）"""
+        # ADR-010 Phase 2 后：Transfer 迁为 ValueObject，无 component_type（VO 无身份分类）
 
-        # 测试Transfer的component_type正确设置
         transfer = Transfer(
             portfolio_id="component_test_portfolio",
             engine_id="component_test_engine",
@@ -3785,11 +3792,10 @@ class TestTransferIntegration:
             timestamp="2023-01-03"
         )
 
-        # 验证component_type正确设置为TRANSFER
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
-        assert isinstance(transfer.component_type, COMPONENT_TYPES)
+        # VO 无 component_type 属性
+        assert not hasattr(transfer, 'component_type')
 
-        # 测试多个Transfer实例的component_type一致性
+        # 测试多个Transfer实例都无 component_type
         transfers = []
         for i in range(5):
             t = Transfer(
@@ -3804,11 +3810,10 @@ class TestTransferIntegration:
             )
             transfers.append(t)
 
-        # 验证所有Transfer实例都有相同的component_type
         for transfer in transfers:
-            assert transfer.component_type == COMPONENT_TYPES.TRANSFER
+            assert not hasattr(transfer, 'component_type')
 
-        # 验证component_type在对象生命周期中保持不变
+        # 通过 set 方法更新后仍无 component_type
         persistent_transfer = Transfer(
             portfolio_id="persistent_portfolio",
             engine_id="persistent_engine",
@@ -3820,18 +3825,7 @@ class TestTransferIntegration:
             timestamp="2023-01-03"
         )
 
-        original_component_type = persistent_transfer.component_type
-
-        # 执行各种修改操作
         persistent_transfer.portfolio_id = "updated_portfolio"
-        persistent_transfer.engine_id = "updated_engine"
-        persistent_transfer.task_id = "updated_run"
-
-        # component_type应该保持不变
-        assert persistent_transfer.component_type == original_component_type
-        assert persistent_transfer.component_type == COMPONENT_TYPES.TRANSFER
-
-        # 通过set方法更新后component_type也应该保持不变
         persistent_transfer.set(
             "final_portfolio",
             "final_engine",
@@ -3843,21 +3837,17 @@ class TestTransferIntegration:
             "2023-01-03"
         )
 
-        assert persistent_transfer.component_type == COMPONENT_TYPES.TRANSFER
+        assert not hasattr(persistent_transfer, 'component_type')
 
-        # 测试component_type的数值表示
-        assert COMPONENT_TYPES.TRANSFER.value == 13  # 根据enums.py中的定义
-
-        # 验证component_type可以用于类型识别
+        # 类型识别：VO 不带 component_type，返回 None
         def identify_component(obj):
             if hasattr(obj, 'component_type'):
                 return obj.component_type
             return None
 
-        identified_type = identify_component(transfer)
-        assert identified_type == COMPONENT_TYPES.TRANSFER
+        assert identify_component(transfer) is None
 
-        # 测试component_type在集合操作中的一致性
+        # 集合中所有对象均无 component_type
         transfer_collection = [
             Transfer(
                 portfolio_id="collection_portfolio_1",
@@ -3881,23 +3871,8 @@ class TestTransferIntegration:
             )
         ]
 
-        # 验证集合中所有对象都是TRANSFER类型
-        component_types = [t.component_type for t in transfer_collection]
-        assert all(ct == COMPONENT_TYPES.TRANSFER for ct in component_types)
-
-        # 测试component_type的枚举属性
-        transfer_type = transfer.component_type
-        assert isinstance(transfer_type, COMPONENT_TYPES)
-        assert transfer_type.name == "TRANSFER"
-        assert transfer_type.value == 13
-
-        # 验证component_type是只读属性（Base类中只有getter，没有setter）
-        # component_type通过@property提供，没有setter，尝试赋值会抛出AttributeError
-        with pytest.raises(AttributeError):
-            transfer.component_type = COMPONENT_TYPES.SIGNAL
-
-        # 最终验证component_type仍然是TRANSFER
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
+        for t in transfer_collection:
+            assert not hasattr(t, 'component_type')
 
     def test_transfer_lifecycle_integration(self):
         """测试转账生命周期的集成流程"""
@@ -4117,8 +4092,10 @@ class TestTransferIntegration:
             assert updated_transfer.status == status
 
     def test_inheritance_from_base_class(self):
-        """测试从Base类继承的功能集成"""
-        # 验证继承的属性和方法
+        """测试从ValueObject继承的功能集成（ADR-010: Base→ValueObject 迁移）"""
+        # ADR-010 Phase 2 后：Transfer 继承 ValueObject，不再继承 Base
+        from ginkgo.entities.value_object import ValueObject
+        from ginkgo.entities.base import Base
 
         # 创建Transfer实例
         transfer = Transfer(
@@ -4132,31 +4109,29 @@ class TestTransferIntegration:
             timestamp="2023-01-03"
         )
 
-        # 验证从Base类继承的UUID属性
+        # ValueObject 不自动生成 uuid，默认 ""
         assert transfer.uuid is not None
         assert isinstance(transfer.uuid, str)
-        assert len(transfer.uuid) > 0
+        assert transfer.uuid == ""
 
-        # 验证从Base类继承的component_type属性
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
-        assert transfer.component_type == COMPONENT_TYPES.TRANSFER
-        assert isinstance(transfer.component_type, COMPONENT_TYPES)
+        # VO 无 component_type（无身份分类）
+        assert not hasattr(transfer, 'component_type')
 
-        # 验证Transfer是Base类的实例
-        from ginkgo.entities.base import Base
-        assert isinstance(transfer, Base)
+        # 验证Transfer是ValueObject实例，不再是Base实例
+        assert isinstance(transfer, ValueObject)
+        assert not isinstance(transfer, Base)
 
         # 验证继承的类层次结构
-        assert issubclass(Transfer, Base)
+        assert issubclass(Transfer, ValueObject)
+        assert not issubclass(Transfer, Base)
 
-        # 测试Base类的方法在Transfer中是否可用
-        # 验证对象的字符串表示（__repr__方法）
+        # ValueObject 提供 to_dataframe 等方法
         repr_str = repr(transfer)
         assert isinstance(repr_str, str)
         assert "Transfer" in repr_str
         assert len(repr_str) > 0
 
-        # 测试自定义UUID的继承功能
+        # 测试自定义UUID保真
         custom_uuid = "custom_inheritance_test_uuid"
         transfer_with_custom_uuid = Transfer(
             portfolio_id="custom_inheritance_portfolio",
@@ -4169,8 +4144,6 @@ class TestTransferIntegration:
             timestamp="2023-01-03",
             uuid=custom_uuid
         )
-
-        # 验证自定义UUID通过Base类正确设置
         assert transfer_with_custom_uuid.uuid == custom_uuid
 
         # 测试多个实例的继承一致性
@@ -4184,21 +4157,22 @@ class TestTransferIntegration:
                 market=MARKET_TYPES.CHINA,
                 money=Decimal(f"{1000 + i*500}.00"),
                 status=TRANSFERSTATUS_TYPES.NEW,
-                timestamp="2023-01-03"
+                timestamp="2023-01-03",
+                uuid=f"inheritance-uuid-{i}"
             )
             transfers.append(t)
 
-        # 验证所有实例都正确继承Base类功能
+        # 验证所有实例都继承ValueObject，无 component_type
         for transfer in transfers:
-            assert isinstance(transfer, Base)
-            assert transfer.uuid is not None
-            assert transfer.component_type == COMPONENT_TYPES.TRANSFER
+            assert isinstance(transfer, ValueObject)
+            assert not isinstance(transfer, Base)
+            assert not hasattr(transfer, 'component_type')
 
-        # 验证继承的UUID唯一性
+        # 验证传入的UUID唯一性
         uuids = [t.uuid for t in transfers]
-        assert len(uuids) == len(set(uuids))  # 所有UUID都不重复
+        assert len(uuids) == len(set(uuids))
 
-        # 测试Base类的初始化参数传递
+        # 测试ValueObject的初始化参数传递（uuid 保真）
         base_args_transfer = Transfer(
             portfolio_id="base_args_portfolio",
             engine_id="base_args_engine",
@@ -4208,39 +4182,30 @@ class TestTransferIntegration:
             money=Decimal("3000.00"),
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03",
-            uuid="base_args_uuid"  # 通过Base类初始化
+            uuid="base_args_uuid"
         )
-
-        # 验证Base类参数正确传递和设置
         assert base_args_transfer.uuid == "base_args_uuid"
-        assert base_args_transfer.component_type == COMPONENT_TYPES.TRANSFER
+        assert not hasattr(base_args_transfer, 'component_type')
 
         # 测试继承链的方法解析顺序（MRO）
         mro = Transfer.__mro__
-        assert Base in mro
+        assert ValueObject in mro
         assert Transfer in mro
 
-        # 验证Transfer特有的属性不会干扰Base类功能
+        # 验证Transfer特有的属性正常
         transfer_specific_attrs = [
             'portfolio_id', 'engine_id', 'task_id', 'direction',
             'market', 'money', 'status', 'timestamp'
         ]
-
         for attr in transfer_specific_attrs:
-            # 确保Transfer特有属性存在且不为None
             assert getattr(transfer, attr) is not None
 
-        # 同时验证Base类的核心属性仍然正常工作
-        base_attrs = ['uuid', 'component_type']
-        for attr in base_attrs:
-            assert getattr(transfer, attr) is not None
-
-        # 测试多重继承的兼容性（如果有其他父类）
-        # 检查Transfer的所有父类
+        # 检查Transfer的直接父类包含ValueObject，不包含Base
         transfer_bases = Transfer.__bases__
-        assert Base in transfer_bases
+        assert ValueObject in transfer_bases
+        assert Base not in transfer_bases
 
-        # 验证继承不会影响Transfer的业务逻辑
+        # 验证业务属性更新后，VO 属性仍正常
         business_transfer = Transfer(
             portfolio_id="business_inheritance_portfolio",
             engine_id="business_inheritance_engine",
@@ -4251,19 +4216,16 @@ class TestTransferIntegration:
             status=TRANSFERSTATUS_TYPES.NEW,
             timestamp="2023-01-03"
         )
-
-        # Base类功能不应影响Transfer的业务方法
         business_transfer.portfolio_id = "updated_business_portfolio"
         business_transfer.engine_id = "updated_business_engine"
 
-        # 验证业务属性更新后，Base类属性仍然正常
         assert business_transfer.uuid is not None
-        assert business_transfer.component_type == COMPONENT_TYPES.TRANSFER
+        assert not hasattr(business_transfer, 'component_type')
         assert business_transfer.portfolio_id == "updated_business_portfolio"
         assert business_transfer.engine_id == "updated_business_engine"
 
-        # 最终验证：Transfer作为Base的子类能够正常工作
-        assert isinstance(transfer, Base)
+        # 最终验证：Transfer作为ValueObject的子类正常工作
+        assert isinstance(transfer, ValueObject)
         assert isinstance(transfer, Transfer)
         assert transfer.__class__ == Transfer
         assert Transfer.__name__ == "Transfer"

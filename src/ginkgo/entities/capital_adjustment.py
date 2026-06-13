@@ -1,5 +1,5 @@
 # Upstream: Portfolio Manager (记录资金调整)、Backtest Engines (跟踪资金变化)
-# Downstream: Base (继承提供uuid/component_type)、SOURCE_TYPES (枚举)
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)；uuid 自留，无 component_type、SOURCE_TYPES (枚举)
 # Role: CapitalAdjustment资金调整实体继承Base定义投资组合/金额/时间/原因/来源/UUID等核心属性
 
 

@@ -55,8 +55,9 @@ class TestStockInfoConstruction:
         assert isinstance(stockinfo.delist_date, datetime.datetime)
 
     def test_base_class_inheritance(self):
-        """测试Base类继承验证"""
-        # 验证正确继承Base类的功能 - 使用有效参数创建实例
+        """测试ValueObject继承验证（ADR-010: Base→ValueObject 迁移）"""
+        # ADR-010 Phase 2 后：StockInfo 不再继承 Base，改为 ValueObject
+        from ginkgo.entities.value_object import ValueObject
         from ginkgo.entities.base import Base
 
         stockinfo = StockInfo(
@@ -68,17 +69,19 @@ class TestStockInfoConstruction:
             delist_date="2099-12-31"
         )
 
-        # 验证继承关系
-        assert isinstance(stockinfo, Base)
+        # 验证继承关系：VO 不再继承 Base
+        assert isinstance(stockinfo, ValueObject)
+        assert not isinstance(stockinfo, Base)
 
-        # 验证Base类的基本功能（如UUID）
+        # ValueObject 不自动生成 uuid，默认 ""
         assert hasattr(stockinfo, 'uuid')
-        assert len(stockinfo.uuid) > 0
-
-        # 验证组件类型正确分配
-        assert hasattr(stockinfo, 'component_type')
-        assert stockinfo.component_type == COMPONENT_TYPES.STOCKINFO
-        assert isinstance(stockinfo.component_type, type(COMPONENT_TYPES.STOCKINFO))
+        assert stockinfo.uuid == ""
+        # VO 无 component_type（无身份分类）
+        assert not hasattr(stockinfo, 'component_type')
+        # 传入 uuid 则保真
+        si2 = StockInfo(code="000001.SZ", code_name="平安银行", industry="银行",
+                        uuid="si-uuid-1")
+        assert si2.uuid == "si-uuid-1"
 
 
 @pytest.mark.unit
