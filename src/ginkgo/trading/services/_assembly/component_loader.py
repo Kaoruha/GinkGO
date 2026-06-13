@@ -94,9 +94,41 @@ class ComponentLoader:
     从数据库 File 表读取组件源码，动态执行并实例化，绑定到 Portfolio。
     """
 
-    def __init__(self, file_service=None, logger=None):
+    def __init__(self, file_service=None, param_service=None, logger=None):
         self._file_service = file_service
+        self._param_service = param_service
         self._logger = logger or GLOG
+
+    def _resolve_component_params(self, mapping_uuid: str):
+        """通过注入的 param_service 取组件参数记录，解析为 (params, indices)。
+
+        #6103: 取代 container.cruds.param() service locator（复刻 #3943 到 loader 路径）。
+        从 _instantiate_component_from_file 提取，使其可独立测试（避开动态 exec_module）。
+        """
+        component_params = []
+        param_indices = []
+        if self._param_service is None:
+            # #6103: param_service 未注入 = 装配接线 bug，禁止静默 WARN+返空
+            # （否则组件以默认参数实例化，用户策略阈值/手数/风控比例静默丢失）。
+            # 生产链路必须经 containers.py DI 注入，或显式传 services.data.param_service()。
+            raise ValueError(
+                "param_service not injected; cannot resolve component params. "
+                "Inject via ComponentLoader(param_service=...) / "
+                "EngineAssemblyService(param_service=...) — wiring must come from "
+                "containers.py DI or services.data.param_service()."
+            )
+        param_records = self._param_service.find_by_mapping_id(mapping_uuid)
+        if not param_records:
+            self._logger.WARN(f"No params found for mapping_id: {mapping_uuid}")
+            return component_params, param_indices
+        for p in sorted(param_records, key=lambda p: p.index):
+            try:
+                component_params.append(json.loads(p.value) if p.value else p.value)
+            except (json.JSONDecodeError, TypeError):
+                component_params.append(p.value)
+            param_indices.append(p.index)
+        self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
+        return component_params, param_indices
 
     def perform_component_binding(
         self, portfolio: PortfolioT1Backtest, components: Dict[str, Any], logger: GinkgoLogger
@@ -140,43 +172,25 @@ class ComponentLoader:
                     else:
                         return None, "Invalid file data structure"
 
-                    # 获取组件参数
-                    from ginkgo.data.containers import container
-
-                    param_crud = container.cruds.param()
-                    param_records = param_crud.find(filters={"mapping_id": mapping_uuid})
-                    component_params = []
+                    # 获取组件参数（#6103: 走注入的 param_service，取代 container.cruds.param()）
+                    component_params, param_indices = self._resolve_component_params(mapping_uuid)
                     component_kwargs = {}
-                    if param_records:
-                        sorted_params = sorted(param_records, key=lambda p: p.index)
-                        param_indices = []
-                        for p in sorted_params:
-                            try:
-                                component_params.append(json.loads(p.value) if p.value else p.value)
-                            except (json.JSONDecodeError, TypeError):
-                                component_params.append(p.value)
-                            param_indices.append(p.index)
-                        self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
-
+                    if component_params:
                         # 用动态参数提取器获取参数名，构建 kwargs
                         # #5974: 使用 resolve_param_kwargs 处理新旧索引兼容
                         try:
                             from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
-                            file_crud_local = container.cruds.file()
-                            file_records = file_crud_local.find(filters={"uuid": file_id})
-                            if file_records:
-                                comp_name = file_records[0].name
-                                type_map = {6: "strategy", 4: "selector", 5: "sizer", 3: "risk_manager", 1: "analyzer"}
-                                file_type_str = type_map.get(component_type)
-                                if file_type_str:
-                                    param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
-                                    component_kwargs = resolve_param_kwargs(
-                                        component_params, param_indices, param_names,
-                                    )
+                            # #6103: 复用已取的 mfile.name，取代 container.cruds.file() 重复查询
+                            comp_name = getattr(mfile, "name", None)
+                            type_map = {6: "strategy", 4: "selector", 5: "sizer", 3: "risk_manager", 1: "analyzer"}
+                            file_type_str = type_map.get(component_type)
+                            if comp_name and file_type_str:
+                                param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
+                                component_kwargs = resolve_param_kwargs(
+                                    component_params, param_indices, param_names,
+                                )
                         except Exception as e:
                             self._logger.WARN(f"Failed to resolve param names, falling back to positional: {e}")
-                    else:
-                        self._logger.WARN(f"No params found for mapping_id: {mapping_uuid}")
 
                     # 动态执行代码来获取组件类
                     import importlib.util

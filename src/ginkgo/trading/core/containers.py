@@ -117,6 +117,7 @@ def _create_engine_assembly_service():
         engine_service=data_container.engine_service(),
         portfolio_service=data_container.portfolio_service(),
         file_service=data_container.file_service(),
+        param_service=data_container.param_service(),
         analyzer_record_crud=data_container.cruds.analyzer_record()
     )
 

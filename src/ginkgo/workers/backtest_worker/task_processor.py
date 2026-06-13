@@ -224,7 +224,11 @@ class BacktestProcessor(Thread):
         """
         # #3866: 通过 trading 层装配
         from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
-        assembly = EngineAssemblyService(portfolio_service=self._portfolio_service)
+        # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
+        assembly = EngineAssemblyService(
+            portfolio_service=self._portfolio_service,
+            param_service=services.data.param_service(),
+        )
         portfolio_result = assembly.assemble_live_portfolio(
             portfolio_id=self.task.portfolio_uuid,
             position_writer=self._portfolio_service.build_position_writer(),
