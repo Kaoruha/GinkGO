@@ -61,6 +61,7 @@ ginkgo serve worker-backtest -id test2        # 回测 Worker
 
 ## 详细参考文档（按需查阅）
 - **开发模式/API/风控/日志/实盘** → `docs/claude-dev-reference.md`
+- **架构决策记录 (ADR)** → `docs/adr/README.md`（难逆转/反直觉/真实权衡的决策，触碰架构前先读）
 - **CLI 回测全链路操作指南** → 见下方
 
 ## CLI 回测全链路
