@@ -434,12 +434,17 @@ class BrokerManager:
         return None
 
 
+import threading
+
 # 全局单例
 _broker_manager = None
+_lock = threading.Lock()
 
 def get_broker_manager() -> BrokerManager:
     """获取BrokerManager单例"""
     global _broker_manager
     if _broker_manager is None:
-        _broker_manager = BrokerManager()
+        with _lock:
+            if _broker_manager is None:
+                _broker_manager = BrokerManager()
     return _broker_manager
