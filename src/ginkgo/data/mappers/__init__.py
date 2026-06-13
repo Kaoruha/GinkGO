@@ -17,6 +17,7 @@ from ginkgo.data.mappers._legacy import (
     dataframe_to_tick_models,
 )
 from ginkgo.data.mappers.order_mapper import OrderMapper
+from ginkgo.data.mappers.bar_mapper import BarMapper
 
 __all__ = [
     "dataframe_to_adjustfactor_models",
@@ -27,4 +28,5 @@ __all__ = [
     "dataframe_to_tick_entities",
     "dataframe_to_tick_models",
     "OrderMapper",
+    "BarMapper",
 ]
