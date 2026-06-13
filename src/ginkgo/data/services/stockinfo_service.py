@@ -484,14 +484,16 @@ class StockinfoService(BaseService):
         """[Deprecated] 查询股票基础信息。
 
         ADR-010 Phase 4.2：原 get() 透传裸 ModelList（V11 重灾区）。现已改为
-        委托 get_stockinfos_df()——原 ModelList 唯一被消费的能力是 to_dataframe()，
-        故委托 DF 出口语义最忠实。**不再返回 ModelList**。
-        新代码应直接用 get_stockinfos_df() / get_stockinfos()。
+        委托到 Entity 出口 get_stockinfos()——返 ``List[StockInfo]``，与原
+        ModelList 的「迭代 / ``.code`` / ``len()``」消费语义天然兼容（MStockInfo 与
+        StockInfo 都有 ``.code``）。**不再返回 ModelList，也不再返回 DataFrame**：
+        需要 DataFrame 的调用方应直接用 get_stockinfos_df()，需要 Entity 列表用
+        get_stockinfos()。
 
         Returns:
-            ServiceResult: data 为 pandas.DataFrame（原 ModelList.to_dataframe 语义）
+            ServiceResult: data 为 List[StockInfo]（原 ModelList 迭代/.code/len 语义兼容）
         """
-        return self.get_stockinfos_df(
+        return self.get_stockinfos(
             code=code, name=name, exchange=exchange, industry=industry,
             market=market, status=status, limit=limit, offset=offset,
             order_by=order_by, desc_order=desc_order,

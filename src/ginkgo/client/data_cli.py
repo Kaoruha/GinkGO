@@ -42,9 +42,10 @@ def get(
             import pandas as pd
 
             stockinfo_service = container.stockinfo_service()
-            result = stockinfo_service.get(market=market, exchange=exchange)
+            # ADR-010：此处消费 DataFrame（后续 iloc/columns/过滤），走 DF 出口
+            result = stockinfo_service.get_stockinfos_df(market=market, exchange=exchange)
             if result.success:
-                df = result.data.to_dataframe()
+                df = result.data
 
                 # Raw output mode
                 if raw:

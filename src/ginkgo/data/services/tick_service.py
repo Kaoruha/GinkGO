@@ -936,10 +936,17 @@ class TickService(BaseService):
             # 获取股票上市日期
             listing_date = default_listing_date
             try:
-                stock_result = self._stockinfo_service.get(code)
-                if stock_result.success and stock_result.data:
-                    df = stock_result.data.to_dataframe()
-                    if not df.empty:
+                # ADR-010：此处消费 DataFrame（取 iloc[0]['list_date']），走 DF 出口
+                # 而非 deprecated 的 get()（现返 List[StockInfo]）。保留原 try/except
+                # 兜底语义：任何失败均退化默认上市日期。
+                stock_result = self._stockinfo_service.get_stockinfos_df(code=code)
+                if not stock_result.success or stock_result.data is None:
+                    GLOG.WARN(f"股票 {code} 信息查询失败，使用默认上市日期: {listing_date.date()}")
+                else:
+                    df = stock_result.data
+                    if df.empty:
+                        GLOG.WARN(f"股票 {code} 信息查询结果为空，使用默认上市日期: {listing_date.date()}")
+                    else:
                         listing_date_raw = df.iloc[0]['list_date']
                         if pd.notna(listing_date_raw):
                             if isinstance(listing_date_raw, datetime):
@@ -951,10 +958,6 @@ class TickService(BaseService):
                                 GLOG.INFO(f"股票 {code} 上市日期: {listing_date.date()}")
                         else:
                             GLOG.WARN(f"股票 {code} 上市日期为空，使用默认日期: {listing_date.date()}")
-                    else:
-                        GLOG.WARN(f"股票 {code} 信息查询结果为空，使用默认上市日期: {listing_date.date()}")
-                else:
-                    GLOG.WARN(f"股票 {code} 信息查询失败，使用默认上市日期: {listing_date.date()}")
             except Exception as e:
                 GLOG.WARN(f"获取股票 {code} 上市日期失败: {e}，使用默认日期: {listing_date.date()}")
 

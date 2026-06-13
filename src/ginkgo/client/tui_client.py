@@ -131,26 +131,14 @@ class DataPanel(Container):
         """
         # 在这里执行加载时的逻辑 - 使用新的Service API
         stockinfo_service = container.stockinfo_service()
-        get_result = stockinfo_service.get()
+        # ADR-010：此处消费 DataFrame（存 self.stockinfos 供后续过滤），走 DF 出口
+        get_result = stockinfo_service.get_stockinfos_df()
 
-        if get_result.success:
-            stockinfo_data = get_result.data
-            import pandas as pd
-
-            # 处理ModelList和其他数据格式
-            try:
-                if hasattr(stockinfo_data, 'to_dataframe'):  # ModelList有此方法
-                    self.stockinfos = stockinfo_data.to_dataframe()
-                elif isinstance(stockinfo_data, pd.DataFrame):
-                    self.stockinfos = stockinfo_data
-                else:
-                    self.stockinfos = pd.DataFrame(stockinfo_data)
-            except Exception as e:
-                # TUI中静默处理错误，使用空DataFrame
-                self.stockinfos = pd.DataFrame(columns=['code', 'code_name', 'industry'])
+        import pandas as pd
+        if get_result.success and isinstance(get_result.data, pd.DataFrame):
+            self.stockinfos = get_result.data
         else:
-            # 如果获取失败，使用空的DataFrame
-            import pandas as pd
+            # 如果获取失败或类型异常，使用空的DataFrame
             self.stockinfos = pd.DataFrame(columns=['code', 'code_name', 'industry'])
         self.debounce_timer= None  # 防抖计时器
         self.input_filter = ""

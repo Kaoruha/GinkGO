@@ -126,11 +126,20 @@ def test_backward_compat_get_no_longer_leaks_modellist():
 
 
 @pytest.mark.unit
-def test_backward_compat_get_returns_dataframe():
-    """get() 委托到 _df 出口（最忠实原 ModelList.to_dataframe 语义）。"""
+def test_backward_compat_get_returns_entity_list():
+    """get() 委托到 Entity 出口 get_stockinfos()，返 List[StockInfo]。
+
+    P0 修复：原 c7f64489 错委托到 DF 出口（get().data 是 DataFrame），
+    破坏 kafka_service/tick_service/seeding 3 个真实调用方的迭代/.code/len 消费。
+    现改委托 get_stockinfos()，返 List[StockInfo]，与原 ModelList 迭代语义兼容。
+    """
     svc = _make_service(_make_empty_modellist())
     result = svc.get()
-    assert isinstance(result.data, pd.DataFrame)
+    assert isinstance(result.data, list)
+    # 空 ModelList -> 空 list
+    assert len(result.data) == 0
+    # 关键回归点：不是 DataFrame（c7f64489 错委托的返回类型）
+    assert not isinstance(result.data, pd.DataFrame)
 
 
 # ============================================================
