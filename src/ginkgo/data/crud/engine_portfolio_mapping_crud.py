@@ -97,12 +97,12 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
         Returns:
             List of Mapping business objects
         """
-        from ginkgo.entities import Mapping
+        from ginkgo.data.mappers import MappingMapper
 
         business_objects = []
         for model in models:
             # 转换为通用Mapping业务对象
-            mapping = Mapping.from_model(model, mapping_type="EnginePortfolioMapping")
+            mapping = MappingMapper.from_model(model, mapping_type="EnginePortfolioMapping")
             business_objects.append(mapping)
         return business_objects
 
