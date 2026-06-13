@@ -19,6 +19,7 @@ from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
 from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
+from ginkgo.data.mappers import MappingMapper
 
 
 @restrict_crud_access
@@ -92,8 +93,6 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         Returns:
             List of Mapping business objects
         """
-        from ginkgo.data.mappers import MappingMapper
-
         business_objects = []
         for model in models:
             # 转换为通用Mapping业务对象
