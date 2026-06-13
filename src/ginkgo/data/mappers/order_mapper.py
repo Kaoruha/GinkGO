@@ -6,15 +6,33 @@
 
 铁律：不 import CRUD；不含 to_dataframe（DF 出口留 CRUD）。
 """
-from typing import List
+from typing import List, Optional
 
 from ginkgo.data.models import MOrder
 from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.interfaces.dtos.order_submission_dto import OrderSubmissionDTO
 
 
 class OrderMapper:
     """Order 三态互转。无状态，全部静态方法。"""
+
+    # ------------------------------------------------------------------
+    # 共享转换 helper（Entity 与 ORM 路径共用，避免 to_dto/model_to_dto DRY）
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _price_to_dto(price) -> Optional[str]:
+        """limit_price → DTO price。None 或 0 → None（市价单无价哨兵）；否则 Decimal/float → str。"""
+        if price is not None and float(price) != 0:
+            return str(price)
+        return None
+
+    @staticmethod
+    def _ts_to_iso(ts) -> Optional[str]:
+        """timestamp → ISO 字符串。datetime 走 isoformat，其余（原始行 str 等）走 str()。"""
+        if ts is None:
+            return None
+        return ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
 
     # ------------------------------------------------------------------
     # Entity ↔ ORM
@@ -81,35 +99,27 @@ class OrderMapper:
     # 避免浮点精度丢失）。
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dto(entity: Order):
+    def to_dto(entity: Order) -> OrderSubmissionDTO:
         """Entity → OrderSubmissionDTO。"""
-        from ginkgo.interfaces.dtos.order_submission_dto import OrderSubmissionDTO
-
-        price = None
-        if entity.limit_price is not None and float(entity.limit_price) != 0:
-            price = str(entity.limit_price)
-
         return OrderSubmissionDTO(
             order_id=entity.uuid,
             portfolio_id=entity.portfolio_id,
             code=entity.code,
             direction=entity.direction.name,
             volume=float(entity.volume),
-            price=price,
-            timestamp=entity.timestamp.isoformat() if entity.timestamp else None,
+            price=OrderMapper._price_to_dto(entity.limit_price),
+            timestamp=OrderMapper._ts_to_iso(entity.timestamp),
         )
 
     @staticmethod
     def from_dto(dto) -> Order:
         """OrderSubmissionDTO → Entity。direction name→enum；price/volume 还原。"""
-        from ginkgo.interfaces.dtos.order_submission_dto import OrderSubmissionDTO
-
         if not isinstance(dto, OrderSubmissionDTO):
             raise TypeError(f"Expected OrderSubmissionDTO, got {type(dto).__name__}")
 
         direction = DIRECTION_TYPES[dto.direction]
 
-        limit_price = 0
+        limit_price = 0  # 市价单哨兵：DTO 无 price（None/""）时回退 0
         if dto.price is not None and dto.price != "":
             limit_price = float(dto.price)
 
@@ -124,26 +134,14 @@ class OrderMapper:
         )
 
     @staticmethod
-    def model_to_dto(model: MOrder):
+    def model_to_dto(model: MOrder) -> OrderSubmissionDTO:
         """ORM → DTO 直转（路径①，跳过 Entity）。"""
-        from ginkgo.interfaces.dtos.order_submission_dto import OrderSubmissionDTO
-
-        price = None
-        if model.limit_price is not None and float(model.limit_price) != 0:
-            price = str(model.limit_price)
-
-        direction = DIRECTION_TYPES(model.direction).name
-
-        timestamp = None
-        if model.timestamp is not None:
-            timestamp = model.timestamp.isoformat() if hasattr(model.timestamp, "isoformat") else str(model.timestamp)
-
         return OrderSubmissionDTO(
             order_id=model.uuid,
             portfolio_id=model.portfolio_id,
             code=model.code,
-            direction=direction,
+            direction=DIRECTION_TYPES(model.direction).name,
             volume=float(model.volume),
-            price=price,
-            timestamp=timestamp,
+            price=OrderMapper._price_to_dto(model.limit_price),
+            timestamp=OrderMapper._ts_to_iso(model.timestamp),
         )

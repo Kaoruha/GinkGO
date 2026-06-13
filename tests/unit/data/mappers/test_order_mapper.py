@@ -68,3 +68,34 @@ def test_model_to_dto_smoke():
     dto = OrderMapper.model_to_dto(model)
     assert dto.code == "000001.SZ"
     assert dto.volume == 100.0
+
+
+def test_dto_roundtrip():
+    """to_dto → from_dto 可逆：direction enum↔name、volume int↔float、limit_price 数↔str。"""
+    order = _make_order()  # direction=LONG, volume=100, limit_price=10.5
+    dto = OrderMapper.to_dto(order)
+    restored = OrderMapper.from_dto(dto)
+    assert restored.direction == DIRECTION_TYPES.LONG
+    assert restored.volume == 100
+    assert restored.limit_price == 10.5
+    assert restored.code == "000001.SZ"
+    assert restored.uuid == order.uuid  # order_id 往返保真
+
+
+def test_dto_market_order_price():
+    """市价单（limit_price=0）→ DTO price=None（哨兵）→ from_dto 回退 0。"""
+    order = Order(
+        portfolio_id="p1",
+        engine_id="e1",
+        task_id="t1",
+        code="000001.SZ",
+        direction=DIRECTION_TYPES.LONG,
+        order_type=ORDER_TYPES.MARKETORDER,
+        status=ORDERSTATUS_TYPES.NEW,
+        volume=100,
+        limit_price=0,
+    )
+    dto = OrderMapper.to_dto(order)
+    assert dto.price is None  # 0 → None（市价单哨兵）
+    restored = OrderMapper.from_dto(dto)
+    assert restored.limit_price == 0
