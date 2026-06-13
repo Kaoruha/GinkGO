@@ -19,6 +19,7 @@ from ginkgo.data.models import MPosition
 from ginkgo.entities import Position
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.data.mappers import PositionMapper
 
 
 @restrict_crud_access
@@ -175,7 +176,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         business_objects = []
         for model in models:
             # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            position = Position.from_model(model)
+            position = PositionMapper.from_model(model)
             business_objects.append(position)
 
         return business_objects
