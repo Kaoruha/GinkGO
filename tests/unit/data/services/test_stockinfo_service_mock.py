@@ -182,14 +182,20 @@ class TestGet:
 
     @pytest.mark.unit
     def test_get_all(self, service, mock_deps):
-        """无过滤条件时返回所有记录"""
+        """无过滤条件时返回所有记录（ADR-010：get 委托 DF 出口，不再透传 ModelList）"""
+        import pandas as pd
+        mock_df = pd.DataFrame([{"code": "000001.SZ"}, {"code": "000002.SZ"}])
         mock_model_list = MagicMock()
         mock_model_list.__len__ = MagicMock(return_value=2)
+        mock_model_list.to_dataframe.return_value = mock_df
         mock_deps["crud_repo"].find.return_value = mock_model_list
 
         result = service.get()
         assert result.success is True
-        assert result.data is mock_model_list
+        # ADR-010：get() 不再透传裸 ModelList，data 是 DataFrame
+        from ginkgo.data.crud.model_conversion import ModelList
+        assert not isinstance(result.data, ModelList)
+        assert isinstance(result.data, pd.DataFrame)
 
     @pytest.mark.unit
     def test_get_with_code_filter(self, service, mock_deps):
