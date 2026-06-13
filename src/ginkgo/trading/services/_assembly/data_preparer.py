@@ -171,7 +171,7 @@ class DataPreparer:
                         selectors.append(mapping)
                     elif file_type == 5:  # SIZER
                         sizers.append(mapping)
-                    elif file_type == 7:  # RISK_MANAGER
+                    elif file_type == 3:  # RISK_MANAGER (FILE_TYPES.RISKMANAGER=3) #6102 曾误用 7(ENGINE)
                         risk_managers.append(mapping)
                     elif file_type == 1:  # ANALYZER (FILE_TYPES.ANALYZER = 1)
                         analyzers.append(mapping)
