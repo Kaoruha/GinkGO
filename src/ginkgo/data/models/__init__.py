@@ -1,6 +1,7 @@
 # Upstream: CRUD层, 服务层, 数据层容器(containers.py), 回测引擎
 # Downstream: 全部ORM模型类(MBar/MTick/MOrder/MPosition等)
 # Role: 数据模型包入口，统一导出所有ClickHouse/MySQL/MongoDB ORM模型类
+# ADR-010(ORM 层): SQLAlchemy 持久化模型，仅 CRUD 层可见；与 Entity/DTO 分离，经 Mapper 转换
 
 # 注意：这里使用 eager import 而非框架其他地方采用的懒加载（PEP 562）。
 # 原因：SQLAlchemy 的 relationship() 使用字符串引用目标类（如 "MUserCredential"），

@@ -1,6 +1,7 @@
 # Upstream: 回测引擎, 策略模块, 分析器模块, CLI命令, Web UI, Worker系统
 # Downstream: containers(Container), seeding(数据初始化), utils(get_crud)
 # Role: 数据层包入口，暴露依赖注入容器container和工具函数，统一数据访问入口
+# ADR-002(分层): data 层含 CRUD+Service；API 禁直调 CRUD 须经 Service；CRUD 返回 ModelList，按需经 Mapper 转 Entity
 # See #2715: 聚合导入改为 __getattr__ 懒加载，打断全量模块加载链
 # 注意: models/ 包因 SQLAlchemy relationship() 要求使用 eager import，是唯一的例外
 

@@ -1,5 +1,6 @@
 # Data Transfer Objects for LiveCore
 # 实盘数据模块数据传输对象
+# ADR-010(DTO 层): API/跨进程传输对象，与 Entity 解耦；经 Mapper 与 Entity/ORM 互转
 
 from .price_update_dto import PriceUpdateDTO
 from .bar_dto import BarDTO
