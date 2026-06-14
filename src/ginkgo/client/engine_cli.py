@@ -19,6 +19,9 @@ from rich.tree import Tree
 from rich.panel import Panel
 from rich.columns import Columns
 from decimal import Decimal
+import pandas as pd
+
+from ginkgo.data.services.base_service import ServiceResult
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -56,23 +59,30 @@ def list_engines(
         if filter:
             # Convert filter to string if needed
             filter_str = str(filter) if not isinstance(filter, str) else filter
-            # Use database-level fuzzy search
-            result = engine_service.fuzzy_search(filter_str, fields=['uuid', 'name', 'is_live', 'status'])
+            # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
+            # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
+            fs_result = engine_service.fuzzy_search(filter_str, fields=['uuid', 'name', 'is_live', 'status'])
+            if fs_result.success:
+                # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
+                engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
+                result = ServiceResult.success(data=engines_df, message=fs_result.message)
+            else:
+                result = fs_result
         elif status:
             # If only status filter, use database-level filtering
             from ginkgo.enums import ENGINESTATUS_TYPES
             try:
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
-                result = engine_service.get(status=status_enum)
+                result = engine_service.get_engines_df(status=status_enum)
             except Exception as e:
                 from ginkgo.libs import GLOG
                 GLOG.ERROR(f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}")
                 # If conversion fails, fall back to application-level filtering
-                result = engine_service.get()
+                result = engine_service.get_engines_df()
         else:
             # Get all engines
-            result = engine_service.get()
+            result = engine_service.get_engines_df()
 
         if result.success:
             engines_data = result.data
@@ -80,27 +90,15 @@ def list_engines(
             # Raw output mode
             if raw:
                 import json
-                if hasattr(engines_data, 'to_dataframe'):
-                    # Convert ModelList to dict
-                    engines_df = engines_data.to_dataframe()
-                    raw_data = engines_df.to_dict('records')
-                elif isinstance(engines_data, list):
-                    # Convert list to dict
-                    raw_data = [item.__dict__ if hasattr(item, '__dict__') else item for item in engines_data]
-                else:
-                    raw_data = engines_data
+                # ADR-010 R2a: result.data 已是 DataFrame（get_engines_df 出口契约）
+                engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
+                raw_data = engines_df.to_dict('records')
 
                 console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
                 return
 
-            # Handle both ModelList and list return types
-            import pandas as pd
-
-            if hasattr(engines_data, 'to_dataframe'):
-                # ModelList with to_dataframe method
-                engines_df = engines_data.to_dataframe()
-            else:
-                engines_df = pd.DataFrame()
+            # ADR-010 R2a: result.data 已是 DataFrame（类型即契约，无需鸭子探测）
+            engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
 
             if engines_df.empty:
                 console.print(":memo: No engines found.")
@@ -401,18 +399,13 @@ def run(
             from ginkgo.data.containers import container
 
             engine_service = container.engine_service()
-            result = engine_service.get()
+            result = engine_service.get_engines_df()
 
             if result.success:
                 engines_data = result.data
 
-                # 处理数据格式
-                import pandas as pd
-
-                if hasattr(engines_data, 'to_dataframe'):
-                    engines_df = engines_data.to_dataframe()
-                else:
-                    engines_df = pd.DataFrame()
+                # ADR-010 R2a: get_engines_df 出口已保证 data 为 DataFrame（类型即契约）
+                engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
 
                 if engines_df.empty:
                     console.print(":memo: No engines found. Please create an engine first.")
@@ -750,16 +743,12 @@ def bind_portfolio(
         console.print()
 
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get()
+        result = portfolio_service.get_portfolios_df()
 
-        if result.success and result.data:
-            if hasattr(result.data, 'to_dataframe'):
-                import pandas as pd
-                portfolios_df = result.data.to_dataframe()
-            elif isinstance(result.data, list):
-                portfolios_df = pd.DataFrame(result.data)
-            else:
-                portfolios_df = pd.DataFrame()
+        if result.success:
+            # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame（类型即契约）。
+            # 注意：DataFrame 真值歧义，改用 .empty 判空（原 ModelList 用 and result.data 判空）。
+            portfolios_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if portfolios_df.empty:
                 console.print(":memo: No portfolios found.")

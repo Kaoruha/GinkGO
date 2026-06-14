@@ -113,9 +113,7 @@ class TestListEngines:
     @pytest.mark.cli
     def test_list_all_engines(self, cli_runner):
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
@@ -142,9 +140,7 @@ class TestListEngines:
     @pytest.mark.cli
     def test_list_with_status_filter(self, cli_runner):
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list", "--status", "idle"])
@@ -154,9 +150,7 @@ class TestListEngines:
     @pytest.mark.cli
     def test_list_with_portfolio_filter(self, cli_runner):
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list", "--portfolio", "portfolio-123"])
@@ -166,9 +160,7 @@ class TestListEngines:
     @pytest.mark.cli
     def test_list_raw_mode(self, cli_runner):
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list", "--raw"])
@@ -179,9 +171,7 @@ class TestListEngines:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_list_no_engines_found(self, cli_runner):
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = pd.DataFrame()
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=pd.DataFrame()))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
@@ -191,7 +181,7 @@ class TestListEngines:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_list_service_failure(self, cli_runner):
-        svc = _mock_engine_service(get=ServiceResult.error(error="DB connection lost"))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.error(error="DB connection lost"))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
@@ -203,7 +193,7 @@ class TestListEngines:
     def test_list_exception_handling(self, cli_runner):
         """When container.engine_service() raises, the catch-all prints an error."""
         svc = MagicMock()
-        svc.get.side_effect = RuntimeError("container boom")
+        svc.get_engines_df.side_effect = RuntimeError("container boom")
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
@@ -305,9 +295,7 @@ class TestCat:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_cat_no_id_shows_list(self, cli_runner):
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = _make_engine_df()
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=_make_engine_df()))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["cat"])
@@ -593,12 +581,12 @@ class TestBindPortfolio:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_bind_missing_portfolio_id(self, cli_runner):
-        port_model_list = MagicMock()
-        port_model_list.to_dataframe.return_value = pd.DataFrame(
-            [{"uuid": "p1", "name": "Port", "initial_capital": 100000, "is_live": False, "is_del": False}]
-        )
         portfolio_svc = MagicMock()
-        portfolio_svc.get.return_value = ServiceResult.success(data=port_model_list)
+        portfolio_svc.get_portfolios_df.return_value = ServiceResult.success(
+            data=pd.DataFrame(
+                [{"uuid": "p1", "name": "Port", "initial_capital": 100000, "is_live": False, "is_del": False}]
+            )
+        )
 
         container = _mock_container(portfolio_service=portfolio_svc)
 

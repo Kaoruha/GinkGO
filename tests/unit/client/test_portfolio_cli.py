@@ -122,8 +122,8 @@ class TestPortfolioList:
     def test_list_all_portfolios(self, mock_container, cli_runner, mock_portfolio_list_df):
         """成功列出所有 portfolio"""
         mock_service = MagicMock()
-        mock_service.get.return_value = ServiceResult.success(
-            data=FakeModelList(mock_portfolio_list_df)
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(
+            data=mock_portfolio_list_df
         )
         mock_container.portfolio_service.return_value = mock_service
 
@@ -136,8 +136,8 @@ class TestPortfolioList:
     def test_list_empty_portfolios(self, mock_container, cli_runner):
         """没有 portfolio 时显示提示"""
         mock_service = MagicMock()
-        mock_service.get.return_value = ServiceResult.success(
-            data=FakeModelList(pd.DataFrame())
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(
+            data=pd.DataFrame()
         )
         mock_container.portfolio_service.return_value = mock_service
 
@@ -149,8 +149,8 @@ class TestPortfolioList:
     def test_list_raw_output(self, mock_container, cli_runner, mock_portfolio_list_df):
         """--raw 模式输出 JSON 格式数据"""
         mock_service = MagicMock()
-        mock_service.get.return_value = ServiceResult.success(
-            data=FakeModelList(mock_portfolio_list_df)
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(
+            data=mock_portfolio_list_df
         )
         mock_container.portfolio_service.return_value = mock_service
 
@@ -163,7 +163,7 @@ class TestPortfolioList:
     def test_list_service_error(self, mock_container, cli_runner):
         """服务返回错误时显示错误信息"""
         mock_service = MagicMock()
-        mock_service.get.return_value = ServiceResult.error(error="Database connection failed")
+        mock_service.get_portfolios_df.return_value = ServiceResult.error(error="Database connection failed")
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
