@@ -454,21 +454,11 @@ class TestDatabaseDrivenAssembly:
     def test_get_engine_configuration_by_id(self):
         service = EngineAssemblyService()
         mock_engine = MagicMock()
-        # _fetch_engine_config calls engine_result.data.to_dataframe() if available,
-        # then engine_df.iloc[0].to_dict(). We need to mock to_dataframe() to return
-        # something with iloc and shape, and iloc[0].to_dict() to return our config dict.
-        series = MagicMock()
-        series.to_dict.return_value = {"name": "TestEngine"}
-
-        df = MagicMock()
-        df.shape = (1, 5)
-        # iloc[0] needs to return our series
-        df.iloc.__getitem__ = MagicMock(return_value=series)
-
-        mock_data = MagicMock()
-        mock_data.to_dataframe.return_value = df
-
-        mock_engine.get.return_value = _make_service_result(data=mock_data)
+        # #6107: _fetch_engine_config 走 get_engines_df 出口，data 已是 DataFrame
+        # 非空 DF 取 iloc[0].to_dict() 返配置字典
+        import pandas as pd
+        df = pd.DataFrame([{"name": "TestEngine"}])
+        mock_engine.get_engines_df.return_value = ServiceResult.success(data=df)
         service._engine_service = mock_engine
         service._data_preparer._engine_service = mock_engine
         config = service._data_preparer._fetch_engine_config("test_id")

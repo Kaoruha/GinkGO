@@ -430,18 +430,11 @@ class EngineAssemblyService(BaseService):
     def get_engine_by_id(self, engine_id: str) -> ServiceResult:
         """Get engine configuration by ID."""
         try:
-            engine_result = self._engine_service.get(engine_id=engine_id)
-            if not engine_result.success or not engine_result.data:
+            engine_result = self._engine_service.get_engines_df(engine_id=engine_id)
+            if not engine_result.success or engine_result.data.empty:
                 return ServiceResult(success=False, error=f"No engine found for id: {engine_id}")
 
-            # Convert to DataFrame if needed
-            if hasattr(engine_result.data, "to_dataframe"):
-                engine_df = engine_result.data.to_dataframe()
-            else:
-                engine_df = engine_result.data
-
-            if engine_df.shape[0] == 0:
-                return ServiceResult(success=False, error=f"No engine found for id: {engine_id}")
+            engine_df = engine_result.data
 
             result = ServiceResult(success=True)
             result.data = engine_df.iloc[0].to_dict()
