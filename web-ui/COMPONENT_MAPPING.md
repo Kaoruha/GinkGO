@@ -141,11 +141,11 @@
 
 | Ant Design Vue | shadcn-vue | 迁移优先级 | 备注 |
 |----------------|------------|-----------|------|
-| `<a-table>` | **保留 Ant Design** | **低** | 功能差距大 |
+| `<a-table>` | （无直接对应） | — | Ant 依赖已移除，残留标签待清理 |
 
 **原因**: Ant Design Vue 表格功能强大（排序、筛选、分页、虚拟滚动等），shadcn-vue 表格较为基础
 
-**建议**: 复杂表格继续使用 Ant Design Vue
+**历史建议**: 复杂表格曾保留 Ant Design Vue；依赖已移除后，残留 `<a-table>` 待逐步替换为 shadcn-vue 表格或自建封装
 
 ---
 
@@ -156,7 +156,7 @@
 | `<a-select>` | `<Select>` (Radix Vue) | **低** | 需手动封装 |
 | `<a-select-option>` | `<SelectItem>` | - | API 不同 |
 
-**建议**: 暂时保留 Ant Design Vue Select，待 shadcn-vue Select 封装完成后再迁移
+**历史建议**: 曾暂留 Ant Design Vue Select 待 shadcn-vue Select 封装；依赖已移除后，残留 `<a-select>` 待清理
 
 ---
 
@@ -168,7 +168,7 @@
 | `notification` | `toast` | - | 同上 |
 | `Modal.confirm` | `AlertDialog` | - | 确认对话框 |
 
-**推荐**: 继续使用 Ant Design Vue 的通知系统
+**历史推荐**: 曾用 Ant Design Vue 通知系统；依赖已移除后，残留待迁移至 toast/sonner
 
 ---
 
@@ -206,12 +206,12 @@
 - Label
 - Form (需要配合验证库)
 
-### 低优先级 (暂不迁移)
-- Table (保留 Ant Design)
-- Select (待封装)
-- Tree (保留 Ant Design)
-- Upload (保留 Ant Design)
-- Notification/Messaging (保留 Ant Design)
+### 低优先级（依赖已移除，残留标签待清理）
+- Table（残留 `<a-table>`，待改 shadcn-vue/自建）
+- Select（残留 `<a-select>`，待封装 shadcn-vue Select）
+- Tree（残留 `<a-tree>`，待清理）
+- Upload（残留 `<a-upload>`，待清理）
+- Notification/Messaging（残留 Ant 通知，待迁移 toast/sonner）
 
 ---
 

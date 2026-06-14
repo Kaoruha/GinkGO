@@ -169,7 +169,7 @@ graph LR
 | Rule | Description |
 |------|-------------|
 | **单向数据流** | `Selector → Strategy → Sizer → Risk`，禁止反向调用 |
-| **三层分离** | `API → Service → CRUD`，API 禁止直接调 CRUD |
+| **四层分层** | `API/CLI → Service → CRUD → DB`（严格单向），API 禁止直接调 CRUD（ADR-002） |
 | **数据对象三层** | `Entity`(业务对象) / `ORM`(持久化) / `DTO`(传输) 分离，Mapper 负责转换（ADR-010） |
 | **事件驱动** | 引擎通过 Queue 分发事件，解耦数据与交易逻辑 |
 | **容器注入** | ServiceHub 懒加载 11 个 DI 容器，按需初始化 |

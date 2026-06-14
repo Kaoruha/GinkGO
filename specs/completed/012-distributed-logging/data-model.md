@@ -132,7 +132,7 @@ Promtail 会将 JSON 字段转换为 Loki 标签，用于快速过滤查询。
 | span.id | string | Span ID（启用追踪时） |
 | ginkgo.strategy_id | UUID | 策略 ID |
 | ginkgo.portfolio_id | UUID | 组合 ID |
-| ginkgo.event_type | string | T5 事件类型 |
+| ginkgo.event_type | string | 交易事件类型 |
 | ginkgo.symbol | string | 股票代码 |
 | ginkgo.direction | string | 交易方向 |
 
