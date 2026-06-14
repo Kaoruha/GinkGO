@@ -9,6 +9,7 @@ import typer
 from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
+import pandas as pd
 
 app = typer.Typer(
     help=":clipboard: Module for [bold medium_spring_green]RECORD[/] management. [grey62]View trading signals, orders, and positions.[/grey62]",
@@ -33,11 +34,12 @@ def signal(
         # 第一层：如果没有传入 engine，显示所有可用的 engines
         if engine is None:
             engine_svc = Container.engine_service()
-            result = engine_svc.get()
+            result = engine_svc.get_engines_df()
             if not result.success:
                 console.print(f":x: [red]{result.error}[/red]")
                 return
-            engines_df = result.data.to_dataframe()
+            # ADR-010 R2b: get_engines_df 出口已保证 data 为 DataFrame（类型即契约）
+            engines_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             console.print("Please specify an engine ID. Available engines:")
             engines_columns_config = {
@@ -89,7 +91,7 @@ def signal(
 
         # 第三层：有 engine 和 portfolio，显示具体的 signals
         signal_svc = Container.signal_service()
-        result = signal_svc.get_signals(
+        result = signal_svc.get_signals_df(
             engine_id=engine,
             portfolio_id=portfolio,
             page_size=page,
@@ -98,7 +100,8 @@ def signal(
             console.print(f":x: [red]{result.error}[/red]")
             return
 
-        signals_df = result.data.to_dataframe()
+        # ADR-010 R2b: get_signals_df 出口已保证 data 为 DataFrame（类型即契约）
+        signals_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
         if signals_df.shape[0] == 0:
             console.print(f":exclamation: [yellow]No signals found for engine {engine} and portfolio {portfolio}.[/yellow]")
@@ -142,7 +145,7 @@ def order(
 
     try:
         order_svc = Container.order_service()
-        result = order_svc.get_orders(
+        result = order_svc.get_orders_df(
             portfolio_id=portfolio,
             page_size=page,
         )
@@ -150,7 +153,8 @@ def order(
             console.print(f":x: [red]{result.error}[/red]")
             return
 
-        orders_df = result.data.to_dataframe()
+        # ADR-010 R2b: get_orders_df 出口已保证 data 为 DataFrame（类型即契约）
+        orders_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
         order_columns_config = {
             "uuid": {"display_name": "Order ID", "style": "dim"},
@@ -192,7 +196,7 @@ def position(
 
     try:
         position_svc = Container.position_service()
-        result = position_svc.get_all_positions(
+        result = position_svc.get_positions_df(
             portfolio_id=portfolio,
             page_size=page,
         )
@@ -200,7 +204,8 @@ def position(
             console.print(f":x: [red]{result.error}[/red]")
             return
 
-        positions_df = result.data.to_dataframe()
+        # ADR-010 R2b: get_positions_df 出口已保证 data 为 DataFrame（类型即契约）
+        positions_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
         position_columns_config = {
             "uuid": {"display_name": "Position ID", "style": "dim"},
