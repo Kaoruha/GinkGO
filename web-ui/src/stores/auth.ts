@@ -1,3 +1,4 @@
+// Pinia 状态 store：auth
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, saveAuth, clearAuth, getStoredUser } from '@/api'

@@ -1,3 +1,4 @@
+// Vue 组合式函数：useErrorHandler
 import { ref } from 'vue'
 import { message } from '@/utils/toast'
 

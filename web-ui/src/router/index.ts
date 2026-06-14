@@ -1,3 +1,4 @@
+// Vue Router 路由配置：index
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { isAuthenticated } from '@/api'
 

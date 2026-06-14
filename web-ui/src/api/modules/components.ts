@@ -1,3 +1,4 @@
+// 后端 API 客户端模块：components
 import request from '../request'
 
 const BASE = '/api/v1/components/'

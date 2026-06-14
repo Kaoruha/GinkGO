@@ -1,3 +1,4 @@
+// Pinia 状态 store：dashboard
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 

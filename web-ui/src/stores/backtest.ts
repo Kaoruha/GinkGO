@@ -1,3 +1,4 @@
+// Pinia 状态 store：backtest
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { backtestApi } from '@/api'

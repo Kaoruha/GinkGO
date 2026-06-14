@@ -1,3 +1,4 @@
+// vitest.config 构建配置
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'

@@ -1,3 +1,4 @@
+// Pinia 状态 store：system
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { systemApi } from '@/api'

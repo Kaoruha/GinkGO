@@ -1,3 +1,4 @@
+// Vue 应用入口（挂载根组件 + 全局插件）
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'

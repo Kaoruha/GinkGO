@@ -1,3 +1,4 @@
+// 后端 API 客户端模块：auth
 import request from '../request'
 
 export interface LoginRequest {

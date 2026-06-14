@@ -1,3 +1,4 @@
+// shadcn-vue UI 组件（index）
 export { default as Dialog } from './Dialog.vue'
 export { default as DialogRoot } from './DialogRoot.vue'
 export { default as DialogTrigger } from './DialogTrigger.vue'

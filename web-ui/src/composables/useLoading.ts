@@ -1,3 +1,4 @@
+// Vue 组合式函数：useLoading
 import { ref, computed } from 'vue'
 
 const globalLoading = ref<Set<string>>(new Set())
