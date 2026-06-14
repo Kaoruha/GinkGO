@@ -1,3 +1,6 @@
+# Upstream: CLI/Service (ginkgo backtest run, BacktestService)
+# Downstream: BaseEngine (引擎驱动), Portfolio (组装), data feeders, GLOG
+# Role: BacktestBase 回测运行基类，组装引擎/组合/数据馈送并驱动事件回放
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
