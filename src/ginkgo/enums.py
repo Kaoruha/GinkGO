@@ -255,7 +255,7 @@ class RECORDSTAGE_TYPES(EnumBase):
     ORDERFILLED = 4
     ORDERCANCELED = 5
     ENDDAY = 6
-    # T5/T6: 扩展订单生命周期阶段
+    # 扩展订单生命周期阶段（事件驱动架构，见 ADR-003）
     ORDERACK = 7
     ORDERPARTIALLYFILLED = 8
     ORDERREJECTED = 9

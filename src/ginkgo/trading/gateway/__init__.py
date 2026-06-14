@@ -65,7 +65,7 @@ from .circuit_breaker import (
     get_circuit_breaker_manager,
 )
 
-# T6: 添加MatchMaking相关导入
+# MatchMaking 相关导入
 from .base_matchmaking import MatchMakingBase
 from .trade_gateway import TradeGateway
 
@@ -109,7 +109,7 @@ __all__ = [
     'get_circuit_breaker',
     'get_circuit_breaker_manager',
     
-    # T6: MatchMaking类
+    # MatchMaking 类
     'MatchMakingBase',
     'TradeGateway',
     

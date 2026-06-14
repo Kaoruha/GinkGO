@@ -195,7 +195,7 @@ def _get_feeder_class():
     from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
     return BacktestFeeder
 
-# ============= T6 NEW PROVIDER FUNCTIONS =============
+# ============= 引擎二态 Provider 函数（ADR-003：BACKTEST/LIVE） =============
 
 def _get_backtest_feeder_class():
     """Lazy import for BacktestFeeder class (enhanced version)."""
@@ -353,13 +353,13 @@ class Container(containers.DeclarativeContainer):
     # Feeder
     feeder = providers.Factory(lambda: _get_feeder_class())
 
-    # ============= T6 NEW PROVIDERS =============
+    # ============= 引擎二态 Providers（ADR-003：BACKTEST/LIVE） =============
 
-    # Data Feeders - 统一接口与LiveFeeder
+    # Data Feeders - 统一接口，覆盖 BACKTEST/LIVE 两类引擎
     backtest_feeder = providers.Factory(_get_backtest_feeder_class)
     live_feeder = providers.Factory(_get_live_feeder_class)
-    
-    # Feeders aggregate - 符合t6.md要求
+
+    # Feeders aggregate - 符合引擎二态统一接口要求（ADR-003）
     feeders = providers.FactoryAggregate(
         historical=backtest_feeder,
         backtest=backtest_feeder,  # alias
