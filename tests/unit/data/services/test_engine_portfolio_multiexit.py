@@ -171,3 +171,37 @@ def test_get_portfolios_df_db_failure():
     svc._crud_repo.find.side_effect = Exception("DB down")
     result = svc.get_portfolios_df()
     assert result.success is False
+
+
+# ===== filter 构造正确性（_build_*_filters 字段映射 + is_del 固定注入） =====
+
+
+@pytest.mark.unit
+def test_build_portfolio_filters_construction():
+    """_build_portfolio_filters 字段映射：portfolio_id→uuid / name / mode(validate_input→int) / is_del=False。"""
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+    svc = _make_portfolio_service(_make_empty_modellist())
+    filters = svc._build_portfolio_filters(
+        portfolio_id="uid", name="n", mode=PORTFOLIO_MODE_TYPES.LIVE,
+    )
+    assert filters["uuid"] == "uid"
+    assert filters["name"] == "n"
+    assert filters["mode"] == PORTFOLIO_MODE_TYPES.LIVE.value
+    assert filters["is_del"] is False
+
+
+@pytest.mark.unit
+def test_build_engine_filters_construction():
+    """_build_engine_filters 字段映射：engine_id→uuid / name / is_live / status / is_del=False。"""
+    from ginkgo.enums import ENGINESTATUS_TYPES
+
+    svc = _make_engine_service(_make_empty_modellist())
+    filters = svc._build_engine_filters(
+        engine_id="uid", name="n", is_live=True, status=ENGINESTATUS_TYPES.RUNNING,
+    )
+    assert filters["uuid"] == "uid"
+    assert filters["name"] == "n"
+    assert filters["is_live"] is True
+    assert filters["status"] == ENGINESTATUS_TYPES.RUNNING
+    assert filters["is_del"] is False

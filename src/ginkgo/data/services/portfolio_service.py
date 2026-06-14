@@ -876,8 +876,8 @@ class PortfolioService(BaseService):
                                  state: PORTFOLIO_RUNSTATE_TYPES = None) -> dict:
         """从业务参数构造 Portfolio CRUD filters。get_portfolios_df 独立使用（DRY）。
 
-        filter 域与现有 get() 的条件查询分支一致（portfolio_id→uuid / name /
-        mode(validate_input) / state(validate_input)），固定排除 is_del=True。
+        mode/state 经 validate_input 归一（CRUD 层 enum 映射会二次转换，幂等）；
+        其余字段（portfolio_id→uuid / name / is_del）与 get() 一致。
         未抽改 get()，保持纯增量。
         """
         filters = {'is_del': False}
@@ -911,7 +911,8 @@ class PortfolioService(BaseService):
                 message=f"Retrieved {len(df)} portfolio records (DataFrame)",
             )
         except Exception as e:
-            return ServiceResult.error(f"Failed to get portfolio data (df): {str(e)}")
+            GLOG.ERROR(f"获取投资组合数据(df)失败: {str(e)}")
+            return ServiceResult.error(f"获取投资组合数据(df)失败: {str(e)}")
 
     def count(self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
