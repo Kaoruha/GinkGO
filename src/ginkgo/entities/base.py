@@ -52,18 +52,8 @@ class Base(object):
     def uuid(self, *args, **kwargs) -> str:
         return self._uuid
 
-    @uuid.setter
-    def uuid(self, uuid: str, *args, **kwargs) -> str:
-        if not isinstance(uuid, str):
-            raise ValueError("UUID must be a string.")
-        self._uuid = uuid
-        return self._uuid
-
-    def set_uuid(self, uuid: str, *args, **kwargs) -> str:
-        if not isinstance(uuid, str):
-            raise ValueError("UUID must be a string.")
-        self._uuid = uuid
-        return self._uuid
+    # uuid 创建后只读（ADR-010 §5：身份不变量）。删 @uuid.setter + set_uuid，
+    # 构造注入走 Base.__init__(uuid=...)。运行时 .uuid= 会 AttributeError（封装落地）。
 
     def _get_component_prefix(self, component_type: COMPONENT_TYPES) -> str:
         """
