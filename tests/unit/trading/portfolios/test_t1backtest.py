@@ -693,6 +693,33 @@ class TestLongShortFillHandling:
         assert pos.volume == 100
         assert pos.cost == Decimal("10.0")
 
+    def test_long_partial_fill_remain_not_double_deducted(self):
+        """LONG 部分成交 order.remain 应单扣 fill_cost（#6109）。
+
+        bug：settle(line624) 已扣 remain，deduct_remain(line640) 再扣 → 2×fill_cost，
+        导致 is_final 时 unfreeze_remain 偏小，现金卡在 frozen 影响后续下单可用资金。
+        """
+        p = _make_portfolio()
+        _setup_portfolio(p)
+        p.add_cash(Decimal("100000"))
+        p.freeze(Decimal("1000"))
+        _set_context_ids(p)
+        order = _make_order(volume=100, frozen_money=Decimal("1000"))
+        event = EventOrderPartiallyFilled(
+            order=order, filled_quantity=30, fill_price=Decimal("10.0"),
+            commission=Decimal("0"), portfolio_id="pid",
+            engine_id="eid", task_id="rid",
+        )
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
+             patch('ginkgo.trading.portfolios.t1backtest.container'), \
+             patch.object(p, 'is_event_from_future', return_value=False), \
+             patch.object(p, 'update_worth'), \
+             patch.object(p, 'update_profit'):
+            p.on_order_partially_filled(event)
+        # fill_cost = 30*10+0 = 300；单扣 remain=1000-300=700（双扣 bug 得 400）
+        assert order.remain == Decimal("700"), \
+            f"remain 被双扣: 期望 700, 实际 {order.remain}"
+
     def test_short_filled_position_reduction(self):
         p = _make_portfolio()
         _setup_portfolio(p)
