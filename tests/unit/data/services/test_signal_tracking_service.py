@@ -62,9 +62,9 @@ def sample_signal(unique_id):
         engine_id=unique_id,
         task_id=unique_id,
         code="000001.SZ",
-        direction=DIRECTION_TYPES.LONG
+        direction=DIRECTION_TYPES.LONG,
+        uuid=unique_id,
     )
-    signal.uuid = unique_id
     signal.price = 10.50
     signal.volume = 1000
     signal.strategy_id = unique_id
@@ -146,9 +146,9 @@ class TestSignalTrackingServiceCRUD:
             engine_id=unique_id,
             task_id=unique_id,
             code="000001.SZ",
-            direction=direction
+            direction=direction,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
 
         result = signal_tracking_service.create(
             signal=signal,
@@ -213,9 +213,9 @@ class TestSignalTrackingLifecycle:
             engine_id=unique_id,
             task_id=unique_id,
             code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG
+            direction=DIRECTION_TYPES.LONG,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
         signal.price = 10.50
         signal.volume = 1000
 
@@ -248,9 +248,9 @@ class TestSignalTrackingLifecycle:
             engine_id=unique_id,
             task_id=unique_id,
             code="000002.SZ",
-            direction=DIRECTION_TYPES.SHORT
+            direction=DIRECTION_TYPES.SHORT,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
         signal.price = 15.20
         signal.volume = 2000
 
@@ -274,9 +274,9 @@ class TestSignalTrackingLifecycle:
             engine_id=unique_id,
             task_id=unique_id,
             code="000003.SZ",
-            direction=DIRECTION_TYPES.LONG
+            direction=DIRECTION_TYPES.LONG,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
         signal.price = 12.80
         signal.volume = 1500
 
@@ -365,9 +365,9 @@ class TestSignalTrackingServiceBusinessLogic:
                 engine_id=unique_id,
                 task_id=unique_id,
                 code=f"00000{i}.SZ",
-                direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT
+                direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT,
+                uuid=f"{unique_id}_{i}",
             )
-            signal.uuid = f"{unique_id}_{i}"
             signal.price = 10.0 + i
             signal.volume = 1000
 
@@ -387,9 +387,9 @@ class TestSignalTrackingServiceBusinessLogic:
             engine_id=unique_id,
             task_id=unique_id,
             code="000004.SZ",
-            direction=DIRECTION_TYPES.LONG
+            direction=DIRECTION_TYPES.LONG,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
         signal.price = 18.60
         signal.volume = 1200
 
@@ -435,9 +435,9 @@ class TestSignalTrackingServiceEdgeCases:
             engine_id=unique_id,
             task_id=unique_id,
             code="000005.SZ",
-            direction=DIRECTION_TYPES.LONG
+            direction=DIRECTION_TYPES.LONG,
+            uuid=unique_id,
         )
-        signal.uuid = unique_id
         signal.price = price
         signal.volume = volume
 
@@ -460,9 +460,9 @@ class TestSignalTrackingServiceEdgeCases:
                 engine_id=unique_id,
                 task_id=unique_id,
                 code=code,
-                direction=DIRECTION_TYPES.LONG
+                direction=DIRECTION_TYPES.LONG,
+                uuid=f"{unique_id}_{i}",
             )
-            signal.uuid = f"{unique_id}_{i}"
             signal.price = 10.0
             signal.volume = 1000
 
