@@ -335,3 +335,73 @@ class TestMisc:
         result = cli_runner.invoke(_get_main_app(), ["--help"])
         assert result.exit_code == 0
         assert "Ginkgo" in result.output
+
+
+# ===========================================================================
+# 6. list_components engines (ADR-010: get_engines 死调用 → get_engines_df)
+# ===========================================================================
+
+class TestListComponentsEngines:
+    """list_components(ENGINES) 从死调用 get_engines() 迁到 get_engines_df()。"""
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_success_unpacks_dataframe(self):
+        """get_engines_df 成功：解包 ServiceResult.data 拿到 DataFrame。"""
+        import pandas as pd
+        from ginkgo.client.core_cli import list_components, ComponentType
+        from ginkgo.data.services.base_service import ServiceResult
+
+        expected_df = pd.DataFrame([{"uuid": "e1", "name": "EngineA"}])
+        mock_engine_service = MagicMock()
+        mock_engine_service.get_engines_df.return_value = ServiceResult.success(data=expected_df)
+
+        with patch("ginkgo.data.containers.container") as mock_container, \
+             patch("ginkgo.libs.utils.display.display_dataframe") as mock_display:
+            mock_container.engine_service.return_value = mock_engine_service
+            list_components(ComponentType.ENGINES)
+
+        mock_engine_service.get_engines_df.assert_called_once()
+        # display_dataframe 收到的 df 应是解包后的 DataFrame（前 page 行）
+        called_df = mock_display.call_args.kwargs.get("data")
+        assert called_df is not None
+        assert called_df.iloc[0]["uuid"] == "e1"
+        assert called_df.iloc[0]["name"] == "EngineA"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_failure_falls_back_to_empty_dataframe(self):
+        """get_engines_df 失败/None：兜底空 DataFrame，打印 No engines found 且不抛。"""
+        from ginkgo.client.core_cli import list_components, ComponentType
+        from ginkgo.data.services.base_service import ServiceResult
+
+        mock_engine_service = MagicMock()
+        mock_engine_service.get_engines_df.return_value = ServiceResult.error("boom")
+
+        with patch("ginkgo.data.containers.container") as mock_container, \
+             patch("ginkgo.libs.utils.display.display_dataframe") as mock_display:
+            mock_container.engine_service.return_value = mock_engine_service
+            # 不应抛异常
+            list_components(ComponentType.ENGINES)
+
+        mock_engine_service.get_engines_df.assert_called_once()
+        # 空 DataFrame 走 "No engines found" 早返回，display_dataframe 不应被调用
+        mock_display.assert_not_called()
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_none_data_falls_back_to_empty_dataframe(self):
+        """success=True 但 data=None：同样兜底空 DataFrame。"""
+        from ginkgo.client.core_cli import list_components, ComponentType
+        from ginkgo.data.services.base_service import ServiceResult
+
+        mock_engine_service = MagicMock()
+        mock_engine_service.get_engines_df.return_value = ServiceResult.success(data=None)
+
+        with patch("ginkgo.data.containers.container") as mock_container, \
+             patch("ginkgo.libs.utils.display.display_dataframe") as mock_display:
+            mock_container.engine_service.return_value = mock_engine_service
+            list_components(ComponentType.ENGINES)
+
+        mock_display.assert_not_called()
+

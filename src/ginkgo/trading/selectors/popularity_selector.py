@@ -68,7 +68,7 @@ class PopularitySelector(BaseSelector):
                     )
                     if not bars or len(bars) == 0:
                         continue
-                    df = bars.to_dataframe() if hasattr(bars, "to_dataframe") else None
+                    df = bars.to_dataframe()
                     if df is None or df.empty:
                         continue
                     total_volume = float(df["volume"].sum())

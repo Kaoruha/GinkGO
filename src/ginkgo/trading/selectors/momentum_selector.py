@@ -73,7 +73,7 @@ class MomentumSelector(BaseSelector):
                 )
                 if not bars or len(bars) < 2:
                     continue
-                df = bars.to_dataframe() if hasattr(bars, "to_dataframe") else pd.DataFrame(bars)
+                df = bars.to_dataframe()
                 if df.empty or len(df) < 2:
                     continue
                 first_close = float(df["close"].iloc[0])
