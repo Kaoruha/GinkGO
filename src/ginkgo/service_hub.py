@@ -9,9 +9,10 @@ Ginkgo ServiceHub - 统一服务访问协调器
 通过注册表驱动的懒加载提供到各模块 dependency_injector 容器的统一访问。
 
 Usage:
-    from ginkgo import services
-    bar_crud = services.data.cruds.bar()
-    engine = services.trading.engines.time_controlled()
+    from ginkgo import service_hub      # 推荐（ADR-009 统一入口）
+    bar_crud = service_hub.data.cruds.bar()
+    engine = service_hub.trading.engines.time_controlled()
+    # services 为向后兼容别名：from ginkgo import services 仍可用
 """
 
 from typing import Dict, Any, Optional, List

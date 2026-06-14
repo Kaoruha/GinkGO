@@ -36,6 +36,6 @@ _Avoid_: 把 ORM Model 或 ValueObject 称为 DTO
 
 ## Flagged ambiguities
 
-- `entities/__init__.py` 自称 "DTO" → 误称，应为 Entity / ValueObject。
-- **Signal** 维持 **Entity**（代码现状 `Signal(TimeMixin,...,Base)` 有 uuid）；`docs/entity-lifecycles-and-flows.md` 的 "Signal as VO" 标为过时。
+- ✅ `entities/__init__.py` 已修正：docstring 现标注为 **Entity 层**（ADR-010），不再自称 "DTO"。
+- ✅ **Signal** 为 **Entity**（`Signal(TimeMixin,...,Base)` 有 uuid）；`docs/entity-lifecycles-and-flows.md` 的 "Signal — 无状态值对象" 已订正为 Entity（非 ValueObject）。
 - "数据对象 / 视图" 泛指时，必须区分 **DTO** vs **ORM Model** vs **Entity**。

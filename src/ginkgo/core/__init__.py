@@ -14,6 +14,8 @@ This module provides core services like configuration, logging, and threading
 using a Dependency Injection Container for managing services and their dependencies.
 
 Following the successful data module pattern.
+
+本包容器经 `service_hub`（ADR-009）统一暴露，提供 GCONF/GLOG/GTM 等核心服务。
 """
 import inspect
 

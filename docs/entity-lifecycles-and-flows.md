@@ -2,7 +2,7 @@
 
 ## 一、实体生命周期
 
-### 1. Signal — 无状态值对象
+### 1. Signal — Entity（有 uuid 的业务信号，非 ValueObject）
 
 ```
 Strategy.cal() / Risk.generate_signals()
