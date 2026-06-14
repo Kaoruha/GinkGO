@@ -1,3 +1,4 @@
+// Playwright E2E 测试配置（浏览器矩阵 / 测试环境 baseURL / 项目设置）
 import { defineConfig, devices } from '@playwright/test';
 
 const WEB_UI_URL = process.env.WEB_UI_URL || 'http://localhost:5173';
