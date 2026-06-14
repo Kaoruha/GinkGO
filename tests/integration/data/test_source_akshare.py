@@ -1,3 +1,4 @@
+"""AKShare 数据源集成测试。"""
 import unittest
 import pandas as pd
 import time

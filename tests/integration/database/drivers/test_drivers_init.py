@@ -1,3 +1,4 @@
+"""数据库 drivers 包初始化集成测试。"""
 import unittest
 import threading
 import time

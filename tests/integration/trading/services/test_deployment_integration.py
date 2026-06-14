@@ -1,3 +1,4 @@
+"""部署服务端到端集成测试。"""
 import sys
 from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent

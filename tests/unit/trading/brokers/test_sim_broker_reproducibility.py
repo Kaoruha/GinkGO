@@ -1,3 +1,4 @@
+"""模拟经纪商 SimBroker 可复现性单元测试。"""
 import sys
 import os
 _path = os.path.join(os.path.dirname(__file__), '..', '..', '..')

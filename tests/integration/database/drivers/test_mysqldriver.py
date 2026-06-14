@@ -1,3 +1,4 @@
+"""MySQL 驱动集成测试。"""
 import unittest
 import time
 from decimal import Decimal

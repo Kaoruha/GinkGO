@@ -1,3 +1,4 @@
+"""deployment API 集成测试（部署相关 REST 接口）。"""
 import pytest
 from unittest.mock import MagicMock, patch
 

@@ -1,3 +1,4 @@
+"""数据库驱动基类 BaseDriver 集成测试。"""
 import unittest
 import threading
 import time

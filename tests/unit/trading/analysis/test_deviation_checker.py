@@ -1,3 +1,4 @@
+"""偏差检测器 DeviationChecker 单元测试。"""
 import pytest
 import json
 import importlib

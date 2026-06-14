@@ -1,3 +1,4 @@
+"""行业轮动风控 SectorRotationRisk 单元测试。"""
 import pytest
 from unittest.mock import Mock
 from datetime import datetime, time as dt_time

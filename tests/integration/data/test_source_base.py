@@ -1,3 +1,4 @@
+"""数据源基类 SourceBase 集成测试。"""
 import unittest
 from unittest.mock import Mock
 

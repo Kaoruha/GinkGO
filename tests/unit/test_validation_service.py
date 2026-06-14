@@ -1,3 +1,4 @@
+"""validation service 单元测试（参数校验服务）。"""
 import pytest
 import numpy as np
 from datetime import datetime, timedelta

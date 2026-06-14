@@ -1,3 +1,4 @@
+"""Paper 模式引擎集成测试（ADR-003：与 LIVE 共享 TimeControlledEventEngine）。"""
 import pytest
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 from ginkgo.enums import EXECUTION_MODE
