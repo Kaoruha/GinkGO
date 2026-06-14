@@ -1,5 +1,7 @@
 # Web UI 重构进度报告
 
+> 注：本报告记录早期迁移阶段（Ant Design Vue → 原生 HTML + Tailwind CSS）。当前标准栈为 **shadcn-vue + Tailwind CSS**（见顶层 README / `package.json` / `docs/web-ui-spec.md`），Ant Design Vue 依赖已移除，仅个别历史文件残留标签待清理。
+
 ## 总体目标
 将 Ginkgo Web UI 从 Ant Design Vue 迁移到原生 HTML + Tailwind CSS
 
