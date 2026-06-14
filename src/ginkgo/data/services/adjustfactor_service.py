@@ -294,6 +294,63 @@ class AdjustfactorService(BaseService):
                                message=f"Failed to get adjustfactor data: {e}",
                                data=[])
 
+    def _build_adjustfactor_filters(
+        self,
+        code: str = None,
+        start_date: datetime = None,
+        end_date: datetime = None,
+        adjust_type: str = None,
+    ) -> dict:
+        """从业务参数构造 Adjustfactor CRUD filters。get_adjustfactors_df 独立使用（DRY）。
+
+        filter 域与现有 get() 一致（code / timestamp__gte / timestamp__lte / adjust_type）。
+        未抽改 get()，保持纯增量。
+        """
+        filters = {}
+        if code:
+            filters['code'] = code
+        if start_date:
+            filters['timestamp__gte'] = start_date
+        if end_date:
+            filters['timestamp__lte'] = end_date
+        if adjust_type:
+            filters['adjust_type'] = adjust_type
+        return filters
+
+    def get_adjustfactors_df(
+        self,
+        code: str = None,
+        start_date: datetime = None,
+        end_date: datetime = None,
+        adjust_type: str = None,
+    ) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
+        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        filter 域与 get() 一致（code / start_date / end_date / adjust_type）。
+        """
+        try:
+            filters = self._build_adjustfactor_filters(
+                code=code, start_date=start_date, end_date=end_date, adjust_type=adjust_type,
+            )
+            if self._crud_repo:
+                adjustfactor_data = self._crud_repo.find(filters=filters)
+                df = adjustfactor_data.to_dataframe() if adjustfactor_data else pd.DataFrame()
+                return ServiceResult(success=True,
+                                   message=f"Retrieved {len(df)} adjustfactor records (DataFrame)",
+                                   data=df)
+            else:
+                return ServiceResult(success=False,
+                                   message="CRUD repository not available",
+                                   data=pd.DataFrame())
+        except Exception as e:
+            return ServiceResult(success=False,
+                               message=f"Failed to get adjustfactor data (df): {e}",
+                               data=pd.DataFrame())
+
     def count(self, code: str = None, adjust_type: str = None, start_date: datetime = None,
               end_date: datetime = None) -> ServiceResult:
         """Count adjustfactor records with optional filtering.
