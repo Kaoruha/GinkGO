@@ -10,9 +10,9 @@
 """
 Ginkgo Features Module - 特征因子解析引擎
 
-基于表达式的因子计算和管理功能，采用三层架构设计：
+基于表达式的因子计算和管理功能，采用模块内部三层结构（区别于 ADR-002 应用级四层 API/CLI→Service→CRUD→DB）：
 - Definitions: 因子和指标定义层
-- Engines: 计算和解析引擎层  
+- Engines: 计算和解析引擎层
 - Services: 高级业务逻辑服务层
 
 使用示例:
