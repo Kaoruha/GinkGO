@@ -81,7 +81,7 @@ class Position(TimeMixin, Base):
         self._task_id = task_id
         self._code = code
         self._cost = to_decimal(cost)
-        self.volume = volume  # 使用setter进行类型转换
+        self._volume = int(volume)  # 构造路径私有赋值（V5：volume setter 已删，类型转换在此完成）
         self._frozen_volume = frozen_volume
         self._settlement_frozen_volume = settlement_frozen_volume  # 从参数初始化
         self._frozen_money = to_decimal(frozen_money)
@@ -226,25 +226,13 @@ class Position(TimeMixin, Base):
     def portfolio_id(self, *args, **kwargs) -> str:
         return self._portfolio_id
 
-    @portfolio_id.setter
-    def portfolio_id(self, value) -> None:
-        self._portfolio_id = value
-
     @property
     def engine_id(self, *args, **kwargs) -> str:
         return self._engine_id
 
-    @engine_id.setter
-    def engine_id(self, value) -> None:
-        self._engine_id = value
-
     @property
     def task_id(self, *args, **kwargs) -> str:
         return self._task_id
-
-    @task_id.setter
-    def task_id(self, value) -> None:
-        self._task_id = value
 
     @property
     def volume(self, *args, **kwargs) -> int:
@@ -260,10 +248,6 @@ class Position(TimeMixin, Base):
             GLOG.CRITICAL(f"Volume is not a int: {self._volume}")
             return 0
         return self._volume
-
-    @volume.setter
-    def volume(self, value) -> None:
-        self._volume = int(value)
 
     @property
     def frozen_money(self, *args, **kwargs) -> Decimal:
@@ -308,30 +292,6 @@ class Position(TimeMixin, Base):
             GLOG.CRITICAL(f"Price is not a DECIMAL: {self._price}")
             return Decimal('0')
         return self._price
-
-    @price.setter
-    def price(self, value: Number) -> None:
-        """
-        设置当前价格
-
-        Args:
-            value: 新的价格值
-        """
-        try:
-            price_decimal = to_decimal(value)
-
-            # 验证价格非负
-            if price_decimal < 0:
-                GLOG.CRITICAL(f"Rejected negative price update: {price_decimal} for {self._code}")
-                return
-
-            self._price = price_decimal
-            self._update_last_update()
-
-        except (ValueError, TypeError) as e:
-            GLOG.ERROR(f"Error setting price to {value}: {e}")
-        except Exception as e:
-            GLOG.ERROR(f"Unexpected error setting price: {e}")
 
     @property
     def cost(self, *args, **kwargs) -> Decimal:
@@ -688,17 +648,6 @@ class Position(TimeMixin, Base):
         已实现盈亏：通过交易操作累积的已确定盈亏
         """
         return self._realized_pnl
-
-    @realized_pnl.setter
-    def realized_pnl(self, value: Number) -> None:
-        """
-        设置已实现盈亏
-        """
-        if not isinstance(value, (int, float, Decimal)):
-            raise TypeError(f"realized_pnl must be numeric, got {type(value).__name__}")
-        self._realized_pnl = to_decimal(value)
-        self._update_last_update()
-
 
     @property
     def available_volume(self) -> int:

@@ -387,39 +387,41 @@ class TestPositionProperties:
         assert original_worth == position.worth
 
     def test_property_setter_validation(self):
-        """测试属性setter验证"""
+        """测试属性构造验证（V5：setter 已删，volume 类型转换在构造时发生）"""
         from decimal import Decimal
 
-        position = Position(
+        # volume 构造时类型转换：构造路径 self._volume = int(volume)，整数/浮点截断
+        p_int = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
             task_id="test_run",
             code="000001.SZ",
-            timestamp="2023-01-01 10:00:00"
+            volume=500,
+            timestamp="2023-01-01 10:00:00",
         )
+        assert p_int.volume == 500
+        assert isinstance(p_int.volume, int)
 
-        # 测试volume setter的类型转换 - 实际实现会自动截断小数
-        position.volume = 500  # 正确：使用整数
-        assert position.volume == 500
-        assert isinstance(position.volume, int)
+        # 浮点自动截断（int() 向零截断，非四舍五入）
+        p_trunc = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=500.7,
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert p_trunc.volume == 500
 
-        # 注意：当前实现会自动截断浮点数股数（可能不是最佳实践）
-        # 在严格的量化交易系统中，应该拒绝浮点数股数或至少发出警告
-        position.volume = 500.7  # 当前实现：自动截断为500
-        assert position.volume == 500  # 小数部分被截断
-
-        # 这种行为可能导致意外的股数变化，在实际交易中需要谨慎
-        position.volume = 999.9
-        assert position.volume == 999  # 截断，不是四舍五入
-
-        # 测试基本string属性的setter
-        position.portfolio_id = "new_portfolio"
-        position.engine_id = "new_engine"
-        position.task_id = "new_run"
-
-        assert position.portfolio_id == "new_portfolio"
-        assert position.engine_id == "new_engine"
-        assert position.task_id == "new_run"
+        p_trunc2 = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=999.9,
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert p_trunc2.volume == 999
 
     def test_decimal_precision_maintained(self):
         """测试Decimal精度保持"""
@@ -481,15 +483,17 @@ class TestPositionProperties:
         assert result == False  # 返回失败
         assert position.price == original_price  # 价格未改变
 
-        # 测试volume负值处理 - 通过公共接口
-        try:
-            position.volume = -100
-            volume_result = position.volume
-            # 股数不能为负，系统应该返回0或抛出异常
-            assert volume_result >= 0
-        except (ValueError, TypeError):
-            # 在setter中直接拒绝负股数更为合理
-            pass
+        # 测试volume负值处理 - 构造时 int(-100) = -100，getter 兜底返回 0
+        neg_pos = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=-100,
+            timestamp="2023-01-01 10:00:00",
+        )
+        # getter 检测负值返回 0（CRITICAL + return 0）
+        assert neg_pos.volume >= 0
 
         # 测试费用负值处理 - 负费用在某些场景下可能合理（返佣）
         # 但通常应该通过单独的返佣字段处理
@@ -2083,36 +2087,6 @@ class TestPositionAttributeUpdates:
         assert position.price == Decimal('115.0')
         assert position.fee == Decimal('6.0')
 
-    def test_realized_pnl_setter_validation(self):
-        """测试realized_pnl setter的验证"""
-        from decimal import Decimal
-
-        position = Position(
-            portfolio_id="test_portfolio",
-            engine_id="test_engine",
-            task_id="test_run",
-            code="000001.SZ",
-            cost=100.0,
-            volume=1000,
-            price=110.0,
-            fee=5.0,
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 测试有效值设置
-        position.realized_pnl = 150.25
-        assert position.realized_pnl == Decimal('150.25')
-
-        position.realized_pnl = Decimal('200.50')
-        assert position.realized_pnl == Decimal('200.50')
-
-        # 测试无效类型
-        with pytest.raises(TypeError):
-            position.realized_pnl = "invalid"
-
-        with pytest.raises(TypeError):
-            position.realized_pnl = []
-
     def test_time_setter_validation(self):
         """测试时间属性setter的验证"""
         import datetime
@@ -3084,3 +3058,47 @@ class TestPositionSoldExceptionHandling:
             # _sold 应捕获异常，记录日志，返回 False（不挂起）
             result = position._sold(Decimal('110.0'), 100)
             assert result is False
+
+
+@pytest.mark.unit
+class TestPositionSettersRemoved:
+    """Position 字段 read-only 验证（ADR-010 V5：setter 已删，运行时赋值抛 AttributeError）。"""
+
+    def _make(self):
+        return Position(
+            portfolio_id="p",
+            engine_id="e",
+            task_id="t",
+            code="000001.SZ",
+            cost=100.0,
+            volume=1000,
+            price=10.0,
+            fee=5.0,
+            timestamp="2023-01-01 10:00:00",
+        )
+
+    @pytest.mark.parametrize("field,val", [
+        ("portfolio_id", "p2"),
+        ("engine_id", "e2"),
+        ("task_id", "t2"),
+        ("volume", 200),
+        ("price", 20.0),
+        ("realized_pnl", 150.0),
+    ])
+    def test_field_assignment_raises(self, field, val):
+        pos = self._make()
+        with pytest.raises(AttributeError):
+            setattr(pos, field, val)
+
+    def test_realized_pnl_decimal_via_constructor(self):
+        """realized_pnl 构造注入保持 Decimal（覆盖删 setter 后的构造路径）"""
+        pos = Position(
+            portfolio_id="p",
+            engine_id="e",
+            task_id="t",
+            code="000001.SZ",
+            realized_pnl=Decimal("200.50"),
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert pos.realized_pnl == Decimal("200.50")
+        assert isinstance(pos.realized_pnl, Decimal)
