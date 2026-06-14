@@ -122,10 +122,10 @@ class ConcentrationRisk(BaseRiskManagement):
                 # 超过最大单一持仓比例，大幅减少订单
                 reduction_factor = self._max_single_position_ratio / projected_ratio
                 original_volume = order.volume
-                order.volume = int(order.volume * reduction_factor)
+                order.adjust_volume(int(order.volume * reduction_factor))
 
                 min_volume = max(1, int(original_volume * 0.1))
-                order.volume = max(order.volume, min_volume)
+                order.adjust_volume(max(order.volume, min_volume))
 
                 GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
                          f"reducing order {original_volume} → {order.volume}")
@@ -136,7 +136,7 @@ class ConcentrationRisk(BaseRiskManagement):
 
             if industry_ratio > self._max_industry_ratio:
                 reduction_factor = self._max_industry_ratio / industry_ratio
-                order.volume = int(order.volume * reduction_factor)
+                order.adjust_volume(int(order.volume * reduction_factor))
 
                 GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
                          f"adjusting order to {order.volume}")

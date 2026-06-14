@@ -223,7 +223,7 @@ class PositionRatioRisk(BaseRiskManagement):
         (#6056 frozen 拆分后 frozen_money/frozen_volume 必须成对设置)。
         """
         truncated_volume = int(adjusted_volume)
-        order.volume = truncated_volume
+        order.adjust_volume(truncated_volume)
         order.frozen_money = to_decimal(truncated_volume) * execution_price
         order.frozen_volume = truncated_volume
         order.remain = order.frozen_money
