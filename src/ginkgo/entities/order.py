@@ -280,47 +280,17 @@ class Order(TimeMixin, Base):
         """
         return self._code
 
-    @symbol.setter
-    def symbol(self, value: str) -> None:
-        """Set the symbol (alias for code)."""
-        if not isinstance(value, str):
-            raise TypeError(f"symbol must be str, got {type(value).__name__}")
-        self._code = value
-
-    @code.setter
-    def code(self, value) -> None:
-        """
-        Set the code of the order.
-
-        Args:
-            value (str): The code to set.
-        """
-        self._code = value
-
-
     @property
     def direction(self) -> DIRECTION_TYPES:
         return self._direction
-
-    @direction.setter
-    def direction(self, value) -> None:
-        self._direction = value
 
     @property
     def order_type(self) -> ORDER_TYPES:
         return self._order_type
 
-    @order_type.setter
-    def order_type(self, value) -> None:
-        self._order_type = value
-
     @property
     def volume(self) -> int:
         return self._volume
-
-    @volume.setter
-    def volume(self, value):
-        self._volume = value
 
     @property
     def status(self) -> ORDERSTATUS_TYPES:
@@ -330,65 +300,31 @@ class Order(TimeMixin, Base):
     def limit_price(self) -> Decimal:
         return self._limit_price
 
-    @limit_price.setter
-    def limit_price(self, value) -> None:
-        self._limit_price = value
-
     @property
     def frozen_money(self) -> Decimal:
         """冻结资金金额（买单使用）"""
         return self._frozen_money
-
-    @frozen_money.setter
-    def frozen_money(self, value) -> None:
-        """支持多种输入类型但内部存储为Decimal"""
-        self._frozen_money = to_decimal(value)
 
     @property
     def frozen_volume(self) -> int:
         """冻结股票数量（卖单使用）"""
         return self._frozen_volume
 
-    @frozen_volume.setter
-    def frozen_volume(self, value) -> None:
-        """支持多种输入类型但内部存储为int"""
-        if not isinstance(value, (int, float)):
-            raise TypeError(f"frozen_volume must be int or float, got {type(value).__name__}")
-        if value < 0:
-            raise ValueError("frozen_volume cannot be negative")
-        self._frozen_volume = int(value)
-
     @property
     def transaction_price(self) -> Decimal:
         return self._transaction_price
-
-    @transaction_price.setter
-    def transaction_price(self, value) -> None:
-        self._transaction_price = value
 
     @property
     def transaction_volume(self) -> float:
         return self._transaction_volume
 
-    @transaction_volume.setter
-    def transaction_volume(self, value) -> None:
-        self._transaction_volume = value
-
     @property
     def remain(self) -> Decimal:
         return self._remain
 
-    @remain.setter
-    def remain(self, value) -> None:
-        self._remain = value
-
     @property
     def fee(self) -> Decimal:
         return self._fee
-
-    @fee.setter
-    def fee(self, value) -> None:
-        self._fee = value
 
     @property
     def order_id(self) -> str:
@@ -398,25 +334,13 @@ class Order(TimeMixin, Base):
     def portfolio_id(self) -> str:
         return self._portfolio_id
 
-    @portfolio_id.setter
-    def portfolio_id(self, value) -> None:
-        self._portfolio_id = value
-
     @property
     def engine_id(self) -> str:
         return self._engine_id
 
-    @engine_id.setter
-    def engine_id(self, value) -> None:
-        self._engine_id = value
-
     @property
     def task_id(self) -> str:
         return self._task_id
-
-    @task_id.setter
-    def task_id(self, value) -> None:
-        self._task_id = value
 
     def _validate_status_transition(self, from_status: ORDERSTATUS_TYPES, to_status: ORDERSTATUS_TYPES) -> None:
         """
