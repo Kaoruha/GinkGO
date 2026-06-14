@@ -128,24 +128,6 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取 analyzer 值失败: {e}")
             return ServiceResult.error(f"获取 analyzer 值失败: {e}")
 
-    def _build_analyzer_filters(
-        self,
-        task_id: str,
-        portfolio_id: Optional[str] = None,
-        analyzer_name: Optional[str] = None,
-    ) -> dict:
-        """从业务参数构造 AnalyzerRecord CRUD filters。get_analyzer_values_df 独立使用（DRY）。
-
-        filter 域与现有 get_analyzer_values() 内 get_by_task_id 调用一致
-        （task_id / portfolio_id / analyzer_name）。未抽改 get_analyzer_values()，保持纯增量。
-        """
-        filters = {"task_id": task_id}
-        if portfolio_id:
-            filters["portfolio_id"] = portfolio_id
-        if analyzer_name:
-            filters["analyzer_name"] = analyzer_name
-        return filters
-
     def get_analyzer_values_df(
         self,
         task_id: str,

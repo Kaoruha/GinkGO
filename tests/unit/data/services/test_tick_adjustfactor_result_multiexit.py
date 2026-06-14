@@ -286,20 +286,6 @@ def test_get_analyzer_values_df_db_failure():
 
 
 @pytest.mark.unit
-def test_get_analyzer_values_df_filters_construction():
-    """_build_analyzer_filters 字段映射正确（task_id/portfolio_id/analyzer_name）。"""
-    svc = _make_result_service(_make_empty_modellist())
-    filters = svc._build_analyzer_filters(
-        task_id="task1",
-        portfolio_id="pf1",
-        analyzer_name="net_value",
-    )
-    assert filters["task_id"] == "task1"
-    assert filters["portfolio_id"] == "pf1"
-    assert filters["analyzer_name"] == "net_value"
-
-
-@pytest.mark.unit
 def test_get_analyzer_values_df_empty_task_id():
     """task_id 为空时 success is False（与 get_analyzer_values() 一致）。"""
     svc = _make_result_service(_make_empty_modellist())
