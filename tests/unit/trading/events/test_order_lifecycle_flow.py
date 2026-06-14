@@ -2,7 +2,7 @@
 OrderLifecycle事件流转TDD测试
 
 通过TDD方式测试订单生命周期事件在回测系统中的完整流转过程
-涵盖OrderAck、OrderPartiallyFilled、OrderRejected、OrderExpired等T5架构事件
+涵盖OrderAck、OrderPartiallyFilled、OrderRejected、OrderExpired等事件驱动架构事件
 """
 import pytest
 import sys
@@ -497,8 +497,8 @@ class TestOrderEventBacktestVsLive:
         )
         assert ack.timestamp == fill.timestamp == ts
 
-    def test_t5_architecture_compliance(self):
-        """测试T5架构合规性"""
+    def test_event_architecture_compliance(self):
+        """测试事件驱动架构合规性（ADR-003 引擎二态）"""
         order = _make_order()
         ack = EventOrderAck(order=order)
         partial = EventOrderPartiallyFilled(order=order, filled_quantity=30, fill_price=10.0)

@@ -1,5 +1,7 @@
 # 可取消请求 Composable 使用指南
 
+> 注：文中 UI 示例（`a-spin` / `a-radio-*` 等）为 ant-design-vue 历史写法，仅作 composable 用法演示；新代码统一使用 shadcn-vue 组件（ant 依赖已移除，见 `package.json`）。
+
 ## 概述
 
 `useRequestCancelable` 是基于 `AbortController` 实现的请求取消机制，用于解决组件销毁时请求仍在执行的问题。
