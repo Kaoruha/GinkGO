@@ -224,9 +224,8 @@ class PositionRatioRisk(BaseRiskManagement):
         """
         truncated_volume = int(adjusted_volume)
         order.adjust_volume(truncated_volume)
-        order.frozen_money = to_decimal(truncated_volume) * execution_price
-        order.frozen_volume = truncated_volume
-        order.remain = order.frozen_money
+        # 成对冻结股数+资金，remain=frozen_money（ADR-010 V5：freeze，#6056 成对不变量）
+        order.freeze(truncated_volume, to_decimal(truncated_volume) * execution_price)
 
     def _get_current_price(self, portfolio_info: Dict, code: str) -> Decimal:
         """
