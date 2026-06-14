@@ -2044,6 +2044,55 @@ class TestOrderEnumConstraints:
         assert all(o.direction == DIRECTION_TYPES.LONG for o in long_orders)
 
 
+@pytest.mark.unit
+class TestOrderAdjustVolume:
+    """Order.adjust_volume 行为方法测试（ADR-010 V5：Risk 合法调整通道）。
+
+    替代裸 ``order.volume = X``，复用 set() 的 int 转换 + 正数校验，
+    确保调整路径与构造路径守同一不变量。
+    """
+
+    def _make_order(self, volume: int = 1000) -> Order:
+        return Order(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=volume,
+            limit_price=10.0,
+        )
+
+    def test_adjust_volume_positive(self):
+        """正数调整生效"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(500)
+        assert order.volume == 500
+
+    def test_adjust_volume_float_truncated_to_int(self):
+        """浮点数按 int 截断（对齐 set 的 int 转换）"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(300.7)
+        assert order.volume == 300
+
+    def test_adjust_volume_allows_zero(self):
+        """0 允许（风控全砍语义，下游应过滤 volume<=0 订单）"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(0)
+        assert order.volume == 0
+
+    def test_adjust_volume_rejects_negative(self):
+        """负数被拒"""
+        order = self._make_order(volume=1000)
+        with pytest.raises(ValueError):
+            order.adjust_volume(-100)
+
+    def test_adjust_volume_rejects_non_numeric(self):
+        """非数值类型被拒"""
+        order = self._make_order(volume=1000)
+        with pytest.raises(TypeError):
+            order.adjust_volume("abc")
+
+
 
 
 

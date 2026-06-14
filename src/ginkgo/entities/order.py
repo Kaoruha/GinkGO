@@ -441,6 +441,21 @@ class Order(TimeMixin, Base):
         if to_status not in valid_transitions.get(from_status, []):
             raise ValueError(f"Invalid status transition from {from_status.name} to {to_status.name}")
 
+    def adjust_volume(self, new_volume) -> None:
+        """调整委托数量（Risk 组件合法调整通道，ADR-001/V5）。
+
+        替代裸 ``order.volume = X``。构造期 volume 必须 > 0（订单创建必须有量）；
+        调整期允许缩减至 0（风控全砍语义，下游应过滤 volume<=0 订单），仅拒负数。
+        int 转换复用 set() 逻辑，与构造路径对齐。
+        """
+        try:
+            new_volume = int(new_volume)
+        except (ValueError, TypeError):
+            raise TypeError(f"volume must be convertible to int, got {type(new_volume).__name__}")
+        if new_volume < 0:
+            raise ValueError("volume cannot be negative.")
+        self._volume = new_volume
+
     def submit(self) -> None:
         """
         提交订单
