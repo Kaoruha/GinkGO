@@ -9,7 +9,8 @@ Kafka连接测试 - 实盘交易架构
 
 import pytest
 from kafka import KafkaAdminClient
-from kafka.errors import KafkaError, NoBrokersAvailable
+# kafka-python 3.0.0 删除了旧"找不到 broker"细分异常；KafkaError 是全异常基类，2.x/3.x 共有（#6157）。
+from kafka.errors import KafkaError
 from ginkgo.libs.core.config import GCONF
 from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set, GinkgoProducer, GinkgoConsumer
 
@@ -73,7 +74,7 @@ class TestKafkaTopics:
 
             admin_client.close()
             print(f"✅ Kafka AdminClient连接成功，当前topics: {len(topics)}个")
-        except (NoBrokersAvailable, KafkaError) as e:
+        except KafkaError as e:
             pytest.skip(f"Kafka服务未运行或连接失败: {e}")
 
     def test_live_trading_topics_exist(self):
@@ -108,7 +109,7 @@ class TestKafkaTopics:
             else:
                 print(f"✅ 所有实盘交易topics存在: {required_topics}")
 
-        except (NoBrokersAvailable, KafkaError) as e:
+        except KafkaError as e:
             pytest.skip(f"Kafka服务未运行或连接失败: {e}")
 
     def test_global_topics_exist(self):
@@ -139,7 +140,7 @@ class TestKafkaTopics:
             else:
                 print(f"✅ 所有全局topics存在: {global_topics}")
 
-        except (NoBrokersAvailable, KafkaError) as e:
+        except KafkaError as e:
             pytest.skip(f"Kafka服务未运行或连接失败: {e}")
 
     def test_kafka_topic_set_function(self):

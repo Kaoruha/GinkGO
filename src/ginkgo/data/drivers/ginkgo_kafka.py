@@ -13,7 +13,9 @@ from typing import Optional
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
-from kafka.errors import NoBrokersAvailable, KafkaConnectionError
+# kafka-python 3.0.0 把"找不到 broker"异常并入 KafkaConnectionError（旧细分名已删，#6157）；
+# KafkaConnectionError 在 2.x/3.x 共有，连接失败统一走它。
+from kafka.errors import KafkaConnectionError
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
@@ -61,7 +63,7 @@ class GinkgoProducer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Producer connected to {GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}")
             data_logger.INFO(f"Kafka Producer connected successfully")
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaConnectionError as e:
             self._connected = False
             self.producer = None
             GLOG.ERROR(f"Kafka Producer connection failed: {e}")
@@ -106,7 +108,7 @@ class GinkgoProducer(object):
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
             return True
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaConnectionError as e:
             GLOG.ERROR(f"Kafka connection error during send: {e}")
             data_logger.ERROR(f"Kafka send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -143,7 +145,7 @@ class GinkgoProducer(object):
             self.producer.send(topic, msg)
             GLOG.DEBUG(f"Kafka async send message. TOPIC: {topic}")
             return True
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaConnectionError as e:
             GLOG.ERROR(f"Kafka connection error during async send: {e}")
             data_logger.ERROR(f"Kafka async send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -229,7 +231,7 @@ class GinkgoConsumer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Consumer connected to topic '{topic}' (group_id={group_id or 'none'})")
             data_logger.INFO(f"Kafka Consumer connected successfully to topic: {topic}")
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaConnectionError as e:
             self._connected = False
             self.consumer = None
             GLOG.ERROR(f"Kafka Consumer connection failed: {e}")
