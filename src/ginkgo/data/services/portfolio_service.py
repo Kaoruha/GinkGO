@@ -869,6 +869,50 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"获取投资组合失败: {str(e)}")
             return ServiceResult.error(f"获取投资组合失败: {str(e)}")
 
+    # ===== ADR-010 Phase 4 R1a：类型即契约多出口（DF 出口，纯增量） =====
+
+    def _build_portfolio_filters(self, portfolio_id: str = None, name: str = None,
+                                 mode: PORTFOLIO_MODE_TYPES = None,
+                                 state: PORTFOLIO_RUNSTATE_TYPES = None) -> dict:
+        """从业务参数构造 Portfolio CRUD filters。get_portfolios_df 独立使用（DRY）。
+
+        filter 域与现有 get() 的条件查询分支一致（portfolio_id→uuid / name /
+        mode(validate_input) / state(validate_input)），固定排除 is_del=True。
+        未抽改 get()，保持纯增量。
+        """
+        filters = {'is_del': False}
+        if portfolio_id:
+            filters['uuid'] = portfolio_id
+        if name:
+            filters['name'] = name
+        if mode is not None:
+            filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+        if state is not None:
+            filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+        return filters
+
+    def get_portfolios_df(self, portfolio_id: str = None, name: str = None,
+                          mode: PORTFOLIO_MODE_TYPES = None,
+                          state: PORTFOLIO_RUNSTATE_TYPES = None) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
+        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        """
+        try:
+            filters = self._build_portfolio_filters(
+                portfolio_id=portfolio_id, name=name, mode=mode, state=state,
+            )
+            model_list = self._crud_repo.find(filters=filters)
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} portfolio records (DataFrame)",
+            )
+        except Exception as e:
+            return ServiceResult.error(f"Failed to get portfolio data (df): {str(e)}")
+
     def count(self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         统计投资组合数量
