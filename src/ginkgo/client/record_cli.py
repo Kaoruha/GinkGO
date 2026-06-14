@@ -246,7 +246,7 @@ def analyzer(
 
     try:
         analyzer_svc = Container.analyzer_service()
-        result = analyzer_svc.get_records(
+        result = analyzer_svc.get_records_df(
             portfolio_id=portfolio,
             engine_id=engine,
             page_size=page,
@@ -255,7 +255,7 @@ def analyzer(
             console.print(f":x: [red]{result.error}[/red]")
             return
 
-        analyzer_df = result.data.to_dataframe()
+        analyzer_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
         title_parts = []
         if portfolio:
