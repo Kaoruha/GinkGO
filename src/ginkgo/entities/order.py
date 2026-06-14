@@ -456,6 +456,63 @@ class Order(TimeMixin, Base):
             raise ValueError("volume cannot be negative.")
         self._volume = new_volume
 
+    def freeze(self, frozen_volume, frozen_money) -> None:
+        """冻结股数与资金（风控/优化器成对冻结，ADR-010 V5）。
+
+        替代裸 ``order.frozen_volume=...; order.frozen_money=...``，强制成对设置（#6056
+        frozen 拆分后必须成对，否则资金/数量错配）。副作用：``remain = frozen_money``
+        （初始化剩余冻结资金，供后续 settle 扣减）。
+        """
+        try:
+            fv = int(frozen_volume)
+        except (ValueError, TypeError):
+            raise TypeError(f"frozen_volume must be convertible to int, got {type(frozen_volume).__name__}")
+        if fv < 0:
+            raise ValueError("frozen_volume cannot be negative")
+        fm = to_decimal(frozen_money)
+        if fm < 0:
+            raise ValueError("frozen_money cannot be negative")
+        self._frozen_volume = fv
+        self._frozen_money = fm
+        self._remain = fm
+
+    def settle(self, qty, price, fee=0) -> None:
+        """成交结算扣冻结资金（实盘/回测成交处理，ADR-010 V5）。
+
+        替代裸 ``order.transaction_volume = min(volume, transaction_volume+qty)``
+        + ``order.remain = max(0, remain - fill_cost)``。
+
+        守：``qty>0``、``transaction_volume`` 截断到 ``volume``（匹配实盘幂等防御，
+        不抛错）、``remain ≥ 0``。不更新 ``transaction_price``（broker 权威，见 sync_fill）。
+        """
+        try:
+            qty = int(qty)
+        except (ValueError, TypeError):
+            raise TypeError(f"qty must be convertible to int, got {type(qty).__name__}")
+        if qty <= 0:
+            raise ValueError("qty must be positive")
+        fill_cost = to_decimal(price) * qty + to_decimal(fee)
+        if self._remain is None:
+            self._remain = self._frozen_money
+        self._remain = max(Decimal("0"), self._remain - fill_cost)
+        self._transaction_volume = min(self._volume, self._transaction_volume + qty)
+
+    def release_frozen(self) -> None:
+        """释放剩余冻结资金（订单取消/完成清零，ADR-010 V5）。
+
+        替代裸 ``order.remain = 0``。
+        """
+        self._remain = Decimal("0")
+
+    def sync_fill(self, price, volume) -> None:
+        """券商成交回报权威覆盖（ADR-010 V5）。
+
+        替代裸 ``order.transaction_price=...; order.transaction_volume=...``。
+        broker 是成交价格的权威来源，覆盖语义（非累加），区别于 settle 的累加。
+        """
+        self._transaction_price = to_decimal(price)
+        self._transaction_volume = int(volume)
+
     def submit(self) -> None:
         """
         提交订单

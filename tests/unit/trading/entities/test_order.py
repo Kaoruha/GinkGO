@@ -2093,6 +2093,73 @@ class TestOrderAdjustVolume:
             order.adjust_volume("abc")
 
 
+@pytest.mark.unit
+class TestOrderFillBehavior:
+    """Order 资金维度行为方法测试（ADR-010 V5：成交/冻结收口）。
+
+    实盘/回测的成交是资金冻结维度（remain=剩余冻结资金、扣 fill_cost、frozen 成对），
+    与 partial_fill 的数量维度（remain=量×价、加权均价、状态机）不同，
+    故新建 freeze/settle/release_frozen/sync_fill 匹配实盘现状。
+    partial_fill/fill 保留作理想模型与测试。
+    """
+
+    def _make_order(self, volume: int = 1000, frozen_money=10000, limit_price: float = 10.0) -> Order:
+        return Order(
+            portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
+            volume=volume, limit_price=limit_price, frozen_money=frozen_money,
+        )
+
+    def test_freeze_sets_pair_and_remain(self):
+        """freeze 成对设置 frozen_volume/frozen_money 并初始化 remain"""
+        order = self._make_order()
+        order.freeze(800, 8000)
+        assert order.frozen_volume == 800
+        assert order.frozen_money == 8000
+        assert order.remain == 8000
+
+    def test_freeze_rejects_negative(self):
+        """freeze 拒负"""
+        order = self._make_order()
+        with pytest.raises((ValueError, TypeError)):
+            order.freeze(-1, 1000)
+
+    def test_settle_accumulates_and_deducts_remain(self):
+        """settle 累加成交并扣减剩余冻结资金"""
+        order = self._make_order(volume=1000, frozen_money=10000)
+        order.freeze(1000, 10000)  # remain=10000
+        order.settle(100, 10.0, 5.0)  # fill_cost=100*10+5=1005
+        assert order.transaction_volume == 100
+        assert order.remain == 8995
+
+    def test_settle_caps_at_volume(self):
+        """settle 超量截断到 volume（匹配实盘幂等防御 portfolio_live:279，不抛错）"""
+        order = self._make_order(volume=100)
+        order.freeze(100, 1000)
+        order.settle(200, 10.0, 0)  # qty=200 > volume=100
+        assert order.transaction_volume == 100
+
+    def test_settle_remain_floor_zero(self):
+        """settle 扣减后 remain 不低于 0"""
+        order = self._make_order(volume=1000, frozen_money=1000)
+        order.freeze(1000, 1000)  # remain=1000
+        order.settle(100, 10.0, 0)  # fill_cost=1000
+        assert order.remain == 0
+
+    def test_release_frozen_zeroes_remain(self):
+        """release_frozen 清零剩余冻结"""
+        order = self._make_order()
+        order.freeze(1000, 10000)
+        order.release_frozen()
+        assert order.remain == 0
+
+    def test_sync_fill_overrides_transaction_fields(self):
+        """sync_fill 覆盖成交价/量（broker 权威，覆盖非累加）"""
+        order = self._make_order()
+        order.sync_fill(10.5, 300)
+        assert order.transaction_price == 10.5
+        assert order.transaction_volume == 300
+
+
 
 
 
