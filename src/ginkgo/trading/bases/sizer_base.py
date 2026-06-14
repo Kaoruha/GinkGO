@@ -1,6 +1,7 @@
 # Upstream: Portfolio(添加资金管理组件)、Strategy(策略使用Sizer计算订单大小)
 # Downstream: TimeMixin/ContextMixin/EngineBindableMixin/NamedMixin/LoggableMixin(5个Mixin提供时间/上下文/引擎绑定/命名/日志能力)、Base(组件基础)、Signal/Order实体(类型注解)
 # Role: SizerBase资金管理组件基类组合5个Mixin定义数据供给器和cal抽象方法计算订单大小
+# ADR-001(组件边界): Sizer 仅由 cal(signal) 给出 volume；禁止做风控校验
 
 
 

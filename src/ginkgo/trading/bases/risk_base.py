@@ -1,6 +1,7 @@
 # Upstream: Portfolio Manager (添加Risk实例到Portfolio)、Concrete Risk Classes (PositionRatioRisk/LossLimitRisk/ProfitLimitRisk继承)
 # Downstream: TimeMixin/ContextMixin/EngineBindableMixin/NamedMixin/LoggableMixin (5个Mixin提供时间/上下文/引擎绑定/命名/日志能力)、Base
 # Role: RiskBase风控抽象基类组合5个Mixin提供完整能力定义双重风控机制被动拦截订单和主动生成信号
+# ADR-001(组件边界): Risk 仅拦截 / 调整订单（减量或拒绝），禁止增加订单量
 
 
 

@@ -10,7 +10,7 @@
 """
 市场状态和时间相关事件
 
-实现T5架构中定义的市场数据事件类型，包括：
+事件驱动架构定义的市场数据事件类型，包括：
 - EventClockTick: 时钟节拍事件
 - EventMarketStatus: 市场状态事件  
 - EventBarClose: K线结束事件
@@ -39,7 +39,7 @@ class EventClockTick(EventBase):
     """
     时钟节拍事件
     
-    用于时间推进控制，是T5架构中TimeProgressionController的核心事件。
+    用于时间推进控制，是时间推进控制器的核心事件。
     在回测模式下，用于推进逻辑时间；在实盘模式下，用于心跳同步。
     """
     

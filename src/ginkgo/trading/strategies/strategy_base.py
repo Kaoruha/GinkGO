@@ -1,6 +1,7 @@
 # Upstream: Backtest Engines (cal方法), Portfolio Manager (实例管理), Concrete Strategies (继承)
 # Downstream: Data Layer (data_feeder), Event System (EventPriceUpdate), Mixins (Context/Time/Named/Loggable)
 # Role: 创建带有完整上下文的交易信号
+# ADR-001(组件边界): Strategy 仅产出 List[Signal]（cal 契约）；禁止选股 / 止损止盈 / 算仓位
 
 
 
@@ -42,9 +43,11 @@ class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
         **kwargs
     ):
         """
-        创建带有完整上下文的交易信号
+        创建交易信号（信号构造 seam）
 
-        自动填充 portfolio_id、engine_id、task_id，策略只需关注业务参数。
+        自动填充 portfolio_id、engine_id、task_id 等上下文，策略只需关注业务三参
+        (code, direction, reason)；其余 Signal 参数（如 business_timestamp、source）
+        经 **kwargs 透传，未传则用 Signal 自身默认值。
 
         Args:
             code: 股票代码

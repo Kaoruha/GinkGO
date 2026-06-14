@@ -16,6 +16,8 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 
 ## Architecture
 
+> 架构决策记录（难逆转 / 反直觉 / 真实权衡）详见 [`docs/adr/README.md`](docs/adr/README.md)；触碰下列区域前先读对应 ADR，避免把刻意设计当 bug 修复。
+
 ### System Overview
 
 ```mermaid
@@ -168,12 +170,26 @@ graph LR
 |------|-------------|
 | **单向数据流** | `Selector → Strategy → Sizer → Risk`，禁止反向调用 |
 | **三层分离** | `API → Service → CRUD`，API 禁止直接调 CRUD |
+| **数据对象三层** | `Entity`(业务对象) / `ORM`(持久化) / `DTO`(传输) 分离，Mapper 负责转换（ADR-010） |
 | **事件驱动** | 引擎通过 Queue 分发事件，解耦数据与交易逻辑 |
 | **容器注入** | ServiceHub 懒加载 11 个 DI 容器，按需初始化 |
 | **引擎双模** | 仅分 `BACKTEST` / `LIVE`，共享 EventEngine 机制 |
 | **Portfolio 编排** | Portfolio 持有全部组件（策略/风控/Sizer/分析器），是交易核心 |
 | **双模风控** | 被动拦截 `cal(order)` + 主动信号 `generate_signals()` |
 | **T+1 延迟** | 当日信号延迟到下一时段才执行（A 股规则） |
+
+### Data Object Layers (ADR-010)
+
+数据对象按角色分三层，禁止跨层直传：
+
+| 层 | 位置 | 职责 |
+|---|---|---|
+| **Entity** | `src/ginkgo/entities/` | 业务领域对象（`Signal`/`Order`/`Bar`…），创建后 uuid 只读，跨层流通的规范形态 |
+| **ORM** | `src/ginkgo/data/models/` | SQLAlchemy 持久化模型（`Model*`），仅 CRUD 层可见 |
+| **DTO** | `src/ginkgo/interfaces/dtos/` | API / 跨进程传输对象，与 Entity 解耦 |
+| **Mapper** | `src/ginkgo/data/mappers/` | Entity ↔ ORM ↔ DTO 转换的唯一通道 |
+
+CRUD 返回 `ModelList`，调用方按需经 Mapper 转 Entity；API 经 DTO 出入。详见 [ADR-010](docs/adr/ADR-010-entity-orm-dto-separation.md)。
 
 ### Component Inventory
 

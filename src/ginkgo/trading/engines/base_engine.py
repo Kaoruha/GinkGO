@@ -1,6 +1,7 @@
 # Upstream: CLI Commands (ginkgo engine run创建实例)、TimeControlledEventEngine等具体引擎继承
 # Downstream: EngineContext (创建并维护)、Portfolio (添加/绑定/移除)、EXECUTION_MODE/ENGINESTATUS_TYPES (状态枚举)
 # Role: 引擎抽象基类，管理 engine_id/task_id 生成、source_type 设置、Portfolio 列表和引擎状态生命周期
+# ADR-003(引擎二态): 仅 BACKTEST / LIVE 两态，共享 EventEngine 事件分发机制
 
 
 

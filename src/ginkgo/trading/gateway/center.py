@@ -386,7 +386,7 @@ class EventRoutingCenter(IEventRoutingCenter):
             # 基于事件类型的简单路由规则
             target_handlers = []
             
-            # T5事件路由规则
+            # 事件路由规则
             if 'Order' in event_type:
                 # 订单相关事件路由到BrokerMatchMaking
                 target_handlers.extend(['broker_matchmaking', 'portfolio_manager'])

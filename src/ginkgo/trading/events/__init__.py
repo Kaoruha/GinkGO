@@ -10,13 +10,13 @@
 """
 Ginkgo Trading Events Module
 
-统一的T5事件驱动架构 - 完整事件体系导出
+统一的事件驱动架构 - 完整事件体系导出（ADR-003 引擎二态）
 """
 
 # === 基础事件类 ===
 from ginkgo.trading.events.base_event import EventBase
 
-# === 市场数据事件 (T5新增) ===
+# === 市场数据事件 ===
 from ginkgo.trading.events.market_events import (
     EventClockTick,
     EventMarketStatus,
@@ -25,7 +25,7 @@ from ginkgo.trading.events.market_events import (
     MarketStatus
 )
 
-# === 订单生命周期事件 (T5新增) ===
+# === 订单生命周期事件 ===
 from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderAck,
     EventOrderPartiallyFilled,
@@ -34,7 +34,7 @@ from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderCancelAck
 )
 
-# === 投资组合事件 (T5新增) ===
+# === 投资组合事件 ===
 from ginkgo.trading.events.portfolio_events import (
     EventPortfolioUpdate,
     EventRiskBreach,
@@ -70,7 +70,7 @@ __all__ = [
     # 基础事件类
     "EventBase",
     
-    # T5新增事件类
+    # 事件体系新增事件类
     # 市场数据事件
     "EventClockTick",
     "EventMarketStatus", 

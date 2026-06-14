@@ -10,7 +10,7 @@
 """
 订单生命周期事件
 
-实现T5架构中定义的完整订单生命周期事件，与真实交易所对齐：
+事件驱动架构定义的完整订单生命周期事件，与真实交易所对齐：
 - EventOrderSubmitted: 订单提交事件
 - EventOrderAck: 订单确认事件
 - EventOrderPartiallyFilled: 部分成交事件

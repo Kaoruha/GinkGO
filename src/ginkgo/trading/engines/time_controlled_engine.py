@@ -8,7 +8,7 @@
 
 
 """
-TimeControlledEventEngine - T5架构核心引擎
+TimeControlledEventEngine - 事件驱动引擎核心（ADR-003 引擎二态）
 
 统一事件驱动引擎，支持回测和实盘模式的时间控制：
 - 回测模式：逻辑时间推进 + 同步屏障

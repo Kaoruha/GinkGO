@@ -8,21 +8,21 @@
 
 
 """
-Ginkgo Backtest Module - 量化回测框架
+Ginkgo Trading Module - 事件驱动交易与回测框架
 
-统一的T5事件驱动架构：
-- core/: 核心基础设施
-- entities/: 业务实体对象
-- engines/: 事件驱动引擎层 (原execution/engines)
-- events/: 事件体系 (原execution/events)
-- feeders/: 数据供给层 (原execution/feeders)
-- portfolios/: 投资组合管理 (原execution/portfolios)
-- brokers/: 统一交易执行层
-- routing/: 订单路由中心 (原matchmakings)
-- strategy/: 策略层
-- computation/: 计算层（技术指标）
-- analysis/: 分析评估层
-- services/: 服务层
+引擎二态（ADR-003）：仅 `BACKTEST` / `LIVE`，共享 EventEngine 事件分发机制；
+组件单向流动（ADR-001）：`Selector → Strategy → Sizer → Risk`，禁止反向调用。
+
+- core/: 核心基础设施（BacktestBase / Container）
+- entities/: 业务领域对象（Entity 层，详见 ADR-010）
+- engines/: 事件驱动引擎（BaseEngine → EventEngine → TimeControlled）
+- events/: 事件体系（PriceUpdate · Signal · Order · Fill · TimeAdvance）
+- bases/: 组件基类（Portfolio · Strategy · Selector · Sizer · Risk）
+- strategies/ · risk_management/ · selectors/ · sizers/: 可插拔组件
+- brokers/ · gateway/: 交易执行与多市场路由
+- feeders/: 数据供给
+- analysis/ · evaluation/: 分析与评估
+- services/: 交易域服务（经 service_hub 注入，详见 ADR-009）
 """
 
 # === 核心基础设施 ===
