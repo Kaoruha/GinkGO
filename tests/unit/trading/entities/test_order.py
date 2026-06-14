@@ -7,6 +7,7 @@ Order类TDD测试
 """
 import pytest
 import datetime
+from decimal import Decimal
 from typing import List
 
 # 导入Order类和相关枚举
@@ -2158,6 +2159,46 @@ class TestOrderFillBehavior:
         order.sync_fill(10.5, 300)
         assert order.transaction_price == 10.5
         assert order.transaction_volume == 300
+
+
+class TestOrderMoneyAdjust:
+    """Order 资金调整方法测试（ADR-010 V5：t1backtest 迁移专用）。
+
+    deduct_remain：扣剩余冻结不动成交计数（保持 t1backtest:651 预存行为）。
+    normalize_freeze：量化精度 + remain 兜底（t1backtest:361-365）。
+    """
+
+    def _make_order(self, volume=1000, frozen_money=10000, limit_price=10.0):
+        return Order(portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
+                     volume=volume, limit_price=limit_price, frozen_money=frozen_money)
+
+    def test_deduct_remain_reduces_and_floors_zero(self):
+        o = self._make_order()
+        o.freeze(1000, 10000)  # remain=10000
+        o.deduct_remain(3000)
+        assert o.remain == 7000
+        o.deduct_remain(99999)  # 超额
+        assert o.remain == 0  # floor 0
+
+    def test_deduct_remain_rejects_negative(self):
+        o = self._make_order()
+        with pytest.raises((ValueError, TypeError)):
+            o.deduct_remain(-1)
+
+    def test_normalize_freeze_quantizes_to_places(self):
+        o = self._make_order(frozen_money=10000)
+        o.freeze(1000, 10000)
+        o._remain = Decimal("1234.567")  # 模拟精度残留
+        o.normalize_freeze(2)
+        assert o.frozen_money == Decimal("10000.00")
+        assert o.remain == Decimal("1234.57")  # quantize ROUND_HALF_EVEN
+
+    def test_normalize_freeze_backfills_remain_from_frozen(self):
+        """remain 为空/0 时用 frozen_money 兜底（t1backtest:364-365 语义）"""
+        o = self._make_order(frozen_money=10000)
+        o._remain = Decimal("0")
+        o.normalize_freeze(2)
+        assert o.remain == Decimal("10000.00")
 
 
 
