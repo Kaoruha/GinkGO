@@ -196,12 +196,14 @@ class LiquidityRisk(BaseRiskManagement):
         # 检查价格冲击风险
         current_position = portfolio_info.get("positions", {}).get(event.code)
         if current_position and current_position.volume > 0:
-            # 模拟平仓的价格冲击
-            sell_order = Order()
-            sell_order.code = event.code
-            sell_order.volume = current_position.volume
-            sell_order.direction = DIRECTION_TYPES.SHORT
-            sell_order.limit_price = event.close
+            # 模拟平仓的价格冲击（构造注入，V5：S4 删 setter 后裸赋值不可用）
+            sell_order = Order(
+                portfolio_id="", engine_id="", task_id="",
+                code=event.code,
+                volume=current_position.volume,
+                direction=DIRECTION_TYPES.SHORT,
+                limit_price=event.close,
+            )
 
             price_impact = self._calculate_price_impact(sell_order, liquidity_metrics)
             if price_impact > self._warning_price_impact:
