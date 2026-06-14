@@ -20,7 +20,7 @@
 - Vue 3 Composition API
 - TypeScript 基础
 - Pinia 状态管理
-- Ant Design Vue 组件库
+- shadcn-vue + Tailwind CSS 组件库（Ant Design Vue 依赖已移除）
 
 ## Project Setup
 

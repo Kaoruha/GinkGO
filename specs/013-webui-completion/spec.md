@@ -157,7 +157,7 @@
 1. **后端API**: 后端API已存在，前端仅需调用现有接口
 2. **认证状态**: 用户已登录，所有API请求携带有效token
 3. **数据格式**: 后端返回的数据格式符合现有API规范
-4. **组件库**: 继续使用Ant Design Vue组件库
+4. **组件库**: 使用 shadcn-vue + Tailwind CSS（Ant Design Vue 依赖已移除，见 `package.json` / 顶层 README）
 5. **状态管理**: 继续使用Pinia进行状态管理
 6. **用户角色**: 系统存在普通用户和 admin 两种角色，admin 拥有所有操作权限
 

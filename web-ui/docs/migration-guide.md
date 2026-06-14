@@ -2,6 +2,8 @@
 
 本文档提供了从 Ant Design Vue 迁移到 shadcn-vue 的详细指南和最佳实践。
 
+> **状态注记**：Ant Design Vue 依赖已移除（见 `package.json` / 顶层 README），shadcn-vue + Tailwind CSS 为唯一标准栈；迁移主体已完成，仅个别历史文件残留 `<a-*>` 标签待清理。本文为迁移期参考，正文中「继续使用 Ant Design Vue」类表述仅反映迁移过渡阶段。
+
 ## 目录
 
 1. [快速开始](#快速开始)
@@ -327,11 +329,11 @@ const onSubmit = handleSubmit(values => {
 
 ### Q2: 如何实现表格组件？
 
-**A**: 对于简单表格，可以使用 HTML `<table>` + Tailwind；对于复杂表格，建议继续使用 Ant Design Vue 的 Table 组件。
+**A**: Ant Design Vue 依赖已移除，表格统一用 shadcn-vue Table 或 HTML `<table>` + Tailwind 自建（复杂表格的排序/分页/虚拟滚动需自行实现）。
 
 ### Q3: 如何实现日期选择器？
 
-**A**: shadcn-vue 提供了基于 Radix Vue 的 Calendar 组件，但功能有限。建议继续使用 Ant Design Vue 的 DatePicker，或考虑 `@vueuse/core` + `date-fns` 自建。
+**A**: Ant Design Vue 依赖已移除。日期选择器用 shadcn-vue Calendar（基于 Radix Vue，功能有限），或 `@vueuse/core` + `date-fns` 自建。
 
 ### Q4: 两套组件库样式会冲突吗？
 
