@@ -1,4 +1,5 @@
 <template>
+  <!-- BacktestListPage.vue（回测页） -->
   <ListPage
     title="回测中心"
     :columns="columns"

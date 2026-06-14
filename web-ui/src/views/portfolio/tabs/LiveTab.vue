@@ -1,4 +1,5 @@
 <template>
+  <!-- LiveTab.vue（组合管理页） -->
   <div class="live-tab">
     <div class="empty-hint">实盘功能将在后续版本中实现</div>
   </div>

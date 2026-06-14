@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// PopoverTrigger.vue（shadcn-vue UI 组件）
 import type { PopoverTriggerProps } from "reka-ui"
 import { PopoverTrigger } from "reka-ui"
 

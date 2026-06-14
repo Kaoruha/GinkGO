@@ -1,4 +1,5 @@
 <template>
+  <!-- GeneticOptimizer.vue（参数优化页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">遗传算法优化</h1>

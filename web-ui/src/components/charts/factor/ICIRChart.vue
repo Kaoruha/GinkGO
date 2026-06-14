@@ -1,4 +1,5 @@
 <template>
+  <!-- ICIRChart.vue（图表组件） -->
   <div class="icir-chart">
     <div ref="chartRef" class="chart-container" :style="{ height: height }"></div>
   </div>

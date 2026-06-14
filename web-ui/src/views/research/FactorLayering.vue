@@ -1,4 +1,5 @@
 <template>
+  <!-- FactorLayering.vue（量化研究页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">因子分层</h1>

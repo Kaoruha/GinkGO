@@ -1,4 +1,5 @@
 <template>
+  <!-- SegmentStability.vue（组合管理页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">

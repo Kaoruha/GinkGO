@@ -1,4 +1,5 @@
 <template>
+  <!-- EmptyState.vue（通用组件） -->
   <div class="empty-state" :class="{ 'has-action': hasAction }">
     <div v-if="image" class="empty-image">
       <img :src="image" :alt="description" />

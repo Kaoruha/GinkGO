@@ -1,4 +1,5 @@
 <template>
+  <!-- ICAnalysis.vue（量化研究页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">IC 分析</h1>

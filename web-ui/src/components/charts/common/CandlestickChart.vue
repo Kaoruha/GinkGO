@@ -1,4 +1,5 @@
 <template>
+  <!-- CandlestickChart.vue（图表组件） -->
   <div ref="chartRef" class="candlestick-chart" :style="{ width: width, height: height }"></div>
 </template>
 

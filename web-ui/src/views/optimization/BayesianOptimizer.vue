@@ -1,4 +1,5 @@
 <template>
+  <!-- BayesianOptimizer.vue（参数优化页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">贝叶斯优化</h1>

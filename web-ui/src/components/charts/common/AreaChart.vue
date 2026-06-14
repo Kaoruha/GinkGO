@@ -1,4 +1,5 @@
 <template>
+  <!-- AreaChart.vue（图表组件） -->
   <div ref="chartRef" class="area-chart" :style="{ width: width, height: height }"></div>
 </template>
 

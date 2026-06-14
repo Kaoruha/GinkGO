@@ -1,4 +1,5 @@
 <template>
+  <!-- CodeEditor.vue（通用组件） -->
   <div class="code-editor">
     <div class="editor-toolbar">
       <input

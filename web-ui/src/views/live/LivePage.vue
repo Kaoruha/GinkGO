@@ -1,4 +1,5 @@
 <template>
+  <!-- LivePage.vue（实盘页） -->
   <div class="live-page">
     <div class="tab-bar">
       <router-link

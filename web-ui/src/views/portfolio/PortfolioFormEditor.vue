@@ -1,4 +1,5 @@
 <template>
+  <!-- PortfolioFormEditor.vue（组合管理页） -->
   <div class="portfolio-form-editor" :class="{ 'modal-mode': isModalMode }">
     <div class="page-header">
       <div class="header-left">

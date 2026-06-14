@@ -1,4 +1,5 @@
 <template>
+  <!-- GlobalLoading.vue（通用组件） -->
   <teleport to="body">
     <transition name="loading-fade">
       <div v-if="hasActiveLoading" class="global-loading">

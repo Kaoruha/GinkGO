@@ -1,4 +1,5 @@
 <template>
+  <!-- LineChart.vue（图表组件） -->
   <div ref="chartRef" class="line-chart" :style="{ width: width, height: height }"></div>
 </template>
 

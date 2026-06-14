@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogFooter.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { cn } from '@/lib/utils'
 

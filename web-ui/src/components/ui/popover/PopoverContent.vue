@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// PopoverContent.vue（shadcn-vue UI 组件）
 import type { PopoverContentEmits, PopoverContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"

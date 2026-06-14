@@ -1,4 +1,5 @@
 <template>
+  <!-- ListPage.vue（通用组件） -->
   <div class="list-page">
     <!-- 固定头部 -->
     <div class="list-header">

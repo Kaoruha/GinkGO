@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogOverlay.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { DialogOverlay as RadixDialogOverlay } from 'radix-vue'
 import { type DialogOverlayProps } from 'radix-vue'

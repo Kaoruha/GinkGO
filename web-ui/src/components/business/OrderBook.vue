@@ -1,4 +1,5 @@
 <template>
+  <!-- OrderBook.vue（业务组件） -->
   <div class="order-book">
     <div class="card">
       <div class="card-header">

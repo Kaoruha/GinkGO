@@ -1,4 +1,5 @@
 <template>
+  <!-- AdjustFactorData.vue（数据管理页） -->
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">

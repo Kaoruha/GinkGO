@@ -1,4 +1,5 @@
 <template>
+  <!-- StatusTag.vue（通用组件） -->
   <span class="status-tag" :class="tagClass">
     <slot>{{ label }}</slot>
   </span>

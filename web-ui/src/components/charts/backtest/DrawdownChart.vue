@@ -1,4 +1,5 @@
 <template>
+  <!-- DrawdownChart.vue（图表组件） -->
   <AreaChart
     :data="chartData"
     :height="height"

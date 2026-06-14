@@ -1,4 +1,5 @@
 <template>
+  <!-- ComponentLayout.vue（布局骨架） -->
   <div class="h-screen flex bg-gray-50">
     <!-- 左侧导航栏 -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">

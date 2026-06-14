@@ -1,4 +1,5 @@
 <template>
+  <!-- StatCard.vue（通用组件） -->
   <div class="stat-card" :class="{ 'stat-card-clickable': clickable }">
     <div class="stat-title">{{ title }}</div>
     <div class="stat-value" :style="valueStyle">

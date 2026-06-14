@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// SelectorList.vue（组件管理页）
 import ComponentListPage from './ComponentListPage.vue'
 </script>
 

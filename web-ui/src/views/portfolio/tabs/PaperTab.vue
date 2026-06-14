@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// PaperTab.vue（组合管理页）
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { portfolioApi } from '@/api/modules/portfolio'

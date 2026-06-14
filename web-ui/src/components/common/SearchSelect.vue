@@ -1,4 +1,5 @@
 <template>
+  <!-- SearchSelect.vue（通用组件） -->
   <div ref="containerRef" class="search-select">
     <div class="search-input-wrap">
       <input

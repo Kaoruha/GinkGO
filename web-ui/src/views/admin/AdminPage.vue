@@ -1,4 +1,5 @@
 <template>
+  <!-- AdminPage.vue（后台管理页） -->
   <div class="admin-page">
     <div class="admin-sidebar">
       <div class="admin-nav-group">

@@ -1,4 +1,5 @@
 <template>
+  <!-- FactorOrthogonalization.vue（量化研究页） -->
   <div class="page-container">
     <div class="page-header-section">
       <h1 class="page-title">因子正交化</h1>

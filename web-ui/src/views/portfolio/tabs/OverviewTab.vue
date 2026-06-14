@@ -1,4 +1,5 @@
 <template>
+  <!-- OverviewTab.vue（组合管理页） -->
   <div class="overview-tab">
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">最新净值</div><div class="stat-value">--</div></div>

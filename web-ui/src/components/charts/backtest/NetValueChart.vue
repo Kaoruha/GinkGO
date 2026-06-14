@@ -1,4 +1,5 @@
 <template>
+  <!-- NetValueChart.vue（图表组件） -->
   <div class="net-value-chart">
     <AreaChart
       ref="chartRef"

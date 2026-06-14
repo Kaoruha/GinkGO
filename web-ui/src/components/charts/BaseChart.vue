@@ -1,4 +1,5 @@
 <template>
+  <!-- BaseChart.vue（图表组件） -->
   <div ref="chartContainer" class="tv-chart-container"></div>
 </template>
 

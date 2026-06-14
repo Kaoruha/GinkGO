@@ -1,4 +1,5 @@
 <template>
+  <!-- ComponentList.vue（通用组件） -->
   <div class="component-list">
     <div class="page-header">
       <div class="page-title">{{ title }}</div>

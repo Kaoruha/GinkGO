@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogTitle.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { DialogTitle as RadixDialogTitle, type DialogTitleProps as RadixDialogTitleProps } from 'radix-vue'
 import { cn } from '@/lib/utils'

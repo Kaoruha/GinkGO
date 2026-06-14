@@ -1,4 +1,5 @@
 <template>
+  <!-- PortfolioDetail.vue（组合管理页） -->
   <div class="portfolio-detail">
     <!-- Header with portfolio name and action buttons -->
     <div class="detail-header">

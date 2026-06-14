@@ -1,4 +1,5 @@
 <template>
+  <!-- ConfigCard.vue（布局组件） -->
   <div class="config-card">
     <div v-if="title" class="config-card-header">
       <h4>{{ title }}</h4>

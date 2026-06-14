@@ -1,4 +1,5 @@
 <template>
+  <!-- NotFound.vue（页面） -->
   <div class="page-container">
     <div class="not-found-content">
       <h1 class="error-code">404</h1>

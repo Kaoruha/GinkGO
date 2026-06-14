@@ -1,4 +1,5 @@
 <template>
+  <!-- AccountConfig.vue（实盘页） -->
   <div class="account-config-page">
     <div class="page-header">
       <div class="header-left">

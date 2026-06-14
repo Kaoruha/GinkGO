@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogRoot.vue（shadcn-vue UI 组件）
 import { DialogRoot as RadixDialogRoot, useForwardPropsEmits } from 'radix-vue'
 import type { DialogRootEmits, DialogRootProps } from 'radix-vue'
 

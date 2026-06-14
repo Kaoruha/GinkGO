@@ -1,4 +1,5 @@
 <template>
+  <!-- ListPageLayout.vue（通用组件） -->
   <div class="list-page-layout">
     <!-- 固定头部 -->
     <div class="list-header">

@@ -1,4 +1,5 @@
 <template>
+  <!-- PageHeader.vue（布局组件） -->
   <div class="page-header">
     <div class="page-title">
       <slot name="tag" />

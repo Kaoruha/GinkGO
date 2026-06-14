@@ -1,4 +1,5 @@
 <template>
+  <!-- LiveTrading.vue（阶段4流程页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">实盘交易</h1>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// TradeHistory.vue（实盘页）
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'

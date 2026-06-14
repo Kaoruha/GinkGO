@@ -1,4 +1,5 @@
 <template>
+  <!-- ResearchPage.vue（量化研究页） -->
   <div class="research-page">
     <div class="tab-bar">
       <router-link

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Popover.vue（shadcn-vue UI 组件）
 import type { PopoverRootEmits, PopoverRootProps } from "reka-ui"
 import { PopoverRoot, useForwardPropsEmits } from "reka-ui"
 

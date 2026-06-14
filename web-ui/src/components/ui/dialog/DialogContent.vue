@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogContent.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { DialogContent as RadixDialogContent, useForwardPropsEmits, type DialogContentEmits, type DialogContentProps as RadixDialogContentProps } from 'radix-vue'
 import { X } from 'lucide-vue-next'

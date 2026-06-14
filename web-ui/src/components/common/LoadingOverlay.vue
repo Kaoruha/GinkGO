@@ -1,4 +1,5 @@
 <template>
+  <!-- LoadingOverlay.vue（通用组件） -->
   <div v-if="visible" class="loading-overlay" @click="handleMaskClick">
     <div class="loading-spinner">
       <div class="spinner-icon"></div>

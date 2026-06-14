@@ -1,4 +1,5 @@
 <template>
+  <!-- LayeringReturnChart.vue（图表组件） -->
   <div class="layering-chart">
     <div ref="chartRef" class="chart-container" :style="{ height: height }"></div>
     <div class="legend">

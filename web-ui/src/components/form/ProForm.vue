@@ -1,4 +1,5 @@
 <template>
+  <!-- ProForm.vue（表单组件） -->
   <form
     ref="formRef"
     :class="['pro-form', sizeClass]"

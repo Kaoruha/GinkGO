@@ -1,4 +1,5 @@
 <template>
+  <!-- TableActions.vue（通用组件） -->
   <div class="table-actions" @click.stop>
     <template v-for="action in visibleActions" :key="action.key">
       <!-- 详情按钮 -->

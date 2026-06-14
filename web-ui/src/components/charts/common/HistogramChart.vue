@@ -1,4 +1,5 @@
 <template>
+  <!-- HistogramChart.vue（图表组件） -->
   <div ref="chartRef" class="histogram-chart" :style="{ width: width, height: height }"></div>
 </template>
 

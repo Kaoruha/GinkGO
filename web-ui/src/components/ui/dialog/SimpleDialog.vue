@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// SimpleDialog.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogTitle } from './index'
 import { X } from 'lucide-vue-next'

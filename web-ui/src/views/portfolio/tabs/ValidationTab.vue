@@ -1,4 +1,5 @@
 <template>
+  <!-- ValidationTab.vue（组合管理页） -->
   <div class="validation-tab">
     <div class="sub-tab-bar">
       <button

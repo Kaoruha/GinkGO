@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// AccountForm.vue（实盘组件）
 import { ref, reactive, computed, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

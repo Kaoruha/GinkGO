@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Badge.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'

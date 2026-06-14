@@ -1,4 +1,5 @@
 <template>
+  <!-- StatisticCard.vue（数据组件） -->
   <a-card :class="['statistic-card', `card-${type}`]" :hoverable="hoverable" :bordered="bordered">
     <div class="stat-header">
       <div v-if="icon || $slots.icon" class="stat-icon-wrapper" :style="{ backgroundColor: iconColor }">

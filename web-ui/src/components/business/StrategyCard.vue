@@ -1,4 +1,5 @@
 <template>
+  <!-- StrategyCard.vue（业务组件） -->
   <div class="strategy-card">
     <div class="card-header">
       <span class="card-title">{{ strategy.name }}</span>

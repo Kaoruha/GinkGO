@@ -1,4 +1,5 @@
 <template>
+  <!-- SignalGenerator.vue（业务组件） -->
   <div class="signal-generator">
     <div class="card">
       <div class="card-header">

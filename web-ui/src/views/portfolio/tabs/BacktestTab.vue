@@ -1,4 +1,5 @@
 <template>
+  <!-- BacktestTab.vue（组合管理页） -->
   <div class="backtest-tab">
     <!-- ========== 列表视图 ========== -->
     <template v-if="!backtestId">

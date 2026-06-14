@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// AccountInfo.vue（实盘页）
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

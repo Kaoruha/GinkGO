@@ -1,4 +1,5 @@
 <template>
+  <!-- DeployModal.vue（业务组件） -->
   <div v-if="visible" class="modal-overlay" @click.self="close">
     <div class="modal-box">
       <div class="modal-header">

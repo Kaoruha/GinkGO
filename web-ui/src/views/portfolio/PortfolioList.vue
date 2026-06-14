@@ -1,4 +1,5 @@
 <template>
+  <!-- PortfolioList.vue（组合管理页） -->
   <ListPage
     title="投资组合"
     :columns="[]"

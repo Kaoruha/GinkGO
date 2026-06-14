@@ -1,4 +1,5 @@
 <template>
+  <!-- PaperTrading.vue（阶段3流程页） -->
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">模拟盘</h1>

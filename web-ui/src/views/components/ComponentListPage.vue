@@ -1,4 +1,5 @@
 <template>
+  <!-- ComponentListPage.vue（组件管理页） -->
   <ListPage
     :title="title"
     :columns="columns"

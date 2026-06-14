@@ -1,4 +1,5 @@
 <template>
+  <!-- 应用根组件（路由出口 + 全局布局） -->
   <!-- 登录页等全屏页面 -->
   <div v-if="isFullPage" class="full-page">
     <router-view />

@@ -1,4 +1,5 @@
 <template>
+  <!-- PnlChart.vue（图表组件） -->
   <div class="pnl-chart">
     <HistogramChart
       ref="chartRef"

@@ -1,4 +1,5 @@
 <template>
+  <!-- Dashboard.vue（仪表盘页） -->
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">概览</div>

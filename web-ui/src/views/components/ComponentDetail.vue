@@ -1,4 +1,5 @@
 <template>
+  <!-- ComponentDetail.vue（组件管理页） -->
   <div class="component-detail">
     <!-- 顶部工具栏 -->
     <div class="toolbar">

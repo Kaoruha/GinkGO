@@ -1,4 +1,5 @@
 <template>
+  <!-- DataTable.vue（数据组件） -->
   <div class="data-table">
     <div class="table-wrapper" :style="wrapperStyle">
       <table class="pro-table">

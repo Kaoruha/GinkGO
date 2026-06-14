@@ -1,4 +1,5 @@
 <template>
+  <!-- FactorSelector.vue（业务组件） -->
   <div class="factor-selector">
     <div class="card">
       <div class="card-header">

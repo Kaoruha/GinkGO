@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// DialogDescription.vue（shadcn-vue UI 组件）
 import { computed } from 'vue'
 import { DialogDescription as RadixDialogDescription, type DialogDescriptionProps as RadixDialogDescriptionProps } from 'radix-vue'
 import { cn } from '@/lib/utils'

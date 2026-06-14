@@ -1,4 +1,5 @@
 <template>
+  <!-- ComponentsTab.vue（组合管理页） -->
   <div class="components-tab">
     <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
     <div v-else-if="!portfolio" class="empty-hint">无法加载组合信息</div>

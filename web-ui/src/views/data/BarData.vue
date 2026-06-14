@@ -1,4 +1,5 @@
 <template>
+  <!-- BarData.vue（数据管理页） -->
   <div class="page-container">
     <div class="page-header" style="flex-direction: row !important; align-items: center; gap: 12px; flex-wrap: wrap;">
       <div class="page-title" style="margin-bottom: 0;">

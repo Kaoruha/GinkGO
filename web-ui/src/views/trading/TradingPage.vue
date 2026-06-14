@@ -1,4 +1,5 @@
 <template>
+  <!-- TradingPage.vue（交易页） -->
   <div class="trading-page">
     <div class="tab-bar">
       <router-link

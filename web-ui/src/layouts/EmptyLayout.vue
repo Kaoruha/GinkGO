@@ -1,4 +1,5 @@
 <template>
+  <!-- EmptyLayout.vue（布局骨架） -->
   <div class="min-h-screen bg-gray-50 flex items-center justify-center">
     <router-view />
   </div>

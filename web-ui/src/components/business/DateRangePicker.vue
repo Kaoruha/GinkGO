@@ -1,4 +1,5 @@
 <template>
+  <!-- DateRangePicker.vue（业务组件） -->
   <div class="date-range-picker">
     <div class="card">
       <div class="card-header">
