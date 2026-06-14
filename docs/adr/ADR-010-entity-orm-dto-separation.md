@@ -49,6 +49,7 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
 - CRUD **只懂表**，出口返 ORM ModelList，不转 Entity/DTO。现状套B 已部分实现，6 个套A CRUD 本次统一。
 - **Service 是 ModelList 终点**：拿到 ModelList 后用 Mapper 转，对外只返 DF/DTO/Entity（三种 `ServiceResult.data` 形态），**禁透传 ModelList**。
 - **Service 返型契约（类型即契约，禁鸭子探测）**：按消费语义提供多出口方法——`get_xxx_df()`→DF、`get_xxx()`→List[Entity]、`get_xxx_dto()`→DTO。调用方按意图调对应方法，`ServiceResult.data` 类型由方法名决定，禁 `hasattr(result.data, "to_dataframe")` 运行时探测。
+- **例外：`bar_service` 双出口语义分工（复权 vs 原始）**。「类型即契约」管的是 `data` 的**形状**（DF/List/DTO），但 `bar` 还承载**业务语义**：`get(adjustment_type=FORE)` 默认**前复权**（feeder/sizer 回测热路径用——除权除息日 K 线不跳空、ATR/仓位在拆股后不错算）；`get_bars_df()` 返**原始不复权**（API/CLI 展示用）。两者 `data` 都是 DataFrame，类型相同**挡不住误用**——故 **`base_feeder`/`backtest_feeder`/`atr_sizer`/`ratio_sizer` 刻意保留 `get()` + `.to_dataframe()`，禁机械迁 `get_bars_df()`**，否则回测静默错算（编译过、测试可能过、结果错）。判定准则：消费者迁 `_df` 出口前，须确认它只用 DF **形状**、不依赖 `get()` 的复权等业务语义。
 - Service 用 Mapper 编排；**Entity 按需构造**（纯展示读可 ORM→DTO 跳过 Entity）。
 - 六条路径（转换均经 Mapper）：①读-展示 ORM→DTO ②读-业务 ORM→Entity→DTO ③写 DTO→Entity→ORM→CRUD ④总线发 Entity→DTO ⑤总线收 DTO→Entity ⑥外部数据源 DataFrame→ORM。
 
