@@ -212,3 +212,37 @@ class TestServeErrorHandling:
         assert result.exit_code == 1
         assert "npm" in result.output.lower()
         assert "Node.js" in result.output
+
+
+# ============================================================================
+# Serve API 启动路径 import 完整性（回归守护 #6110）
+# ============================================================================
+
+@pytest.mark.unit
+def test_serve_api_node_graph_imports_in_app_dir(monkeypatch):
+    """serve api 启动路径(app_dir=api/)下 node_graph 可被完整 import。
+
+    回归守护 #6110: node_graph.py:40 曾用绝对导入 ``from _file_type``，
+    但 _file_type.py 在 api/api/ 包内，app_dir=api/ 布局下不在 sys.path 顶层，
+    导致 ``ginkgo serve api`` 启动即 ``ModuleNotFoundError: No module named '_file_type'``。
+    正确写法是包内相对导入 ``from ._file_type``。
+    """
+    import importlib
+    from pathlib import Path
+
+    # 隔离 SECRET_KEY：core.config 在 import 时实例化 Settings(#5464 validator)
+    monkeypatch.setenv("SECRET_KEY", "import-guard-test-key")
+    api_dir = Path(__file__).parent.parent.parent.parent / "api"
+    monkeypatch.syspath_prepend(str(api_dir))
+    # 清除 api 包缓存，确保以 app_dir=api/ 布局重新导入
+    for m in list(sys.modules):
+        if m == "api" or m.startswith("api."):
+            del sys.modules[m]
+    try:
+        mod = importlib.import_module("api.node_graph")
+        assert hasattr(mod, "_resolve_file_type"), "node_graph 应暴露 _resolve_file_type"
+    finally:
+        # 清理本次 import 的 api.* 缓存，避免污染其他测试
+        for m in list(sys.modules):
+            if m == "api" or m.startswith("api."):
+                del sys.modules[m]

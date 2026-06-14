@@ -37,7 +37,7 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
-from _file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
+from ._file_type import _resolve_file_type  # noqa: F401 — 包内相对导入（#6110：app_dir=api/ 布局下绝对导入找不到包内模块）
 
 
 def get_file_service():
