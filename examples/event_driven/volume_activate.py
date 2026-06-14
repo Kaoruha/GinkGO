@@ -1,3 +1,4 @@
+# Role: 成交量激活示例脚本（拉取近 90 日行情，筛选成交量激活标的）
 from ginkgo.data import get_stockinfos, get_bars
 import pandas as pd
 import datetime

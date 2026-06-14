@@ -1,3 +1,4 @@
+# Role: 无成交量条件示例脚本（拉取股票信息，按长短周期 day_count 筛选）
 from ginkgo.data.ginkgo_data import GDATA
 import datetime
 import pandas as pd

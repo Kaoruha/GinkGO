@@ -1,3 +1,5 @@
+# Role: 独立安装引导脚本（交互式 venv/依赖引导）
+# 注：项目已迁移 uv，推荐 `uv sync`（见顶层 README / uv.lock）；本脚本为备选安装路径
 import os
 import stat
 import subprocess
