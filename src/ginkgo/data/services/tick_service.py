@@ -430,6 +430,64 @@ class TickService(BaseService):
                 error=f"Database query failed: {str(e)}"
             )
 
+    def _build_tick_filters(
+        self,
+        code: str = None,
+        start_date: Union[datetime, str, Any] = None,
+        end_date: Union[datetime, str, Any] = None,
+    ) -> dict:
+        """从业务参数构造 Tick CRUD filters。get_ticks_df 独立使用（DRY）。
+
+        filter 域与现有 get() 一致（code / timestamp__gte / timestamp__lte），
+        start_date/end_date 经 datetime_normalize 规范化。未抽改 get()，保持纯增量。
+        """
+        filters = {}
+        if code:
+            filters["code"] = code
+        if start_date:
+            filters["timestamp__gte"] = datetime_normalize(start_date)
+        if end_date:
+            filters["timestamp__lte"] = datetime_normalize(end_date)
+        return filters
+
+    def get_ticks_df(
+        self,
+        code: str = None,
+        start_date: Union[datetime, str, Any] = None,
+        end_date: Union[datetime, str, Any] = None,
+    ) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
+        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        filter 域与 get() 一致（code / start_date / end_date）。
+        """
+        try:
+            if not code:
+                return ServiceResult.failure(
+                    message="Code parameter is required for tick data operations",
+                    data=None,
+                )
+            filters = self._build_tick_filters(
+                code=code, start_date=start_date, end_date=end_date,
+            )
+            if not self._crud_repo:
+                return ServiceResult.error("CRUD repository not available")
+
+            model_list = self._crud_repo.find(filters=filters)
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} tick records (DataFrame)",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get tick data (df): {e}")
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
+
     def count(self, code: str = None, date: datetime = None) -> ServiceResult:
         """
         Count tick records with filter conditions.
@@ -936,10 +994,17 @@ class TickService(BaseService):
             # 获取股票上市日期
             listing_date = default_listing_date
             try:
-                stock_result = self._stockinfo_service.get(code)
-                if stock_result.success and stock_result.data:
-                    df = stock_result.data.to_dataframe()
-                    if not df.empty:
+                # ADR-010：此处消费 DataFrame（取 iloc[0]['list_date']），走 DF 出口
+                # 而非 deprecated 的 get()（现返 List[StockInfo]）。保留原 try/except
+                # 兜底语义：任何失败均退化默认上市日期。
+                stock_result = self._stockinfo_service.get_stockinfos_df(code=code)
+                if not stock_result.success or stock_result.data is None:
+                    GLOG.WARN(f"股票 {code} 信息查询失败，使用默认上市日期: {listing_date.date()}")
+                else:
+                    df = stock_result.data
+                    if df.empty:
+                        GLOG.WARN(f"股票 {code} 信息查询结果为空，使用默认上市日期: {listing_date.date()}")
+                    else:
                         listing_date_raw = df.iloc[0]['list_date']
                         if pd.notna(listing_date_raw):
                             if isinstance(listing_date_raw, datetime):
@@ -951,10 +1016,6 @@ class TickService(BaseService):
                                 GLOG.INFO(f"股票 {code} 上市日期: {listing_date.date()}")
                         else:
                             GLOG.WARN(f"股票 {code} 上市日期为空，使用默认日期: {listing_date.date()}")
-                    else:
-                        GLOG.WARN(f"股票 {code} 信息查询结果为空，使用默认上市日期: {listing_date.date()}")
-                else:
-                    GLOG.WARN(f"股票 {code} 信息查询失败，使用默认上市日期: {listing_date.date()}")
             except Exception as e:
                 GLOG.WARN(f"获取股票 {code} 上市日期失败: {e}，使用默认日期: {listing_date.date()}")
 

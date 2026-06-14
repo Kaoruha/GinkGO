@@ -339,8 +339,8 @@ class TestLiveSignalProcessing:
         p = _make_portfolio()
         components = _setup_portfolio(p)
         # Replace the sizer with one that returns an order with volume > 0
+        # _make_order 默认 volume=100（V5：setter 已删，走构造）
         order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
-        order.volume = 100
         components["sizer"].cal = Mock(return_value=order)
         signal = _make_signal(portfolio_id=p.uuid)
         event = EventSignalGeneration(signal)
@@ -366,7 +366,6 @@ class TestRealTimeOrderHandling:
         p.add_cash(Decimal("100000"))
         p.freeze(Decimal("1005"))
         order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
-        order.transaction_volume = 0
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
@@ -386,7 +385,6 @@ class TestRealTimeOrderHandling:
         p.add_cash(Decimal("100000"))
         p.freeze(Decimal("1005"))
         order = _make_order(portfolio_id=p.uuid, engine_id="eid", task_id="rid")
-        order.transaction_volume = 0
         event = EventOrderPartiallyFilled(
             order=order, filled_quantity=100,
             fill_price=Decimal("10.0"), commission=Decimal("5"),
@@ -405,8 +403,7 @@ class TestRealTimeOrderHandling:
         assert frozen_result is True
 
         order = _make_order(direction=DIRECTION_TYPES.LONG)
-        order.frozen_money = Decimal("1000")
-        order.remain = Decimal("1000")
+        order.freeze(100, Decimal("1000"))  # 冻结 1000 资金，remain=1000（V5：setter 已删）
         event = EventOrderCancelAck(
             order=order, cancelled_quantity=100,
             portfolio_id="pid", engine_id="eid", task_id="rid",

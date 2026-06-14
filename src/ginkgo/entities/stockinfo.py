@@ -1,6 +1,6 @@
 # Upstream: Data Services (StockinfoService同步股票信息)、Strategies (查询股票基础信息)
-# Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES/CURRENCY_TYPES (枚举)
-# Role: StockInfo股票基础信息实体继承Base定义代码/名称/行业/市场/上市日期等核心属性
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、MARKET_TYPES/CURRENCY_TYPES (枚举)
+# Role: StockInfo股票基础信息值对象继承ValueObject定义代码/名称/行业/市场/上市日期等核心属性；uuid 自留
 
 
 
@@ -10,13 +10,13 @@
 import pandas as pd
 import datetime
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import CURRENCY_TYPES, COMPONENT_TYPES, MARKET_TYPES, SOURCE_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES
 from functools import singledispatchmethod
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class StockInfo(Base):
+class StockInfo(ValueObject):
     def __init__(
         self,
         code: str = "",
@@ -30,8 +30,9 @@ class StockInfo(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.STOCKINFO, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格参数验证 - 与Signal和Position保持一致，要求核心业务参数
         if not code:
@@ -151,6 +152,10 @@ class StockInfo(Base):
         self._delist_date = datetime_normalize(row["delist_date"])
 
     @property
+    def uuid(self) -> str:
+        return self._uuid
+
+    @property
     def symbol(self) -> str:
         """Alias for code. 金融行业标准术语。"""
         return self._code
@@ -183,49 +188,5 @@ class StockInfo(Base):
     def delist_date(self):
         return self._delist_date
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建StockInfo实例"""
-        # 处理枚举字段的int到enum转换
-        market_value = getattr(model, 'market', MARKET_TYPES.CHINA)
-        if isinstance(market_value, (int, str)):
-            market = MARKET_TYPES(market_value)
-        else:
-            market = market_value
-
-        currency_value = getattr(model, 'currency', CURRENCY_TYPES.CNY)
-        if isinstance(currency_value, (int, str)):
-            currency = CURRENCY_TYPES(currency_value)
-        else:
-            currency = currency_value
-
-        return cls(
-            code=getattr(model, 'code', ''),
-            code_name=getattr(model, 'code_name', ''),
-            industry=getattr(model, 'industry', ''),
-            market=market,
-            currency=currency,
-            list_date=getattr(model, 'list_date', '1990-01-01'),
-            delist_date=getattr(model, 'delist_date', '2099-12-31'),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            code=self.code,
-            code_name=self.code_name,
-            industry=self.industry,
-            currency=self.currency,
-            list_date=self.list_date,
-            delist_date=self.delist_date,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, StockInfo.__name__, 20, 60)
-

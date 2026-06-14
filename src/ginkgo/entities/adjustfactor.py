@@ -1,6 +1,6 @@
 # Upstream: Data Services (AdjustfactorService同步复权因子)、Backtest Engines (复权K线价格)
-# Downstream: Base (继承提供uuid/component_type)、FREQUENCY_TYPES (枚举)
-# Role: Adjustfactor复权因子实体继承Base定义代码/时间/前复权/后复权/复权因子/UUID等核心属性
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、FREQUENCY_TYPES (枚举)
+# Role: Adjustfactor复权因子值对象继承ValueObject定义代码/时间/前复权/后复权/复权因子；uuid 自留
 
 
 
@@ -13,12 +13,12 @@ from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from decimal import Decimal
 
-from ginkgo.entities.base import Base
+from ginkgo.entities.value_object import ValueObject
 from ginkgo.libs import base_repr, pretty_repr, datetime_normalize, Number, to_decimal
-from ginkgo.enums import FREQUENCY_TYPES, COMPONENT_TYPES
+from ginkgo.enums import FREQUENCY_TYPES
 
 
-class Adjustfactor(Base):
+class Adjustfactor(ValueObject):
     """
     Adjustfactor Container. Store adjustment factor info for stock price adjustment.
     """
@@ -34,8 +34,9 @@ class Adjustfactor(Base):
         *args,
         **kwargs
     ) -> None:
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.ADJUSTFACTOR, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 参数验证
         if not code or not isinstance(code, str):
@@ -101,6 +102,10 @@ class Adjustfactor(Base):
         self._adjustfactor = to_decimal(row["adjustfactor"])
 
     @property
+    def uuid(self) -> str:
+        return self._uuid
+
+    @property
     def symbol(self) -> str:
         """Alias for code. 金融行业标准术语。"""
         return self._code
@@ -130,33 +135,6 @@ class Adjustfactor(Base):
     @property
     def adjustfactor(self) -> Decimal:
         return self._adjustfactor
-
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建Adjustfactor实例"""
-        return cls(
-            code=getattr(model, 'code', 'defaultcode'),
-            timestamp=getattr(model, 'timestamp', '1990-01-01'),
-            fore_adjustfactor=getattr(model, 'fore_adjustfactor', 0),
-            back_adjustfactor=getattr(model, 'back_adjustfactor', 0),
-            adjustfactor=getattr(model, 'adjustfactor', 0),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            code=self.code,
-            timestamp=self.timestamp,
-            fore_adjustfactor=self.fore_adjustfactor,
-            back_adjustfactor=self.back_adjustfactor,
-            adjustfactor=self.adjustfactor,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
 
     def __repr__(self) -> str:
         return base_repr(self, Adjustfactor.__name__, 12, 60)

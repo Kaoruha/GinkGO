@@ -280,47 +280,17 @@ class Order(TimeMixin, Base):
         """
         return self._code
 
-    @symbol.setter
-    def symbol(self, value: str) -> None:
-        """Set the symbol (alias for code)."""
-        if not isinstance(value, str):
-            raise TypeError(f"symbol must be str, got {type(value).__name__}")
-        self._code = value
-
-    @code.setter
-    def code(self, value) -> None:
-        """
-        Set the code of the order.
-
-        Args:
-            value (str): The code to set.
-        """
-        self._code = value
-
-
     @property
     def direction(self) -> DIRECTION_TYPES:
         return self._direction
-
-    @direction.setter
-    def direction(self, value) -> None:
-        self._direction = value
 
     @property
     def order_type(self) -> ORDER_TYPES:
         return self._order_type
 
-    @order_type.setter
-    def order_type(self, value) -> None:
-        self._order_type = value
-
     @property
     def volume(self) -> int:
         return self._volume
-
-    @volume.setter
-    def volume(self, value):
-        self._volume = value
 
     @property
     def status(self) -> ORDERSTATUS_TYPES:
@@ -330,65 +300,31 @@ class Order(TimeMixin, Base):
     def limit_price(self) -> Decimal:
         return self._limit_price
 
-    @limit_price.setter
-    def limit_price(self, value) -> None:
-        self._limit_price = value
-
     @property
     def frozen_money(self) -> Decimal:
         """冻结资金金额（买单使用）"""
         return self._frozen_money
-
-    @frozen_money.setter
-    def frozen_money(self, value) -> None:
-        """支持多种输入类型但内部存储为Decimal"""
-        self._frozen_money = to_decimal(value)
 
     @property
     def frozen_volume(self) -> int:
         """冻结股票数量（卖单使用）"""
         return self._frozen_volume
 
-    @frozen_volume.setter
-    def frozen_volume(self, value) -> None:
-        """支持多种输入类型但内部存储为int"""
-        if not isinstance(value, (int, float)):
-            raise TypeError(f"frozen_volume must be int or float, got {type(value).__name__}")
-        if value < 0:
-            raise ValueError("frozen_volume cannot be negative")
-        self._frozen_volume = int(value)
-
     @property
     def transaction_price(self) -> Decimal:
         return self._transaction_price
-
-    @transaction_price.setter
-    def transaction_price(self, value) -> None:
-        self._transaction_price = value
 
     @property
     def transaction_volume(self) -> float:
         return self._transaction_volume
 
-    @transaction_volume.setter
-    def transaction_volume(self, value) -> None:
-        self._transaction_volume = value
-
     @property
     def remain(self) -> Decimal:
         return self._remain
 
-    @remain.setter
-    def remain(self, value) -> None:
-        self._remain = value
-
     @property
     def fee(self) -> Decimal:
         return self._fee
-
-    @fee.setter
-    def fee(self, value) -> None:
-        self._fee = value
 
     @property
     def order_id(self) -> str:
@@ -398,25 +334,13 @@ class Order(TimeMixin, Base):
     def portfolio_id(self) -> str:
         return self._portfolio_id
 
-    @portfolio_id.setter
-    def portfolio_id(self, value) -> None:
-        self._portfolio_id = value
-
     @property
     def engine_id(self) -> str:
         return self._engine_id
 
-    @engine_id.setter
-    def engine_id(self, value) -> None:
-        self._engine_id = value
-
     @property
     def task_id(self) -> str:
         return self._task_id
-
-    @task_id.setter
-    def task_id(self, value) -> None:
-        self._task_id = value
 
     def _validate_status_transition(self, from_status: ORDERSTATUS_TYPES, to_status: ORDERSTATUS_TYPES) -> None:
         """
@@ -440,6 +364,106 @@ class Order(TimeMixin, Base):
 
         if to_status not in valid_transitions.get(from_status, []):
             raise ValueError(f"Invalid status transition from {from_status.name} to {to_status.name}")
+
+    def adjust_volume(self, new_volume) -> None:
+        """调整委托数量（Risk 组件合法调整通道，ADR-001/V5）。
+
+        替代裸 ``order.volume = X``。构造期 volume 必须 > 0（订单创建必须有量）；
+        调整期允许缩减至 0（风控全砍语义，下游应过滤 volume<=0 订单），仅拒负数。
+        int 转换复用 set() 逻辑，与构造路径对齐。
+        """
+        try:
+            new_volume = int(new_volume)
+        except (ValueError, TypeError):
+            raise TypeError(f"volume must be convertible to int, got {type(new_volume).__name__}")
+        if new_volume < 0:
+            raise ValueError("volume cannot be negative.")
+        self._volume = new_volume
+
+    def freeze(self, frozen_volume, frozen_money) -> None:
+        """冻结股数与资金（风控/优化器成对冻结，ADR-010 V5）。
+
+        替代裸 ``order.frozen_volume=...; order.frozen_money=...``，强制成对设置（#6056
+        frozen 拆分后必须成对，否则资金/数量错配）。副作用：``remain = frozen_money``
+        （初始化剩余冻结资金，供后续 settle 扣减）。
+        """
+        try:
+            fv = int(frozen_volume)
+        except (ValueError, TypeError):
+            raise TypeError(f"frozen_volume must be convertible to int, got {type(frozen_volume).__name__}")
+        if fv < 0:
+            raise ValueError("frozen_volume cannot be negative")
+        fm = to_decimal(frozen_money)
+        if fm < 0:
+            raise ValueError("frozen_money cannot be negative")
+        self._frozen_volume = fv
+        self._frozen_money = fm
+        self._remain = fm
+
+    def settle(self, qty, price, fee=0) -> None:
+        """成交结算扣冻结资金（实盘/回测成交处理，ADR-010 V5）。
+
+        替代裸 ``order.transaction_volume = min(volume, transaction_volume+qty)``
+        + ``order.remain = max(0, remain - fill_cost)``。
+
+        守：``qty>0``、``transaction_volume`` 截断到 ``volume``（匹配实盘幂等防御，
+        不抛错）、``remain ≥ 0``。不更新 ``transaction_price``（broker 权威，见 sync_fill）。
+        """
+        try:
+            qty = int(qty)
+        except (ValueError, TypeError):
+            raise TypeError(f"qty must be convertible to int, got {type(qty).__name__}")
+        if qty <= 0:
+            raise ValueError("qty must be positive")
+        fill_cost = to_decimal(price) * qty + to_decimal(fee)
+        if self._remain is None:
+            self._remain = self._frozen_money
+        self._remain = max(Decimal("0"), self._remain - fill_cost)
+        self._transaction_volume = min(self._volume, self._transaction_volume + qty)
+
+    def release_frozen(self) -> None:
+        """释放剩余冻结资金（订单取消/完成清零，ADR-010 V5）。
+
+        替代裸 ``order.remain = 0``。
+        """
+        self._remain = Decimal("0")
+
+    def sync_fill(self, price, volume) -> None:
+        """券商成交回报权威覆盖（ADR-010 V5）。
+
+        替代裸 ``order.transaction_price=...; order.transaction_volume=...``。
+        broker 是成交价格的权威来源，覆盖语义（非累加），区别于 settle 的累加。
+        """
+        self._transaction_price = to_decimal(price)
+        self._transaction_volume = int(volume)
+
+    def deduct_remain(self, amount) -> None:
+        """扣减剩余冻结资金，floor 0（ADR-010 V5）。
+
+        替代裸 ``order.remain = max(0, remain - cost)``（不动 transaction_volume，
+        区别于 settle 的成交累加）。用于 t1backtest LONG 分支的资金同步。
+        """
+        d = to_decimal(amount)
+        if d < 0:
+            raise ValueError("amount cannot be negative")
+        if self._remain is None:
+            self._remain = self._frozen_money
+        self._remain = max(Decimal("0"), self._remain - d)
+
+    def normalize_freeze(self, places=2) -> None:
+        """规整冻结资金精度并兜底 remain（下单前，ADR-010 V5）。
+
+        替代裸 ``frozen_money=round(...); remain=round(...)`` + remain 兜底
+        （t1backtest:361-365）。量化到 places 位（默认分），remain 空/0 时用
+        frozen_money 兜底。banker's rounding（与原 round 语义一致）。
+        """
+        q = Decimal(1).scaleb(-places)
+        if self._frozen_money is not None:
+            self._frozen_money = self._frozen_money.quantize(q)
+        if self._remain is None or self._remain == 0:
+            self._remain = self._frozen_money
+        elif self._remain is not None:
+            self._remain = self._remain.quantize(q)
 
     def submit(self) -> None:
         """
@@ -601,78 +625,5 @@ class Order(TimeMixin, Base):
             return 0.0
         return float(self._transaction_volume) / float(self._volume)
 
-    def to_model(self):
-        """
-        转换为数据库模型
-        
-        Returns:
-            MOrder: 数据库模型实例
-        """
-        from ginkgo.data.models import MOrder
-        
-        model = MOrder()
-        model.update(
-            portfolio_id=getattr(self, '_portfolio_id', ''),
-            engine_id=getattr(self, '_engine_id', ''),
-            task_id=getattr(self, '_task_id', ''),  # task_id传递
-            uuid=self.uuid,
-            code=self._code,
-            direction=self._direction,
-            order_type=self._order_type,
-            status=self._status,
-            volume=self._volume,
-            limit_price=self._limit_price,
-            frozen_money=self._frozen_money,
-            frozen_volume=self._frozen_volume,
-            transaction_price=self._transaction_price,
-            transaction_volume=self._transaction_volume,
-            remain=self._remain,
-            fee=self._fee,
-            timestamp=self._timestamp,
-            source=self._source
-        )
-        return model
-    
-    @classmethod
-    def from_model(cls, model) -> 'Order':
-        """
-        从数据库模型创建实体
-
-        Args:
-            model (MOrder): 数据库模型实例
-
-        Returns:
-            Order: 订单实体实例
-
-        Raises:
-            TypeError: If model is not an MOrder instance
-        """
-        from ginkgo.data.models import MOrder
-
-        # Validate model type
-        if not isinstance(model, MOrder):
-            raise TypeError(f"Expected MOrder instance, got {type(model).__name__}")
-
-        return cls(
-            code=model.code,
-            direction=DIRECTION_TYPES(model.direction),
-            order_type=ORDER_TYPES(model.order_type),
-            status=ORDERSTATUS_TYPES(model.status),
-            volume=model.volume,
-            limit_price=model.limit_price,  # 保持Decimal类型
-            frozen_money=model.frozen_money,  # 保持Decimal类型
-            frozen_volume=model.frozen_volume,  # 保持int类型
-            transaction_price=model.transaction_price,  # 保持Decimal类型
-            transaction_volume=model.transaction_volume,
-            remain=model.remain,  # 保持Decimal类型
-            fee=model.fee,  # 保持Decimal类型
-            timestamp=model.timestamp,
-            order_id=model.uuid,
-            portfolio_id=model.portfolio_id,
-            engine_id=model.engine_id,
-            task_id=model.task_id,  # task_id读取
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, Order.__name__, 20, 60)
-

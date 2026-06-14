@@ -121,7 +121,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
                 reduction_factor = (self._critical_drawdown - current_drawdown) / denominator
                 # 返回副本而非原地修改 (#5495)：避免多风险链共享同一 order 引用导致过度缩减与状态污染
                 reduced_order = copy.deepcopy(order)
-                reduced_order.volume = int(reduced_order.volume * max(reduction_factor, 0.1))
+                reduced_order.adjust_volume(int(reduced_order.volume * max(reduction_factor, 0.1)))
                 GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
                 return reduced_order
 

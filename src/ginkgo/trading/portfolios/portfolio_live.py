@@ -9,7 +9,6 @@
 
 import time
 import datetime
-from decimal import Decimal
 from enum import Enum
 from rich.console import Console
 from typing import Dict, List, Optional, Any
@@ -274,16 +273,8 @@ class PortfolioLive(PortfolioBase):
             code = event.code
             fill_cost = price * qty + fee
 
-            # 更新订单累计成交与剩余冻结
-            try:
-                order.transaction_volume = min(order.volume, order.transaction_volume + qty)
-            except Exception as e:
-                GLOG.ERROR(f"Failed to update transaction_volume: {e}")
-
-            if not hasattr(order, "remain") or order.remain is None:
-                order.remain = order.frozen_money
-            order.remain = to_decimal(order.remain)
-            order.remain = max(Decimal("0"), order.remain - fill_cost)
+            # 累计成交 + 扣减剩余冻结资金（ADR-010 V5：settle，内部守 min 截断 + remain 兜底 + ≥0）
+            order.settle(qty, price, fee)
 
             is_final = getattr(event, "order_status", None) == ORDERSTATUS_TYPES.FILLED or order.transaction_volume >= order.volume
 
@@ -291,7 +282,7 @@ class PortfolioLive(PortfolioBase):
                 unfreeze_remain = order.remain if is_final else None
                 self.deduct_from_frozen(cost=fill_cost, unfreeze_remain=unfreeze_remain)
                 if is_final:
-                    order.remain = Decimal("0")
+                    order.release_frozen()
                 self.add_fee(fee)
 
                 pos = self.get_position(code)
@@ -372,7 +363,7 @@ class PortfolioLive(PortfolioBase):
             if remain > 0:
                 self.unfreeze(remain)
                 if order is not None:
-                    order.remain = Decimal("0")
+                    order.release_frozen()
             GLOG.INFO(f"Order {event.code} CANCELED. Released frozen cash {remain}")
         elif event.direction == DIRECTION_TYPES.SHORT:
             # 卖单取消的处理逻辑

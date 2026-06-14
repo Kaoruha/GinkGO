@@ -1,5 +1,5 @@
 # Upstream: Engine Assembler, Portfolio Manager, File CRUD Services, Data Workers
-# Downstream: Base, FILE_TYPES, SOURCE_TYPES, datetime_normalize, base_repr, clock_now, pandas
+# Downstream: ValueObject, FILE_TYPES, datetime_normalize, base_repr, clock_now, pandas
 # Role: FileInfo文件信息业务实体，管理文件元数据（名称/类型/内容/描述/元信息），支持策略、选择器等文件存储和追踪
 
 
@@ -13,12 +13,12 @@ from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from typing import Optional
 
-from ginkgo.entities.base import Base
+from ginkgo.entities.value_object import ValueObject
 from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.enums import FILE_TYPES, SOURCE_TYPES
+from ginkgo.enums import FILE_TYPES
 
 
-class FileInfo(Base):
+class FileInfo(ValueObject):
     """
     File Information Container. Store file metadata including name, type, data and other info.
     Business entity for file operations, separate from database model (MFile).
@@ -33,10 +33,14 @@ class FileInfo(Base):
         meta: str = "{}",
         create_at: any = None,
         update_at: any = None,
+        uuid: str = "",
         *args,
         **kwargs
     ) -> None:
-        super().__init__(*args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        # super 不透传 *args/**kwargs：ValueObject 无 __init__，object.__init__ 拒非空 args
+        self._uuid = uuid
+        super().__init__()
         self.set(name, type, data, desc, meta, create_at, update_at)
 
     @singledispatchmethod
@@ -116,6 +120,11 @@ class FileInfo(Base):
             self._uuid = df["uuid"]
         if "source" in df:
             self._source = df["source"]
+
+    @property
+    def uuid(self) -> str:
+        """实例唯一标识（VO 自留，非领域身份）。"""
+        return self._uuid
 
     @property
     def name(self) -> str:

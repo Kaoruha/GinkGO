@@ -42,9 +42,10 @@ def get(
             import pandas as pd
 
             stockinfo_service = container.stockinfo_service()
-            result = stockinfo_service.get(market=market, exchange=exchange)
+            # ADR-010：此处消费 DataFrame（后续 iloc/columns/过滤），走 DF 出口
+            result = stockinfo_service.get_stockinfos_df(market=market, exchange=exchange)
             if result.success:
-                df = result.data.to_dataframe()
+                df = result.data
 
                 # Raw output mode
                 if raw:
@@ -259,17 +260,14 @@ def get(
 
             from ginkgo.data.containers import container
             bar_service = container.bar_service()
-            result = bar_service.get(code=code, start_date=start, end_date=end)
+            result = bar_service.get_bars_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
                 console.print(f":x: Failed to get bar data: {result.error}")
                 raise typer.Exit(1)
 
             import pandas as pd
-            if hasattr(result.data, 'to_dataframe'):
-                df = result.data.to_dataframe()
-            else:
-                df = pd.DataFrame(result.data)
+            df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
                 console.print(f":information: No bar data found for {code} ({start}-{end})")
@@ -303,17 +301,14 @@ def get(
 
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
-            result = tick_service.get(code=code, start_date=start, end_date=end)
+            result = tick_service.get_ticks_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
                 console.print(f":x: Failed to get tick data: {result.error}")
                 raise typer.Exit(1)
 
             import pandas as pd
-            if hasattr(result.data, 'to_dataframe'):
-                df = result.data.to_dataframe()
-            else:
-                df = pd.DataFrame(result.data)
+            df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
                 console.print(f":information: No tick data found for {code} ({start}-{end})")

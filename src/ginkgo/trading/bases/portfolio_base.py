@@ -846,7 +846,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         """
         positions_data = []
         for code, pos in self._positions.items():
-            model = pos.to_model()  # Position 已有 to_model() 方法
+            from ginkgo.data.mappers import PositionMapper
+            model = PositionMapper.to_model(pos)
             positions_data.append({
                 "portfolio_id": model.portfolio_id,
                 "engine_id": model.engine_id,
@@ -878,16 +879,15 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Args:
             state: snapshot_state() 返回的状态字典
         """
-        from ginkgo.entities import Position
-
         self._cash = Decimal(state["cash"])
         self._frozen = Decimal(state["frozen"])
         self._fee = Decimal(state["fee"])
         self._positions = {}
 
         for p_dict in state.get("positions", []):
-            # 利用 MPosition 的 update 方法，再通过 Position.from_model 转换
+            # 利用 MPosition 的 update 方法，再通过 PositionMapper.from_model 转换
             from ginkgo.data.models import MPosition
+            from ginkgo.data.mappers import PositionMapper
             m_pos = MPosition()
             m_pos.update(
                 p_dict["portfolio_id"],
@@ -905,7 +905,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 fee=p_dict["fee"],
             )
             m_pos.uuid = p_dict.get("uuid", "")
-            pos = Position.from_model(m_pos)
+            pos = PositionMapper.from_model(m_pos)
             self._positions[p_dict["code"]] = pos
 
         self.update_worth()

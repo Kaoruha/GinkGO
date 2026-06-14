@@ -676,10 +676,9 @@ class BarService(BaseService):
             desc_order (bool): 是否降序排列
 
         Returns:
-            ServiceResult: 查询结果，data中包含ModelList，支持转换为entities和dataframe
+            ServiceResult: 查询结果，data中包含ModelList，支持转换为dataframe
 
         Note:
-            - to_entities: 可通过result.data.to_entities()转换为实体对象列表
             - to_dataframe: 可通过result.data.to_dataframe()转换为pandas DataFrame
         """
         start_time = time.time()
@@ -694,21 +693,10 @@ class BarService(BaseService):
                     "查询参数不能为空，至少需要提供code、start_date或end_date中的一个"
                 )
 
-            # 构建filters字典
-            filters = {}
-
-            if code:
-                filters["code"] = code
-            if start_date:
-                # 使用datetime_normalize处理时间
-                normalized_start = datetime_normalize(start_date)
-                filters["timestamp__gte"] = normalized_start
-            if end_date:
-                # 使用datetime_normalize处理时间
-                normalized_end = datetime_normalize(end_date)
-                filters["timestamp__lte"] = normalized_end
-            if frequency:
-                filters["frequency"] = frequency
+            # 构建filters字典（ADR-010 Phase 4.2 DRY：与 get_bars_df/get_bars 共用 _build_bar_filters）
+            filters = self._build_bar_filters(
+                code=code, start_date=start_date, end_date=end_date, frequency=frequency,
+            )
 
             # Get original bar data - 返回ModelList
             model_list = self._crud_repo.find(
@@ -751,6 +739,83 @@ class BarService(BaseService):
             return ServiceResult.error(
                 error=f"Database operation failed: {str(e)}"
             )
+
+    # ===== ADR-010 Phase 4.2：类型即契约多出口（回测热路径走 DF） =====
+
+    def _build_bar_filters(self, code=None, start_date=None, end_date=None,
+                           frequency=FREQUENCY_TYPES.DAY) -> dict:
+        """构造 K线 CRUD filters。get / get_bars_df / get_bars 共用（DRY）。"""
+        filters = {}
+        if code:
+            filters["code"] = code
+        if start_date:
+            filters["timestamp__gte"] = datetime_normalize(start_date)
+        if end_date:
+            filters["timestamp__lte"] = datetime_normalize(end_date)
+        if frequency:
+            filters["frequency"] = frequency
+        return filters
+
+    def get_bars_df(self, code=None, start_date=None, end_date=None,
+                    frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+                    page: int = None, page_size: int = None,
+                    order_by: str = "timestamp", desc_order: bool = False) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：回测热路径及 DataFrame 消费方走此出口，不接触 ORM ModelList。
+        **不复权**——复权是多步状态变换，属 get() 的业务语义；DF 出口提供
+        原始数据，消费方按需自行处理。空结果返空 pd.DataFrame()。
+        """
+        try:
+            if not code and not start_date and not end_date:
+                return ServiceResult.error(
+                    "查询参数不能为空，至少需要提供code、start_date或end_date中的一个"
+                )
+            filters = self._build_bar_filters(
+                code=code, start_date=start_date, end_date=end_date, frequency=frequency,
+            )
+            model_list = self._crud_repo.find(
+                filters=filters, page=page, page_size=page_size,
+                order_by=order_by, desc_order=desc_order,
+            )
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} bar records (DataFrame, no adjustment)",
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get bars (df): {e}")
+            return ServiceResult.error(error=f"Database operation failed: {str(e)}")
+
+    def get_bars(self, code=None, start_date=None, end_date=None,
+                 frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+                 page: int = None, page_size: int = None,
+                 order_by: str = "timestamp", desc_order: bool = False) -> ServiceResult:
+        """出口②：data 是 List[Bar] Entity（类型即契约）。
+
+        ADR-010：消费 Entity 语义走此出口，经 BarMapper.from_models 转换。
+        同样不复权。空结果返空 list。
+        """
+        try:
+            if not code and not start_date and not end_date:
+                return ServiceResult.error(
+                    "查询参数不能为空，至少需要提供code、start_date或end_date中的一个"
+                )
+            filters = self._build_bar_filters(
+                code=code, start_date=start_date, end_date=end_date, frequency=frequency,
+            )
+            model_list = self._crud_repo.find(
+                filters=filters, page=page, page_size=page_size,
+                order_by=order_by, desc_order=desc_order,
+            )
+            entities = mappers.BarMapper.from_models(model_list) if model_list else []
+            return ServiceResult.success(
+                data=entities,
+                message=f"Retrieved {len(entities)} bar records (Entity list, no adjustment)",
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get bars (entity): {e}")
+            return ServiceResult.error(error=f"Database operation failed: {str(e)}")
 
     # ==================== 复权方法（委托给 bar_adjustment 模块） ====================
 

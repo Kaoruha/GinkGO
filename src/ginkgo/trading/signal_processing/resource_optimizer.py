@@ -490,8 +490,9 @@ class ResourceOptimizer:
                     adjusted_volume = (adjusted_volume // 100) * 100  # 取整到手数
                     
                     if adjusted_volume > 0:
-                        order.volume = adjusted_volume
-                        order.frozen_money = order.limit_price * adjusted_volume
+                        order.adjust_volume(adjusted_volume)
+                        # 成对冻结（ADR-010 V5：freeze）
+                        order.freeze(adjusted_volume, order.limit_price * adjusted_volume)
                         validated_orders.append(order)
                         total_frozen += order.frozen_money
                         

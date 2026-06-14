@@ -7,6 +7,7 @@ Order类TDD测试
 """
 import pytest
 import datetime
+from decimal import Decimal
 from typing import List
 
 # 导入Order类和相关枚举
@@ -1374,24 +1375,24 @@ class TestOrderPriceVolumeValidation:
         assert sell_order.frozen_volume == 500
         assert sell_order.frozen_money == Decimal('0')  # 卖单不冻结资金
 
-        # 测试frozen_money的类型转换
-        buy_order.frozen_money = 15000  # int输入
+        # 测试frozen_money的类型转换（freeze 内部 to_decimal，V5：setter 已删）
+        buy_order.freeze(700, 15000)  # int输入
         assert buy_order.frozen_money == Decimal('15000')
 
-        buy_order.frozen_money = 15500.75  # float输入
+        buy_order.freeze(700, 15500.75)  # float输入
         assert buy_order.frozen_money == Decimal('15500.75')
 
-        buy_order.frozen_money = "16000"  # 字符串输入
+        buy_order.freeze(700, "16000")  # 字符串输入
         assert buy_order.frozen_money == Decimal('16000')
 
-        # 测试frozen_volume的类型转换
-        sell_order.frozen_volume = 1000.0  # float输入转为int
+        # 测试frozen_volume的类型转换（freeze 内部 int 转换）
+        sell_order.freeze(1000.0, 0)  # float输入转为int
         assert sell_order.frozen_volume == 1000
         assert isinstance(sell_order.frozen_volume, int)
 
-        # 测试frozen_volume的类型验证
+        # 测试frozen_volume的类型验证（freeze 拒绝非数值/负值）
         with pytest.raises((TypeError, ValueError)):
-            sell_order.frozen_volume = "invalid"
+            sell_order.freeze("invalid", 0)
 
     def test_negative_values_rejection(self):
         """测试负值拒绝"""
@@ -1411,7 +1412,7 @@ class TestOrderPriceVolumeValidation:
                 limit_price=15.50
             )
 
-        # 测试frozen_volume不能为负（通过setter）
+        # 测试frozen_volume不能为负（freeze 校验，V5：setter 已删）
         order = Order(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
@@ -1426,7 +1427,7 @@ class TestOrderPriceVolumeValidation:
         )
 
         with pytest.raises((TypeError, ValueError)):
-            order.frozen_volume = -50
+            order.freeze(-50, 0)
 
         # 验证价格字段支持负值
         future_order = Order(
@@ -2042,6 +2043,201 @@ class TestOrderEnumConstraints:
         # 验证枚举类型可以用于集合操作
         long_orders = [order, int_order]
         assert all(o.direction == DIRECTION_TYPES.LONG for o in long_orders)
+
+
+@pytest.mark.unit
+class TestOrderAdjustVolume:
+    """Order.adjust_volume 行为方法测试（ADR-010 V5：Risk 合法调整通道）。
+
+    替代裸 ``order.volume = X``，复用 set() 的 int 转换 + 正数校验，
+    确保调整路径与构造路径守同一不变量。
+    """
+
+    def _make_order(self, volume: int = 1000) -> Order:
+        return Order(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=volume,
+            limit_price=10.0,
+        )
+
+    def test_adjust_volume_positive(self):
+        """正数调整生效"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(500)
+        assert order.volume == 500
+
+    def test_adjust_volume_float_truncated_to_int(self):
+        """浮点数按 int 截断（对齐 set 的 int 转换）"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(300.7)
+        assert order.volume == 300
+
+    def test_adjust_volume_allows_zero(self):
+        """0 允许（风控全砍语义，下游应过滤 volume<=0 订单）"""
+        order = self._make_order(volume=1000)
+        order.adjust_volume(0)
+        assert order.volume == 0
+
+    def test_adjust_volume_rejects_negative(self):
+        """负数被拒"""
+        order = self._make_order(volume=1000)
+        with pytest.raises(ValueError):
+            order.adjust_volume(-100)
+
+    def test_adjust_volume_rejects_non_numeric(self):
+        """非数值类型被拒"""
+        order = self._make_order(volume=1000)
+        with pytest.raises(TypeError):
+            order.adjust_volume("abc")
+
+
+@pytest.mark.unit
+class TestOrderFillBehavior:
+    """Order 资金维度行为方法测试（ADR-010 V5：成交/冻结收口）。
+
+    实盘/回测的成交是资金冻结维度（remain=剩余冻结资金、扣 fill_cost、frozen 成对），
+    与 partial_fill 的数量维度（remain=量×价、加权均价、状态机）不同，
+    故新建 freeze/settle/release_frozen/sync_fill 匹配实盘现状。
+    partial_fill/fill 保留作理想模型与测试。
+    """
+
+    def _make_order(self, volume: int = 1000, frozen_money=10000, limit_price: float = 10.0) -> Order:
+        return Order(
+            portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
+            volume=volume, limit_price=limit_price, frozen_money=frozen_money,
+        )
+
+    def test_freeze_sets_pair_and_remain(self):
+        """freeze 成对设置 frozen_volume/frozen_money 并初始化 remain"""
+        order = self._make_order()
+        order.freeze(800, 8000)
+        assert order.frozen_volume == 800
+        assert order.frozen_money == 8000
+        assert order.remain == 8000
+
+    def test_freeze_rejects_negative(self):
+        """freeze 拒负"""
+        order = self._make_order()
+        with pytest.raises((ValueError, TypeError)):
+            order.freeze(-1, 1000)
+
+    def test_settle_accumulates_and_deducts_remain(self):
+        """settle 累加成交并扣减剩余冻结资金"""
+        order = self._make_order(volume=1000, frozen_money=10000)
+        order.freeze(1000, 10000)  # remain=10000
+        order.settle(100, 10.0, 5.0)  # fill_cost=100*10+5=1005
+        assert order.transaction_volume == 100
+        assert order.remain == 8995
+
+    def test_settle_caps_at_volume(self):
+        """settle 超量截断到 volume（匹配实盘幂等防御 portfolio_live:279，不抛错）"""
+        order = self._make_order(volume=100)
+        order.freeze(100, 1000)
+        order.settle(200, 10.0, 0)  # qty=200 > volume=100
+        assert order.transaction_volume == 100
+
+    def test_settle_remain_floor_zero(self):
+        """settle 扣减后 remain 不低于 0"""
+        order = self._make_order(volume=1000, frozen_money=1000)
+        order.freeze(1000, 1000)  # remain=1000
+        order.settle(100, 10.0, 0)  # fill_cost=1000
+        assert order.remain == 0
+
+    def test_release_frozen_zeroes_remain(self):
+        """release_frozen 清零剩余冻结"""
+        order = self._make_order()
+        order.freeze(1000, 10000)
+        order.release_frozen()
+        assert order.remain == 0
+
+    def test_sync_fill_overrides_transaction_fields(self):
+        """sync_fill 覆盖成交价/量（broker 权威，覆盖非累加）"""
+        order = self._make_order()
+        order.sync_fill(10.5, 300)
+        assert order.transaction_price == 10.5
+        assert order.transaction_volume == 300
+
+
+class TestOrderMoneyAdjust:
+    """Order 资金调整方法测试（ADR-010 V5：t1backtest 迁移专用）。
+
+    deduct_remain：扣剩余冻结不动成交计数（保持 t1backtest:651 预存行为）。
+    normalize_freeze：量化精度 + remain 兜底（t1backtest:361-365）。
+    """
+
+    def _make_order(self, volume=1000, frozen_money=10000, limit_price=10.0):
+        return Order(portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
+                     volume=volume, limit_price=limit_price, frozen_money=frozen_money)
+
+    def test_deduct_remain_reduces_and_floors_zero(self):
+        o = self._make_order()
+        o.freeze(1000, 10000)  # remain=10000
+        o.deduct_remain(3000)
+        assert o.remain == 7000
+        o.deduct_remain(99999)  # 超额
+        assert o.remain == 0  # floor 0
+
+    def test_deduct_remain_rejects_negative(self):
+        o = self._make_order()
+        with pytest.raises((ValueError, TypeError)):
+            o.deduct_remain(-1)
+
+    def test_normalize_freeze_quantizes_to_places(self):
+        o = self._make_order(frozen_money=10000)
+        o.freeze(1000, 10000)
+        o._remain = Decimal("1234.567")  # 模拟精度残留
+        o.normalize_freeze(2)
+        assert o.frozen_money == Decimal("10000.00")
+        assert o.remain == Decimal("1234.57")  # quantize ROUND_HALF_EVEN
+
+    def test_normalize_freeze_backfills_remain_from_frozen(self):
+        """remain 为空/0 时用 frozen_money 兜底（t1backtest:364-365 语义）"""
+        o = self._make_order(frozen_money=10000)
+        o._remain = Decimal("0")
+        o.normalize_freeze(2)
+        assert o.remain == Decimal("10000.00")
+
+
+@pytest.mark.unit
+class TestOrderSettersRemoved:
+    """ADR-010 V5：Order 字段走行为方法（freeze/settle/sync_fill/adjust_volume），
+    裸 setter 已删除——外部赋值任意字段抛 AttributeError（封装落地）。
+
+    构造路径仍可用（set 方法走私有 ``self._xxx``，不经 setter）。
+    """
+
+    def _make(self):
+        return Order(
+            portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG, order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.NEW, volume=100, limit_price=10.0,
+        )
+
+    @pytest.mark.parametrize("field,val", [
+        ("symbol", "X"),
+        ("code", "Y"),
+        ("direction", DIRECTION_TYPES.SHORT),
+        ("order_type", ORDER_TYPES.LIMITORDER),
+        ("volume", 200),
+        ("limit_price", 20.0),
+        ("frozen_money", 1000),
+        ("frozen_volume", 50),
+        ("transaction_price", 11.0),
+        ("transaction_volume", 50),
+        ("remain", 500),
+        ("fee", 1.0),
+        ("portfolio_id", "p2"),
+        ("engine_id", "e2"),
+        ("task_id", "t2"),
+    ])
+    def test_field_assignment_raises(self, field, val):
+        """每个字段删除 setter 后变 read-only property，外部赋值抛 AttributeError。"""
+        o = self._make()
+        with pytest.raises(AttributeError):
+            setattr(o, field, val)
 
 
 

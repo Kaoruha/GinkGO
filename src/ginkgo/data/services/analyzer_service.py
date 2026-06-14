@@ -16,6 +16,8 @@ Analyzer Service Module
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+import pandas as pd
+
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
 from ginkgo.data.models import MAnalyzerRecord
 from ginkgo.libs import GLOG
@@ -194,6 +196,52 @@ class AnalyzerService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询 analyzer 记录失败: {e}")
             return ServiceResult.error(f"查询 analyzer 记录失败: {e}")
+
+    def _build_analyzer_record_filters(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+    ) -> dict:
+        """从业务参数构造 AnalyzerRecord CRUD filters。get_records_df 独立使用（DRY）。
+
+        filter 域与现有 get_records() 一致（portfolio_id / engine_id），
+        固定排除 is_del=True。未抽改 get_records()，保持纯增量。
+        """
+        filters = {"is_del": False}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if engine_id:
+            filters["engine_id"] = engine_id
+        return filters
+
+    def get_records_df(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        page_size: int = 50,
+    ) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
+        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        """
+        try:
+            filters = self._build_analyzer_record_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id,
+            )
+            model_list = self._crud_repo.find(
+                filters=filters,
+                page_size=page_size if page_size > 0 else None,
+            )
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} analyzer records (DataFrame)",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"查询 analyzer 记录(df)失败: {e}")
+            return ServiceResult.error(f"查询 analyzer 记录(df)失败: {e}")
 
     def get_latest_by_portfolio(
         self,

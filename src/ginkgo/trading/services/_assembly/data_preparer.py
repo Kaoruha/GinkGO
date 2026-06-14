@@ -96,20 +96,12 @@ class DataPreparer:
                 portfolio_id = mapping.portfolio_id
 
                 # Get portfolio configuration
-                portfolio_result = self._portfolio_service.get(portfolio_id=portfolio_id)
-                if not portfolio_result.success or not portfolio_result.data:
+                portfolio_result = self._portfolio_service.get_portfolios_df(portfolio_id=portfolio_id)
+                if not portfolio_result.success or portfolio_result.data.empty:
                     self._logger.WARN(f"No portfolio found for id: {portfolio_id}")
                     continue
 
-                # Convert to DataFrame if needed
-                if hasattr(portfolio_result.data, "to_dataframe"):
-                    portfolio_df = portfolio_result.data.to_dataframe()
-                else:
-                    portfolio_df = portfolio_result.data
-
-                if portfolio_df.shape[0] == 0:
-                    self._logger.WARN(f"No portfolio found for id: {portfolio_id}")
-                    continue
+                portfolio_df = portfolio_result.data
 
                 portfolio_row = portfolio_df.iloc[0].to_dict()
                 portfolio_configs[portfolio_id] = portfolio_row
@@ -211,18 +203,11 @@ class DataPreparer:
 
     def _fetch_engine_config(self, engine_id: str) -> dict:
         """获取引擎配置数据 (重构后的辅助方法)"""
-        engine_result = self._engine_service.get(engine_id=engine_id)
-        if not engine_result.success or not engine_result.data:
+        engine_result = self._engine_service.get_engines_df(engine_id=engine_id)
+        if not engine_result.success or engine_result.data.empty:
             raise ValueError(f"No engine found for id: {engine_id}")
 
-        # Convert to DataFrame if needed
-        if hasattr(engine_result.data, "to_dataframe"):
-            engine_df = engine_result.data.to_dataframe()
-        else:
-            engine_df = engine_result.data
-
-        if engine_df.shape[0] == 0:
-            raise ValueError(f"No engine data found for id: {engine_id}")
+        engine_df = engine_result.data
 
         return engine_df.iloc[0].to_dict()
 
@@ -266,18 +251,11 @@ class DataPreparer:
 
     def _get_portfolio_config_refactored(self, portfolio_id: str) -> dict:
         """获取Portfolio配置 (重构后的辅助方法)"""
-        portfolio_result = self._portfolio_service.get(portfolio_id=portfolio_id)
-        if not portfolio_result.success or not portfolio_result.data:
+        portfolio_result = self._portfolio_service.get_portfolios_df(portfolio_id=portfolio_id)
+        if not portfolio_result.success or portfolio_result.data.empty:
             raise ValueError(f"No portfolio found for id: {portfolio_id}")
 
-        # Convert to DataFrame if needed
-        if hasattr(portfolio_result.data, "to_dataframe"):
-            portfolio_df = portfolio_result.data.to_dataframe()
-        else:
-            portfolio_df = portfolio_result.data
-
-        if portfolio_df.shape[0] == 0:
-            raise ValueError(f"No portfolio data found for id: {portfolio_id}")
+        portfolio_df = portfolio_result.data
 
         return portfolio_df.iloc[0].to_dict()
 

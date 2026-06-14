@@ -52,8 +52,9 @@ class TestAdjustFactorConstruction:
         assert isinstance(adjustfactor.adjustfactor, Decimal)
 
     def test_base_class_inheritance(self):
-        """测试Base类继承验证"""
-        # 验证正确继承Base类的功能 - 使用有效参数创建实例
+        """测试ValueObject继承验证（ADR-010: Base→ValueObject 迁移）"""
+        # ADR-010 Phase 2 后：Adjustfactor 不再继承 Base，改为 ValueObject
+        from ginkgo.entities.value_object import ValueObject
         from ginkgo.entities.base import Base
 
         adjustfactor = Adjustfactor(
@@ -64,13 +65,20 @@ class TestAdjustFactorConstruction:
             adjustfactor=1.0
         )
 
-        # 验证继承关系
-        assert isinstance(adjustfactor, Base)
+        # 验证继承关系：VO 不再继承 Base
+        assert isinstance(adjustfactor, ValueObject)
+        assert not isinstance(adjustfactor, Base)
 
-        # 验证Base类的基本功能（如UUID）
+        # ValueObject 不自动生成 uuid，默认 ""
         assert hasattr(adjustfactor, 'uuid')
-        assert hasattr(adjustfactor, 'component_type')
-        assert len(adjustfactor.uuid) > 0
+        assert adjustfactor.uuid == ""
+        # VO 无 component_type（无身份分类）
+        assert not hasattr(adjustfactor, 'component_type')
+        # 传入 uuid 则保真
+        af2 = Adjustfactor(code="000001.SZ", timestamp="2023-01-01",
+                           fore_adjustfactor=1.0, back_adjustfactor=1.0,
+                           adjustfactor=1.0, uuid="af-uuid-1")
+        assert af2.uuid == "af-uuid-1"
 
     def test_decimal_precision_handling(self):
         """测试复权因子精度处理"""

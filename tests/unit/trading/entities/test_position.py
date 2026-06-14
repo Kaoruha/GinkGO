@@ -387,39 +387,41 @@ class TestPositionProperties:
         assert original_worth == position.worth
 
     def test_property_setter_validation(self):
-        """测试属性setter验证"""
+        """测试属性构造验证（V5：setter 已删，volume 类型转换在构造时发生）"""
         from decimal import Decimal
 
-        position = Position(
+        # volume 构造时类型转换：构造路径 self._volume = int(volume)，整数/浮点截断
+        p_int = Position(
             portfolio_id="test_portfolio",
             engine_id="test_engine",
             task_id="test_run",
             code="000001.SZ",
-            timestamp="2023-01-01 10:00:00"
+            volume=500,
+            timestamp="2023-01-01 10:00:00",
         )
+        assert p_int.volume == 500
+        assert isinstance(p_int.volume, int)
 
-        # 测试volume setter的类型转换 - 实际实现会自动截断小数
-        position.volume = 500  # 正确：使用整数
-        assert position.volume == 500
-        assert isinstance(position.volume, int)
+        # 浮点自动截断（int() 向零截断，非四舍五入）
+        p_trunc = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=500.7,
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert p_trunc.volume == 500
 
-        # 注意：当前实现会自动截断浮点数股数（可能不是最佳实践）
-        # 在严格的量化交易系统中，应该拒绝浮点数股数或至少发出警告
-        position.volume = 500.7  # 当前实现：自动截断为500
-        assert position.volume == 500  # 小数部分被截断
-
-        # 这种行为可能导致意外的股数变化，在实际交易中需要谨慎
-        position.volume = 999.9
-        assert position.volume == 999  # 截断，不是四舍五入
-
-        # 测试基本string属性的setter
-        position.portfolio_id = "new_portfolio"
-        position.engine_id = "new_engine"
-        position.task_id = "new_run"
-
-        assert position.portfolio_id == "new_portfolio"
-        assert position.engine_id == "new_engine"
-        assert position.task_id == "new_run"
+        p_trunc2 = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=999.9,
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert p_trunc2.volume == 999
 
     def test_decimal_precision_maintained(self):
         """测试Decimal精度保持"""
@@ -481,15 +483,17 @@ class TestPositionProperties:
         assert result == False  # 返回失败
         assert position.price == original_price  # 价格未改变
 
-        # 测试volume负值处理 - 通过公共接口
-        try:
-            position.volume = -100
-            volume_result = position.volume
-            # 股数不能为负，系统应该返回0或抛出异常
-            assert volume_result >= 0
-        except (ValueError, TypeError):
-            # 在setter中直接拒绝负股数更为合理
-            pass
+        # 测试volume负值处理 - 构造时 int(-100) = -100，getter 兜底返回 0
+        neg_pos = Position(
+            portfolio_id="test_portfolio",
+            engine_id="test_engine",
+            task_id="test_run",
+            code="000001.SZ",
+            volume=-100,
+            timestamp="2023-01-01 10:00:00",
+        )
+        # getter 检测负值返回 0（CRITICAL + return 0）
+        assert neg_pos.volume >= 0
 
         # 测试费用负值处理 - 负费用在某些场景下可能合理（返佣）
         # 但通常应该通过单独的返佣字段处理
@@ -1792,283 +1796,6 @@ class TestPositionFeeManagement:
 
 
 @pytest.mark.unit
-class TestPositionModelConversion:
-    """8. 数据模型转换测试"""
-
-    def test_to_model_conversion(self):
-        """测试to_model()转换"""
-        from decimal import Decimal
-
-        position = Position(
-            portfolio_id="test_portfolio",
-            engine_id="test_engine",
-            task_id="test_run",
-            code="000001.SZ",
-            cost=100.50,
-            volume=1000,
-            frozen_volume=200,
-            frozen_money=15000.0,
-            price=110.75,
-            fee=25.30,
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 转换为数据库模型
-        model = position.to_model()
-
-        # 验证模型类型
-        from ginkgo.data.models import MPosition
-        assert isinstance(model, MPosition)
-
-        # 验证所有字段正确转换
-        assert model.portfolio_id == "test_portfolio"
-        assert model.engine_id == "test_engine"
-        assert model.task_id == "test_run"
-        assert model.code == "000001.SZ"
-        assert model.cost == Decimal('100.50')  # 模型中保持Decimal类型
-        assert model.volume == 1000
-        assert model.frozen_volume == 200
-        assert model.frozen_money == Decimal('15000.0')
-        assert model.price == Decimal('110.75')
-        assert model.fee == Decimal('25.30')
-
-        # 验证UUID正确传递
-        assert model.uuid == position.uuid
-
-    def test_from_model_conversion(self):
-        """测试from_model()转换"""
-        from ginkgo.data.models import MPosition
-        from decimal import Decimal
-
-        # 创建数据库模型
-        model = MPosition()
-        model.update(
-            "test_portfolio",  # portfolio_id as first positional argument
-            "test_engine",     # engine_id as second positional argument
-            "test_run",        # task_id as third positional argument
-            code="000001.SZ",
-            cost=100.50,
-            volume=1000,
-            frozen_volume=200,
-            frozen_money=15000.0,
-            price=110.75,
-            fee=25.30
-        )
-        # 设置UUID
-        model.uuid = "test-uuid-123"
-
-        # 从模型创建Position对象
-        position = Position.from_model(model)
-
-        # 验证所有字段正确转换
-        assert position.portfolio_id == "test_portfolio"
-        assert position.engine_id == "test_engine"
-        assert position.task_id == "test_run"
-        assert position.code == "000001.SZ"
-        assert position.cost == Decimal('100.50')  # float转为Decimal
-        assert position.volume == 1000
-        assert position.frozen_volume == 200
-        assert position.frozen_money == Decimal('15000.0')
-        assert position.price == Decimal('110.75')
-        assert position.fee == Decimal('25.30')
-        assert position.uuid == "test-uuid-123"  # 验证UUID传递
-
-        # 验证Decimal类型
-        assert isinstance(position.cost, Decimal)
-        assert isinstance(position.frozen_money, Decimal)
-        assert isinstance(position.price, Decimal)
-        assert isinstance(position.fee, Decimal)
-
-    def test_data_integrity(self):
-        """测试数据完整性"""
-        from decimal import Decimal
-
-        # 创建复杂的Position对象
-        original_position = Position(
-            portfolio_id="complex_portfolio",
-            engine_id="complex_engine",
-            task_id="complex_run",
-            code="000002.SZ",
-            cost=99.99,
-            volume=1500,
-            frozen_volume=300,
-            frozen_money=12345.67,
-            price=105.55,
-            fee=123.45,
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 执行一些操作以修改状态
-        original_position.add_fee(10.55)  # 总费用变为134.0
-        original_position.update_total_pnl()
-        original_position.update_worth()
-
-        # 转换为模型再转回Position
-        model = original_position.to_model()
-        converted_position = Position.from_model(model)
-
-        # 验证核心字段数据完整性
-        assert converted_position.portfolio_id == original_position.portfolio_id
-        assert converted_position.engine_id == original_position.engine_id
-        assert converted_position.task_id == original_position.task_id
-        assert converted_position.code == original_position.code
-        assert converted_position.cost == original_position.cost
-        assert converted_position.volume == original_position.volume
-        assert converted_position.frozen_volume == original_position.frozen_volume
-        assert converted_position.frozen_money == original_position.frozen_money
-        assert converted_position.price == original_position.price
-        assert converted_position.fee == original_position.fee
-
-        # 验证计算属性也能重新计算正确
-        converted_position.update_total_pnl()
-        converted_position.update_worth()
-        assert converted_position.total_pnl == original_position.total_pnl
-        assert converted_position.worth == original_position.worth
-
-    def test_type_conversion(self):
-        """测试类型转换"""
-        from decimal import Decimal
-
-        position = Position(
-            portfolio_id="test_portfolio",
-            engine_id="test_engine",
-            task_id="test_run",
-            code="000001.SZ",
-            cost=Decimal('100.123456'),  # 高精度Decimal
-            volume=1000,
-            frozen_money=Decimal('15000.987654'),
-            price=Decimal('110.555555'),
-            fee=Decimal('25.333333'),
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 转换为模型 - Decimal保持不变
-        model = position.to_model()
-
-        # 验证模型中使用Decimal类型
-        assert isinstance(model.cost, Decimal)
-        assert isinstance(model.frozen_money, Decimal)
-        assert isinstance(model.price, Decimal)
-        assert isinstance(model.fee, Decimal)
-
-        # 从模型转回Position - float转为Decimal
-        new_position = Position.from_model(model)
-
-        # 验证Position中使用Decimal类型
-        assert isinstance(new_position.cost, Decimal)
-        assert isinstance(new_position.frozen_money, Decimal)
-        assert isinstance(new_position.price, Decimal)
-        assert isinstance(new_position.fee, Decimal)
-
-        # 验证数值精度在合理范围内（由于float精度限制）
-        assert abs(new_position.cost - position.cost) < Decimal('0.000001')
-        assert abs(new_position.frozen_money - position.frozen_money) < Decimal('0.000001')
-        assert abs(new_position.price - position.price) < Decimal('0.000001')
-        assert abs(new_position.fee - position.fee) < Decimal('0.000001')
-
-    def test_missing_field_handling(self):
-        """测试缺失字段处理"""
-        from ginkgo.data.models import MPosition
-        from decimal import Decimal
-
-        # 创建只有部分字段的模型（模拟数据库字段缺失）
-        model = MPosition()
-        model.update(
-            "test_portfolio",  # portfolio_id as first positional argument
-            "test_engine",     # engine_id as second positional argument
-            "test_run",        # task_id as third positional argument
-            code="000001.SZ",
-            cost=100.0,
-            volume=1000,
-            price=110.0,
-            frozen_volume=0,   # 提供默认值而不是缺失
-            frozen_money=0.0,  # 提供默认值而不是缺失
-            fee=0.0            # 提供默认值而不是缺失
-        )
-
-        # 从模型创建Position - 应该处理缺失字段
-        position = Position.from_model(model)
-
-        # 验证基本字段正确
-        assert position.portfolio_id == "test_portfolio"
-        assert position.engine_id == "test_engine"
-        assert position.code == "000001.SZ"
-        assert position.cost == Decimal('100.0')
-        assert position.volume == 1000
-        assert position.price == Decimal('110.0')
-
-        # 验证缺失字段的默认值处理
-        # task_id应该有默认值，根据from_model方法中的getattr(model, 'task_id', '')
-        assert hasattr(position, 'task_id')
-
-        # 其他字段应该有合理的默认值（可能为0）
-        assert hasattr(position, 'frozen_volume')
-        assert hasattr(position, 'frozen_money')
-        assert hasattr(position, 'fee')
-
-        # 验证对象可以正常工作
-        assert isinstance(position.fee, Decimal)
-        assert isinstance(position.frozen_money, Decimal)
-
-    def test_roundtrip_consistency(self):
-        """测试往返一致性"""
-        from decimal import Decimal
-
-        # 创建包含所有字段的完整Position对象
-        original = Position(
-            portfolio_id="roundtrip_portfolio",
-            engine_id="roundtrip_engine",
-            task_id="roundtrip_run",
-            code="000003.SZ",
-            cost=123.456789,
-            volume=2000,
-            frozen_volume=500,
-            frozen_money=67890.12,
-            price=145.67,
-            fee=89.01,
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 执行一些操作来修改状态
-        original.freeze(1000, 50000.0)
-        original.add_fee(15.99)
-        original.update_total_pnl()
-        original.update_worth()
-
-        # 记录原始状态
-        original_uuid = original.uuid
-        original_total_pnl = original.total_pnl
-        original_worth = original.worth
-
-        # 往返转换：Position → MPosition → Position
-        model = original.to_model()
-        roundtrip = Position.from_model(model)
-
-        # 验证基本字段完全一致
-        assert roundtrip.portfolio_id == original.portfolio_id
-        assert roundtrip.engine_id == original.engine_id
-        assert roundtrip.task_id == original.task_id
-        assert roundtrip.code == original.code
-        assert roundtrip.volume == original.volume
-        assert roundtrip.frozen_volume == original.frozen_volume
-
-        # 验证Decimal字段（考虑float精度损失）
-        assert abs(roundtrip.cost - original.cost) < Decimal('0.000001')
-        assert abs(roundtrip.frozen_money - original.frozen_money) < Decimal('0.01')
-        assert abs(roundtrip.price - original.price) < Decimal('0.01')
-        assert abs(roundtrip.fee - original.fee) < Decimal('0.01')
-
-        # 验证UUID保持一致（如果模型支持）
-        assert roundtrip.uuid == original_uuid
-
-        # 验证计算属性可以重新计算
-        roundtrip.update_total_pnl()
-        roundtrip.update_worth()
-        assert abs(roundtrip.total_pnl - original_total_pnl) < Decimal('0.01')
-        assert abs(roundtrip.worth - original_worth) < Decimal('0.01')
-
-
-@pytest.mark.unit
 class TestPositionCorporateActions:
     """9. 公司行为测试"""
 
@@ -2359,36 +2086,6 @@ class TestPositionAttributeUpdates:
         assert position.volume == 1200
         assert position.price == Decimal('115.0')
         assert position.fee == Decimal('6.0')
-
-    def test_realized_pnl_setter_validation(self):
-        """测试realized_pnl setter的验证"""
-        from decimal import Decimal
-
-        position = Position(
-            portfolio_id="test_portfolio",
-            engine_id="test_engine",
-            task_id="test_run",
-            code="000001.SZ",
-            cost=100.0,
-            volume=1000,
-            price=110.0,
-            fee=5.0,
-            timestamp="2023-01-01 10:00:00"
-        )
-
-        # 测试有效值设置
-        position.realized_pnl = 150.25
-        assert position.realized_pnl == Decimal('150.25')
-
-        position.realized_pnl = Decimal('200.50')
-        assert position.realized_pnl == Decimal('200.50')
-
-        # 测试无效类型
-        with pytest.raises(TypeError):
-            position.realized_pnl = "invalid"
-
-        with pytest.raises(TypeError):
-            position.realized_pnl = []
 
     def test_time_setter_validation(self):
         """测试时间属性setter的验证"""
@@ -3361,3 +3058,47 @@ class TestPositionSoldExceptionHandling:
             # _sold 应捕获异常，记录日志，返回 False（不挂起）
             result = position._sold(Decimal('110.0'), 100)
             assert result is False
+
+
+@pytest.mark.unit
+class TestPositionSettersRemoved:
+    """Position 字段 read-only 验证（ADR-010 V5：setter 已删，运行时赋值抛 AttributeError）。"""
+
+    def _make(self):
+        return Position(
+            portfolio_id="p",
+            engine_id="e",
+            task_id="t",
+            code="000001.SZ",
+            cost=100.0,
+            volume=1000,
+            price=10.0,
+            fee=5.0,
+            timestamp="2023-01-01 10:00:00",
+        )
+
+    @pytest.mark.parametrize("field,val", [
+        ("portfolio_id", "p2"),
+        ("engine_id", "e2"),
+        ("task_id", "t2"),
+        ("volume", 200),
+        ("price", 20.0),
+        ("realized_pnl", 150.0),
+    ])
+    def test_field_assignment_raises(self, field, val):
+        pos = self._make()
+        with pytest.raises(AttributeError):
+            setattr(pos, field, val)
+
+    def test_realized_pnl_decimal_via_constructor(self):
+        """realized_pnl 构造注入保持 Decimal（覆盖删 setter 后的构造路径）"""
+        pos = Position(
+            portfolio_id="p",
+            engine_id="e",
+            task_id="t",
+            code="000001.SZ",
+            realized_pnl=Decimal("200.50"),
+            timestamp="2023-01-01 10:00:00",
+        )
+        assert pos.realized_pnl == Decimal("200.50")
+        assert isinstance(pos.realized_pnl, Decimal)

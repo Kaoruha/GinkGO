@@ -1,5 +1,5 @@
 # Upstream: Portfolio Manager (记录资金调整)、Backtest Engines (跟踪资金变化)
-# Downstream: Base (继承提供uuid/component_type)、SOURCE_TYPES (枚举)
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)；uuid 自留，无 component_type、SOURCE_TYPES (枚举)
 # Role: CapitalAdjustment资金调整实体继承Base定义投资组合/金额/时间/原因/来源/UUID等核心属性
 
 
@@ -12,12 +12,12 @@ import pandas as pd
 from decimal import Decimal
 from functools import singledispatchmethod
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import SOURCE_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, base_repr, to_decimal
 
 
-class CapitalAdjustment(Base):
+class CapitalAdjustment(ValueObject):
     """
     资金调整业务实体类
 
@@ -35,13 +35,9 @@ class CapitalAdjustment(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(
-            uuid=uuid,
-            component_type=COMPONENT_TYPES.CAPITALADJUSTMENT,
-            *args,
-            **kwargs
-        )
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格类型验证
         if not isinstance(portfolio_id, str) or not portfolio_id.strip():
@@ -165,6 +161,10 @@ class CapitalAdjustment(Base):
         self._timestamp = normalized_timestamp
 
     @property
+    def uuid(self) -> str:
+        return self._uuid
+
+    @property
     def portfolio_id(self) -> str:
         return self._portfolio_id
 
@@ -183,33 +183,6 @@ class CapitalAdjustment(Base):
     @property
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
-
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建CapitalAdjustment实例"""
-        return cls(
-            portfolio_id=getattr(model, 'portfolio_id', ''),
-            amount=getattr(model, 'amount', Decimal('0')),
-            timestamp=getattr(model, 'timestamp', datetime.datetime.now()),
-            reason=getattr(model, 'reason', ''),
-            source=getattr(model, 'source', SOURCE_TYPES.SIM),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            portfolio_id=self.portfolio_id,
-            amount=self.amount,
-            timestamp=self.timestamp,
-            reason=self.reason,
-            source=self.source,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
 
     def __repr__(self) -> str:
         return base_repr(self, CapitalAdjustment.__name__, 20, 60)

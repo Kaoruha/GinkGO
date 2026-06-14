@@ -36,31 +36,6 @@ class BarDTO(BaseModel):
     # 数据来源
     source: Optional[str] = Field(None, description="数据来源标识")
 
-    @classmethod
-    def from_bar(cls, bar) -> "BarDTO":
-        """
-        从Bar对象创建DTO
-
-        Args:
-            bar: MBar对象或其他K线数据对象
-
-        Returns:
-            BarDTO实例
-        """
-        return cls(
-            symbol=bar.code,
-            timestamp=bar.timestamp,
-            open=bar.open,
-            high=bar.high,
-            low=bar.low,
-            close=bar.close,
-            volume=bar.volume,
-            amount=getattr(bar, 'amount', None),
-            turnover=getattr(bar, 'turnover', None),
-            change=getattr(bar, 'change', None),
-            change_pct=getattr(bar, 'change_pct', None),
-        )
-
     def to_price_update(self) -> dict:
         """
         转换为PriceUpdate格式（用于复用Portfolio.on_price_update()）

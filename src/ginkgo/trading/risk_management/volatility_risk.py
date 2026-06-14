@@ -103,11 +103,11 @@ class VolatilityRisk(BaseRiskManagement):
             # 波动率过高，大幅减少订单规模
             reduction_factor = (self._max_volatility / current_volatility) ** 2
             original_volume = order.volume
-            order.volume = int(order.volume * reduction_factor)
+            order.adjust_volume(int(order.volume * reduction_factor))
 
             # 确保最小订单量
             min_volume = max(1, int(original_volume * 0.1))
-            order.volume = max(order.volume, min_volume)
+            order.adjust_volume(max(order.volume, min_volume))
 
             GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
                      f"reducing order {original_volume} → {order.volume}")
@@ -115,7 +115,7 @@ class VolatilityRisk(BaseRiskManagement):
         elif current_volatility > self._warning_volatility:
             # 波动率预警，适度减少订单规模
             reduction_factor = (self._max_volatility / current_volatility) ** 1.5
-            order.volume = int(order.volume * reduction_factor)
+            order.adjust_volume(int(order.volume * reduction_factor))
 
             GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
                      f"adjusting order to {order.volume}")

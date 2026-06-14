@@ -18,6 +18,7 @@ from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.entities import StockInfo
 from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import StockInfoMapper
 
 
 @restrict_crud_access
@@ -256,7 +257,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         business_objects = []
         for model in models:
             # Convert to business object (此时枚举字段已经是正确的枚举对象)
-            stock_info = StockInfo.from_model(model)
+            stock_info = StockInfoMapper.from_model(model)
             business_objects.append(stock_info)
 
         return business_objects

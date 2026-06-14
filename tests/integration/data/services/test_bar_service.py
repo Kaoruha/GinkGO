@@ -19,6 +19,7 @@ _path = str(project_root / "src")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
+from ginkgo.data.mappers import BarMapper
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.containers import container
@@ -154,7 +155,7 @@ class TestBarServiceGetBars:
                 assert field in df.columns, f"缺少必要字段: {field}"
 
             # 步骤7: 验证to_entities()方法
-            entities = model_list.to_entities()
+            entities = BarMapper.from_models(model_list)
             assert isinstance(entities, list), "to_entities()应该返回list类型"
             assert len(entities) > 0, "entities列表不应为空"
 

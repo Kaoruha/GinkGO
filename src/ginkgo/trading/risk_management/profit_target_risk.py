@@ -158,7 +158,7 @@ class ProfitTargetRisk(BaseRiskManagement):
                 # #3957 Position 对象使用 getattr
                 max_sellable = getattr(position, 'volume', 0)
                 if order.volume > max_sellable:
-                    order.volume = max_sellable
+                    order.adjust_volume(max_sellable)
 
         return order
 

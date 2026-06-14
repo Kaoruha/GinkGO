@@ -895,7 +895,7 @@ class TestHandlerCRUDDataConversion:
     """测试HandlerCRUD数据转换方法"""
 
     def test_handler_data_conversion_api(self):
-        """测试Handler数据转换API - to_dataframe(), to_entities()"""
+        """测试Handler数据转换API - to_dataframe(), identity 转换"""
         print("\n" + "="*60)
         print("开始测试: Handler数据转换API")
         print("="*60)
@@ -928,13 +928,12 @@ class TestHandlerCRUDDataConversion:
 
             # 验证返回的是ModelList，支持转换方法
             assert hasattr(handler_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
-            assert hasattr(handler_models, 'to_entities'), "返回结果应该是ModelList，支持to_entities()方法"
             print("✓ 返回结果支持转换方法")
 
-            # 测试 to_entities() 方法
-            print("\n→ 测试 to_entities() 转换...")
-            entities = handler_models.to_entities()
-            print(f"✓ to_entities() 返回 {len(entities)} 个业务实体")
+            # 测试转换方法（handler hook 为 identity，无业务 Entity，直接取 ORM）
+            print("\n→ 测试转换...")
+            entities = list(handler_models)  # handler hook 为 identity（无业务 Entity），直接取 ORM
+            print(f"✓ 转换返回 {len(entities)} 个业务实体")
 
             # 验证实体具有正确的字段
             for i, entity in enumerate(entities):
@@ -943,7 +942,7 @@ class TestHandlerCRUDDataConversion:
                 print(f"    - func_name: {entity.func_name}")
                 print(f"    - desc: {entity.desc}")
 
-            print("✓ to_entities() 转换验证通过")
+            print("✓ 转换验证通过")
 
             # 测试 to_dataframe() 方法
             print("\n→ 测试 to_dataframe() 转换...")
@@ -965,8 +964,8 @@ class TestHandlerCRUDDataConversion:
             if len(handler_models) > 0:
                 print("\n→ 测试单个Model的转换...")
                 model_instance = handler_models[0]
-                entity = model_instance.to_entity()
-                print(f"✓ 单个Model to_entity(): {entity.name}")
+                entity = model_instance  # identity：ORM 模型本身即业务对象
+                print(f"✓ 单个Model identity转换: {entity.name}")
                 print(f"  - lib_path: {entity.lib_path}")
                 print(f"  - func_name: {entity.func_name}")
 

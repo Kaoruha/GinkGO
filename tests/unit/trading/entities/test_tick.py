@@ -67,12 +67,13 @@ class TestTickConstruction:
         assert tick.timestamp == timestamp
         assert tick.source == SOURCE_TYPES.SINA
 
-        # 验证Base类属性（UUID等）
-        assert tick.uuid is not None
-        assert len(tick.uuid) > 0
+        # ADR-010: Tick 迁为 ValueObject，不自动生成 uuid（默认 ""）
+        assert hasattr(tick, 'uuid')
+        assert tick.uuid == ""
 
     def test_base_class_inheritance(self):
-        """测试Base类继承验证"""
+        """测试ValueObject继承验证（ADR-010: Base→ValueObject 迁移）"""
+        from ginkgo.entities.value_object import ValueObject
         from ginkgo.entities.base import Base
 
         # 创建Tick实例
@@ -84,28 +85,30 @@ class TestTickConstruction:
             timestamp=datetime.datetime.now()
         )
 
-        # 验证继承关系
-        assert isinstance(tick, Base)
+        # 验证继承关系：VO 不再继承 Base
+        assert isinstance(tick, ValueObject)
+        assert not isinstance(tick, Base)
         assert isinstance(tick, Tick)
 
-        # 验证Base类提供的功能
+        # ValueObject 不自动生成 uuid，默认 ""
         assert hasattr(tick, 'uuid')
-        assert tick.uuid is not None
-        assert len(tick.uuid) > 0
+        assert tick.uuid == ""
 
-        # 验证UUID唯一性
+        # uuid 保真（持久化键，构造时传入则保留）
         tick2 = Tick(
             code="000004.SZ",
             price=9.87,
             volume=800,
             direction=TICKDIRECTION_TYPES.ACTIVEBUY,
-            timestamp=datetime.datetime.now()
+            timestamp=datetime.datetime.now(),
+            uuid="tick-uuid-2"
         )
-        assert tick.uuid != tick2.uuid
+        assert tick2.uuid == "tick-uuid-2"
+        assert tick.uuid != tick2.uuid  # 传入的 uuid 与默认空串不同
 
     def test_component_type_assignment(self):
-        """测试组件类型分配"""
-        # 创建Tick实例并验证组件类型
+        """测试组件类型（ADR-010: VO 无 component_type）"""
+        # 创建Tick实例
         tick = Tick(
             code="000001.SZ",
             price=10.5,
@@ -114,12 +117,10 @@ class TestTickConstruction:
             timestamp=datetime.datetime.now()
         )
 
-        # 验证组件类型正确分配
-        assert hasattr(tick, 'component_type')
-        assert tick.component_type == COMPONENT_TYPES.TICK
-        assert isinstance(tick.component_type, type(COMPONENT_TYPES.TICK))
+        # ValueObject 无 component_type（VO 无身份分类）
+        assert not hasattr(tick, 'component_type')
 
-        # 验证组件类型的一致性
+        # VO 无 component_type，多个实例自然一致（均无该属性）
         tick2 = Tick(
             code="000002.SZ",
             price=12.0,
@@ -127,8 +128,7 @@ class TestTickConstruction:
             direction=TICKDIRECTION_TYPES.ACTIVESELL,
             timestamp=datetime.datetime.now()
         )
-        assert tick2.component_type == COMPONENT_TYPES.TICK
-        assert tick.component_type == tick2.component_type
+        assert not hasattr(tick2, 'component_type')
 
     def test_custom_uuid_assignment(self):
         """测试自定义UUID分配"""
@@ -1166,62 +1166,6 @@ class TestTickDataSetting:
         # 测试None类型
         with pytest.raises(TypeError):
             tick.set(None)
-
-    def test_model_conversion_methods(self):
-        """测试模型转换方法"""
-        # 创建原始Tick实例
-        original_tick = Tick(
-            code="000001.SZ",
-            price=10.5,
-            volume=1000,
-            direction=TICKDIRECTION_TYPES.ACTIVEBUY,
-            timestamp="2024-01-01 09:30:00",
-            source=SOURCE_TYPES.SINA
-        )
-
-        # 测试to_model转换
-        model = original_tick.to_model()
-        assert model.code == "000001.SZ"
-        assert model.price == Decimal('10.5')
-        assert model.volume == 1000
-        # 注意：模型中存储的是枚举的整数值
-        assert model.direction == TICKDIRECTION_TYPES.ACTIVEBUY.value
-        assert model.source == SOURCE_TYPES.SINA.value
-
-        # 测试from_model转换
-        converted_tick = Tick.from_model(model)
-        assert converted_tick.code == original_tick.code
-        assert converted_tick.price == original_tick.price
-        assert converted_tick.volume == original_tick.volume
-        assert converted_tick.direction == original_tick.direction
-        assert converted_tick.source == original_tick.source
-
-        # 验证时间戳转换
-        assert isinstance(converted_tick.timestamp, datetime.datetime)
-        assert converted_tick.timestamp.year == 2024
-        assert converted_tick.timestamp.month == 1
-        assert converted_tick.timestamp.day == 1
-
-        # 测试往返转换的一致性
-        model2 = converted_tick.to_model()
-        assert model2.code == model.code
-        assert model2.price == model.price
-        assert model2.volume == model.volume
-        assert model2.direction == model.direction
-        assert model2.source == model.source
-
-        # 测试from_model的类型验证
-        with pytest.raises(TypeError):
-            Tick.from_model("invalid_string")
-
-        with pytest.raises(TypeError):
-            Tick.from_model(123)
-
-        with pytest.raises(TypeError):
-            Tick.from_model({"invalid": "dict"})
-
-        with pytest.raises(TypeError):
-            Tick.from_model(None)
 
 
 @pytest.mark.unit

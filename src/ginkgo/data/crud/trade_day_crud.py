@@ -19,6 +19,7 @@ from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.entities import TradeDay
 from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import TradeDayMapper
 
 
 @restrict_crud_access
@@ -81,7 +82,7 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
         Returns:
             List of TradeDay business objects
         """
-        return [TradeDay.from_model(model) for model in models]
+        return [TradeDayMapper.from_model(model) for model in models]
 
     def _create_from_params(self, **kwargs) -> MTradeDay:
         """

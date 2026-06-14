@@ -83,6 +83,48 @@ class EngineService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get engine data: {str(e)}")
 
+    # ===== ADR-010 Phase 4 R1a：类型即契约多出口（DF 出口，纯增量） =====
+
+    def _build_engine_filters(self, engine_id: str = None, name: str = None,
+                              is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> dict:
+        """从业务参数构造 Engine CRUD filters。get_engines_df 独立使用（DRY）。
+
+        filter 域与现有 get() 一致（engine_id→uuid / name / is_live / status），
+        固定排除 is_del=True。未抽改 get()，保持纯增量。
+        """
+        filters = {}
+        if engine_id:
+            filters['uuid'] = engine_id
+        if name:
+            filters['name'] = name
+        if is_live is not None:
+            filters['is_live'] = is_live
+        if status:
+            filters['status'] = status
+        filters['is_del'] = False
+        return filters
+
+    def get_engines_df(self, engine_id: str = None, name: str = None,
+                       is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
+        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        """
+        try:
+            filters = self._build_engine_filters(
+                engine_id=engine_id, name=name, is_live=is_live, status=status,
+            )
+            model_list = self._crud_repo.find(filters=filters)
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} engine records (DataFrame)",
+            )
+        except Exception as e:
+            return ServiceResult.error(f"Failed to get engine data (df): {str(e)}")
+
     def count(self, name: str = None, is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
         """
         Count engine quantity

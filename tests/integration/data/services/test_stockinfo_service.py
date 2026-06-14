@@ -192,7 +192,7 @@ class TestStockinfoServiceCRUD:
             pytest.skip("无法创建测试数据")
 
         code = sample_stockinfo.code
-        result = stockinfo_service.get(code=code)
+        result = stockinfo_service.get_stockinfos(code=code)
 
         assert result.success
         assert result.data is not None
@@ -200,16 +200,16 @@ class TestStockinfoServiceCRUD:
         assert result.data[0].code == code
 
     def test_get_stockinfo_all(self, stockinfo_service):
-        """测试获取所有股票信息"""
-        result = stockinfo_service.get()
+        """测试获取所有股票信息（ADR-010：Entity 出口返 list）"""
+        result = stockinfo_service.get_stockinfos()
 
         assert result.success
         assert result.data is not None
         assert isinstance(result.data, list)
 
     def test_get_stockinfo_not_found(self, stockinfo_service):
-        """测试获取不存在的股票信息"""
-        result = stockinfo_service.get(code="NONEXISTENT_CODE_999999.SZ")
+        """测试获取不存在的股票信息（ADR-010：Entity 出口）"""
+        result = stockinfo_service.get_stockinfos(code="NONEXISTENT_CODE_999999.SZ")
 
         assert result.success
         assert len(result.data) == 0

@@ -520,9 +520,11 @@ def list_components(
         from ginkgo.libs.utils.display import display_dataframe
         
         if component_type == ComponentType.ENGINES:
+            import pandas as pd
             from ginkgo.data.containers import container
             engine_service = container.engine_service()
-            df = engine_service.get_engines()
+            _eng_result = engine_service.get_engines_df()
+            df = _eng_result.data if (_eng_result.success and _eng_result.data is not None) else pd.DataFrame()
             columns_config = {
                 "uuid": {"display_name": "Engine ID", "style": "cyan"},
                 "name": {"display_name": "Name", "style": "green"},

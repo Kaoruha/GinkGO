@@ -765,7 +765,7 @@ def show(
                 console.print("")
 
     # 获取数据
-    data_result = result_service.get_analyzer_values(
+    data_result = result_service.get_analyzer_values_df(
         task_id=task_id,
         portfolio_id=portfolio_id,
         analyzer_name=analyzer
@@ -777,7 +777,8 @@ def show(
         raise typer.Exit(1)
 
     # 转换为 DataFrame
-    result_df = data_result.data.to_dataframe()
+    import pandas as pd
+    result_df = data_result.data if isinstance(data_result.data, pd.DataFrame) else pd.DataFrame()
 
     if result_df is None or result_df.shape[0] == 0:
         console.print(":exclamation: [yellow]没有数据可显示[/yellow]")

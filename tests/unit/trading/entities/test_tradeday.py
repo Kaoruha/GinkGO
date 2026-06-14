@@ -56,8 +56,9 @@ class TestTradeDayConstruction:
         assert nasdaq_tradeday.timestamp == datetime.datetime(2023, 1, 1)
 
     def test_base_class_inheritance(self):
-        """测试Base类继承验证"""
-        # 验证正确继承Base类的功能 - 使用有效参数创建实例
+        """测试ValueObject继承验证（ADR-010: Base→ValueObject 迁移）"""
+        # ADR-010 Phase 2 后：TradeDay 不再继承 Base，改为 ValueObject
+        from ginkgo.entities.value_object import ValueObject
         from ginkgo.entities.base import Base
 
         tradeday = TradeDay(
@@ -66,12 +67,16 @@ class TestTradeDayConstruction:
             timestamp="2023-01-03"
         )
 
-        # 验证继承关系
-        assert isinstance(tradeday, Base)
+        # 验证继承关系：VO 不再继承 Base
+        assert isinstance(tradeday, ValueObject)
+        assert not isinstance(tradeday, Base)
 
-        # 验证Base类的基本功能（如UUID）
+        # ValueObject 不自动生成 uuid，默认 ""
         assert hasattr(tradeday, 'uuid')
-        assert len(tradeday.uuid) > 0
+        assert tradeday.uuid == ""
+        # 传入 uuid 则保真
+        td2 = TradeDay(market=MARKET_TYPES.CHINA, is_open=True, timestamp="2023-01-03", uuid="td-uuid-1")
+        assert td2.uuid == "td-uuid-1"
 
     def test_market_enum_assignment(self):
         """测试市场枚举分配"""

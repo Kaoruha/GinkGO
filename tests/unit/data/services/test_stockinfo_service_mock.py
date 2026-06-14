@@ -178,18 +178,44 @@ class TestCount:
 
 
 class TestGet:
-    """get 查询方法测试"""
+    """get 查询方法测试。"""
+
+    # get() 已加 DeprecationWarning（ADR-010 Phase 4.2）。
+    # 本类测试验证 get() 向后兼容行为（委托 Entity 出口），仍需调用 get()，
+    # 故类级抑制 DeprecationWarning（不删测试、不改掉 get 调用）。
+    pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
     @pytest.mark.unit
     def test_get_all(self, service, mock_deps):
-        """无过滤条件时返回所有记录"""
+        """无过滤条件时返回所有记录（ADR-010：get 委托 Entity 出口，返 List[StockInfo]）"""
+        # get() 现委托 get_stockinfos() -> StockInfoMapper.from_models(model_list)
+        # mock crud_repo.find 返回 truthy ModelList（非 None 即走 from_models 分支），
+        # 再 patch from_models 返回真实 List[StockInfo]，反映新契约。
         mock_model_list = MagicMock()
         mock_model_list.__len__ = MagicMock(return_value=2)
         mock_deps["crud_repo"].find.return_value = mock_model_list
 
-        result = service.get()
+        from ginkgo.entities import StockInfo as _StockInfo
+        expected_entities = [
+            _StockInfo(code="000001.SZ", code_name="平安银行"),
+            _StockInfo(code="000002.SZ", code_name="万科A"),
+        ]
+        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.from_models",
+                   return_value=expected_entities) as mock_map:
+            result = service.get()
+
         assert result.success is True
-        assert result.data is mock_model_list
+        # ADR-010：get() 现返 List[StockInfo]，既不透传 ModelList 也不是 DataFrame
+        from ginkgo.data.crud.model_conversion import ModelList
+        import pandas as pd
+        assert not isinstance(result.data, ModelList)
+        assert not isinstance(result.data, pd.DataFrame)
+        assert isinstance(result.data, list)
+        assert len(result.data) == 2
+        assert all(isinstance(item, _StockInfo) for item in result.data)
+        assert result.data[0].code == "000001.SZ"
+        # 验证 mapper 被正确委托
+        mock_map.assert_called_once()
 
     @pytest.mark.unit
     def test_get_with_code_filter(self, service, mock_deps):
@@ -231,14 +257,14 @@ class TestGet:
 
     @pytest.mark.unit
     def test_get_with_name_filter(self, service, mock_deps):
-        """按 name 过滤时使用 name__contains"""
+        """按 name 过滤时使用 name__like"""
         mock_model_list = MagicMock()
         mock_model_list.__len__ = MagicMock(return_value=0)
         mock_deps["crud_repo"].find.return_value = mock_model_list
 
         result = service.get(name="平安")
         call_kwargs = mock_deps["crud_repo"].find.call_args
-        assert call_kwargs[1]["filters"]["name__contains"] == "平安"
+        assert call_kwargs[1]["filters"]["name__like"] == "平安"
 
     @pytest.mark.unit
     def test_get_exception(self, service, mock_deps):

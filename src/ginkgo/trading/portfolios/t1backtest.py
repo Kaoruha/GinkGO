@@ -358,11 +358,8 @@ class PortfolioT1Backtest(PortfolioBase):
         if order.volume == 0:
             self.blog.log_order_rejected_event(order_id=order.uuid, reject_code="ZERO_VOLUME", reject_reason=f"Zero volume after risk management for {event.code}")
             return
-        order.frozen_money = round(order.frozen_money, 2)
-        order.remain = round(order.remain, 2)
-        # 若未显式设置remain，则以冻结金额为准，便于部分成交按剩余冻结处理
-        if order.remain is None or to_decimal(order.remain) == 0:
-            order.remain = to_decimal(order.frozen_money)
+        # 规整冻结资金精度（A股最小单位分）+ remain 兜底（ADR-010 V5：normalize_freeze）
+        order.normalize_freeze(2)
 
         # 5. Cash/Position freezing
         if order.direction == DIRECTION_TYPES.LONG:
@@ -623,16 +620,8 @@ class PortfolioT1Backtest(PortfolioBase):
 
             fill_cost = price * qty + fee
 
-            # 更新订单累计成交与剩余冻结
-            try:
-                order.transaction_volume = min(order.volume, order.transaction_volume + qty)
-            except Exception as e:
-                self.blog.log_engine_error_event(error_code="TRANSACTION_VOLUME_FAILED", error_message=str(e))
-
-            if not hasattr(order, "remain") or order.remain is None:
-                order.remain = order.frozen_money
-            order.remain = to_decimal(order.remain)
-            order.remain = max(Decimal("0"), order.remain - fill_cost)
+            # 累计成交 + 扣减剩余冻结资金（ADR-010 V5：settle，内部守 min 截断 + remain 兜底 + ≥0）
+            order.settle(qty, price, fee)
 
             is_final = (
                 getattr(event, "order_status", None) == ORDERSTATUS_TYPES.FILLED
@@ -647,10 +636,10 @@ class PortfolioT1Backtest(PortfolioBase):
                 # 从冻结资金中扣除成交成本
                 self.deduct_from_frozen(cost=fill_cost, unfreeze_remain=unfreeze_remain)
 
-                # 同步更新订单的剩余冻结金额
-                order.remain = max(Decimal("0"), order.remain - fill_cost)
+                # 同步扣减订单剩余冻结（ADR-010 V5：deduct_remain，保持预存资金同步语义）
+                order.deduct_remain(fill_cost)
                 if is_final:
-                    order.remain = Decimal("0")
+                    order.release_frozen()
 
                 self.add_fee(fee)
 
@@ -814,7 +803,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 if remain > 0:
                     self.unfreeze(remain)
                     if order is not None:
-                        order.remain = Decimal("0")
+                        order.release_frozen()
             elif direction == DIRECTION_TYPES.SHORT:
                 code = event.code
                 pos = self.positions.get(code)

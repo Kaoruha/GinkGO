@@ -1019,7 +1019,7 @@ class TestAdjustFactorCRUDConversions:
 
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
-            entities = model_list.to_entities()
+            entities = list(model_list)  # adjustfactor hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
             assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
@@ -1060,7 +1060,7 @@ class TestAdjustFactorCRUDConversions:
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
             df2 = model_list.to_dataframe()
-            entities2 = model_list.to_entities()
+            entities2 = list(model_list)
             # 验证结果一致性
             assert df.equals(df2), "DataFrame缓存结果应一致"
             assert len(entities) == len(entities2), "实体列表缓存结果应一致"
@@ -1071,7 +1071,7 @@ class TestAdjustFactorCRUDConversions:
             empty_model_list = adjustfactor_crud.find(filters={"code": "NONEXISTENT_CONVERT_FACTOR"})
             assert len(empty_model_list) == 0, "空ModelList长度应为0"
             empty_df = empty_model_list.to_dataframe()
-            empty_entities = empty_model_list.to_entities()
+            empty_entities = list(empty_model_list)
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert empty_df.shape[0] == 0, "空DataFrame行数应为0"
             assert isinstance(empty_entities, list), "空转换应返回列表"
@@ -1081,7 +1081,7 @@ class TestAdjustFactorCRUDConversions:
             # 测试6: 单个Model的to_entity转换
             print("\n→ 测试单个Model的to_entity转换...")
             single_model = model_list[0]  # 获取第一个Model
-            single_entity = single_model.to_entity()
+            single_entity = single_model  # identity：ORM 模型本身即业务对象
             print(f"✓ 单个Model转换: {single_model.code} → {single_entity.code}")
 
             assert isinstance(single_entity, MAdjustfactor), "单个Model应转换为MAdjustfactor对象"

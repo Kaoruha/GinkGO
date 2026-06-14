@@ -40,32 +40,6 @@ class PriceUpdateDTO(BaseModel):
     trace_id: Optional[str] = Field(None, description="分布式追踪ID（用于跨服务日志关联）")
     span_id: Optional[str] = Field(None, description="Span ID（用于调用链中的子操作）")
 
-    @classmethod
-    def from_tick(cls, tick_event) -> "PriceUpdateDTO":
-        """
-        从Tick事件创建DTO
-
-        Args:
-            tick_event: EventPriceUpdate事件对象
-
-        Returns:
-            PriceUpdateDTO实例
-        """
-        return cls(
-            symbol=tick_event.code,
-            timestamp=tick_event.timestamp,
-            price=getattr(tick_event, 'price', None),
-            bid_price=getattr(tick_event, 'bid_price', None),
-            ask_price=getattr(tick_event, 'ask_price', None),
-            open_price=getattr(tick_event, 'open_price', None),
-            high_price=getattr(tick_event, 'high_price', None),
-            low_price=getattr(tick_event, 'low_price', None),
-            volume=getattr(tick_event, 'volume', None),
-            amount=getattr(tick_event, 'amount', None),
-            bid_volume=getattr(tick_event, 'bid_volume', None),
-            ask_volume=getattr(tick_event, 'ask_volume', None),
-        )
-
     def to_bar_dict(self) -> dict:
         """
         转换为K线数据字典（用于当日K线推送）

@@ -1,5 +1,5 @@
 # Upstream: Data Sources (TDX实时行情生成Tick)、Backtest Engines (处理高频Tick事件)
-# Downstream: Base (继承提供uuid/component_type)、TICKDIRECTION_TYPES/SOURCE_TYPES (枚举)
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)；uuid 自留，无 component_type、TICKDIRECTION_TYPES/SOURCE_TYPES (枚举)
 # Role: Tick逐笔成交数据实体继承Base定义代码/价格/量/方向/时间/来源等核心属性
 
 
@@ -12,11 +12,11 @@ import pandas as pd
 from decimal import Decimal
 from functools import singledispatchmethod
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.entities.base import Base
-from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
-class Tick(Base):
+class Tick(ValueObject):
     def __init__(
         self,
         code: str,
@@ -29,7 +29,9 @@ class Tick(Base):
         *args,
         **kwargs,
     ) -> None:
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.TICK, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
         self.set(code, price, volume, direction, timestamp, source)
 
     @singledispatchmethod
@@ -97,7 +99,11 @@ class Tick(Base):
         self._timestamp = datetime_normalize(df["timestamp"])
 
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df["source"]))
+            self._source = SOURCE_TYPES(df["source"])
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def symbol(self) -> str:
@@ -128,62 +134,5 @@ class Tick(Base):
     def source(self) -> SOURCE_TYPES:
         return self._source
 
-    def to_model(self):
-        """
-        Convert Tick entity to MTick database model.
-
-        Returns:
-            MTick: Database model instance
-        """
-        from ginkgo.data.models import MTick
-
-        model = MTick()
-        model.update(
-            self._code,  # code作为第一个位置参数
-            price=self._price,
-            volume=self._volume,
-            direction=self._direction,
-            timestamp=self._timestamp,
-            source=self._source
-        )
-        return model
-
-    @classmethod
-    def from_model(cls, model):
-        """
-        Create Tick entity from MTick database model.
-
-        Args:
-            model (MTick): Database model instance
-
-        Returns:
-            Tick: Tick entity instance
-
-        Raises:
-            TypeError: If model is not an MTick instance
-        """
-        from ginkgo.data.models import MTick
-        from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
-
-        # Validate model type
-        if not isinstance(model, MTick):
-            raise TypeError(f"Expected MTick instance, got {type(model).__name__}")
-
-        # Convert direction from int back to enum
-        direction = TICKDIRECTION_TYPES.from_int(model.direction) or TICKDIRECTION_TYPES.VOID
-
-        # Convert source from int back to enum
-        source = SOURCE_TYPES.from_int(model.source) or SOURCE_TYPES.OTHER
-
-        return cls(
-            code=model.code,
-            price=model.price,
-            volume=model.volume,
-            direction=direction,
-            timestamp=model.timestamp,
-            source=source
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, "DB" + Tick.__name__.capitalize(), 12, 46)
-

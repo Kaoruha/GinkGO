@@ -35,6 +35,7 @@ from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
 from ginkgo.enums import SOURCE_TYPES
+from ginkgo.data.mappers import BarMapper
 
 
 class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
@@ -240,12 +241,12 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
                 end_date=target_time.date()
             )
 
-            if not result.success or result.data.empty():
+            if not result.success or not result.data:
                 GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
                 return events
 
-            # 转换ModelList → 业务对象列表
-            bar_entities = result.data.to_entities()
+            # 转换ModelList → 业务对象列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
+            bar_entities = BarMapper.from_models(result.data)
 
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None

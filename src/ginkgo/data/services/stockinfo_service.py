@@ -17,14 +17,16 @@ Following BarService standard for unified architecture.
 """
 
 import time
+import warnings
 import pandas as pd
-from typing import List, Any, Union, Dict, Optional
+from typing import Optional, Any
 from datetime import datetime
 
 from ginkgo.libs import RichProgress, cache_with_expiration, retry
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers.stockinfo_mapper import StockInfoMapper
 from ginkgo.entities import StockInfo
 from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GCONF
@@ -367,70 +369,141 @@ class StockinfoService(BaseService):
                 message=f"Failed to search stock info: {str(e)}"
             )
 
+    # ===== ADR-010 Phase 4.2：多出口私有辅助（DRY，三出口共用） =====
+
+    def _build_filters(self, code=None, name=None, exchange=None,
+                       industry=None, market=None, status=None) -> dict:
+        """从业务参数构造 CRUD filters 字典。三个出口共用，避免重复。"""
+        filters = {}
+        if code is not None:
+            filters['code'] = code
+        if name is not None:
+            filters['name__like'] = name
+        if exchange is not None:
+            filters['exchange'] = exchange
+        if industry is not None:
+            filters['industry'] = industry
+        if market is not None:
+            filters['market'] = market
+        if status is not None:
+            filters['status'] = status
+        return filters
+
+    def _build_query(self, limit=None, offset=None, order_by=None,
+                     desc_order: bool = False) -> dict:
+        """从分页/排序参数构造 CRUD find 查询参数。三出口共用。"""
+        query_params = {}
+        if limit is not None:
+            query_params['page_size'] = limit
+        if offset is not None:
+            query_params['page'] = offset
+        if order_by is not None:
+            query_params['order_by'] = order_by
+            query_params['desc_order'] = desc_order
+        return query_params
+
+    def _find_modellist(self, **filter_and_query) -> ModelList:
+        """统一的 CRUD find 调用：拆 filters / 分页参数。返回 ModelList（可能空）。"""
+        code = filter_and_query.pop('code', None)
+        name = filter_and_query.pop('name', None)
+        exchange = filter_and_query.pop('exchange', None)
+        industry = filter_and_query.pop('industry', None)
+        market = filter_and_query.pop('market', None)
+        status = filter_and_query.pop('status', None)
+        limit = filter_and_query.pop('limit', None)
+        offset = filter_and_query.pop('offset', None)
+        order_by = filter_and_query.pop('order_by', None)
+        desc_order = filter_and_query.pop('desc_order', False)
+
+        filters = self._build_filters(
+            code=code, name=name, exchange=exchange,
+            industry=industry, market=market, status=status,
+        )
+        query_params = self._build_query(
+            limit=limit, offset=offset, order_by=order_by, desc_order=desc_order,
+        )
+        return self._crud_repo.find(filters=filters, **query_params)
+
+    # ===== ADR-010 Phase 4.2：类型即契约多出口 =====
+
+    def get_stockinfos_df(self, code: str = None, name: str = None, exchange: str = None,
+                          industry: str = None, market: str = None, status: str = None,
+                          limit: int = None, offset: int = None, order_by: str = None,
+                          desc_order: bool = False) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList。
+        内部 find 返回 ModelList 后调 to_dataframe()；空结果返空 pd.DataFrame()。
+        """
+        try:
+            model_list = self._find_modellist(
+                code=code, name=name, exchange=exchange, industry=industry,
+                market=market, status=status, limit=limit, offset=offset,
+                order_by=order_by, desc_order=desc_order,
+            )
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Successfully retrieved {len(df)} stock records (DataFrame)",
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get stock info (df): {e}")
+            return ServiceResult.failure(
+                message=f"Failed to get stock information: {str(e)}"
+            )
+
+    def get_stockinfos(self, code: str = None, name: str = None, exchange: str = None,
+                       industry: str = None, market: str = None, status: str = None,
+                       limit: int = None, offset: int = None, order_by: str = None,
+                       desc_order: bool = False) -> ServiceResult:
+        """出口②：data 是 List[StockInfo] Entity（类型即契约）。
+
+        ADR-010：消费 Entity 语义走此出口，经 StockInfoMapper.from_models 转换。
+        空结果返空 list。
+        """
+        try:
+            model_list = self._find_modellist(
+                code=code, name=name, exchange=exchange, industry=industry,
+                market=market, status=status, limit=limit, offset=offset,
+                order_by=order_by, desc_order=desc_order,
+            )
+            entities = StockInfoMapper.from_models(model_list) if model_list else []
+            return ServiceResult.success(
+                data=entities,
+                message=f"Successfully retrieved {len(entities)} stock records (Entity list)",
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get stock info (entity): {e}")
+            return ServiceResult.failure(
+                message=f"Failed to get stock information: {str(e)}"
+            )
+
     def get(self, code: str = None, name: str = None, exchange: str = None,
             industry: str = None, market: str = None, status: str = None,
             limit: int = None, offset: int = None, order_by: str = None,
             desc_order: bool = False) -> ServiceResult:
-        """
-        Query stock basic information with specific filter conditions.
+        """[Deprecated] 查询股票基础信息。
 
-        Args:
-            code: Stock code or code list
-            name: Stock name or name fragment
-            exchange: Exchange code
-            industry: Industry classification
-            market: Market type
-            status: Listing status
-            limit: Query result count limit
-            offset: Pagination offset
-            order_by: Sort field
-            desc_order: Whether to sort in descending order
+        ADR-010 Phase 4.2：原 get() 透传裸 ModelList（V11 重灾区）。现已改为
+        委托到 Entity 出口 get_stockinfos()——返 ``List[StockInfo]``，与原
+        ModelList 的「迭代 / ``.code`` / ``len()``」消费语义天然兼容（MStockInfo 与
+        StockInfo 都有 ``.code``）。**不再返回 ModelList，也不再返回 DataFrame**：
+        需要 DataFrame 的调用方应直接用 get_stockinfos_df()，需要 Entity 列表用
+        get_stockinfos()。
 
         Returns:
-            ServiceResult: Query result with ModelList object and statistics
-
-        Note:
-            Returned ModelList object supports to_entities() and to_dataframe() conversion methods
+            ServiceResult: data 为 List[StockInfo]（原 ModelList 迭代/.code/len 语义兼容）
         """
-        try:
-            # Build filters from specific parameters
-            filters = {}
-            if code is not None:
-                filters['code'] = code
-            if name is not None:
-                filters['name__like'] = name
-            if exchange is not None:
-                filters['exchange'] = exchange
-            if industry is not None:
-                filters['industry'] = industry
-            if market is not None:
-                filters['market'] = market
-            if status is not None:
-                filters['status'] = status
-
-            # Handle pagination and sorting
-            query_params = {}
-            if limit is not None:
-                query_params['page_size'] = limit
-            if offset is not None:
-                query_params['page'] = offset
-            if order_by is not None:
-                query_params['order_by'] = order_by
-                query_params['desc_order'] = desc_order
-
-            # Use CRUD repository to get data
-            model_list = self._crud_repo.find(filters=filters, **query_params)
-
-            return ServiceResult.success(
-                data=model_list,
-                message=f"Successfully retrieved {len(model_list) if model_list else 0} stock records"
-            )
-
-        except Exception as e:
-            self._logger.ERROR(f"Failed to get stock information: {e}")
-            return ServiceResult.failure(
-                message=f"Failed to get stock information: {str(e)}"
-            )
+        warnings.warn(
+            "StockinfoService.get() 已废弃：DataFrame 消费用 get_stockinfos_df()，Entity 列表用 get_stockinfos()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_stockinfos(
+            code=code, name=name, exchange=exchange, industry=industry,
+            market=market, status=status, limit=limit, offset=offset,
+            order_by=order_by, desc_order=desc_order,
+        )
 
     def count(self, code: str = None, name: str = None, exchange: str = None,
               industry: str = None, market: str = None, status: str = None) -> ServiceResult:

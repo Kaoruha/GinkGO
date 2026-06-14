@@ -71,7 +71,7 @@ class TickCRUD:
     特点：
     - 适配器模式：标准CRUD接口 + 动态Model适配
     - 唯一入口：一个实例处理所有股票代码
-    - 链式调用：results.to_dataframe(), results.to_entities()
+    - 链式调用：results.to_dataframe()
 
     Usage:
     # 创建唯一入口
@@ -84,12 +84,10 @@ class TickCRUD:
     # 查询操作 - 返回ModelList，支持链式调用
     results = tick_crud.find({"code": "000001.SZ", "price__gt": 10.0})
     df = results.to_dataframe()
-    objs = results.to_entities()
 
     # 业务辅助方法 - 一致的API
     results = tick_crud.find_by_time_range("000001.SZ", "2024-01-01", "2024-01-02")
     df = results.to_dataframe()  # ✅ 链式调用
-    objs = results.to_entities()  # ✅ 链式调用
     """
 
     def __init__(self):
@@ -693,7 +691,7 @@ class TickCRUD:
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList - supports to_dataframe() and to_entities()
+            ModelList - supports to_dataframe()
 
         Raises:
             ValueError: If filters don't include "code" field
@@ -761,7 +759,7 @@ class TickCRUD:
         """
         Business helper: Find ticks by time range and conditions.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe(), results.to_entities()
+        Returns ModelList for consistent API: results.to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -773,7 +771,7 @@ class TickCRUD:
             page_size: Page size for pagination
 
         Returns:
-            ModelList - supports to_dataframe() and to_entities()
+            ModelList - supports to_dataframe()
 
         Raises:
             ValueError: If code is not provided or invalid
@@ -781,7 +779,6 @@ class TickCRUD:
         Example:
             results = tick_crud.find_by_time_range("000001.SZ", "2024-01-01", "2024-01-02")
             df = results.to_dataframe()
-            objs = results.to_entities()
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -822,7 +819,7 @@ class TickCRUD:
         """
         Business helper: Find ticks by price range.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe(), results.to_entities()
+        Returns ModelList for consistent API: results.to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -832,7 +829,7 @@ class TickCRUD:
             end_time: Optional end time filter
 
         Returns:
-            ModelList - supports to_dataframe() and to_entities()
+            ModelList - supports to_dataframe()
 
         Raises:
             ValueError: If code is not provided or invalid
@@ -840,7 +837,6 @@ class TickCRUD:
         Example:
             results = tick_crud.find_by_price_range("000001.SZ", min_price=10.0, max_price=20.0)
             df = results.to_dataframe()
-            objs = results.to_entities()
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -878,7 +874,7 @@ class TickCRUD:
         """
         Business helper: Find large volume ticks.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe(), results.to_entities()
+        Returns ModelList for consistent API: results.to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -888,7 +884,7 @@ class TickCRUD:
             limit: Optional limit on number of results
 
         Returns:
-            ModelList - supports to_dataframe() and to_entities()
+            ModelList - supports to_dataframe()
 
         Raises:
             ValueError: If code is not provided or invalid
@@ -896,7 +892,6 @@ class TickCRUD:
         Example:
             results = tick_crud.find_large_volume_ticks("000001.SZ", min_volume=10000)
             df = results.to_dataframe()
-            objs = results.to_entities()
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -924,14 +919,14 @@ class TickCRUD:
         """
         Business helper: Get latest ticks for the stock.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe(), results.to_entities()
+        Returns ModelList for consistent API: results.to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
             limit: Optional limit on number of results
 
         Returns:
-            ModelList - supports to_dataframe() and to_entities()
+            ModelList - supports to_dataframe()
 
         Raises:
             ValueError: If code is not provided or invalid
@@ -939,7 +934,6 @@ class TickCRUD:
         Example:
             results = tick_crud.get_latest_ticks("000001.SZ", limit=100)
             df = results.to_dataframe()
-            objs = results.to_entities()
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):

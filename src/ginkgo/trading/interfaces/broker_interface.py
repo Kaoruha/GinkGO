@@ -81,9 +81,8 @@ class BrokerExecutionResult:
             # 事件携带 fill_price（事件字段，正确），但 order 对象自身字段也需更新，
             # 否则下游报告读取 order.transaction_price 恒为 0
             if self.filled_price and self.filled_price > 0:
-                from decimal import Decimal as _Decimal
-                self.order.transaction_price = _Decimal(str(self.filled_price))
-                self.order.transaction_volume = self.filled_volume
+                # broker 是成交价格权威，覆盖 transaction_*（ADR-010 V5：sync_fill）
+                self.order.sync_fill(self.filled_price, self.filled_volume)
 
             event = EventOrderPartiallyFilled(
                 order=self.order,

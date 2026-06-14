@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (判断交易日)、Data Services (同步交易日历)
-# Downstream: Base (继承提供uuid/component_type)、MARKET_TYPES (枚举CHINA/NASDAQ)
-# Role: TradeDay交易日历实体继承Base定义核心属性提供枚举验证和转换方法
+# Downstream: ValueObject (提供 to_dataframe/_convert_*)、MARKET_TYPES (枚举CHINA/NASDAQ)
+# Role: TradeDay交易日历值对象继承ValueObject定义核心属性提供枚举验证和转换方法；uuid 自留
 
 
 
@@ -11,12 +11,12 @@ import datetime
 import pandas as pd
 from functools import singledispatchmethod
 
-from ginkgo.entities.base import Base
-from ginkgo.enums import MARKET_TYPES, COMPONENT_TYPES
+from ginkgo.entities.value_object import ValueObject
+from ginkgo.enums import MARKET_TYPES
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class TradeDay(Base):
+class TradeDay(ValueObject):
     def __init__(
         self,
         market: MARKET_TYPES,
@@ -26,8 +26,9 @@ class TradeDay(Base):
         *args,
         **kwargs,
     ):
-        # 使用Base类初始化，传入组件类型和UUID
-        super().__init__(uuid=uuid, component_type=COMPONENT_TYPES.TRADEDAY, *args, **kwargs)
+        # VO 无身份机器：uuid 自留，不传 component_type
+        self._uuid = uuid
+        super().__init__()
 
         # 严格类型验证 - 确保参数类型正确
         if not isinstance(market, MARKET_TYPES):
@@ -128,6 +129,10 @@ class TradeDay(Base):
         self._timestamp = normalized_timestamp
 
     @property
+    def uuid(self) -> str:
+        return self._uuid
+
+    @property
     def market(self) -> MARKET_TYPES:
         return self._market
 
@@ -139,41 +144,5 @@ class TradeDay(Base):
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
 
-    @classmethod
-    def from_model(cls, model, *args, **kwargs):
-        """从数据模型创建TradeDay实例"""
-        # 处理market字段 - 支持整数和枚举类型
-        market_value = getattr(model, 'market', MARKET_TYPES.OTHER)
-        if isinstance(market_value, int):
-            # 如果是整数，转换为枚举对象
-            market = MARKET_TYPES(market_value)
-        elif isinstance(market_value, MARKET_TYPES):
-            # 如果已经是枚举对象，直接使用
-            market = market_value
-        else:
-            # 其他情况，使用默认值
-            market = MARKET_TYPES.OTHER
-
-        return cls(
-            market=market,
-            is_open=getattr(model, 'is_open', True),
-            timestamp=getattr(model, 'timestamp', '1990-01-01'),
-            uuid=getattr(model, 'uuid', ''),
-            *args,
-            **kwargs
-        )
-
-    def to_model(self, model_class, *args, **kwargs):
-        """转换为数据模型"""
-        return model_class(
-            market=self.market,
-            is_open=self.is_open,
-            timestamp=self.timestamp,
-            uuid=self.uuid,
-            *args,
-            **kwargs
-        )
-
     def __repr__(self) -> str:
         return base_repr(self, TradeDay.__name__, 20, 60)
-

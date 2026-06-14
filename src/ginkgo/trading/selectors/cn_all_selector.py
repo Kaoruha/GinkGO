@@ -31,10 +31,9 @@ class CNAllSelector(BaseSelector):
             return self._interested
         # 使用服务容器避免导入时的循环依赖问题
         from ginkgo.data.containers import container
-        result = container.stockinfo_service().get()
-        if result.success and hasattr(result.data, 'to_dataframe'):
-            df = result.data.to_dataframe()
-            self._interested = df["code"].tolist()
+        result = container.stockinfo_service().get_stockinfos_df()
+        if result.success and not result.data.empty:
+            self._interested = result.data["code"].tolist()
         else:
             self._interested = []
         return self._interested

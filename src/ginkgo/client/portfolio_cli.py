@@ -14,6 +14,7 @@ Ginkgo Portfolio CLI - 投资组合管理命令
 import json
 
 import typer
+import pandas as pd
 from typing import Optional, List
 from rich.console import Console
 from rich.table import Table
@@ -213,7 +214,7 @@ def list(
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get()
+        result = portfolio_service.get_portfolios_df()
 
         if result.success:
             portfolios_data = result.data
@@ -221,24 +222,15 @@ def list(
             # Raw output mode
             if raw:
                 import json
-                if hasattr(portfolios_data, 'to_dataframe'):
-                    portfolios_df = portfolios_data.to_dataframe()
-                    raw_data = portfolios_df.to_dict('records')
-                elif isinstance(portfolios_data, list):
-                    raw_data = [item.__dict__ if hasattr(item, '__dict__') else item for item in portfolios_data]
-                else:
-                    raw_data = portfolios_data
+                # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame
+                portfolios_df = portfolios_data if isinstance(portfolios_data, pd.DataFrame) else pd.DataFrame()
+                raw_data = portfolios_df.to_dict('records')
 
                 console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
                 return
 
-            if hasattr(portfolios_data, 'to_dataframe'):
-                import pandas as pd
-                portfolios_df = portfolios_data.to_dataframe()
-            elif isinstance(portfolios_data, list):
-                portfolios_df = pd.DataFrame(portfolios_data)
-            else:
-                portfolios_df = pd.DataFrame()
+            # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame（类型即契约，无需鸭子探测）
+            portfolios_df = portfolios_data if isinstance(portfolios_data, pd.DataFrame) else pd.DataFrame()
 
             if portfolios_df.empty:
                 console.print(":memo: No portfolios found.")

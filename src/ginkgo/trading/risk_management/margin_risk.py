@@ -50,7 +50,7 @@ class MarginRisk(BaseRiskManagement):
         if current_leverage >= self._forced_liquidation_ratio:
             factor = max(0.1, (self._max_leverage_ratio - current_leverage) /
                         (self._max_leverage_ratio - self._forced_liquidation_ratio))
-            order.volume = int(order.volume * factor)
+            order.adjust_volume(int(order.volume * factor))
         return order
 
     def generate_signals(self, portfolio_info: Dict, event) -> List[Signal]:

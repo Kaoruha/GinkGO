@@ -40,6 +40,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import pandas as pd
 from ginkgo.libs import GLOG
+from ginkgo.data.mappers import BarMapper
 
 
 class StrategyDataMixin:
@@ -153,8 +154,8 @@ class StrategyDataMixin:
                 self._data_stats['cache_misses'] += 1
                 return []
 
-            # 转换为Bar实体列表
-            bars = result.data.to_entities()
+            # 转换为Bar实体列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
+            bars = BarMapper.from_models(result.data)
 
             # 过滤无效数据
             bars = [b for b in bars if b.timestamp is not None]
