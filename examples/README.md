@@ -9,11 +9,11 @@
 确保您在项目根目录执行以下命令：
 
 ```bash
-# 安装Ginkgo包（可编辑模式）
-pip install -e .
+# 推荐：项目已迁移至 uv（见 uv.lock / 顶层 README）
+uv sync
 
-# 或者使用安装脚本
-python install.py
+# 备选：pip 可编辑安装（build-backend 为 setuptools，仍可用）
+pip install -e .
 ```
 
 ### 2. 配置环境

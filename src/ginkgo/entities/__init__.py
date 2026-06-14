@@ -1,8 +1,9 @@
 """
-Ginkgo Entities - 业务领域对象（Entity 层）
+Ginkgo Entities - 领域对象包（Entity 与 ValueObject，ADR-010）
 
-数据对象三层角色分离中的 **Entity 层**（详见 ADR-010）：
-- Entity（本包）：业务领域对象，跨层流通的规范形态；创建后 uuid 只读。
+数据对象三层角色分离的逻辑层（详见 ADR-010）：
+- **Entity**（本包，如 Signal/Order/Position）：有 uuid 的状态主体，跨层流通的规范形态。
+- **ValueObject**（本包，如 Adjustfactor/Tick）：无身份的领域值载体。
 - ORM（data/models/）：SQLAlchemy 持久化模型，仅 CRUD 层可见。
 - DTO（interfaces/dtos/）：API / 跨进程传输对象。
 - Mapper（data/mappers/）：Entity ↔ ORM ↔ DTO 转换的唯一通道。

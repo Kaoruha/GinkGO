@@ -1,6 +1,6 @@
 # Ginkgo Web UI
 
-Vue 3 + TypeScript + Ant Design Vue 前端。
+Vue 3 + TypeScript + shadcn-vue + Tailwind CSS 前端（技术栈以顶层 README 及 `package.json` 为准）。
 
 ## 开发
 
