@@ -375,6 +375,8 @@ class PortfolioService(BaseService):
                 "frozen": state["frozen"],
                 "total_fee": state["fee"],
                 "current_capital": str(current_capital),
+                # #6159: 持久化引擎时间，worker 重启后据此判定是否进入 REPLAY 快进历史
+                "engine_current_time": state.get("engine_current_time"),
             }
             self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=portfolio_updates)
 
@@ -439,12 +441,15 @@ class PortfolioService(BaseService):
 
             has_state = float(p.cash) > 0 or len(positions_data) > 0
 
+            et = p.engine_current_time
             return ServiceResult.success({
                 "cash": str(p.cash),
                 "frozen": str(p.frozen),
                 "fee": str(p.total_fee),
                 "positions": positions_data,
                 "has_state": has_state,
+                # #6159: 返回引擎时间，worker 据此判定是否进入 REPLAY 快进历史
+                "engine_current_time": et.isoformat() if et else None,
             })
 
         except Exception as e:

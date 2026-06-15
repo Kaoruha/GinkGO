@@ -625,3 +625,64 @@ class TestPersistState:
 
         assert result.is_success()
         mock_get.assert_not_called()
+
+    @pytest.mark.unit
+    def test_persists_engine_current_time(self, service, mock_deps):
+        """persist 应把 state['engine_current_time'] 写入 portfolio 表 (#6159 REPLAY 触发)。
+
+        worker._persist_all_portfolios 已注入 state['engine_current_time']（540 行），
+        但 persist 端若不存，REPLAY 的 is_replay 判定恒 False → worker 从不快进历史。
+        """
+        captured = {}
+        mock_deps["crud_repo"].modify.side_effect = lambda filters, updates: captured.update(updates)
+        state = self._make_state()
+        state["engine_current_time"] = "2026-05-07T15:00:00"
+
+        with patch.object(service, "_get_position_crud"):
+            service.persist_portfolio_state("port-001", state)
+
+        assert captured.get("engine_current_time") == "2026-05-07T15:00:00"
+
+    @pytest.mark.unit
+    def test_load_returns_engine_current_time(self, service, mock_deps):
+        """load 应返回 engine_current_time 供 worker 判 is_replay (#6159)。
+
+        worker 207 行 et = state_result.data.get("engine_current_time")，
+        load 端不返回则 et 恒 None。
+        """
+        import datetime
+        mock_portfolio = MagicMock()
+        mock_portfolio.cash = "500000"
+        mock_portfolio.frozen = "0"
+        mock_portfolio.total_fee = "100"
+        mock_portfolio.engine_current_time = datetime.datetime(2026, 5, 7, 15, 0, 0)
+        mock_deps["crud_repo"].find.return_value = [mock_portfolio]
+
+        mock_position_crud = MagicMock()
+        mock_position_crud.find.return_value = []
+
+        with patch.object(service, "_get_position_crud", return_value=mock_position_crud):
+            result = service.load_persisted_state("port-001")
+
+        assert result.is_success()
+        assert result.data.get("engine_current_time") is not None
+        assert "2026-05-07" in result.data["engine_current_time"]
+
+    @pytest.mark.unit
+    def test_load_returns_none_engine_time_when_absent(self, service, mock_deps):
+        """engine_current_time 缺失（旧组合/首次启动）应返回 None，不崩溃。"""
+        mock_portfolio = MagicMock()
+        mock_portfolio.cash = "500000"
+        mock_portfolio.frozen = "0"
+        mock_portfolio.total_fee = "100"
+        mock_portfolio.engine_current_time = None
+        mock_deps["crud_repo"].find.return_value = [mock_portfolio]
+
+        mock_position_crud = MagicMock()
+        mock_position_crud.find.return_value = []
+
+        with patch.object(service, "_get_position_crud", return_value=mock_position_crud):
+            result = service.load_persisted_state("port-001")
+
+        assert result.is_success()
+        assert result.data.get("engine_current_time") is None
