@@ -18,7 +18,9 @@
 | `source` | 1/15 设 STRATEGY，14 掉 OTHER（signal.py:36） | **8/8 全掉 OTHER** |
 | `business_timestamp` | 8 用 `portfolio_info["now"]`、1（Random）用 `provider.now()`；同源（portfolio_base.py:919）冗余 | 各类各异 |
 
-后果：同样"产生一个信号"，日志完整度与 `source` 字段因来源不同而不可靠——**静默数据质量漂移**。此外 `finalize()`/`on_data_updated()` 经 grep 无策略侧调用方（死方法），`validate_parameters()` 基类恒 `True`（仅 RandomSignalStrategy 覆写，#24 绑定时校验）。
+后果：同样"产生一个信号"，日志完整度与 `source` 字段因来源不同而不可靠——**静默数据质量漂移**。`validate_parameters()` 基类恒 `True`（仅 RandomSignalStrategy 覆写，#24 绑定时校验）。
+
+**已排除（非死代码）**：`finalize()`/`on_data_updated()` 虽无运行时调用方，但受 `StrategyProtocol`（interfaces/protocols/strategy.py:179/240）声明 + `test_strategy_protocol.py` 断言 `callable(...)` 双重守护，是接口契约占位（基类 stub 满足 protocol 返回类型）。删除会破 protocol 契约 + 红测试，不在本 ADR 范围——是否从协议移除策略生命周期概念属独立设计决策。
 
 ## Decision
 
@@ -29,7 +31,7 @@
 3. **`source`** —— 按角色缺省：Strategy→`SOURCE_TYPES.STRATEGY`，Risk→**新增 `SOURCE_TYPES.RISK`**；调用方可覆盖
 4. **ClickHouse 日志** —— 无条件调 `self.blog.signal(...)`；Strategy 传 `strategy_id=self.uuid`，Risk 传 `risk_id=self.uuid`
 
-配套：删除死方法 `finalize()`/`on_data_updated()`；收敛 4 个手写 blog 的策略（6 处）与 RandomSignalStrategy 的后置 `set_source`；`validate_parameters()` 留 hook + 默认 `True`（待类型化参数注入收编）。
+配套：收敛 4 个手写 blog 的策略（6 处）与 RandomSignalStrategy 的后置 `set_source`；`validate_parameters()` 留 hook + 默认 `True`（待类型化参数注入收编）。
 
 **两份 seam 同结构、不同参数**：Strategy 与 Risk 共享"构造 / 时间 / source / 日志"四件事，仅 source 缺省值与日志 id 字段按角色分叉。**不抽共享 mixin**——BaseStrategy/RiskBase 继承链已分，禁改 Base 类 norm（CLAUDE.md）下强行抽 mixin 牵动面更大，且收益（省一份 ~10 行样板）抵不过耦合成本。
 
