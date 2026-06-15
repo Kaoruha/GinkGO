@@ -53,7 +53,7 @@ pyarrow==17.0.0
 pydantic==2.10.6
 pydantic_core==2.27.2
 Pygments==2.19.2
-PyJWT==2.10.1
+PyJWT==2.13.0
 PyMySQL==1.1.1
 pynvml==11.5.3
 python-dateutil==2.9.0.post0
