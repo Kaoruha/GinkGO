@@ -245,14 +245,6 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
                 business_timestamp=business_timestamp,
             )
 
-            self.blog.signal(
-                symbol=code,
-                direction=direction.value if hasattr(direction, 'value') else str(direction),
-                signal_reason=signal.reason,
-                strategy_id=self.uuid,
-                msg=f"均值回归信号: {signal.reason}",
-            )
-
         return [signal] if signal else None
 
     def reset_state(self) -> None:
