@@ -23,6 +23,7 @@
 | ADR-008 | [策略框架能力边界](ADR-008-strategy-framework-capacity.md) | Accepted | 2026-06-03 |
 | ADR-009 | [全局服务容器 service_hub](ADR-009-global-service-hub.md) | Accepted | 2026-06-13 |
 | ADR-010 | [数据对象三层角色分离 Entity/ORM/DTO](ADR-010-entity-orm-dto-separation.md) | Accepted | 2026-06-13 |
+| ADR-011 | [信号发射统一 Seam（Strategy + Risk）](ADR-011-signal-emission-seam.md) | Accepted | 2026-06-15 |
 
 ## 如何新增 / 修订
 
