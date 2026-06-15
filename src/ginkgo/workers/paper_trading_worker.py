@@ -246,10 +246,37 @@ class PaperTradingWorker:
                 end_time=real_now,
             )
             engine._time_provider = replay_provider
-            GLOG.INFO(
-                f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
-                f"task_id={task_id}"
-            )
+            # #6159: propagate LogicalTimeProvider 到 feeder + portfolio。
+            # 不能用 engine.set_time_provider()——它对 LIVE/PAPER mode 校验拒绝
+            # LogicalTimeProvider（time_controlled_engine.py:382），故只能裸赋值 engine；
+            # 但 feeder/portfolio 各自持有独立的 time_provider 引用，必须手动同步，
+            # 否则 REPLAY 快进时 feeder.advance_time_to 仍走 SystemTimeProvider →
+            # 报 "Cannot set time in system time mode" → 0 喂 bar → 0 Signal。
+            for portfolio in engine.portfolios:
+                try:
+                    portfolio.set_time_provider(replay_provider)
+                except Exception as e:
+                    GLOG.WARN(
+                        f"[PAPER-WORKER] propagate time provider to portfolio "
+                        f"{portfolio.name} failed: {e}"
+                    )
+            _replay_feeder = getattr(engine, "_datafeeder", None)
+            if _replay_feeder is not None and hasattr(_replay_feeder, "set_time_provider"):
+                try:
+                    _replay_feeder.set_time_provider(replay_provider)
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
+                        f"task_id={task_id}, propagated LogicalTimeProvider to feeder"
+                    )
+                except Exception as e:
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] propagate time provider to feeder failed: {e}"
+                    )
+            else:
+                GLOG.INFO(
+                    f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
+                    f"task_id={task_id}"
+                )
         else:
             task_id = f"paper-{session_ts}"
             engine.set_task_id(task_id)
@@ -979,6 +1006,27 @@ class PaperTradingWorker:
             f"[PAPER-WORKER] {self.worker_id}: Subscribed to "
             f"{KafkaTopics.CONTROL_COMMANDS}"
         )
+
+        # #6159: 启动自动 REPLAY（快进历史交易日）—— worker 重启后若引擎时间
+        # 落后于当前日期，自动跑 run_daily_cycle 追历史。不依赖外部 Kafka 命令触发：
+        # Consumer offset="latest"，命令若在消费者完成 group join（加入消费组）前
+        # 发出会被静默跳过（实测 "Received command" 计数=0），导致 run_daily_cycle
+        # 永不执行 → 0 advance → 0 Signal。REPLAY 是启动恢复语义，本就该自动跑。
+        if self._is_replay_mode():
+            GLOG.INFO(
+                f"[PAPER-WORKER] {self.worker_id}: REPLAY mode detected on start, "
+                f"auto-running daily cycle to catch up history"
+            )
+            try:
+                result = self.run_daily_cycle()
+                GLOG.INFO(
+                    f"[PAPER-WORKER] {self.worker_id}: Auto REPLAY done: "
+                    f"skipped={result.skipped}, advanced={result.advanced}"
+                )
+            except Exception as e:
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] {self.worker_id}: Auto REPLAY failed: {e}"
+                )
 
         # 进入消费循环
         self._consume_loop()

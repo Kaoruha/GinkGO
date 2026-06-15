@@ -139,6 +139,71 @@ class TestAssembleEngine:
         # Portfolio 应已添加到引擎
         mock_engine_instance.add_portfolio.assert_called_once()
 
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.feeders.backtest_feeder.BacktestFeeder")
+    @patch("ginkgo.trading.gateway.trade_gateway.TradeGateway")
+    @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
+    @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_replay_propagates_logical_provider_to_feeder(self, mock_portfolio_cls,
+                                                          mock_engine_cls, mock_broker,
+                                                          mock_gateway, mock_feeder,
+                                                          mock_loader):
+        """#6159: REPLAY 模式设 LogicalTimeProvider 后必须 propagate 到 feeder。
+
+        否则 feeder 仍用 SystemTimeProvider，REPLAY 快进时 feeder.advance_time_to
+        报 'Cannot set time in system time mode' → 0 喂 bar → 0 Signal。
+        这是 paper 端到端冒烟的核心阻塞点。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        from ginkgo.trading.time.providers import LogicalTimeProvider
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-001"
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.PAPER.value
+        mock_db_portfolio.initial_cash = 100000.0
+
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container = MagicMock()
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        # load_persisted_state 返回历史 engine_time → 触发 is_replay
+        mock_pservice = MagicMock()
+        state = MagicMock()
+        state.is_success.return_value = True
+        state.data = {
+            "has_state": True,
+            "engine_current_time": "2026-05-07T15:00:00",
+            "cash": "100000", "frozen": "0", "fee": "0", "positions": {},
+        }
+        mock_pservice.load_persisted_state.return_value = state
+        mock_container.portfolio_service.return_value = mock_pservice
+
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance.uuid = "p-001"
+        mock_portfolio_instance.portfolio_id = "p-001"
+        mock_portfolio_cls.return_value = mock_portfolio_instance
+
+        mock_feeder_instance = MagicMock()
+        mock_engine_instance = MagicMock()
+        mock_engine_instance.portfolios = [mock_portfolio_instance]
+        mock_engine_instance._datafeeder = mock_feeder_instance
+        mock_engine_cls.return_value = mock_engine_instance
+
+        worker = PaperTradingWorker(worker_id="test-replay")
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value={"strategies": [], "risk_managers": [], "analyzers": [],
+                                 "selectors": [], "sizers": []}):
+            worker.assemble_engine(mock_container)
+
+        # feeder 必须收到 LogicalTimeProvider，否则 REPLAY 快进喂 bar 全失败
+        mock_feeder_instance.set_time_provider.assert_called()
+        args, _ = mock_feeder_instance.set_time_provider.call_args
+        assert isinstance(args[0], LogicalTimeProvider), \
+            f"feeder 必须收到 LogicalTimeProvider，实际 {type(args[0]).__name__}"
+
 
 class TestDailyCycle:
     """每日循环逻辑测试"""
@@ -537,6 +602,29 @@ class TestStartStop:
         worker._running = True
         worker.stop()
         assert worker.is_running is False
+
+    @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoConsumer")
+    @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer")
+    def test_start_auto_runs_replay_when_replay_mode(self, mock_producer_cls, mock_consumer_cls):
+        """#6159: worker 启动时若处于 REPLAY mode，应自动跑 run_daily_cycle 快进历史。
+
+        根因：run_daily_cycle 唯一入口是 _handle_command 的 "paper_trading" 命令，
+        但 Kafka Consumer offset="latest"，命令若在 consumer 完成 group join 前发出
+        会被静默跳过（smoke 实测 "Received command" 计数=0）→ run_daily_cycle 永不
+        执行 → 0 advance → 0 Signal。
+        修复：start() 在 _consume_loop 前检测 _is_replay_mode 自动触发，不依赖命令。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker, DailyCycleResult
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        with patch.object(worker, "_is_replay_mode", return_value=True), \
+             patch.object(worker, "run_daily_cycle",
+                          return_value=DailyCycleResult(skipped=False, advanced=True)) as mock_cycle, \
+             patch.object(worker, "_consume_loop") as mock_loop:
+            worker.start()
+
+        mock_cycle.assert_called_once()
+        mock_loop.assert_called_once()
 
 
 class TestDailyCycleResult:
