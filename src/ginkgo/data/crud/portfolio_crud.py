@@ -220,22 +220,28 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
     def find_by_live_status(self, is_live: bool) -> List[MPortfolio]:
         """
-        [已废弃] 按实盘状态查询投资组合
+        [已废弃] 按"是否在盘"查询投资组合。
+
+        语义对齐 MPortfolio.is_live property：is_live 即 mode >= PAPER（PAPER + LIVE）。
+        三态化前的旧实现把 True 二值映射成 LIVE，会漏掉 PAPER 组合（#6144）。
 
         .. deprecated::
-            此方法已废弃，请使用 find_by_mode() 替代。
+            此方法已废弃，新代码请用 find_by_mode() 按单模式查询。
 
             迁移示例:
                 旧: find_by_live_status(is_live=True)
-                新: find_by_mode(PORTFOLIO_MODE_TYPES.LIVE)
+                新: find_paper_portfolios() + find_live_portfolios()  # PAPER + LIVE
+                    或 find_by_mode(PORTFOLIO_MODE_TYPES.LIVE)        # 仅 LIVE
 
         Args:
-            is_live: True=实盘, False=回测
+            is_live: True=PAPER+LIVE（在盘），False=BACKTEST（回测）
 
         Returns:
             符合条件的投资组合列表
         """
         GLOG.WARN("find_by_live_status is deprecated, use find_by_mode instead")
-        mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
-        return self.find_by_mode(mode)
+        if is_live:
+            # is_live property 语义：mode >= PAPER → PAPER + LIVE（与 plan_manager 双模式查询一致）
+            return self.find_paper_portfolios() + self.find_live_portfolios()
+        return self.find_by_mode(PORTFOLIO_MODE_TYPES.BACKTEST)
 

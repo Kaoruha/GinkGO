@@ -323,6 +323,62 @@ class TestPortfolioCRUDQuery:
             print(f"✗ 实盘状态查询失败: {e}")
             raise
 
+    def test_find_by_live_status_includes_paper(self):
+        """find_by_live_status(True) 必须返回所有 is_live 组合（PAPER + LIVE）。
+
+        对齐 MPortfolio.is_live property 语义：mode >= PAPER 即"活的"。
+        回归 #6144：旧的 True→LIVE 二值映射会漏掉 PAPER 组合。
+        """
+        print("\n" + "=" * 60)
+        print("开始测试: find_by_live_status(True) 包含 PAPER 组合")
+        print("=" * 60)
+
+        portfolio_crud = PortfolioCRUD()
+        prefix = "test_find_live_status_6144_"
+        inserted = [
+            MPortfolio(name=f"{prefix}paper", mode=PORTFOLIO_MODE_TYPES.PAPER.value,
+                       state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, source=SOURCE_TYPES.TEST),
+            MPortfolio(name=f"{prefix}live", mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                       state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, source=SOURCE_TYPES.TEST),
+            MPortfolio(name=f"{prefix}backtest", mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                       state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value, source=SOURCE_TYPES.TEST),
+        ]
+
+        try:
+            portfolio_crud.add_batch(inserted)
+            print(f"✓ 插入 3 个测试组合: PAPER / LIVE / BACKTEST")
+
+            # is_live=True → PAPER + LIVE（对齐 is_live property: mode >= PAPER）
+            live_result = portfolio_crud.find_by_live_status(True)
+            live_names = {p.name for p in live_result}
+            print(f"→ find_by_live_status(True) 命中: {sorted(n for n in live_names if n.startswith(prefix))}")
+
+            assert f"{prefix}paper" in live_names, "PAPER 组合应被 find_by_live_status(True) 返回"
+            assert f"{prefix}live" in live_names, "LIVE 组合应被 find_by_live_status(True) 返回"
+            assert f"{prefix}backtest" not in live_names, "BACKTEST 组合不应被 find_by_live_status(True) 返回"
+
+            # is_live=False → 仅 BACKTEST
+            backtest_result = portfolio_crud.find_by_live_status(False)
+            backtest_names = {p.name for p in backtest_result}
+            print(f"→ find_by_live_status(False) 命中: {sorted(n for n in backtest_names if n.startswith(prefix))}")
+
+            assert f"{prefix}backtest" in backtest_names, "BACKTEST 组合应被 find_by_live_status(False) 返回"
+            assert f"{prefix}paper" not in backtest_names, "PAPER 组合不应被 find_by_live_status(False) 返回"
+            assert f"{prefix}live" not in backtest_names, "LIVE 组合不应被 find_by_live_status(False) 返回"
+
+            print("✓ find_by_live_status 语义对齐 is_live property 验证通过")
+
+        except Exception as e:
+            print(f"✗ 查询失败: {e}")
+            raise
+        finally:
+            # 清理本测试插入的行，避免污染
+            try:
+                for p in portfolio_crud.find(filters={"name__like": prefix, "source": SOURCE_TYPES.TEST.value}):
+                    portfolio_crud.delete(p.uuid)
+            except Exception as cleanup_err:
+                print(f"⚠ 清理失败: {cleanup_err}")
+
     def test_find_by_time_range(self):
         """测试根据创建时间范围查询Portfolio"""
         print("\n" + "="*60)
