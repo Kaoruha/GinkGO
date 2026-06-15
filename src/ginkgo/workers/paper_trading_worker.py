@@ -649,6 +649,11 @@ class PaperTradingWorker:
                 break
 
         if total_advanced > 0:
+            # drain 异步事件队列：保证 advance_time_to 入队的 REPLAY 推进事件
+            # （feeder feed + portfolio T+1 结算）在切 SystemTimeProvider 前处理完，
+            # 否则残留事件用 System provider 报 'Cannot set time in system time mode'。
+            self._drain_event_queue()
+
             # 偏差检查
             try:
                 self._run_deviation_check()
@@ -666,6 +671,43 @@ class PaperTradingWorker:
         # 没有推进过，可能已经追上了
         self._transition_to_live()
         return DailyCycleResult(skipped=False, advanced=False)
+
+    def _drain_event_queue(self, timeout: int = 30) -> bool:
+        """等待事件队列处理完所有残留事件。
+
+        REPLAY 快进的 advance_time_to 通过异步事件队列推进（main_thread 处理），
+        而 _transition_to_live 同步切 SystemTimeProvider。若残留 REPLAY 事件在
+        provider 切换后才被 main_thread 处理，portfolio.advance_time 会用已切换的
+        SystemTimeProvider 报 'Cannot set time in system time mode'，阻断 feeder 喂 bar。
+
+        切 LIVE 前必须 drain，保证所有 REPLAY 推进事件（feeder feed + portfolio
+        T+1 结算）在 provider 切换前处理完。
+        """
+        import time
+        engine = self._engine
+        if not hasattr(engine, "_event_queue"):
+            return True
+        deadline = time.time() + timeout
+        empty_streak = 0
+        last_qsize = -1
+        while time.time() < deadline:
+            try:
+                last_qsize = engine._event_queue.qsize()
+            except Exception:
+                return True
+            if last_qsize == 0:
+                empty_streak += 1
+                # 连续多次空判定为处理完（避开 main_thread 正处理最后一个的窗口）
+                if empty_streak >= 3:
+                    return True
+            else:
+                empty_streak = 0
+            time.sleep(0.05)
+        GLOG.WARN(
+            f"[PAPER-WORKER] drain event queue timeout after {timeout}s, "
+            f"qsize={last_qsize}"
+        )
+        return False
 
     def _transition_to_live(self) -> None:
         """从 REPLAY 切换到 LIVE_PAPER 模式"""

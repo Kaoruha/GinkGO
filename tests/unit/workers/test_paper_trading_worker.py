@@ -218,6 +218,53 @@ class TestDailyCycle:
         worker._engine.is_running = True
         return worker
 
+    def test_drain_event_queue_returns_true_on_empty(self):
+        """#6159: 空队列时 drain 立即返回 True（无残留事件）。"""
+        import queue as queue_mod
+        worker = self._make_worker_with_engine()
+        worker._engine._event_queue = queue_mod.Queue()
+
+        assert worker._drain_event_queue(timeout=1) is True
+
+    def test_replay_drains_queue_before_transition(self):
+        """#6159: _run_replay_cycle 必须在 _transition_to_live 前 drain 事件队列。
+
+        竞态根因：advance_time_to 异步入队（main_thread 处理），_transition_to_live
+        同步切 SystemTimeProvider。若不 drain，残留 REPLAY 事件在切换后处理 →
+        portfolio.advance_time 用 SystemTimeProvider 报 'Cannot set time in system
+        time mode'，阻断 feeder 喂 bar → 0 Signal。
+        """
+        from datetime import datetime, date
+        worker = self._make_worker_with_engine()
+
+        # 共享 tracker 记录 drain/transition 调用顺序
+        tracker = MagicMock()
+        worker._drain_event_queue = tracker.drain
+        worker._transition_to_live = tracker.transition
+        worker._persist_all_portfolios = MagicMock()
+        worker._run_deviation_check = MagicMock()
+
+        # engine.now 初始历史 → 触发 advance；advance_time_to 后跳到 real_today → break
+        worker._engine.now = datetime(2026, 6, 4)
+
+        def fake_advance(t):
+            worker._engine.now = datetime(2026, 6, 16)
+        worker._engine.advance_time_to.side_effect = fake_advance
+
+        with patch("ginkgo.services") as mock_services:
+            mock_td = MagicMock()
+            next_day = MagicMock()
+            next_day.date.return_value = date(2026, 6, 5)
+            mock_td.get_next_trading_day.return_value = next_day
+            mock_services.data.cruds.trade_day.return_value = mock_td
+            worker._run_replay_cycle()
+
+        names = [c[0] for c in tracker.mock_calls]
+        assert "drain" in names, f"drain 未被调用: {names}"
+        assert "transition" in names
+        assert names.index("drain") < names.index("transition"), \
+            f"drain 必须在 transition 前，实际顺序: {names}"
+
     def test_skip_on_non_trading_day(self):
         """非交易日应跳过推进"""
         from ginkgo.workers.paper_trading_worker import PaperTradingWorker
