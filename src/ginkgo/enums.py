@@ -156,6 +156,7 @@ class SOURCE_TYPES(EnumBase):
     PAPER_LIVE = 19     # 实盘模拟（真实市场数据）
     MANUAL = 20         # 手动录入
     OKX = 21            # OKX 交易所
+    RISK = 22           # 风控组件（RiskBase.create_signal 信号源）
 
 
 class DIRECTION_TYPES(EnumBase):
