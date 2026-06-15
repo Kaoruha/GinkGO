@@ -24,12 +24,33 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
 
+def _json_default(o):
+    """json.dumps 的 default 兜底：非 JSON 原生类型转可序列化形式。
+
+    datetime/date → ISO 字符串；Decimal 等其余 → str。防止 value_serializer
+    因业务对象非原生类型抛 TypeError 被 send 的 except 静默吞掉（#6161）。
+    """
+    from datetime import date as _date, datetime as _datetime
+    if isinstance(o, (_datetime, _date)):
+        return o.isoformat()
+    return str(o)
+
+
+def serialize_value(v) -> bytes:
+    """Kafka 消息序列化（GinkgoProducer.value_serializer 引用）。
+
+    JSON-safe：对 datetime/Decimal 等非原生类型兜底，保证含 datetime 的
+    DTO payload 能成功序列化写入 topic（#6161）。消费端 json.loads 往返恢复 dict。
+    """
+    return json.dumps(v, default=_json_default).encode("utf-8")
+
+
 class GinkgoProducer(object):
     def __init__(self):
         try:
             self.producer = KafkaProducer(
                 bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-                value_serializer=lambda v: json.dumps(v).encode("utf-8"),  # 消息序列化
+                value_serializer=serialize_value,  # 消息序列化（datetime/Decimal 兜底 #6161）
                 request_timeout_ms=10000,  # 10秒连接超时
                 metadata_max_age_ms=300000,  # 5分钟元数据更新间隔
                 retries=3,  # 自动重试3次
