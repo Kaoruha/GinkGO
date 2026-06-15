@@ -72,6 +72,13 @@ def resolve_param_kwargs(
     direct_score = _score_mapping(kwargs, param_indices)
     shifted_score = _score_mapping(shifted, shifted_indices)
 
+    # #6159: 提取器跳过了框架参数(如 name) → param_names 比 component_params 少一项，
+    # 而 DB 仍把被跳过的值(如 name)存在 index0。直接映射会把该值错绑给第一个
+    # 业务参数(如 FixedSelector codes 拿到 'default_selector')。此时偏移映射才正确：
+    # index1→param_names[0] 把真业务值绑对。仅当 len 相等(DB 未存 name)时不触发。
+    if shifted and len(param_names) < len(component_params):
+        return shifted
+
     # 平分时优先旧索引兼容方案，避免 [1,2] 被误解释为第二、第三个业务参数
     if shifted_score[0] > direct_score[0]:
         return shifted
