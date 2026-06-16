@@ -45,9 +45,9 @@
 
 ## Consequences
 
-- **行为变更（难逆转）**：23 个子类（15 Strategy + 8 Risk）将统一记 ClickHouse 信号日志；`source` 默认由 OTHER 变 STRATEGY（Strategy）/ RISK（Risk），均可覆盖。
+- **行为变更（难逆转）**：23 个子类（15 Strategy + 8 Risk）将统一记 ClickHouse 信号日志（ginkgo_logs_backtest 的 SIGNALGENERATION 行）；Signal 实体的 `source` 默认由 OTHER 变 STRATEGY（Strategy）/ RISK（Risk），均可覆盖。
 - **新增枚举值**：`SOURCE_TYPES.RISK`（建议 =22），Int8 列免 ALTER。
-- **验证方式**：一次回测前后对比 ClickHouse 信号行——修复前仅 4 策略有日志、source 混乱、Risk 完全无日志；修复后齐日志、source 按角色分明。比单测更能证明 drift 修好。
+- **验证方式**：drift 修复落在两个独立观测面——(1) **齐日志**：组件经 seam 调 `blog.signal()` → ginkgo_logs_backtest 的 SIGNALGENERATION 行齐全（注意：该行 `source` 是引擎级 BACKTEST，由 `engine_ctx.source_type` 注入，与信号角色无关，非 drift）；(2) **source 按角色分明**：指 Signal 实体的 `source`（STRATEGY/RISK，seam 缺省设，单元测试验证），Signal 是事件流内存对象，不落 ClickHouse signal 表/MySQL signal_tracker（两者本环境均 0 行）。
 - **交叉引用**：ADR-001（组件单向流，`cal()`/`generate_signals()` 契约不变）、ADR-008（框架能力边界机制层细化）、ADR-010（Signal 是 Entity，发射 seam 耦合构造与观测）、ADR-007（Int8 列使加 source 值不破"Model 驱动建表"）。
 - **未决（与本 ADR 正交，单独处理）**：4 处 `isinstance(event, EventPriceUpdate)` guard 多半死防御（需先确认 portfolio handler 注册的事件类型再删）；`initialize()` 签名错配（strategy_adapter.py:156 传 `**kwargs`、基类收 `context: Dict`）。
 
