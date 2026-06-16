@@ -91,6 +91,63 @@ class TestAssembleEngine:
     @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
     @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
     @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_assemble_engine_passes_time_to_selector_pick(self, mock_portfolio_cls,
+                                                           mock_engine_cls, mock_broker,
+                                                           mock_gateway, mock_feeder,
+                                                           mock_loader):
+        """assemble_engine 初始化 selector 应传非 None time（#6159 bug#6）。
+
+        worker 曾无参调 selector.pick() → MomentumSelector.pick(time=None) →
+        datetime_normalize(None)=None → None-timedelta 崩溃（unsupported operand
+        type(s) for -: 'NoneType' and 'datetime.timedelta'）。selector 选股失败 →
+        _interested_codes 空 → feeder WARN "No interested symbols" → PRICEUPDATE=0
+        → signal=0。传 datetime.now() 让依赖 time 的 selector（如 Momentum）能算
+        日期窗口；不依赖 time 的 selector（如 CNAll）忽略该参数不受影响。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        # 带 selector 的 portfolio，直接挂到 engine.portfolios
+        mock_selector = MagicMock()
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance._selectors = [mock_selector]
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-001"
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.PAPER.value
+        mock_db_portfolio.initial_cash = 100000.0
+
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container = MagicMock()
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        mock_components = {
+            "strategies": [], "risk_managers": [], "analyzers": [],
+            "selectors": [], "sizers": [],
+        }
+
+        mock_engine_instance = MagicMock()
+        mock_engine_instance.portfolios = [mock_portfolio_instance]
+        mock_engine_cls.return_value = mock_engine_instance
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value=mock_components):
+            worker.assemble_engine(mock_container)
+
+        # 断言 pick 被调且传了非 None time（位置参数或 time= kwarg）
+        mock_selector.pick.assert_called()
+        call_args = mock_selector.pick.call_args
+        time_arg = call_args.args[0] if call_args.args else call_args.kwargs.get("time")
+        assert time_arg is not None, "selector.pick 必须传非 None time（#6159 bug#6）"
+
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.feeders.backtest_feeder.BacktestFeeder")
+    @patch("ginkgo.trading.gateway.trade_gateway.TradeGateway")
+    @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
+    @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
     def test_loads_papers_portfolios_from_db(self, mock_portfolio_cls,
                                               mock_engine_cls,
                                               mock_broker, mock_gateway,

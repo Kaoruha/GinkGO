@@ -184,7 +184,12 @@ class PaperTradingWorker:
                 if hasattr(portfolio, "_selectors") and portfolio._selectors:
                     for selector in portfolio._selectors:
                         if hasattr(selector, "pick"):
-                            selector.pick()
+                            # #6159 bug#6: 必须传非 None time。MomentumSelector.pick(time=None)
+                            # → datetime_normalize(None)=None → None-timedelta 崩溃 → selector
+                            # 选股失败 → _interested_codes 空 → feeder WARN "No interested symbols"
+                            # → PRICEUPDATE=0 → signal=0。传 now() 作种子；后续 portfolio.advance_time
+                            # 会用 time provider 的逻辑时间重新 pick 覆盖。CNAllSelector 不用 time 不受影响。
+                            selector.pick(datetime.now())
             except Exception as e:
                 GLOG.WARN(
                     f"[PAPER-WORKER] selector.pick() failed for "
