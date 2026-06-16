@@ -128,7 +128,8 @@ class TestTrendFollowCal:
         portfolio_info = _make_portfolio_info()
         event = _make_event("000001.SZ")
 
-        # Mock engine_id and task_id as they are read-only properties from context
+        # Mock context properties (read-only) so create_signal can build a Signal
+        type(strategy).portfolio_id = PropertyMock(return_value="portfolio-001")
         type(strategy).engine_id = PropertyMock(return_value="engine-001")
         type(strategy).task_id = PropertyMock(return_value="run-001")
         event = _make_event("000001.SZ")
@@ -166,6 +167,7 @@ class TestTrendFollowCal:
         portfolio_info = _make_portfolio_info()
         event = _make_event("000001.SZ")
 
+        type(strategy).portfolio_id = PropertyMock(return_value="portfolio-001")
         type(strategy).engine_id = PropertyMock(return_value="engine-001")
         type(strategy).task_id = PropertyMock(return_value="run-001")
         event = _make_event("000001.SZ")

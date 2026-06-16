@@ -27,7 +27,7 @@ from ginkgo.libs import GLOG
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities import Signal
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES
 
 
 class RandomSignalStrategy(BaseStrategy):
@@ -230,10 +230,6 @@ class RandomSignalStrategy(BaseStrategy):
                 reason=reason,
                 business_timestamp=timestamp      # 使用TimeProvider的业务时间
             )
-
-            # 设置信号来源
-            if hasattr(signal, 'set_source'):
-                signal.set_source(SOURCE_TYPES.STRATEGY)
 
             return signal
 

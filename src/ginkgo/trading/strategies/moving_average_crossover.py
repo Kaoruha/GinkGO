@@ -292,15 +292,6 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
 
             GLOG.INFO(f"{self.name}: {code} {signal.reason}")
 
-            # 记录信号事件到ClickHouse（使用快捷访问）
-            self.blog.signal(
-                symbol=code,
-                direction=direction.value if hasattr(direction, 'value') else str(direction),
-                signal_reason=signal.reason,
-                strategy_id=self.uuid,
-                msg=f"MA交叉信号: {signal.reason}",
-            )
-
         return [signal] if signal else None
 
     def reset_state(self) -> None:

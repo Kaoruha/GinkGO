@@ -158,14 +158,6 @@ class Momentum(BaseStrategy, StrategyDataMixin):
             )
             signals.append(signal)
 
-            self.blog.signal(
-                symbol=code,
-                direction=DIRECTION_TYPES.LONG.value,
-                signal_reason=signal.reason,
-                strategy_id=self.uuid,
-                msg=f"动量买入: {code} 动量={momentum:.4f}",
-            )
-
         elif momentum < -self.momentum_threshold and has_position:
             signal = self.create_signal(
                 code=code,
@@ -174,14 +166,6 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                 business_timestamp=current_time,
             )
             signals.append(signal)
-
-            self.blog.signal(
-                symbol=code,
-                direction=DIRECTION_TYPES.SHORT.value,
-                signal_reason=signal.reason,
-                strategy_id=self.uuid,
-                msg=f"动量卖出: {code} 动量={momentum:.4f}",
-            )
 
         return signals
 

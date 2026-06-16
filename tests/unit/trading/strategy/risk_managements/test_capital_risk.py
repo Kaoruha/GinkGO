@@ -84,7 +84,11 @@ class TestCapitalRiskUtilizationControl:
 
     def test_utilization_warning_level(self):
         r = CapitalRisk(max_capital_usage_ratio=0.9, single_trade_max_ratio=0.1)
-        r._context = type('C', (), {'engine_id': 'test_engine'})()
+        r._context = type('C', (), {
+            'engine_id': 'test_engine',
+            'portfolio_id': 'test_portfolio',
+            'task_id': 'test_task',
+        })()
         signals = r.generate_signals(
             _make_portfolio_info(capital_info={"used_ratio": 0.85}),
             _make_bar()
@@ -148,7 +152,11 @@ class TestCapitalRiskCashReserve:
 
     def test_cash_reserve_warning_mechanism(self):
         r = CapitalRisk(max_capital_usage_ratio=0.9)
-        r._context = type('C', (), {'engine_id': 'test_engine'})()
+        r._context = type('C', (), {
+            'engine_id': 'test_engine',
+            'portfolio_id': 'test_portfolio',
+            'task_id': 'test_task',
+        })()
         signals = r.generate_signals(
             _make_portfolio_info(capital_info={"used_ratio": 0.82}),
             _make_bar()
@@ -235,7 +243,11 @@ class TestCapitalRiskOrderProcessing:
 class TestCapitalRiskSignalGeneration:
     def test_high_utilization_signal(self):
         r = CapitalRisk(max_capital_usage_ratio=0.9)
-        r._context = type('C', (), {'engine_id': 'test_engine'})()
+        r._context = type('C', (), {
+            'engine_id': 'test_engine',
+            'portfolio_id': 'test_portfolio',
+            'task_id': 'test_task',
+        })()
         signals = r.generate_signals(
             _make_portfolio_info(capital_info={"used_ratio": 0.85}),
             _make_bar()
@@ -246,7 +258,11 @@ class TestCapitalRiskSignalGeneration:
 
     def test_cash_reserve_depletion_signal(self):
         r = CapitalRisk(max_capital_usage_ratio=0.9)
-        r._context = type('C', (), {'engine_id': 'test_engine'})()
+        r._context = type('C', (), {
+            'engine_id': 'test_engine',
+            'portfolio_id': 'test_portfolio',
+            'task_id': 'test_task',
+        })()
         signals = r.generate_signals(
             _make_portfolio_info(capital_info={"used_ratio": 0.5}),
             _make_bar()
@@ -255,7 +271,11 @@ class TestCapitalRiskSignalGeneration:
 
     def test_allocation_imbalance_signal(self):
         r = CapitalRisk(max_capital_usage_ratio=0.9)
-        r._context = type('C', (), {'engine_id': 'test_engine'})()
+        r._context = type('C', (), {
+            'engine_id': 'test_engine',
+            'portfolio_id': 'test_portfolio',
+            'task_id': 'test_task',
+        })()
         signals = r.generate_signals(
             _make_portfolio_info(capital_info={"used_ratio": 0.91}),
             _make_bar()

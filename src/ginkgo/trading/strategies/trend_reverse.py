@@ -198,14 +198,6 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                 )
                 signals.append(signal)
 
-                self.blog.signal(
-                    symbol=code,
-                    direction=direction.value if hasattr(direction, 'value') else str(direction),
-                    signal_reason=signal.reason,
-                    strategy_id=self.uuid,
-                    msg=f"趋势反转信号: {signal.reason}",
-                )
-
             # 从看多 变为 非看多（看空） → 卖出
             elif prev_bullish is not None and prev_bullish and is_bearish:
                 direction = DIRECTION_TYPES.SHORT
@@ -224,14 +216,6 @@ class TrendFollow(BaseStrategy, StrategyDataMixin):
                     business_timestamp=portfolio_info.get("now"),
                 )
                 signals.append(signal)
-
-                self.blog.signal(
-                    symbol=code,
-                    direction=direction.value if hasattr(direction, 'value') else str(direction),
-                    signal_reason=signal.reason,
-                    strategy_id=self.uuid,
-                    msg=f"趋势反转信号: {signal.reason}",
-                )
 
             # 更新状态：True=看多排列, False=其他
             self._prev_alignment[code] = is_bullish

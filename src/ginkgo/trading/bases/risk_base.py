@@ -19,6 +19,7 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
 from ginkgo.entities.mixins import EngineBindableMixin
 from ginkgo.entities.mixins import NamedMixin
+from ginkgo.enums import SOURCE_TYPES
 
 if TYPE_CHECKING:
     from ginkgo.entities import Order
@@ -105,15 +106,47 @@ class RiskBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
     def create_signal(self, code: str, direction, reason: str = "",
                       volume: int = 0, weight: float = 0.0,
                       strength: float = 0.5, confidence: float = 0.5,
+                      business_timestamp=None, source=None,
                       **kwargs):
         """
-        创建带有完整上下文的风控信号。
+        信号发射 seam（ADR-011, #6160）：单一入口背后藏四件事，调用方只见业务参数。
 
-        自动填充 portfolio_id、engine_id、task_id，风控组件只需关注业务参数。
+        1. 构造 Signal —— 自动填 portfolio/engine/task_id
+        2. business_timestamp —— 缺省 get_time_provider().now()；provider 未绑定留 None；
+           调用方传值时覆盖（不查 provider）
+        3. source —— 缺省 SOURCE_TYPES.RISK；调用方可覆盖
+        4. ClickHouse 日志 —— 无条件 blog.signal(strategy_id=self.uuid)
+           注：strategy_id 参数名历史沿用，泛指信号生成组件 uuid（Strategy/Risk 共用）；
+           来源区分由 Signal.source（STRATEGY/RISK）承担。
+
+        Args:
+            code: 股票代码
+            direction: 交易方向 (DIRECTION_TYPES)
+            reason: 信号原因
+            volume: 建议交易量
+            weight: 信号权重
+            strength: 信号强度
+            confidence: 信号置信度
+            business_timestamp: 业务时间戳；None 时取 provider.now()，provider 未绑定留 None
+            source: 信号来源；None 时缺省 RISK
+            **kwargs: 其他 Signal 参数
+
+        Returns:
+            Signal: 带完整上下文、source、时间戳的信号对象
         """
         from ginkgo.entities import Signal
 
-        return Signal(
+        # source：组件拥有的值，缺省 RISK，可覆盖（值归组件原则）
+        if source is None:
+            source = SOURCE_TYPES.RISK
+
+        # business_timestamp：provider 有则取 now()，无则留 None（三层契约支撑）
+        if business_timestamp is None:
+            provider = self.get_time_provider()
+            if provider is not None:
+                business_timestamp = provider.now()
+
+        signal = Signal(
             portfolio_id=self.portfolio_id or "",
             engine_id=self.engine_id or "",
             task_id=self.task_id or "",
@@ -124,5 +157,17 @@ class RiskBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
             weight=weight,
             strength=strength,
             confidence=confidence,
+            source=source,
+            business_timestamp=business_timestamp,
             **kwargs,
         )
+
+        # ClickHouse 信号日志：框架拥有的基础设施，无条件（ADR-011）
+        self.blog.signal(
+            symbol=code,
+            direction=direction.value if hasattr(direction, 'value') else str(direction),
+            signal_reason=reason,
+            strategy_id=self.uuid,
+            msg=reason,
+        )
+        return signal
