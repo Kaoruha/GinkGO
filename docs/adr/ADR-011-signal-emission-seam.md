@@ -29,11 +29,11 @@
 1. **构造** Signal（现状）—— 自动填 portfolio/engine/task_id
 2. **`business_timestamp`** —— 缺省 `self.get_time_provider().now()`；provider 为 None 时**留 None**（全链路契约支持，见 Rationale）；调用方可覆盖
 3. **`source`** —— 按角色缺省：Strategy→`SOURCE_TYPES.STRATEGY`，Risk→**新增 `SOURCE_TYPES.RISK`**；调用方可覆盖
-4. **ClickHouse 日志** —— 无条件调 `self.blog.signal(...)`；Strategy 传 `strategy_id=self.uuid`，Risk 传 `risk_id=self.uuid`
+4. **ClickHouse 日志** —— 无条件调 `self.blog.signal(...)`；Strategy/Risk 均传 `strategy_id=self.uuid`（参数名历史沿用，两 seam 共用，日志行结构一致；来源区分由 `Signal.source` 承担，见第 50 行）
 
 配套：收敛 4 个手写 blog 的策略（6 处）与 RandomSignalStrategy 的后置 `set_source`；`validate_parameters()` 留 hook + 默认 `True`（待类型化参数注入收编）。
 
-**两份 seam 同结构、不同参数**：Strategy 与 Risk 共享"构造 / 时间 / source / 日志"四件事，仅 source 缺省值与日志 id 字段按角色分叉。**不抽共享 mixin**——BaseStrategy/RiskBase 继承链已分，禁改 Base 类 norm（CLAUDE.md）下强行抽 mixin 牵动面更大，且收益（省一份 ~10 行样板）抵不过耦合成本。
+**两份 seam 同结构、不同参数**：Strategy 与 Risk 共享“构造 / 时间 / source / 日志”四件事，仅 source 缺省值按角色分叉（日志 id 字段共用 `strategy_id`，参数名历史沿用）。**不抽共享 mixin**——BaseStrategy/RiskBase 继承链已分，禁改 Base 类 norm（CLAUDE.md）下强行抽 mixin 牵动面更大，且收益（省一份 ~10 行样板）抵不过耦合成本。
 
 ## Rationale
 
