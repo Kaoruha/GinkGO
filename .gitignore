@@ -17,8 +17,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/      # 锚定仓库根：仅忽略 Python 构建产物，勿误伤 web-ui/src/lib（shadcn-vue 源码）
+/lib64/
 parts/
 sdist/
 var/
