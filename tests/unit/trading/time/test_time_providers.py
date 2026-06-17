@@ -445,21 +445,34 @@ class TestSystemTimeProviderOperations:
         # 验证带有正确时区
         assert provider_time.tzinfo == timezone.utc
 
-    def test_set_current_time_raises_not_implemented(self):
-        """测试set_current_time抛出NotImplementedError"""
-        provider = SystemTimeProvider()
-        some_time = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
-        # 系统时间模式不支持手动设置时间
-        with pytest.raises(NotImplementedError):
-            provider.set_current_time(some_time)
+    def test_set_current_time_is_noop_returns_true(self):
+        """系统时间模式 set_current_time 是空操作返回 True（#6159 bug#5）。
 
-    def test_advance_time_to_raises_not_implemented(self):
-        """测试advance_time_to抛出NotImplementedError"""
+        LogicalTimeProvider.set_current_time 契约是返回 bool（True 成功/False 拒绝），
+        TimeMixin.advance_time 据此判断是否继续后续处理。SystemTimeProvider 之前
+        raise NotImplementedError，破坏了 bool 契约——导致 advance_time 整个抛异常，
+        portfolio 的 T+1 结算 + signal 批处理不执行。
+        LIVE mode 的 timer 推进与残留 REPLAY 事件都会调 set_current_time，改为
+        no-op 返回 True（系统时钟自走，set 无意义但调用安全）。
+        """
         provider = SystemTimeProvider()
-        target_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
-        # 系统时间模式不支持推进时间
-        with pytest.raises(NotImplementedError):
-            provider.advance_time_to(target_time)
+        target = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+        # 空操作：不 raise，返回 True（符合 bool 契约）
+        result = provider.set_current_time(target)
+        assert result is True
+        # now() 仍是系统真实时间，set 未改变它（target 是 2023 远非现在）
+        assert abs((provider.now() - target).total_seconds()) > 1
+
+    def test_advance_time_to_is_noop_does_not_raise(self):
+        """系统时间模式 advance_time_to 是空操作不 raise（#6159 bug#5）。
+
+        与 set_current_time 同理：系统时钟自走，推进无意义但调用应安全。
+        """
+        provider = SystemTimeProvider()
+        target = datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+        # 空操作：不 raise
+        provider.advance_time_to(target)
+        assert abs((provider.now() - target).total_seconds()) > 1
 
     def test_can_access_time_real_time_check(self):
         """测试实盘模式的数据访问检查 - 处理市场数据延迟"""

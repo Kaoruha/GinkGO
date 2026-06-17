@@ -48,6 +48,30 @@ class TestParamIndexBackwardCompat:
         )
         assert result == {"codes": '"000001.SH"'}
 
+    def test_db_stores_name_at_index0_business_param_shifted(self):
+        """现实 deploy：DB 把 name 存在 index0，业务参数在 index1。
+        提取器跳过 name → param_names 少一项（len < component_params）。
+        应偏移映射，codes 拿到 index1 的真 codes 值，而非 index0 的 name 值。
+        (#6159 paper 冒烟根因：FixedSelector codes 错绑 'default_selector' → 0 bar)
+        """
+        param_names = {0: "codes"}
+        result = resolve_param_kwargs(
+            component_params=['default_selector', ['000858.SZ', '600519.SH']],
+            param_indices=[0, 1],
+            param_names=param_names,
+        )
+        assert result == {"codes": ['000858.SZ', '600519.SH']}
+
+    def test_db_stores_name_multi_business_params_shifted(self):
+        """多业务参数同理：DB index0=name，提取器跳过 → param_names 少一项 → 偏移。"""
+        param_names = {0: "codes", 1: "period"}
+        result = resolve_param_kwargs(
+            component_params=['StratName', '"000001.SH"', 14],
+            param_indices=[0, 1, 2],
+            param_names=param_names,
+        )
+        assert result == {"codes": '"000001.SH"', "period": 14}
+
     def test_empty_params_returns_empty(self):
         """无参数时返回空 dict"""
         result = resolve_param_kwargs(

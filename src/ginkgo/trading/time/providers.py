@@ -172,21 +172,22 @@ class SystemTimeProvider(ITimeProvider):
         """获取时间模式"""
         return self._mode
     
-    def set_current_time(self, timestamp: datetime) -> None:
-        """设置当前时间（系统时间模式下不支持）
-        
-        Raises:
-            NotImplementedError: 系统时间模式不支持设置时间
+    def set_current_time(self, timestamp: datetime) -> bool:
+        """设置当前时间（系统时间模式下为空操作）。
+
+        系统时钟自走，手动 set 无意义。但 LIVE mode 的 timer 推进与残留 REPLAY
+        事件会调用此方法，raise 会破坏 bool 契约（LogicalTimeProvider 返回 True/False）
+        导致 TimeMixin.advance_time 整个崩溃——portfolio 的 T+1 结算 + signal 批处理
+        不执行（#6159 bug#5）。改为 no-op 返回 True：调用安全，now() 仍返回系统真实时间。
         """
-        raise NotImplementedError("Cannot set time in system time mode")
-    
+        return True
+
     def advance_time_to(self, target_time: datetime) -> None:
-        """推进时间（系统时间模式下不支持）
-        
-        Raises:
-            NotImplementedError: 系统时间模式不支持推进时间
+        """推进时间（系统时间模式下为空操作）。
+
+        与 set_current_time 同理：系统时钟自走，推进无意义但调用应安全。
         """
-        raise NotImplementedError("Cannot advance time in system time mode")
+        pass
     
     def can_access_time(self, requested_time: datetime) -> bool:
         """检查是否可以访问指定时间的数据

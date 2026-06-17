@@ -725,13 +725,7 @@ def unload_portfolio(
     GLOG.INFO(f"[UNLOAD] Unloading paper trading {portfolio_id}")
 
     try:
-        from ginkgo.messages.control_command import ControlCommand
-        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-        from ginkgo.interfaces.kafka_topics import KafkaTopics
-
-        cmd = ControlCommand.unload(portfolio_id)
-        producer = GinkgoProducer()
-        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+        success = _send_unload_command(portfolio_id)
 
         if success:
             console.print(Panel(
@@ -770,7 +764,7 @@ def _deploy_paper_trading(
         str: 新 Portfolio UUID
     """
     from ginkgo import services
-    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES, SOURCE_TYPES
 
     portfolio_service = services.data.portfolio_service()
     mapping_crud = services.data.cruds.portfolio_file_mapping()
@@ -801,33 +795,73 @@ def _deploy_paper_trading(
     new_portfolio_id = create_result.data["uuid"]
     GLOG.INFO(f"[DEPLOY] Created paper portfolio: {new_portfolio_id} ({new_name})")
 
-    # 3. 复制组件文件映射
+    # 3. 复制组件文件映射 + 参数
+    param_crud = services.data.cruds.param()
     mappings = mapping_crud.find(filters={"portfolio_id": source_portfolio_id, "is_del": False})
+    param_count = 0
     for mapping in mappings:
         mapping_type = mapping.type.value if hasattr(mapping.type, 'value') else mapping.type
-        mapping_crud.add(
+        # create(**kwargs) 返回带 uuid 的新 mapping（add 收 model 对象，传 kwargs 会 TypeError）
+        new_mapping = mapping_crud.create(
             portfolio_id=new_portfolio_id,
             file_id=mapping.file_id,
             name=mapping.name,
             type=mapping_type,
         )
+        # 复制源 mapping 的参数到新 mapping（mapping_id 指向新 uuid）
+        src_params = param_crud.find(filters={"mapping_id": mapping.uuid, "is_del": False})
+        for p in src_params:
+            param_crud.create(
+                mapping_id=new_mapping.uuid,
+                index=p.index,
+                value=p.value,
+                source=getattr(p, "source", SOURCE_TYPES.SIM),
+            )
+            param_count += 1
 
-    GLOG.INFO(f"[DEPLOY] Copied {len(mappings)} component mapping(s) to {new_portfolio_id}")
+    GLOG.INFO(
+        f"[DEPLOY] Copied {len(mappings)} component mapping(s) "
+        f"and {param_count} param(s) to {new_portfolio_id}"
+    )
 
     # 4. 存储 source_portfolio_id 映射 + 计算 baseline
     _store_deploy_source(new_portfolio_id, source_portfolio_id)
     _generate_baseline_if_possible(new_portfolio_id, source_portfolio_id)
 
     # 5. 发送 Kafka deploy 通知
+    _send_deploy_notification(new_portfolio_id)
+
+    return new_portfolio_id
+
+
+def _send_deploy_notification(portfolio_id: str) -> None:
+    """发送 deploy 命令到 Kafka（ControlCommand DTO 格式）。
+
+    历史：68b749e5 为修消息格式（portfolio_id 须在 params 内）内联此处并删除该
+    helper，但漏改 patch 它的测试，导致 TestDeployPaperTrading 全部 AttributeError。
+    此处恢复 seam，用正确的 ControlCommand.deploy().to_dict() 实现，而非被删的旧手搓 dict。
+    """
     from ginkgo.messages.control_command import ControlCommand
     from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
     from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-    cmd = ControlCommand.deploy(new_portfolio_id)
+    cmd = ControlCommand.deploy(portfolio_id)
     producer = GinkgoProducer()
     producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
-    return new_portfolio_id
+
+def _send_unload_command(portfolio_id: str) -> bool:
+    """发送 unload 命令到 Kafka（ControlCommand DTO 格式），返回是否发送成功。
+
+    与 _send_deploy_notification 同根（68b749e5 内联删除），一并恢复。
+    """
+    from ginkgo.messages.control_command import ControlCommand
+    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+    from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+    cmd = ControlCommand.unload(portfolio_id)
+    producer = GinkgoProducer()
+    return producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
 
 
 def _store_deploy_source(paper_portfolio_id: str, source_portfolio_id: str) -> None:

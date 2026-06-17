@@ -91,6 +91,63 @@ class TestAssembleEngine:
     @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
     @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
     @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_assemble_engine_passes_time_to_selector_pick(self, mock_portfolio_cls,
+                                                           mock_engine_cls, mock_broker,
+                                                           mock_gateway, mock_feeder,
+                                                           mock_loader):
+        """assemble_engine 初始化 selector 应传非 None time（#6159 bug#6）。
+
+        worker 曾无参调 selector.pick() → MomentumSelector.pick(time=None) →
+        datetime_normalize(None)=None → None-timedelta 崩溃（unsupported operand
+        type(s) for -: 'NoneType' and 'datetime.timedelta'）。selector 选股失败 →
+        _interested_codes 空 → feeder WARN "No interested symbols" → PRICEUPDATE=0
+        → signal=0。传 datetime.now() 让依赖 time 的 selector（如 Momentum）能算
+        日期窗口；不依赖 time 的 selector（如 CNAll）忽略该参数不受影响。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        # 带 selector 的 portfolio，直接挂到 engine.portfolios
+        mock_selector = MagicMock()
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance._selectors = [mock_selector]
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-001"
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.PAPER.value
+        mock_db_portfolio.initial_cash = 100000.0
+
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container = MagicMock()
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        mock_components = {
+            "strategies": [], "risk_managers": [], "analyzers": [],
+            "selectors": [], "sizers": [],
+        }
+
+        mock_engine_instance = MagicMock()
+        mock_engine_instance.portfolios = [mock_portfolio_instance]
+        mock_engine_cls.return_value = mock_engine_instance
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value=mock_components):
+            worker.assemble_engine(mock_container)
+
+        # 断言 pick 被调且传了非 None time（位置参数或 time= kwarg）
+        mock_selector.pick.assert_called()
+        call_args = mock_selector.pick.call_args
+        time_arg = call_args.args[0] if call_args.args else call_args.kwargs.get("time")
+        assert time_arg is not None, "selector.pick 必须传非 None time（#6159 bug#6）"
+
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.feeders.backtest_feeder.BacktestFeeder")
+    @patch("ginkgo.trading.gateway.trade_gateway.TradeGateway")
+    @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
+    @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
     def test_loads_papers_portfolios_from_db(self, mock_portfolio_cls,
                                               mock_engine_cls,
                                               mock_broker, mock_gateway,
@@ -139,6 +196,71 @@ class TestAssembleEngine:
         # Portfolio 应已添加到引擎
         mock_engine_instance.add_portfolio.assert_called_once()
 
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.feeders.backtest_feeder.BacktestFeeder")
+    @patch("ginkgo.trading.gateway.trade_gateway.TradeGateway")
+    @patch("ginkgo.trading.brokers.sim_broker.SimBroker")
+    @patch("ginkgo.trading.engines.time_controlled_engine.TimeControlledEventEngine")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_replay_propagates_logical_provider_to_feeder(self, mock_portfolio_cls,
+                                                          mock_engine_cls, mock_broker,
+                                                          mock_gateway, mock_feeder,
+                                                          mock_loader):
+        """#6159: REPLAY 模式设 LogicalTimeProvider 后必须 propagate 到 feeder。
+
+        否则 feeder 仍用 SystemTimeProvider，REPLAY 快进时 feeder.advance_time_to
+        报 'Cannot set time in system time mode' → 0 喂 bar → 0 Signal。
+        这是 paper 端到端冒烟的核心阻塞点。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        from ginkgo.trading.time.providers import LogicalTimeProvider
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-001"
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.PAPER.value
+        mock_db_portfolio.initial_cash = 100000.0
+
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container = MagicMock()
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        # load_persisted_state 返回历史 engine_time → 触发 is_replay
+        mock_pservice = MagicMock()
+        state = MagicMock()
+        state.is_success.return_value = True
+        state.data = {
+            "has_state": True,
+            "engine_current_time": "2026-05-07T15:00:00",
+            "cash": "100000", "frozen": "0", "fee": "0", "positions": {},
+        }
+        mock_pservice.load_persisted_state.return_value = state
+        mock_container.portfolio_service.return_value = mock_pservice
+
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance.uuid = "p-001"
+        mock_portfolio_instance.portfolio_id = "p-001"
+        mock_portfolio_cls.return_value = mock_portfolio_instance
+
+        mock_feeder_instance = MagicMock()
+        mock_engine_instance = MagicMock()
+        mock_engine_instance.portfolios = [mock_portfolio_instance]
+        mock_engine_instance._datafeeder = mock_feeder_instance
+        mock_engine_cls.return_value = mock_engine_instance
+
+        worker = PaperTradingWorker(worker_id="test-replay")
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value={"strategies": [], "risk_managers": [], "analyzers": [],
+                                 "selectors": [], "sizers": []}):
+            worker.assemble_engine(mock_container)
+
+        # feeder 必须收到 LogicalTimeProvider，否则 REPLAY 快进喂 bar 全失败
+        mock_feeder_instance.set_time_provider.assert_called()
+        args, _ = mock_feeder_instance.set_time_provider.call_args
+        assert isinstance(args[0], LogicalTimeProvider), \
+            f"feeder 必须收到 LogicalTimeProvider，实际 {type(args[0]).__name__}"
+
 
 class TestDailyCycle:
     """每日循环逻辑测试"""
@@ -152,6 +274,53 @@ class TestDailyCycle:
         worker._engine.portfolios = []
         worker._engine.is_running = True
         return worker
+
+    def test_drain_event_queue_returns_true_on_empty(self):
+        """#6159: 空队列时 drain 立即返回 True（无残留事件）。"""
+        import queue as queue_mod
+        worker = self._make_worker_with_engine()
+        worker._engine._event_queue = queue_mod.Queue()
+
+        assert worker._drain_event_queue(timeout=1) is True
+
+    def test_replay_drains_queue_before_transition(self):
+        """#6159: _run_replay_cycle 必须在 _transition_to_live 前 drain 事件队列。
+
+        竞态根因：advance_time_to 异步入队（main_thread 处理），_transition_to_live
+        同步切 SystemTimeProvider。若不 drain，残留 REPLAY 事件在切换后处理 →
+        portfolio.advance_time 用 SystemTimeProvider 报 'Cannot set time in system
+        time mode'，阻断 feeder 喂 bar → 0 Signal。
+        """
+        from datetime import datetime, date
+        worker = self._make_worker_with_engine()
+
+        # 共享 tracker 记录 drain/transition 调用顺序
+        tracker = MagicMock()
+        worker._drain_event_queue = tracker.drain
+        worker._transition_to_live = tracker.transition
+        worker._persist_all_portfolios = MagicMock()
+        worker._run_deviation_check = MagicMock()
+
+        # engine.now 初始历史 → 触发 advance；advance_time_to 后跳到 real_today → break
+        worker._engine.now = datetime(2026, 6, 4)
+
+        def fake_advance(t):
+            worker._engine.now = datetime(2026, 6, 16)
+        worker._engine.advance_time_to.side_effect = fake_advance
+
+        with patch("ginkgo.services") as mock_services:
+            mock_td = MagicMock()
+            next_day = MagicMock()
+            next_day.date.return_value = date(2026, 6, 5)
+            mock_td.get_next_trading_day.return_value = next_day
+            mock_services.data.cruds.trade_day.return_value = mock_td
+            worker._run_replay_cycle()
+
+        names = [c[0] for c in tracker.mock_calls]
+        assert "drain" in names, f"drain 未被调用: {names}"
+        assert "transition" in names
+        assert names.index("drain") < names.index("transition"), \
+            f"drain 必须在 transition 前，实际顺序: {names}"
 
     def test_skip_on_non_trading_day(self):
         """非交易日应跳过推进"""
@@ -537,6 +706,29 @@ class TestStartStop:
         worker._running = True
         worker.stop()
         assert worker.is_running is False
+
+    @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoConsumer")
+    @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer")
+    def test_start_auto_runs_replay_when_replay_mode(self, mock_producer_cls, mock_consumer_cls):
+        """#6159: worker 启动时若处于 REPLAY mode，应自动跑 run_daily_cycle 快进历史。
+
+        根因：run_daily_cycle 唯一入口是 _handle_command 的 "paper_trading" 命令，
+        但 Kafka Consumer offset="latest"，命令若在 consumer 完成 group join 前发出
+        会被静默跳过（smoke 实测 "Received command" 计数=0）→ run_daily_cycle 永不
+        执行 → 0 advance → 0 Signal。
+        修复：start() 在 _consume_loop 前检测 _is_replay_mode 自动触发，不依赖命令。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker, DailyCycleResult
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        with patch.object(worker, "_is_replay_mode", return_value=True), \
+             patch.object(worker, "run_daily_cycle",
+                          return_value=DailyCycleResult(skipped=False, advanced=True)) as mock_cycle, \
+             patch.object(worker, "_consume_loop") as mock_loop:
+            worker.start()
+
+        mock_cycle.assert_called_once()
+        mock_loop.assert_called_once()
 
 
 class TestDailyCycleResult:

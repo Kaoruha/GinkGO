@@ -184,7 +184,12 @@ class PaperTradingWorker:
                 if hasattr(portfolio, "_selectors") and portfolio._selectors:
                     for selector in portfolio._selectors:
                         if hasattr(selector, "pick"):
-                            selector.pick()
+                            # #6159 bug#6: 必须传非 None time。MomentumSelector.pick(time=None)
+                            # → datetime_normalize(None)=None → None-timedelta 崩溃 → selector
+                            # 选股失败 → _interested_codes 空 → feeder WARN "No interested symbols"
+                            # → PRICEUPDATE=0 → signal=0。传 now() 作种子；后续 portfolio.advance_time
+                            # 会用 time provider 的逻辑时间重新 pick 覆盖。CNAllSelector 不用 time 不受影响。
+                            selector.pick(datetime.now())
             except Exception as e:
                 GLOG.WARN(
                     f"[PAPER-WORKER] selector.pick() failed for "
@@ -246,10 +251,37 @@ class PaperTradingWorker:
                 end_time=real_now,
             )
             engine._time_provider = replay_provider
-            GLOG.INFO(
-                f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
-                f"task_id={task_id}"
-            )
+            # #6159: propagate LogicalTimeProvider 到 feeder + portfolio。
+            # 不能用 engine.set_time_provider()——它对 LIVE/PAPER mode 校验拒绝
+            # LogicalTimeProvider（time_controlled_engine.py:382），故只能裸赋值 engine；
+            # 但 feeder/portfolio 各自持有独立的 time_provider 引用，必须手动同步，
+            # 否则 REPLAY 快进时 feeder.advance_time_to 仍走 SystemTimeProvider →
+            # 报 "Cannot set time in system time mode" → 0 喂 bar → 0 Signal。
+            for portfolio in engine.portfolios:
+                try:
+                    portfolio.set_time_provider(replay_provider)
+                except Exception as e:
+                    GLOG.WARN(
+                        f"[PAPER-WORKER] propagate time provider to portfolio "
+                        f"{portfolio.name} failed: {e}"
+                    )
+            _replay_feeder = getattr(engine, "_datafeeder", None)
+            if _replay_feeder is not None and hasattr(_replay_feeder, "set_time_provider"):
+                try:
+                    _replay_feeder.set_time_provider(replay_provider)
+                    GLOG.INFO(
+                        f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
+                        f"task_id={task_id}, propagated LogicalTimeProvider to feeder"
+                    )
+                except Exception as e:
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] propagate time provider to feeder failed: {e}"
+                    )
+            else:
+                GLOG.INFO(
+                    f"[PAPER-WORKER] REPLAY mode: engine_time={persisted_engine_time}, "
+                    f"task_id={task_id}"
+                )
         else:
             task_id = f"paper-{session_ts}"
             engine.set_task_id(task_id)
@@ -622,6 +654,11 @@ class PaperTradingWorker:
                 break
 
         if total_advanced > 0:
+            # drain 异步事件队列：保证 advance_time_to 入队的 REPLAY 推进事件
+            # （feeder feed + portfolio T+1 结算）在切 SystemTimeProvider 前处理完，
+            # 否则残留事件用 System provider 报 'Cannot set time in system time mode'。
+            self._drain_event_queue()
+
             # 偏差检查
             try:
                 self._run_deviation_check()
@@ -639,6 +676,43 @@ class PaperTradingWorker:
         # 没有推进过，可能已经追上了
         self._transition_to_live()
         return DailyCycleResult(skipped=False, advanced=False)
+
+    def _drain_event_queue(self, timeout: int = 30) -> bool:
+        """等待事件队列处理完所有残留事件。
+
+        REPLAY 快进的 advance_time_to 通过异步事件队列推进（main_thread 处理），
+        而 _transition_to_live 同步切 SystemTimeProvider。若残留 REPLAY 事件在
+        provider 切换后才被 main_thread 处理，portfolio.advance_time 会用已切换的
+        SystemTimeProvider 报 'Cannot set time in system time mode'，阻断 feeder 喂 bar。
+
+        切 LIVE 前必须 drain，保证所有 REPLAY 推进事件（feeder feed + portfolio
+        T+1 结算）在 provider 切换前处理完。
+        """
+        import time
+        engine = self._engine
+        if not hasattr(engine, "_event_queue"):
+            return True
+        deadline = time.time() + timeout
+        empty_streak = 0
+        last_qsize = -1
+        while time.time() < deadline:
+            try:
+                last_qsize = engine._event_queue.qsize()
+            except Exception:
+                return True
+            if last_qsize == 0:
+                empty_streak += 1
+                # 连续多次空判定为处理完（避开 main_thread 正处理最后一个的窗口）
+                if empty_streak >= 3:
+                    return True
+            else:
+                empty_streak = 0
+            time.sleep(0.05)
+        GLOG.WARN(
+            f"[PAPER-WORKER] drain event queue timeout after {timeout}s, "
+            f"qsize={last_qsize}"
+        )
+        return False
 
     def _transition_to_live(self) -> None:
         """从 REPLAY 切换到 LIVE_PAPER 模式"""
@@ -979,6 +1053,27 @@ class PaperTradingWorker:
             f"[PAPER-WORKER] {self.worker_id}: Subscribed to "
             f"{KafkaTopics.CONTROL_COMMANDS}"
         )
+
+        # #6159: 启动自动 REPLAY（快进历史交易日）—— worker 重启后若引擎时间
+        # 落后于当前日期，自动跑 run_daily_cycle 追历史。不依赖外部 Kafka 命令触发：
+        # Consumer offset="latest"，命令若在消费者完成 group join（加入消费组）前
+        # 发出会被静默跳过（实测 "Received command" 计数=0），导致 run_daily_cycle
+        # 永不执行 → 0 advance → 0 Signal。REPLAY 是启动恢复语义，本就该自动跑。
+        if self._is_replay_mode():
+            GLOG.INFO(
+                f"[PAPER-WORKER] {self.worker_id}: REPLAY mode detected on start, "
+                f"auto-running daily cycle to catch up history"
+            )
+            try:
+                result = self.run_daily_cycle()
+                GLOG.INFO(
+                    f"[PAPER-WORKER] {self.worker_id}: Auto REPLAY done: "
+                    f"skipped={result.skipped}, advanced={result.advanced}"
+                )
+            except Exception as e:
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] {self.worker_id}: Auto REPLAY failed: {e}"
+                )
 
         # 进入消费循环
         self._consume_loop()
