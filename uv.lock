@@ -1332,7 +1332,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.34.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jsonschema", specifier = ">=4.25.0" },
-    { name = "kafka-python", specifier = ">=2.2.15" },
+    { name = "kafka-python", specifier = ">=3.0.0,<4" },
     { name = "lz4", specifier = ">=4.4.0" },
     { name = "mcp", specifier = ">=1.10.0" },
     { name = "mmh3", specifier = ">=5.2.0" },
@@ -1929,11 +1929,11 @@ wheels = [
 
 [[package]]
 name = "kafka-python"
-version = "2.2.15"
+version = "3.0.1"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/da/67/1434436f3cb409443f72a4843b877ac2d9bf586a31a0e966cf1dc4dc9a94/kafka_python-2.2.15.tar.gz", hash = "sha256:e0f480a45f3814cb0eb705b8b4f61069e1be61dae0d8c69d0f1f2da33eea1bd5", size = 347870, upload-time = "2025-07-01T17:37:53.686Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a5/65/dcf5788ef479e4d91d7fa3f1a75a398f01a7bc778ac89d75ce729037a785/kafka_python-3.0.1.tar.gz", hash = "sha256:33585f8cc7003f5ea766c78b457453f2fa19c9b5409854af3b235b9270698a3d", size = 499731, upload-time = "2026-06-17T16:43:43.443Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e6/35/e8bfed5425e8fe685bd03ec3f5135ee8b88c11558baa59c0d12fbd2a20ae/kafka_python-2.2.15-py2.py3-none-any.whl", hash = "sha256:84c0993cd4f7f2f01e92d8104ea9bdf631aff72fc5e6ea62eb3bdf1d56528fc3", size = 309751, upload-time = "2025-07-01T17:37:51.87Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/67/f3/c94706f1b50b8dca79e09070e44e68426314ce18bb07583c3e15d4ba821c/kafka_python-3.0.1-py3-none-any.whl", hash = "sha256:e4d4fd6cedefe01352faa0116ee79eb28faf99342880ced3d7444fb989c624c9", size = 606409, upload-time = "2026-06-17T16:43:46.115Z" },
 ]
 
 [[package]]
