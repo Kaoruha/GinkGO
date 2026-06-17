@@ -13,9 +13,10 @@ from typing import Optional
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
-# kafka-python 3.0.0 把"找不到 broker"异常并入 KafkaConnectionError（旧细分名已删，#6157）；
-# KafkaConnectionError 在 2.x/3.x 共有，连接失败统一走它。
-from kafka.errors import KafkaConnectionError
+# kafka-python 3.0.0 删除 NoBrokersAvailable；连接/超时类故障异常多样（KafkaConnectionError、
+# KafkaTimeoutError 等，均非彼此子类），统一用基类 KafkaError 捕获（2.x/3.x 共有），
+# 避免 bootstrap 超时（KafkaTimeoutError）逃出降级分支（#6157）。
+from kafka.errors import KafkaError
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
@@ -63,7 +64,7 @@ class GinkgoProducer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Producer connected to {GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}")
             data_logger.INFO(f"Kafka Producer connected successfully")
-        except KafkaConnectionError as e:
+        except KafkaError as e:
             self._connected = False
             self.producer = None
             GLOG.ERROR(f"Kafka Producer connection failed: {e}")
@@ -108,7 +109,7 @@ class GinkgoProducer(object):
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
             return True
-        except KafkaConnectionError as e:
+        except KafkaError as e:
             GLOG.ERROR(f"Kafka connection error during send: {e}")
             data_logger.ERROR(f"Kafka send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -145,7 +146,7 @@ class GinkgoProducer(object):
             self.producer.send(topic, msg)
             GLOG.DEBUG(f"Kafka async send message. TOPIC: {topic}")
             return True
-        except KafkaConnectionError as e:
+        except KafkaError as e:
             GLOG.ERROR(f"Kafka connection error during async send: {e}")
             data_logger.ERROR(f"Kafka async send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -231,7 +232,7 @@ class GinkgoConsumer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Consumer connected to topic '{topic}' (group_id={group_id or 'none'})")
             data_logger.INFO(f"Kafka Consumer connected successfully to topic: {topic}")
-        except KafkaConnectionError as e:
+        except KafkaError as e:
             self._connected = False
             self.consumer = None
             GLOG.ERROR(f"Kafka Consumer connection failed: {e}")
