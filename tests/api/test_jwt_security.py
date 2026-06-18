@@ -219,11 +219,14 @@ class TestTokenBlacklistOnDeleteUser:
         """delete_user 应调用 token_blacklist.revoke_user 撤销旧 token"""
         from api.settings import delete_user
 
+        req = MagicMock()
+        req.state.is_admin = True  # #5467: delete_user 现需 admin 守卫
+
         with patch("api.settings.get_user_service") as mock_svc:
             mock_svc.return_value.delete_user.return_value = MagicMock(success=True)
 
             with patch("middleware.auth.token_blacklist") as mock_bl:
-                asyncio.run(delete_user("user-to-delete"))
+                asyncio.run(delete_user(req, "user-to-delete"))
 
                 mock_bl.revoke_user.assert_called_once_with("user-to-delete")
 

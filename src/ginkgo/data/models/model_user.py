@@ -25,7 +25,6 @@ class MUser(MMysqlBase, ModelConversion):
         uuid: 用户唯一标识
         username: 登录用户名（唯一，用于登录认证）
         display_name: 显示名称（可重复，用于展示）
-        email: 邮箱地址
         description: 用户描述
         user_type: 用户类型 (PERSON/CHANNEL/ORGANIZATION)
         is_active: 是否激活
@@ -39,7 +38,6 @@ class MUser(MMysqlBase, ModelConversion):
     # 用户核心字段
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True, comment="登录用户名（唯一）")
     display_name: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="显示名称")
-    email: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="邮箱地址")
     description: Mapped[Optional[str]] = mapped_column(String(512), default="")
     user_type: Mapped[int] = mapped_column(TINYINT, default=USER_TYPES.PERSON.value)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -54,7 +52,6 @@ class MUser(MMysqlBase, ModelConversion):
         self,
         username: Optional[str] = None,
         display_name: Optional[str] = None,
-        email: Optional[str] = None,
         description: Optional[str] = None,
         user_type=None,
         is_active: Optional[bool] = None,
@@ -67,7 +64,6 @@ class MUser(MMysqlBase, ModelConversion):
         Args:
             username: 登录用户名（唯一）
             display_name: 显示名称
-            email: 邮箱地址
             description: 用户描述
             user_type: 用户类型（枚举或整数）
             is_active: 是否激活
@@ -77,7 +73,6 @@ class MUser(MMysqlBase, ModelConversion):
 
         self.username = username or ""
         self.display_name = display_name or username or ""
-        self.email = email or ""
         self.description = description or ""
 
         # 处理 user_type 枚举转换
@@ -105,7 +100,6 @@ class MUser(MMysqlBase, ModelConversion):
         if not args and kwargs:
             username = kwargs.get('username')
             display_name = kwargs.get('display_name')
-            email = kwargs.get('email')
             description = kwargs.get('description')
             user_type = kwargs.get('user_type')
             is_active = kwargs.get('is_active')
@@ -116,9 +110,6 @@ class MUser(MMysqlBase, ModelConversion):
 
             if display_name is not None:
                 self.display_name = display_name
-
-            if email is not None:
-                self.email = email
 
             if description is not None:
                 self.description = description
@@ -153,7 +144,6 @@ class MUser(MMysqlBase, ModelConversion):
         self,
         username: str,
         display_name: Optional[str] = None,
-        email: Optional[str] = None,
         description: Optional[str] = None,
         user_type=None,
         is_active: Optional[bool] = None,
@@ -167,7 +157,6 @@ class MUser(MMysqlBase, ModelConversion):
         Args:
             username: 登录用户名
             display_name: 显示名称
-            email: 邮箱地址
             description: 用户描述
             user_type: 用户类型（枚举或整数）
             is_active: 是否激活
@@ -177,9 +166,6 @@ class MUser(MMysqlBase, ModelConversion):
 
         if display_name is not None:
             self.display_name = display_name
-
-        if email is not None:
-            self.email = email
 
         if description is not None:
             self.description = description
@@ -208,9 +194,6 @@ class MUser(MMysqlBase, ModelConversion):
 
         if 'display_name' in df.index and pd.notna(df['display_name']):
             self.display_name = str(df['display_name'])
-
-        if 'email' in df.index and pd.notna(df['email']):
-            self.email = str(df['email'])
 
         if 'description' in df.index and pd.notna(df['description']):
             self.description = str(df['description'])

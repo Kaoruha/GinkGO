@@ -870,10 +870,10 @@ def _init_admin_user():
 
         session.execute(text("""
             INSERT INTO users (
-                uuid, name, username, display_name, email, description,
+                uuid, name, username, display_name, description,
                 user_type, is_active, is_del, source, create_at, update_at
             ) VALUES (
-                :uuid, :name, :username, :display_name, :email, :description,
+                :uuid, :name, :username, :display_name, :description,
                 :user_type, :is_active, :is_del, :source, :create_at, :update_at
             )
         """), {
@@ -881,7 +881,6 @@ def _init_admin_user():
             "name": "admin",
             "username": "admin",
             "display_name": "Administrator",
-            "email": "admin@ginkgo.local",
             "description": "Default system administrator account",
             "user_type": 1,  # PERSON
             "is_active": True,

@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 import bcrypt
@@ -40,6 +40,24 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
+def _require_admin(req: Request) -> None:
+    """#5467+review: 管理员授权须 DB 校验 is_admin，不信任 JWT（与 #5899 /auth/verify 一致），DB 异常 fail-closed"""
+    user_uuid = getattr(req.state, "user_uuid", None)
+    is_admin = False
+    try:
+        credential = get_user_service().get_credential(user_uuid)
+        if credential is not None:
+            is_admin = credential.is_admin
+    except Exception as e:
+        logger.warning(f"#5467: DB query failed for is_admin, user={user_uuid}: {e}")
+        is_admin = False
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges required",
+        )
+
+
 # ==================== 用户管理 ====================
 
 class UserSummary(BaseModel):
@@ -65,18 +83,22 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """更新用户请求"""
+    # #5458: email 不属于用户档案，由 contacts API 管理；拒绝多余字段
+    model_config = ConfigDict(extra="forbid")
+
     display_name: Optional[str] = None
-    email: Optional[str] = None
     roles: Optional[List[str]] = None
     status: Optional[str] = None
 
 
 @router.get("/users")
 async def list_users(
+    req: Request,
     status: Optional[str] = None,
     search: Optional[str] = None
 ):
     """获取用户列表"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -141,8 +163,9 @@ async def list_users(
 
 
 @router.post("/users", status_code=201)
-async def create_user(data: UserCreate):
+async def create_user(req: Request, data: UserCreate):
     """创建用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -214,8 +237,9 @@ async def create_user(data: UserCreate):
 
 
 @router.put("/users/{uuid}")
-async def update_user(uuid: str, data: UserUpdate):
+async def update_user(req: Request, uuid: str, data: UserUpdate):
     """更新用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -223,9 +247,6 @@ async def update_user(uuid: str, data: UserUpdate):
         updates = {}
         if data.display_name is not None:
             updates["display_name"] = data.display_name
-
-        if data.email is not None:
-            updates["email"] = data.email
 
         if data.status is not None:
             updates["is_active"] = (data.status == "active")
@@ -281,9 +302,15 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
         )
 
     try:
-        user_service = get_user_service()
+        # #5465: new_password 必传——禁止默认弱密码（原默认 "123456"）
+        new_password = data.get("new_password")
+        if not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="new_password is required",
+            )
 
-        new_password = data.get("new_password", "123456")
+        user_service = get_user_service()
         new_password_hash = hash_password(new_password)
 
         result = user_service.reset_password(uuid, new_password_hash)
@@ -318,8 +345,9 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
 
 
 @router.delete("/users/{uuid}")
-async def delete_user(uuid: str):
+async def delete_user(req: Request, uuid: str):
     """删除用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 

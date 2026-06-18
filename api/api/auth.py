@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, status, Request, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
@@ -36,6 +36,9 @@ class LoginResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
+    # #5458: email 不属于 MUser，靠 user_contacts 表解耦绑定；注册接口拒绝多余字段
+    model_config = ConfigDict(extra="forbid")
+
     username: str
     password: str
     display_name: Optional[str] = None

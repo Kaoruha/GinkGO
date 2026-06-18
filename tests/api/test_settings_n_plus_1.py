@@ -40,11 +40,16 @@ class TestUsersN1Fix:
 
         from api.settings import list_users
 
-        with patch("api.settings.get_user_service", return_value=mock_service):
-            result = run_async(list_users())
+        req = MagicMock()
+        req.state.user_uuid = "u-admin"  # #5467 review: 守卫按 DB 校验 is_admin
+        mock_service.get_credential.return_value = MagicMock(is_admin=True)
 
-        # 不应逐条调 get_credential（N+1）
-        mock_service.get_credential.assert_not_called()
+        with patch("api.settings.get_user_service", return_value=mock_service):
+            result = run_async(list_users(req=req))
+
+        # #5467 review: _require_admin 鉴权调 get_credential 恰 1 次（O(1)，非 N+1）；
+        # 业务层不得逐条查每个用户的凭证（N+1 才是问题）
+        assert mock_service.get_credential.call_count == 1
         # 不需要 get_all_credentials，service 已在 dict 中返回 is_admin
         mock_service.get_all_credentials.assert_not_called()
         # 验证返回数据包含 roles

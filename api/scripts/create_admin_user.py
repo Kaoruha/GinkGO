@@ -39,10 +39,10 @@ def create_admin_user():
         print("  - 创建 users 记录...")
         session.execute(text("""
             INSERT INTO users (
-                uuid, name, username, display_name, email, description,
+                uuid, name, username, display_name, description,
                 user_type, is_active, source, meta, `desc`, create_at, update_at, is_del
             ) VALUES (
-                :uuid, :name, :username, :display_name, :email, :description,
+                :uuid, :name, :username, :display_name, :description,
                 :user_type, :is_active, :source, :meta, :desc, :create_at, :update_at, :is_del
             )
         """), {
@@ -50,7 +50,6 @@ def create_admin_user():
             "name": "admin",
             "username": "admin",
             "display_name": "Administrator",
-            "email": "admin@ginkgo.local",
             "description": "系统管理员账户",
             "user_type": 1,  # PERSON
             "is_active": True,
