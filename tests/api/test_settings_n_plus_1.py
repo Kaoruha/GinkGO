@@ -40,8 +40,11 @@ class TestUsersN1Fix:
 
         from api.settings import list_users
 
+        req = MagicMock()
+        req.state.is_admin = True  # #5467: list_users 现需 admin 守卫放行
+
         with patch("api.settings.get_user_service", return_value=mock_service):
-            result = run_async(list_users())
+            result = run_async(list_users(req=req))
 
         # 不应逐条调 get_credential（N+1）
         mock_service.get_credential.assert_not_called()
