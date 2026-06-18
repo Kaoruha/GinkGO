@@ -13,7 +13,9 @@ Auth/Security 批量修复测试
 - #5467: 4 个用户管理端点缺 admin 守卫（待定）
 """
 
+import asyncio
 import pytest
+from unittest.mock import MagicMock, patch
 
 
 pytestmark = pytest.mark.unit
@@ -65,3 +67,37 @@ class TestUpdateUserRejectsEmail:
         u = UserUpdate(display_name="Alice", roles=["admin"], status="active")
         assert u.display_name == "Alice"
         assert u.roles == ["admin"]
+
+
+# ============================================================
+# #5465: reset-password 不应默认弱密码 123456
+# ============================================================
+
+class TestResetPasswordNoDefault:
+    """#5465: 未传 new_password 必须拒绝，不可兜底成 123456"""
+
+    def _admin_req(self):
+        req = MagicMock()
+        req.state.user_uuid = "user-admin"
+        req.state.is_admin = True
+        return req
+
+    def test_reset_without_new_password_rejected(self):
+        """管理员未传 new_password 应返 400，而非默认 123456"""
+        from api.settings import reset_user_password
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
+        assert exc_info.value.status_code == 400
+
+    def test_reset_does_not_call_service_with_default(self):
+        """被拒时 service.reset_password 不应被调用（防止任何默认值落库）"""
+        from api.settings import reset_user_password
+        from fastapi import HTTPException
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
+            with pytest.raises(HTTPException):
+                asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
+            mock_svc.return_value.reset_password.assert_not_called()

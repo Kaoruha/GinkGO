@@ -280,9 +280,15 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
         )
 
     try:
-        user_service = get_user_service()
+        # #5465: new_password 必传——禁止默认弱密码（原默认 "123456"）
+        new_password = data.get("new_password")
+        if not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="new_password is required",
+            )
 
-        new_password = data.get("new_password", "123456")
+        user_service = get_user_service()
         new_password_hash = hash_password(new_password)
 
         result = user_service.reset_password(uuid, new_password_hash)
