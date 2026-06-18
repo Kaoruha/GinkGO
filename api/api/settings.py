@@ -40,6 +40,15 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
+def _require_admin(req: Request) -> None:
+    """#5467: 用户管理端点须管理员授权（中间件已注入 req.state.is_admin）"""
+    if not getattr(req.state, "is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges required",
+        )
+
+
 # ==================== 用户管理 ====================
 
 class UserSummary(BaseModel):
@@ -75,10 +84,12 @@ class UserUpdate(BaseModel):
 
 @router.get("/users")
 async def list_users(
+    req: Request,
     status: Optional[str] = None,
     search: Optional[str] = None
 ):
     """获取用户列表"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -143,8 +154,9 @@ async def list_users(
 
 
 @router.post("/users", status_code=201)
-async def create_user(data: UserCreate):
+async def create_user(req: Request, data: UserCreate):
     """创建用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -216,8 +228,9 @@ async def create_user(data: UserCreate):
 
 
 @router.put("/users/{uuid}")
-async def update_user(uuid: str, data: UserUpdate):
+async def update_user(req: Request, uuid: str, data: UserUpdate):
     """更新用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
@@ -323,8 +336,9 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
 
 
 @router.delete("/users/{uuid}")
-async def delete_user(uuid: str):
+async def delete_user(req: Request, uuid: str):
     """删除用户"""
+    _require_admin(req)  # #5467
     try:
         user_service = get_user_service()
 
