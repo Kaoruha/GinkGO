@@ -59,7 +59,7 @@ class TestOrderSubmissionPreparation:
     def test_portfolio_capital_freezing(self):
         """测试投资组合资金冻结"""
         order = _make_order(volume=500, limit_price=20.00)
-        order.frozen_money = Decimal(str(float(order.volume * order.limit_price)))
+        order.freeze(order.volume, Decimal(str(float(order.volume * order.limit_price))))
         assert float(order.frozen_money) == 10000.0
 
     def test_order_sequence_number_assignment(self):
@@ -312,10 +312,10 @@ class TestOrderSubmissionErrorHandling:
         """测试提交失败恢复"""
         order = _make_order(status=ORDERSTATUS_TYPES.NEW)
         frozen_amount = Decimal("10000")
-        order.frozen_money = frozen_amount
+        order.freeze(order.volume, frozen_amount)
         # On failure, unfreeze
-        order.frozen_money = Decimal("0")
-        assert float(order.frozen_money) == 0.0
+        order.release_frozen()
+        assert float(order.remain) == 0.0
 
 
 @pytest.mark.unit

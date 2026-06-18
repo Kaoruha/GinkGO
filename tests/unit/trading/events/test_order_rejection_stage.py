@@ -257,24 +257,24 @@ class TestCapitalUnfreezingOnRejection:
     def test_frozen_capital_identification(self):
         """测试冻结资金识别"""
         order = _make_order(volume=1000, limit_price=10.00)
-        order.frozen_money = Decimal(str(float(order.volume * order.limit_price)))
+        order.freeze(order.volume, Decimal(str(float(order.volume * order.limit_price))))
         assert float(order.frozen_money) == 10000.0
 
     def test_capital_unfreezing_execution(self):
         """测试资金解冻执行"""
         order = _make_order(volume=500, limit_price=20.00)
-        order.frozen_money = Decimal("10000")
+        order.freeze(order.volume, Decimal("10000"))
         # Simulate unfreezing
-        order.frozen_money = Decimal("0")
-        assert float(order.frozen_money) == 0.0
+        order.release_frozen()
+        assert float(order.remain) == 0.0
 
     def test_portfolio_balance_restoration(self):
         """测试投资组合余额恢复"""
         order = _make_order(volume=200, limit_price=15.00)
         frozen = Decimal(str(float(order.volume * order.limit_price)))
-        order.frozen_money = frozen
-        order.frozen_money = Decimal("0")
-        assert float(order.frozen_money) == 0.0
+        order.freeze(order.volume, frozen)
+        order.release_frozen()
+        assert float(order.remain) == 0.0
 
     def test_unfreezing_audit_trail(self):
         """测试解冻审计追踪"""

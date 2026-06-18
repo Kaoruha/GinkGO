@@ -19,10 +19,10 @@ from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, EVENT_
 
 
 def _make_order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100,
-                limit_price=10.0):
+                limit_price=10.0, order_type=ORDER_TYPES.LIMITORDER):
     return Order(
         portfolio_id="p", engine_id="e", task_id="r", code=code,
-        direction=direction, order_type=ORDER_TYPES.LIMITORDER,
+        direction=direction, order_type=order_type,
         status=ORDERSTATUS_TYPES.NEW, volume=volume, limit_price=limit_price,
     )
 
@@ -64,10 +64,8 @@ class TestNoRiskOrderProcessing:
 
     def test_order_type_independence(self):
         nr = NoRiskManagement()
-        lo = _make_order()
-        lo.order_type = ORDER_TYPES.LIMITORDER
-        mo = _make_order()
-        mo.order_type = ORDER_TYPES.MARKETORDER
+        lo = _make_order(order_type=ORDER_TYPES.LIMITORDER)
+        mo = _make_order(order_type=ORDER_TYPES.MARKETORDER)
         assert nr.cal({}, lo) is lo
         assert nr.cal({}, mo) is mo
 
