@@ -12,8 +12,17 @@ from datetime import datetime
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from core.logging import logger
-from core.database import get_db_cursor
 from core.redis_client import set_backtest_progress, delete_backtest_progress
+
+
+def _get_task_service():
+    """获取 BacktestTaskService 实例（走服务层，替代 core.database 裸 SQL）。
+
+    对齐 producer 端 progress_tracker.py：进度/状态都经 BacktestTaskService 落库，
+    不再手写 UPDATE backtest_tasks（旧 SQL 还写错了列名 state/error、取值大小写）。
+    """
+    from ginkgo.data.containers import container
+    return container.backtest_task_service()
 
 
 # 在线程池中执行消费者初始化的函数
@@ -177,38 +186,27 @@ class BacktestProgressConsumer:
             logger.error(f"Error processing progress message: {e}")
 
     async def _update_progress(self, task_uuid: str, progress: float, current_date: Optional[str], state: Optional[str]):
-        """更新进度"""
-        async with get_db_cursor() as db:
-            try:
-                # 同时更新state（如果提供了）
-                if state:
-                    query = """
-                        UPDATE backtest_tasks
-                        SET progress = %s, state = %s
-                        WHERE uuid = %s
-                    """
-                    await db.execute(query, [progress, state, task_uuid])
-                else:
-                    query = """
-                        UPDATE backtest_tasks
-                        SET progress = %s
-                        WHERE uuid = %s
-                    """
-                    await db.execute(query, [progress, task_uuid])
+        """更新进度（对齐 producer：仅写 progress + current_date，state 不落库）"""
+        try:
+            svc_result = _get_task_service().update_progress(
+                task_uuid, progress=progress, current_date=current_date
+            )
+            if not svc_result.is_success():
+                logger.error(f"Failed to update progress for {task_uuid[:8]}: {svc_result.error}")
 
-                logger.debug(f"Updated progress for {task_uuid[:8]}: {progress:.1f}%")
+            logger.debug(f"Updated progress for {task_uuid[:8]}: {progress:.1f}%")
 
-                # 写入 Redis（TTL 60秒）
-                progress_data = {
-                    "progress": progress,
-                    "state": state,
-                    "current_date": current_date,
-                    "updated_at": datetime.utcnow().isoformat()
-                }
-                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+            # 写入 Redis（TTL 60秒）—— state 仅用于 SSE 展示，不落库
+            progress_data = {
+                "progress": progress,
+                "state": state,
+                "current_date": current_date,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
-            except Exception as e:
-                logger.error(f"Failed to update progress for {task_uuid[:8]}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update progress for {task_uuid[:8]}: {e}")
 
     async def _update_stage(self, task_uuid: str, stage: str, message: Optional[str]):
         """更新阶段"""
@@ -219,83 +217,70 @@ class BacktestProgressConsumer:
             logger.error(f"Failed to update stage for {task_uuid[:8]}: {e}")
 
     async def _update_completed(self, task_uuid: str, result: Optional[dict]):
-        """更新完成状态"""
-        async with get_db_cursor() as db:
-            try:
-                query = """
-                    UPDATE backtest_tasks
-                    SET state = %s, progress = 100.0, completed_at = %s, result = %s
-                    WHERE uuid = %s
-                """
-                await db.execute(query, [
-                    "COMPLETED",
-                    datetime.utcnow(),
-                    json.dumps(result) if result else None,
-                    task_uuid
-                ])
+        """更新完成状态（对齐 producer：status=completed，result 走 result_fields）"""
+        try:
+            svc_result = _get_task_service().update_status(
+                task_uuid, "completed", result=result
+            )
+            if not svc_result.is_success():
+                logger.error(f"Failed to update completed for {task_uuid[:8]}: {svc_result.error}")
 
-                logger.info(f"[{task_uuid[:8]}] Marked as completed")
+            logger.info(f"[{task_uuid[:8]}] Marked as completed")
 
-                # 写入 Redis（TTL 60秒）
-                progress_data = {
-                    "progress": 100.0,
-                    "state": "COMPLETED",
-                    "result": result,
-                    "updated_at": datetime.utcnow().isoformat()
-                }
-                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+            # 写入 Redis（TTL 60秒）
+            progress_data = {
+                "progress": 100.0,
+                "state": "COMPLETED",
+                "result": result,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
-            except Exception as e:
-                logger.error(f"Failed to update completed for {task_uuid[:8]}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update completed for {task_uuid[:8]}: {e}")
 
     async def _update_failed(self, task_uuid: str, error: Optional[str]):
-        """更新失败状态"""
-        async with get_db_cursor() as db:
-            try:
-                query = """
-                    UPDATE backtest_tasks
-                    SET state = %s, completed_at = %s, error = %s
-                    WHERE uuid = %s
-                """
-                await db.execute(query, ["FAILED", datetime.utcnow(), error, task_uuid])
+        """更新失败状态（对齐 producer：status=failed，error_message）"""
+        try:
+            svc_result = _get_task_service().update_status(
+                task_uuid, "failed", error_message=error
+            )
+            if not svc_result.is_success():
+                logger.error(f"Failed to update failed for {task_uuid[:8]}: {svc_result.error}")
 
-                logger.error(f"[{task_uuid[:8]}] Marked as failed: {error}")
+            logger.error(f"[{task_uuid[:8]}] Marked as failed: {error}")
 
-                # 写入 Redis（TTL 60秒）
-                progress_data = {
-                    "progress": 0.0,
-                    "state": "FAILED",
-                    "error": error,
-                    "updated_at": datetime.utcnow().isoformat()
-                }
-                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+            # 写入 Redis（TTL 60秒）
+            progress_data = {
+                "progress": 0.0,
+                "state": "FAILED",
+                "error": error,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
-            except Exception as e:
-                logger.error(f"Failed to update failed for {task_uuid[:8]}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update failed for {task_uuid[:8]}: {e}")
 
     async def _update_cancelled(self, task_uuid: str):
-        """更新取消状态"""
-        async with get_db_cursor() as db:
-            try:
-                query = """
-                    UPDATE backtest_tasks
-                    SET state = %s, completed_at = %s
-                    WHERE uuid = %s
-                """
-                await db.execute(query, ["CANCELLED", datetime.utcnow(), task_uuid])
+        """更新取消状态（对齐 producer：cancelled → status=stopped）"""
+        try:
+            svc_result = _get_task_service().update_status(task_uuid, "stopped")
+            if not svc_result.is_success():
+                logger.error(f"Failed to update cancelled for {task_uuid[:8]}: {svc_result.error}")
 
-                logger.info(f"[{task_uuid[:8]}] Marked as cancelled")
+            logger.info(f"[{task_uuid[:8]}] Marked as cancelled")
 
-                # 写入 Redis（TTL 60秒）
-                progress_data = {
-                    "progress": 0.0,
-                    "state": "CANCELLED",
-                    "updated_at": datetime.utcnow().isoformat()
-                }
-                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+            # 写入 Redis（TTL 60秒）
+            progress_data = {
+                "progress": 0.0,
+                "state": "CANCELLED",
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
-            except Exception as e:
-                logger.error(f"Failed to update cancelled for {task_uuid[:8]}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update cancelled for {task_uuid[:8]}: {e}")
 
 
 # 全局消费者实例

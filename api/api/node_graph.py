@@ -3,7 +3,7 @@
 提供节点图的 CRUD、验证、编译等接口
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -20,7 +20,6 @@ from schemas.node_graph import (
     CompileResult,
     ValidationErrorItem,
 )
-from core.database import get_db
 from core.logging import logger
 from core.response import ok
 
@@ -37,7 +36,7 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
-from _file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
+from ._file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
 
 
 def get_file_service():
@@ -53,7 +52,6 @@ async def list_node_graphs(
     portfolio_uuid: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-    db=Depends(get_db)
 ):
     """
     获取节点图列表
@@ -91,7 +89,6 @@ async def list_node_graphs(
 @router.get("/{graph_uuid}")
 async def get_node_graph(
     graph_uuid: str,
-    db=Depends(get_db)
 ):
     """
     获取节点图详情
@@ -137,7 +134,6 @@ async def get_node_graph(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_node_graph(
     data: NodeGraphCreate,
-    db=Depends(get_db)
 ):
     """
     创建节点图
@@ -188,7 +184,6 @@ async def create_node_graph(
 async def update_node_graph(
     graph_uuid: str,
     data: NodeGraphUpdate,
-    db=Depends(get_db)
 ):
     """
     更新节点图
@@ -224,7 +219,6 @@ async def update_node_graph(
 @router.delete("/{graph_uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_node_graph(
     graph_uuid: str,
-    db=Depends(get_db)
 ):
     """
     删除节点图
@@ -249,7 +243,6 @@ async def delete_node_graph(
 async def duplicate_node_graph(
     graph_uuid: str,
     name: str,
-    db=Depends(get_db)
 ):
     """
     复制节点图
@@ -276,7 +269,6 @@ async def duplicate_node_graph(
 async def validate_node_graph(
     graph_uuid: str,
     data: GraphData,
-    db=Depends(get_db)
 ):
     """
     验证节点图配置
@@ -327,7 +319,6 @@ async def validate_node_graph(
 async def compile_node_graph(
     graph_uuid: str,
     data: GraphData,
-    db=Depends(get_db)
 ):
     """
     编译节点图为回测配置
@@ -366,7 +357,6 @@ async def compile_node_graph(
 @router.post("/from-backtest/{backtest_uuid}")
 async def create_from_backtest(
     backtest_uuid: str,
-    db=Depends(get_db)
 ):
     """
     从回测配置创建节点图
@@ -393,7 +383,6 @@ async def create_from_backtest(
 async def get_portfolio_mappings(
     portfolio_uuid: str,
     include_params: bool = False,
-    db=Depends(get_db)
 ):
     """
     获取投资组合的文件映射（含参数）
@@ -434,7 +423,6 @@ async def add_file_to_portfolio(
     file_type: str,
     name: Optional[str] = None,
     params: Optional[dict] = None,
-    db=Depends(get_db)
 ):
     """
     添加文件到投资组合（自动同步到图结构）
@@ -478,7 +466,6 @@ async def add_file_to_portfolio(
 async def remove_file_from_portfolio(
     portfolio_uuid: str,
     file_id: str,
-    db=Depends(get_db)
 ):
     """
     从投资组合移除文件（自动同步到图结构）
