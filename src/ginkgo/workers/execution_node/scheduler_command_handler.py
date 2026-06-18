@@ -97,7 +97,19 @@ class SchedulerCommandHandler:
                 logger.warning(f"Unknown schedule command: {command}")
 
         except Exception as e:
-            logger.error(f"Error handling schedule update: {e}")
+            # 诊断增强（#6154/#6157）：command_data 可能不是 dict（str/None），
+            # 原 {e} 只打异常消息，丢失来源。安全暴露 type + repr（截断防爆）。
+            try:
+                cd_type = type(command_data).__name__
+                cd_repr = repr(command_data)
+                if len(cd_repr) > 200:
+                    cd_repr = cd_repr[:200] + "...(truncated)"
+            except Exception:
+                cd_type, cd_repr = "<unknown>", "<unreprable>"
+            logger.error(
+                f"Error handling schedule update: {e} | "
+                f"command_data type={cd_type}, value={cd_repr}"
+            )
 
     def handle_portfolio_reload(self, portfolio_id: str, command_data: dict):
         """

@@ -13,7 +13,10 @@ from typing import Optional
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
-from kafka.errors import NoBrokersAvailable, KafkaConnectionError
+# kafka-python 3.0.0 删除 NoBrokersAvailable；连接/超时类故障异常多样（KafkaConnectionError、
+# KafkaTimeoutError 等，均非彼此子类），统一用基类 KafkaError 捕获（2.x/3.x 共有），
+# 避免 bootstrap 超时（KafkaTimeoutError）逃出降级分支（#6157）。
+from kafka.errors import KafkaError
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
@@ -24,12 +27,33 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
 
+def _json_default(o):
+    """json.dumps 的 default 兜底：非 JSON 原生类型转可序列化形式。
+
+    datetime/date → ISO 字符串；Decimal 等其余 → str。防止 value_serializer
+    因业务对象非原生类型抛 TypeError 被 send 的 except 静默吞掉（#6161）。
+    """
+    from datetime import date as _date, datetime as _datetime
+    if isinstance(o, (_datetime, _date)):
+        return o.isoformat()
+    return str(o)
+
+
+def serialize_value(v) -> bytes:
+    """Kafka 消息序列化（GinkgoProducer.value_serializer 引用）。
+
+    JSON-safe：对 datetime/Decimal 等非原生类型兜底，保证含 datetime 的
+    DTO payload 能成功序列化写入 topic（#6161）。消费端 json.loads 往返恢复 dict。
+    """
+    return json.dumps(v, default=_json_default).encode("utf-8")
+
+
 class GinkgoProducer(object):
     def __init__(self):
         try:
             self.producer = KafkaProducer(
                 bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-                value_serializer=lambda v: json.dumps(v).encode("utf-8"),  # 消息序列化
+                value_serializer=serialize_value,  # 消息序列化（datetime/Decimal 兜底 #6161）
                 request_timeout_ms=10000,  # 10秒连接超时
                 metadata_max_age_ms=300000,  # 5分钟元数据更新间隔
                 retries=3,  # 自动重试3次
@@ -40,7 +64,7 @@ class GinkgoProducer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Producer connected to {GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}")
             data_logger.INFO(f"Kafka Producer connected successfully")
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaError as e:
             self._connected = False
             self.producer = None
             GLOG.ERROR(f"Kafka Producer connection failed: {e}")
@@ -85,7 +109,7 @@ class GinkgoProducer(object):
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
             return True
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaError as e:
             GLOG.ERROR(f"Kafka connection error during send: {e}")
             data_logger.ERROR(f"Kafka send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -122,7 +146,7 @@ class GinkgoProducer(object):
             self.producer.send(topic, msg)
             GLOG.DEBUG(f"Kafka async send message. TOPIC: {topic}")
             return True
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaError as e:
             GLOG.ERROR(f"Kafka connection error during async send: {e}")
             data_logger.ERROR(f"Kafka async send failed (connection error): {e}")
             self._connected = False  # 标记为断开连接
@@ -208,7 +232,7 @@ class GinkgoConsumer(object):
             self._connected = True
             GLOG.INFO(f"Kafka Consumer connected to topic '{topic}' (group_id={group_id or 'none'})")
             data_logger.INFO(f"Kafka Consumer connected successfully to topic: {topic}")
-        except (NoBrokersAvailable, KafkaConnectionError) as e:
+        except KafkaError as e:
             self._connected = False
             self.consumer = None
             GLOG.ERROR(f"Kafka Consumer connection failed: {e}")
