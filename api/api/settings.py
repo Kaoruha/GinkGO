@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 import bcrypt
@@ -65,8 +65,10 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """更新用户请求"""
+    # #5458: email 不属于用户档案，由 contacts API 管理；拒绝多余字段
+    model_config = ConfigDict(extra="forbid")
+
     display_name: Optional[str] = None
-    email: Optional[str] = None
     roles: Optional[List[str]] = None
     status: Optional[str] = None
 
@@ -223,9 +225,6 @@ async def update_user(uuid: str, data: UserUpdate):
         updates = {}
         if data.display_name is not None:
             updates["display_name"] = data.display_name
-
-        if data.email is not None:
-            updates["email"] = data.email
 
         if data.status is not None:
             updates["is_active"] = (data.status == "active")

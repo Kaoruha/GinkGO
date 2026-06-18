@@ -129,7 +129,6 @@ def create_admin_user():
     user = MUser(
         username="admin",
         display_name="Administrator",
-        email="admin@ginkgo.local",
         description="系统管理员账户",
         user_type=USER_TYPES.PERSON,
         is_active=True,

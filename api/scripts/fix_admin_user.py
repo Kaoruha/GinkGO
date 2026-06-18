@@ -33,7 +33,7 @@ def fix_admin_user():
             print(f"  - 找到 admin 用户 (UUID: {user_uuid[:8]}...)")
             session.execute(text("""
                 UPDATE users
-                SET username = 'admin', display_name = 'Administrator', email = 'admin@ginkgo.local'
+                SET username = 'admin', display_name = 'Administrator'
                 WHERE uuid = :uuid
             """), {"uuid": user_uuid})
             session.commit()
@@ -47,10 +47,10 @@ def fix_admin_user():
 
             session.execute(text("""
                 INSERT INTO users (
-                    uuid, name, username, display_name, email, description,
+                    uuid, name, username, display_name, description,
                     user_type, is_active, source, is_del, create_at, update_at
                 ) VALUES (
-                    :uuid, :name, :username, :display_name, :email, :description,
+                    :uuid, :name, :username, :display_name, :description,
                     :user_type, :is_active, :source, :is_del, :create_at, :update_at
                 )
             """), {
@@ -58,7 +58,6 @@ def fix_admin_user():
                 "name": "admin",
                 "username": "admin",
                 "display_name": "Administrator",
-                "email": "admin@ginkgo.local",
                 "description": "系统管理员账户",
                 "user_type": 1,  # PERSON
                 "is_active": True,
