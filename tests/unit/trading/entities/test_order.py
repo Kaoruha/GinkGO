@@ -2174,26 +2174,12 @@ class TestOrderFillBehavior:
 class TestOrderMoneyAdjust:
     """Order 资金调整方法测试（ADR-010 V5：t1backtest 迁移专用）。
 
-    deduct_remain：扣剩余冻结不动成交计数（保持 t1backtest:651 预存行为）。
     normalize_freeze：量化精度 + remain 兜底（t1backtest:361-365）。
     """
 
     def _make_order(self, volume=1000, frozen_money=10000, limit_price=10.0):
         return Order(portfolio_id="p", engine_id="e", task_id="t", code="000001.SZ",
                      volume=volume, limit_price=limit_price, frozen_money=frozen_money)
-
-    def test_deduct_remain_reduces_and_floors_zero(self):
-        o = self._make_order()
-        o.freeze(1000, 10000)  # remain=10000
-        o.deduct_remain(3000)
-        assert o.remain == 7000
-        o.deduct_remain(99999)  # 超额
-        assert o.remain == 0  # floor 0
-
-    def test_deduct_remain_rejects_negative(self):
-        o = self._make_order()
-        with pytest.raises((ValueError, TypeError)):
-            o.deduct_remain(-1)
 
     def test_normalize_freeze_quantizes_to_places(self):
         o = self._make_order(frozen_money=10000)

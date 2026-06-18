@@ -696,7 +696,7 @@ class TestLongShortFillHandling:
     def test_long_partial_fill_remain_not_double_deducted(self):
         """LONG 部分成交 order.remain 应单扣 fill_cost（#6109）。
 
-        bug：settle(line624) 已扣 remain，deduct_remain(line640) 再扣 → 2×fill_cost，
+        bug：settle(line624) 已扣 remain，旧路径重复扣减 → 2×fill_cost，
         导致 is_final 时 unfreeze_remain 偏小，现金卡在 frozen 影响后续下单可用资金。
         """
         p = _make_portfolio()

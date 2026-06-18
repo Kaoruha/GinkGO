@@ -439,19 +439,6 @@ class Order(TimeMixin, Base):
         self._transaction_price = to_decimal(price)
         self._transaction_volume = int(volume)
 
-    def deduct_remain(self, amount) -> None:
-        """扣减剩余冻结资金，floor 0（ADR-010 V5）。
-
-        替代裸 ``order.remain = max(0, remain - cost)``（不动 transaction_volume，
-        区别于 settle 的成交累加）。用于 t1backtest LONG 分支的资金同步。
-        """
-        d = to_decimal(amount)
-        if d < 0:
-            raise ValueError("amount cannot be negative")
-        if self._remain is None:
-            self._remain = self._frozen_money
-        self._remain = max(Decimal("0"), self._remain - d)
-
     def normalize_freeze(self, places=2) -> None:
         """规整冻结资金精度并兜底 remain（下单前，ADR-010 V5）。
 
