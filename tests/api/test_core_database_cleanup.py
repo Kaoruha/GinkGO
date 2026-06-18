@@ -79,13 +79,47 @@ class TestProgressConsumerNoCoreDatabase:
 
     @pytest.mark.unit
     def test_update_completed_delegates_to_service(self):
-        """completed 消息 → update_status(uuid, "completed", result=result)"""
+        """completed 消息 → 把 result dict 展开成 BacktestTask 结果列 + progress=100，
+        对齐 producer progress_tracker._write_status_to_db（绝不传 result=<dict>：
+        BacktestTask 无 result 列，会触发 SQLAlchemy 列不存在报错、被 service 吞掉
+        只记日志，DB 永不更新成 completed，而 Redis 照写 → DB/SSE 不一致）。"""
         consumer, mock_svc = self._make_consumer_with_mock_service()
-        result = {"final_pnl": "100"}
+        result = {
+            "total_pnl": 1234.5,
+            "total_orders": 42,
+            "final_portfolio_value": 100000.0,
+            "max_drawdown": -0.12,
+        }
         with patch("services.backtest_progress_consumer._get_task_service", return_value=mock_svc), \
                 patch("services.backtest_progress_consumer.set_backtest_progress", new_callable=AsyncMock):
             asyncio.run(consumer._update_completed(task_uuid="uuid-12345678", result=result))
-        mock_svc.update_status.assert_called_once_with("uuid-12345678", "completed", result=result)
+        # 展开成真实列（缺省项取 producer 约定默认值）+ progress=100，绝不传 result=<dict>
+        mock_svc.update_status.assert_called_once_with(
+            "uuid-12345678", "completed",
+            progress=100,
+            total_pnl=1234.5,
+            total_orders=42,
+            total_signals=0,
+            total_positions=0,
+            total_events=0,
+            final_portfolio_value=100000.0,
+            max_drawdown=-0.12,
+            sharpe_ratio=0.0,
+            annual_return=0.0,
+            win_rate=0.0,
+        )
+
+    @pytest.mark.unit
+    def test_update_completed_none_result_still_sets_progress_100(self):
+        """completed 消息无 result（message 缺 result 键）→ 仅 progress=100，不展开列。
+        锁死 producer 的 `if result:` 分支，确保 None 不报错、进度仍置 100。"""
+        consumer, mock_svc = self._make_consumer_with_mock_service()
+        with patch("services.backtest_progress_consumer._get_task_service", return_value=mock_svc), \
+                patch("services.backtest_progress_consumer.set_backtest_progress", new_callable=AsyncMock):
+            asyncio.run(consumer._update_completed(task_uuid="uuid-12345678", result=None))
+        mock_svc.update_status.assert_called_once_with(
+            "uuid-12345678", "completed", progress=100
+        )
 
     @pytest.mark.unit
     def test_update_failed_delegates_to_service(self):

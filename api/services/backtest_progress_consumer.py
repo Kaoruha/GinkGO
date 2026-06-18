@@ -217,10 +217,32 @@ class BacktestProgressConsumer:
             logger.error(f"Failed to update stage for {task_uuid[:8]}: {e}")
 
     async def _update_completed(self, task_uuid: str, result: Optional[dict]):
-        """更新完成状态（对齐 producer：status=completed，result 走 result_fields）"""
+        """更新完成状态（对齐 producer progress_tracker._write_status_to_db）。
+
+        把 result dict 展开成 BacktestTask 的真实结果列 + progress=100，再经
+        update_status 落库。绝不传 result=<dict>：BacktestTask 无 result 列，
+        传整个 dict 会被 CRUD update_task_status 原样塞进 .values()（base_crud
+        不过滤列名），触发 SQLAlchemy 列不存在报错 → 被 service 吞掉只记日志 →
+        DB 永不更新成 completed，而 Redis 照写 → DB/SSE 不一致。
+        """
         try:
+            # 对齐 producer：completed 置 progress=100；result 展开成真实列
+            result_fields = {"progress": 100}
+            if result:
+                result_fields.update({
+                    "total_pnl": result.get("total_pnl", 0.0),
+                    "total_orders": result.get("total_orders", 0),
+                    "total_signals": result.get("total_signals", 0),
+                    "total_positions": result.get("total_positions", 0),
+                    "total_events": result.get("total_events", 0),
+                    "final_portfolio_value": result.get("final_portfolio_value", 0.0),
+                    "max_drawdown": result.get("max_drawdown", 0.0),
+                    "sharpe_ratio": result.get("sharpe_ratio", 0.0),
+                    "annual_return": result.get("annual_return", 0.0),
+                    "win_rate": result.get("win_rate", 0.0),
+                })
             svc_result = _get_task_service().update_status(
-                task_uuid, "completed", result=result
+                task_uuid, "completed", **result_fields
             )
             if not svc_result.is_success():
                 logger.error(f"Failed to update completed for {task_uuid[:8]}: {svc_result.error}")
