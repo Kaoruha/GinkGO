@@ -41,8 +41,17 @@ def hash_password(password: str) -> str:
 
 
 def _require_admin(req: Request) -> None:
-    """#5467: 用户管理端点须管理员授权（中间件已注入 req.state.is_admin）"""
-    if not getattr(req.state, "is_admin", False):
+    """#5467+review: 管理员授权须 DB 校验 is_admin，不信任 JWT（与 #5899 /auth/verify 一致），DB 异常 fail-closed"""
+    user_uuid = getattr(req.state, "user_uuid", None)
+    is_admin = False
+    try:
+        credential = get_user_service().get_credential(user_uuid)
+        if credential is not None:
+            is_admin = credential.is_admin
+    except Exception as e:
+        logger.warning(f"#5467: DB query failed for is_admin, user={user_uuid}: {e}")
+        is_admin = False
+    if not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges required",

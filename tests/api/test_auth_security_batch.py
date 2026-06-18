@@ -159,3 +159,54 @@ class TestUserMgmtAdminGuard:
             mock_svc.return_value.list_users.return_value = MagicMock(success=True, data={"users": []})
             # 不应抛 403；具体返回不限
             asyncio.run(list_users(req=self._req(True)))
+
+
+# ============================================================
+# #5467 review: _require_admin 须 DB 校验 is_admin（不信任 JWT，#5899 一致）
+# ============================================================
+
+class TestRequireAdminDbCheck:
+    """#5467 review: is_admin 以 DB 为准，旧 JWT 的 is_admin=true 不可绕过守卫"""
+
+    def test_demoted_admin_jwt_blocked_by_db(self):
+        """JWT is_admin=true 但 DB 已降权为 False → 必须 403"""
+        from api.settings import list_users
+        from fastapi import HTTPException
+
+        req = MagicMock()
+        req.state.is_admin = True   # 旧 JWT 仍声称管理员（降权后未过期）
+        req.state.user_uuid = "u-demoted"
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=False)
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(list_users(req=req))
+        assert exc_info.value.status_code == 403
+
+    def test_db_confirms_admin_passes(self):
+        """DB 确认 is_admin=True → 放行（DB 校验不误伤真管理员）"""
+        from api.settings import list_users
+
+        req = MagicMock()
+        req.state.is_admin = True
+        req.state.user_uuid = "u-admin"
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
+            mock_svc.return_value.list_users.return_value = MagicMock(success=True, data={"users": []})
+            asyncio.run(list_users(req=req))  # 不应抛 403
+
+    def test_db_exception_fail_closed(self):
+        """get_credential 抛异常 → fail-closed 403（DB 故障不可放行）"""
+        from api.settings import list_users
+        from fastapi import HTTPException
+
+        req = MagicMock()
+        req.state.is_admin = True
+        req.state.user_uuid = "u-1"
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.get_credential.side_effect = RuntimeError("db down")
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(list_users(req=req))
+        assert exc_info.value.status_code == 403
