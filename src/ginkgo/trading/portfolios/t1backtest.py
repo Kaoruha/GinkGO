@@ -633,11 +633,8 @@ class PortfolioT1Backtest(PortfolioBase):
                 # 如果不是最终成交，不解冻剩余资金；如果是最终成交，解冻所有剩余资金
                 unfreeze_remain = order.remain if is_final else Decimal("0")
 
-                # 从冻结资金中扣除成交成本
+                # 从冻结资金中扣除成交成本（settle 已扣 order.remain，此处仅 portfolio 侧同步）
                 self.deduct_from_frozen(cost=fill_cost, unfreeze_remain=unfreeze_remain)
-
-                # 同步扣减订单剩余冻结（ADR-010 V5：deduct_remain，保持预存资金同步语义）
-                order.deduct_remain(fill_cost)
                 if is_final:
                     order.release_frozen()
 

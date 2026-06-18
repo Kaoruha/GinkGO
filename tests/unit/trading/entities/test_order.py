@@ -2146,6 +2146,16 @@ class TestOrderFillBehavior:
         order.settle(100, 10.0, 0)  # fill_cost=1000
         assert order.remain == 0
 
+    def test_settle_init_remain_from_frozen_when_construct_zero(self):
+        """settle 在 remain 为构造默认 0 时从 frozen_money 兜底起扣（#6109）。
+        真实成交流程无人调 order.freeze()，remain 走构造默认 0；settle 首次调用须
+        从 frozen_money 起扣，否则 is_final 时 unfreeze_remain 恒 0，剩余冻结
+        资金不释放回 cash。与 normalize_freeze 的 `None or ==0` 模式一致。"""
+        order = self._make_order(volume=100, frozen_money=1000)
+        # 不调 freeze()，模拟真实流程（构造默认 remain=0）
+        order.settle(30, 10.0, 0)  # fill_cost = 30*10+0 = 300
+        assert order.remain == 700  # 0 → 兜底 frozen_money=1000 → 1000-300
+
     def test_release_frozen_zeroes_remain(self):
         """release_frozen 清零剩余冻结"""
         order = self._make_order()

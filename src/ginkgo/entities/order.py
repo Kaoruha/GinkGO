@@ -416,7 +416,9 @@ class Order(TimeMixin, Base):
         if qty <= 0:
             raise ValueError("qty must be positive")
         fill_cost = to_decimal(price) * qty + to_decimal(fee)
-        if self._remain is None:
+        # remain 兜底：构造默认 0（无人调 order.freeze() 初始化），首次 settle
+        # 从 frozen_money 起扣（与 normalize_freeze 的 `None or ==0` 模式一致，#6109）
+        if self._remain is None or self._remain == 0:
             self._remain = self._frozen_money
         self._remain = max(Decimal("0"), self._remain - fill_cost)
         self._transaction_volume = min(self._volume, self._transaction_volume + qty)
