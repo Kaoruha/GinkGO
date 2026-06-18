@@ -255,16 +255,16 @@ class TestCapitalUnfreezingOnExpiration:
     def test_expired_order_capital_identification(self):
         """测试过期订单资金识别"""
         order = _make_submitted_order(volume=500, limit_price=20.00)
-        order.frozen_money = Decimal(str(float(order.volume * order.limit_price)))
+        order.freeze(order.volume, Decimal(str(float(order.volume * order.limit_price))))
         assert float(order.frozen_money) == 10000.0
 
     def test_capital_unfreezing_on_expiration(self):
         """测试过期时资金解冻"""
         order = _make_submitted_order(volume=100, limit_price=10.00)
-        order.frozen_money = Decimal("1000")
+        order.freeze(order.volume, Decimal("1000"))
         event = EventOrderExpired(order=order)
-        order.frozen_money = Decimal("0")
-        assert float(order.frozen_money) == 0.0
+        order.release_frozen()
+        assert float(order.remain) == 0.0
 
     def test_partial_fill_capital_adjustment(self):
         """测试部分成交资金调整"""
@@ -278,9 +278,9 @@ class TestCapitalUnfreezingOnExpiration:
         """测试投资组合余额恢复"""
         order = _make_submitted_order(volume=200, limit_price=15.00)
         frozen = Decimal(str(float(order.volume * order.limit_price)))
-        order.frozen_money = frozen
-        order.frozen_money = Decimal("0")
-        assert float(order.frozen_money) == 0.0
+        order.freeze(order.volume, frozen)
+        order.release_frozen()
+        assert float(order.remain) == 0.0
 
     def test_expiration_capital_audit_trail(self):
         """测试过期资金审计追踪"""

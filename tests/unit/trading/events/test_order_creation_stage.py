@@ -320,10 +320,10 @@ class TestOrderCreationValidation:
         """测试订单必填字段验证"""
         with pytest.raises(Exception):
             Order(
-                portfolio_id="",
+                portfolio_id="test-portfolio",
                 engine_id="test-engine-001",
                 task_id="test-run-001",
-                code="000001.SZ",
+                code="",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.LIMITORDER,
                 status=ORDERSTATUS_TYPES.NEW,
