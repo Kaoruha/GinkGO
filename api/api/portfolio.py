@@ -4,7 +4,6 @@ Portfolio相关API路由
 
 from fastapi import APIRouter, HTTPException, status, Query, Request
 from typing import Optional
-from core.database import get_db
 from core.logging import logger
 from core.response import ok, pagination_meta
 from core.exceptions import NotFoundError, ValidationError, BusinessError
