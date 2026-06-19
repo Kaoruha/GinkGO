@@ -321,14 +321,25 @@ def containers(
             table.add_column("Memory", style="red", width=10)
             table.add_column("Image", style="dim", width=20)
 
-            # 这里应该调用Docker API获取容器状态
-            # 示例数据
-            table.add_row("ginkgo-worker-1", "Running", "45%", "256MB", "ginkgo/worker:latest")
-            table.add_row("ginkgo-worker-2", "Running", "38%", "192MB", "ginkgo/worker:latest")
-            table.add_row("ginkgo-worker-3", "Idle", "2%", "64MB", "ginkgo/worker:latest")
-
-            console.print(table)
-            console.print(f"\n:bar_chart: Summary: {3} containers running, {0} idle")
+            # Query actual Docker container status
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["docker", "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}"],
+                    capture_output=True, text=True, timeout=10
+                )
+                containers = [l.split("\t") for l in result.stdout.strip().splitlines() if l.strip()]
+                running_count = 0
+                for c in containers:
+                    status = c[1].split()[0] if len(c) > 1 else "Unknown"
+                    table.add_row(c[0], status, "-", "-", c[2] if len(c) > 2 else "-")
+                    if status.lower().startswith("up"):
+                        running_count += 1
+                console.print(table)
+                console.print(f"\n:bar_chart: Summary: {len(containers)} containers total, {running_count} running")
+            except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                console.print("[yellow]:warning: Unable to query Docker container status. Is Docker running?[/yellow]")
+                return
 
         elif action == "start":
             target_count = count or 1
