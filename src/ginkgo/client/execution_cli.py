@@ -375,7 +375,7 @@ def status(
 
             # Get all heartbeat keys
             from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix, RedisKeyBuilder
-            heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+            heartbeat_keys = list(redis_client.scan_iter(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL))
 
             if not heartbeat_keys:
                 console.print("[yellow]:warning: No ExecutionNodes running (no heartbeats found)[/yellow]")

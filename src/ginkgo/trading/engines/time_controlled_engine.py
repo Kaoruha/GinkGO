@@ -184,18 +184,6 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         )
         return result
 
-    def stop(self) -> bool:
-        """停止引擎（带调试信息）"""
-        import traceback
-
-        GLOG.ERROR(f"{self.name}: 🔥 stop() called! Call stack:")
-        for line in traceback.format_stack()[-3:-1]:  # 显示最近3层调用栈
-            GLOG.ERROR(f"    {line.strip()}")
-
-        result = super().stop()
-        GLOG.DEBUG(f"{self.name}: stop() completed - result={result}")
-        return result
-
     def _initialize_components(self):
         """初始化引擎组件"""
 
@@ -248,13 +236,14 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 如果没有时间提供者，返回系统时间
         return datetime.now(timezone.utc)
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
         """停止事件引擎 - 扩展清理资源"""
-        super().stop()
+        result = super().stop()
 
         # 清理线程池资源
         if self._executor:
             self._executor.shutdown(wait=True)
+        return result
 
     def put(self, event: Any) -> None:
         """放入事件 - 使用父类的统一处理（包含事件增强）"""

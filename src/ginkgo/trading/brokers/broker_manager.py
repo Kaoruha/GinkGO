@@ -283,10 +283,11 @@ class BrokerManager:
 
         except Exception as e:
             GLOG.ERROR(f"Failed to start broker for portfolio {portfolio_id}: {e}")
-            # 尝试更新状态为错误
+            # 尝试更新状态为错误；使用 portfolio_id 而非 broker.uuid
+            # 因为 broker 可能在 CRUD 查询阶段就失败了
             try:
                 broker_crud.update_broker_instance_status(
-                    broker.uuid,
+                    portfolio_id,
                     "error",
                     error_message=str(e)
                 )
