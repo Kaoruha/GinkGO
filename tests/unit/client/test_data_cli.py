@@ -267,13 +267,22 @@ class TestSync:
 
     @patch("ginkgo.data.containers.container")
     def test_sync_stockinfo_success(self, mock_container, cli_runner):
-        """同步 stockinfo 成功"""
+        """同步 stockinfo 成功：调用 service.sync() 并打印 success/total（非桩）"""
         mock_service = MagicMock()
+        mock_service.sync.return_value = ServiceResult.success(
+            data=MagicMock(),
+            message="Stock info sync completed: 5529 records processed",
+        )
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["sync", "stockinfo"])
         assert result.exit_code == 0
         assert "Syncing stock information" in result.output
+        # 核心行为：必须真正调用 service.sync()，而不是桩
+        mock_service.sync.assert_called_once()
+        assert "not yet implemented" not in result.output
+        # 输出含 success/total，与 day/adjustfactor 同款
+        assert "5529" in result.output
 
     @patch("ginkgo.data.containers.container")
     def test_sync_stockinfo_service_exception(self, mock_container, cli_runner):
