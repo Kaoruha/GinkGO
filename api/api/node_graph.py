@@ -426,6 +426,12 @@ async def add_file_to_portfolio(
 ):
     """
     添加文件到投资组合（自动同步到图结构）
+
+    file_type 命名（统一归一化解析，见 _resolve_file_type #5774 #5578）：
+      - 枚举名/大小写：strategy / STRATEGY / Strategy
+      - 风控别名：risk / riskmanager / risk_manager / RISK 均映射为 RISKMANAGER
+      - 整数/数字串：6 / "6"（FILE_TYPES 整数值）
+    支持类型：ANALYZER / INDEX / RISKMANAGER / SELECTOR / SIZER / STRATEGY
     """
     try:
         from ginkgo.enums import FILE_TYPES
