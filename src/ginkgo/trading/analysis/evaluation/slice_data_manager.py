@@ -33,32 +33,36 @@ class SliceDataManager:
         """初始化数据管理器"""
         self.cache = {}  # 数据缓存
         
-    def get_backtest_data(self, 
+    def get_backtest_data(self,
                          portfolio_id: str,
-                         engine_id: str,
+                         task_id: str,
                          start_date: Optional[str] = None,
                          end_date: Optional[str] = None) -> Dict[str, pd.DataFrame]:
         """
         获取回测的analyzer、signal、order数据
-        
+
+        回测记录主查询键为 task_id（≡ 回测 uuid，ADR-016）。三类记录一律按 task_id 查，
+        禁止以 engine_id 作为单次回测数据的查询条件（回测里 engine_id ≡ task_id 是
+        不变量，但 task 表 engine_id 可能空——见 #6174）。
+
         Args:
             portfolio_id: 投资组合ID
-            engine_id: 引擎ID
+            task_id: 执行会话ID（回测 uuid，记录主键）
             start_date: 开始日期
             end_date: 结束日期
-            
+
         Returns:
             Dict: 包含analyzer_data, signal_data, order_data的字典
         """
-        GLOG.INFO(f"获取回测数据: portfolio={portfolio_id}, engine={engine_id}")
-        
+        GLOG.INFO(f"获取回测数据: portfolio={portfolio_id}, task_id={task_id}")
+
         try:
             from ginkgo import services
 
             # 获取analyzer记录
             analyzer_crud = services.data.cruds.analyzer_record()
             analyzer_records = analyzer_crud.get_by_task_id(
-                task_id=engine_id,
+                task_id=task_id,
                 portfolio_id=portfolio_id,
                 page_size=100000,
             )
@@ -67,14 +71,14 @@ class SliceDataManager:
             # 获取信号记录
             signal_crud = services.data.cruds.signal()
             signal_records = signal_crud.find(
-                filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
+                filters={"portfolio_id": portfolio_id, "task_id": task_id},
             )
             signal_data = signal_records if isinstance(signal_records, pd.DataFrame) else pd.DataFrame()
 
             # 获取订单记录
             order_crud = services.data.cruds.order_record()
             order_records = order_crud.find(
-                filters={"portfolio_id": portfolio_id, "engine_id": engine_id},
+                filters={"portfolio_id": portfolio_id, "task_id": task_id},
             )
             order_data = order_records if isinstance(order_records, pd.DataFrame) else pd.DataFrame()
             
