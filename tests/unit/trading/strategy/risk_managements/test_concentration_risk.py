@@ -379,3 +379,43 @@ class TestConcentrationRiskPerformance:
         for _ in range(1000):
             r._calculate_concentrations(_make_portfolio_info())
         assert time.perf_counter() - start < 1.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+class TestConcentrationRiskDecimalCompatibility:
+    """V5 后 Position.market_value / order.limit_price 均为 Decimal 的混算兼容性守护。
+
+    既有 helper 用 int market_value / float limit_price，靠 order_value 恰好 Decimal 才触发崩溃；
+    Decimal 显式输入更贴近生产，并直接暴露 float 初值与 Decimal 的算术 TypeError。
+    """
+
+    def test_cal_decimal_market_value_and_limit_price_no_typeerror(self):
+        """Decimal market_value + Decimal limit_price 经 cal() 不抛 TypeError。
+
+        修复前 current_industry_value=0.0 在累加 market_value(Decimal) 时即崩
+        （float+Decimal 算术 TypeError；int+Decimal 合法是既有用例的巧合触发）。
+        """
+        r = ConcentrationRisk(max_single_position_ratio=5, max_industry_ratio=30)
+        r.update_stock_classification("000001.SZ", industry="银行")
+        order = _make_order(volume=100, code="000001.SZ", limit_price=Decimal("10.0"))
+        pos = _make_position(code="000001.SZ", market_value=Decimal("90000"))
+        info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
+        result = r.cal(info, order)
+        assert isinstance(result, Order)
+
+    def test_generate_signals_decimal_market_value_no_typeerror(self):
+        """Decimal market_value 经 generate_signals→_calculate_concentrations 不抛。
+
+        证伪'_calculate_concentrations 会 Decimal>float 崩'：Python 3.2+ 起比较合法（返回 bool），
+        sum/累加初值为 int 0（0+Decimal 合法）。仅算术混算 float+Decimal 才崩。
+        """
+        r = ConcentrationRisk(max_single_position_ratio=5)
+        _set_context(r)
+        r.update_stock_classification("000001.SZ", industry="银行")
+        pos = _make_position(code="000001.SZ", market_value=Decimal("90000"))
+        info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
+        event = EventPriceUpdate(payload=_make_bar())
+        signals = r.generate_signals(info, event)
+        assert isinstance(signals, list)
