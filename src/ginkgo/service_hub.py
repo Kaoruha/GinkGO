@@ -47,10 +47,11 @@ class ServiceHub:
     通过注册表驱动的方式提供到各模块容器的懒加载访问。
     """
 
-    def __init__(self):
+    def __init__(self, *, overrides: Optional[Dict[str, Any]] = None):
         self._module_cache: Dict[str, Any] = {}
         self._module_errors: Dict[str, str] = {}
         self._debug_mode: bool = False
+        self._overrides: Dict[str, Any] = overrides or {}
 
     def enable_debug(self) -> None:
         """启用调试模式"""
@@ -65,6 +66,10 @@ class ServiceHub:
             raise AttributeError(name)
         if name not in _MODULE_REGISTRY:
             raise AttributeError(f"ServiceHub has no module '{name}'")
+
+        # 测试覆盖优先
+        if name in self._overrides:
+            return self._overrides[name]
 
         if name in self._module_cache:
             return self._module_cache[name]
@@ -128,6 +133,24 @@ class ServiceHub:
             del self._module_cache[module_name]
         elif module_name is None:
             self._module_cache.clear()
+
+    def register_override(self, name: str, container: Any) -> None:
+        """
+        注册模块覆盖（主要用于测试）
+
+        用法:
+            services.register_override('data', mock_container)
+            # ... 测试代码 ...
+            services.clear_override('data')
+        """
+        self._overrides[name] = container
+
+    def clear_override(self, name: Optional[str] = None) -> None:
+        """清除模块覆盖"""
+        if name:
+            self._overrides.pop(name, None)
+        else:
+            self._overrides.clear()
 
 
 # 创建全局ServiceHub实例
