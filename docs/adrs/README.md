@@ -24,9 +24,13 @@
 | ADR-009 | [全局服务容器 service_hub](ADR-009-global-service-hub.md) | Accepted | 2026-06-13 |
 | ADR-010 | [数据对象三层角色分离 Entity/ORM/DTO](ADR-010-entity-orm-dto-separation.md) | Accepted | 2026-06-13 |
 | ADR-011 | [信号发射统一 Seam（Strategy + Risk）](ADR-011-signal-emission-seam.md) | Accepted | 2026-06-15 |
+| ADR-012 | [kafka-python 依赖锁定与异常基类收口](ADR-012-kafka-python-pin.md) | Accepted | 2026-06-19 |
+| ADR-013 | [Debug 模式改变 @retry 退避语义](ADR-013-debug-retry-backoff.md) | Accepted | 2026-06-19 |
+| ADR-014 | [core/database.py 半 gitignore + api 层禁裸 SQL](ADR-014-core-database-gitignored.md) | Accepted | 2026-06-19 |
+| ADR-015 | [web-ui 以 shadcn-vue 为唯一 UI 组件标准栈](ADR-015-webui-shadcn-vue.md) | Accepted | 2026-06-19 |
 
 ## 如何新增 / 修订
 
 1. **新增**：取最大编号 +1，先过三标准自检，不满足则不立。
 2. **修订既有决策**：**不删旧 ADR**，新建一篇并在旧文顶部标注 `Status: Superseded by ADR-0xx`，保持决策演进可追溯。
-3. 代码里引用决策时，写 `详见 docs/adr/ADR-0xx-*.md`，建立"代码 ↔ 决策"双向链。
+3. 代码里引用决策时，写 `详见 docs/adrs/ADR-0xx-*.md`，建立"代码 ↔ 决策"双向链。

@@ -11,7 +11,7 @@
 | 框架 | Vue 3 (Composition API + `<script setup>`) |
 | 构建 | Vite |
 | 状态管理 | Pinia |
-| UI 框架 | Ant Design Vue + shadcn-vue (双 UI 库并存) |
+| UI 框架 | shadcn-vue（唯一标准栈，详见 [ADR-015](adrs/ADR-015-webui-shadcn-vue.md)） |
 | 样式 | TailwindCSS |
 | 图表 | ECharts + Lightweight Charts (TradingView) |
 | 代码编辑 | Monaco Editor (vue-monaco-editor) |
