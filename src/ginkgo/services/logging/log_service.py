@@ -340,16 +340,22 @@ class LogService(BaseService):
         keyword: str,
         log_type: str = "backtest",
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
+        level: Optional[str] = None,
+        time_start: Optional[datetime] = None,
+        time_end: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         """
-        关键词全文搜索
+        关键词全文搜索（支持级别与时间窗口过滤，#5553）
 
         Args:
             keyword: 搜索关键词
             log_type: 日志类型
             limit: 最大返回结果数
             offset: 偏移量
+            level: 日志级别过滤（如 "ERROR"），None 不过滤
+            time_start: 起始时间（含），None 不过滤
+            time_end: 结束时间（含），None 不过滤
 
         Returns:
             List[Dict]: 匹配的日志条目列表
@@ -372,6 +378,14 @@ class LogService(BaseService):
                         model.logger_name.like(f"%{keyword}%")
                     )
                 )
+
+                # #5553: 级别与时间窗口过滤（alert_service._count_error_pattern 依赖）
+                if level is not None:
+                    query = query.where(model.level == level)
+                if time_start is not None:
+                    query = query.where(model.timestamp >= time_start)
+                if time_end is not None:
+                    query = query.where(model.timestamp <= time_end)
 
                 query = query.order_by(model.timestamp.desc())
                 query = query.limit(limit).offset(offset)
