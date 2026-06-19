@@ -22,7 +22,7 @@ console = Console(emoji=True, legacy_windows=False)
 
 @app.command()
 def get(
-    data_type: str = typer.Argument(..., help="Data type to get (stockinfo/calendar/day/tick/adjustfactor/sources)"),
+    data_type: str = typer.Argument(..., help="Data type to get (stockinfo/day/tick) [planned: calendar/adjustfactor/sources]"),
     code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (required for bars/ticks)"),
     start: Optional[str] = typer.Option(None, "--start", "-s", help="Start date (YYYYMMDD)"),
     end: Optional[str] = typer.Option(None, "--end", "-e", help="End date (YYYYMMDD)"),

@@ -563,7 +563,7 @@ def _run_health_check():
         # 提供建议
         console.print("\n[bold blue]:bulb: Health Check Tips:[/]")
         console.print("• Run 'ginkgo kafka status' for detailed Kafka queue information")
-        console.print("• Run 'ginkgo worker status' for detailed worker information")
+        console.print("• Run 'ginkgo worker data status' or 'ginkgo worker backtest status' for detailed worker information")
         console.print("• Check logs if any components show errors")
         
     except Exception as e:
