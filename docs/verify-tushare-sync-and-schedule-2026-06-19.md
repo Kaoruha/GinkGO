@@ -6,12 +6,14 @@
 | 部分 | 结论 |
 |---|---|
 | A. 手动数据更新（4 类全覆盖） | ✅ **day/adjustfactor/tick/stockinfo 均正常**（tick 走 TDX 非 tushare；stockinfo 需绕过 CLI 桩） |
-| B. schedule 定期更新 `TaskTimer→Kafka→DataWorker` | ❌ **不 work**（两个独立 bug） |
+| B. schedule 定期更新 `TaskTimer→Kafka→DataWorker` | ❌ **不 work**（两个独立 bug，**已于 PR #6185 修复**，merge `2488120e`） |
 
-## 跟踪 issue（2026-06-19 已拆分，均 ready-for-human）
-- #6184 接线 `ginkgo data sync stockinfo` 到 service（P2, mod:cli+mod:data）
-- #6182 修复定时作业取不到股票列表（P1, mod:live+mod:data）— Bug 1
-- #6183 修复 DataWorker 消费者 None 无重建（P1, mod:data+mod:live）— Bug 2
+## 跟踪 issue（2026-06-19 拆分 → **已由 PR #6185 修复合并**，merge `2488120e`，2026-06-19T15:03Z；3 issue 已闭）
+- ✅ #6184 接线 stockinfo CLI → service（P2, mod:cli+mod:data）
+- ✅ #6182 修复定时作业取不到股票列表（P1, mod:live+mod:data）— Bug 1
+- ✅ #6183 修复 DataWorker 消费者 None 无重建（P1, mod:data+mod:live）— Bug 2
+
+> 修复含完整单测（`test_data_cli`/`test_task_timer`/`test_data_worker`）；`_rebuild_consumer` 对运行时 poll 断连仍有已知局限，待定时/实盘验证。
 
 ## Part A — 手动同步（4 类全覆盖）✅
 | 数据类型 | 数据源 | 实测结果 | 落库核验 |
