@@ -435,8 +435,13 @@ def sync(
             from ginkgo.data.containers import container
             stockinfo_service = container.stockinfo_service()
             console.print(":repeat: Syncing stock information...")
-            # TODO: Implement stockinfo sync
-            console.print(":information: Stock info sync not yet implemented")
+            result = stockinfo_service.sync()
+            if result and result.is_success():
+                console.print(f":white_check_mark: {result.message}")
+            else:
+                error_msg = result.message if result and hasattr(result, "message") else "unknown error"
+                console.print(f":x: Stock info sync failed: {error_msg}")
+                raise typer.Exit(1)
 
         elif data_type == "day":
             from ginkgo import service_hub

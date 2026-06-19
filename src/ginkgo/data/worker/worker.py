@@ -298,8 +298,10 @@ class DataWorker(threading.Thread):
                     GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                     with self._lock:
                         self._stats["errors"] += 1
-                    # 出错后短暂等待再继续
-                    time.sleep(5)
+                    # #6183: consumer 失效则重建（带退避），避免瞬时断连永久卡死
+                    if not self._rebuild_consumer():
+                        # 重建失败，退避后重试（而非死循环重试同一个 None）
+                        time.sleep(5)
 
         except KeyboardInterrupt:
             GLOG.WARN(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
@@ -332,6 +334,35 @@ class DataWorker(threading.Thread):
         """
         with self._lock:
             return self._stats.copy()
+
+    def _rebuild_consumer(self) -> bool:
+        """检测 consumer 失效并重建（#6183）。
+
+        GinkgoConsumer 异常即置 self.consumer=None，run() 循环若只重试
+        同一个 None 会永久空转（错误计数无限增长）。此处检测失效后调
+        _init_consumer 重建；成功返回 True，重建失败返回 False（调用方
+        退避后再试），不 raise 以免拖垮 worker 线程。
+        """
+        if (
+            self._consumer is not None
+            and getattr(self._consumer, "consumer", None) is not None
+            and getattr(self._consumer, "is_connected", False)
+        ):
+            return True
+
+        GLOG.WARN(f"[DataWorker:{self._node_id}] Consumer lost or disconnected, rebuilding...")
+        try:
+            self._init_consumer()
+        except Exception as e:
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Consumer rebuild failed: {e}")
+            return False
+
+        if self._consumer is not None and getattr(self._consumer, "consumer", None) is not None:
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Consumer rebuilt successfully")
+            return True
+
+        GLOG.ERROR(f"[DataWorker:{self._node_id}] Consumer rebuild yielded no usable consumer")
+        return False
 
     def _init_consumer(self):
         """初始化Kafka消费者"""
