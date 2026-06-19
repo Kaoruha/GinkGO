@@ -276,7 +276,7 @@ class ConcentrationRisk(BaseRiskManagement):
         if total_value <= 0:
             return 0.0
 
-        return (position.market_value / total_value) * 100
+        return float((position.market_value / total_value) * 100)
 
     def _calculate_projected_ratio(self, portfolio_info: Dict, order: Order) -> float:
         """计算下单后的预计持仓比例"""
@@ -300,7 +300,7 @@ class ConcentrationRisk(BaseRiskManagement):
         projected_position_value = positions.get(order.code).market_value if positions.get(order.code) else 0
         projected_position_value += order_value
 
-        return (projected_position_value / projected_total) * 100
+        return float((projected_position_value / projected_total) * 100)
 
     def _calculate_projected_industry_ratio(self, portfolio_info: Dict, order: Order, industry: str) -> float:
         """计算下单后的预计行业持仓比例"""
@@ -310,8 +310,8 @@ class ConcentrationRisk(BaseRiskManagement):
         if total_value <= 0:
             return 100.0
 
-        # 计算当前行业价值
-        current_industry_value = 0.0
+        # 计算当前行业价值（Decimal(0)：market_value 为 Decimal，float 初值会与 Decimal 混算抛 TypeError）
+        current_industry_value = Decimal(0)
         for code, position in positions.items():
             if position and position.market_value > 0:
                 stock_industry = self._stock_industry_map.get(code, "未知行业")
@@ -327,7 +327,7 @@ class ConcentrationRisk(BaseRiskManagement):
         projected_industry_value = current_industry_value + order_value
         projected_total = total_value + order_value
 
-        return (projected_industry_value / projected_total) * 100
+        return float((projected_industry_value / projected_total) * 100)
 
     def update_stock_classification(self, code: str, industry: str = None, concepts: List[str] = None):
         """
