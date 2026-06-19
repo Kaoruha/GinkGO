@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3、SQLAlchemy ORM、pandas、pytest。venv: `/home/kaoru/.ginkgo/.venv/bin/python`。
 
-**关联：** `docs/adr/ADR-010-entity-orm-dto-separation.md`（决策）、根 `CONTEXT.md`（术语）、ADR-001（组件边界）、ADR-009（不改 Base/BaseCRUD/BaseService）。
+**关联：** `docs/adrs/ADR-010-entity-orm-dto-separation.md`（决策）、根 `CONTEXT.md`（术语）、ADR-001（组件边界）、ADR-009（不改 Base/BaseCRUD/BaseService）。
 
 ---
 
