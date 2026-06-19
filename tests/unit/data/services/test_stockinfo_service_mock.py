@@ -59,8 +59,8 @@ class TestHealthCheck:
     @pytest.mark.unit
     def test_health_check_healthy(self, service, mock_deps):
         """数据源可用时返回 healthy 状态"""
-        # count() 内部调用 crud_repo.find，需要 mock 返回
-        mock_deps["crud_repo"].find.return_value = [{"code": "000001.SZ"}]
+        # health_check 委托 count() → crud.count()，需 mock 返回整数
+        mock_deps["crud_repo"].count.return_value = 1
         mock_deps["data_source"].fetch_cn_stockinfo = MagicMock()  # hasattr 检查
 
         result = service.health_check()
@@ -91,8 +91,8 @@ class TestHealthCheck:
     def test_health_check_count_exception(self, service, mock_deps):
         """count() 异常时 total_records 回退为 0"""
         mock_deps["data_source"].fetch_cn_stockinfo = MagicMock()
-        # find 抛异常，但 health_check 内部 try-except 捕获
-        mock_deps["crud_repo"].find.side_effect = Exception("DB down")
+        # crud.count 抛异常 → count() 吞成 failure → health_check 见 success=False 取 0
+        mock_deps["crud_repo"].count.side_effect = Exception("DB down")
 
         result = service.health_check()
         assert result.success is True
@@ -102,9 +102,8 @@ class TestHealthCheck:
     def test_health_check_total_records(self, service, mock_deps):
         """health_check 正确统计 total_records"""
         mock_deps["data_source"].fetch_cn_stockinfo = MagicMock()
-        mock_deps["crud_repo"].find.return_value = [
-            {"code": "000001.SZ"}, {"code": "000002.SZ"}, {"code": "600000.SH"}
-        ]
+        # health_check 委托 count() → crud.count()，直接返回整数
+        mock_deps["crud_repo"].count.return_value = 3
 
         result = service.health_check()
         assert result.success is True
@@ -122,32 +121,29 @@ class TestCount:
     @pytest.mark.unit
     def test_count_all(self, service, mock_deps):
         """无过滤条件时返回全部记录数"""
-        mock_deps["crud_repo"].find.return_value = [
-            {"code": "000001.SZ"},
-            {"code": "000002.SZ"},
-            {"code": "600000.SH"},
-        ]
+        # count() 委托 crud.count() 直接返回整数（ADR-010：避免全量加载到内存）
+        mock_deps["crud_repo"].count.return_value = 3
         result = service.count()
         assert result.success is True
         assert result.data == 3
 
     @pytest.mark.unit
     def test_count_with_filters(self, service, mock_deps):
-        """带过滤条件时传递正确 filters 给 crud_repo"""
-        mock_deps["crud_repo"].find.return_value = [{"code": "000001.SZ"}]
+        """带过滤条件时传递正确 filters 给 crud_repo.count"""
+        mock_deps["crud_repo"].count.return_value = 1
 
         result = service.count(code="000001.SZ", industry="银行")
         assert result.success is True
         assert result.data == 1
-        # 验证传递的 filters
-        call_kwargs = mock_deps["crud_repo"].find.call_args
+        # 验证传递给 crud.count 的 filters
+        call_kwargs = mock_deps["crud_repo"].count.call_args
         assert call_kwargs[1]["filters"]["code"] == "000001.SZ"
         assert call_kwargs[1]["filters"]["industry"] == "银行"
 
     @pytest.mark.unit
     def test_count_empty_result(self, service, mock_deps):
         """查询无结果时返回 0"""
-        mock_deps["crud_repo"].find.return_value = []
+        mock_deps["crud_repo"].count.return_value = 0
 
         result = service.count(code="999999.XX")
         assert result.success is True
@@ -155,17 +151,18 @@ class TestCount:
 
     @pytest.mark.unit
     def test_count_none_result(self, service, mock_deps):
-        """crud_repo 返回 None 时处理为 0"""
-        mock_deps["crud_repo"].find.return_value = None
+        """crud_repo.count 返回 None 时透传（ADR-010：count 委托 crud，不再 None→0 转换）"""
+        mock_deps["crud_repo"].count.return_value = None
 
         result = service.count()
         assert result.success is True
-        assert result.data == 0
+        # 新契约：直接透传 crud.count() 返回值（crud.count 签名 int，None 为上游违约边界）
+        assert result.data is None
 
     @pytest.mark.unit
     def test_count_exception(self, service, mock_deps):
-        """crud_repo 异常时返回失败结果"""
-        mock_deps["crud_repo"].find.side_effect = Exception("数据库连接失败")
+        """crud_repo.count 异常时返回失败结果"""
+        mock_deps["crud_repo"].count.side_effect = Exception("数据库连接失败")
 
         result = service.count()
         assert result.success is False
