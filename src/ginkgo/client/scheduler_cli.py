@@ -19,7 +19,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.json import JSON
-import json
 from datetime import datetime
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -160,59 +159,52 @@ def status():
     """
     :bar_chart: Show Scheduler status.
 
-    Display Scheduler information from Redis state.
+    Read Scheduler state from Redis heartbeat synchronously and display it.
+    This is a query — it does NOT send a Kafka command (#5174 / #5987).
     """
     console.print(":information: Scheduler status check")
 
     try:
-        from ginkgo.data.crud import RedisCRUD
+        from ginkgo import services
 
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        redis_svc = services.data.redis_service()
+        result = redis_svc.get_scheduler_status()
 
-        # Get scheduler info from Redis
-        # Check for heartbeat keys to find active nodes
-        from ginkgo.data.redis_schema import RedisKeyPattern
-        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+        if not result.is_success():
+            console.print(f"[red]:x: Error getting Scheduler status: {result.error}[/red]")
+            raise typer.Exit(1)
 
-        if not heartbeat_keys:
-            console.print("[yellow]:warning: No ExecutionNodes found (no heartbeats)[/yellow]")
+        schedulers = result.data or []
+        if not schedulers:
+            console.print(
+                "[yellow]:warning: 调度器未启动（未发现运行中的 Scheduler 心跳）[/yellow]"
+            )
             return
 
-        # Create table
-        table = Table(title=":calendar: Scheduler Status", show_header=True, header_style="bold magenta")
-        table.add_column("Metric", style="cyan", width=30)
-        table.add_column("Value", style="green")
+        table = Table(
+            title=":calendar: Scheduler Status",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Node ID", style="cyan", no_wrap=False)
+        table.add_column("Status", style="green")
+        table.add_column("Running Tasks", justify="right", style="yellow")
+        table.add_column("Pending Tasks", justify="right", style="yellow")
+        table.add_column("Last Heartbeat", style="dim")
 
-        # Count healthy nodes
-        healthy_count = len(heartbeat_keys)
-        table.add_row("Healthy ExecutionNodes", str(healthy_count))
-
-        # Get current schedule plan
-        plan_data = redis_client.hgetall("schedule:plan")
-        if plan_data:
-            table.add_row("Scheduled Portfolios", str(len(plan_data)))
-        else:
-            table.add_row("Scheduled Portfolios", "0")
-
-        # Get node metrics
-        metric_keys = redis_client.keys("node:metrics:*")
-        total_portfolios = 0
-        total_queue_size = 0
-
-        for key in metric_keys:
-            metrics = redis_client.hgetall(key)
-            if metrics:
-                total_portfolios += int(metrics.get(b'portfolio_count', 0))
-                total_queue_size += int(metrics.get(b'queue_size', 0))
-
-        if metric_keys:
-            table.add_row("Total Portfolios Running", str(total_portfolios))
-            table.add_row("Average Queue Size", str(total_queue_size // len(metric_keys)))
+        for s in schedulers:
+            table.add_row(
+                str(s.get("node_id", "-")),
+                str(s.get("status", "-")),
+                str(s.get("running_tasks", 0)),
+                str(s.get("pending_tasks", 0)),
+                str(s.get("last_heartbeat", "-")),
+            )
 
         console.print(table)
         console.print()
-
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error getting Scheduler status: {e}[/red]")
         raise typer.Exit(1)
@@ -494,10 +486,14 @@ def recalculate(
             if ttl > 0:
                 healthy_nodes.append(node_id)
 
-        # Get current plan
+        # Get current plan (#5987-b): schedule:plan 是 Redis HASH（publisher.hset 写入），
+        # 必须用 hgetall 读；误用 get() 会触发 WRONGTYPE。
         plan_key = "schedule:plan"
-        current_plan_json = redis_client.get(plan_key)
-        current_plan = json.loads(current_plan_json) if current_plan_json else {}
+        plan_data = redis_client.hgetall(plan_key)
+        current_plan = {
+            k.decode("utf-8"): v.decode("utf-8")
+            for k, v in plan_data.items()
+        } if plan_data else {}
 
         # Show current state
         console.print(f"\n:clipboard: [bold]Current State:[/bold]")
@@ -587,10 +583,14 @@ def schedule(
             console.print("[red]:x: No healthy nodes available[/red]")
             raise typer.Exit(1)
 
-        # Get current plan
+        # Get current plan (#5987-b): schedule:plan 是 Redis HASH（publisher.hset 写入），
+        # 必须用 hgetall 读；误用 get() 会触发 WRONGTYPE。
         plan_key = "schedule:plan"
-        current_plan_json = redis_client.get(plan_key)
-        current_plan = json.loads(current_plan_json) if current_plan_json else {}
+        plan_data = redis_client.hgetall(plan_key)
+        current_plan = {
+            k.decode("utf-8"): v.decode("utf-8")
+            for k, v in plan_data.items()
+        } if plan_data else {}
 
         # Get all live portfolios from database
         console.print(f"\n:database: Fetching live portfolios from database...")
@@ -728,42 +728,3 @@ def resume():
         raise typer.Exit(1)
 
 
-@app.command()
-def status():
-    """
-    :information: Query Scheduler status.
-
-    Shows the current status of the Scheduler including:
-    - Running state
-    - Paused state
-    - Schedule interval
-    - Node ID
-
-    Examples:
-      ginkgo scheduler status
-    """
-    try:
-        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-        from ginkgo.interfaces.dtos import SchedulerCommandDTO
-
-        console.print("\n:information: Querying Scheduler status...")
-
-        # Send status command to Kafka
-        producer = GinkgoProducer()
-        command_dto = SchedulerCommandDTO(
-            command=SchedulerCommandDTO.Commands.STATUS,
-            source="cli"
-        )
-
-        success = producer.send("scheduler.commands", command_dto.model_dump())
-
-        if success:
-            console.print(":white_check_mark: [green]Status command sent successfully[/green]")
-            console.print(":information: Check Scheduler logs for detailed status information")
-        else:
-            console.print("[red]:x: Failed to send status command[/red]")
-            raise typer.Exit(1)
-
-    except Exception as e:
-        console.print(f"[red]:x: Error querying scheduler status: {e}[/red]")
-        raise typer.Exit(1)
