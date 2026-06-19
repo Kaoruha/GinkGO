@@ -3,7 +3,7 @@ BacktestTaskService.start_task 重跑清理循环契约测试
 
 覆盖 backtest_task_service.py:609-627 的重跑旧数据清理逻辑（DI 改造后由容器注入 9 个 CRUD）：
 - 注入的 9 个 CRUD 全部以 filters={"task_id": ...} 调用 remove
-- CRUD 为 None（容器未注入）时跳过，其余仍清理
+- CRUD 为 None（容器未注入）时 WARN 告警（非静默跳过），其余仍清理
 - 单个 CRUD.remove 抛异常时不中断后续清理（容错，逐表 try-except）
 """
 
@@ -100,16 +100,30 @@ class TestRerunCleanupLoop:
             crud.remove.assert_called_once_with(filters={"task_id": task.task_id})
 
     @pytest.mark.unit
-    def test_none_crud_skipped_others_still_cleaned(self):
-        """CRUD 为 None（容器未注入）时跳过，其余 CRUD 仍正常清理"""
+    def test_none_crud_warns_others_still_cleaned(self):
+        """CRUD 为 None（容器未注入）时 WARN 告警，其余 CRUD 仍正常清理，不崩溃
+
+        设计意图：清理路径缺注时必须「大声告警」而非静默跳过——
+        静默跳过会让旧数据残留、回测结果悄悄污染（最坏故障模式）。
+        """
         svc, cruds = _make_service_with_cruds(
             crud_overrides={"order_crud": None, "transfer_crud": None}
         )
 
-        with _mock_kafka_and_container():
+        with _mock_kafka_and_container(), \
+             patch("ginkgo.data.services.backtest_task_service.GLOG") as mock_glog:
             result = svc.start_task(uuid="uuid-1234")
 
-        # None 的两个被跳过（不报错），其余 7 个仍调用 remove
+        # None 的两个触发 WARN（大声告警，非静默跳过）
+        delete_warns = [
+            str(c.args[0]) for c in mock_glog.WARN.call_args_list
+            if "Failed to delete" in str(c.args[0])
+        ]
+        assert any("order" in w for w in delete_warns), \
+            f"order_crud=None 应触发 WARN，实际 delete WARN: {delete_warns}"
+        assert any("transfer" in w for w in delete_warns), \
+            f"transfer_crud=None 应触发 WARN，实际 delete WARN: {delete_warns}"
+        # 其余 7 个仍调用 remove
         assert cruds["order_crud"] is None
         assert cruds["transfer_crud"] is None
         for name in _CLEANUP_KWARGS:

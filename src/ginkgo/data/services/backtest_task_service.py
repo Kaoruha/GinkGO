@@ -618,8 +618,8 @@ class BacktestTaskService(BaseService):
                 ("signal_tracker",  self._signal_tracker_crud),
             ]
             for name, crud in _cleanup_cruds:
-                if crud is None:
-                    continue
+                # CRUD 未注入时走 None.remove() → AttributeError → except 转 WARN
+                # （刻意不静默跳过：清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
                 try:
                     crud.remove(filters={"task_id": task_id})
                     GLOG.DEBUG(f"Deleted old {name}")
