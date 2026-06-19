@@ -5,7 +5,7 @@
 
 ## Context
 
-`pyproject.toml:59` 的 `"kafka-python>=3.0.0,<4"` 是全仓约 60 个运行时依赖中**唯一**采用双端 pin（下限 + 上限）的依赖。其余依赖一律单下限（`redis>=4.6.0`、`psycopg>=3.2.0`、`fastapi>=0.116.0` …）。这个"唯一特例"背后是一次实战崩溃。
+`pyproject.toml:59` 的 `"kafka-python>=3.0.0,<4"` 是全仓 79 个运行时依赖（`pyproject` `[project] dependencies` 实测）中**唯一**采用双端 pin（下限 + 上限）的依赖。其余依赖一律单下限（`redis>=4.6.0`、`psycopg>=3.2.0`、`fastapi>=0.116.0` …）。这个"唯一特例"背后是一次实战崩溃。
 
 根因见 commit `33e5f0bc`（`fix(#6157)`，2026-06-15）：容器 `Dockerfile` 走 `uv pip install --system .`，**不读 `uv.lock`**，resolver 在仅有下限约束时抓到 `kafka-python 3.0.0`。该大版本**移除 `NoBrokersAvailable`**（并入 `KafkaConnectionError`），导致 `src/ginkgo/data/drivers/ginkgo_kafka.py` 一 `import` 即 `ImportError`，livecore 启动崩溃循环。关联修复 `2b032b52`（`#6154`/`#6169`）：schedule 链路的 kafka 3.0 兼容。
 
