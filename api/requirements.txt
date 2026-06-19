@@ -6,7 +6,7 @@ uvicorn[standard]>=0.24.0
 
 # 数据验证
 pydantic>=2.5.0
-pydantic-settings>=2.1.0
+pydantic-settings>=2.14.2
 
 # 认证
 python-jose[cryptography]>=3.3.0
