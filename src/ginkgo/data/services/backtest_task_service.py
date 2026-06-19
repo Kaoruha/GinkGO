@@ -35,7 +35,12 @@ class BacktestTaskService(BaseService):
     - 删除任务
     """
 
-    def __init__(self, crud_repo, analyzer_service=None, engine_service=None, portfolio_service=None):
+    def __init__(self, crud_repo, analyzer_service=None, engine_service=None,
+                 portfolio_service=None,
+                 signal_crud=None, order_crud=None, position_crud=None,
+                 position_record_crud=None, analyzer_record_crud=None,
+                 order_record_crud=None, transfer_record_crud=None,
+                 transfer_crud=None, signal_tracker_crud=None):
         """
         初始化服务
 
@@ -44,16 +49,23 @@ class BacktestTaskService(BaseService):
             analyzer_service: 分析服务（可选，用于获取净值数据等）
             engine_service: 引擎服务（可选，用于关联引擎）
             portfolio_service: 投资组合服务（可选，用于关联投资组合）
+            signal_crud ~ signal_tracker_crud: 重跑清理用的 CRUD（可选，由容器注入）
         """
         super().__init__(
             crud_repo=crud_repo,
             analyzer_service=analyzer_service,
             engine_service=engine_service,
-            portfolio_service=portfolio_service
+            portfolio_service=portfolio_service,
+            signal_crud=signal_crud,
+            order_crud=order_crud,
+            position_crud=position_crud,
+            position_record_crud=position_record_crud,
+            analyzer_record_crud=analyzer_record_crud,
+            order_record_crud=order_record_crud,
+            transfer_record_crud=transfer_record_crud,
+            transfer_crud=transfer_crud,
+            signal_tracker_crud=signal_tracker_crud,
         )
-        self._analyzer_service = analyzer_service
-        self._engine_service = engine_service
-        self._portfolio_service = portfolio_service
         GLOG.set_log_category("component")
 
     def get(self, task_id: str = None, engine_id: str = None, portfolio_id: str = None,
@@ -589,82 +601,30 @@ class BacktestTaskService(BaseService):
                 )
 
             # ========== 重新运行：删除旧数据 ==========
-            from ginkgo.data.containers import container
             task_id = task.task_id
 
             GLOG.INFO(f"Cleaning old data for task_id: {task_id[:8]}...")
 
-            # 删除旧信号
-            try:
-                signal_crud = container.cruds.signal()
-                signal_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old signals")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete signals: {e}")
-
-            # 删除旧订单
-            try:
-                order_crud = container.cruds.order()
-                order_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old orders")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete orders: {e}")
-
-            # 删除旧持仓
-            try:
-                position_crud = container.cruds.position()
-                position_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old positions")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete positions: {e}")
-
-            # 删除旧持仓记录
-            try:
-                position_record_crud = container.cruds.position_record()
-                position_record_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old position records")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete position records: {e}")
-
-            # 删除旧分析器记录
-            try:
-                analyzer_crud = container.cruds.analyzer_record()
-                analyzer_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old analyzer records")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete analyzer records: {e}")
-
-            # 删除旧订单记录（订单状态变更历史）
-            try:
-                order_record_crud = container.cruds.order_record()
-                order_record_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old order records")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete order records: {e}")
-
-            # 删除旧转账记录
-            try:
-                transfer_record_crud = container.cruds.transfer_record()
-                transfer_record_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old transfer records")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete transfer records: {e}")
-
-            # 删除旧转账（MySQL）
-            try:
-                transfer_crud = container.cruds.transfer()
-                transfer_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old transfers")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete transfers: {e}")
-
-            # 删除旧信号追踪器
-            try:
-                signal_tracker_crud = container.cruds.signal_tracker()
-                signal_tracker_crud.remove(filters={"task_id": task_id})
-                GLOG.DEBUG("Deleted old signal trackers")
-            except Exception as e:
-                GLOG.WARN(f"Failed to delete signal trackers: {e}")
+            # 清理与 task_id 关联的所有历史数据（CRUD 由容器注入）
+            _cleanup_cruds = [
+                ("signal",          self._signal_crud),
+                ("order",           self._order_crud),
+                ("position",        self._position_crud),
+                ("position_record", self._position_record_crud),
+                ("analyzer_record", self._analyzer_record_crud),
+                ("order_record",    self._order_record_crud),
+                ("transfer_record", self._transfer_record_crud),
+                ("transfer",        self._transfer_crud),
+                ("signal_tracker",  self._signal_tracker_crud),
+            ]
+            for name, crud in _cleanup_cruds:
+                # CRUD 未注入时走 None.remove() → AttributeError → except 转 WARN
+                # （刻意不静默跳过：清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
+                try:
+                    crud.remove(filters={"task_id": task_id})
+                    GLOG.DEBUG(f"Deleted old {name}")
+                except Exception as e:
+                    GLOG.WARN(f"Failed to delete {name}: {e}")
 
             # 发送启动命令到Kafka（task_id 保持不变）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer

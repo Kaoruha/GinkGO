@@ -266,6 +266,15 @@ class Container(containers.DeclarativeContainer):
         analyzer_service=analyzer_service,
         engine_service=providers.Singleton(get_crud, "engine"),
         portfolio_service=portfolio_service,
+        signal_crud=providers.Singleton(get_crud, "signal"),
+        order_crud=providers.Singleton(get_crud, "order"),
+        position_crud=providers.Singleton(get_crud, "position"),
+        position_record_crud=providers.Singleton(get_crud, "position_record"),
+        analyzer_record_crud=analyzer_record_crud,
+        order_record_crud=providers.Singleton(get_crud, "order_record"),
+        transfer_record_crud=providers.Singleton(get_crud, "transfer_record"),
+        transfer_crud=providers.Singleton(get_crud, "transfer"),
+        signal_tracker_crud=providers.Singleton(get_crud, "signal_tracker"),
     )
 
     # User management services

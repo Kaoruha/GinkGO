@@ -67,3 +67,46 @@ class TestServiceHubLegacyAliasesRemoved:
                 # If it still exists, it must not just be BaseService
                 assert getattr(svc_mod, name) is not BaseService, \
                     f"{name} should be removed, not aliased to BaseService"
+
+
+class TestServiceHubOverrides:
+    """ServiceHub overrides 机制：测试覆盖优先于真实模块加载（service_hub.py:50-77,137-153）"""
+
+    def test_register_override_returns_registered_container(self):
+        """register_override 后 getattr 返回注入的 container"""
+        hub = ServiceHub()
+        mock_container = MagicMock()
+        hub.register_override("data", mock_container)
+        assert hub.data is mock_container
+
+    def test_override_takes_priority_over_real_module(self):
+        """override 命中时不触发真实 _load_module（优先级最高）"""
+        hub = ServiceHub()
+        mock_container = MagicMock()
+        hub.register_override("data", mock_container)
+        with patch.object(hub, "_load_module") as mock_load:
+            assert hub.data is mock_container
+            mock_load.assert_not_called()
+
+    def test_clear_override_single_removes_named(self):
+        """clear_override(name) 移除单个 override"""
+        hub = ServiceHub()
+        hub.register_override("data", MagicMock())
+        hub.register_override("trading", MagicMock())
+        hub.clear_override("data")
+        assert "data" not in hub._overrides
+        assert "trading" in hub._overrides
+
+    def test_clear_override_all_empties_registry(self):
+        """clear_override() 无参清空所有 override"""
+        hub = ServiceHub()
+        hub.register_override("data", MagicMock())
+        hub.register_override("trading", MagicMock())
+        hub.clear_override()
+        assert hub._overrides == {}
+
+    def test_initial_overrides_via_constructor(self):
+        """__init__(overrides=...) 注入初始 override"""
+        mock_container = MagicMock()
+        hub = ServiceHub(overrides={"data": mock_container})
+        assert hub.data is mock_container
