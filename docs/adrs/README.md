@@ -28,6 +28,7 @@
 | ADR-013 | [Debug 模式改变 @retry 退避语义](ADR-013-debug-retry-backoff.md) | Accepted | 2026-06-19 |
 | ADR-014 | [core/database.py 半 gitignore + api 层禁裸 SQL](ADR-014-core-database-gitignored.md) | Accepted | 2026-06-19 |
 | ADR-015 | [web-ui 以 shadcn-vue 为唯一 UI 组件标准栈](ADR-015-webui-shadcn-vue.md) | Accepted | 2026-06-19 |
+| ADR-016 | [回测标识符边界（task_id / engine_id / uuid）](ADR-016-backtest-id-boundary.md) | Accepted | 2026-06-19 |
 
 ## 如何新增 / 修订
 

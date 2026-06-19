@@ -63,14 +63,13 @@ class DeviationChecker:
                 return None
             latest_task = tasks[0]
             task_id = getattr(latest_task, "task_id", None)
-            engine_id = getattr(latest_task, "engine_id", None)
             if not task_id:
                 return None
 
             from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
             evaluator = BacktestEvaluator()
             eval_result = evaluator.evaluate_backtest_stability(
-                portfolio_id=source_id, engine_id=engine_id,
+                portfolio_id=source_id, task_id=task_id,
             )
             if eval_result.get("status") != "success":
                 return None

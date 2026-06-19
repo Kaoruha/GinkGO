@@ -53,31 +53,34 @@ class BacktestEvaluator:
         if candidate_periods:
             self.period_optimizer.candidate_periods = candidate_periods
             
-    def evaluate_backtest_stability(self, 
+    def evaluate_backtest_stability(self,
                                   portfolio_id: str,
-                                  engine_id: str,
+                                  task_id: str,
                                   start_date: Optional[str] = None,
                                   end_date: Optional[str] = None) -> Dict:
         """
         场景1：完整回测稳定性评估流程
-        
+
+        回测记录按 task_id（≡ 回测 uuid，ADR-016 主键）查询。task_id 由调用方从
+        MBacktestTask.task_id / uuid 提供，不得用 task.engine_id（#6174：可能空）。
+
         Args:
             portfolio_id: 投资组合ID
-            engine_id: 引擎ID
+            task_id: 执行会话ID（回测 uuid，记录主键）
             start_date: 开始日期
             end_date: 结束日期
-            
+
         Returns:
             Dict: 完整的评估结果
         """
-        GLOG.INFO(f"开始回测稳定性评估: portfolio={portfolio_id}, engine={engine_id}")
-        
+        GLOG.INFO(f"开始回测稳定性评估: portfolio={portfolio_id}, task_id={task_id}")
+
         try:
             # 1. 获取回测数据
             GLOG.INFO("步骤1: 获取回测数据")
             backtest_data = self.data_manager.get_backtest_data(
                 portfolio_id=portfolio_id,
-                engine_id=engine_id,
+                task_id=task_id,
                 start_date=start_date,
                 end_date=end_date
             )
@@ -123,7 +126,7 @@ class BacktestEvaluator:
                 'status': 'success',
                 'evaluation_time': clock_now().isoformat(),
                 'portfolio_id': portfolio_id,
-                'engine_id': engine_id,
+                'task_id': task_id,
                 'data_summary': {
                     'analyzer_records': len(backtest_data['analyzer_data']),
                     'signal_records': len(backtest_data['signal_data']),

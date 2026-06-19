@@ -223,7 +223,9 @@ def evaluate_stability(
         
         result = evaluator.evaluate_backtest_stability(
             portfolio_id=portfolio,
-            engine_id=engine,
+            # ADR-016: 回测记录按 task_id 查。--engine 传入值在此回测评估场景即 task_id；
+            # CLI flag 重命名待 #4639 实现本命令时一并处理。
+            task_id=engine,
             start_date=start_date,
             end_date=end_date
         )
@@ -269,7 +271,9 @@ def create_monitor(
         # Run evaluation to get baseline
         result = evaluator.evaluate_backtest_stability(
             portfolio_id=portfolio,
-            engine_id=engine,
+            # ADR-016: 回测记录按 task_id 查。--engine 传入值在此回测评估场景即 task_id；
+            # CLI flag 重命名待 #4639 实现本命令时一并处理。
+            task_id=engine,
             start_date=start_date,
             end_date=end_date
         )

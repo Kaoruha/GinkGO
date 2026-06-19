@@ -224,6 +224,9 @@ class ProgressTracker:
             # 完成状态时，设置结果字段和进度 100%
             if status == "completed":
                 result_fields["progress"] = 100
+                # ADR-016 铁律 2: 回测完成回写 engine_id = task_uuid（task_id 与 uuid 等价），
+                # 维持 engine_id ≡ task_id 不变量。baseline 管线 / get_tasks_by_engine 等依赖此列非空。
+                result_fields["engine_id"] = task_id
             if result:
                 result_fields.update({
                     "total_pnl": result.get("total_pnl", 0.0),

@@ -24,7 +24,7 @@ class TestSliceDataManagerGLOG:
         mock_services.data.cruds.order_record.return_value = mock_crud
 
         with patch("ginkgo.services", mock_services):
-            result = mgr.get_backtest_data(portfolio_id="test", engine_id="test")
+            result = mgr.get_backtest_data(portfolio_id="test", task_id="test")
         # Should return dict with DataFrames, NOT crash on GLOG
         assert isinstance(result, dict)
 
