@@ -60,6 +60,16 @@ class TestFileTypeParsing:
         assert _resolve_file_type("RISK") == FILE_TYPES.RISKMANAGER
 
     @pytest.mark.unit
+    def test_risk_manager_snake_case(self):
+        """snake_case 'risk_manager' → RISKMANAGER (#5578)"""
+        assert _resolve_file_type("risk_manager") == FILE_TYPES.RISKMANAGER
+
+    @pytest.mark.unit
+    def test_riskmanager_compact_compat(self):
+        """连写 'riskmanager' → RISKMANAGER（兼容，回归守护 #5578 ③）"""
+        assert _resolve_file_type("riskmanager") == FILE_TYPES.RISKMANAGER
+
+    @pytest.mark.unit
     def test_mixed_case(self):
         """混合大小写 'Strategy' → STRATEGY"""
         assert _resolve_file_type("Strategy") == FILE_TYPES.STRATEGY
