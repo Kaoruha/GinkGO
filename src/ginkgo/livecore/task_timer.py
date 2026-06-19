@@ -838,13 +838,13 @@ class TaskTimer:
         try:
             from ginkgo import service_hub
 
-            stockinfo_service = service_hub.data.stockinfo_service
-            stocks = stockinfo_service.get_stockinfos()
+            stockinfo_service = service_hub.data.stockinfo_service()
+            result = stockinfo_service.get_stockinfos()
 
-            if not stocks:
-                return []
+            if result.is_success() and result.data:
+                return [stock.code for stock in result.data]
 
-            return [stock.code for stock in stocks]
+            return []
 
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")

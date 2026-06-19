@@ -96,3 +96,55 @@ class TestTaskTimerKafkaPublishing:
 
             topic = mock_producer.send.call_args.kwargs.get("topic") or mock_producer.send.call_args[0][0]
             assert topic == KafkaTopics.DATA_COMMANDS, f"Command '{cmd}' should route to DATA_COMMANDS"
+
+
+@pytest.mark.skipif(not HAS_MODULE, reason="TaskTimer not available")
+class TestGetAllStockCodes:
+    """#6182: _get_all_stock_codes 必须实例化 service（带 ()）并从 ServiceResult 取 .data。
+
+    旧实现把 dependency_injector 的 Singleton provider 对象当实例（漏调 ()），
+    且把 get_stockinfos() 返回的 ServiceResult 当 list 迭代，导致定时数据作业
+    永远 "No stocks found, skipping"，定时数据更新变空操作。
+    """
+
+    @patch("ginkgo.service_hub")
+    def test_returns_codes_from_service_result_data(self, mock_hub):
+        """ServiceResult.success(data=[StockInfo...]) -> 返回 [code...]，且 provider 必须被实例化。"""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        timer = TaskTimer()
+        mock_stocks = [MagicMock(code="000001.SZ"), MagicMock(code="600000.SH")]
+        mock_service = MagicMock()
+        mock_service.get_stockinfos.return_value = ServiceResult.success(data=mock_stocks)
+        mock_hub.data.stockinfo_service.return_value = mock_service
+
+        codes = timer._get_all_stock_codes()
+
+        assert codes == ["000001.SZ", "600000.SH"]
+        # provider 必须被实例化（带 ()），否则拿到的是 provider 对象非实例
+        mock_hub.data.stockinfo_service.assert_called_once()
+        mock_service.get_stockinfos.assert_called_once()
+
+    @patch("ginkgo.service_hub")
+    def test_returns_empty_when_no_data(self, mock_hub):
+        """ServiceResult 空 data -> 返回 []（不抛异常、不误返 ServiceResult 对象）。"""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        timer = TaskTimer()
+        mock_service = MagicMock()
+        mock_service.get_stockinfos.return_value = ServiceResult.success(data=[])
+        mock_hub.data.stockinfo_service.return_value = mock_service
+
+        assert timer._get_all_stock_codes() == []
+
+    @patch("ginkgo.service_hub")
+    def test_returns_empty_on_service_failure(self, mock_hub):
+        """ServiceResult.failure -> 返回 []。"""
+        from ginkgo.data.services.base_service import ServiceResult
+
+        timer = TaskTimer()
+        mock_service = MagicMock()
+        mock_service.get_stockinfos.return_value = ServiceResult.failure(message="db down")
+        mock_hub.data.stockinfo_service.return_value = mock_service
+
+        assert timer._get_all_stock_codes() == []
