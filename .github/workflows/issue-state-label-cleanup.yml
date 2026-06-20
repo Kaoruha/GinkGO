@@ -1,0 +1,40 @@
+name: cleanup-issue-state-labels
+
+# issue 关闭时自动移除残留的 state-label，防止"已关闭但带 in-review/ready-for-*/in-progress"的僵尸。
+# 解决 /triage 状态机缺口：关闭动作没有 owner —— /triage 不管 in-review/in-progress，
+# /pick-issue 到 in-review 就退出，/review 误以为"合并后无需额外操作"。
+# 见 docs/agents/triage-labels.md 状态机：ready-for-* → in-progress → in-review → 关闭。
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const STATE = ['ready-for-agent', 'ready-for-human', 'in-progress', 'in-review'];
+            const issue = context.payload.issue;
+            const toRemove = (issue.labels || []).map(l => l.name).filter(n => STATE.includes(n));
+            if (toRemove.length === 0) {
+              core.info(`issue #${issue.number}: 无 state-label，跳过`);
+              return;
+            }
+            core.info(`issue #${issue.number}: 移除 ${toRemove.join(', ')}`);
+            for (const name of toRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name,
+                });
+              } catch (e) {
+                core.warning(`移除 ${name} 失败: ${e.message}`);
+              }
+            }
