@@ -252,6 +252,7 @@ class BrokerManager:
             bool: 启动是否成功
         """
         broker_crud, _, _ = self._get_cruds()
+        broker = None
 
         try:
             broker = broker_crud.get_broker_by_portfolio(portfolio_id)
@@ -283,16 +284,16 @@ class BrokerManager:
 
         except Exception as e:
             GLOG.ERROR(f"Failed to start broker for portfolio {portfolio_id}: {e}")
-            # 尝试更新状态为错误；使用 portfolio_id 而非 broker.uuid
-            # 因为 broker 可能在 CRUD 查询阶段就失败了
-            try:
-                broker_crud.update_broker_instance_status(
-                    portfolio_id,
-                    "error",
-                    error_message=str(e)
-                )
-            except Exception as e:
-                GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
+            # 尝试更新状态为错误
+            if broker is not None:
+                try:
+                    broker_crud.update_broker_instance_status(
+                        broker.uuid,
+                        "error",
+                        error_message=str(e)
+                    )
+                except Exception as e2:
+                    GLOG.ERROR(f"Failed to update broker status to error for {broker.uuid}: {e2}")
             return False
 
     def stop_broker(self, portfolio_id: str) -> bool:
