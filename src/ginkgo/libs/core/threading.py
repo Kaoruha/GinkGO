@@ -1,6 +1,6 @@
 # Upstream: 全局所有模块 (通过GTM单例管理线程/Worker)、CLI命令(ginkgo worker)
 # Downstream: GCONF(配置), GLOG(日志), GinkgoLogger, retry(装饰器), psutil, rich, redis_service/kafka_service(延迟加载)
-# Role: GinkgoThreadManager线程/进程管理器，支持Kafka数据Worker管理、WatchDog守护、MainControl主控和LiveEngine生命周期管理
+# Role: GinkgoThreadManager线程/进程管理器，支持Kafka数据Worker管理、WatchDog守护、MainControl主控（run_live/stop_live 远控总线已退役，实盘启动改走 livecore/main.py）
 
 
 
@@ -603,55 +603,20 @@ if __name__ == "__main__":
             return status
         return "NOT EXIST"
 
-    def process_main_control_command(self, value: str) -> None:
-        # TODO: live engine lifecycle management
+    def process_main_control_command(self, value: Dict) -> None:
         control_logger.INFO(f"Deal with main control. {value}")
-        if value["type"] == "run_live":
-            id = value["id"]
-            control_logger.INFO(f"Run live engine for {id}.")
-            self.run_live_daemon(id)
-        elif value["type"] == "stop_live":
-            id = value["id"]
-            console.print(f"Stop live engine {id}.")
-            # TODO: implement live engine stop via process signal
+        cmd_type = value.get("type") if isinstance(value, dict) else None
+        if cmd_type in ("run_live", "stop_live"):
+            # #6118/#5573: Kafka 驱动的 live engine 远控总线已被 livecore/main.py
+            # （config + enable_live_engine + get_live_engine 单例）取代，此处不再启动。
+            # 此前 run_live/run_live_daemon 引用不存在的 trading.engines.live_engine 模块
+            # 并把 id 插值进生成脚本（注入风险）；现统一记退役日志。
+            control_logger.WARN(
+                f"Live engine launch via main-control ({cmd_type}) is retired; "
+                "use livecore/main.py (enable_live_engine) to start a live engine."
+            )
         else:
-            control_logger.WARN(f"Can not process {type}.")
-
-    def run_live(self, id: str, *args, **kwargs):
-        # TODO
-        console.print(f"Try run live engine {id}")
-        from ginkgo.trading.engines.live_engine import LiveEngine
-
-        e = LiveEngine(id)
-        e.start()
-
-    def run_live_daemon(self, id: str, *args, **kwargs):
-        # TODO: live engine daemon management
-        content = f"""
-from ginkgo.trading.engines.live_engine import LiveEngine
-
-
-if __name__ == "__main__":
-    e = LiveEngine("{id}")
-    e.start()
-"""
-        with tempfile.NamedTemporaryFile("w", delete=False, prefix="ginkgo_live_", suffix=".py") as file:
-            file.write(content)
-            file_name = file.name
-        try:
-            work_dir = GCONF.WORKING_PATH
-            log_dir = GCONF.LOGGING_PATH
-            with open(file_name, "w") as file:
-                file.write(content)
-            command = ["nohup", f"{GCONF.PYTHONPATH}", "-u", f"{file_name}", ">/dev/null", "2>&1", "&"]
-            subprocess.run(command)
-            console.print(f":sun_with_face: Live {id} is [steel_blue1]RUNNING[/steel_blue1] now.")
-            time.sleep(1)
-        except Exception as e:
-            GLOG.ERROR(f"Error running live engine: {e}")
-        finally:
-            if os.path.exists(file_name):
-                os.remove(file_name)
+            control_logger.WARN(f"Can not process {cmd_type}.")
 
     def handle_sigint(self, signum, frame):
         # 自定义 Ctrl+C 行为
