@@ -460,6 +460,26 @@ class LiveAccountService(BaseService):
             GLOG.ERROR(f"Failed to update account status: {e}")
             return self._error_result(f"Failed to update account status: {str(e)}")
 
+    def record_validation_failure(
+        self, account_uuid: str, message: str
+    ) -> Dict[str, Any]:
+        """记录验证失败结果(超时/异常),更新 validation_status + last_validated_at。
+
+        #5782: validate 链路超时或异常时显式落库验证尝试结果,避免两字段恒 None。
+        CRUD.update_status 传 validation_message 即同时记录两字段。
+        """
+        try:
+            updated = self._crud.update_status(
+                account_uuid, AccountStatusType.ERROR, validation_message=message
+            )
+            if not updated:
+                return self._error_result(f"Account not found: {account_uuid}")
+            GLOG.INFO(f"Recorded validation failure for {account_uuid}: {message}")
+            return {"success": True, "message": message}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to record validation failure {account_uuid}: {e}")
+            return self._error_result(f"Failed to record validation: {str(e)}")
+
     @retry(max_try=2)
     def get_account_balance(self, account_uuid: str) -> Dict[str, Any]:
         """

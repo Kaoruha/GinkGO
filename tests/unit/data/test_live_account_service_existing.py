@@ -393,6 +393,29 @@ class TestAccountStatusManagement:
         assert result["success"] is False
         assert "not found" in result["message"]
 
+    def test_record_validation_failure_persists_via_crud(self, live_account_service, mock_crud):
+        """#5782: 超时/异常时记录验证失败,必须下发 CRUD 带 validation_message,
+        使 validation_status 与 last_validated_at 落库(不再恒 None)。"""
+        result = live_account_service.record_validation_failure(
+            account_uuid="test-uuid", message="Validation timed out"
+        )
+
+        assert result["success"] is True
+        # 关键: 下发 ERROR 状态 + 失败消息(驱动两字段落库)
+        mock_crud.update_status.assert_called_once_with(
+            "test-uuid", AccountStatusType.ERROR, validation_message="Validation timed out"
+        )
+
+    def test_record_validation_failure_account_not_found(self, live_account_service, mock_crud):
+        """#5782: 账号不存在时记录失败应返回不成功,且不抛异常。"""
+        mock_crud.update_status.return_value = None
+
+        result = live_account_service.record_validation_failure(
+            account_uuid="non-existent", message="timed out"
+        )
+
+        assert result["success"] is False
+
 
 class TestGetUserAccounts:
     """测试获取用户账号列表"""
