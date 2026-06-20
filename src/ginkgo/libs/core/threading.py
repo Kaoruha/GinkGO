@@ -65,6 +65,10 @@ class GinkgoThreadManager:
         # 通知回调（由业务层注入，如 beep 提示音）
         self._on_task_complete = on_task_complete
         self._on_task_error = on_task_error
+
+        # #5516: in-memory 线程句柄注册表。Redis 缓存存线程 ident（非宿主 pid），
+        # 但 ident 跨进程无法查存活，故本地保留 Thread 句柄供 get_thread_status/kill_thread 使用。
+        self._threads: Dict[str, threading.Thread] = {}
     
     @property
     def redis_service(self):
@@ -525,54 +529,43 @@ if __name__ == "__main__":
         return r
 
     def add_thread(self, name: str, target: threading.Thread) -> None:
-        # TODO
-        # TODO
         key = self.get_thread_cache_name(name)
         # 检查线程是否已存在
         if self.redis_service.exists(key):
             console.print(f"{name} exists. Please change the name and try it again.")
             return
-        pid = os.getpid()
         t = threading.Thread(target=target, name=name)
-        self.redis_service.set_thread_cache(key, str(pid))
-        self.redis_service.add_to_thread_list(self.thread_pool_name, key)
         t.start()
+        # #5516: 缓存线程 ident（非宿主 pid）并保留 in-memory 句柄。
+        # 此前存 os.getpid() 会让 kill_thread SIGKILL 宿主进程（自杀），
+        # 且同进程多线程 pid 相同无法区分。
+        self._threads[name] = t
+        self.redis_service.set_thread_cache(key, str(t.ident))
+        self.redis_service.add_to_thread_list(self.thread_pool_name, key)
 
     def get_thread_status(self, name: str) -> bool:
-        # TODO
+        # #5516: 优先用 in-memory Thread 句柄判断真实存活（is_alive），
+        # 而非用 psutil 查宿主进程（对 in-process 线程恒为 True，无法反映线程实际状态）。
         key = self.get_thread_cache_name(name)
-        value = self.redis_service.get_thread_from_cache(key)
-        if not value:
-            return False
-        try:
-            pid = int(value)
-            proc = psutil.Process(pid)
-            return proc.is_running()
-        except psutil.NoSuchProcess:
+        t = self._threads.get(name)
+        if t is not None:
+            return t.is_alive()
+        # 无句柄（跨进程 GTM 实例 / 历史残留）：清理缓存并视为不存活
+        if self.redis_service.exists(key):
             self.redis_service.delete_cache(key)
-            console.print(f"No such process, remove {key} from REDIS.")
-            return False
-        except (ValueError, TypeError):
-            return False
+            self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
+        return False
 
     def kill_thread(self, name: str) -> None:
-        # TODO
+        # #5516: Python 无法从外部安全强杀 threading.Thread（无 thread.kill()）。
+        # 此前缓存 os.getpid() 后 os.kill(host_pid, SIGKILL) 会杀掉整个宿主进程
+        # （自杀脚枪）。现仅清理注册（缓存 + 线程列表 + in-memory 句柄），
+        # 目标线程需自行协作式停止。
         key = self.get_thread_cache_name(name)
-        if self.redis_service.exists(key):
-            value = self.redis_service.get_thread_from_cache(key)
-            if value:
-                try:
-                    pid = int(value)
-                    proc = psutil.Process(pid)
-                    if proc.is_running():
-                        os.kill(pid, signal.SIGKILL)
-                    self.redis_service.delete_cache(key)
-                    self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
-                    console.print(f"Kill thread:{key} pid: {pid}")
-                except Exception as e:
-                    self.redis_service.delete_cache(key)
-                    self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
-                    console.print(f"Remove {name} from REDIS.")
+        self._threads.pop(name, None)
+        self.redis_service.delete_cache(key)
+        self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
+        console.print(f"Unregistered thread:{key} (in-process threads cannot be hard-killed; cooperative stop required).")
 
     def restart_thread(self, name: str, target) -> None:
         self.kill_thread(name)
