@@ -55,3 +55,28 @@ class TestListAnalyzerGroupsTaskIdPath:
         assert called_kwargs.get("task_id") == "task-1"
         # 不再调用强制 portfolio_id 的 find_by_portfolio
         analyzer_svc.find_by_portfolio.assert_not_called()
+
+    @pytest.mark.unit
+    def test_passes_large_limit_to_avoid_truncation(self):
+        """#5403 review: get_by_task_id 默认 limit=1000, 长周期回测(>1000 条)
+        会被截断, 使分组的 change(首尾差)/count 失真。原 find_by_portfolio 无上限,
+        故调用处须显式传大 limit(对齐 result_service 的 page_size=10000)。"""
+        svc = BacktestTaskService(MagicMock())
+
+        analyzer_svc = MagicMock()
+        analyzer_svc.get_by_task_id.return_value = ServiceResult(
+            success=True, data=[SimpleNamespace(name="Sharpe", value=1.0)])
+
+        container = MagicMock()
+        container.analyzer_service.return_value = analyzer_svc
+
+        with patch.object(svc, "_resolve_task_id",
+                          return_value=("task-1", "", None)), \
+             patch("ginkgo.data.containers.container", container):
+            svc.list_analyzer_groups("any-uuid")
+
+        called_kwargs = analyzer_svc.get_by_task_id.call_args.kwargs
+        # 与 result_service 一致的大额安全值, 覆盖长周期回测
+        assert called_kwargs.get("limit") == 10000, (
+            "须显式传 limit=10000 避免 get_by_task_id 默认 1000 截断")
+
