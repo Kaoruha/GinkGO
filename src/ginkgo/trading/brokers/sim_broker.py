@@ -465,42 +465,65 @@ class SimBroker(BaseBroker):
 
     def _adjust_volume_for_funds(self, order: Order, price: Decimal) -> int:
         """
-        根据资金调整成交数量（进行真实资金检查）
+        根据冻结资金调整成交数量。
+
+        统一使用 _calculate_commission 估算资金（含方向相关印花税），
+        与实际扣费 (submit_order_event -> _calculate_commission) 保持一致，
+        避免预检与扣费两套佣金算法分叉 (issue #5492)。
+
+        全额资金不足时尝试部分成交（对齐 A 股 100 股整手），
+        不足一手则返回 0（调用方据此 REJECTED）。
 
         Args:
-            order: 订单对象
+            order: 订单对象（含 portfolio_id / frozen_money / volume / direction）
             price: 成交价格
 
         Returns:
-            int: 调整后的成交数量，如果资金不足返回0
+            int: 可成交数量（全额=order.volume；部分=对齐100的最大量；不可成交=0）
         """
-        # 🔥 [CRITICAL FIX] 使用Order中的冻结资金信息进行检查
-        # Portfolio在创建Order时已经计算并冻结了必要的资金
+        # 使用 Order 中的冻结资金信息（Portfolio 创建 Order 时已冻结必要资金）
         if not order.portfolio_id:
             GLOG.WARN(f"⚠️ [FUNDS CHECK] Order missing portfolio_id, assuming sufficient funds")
             return order.volume
 
-        # 使用Order中已经冻结的资金信息
         frozen_funds = getattr(order, 'frozen_money', 0)
         if frozen_funds is None or frozen_funds == 0:
             GLOG.WARN(f"⚠️ [FUNDS CHECK] Order missing frozen_money, assuming sufficient funds")
             return order.volume
 
-        # 计算实际需要的资金（包含手续费）
-        required_funds = price * order.volume
-        commission = max(required_funds * self._commission_rate, self._commission_min)
-        total_required = required_funds + commission
+        is_long = order.direction == DIRECTION_TYPES.LONG
+        price = to_decimal(price)
+        frozen_funds = to_decimal(frozen_funds)
 
-        # 检查冻结的资金是否足够（撮合滑点容差）
-        tolerance = total_required * self._slippage_tolerance
-        if frozen_funds < (total_required - tolerance):
-            GLOG.WARN(f"❌ [FUNDS CHECK] Insufficient frozen funds: have {frozen_funds}, need {total_required}")
-            GLOG.DEBUG(f"💰 [FUNDS CHECK] Order details: {order.code} {order.volume} shares @ {price}")
-            GLOG.DEBUG(f"💰 [FUNDS CHECK] Commission calculation: {required_funds} * {self._commission_rate} = {commission}")
+        def _total_for(volume: int) -> Decimal:
+            """volume 对应的本金 + 佣金（与实际扣费同一算法）"""
+            funds = price * volume
+            return funds + self._calculate_commission(funds, is_long)
+
+        # 1) 全额检查（含滑点容差）
+        full_total = _total_for(order.volume)
+        tolerance = full_total * self._slippage_tolerance
+        if frozen_funds >= full_total - tolerance:
+            GLOG.DEBUG(f"✅ [FUNDS CHECK] Sufficient frozen funds: {frozen_funds} >= {full_total}")
+            return order.volume
+
+        # 2) 部分成交：求最大 volume（对齐 100 整手）使 total <= frozen_funds
+        GLOG.WARN(f"⚠️ [FUNDS CHECK] Insufficient for full: have {frozen_funds}, need {full_total}, attempting partial fill")
+        stamp = Decimal("0") if is_long else Decimal("0.001")
+        # 每股总成本（忽略佣金 min 下限，取解析上界后下调校验）
+        rate_per_share = price * (Decimal("1") + self._commission_rate + stamp)
+        if rate_per_share <= 0:
             return 0
-
-        GLOG.DEBUG(f"✅ [FUNDS CHECK] Sufficient frozen funds: {frozen_funds} >= {total_required}")
-        return order.volume
+        v_upper = int(frozen_funds / rate_per_share)
+        v = (v_upper // 100) * 100
+        # 下调校验：佣金 min 下限使小批量相对更贵，逐手下调直到资金可覆盖
+        while v >= 100 and _total_for(v) > frozen_funds:
+            v -= 100
+        if v < 100:
+            GLOG.WARN(f"❌ [FUNDS CHECK] Cannot afford even 1 lot (100 shares) of {order.code}")
+            return 0
+        GLOG.INFO(f"📉 [FUNDS CHECK] Partial fill {order.code}: {order.volume} -> {v} shares @ {price}")
+        return v
 
     def _is_price_valid(self, code: str, price_data: Any) -> bool:
         """价格有效性检查"""
