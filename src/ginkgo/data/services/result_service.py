@@ -428,40 +428,93 @@ class ResultService(BaseService):
         portfolio_id: Optional[str] = None
     ) -> ServiceResult:
         """
-        获取回测订单记录
+        获取回测订单（去重后，每个 order_id 取时间最新的最终态）。
+
+        与 get_order_records 区分: 本方法返回的是"订单"语义——同一 order_id 的
+        多条状态流转(NEW→SUBMITTED→FILLED)只保留最终态一条; 失败单
+        (CANCELED/REJECTED)也保留其终态。完整状态流水见 get_order_records。
 
         Args:
             task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
 
         Returns:
-            ServiceResult[List]: 订单记录列表
+            ServiceResult[Dict]: {"data": 去重后订单列表, "total": 唯一订单数}
         """
         try:
             if not task_id:
                 return ServiceResult.error("task_id 不能为空")
 
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            order_record_crud = OrderRecordCRUD()
+            records = self._find_order_records(task_id, portfolio_id)
 
-            filters = {"task_id": task_id}
-            if portfolio_id:
-                filters["portfolio_id"] = portfolio_id
+            # find 已按 timestamp desc 返回, 首次出现的即该 order_id 的最新最终态
+            seen: set = set()
+            unique = []
+            for r in records:
+                oid = getattr(r, "order_id", "")
+                if oid in seen:
+                    continue
+                seen.add(oid)
+                unique.append(r)
 
-            result = order_record_crud.find(
-                filters=filters,
-                order_by="timestamp",
-                desc_order=True
-            )
+            GLOG.INFO(f"获取 task_id={task_id} 的订单成功: {len(unique)} 个唯一订单 (流水 {len(records)} 条)")
+            return ServiceResult.success({"data": unique, "total": len(unique)})
 
-            total = order_record_crud.count(filters)
+        except Exception as e:
+            GLOG.ERROR(f"获取订单失败: {e}")
+            return ServiceResult.error(f"获取订单失败: {e}")
 
-            GLOG.INFO(f"获取 task_id={task_id} 的订单记录成功: {len(result)} 条")
-            return ServiceResult.success({"data": result, "total": total})
+    def get_order_records(
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> ServiceResult:
+        """
+        获取回测订单记录（完整状态流水，不去重）。
+
+        与 get_orders 区分: 本方法返回的是"订单记录"语义——同一 order_id 的
+        每一次状态变更(NEW/SUBMITTED/PARTIAL_FILLED/FILLED/CANCELED/REJECTED)
+        各保留一行, 用于还原订单的完整生命周期。去重后的订单见 get_orders。
+
+        Args:
+            task_id: 运行会话ID
+            portfolio_id: 投资组合ID（可选）
+
+        Returns:
+            ServiceResult[Dict]: {"data": 全部订单记录流水, "total": 流水总数}
+        """
+        try:
+            if not task_id:
+                return ServiceResult.error("task_id 不能为空")
+
+            records = self._find_order_records(task_id, portfolio_id)
+            total = len(records)
+
+            GLOG.INFO(f"获取 task_id={task_id} 的订单记录流水成功: {total} 条")
+            return ServiceResult.success({"data": records, "total": total})
 
         except Exception as e:
             GLOG.ERROR(f"获取订单记录失败: {e}")
             return ServiceResult.error(f"获取订单记录失败: {e}")
+
+    def _find_order_records(
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> list:
+        """查询订单记录流水(按 timestamp desc), 供 get_orders/get_order_records 共用。"""
+        from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+        order_record_crud = OrderRecordCRUD()
+
+        filters = {"task_id": task_id}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+
+        return order_record_crud.find(
+            filters=filters,
+            order_by="timestamp",
+            desc_order=True
+        )
 
     def get_positions(
         self,

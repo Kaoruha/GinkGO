@@ -232,20 +232,8 @@ class TestResultCommands:
         assert result.exit_code == 0
         assert "not yet implemented" in result.output
 
-    def test_result_get_with_details_and_trades(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.result_app, [
-            "get", "result-001", "--details", "--trades"
-        ])
-        assert result.exit_code == 0
-        assert "result-001" in result.output
-        assert "Sharpe Ratio" in result.output
-        assert "Trade History" in result.output
-
-    def test_result_get_without_options(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.result_app, ["get", "result-002"])
-        assert result.exit_code == 0
-        assert "result-002" in result.output
-        assert "Sharpe Ratio" not in result.output
+    # #5957: 旧 test_result_get_* 断言已删除的假数据("Sharpe Ratio"/"Trade History")，
+    # 新契约(真实 service + task_id 参数)由 TestResultGetRealData 覆盖，故移除。
 
     def test_result_show_no_task_id_lists_runs(self, cli_runner):
         """result show without --run-id should list available runs."""
@@ -304,3 +292,65 @@ class TestExceptionHandling:
             result = cli_runner.invoke(flat_cli.component_app, ["list"])
         assert result.exit_code == 0
         assert "Error" in result.output
+
+
+# ============================================================================
+# #5957: result get 接入真实数据(task_id 为参数), 删除重复 def get 与假数据
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestResultGetRealData:
+    """#5957: result get <task_id> 走真实 service, 不打印硬编码假数据。"""
+
+    def _task_svc(self, orders=None, record=None):
+        from ginkgo.data.services.base_service import ServiceResult
+
+        svc = MagicMock()
+        sr_orders = ServiceResult(success=True, data=orders or [])
+        sr_orders.set_metadata("total", len(orders or []))
+        svc.list_orders.return_value = sr_orders
+        svc.get_by_id.return_value = ServiceResult(success=True, data=record)
+        return svc
+
+    def test_trades_shows_real_orders_not_fake_data(self, cli_runner):
+        from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
+
+        order = BacktestOrderItem(
+            code="600000.SH", direction="1", status="4",
+            volume=100, transaction_price="12.34",
+            transaction_volume=100, timestamp="2025-06-03 09:30",
+        )
+        record = MagicMock(name="bt-record")
+        record.name = "my-bt"
+        task_svc = self._task_svc(orders=[order], record=record)
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = task_svc
+            result = cli_runner.invoke(
+                flat_cli.result_app, ["get", "task-123", "--trades"])
+
+        assert result.exit_code == 0, result.output
+        # 参数透传为 task_id
+        task_svc.list_orders.assert_called_once_with("task-123")
+        # 真实订单数据出现
+        assert "600000.SH" in result.output
+        # 假数据标记必须消失
+        assert "not yet implemented" not in result.output
+        assert "15.2%" not in result.output
+        assert "000001.SZ @ 10.50" not in result.output
+
+    def test_default_calls_get_by_id_no_fake_header(self, cli_runner):
+        record = MagicMock(name="bt-record")
+        record.name = "real-backtest"
+        task_svc = self._task_svc(record=record)
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = task_svc
+            result = cli_runner.invoke(flat_cli.result_app, ["get", "task-9"])
+
+        assert result.exit_code == 0, result.output
+        task_svc.get_by_id.assert_called_once_with("task-9")
+        assert "not yet implemented" not in result.output
+        assert "15.2%" not in result.output

@@ -16,7 +16,7 @@ import asyncio
 from core.logging import logger
 from core.redis_client import get_backtest_progress
 from core.response import ok, paginated
-from core.exceptions import NotFoundError, ValidationError, BusinessError
+from core.exceptions import APIError, NotFoundError, ValidationError, BusinessError
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.data.containers import container
@@ -623,6 +623,34 @@ async def get_backtest_orders(uuid: str):
         raise BusinessError(f"Error getting orders: {str(e)}")
 
 
+@router.get("/{uuid}/order-records")
+async def get_backtest_order_records(uuid: str):
+    """获取回测订单记录流水(完整状态流转, 不去重)。
+
+    与 /orders 区分: /orders 按 order_id 去重返回订单(最终态);
+    /order-records 返回同一 order_id 的全部状态变更记录(NEW/SUBMITTED/FILLED 等)。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.list_order_records(uuid)
+
+        if not result.is_success():
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve order records")
+
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Order records retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting order records for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting order records: {str(e)}")
+
+
 @router.get("/{uuid}/positions")
 async def get_backtest_positions(uuid: str):
     """获取回测持仓记录"""
@@ -693,9 +721,29 @@ async def get_backtest_analyzer_data(
     uuid: str,
     analyzer_name: str
 ):
-    """获取回测分析器时序数据和统计信息"""
+    """获取回测分析器时序数据和统计信息。
+
+    #5847: 指标名为准。权威白名单取自该回测实际产出的指标名
+    (list_analyzer_groups 的 group.name); 未知名(含类名如 SharpeAnalyzer)
+    → 404 且 message 列出可用指标名, 不再静默返回空。
+    """
     try:
         task_service = get_backtest_task_service()
+
+        # #5847: 以该回测实际产出的指标名为权威白名单, 拒绝类名/未知名。
+        groups_result = task_service.list_analyzer_groups(uuid)
+        if not groups_result.is_success():
+            raise NotFoundError("BacktestTask", uuid)
+        available = [g.name for g in (groups_result.data or [])]
+        if analyzer_name not in available:
+            names = ", ".join(available) if available else "(无)"
+            raise APIError(
+                f"Analyzer '{analyzer_name}' not found. "
+                f"Available analyzers: {names}",
+                code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
         result = task_service.get_analyzer_data(uuid, analyzer_name)
 
         if not result.is_success():
@@ -706,6 +754,8 @@ async def get_backtest_analyzer_data(
                   message="Analyzer data retrieved successfully")
 
     except NotFoundError:
+        raise
+    except APIError:
         raise
     except Exception as e:
         logger.error(f"Error getting analyzer data for {uuid}: {str(e)}")

@@ -67,7 +67,7 @@ def resolve_engine_id(engine_identifier: str) -> Optional[str]:
             console.print(f":information: Fuzzy search found {len(fuzzy_result.data)} engines matching '{engine_identifier}':")
 
             # 显示模糊搜索结果
-            table = Table(title="Fuzzy Search Results")
+            table = RichTable(title="Fuzzy Search Results")
             table.add_column("Name", style="cyan")
             table.add_column("UUID", style="magenta")
             table.add_column("Status", style="green")
