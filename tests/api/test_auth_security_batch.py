@@ -87,8 +87,11 @@ class TestResetPasswordNoDefault:
         from api.settings import reset_user_password
         from fastapi import HTTPException
 
-        with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
+        with patch("api.settings.get_user_service") as mock_svc:
+            # #6175: admin 来自 DB（fail-closed），不再信任 req.state.is_admin
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
         assert exc_info.value.status_code == 400
 
     def test_reset_does_not_call_service_with_default(self):
@@ -97,6 +100,8 @@ class TestResetPasswordNoDefault:
         from fastapi import HTTPException
 
         with patch("api.settings.get_user_service") as mock_svc:
+            # #6175: 显式 DB-admin，避免依赖 MagicMock 的隐式 truthy（is_admin）
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             with pytest.raises(HTTPException):
                 asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
