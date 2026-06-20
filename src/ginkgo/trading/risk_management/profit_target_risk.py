@@ -125,6 +125,9 @@ class ProfitTargetRisk(BaseRiskManagement):
 
         # 检查移动止盈
         if self.trailing_stop and hasattr(event, 'close'):
+            # #5488: 每次价格更新先记录最高价，否则 trailing_highs 永远为空，
+            # check_trailing_stop 因 code not in trailing_highs 恒返回 False。
+            self.update_trailing_high(event.code, event.close)
             if self.check_trailing_stop(event.code, event.close):
                 signal = self.create_signal(
                     code=event.code,
@@ -191,10 +194,9 @@ class ProfitTargetRisk(BaseRiskManagement):
             code: 股票代码
             price: 当前价格
         """
-        if code not in self.trailing_highs:
+        if code not in self.trailing_highs or price > self.trailing_highs[code]:
             self.trailing_highs[code] = price
-        else:
-            self.trailing_highs[code] = max(self.trailing_highs[code], price)
+            GLOG.DEBUG(f"Trailing high updated: {code} -> {price}")
 
     def check_trailing_stop(self, code: str, current_price: Decimal) -> bool:
         """
@@ -213,4 +215,7 @@ class ProfitTargetRisk(BaseRiskManagement):
         high_price = self.trailing_highs[code]
         decline_ratio = (high_price - current_price) / high_price
 
-        return decline_ratio >= self.trailing_percentage
+        # #5488: trailing_percentage 是用户 float 参数（如 0.1），其浮点精确值
+        # 0.1000...055 会让精确的 Decimal decline_ratio 漏触发边界（精确 10% 回撤
+        # 被判为未达阈值）。经 str() 桥接为精确 Decimal 后比较（同 #6107 纪律）。
+        return decline_ratio >= Decimal(str(self.trailing_percentage))
