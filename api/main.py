@@ -113,6 +113,7 @@ async def health_check_api():
 
 # 路由注册 - 统一使用 /api/v1 前缀
 from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts, trading, validation, deployment
+from api import signals as signal_router
 from api import settings as settings_router
 from api import system as system_router
 from core.version import API_PREFIX
@@ -128,6 +129,7 @@ app.include_router(settings_router.router, prefix=f"{API_PREFIX}/settings", tags
 app.include_router(node_graph.router, prefix=f"{API_PREFIX}/node-graphs", tags=["node-graphs"])
 app.include_router(accounts.router, prefix=f"{API_PREFIX}/accounts", tags=["accounts"])
 app.include_router(trading.router, prefix=f"{API_PREFIX}/paper-trading", tags=["paper-trading"])
+app.include_router(signal_router.router, prefix=f"{API_PREFIX}/signals", tags=["signals"])
 app.include_router(validation.router, prefix=f"{API_PREFIX}/validation", tags=["validation"])
 app.include_router(deployment.router, prefix=f"{API_PREFIX}/deploy", tags=["deploy"])
 app.include_router(system_router.router, prefix=f"{API_PREFIX}/system", tags=["system"])
