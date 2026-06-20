@@ -644,7 +644,7 @@ class NotificationWorker:
                         fields=fields,
                         footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
                     )
-                    if result.is_success:
+                    if result.is_success():
                         success_count += 1
                     break  # 每个用户只发送一次
 

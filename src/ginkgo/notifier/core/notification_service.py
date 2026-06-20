@@ -344,11 +344,11 @@ class NotificationDeliveryService:
 
                 results.append({
                     "user_uuid": user_uuid,
-                    "success": result.is_success,
+                    "success": result.is_success(),
                     "data": result.data
                 })
 
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(f"Batch notification sent: {success_count}/{len(user_uuids)} users")
@@ -485,7 +485,7 @@ class NotificationDeliveryService:
         try:
             result = self.user_service.fuzzy_search(user_input, limit=1)
 
-            if not result.is_success:
+            if not result.is_success():
                 GLOG.ERROR(f"User search failed: {result.message}")
                 return None
 
@@ -513,7 +513,7 @@ class NotificationDeliveryService:
         try:
             result = self.user_group_service.fuzzy_search(group_input, limit=1)
 
-            if not result.is_success:
+            if not result.is_success():
                 GLOG.ERROR(f"Group search failed: {result.message}")
                 return []
 
@@ -798,11 +798,11 @@ class NotificationDeliveryService:
 
                 results.append({
                     "user_uuid": user_uuid,
-                    "success": result.is_success,
+                    "success": result.is_success(),
                     "message_id": result.data.get("message_id") if result.data else None
                 })
 
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(f"Group notification sent: {success_count}/{len(user_uuids)} users in group '{group.name}'")
@@ -880,11 +880,11 @@ class NotificationDeliveryService:
 
                 results.append({
                     "user_uuid": user_uuid,
-                    "success": result.is_success,
+                    "success": result.is_success(),
                     "message_id": result.data.get("message_id") if result.data else None
                 })
 
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(f"Group template notification sent: {success_count}/{len(user_uuids)} users in group '{group.name}'")
