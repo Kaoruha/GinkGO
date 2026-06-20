@@ -150,3 +150,76 @@ class TestRecordSyncResultStatus:
 
         svc.record_complete.assert_called_once()
         assert svc.record_complete.call_args.kwargs["status"] == "partial"
+
+    @pytest.mark.unit
+    def test_list_of_dsr_aggregates_to_success(self):
+        """sync_batch 返回 List[DataSyncResult]，聚合后真实成功 -> success
+
+        RED：adjustfactor_service.sync_batch (adjustfactor_service.py:586) 返回
+        data=List[DataSyncResult]，list 经端点传入后走 else 分支
+        （hasattr(list,'records_processed')=False）被误报 partial。
+        #6217 review 回归：批量真实成功被误降级。修复后应聚合 list 各 DSR 的
+        records_* 再走四态决策，恢复 success 且不丢统计。
+        """
+        from api.data import _record_sync_result
+        from ginkgo.data.services.base_service import ServiceResult
+
+        svc = MagicMock()
+        dsrs = [make_dsr(processed=5, added=5), make_dsr(processed=3, added=3)]
+        result = ServiceResult.success(data=dsrs)
+
+        _record_sync_result(svc, "uuid-list", result, time.time())
+
+        svc.record_complete.assert_called_once()
+        kwargs = svc.record_complete.call_args.kwargs
+        assert kwargs["status"] == "success", (
+            "批量同步真实成功（list 聚合 processed=8>0）应报 success，非 partial"
+        )
+        assert kwargs["records_processed"] == 8, "聚合统计应求和不丢失"
+        assert kwargs["records_added"] == 8
+
+    @pytest.mark.unit
+    def test_list_with_failures_aggregates_to_partial(self):
+        """list 聚合后含 records_failed -> partial（聚合复用 is_successful）"""
+        from api.data import _record_sync_result
+        from ginkgo.data.services.base_service import ServiceResult
+
+        svc = MagicMock()
+        dsrs = [make_dsr(processed=5, failed=2), make_dsr(processed=3, added=3)]
+        result = ServiceResult.success(data=dsrs)
+
+        _record_sync_result(svc, "uuid-list-fail", result, time.time())
+
+        kwargs = svc.record_complete.call_args.kwargs
+        assert kwargs["status"] == "partial", "聚合含失败应报 partial"
+        assert kwargs["records_failed"] == 2
+
+    @pytest.mark.unit
+    def test_list_all_empty_aggregates_to_partial(self):
+        """list 聚合后全 0（可疑空）-> partial"""
+        from api.data import _record_sync_result
+        from ginkgo.data.services.base_service import ServiceResult
+
+        svc = MagicMock()
+        dsrs = [make_dsr(processed=0, skipped=0), make_dsr(processed=0, skipped=0)]
+        result = ServiceResult.success(data=dsrs)
+
+        _record_sync_result(svc, "uuid-list-empty", result, time.time())
+
+        kwargs = svc.record_complete.call_args.kwargs
+        assert kwargs["status"] == "partial", "聚合全空应报 partial（可疑空）"
+
+    @pytest.mark.unit
+    def test_list_skipped_aggregates_to_success(self):
+        """list 聚合后仅幂等跳过（skipped>0）-> success（批量幂等正常）"""
+        from api.data import _record_sync_result
+        from ginkgo.data.services.base_service import ServiceResult
+
+        svc = MagicMock()
+        dsrs = [make_dsr(processed=0, skipped=5), make_dsr(processed=0, skipped=3)]
+        result = ServiceResult.success(data=dsrs)
+
+        _record_sync_result(svc, "uuid-list-skip", result, time.time())
+
+        kwargs = svc.record_complete.call_args.kwargs
+        assert kwargs["status"] == "success", "聚合幂等跳过应报 success"

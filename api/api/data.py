@@ -522,6 +522,33 @@ async def get_adjust_factors(
         )
 
 
+def _aggregate_dsr_list(dsrs):
+    """聚合 List[DataSyncResult] 为单一 DataSyncResult（批量同步统计）
+
+    adjustfactor_service.sync_batch 返回 data=List[DataSyncResult]，按各 DSR 的
+    records_* 求和并合并 errors，复用 DataSyncResult.is_successful() 走统一四态决策，
+    避免批量真实成功落入 else 被误降 partial，同时补齐 master 既有的统计丢失。
+    """
+    from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+    aggregated_errors = []
+    for d in dsrs:
+        aggregated_errors.extend(getattr(d, 'errors', None) or [])
+    return DataSyncResult(
+        entity_type="batch",
+        entity_identifier=f"multiple({len(dsrs)})",
+        sync_range=(None, None),
+        records_processed=sum(getattr(d, 'records_processed', 0) for d in dsrs),
+        records_added=sum(getattr(d, 'records_added', 0) for d in dsrs),
+        records_updated=sum(getattr(d, 'records_updated', 0) for d in dsrs),
+        records_skipped=sum(getattr(d, 'records_skipped', 0) for d in dsrs),
+        records_failed=sum(getattr(d, 'records_failed', 0) for d in dsrs),
+        sync_duration=0.0,
+        is_idempotent=True,
+        sync_strategy="batch",
+        errors=aggregated_errors,
+    )
+
+
 def _record_sync_result(service, record_uuid: str, result, started_at: float):
     """从 ServiceResult/DataSyncResult 提取统计并更新同步记录"""
     duration_ms = int((_time.time() - started_at) * 1000)
@@ -530,6 +557,10 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
         return
     if hasattr(result, 'is_success') and result.is_success() and result.data:
         dsr = result.data
+        # #6217: sync_batch 返回 List[DataSyncResult]（adjustfactor 批量），聚合为
+        # 单一统计视图后走统一四态决策，避免 list 落入 else 被误降 partial。
+        if isinstance(dsr, list):
+            dsr = _aggregate_dsr_list(dsr)
         if hasattr(dsr, 'records_processed'):
             # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
             # 否则报 partial——含"0 条可疑空"和"有 records_failed/errors"。
