@@ -627,34 +627,69 @@ def list(
 
 @result_app.command()
 def get(
-    result_id: str = typer.Argument(..., help=":mag: Result ID"),
-    details: bool = typer.Option(False, "--details", "-d", help=":information_source: Show detailed result information"),
-    trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: Show trade history"),
+    task_id: str = typer.Argument(..., help=":mag: 回测任务ID (uuid 或 task_id)"),
+    details: bool = typer.Option(False, "--details", "-d", help=":information_source: 显示完整回测记录详情"),
+    trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: 显示成交订单(按 order_id 去重后的最终态)"),
 ):
     """
-    :mag: Get backtest result details.
+    :mag: 获取回测结果详情。参数为 task_id。
+
+    Examples:
+        ginkgo result get <task_id>
+        ginkgo result get <task_id> --details
+        ginkgo result get <task_id> --trades
     """
-    console.print(f":mag: Getting result details: {result_id}")
+    from ginkgo.data.containers import container
+
+    console.print(f":mag: 获取回测结果: {task_id}")
 
     try:
-        # TODO: Implement actual result retrieval
-        console.print(":information: Result details not yet implemented")
+        task_service = container.backtest_task_service()
 
-        # 模拟数据
-        console.print(f":white_check_mark: Found result: {result_id}")
+        # #5957: 参数即 task_id(取消 result_id 概念), 走真实 service 取回测记录
+        result = task_service.get_by_id(task_id)
+        if not result.is_success() or result.data is None:
+            console.print(f":x: [red]未找到回测任务: {task_id}[/red]")
+            raise typer.Exit(1)
+
+        record = result.data
+        name = getattr(record, "name", None) or task_id
+        console.print(f":white_check_mark: 回测: {name}")
 
         if details:
-            console.print("\n:gear: Detailed Results:")
-            console.print("  • Total Return: 15.2%")
-            console.print("  • Annualized Return: 18.7%")
-            console.print("  • Sharpe Ratio: 1.45")
-            console.print("  • Max Drawdown: -8.3%")
+            console.print("\n:gear: 回测详情:")
+            for field in ("uuid", "task_id", "status", "start", "end", "portfolio_id"):
+                val = getattr(record, field, None)
+                if val is not None:
+                    console.print(f"  • {field}: {val}")
 
+        # #5842: --trades 走 list_orders(已按 order_id 去重取最终态)
         if trades:
-            console.print("\n:repeat: Trade History:")
-            console.print("  • 2025-01-01: BUY 000001.SZ @ 10.50 (100 shares)")
-            console.print("  • 2025-01-05: SELL 000001.SZ @ 11.20 (100 shares)")
+            orders_result = task_service.list_orders(task_id)
+            if not orders_result.is_success():
+                console.print(f":x: [red]获取订单失败: {orders_result.error}[/red]")
+            else:
+                orders = orders_result.data
+                total = orders_result.metadata.get("total", 0)
+                console.print(f"\n:repeat: 成交订单 (共 {total}):")
+                table = Table(show_header=True, header_style="bold cyan")
+                table.add_column("时间", style="dim")
+                table.add_column("代码", style="cyan")
+                table.add_column("方向")
+                table.add_column("成交量", justify="right")
+                table.add_column("成交价", justify="right")
+                for o in orders:
+                    table.add_row(
+                        str(getattr(o, "timestamp", "") or ""),
+                        str(getattr(o, "code", "") or ""),
+                        str(getattr(o, "direction", "") or ""),
+                        str(getattr(o, "transaction_volume", 0) or 0),
+                        str(getattr(o, "transaction_price", 0) or 0),
+                    )
+                console.print(table)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: Error: {e}")
 
@@ -811,40 +846,6 @@ def show(
         console.print(f":x: [red]不支持的显示模式: {mode}[/red]")
         console.print("[yellow]支持的模式: table, terminal[/yellow]")
         raise typer.Exit(1)
-
-
-@result_app.command()
-def get(
-    result_id: str = typer.Argument(..., help=":mag: Result ID"),
-    details: bool = typer.Option(False, "--details", "-d", help=":information_source: Show detailed result information"),
-    trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: Show trade history"),
-):
-    """
-    :mag: Get backtest result details.
-    """
-    console.print(f":mag: Getting result details: {result_id}")
-
-    try:
-        # TODO: Implement actual result retrieval
-        console.print(":information: Result details not yet implemented")
-
-        # 模拟数据
-        console.print(f":white_check_mark: Found result: {result_id}")
-
-        if details:
-            console.print("\n:gear: Detailed Results:")
-            console.print("  • Total Return: 15.2%")
-            console.print("  • Annualized Return: 18.7%")
-            console.print("  • Sharpe Ratio: 1.45")
-            console.print("  • Max Drawdown: -8.3%")
-
-        if trades:
-            console.print("\n:repeat: Trade History:")
-            console.print("  • 2025-01-01: BUY 000001.SZ @ 10.50 (100 shares)")
-            console.print("  • 2025-01-05: SELL 000001.SZ @ 11.20 (100 shares)")
-
-    except Exception as e:
-        console.print(f":x: Error: {e}")
 
 
 @result_app.command(name="segment-stability")
