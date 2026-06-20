@@ -730,14 +730,14 @@ async def list_user_groups():
     try:
         group_service = get_user_group_service()
 
-        result = group_service.list_groups(is_del=False)
+        result = group_service.list_groups()
         if not result.success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to list user groups"
             )
 
-        raw_groups = result.data
+        raw_groups = result.data["groups"]
 
         # 批量获取成员数（避免 N+1）
         member_counts = group_service.count_all_members()
@@ -773,9 +773,9 @@ async def create_user_group(data: UserGroupCreate):
         group_service = get_user_group_service()
 
         # 检查组名是否已存在
-        existing_result = group_service.list_groups(is_del=False)
+        existing_result = group_service.list_groups()
         if existing_result.success:
-            existing_groups = existing_result.data
+            existing_groups = existing_result.data["groups"]
             for g in existing_groups:
                 if g["name"] == data.name:
                     raise HTTPException(
@@ -824,9 +824,9 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
         updates = {}
         if data.name is not None:
             # 检查新名称是否与其他组冲突
-            existing_result = group_service.list_groups(is_del=False)
+            existing_result = group_service.list_groups()
             if existing_result.success:
-                for g in existing_result.data:
+                for g in existing_result.data["groups"]:
                     if g["name"] == data.name and g["uuid"] != uuid:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,

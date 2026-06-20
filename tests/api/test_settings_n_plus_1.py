@@ -64,12 +64,16 @@ class TestUserGroupsN1Fix:
         """TDD Red: list_user_groups 不应逐组调 count_members"""
 
         mock_service = MagicMock()
+        # #5625: list_groups 真实返回 data 为 {"groups":[...],"count":N}（非列表）
         mock_service.list_groups.return_value = MagicMock(
             success=True,
-            data=[
-                {"uuid": "g-1", "name": "Group1", "description": "test"},
-                {"uuid": "g-2", "name": "Group2", "description": "test"},
-            ],
+            data={
+                "groups": [
+                    {"uuid": "g-1", "name": "Group1", "description": "test"},
+                    {"uuid": "g-2", "name": "Group2", "description": "test"},
+                ],
+                "count": 2,
+            },
         )
         mock_service.count_all_members.return_value = {
             "g-1": 5,
