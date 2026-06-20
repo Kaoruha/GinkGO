@@ -12,6 +12,7 @@ from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
+from ginkgo.data.services.user_group_service import UserGroupService as DataUserGroupService
 from core.logging import logger
 from core.response import ok
 
@@ -26,8 +27,13 @@ def get_user_service():
 
 
 def get_user_group_service():
-    """获取UserGroupService实例"""
-    return container.user_group_service()
+    """获取 UserGroupService 实例（data 那份，契约匹配 settings 端点）。
+
+    container.user_group_service() 装配的是 user.services 那份（Upstream=CLI），
+    缺 count_all_members / update_group / list_members 等端点所需方法；端点按
+    data.services 那份（Upstream=Settings API）契约编写，故直接实例化它。见 #5625。
+    """
+    return DataUserGroupService()
 
 
 def get_notification_service() -> NotificationService:
@@ -737,7 +743,7 @@ async def list_user_groups():
                 detail="Failed to list user groups"
             )
 
-        raw_groups = result.data["groups"]
+        raw_groups = result.data
 
         # 批量获取成员数（避免 N+1）
         member_counts = group_service.count_all_members()
@@ -775,7 +781,7 @@ async def create_user_group(data: UserGroupCreate):
         # 检查组名是否已存在
         existing_result = group_service.list_groups()
         if existing_result.success:
-            existing_groups = existing_result.data["groups"]
+            existing_groups = existing_result.data
             for g in existing_groups:
                 if g["name"] == data.name:
                     raise HTTPException(
@@ -826,7 +832,7 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
             # 检查新名称是否与其他组冲突
             existing_result = group_service.list_groups()
             if existing_result.success:
-                for g in existing_result.data["groups"]:
+                for g in existing_result.data:
                     if g["name"] == data.name and g["uuid"] != uuid:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,

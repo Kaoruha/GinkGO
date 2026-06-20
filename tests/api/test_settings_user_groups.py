@@ -1,24 +1,35 @@
-# Issue #5625: settings user-groups 端点适配 UserGroupService 真实契约
+# Issue #5625: settings user-groups 端点装配正确的 UserGroupService（data 那份）
 # Upstream: api.api.settings.list_user_groups / create_user_group / update_user_group
-# Downstream: UserGroupService.list_groups
-# Role: 验证端点按 service 真实返回结构 {"groups":[...],"count":N} 解包，且不传 is_del
+# Downstream: ginkgo.data.services.user_group_service.UserGroupService
+# Role: 验证端点装配的 service 具备端点所需全部方法（spec 强制），且按
+#       list_groups 返回的 list 结构解包（不再误用字典 ["groups"]）。
 
 """
-#5625 回归测试：settings user-groups 端点不可用。
+#5625 回归测试（review 修正版）：settings user-groups 端点不可用。
 
-根因1：端点 ``list_groups(is_del=False)``，但 UserGroupService.list_groups 签名为
-``(is_active, limit)`` 无 is_del → TypeError。
-根因2：端点把 ``result.data``（实为 ``{"groups":[...],"count":N}`` 字典）当列表遍历，
-取 ``group_data["uuid"]`` → 字符串索引 TypeError。
-两者叠加致 ``GET /user-groups`` 500、``POST/PUT`` 冲突检查崩。
+初版修复只处理 ``list_groups(is_del)`` TypeError 与 ``result.data`` 解包，但端点还调用
+``count_all_members`` / ``update_group`` 等方法——这些只在
+``ginkgo.data.services.user_group_service`` 上存在，而容器装配的
+``ginkgo.user.services.user_group_service`` 不具备，致 ``AttributeError`` 仍 500。
+MagicMock auto-truthy 掩盖了缺失方法。
 
-注意：test_settings_n_plus_1.py 旧 mock 把 data 设成列表（不符 service 契约），
-掩盖了根因2，本测试用真实字典结构复现。
+本测试用 ``MagicMock(spec=UserGroupService)`` 强制 mock 只暴露真实方法，
+返回值用真实 ``ServiceResult``，避免再次掩盖契约不匹配。
 """
 import asyncio
 
 import pytest
 from unittest.mock import patch, MagicMock
+
+from ginkgo.data.services.user_group_service import UserGroupService
+from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.libs import GCONF
+
+
+@pytest.fixture(autouse=True)
+def _ensure_debug():
+    """连 test 库（Debug 模式），真实 service 冒烟隔离生产库。"""
+    GCONF.set_debug(True)
 
 
 def run_async(coro):
@@ -26,8 +37,8 @@ def run_async(coro):
 
 
 def _groups_result(groups):
-    """模拟 UserGroupService.list_groups 真实返回结构（data 为字典）。"""
-    return MagicMock(success=True, data={"groups": groups, "count": len(groups)})
+    """data 那份 list_groups 返回 ServiceResult，data 为 list（非字典）。"""
+    return ServiceResult.success(list(groups))
 
 
 class TestListUserGroupsContract:
@@ -35,7 +46,7 @@ class TestListUserGroupsContract:
 
     def test_returns_code_0_with_group_list(self):
         """list_user_groups 返回 code=0 + 组列表（不再 500，#5625）。"""
-        mock_service = MagicMock()
+        mock_service = MagicMock(spec=UserGroupService)
         mock_service.list_groups.return_value = _groups_result([
             {"uuid": "g-1", "name": "Group1", "description": "test"},
         ])
@@ -50,14 +61,16 @@ class TestListUserGroupsContract:
         assert len(result["data"]) == 1
         assert result["data"][0]["uuid"] == "g-1"
         assert result["data"][0]["user_count"] == 3
+        # spec 强制：端点调用的方法真实存在于 UserGroupService（否则 AttributeError）
+        mock_service.count_all_members.assert_called_once()
 
 
 class TestListUserGroupsParams:
     """GET /user-groups 参数契约：不向 service 传 is_del。"""
 
     def test_list_groups_called_without_is_del(self):
-        """端点不应向 list_groups 传 is_del（service 签名无此参数，#5625）。"""
-        mock_service = MagicMock()
+        """端点不应向 list_groups 传 is_del（service 签名 **filters，#5625）。"""
+        mock_service = MagicMock(spec=UserGroupService)
         mock_service.list_groups.return_value = _groups_result([])
         mock_service.count_all_members.return_value = {}
 
@@ -81,11 +94,10 @@ class TestCreateUserGroupContract:
 
     def test_create_returns_code_0_when_name_not_taken(self):
         """无重名时 create 返回 code=0 + 新组数据（#5625）。"""
-        mock_service = MagicMock()
+        mock_service = MagicMock(spec=UserGroupService)
         mock_service.list_groups.return_value = _groups_result([])
-        mock_service.create_group.return_value = MagicMock(
-            success=True,
-            data={"uuid": "g-new", "name": "test", "description": "desc"},
+        mock_service.create_group.return_value = ServiceResult.success(
+            {"uuid": "g-new", "name": "test"}
         )
 
         from api.settings import create_user_group
@@ -95,12 +107,13 @@ class TestCreateUserGroupContract:
 
         assert result["code"] == 0
         assert result["data"]["uuid"] == "g-new"
+        mock_service.create_group.assert_called_once()
 
     def test_create_raises_409_when_name_taken(self):
         """重名时抛 409（不再因解包崩成 500，#5625）。"""
         from fastapi import HTTPException
 
-        mock_service = MagicMock()
+        mock_service = MagicMock(spec=UserGroupService)
         mock_service.list_groups.return_value = _groups_result([
             {"uuid": "g-old", "name": "test", "description": ""},
         ])
@@ -118,10 +131,10 @@ class TestUpdateUserGroupContract:
     """PUT /user-groups/{uuid} 端点契约测试。"""
 
     def test_update_raises_409_when_name_conflicts_other_group(self):
-        """改名与他组冲突抛 409（不再因解包崩成 500，#5625）。"""
+        """改名与他组冲突抛 409（不再因缺失 update_group 崩成 500，#5625）。"""
         from fastapi import HTTPException
 
-        mock_service = MagicMock()
+        mock_service = MagicMock(spec=UserGroupService)
         mock_service.list_groups.return_value = _groups_result([
             {"uuid": "g-other", "name": "taken", "description": ""},
         ])
@@ -137,3 +150,16 @@ class TestUpdateUserGroupContract:
                 run_async(update_user_group("g-self", data))
 
         assert exc.value.status_code == 409
+
+
+class TestListUserGroupsRealService:
+    """真实 service 冒烟（不 mock）：端点不再 AttributeError/解包 500（review 核心）。"""
+
+    def test_list_user_groups_returns_code_0(self):
+        """真实 DataUserGroupService 跑通端点，证明 #5625 修复有效（不靠 mock）。"""
+        from api.settings import list_user_groups
+
+        result = run_async(list_user_groups())
+
+        assert result["code"] == 0
+        assert isinstance(result["data"], list)
