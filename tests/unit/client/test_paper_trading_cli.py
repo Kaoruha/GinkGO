@@ -196,9 +196,14 @@ class TestDeployPaperTrading:
         mock_crud = MagicMock()
         mock_crud.find.return_value = mappings or []
 
+        # param crud 默认无参数（mapping 循环会按 mapping_id 查 param）
+        mock_param_crud = MagicMock()
+        mock_param_crud.find.return_value = []
+
         mock_data = MagicMock()
         mock_data.portfolio_service.return_value = mock_ps
         mock_data.cruds.portfolio_file_mapping.return_value = mock_crud
+        mock_data.cruds.param.return_value = mock_param_crud
         return mock_data, mock_ps, mock_crud
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
@@ -235,6 +240,7 @@ class TestDeployPaperTrading:
         create_result = self._make_mock_service_result(create_result_data)
 
         mock_mapping = MagicMock()
+        mock_mapping.uuid = "src_map_uuid"
         mock_mapping.file_id = "file_001"
         mock_mapping.name = "strategy_ma"
         mock_mapping.type.value = "strategy"
@@ -248,11 +254,65 @@ class TestDeployPaperTrading:
             name="paper_backtest_portfolio",
         )
 
-        mock_crud.add.assert_called_once()
-        call_kwargs = mock_crud.add.call_args[1]
+        # BUG 1 回归守护：必须用 create(**kwargs)（add 收 model 对象，传 kwargs 会 TypeError）
+        mock_crud.create.assert_called_once()
+        call_kwargs = mock_crud.create.call_args[1]
         assert call_kwargs["portfolio_id"] == "new_paper_uuid"
         assert call_kwargs["file_id"] == "file_001"
         assert call_kwargs["type"] == "strategy"
+
+    @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
+    @patch("ginkgo.services")
+    def test_deploy_copies_params(self, mock_services, mock_send):
+        """应复制每个 mapping 的 param 到新 mapping（mapping_id 指向新 uuid）"""
+        source_portfolio = self._make_mock_source_portfolio()
+        source_result = self._make_mock_service_result([source_portfolio])
+        create_result_data = {"uuid": "new_paper_uuid", "name": "paper_backtest_portfolio"}
+        create_result = self._make_mock_service_result(create_result_data)
+
+        mock_mapping = MagicMock()
+        mock_mapping.uuid = "src_map_uuid"
+        mock_mapping.file_id = "file_001"
+        mock_mapping.name = "strategy_ma"
+        mock_mapping.type.value = "strategy"
+
+        # 源 mapping 的两个 param
+        mock_p0 = MagicMock()
+        mock_p0.index = 0
+        mock_p0.value = '"MA_STRATEGY"'
+        mock_p1 = MagicMock()
+        mock_p1.index = 1
+        mock_p1.value = "20"
+
+        mock_data, mock_ps, mock_crud = self._setup_mock_data(
+            source_result, create_result, [mock_mapping]
+        )
+        # create() 返回的新 mapping 带 uuid（param 的 mapping_id 要指向它）
+        new_mapping = MagicMock()
+        new_mapping.uuid = "new_map_uuid"
+        mock_crud.create.return_value = new_mapping
+
+        # 覆盖默认 param crud，喂入两个 param
+        mock_param_crud = mock_data.cruds.param.return_value
+        mock_param_crud.find.return_value = [mock_p0, mock_p1]
+        mock_services.data = mock_data
+
+        from ginkgo.client.portfolio_cli import _deploy_paper_trading
+        _deploy_paper_trading(source_portfolio_id="source_uuid", name="paper")
+
+        # BUG 2 回归守护：按源 mapping_id 查 param
+        mock_param_crud.find.assert_called_once()
+        find_kwargs = mock_param_crud.find.call_args[1]["filters"]
+        assert find_kwargs["mapping_id"] == "src_map_uuid"
+
+        # 两个 param 都被 create，mapping_id 指向【新】mapping 的 uuid
+        assert mock_param_crud.create.call_count == 2
+        calls = [c[1] for c in mock_param_crud.create.call_args_list]
+        assert {c["mapping_id"] for c in calls} == {"new_map_uuid"}
+        assert {(c["index"], c["value"]) for c in calls} == {
+            (0, '"MA_STRATEGY"'),
+            (1, "20"),
+        }
 
     @patch("ginkgo.client.portfolio_cli._send_deploy_notification")
     @patch("ginkgo.services")
@@ -337,8 +397,8 @@ class TestSendDeployNotification:
         msg = mock_producer.send.call_args[0][1]
         assert topic == "ginkgo.live.control.commands"
         assert msg["command"] == "deploy"
-        assert msg["portfolio_id"] == "portfolio_123"
-        assert "timestamp" in msg
+        # 68b749e5 确立的正确格式：portfolio_id 在 params 内（非顶层）
+        assert msg["params"]["portfolio_id"] == "portfolio_123"
 
 
 class TestSendUnloadCommand:
@@ -361,7 +421,8 @@ class TestSendUnloadCommand:
         msg = mock_producer.send.call_args[0][1]
         assert topic == "ginkgo.live.control.commands"
         assert msg["command"] == "unload"
-        assert msg["portfolio_id"] == "portfolio_456"
+        # portfolio_id 在 params 内（ControlCommand DTO 格式）
+        assert msg["params"]["portfolio_id"] == "portfolio_456"
 
     @patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer")
     def test_returns_false_on_kafka_failure(self, mock_producer_cls):
@@ -391,13 +452,14 @@ class TestStoreDeploySource:
             from ginkgo.client.portfolio_cli import _store_deploy_source
             _store_deploy_source("paper_001", "source_001")
 
-        mock_redis.set.assert_called_once_with("deviation:source:paper_001", "source_001")
+        # #4662 后 impl 用 set_cache（非 set）
+        mock_redis.set_cache.assert_called_once_with("deviation:source:paper_001", "source_001")
 
     @patch("ginkgo.client.portfolio_cli.GLOG")
     def test_handles_redis_failure_gracefully(self, mock_glog):
         """Redis 失败时应 WARN 而非抛异常"""
         mock_redis = MagicMock()
-        mock_redis.set.side_effect = Exception("connection refused")
+        mock_redis.set_cache.side_effect = Exception("connection refused")
 
         with patch("ginkgo.services") as mock_services:
             mock_services.data.redis_service.return_value = mock_redis

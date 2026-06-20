@@ -60,6 +60,11 @@ class MPortfolio(MMysqlBase):
     total_trades: Mapped[int] = mapped_column(default=0)
     winning_trades: Mapped[int] = mapped_column(default=0)
 
+    # 运行时引擎时间快照 (#6159: worker REPLAY 模式触发判定)
+    engine_current_time: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, nullable=True, comment="最近持久化时的引擎时间，用于 worker 重启后判定是否快进历史(REPLAY)"
+    )
+
     @property
     def is_live(self) -> bool:
         """是否为实盘或模拟盘模式（非回测）"""
