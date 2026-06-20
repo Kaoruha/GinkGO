@@ -151,6 +151,52 @@ class TestUpdateUserGroupContract:
 
         assert exc.value.status_code == 409
 
+    def test_update_returns_code_0_when_name_not_taken(self):
+        """改名无冲突时返回 code=0 且透传调 update_group（#5625 happy path）。
+
+        强断言 update_group 被以 (uuid, name=...) 调用——若端点因解包/方法缺失
+        在此之前崩成 500，断言失败（避免 MagicMock auto-truthy 假绿）。
+        """
+        mock_service = MagicMock(spec=UserGroupService)
+        mock_service.list_groups.return_value = _groups_result([])  # 无冲突
+        mock_service.update_group.return_value = ServiceResult.success({"updated": True})
+
+        data = MagicMock()
+        data.name = "new-name"
+        data.description = None
+
+        from api.settings import update_user_group
+
+        with patch("api.settings.get_user_group_service", return_value=mock_service):
+            result = run_async(update_user_group("g-1", data))
+
+        assert result["code"] == 0
+        mock_service.update_group.assert_called_once_with("g-1", name="new-name")
+
+    def test_update_raises_404_when_group_not_found(self):
+        """update_group 返回 not found 抛 404（区分于 500，#5625）。
+
+        只改 description（name=None）跳过重名检查，直奔 update_group；
+        其返回 error 含 "not found" 时端点应映射 404 而非 500。
+        """
+        from fastapi import HTTPException
+
+        mock_service = MagicMock(spec=UserGroupService)
+        mock_service.list_groups.return_value = _groups_result([])
+        mock_service.update_group.return_value = ServiceResult.error("Group not found")
+
+        data = MagicMock()
+        data.name = None
+        data.description = "new desc"
+
+        from api.settings import update_user_group
+
+        with patch("api.settings.get_user_group_service", return_value=mock_service):
+            with pytest.raises(HTTPException) as exc:
+                run_async(update_user_group("g-missing", data))
+
+        assert exc.value.status_code == 404
+
 
 class TestListUserGroupsRealService:
     """真实 service 冒烟（不 mock）：端点不再 AttributeError/解包 500（review 核心）。"""
@@ -163,3 +209,27 @@ class TestListUserGroupsRealService:
 
         assert result["code"] == 0
         assert isinstance(result["data"], list)
+
+
+class TestUpdateUserGroupRealService:
+    """真实 service PUT 冒烟：reviewer 指出 PUT 必崩 500，证明真实装配下不再 500。"""
+
+    def test_update_unknown_group_returns_404_not_500(self):
+        """真实 DataUserGroupService 下 PUT 不存在组返回 404（非 500）。
+
+        data 版 update_group 对不存在 uuid：find 返回空 → ServiceResult.error
+        （不 modify，无写副作用）→ 端点映射 404。若装配的是缺 update_group 的 user 版，
+        此处会 AttributeError → 500（即 reviewer 指出的 bug）。
+        """
+        from fastapi import HTTPException
+
+        from api.settings import update_user_group
+
+        data = MagicMock()
+        data.name = None
+        data.description = "smoke-desc"
+
+        with pytest.raises(HTTPException) as exc:
+            run_async(update_user_group("nonexistent-uuid", data))
+
+        assert exc.value.status_code == 404
