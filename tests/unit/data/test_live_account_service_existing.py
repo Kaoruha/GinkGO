@@ -589,6 +589,24 @@ class TestUpdateAccount:
         assert result["success"] is False
         assert "not found" in result["message"]
 
+    def test_update_account_applies_status(self, live_account_service, mock_crud):
+        """#5789: update_account 接收的 status 应实际更新账户状态，而非静默丢弃。
+
+        表象: PUT /accounts/{id} 传 status 返回成功但状态未变。
+        根因: handler 遗漏透传 + service 无 status 参数。
+        行为契约: status 必须下发给 CRUD 实际生效。
+        """
+        result = live_account_service.update_account(
+            account_uuid="test-uuid",
+            status=AccountStatusType.ENABLED,
+        )
+
+        assert result["success"] is True
+        # status 必须下发给 CRUD（实际生效），证明未被静默丢弃
+        mock_crud.update_status.assert_called_once_with(
+            "test-uuid", AccountStatusType.ENABLED
+        )
+
 
 class TestErrorResultHelper:
     """测试错误结果辅助方法"""

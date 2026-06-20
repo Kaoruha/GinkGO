@@ -908,7 +908,8 @@ class LiveAccountService(BaseService):
         api_key: Optional[str] = None,
         api_secret: Optional[str] = None,
         passphrase: Optional[str] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        status: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         更新实盘账号信息
@@ -941,6 +942,12 @@ class LiveAccountService(BaseService):
 
             if not updated_account:
                 return self._error_result(f"Account not found: {account_uuid}")
+
+            # #5789: 若提供 status，实际下发更新（修复 PUT 返回成功但状态未变更）
+            if status is not None:
+                status_result = self.update_account_status(account_uuid, status)
+                if not status_result["success"]:
+                    return status_result
 
             GLOG.INFO(f"Account updated: {account_uuid}")
 

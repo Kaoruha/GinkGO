@@ -70,6 +70,7 @@ class UpdateLiveAccountRequest(BaseModel):
     api_secret: Optional[str] = None
     passphrase: Optional[str] = None
     description: Optional[str] = None
+    status: Optional[AccountStatus] = None
 
 
 class UpdateAccountStatusRequest(BaseModel):

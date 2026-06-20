@@ -131,6 +131,7 @@ async def update_account(account_id: str, data: UpdateLiveAccountRequest):
             api_secret=data.api_secret,
             passphrase=data.passphrase,
             description=data.description,
+            status=data.status,
         )
 
         if not result["success"]:
