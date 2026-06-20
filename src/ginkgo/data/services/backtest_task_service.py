@@ -1190,7 +1190,9 @@ class BacktestTaskService(BaseService):
                     message="No net value data",
                 )
 
-            records = result.data
+            # #5848: get_by_task_id 硬编码 desc_order=True（aggregator 依赖它取最新累计值），
+            # 净值曲线需要正序（最早在前），组装前反转，不动共享 CRUD。
+            records = list(reversed(result.data))
             strategy = []
             for r in records:
                 ts = r.business_timestamp.isoformat() if r.business_timestamp else (
