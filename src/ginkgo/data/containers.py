@@ -160,8 +160,7 @@ class Container(containers.DeclarativeContainer):
     api_key_crud = providers.Singleton(get_crud, "api_key")
     deployment_crud = providers.Singleton(get_crud, "deployment")
 
-    # Backtest task CRUD
-    backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
+    # NOTE: backtest_task_crud 已在上方主 CRUD 块(line 141)定义，勿重复（#5554）
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
@@ -264,7 +263,7 @@ class Container(containers.DeclarativeContainer):
         BacktestTaskService,
         crud_repo=backtest_task_crud,
         analyzer_service=analyzer_service,
-        engine_service=providers.Singleton(get_crud, "engine"),
+        engine_service=engine_service,
         portfolio_service=portfolio_service,
         signal_crud=providers.Singleton(get_crud, "signal"),
         order_crud=providers.Singleton(get_crud, "order"),
