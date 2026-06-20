@@ -46,18 +46,27 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
-def _require_admin(req: Request) -> None:
-    """#5467+review: 管理员授权须 DB 校验 is_admin，不信任 JWT（与 #5899 /auth/verify 一致），DB 异常 fail-closed"""
-    user_uuid = getattr(req.state, "user_uuid", None)
-    is_admin = False
+def _resolve_is_admin(user_uuid) -> bool:
+    """#6175/#5899: 从 DB 查询 is_admin（fail-closed），不信任 JWT 内嵌值。
+
+    单一权威 admin 权限源：_require_admin 与 reset_user_password 共用。
+    DB 异常或无 user_uuid 时返回 False（fail-closed），防止降权/撤销 admin 的
+    旧 JWT（≤ACCESS_TOKEN_EXPIRE_MINUTES）冒充 admin。
+    """
+    if not user_uuid:
+        return False
     try:
         credential = get_user_service().get_credential(user_uuid)
         if credential is not None:
-            is_admin = credential.is_admin
+            return bool(credential.is_admin)
     except Exception as e:
-        logger.warning(f"#5467: DB query failed for is_admin, user={user_uuid}: {e}")
-        is_admin = False
-    if not is_admin:
+        logger.warning(f"#6175: DB query failed for is_admin, user={user_uuid}: {e}")
+    return False
+
+
+def _require_admin(req: Request) -> None:
+    """#5467+review: 管理员授权须 DB 校验 is_admin，不信任 JWT（与 #5899 /auth/verify 一致），DB 异常 fail-closed"""
+    if not _resolve_is_admin(getattr(req.state, "user_uuid", None)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges required",
@@ -249,6 +258,22 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
     try:
         user_service = get_user_service()
 
+        # #6070: 读取变更前权限状态，用于判断是否需撤销旧 token（仅 status/roles 触发）
+        # 当前值读取失败→None，比较时按"已变更"处理（保守撤销，fail-safe）
+        cur_is_active = None
+        cur_is_admin = None
+        try:
+            if data.status is not None:
+                cur_user = user_service.get_user(uuid)
+                if cur_user.success and isinstance(cur_user.data, dict):
+                    cur_is_active = cur_user.data.get("is_active")
+            if data.roles is not None:
+                cur_cred = user_service.get_credential(uuid)
+                if cur_cred is not None:
+                    cur_is_admin = bool(cur_cred.is_admin)
+        except Exception as e:
+            logger.warning(f"#6070: failed reading current privilege state for {uuid}: {e}")
+
         # 构建更新参数
         updates = {}
         if data.display_name is not None:
@@ -274,6 +299,17 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
                     detail="Failed to update user"
                 )
 
+        # #6070: 仅当 status 或 roles 实际发生变更时撤销旧 token
+        # （与 delete_user/reset_user_password/change_password 一致；改 display_name/email 不触发）
+        revoke = False
+        if "is_active" in updates and updates["is_active"] != cur_is_active:
+            revoke = True
+        if "is_admin" in updates and updates["is_admin"] != cur_is_admin:
+            revoke = True
+        if revoke:
+            from middleware.auth import token_blacklist
+            token_blacklist.revoke_user(uuid)
+
         logger.info(f"User updated: {uuid}")
 
         return ok(message=f"User {uuid} updated")
@@ -297,9 +333,9 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
     - 普通用户只能重置自己的密码
     - 响应不返回明文密码
     """
-    # 权限校验（#5770, #5679）
+    # 权限校验（#5770, #5679, #6175: admin 须 DB 校验，不信任 JWT 内嵌 is_admin）
     caller_uuid = getattr(req.state, "user_uuid", None)
-    is_admin = getattr(req.state, "is_admin", False)
+    is_admin = _resolve_is_admin(caller_uuid)
 
     if not is_admin and caller_uuid != uuid:
         raise HTTPException(

@@ -162,19 +162,37 @@ class TestResetPasswordAuthorization:
         assert exc_info.value.status_code == 403
 
     def test_admin_can_reset_others_password(self):
-        """管理员应能重置他人密码"""
+        """DB 确认的 admin 应能重置他人密码（#6175: admin 来自 DB 非 JWT）"""
         from api.settings import reset_user_password
 
         req = MagicMock()
         req.state.user_uuid = "user-admin"
-        req.state.is_admin = True
+        req.state.is_admin = False  # JWT 不再被信任，故意设 False 验证走 DB
 
         with patch("api.settings.get_user_service") as mock_svc:
+            # DB 真相：是 admin
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             result = asyncio.run(
                 reset_user_password("user-target-uuid", {"new_password": "NewPass123!"}, req)
             )
         # 不应抛异常
+        assert result is not None
+
+    def test_non_admin_can_reset_own_password(self):
+        """普通用户可重置自己的密码（self-reset 路径，#6175 须保留）"""
+        from api.settings import reset_user_password
+
+        req = MagicMock()
+        req.state.user_uuid = "user-self"
+        req.state.is_admin = False
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=False)
+            mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
+            result = asyncio.run(
+                reset_user_password("user-self", {"new_password": "NewPass123!"}, req)
+            )
         assert result is not None
 
     def test_reset_password_response_no_plaintext(self):
@@ -186,6 +204,7 @@ class TestResetPasswordAuthorization:
         req.state.is_admin = True
 
         with patch("api.settings.get_user_service") as mock_svc:
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             result = asyncio.run(
                 reset_user_password("user-target-uuid", {"new_password": "Secret123!"}, req)
@@ -252,3 +271,143 @@ class TestTokenBlacklistOnDeleteUser:
         # 确认被拒绝
         with pytest.raises(JWTError, match="revoked"):
             verify_token(token)
+
+
+# ============================================================
+# #6175: reset_user_password 须 DB 校验 is_admin（不信任 JWT）
+# 与 _require_admin / #5899 同款 fail-closed
+# ============================================================
+
+class TestResetPasswordDbAdminCheck:
+    """#6175: reset_user_password admin 校验须查 DB，被降权 admin 的旧 JWT 不得放行"""
+
+    def test_demoted_admin_jwt_blocked_by_db(self):
+        """DB 已降权（is_admin=False）但 JWT 仍带 is_admin=True 的用户，
+        不能重置他人密码——账户接管风险须阻断"""
+        from api.settings import reset_user_password
+        from fastapi import HTTPException
+
+        req = MagicMock()
+        req.state.user_uuid = "demoted-admin"
+        req.state.is_admin = True  # JWT 仍带 admin（旧 token 未过期）
+
+        with patch("api.settings.get_user_service") as mock_svc:
+            # DB 真相：该用户已被降为普通用户
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=False)
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(
+                    reset_user_password("victim-uuid", {"new_password": "hacked123"}, req)
+                )
+        assert exc_info.value.status_code == 403
+
+
+# ============================================================
+# #6070: update_user 在 status/roles 实际变更时撤销旧 token
+# ============================================================
+
+class TestTokenBlacklistOnUpdateUser:
+    """#6070: update_user 禁用/降权后须 revoke_user，仅改档案不触发"""
+
+    def _admin_req(self):
+        req = MagicMock()
+        req.state.user_uuid = "admin-1"  # caller；_require_admin 走 DB
+        return req
+
+    def test_disable_user_revokes_tokens(self):
+        """禁用用户（status active→disabled）应撤销其所有旧 token"""
+        from api.settings import update_user, UserUpdate
+
+        req = self._admin_req()
+        data = UserUpdate(status="disabled")
+
+        with patch("api.settings.get_user_service") as mock_svc, \
+             patch("middleware.auth.token_blacklist") as mock_bl:
+            # caller DB-admin；目标当前 active
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
+            mock_svc.return_value.get_user.return_value = MagicMock(
+                success=True, data={"is_active": True})
+            mock_svc.return_value.update_user.return_value = MagicMock(success=True)
+
+            asyncio.run(update_user(req, "user-target", data))
+
+            mock_bl.revoke_user.assert_called_once_with("user-target")
+
+    def test_demote_user_revokes_tokens(self):
+        """降权（移除 admin 角色）应撤销其所有旧 token"""
+        from api.settings import update_user, UserUpdate
+
+        req = self._admin_req()
+        data = UserUpdate(roles=[])  # 移除 admin
+
+        with patch("api.settings.get_user_service") as mock_svc, \
+             patch("middleware.auth.token_blacklist") as mock_bl:
+            # caller admin；目标当前是 admin
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
+            mock_svc.return_value.update_user.return_value = MagicMock(success=True)
+
+            asyncio.run(update_user(req, "user-target", data))
+
+            mock_bl.revoke_user.assert_called_once_with("user-target")
+
+    def test_display_name_only_does_not_revoke(self):
+        """仅改 display_name（非权限字段）不应撤销 token"""
+        from api.settings import update_user, UserUpdate
+
+        req = self._admin_req()
+        data = UserUpdate(display_name="New Name")
+
+        with patch("api.settings.get_user_service") as mock_svc, \
+             patch("middleware.auth.token_blacklist") as mock_bl:
+            mock_svc.return_value.update_user.return_value = MagicMock(success=True)
+
+            asyncio.run(update_user(req, "user-target", data))
+
+            mock_bl.revoke_user.assert_not_called()
+
+    def test_status_unchanged_does_not_revoke(self):
+        """status 设为与当前相同值（无实际变更）不应撤销 token"""
+        from api.settings import update_user, UserUpdate
+
+        req = self._admin_req()
+        data = UserUpdate(status="active")  # 当前已是 active → 无变更
+
+        with patch("api.settings.get_user_service") as mock_svc, \
+             patch("middleware.auth.token_blacklist") as mock_bl:
+            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
+            mock_svc.return_value.get_user.return_value = MagicMock(
+                success=True, data={"is_active": True})
+            mock_svc.return_value.update_user.return_value = MagicMock(success=True)
+
+            asyncio.run(update_user(req, "user-target", data))
+
+            mock_bl.revoke_user.assert_not_called()
+
+
+# ============================================================
+# #5470: 不再接受 URL query param 传递 JWT（防泄漏到日志/历史/Referer）
+# ============================================================
+
+class TestTokenQueryParamRejected:
+    """#5470: token 仅经 Authorization: Bearer 头接受，query param 不再提取"""
+
+    def _mw(self):
+        from middleware.auth import JWTAuthMiddleware
+        return JWTAuthMiddleware(MagicMock())
+
+    def test_query_param_token_rejected(self):
+        """仅 query param 提供 token 时 _extract_token 应返回 None（当前会泄漏）"""
+        mw = self._mw()
+        req = MagicMock()
+        req.headers = {}  # 无 Authorization
+        req.query_params = {"token": "eyJ.leaked.token"}
+
+        assert mw._extract_token(req) is None
+
+    def test_bearer_header_still_accepted(self):
+        """回归守卫：移除 query param 回退后，Authorization: Bearer 头仍须有效"""
+        mw = self._mw()
+        req = MagicMock()
+        req.headers = {"Authorization": "Bearer eyZ.valid.token"}
+        req.query_params = {}
+
+        assert mw._extract_token(req) == "eyZ.valid.token"
