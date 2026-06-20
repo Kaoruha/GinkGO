@@ -97,6 +97,8 @@ class DeploymentService(BaseService):
                 name=name,
                 portfolio_name=getattr(portfolio_obj, "name", None) or portfolio_id,
                 deployment_id=deployment_id,
+                # #6200: 目标组合继承源组合 initial_capital(原漏传致重置为 service 默认 1000000)
+                initial_capital=float(getattr(portfolio_obj, "initial_capital", 0) or 0),
             )
         except Exception as e:
             GLOG.ERROR(f"部署流程异常: {e}")
@@ -118,6 +120,7 @@ class DeploymentService(BaseService):
         name: Optional[str],
         portfolio_name: str,
         deployment_id: str,
+        initial_capital: float = 0,
     ) -> ServiceResult:
         """核心部署流程: 步骤 4-8。失败时由调用方标记 FAILED。"""
         # 4. 读取原 Portfolio 的组件映射
@@ -138,6 +141,7 @@ class DeploymentService(BaseService):
             name=name,
             mode=mode,
             description=f"部署自组合 {source_portfolio_id}",
+            initial_capital=initial_capital,
         )
         if not portfolio_result.success:
             raise RuntimeError(f"创建Portfolio失败: {portfolio_result.error}")
