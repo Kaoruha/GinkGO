@@ -51,6 +51,7 @@ dependencies = [
     "dependency-injector>=4.48.2",
     "fastapi>=0.116.0",
     "gunicorn>=23.0.0",
+    "h2>=4.0.0",
     "hiredis>=2.4.0",
     "httptools>=0.6.0",
     "huggingface-hub>=0.34.0",
