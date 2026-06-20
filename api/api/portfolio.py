@@ -399,16 +399,20 @@ async def create_portfolio(data: PortfolioCreate):
     """
     try:
         from services.saga_transaction import PortfolioSagaFactory
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
         # 准备组件数据
         sizer_data = None
         if data.sizer_uuid:
             sizer_data = {'component_uuid': data.sizer_uuid, 'config': data.sizer_config or {}}
 
+        # #5622 #5859: 使用请求体的 mode（映射为 core 枚举 int），而非硬编码 BACKTEST(0)
+        mode_int = PORTFOLIO_MODE_TYPES[data.mode.value].value
+
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
-            mode=0,  # BACKTEST 模式
+            mode=mode_int,
             selectors=data.selectors,
             sizer=sizer_data,
             strategies=data.strategies,
