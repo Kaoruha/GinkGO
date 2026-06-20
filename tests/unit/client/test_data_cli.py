@@ -71,6 +71,25 @@ class TestDataCLIHelp:
         assert "--filter" in result.output
         assert "--raw" in result.output
 
+    def test_get_help_marks_unimplemented_as_planned(self, cli_runner):
+        """data get help 必须把未实现的 data_type 标为 [planned]（#4900/#5242）。
+
+        calendar/adjustfactor/sources 当前不可用（calendar 报 Unknown data type，
+        adjustfactor/sources 报 not yet implemented），不能与可用的
+        stockinfo/day/tick 无差别并列。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "--help"])
+        assert result.exit_code == 0
+        out = result.output
+        # 可用类型应列出
+        assert "stockinfo" in out
+        assert "day" in out
+        assert "tick" in out
+        # 未实现类型必须带 [planned] 标注
+        assert "[planned" in out
+        # 防回归：不再出现无标注的全列表
+        assert "(stockinfo/calendar/day/tick/adjustfactor/sources)" not in out
+
     def test_sync_help_shows_options(self, cli_runner):
         """data sync --help 显示 sync 命令的参数"""
         result = cli_runner.invoke(data_cli.app, ["sync", "--help"])
