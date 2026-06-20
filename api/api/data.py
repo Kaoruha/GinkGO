@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import time as _time
@@ -84,11 +84,23 @@ class DataStats(BaseModel):
 
 
 class DataUpdateRequest(BaseModel):
-    """数据更新请求"""
+    """数据更新请求
+
+    #5784: 同时接受单数 code (str) 与复数 codes (list)。
+    单数 code 归一化为 codes=[code]，三种 sync 分支统一消费 codes。
+    """
     type: str  # stockinfo, bars, ticks, adjustfactor
+    code: Optional[str] = None
     codes: Optional[List[str]] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_code_to_codes(self) -> "DataUpdateRequest":
+        """单数 code 归一化进 codes（仅当 codes 未提供时填充，不覆盖显式传入的 codes）"""
+        if self.code and not self.codes:
+            self.codes = [self.code]
+        return self
 
 
 class DataSource(BaseModel):
@@ -614,7 +626,7 @@ async def sync_data(request: DataUpdateRequest):
         elif request.type == "bars":
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for bars update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
 
             bar_service = get_bar_service()
             for code in codes:
@@ -636,7 +648,7 @@ async def sync_data(request: DataUpdateRequest):
         elif request.type == "ticks":
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for ticks update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for ticks update")
 
             tick_service = get_tick_service()
             start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
@@ -663,7 +675,7 @@ async def sync_data(request: DataUpdateRequest):
             sync_type = "adjustfactor"
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for adjust factors update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for adjust factors update")
 
             adjustfactor_service = get_adjustfactor_service()
             # 批量同步复权因子，整体记录
