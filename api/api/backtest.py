@@ -623,6 +623,34 @@ async def get_backtest_orders(uuid: str):
         raise BusinessError(f"Error getting orders: {str(e)}")
 
 
+@router.get("/{uuid}/order-records")
+async def get_backtest_order_records(uuid: str):
+    """获取回测订单记录流水(完整状态流转, 不去重)。
+
+    与 /orders 区分: /orders 按 order_id 去重返回订单(最终态);
+    /order-records 返回同一 order_id 的全部状态变更记录(NEW/SUBMITTED/FILLED 等)。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.list_order_records(uuid)
+
+        if not result.is_success():
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve order records")
+
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Order records retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting order records for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting order records: {str(e)}")
+
+
 @router.get("/{uuid}/positions")
 async def get_backtest_positions(uuid: str):
     """获取回测持仓记录"""

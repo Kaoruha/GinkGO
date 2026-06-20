@@ -1080,6 +1080,54 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_orders failed: {e}")
             return ServiceResult.error(f"Failed to list orders: {e}")
 
+    def list_order_records(self, uuid: str) -> "ServiceResult":
+        """获取回测订单记录流水(完整状态流转, 不去重), 返回 list[BacktestOrderItem]。
+
+        与 list_orders 区分: list_orders 返回去重后的订单(每个 order_id 最终态一条),
+        本方法返回同一 order_id 的全部状态变更记录(NEW/SUBMITTED/FILLED/CANCELED 等)。
+        """
+        from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_order_records(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            records = result.data.get("data", [])
+            total = result.data.get("total", 0)
+
+            items = []
+            for o in records:
+                items.append(BacktestOrderItem(
+                    uuid=getattr(o, "uuid", ""),
+                    portfolio_id=getattr(o, "portfolio_id", ""),
+                    engine_id=getattr(o, "engine_id", ""),
+                    task_id=getattr(o, "task_id", ""),
+                    code=getattr(o, "code", ""),
+                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
+                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
+                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
+                    volume=int(getattr(o, "volume", 0) or 0),
+                    limit_price=str(getattr(o, "limit_price", 0)),
+                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
+                    fee=str(getattr(o, "fee", 0)),
+                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                ))
+
+            sr = ServiceResult.success(data=items, message="Order records retrieved")
+            sr.set_metadata("total", total)
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_order_records failed: {e}")
+            return ServiceResult.error(f"Failed to list order records: {e}")
+
     def list_positions(self, uuid: str) -> "ServiceResult":
         """获取回测持仓列表，返回 list[BacktestPositionItem]"""
         from ginkgo.data.services.backtest_task_schemas import BacktestPositionItem
