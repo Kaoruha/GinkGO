@@ -130,3 +130,33 @@ class TestBrokerExecutionResultToEvent:
             order=self._make_order()
         )
         assert result.to_event() is None
+
+    def test_filled_partial_fill_propagates_status_to_event(self):
+        """FILLED 终态(部分成交 filled_volume<volume)必须透传到 event.order_status (#5492 review)
+
+        下游 PortfolioT1Backtest.is_final 依赖 event.order_status==FILLED 判定终态,
+        据此释放剩余冻结资金 (release_frozen)。回测路径从不调 order.fill(),
+        order.status 恒为 SUBMITTED; 若 to_event 不透传 result.status,
+        部分成交(order.transaction_volume<volume)时 is_final=False,
+        剩余 frozen_money 永久泄漏、cash 被低估。
+        broker 的 result.status 是订单终态的权威来源, 必须随事件透传。
+        """
+        order = Order(
+            portfolio_id="portfolio-001", engine_id="engine-1", task_id="run-1",
+            code="000001.SZ", direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.MARKETORDER, status=ORDERSTATUS_TYPES.SUBMITTED,
+            volume=1000, frozen_money=Decimal("5000"),
+        )
+        # broker 一次性部分成交: 判定终态 FILLED, 但实际只成交 400 < volume 1000
+        result = BrokerExecutionResult(
+            status=ORDERSTATUS_TYPES.FILLED,
+            broker_order_id="BROKER-PARTIAL",
+            filled_volume=400,
+            filled_price=10.0,
+            order=order,
+        )
+        event = result.to_event(engine_id="engine-1", task_id="run-1")
+        assert event is not None
+        assert event.event_type == EVENT_TYPES.ORDERFILLED
+        # 关键: 事件须透传 broker 终态判定, 而非退回 order.status(=SUBMITTED)
+        assert event.order_status == ORDERSTATUS_TYPES.FILLED
