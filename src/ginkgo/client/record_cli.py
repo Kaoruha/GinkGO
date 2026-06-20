@@ -20,80 +20,25 @@ console = Console()
 
 @app.command()
 def signal(
-    engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
+    task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
 ):
     """
     :satellite_antenna: List trading signals.
+
+    All filters (-p/-e/-t) optional. Symmetric with ``record order/position``.
     """
     from ginkgo.data.containers import Container
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        # 第一层：如果没有传入 engine，显示所有可用的 engines
-        if engine is None:
-            engine_svc = Container.engine_service()
-            result = engine_svc.get_engines_df()
-            if not result.success:
-                console.print(f":x: [red]{result.error}[/red]")
-                return
-            # ADR-010 R2b: get_engines_df 出口已保证 data 为 DataFrame（类型即契约）
-            engines_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
-
-            console.print("Please specify an engine ID. Available engines:")
-            engines_columns_config = {
-                "uuid": {"display_name": "Engine ID", "style": "dim"},
-                "name": {"display_name": "Name", "style": "cyan"},
-                "desc": {"display_name": "Description", "style": "dim"},
-                "update_at": {"display_name": "Update At", "style": "dim"}
-            }
-
-            display_dataframe(
-                data=engines_df,
-                columns_config=engines_columns_config,
-                title=":wrench: [bold]Available Engines:[/bold]",
-                console=console
-            )
-            console.print("\n[dim]Use: ginkgo record signal --engine <engine_id>[/dim]")
-            return
-
-        # 第二层：如果有 engine 但没有 portfolio，显示该 engine 下绑定的所有 portfolios
-        if portfolio is None:
-            engine_svc = Container.engine_service()
-            mapping_result = engine_svc.get_portfolios(engine_id=engine)
-            if not mapping_result.success or not mapping_result.data.get("mappings"):
-                console.print(f":exclamation: [yellow]No portfolios found for engine {engine}.[/yellow]")
-                return
-
-            mappings = mapping_result.data["mappings"]
-            mappings_df = mappings.to_dataframe()
-
-            if mappings_df.shape[0] == 0:
-                console.print(f":exclamation: [yellow]No portfolios found for engine {engine}.[/yellow]")
-                return
-
-            console.print(f"Please specify a portfolio ID. Available portfolios for engine {engine}:")
-            portfolios_columns_config = {
-                "portfolio_id": {"display_name": "Portfolio ID", "style": "dim"},
-                "portfolio_name": {"display_name": "Name", "style": "cyan"},
-                "update_at": {"display_name": "Update At", "style": "dim"}
-            }
-
-            display_dataframe(
-                data=mappings_df,
-                columns_config=portfolios_columns_config,
-                title=f":briefcase: [bold]Portfolios for Engine {engine}:[/bold]",
-                console=console
-            )
-            console.print(f"\n[dim]Use: ginkgo record signal --engine {engine} --portfolio <portfolio_id>[/dim]")
-            return
-
-        # 第三层：有 engine 和 portfolio，显示具体的 signals
         signal_svc = Container.signal_service()
         result = signal_svc.get_signals_df(
-            engine_id=engine,
             portfolio_id=portfolio,
+            engine_id=engine,
+            task_id=task,
             page_size=page,
         )
         if not result.success:
@@ -104,20 +49,21 @@ def signal(
         signals_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
         if signals_df.shape[0] == 0:
-            console.print(f":exclamation: [yellow]No signals found for engine {engine} and portfolio {portfolio}.[/yellow]")
+            console.print(":exclamation: [yellow]No signals found.[/yellow]")
             return
 
         signal_columns_config = {
             "uuid": {"display_name": "Signal ID", "style": "dim"},
             "engine_id": {"display_name": "Engine ID", "style": "dim"},
             "portfolio_id": {"display_name": "Portfolio ID", "style": "dim"},
+            "task_id": {"display_name": "Task ID", "style": "dim"},
             "direction": {"display_name": "Direction", "style": "green"},
             "code": {"display_name": "Code", "style": "cyan"},
             "timestamp": {"display_name": "Timestamp", "style": "dim"},
             "reason": {"display_name": "Reason", "style": "yellow"}
         }
 
-        title = f":satellite_antenna: [bold]Signals for Engine {engine} / Portfolio {portfolio}:[/bold]"
+        title = ":satellite_antenna: [bold]Signals:[/bold]"
         display_dataframe(
             data=signals_df,
             columns_config=signal_columns_config,

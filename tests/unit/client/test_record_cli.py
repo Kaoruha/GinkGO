@@ -117,3 +117,72 @@ class TestRecordPositionFilters:
         assert kwargs.get("portfolio_id") == "p1"
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
+
+
+# ============================================================================
+# #5949: signal 可选过滤（-p/-e/-t）+ 拆分强制阶段
+# ============================================================================
+
+
+def _signals_df():
+    return pd.DataFrame({
+        "uuid": ["s1"],
+        "engine_id": ["e1"],
+        "portfolio_id": ["p1"],
+        "task_id": ["t1"],
+        "code": ["000001.SZ"],
+        "direction": ["LONG"],
+        "timestamp": ["2026-01-01"],
+        "reason": ["test"],
+    })
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestRecordSignalFilters:
+    """record signal 的可选过滤 + 拆分强制阶段（#5949）
+
+    原实现强制三阶段（无 engine→列 engines；有 engine 无 portfolio→列 portfolios；
+    都有→查 signals）。统一后 -p/-e/-t 全可选，与 order/position 一致。
+    """
+
+    @patch("ginkgo.data.containers.Container")
+    def test_signal_passes_all_filters(self, mock_container, cli_runner):
+        """-p/-e/-t 全透传到 service.get_signals_df"""
+        mock_service = MagicMock()
+        mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
+        mock_container.signal_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, [
+            "signal", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
+        ])
+        assert result.exit_code == 0
+        _, kwargs = mock_service.get_signals_df.call_args
+        assert kwargs.get("portfolio_id") == "p1"
+        assert kwargs.get("engine_id") == "e1"
+        assert kwargs.get("task_id") == "t1"
+
+    @patch("ginkgo.data.containers.Container")
+    def test_signal_portfolio_only_queries_directly(self, mock_container, cli_runner):
+        """单 -p 直接查该 portfolio 全部 signal，不再强制先选 engine"""
+        mock_service = MagicMock()
+        mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
+        mock_container.signal_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["signal", "--portfolio", "p1"])
+        assert result.exit_code == 0
+        # 核心：直接走 signal 查询，不触发 engine 选择阶段
+        mock_container.signal_service.assert_called_once()
+        _, kwargs = mock_service.get_signals_df.call_args
+        assert kwargs.get("portfolio_id") == "p1"
+
+    @patch("ginkgo.data.containers.Container")
+    def test_signal_no_filters_returns_all(self, mock_container, cli_runner):
+        """无任何过滤参数时查全部 signal（不再强制选 engine）"""
+        mock_service = MagicMock()
+        mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
+        mock_container.signal_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["signal"])
+        assert result.exit_code == 0
+        mock_service.get_signals_df.assert_called_once()
