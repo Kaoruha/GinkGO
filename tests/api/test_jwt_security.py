@@ -381,3 +381,33 @@ class TestTokenBlacklistOnUpdateUser:
             asyncio.run(update_user(req, "user-target", data))
 
             mock_bl.revoke_user.assert_not_called()
+
+
+# ============================================================
+# #5470: 不再接受 URL query param 传递 JWT（防泄漏到日志/历史/Referer）
+# ============================================================
+
+class TestTokenQueryParamRejected:
+    """#5470: token 仅经 Authorization: Bearer 头接受，query param 不再提取"""
+
+    def _mw(self):
+        from middleware.auth import JWTAuthMiddleware
+        return JWTAuthMiddleware(MagicMock())
+
+    def test_query_param_token_rejected(self):
+        """仅 query param 提供 token 时 _extract_token 应返回 None（当前会泄漏）"""
+        mw = self._mw()
+        req = MagicMock()
+        req.headers = {}  # 无 Authorization
+        req.query_params = {"token": "eyJ.leaked.token"}
+
+        assert mw._extract_token(req) is None
+
+    def test_bearer_header_still_accepted(self):
+        """回归守卫：移除 query param 回退后，Authorization: Bearer 头仍须有效"""
+        mw = self._mw()
+        req = MagicMock()
+        req.headers = {"Authorization": "Bearer eyZ.valid.token"}
+        req.query_params = {}
+
+        assert mw._extract_token(req) == "eyZ.valid.token"

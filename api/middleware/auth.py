@@ -133,12 +133,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     def _extract_token(self, request: Request) -> Optional[str]:
-        """先查 header，没有再查 query param"""
+        """仅从 Authorization: Bearer 头提取 token
+
+        #5470: 不再回退到 URL query param——query param 的 token 会泄漏到
+        访问日志、浏览器历史、Referer 头与代理日志，构成凭据泄漏面。
+        WebSocket 路径无法设置 header，由 handler 自行调用 verify_token（见文件头注释）。
+        """
         authorization = request.headers.get("Authorization")
         if authorization and authorization.startswith("Bearer "):
             return authorization[7:]
-
-        return request.query_params.get("token")
+        return None
 
 
 def verify_token(token: str) -> dict:

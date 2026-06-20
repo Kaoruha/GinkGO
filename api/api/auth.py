@@ -181,12 +181,10 @@ async def logout(req: Request):
 
 async def verify_token_endpoint(req: Request):
     """#5899: 手动验证 token（端点在 PUBLIC_PATHS，中间件不处理）"""
-    # 从 header 或 query param 提取 token
+    # #5470: 仅从 Authorization: Bearer 头提取 token，不回退 query param
+    # （query param token 会泄漏到日志/历史/Referer，与中间件 _extract_token 保持一致）
     authorization = req.headers.get("Authorization", "")
-    if authorization.startswith("Bearer "):
-        token = authorization[7:]
-    else:
-        token = req.query_params.get("token")
+    token = authorization[7:] if authorization.startswith("Bearer ") else None
 
     if not token:
         return ok(data={"valid": False, "user_uuid": None, "username": None, "is_admin": False})
