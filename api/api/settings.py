@@ -252,6 +252,22 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
     try:
         user_service = get_user_service()
 
+        # #6070: 读取变更前权限状态，用于判断是否需撤销旧 token（仅 status/roles 触发）
+        # 当前值读取失败→None，比较时按"已变更"处理（保守撤销，fail-safe）
+        cur_is_active = None
+        cur_is_admin = None
+        try:
+            if data.status is not None:
+                cur_user = user_service.get_user(uuid)
+                if cur_user.success and isinstance(cur_user.data, dict):
+                    cur_is_active = cur_user.data.get("is_active")
+            if data.roles is not None:
+                cur_cred = user_service.get_credential(uuid)
+                if cur_cred is not None:
+                    cur_is_admin = bool(cur_cred.is_admin)
+        except Exception as e:
+            logger.warning(f"#6070: failed reading current privilege state for {uuid}: {e}")
+
         # 构建更新参数
         updates = {}
         if data.display_name is not None:
@@ -276,6 +292,17 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to update user"
                 )
+
+        # #6070: 仅当 status 或 roles 实际发生变更时撤销旧 token
+        # （与 delete_user/reset_user_password/change_password 一致；改 display_name/email 不触发）
+        revoke = False
+        if "is_active" in updates and updates["is_active"] != cur_is_active:
+            revoke = True
+        if "is_admin" in updates and updates["is_admin"] != cur_is_admin:
+            revoke = True
+        if revoke:
+            from middleware.auth import token_blacklist
+            token_blacklist.revoke_user(uuid)
 
         logger.info(f"User updated: {uuid}")
 
