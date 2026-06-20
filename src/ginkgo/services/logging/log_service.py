@@ -379,7 +379,10 @@ class LogService(BaseService):
                     )
                 ]
                 if level is not None and hasattr(model, "level"):
-                    conditions.append(model.level == level)
+                    # 落库 level 混大小写（Master 全大写 / Test 大小写并存，旧写入大写、新写入小写），
+                    # ClickHouse == 大小写敏感，须双向 lower() 归一，否则 alert_service 透传 "ERROR"
+                    # 时漏匹配告警恒空（#5553 review：从 TypeError 崩溃换成静默 0，仍未达成告警目标）
+                    conditions.append(func.lower(model.level) == level.lower())
                 if time_start is not None and hasattr(model, "timestamp"):
                     conditions.append(model.timestamp >= time_start)
                 if time_end is not None and hasattr(model, "timestamp"):

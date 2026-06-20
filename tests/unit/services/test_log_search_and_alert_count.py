@@ -49,6 +49,44 @@ class TestSearchLogsAcceptsLevelAndTimeFilters:
         )
         assert isinstance(result, list)
 
+    def test_search_logs_level_filter_is_case_insensitive(self):
+        """level 过滤须大小写不敏感（#5553 review）。
+
+        落库 level 混大小写：Master CH 全大写(INFO/WARNING/ERROR)，
+        Test CH 大小写并存(info 28.5M / INFO 3.7M / error 14K / ERROR 6.5K)。
+        alert_service 透传 level="ERROR"(大写)，ClickHouse == 大小写敏感，
+        故 model.level == level 会漏匹配告警恒空。须 func.lower() 双向归一。
+        """
+        from ginkgo.services.logging.log_service import LogService
+
+        captured = []
+
+        session = MagicMock()
+        engine = MagicMock()
+        engine.get_session.return_value.__enter__ = MagicMock(return_value=session)
+        engine.get_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        def capture(query):
+            captured.append(query)
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = []
+            return result
+
+        session.execute.side_effect = capture
+
+        svc = LogService(engine=engine)
+        svc.search_logs(keyword="x", level="ERROR", limit=10)
+
+        assert len(captured) == 1, "search_logs 应执行一次查询"
+        compiled = str(
+            captured[0].compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        # 修复前: "level = 'ERROR'"（无 lower，大小写敏感漏匹配）
+        # 修复后: "lower(level) = 'error'"（双向归一，混大小写均命中）
+        assert "lower" in compiled, (
+            "level 过滤须大小写不敏感(func.lower)，落库混大小写否则漏匹配告警恒空(#5553 review)"
+        )
+
 
 class TestCountErrorPatternReturnsInt:
     """#5553: _count_error_pattern 不应 TypeError，应返回 int。"""
