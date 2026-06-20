@@ -679,3 +679,34 @@ class TestUnbindPortfolio:
             )
         assert result.exit_code == 1
         assert "Failed" in result.output or "not found" in result.output
+
+
+# ===========================================================================
+# #5375: resolve_engine_id 的 fuzzy 搜索分支
+# ===========================================================================
+
+class TestResolveEngineIdFuzzy:
+    """#5375: 模糊搜索命中时 resolve_engine_id 必须返回 UUID，不能崩溃。
+
+    根因: engine_cli_helpers.py 仅导入 ``Table as RichTable``，而 fuzzy 分支
+    用了裸名 ``Table`` 触发 NameError，被外层 except 吞掉伪装成"解析失败"。
+    现有 cat 测试均 patch 掉 resolve_engine_id，该路径从未被覆盖。
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_fuzzy_match_returns_uuid_without_crash(self):
+        from ginkgo.client.engine_cli_helpers import resolve_engine_id
+
+        engine = _make_engine_model(name="low_usage_engine")
+        svc = _mock_engine_service()
+        # UUID 精确查找与 name 精确查找均空 -> 落入 fuzzy 分支
+        svc.get.return_value = ServiceResult.success(data=[])
+        svc.fuzzy_search.return_value = ServiceResult.success(data=[engine])
+        container = _mock_container(engine_service=svc)
+
+        with patch("ginkgo.data.containers.container", container):
+            resolved = resolve_engine_id("low_usage_en")
+
+        # fuzzy 命中第一条的 UUID 应被返回，而非因 NameError 返回 None
+        assert resolved == engine.uuid
