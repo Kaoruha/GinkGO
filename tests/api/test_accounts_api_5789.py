@@ -12,6 +12,9 @@ fixture 临时加入 sys.path, 故 import 须延迟到测试函数内。
 import asyncio
 from unittest.mock import Mock
 
+import pytest
+from pydantic import ValidationError
+
 
 def test_put_account_handler_passes_status(api_modules, monkeypatch):
     """PUT /accounts/{id} handler 应将 status 透传给 service.update_account。"""
@@ -34,3 +37,28 @@ def test_put_account_handler_passes_status(api_modules, monkeypatch):
     mock_service.update_account.assert_called_once()
     call_kwargs = mock_service.update_account.call_args.kwargs
     assert call_kwargs.get("status") == AccountStatus.ENABLED
+
+
+def test_update_request_rejects_non_user_settable_status(api_modules):
+    """#5789 / review #6213: PUT 仅允许 enabled/disabled。
+
+    connecting/disconnected/error 是验证引擎派生态,禁止由 PUT 设置;
+    model 应在边界拒绝,避免合法枚举进 service 才被 valid_statuses 拒。
+    """
+    from models.accounts import UpdateLiveAccountRequest, AccountStatus
+
+    # 用户可设的两种状态仍合法
+    UpdateLiveAccountRequest(status=AccountStatus.ENABLED)
+    UpdateLiveAccountRequest(status=AccountStatus.DISABLED)
+    UpdateLiveAccountRequest(status="enabled")
+    UpdateLiveAccountRequest(status=None)
+
+    # 派生态被边界拒绝
+    for bad in (
+        AccountStatus.CONNECTING,
+        AccountStatus.DISCONNECTED,
+        AccountStatus.ERROR,
+        "connecting",
+    ):
+        with pytest.raises(ValidationError):
+            UpdateLiveAccountRequest(status=bad)
