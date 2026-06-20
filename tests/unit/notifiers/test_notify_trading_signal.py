@@ -93,3 +93,60 @@ class TestNotifyTradingSignalAsync:
         assert call.kwargs["user_uuid"] == "user-1"
         assert "000001.SZ" in call.kwargs["content"]
         assert "1000" in call.kwargs["content"]
+
+
+class TestSendFailureHandling:
+    """回归（PR#6215 review Issue 1+2）：send 失败时不能报成功。
+
+    ServiceResult.is_success 是方法非属性；渠道必须用已注册的 email（非 mail）。
+    两者叠加曾导致生产全程静默失败却返回 True。
+    """
+
+    def test_sync_send_failure_returns_false(self):
+        """send 返回失败(is_success()==False)时，notify 必须返回 False。
+
+        回归锚点：buggy `getattr(result, "is_success", False)` 取回绑定方法
+        （恒 truthy）会把失败计为成功→返回 True。本测试用 is_success() 返回
+        False 的 mock 逼出该 bug。
+        """
+        signal = Signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100)
+        order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100)
+
+        fake_service = MagicMock()
+        fail_result = MagicMock()
+        fail_result.is_success.return_value = False  # 方法返回失败
+        fake_service.send_to_user.return_value = fail_result
+
+        with patch(
+            "ginkgo.notifier.core.notify._get_notification_service",
+            return_value=fake_service,
+        ), patch(
+            "ginkgo.notifier.core.notify._get_recipient_user_uuids",
+            return_value=["user-1"],
+        ):
+            result = notify_trading_signal(signal, order, async_mode=False)
+
+        assert result is False, "send 失败时不能因 is_success 是方法而恒真报成功"
+
+    def test_uses_registered_email_channel_not_unregistered_mail(self):
+        """渠道必须用已注册的 email，而非不存在的 mail（否则 send 必 Channel not found）。"""
+        signal = Signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=1000)
+        order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=1000)
+
+        fake_service = MagicMock()
+        ok_result = MagicMock()
+        ok_result.is_success.return_value = True
+        fake_service.send_async.return_value = ok_result
+
+        with patch(
+            "ginkgo.notifier.core.notify._get_notification_service",
+            return_value=fake_service,
+        ), patch(
+            "ginkgo.notifier.core.notify._get_recipient_user_uuids",
+            return_value=["user-1"],
+        ):
+            notify_trading_signal(signal, order, async_mode=True)
+
+        channels = fake_service.send_async.call_args.kwargs["channels"]
+        assert "email" in channels, "必须用已注册的 email 渠道"
+        assert "mail" not in channels, "mail 未注册，会导致 Channel not found"

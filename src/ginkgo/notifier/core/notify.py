@@ -371,12 +371,12 @@ def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
             for user_uuid in user_uuids:
                 result = service.send_async(
                     content=content,
-                    channels=["mail"],
+                    channels=["email"],
                     user_uuid=user_uuid,
                     priority=2,
                     title=title,
                 )
-                if getattr(result, "is_success", False):
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(
@@ -391,10 +391,10 @@ def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
                 user_uuid=user_uuid,
                 content=content,
                 title=title,
-                channels=["mail"],
+                channels=["email"],
                 priority=2,
             )
-            if getattr(result, "is_success", False):
+            if result.is_success():
                 success_count += 1
 
         GLOG.INFO(f"Trading signal sent to {success_count}/{len(user_uuids)} users: {code}")
