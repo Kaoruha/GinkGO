@@ -5,6 +5,7 @@ Verifies that PositionService orchestrates position persistence
 through PositionCRUD, providing the `save_positions` interface
 that PortfolioLive depends on.
 """
+import pandas as pd
 import pytest
 from unittest.mock import MagicMock, call
 
@@ -102,3 +103,41 @@ class TestGetPositions:
         result = service.get_portfolio_value("p-001")
         assert result.is_success()
         assert result.data["total_market_value"] == 10000
+
+
+class TestGetPositionsDfFilters:
+    """get_positions_df 的 engine_id/task_id 过滤透传（#4743）
+
+    PositionModel 与 Signal/Order 对称持有 engine_id + task_id，
+    但 position 的 filter builder 仅连了 portfolio_id。此处验证三维过滤透传。
+    """
+
+    def test_filters_by_engine_and_task(self, service, mock_crud):
+        """engine_id + task_id 应透传到 crud.find 的 filters"""
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        service.get_positions_df(
+            portfolio_id="p1", engine_id="e1", task_id="t1"
+        )
+
+        _, kwargs = mock_crud.find.call_args
+        filters = kwargs["filters"]
+        assert filters == {
+            "is_del": False,
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "t1",
+        }
+
+    def test_omits_unset_filters(self, service, mock_crud):
+        """未传的过滤维度不应进入 filters（避免误加 None）"""
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        service.get_positions_df(portfolio_id="p1")
+
+        _, kwargs = mock_crud.find.call_args
+        assert kwargs["filters"] == {"is_del": False, "portfolio_id": "p1"}

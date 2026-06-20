@@ -8,6 +8,7 @@ Run: pytest tests/unit/data/services/test_order_service.py -v -o "addopts="
 
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 
 from ginkgo.data.services.order_service import OrderService
@@ -157,3 +158,41 @@ class TestDeleteOrdersByPortfolio:
         result = order_svc.delete_orders_by_portfolio("")
 
         assert result.is_failure()
+
+
+class TestGetOrdersDfFilters:
+    """get_orders_df 的 engine_id/task_id 过滤透传（#4743）
+
+    OrderModel 与 Signal/Position 对称持有 engine_id + task_id，
+    但 order 的 filter builder 仅连了 portfolio_id。此处验证三维过滤透传。
+    """
+
+    def test_filters_by_engine_and_task(self, order_svc, mock_crud):
+        """engine_id + task_id 应透传到 crud.find 的 filters"""
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        order_svc.get_orders_df(
+            portfolio_id="p1", engine_id="e1", task_id="t1"
+        )
+
+        _, kwargs = mock_crud.find.call_args
+        filters = kwargs["filters"]
+        assert filters == {
+            "is_del": False,
+            "portfolio_id": "p1",
+            "engine_id": "e1",
+            "task_id": "t1",
+        }
+
+    def test_omits_unset_filters(self, order_svc, mock_crud):
+        """未传的过滤维度不应进入 filters（避免误加 None）"""
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        order_svc.get_orders_df(portfolio_id="p1")
+
+        _, kwargs = mock_crud.find.call_args
+        assert kwargs["filters"] == {"is_del": False, "portfolio_id": "p1"}

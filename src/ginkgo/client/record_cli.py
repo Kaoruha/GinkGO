@@ -135,6 +135,8 @@ def signal(
 @app.command()
 def order(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
+    task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
 ):
     """
@@ -147,6 +149,8 @@ def order(
         order_svc = Container.order_service()
         result = order_svc.get_orders_df(
             portfolio_id=portfolio,
+            engine_id=engine,
+            task_id=task,
             page_size=page,
         )
         if not result.success:
@@ -186,6 +190,8 @@ def order(
 @app.command()
 def position(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
+    task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
 ):
     """
@@ -198,6 +204,8 @@ def position(
         position_svc = Container.position_service()
         result = position_svc.get_positions_df(
             portfolio_id=portfolio,
+            engine_id=engine,
+            task_id=task,
             page_size=page,
         )
         if not result.success:
