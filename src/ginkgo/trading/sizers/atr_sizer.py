@@ -26,12 +26,23 @@ class ATRSizer(BaseSizer):
     __abstract__ = False
 
     def __init__(
-        self, name: str = "ATRSizer", period: int = 14, risk: float = 0.01, risk_ratio: float = 2, *args, **kwargs
+        self,
+        name: str = "ATRSizer",
+        period: int = 14,
+        risk: float = 0.01,
+        risk_ratio: float = 2,
+        min_atr_percent: float = 0.005,
+        *args,
+        **kwargs,
     ):
         super().__init__(name, *args, **kwargs)
         self.period = period
         self.risk = risk
         self.risk_ratio = risk_ratio
+        # #5490: minimum ATR as a fraction of close. When ATR collapses near
+        # zero (halt / limit board / stale quotes) the raw max_money/atr would
+        # produce oversized positions; floor ATR before sizing.
+        self.min_atr_percent = min_atr_percent
 
     def set_risk(self, risk: float):
         self.risk = risk
@@ -85,9 +96,19 @@ class ATRSizer(BaseSizer):
 
             if atr == 0 or pd.isna(atr):
                 return None
+            # #5490: floor ATR to a minimum fraction of close so a collapsed ATR
+            # (halt / limit board / stale quotes) cannot inflate max_shares.
+            close = df.iloc[-1]["close"]
+            min_atr = close * self.min_atr_percent
+            if atr < min_atr:
+                GLOG.WARN(
+                    f"ATRSizer: ATR {atr} below floor {min_atr:.4f} "
+                    f"({self.min_atr_percent * 100:.2f}% of close {close}) for {code}; flooring"
+                )
+                atr = min_atr
             max_money = portfolio_info["cash"] * self.risk
             max_shares = int((max_money / atr) / 100) * 100
-            price = df.iloc[-1]["close"] * 1.1
+            price = close * 1.1
             o = self.create_order(
                 code=signal.code,
                 direction=signal.direction,
