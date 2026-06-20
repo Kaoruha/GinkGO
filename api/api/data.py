@@ -335,8 +335,10 @@ async def get_bars(
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
         # 处理返回的数据
+        # bar_service.get() 返回裸 list[MBar]（无 to_entities）；
+        # ModelList 容器走 to_entities()，裸 list 本身即 entities 列表
         bars_data = result.data
-        bars_list = bars_data.to_entities() if hasattr(bars_data, 'to_entities') else []
+        bars_list = bars_data.to_entities() if hasattr(bars_data, 'to_entities') else bars_data
 
         bar_summaries = []
         for bar in bars_list:
@@ -355,7 +357,9 @@ async def get_bars(
 
         return paginated(
             items=bar_summaries,
-            total=bars_data.count() if hasattr(bars_data, 'count') else len(bar_summaries),
+            # 裸 list 的 .count() 需要参数（#5599/#5610 500 根因）；
+            # 直接用 len(bar_summaries)，total 与返回 items 数一致
+            total=len(bar_summaries),
             page=page,
             page_size=page_size
         )
