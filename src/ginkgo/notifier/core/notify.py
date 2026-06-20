@@ -153,7 +153,7 @@ def notify(
                     fields=fields if fields else None,
                     footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
                 )
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {clean_content}")
@@ -170,7 +170,7 @@ def notify(
                 )
 
                 # 如果发送成功，发送带格式的 Discord 消息
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             # 额外发送格式化的 Discord webhook 消息
@@ -301,7 +301,7 @@ def notify_with_fields(
                             fields=fields,
                             footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
                         )
-                        if result.is_success:
+                        if result.is_success():
                             success_count += 1
                         break  # 每个用户只发送一次
 
