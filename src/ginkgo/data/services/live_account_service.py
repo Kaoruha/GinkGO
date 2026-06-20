@@ -252,15 +252,90 @@ class LiveAccountService(BaseService):
             GLOG.ERROR(f"OKX temporary validation error: {e}")
             return self._error_result(f"OKX validation error: {str(e)}")
 
+    def _call_binance_account_api(
+        self,
+        api_key: str,
+        api_secret: str,
+        environment: str
+    ) -> tuple:
+        """调用 Binance /api/v3/account(HMAC-SHA256 签名 GET),验证连通性与凭证。
+
+        #5879: 用 requests 直连,不引入新 SDK;对齐 OKX ticker 的 timeout=5。
+        返回 (valid: bool, data: dict, error: str|None)。
+        """
+        import hashlib
+        import hmac
+        import time
+
+        import requests
+
+        base = (
+            "https://testnet.binance.vision"
+            if environment == "testnet"
+            else "https://api.binance.com"
+        )
+        url = f"{base}/api/v3/account"
+
+        params = {"timestamp": int(time.time() * 1000), "recvWindow": 5000}
+        query = "&".join(f"{k}={v}" for k, v in params.items())
+        signature = hmac.new(
+            api_secret.encode("utf-8"),
+            query.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        params["signature"] = signature
+
+        headers = {"X-MBX-APIKEY": api_key}
+        resp = requests.get(url, params=params, headers=headers, timeout=5)
+        data = resp.json()
+
+        if resp.status_code == 200:
+            return True, data, None
+        msg = data.get("msg") if isinstance(data, dict) else None
+        return False, data, msg or f"HTTP {resp.status_code}"
+
     def _temp_validate_binance(
         self,
         api_key: str,
         api_secret: str,
         environment: str
     ) -> Dict[str, Any]:
-        """临时验证Binance凭证（待实现）"""
-        # TODO: 实现Binance临时验证逻辑
-        return self._error_result("Binance validation not yet implemented")
+        """临时验证 Binance 凭证(不涉及数据库)。#5879"""
+        try:
+            if not api_key or not api_secret:
+                return self._error_result(
+                    "API key and secret are required for Binance"
+                )
+
+            valid, data, error = self._call_binance_account_api(
+                api_key, api_secret, environment
+            )
+
+            if valid:
+                balances = data.get("balances", [])
+                total_free = sum(float(b.get("free", 0)) for b in balances)
+                GLOG.INFO(
+                    f"Binance credentials validation successful (environment={environment})"
+                )
+                return {
+                    "success": True,
+                    "message": "API validation successful",
+                    "account_info": {
+                        "balance": str(total_free),
+                        "environment": environment,
+                        "exchange": "binance",
+                    },
+                }
+            else:
+                GLOG.WARN(f"Binance credentials validation failed: {error}")
+                return {
+                    "success": False,
+                    "error": f"API validation failed: {error}",
+                }
+
+        except Exception as e:
+            GLOG.ERROR(f"Binance temporary validation error: {e}")
+            return self._error_result(f"Binance validation error: {str(e)}")
 
     @retry(max_try=3)
     def validate_account(self, account_uuid: str) -> Dict[str, Any]:
@@ -408,9 +483,56 @@ class LiveAccountService(BaseService):
         account: MLiveAccount,
         credentials: Dict[str, str]
     ) -> Dict[str, Any]:
-        """验证Binance账号API凭证（待实现）"""
-        # TODO: 实现Binance验证逻辑
-        return self._error_result("Binance validation not yet implemented")
+        """验证 Binance 账号 API 凭证。#5879"""
+        try:
+            api_key = credentials["api_key"]
+            api_secret = credentials["api_secret"]
+            environment = "testnet" if account.is_testnet() else "production"
+
+            valid, data, error = self._call_binance_account_api(
+                api_key, api_secret, environment
+            )
+
+            if valid:
+                balances = data.get("balances", [])
+                total_free = sum(float(b.get("free", 0)) for b in balances)
+                self._crud.update_status(
+                    account.uuid,
+                    AccountStatusType.ENABLED,
+                    validation_message="API validation successful",
+                )
+                GLOG.INFO(f"Binance account validated successfully: {account.uuid}")
+                return {
+                    "success": True,
+                    "valid": True,
+                    "message": "API validation successful",
+                    "account_info": {
+                        "balance": str(total_free),
+                        "environment": account.environment,
+                        "exchange": "binance",
+                    },
+                }
+            else:
+                self._crud.update_status(
+                    account.uuid,
+                    AccountStatusType.ERROR,
+                    validation_message=f"Validation failed: {error}",
+                )
+                return {
+                    "success": False,
+                    "valid": False,
+                    "message": f"API validation failed: {error}",
+                    "error_code": None,
+                }
+
+        except Exception as e:
+            GLOG.ERROR(f"Binance validation error: {e}")
+            self._crud.update_status(
+                account.uuid,
+                AccountStatusType.ERROR,
+                validation_message=f"Validation error: {str(e)}",
+            )
+            return self._error_result(f"Binance validation error: {str(e)}")
 
     def update_account_status(
         self,

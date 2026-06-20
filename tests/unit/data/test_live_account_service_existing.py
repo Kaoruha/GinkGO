@@ -220,17 +220,55 @@ class TestTemporaryCredentialValidation:
         assert "balance" in result["account_info"]
         mock_okx_validate.assert_called_once()
 
-    def test_temporary_validate_binance_not_implemented(self, live_account_service):
-        """测试Binance临时验证未实现"""
-        # 直接调用_temp_validate_binance方法
+    @patch('requests.get')
+    def test_temp_validate_binance_success(self, mock_get, live_account_service):
+        """#5879: Binance 临时验证应用 HMAC-SHA256 签名调用 /api/v3/account,
+        200 返回时判为有效并解析余额。验证连通性契约(端点/签名/APIKey头)。"""
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "balances": [
+                {"asset": "BTC", "free": "1.5"},
+                {"asset": "USDT", "free": "100"},
+            ]
+        }
+        mock_get.return_value = mock_resp
+
         result = live_account_service._temp_validate_binance(
             api_key="test-key",
             api_secret="test-secret",
             environment="testnet"
         )
 
+        assert result["success"] is True
+        assert result["account_info"]["exchange"] == "binance"
+        assert "balance" in result["account_info"]
+        # 连通性契约: 命中 testnet 端点
+        called_url = mock_get.call_args.args[0]
+        assert "testnet.binance.vision" in called_url
+        # 带签名与 APIKey 头
+        headers = mock_get.call_args.kwargs.get("headers", {})
+        assert headers.get("X-MBX-APIKEY") == "test-key"
+        assert "signature" in mock_get.call_args.kwargs.get("params", {})
+
+    @patch('requests.get')
+    def test_temp_validate_binance_invalid_key(self, mock_get, live_account_service):
+        """#5879: Binance 返回鉴权失败(非 200)时判为无效,返回明确错误。"""
+        mock_resp = Mock()
+        mock_resp.status_code = 401
+        mock_resp.json.return_value = {"code": -2015, "msg": "Invalid API-key, IP, or permissions"}
+        mock_get.return_value = mock_resp
+
+        result = live_account_service._temp_validate_binance(
+            api_key="bad-key",
+            api_secret="bad-secret",
+            environment="production"
+        )
+
         assert result["success"] is False
-        assert "not yet implemented" in result["message"]
+        assert "Invalid API-key" in result["error"]
+        # 生产环境命中正式端点
+        assert "api.binance.com" in mock_get.call_args.args[0]
 
     def test_temporary_validate_unsupported_exchange(self, live_account_service):
         """测试不支持的交易所"""
@@ -327,6 +365,70 @@ class TestTempValidateOKX:
 
         assert result["success"] is False
         assert "Passphrase is required" in result["message"]  # _error_result返回的是message
+
+
+class TestValidateBinanceAccount:
+    """#5879: 测试 Binance 已存账户验证(_validate_binance_account)"""
+
+    @pytest.fixture
+    def mock_crud(self):
+        return Mock()
+
+    @pytest.fixture
+    def live_account_service(self, mock_crud):
+        return LiveAccountService(live_account_crud=mock_crud)
+
+    @patch('requests.get')
+    def test_validate_binance_account_success_enables(
+        self, mock_get, live_account_service, mock_crud
+    ):
+        """验证成功应落库 ENABLED 并返回 valid=True。"""
+        account = Mock(spec=MLiveAccount)
+        account.uuid = "binance-uuid"
+        account.is_testnet.return_value = True
+        account.environment = EnvironmentType.TESTNET
+
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"balances": [{"asset": "USDT", "free": "500"}]}
+        mock_get.return_value = mock_resp
+
+        result = live_account_service._validate_binance_account(
+            account, credentials={"api_key": "k", "api_secret": "s"}
+        )
+
+        assert result["success"] is True
+        assert result["valid"] is True
+        assert result["account_info"]["exchange"] == "binance"
+        # 成功落库 ENABLED
+        mock_crud.update_status.assert_called_once()
+        call_args = mock_crud.update_status.call_args
+        assert call_args.args[0] == "binance-uuid"
+        assert call_args.args[1] == AccountStatusType.ENABLED
+
+    @patch('requests.get')
+    def test_validate_binance_account_invalid_marks_error(
+        self, mock_get, live_account_service, mock_crud
+    ):
+        """鉴权失败应落库 ERROR 并返回 valid=False。"""
+        account = Mock(spec=MLiveAccount)
+        account.uuid = "binance-uuid"
+        account.is_testnet.return_value = False
+        account.environment = EnvironmentType.PRODUCTION
+
+        mock_resp = Mock()
+        mock_resp.status_code = 401
+        mock_resp.json.return_value = {"code": -2015, "msg": "Invalid API-key"}
+        mock_get.return_value = mock_resp
+
+        result = live_account_service._validate_binance_account(
+            account, credentials={"api_key": "bad", "api_secret": "bad"}
+        )
+
+        assert result["success"] is False
+        assert result["valid"] is False
+        call_args = mock_crud.update_status.call_args
+        assert call_args.args[1] == AccountStatusType.ERROR
 
 
 class TestAccountStatusManagement:
