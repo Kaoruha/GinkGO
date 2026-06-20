@@ -62,3 +62,24 @@ def test_update_request_rejects_non_user_settable_status(api_modules):
     ):
         with pytest.raises(ValidationError):
             UpdateLiveAccountRequest(status=bad)
+
+
+def test_update_status_request_rejects_non_user_settable_status(api_modules):
+    """PUT /accounts/{id}/status 同样只允许 enabled/disabled。
+
+    该端点走 service.update_account_status(valid_statuses=[ENABLED,DISABLED]),
+    且失败分支 raise NotFoundError —— 传 connecting 会被误导成"账号不存在"。
+    model 应在边界拒绝派生态(422),与 UpdateLiveAccountRequest 一致。
+    """
+    from models.accounts import UpdateAccountStatusRequest, AccountStatus
+
+    UpdateAccountStatusRequest(status=AccountStatus.ENABLED)
+    UpdateAccountStatusRequest(status=AccountStatus.DISABLED)
+
+    for bad in (
+        AccountStatus.CONNECTING,
+        AccountStatus.DISCONNECTED,
+        AccountStatus.ERROR,
+    ):
+        with pytest.raises(ValidationError):
+            UpdateAccountStatusRequest(status=bad)
