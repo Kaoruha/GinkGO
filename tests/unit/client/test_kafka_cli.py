@@ -163,6 +163,35 @@ class TestHealth:
         assert result.exit_code == 0
         assert "HEALTHY" in result.output.upper() or "healthy" in result.output.lower()
 
+    def test_health_tip_references_real_worker_commands(self, cli_runner):
+        """kafka health 提示必须指向真实存在的 worker 子命令（防回归 #4891）。
+
+        旧提示 'ginkgo worker status' 无效——worker 顶层无 status 子命令，
+        status 是 data/backtest 各自的子命令（worker_cli.py:65 / :266）。
+        """
+        mock_kafka = MagicMock()
+        mock_kafka.health_check.return_value = {"status": "healthy", "kafka_connection": True}
+        mock_kafka.get_topic_status.return_value = {"exists": True}
+        mock_redis = MagicMock()
+        mock_redis.get_redis_info.return_value = {"connected": True, "version": "7.0"}
+        mock_gtm = MagicMock()
+        mock_gtm.get_worker_count.return_value = 0
+        mock_gtm.get_workers_status.return_value = {}
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.kafka_service.return_value = mock_kafka
+            mock_container.redis_service.return_value = mock_redis
+            with patch("ginkgo.libs.core.threading.GinkgoThreadManager", return_value=mock_gtm), \
+                 patch("ginkgo.libs.GLOG"):
+                result = cli_runner.invoke(kafka_cli.app, ["health"])
+
+        assert result.exit_code == 0, result.output
+        # 回归断言：旧的无效命令必须消失
+        assert "'ginkgo worker status'" not in result.output
+        # 正向断言：指向两个真实存在的 worker status 子命令
+        assert "ginkgo worker data status" in result.output
+        assert "ginkgo worker backtest status" in result.output
+
 
 @pytest.mark.unit
 @pytest.mark.cli
