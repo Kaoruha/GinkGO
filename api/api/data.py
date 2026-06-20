@@ -531,7 +531,11 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
     if hasattr(result, 'is_success') and result.is_success() and result.data:
         dsr = result.data
         if hasattr(dsr, 'records_processed'):
-            status = "success" if dsr.is_successful() else "partial"
+            # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
+            # 否则报 partial——含"0 条可疑空"和"有 records_failed/errors"。
+            # DataSyncResult.is_successful() 只判 has_errors 不看 processed=0，故需此处显式区分。
+            has_meaningful_output = dsr.records_processed > 0 or dsr.records_skipped > 0
+            status = "success" if (dsr.is_successful() and has_meaningful_output) else "partial"
             service.record_complete(
                 uuid=record_uuid,
                 status=status,
@@ -543,11 +547,13 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
                 sync_strategy=getattr(dsr, 'sync_strategy', ''),
             )
         else:
-            service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+            # #5893: 成功但无 records_processed 统计，无法判断产出，报 partial
+            service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
     elif hasattr(result, 'is_success') and not result.is_success():
         service.record_fail(uuid=record_uuid, error_message=getattr(result, 'message', 'Unknown error'))
     else:
-        service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+        # #5893: result 无 is_success 方法，无法判断成败，报 partial
+        service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
 
 
 @router.post("/sync")
