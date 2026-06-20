@@ -568,6 +568,38 @@ class TestOrderLifecycleEvents:
             p.on_order_partially_filled(event)
         assert 'activate' in hook_called
 
+    def test_terminal_partial_fill_releases_remaining_frozen_funds(self):
+        """#5492 review: 终态部分成交(filled<volume)必须释放剩余冻结资金, 杜绝泄漏。
+
+        broker 一次性部分成交: result.status=FILLED(终态判定), 实际只成交
+        400 < volume 1000。事件透传 order_status=FILLED 后 is_final=True →
+        release_frozen() 清零剩余 remain。若退回 order.status(=NEW, 且
+        transaction_volume<volume), is_final=False, remain 恒留 6000 →
+        冻结资金永久泄漏、cash 被低估。
+        无事件透传时 EventOrderPartiallyFilled 不接受 order_status 参数, 退回
+        order.status → 本断言 remain==0 失败, 证明透传是闭环的必要修复。
+        """
+        p = _make_portfolio()
+        _setup_portfolio(p)
+        # volume=1000 @ 10 → frozen_money=10000; 成交 400 → 成本 4000, 剩余 6000
+        order = _make_order(volume=1000, limit_price=Decimal("10.0"))
+        event = EventOrderPartiallyFilled(
+            order=order, filled_quantity=400, fill_price=Decimal("10.0"),
+            portfolio_id="pid", engine_id="eid", task_id="rid",
+            order_status=ORDERSTATUS_TYPES.FILLED,
+        )
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
+             patch('ginkgo.trading.portfolios.t1backtest.container'), \
+             patch.object(p, 'is_event_from_future', return_value=False), \
+             patch.object(p, 'deduct_from_frozen'), \
+             patch.object(p, 'update_worth'), \
+             patch.object(p, 'update_profit'):
+            p.on_order_partially_filled(event)
+        # 终态部分成交: 剩余冻结资金已释放 → remain=0 (无泄漏)
+        assert order.remain == Decimal("0")
+        # 累计成交仍为本次成交 400 (终态判定 ≠ 全额成交)
+        assert order.transaction_volume == 400
+
     def test_on_order_rejected_method(self):
         p = _make_portfolio()
         _setup_portfolio(p)

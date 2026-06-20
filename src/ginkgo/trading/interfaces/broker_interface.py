@@ -92,7 +92,8 @@ class BrokerExecutionResult:
                 commission=self.commission,
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
-                task_id=task_id
+                task_id=task_id,
+                order_status=self.status
             )
             # FILLED 状态使用 ORDERFILLED 事件类型，确保触发 on_order_filled 处理器
             if self.status == ORDERSTATUS_TYPES.FILLED:
