@@ -234,11 +234,13 @@ class TestGetOtherTypes:
         assert result.exit_code == 1
         assert "Unknown" in result.output or "unknown" in result.output
 
-    def test_get_sources_shows_not_implemented(self, cli_runner):
-        """sources 数据类型显示尚未实现"""
+    def test_get_sources_lists_configured_sources(self, cli_runner):
+        """sources 数据类型列出已配置的数据源（不再显示 not yet implemented 桩）"""
         result = cli_runner.invoke(data_cli.app, ["get", "sources"])
         assert result.exit_code == 0
-        assert "not yet implemented" in result.output
+        assert "not yet implemented" not in result.output
+        # 容器注入了 tushare/tdx（containers.py），应被列出
+        assert "tushare" in result.output.lower()
 
 
 # ============================================================================
