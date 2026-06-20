@@ -1,17 +1,15 @@
 # Issue: #5625 — GET /api/v1/user-groups 空响应/500；#5601 — POST 创建空响应
 # Upstream: api.api.settings.list_user_groups / create_user_group
-# Downstream: ginkgo.user.services.user_group_service.UserGroupService（user 版本）
-# Role: 验证 user-groups 端点适配 user 版本 UserGroupService 的方法签名与返回结构
+# Downstream: ginkgo.data.services.user_group_service.UserGroupService（data 版本，#6227）
+# Role: 验证 user-groups 端点对 data 版本 UserGroupService 的契约（list 迭代 + count_all_members 批量）
 
 """
-user-groups 端点适配测试
+user-groups 端点契约测试（data 版本，#6227）
 
-根因（端点按 data 版本 UserGroupService 写，但容器注入的是 user 版本）：
-1. list_groups(is_del=False) → user 版本签名 list_groups(is_active, limit)，无 is_del 参数 → TypeError
-2. result.data 当 list 迭代 → user 版本返回 {groups, count} dict，迭代 dict keys → str 索引 TypeError
-3. count_all_members() → user 版本无此方法 → AttributeError
-
-适配 user 版本：list_groups() 取 data["groups"]，user_count 逐组 get_group_members() 取 count。
+端点 get_user_group_service() 直接实例化 data 版 UserGroupService，其契约：
+1. list_groups() 返回 list[dict]（非 {groups,count} dict）
+2. count_all_members() 返回 {uuid: count} dict（一次 GROUP BY 批量，避免 N+1）
+3. update_group(uuid, **updates) 存在（PUT 不再 AttributeError）
 """
 
 import asyncio
@@ -36,11 +34,9 @@ class TestUserGroupsEndpoint:
         """TDD Red: GET /user-groups 返回实际组列表（不抛 TypeError / 不空）"""
         mock_svc = MagicMock()
         mock_svc.list_groups.return_value = ServiceResult.success(
-            data={"groups": [make_group("g1", "admins")], "count": 1}
+            data=[make_group("g1", "admins")]  # data 版返回 list
         )
-        mock_svc.get_group_members.return_value = ServiceResult.success(
-            data={"members": [{}, {}], "count": 2}
-        )
+        mock_svc.count_all_members.return_value = {"g1": 2}  # data 版批量成员数
 
         from api.settings import list_user_groups
 
@@ -57,7 +53,7 @@ class TestUserGroupsEndpoint:
         """TDD Red: POST /user-groups 返回创建的组（不抛 TypeError / 不空）"""
         mock_svc = MagicMock()
         mock_svc.list_groups.return_value = ServiceResult.success(
-            data={"groups": [], "count": 0}  # 无重名
+            data=[]  # data 版返回 list，无重名
         )
         mock_svc.create_group.return_value = ServiceResult.success(
             data={"uuid": "g-new", "name": "test-group"}
