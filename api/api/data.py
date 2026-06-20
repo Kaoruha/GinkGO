@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import time as _time
@@ -84,11 +84,23 @@ class DataStats(BaseModel):
 
 
 class DataUpdateRequest(BaseModel):
-    """数据更新请求"""
+    """数据更新请求
+
+    #5784: 同时接受单数 code (str) 与复数 codes (list)。
+    单数 code 归一化为 codes=[code]，三种 sync 分支统一消费 codes。
+    """
     type: str  # stockinfo, bars, ticks, adjustfactor
+    code: Optional[str] = None
     codes: Optional[List[str]] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_code_to_codes(self) -> "DataUpdateRequest":
+        """单数 code 归一化进 codes（仅当 codes 未提供时填充，不覆盖显式传入的 codes）"""
+        if self.code and not self.codes:
+            self.codes = [self.code]
+        return self
 
 
 class DataSource(BaseModel):
@@ -335,8 +347,10 @@ async def get_bars(
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
         # 处理返回的数据
+        # bar_service.get() 返回裸 list[MBar]（无 to_entities）；
+        # ModelList 容器走 to_entities()，裸 list 本身即 entities 列表
         bars_data = result.data
-        bars_list = bars_data.to_entities() if hasattr(bars_data, 'to_entities') else []
+        bars_list = bars_data.to_entities() if hasattr(bars_data, 'to_entities') else bars_data
 
         bar_summaries = []
         for bar in bars_list:
@@ -355,7 +369,9 @@ async def get_bars(
 
         return paginated(
             items=bar_summaries,
-            total=bars_data.count() if hasattr(bars_data, 'count') else len(bar_summaries),
+            # 裸 list 的 .count() 需要参数（#5599/#5610 500 根因）；
+            # 直接用 len(bar_summaries)，total 与返回 items 数一致
+            total=len(bar_summaries),
             page=page,
             page_size=page_size
         )
@@ -522,6 +538,33 @@ async def get_adjust_factors(
         )
 
 
+def _aggregate_dsr_list(dsrs):
+    """聚合 List[DataSyncResult] 为单一 DataSyncResult（批量同步统计）
+
+    adjustfactor_service.sync_batch 返回 data=List[DataSyncResult]，按各 DSR 的
+    records_* 求和并合并 errors，复用 DataSyncResult.is_successful() 走统一四态决策，
+    避免批量真实成功落入 else 被误降 partial，同时补齐 master 既有的统计丢失。
+    """
+    from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+    aggregated_errors = []
+    for d in dsrs:
+        aggregated_errors.extend(getattr(d, 'errors', None) or [])
+    return DataSyncResult(
+        entity_type="batch",
+        entity_identifier=f"multiple({len(dsrs)})",
+        sync_range=(None, None),
+        records_processed=sum(getattr(d, 'records_processed', 0) for d in dsrs),
+        records_added=sum(getattr(d, 'records_added', 0) for d in dsrs),
+        records_updated=sum(getattr(d, 'records_updated', 0) for d in dsrs),
+        records_skipped=sum(getattr(d, 'records_skipped', 0) for d in dsrs),
+        records_failed=sum(getattr(d, 'records_failed', 0) for d in dsrs),
+        sync_duration=0.0,
+        is_idempotent=True,
+        sync_strategy="batch",
+        errors=aggregated_errors,
+    )
+
+
 def _record_sync_result(service, record_uuid: str, result, started_at: float):
     """从 ServiceResult/DataSyncResult 提取统计并更新同步记录"""
     duration_ms = int((_time.time() - started_at) * 1000)
@@ -530,8 +573,16 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
         return
     if hasattr(result, 'is_success') and result.is_success() and result.data:
         dsr = result.data
+        # #6217: sync_batch 返回 List[DataSyncResult]（adjustfactor 批量），聚合为
+        # 单一统计视图后走统一四态决策，避免 list 落入 else 被误降 partial。
+        if isinstance(dsr, list):
+            dsr = _aggregate_dsr_list(dsr)
         if hasattr(dsr, 'records_processed'):
-            status = "success" if dsr.is_successful() else "partial"
+            # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
+            # 否则报 partial——含"0 条可疑空"和"有 records_failed/errors"。
+            # DataSyncResult.is_successful() 只判 has_errors 不看 processed=0，故需此处显式区分。
+            has_meaningful_output = dsr.records_processed > 0 or dsr.records_skipped > 0
+            status = "success" if (dsr.is_successful() and has_meaningful_output) else "partial"
             service.record_complete(
                 uuid=record_uuid,
                 status=status,
@@ -543,11 +594,13 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
                 sync_strategy=getattr(dsr, 'sync_strategy', ''),
             )
         else:
-            service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+            # #5893: 成功但无 records_processed 统计，无法判断产出，报 partial
+            service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
     elif hasattr(result, 'is_success') and not result.is_success():
         service.record_fail(uuid=record_uuid, error_message=getattr(result, 'message', 'Unknown error'))
     else:
-        service.record_complete(uuid=record_uuid, status="success", duration_ms=duration_ms)
+        # #5893: result 无 is_success 方法，无法判断成败，报 partial
+        service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
 
 
 @router.post("/sync")
@@ -577,7 +630,7 @@ async def sync_data(request: DataUpdateRequest):
         elif request.type == "bars":
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for bars update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
 
             bar_service = get_bar_service()
             for code in codes:
@@ -599,7 +652,7 @@ async def sync_data(request: DataUpdateRequest):
         elif request.type == "ticks":
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for ticks update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for ticks update")
 
             tick_service = get_tick_service()
             start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
@@ -626,7 +679,7 @@ async def sync_data(request: DataUpdateRequest):
             sync_type = "adjustfactor"
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="Codes are required for adjust factors update")
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for adjust factors update")
 
             adjustfactor_service = get_adjustfactor_service()
             # 批量同步复权因子，整体记录

@@ -113,12 +113,9 @@ class TestGetStockinfo:
 
     @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_with_filter(self, mock_container, cli_runner, mock_stockinfo_df):
-        """使用 --filter 模糊过滤"""
-        filtered_df = mock_stockinfo_df[mock_stockinfo_df["industry"] == "银行"]
+        """使用 --filter 模糊过滤（DF 出口，客户端模糊匹配）"""
         mock_service = MagicMock()
-        mock_data = MagicMock()
-        mock_data.to_dataframe.return_value = mock_stockinfo_df
-        mock_service.get.return_value = ServiceResult.success(data=mock_data)
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--filter", "银行"])
@@ -138,12 +135,24 @@ class TestGetStockinfo:
         assert result.exit_code == 0
 
     @patch("ginkgo.data.containers.container")
-    def test_get_stockinfo_raw_mode(self, mock_container, cli_runner, mock_stockinfo_df):
-        """--raw 模式输出 JSON"""
+    def test_get_stockinfo_passes_code_to_service(self, mock_container, cli_runner, mock_stockinfo_df):
+        """--code 过滤透传到 service.get_stockinfos_df (#5950)"""
         mock_service = MagicMock()
-        mock_data = MagicMock()
-        mock_data.to_dataframe.return_value = mock_stockinfo_df
-        mock_service.get.return_value = ServiceResult.success(data=mock_data)
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--code", "000001.SZ"])
+        assert result.exit_code == 0
+        # 核心：code 必须透传到 DF 出口，而非只靠 --filter 客户端模糊匹配
+        mock_service.get_stockinfos_df.assert_called_once()
+        _, kwargs = mock_service.get_stockinfos_df.call_args
+        assert kwargs.get("code") == "000001.SZ"
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_raw_mode(self, mock_container, cli_runner, mock_stockinfo_df):
+        """--raw 模式输出 JSON（DF 出口）"""
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--raw"])
@@ -153,9 +162,9 @@ class TestGetStockinfo:
 
     @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_service_error(self, mock_container, cli_runner):
-        """服务返回错误时显示错误信息"""
+        """服务返回错误时显示错误信息（DF 出口 else 分支）"""
         mock_service = MagicMock()
-        mock_service.get.return_value = ServiceResult.error(error="Database connection failed")
+        mock_service.get_stockinfos_df.return_value = ServiceResult.error(error="Database connection failed")
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])

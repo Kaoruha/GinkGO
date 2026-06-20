@@ -27,7 +27,7 @@ from decimal import Decimal
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.order_related import EventOrderRelated
 from ginkgo.entities import Order
-from ginkgo.enums import EVENT_TYPES
+from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
 
 
 class EventOrderAck(EventBase):
@@ -119,6 +119,7 @@ class EventOrderPartiallyFilled(EventOrderRelated):
                  portfolio_id: Optional[str] = None,
                  engine_id: Optional[str] = None,
                  task_id: Optional[str] = None,
+                 order_status: Optional[ORDERSTATUS_TYPES] = None,
                  *args, **kwargs):
         # 调用EventOrderRelated构造函数，自动设置payload = order
         super().__init__(order=order, name="OrderPartiallyFilled", *args, **kwargs)
@@ -137,6 +138,9 @@ class EventOrderPartiallyFilled(EventOrderRelated):
         self._fill_price = float(fill_price)
         self._trade_id = trade_id
         self._commission = commission or Decimal('0')
+        # broker 终态判定 (result.status) 透传: 下游 is_final 据此释放剩余冻结资金。
+        # 缺省 None 时回退 order.status (向后兼容)。
+        self._order_status = order_status
 
         if timestamp:
             self.set_time(timestamp)
@@ -145,7 +149,20 @@ class EventOrderPartiallyFilled(EventOrderRelated):
     def order(self) -> Order:
         """获取订单对象"""
         return self._order
-    
+
+    @property
+    def order_status(self):
+        """订单终态 (broker 权威来源)。
+
+        to_event 透传 broker 的 result.status; 缺省回退 order.status。
+        下游 PortfolioT1Backtest.is_final 据此判定是否 release_frozen,
+        避免 sim_broker 一次性部分成交 (result.status=FILLED 但 order.status
+        仍 SUBMITTED) 时剩余冻结资金泄漏 (#5492 review)。
+        """
+        if getattr(self, "_order_status", None) is not None:
+            return self._order_status
+        return self._order.status if self._order else None
+
     @property
     def filled_quantity(self) -> float:
         """获取本次成交数量"""

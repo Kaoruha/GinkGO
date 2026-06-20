@@ -745,13 +745,12 @@ async def list_user_groups():
 
         raw_groups = result.data
 
-        # 批量获取成员数（避免 N+1）
+        # 批量获取成员数（避免 N+1）：data 版 count_all_members 一次 GROUP BY 全统计
         member_counts = group_service.count_all_members()
 
         group_list = []
         for group_data in raw_groups:
             group_uuid = group_data["uuid"]
-
             group_list.append({
                 "uuid": group_uuid,
                 "name": group_data["name"],
@@ -781,7 +780,8 @@ async def create_user_group(data: UserGroupCreate):
         # 检查组名是否已存在
         existing_result = group_service.list_groups()
         if existing_result.success:
-            existing_groups = existing_result.data
+            existing_payload = existing_result.data or {}
+            existing_groups = existing_payload.get("groups", []) if isinstance(existing_payload, dict) else (existing_payload or [])
             for g in existing_groups:
                 if g["name"] == data.name:
                     raise HTTPException(

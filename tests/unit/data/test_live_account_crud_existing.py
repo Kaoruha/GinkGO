@@ -180,6 +180,31 @@ class TestLiveAccountCRUD:
         # 验证last_validated_at已被更新（不为None）
         assert updated.last_validated_at is not None
 
+    def test_update_status_failure_with_message_sets_last_validated_at(
+        self, live_account_crud, sample_account_data
+    ):
+        """#5782: 验证失败(状态=ERROR)且带 validation_message 时,
+        last_validated_at 应记录验证尝试时间。
+
+        根因: update_status 仅在 status==ENABLED 时写 last_validated_at,
+        导致失败/超时路径该字段恒为 None,违反"验证字段正确更新"验收。
+        契约: 只要发生验证尝试(传 validation_message),就记录时间。
+        """
+        account = live_account_crud.add_live_account(**sample_account_data)
+
+        # 模拟验证失败: 状态置 ERROR + 失败消息
+        live_account_crud.update_status(
+            account.uuid,
+            AccountStatusType.ERROR,
+            validation_message="Validation failed: invalid key",
+        )
+
+        updated = live_account_crud.get_live_account_by_uuid(account.uuid)
+        assert updated.status == AccountStatusType.ERROR
+        assert updated.validation_status == "Validation failed: invalid key"
+        # 关键: 失败路径也应记录验证尝试时间(不再仅成功才记)
+        assert updated.last_validated_at is not None
+
     def test_exists_check(self, live_account_crud, sample_account_data):
         """测试检查账号是否存在"""
         account = live_account_crud.add_live_account(**sample_account_data)

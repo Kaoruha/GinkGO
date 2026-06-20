@@ -157,3 +157,52 @@ class TestNoPositionWriter:
         )
         # Should not raise
         p._sync_status_to_redis(PORTFOLIO_RUNSTATE_TYPES.RUNNING)
+
+
+class TestSignalTriggersNotification:
+    """#6150: 信号→消息通知链路（半手动实盘核心）。
+
+    处理一个产出订单的信号时，必须触发交易信号通知，让用户收到
+    code/direction/volume/reason 并手动执行后回报。
+    """
+
+    def _wire_minimal(self, portfolio, order):
+        """让 is_all_set() 通过，并让 sizer 产出给定订单。
+
+        直接赋 _sizer 绕开 bind_sizer 的 isinstance 守卫——sizer 类型校验
+        是 bind_sizer 的职责，不是 _process_signal 的（测行为不测胶水）。
+        """
+        sizer = MagicMock()
+        sizer.cal.return_value = order
+        portfolio._sizer = sizer
+        portfolio._selectors = [MagicMock()]  # is_all_set 要求 selectors 非空
+        portfolio.add_strategy(MagicMock())  # is_all_set 要求 strategies 非空
+        # risk_managers 为空：is_all_set 仅 WARN，放行
+
+    def test_long_signal_fires_trading_signal_notification(self, portfolio):
+        """一个产出订单的 LONG 信号，必须触发 notify_trading_signal。"""
+        from ginkgo.entities import Order, Signal
+        from ginkgo.enums import DIRECTION_TYPES
+
+        order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=1000)
+        self._wire_minimal(portfolio, order)
+
+        signal = Signal(
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            volume=1000,
+            reason="golden cross",
+        )
+
+        with patch(
+            "ginkgo.trading.portfolios.portfolio_live.notify_trading_signal",
+            create=True,
+        ) as mock_notify:
+            portfolio._process_signal(signal)
+
+        mock_notify.assert_called_once()
+        args, kwargs = mock_notify.call_args
+        passed = list(args) + list(kwargs.values())
+        # 信号对象与产出的订单必须传给通知器（深模块接口：传对象，内部抽取字段）
+        assert signal in passed, "信号对象必须传给 notify_trading_signal"
+        assert order in passed, "产出的订单必须传给 notify_trading_signal"

@@ -11,9 +11,8 @@ import pytest
 from unittest.mock import MagicMock
 from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
-# Note: 只有第 4 个测试 (test_deploy_paper_creates_deployment_and_calls_core) 会触发
-# #3626 的 MUserCredential mapper 错误（MDeployment() 实例化时），前 3 个测试在
-# _make_svc() 构造前就短路返回，可以正常运行。
+# #3626 已修: MDeployment() 实例化不再触发 MUserCredential mapper 错误, 全部测试可跑。
+# deploy→_deploy_core 路径现可经公共接口测(见 test_deploy_propagates_source_initial_capital)。
 
 from ginkgo.trading.services.deployment_service import DeploymentService
 
@@ -68,7 +67,34 @@ class TestDeploymentServiceDeploy:
         assert not result.success
         assert "account_id" in result.error
 
-    @pytest.mark.skip(reason="blocked by #3626 MUserCredential mapper failure")
+    def test_deploy_propagates_source_initial_capital(self):
+        """#6200 部署时目标组合应继承源组合 initial_capital(非 service 默认 1000000)。
+
+        根因: _deploy_core 调 portfolio_service.add 时漏传 initial_capital。
+        通过公共 deploy() 接口验证: add 被调用时须带 initial_capital == 源组合 capital。
+        """
+        svc = _make_svc()
+        # 源组合: capital=500000 (≠ service 默认 1000000, 才能区分"继承" vs "默认")
+        source_portfolio = MagicMock()
+        source_portfolio.name = "Src"
+        source_portfolio.initial_capital = 500000
+        svc._portfolio_service.get.return_value = MagicMock(success=True, data=[source_portfolio])
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # _deploy_core 依赖: 空映射、deployment_crud(MDeployment 已可实例化, #3626 已修)、add 返回 uuid
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(success=True, data=[])
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        svc._deployment_crud.modify.return_value = None
+
+        result = svc.deploy(portfolio_id="src_pid", mode=PORTFOLIO_MODE_TYPES.PAPER, name="Deployed")
+
+        assert result.success, f"deploy 应成功: {result.error}"
+        # 行为断言: 创建目标组合时须透传源组合 capital
+        svc._portfolio_service.add.assert_called_once()
+        _, kwargs = svc._portfolio_service.add.call_args
+        assert kwargs.get("initial_capital") == 500000, (
+            f"部署未透传 initial_capital, add 收到 kwargs={kwargs}"
+        )
+
     def test_deploy_paper_creates_deployment_and_calls_core(self):
         """PAPER 模式应创建 deployment 记录并调用 _deploy_core"""
         svc = _make_svc()

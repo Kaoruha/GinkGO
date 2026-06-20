@@ -69,20 +69,31 @@ class OrderService(BaseService):
             GLOG.ERROR(f"查询订单失败: {e}")
             return ServiceResult.error(str(e))
 
-    def _build_order_filters(self, portfolio_id: Optional[str] = None) -> dict:
+    def _build_order_filters(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> dict:
         """从业务参数构造 Order CRUD filters。get_orders_df 独立使用（DRY）。
 
-        filter 域与现有 get_orders() 一致（portfolio_id），
+        filter 域与 Signal/Position 对称（portfolio_id/engine_id/task_id），
         固定排除 is_del=True。未抽改 get_orders()，保持纯增量。
         """
         filters = {"is_del": False}
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
+        if engine_id:
+            filters["engine_id"] = engine_id
+        if task_id:
+            filters["task_id"] = task_id
         return filters
 
     def get_orders_df(
         self,
         portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -92,7 +103,9 @@ class OrderService(BaseService):
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
         """
         try:
-            filters = self._build_order_filters(portfolio_id=portfolio_id)
+            filters = self._build_order_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
+            )
             model_list = self._crud_repo.find(
                 filters=filters,
                 page_size=page_size if page_size > 0 else None,

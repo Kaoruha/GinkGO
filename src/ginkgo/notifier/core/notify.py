@@ -153,7 +153,7 @@ def notify(
                     fields=fields if fields else None,
                     footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
                 )
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {clean_content}")
@@ -170,7 +170,7 @@ def notify(
                 )
 
                 # 如果发送成功，发送带格式的 Discord 消息
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
 
             # 额外发送格式化的 Discord webhook 消息
@@ -301,7 +301,7 @@ def notify_with_fields(
                             fields=fields,
                             footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
                         )
-                        if result.is_success:
+                        if result.is_success():
                             success_count += 1
                         break  # 每个用户只发送一次
 
@@ -314,4 +314,92 @@ def notify_with_fields(
 
     except Exception as e:
         GLOG.ERROR(f"[{module}] Failed to send notification with fields: {e}")
+        return False
+
+
+def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
+    """
+    发送交易信号通知（#6150 半手动实盘核心链路）
+
+    实盘产生信号→订单时调用，让用户收到 code/direction/volume/reason，
+    手动执行后回报（POST /api/v1/signals/{id}/report）。
+
+    镜像 notify()：收件人从配置表（notification_recipient）解析，
+    支持同步直发与异步 Kafka→worker 两种模式。
+
+    Note:
+        通知发送实现由后续测试驱动（S1b 异步路径 / S2 渠道配置）。
+        当前为 seam 占位，确保 _process_signal 已接线。
+
+    Args:
+        signal: Signal 对象（含 code/direction/reason）
+        order: 产出的 Order 对象（含 volume/limit_price）
+        async_mode: 异步模式（通过 Kafka Worker），默认 True
+
+    Returns:
+        bool: 是否发送成功
+    """
+    try:
+        service = _get_notification_service()
+        if service is None:
+            GLOG.ERROR("NotificationDeliveryService not available for trading signal")
+            return False
+
+        user_uuids = _get_recipient_user_uuids()
+        if not user_uuids:
+            GLOG.WARN("No notification recipients found, trading signal not sent")
+            return False
+
+        # 从 signal/order 抽取交易字段
+        code = str(getattr(signal, "code", ""))
+        direction_raw = getattr(signal, "direction", "")
+        direction_key = getattr(direction_raw, "name", str(direction_raw))
+        direction_text = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}.get(
+            direction_key, direction_key
+        )
+        volume = getattr(order, "volume", 0)
+        reason = getattr(signal, "reason", "") or ""
+
+        content = f"{direction_text}信号 {code} 数量 {volume}"
+        if reason and reason != "no reason":
+            content += f"\n原因: {reason}"
+        title = f"交易信号 {code}"
+
+        if async_mode:
+            # 异步路径：Kafka→worker 订阅→渠道发送（镜像 notify()）
+            success_count = 0
+            for user_uuid in user_uuids:
+                result = service.send_async(
+                    content=content,
+                    channels=["email"],
+                    user_uuid=user_uuid,
+                    priority=2,
+                    title=title,
+                )
+                if result.is_success():
+                    success_count += 1
+
+            GLOG.INFO(
+                f"Trading signal queued for {success_count}/{len(user_uuids)} users (async): {code}"
+            )
+            return success_count > 0
+
+        # 同步路径：逐个收件人直发
+        success_count = 0
+        for user_uuid in user_uuids:
+            result = service.send_to_user(
+                user_uuid=user_uuid,
+                content=content,
+                title=title,
+                channels=["email"],
+                priority=2,
+            )
+            if result.is_success():
+                success_count += 1
+
+        GLOG.INFO(f"Trading signal sent to {success_count}/{len(user_uuids)} users: {code}")
+        return success_count > 0
+
+    except Exception as e:
+        GLOG.ERROR(f"Failed to send trading signal notification: {e}")
         return False

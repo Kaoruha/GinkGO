@@ -273,3 +273,71 @@ class TestBarServiceSyncRange:
 
         assert result.success is True
         assert "No new data available" in result.message
+
+    @pytest.mark.unit
+    def test_sync_range_normal_path_records_processed_gt_zero(self, service, mock_deps):
+        """#5584: 正常同步路径 records_processed 应 = raw_data 行数 > 0（证伪"恒 0"）
+
+        正常路径(bar_service.py:206-210): 数据源有数据 → 转实体 → 过滤后仍有新数据 →
+        落库，records_processed = len(raw_data)。旧代码此处恒 0，现应正确统计。
+        """
+        mock_deps["stockinfo_service"].exists.return_value = True
+        df = pd.DataFrame({
+            "open": [10.0, 11.0, 12.0],
+            "high": [11.0, 12.0, 13.0],
+            "low": [9.0, 10.0, 11.0],
+            "close": [10.5, 11.5, 12.5],
+        })
+        mock_deps["data_source"].fetch_cn_stock_daybar.return_value = df
+        entities = [MagicMock(timestamp=datetime(2024, 1, 1 + i)) for i in range(3)]
+        mock_deps["crud_repo"].find.return_value = []  # 无已存在记录 → 全部视为新数据
+        mock_deps["crud_repo"].add_batch.return_value = entities
+
+        with patch("ginkgo.data.services.bar_service.datetime_normalize", side_effect=lambda x: x), \
+                patch("ginkgo.data.services.bar_service.mappers") as mock_mappers:
+            mock_mappers.dataframe_to_bar_entities.return_value = entities
+            result = service.sync_range(
+                code="000001.SZ",
+                start_date=datetime(2024, 1, 1),
+                end_date=datetime(2024, 1, 3),
+            )
+
+        assert result.success is True
+        assert result.data.records_processed == 3  # 证伪 #5584 "恒 0"
+
+    @pytest.mark.unit
+    def test_sync_range_idempotent_path_records_processed_gt_zero(self, service, mock_deps):
+        """#5584: 幂等路径(数据已全部存在) records_processed 仍应 = len(raw_data) > 0
+
+        幂等路径(bar_service.py:161-175): _filter_existing_data 返空(全部已存在)，
+        但 records_processed 仍 = len(raw_data)、records_skipped 同步、is_idempotent=True。
+        旧代码此处恒 0，现应正确统计。
+        """
+        mock_deps["stockinfo_service"].exists.return_value = True
+        df = pd.DataFrame({
+            "open": [10.0, 11.0, 12.0],
+            "high": [11.0, 12.0, 13.0],
+            "low": [9.0, 10.0, 11.0],
+            "close": [10.5, 11.5, 12.5],
+        })
+        mock_deps["data_source"].fetch_cn_stock_daybar.return_value = df
+
+        # 3 个实体 + 3 条已存在记录，timestamp 完全一致 → new_models=[] 走幂等分支
+        ts = [datetime(2024, 1, 1 + i) for i in range(3)]
+        entities = [MagicMock(timestamp=ts[i]) for i in range(3)]
+        existing = [MagicMock(timestamp=ts[i]) for i in range(3)]
+        mock_deps["crud_repo"].find.return_value = existing  # 全部已存在
+
+        with patch("ginkgo.data.services.bar_service.datetime_normalize", side_effect=lambda x: x), \
+                patch("ginkgo.data.services.bar_service.mappers") as mock_mappers:
+            mock_mappers.dataframe_to_bar_entities.return_value = entities
+            result = service.sync_range(
+                code="000001.SZ",
+                start_date=datetime(2024, 1, 1),
+                end_date=datetime(2024, 1, 3),
+            )
+
+        assert result.success is True
+        assert result.data.records_processed == 3  # 幂等路径也非 0
+        assert result.data.records_skipped == 3
+        assert result.data.is_idempotent is True

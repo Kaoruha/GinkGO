@@ -6,6 +6,7 @@ Live Account 相关API路由
 
 from fastapi import APIRouter, Query, Request, status
 from typing import Optional
+import asyncio
 from core.logging import logger
 from core.response import ok
 from core.exceptions import NotFoundError, ValidationError, BusinessError
@@ -22,6 +23,10 @@ from models.accounts import (
 )
 
 router = APIRouter()
+
+# #5782: validate 接口超时上限(秒)。下游 SDK 调用无 timeout 时,
+# 网络不可达会无限阻塞致 HTTP 000,故在 handler 层强制收口。
+VALIDATE_TIMEOUT_SECONDS = 30
 
 
 def get_live_account_service():
@@ -131,6 +136,7 @@ async def update_account(account_id: str, data: UpdateLiveAccountRequest):
             api_secret=data.api_secret,
             passphrase=data.passphrase,
             description=data.description,
+            status=data.status,
         )
 
         if not result["success"]:
@@ -165,10 +171,30 @@ async def delete_account(account_id: str):
 @router.post("/{account_id}/validate")
 async def validate_account(account_id: str):
     """验证实盘账号API凭证"""
+    service = get_live_account_service()
     try:
-        service = get_live_account_service()
-        result = service.validate_account(account_id)
+        # #5782: 下游 SDK 调用可能无 timeout 导致网络不可达时无限阻塞(HTTP 000)。
+        # 在线程中执行同步验证,并用 wait_for 强制 30s 收口。
+        result = await asyncio.wait_for(
+            asyncio.to_thread(service.validate_account, account_id),
+            timeout=VALIDATE_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Validation timed out for account {account_id}")
+        # #6213 review: 超时分支禁止写库。to_thread 起的是 OS 线程,wait_for 取消
+        # await 杀不掉它;validate_account 带 @retry(max_try=3),后台仍会继续重试,
+        # 成功分支会 update_status(ENABLED)。若此处写 ERROR,会与后台成功竞态覆盖,
+        # 造成"客户端 valid=False 但库最终 ENABLED"。后台最终结果为权威。
+        return ok(
+            data={
+                "valid": False,
+                "message": "Validation timed out",
+                "error": "timeout",
+            },
+            message="Validation completed",
+        )
 
+    try:
         if result["success"]:
             return ok(
                 data={

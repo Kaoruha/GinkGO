@@ -132,7 +132,8 @@ class TestGetThreadPids:
 # ===========================================================================
 
 class TestGdataRemoval:
-    """process_main_control_command and run_live_daemon must not reference GDATA."""
+    """process_main_control_command must not reference GDATA (run_live_daemon stub
+    was removed in #6118; only the run_live/stop_live command paths remain)."""
 
     def test_run_live_command_no_nameerror(self, gtm, mock_redis):
         """
@@ -159,17 +160,6 @@ class TestGdataRemoval:
 
         try:
             gtm.process_main_control_command(cmd)
-        except NameError as e:
-            pytest.fail(f"NameError raised (GDATA still referenced?): {e}")
-        except Exception:
-            pass
-
-    def test_run_live_daemon_no_nameerror(self, gtm, mock_redis):
-        """
-        run_live_daemon should not raise NameError for GDATA.
-        """
-        try:
-            gtm.run_live_daemon("test-id")
         except NameError as e:
             pytest.fail(f"NameError raised (GDATA still referenced?): {e}")
         except Exception:

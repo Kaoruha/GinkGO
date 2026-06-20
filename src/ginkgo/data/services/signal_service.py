@@ -58,10 +58,11 @@ class SignalService(BaseService):
         self,
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
+        task_id: Optional[str] = None,
     ) -> dict:
         """从业务参数构造 Signal CRUD filters。get_signals_df 独立使用（DRY）。
 
-        filter 域与现有 get_signals() 一致（engine_id / portfolio_id），
+        filter 域与 Order/Position 三维对称（engine_id/portfolio_id/task_id），
         固定排除 is_del=True。未抽改 get_signals()，保持纯增量。
         """
         filters = {"is_del": False}
@@ -69,12 +70,15 @@ class SignalService(BaseService):
             filters["engine_id"] = engine_id
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
+        if task_id:
+            filters["task_id"] = task_id
         return filters
 
     def get_signals_df(
         self,
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -85,7 +89,7 @@ class SignalService(BaseService):
         """
         try:
             filters = self._build_signal_filters(
-                engine_id=engine_id, portfolio_id=portfolio_id,
+                engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
