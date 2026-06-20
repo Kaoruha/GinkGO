@@ -435,3 +435,89 @@ class TestProfitLimitRiskBreakEven:
 
         signals = risk.generate_signals(portfolio_info, event)
         assert len(signals) == 0  # No profit = no signal
+
+
+@pytest.mark.unit
+@pytest.mark.risk
+@pytest.mark.financial
+class TestProfitTargetRiskTrailingStop:
+    """移动止盈行为（#5488）：update_trailing_high 必须被 generate_signals 接线，
+    否则 trailing_highs 永远为空，check_trailing_stop 恒返回 False。"""
+
+    def test_trailing_stop_triggers_after_rise_then_decline(self):
+        """价格涨到高点后回撤达 trailing_percentage → 触发 SHORT 平仓信号。"""
+        risk = ProfitTargetRisk(
+            profit_target=1.0,  # 极高，屏蔽止盈分支，只验移动止盈
+            trailing_stop=True,
+            trailing_percentage=0.1,
+        )
+        risk._context = EngineContext(engine_id="test_engine_id")
+
+        position = _make_dict_position(profit_loss_ratio=0.0)
+        portfolio_info = _make_portfolio_info(positions={"000001.SZ": position})
+
+        # 涨到 12.0（建立 trailing high）
+        risk.generate_signals(portfolio_info, _make_price_event(close="12.0"))
+        # 跌到 10.5（回撤 (12-10.5)/12 = 12.5% > 10%）→ 应触发
+        signals = risk.generate_signals(portfolio_info, _make_price_event(close="10.5"))
+
+        assert len(signals) == 1
+        assert signals[0].direction == DIRECTION_TYPES.SHORT
+        assert "Trailing stop" in signals[0].reason
+
+    def test_trailing_stop_no_trigger_when_decline_below_percentage(self):
+        """回撤未达 trailing_percentage → 不触发。"""
+        risk = ProfitTargetRisk(
+            profit_target=1.0,
+            trailing_stop=True,
+            trailing_percentage=0.1,
+        )
+        risk._context = EngineContext(engine_id="test_engine_id")
+
+        position = _make_dict_position(profit_loss_ratio=0.0)
+        portfolio_info = _make_portfolio_info(positions={"000001.SZ": position})
+
+        # 涨到 12.0，跌到 11.0（回撤 8.3% < 10%）
+        risk.generate_signals(portfolio_info, _make_price_event(close="12.0"))
+        signals = risk.generate_signals(portfolio_info, _make_price_event(close="11.0"))
+
+        assert len(signals) == 0
+
+    def test_trailing_stop_disabled_never_triggers(self):
+        """trailing_stop=False 时即使价格涨跌也不触发。"""
+        risk = ProfitTargetRisk(
+            profit_target=1.0,
+            trailing_stop=False,
+            trailing_percentage=0.1,
+        )
+        risk._context = EngineContext(engine_id="test_engine_id")
+
+        position = _make_dict_position(profit_loss_ratio=0.0)
+        portfolio_info = _make_portfolio_info(positions={"000001.SZ": position})
+
+        risk.generate_signals(portfolio_info, _make_price_event(close="12.0"))
+        signals = risk.generate_signals(portfolio_info, _make_price_event(close="10.5"))
+
+        assert len(signals) == 0
+
+    def test_trailing_high_tracks_peak_across_updates(self):
+        """trailing high 跟踪持续上涨的峰值，回撤从峰值计算。"""
+        risk = ProfitTargetRisk(
+            profit_target=1.0,
+            trailing_stop=True,
+            trailing_percentage=0.1,
+        )
+        risk._context = EngineContext(engine_id="test_engine_id")
+
+        position = _make_dict_position(profit_loss_ratio=0.0)
+        portfolio_info = _make_portfolio_info(positions={"000001.SZ": position})
+
+        # 涨 12.0 → 涨 15.0（峰值）→ 跌 13.5（从 15 回撤 10%）
+        risk.generate_signals(portfolio_info, _make_price_event(close="12.0"))
+        risk.generate_signals(portfolio_info, _make_price_event(close="15.0"))
+        signals = risk.generate_signals(portfolio_info, _make_price_event(close="13.5"))
+
+        # 从峰值 15 回撤：(15-13.5)/15 = 10% >= 10% → 触发
+        # 若错误地从首个价 12 算：(12-13.5)/12 < 0 不触发——反证峰值跟踪
+        assert len(signals) == 1
+        assert "Trailing stop" in signals[0].reason
