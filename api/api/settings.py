@@ -730,27 +730,34 @@ async def list_user_groups():
     try:
         group_service = get_user_group_service()
 
-        result = group_service.list_groups(is_del=False)
+        # user 版本 UserGroupService.list_groups(is_active, limit)，
+        # 返回 ServiceResult.data = {"groups": [...], "count": N}
+        result = group_service.list_groups()
         if not result.success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to list user groups"
             )
 
-        raw_groups = result.data
-
-        # 批量获取成员数（避免 N+1）
-        member_counts = group_service.count_all_members()
+        groups_payload = result.data or {}
+        raw_groups = groups_payload.get("groups", []) if isinstance(groups_payload, dict) else (groups_payload or [])
 
         group_list = []
         for group_data in raw_groups:
             group_uuid = group_data["uuid"]
+            # 逐组算成员数（user 版本无 count_all_members 批量方法）
+            try:
+                members_result = group_service.get_group_members(group_uuid)
+                members_data = members_result.data or {}
+                user_count = members_data.get("count", 0) if isinstance(members_data, dict) else len(members_data)
+            except Exception:
+                user_count = 0
 
             group_list.append({
                 "uuid": group_uuid,
                 "name": group_data["name"],
-                "description": group_data.get("description", ""),
-                "user_count": member_counts.get(group_uuid, 0),
+                "description": group_data.get("description", "") or "",
+                "user_count": user_count,
                 "permissions": []
             })
 
@@ -773,9 +780,10 @@ async def create_user_group(data: UserGroupCreate):
         group_service = get_user_group_service()
 
         # 检查组名是否已存在
-        existing_result = group_service.list_groups(is_del=False)
+        existing_result = group_service.list_groups()
         if existing_result.success:
-            existing_groups = existing_result.data
+            existing_payload = existing_result.data or {}
+            existing_groups = existing_payload.get("groups", []) if isinstance(existing_payload, dict) else (existing_payload or [])
             for g in existing_groups:
                 if g["name"] == data.name:
                     raise HTTPException(
