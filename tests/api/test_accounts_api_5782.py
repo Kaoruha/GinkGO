@@ -7,7 +7,9 @@
       下游 _validate_okx_account 调用 SDK 无 timeout,且无超时落库。
 契约:
   - handler 在有限时间内返回(默认 30s),超时则返回 valid=False;
-  - 超时后落库验证失败(驱动 validation_status + last_validated_at 更新)。
+  - 超时不落库:后台 @retry 线程的最终结果为准(成功→ENABLED / 全失败→ERROR)。
+    handler 若在超时分支写 ERROR,会与后台成功分支(update_status ENABLED)竞态,
+    造成"客户端 valid=False 但库最终 ENABLED"的响应/持久态分裂(见 review #6213)。
 
 注: api/ 非 Python 包(无 __init__.py),经 tests/api/conftest 的 api_modules
     fixture 临时加入 sys.path,故 import 须延迟到测试函数内。
@@ -46,12 +48,9 @@ def test_validate_handler_times_out_instead_of_hanging(api_modules, monkeypatch)
     ).lower()
     # 未无限挂起(后台线程 ~0.6s + 退出等待,远小于 30s 默认)
     assert elapsed < 5
-    # 关键: 超时后落库验证失败(验收③: 字段正确更新)
-    mock_service.record_validation_failure.assert_called_once()
-    call_args = mock_service.record_validation_failure.call_args
-    # account_id 必须传入(位置或关键字)
-    passed_id = call_args.args[0] if call_args.args else call_args.kwargs.get("account_uuid")
-    assert passed_id == "test-uuid"
+    # 关键: 超时分支禁止写库。后台 @retry 线程仍在跑,其最终结果(ENABLED/ERROR)
+    # 才是权威;若 handler 在此写 ERROR,会与后台成功分支竞态覆盖。
+    mock_service.record_validation_failure.assert_not_called()
 
 
 def test_validate_handler_returns_success_when_service_succeeds(api_modules, monkeypatch):

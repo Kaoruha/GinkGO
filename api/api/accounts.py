@@ -181,11 +181,10 @@ async def validate_account(account_id: str):
         )
     except asyncio.TimeoutError:
         logger.error(f"Validation timed out for account {account_id}")
-        # 超时也落库验证结果,使 validation_status / last_validated_at 正确更新
-        try:
-            service.record_validation_failure(account_id, "Validation timed out")
-        except Exception as rec_err:
-            logger.error(f"Failed to record timeout for {account_id}: {rec_err}")
+        # #6213 review: 超时分支禁止写库。to_thread 起的是 OS 线程,wait_for 取消
+        # await 杀不掉它;validate_account 带 @retry(max_try=3),后台仍会继续重试,
+        # 成功分支会 update_status(ENABLED)。若此处写 ERROR,会与后台成功竞态覆盖,
+        # 造成"客户端 valid=False 但库最终 ENABLED"。后台最终结果为权威。
         return ok(
             data={
                 "valid": False,
