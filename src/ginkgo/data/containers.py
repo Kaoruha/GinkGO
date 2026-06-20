@@ -293,9 +293,9 @@ class Container(containers.DeclarativeContainer):
 
     # Notification management services
     # NotificationRecipientService manages global notification recipients (MySQL)
-    # 声明式 DI：dependency_injector 调用时解析各 provider。
-    # 不能用 lambda 引用同类作用域的 user_group_service/user_service —— Python
-    # 类体非闭包作用域，名字查找失败抛 NameError（#5624 500 根因）。
+    # 构造函数注入：传 provider（非 lambda），DI 自动 resolve。
+    # 注意：禁止在类主体 lambda 内引用类属性（如 user_group_service()），
+    # Python 类主体命名空间不是 lambda 的闭包作用域，会触发 NameError（#5624）。
     notification_recipient_service = providers.Singleton(
         NotificationRecipientService,
         recipient_crud=notification_recipient_crud,

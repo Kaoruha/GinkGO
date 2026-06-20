@@ -12,6 +12,7 @@ from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
+from ginkgo.data.services.user_group_service import UserGroupService as DataUserGroupService
 from core.logging import logger
 from core.response import ok
 
@@ -26,8 +27,13 @@ def get_user_service():
 
 
 def get_user_group_service():
-    """获取UserGroupService实例"""
-    return container.user_group_service()
+    """获取 UserGroupService 实例（data 那份，契约匹配 settings 端点）。
+
+    container.user_group_service() 装配的是 user.services 那份（Upstream=CLI），
+    缺 count_all_members / update_group / list_members 等端点所需方法；端点按
+    data.services 那份（Upstream=Settings API）契约编写，故直接实例化它。见 #5625。
+    """
+    return DataUserGroupService()
 
 
 def get_notification_service() -> NotificationService:
@@ -730,8 +736,6 @@ async def list_user_groups():
     try:
         group_service = get_user_group_service()
 
-        # user 版本 UserGroupService.list_groups(is_active, limit)，
-        # 返回 ServiceResult.data = {"groups": [...], "count": N}
         result = group_service.list_groups()
         if not result.success:
             raise HTTPException(
@@ -739,25 +743,19 @@ async def list_user_groups():
                 detail="Failed to list user groups"
             )
 
-        groups_payload = result.data or {}
-        raw_groups = groups_payload.get("groups", []) if isinstance(groups_payload, dict) else (groups_payload or [])
+        raw_groups = result.data
+
+        # 批量获取成员数（避免 N+1）：data 版 count_all_members 一次 GROUP BY 全统计
+        member_counts = group_service.count_all_members()
 
         group_list = []
         for group_data in raw_groups:
             group_uuid = group_data["uuid"]
-            # 逐组算成员数（user 版本无 count_all_members 批量方法）
-            try:
-                members_result = group_service.get_group_members(group_uuid)
-                members_data = members_result.data or {}
-                user_count = members_data.get("count", 0) if isinstance(members_data, dict) else len(members_data)
-            except Exception:
-                user_count = 0
-
             group_list.append({
                 "uuid": group_uuid,
                 "name": group_data["name"],
-                "description": group_data.get("description", "") or "",
-                "user_count": user_count,
+                "description": group_data.get("description", ""),
+                "user_count": member_counts.get(group_uuid, 0),
                 "permissions": []
             })
 
@@ -832,7 +830,7 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
         updates = {}
         if data.name is not None:
             # 检查新名称是否与其他组冲突
-            existing_result = group_service.list_groups(is_del=False)
+            existing_result = group_service.list_groups()
             if existing_result.success:
                 for g in existing_result.data:
                     if g["name"] == data.name and g["uuid"] != uuid:
