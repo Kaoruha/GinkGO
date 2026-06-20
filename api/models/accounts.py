@@ -4,7 +4,7 @@ Live Account 相关数据模型
 与前端 web-ui/src/api/modules/live.ts 中的类型定义对应
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from enum import Enum
 from datetime import datetime
@@ -29,6 +29,18 @@ class AccountStatus(str, Enum):
     CONNECTING = "connecting"
     DISCONNECTED = "disconnected"
     ERROR = "error"
+
+
+def _enforce_user_settable_status(v: Optional[AccountStatus]) -> Optional[AccountStatus]:
+    """#5789 / review #6213: PUT 类端点仅允许 enabled/disabled。
+
+    connecting/disconnected/error 是验证引擎派生态,禁止由用户设置;
+    与 service.update_account_status 的 valid_statuses=[ENABLED,DISABLED] 对齐,
+    使越界值在 API 边界被拒(422)而非进 service 才失败(或被误导成 NotFound)。
+    """
+    if v is not None and v not in (AccountStatus.ENABLED, AccountStatus.DISABLED):
+        raise ValueError("status must be 'enabled' or 'disabled'")
+    return v
 
 
 class LiveAccountSummary(BaseModel):
@@ -70,11 +82,22 @@ class UpdateLiveAccountRequest(BaseModel):
     api_secret: Optional[str] = None
     passphrase: Optional[str] = None
     description: Optional[str] = None
+    status: Optional[AccountStatus] = None
+
+    @field_validator("status")
+    @classmethod
+    def _status_must_be_user_settable(cls, v):
+        return _enforce_user_settable_status(v)
 
 
 class UpdateAccountStatusRequest(BaseModel):
     """更新账号状态请求"""
     status: AccountStatus
+
+    @field_validator("status")
+    @classmethod
+    def _status_must_be_user_settable(cls, v):
+        return _enforce_user_settable_status(v)
 
 
 class ValidateAccountResponse(BaseModel):

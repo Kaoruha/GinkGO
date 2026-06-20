@@ -336,7 +336,9 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
 
         if validation_message:
             updates["validation_status"] = validation_message
-        if status == AccountStatusType.ENABLED:
+        # #5782: 发生验证尝试(传 validation_message)或显式启用,
+        # 都记录最后验证时间。失败/超时路径不应留 None。
+        if validation_message or status == AccountStatusType.ENABLED:
             updates["last_validated_at"] = datetime.now()
 
         self.modify(filters={"uuid": uuid}, updates=updates)
