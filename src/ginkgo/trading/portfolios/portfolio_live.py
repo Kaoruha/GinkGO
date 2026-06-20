@@ -43,6 +43,7 @@ from ginkgo.libs.utils.display import base_repr
 
 from ginkgo.data.containers import container
 from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
+from ginkgo.notifier.core.notify import notify_trading_signal
 
 console = Console()
 
@@ -175,6 +176,12 @@ class PortfolioLive(PortfolioBase):
         order_event = EventOrderAck(order_adjusted, broker_order_id=f"BROKER_{order_adjusted.uuid[:8]}")
         GLOG.INFO(f"Order submitted for {signal.code}: {order_adjusted.direction} {order_adjusted.volume}")
         self._notification_service.beep()
+
+        # 5. 触发交易信号通知（#6150 半手动实盘核心）：用户收到 code/direction/volume/reason
+        try:
+            notify_trading_signal(signal, order_adjusted)
+        except Exception as e:
+            GLOG.ERROR(f"notify_trading_signal failed (non-fatal): {e}")
 
         # Note: Portfolio 只负责内存处理，订单持久化由 ExecutionNode.output_queue_listener 处理
 
