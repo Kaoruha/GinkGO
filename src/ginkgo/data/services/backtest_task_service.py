@@ -1183,7 +1183,11 @@ class BacktestTaskService(BaseService):
 
             from ginkgo.data.containers import container
             analyzer_service = container.analyzer_service()
-            result = analyzer_service.find_by_portfolio(portfolio_id=portfolio_id, task_id=task_id)
+            # #5403: task_id 是主查询键(ADR-012); portfolio_id 仅在非空时作为可选过滤。
+            # 原走 find_by_portfolio 无条件按 portfolio_id 过滤, 当 portfolio_id 为空时
+            # filter {"portfolio_id": ""} 匹配不到记录, 导致 analyzers 端点返回空数组。
+            result = analyzer_service.get_by_task_id(
+                task_id=task_id, portfolio_id=portfolio_id or None)
             if not getattr(result, "success", False):
                 return ServiceResult.error(getattr(result, "error", "查询分析器失败"))
             records = result.data
