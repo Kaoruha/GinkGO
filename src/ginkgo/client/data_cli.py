@@ -368,7 +368,10 @@ def get(
                 console.print(json.dumps(df.to_dict('records'), indent=2, ensure_ascii=False, default=str))
                 return
 
-            display_cols = ["code", "timestamp", "adjust_type", "adj_factor"]
+            # 列名对齐 MAdjustfactor（foreadjustfactor/backadjustfactor/adjustfactor），
+            # 对齐 day/tick 分支用 model 真实列名的写法——虚构列名会被 show_cols 过滤掉，
+            # 导致表格只显示 code/timestamp、因子值全丢。
+            display_cols = ["code", "timestamp", "foreadjustfactor", "backadjustfactor", "adjustfactor"]
             show_cols = [c for c in display_cols if c in df.columns]
             df_display = df[show_cols].copy()
             if "timestamp" in df_display.columns:

@@ -76,14 +76,17 @@ class TestGetAdjustfactor:
         RED: 桩输出 "not yet implemented"，从不调 service.get_adjustfactors_df。
         """
         mock_svc = MagicMock()
+        # mock 必须用 model 真实列名（foreadjustfactor/backadjustfactor/adjustfactor），
+        # 不是虚构的 adjust_type/adj_factor——否则与实现错配一致，测试绿却掩盖 bug。
         mock_svc.get_adjustfactors_df.return_value = ServiceResult(
             success=True,
             message="ok",
             data=pd.DataFrame([{
                 "code": "000001.SZ",
                 "timestamp": datetime(2025, 11, 1),
-                "adjust_type": "fore",
-                "adj_factor": 1.0,
+                "foreadjustfactor": 1.0,
+                "backadjustfactor": 0.95,
+                "adjustfactor": 0.98,
             }]),
         )
 
@@ -104,6 +107,8 @@ class TestGetAdjustfactor:
         # start/end 从 "YYYYMMDD" 转 datetime（DB timestamp__gte/lte 需 datetime）
         assert kwargs["start_date"] == datetime(2025, 11, 1)
         assert kwargs["end_date"] == datetime(2025, 11, 7)
+        # 表格路径必须显示因子列（防 show_cols 列名错配致因子列丢失，review #6234）
+        assert "foreadjustfactor" in result.output
 
     @pytest.mark.unit
     def test_get_adjustfactor_service_failure_exits_nonzero(self):
