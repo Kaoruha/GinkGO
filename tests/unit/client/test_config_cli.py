@@ -135,6 +135,20 @@ class TestConfigGet:
         assert result.exit_code == 0
         assert "not found" in result.output or "not found" in result.output.lower()
 
+    def test_get_log_path_shows_logging_path(self, cli_runner, mock_gconf):
+        """#5931: get log_path 显示 GCONF.LOGGING_PATH（与 list 显示一致）"""
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["get", "log_path"])
+        assert result.exit_code == 0
+        assert "/tmp/ginkgo/logs" in result.output
+
+    def test_get_working_path_shows_working_path(self, cli_runner, mock_gconf):
+        """#5931: get working_path 显示 GCONF.WORKING_PATH（与 list 显示一致）"""
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["get", "working_path"])
+        assert result.exit_code == 0
+        assert "/home/kaoru/Ginkgo" in result.output
+
     def test_get_handles_exception(self, cli_runner):
         """get 命令异常时优雅处理"""
         # Use a real object whose attribute access raises to trigger the
@@ -213,6 +227,22 @@ class TestConfigSet:
             result = cli_runner.invoke(config_cli.app, ["set", "bad_key", "value"])
         assert result.exit_code == 0
         assert "not found" in result.output.lower()
+
+    def test_set_log_path_calls_set_logging_path(self, cli_runner, mock_gconf):
+        """#5931: set log_path 接线到已存在的 GCONF.set_logging_path（命名漂移修复）"""
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["set", "log_path", "/tmp/ginkgo/logs"])
+        assert result.exit_code == 0
+        mock_gconf.set_logging_path.assert_called_once_with("/tmp/ginkgo/logs")
+        assert "log_path" in result.output.lower()
+
+    def test_set_working_path_calls_set_work_path(self, cli_runner, mock_gconf):
+        """#5931: set working_path 接线到已存在的 GCONF.set_work_path（命名漂移修复）"""
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["set", "working_path", "/tmp/ws"])
+        assert result.exit_code == 0
+        mock_gconf.set_work_path.assert_called_once_with("/tmp/ws")
+        assert "working_path" in result.output.lower()
 
     def test_set_handles_exception(self, cli_runner):
         """set 命令异常时优雅处理"""

@@ -80,6 +80,12 @@ def get(
                 console.print(f":white_check_mark: quiet: {GCONF.QUIET}")
             elif key.lower() == 'cpu_ratio':
                 console.print(f":white_check_mark: cpu_ratio: {GCONF.CPURATIO*100:.1f}%")
+            elif key.lower() == 'log_path':
+                # #5931: list 显示的 key 也须可 get（显示名 log_path ↔ 属性 LOGGING_PATH）
+                console.print(f":white_check_mark: log_path: {GCONF.LOGGING_PATH}")
+            elif key.lower() == 'working_path':
+                # #5931: list 显示的 key 也须可 get（显示名 working_path ↔ 属性 WORKING_PATH）
+                console.print(f":white_check_mark: working_path: {GCONF.WORKING_PATH}")
             else:
                 console.print(f":x: Configuration key '{key}' not found")
         else:
@@ -177,6 +183,14 @@ def set(
             cpu_value = float(value) / 100.0
             GCONF.set_cpu_ratio(cpu_value)
             console.print(f":white_check_mark: Set {key} = {value}%")
+        elif key.lower() == 'log_path':
+            # #5931: 接线到已存在的 set_logging_path（list 显示名 log_path ↔ setter 名 set_logging_path 命名漂移）
+            GCONF.set_logging_path(value)
+            console.print(f":white_check_mark: Set {key} = {value}")
+        elif key.lower() == 'working_path':
+            # #5931: 接线到已存在的 set_work_path（list 显示名 working_path ↔ setter 名 set_work_path 命名漂移）
+            GCONF.set_work_path(value)
+            console.print(f":white_check_mark: Set {key} = {value}")
         else:
             console.print(f":x: Configuration key '{key}' not found")
 
