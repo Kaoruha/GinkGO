@@ -25,6 +25,14 @@ class FixedSelector(BaseSelector):
     def __init__(self, name: str = "FixedSelector", codes: Union[str, List[str]] = "", *args, **kwargs) -> None:
         super().__init__(name, *args, **kwargs)
         self._interested = ensure_list(codes)
+        # #5363: codes 为空(默认 "")→ ensure_list 返 []→ pick() 恒空→ 回测静默零信号/零交易。
+        # 在装配期(__init__)一次性告警，而非 pick()(每 bar 调用会刷屏)，fail-fast 让用户绑定组件时即知漏配 codes。
+        if len(self._interested) == 0:
+            GLOG.WARNING(
+                f"FixedSelector({name}) codes 为空，pick() 将始终返回空列表，"
+                f"回测会零信号/零交易。请在 portfolio bind-component 时设置 codes "
+                f"(如 --param '0:\"000001.SZ\"')。(#5363)"
+            )
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = self._interested
