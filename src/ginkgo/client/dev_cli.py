@@ -215,7 +215,7 @@ def dev_test(
     if pattern:
         cmd.extend(["-k", pattern])
 
-    cmd.append("test/")
+    cmd.append("tests/")
 
     # Run tests
     subprocess.run(cmd, cwd=GCONF.WORKING_PATH)
@@ -250,12 +250,12 @@ def dev_lint(
     # Run formatting tools
     if fix:
         console.print(":wrench: Auto-fixing code formatting...")
-        subprocess.run(["black", "src/", "test/"])
-        subprocess.run(["isort", "src/", "test/"])
+        subprocess.run(["black", "src/", "tests/"])
+        subprocess.run(["isort", "src/", "tests/"])
 
     # Run linting
     console.print(":mag: Checking code style...")
-    subprocess.run(["flake8", "src/", "test/"])
+    subprocess.run(["flake8", "src/", "tests/"])
 
 
 @app.command("profile")
