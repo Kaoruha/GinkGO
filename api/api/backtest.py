@@ -120,10 +120,14 @@ def get_portfolio_info(portfolio_uuid: str) -> dict:
 
 def build_backtest_config(data: BacktestTaskCreate) -> dict:
     """构建回测配置（不访问数据库）"""
+    # #5581: 顶层 start_date/end_date 优先于 engine_config，保证 config_snapshot
+    # 与 task 字段（backtest_start_date/backtest_end_date）一致，回测引擎据此取数。
+    start_date = data.start_date or data.engine_config.start_date
+    end_date = data.end_date or data.engine_config.end_date
     config = {
         # Engine 配置
-        "start_date": data.engine_config.start_date,
-        "end_date": data.engine_config.end_date,
+        "start_date": start_date,
+        "end_date": end_date,
         "commission_rate": data.engine_config.commission_rate,
         "slippage_rate": data.engine_config.slippage_rate,
         "broker_attitude": data.engine_config.broker_attitude,
@@ -176,17 +180,20 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
         portfolio_name = "Unknown Portfolio"
 
     # 使用服务层创建任务
-    # #5577 #5443: engine_config 日期映射到 task 级别字段
+    # #5577 #5443 #5581: 日期映射到 task 级别字段；顶层 start_date/end_date
+    # 优先于 engine_config（与 build_backtest_config 同源 effective 日期）。
+    effective_start = data.start_date or data.engine_config.start_date
+    effective_end = data.end_date or data.engine_config.end_date
     create_kwargs = {
         "name": data.name,
         "portfolio_id": primary_portfolio_uuid,
         "portfolio_name": portfolio_name,
         "config_snapshot": config,
     }
-    if data.engine_config.start_date:
-        create_kwargs["backtest_start_date"] = data.engine_config.start_date
-    if data.engine_config.end_date:
-        create_kwargs["backtest_end_date"] = data.engine_config.end_date
+    if effective_start:
+        create_kwargs["backtest_start_date"] = effective_start
+    if effective_end:
+        create_kwargs["backtest_end_date"] = effective_end
 
     task_service = get_backtest_task_service()
     result = task_service.create(**create_kwargs)
