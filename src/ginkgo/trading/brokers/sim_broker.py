@@ -407,6 +407,12 @@ class SimBroker(BaseBroker):
         """
         low = float(to_decimal(low))
         high = float(to_decimal(high))
+        # #5491: 一字板（涨停/跌停，high == low）成交价确定，直接返回限价。
+        # 否则 std_dev = (high-low)/6 = 0，scipy norm/skewnorm 以 scale=0 调用，
+        # 虽当前 scipy 版本退化为常量返回 loc，但属未文档化的隐式行为；
+        # 显式 guard 消除对 scipy 版本的依赖，且避免无意义的随机源消耗。
+        if high == low:
+            return to_decimal(round(high, 2))
         mean = (low + high) / 2
         std_dev = (high - low) / 6
 
