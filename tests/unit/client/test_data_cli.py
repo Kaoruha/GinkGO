@@ -72,23 +72,22 @@ class TestDataCLIHelp:
         assert "--raw" in result.output
 
     def test_get_help_marks_unimplemented_as_planned(self, cli_runner):
-        """data get help 必须把未实现的 data_type 标为 [planned]（#4900/#5242）。
+        """data get help 区分"可用"与 [planned] 未实现的 data_type（#4900/#5242）。
 
-        calendar/adjustfactor/sources 当前不可用（calendar 报 Unknown data type，
-        adjustfactor/sources 报 not yet implemented），不能与可用的
-        stockinfo/day/tick 无差别并列。
+        adjustfactor/sources 已实现（PR #6234：接 service / 列数据源），列入可用；
+        calendar 仍不可用（报 Unknown data type，#5242 not_planned），标 [planned]。
+        help 必须与实际一致，否则误导用户——#6230 旧的 [planned: calendar/adjustfactor/sources]
+        在 #6234 实现两者后已过时。
         """
         result = cli_runner.invoke(data_cli.app, ["get", "--help"])
         assert result.exit_code == 0
         out = result.output
-        # 可用类型应列出
-        assert "stockinfo" in out
-        assert "day" in out
-        assert "tick" in out
-        # 未实现类型必须带 [planned] 标注
-        assert "[planned" in out
-        # 防回归：不再出现无标注的全列表
-        assert "(stockinfo/calendar/day/tick/adjustfactor/sources)" not in out
+        # 可用类型应列出（adjustfactor/sources 已实现，移入可用括号内）
+        assert "(stockinfo/day/tick/adjustfactor/sources)" in out
+        # calendar 仍未实现，必须带 [planned] 标注，且 planned 里只剩 calendar
+        assert "[planned: calendar]" in out
+        # 旧的 planned 多项列表不应再出现（calendar 后不再跟 adjustfactor）
+        assert "calendar/adjustfactor" not in out
 
     def test_sync_help_shows_options(self, cli_runner):
         """data sync --help 显示 sync 命令的参数"""
