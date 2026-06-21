@@ -14,10 +14,14 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 import pytest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
+import pandas as pd
+
 from ginkgo.client.data_cli import app
+from ginkgo.data.services.base_service import ServiceResult
 
 runner = CliRunner()
 
@@ -55,3 +59,87 @@ class TestSyncAdjustfactorWiring:
         assert mock_svc.sync.call_args.args[0] == "000001.SZ"
         # sync 成功后衔接 calculate（与 timer/worker/API handler 对齐）
         mock_svc.calculate.assert_called_once_with("000001.SZ")
+
+
+class TestGetAdjustfactor:
+    """CLI get adjustfactor 直调 service.get_adjustfactors_df（修复 not yet implemented 桩）
+
+    旧桩 (data_cli get adjustfactor) 只打印 "not yet implemented"，从不查库。
+    收敛后：经 container 调 adjustfactor_service.get_adjustfactors_df，与 sync/update 同源；
+    start/end 从 "YYYYMMDD" 转 datetime（DB timestamp 过滤需 datetime 类型）。
+    """
+
+    @pytest.mark.unit
+    def test_get_adjustfactor_success_calls_service_with_datetime(self):
+        """get adjustfactor --code X --start ... --end ... 接 get_adjustfactors_df(datetime)
+
+        RED: 桩输出 "not yet implemented"，从不调 service.get_adjustfactors_df。
+        """
+        mock_svc = MagicMock()
+        # mock 必须用 model 真实列名（foreadjustfactor/backadjustfactor/adjustfactor），
+        # 不是虚构的 adjust_type/adj_factor——否则与实现错配一致，测试绿却掩盖 bug。
+        mock_svc.get_adjustfactors_df.return_value = ServiceResult(
+            success=True,
+            message="ok",
+            data=pd.DataFrame([{
+                "code": "000001.SZ",
+                "timestamp": datetime(2025, 11, 1),
+                "foreadjustfactor": 1.0,
+                "backadjustfactor": 0.95,
+                "adjustfactor": 0.98,
+            }]),
+        )
+
+        with patch("ginkgo.data.containers.container.adjustfactor_service", return_value=mock_svc):
+            result = runner.invoke(
+                app,
+                ["get", "adjustfactor", "--code", "000001.SZ", "--start", "20251101", "--end", "20251107"],
+            )
+
+        assert result.exit_code == 0, \
+            f"CLI 崩溃 (exit={result.exit_code}): {result.output}\nexc={result.exception}"
+        # 不再是桩
+        assert "not yet implemented" not in result.output
+        # 真实查库：经 service.get_adjustfactors_df
+        mock_svc.get_adjustfactors_df.assert_called_once()
+        kwargs = mock_svc.get_adjustfactors_df.call_args.kwargs
+        assert kwargs["code"] == "000001.SZ"
+        # start/end 从 "YYYYMMDD" 转 datetime（DB timestamp__gte/lte 需 datetime）
+        assert kwargs["start_date"] == datetime(2025, 11, 1)
+        assert kwargs["end_date"] == datetime(2025, 11, 7)
+        # 表格路径必须显示因子列（防 show_cols 列名错配致因子列丢失，review #6234）
+        assert "foreadjustfactor" in result.output
+
+    @pytest.mark.unit
+    def test_get_adjustfactor_service_failure_exits_nonzero(self):
+        """service 返回失败 → exit 1 + 失败信息（不静默成功）"""
+        mock_svc = MagicMock()
+        mock_svc.get_adjustfactors_df.return_value = ServiceResult(
+            success=False, message="DB down", data=pd.DataFrame(),
+        )
+
+        with patch("ginkgo.data.containers.container.adjustfactor_service", return_value=mock_svc):
+            result = runner.invoke(
+                app,
+                ["get", "adjustfactor", "--code", "000001.SZ", "--start", "20251101", "--end", "20251107"],
+            )
+
+        assert result.exit_code == 1
+        assert "Failed" in result.output or "failed" in result.output.lower()
+
+    @pytest.mark.unit
+    def test_get_adjustfactor_empty_result_shows_friendly(self):
+        """空结果 → 友好提示，exit 0（不崩溃、不误报失败）"""
+        mock_svc = MagicMock()
+        mock_svc.get_adjustfactors_df.return_value = ServiceResult(
+            success=True, message="ok", data=pd.DataFrame(),
+        )
+
+        with patch("ginkgo.data.containers.container.adjustfactor_service", return_value=mock_svc):
+            result = runner.invoke(
+                app,
+                ["get", "adjustfactor", "--code", "000001.SZ", "--start", "20251101", "--end", "20251107"],
+            )
+
+        assert result.exit_code == 0, f"exit={result.exit_code} out={result.output}\nexc={result.exception}"
+        assert "No adjustfactor data found" in result.output

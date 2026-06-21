@@ -333,28 +333,86 @@ def get(
                 console.print(":x: Stock code required for adjustfactor data")
                 raise typer.Exit(1)
 
-            # 设置默认时间范围（如果未提供）
+            # 默认时间范围（对齐 day 分支：end 缺省补 now，start 缺省补 now-365d）
+            from datetime import datetime, timedelta
+            if not end:
+                end = datetime.now().strftime("%Y%m%d")
             if not start:
-                from datetime import datetime, timedelta
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=365)  # 默认获取最近1年的数据
-                start = start_date.strftime("%Y%m%d")
-                end = end_date.strftime("%Y%m%d")
+                start = (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
 
-            console.print(f":information: Getting adjustfactor data for {code} from {start} to {end}")
-            console.print(":information: Adjustfactor data retrieval not yet implemented")
-            console.print(f"  • Code: {code}")
-            console.print(f"  • Start: {start}")
-            console.print(f"  • End: {end}")
-            console.print(f"  • Page Size: {page_size or 'Default (all)'}")
+            # "YYYYMMDD" → datetime（DB timestamp__gte/lte 过滤需 datetime 类型，
+            # 不可像 day 分支透传 str——adjustfactor_service.get_adjustfactors_df 签名为 datetime）
+            start_dt = datetime.strptime(start, "%Y%m%d")
+            end_dt = datetime.strptime(end, "%Y%m%d")
 
-            # TODO: 实现adjustfactor数据获取
-            # from ginkgo.data.containers import container
-            # adjustfactor_service = container.adjustfactor_service()
-            # result = adjustfactor_service.get(code=code, start_date=start, end_date=end)
+            from ginkgo.data.containers import container
+            adjustfactor_service = container.adjustfactor_service()
+            result = adjustfactor_service.get_adjustfactors_df(
+                code=code, start_date=start_dt, end_date=end_dt
+            )
+
+            if not result.success:
+                console.print(f":x: Failed to get adjustfactor data: {result.message}")
+                raise typer.Exit(1)
+
+            import pandas as pd
+            df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
+
+            if df.empty:
+                console.print(f":information: No adjustfactor data found for {code} ({start}-{end})")
+                return
+
+            # Raw JSON 输出（对齐 stockinfo 分支）
+            if raw:
+                import json
+                console.print(json.dumps(df.to_dict('records'), indent=2, ensure_ascii=False, default=str))
+                return
+
+            # 列名对齐 MAdjustfactor（foreadjustfactor/backadjustfactor/adjustfactor），
+            # 对齐 day/tick 分支用 model 真实列名的写法——虚构列名会被 show_cols 过滤掉，
+            # 导致表格只显示 code/timestamp、因子值全丢。
+            display_cols = ["code", "timestamp", "foreadjustfactor", "backadjustfactor", "adjustfactor"]
+            show_cols = [c for c in display_cols if c in df.columns]
+            df_display = df[show_cols].copy()
+            if "timestamp" in df_display.columns:
+                df_display["timestamp"] = df_display["timestamp"].astype(str).str[:10]
+
+            limit = page_size or 50
+            if len(df_display) > limit:
+                console.print(f":information: Showing {limit} of {len(df_display)} records")
+                df_display = df_display.tail(limit)
+
+            table = Table(title=f"Adjustfactor Data: {code} ({start}-{end})", show_lines=False)
+            for col in show_cols:
+                table.add_column(col, style="cyan")
+            for _, row in df_display.iterrows():
+                table.add_row(*[str(v) for v in row])
+            console.print(table)
+            console.print(f":information: {len(df)} records")
 
         elif data_type == "sources":
-            console.print(":information: Data sources functionality not yet implemented")
+            from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
+            from ginkgo.libs import GCONF
+
+            # 容器已注入的数据源（containers.py: ginkgo_tushare_source / ginkgo_tdx_source）。
+            # 仅展示元信息，不实例化——避免触发 connect() 的网络/token 副作用。
+            configured_sources = [
+                ("tushare", GinkgoTushare, getattr(GCONF, "TUSHARETOKEN", None)),
+                ("tdx", GinkgoTDX, None),  # TDX 无 token 依赖
+            ]
+
+            table = Table(title=":plug: Configured Data Sources", show_lines=False)
+            table.add_column("name", style="cyan")
+            table.add_column("type", style="green")
+            table.add_column("configured", style="yellow")
+
+            for name, cls, token in configured_sources:
+                # token 为 None 表示该数据源不依赖 token（如 TDX），视为已配置
+                is_configured = "yes" if token is None or token else "no"
+                table.add_row(name, cls.__name__, is_configured)
+
+            console.print(table)
+            console.print(f":information: {len(configured_sources)} data source(s) configured")
 
         else:
             console.print(f":x: Unknown data type: {data_type}")
