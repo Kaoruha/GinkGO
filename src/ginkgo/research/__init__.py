@@ -11,7 +11,6 @@ Ginkgo Research Module - 因子研究模块
 - FactorOrthogonalizer: 因子正交化
 - FactorComparator: 因子对比
 - FactorDecayAnalyzer: 衰减分析
-- FactorTurnoverAnalyzer: 换手率分析
 """
 
 __version__ = "0.1.0"
@@ -24,7 +23,6 @@ __all__ = [
     # P1 - 扩展分析
     "FactorComparator",
     "FactorDecayAnalyzer",
-    "FactorTurnoverAnalyzer",
     # Container
     "ResearchContainer",
 ]
@@ -46,9 +44,6 @@ def __getattr__(name: str):
     elif name == "FactorDecayAnalyzer":
         from ginkgo.research.decay_analysis import FactorDecayAnalyzer
         return FactorDecayAnalyzer
-    elif name == "FactorTurnoverAnalyzer":
-        from ginkgo.research.turnover_analysis import FactorTurnoverAnalyzer
-        return FactorTurnoverAnalyzer
     elif name == "ResearchContainer":
         from ginkgo.research.containers import ResearchContainer
         return ResearchContainer
