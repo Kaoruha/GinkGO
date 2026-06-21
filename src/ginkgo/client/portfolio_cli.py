@@ -277,6 +277,13 @@ def create(
     """
     from ginkgo.data.containers import container
 
+    # #5984: 初始资本必须为正，拒绝非正输入（负数/零）。
+    if initial_capital <= 0:
+        console.print(
+            f":x: Invalid --capital: must be greater than 0 (got {initial_capital})"
+        )
+        raise typer.Exit(1)
+
     console.print(f":heavy_plus_sign: Creating portfolio: {name}")
 
     try:
