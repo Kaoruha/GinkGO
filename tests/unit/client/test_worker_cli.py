@@ -89,12 +89,18 @@ class TestDataWorkerStatus:
     """worker data status 命令"""
 
     def test_data_status_shows_summary(self, cli_runner):
-        """data status 显示 worker 汇总信息"""
+        """data status 显示 worker 汇总信息
+
+        #5515: GinkgoThreadManager.get_workers_status() returns Dict[pid, dict]
+        (threading.py: res[pid]=data), NOT list[dict]. Mocking the real shape
+        exposes the iteration bug — `for w in dict` yields keys (pid strings),
+        and w.get() raises AttributeError.
+        """
         mock_gtm = MagicMock()
-        mock_gtm.get_workers_status.return_value = [
-            {"pid": "1001", "status": "running", "cpu_percent": 1.5, "memory_mb": 128.0, "tasks": 3},
-            {"pid": "1002", "status": "idle", "cpu_percent": 0.0, "memory_mb": 64.0, "tasks": 0},
-        ]
+        mock_gtm.get_workers_status.return_value = {
+            "1001": {"pid": "1001", "status": "running", "cpu_percent": 1.5, "memory_mb": 128.0, "tasks": 3},
+            "1002": {"pid": "1002", "status": "idle", "cpu_percent": 0.0, "memory_mb": 64.0, "tasks": 0},
+        }
 
         with patch("ginkgo.libs.core.threading.GinkgoThreadManager", return_value=mock_gtm):
             result = cli_runner.invoke(worker_cli.app, ["data", "status"])
@@ -103,15 +109,36 @@ class TestDataWorkerStatus:
         assert "Total Workers" in result.output
 
     def test_data_status_raw_outputs_json(self, cli_runner):
-        """data status --raw 输出 JSON 格式"""
+        """data status --raw 输出 JSON 格式
+
+        #5515: 真实结构 Dict[pid, dict]；raw 分支 json.dumps 整个 dict，pid 作 key 仍在输出中。
+        """
         mock_gtm = MagicMock()
-        mock_gtm.get_workers_status.return_value = [
-            {"pid": "1001", "status": "running"},
-        ]
+        mock_gtm.get_workers_status.return_value = {
+            "1001": {"pid": "1001", "status": "running"},
+        }
 
         with patch("ginkgo.libs.core.threading.GinkgoThreadManager", return_value=mock_gtm):
             result = cli_runner.invoke(worker_cli.app, ["data", "status", "--raw"])
         assert result.exit_code == 0
+        assert "1001" in result.output
+        assert "running" in result.output
+
+    def test_data_status_detailed_dict(self, cli_runner):
+        """data status --detailed 迭代 Dict[pid, dict].values() 不崩溃 (#5515 detailed 分支)
+
+        复现：for w in worker_list 拿到 pid 字符串 → w.get() AttributeError。
+        """
+        mock_gtm = MagicMock()
+        mock_gtm.get_workers_status.return_value = {
+            "1001": {"pid": "1001", "status": "running", "cpu_percent": 1.5, "memory_mb": 128.0, "tasks": 3},
+            "1002": {"pid": "1002", "status": "idle", "cpu_percent": 0.0, "memory_mb": 64.0, "tasks": 0},
+        }
+
+        with patch("ginkgo.libs.core.threading.GinkgoThreadManager", return_value=mock_gtm):
+            result = cli_runner.invoke(worker_cli.app, ["data", "status", "--detailed"])
+        assert result.exit_code == 0
+        assert "All Data Workers" in result.output
         assert "1001" in result.output
         assert "running" in result.output
 
