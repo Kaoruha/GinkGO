@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, status, Request, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 import bcrypt
@@ -14,6 +14,7 @@ from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
 from core.response import ok
+from core.exceptions import BusinessError
 
 router = APIRouter()
 
@@ -38,6 +39,11 @@ def get_user_group_service():
 def get_notification_service() -> NotificationService:
     """获取NotificationService实例"""
     return NotificationService()
+
+
+def get_api_key_service():
+    """获取 ApiKeyService 实例（#5459: 持久化 API keys，替代硬编码 mock）。"""
+    return container.api_key_service()
 
 
 def hash_password(password: str) -> str:
@@ -1826,6 +1832,14 @@ async def test_notification_recipient(uuid: str):
 
 # ==================== API接口设置 ====================
 
+class CreateApiKeyRequest(BaseModel):
+    """#5459: 创建 API 密钥请求（替代裸 dict，加输入校验）。"""
+    model_config = ConfigDict(extra="ignore")  # 忽略未知字段（#5474 同类校验理念）
+    name: str = Field(..., min_length=1, description="密钥名称")
+    expires_in_days: Optional[int] = Field(None, description="有效期天数，None=永久")
+    permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
+
+
 class APIKeySummary(BaseModel):
     """API密钥摘要"""
     key_id: str
@@ -1846,22 +1860,67 @@ class APIStats(BaseModel):
 
 @router.get("/api-keys")
 async def list_api_keys():
-    """获取API密钥列表"""
-    # #5595: API 密钥库未实现——诚实返 501，不返回硬编码假列表
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API key management is not implemented"
-    )
+    """获取API密钥列表
+
+    #5459: 接线 ApiKeyService.list_api_keys，返回持久化数据（非硬编码 mock）。
+    """
+    svc = get_api_key_service()
+    result = svc.list_api_keys()
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to list API Keys"))
+    items = []
+    for k in result["data"]["api_keys"]:
+        items.append({
+            "key_id": k["uuid"],
+            "name": k["name"],
+            "masked_key": f"{k.get('key_prefix', '')}****",
+            "status": ("expired" if k.get("is_expired")
+                       else ("active" if k.get("is_active", True) else "inactive")),
+            "expires_at": k.get("expires_at"),
+            "last_used": k.get("last_used_at"),
+        })
+    return ok(data=items)
 
 
 @router.post("/api-keys", status_code=201)
-async def create_api_key(data: dict):
-    """创建API密钥"""
-    # #5595: API 密钥创建未实现——诚实返 501
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API key creation is not implemented"
+async def create_api_key(data: CreateApiKeyRequest):
+    """创建API密钥
+
+    #5459: 接线 ApiKeyService 持久化，auto_generate=True 返回一次性明文 key（full_key）。
+    """
+    svc = get_api_key_service()
+    result = svc.create_api_key(
+        name=data.name,
+        permissions=data.permissions,
+        expires_days=data.expires_in_days,
+        auto_generate=True,
     )
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to create API Key"))
+    d = result["data"]
+    masked = f"{d.get('key_prefix', '')}****"
+    return ok(data={
+        "key_id": d["uuid"],
+        "name": d["name"],
+        "full_key": d.get("key_value"),  # 仅创建时一次性返回明文
+        "masked_key": masked,
+        "status": "active" if d.get("is_active", True) else "inactive",
+        "expires_at": d.get("expires_at"),
+        "last_used": None,
+    })
+
+
+@router.delete("/api-keys/{key_id}")
+async def delete_api_key(key_id: str):
+    """删除API密钥
+
+    #5459: 接线 ApiKeyService.delete_api_key（验收: Delete removes the key）。
+    """
+    svc = get_api_key_service()
+    result = svc.delete_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data={"deleted": True, "key_id": key_id})
 
 
 @router.get("/api-stats")
