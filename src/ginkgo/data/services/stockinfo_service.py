@@ -391,12 +391,23 @@ class StockinfoService(BaseService):
 
     def _build_query(self, limit=None, offset=None, order_by=None,
                      desc_order: bool = False) -> dict:
-        """从分页/排序参数构造 CRUD find 查询参数。三出口共用。"""
+        """从分页/排序参数构造 CRUD find 查询参数。三出口共用。
+
+        #5653: ``offset`` 是行偏移（API 传 ``(page-1)*page_size``），
+        BaseCRUD.find 的 ``page`` 是 0-based 页码（内部 ``offset(page*page_size)``）。
+        直接 ``page=offset`` 会把行偏移当页码，第2页 ``offset=50→page=50→offset(2500)``
+        跳过 2500 行。需用 ``page = offset // page_size`` 还原页码。
+        """
         query_params = {}
         if limit is not None:
             query_params['page_size'] = limit
         if offset is not None:
-            query_params['page'] = offset
+            if limit is not None and limit > 0:
+                query_params['page'] = offset // limit
+            else:
+                # 无 page_size 无法换算页码（生产调用方总 limit+offset 成对传），
+                # 退化为直接传 offset（保持旧行为，不引入破坏性变更）。
+                query_params['page'] = offset
         if order_by is not None:
             query_params['order_by'] = order_by
             query_params['desc_order'] = desc_order

@@ -228,16 +228,51 @@ class TestGet:
 
     @pytest.mark.unit
     def test_get_with_pagination(self, service, mock_deps):
-        """分页参数正确传递给 crud_repo"""
+        """分页参数正确传递给 crud_repo（#5653: offset 行偏移转 0-based 页码）"""
         mock_model_list = MagicMock()
         mock_model_list.__len__ = MagicMock(return_value=10)
         mock_deps["crud_repo"].find.return_value = mock_model_list
 
-        result = service.get(limit=10, offset=2)
+        # offset=20(行偏移) / limit=10 → page=2（0-based 第3页）
+        result = service.get(limit=10, offset=20)
         assert result.success is True
         call_kwargs = mock_deps["crud_repo"].find.call_args
         assert call_kwargs[1]["page_size"] == 10
         assert call_kwargs[1]["page"] == 2
+
+    @pytest.mark.unit
+    def test_get_offset_is_row_offset_converted_to_page(self, service, mock_deps):
+        """#5653: service 层 offset 是行偏移（API 传 (page-1)*page_size），
+        须转换成 0-based 页码下传给 crud_repo.find。
+
+        BaseCRUD.find 的 page 是 0-based 页码（内部 offset(page*page_size)）。
+        若直接 page=offset，第2页 offset=50→page=50→offset(2500)，跳过 2500 行。
+        """
+        mock_model_list = MagicMock()
+        mock_model_list.__len__ = MagicMock(return_value=50)
+        mock_deps["crud_repo"].find.return_value = mock_model_list
+
+        # API 第2页: offset=(2-1)*50=50（行偏移）
+        service.get(limit=50, offset=50)
+
+        call_kwargs = mock_deps["crud_repo"].find.call_args[1]
+        assert call_kwargs["page_size"] == 50
+        assert call_kwargs["page"] == 1, (
+            f"offset=50(行偏移) / limit=50 应得 page=1（0-based 第2页），"
+            f"实际 page={call_kwargs.get('page')}（行偏移当页码致跳过 2500 行）"
+        )
+
+    @pytest.mark.unit
+    def test_get_offset_zero_is_first_page(self, service, mock_deps):
+        """#5653: offset=0（第1页）转换后 page=0，保持第1页正确。"""
+        mock_model_list = MagicMock()
+        mock_model_list.__len__ = MagicMock(return_value=50)
+        mock_deps["crud_repo"].find.return_value = mock_model_list
+
+        service.get(limit=50, offset=0)
+
+        call_kwargs = mock_deps["crud_repo"].find.call_args[1]
+        assert call_kwargs["page"] == 0
 
     @pytest.mark.unit
     def test_get_with_sorting(self, service, mock_deps):
