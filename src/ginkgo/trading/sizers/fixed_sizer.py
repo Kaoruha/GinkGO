@@ -26,17 +26,46 @@ class FixedSizer(BaseSizer):
     """
     __abstract__ = False
 
-    def __init__(self, name: str = "FixedSizer", volume: str = "150", *args, **kwargs):
+    def __init__(
+        self,
+        name: str = "FixedSizer",
+        volume: str = "150",
+        commission_rate: float = 0.0003,
+        commission_min: float = 5,
+        stamp_tax: float = 0.001,
+        *args,
+        **kwargs,
+    ):
         """
         Args:
             volume(str): The volume of each order.
+            commission_rate(float): 手续费率，默认对齐 SimBroker (0.0003)。
+            commission_min(float): 最小手续费（元），默认对齐 SimBroker (5)。
+            stamp_tax(float): 印花税率（仅卖出收取），默认 0.001；买入估算不计。
         """
         super().__init__(name, *args, **kwargs)
         self._volume = self._convert_to_int(volume, 150)
+        self._commission_rate = Decimal(str(commission_rate))
+        self._commission_min = Decimal(str(commission_min))
+        self._stamp_tax = Decimal(str(stamp_tax))
 
     @property
     def volume(self) -> float:
         return self._volume
+
+    def _estimate_cost(self, last_price: Decimal, size: int) -> Decimal:
+        """
+        估算订单资金占用：成交额 + 手续费（与 SimBroker sim_broker.py:456-457 一致）。
+
+        手续费 = max(成交额 × commission_rate, commission_min)；
+        印花税仅在卖出收取，买入（LONG）估算不计（stamp_tax 预留给卖出场景）。
+        """
+        price = to_decimal(last_price)
+        transaction_money = price * size
+        commission = transaction_money * self._commission_rate
+        if commission < self._commission_min:
+            commission = self._commission_min
+        return transaction_money + commission
 
     def calculate_order_size(
         self, initial_size: int, last_price: Decimal, cash: Decimal, *args, **kwargs
@@ -46,8 +75,7 @@ class FixedSizer(BaseSizer):
         """
         size = initial_size
         while size > 0:
-            last_price = to_decimal(last_price)
-            planned_cost = last_price * size * Decimal("1.003")
+            planned_cost = self._estimate_cost(last_price, size)
             if cash >= planned_cost:
                 return (size, planned_cost)
             size -= 100
