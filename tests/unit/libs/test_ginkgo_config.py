@@ -233,3 +233,40 @@ class TestPasswordEncryption:
         cfg = GinkgoConfig()
         result = cfg._decode_password("plain_text_pwd")
         assert result == "plain_text_pwd"
+
+
+# ---------------------------------------------------------------------------
+# Root Cause G: Missing set_quiet setter (#5936)
+# ---------------------------------------------------------------------------
+
+
+class TestQuietSetter:
+    """#5936: config reset / `config set quiet` crash because GinkgoConfig has
+    no set_quiet (QUIET is a read-only property). The setter must exist, persist
+    to config.yml, and sync env so the QUIET getter observes the new value."""
+
+    def test_set_quiet_persists_to_config_and_env(self, tmp_path):
+        """set_quiet(True) writes `quiet` to config.yml and syncs GINKGO_QUIET."""
+        import yaml
+        from ginkgo.libs.core.config import GinkgoConfig
+
+        os.environ["GINKGO_DIR"] = str(tmp_path)
+        os.environ.pop("GINKGO_QUIET", None)
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("debug: false\nquiet: false\n")
+        try:
+            cfg = GinkgoConfig()
+            cfg._has_local_config = True  # skip generate_config_file copy logic
+
+            # Must not raise AttributeError (the #5936 crash)
+            cfg.set_quiet(True)
+
+            # Persisted to config.yml
+            data = yaml.safe_load(config_file.read_text())
+            assert data["quiet"] is True
+            # Env synced so the read-only QUIET getter observes it immediately
+            assert os.environ["GINKGO_QUIET"] == str(True)
+            assert cfg.QUIET is True
+        finally:
+            os.environ.pop("GINKGO_DIR", None)
+            os.environ.pop("GINKGO_QUIET", None)

@@ -303,6 +303,31 @@ class TestConfigReset:
         assert result.exit_code == 0
         assert "Failed" in result.output
 
+    def test_reset_real_gconf_does_not_crash(self, cli_runner, tmp_path):
+        """#5936: reset on the REAL GinkgoConfig singleton must not crash.
+
+        The mock-based tests above masked the crash because MagicMock accepts
+        any set_quiet call. This exercises the true path (no patch on GCONF),
+        isolating ~/.ginkgo via GINKGO_DIR so nothing real is written.
+        """
+        import yaml
+        os.environ["GINKGO_DIR"] = str(tmp_path)
+        os.environ.pop("GINKGO_QUIET", None)
+        (tmp_path / "config.yml").write_text(
+            "debug: true\nquiet: true\ncpu_ratio: 0.5\n"
+        )
+        try:
+            # No patch on ginkgo.libs.GCONF — real singleton in play
+            result = cli_runner.invoke(config_cli.app, ["reset"])
+            assert result.exit_code == 0
+            assert "Failed" not in result.output
+            # reset persisted quiet=False via the new set_quiet setter
+            data = yaml.safe_load((tmp_path / "config.yml").read_text())
+            assert data["quiet"] is False
+        finally:
+            os.environ.pop("GINKGO_DIR", None)
+            os.environ.pop("GINKGO_QUIET", None)
+
 
 # ============================================================================
 # 6. workers 命令

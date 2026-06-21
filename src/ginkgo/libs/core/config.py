@@ -834,6 +834,17 @@ class GinkgoConfig(object):
             os.environ[key] = quiet
         return quiet.upper() == "TRUE"
 
+    def set_quiet(self, value: bool) -> None:
+        """#5936: persist quiet + sync env so the QUIET getter observes it.
+
+        Symmetric with set_cpu_ratio: config reset / `config set quiet` rely on
+        this — QUIET reads env first, so the env sync must happen here.
+        """
+        key = "GINKGO_QUIET"
+        if isinstance(value, bool):
+            self._write_config("quiet", value)
+            os.environ[key] = str(value)
+
     @property
     def PYTHONPATH(self) -> str:
         """Python路径（环境标识，有默认值）"""
