@@ -1,0 +1,72 @@
+name: ci
+
+# CI 测试流水线 (#6015)。
+# 背景：#6013 —— PR #5333 合并时无 CI 拦截，user_crud.py IndentationError
+# 直接进 master 瘫痪所有 CLI 命令。此前 .github/workflows/ 仅有 label 清理，
+# 零测试流水线。本 workflow 最低限度补齐：语法检查 + 关键 mock/import smoke。
+#
+# 分层（记忆约束）：
+#   - py_compile 全 src/api：零依赖、秒级，直接抓 IndentationError/SyntaxError
+#   - smoke-tests：装依赖跑 user_crud_mock（验收点名）+ containers import。
+#     严禁跑全量（test_oom_investigation: ~20GB OOM）；不混 api/unit 测试
+#     (project_api_unit_test_namespace_pollution: ModuleNotFoundError)。
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-check:
+    name: Syntax check (py_compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: py_compile src/ and api/
+        run: |
+          set -uo pipefail
+          # 对 src/ + api/ 下所有 .py 跑字节码编译。
+          # py_compile 不 import 依赖，纯语法/缩进检查 —— 零误报、抓 #6013 回归。
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! python -m py_compile "$f" 2> /tmp/pyc_err; then
+              echo "::error file=${f},line=1::py_compile 失败"
+              cat /tmp/pyc_err
+              fail=1
+            fi
+          done < <(find src api -name "*.py" -not -path "*/__pycache__/*" -print0)
+          if [ "$fail" -ne 0 ]; then
+            echo "❌ 存在语法/缩进错误，拒绝合并（防 #6013 回归）"
+            exit 1
+          fi
+          echo "✅ 所有 src/api .py 通过 py_compile"
+
+  smoke-tests:
+    name: Smoke tests (mock + import)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+      - name: Install (editable)
+        run: pip install -e . -q
+      - name: user_crud mock tests (#6015 点名)
+        run: |
+          python -m pytest tests/unit/data/crud/test_user_crud_mock.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: containers import smoke (#6015 点名)
+        # test_containers.py 本身是 features.containers 的 import smoke（带 ImportError 容错 skip）
+        run: |
+          python -m pytest tests/unit/features/test_containers.py \
+            -q -o "addopts=" --no-header --tb=short
