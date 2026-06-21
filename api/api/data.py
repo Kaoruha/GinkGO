@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import re
 import time as _time
 
 from ginkgo.data.containers import container
@@ -308,6 +309,33 @@ async def get_stockinfo(
         )
 
 
+def _normalize_bar_code(code: Optional[str]) -> str:
+    """#5760: 校验 code 必填 + 补全交易所后缀。
+
+    - None/空/空白 → HTTPException(422)（验收3：缺 code 报错而非空数据）
+    - 6 位数字按首位推断交易所：5/6→.SH（上证/科创/基金），0/3→.SZ（深证主板/创业板），8/4/9→.BJ（北交所）
+    - 已含后缀（含 "."）原样返回，大小写统一转大写
+    - 非 6 位数字的其他格式原样返回，交由下游 service 判断
+    """
+    if not code or not code.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="code 参数必填，需带交易所后缀，例如 000001.SZ 或 000001（自动补全）",
+        )
+    code = code.strip().upper()
+    if "." in code:
+        return code
+    if re.match(r"^\d{6}$", code):
+        first = code[0]
+        if first in ("5", "6"):
+            return code + ".SH"
+        if first in ("0", "3"):
+            return code + ".SZ"
+        if first in ("8", "4", "9"):
+            return code + ".BJ"
+    return code
+
+
 @router.get("/bars")
 async def get_bars(
     code: Optional[str] = None,
@@ -317,6 +345,8 @@ async def get_bars(
     page_size: int = 100
 ):
     """获取K线数据列表（分页）"""
+    # #5760: code 必填校验 + 交易所后缀归一化（000001 → 000001.SZ）
+    code = _normalize_bar_code(code)
     try:
         bar_service = get_bar_service()
 
