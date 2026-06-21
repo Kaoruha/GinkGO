@@ -403,6 +403,37 @@ class TestConfigContainers:
         assert result.exit_code == 0
         assert "Container" in result.output or "container" in result.output.lower()
 
+    def test_containers_status_queries_real_docker(self, cli_runner):
+        """status 应查询真实 Docker 状态,显示真实容器(非硬编码示例数据)"""
+        fake = MagicMock(
+            stdout="my-real-container\tUp 1 hour\tmyimg:v1\n",
+            stderr="", returncode=0,
+        )
+        with patch("subprocess.run", return_value=fake) as mock_run:
+            result = cli_runner.invoke(config_cli.app, ["containers", "status"])
+        assert result.exit_code == 0
+        assert mock_run.called, "应调用 subprocess.run 查询 Docker"
+        # 真实容器名须出现(硬编码代码不会打印 my-real-container)
+        assert "my-real-container" in result.output
+        # docker ps -a 才能看到 stopped/exited 全状态(验收第 2 条)
+        cmd = mock_run.call_args[0][0]
+        assert "ps" in cmd and "-a" in cmd
+
+    def test_containers_status_docker_not_installed(self, cli_runner):
+        """Docker 未安装时优雅降级,不崩溃(验收第 3 条)"""
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = cli_runner.invoke(config_cli.app, ["containers", "status"])
+        assert result.exit_code == 0
+        assert "docker" in result.output.lower() or "未安装" in result.output
+
+    def test_containers_status_docker_timeout(self, cli_runner):
+        """Docker 查询超时时优雅降级"""
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["docker"], timeout=10)):
+            result = cli_runner.invoke(config_cli.app, ["containers", "status"])
+        assert result.exit_code == 0
+        assert "超时" in result.output or "timeout" in result.output.lower()
+
     def test_containers_start(self, cli_runner):
         """containers start 启动容器"""
         result = cli_runner.invoke(config_cli.app, ["containers", "start"])

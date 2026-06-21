@@ -321,14 +321,29 @@ def containers(
             table.add_column("Memory", style="red", width=10)
             table.add_column("Image", style="dim", width=20)
 
-            # 这里应该调用Docker API获取容器状态
-            # 示例数据
-            table.add_row("ginkgo-worker-1", "Running", "45%", "256MB", "ginkgo/worker:latest")
-            table.add_row("ginkgo-worker-2", "Running", "38%", "192MB", "ginkgo/worker:latest")
-            table.add_row("ginkgo-worker-3", "Idle", "2%", "64MB", "ginkgo/worker:latest")
-
-            console.print(table)
-            console.print(f"\n:bar_chart: Summary: {3} containers running, {0} idle")
+            # 查询真实 Docker 容器状态(-a 包含 stopped/exited 全状态)
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                lines = [l for l in result.stdout.splitlines() if l.strip()]
+                running = 0
+                for line in lines:
+                    parts = line.split("\t")
+                    name = parts[0]
+                    status = parts[1] if len(parts) > 1 else "-"
+                    image = parts[2] if len(parts) > 2 else "-"
+                    table.add_row(name, status, "-", "-", image)
+                    if status.lower().startswith("up"):
+                        running += 1
+                console.print(table)
+                console.print(f"\n:bar_chart: Summary: {len(lines)} containers total, {running} running")
+            except subprocess.TimeoutExpired:
+                console.print("[yellow]:warning: Docker 状态查询超时,Docker 是否响应?[/yellow]")
+            except FileNotFoundError:
+                console.print("[yellow]:warning: 未安装 Docker 或不在 PATH 中,无法查询容器状态。[/yellow]")
 
         elif action == "start":
             target_count = count or 1
