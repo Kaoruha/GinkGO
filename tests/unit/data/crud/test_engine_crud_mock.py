@@ -140,6 +140,25 @@ class TestEngineCRUDCreateFromParams:
         assert mengine.source == SOURCE_TYPES.SIM.value
         assert mengine.is_live is False
 
+    @pytest.mark.unit
+    def test_create_from_params_forwards_desc(self, engine_crud):
+        """#6005: desc 透传到 MEngine，而非回落默认值"""
+        mengine = engine_crud._create_from_params(
+            name="bt_engine", desc="我的引擎描述"
+        )
+
+        assert mengine.desc == "我的引擎描述"
+        assert mengine.name == "bt_engine"
+
+    @pytest.mark.unit
+    def test_create_from_params_desc_absent_keeps_model_default(self, engine_crud):
+        """desc 未传时仍保留 MMysqlBase 模型默认值（防 None 覆盖回归）"""
+        mengine = engine_crud._create_from_params(name="bt_engine")
+
+        # None 不得覆盖模型默认描述
+        assert mengine.desc is not None
+        assert mengine.desc != ""
+
 
 # ============================================================
 # Business Helper 测试
