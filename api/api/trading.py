@@ -566,32 +566,57 @@ def _compute_position_value(positions: list) -> float:
         return 0.0
 
 
+def _expand_status_enums(status_filter: Optional[List[str]]) -> list:
+    """将状态过滤字符串列表展开为 ORDERSTATUS_TYPES enum 列表（去重、保序）。
+
+    #6047: 多状态查询须展开所有匹配 enum（如 pending → NEW + SUBMITTED），
+    不再只取首个状态组或同组首个 enum。返回空列表表示无过滤（查全部）。
+    """
+    from ginkgo.enums import ORDERSTATUS_TYPES
+
+    if not status_filter:
+        return []
+
+    status_mapping = {
+        "pending": [ORDERSTATUS_TYPES.NEW, ORDERSTATUS_TYPES.SUBMITTED],
+        "partial": [ORDERSTATUS_TYPES.PARTIAL_FILLED],
+        "filled": [ORDERSTATUS_TYPES.FILLED],
+        "cancelled": [ORDERSTATUS_TYPES.CANCELED],
+        "rejected": [ORDERSTATUS_TYPES.REJECTED],
+    }
+
+    expanded: list = []
+    seen = set()
+    for s in status_filter:
+        for enum in status_mapping.get(s, []):
+            if enum not in seen:
+                seen.add(enum)
+                expanded.append(enum)
+    return expanded
+
+
 def _query_orders(account_id: str, status_filter: Optional[List[str]] = None) -> list:
     """查询指定账户的订单列表"""
     try:
-        from ginkgo.enums import ORDERSTATUS_TYPES
-
         result_service = _get_result_service()
 
-        # 构建状态筛选
-        status_enum = None
-        if status_filter:
-            status_mapping = {
-                "pending": [ORDERSTATUS_TYPES.NEW, ORDERSTATUS_TYPES.SUBMITTED],
-                "partial": [ORDERSTATUS_TYPES.PARTIAL_FILLED],
-                "filled": [ORDERSTATUS_TYPES.FILLED],
-                "cancelled": [ORDERSTATUS_TYPES.CANCELED],
-                "rejected": [ORDERSTATUS_TYPES.REJECTED],
-            }
-            first_status = status_filter[0]
-            enums = status_mapping.get(first_status, [])
-            if enums:
-                status_enum = enums[0]
+        # #6047: 展开多状态过滤为 enum 集合，每个 enum 各查一次合并。
+        # 旧逻辑 first_status=status_filter[0] + enums[0] 双层截断，多状态查询只返回首个。
+        allowed_enums = _expand_status_enums(status_filter)
 
-        orders_result = result_service.get_orders_by_portfolio(
-            account_id, status=status_enum.value if status_enum else None, page_size=100,
-        )
-        records = orders_result.data.get("data", []) if orders_result.success else []
+        records: list = []
+        if allowed_enums:
+            for enum in allowed_enums:
+                orders_result = result_service.get_orders_by_portfolio(
+                    account_id, status=enum.value, page_size=100,
+                )
+                if orders_result.success:
+                    records.extend(orders_result.data.get("data", []) or [])
+        else:
+            orders_result = result_service.get_orders_by_portfolio(
+                account_id, status=None, page_size=100,
+            )
+            records = orders_result.data.get("data", []) if orders_result.success else []
 
         orders = []
         for r in (records or []):
