@@ -160,6 +160,46 @@ async def list_components(
         )
 
 
+# ==================== 组件参数端点 ====================
+# #5408: 字面量路由 /parameters 必须声明在路径参数 /{uuid} 之前，否则
+# FastAPI 按声明序匹配会把 GET /parameters 当成 uuid="parameters" 截获。
+
+@router.get("/parameters/{component_name}")
+async def get_component_parameters(component_name: str):
+    """获取组件的参数定义"""
+    try:
+        service = get_component_parameter_service()
+        params = service.get_component_parameters(component_name)
+        if not params:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Component parameters not found: {component_name}"
+            )
+        return ok(data=params)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting component parameters for {component_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get component parameters: {str(e)}"
+        )
+
+
+@router.get("/parameters")
+async def get_all_component_parameters():
+    """获取所有组件的参数定义"""
+    try:
+        service = get_component_parameter_service()
+        return ok(data=service.get_all_component_definitions())
+    except Exception as e:
+        logger.error(f"Error getting all component parameters: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get component parameters: {str(e)}"
+        )
+
+
 @router.get("/{uuid}")
 async def get_component(uuid: str):
     """获取组件详情"""
@@ -343,44 +383,6 @@ async def delete_component(uuid: str):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete component: {str(e)}"
-        )
-
-
-# ==================== 组件参数端点 ====================
-
-@router.get("/parameters/{component_name}")
-async def get_component_parameters(component_name: str):
-    """获取组件的参数定义"""
-    try:
-        service = get_component_parameter_service()
-        params = service.get_component_parameters(component_name)
-        if not params:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component parameters not found: {component_name}"
-            )
-        return ok(data=params)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting component parameters for {component_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
-        )
-
-
-@router.get("/parameters")
-async def get_all_component_parameters():
-    """获取所有组件的参数定义"""
-    try:
-        service = get_component_parameter_service()
-        return ok(data=service.get_all_component_definitions())
-    except Exception as e:
-        logger.error(f"Error getting all component parameters: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
         )
 
 

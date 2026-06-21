@@ -14,9 +14,26 @@ from core.logging import logger
 class ComponentParameterService:
     """组件参数服务"""
 
+    @staticmethod
+    def _normalize_name(component_name: str) -> str:
+        """归一化组件名到 DEFINITIONS 的 key 形式（PascalCase）。
+
+        #5408: DEFINITIONS 的 key 是 Python 类名（PositionRatioRisk），但 API
+        调用方传组件文件名（position_ratio_risk）。这里把 snake_case 归一化
+        回 PascalCase，兼容两种命名。
+        """
+        if component_name in COMPONENT_PARAMETER_DEFINITIONS:
+            return component_name
+        # snake_case → PascalCase: position_ratio_risk → PositionRatioRisk
+        pascal = "".join(part.capitalize() for part in component_name.split("_") if part)
+        if pascal in COMPONENT_PARAMETER_DEFINITIONS:
+            return pascal
+        return component_name  # 未命中，原样返回让上层 dict.get miss
+
     def get_component_parameters(self, component_name: str) -> List[ComponentParameter]:
         """获取组件的参数定义"""
-        return COMPONENT_PARAMETER_DEFINITIONS.get(component_name, [])
+        key = self._normalize_name(component_name)
+        return COMPONENT_PARAMETER_DEFINITIONS.get(key, [])
 
     def get_all_component_definitions(self) -> Dict[str, List[ComponentParameter]]:
         """获取所有组件的参数定义"""
