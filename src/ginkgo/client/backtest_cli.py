@@ -38,6 +38,17 @@ def create_task(
     from ginkgo.data.containers import container
     from ginkgo.workers.backtest_worker.task_helpers import load_portfolio_components
 
+    # 校验 cash 为正（#5983/#6004：拒绝非正现金，避免回测以零/负资金运行）
+    if cash <= 0:
+        console.print(f":x: cash 必须为正数，当前：{cash}")
+        raise typer.Exit(1)
+
+    # 范围外警告（#6004：极端 cash 警告但不阻断，建议合理范围 1,000~10,000,000,000）
+    if cash < 1000 or cash > 10_000_000_000:
+        console.print(
+            f":warning: 警告：cash={cash} 超出建议范围（1,000~10,000,000,000），结果可能无意义"
+        )
+
     # 校验 portfolio 存在
     portfolio_service = container.portfolio_service()
     portfolio_result = portfolio_service.get(portfolio_id=portfolio)
