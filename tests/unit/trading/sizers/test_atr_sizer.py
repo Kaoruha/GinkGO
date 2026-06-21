@@ -142,3 +142,36 @@ class TestATRSizerNearZeroFloor:
 
         assert order is not None
         assert order.volume == 50000
+
+
+class TestATRSizerDoesNotLogDataFrame:
+    """#6019: ATRSizer 不得以 INFO 级别输出完整 DataFrame（遗留调试日志）。
+
+    历史：原始 `print(df)` 调试代码被机械地替换为 `GLOG.INFO(df)`，
+    导致每次 cal() 都把完整行情 DataFrame（高/低/收 多行）写日志。
+    验收：cal() 执行后，GLOG.INFO 的所有调用参数中不得出现
+    pandas.DataFrame 实例（"Order Generated." 字符串、Order 对象等
+    正常业务日志不受影响）。
+    """
+
+    def test_cal_does_not_log_full_dataframe(self, sizer):
+        df = _bar_df(15, high=11.0, low=10.0, close=10.0)
+        signal = _make_signal("000001.SZ", DIRECTION_TYPES.LONG)
+        info = _make_portfolio_info(cash=500000.0)
+
+        with patch("ginkgo.trading.sizers.atr_sizer.GLOG") as mock_glog, \
+             patch("ginkgo.trading.sizers.atr_sizer.container") as cm:
+            service = MagicMock()
+            result = MagicMock()
+            result.success = True
+            result.data.to_dataframe.return_value = df
+            service.get.return_value = result
+            cm.bar_service.return_value = service
+
+            sizer.cal(info, signal)
+
+        info_args = [c.args[0] for c in mock_glog.INFO.call_args_list if c.args]
+        dataframe_logged = any(isinstance(a, pd.DataFrame) for a in info_args)
+        assert not dataframe_logged, (
+            f"#6019: ATRSizer 仍以 INFO 输出完整 DataFrame: {info_args}"
+        )
