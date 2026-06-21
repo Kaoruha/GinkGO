@@ -164,16 +164,25 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
 
     按照 Engine 装配逻辑组织配置，支持多个 Portfolio
     """
+    # #5462: 校验日期顺序 —— 在建任务前拒绝 start_date 晚于 end_date。
+    # ISO "YYYY-MM-DD" 字符串字典序 == 时间序，可直接比较。
+    start_date = data.engine_config.start_date
+    end_date = data.engine_config.end_date
+    if start_date and end_date and start_date > end_date:
+        raise ValidationError(
+            "start_date must be before end_date",
+            field="end_date",
+        )
+
     # 构建配置
     config = build_backtest_config(data)
 
     # 获取 Portfolio 名称（主Portfolio）
+    # #5462: 不吞 NotFoundError —— 无效 portfolio UUID 应在建任务前报错，
+    # 而非回填 "Unknown Portfolio" 继续创建一个指向不存在组合的任务。
     primary_portfolio_uuid = data.portfolio_uuids[0]
-    try:
-        portfolio_info = get_portfolio_info(primary_portfolio_uuid)
-        portfolio_name = portfolio_info["name"]
-    except NotFoundError:
-        portfolio_name = "Unknown Portfolio"
+    portfolio_info = get_portfolio_info(primary_portfolio_uuid)
+    portfolio_name = portfolio_info["name"]
 
     # 使用服务层创建任务
     # #5577 #5443: engine_config 日期映射到 task 级别字段
@@ -386,7 +395,7 @@ async def create_backtest(data: BacktestTaskCreate):
         # 立即返回响应，不等待 Kafka
         return ok(data=task, message="Backtest task created successfully")
 
-    except (NotFoundError, BusinessError):
+    except (NotFoundError, ValidationError, BusinessError):
         raise
     except Exception as e:
         logger.error(f"Error creating backtest: {str(e)}")
