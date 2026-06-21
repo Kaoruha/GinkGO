@@ -25,3 +25,11 @@ class DeploymentCRUD(BaseCRUD):
     def get_by_source_portfolio(self, portfolio_id: str):
         """根据源Portfolio ID查询部署记录"""
         return self.find(filters={"source_portfolio_id": portfolio_id})
+
+    def get_by_uuid(self, deployment_id: str):
+        """根据部署记录 uuid(deployment_id) 查询。
+
+        #5952/#5939: deploy deploy 返回的 ID 即记录 uuid（list_deployments
+        输出的 deployment_id）。deploy info 应按此查，不可与 target_portfolio_id 混淆。
+        """
+        return self.find(filters={"uuid": deployment_id})

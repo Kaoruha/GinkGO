@@ -244,15 +244,21 @@ class DeploymentService(BaseService):
         }
         return result
 
-    def get_deployment_info(self, portfolio_id: str) -> ServiceResult:
-        """获取部署信息"""
-        records = self._deployment_crud.get_by_target_portfolio(portfolio_id)
+    def get_deployment_info(self, deployment_id: str) -> ServiceResult:
+        """获取部署信息。
+
+        #5952/#5939: 按 deployment 记录 uuid（即 deploy deploy 返回、list_deployments
+        输出的 deployment_id）查询，而非 target_portfolio_id。两者字段错配会导致
+        “对存在的 ID 返回未找到”。
+        """
+        records = self._deployment_crud.get_by_uuid(deployment_id)
         if not records:
             return ServiceResult(success=False, error="未找到部署记录")
 
         deployment = records[0]
         result = ServiceResult(success=True)
         result.data = {
+            "deployment_id": deployment.uuid,
             "source_task_id": deployment.source_task_id,
             "target_portfolio_id": deployment.target_portfolio_id,
             "source_portfolio_id": deployment.source_portfolio_id,
