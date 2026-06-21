@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { dataApi } from '@/api'
+import { extractSyncFailed } from '@/utils/syncResult'
 
 interface CommandRecord {
   type: string
@@ -147,14 +148,18 @@ const sendCommand = async () => {
       codes,
     })
 
+    // #6071: 读后端 ok() body 里的 failed 计数判断成功，不再硬编码 true。
+    // 后端 bars/ticks 循环里单 code 失败被 except 吞、整体仍 200，
+    // 需凭 data.failed 区分"全部成功"与"部分失败"。
+    const failed = extractSyncFailed(response)
     commandHistory.value.unshift({
       type: command.type,
       codes: codes.join(', '),
       time: new Date().toLocaleString('zh-CN'),
-      success: true,
+      success: failed === 0,
     })
 
-    console.log('命令已发送')
+    console.log(failed > 0 ? `同步完成，${failed} 个 code 失败` : '命令已发送')
   } catch (e: any) {
     commandHistory.value.unshift({
       type: command.type,
