@@ -340,16 +340,22 @@ class LogService(BaseService):
         keyword: str,
         log_type: str = "backtest",
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
+        level: Optional[str] = None,
+        time_start: Optional[datetime] = None,
+        time_end: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         """
-        关键词全文搜索
+        关键词全文搜索（可选级别/时间窗过滤）
 
         Args:
             keyword: 搜索关键词
             log_type: 日志类型
             limit: 最大返回结果数
             offset: 偏移量
+            level: 日志级别过滤（如 "ERROR"），None 不过滤（#5553）
+            time_start: 起始时间（含），None 不过滤
+            time_end: 结束时间（含），None 不过滤
 
         Returns:
             List[Dict]: 匹配的日志条目列表
@@ -366,12 +372,23 @@ class LogService(BaseService):
                     return []
 
                 # ClickHouse 使用 LIKE 进行全文搜索
-                query = select(model).where(
+                conditions = [
                     or_(
                         model.message.like(f"%{keyword}%"),
                         model.logger_name.like(f"%{keyword}%")
                     )
-                )
+                ]
+                if level is not None and hasattr(model, "level"):
+                    # 落库 level 混大小写（Master 全大写 / Test 大小写并存，旧写入大写、新写入小写），
+                    # ClickHouse == 大小写敏感，须双向 lower() 归一，否则 alert_service 透传 "ERROR"
+                    # 时漏匹配告警恒空（#5553 review：从 TypeError 崩溃换成静默 0，仍未达成告警目标）
+                    conditions.append(func.lower(model.level) == level.lower())
+                if time_start is not None and hasattr(model, "timestamp"):
+                    conditions.append(model.timestamp >= time_start)
+                if time_end is not None and hasattr(model, "timestamp"):
+                    conditions.append(model.timestamp <= time_end)
+
+                query = select(model).where(and_(*conditions))
 
                 query = query.order_by(model.timestamp.desc())
                 query = query.limit(limit).offset(offset)
