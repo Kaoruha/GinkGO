@@ -3,7 +3,8 @@ Portfolio相关API路由
 """
 
 from fastapi import APIRouter, HTTPException, status, Query, Request
-from typing import Optional
+from typing import Optional, List, Any
+from pydantic import BaseModel, Field, ConfigDict
 from core.logging import logger
 from core.response import ok, pagination_meta
 from core.exceptions import NotFoundError, ValidationError, BusinessError
@@ -451,8 +452,21 @@ async def create_portfolio(data: PortfolioCreate):
         raise BusinessError(f"Error creating portfolio: {str(e)}")
 
 
+class UpdatePortfolioRequest(BaseModel):
+    """#5474: 更新 Portfolio 请求（替代裸 dict，输入校验 + 忽略未知字段）。"""
+    model_config = ConfigDict(extra="ignore")  # 忽略未知字段，防透传 Saga
+    name: Optional[str] = Field(None, min_length=1)  # 非空（若提供）
+    initial_cash: Optional[float] = Field(None, gt=0)  # 正数（若提供）
+    selectors: Optional[List[Any]] = None
+    sizer_uuid: Optional[str] = None
+    sizer_config: Optional[dict] = None
+    strategies: Optional[List[Any]] = None
+    risk_managers: Optional[List[Any]] = None
+    analyzers: Optional[List[Any]] = None
+
+
 @router.put("/{uuid}")
-async def update_portfolio(uuid: str, data: dict):
+async def update_portfolio(uuid: str, data: UpdatePortfolioRequest):
     """更新Portfolio及其组件配置（使用Saga事务保证一致性）
 
     通过Saga模式确保Portfolio更新的事务一致性：
@@ -466,21 +480,22 @@ async def update_portfolio(uuid: str, data: dict):
     try:
         from services.saga_transaction import PortfolioSagaFactory
 
-        # 准备更新参数
+        # #5474: schema extra=ignore 已丢未知字段；exclude_none 去未提供字段
+        payload = data.model_dump(exclude_none=True)
         sizer_data = None
-        if data.get('sizer_uuid'):
-            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': data.get('sizer_config') or {}}
+        if payload.get('sizer_uuid'):
+            sizer_data = {'component_uuid': payload['sizer_uuid'], 'config': payload.get('sizer_config') or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.update_portfolio_saga(
             portfolio_uuid=uuid,
-            name=data.get('name'),
-            initial_cash=data.get('initial_cash'),
-            selectors=data.get('selectors'),
+            name=payload.get('name'),
+            initial_cash=payload.get('initial_cash'),
+            selectors=payload.get('selectors'),
             sizer=sizer_data,
-            strategies=data.get('strategies'),
-            risk_managers=data.get('risk_managers'),
-            analyzers=data.get('analyzers')
+            strategies=payload.get('strategies'),
+            risk_managers=payload.get('risk_managers'),
+            analyzers=payload.get('analyzers')
         )
 
         # 执行 Saga 事务
