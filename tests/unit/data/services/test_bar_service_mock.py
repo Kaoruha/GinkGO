@@ -341,3 +341,50 @@ class TestBarServiceSyncRange:
         assert result.data.records_processed == 3  # 幂等路径也非 0
         assert result.data.records_skipped == 3
         assert result.data.is_idempotent is True
+
+
+# ============================================================
+# sync_smart 测试
+# ============================================================
+
+class TestBarServiceSyncSmart:
+    """sync_smart 方法测试"""
+
+    @pytest.mark.unit
+    def test_fast_mode_data_up_to_date_returns_already_latest(self, service, mock_deps):
+        """
+        #5450: fast_mode 下库中最新数据已是今天时，sync_smart 应返回 success +
+        '已是最新'说明，而非让 start>end 的 ValueError 被 _validate_and_set_date_range
+        抛出后吞成失败 proc=0。
+
+        复现：000001.SZ 最新 bars timestamp=今天 → _get_fetch_date_range 算出
+        start=明天 > end=今天 → 旧代码 sync_range 抛 ValueError → sync_smart except
+        返回 error，sync_history 记 proc=0 无说明。
+        """
+        # 库中最新 bars 已是今天 → start_date = 明天 > end_date = 今天
+        mock_record = MagicMock()
+        mock_record.timestamp = datetime.now()
+        mock_deps["crud_repo"].find.return_value = [mock_record]
+
+        result = service.sync_smart("000001.SZ", fast_mode=True)
+
+        # 验收标准2: 数据已最新时明确说明为何 0 records
+        assert result.success is True, f"应成功返回'已是最新'，实际 error: {getattr(result, 'error', None)}"
+        assert "最新" in (result.message or ""), f"message 应说明已最新，实际: {result.message}"
+        # 守卫提前返回，不应进 sync_range 调数据源
+        mock_deps["data_source"].fetch_cn_stock_daybar.assert_not_called()
+        # data 是 DataSyncResult，records_processed=0（已最新无新数据）
+        assert result.data is not None
+        assert result.data.records_processed == 0
+
+    @pytest.mark.unit
+    def test_fast_mode_data_up_to_date_metadata_reason(self, service, mock_deps):
+        """#5450: '已是最新'结果应带 metadata(reason=already_up_to_date) 供调用方区分"""
+        mock_record = MagicMock()
+        mock_record.timestamp = datetime.now()
+        mock_deps["crud_repo"].find.return_value = [mock_record]
+
+        result = service.sync_smart("000001.SZ", fast_mode=True)
+
+        assert result.success is True
+        assert result.data.metadata.get("reason") == "already_up_to_date"
