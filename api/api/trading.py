@@ -217,6 +217,7 @@ async def create_paper_account(data: CreatePaperAccountRequest):
             name=data.name,
             mode=PORTFOLIO_MODE_TYPES.PAPER,
             description=f"Paper trading account, initial_capital={data.initial_capital}",
+            initial_capital=data.initial_capital,
         )
 
         if not result.is_success():
