@@ -158,23 +158,6 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             GLOG.INFO(f"Time range set: {start_date} to {end_date}")
 
-    def set_time_provider(self, provider) -> None:
-        """替换时间提供者（用于 REPLAY → LIVE_PAPER 切换）
-
-        Args:
-            provider: ITimeProvider 实例
-        """
-        self._time_provider = provider
-        if hasattr(provider, "register_time_listener"):
-            provider.register_time_listener(self)
-        try:
-            from ginkgo.trading.time.clock import set_global_time_provider
-            set_global_time_provider(provider)
-        except Exception as e:
-            GLOG.WARNING(f"{e}")
-            pass
-        GLOG.INFO(f"Time provider swapped to: {type(provider).__name__}")
-
     def start(self) -> bool:
         """启动引擎（带调试信息）"""
         GLOG.INFO(f"{self.name}: 🔥 start() called - _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}",
