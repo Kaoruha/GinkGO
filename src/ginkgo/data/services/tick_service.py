@@ -384,7 +384,12 @@ class TickService(BaseService):
             if start_date:
                 filters["timestamp__gte"] = datetime_normalize(start_date)
             if end_date:
-                filters["timestamp__lte"] = datetime_normalize(end_date)
+                end_dt = datetime_normalize(end_date)
+                # date-only 输入（归一化为午夜）须延展到 23:59:59，否则盘中 tick
+                # 全被 `<=` 排除（#6000）；带时间分量的精确 datetime 尊重其精度。
+                if end_dt.hour == 0 and end_dt.minute == 0 and end_dt.second == 0:
+                    end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                filters["timestamp__lte"] = end_dt
 
             # Get original tick data using TickCRUD
             if not self._crud_repo:
@@ -440,6 +445,9 @@ class TickService(BaseService):
 
         filter 域与现有 get() 一致（code / timestamp__gte / timestamp__lte），
         start_date/end_date 经 datetime_normalize 规范化。未抽改 get()，保持纯增量。
+        end_date 作闭区间上界，归一化到当日 23:59:59（end-of-day），使单日查询
+        （start==end）与区间查询的最后一日都能命中盘中 09:30–15:00 的 tick
+        （#6000：原归一化到 00:00:00 致盘中 tick 全被 `<=` 排除）。
         """
         filters = {}
         if code:
@@ -447,7 +455,12 @@ class TickService(BaseService):
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
-            filters["timestamp__lte"] = datetime_normalize(end_date)
+            end_dt = datetime_normalize(end_date)
+            # date-only 输入（归一化为午夜）须延展到 23:59:59，否则盘中 tick
+            # 全被 `<=` 排除（#6000）；带时间分量的精确 datetime 尊重其精度。
+            if end_dt.hour == 0 and end_dt.minute == 0 and end_dt.second == 0:
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+            filters["timestamp__lte"] = end_dt
         return filters
 
     def get_ticks_df(
