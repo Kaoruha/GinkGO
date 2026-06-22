@@ -243,6 +243,40 @@ class DatabaseDriverBase(ABC):
             GLOG.ERROR(f"Failed to get streaming connection for {self.driver_name}: {e}")
             raise
 
+    def return_streaming_connection(self, connection):
+        """归还流式查询原生连接：close 连接 + 递减活跃计数。
+
+        get_streaming_connection 返回裸连接无归还机制（#5514），调用方用完须显式
+        调本方法归还，否则连接泄漏且 active_streaming_connections 计数虚高。
+        close 异常不阻塞计数递减（finally），active>0 guard 防计数越界致负。
+        """
+        if connection is None:
+            return
+        try:
+            connection.close()
+        except Exception as e:
+            GLOG.ERROR(f"Failed to close streaming connection for {self.driver_name}: {e}")
+        finally:
+            with self._lock:
+                self._connection_stats["streaming_connections_closed"] += 1
+                # guard 防负数：get +1 与 return -1 不配对时不下穿下界
+                if self._connection_stats["active_streaming_connections"] > 0:
+                    self._connection_stats["active_streaming_connections"] -= 1
+
+    @contextmanager
+    def streaming_connection(self):
+        """流式查询原生连接的上下文管理器（自动归还）。
+
+        推荐用法：``with driver.streaming_connection() as conn: ...``，退出时自动
+        close 连接并递减计数器，杜绝忘记归还导致的泄漏（#5514）。try/finally 保证
+        异常路径也归还。底层复用 get_streaming_connection，与裸获取路径计数一致。
+        """
+        connection = self.get_streaming_connection()
+        try:
+            yield connection
+        finally:
+            self.return_streaming_connection(connection)
+
     # ==================== 健康检查 ====================
 
     @cache_with_expiration(expiration_seconds=300)
