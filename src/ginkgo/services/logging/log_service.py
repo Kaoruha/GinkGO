@@ -14,6 +14,22 @@ from ginkgo.libs import GLOG, time_logger, cache_with_expiration
 from ginkgo.enums import LEVEL_TYPES
 
 
+def _escape_like(keyword: str) -> str:
+    r"""转义 LIKE 模式特殊字符（%/_/\），防止用户输入触发通配匹配。
+
+    ClickHouse LIKE 默认以反斜杠为 ESCAPE 字符：搜 "%" 不应匹配任意序列、
+    搜 "_" 不应匹配任意单字符。反斜杠本身必须最先转义，否则后续引入的
+    转义符会被二次解释。#5521。
+    """
+    if keyword is None:
+        raise TypeError("keyword must not be None")
+    return (
+        keyword.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
 class LogService(BaseService):
     """
     日志查询服务 - 封装 ClickHouse 查询
@@ -371,11 +387,13 @@ class LogService(BaseService):
                 else:
                     return []
 
-                # ClickHouse 使用 LIKE 进行全文搜索
+                # ClickHouse 使用 LIKE 进行全文搜索；先转义用户输入的 %/_
+                # 通配字符，否则搜 "%" 会匹配任意序列（#5521）
+                escaped = _escape_like(keyword)
                 conditions = [
                     or_(
-                        model.message.like(f"%{keyword}%"),
-                        model.logger_name.like(f"%{keyword}%")
+                        model.message.like(f"%{escaped}%"),
+                        model.logger_name.like(f"%{escaped}%")
                     )
                 ]
                 if level is not None and hasattr(model, "level"):
