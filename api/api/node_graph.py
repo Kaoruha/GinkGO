@@ -221,14 +221,17 @@ async def delete_node_graph(
     graph_uuid: str,
 ):
     """
-    删除节点图
+    删除节点图（清空图配置：删 Mongo 图文档 + engine_portfolio_mapping 行 + 关联 MParam）
+    注：仅删图配置层，不删 Portfolio 实体本身。
     """
     try:
-        # TODO: 实现删除逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Delete operation not yet implemented"
-        )
+        service = get_portfolio_mapping_service()
+        result = service.delete_graph(graph_uuid)
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error or "Failed to delete node graph"
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -245,14 +248,17 @@ async def duplicate_node_graph(
     name: str,
 ):
     """
-    复制节点图
+    复制节点图（读源图 → 以新 portfolio_uuid 写入图配置副本）
     """
     try:
-        # TODO: 实现复制逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Duplicate operation not yet implemented"
-        )
+        service = get_portfolio_mapping_service()
+        result = service.duplicate_graph(graph_uuid, name=name)
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error or "Failed to duplicate node graph"
+            )
+        return ok(data=result.data, message="Graph duplicated successfully")
     except HTTPException:
         raise
     except Exception as e:
@@ -359,14 +365,40 @@ async def create_from_backtest(
     backtest_uuid: str,
 ):
     """
-    从回测配置创建节点图
+    从回测配置读取节点图（查回测 → 取 portfolio_id → 返回该组合的现有图）
+    语义：返回现有图，不创建新图（与 duplicate 区分）。
     """
     try:
-        # TODO: 实现反向编译逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Not implemented yet"
-        )
+        from ginkgo.data.containers import container
+
+        bt_service = container.backtest_task_service()
+        bt_result = bt_service.get_by_id(backtest_uuid)
+        if not bt_result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backtest {backtest_uuid} not found"
+            )
+        portfolio_id = getattr(bt_result.data, "portfolio_id", "") or ""
+        if not portfolio_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backtest {backtest_uuid} has no portfolio_id"
+            )
+
+        mapping_service = get_portfolio_mapping_service()
+        graph_result = mapping_service.get_portfolio_graph(portfolio_id)
+        if not graph_result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Node graph for backtest {backtest_uuid} (portfolio {portfolio_id}) not found"
+            )
+
+        return ok(data={
+            "backtest_uuid": backtest_uuid,
+            "portfolio_uuid": portfolio_id,
+            "graph_data": graph_result.data.get("graph_data", {}),
+            "metadata": graph_result.data.get("metadata", {}),
+        })
     except HTTPException:
         raise
     except Exception as e:
