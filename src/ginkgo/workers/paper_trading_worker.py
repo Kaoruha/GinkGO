@@ -876,7 +876,7 @@ class PaperTradingWorker:
 
             # Mode 校验：只接受 PAPER 或 LIVE
             portfolio_mode = getattr(db_portfolio, 'mode', -1)
-            if portfolio_mode == 0:  # BACKTEST
+            if portfolio_mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
                 GLOG.ERROR(
                     f"[PAPER-WORKER] Cannot deploy BACKTEST portfolio {portfolio_id}. "
                     "Deploy first via DeploymentService.deploy()."
