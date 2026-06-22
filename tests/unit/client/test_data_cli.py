@@ -260,6 +260,14 @@ class TestGetOtherTypes:
         # 容器注入了 tushare/tdx（containers.py），应被列出
         assert "tushare" in result.output.lower()
 
+    def test_get_calendar_returns_friendly_not_unknown(self, cli_runner):
+        """calendar 数据类型返回友好 planned 提示，不再 Unknown"""
+        result = cli_runner.invoke(data_cli.app, ["get", "calendar"])
+        assert result.exit_code == 0
+        assert "Unknown" not in result.output
+        out_lower = result.output.lower()
+        assert "calendar" in out_lower
+
 
 # ============================================================================
 # 4. status 测试

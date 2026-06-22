@@ -414,6 +414,11 @@ def get(
             console.print(table)
             console.print(f":information: {len(configured_sources)} data source(s) configured")
 
+        elif data_type == "calendar":
+            # #5350: calendar 列在 help 的 [planned] 类型中，但查询未实现。
+            # 与 sources 等 stub 一致给出友好提示，而非落 else 报 Unknown（与 help planned 标记对齐）。
+            console.print(":information: Calendar data query is planned but not yet implemented.")
+
         else:
             console.print(f":x: Unknown data type: {data_type}")
             raise typer.Exit(1)
