@@ -67,6 +67,57 @@ class TestDeploymentServiceDeploy:
         assert not result.success
         assert "account_id" in result.error
 
+    def test_deploy_rejects_live_with_nonexistent_account(self):
+        """#6281: 实盘模式 account 不存在时应返回业务错误，不直冲下游查询。
+
+        根因: LIVE 分支在 get_broker_by_live_account(查"已绑定")前缺 account 存在性预检，
+        非法 account 直冲下游；环境层 DB 漂移(portfolio.live_account_id 列缺失)时抛裸 1054。
+        修复: 加 get_account_by_uuid 预检，account 不存在优雅返回"实盘账户不存在"。
+        """
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # account 不存在: get_account_by_uuid 返回 success=False
+        svc._live_account_service.get_account_by_uuid.return_value = {
+            "success": False,
+            "error": "Account not found: fake_nonexistent",
+        }
+
+        result = svc.deploy(
+            portfolio_id="p1",
+            mode=PORTFOLIO_MODE_TYPES.LIVE,
+            account_id="fake_nonexistent",
+        )
+
+        assert not result.success
+        assert "实盘账户不存在" in result.error
+        # 行为断言: 预检须在查"已绑定"之前拦截，非法 account 不应走到下游查询
+        svc._broker_instance_crud.get_broker_by_live_account.assert_not_called()
+
+    def test_deploy_proceeds_when_live_account_exists(self):
+        """#6281 回归: account 存在时预检放行，继续走"已绑定"检查（不误伤正常路径）。"""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # account 存在: 预检应放行
+        svc._live_account_service.get_account_by_uuid.return_value = {
+            "success": True,
+            "data": {"uuid": "valid_account"},
+        }
+        # 已被绑定 → 证明预检放行后走到了 get_broker_by_live_account
+        svc._broker_instance_crud.get_broker_by_live_account.return_value = [MagicMock()]
+
+        result = svc.deploy(
+            portfolio_id="p1",
+            mode=PORTFOLIO_MODE_TYPES.LIVE,
+            account_id="valid_account",
+        )
+
+        # 预检放行 → get_broker_by_live_account 被调用，已绑定逻辑生效
+        svc._broker_instance_crud.get_broker_by_live_account.assert_called_once_with("valid_account")
+        assert not result.success
+        assert "已被其他组合绑定" in result.error
+
     def test_deploy_propagates_source_initial_capital(self):
         """#6200 部署时目标组合应继承源组合 initial_capital(非 service 默认 1000000)。
 
