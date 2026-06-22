@@ -238,10 +238,18 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
 async def get_stockinfo(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=50, ge=1, le=500)
+    page_size: int = Query(default=50, ge=1, le=500),
+    limit: Optional[int] = None
 ):
-    """获取股票信息列表（分页，搜索下推到DB层）"""
+    """获取股票信息列表（分页，搜索下推到DB层）
+
+    #5872: limit 参数显式约束返回条数（limit=1000 → 至多 1000 条），
+    未传时沿用 page_size（默认 50），向后兼容。与 #5621（ticks，PR#6335）同模式。
+    """
     try:
+        # #5872: limit 提供且 > 0 时作为实际 page_size（截断返回条数），
+        # 避免 ?limit=1000 被 FastAPI 静默丢弃致默认 50 截断
+        effective_page_size = limit if (limit is not None and limit > 0) else page_size
         stockinfo_service = get_stockinfo_service()
 
         if search:
@@ -249,10 +257,10 @@ async def get_stockinfo(
             result = stockinfo_service.search(
                 keyword=search,
                 page=page - 1,
-                page_size=page_size,
+                page_size=effective_page_size,
             )
             if not result.is_success() or not result.data:
-                return paginated(items=[], total=0, page=page, page_size=page_size)
+                return paginated(items=[], total=0, page=page, page_size=effective_page_size)
 
             result_data = result.data
             total_count = result_data.get("total", 0) if isinstance(result_data, dict) else 0
@@ -263,13 +271,13 @@ async def get_stockinfo(
             total_count = count_result.data if count_result.is_success() else 0
 
             result = stockinfo_service.get(
-                limit=page_size,
-                offset=(page - 1) * page_size,
+                limit=effective_page_size,
+                offset=(page - 1) * effective_page_size,
                 order_by="code"
             )
 
             if not result.is_success() or not result.data:
-                return paginated(items=[], total=total_count, page=page, page_size=page_size)
+                return paginated(items=[], total=total_count, page=page, page_size=effective_page_size)
 
             items = result.data
 
@@ -297,7 +305,7 @@ async def get_stockinfo(
                 "updated_at": update_at.isoformat() if update_at else None
             })
 
-        return paginated(items=stock_summaries, total=total_count, page=page, page_size=page_size)
+        return paginated(items=stock_summaries, total=total_count, page=page, page_size=effective_page_size)
 
     except Exception as e:
         logger.error(f"Error getting stockinfo: {e}")
