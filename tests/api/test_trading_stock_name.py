@@ -46,7 +46,9 @@ def _order(code="000001"):
 
 
 def _stock(code="000001", name="平安银行"):
-    return SimpleNamespace(code=code, name=name)
+    # StockInfo Entity 中文字段是 code_name（非 name，arch_stockinfo_entity_code_name_field）；
+    # SimpleNamespace 用 code_name 属性名对齐真实结构，避免伪造 name 属性掩盖提取 bug。
+    return SimpleNamespace(code=code, code_name=name)
 
 
 class TestQueryPositionsStockName:

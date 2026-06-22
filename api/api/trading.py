@@ -130,7 +130,9 @@ def _resolve_stock_names(codes: list) -> dict:
     for code in unique_codes:
         result = svc.get_stockinfos(code=code)
         if result.success and result.data:
-            name = getattr(result.data[0], 'name', '') or ''
+            # StockInfo Entity 中文字段是 code_name（非 name，arch_stockinfo_entity_code_name_field）。
+            # 出口 API key 仍为 "name"（前端契约），值从 code_name 取。
+            name = getattr(result.data[0], 'code_name', '') or ''
             if name:
                 names[code] = name
     return names
