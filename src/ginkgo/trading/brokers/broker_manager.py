@@ -253,6 +253,11 @@ class BrokerManager:
         """
         broker_crud, _, _ = self._get_cruds()
 
+        # #5552: 前置初始化 broker，避免 CRUD 查询抛异常时 except 块访问
+        # broker.uuid 触发 UnboundLocalError（被内层 except 吞掉，污染诊断日志、
+        # 掩盖原始异常）。
+        broker = None
+
         try:
             broker = broker_crud.get_broker_by_portfolio(portfolio_id)
             if not broker:
@@ -283,15 +288,17 @@ class BrokerManager:
 
         except Exception as e:
             GLOG.ERROR(f"Failed to start broker for portfolio {portfolio_id}: {e}")
-            # 尝试更新状态为错误
-            try:
-                broker_crud.update_broker_instance_status(
-                    broker.uuid,
-                    "error",
-                    error_message=str(e)
-                )
-            except Exception as e:
-                GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
+            # 尝试更新状态为错误（仅当 broker 已查到——查询失败时无 broker 可更新，
+            # 强行访问 broker.uuid 会触发 UnboundLocalError，见 #5552）
+            if broker is not None:
+                try:
+                    broker_crud.update_broker_instance_status(
+                        broker.uuid,
+                        "error",
+                        error_message=str(e)
+                    )
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
             return False
 
     def stop_broker(self, portfolio_id: str) -> bool:
