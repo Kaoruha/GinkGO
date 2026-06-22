@@ -43,7 +43,7 @@ def _get_user_id(request: Request) -> str:
         return "default_user"
 
 
-@router.get("/")
+@router.get("")
 async def list_accounts(
     request: Request,
     exchange: Optional[str] = Query(None, description="过滤交易所"),
@@ -75,7 +75,7 @@ async def list_accounts(
         raise BusinessError(f"Error listing accounts: {e}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_account(request: Request, data: CreateLiveAccountRequest):
     """创建实盘账号"""
     try:

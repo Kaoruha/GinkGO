@@ -239,7 +239,7 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
 
 # ==================== API 路由 ====================
 
-@router.get("/")
+@router.get("")
 async def list_backtests(
     status: Optional[str] = Query(None, description="按状态筛选"),
     portfolio_id: Optional[str] = Query(None, description="按投资组合筛选"),
@@ -360,7 +360,7 @@ async def get_backtest(uuid: str):
         raise BusinessError(f"Error getting backtest: {str(e)}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_backtest(data: BacktestTaskCreate):
     """
     创建回测任务

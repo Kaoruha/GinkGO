@@ -64,7 +64,7 @@ def _check_health() -> list[SystemHealthItem]:
     return health_items
 
 
-@router.get("/")
+@router.get("")
 async def get_dashboard_stats(request: Request):
     """获取仪表盘统计数据"""
     try:

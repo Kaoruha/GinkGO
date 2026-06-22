@@ -174,7 +174,7 @@ def get_param_names(component_name: str, file_type: str = None):
     return get_component_parameter_names(component_name, None, file_type, None)
 
 
-@router.get("/")
+@router.get("")
 async def list_portfolios(
     mode: Optional[PortfolioMode] = Query(None, description="按运行模式筛选"),
     page: int = Query(0, ge=0, description="页码（0-based）"),
@@ -383,7 +383,7 @@ async def get_portfolio(uuid: str):
         raise BusinessError(f"Error getting portfolio: {str(e)}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_portfolio(data: PortfolioCreate):
     """创建Portfolio（使用Saga事务保证一致性）
 
