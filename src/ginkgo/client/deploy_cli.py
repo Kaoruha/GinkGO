@@ -18,6 +18,7 @@ def deploy(
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,
+    source_task: Annotated[Optional[str], typer.Option("--source-task", help="源回测任务ID (可选, 记录回测→部署链路)")] = None,
 ):
     """一键部署：Portfolio → 纸上交易/实盘"""
     try:
@@ -46,6 +47,7 @@ def deploy(
             mode=mode_map[mode],
             account_id=account,
             name=name,
+            source_task_id=source_task,
         )
 
         if result.success:
@@ -85,7 +87,7 @@ def info(
             mode_str = "纸上交易" if data.get("mode") == 1 else "实盘"
             table.add_row("模式", mode_str)
             table.add_row("实盘账号", data.get("account_id", "N/A"))
-            table.add_row("状态", str(data.get("status", "")))
+            table.add_row("状态", data.get("status_name") or str(data.get("status", "")))
             table.add_row("创建时间", data.get("create_at", ""))
             console.print(table)
         else:
