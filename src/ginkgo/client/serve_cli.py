@@ -344,7 +344,7 @@ def serve_livecore():
 
 @app.command("execution")
 def serve_execution(
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="ExecutionNode unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="ExecutionNode unique identifier"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Specific portfolio ID to load"),
 ):
     """
@@ -505,7 +505,7 @@ def serve_scheduler(
 @app.command("tasktimer")
 def serve_tasktimer(
     config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node ID"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="Node ID"),
 ):
     """
     :alarm_clock: Start TaskTimer scheduled task manager.
@@ -513,7 +513,7 @@ def serve_tasktimer(
     Examples:
       ginkgo serve tasktimer
       ginkgo serve tasktimer --config /path/to/config.yml
-      ginkgo serve tasktimer --node-id timer_1
+      ginkgo serve tasktimer --id timer_1
     """
     import signal
     import time

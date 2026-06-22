@@ -1,14 +1,22 @@
 """
-#6283: serve worker-* 的 --id 参数风格统一，移除 click 死别名 -id
+#6283: serve 子命令的 --id 参数风格统一（方案 B，breaking）
 
-根因：typer.Option(None, "--id", "-id") 中的 "-id" 是多字符单横线别名，
-click 把 "-id" 当作短选项堆叠 "-i -d" 解析 → 报 "No such option: -i"。
-该别名自始无效，却仍残留在 worker-data/backtest/notify 的选项声明里
-（worker-paper 已清理），构成"风格不统一"的误导假象。
+根因（实测纠正，见 PR #6325 review；issue 原始描述的 "click 拆解 -i -d" 不成立）：
+- worker-paper 仅声明 --id（无 -id 别名）→ -id 被 click 当未知短选项堆叠报
+  No such option，是 issue 观察到的报错唯一来源。
+- execution/tasktimer/worker-data/backtest/notify 声明 --id + -id 别名 → 在
+  typer 0.20 / click 8.3 下 -id 是合法完整选项（param.opts 含 '-id'），可用。
+- help 示例还混用 --node-id（与参数名 --id 不符）。
+表象"风格不统一"的根因是别名声明不一致 + help 示例笔误，非"click 不支持多字符单横线"。
 
-本测试通过 click Option 的 secondary_opts（别名声明）程序化验证：
-node_id 选项不得残留 -id 死别名，仅保留标准 --id 长选项。
-（程序化检查而非 help 文本断言，不受 rich 表格渲染格式影响。）
+方案 B（review 接受的 breaking 路径）：
+全删 -id 别名（含 execution/tasktimer 同问题），统一 --id；help 示例同步 --id。
+BREAKING：CLAUDE.md「Key Commands」与部署脚本中 `serve worker-backtest -id test2`
+需迁移为 `--id test2`，-id 不再被任何 serve 子命令接受。
+
+方案 A（per-alias deprecation）排除：click 8.3 原生 deprecated 是整个 Option 级，
+per-alias（只 -id warning 而 --id 不 warning）需侵入 _OptionParser._process_opts
+内部 API，成本不成比例；自用项目 breaking 可控。
 """
 
 import os
@@ -20,9 +28,20 @@ import typer
 
 from ginkgo.client import serve_cli
 
+# 所有声明 node_id 的 serve 子命令（execution/tasktimer 超 issue 原始 worker-*
+# scope，但属同一兼容性问题，方案 B 一并统一）。
+SERVE_ID_COMMANDS = [
+    "execution",
+    "tasktimer",
+    "worker-data",
+    "worker-backtest",
+    "worker-notify",
+    "worker-paper",
+]
+
 
 def _get_serve_command(name: str):
-    """从 serve_cli.app 解析出 click Command 对象（程序化访问选项声明）。"""
+    """从 serve_cli.app 解析出 click Command 对象（程序化访问选项/help 声明）。"""
     cmd_group = typer.main.get_command(serve_cli.app)
     return cmd_group.commands[name]
 
@@ -38,39 +57,30 @@ def _id_option_aliases(cmd_name: str):
 
 @pytest.mark.unit
 @pytest.mark.cli
-class TestWorkerIdFlagStyle:
-    """#6283: serve worker-* 的 node_id 选项统一 --id，移除 -id 死别名。"""
+class TestServeIdFlagUnified:
+    """#6283: 所有 serve 子命令的 node_id 选项统一 --id，移除 -id 别名。"""
 
-    def test_worker_backtest_id_option_drops_deprecated_short_alias(self):
-        """worker-backtest: node_id 不得残留 -id 死别名（click 拆 -i -d 报错）。"""
-        aliases = _id_option_aliases("worker-backtest")
-        assert "--id" in aliases, f"worker-backtest 应保留 --id: {aliases}"
-        assert "-id" not in aliases, f"worker-backtest 残留死别名 -id: {aliases}"
+    @pytest.mark.parametrize("cmd_name", SERVE_ID_COMMANDS)
+    def test_id_option_only_long_form(self, cmd_name):
+        """每个 serve 子命令：node_id 仅保留 --id，不含 -id 别名（#6283 统一）。"""
+        aliases = _id_option_aliases(cmd_name)
+        assert "--id" in aliases, f"{cmd_name} 应保留 --id: {aliases}"
+        assert "-id" not in aliases, f"{cmd_name} 残留 -id 别名（应迁移到 --id）: {aliases}"
 
-    def test_worker_data_id_option_drops_deprecated_short_alias(self):
-        """worker-data: node_id 不得残留 -id 死别名（#6283 统一 --id）。"""
-        aliases = _id_option_aliases("worker-data")
-        assert "--id" in aliases
-        assert "-id" not in aliases, f"worker-data 残留死别名 -id: {aliases}"
+    @pytest.mark.parametrize("cmd_name", SERVE_ID_COMMANDS)
+    def test_help_example_uses_double_dash_id(self, cmd_name):
+        """help 示例统一用 --id，不残留 --node-id 笔误（#6283 第二层不一致修复）。"""
+        cmd = _get_serve_command(cmd_name)
+        help_text = cmd.help or ""
+        # --node-id 从未是真实参数名（参数名是 --id），help 示例出现即是笔误。
+        assert "--node-id" not in help_text, f"{cmd_name} help 残留 --node-id 笔误: {help_text}"
 
-    def test_worker_notify_id_option_drops_deprecated_short_alias(self):
-        """worker-notify: node_id 不得残留 -id 死别名（#6283 统一 --id）。"""
-        aliases = _id_option_aliases("worker-notify")
-        assert "--id" in aliases
-        assert "-id" not in aliases, f"worker-notify 残留死别名 -id: {aliases}"
-
-    def test_worker_paper_id_option_never_had_short_alias(self):
-        """worker-paper: 本就纯 --id（回归锁，防止重新引入 -id 死别名）。"""
-        aliases = _id_option_aliases("worker-paper")
-        assert "--id" in aliases
-        assert "-id" not in aliases, f"worker-paper 引入了死别名 -id: {aliases}"
-
-    def test_deprecated_short_id_flag_fails_cleanly(self, runner=None):
-        """-id 整体作为未知选项报错，而非被误解析为可用别名（#6283 验收2）。"""
+    def test_short_id_alias_rejected_after_unification(self):
+        """BREAKING 回归：统一后 -id 对所有子命令是未知选项（No such option）。
+        用户需迁移到 --id（CLAUDE.md/部署脚本中的 -id 用法不再可用）。
+        关键：-id 不被静默接受为合法选项（exit != 0）。"""
         from typer.testing import CliRunner
-        runner = runner or CliRunner()
-        # worker-backtest -id t1：修复前报 "No such option: -i"（拆解），
-        # 移除别名后报 "No such option: -id"（整体未知，更清晰）。
-        # 两种都 exit_code != 0；关键是不被当作合法别名静默接受。
+
+        runner = CliRunner()
         result = runner.invoke(serve_cli.app, ["worker-backtest", "-id", "t1"])
-        assert result.exit_code != 0, "-id 不应被静默接受为合法选项"
+        assert result.exit_code != 0, "-id 不应被接受（方案 B 统一为 --id，见迁移指引）"
