@@ -40,7 +40,7 @@ def reset(
 @app.command()
 def purge(
     queue_name: str = typer.Argument(..., help="要清理的队列名称"),
-    confirm: bool = typer.Option(False, "--yes", help="跳过确认提示")
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="跳过确认提示 (#6006)")
 ):
     """清理指定队列的所有消息"""
     console.print(f"[bold red][red]:wastebasket:[/red] Purging queue: {queue_name}[/]")

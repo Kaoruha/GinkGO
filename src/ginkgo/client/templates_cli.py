@@ -293,7 +293,7 @@ def update_template(
 @app.command("delete")
 def delete_template(
     template_id: str = typer.Argument(..., help="Template ID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation (--yes/-y; #6006)"),
 ):
     """
     :wastebasket: Delete a template (soft delete).

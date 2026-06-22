@@ -275,7 +275,7 @@ def update_user(
 @app.command("delete")
 def delete_user(
     user_uuid: str = typer.Argument(..., help="User UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation prompt (--yes/-y; #6006)"),
 ):
     """
     :wastebasket: Delete a user (cascades to contacts and group mappings).
@@ -514,7 +514,7 @@ def set_primary_contact(
 @contact_app.command("delete")
 def delete_contact(
     contact_uuid: str = typer.Argument(..., help="Contact UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation prompt (--yes/-y; #6006)"),
 ):
     """
     :wastebasket: Delete a contact.

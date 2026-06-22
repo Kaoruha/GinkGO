@@ -199,7 +199,7 @@ def cat_group(
 @app.command("delete")
 def delete_group(
     group_uuid: str = typer.Argument(..., help="Group UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation prompt (--yes/-y; #6006)"),
 ):
     """
     :wastebasket: Delete a group (cascades to user mappings).
