@@ -5,8 +5,8 @@
 """
 
 from fastapi import APIRouter, Query
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field, field_validator
 
 from core.logging import logger
 from core.response import ok, paginated
@@ -19,8 +19,24 @@ router = APIRouter()
 class SegmentStabilityRequest(BaseModel):
     task_id: str = Field(..., description="回测任务 UUID")
     portfolio_id: str = Field(..., description="组合 UUID")
-    n_segments: Optional[List[int]] = Field(default=[2, 4, 8], description="分段数列表")
+    # #5393: 字段名 n_segments 暗示单数，但服务层按「多分段数列表」循环。
+    # 接受 int 或 list[int]，int 自动归一化为 [int]，list 与默认 [2,4,8] 保留。
+    n_segments: Optional[Union[int, List[int]]] = Field(
+        default=[2, 4, 8],
+        description="分段数：单个整数或列表（如 4 或 [2,4,8]，int 自动归一化为 [int]）",
+    )
     metrics: Optional[List[str]] = Field(default=None, description="分析器名称列表")
+
+    @field_validator("n_segments", mode="before")
+    @classmethod
+    def _coerce_n_segments(cls, v):
+        """#5393: int → [int] 归一化；list 与 None 原样透传（None 由 service 兜底为默认）。"""
+        # bool 是 int 子类，JSON true 不应归一化为 [1]
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, int):
+            return [v]
+        return v
 
 
 class AvailableMetricsRequest(BaseModel):
