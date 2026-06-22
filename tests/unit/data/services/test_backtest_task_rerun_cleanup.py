@@ -88,16 +88,32 @@ class TestRerunCleanupLoop:
 
     @pytest.mark.unit
     def test_all_nine_cruds_remove_called_with_task_id(self):
-        """重跑时 9 个注入 CRUD 全部以 filters={"task_id": task_id} 调用 remove"""
+        """重跑时 9 个注入 CRUD 全部以 filters={"task_id": task_id} 调用 remove
+
+        MySQL 4 个额外传 session（共享单事务，#5562）；CH 5 个无 session（CH 无事务）。
+        filters 契约对 9 个一致，session 按库归属区分。
+        """
         svc, cruds = _make_service_with_cruds()
+        # MySQL 组走 driver.get_session() 事务，需装上 contextmanager 否则 with MagicMock() 失败
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
         task = svc._crud_repo.get_by_uuid.return_value
 
         with _mock_kafka_and_container():
             svc.start_task(uuid="uuid-1234")
 
-        for name, crud in cruds.items():
+        mysql_names = TestRerunCleanupAtomicity.MYSQL_CRUD_NAMES
+        click_names = TestRerunCleanupAtomicity.CLICK_CRUD_NAMES
+        for name in mysql_names + click_names:
+            crud = cruds[name]
             assert crud.remove.called, f"{name} 未被清理"
-            crud.remove.assert_called_once_with(filters={"task_id": task.task_id})
+            _, kwargs = crud.remove.call_args
+            assert kwargs.get("filters") == {"task_id": task.task_id}, \
+                f"{name} filters 契约破裂"
+            if name in mysql_names:
+                assert "session" in kwargs, f"{name} (MySQL) 应传入共享 session"
+            else:
+                assert "session" not in kwargs or kwargs["session"] is None, \
+                    f"{name} (ClickHouse) 不应参与 MySQL 事务"
 
     @pytest.mark.unit
     def test_none_crud_warns_others_still_cleaned(self):
@@ -135,19 +151,109 @@ class TestRerunCleanupLoop:
         assert result.success is True
 
     @pytest.mark.unit
-    def test_partial_crud_failure_does_not_abort_cleanup(self):
-        """中间某 CRUD.remove 抛异常时，后续 CRUD 仍被清理（逐表 try-except 容错）"""
+    def test_clickhouse_cleanup_failure_does_not_abort_start(self):
+        """ClickHouse 组 cleanup 失败 → best-effort 告警，不阻断 MySQL 事务与启动（CH 无事务，#5562）
+
+        语义变更：原 test_partial_crud_failure_does_not_abort_cleanup 用 position(MySQL) 测容错，
+        但 #5562 后 MySQL 组原子（任一失败→回滚→error，见 TestRerunCleanupAtomicity）。
+        best-effort 容错仅对 ClickHouse 成立（CH 无事务能力）。
+        """
         svc, cruds = _make_service_with_cruds()
-        # 位于列表中段的 position_crud 抛异常
-        cruds["position_crud"].remove.side_effect = Exception("position 表锁")
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        cruds["analyzer_record_crud"].remove.side_effect = Exception("analyzer CH 表锁")
+
+        with _mock_kafka_and_container() as producer:
+            result = svc.start_task(uuid="uuid-1234")
+
+        # CH 失败被吞，best-effort 不阻断
+        assert result.is_success() is True, "CH cleanup 失败应 best-effort，不阻断启动"
+        assert producer.send.called, "CH 失败不应阻止发 Kafka"
+        # MySQL 组仍清理（在事务内）
+        assert cruds["position_crud"].remove.called
+        assert cruds["signal_tracker_crud"].remove.called
+        # CH analyzer_record 确实尝试过
+        cruds["analyzer_record_crud"].remove.assert_called_once()
+
+
+class TestRerunCleanupAtomicity:
+    """start_task 重跑清理的原子性（#5562）
+
+    库归属（_is_clickhouse 运行时属性为裁判）：
+      MySQL 4 个（order/position/transfer/signal_tracker）—— 共享单事务，任一失败全回滚
+      ClickHouse 5 个（signal/position_record/analyzer_record/order_record/transfer_record）
+        —— CH 无事务（ALTER DELETE 异步 mutation），best-effort 删除+告警，不阻断
+
+    设计变更：原逐表 try-except 容错（半清理仍启动）会让新回测用残留数据致结果污染（#5562 核心）。
+    新契约：MySQL 组原子，失败→回滚→不启动；CH 组保留 best-effort。
+    """
+
+    # 与实现 _mysql_cleanups / _click_cleanups 对齐（_is_clickhouse 权威）
+    MYSQL_CRUD_NAMES = ("order_crud", "position_crud", "transfer_crud", "signal_tracker_crud")
+    CLICK_CRUD_NAMES = (
+        "signal_crud", "position_record_crud", "analyzer_record_crud",
+        "order_record_crud", "transfer_record_crud",
+    )
+
+    @staticmethod
+    def _wire_mysql_transaction(cruds):
+        """给 4 个 MySQL CRUD 装上共享 driver 事务 contextmanager（模拟单例 driver）。
+
+        返回 (shared_session, stats) —— stats={'committed':int,'rolled_back':int}。
+        """
+        shared_session = MagicMock(name="shared_mysql_session")
+        stats = {"committed": 0, "rolled_back": 0}
+
+        @contextmanager
+        def fake_tx():
+            try:
+                yield shared_session
+                stats["committed"] += 1
+            except Exception:
+                stats["rolled_back"] += 1
+                raise
+
+        shared_driver = MagicMock(name="shared_mysql_driver")
+        shared_driver.get_session.side_effect = fake_tx
+        for name in TestRerunCleanupAtomicity.MYSQL_CRUD_NAMES:
+            cruds[name]._get_connection.return_value = shared_driver
+        return shared_session, stats
+
+    @pytest.mark.unit
+    def test_mysql_cleanup_failure_rolls_back_and_aborts_start(self):
+        """MySQL 组 cleanup 中途失败 → 事务回滚 + start_task 返回 error，不发 Kafka（#5562）"""
+        svc, cruds = _make_service_with_cruds()
+        shared_session, stats = self._wire_mysql_transaction(cruds)
+        cruds["position_crud"].remove.side_effect = RuntimeError("position 表锁")
+
+        with _mock_kafka_and_container() as producer:
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is False, "MySQL cleanup 失败应返回 error，不启动半清理回测"
+        assert producer.send.called is False, "cleanup 失败不应发 Kafka 启动命令"
+        assert stats["rolled_back"] >= 1, "MySQL 事务应回滚"
+        assert stats["committed"] == 0, "回滚路径不应 commit"
+
+    @pytest.mark.unit
+    def test_mysql_cruds_share_single_transaction_session(self):
+        """4 个 MySQL CRUD 的 remove 收到同一 session 对象（事务共享，#5562）
+
+        driver 单例 → 4 CRUD 共享 session_factory → 单事务（commit 一次）。
+        CH 5 个不传 session（不参与 MySQL 事务）。
+        """
+        svc, cruds = _make_service_with_cruds()
+        shared_session, stats = self._wire_mysql_transaction(cruds)
 
         with _mock_kafka_and_container():
             result = svc.start_task(uuid="uuid-1234")
 
-        # 异常被吞，start_task 仍成功
-        assert result.success is True
-        # position_crud 确实尝试过清理
-        cruds["position_crud"].remove.assert_called_once()
-        # 位于其后的 analyzer_record / signal_tracker 仍被清理（未中断）
-        assert cruds["analyzer_record_crud"].remove.called
-        assert cruds["signal_tracker_crud"].remove.called
+        assert result.is_success() is True
+        for name in self.MYSQL_CRUD_NAMES:
+            _, kwargs = cruds[name].remove.call_args
+            assert kwargs.get("session") is shared_session, \
+                f"{name} 应收到共享 session，实际 {kwargs.get('session')}"
+        for name in self.CLICK_CRUD_NAMES:
+            _, kwargs = cruds[name].remove.call_args
+            assert "session" not in kwargs or kwargs["session"] is None, \
+                f"{name} (CH) 不应参与 MySQL 事务"
+        assert stats["committed"] == 1, "MySQL 组应单事务 commit 一次"
+        assert stats["rolled_back"] == 0

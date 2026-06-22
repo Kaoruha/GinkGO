@@ -605,26 +605,53 @@ class BacktestTaskService(BaseService):
 
             GLOG.INFO(f"Cleaning old data for task_id: {task_id[:8]}...")
 
-            # 清理与 task_id 关联的所有历史数据（CRUD 由容器注入）
-            _cleanup_cruds = [
-                ("signal",          self._signal_crud),
+            # 库归属分组（_is_clickhouse 运行时属性为裁判，非 CRUD 注释）：
+            #   MySQL 4 个：共享单事务，任一失败全 rollback，cleanup 失败则不启动回测
+            #   ClickHouse 5 个：CH 无事务（ALTER DELETE 异步 mutation），best-effort 删除+告警，不阻断
+            # 设计变更见 #5562：原逐表 try-except 半清理仍启动 → 新回测用残留数据致结果污染。
+            # driver 经 get_db_connection 单例返回，4 个 MySQL CRUD 共享同一 session_factory。
+            _mysql_cleanups = [
                 ("order",           self._order_crud),
                 ("position",        self._position_crud),
+                ("transfer",        self._transfer_crud),
+                ("signal_tracker",  self._signal_tracker_crud),
+            ]
+            _click_cleanups = [
+                ("signal",          self._signal_crud),
                 ("position_record", self._position_record_crud),
                 ("analyzer_record", self._analyzer_record_crud),
                 ("order_record",    self._order_record_crud),
                 ("transfer_record", self._transfer_record_crud),
-                ("transfer",        self._transfer_crud),
-                ("signal_tracker",  self._signal_tracker_crud),
             ]
-            for name, crud in _cleanup_cruds:
-                # CRUD 未注入时走 None.remove() → AttributeError → except 转 WARN
-                # （刻意不静默跳过：清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
+
+            # ClickHouse 无事务：尽力删除，失败告警不阻断（CH 固有限制，无回滚能力）
+            for name, crud in _click_cleanups:
                 try:
                     crud.remove(filters={"task_id": task_id})
-                    GLOG.DEBUG(f"Deleted old {name}")
+                    GLOG.DEBUG(f"Deleted old {name} (clickhouse)")
                 except Exception as e:
-                    GLOG.WARN(f"Failed to delete {name}: {e}")
+                    GLOG.WARN(f"Failed to delete {name} (clickhouse, no rollback): {e}")
+
+            # MySQL 4 个：None 告警跳过，其余共享单事务（任一失败全 rollback）
+            # （清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
+            _mysql_present = []
+            for name, crud in _mysql_cleanups:
+                if crud is None:
+                    GLOG.WARN(f"Failed to delete {name}: CRUD not injected")
+                else:
+                    _mysql_present.append((name, crud))
+
+            if _mysql_present:
+                try:
+                    # 4 个 MySQL CRUD 共享同一 driver 单例 → 同一 session_factory → 单事务
+                    _mysql_driver = _mysql_present[0][1]._get_connection()
+                    with _mysql_driver.get_session() as _cleanup_session:
+                        for name, crud in _mysql_present:
+                            crud.remove(filters={"task_id": task_id}, session=_cleanup_session)
+                            GLOG.DEBUG(f"Deleted old {name} (mysql, in transaction)")
+                except Exception as e:
+                    GLOG.ERROR(f"MySQL cleanup transaction failed (rolled back): {e}")
+                    return ServiceResult.error(f"Cleanup failed and rolled back: {str(e)}")
 
             # 发送启动命令到Kafka（task_id 保持不变）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
