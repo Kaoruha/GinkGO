@@ -130,16 +130,23 @@ class PortfolioMappingService(BaseService):
             )
 
             # 4. 同步到 MySQL Mapping
-            mapping_sync_result = self._sync_mappings_from_files(
-                portfolio_uuid=portfolio_uuid,
-                file_mappings=file_mappings
-            )
-
             # 5. 同步到 MySQL MParam
-            param_sync_result = self._sync_params_from_nodes(
-                portfolio_uuid=portfolio_uuid,
-                node_params=node_params
-            )
+            # 下游 MySQL sync 失败时补偿删 Mongo 孤儿（#5559）：
+            # Mongo 已在步骤3写入，若 MySQL sync 抛异常，反向删除已写的 Mongo 文档，
+            # 保持跨库一致性。raise 让外层 @retry/except 决定重试或返错。
+            try:
+                mapping_sync_result = self._sync_mappings_from_files(
+                    portfolio_uuid=portfolio_uuid,
+                    file_mappings=file_mappings
+                )
+
+                param_sync_result = self._sync_params_from_nodes(
+                    portfolio_uuid=portfolio_uuid,
+                    node_params=node_params
+                )
+            except Exception:
+                self._delete_graph_from_mongo(mongo_id)
+                raise
 
             GLOG.INFO(f"从图编辑器创建配置: {portfolio_uuid} ({mongo_id})")
             GLOG.DEBUG(f"  同步了 {len(file_mappings)} 个文件映射")
@@ -552,6 +559,27 @@ class PortfolioMappingService(BaseService):
 
         collection.insert_one(document)
         return doc_id
+
+    def _delete_graph_from_mongo(self, doc_id: str) -> bool:
+        """从 MongoDB 删除图数据文档（补偿原语，#5559）
+
+        用于跨库写失败时反向补偿：create_from_graph_editor 写入 MongoDB 后，
+        若 MySQL Mapping/MParam 同步失败，调用此方法删除已写的 Mongo 文档，
+        避免孤儿。delete_one 对不存在的 _id 无害（幂等）。
+
+        Args:
+            doc_id: MongoDB 文档 ID（_save_graph_to_mongo 返回值）
+
+        Returns:
+            True 表示删除了一条文档；False 表示文档不存在或删除异常
+        """
+        try:
+            collection = self._mongo_driver.get_collection("portfolio_graph_data")
+            result = collection.delete_one({"_id": doc_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            GLOG.ERROR(f"补偿删除 MongoDB 图文档失败: {doc_id}, {e}")
+            return False
 
     def _update_graph_in_mongo(
         self,
