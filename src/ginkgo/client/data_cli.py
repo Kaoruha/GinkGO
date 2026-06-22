@@ -739,6 +739,10 @@ def migrate(
     autogenerate: bool = typer.Option(False, "--autogenerate", "-a", help="Auto-generate migration from model changes"),
     revision: Optional[str] = typer.Option(None, "--revision", "-r", help="Specific revision to upgrade/downgrade"),
     action: str = typer.Option("upgrade", "--action", help="Action: upgrade/downgrade/heads/history/current"),
+    path: Optional[str] = typer.Option(
+        None, "--path", "-p",
+        help="Override migrations directory (absolute or relative to cwd). Default: <source-tree>/migrations/<database>",
+    ),
 ):
     """
     :page_facing_up: Database migration management.
@@ -755,7 +759,15 @@ def migrate(
             import subprocess
             import os
 
-            migrations_dir = "/home/kaoru/Ginkgo/migrations/mysql"
+            if path:
+                migrations_dir = os.path.abspath(path)
+            else:
+                # 相对源码树根解析（#5517）：src/ginkgo/client/data_cli.py 上溯 4 级
+                # (client -> ginkgo -> src -> 仓库根)，使迁移目录随安装位置走，
+                # 而非硬编码 /home/kaoru/Ginkgo/migrations/mysql。
+                _client_dir = os.path.dirname(os.path.abspath(__file__))
+                _source_root = os.path.dirname(os.path.dirname(os.path.dirname(_client_dir)))
+                migrations_dir = os.path.join(_source_root, "migrations", database)
             alembic_ini = os.path.join(migrations_dir, "alembic.ini")
 
             if autogenerate:
