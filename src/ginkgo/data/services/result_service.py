@@ -557,6 +557,45 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取持仓记录失败: {e}")
             return ServiceResult.error(f"获取持仓记录失败: {e}")
 
+    def get_positions_df(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        page_size: int = 50,
+    ) -> ServiceResult:
+        """出口①：data 是 pandas.DataFrame（类型即契约）。
+
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口。查 PositionRecordCRUD
+        （回测流水表，与 create_position_record 写入同源），task_id 可选支持
+        portfolio-only 查询。#5964 修 record position 读空——原误查 PositionCRUD
+        状态表（实盘当前持仓，回测从不写）。
+        """
+        try:
+            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
+            position_record_crud = PositionRecordCRUD()
+
+            filters: dict = {}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+            if engine_id:
+                filters["engine_id"] = engine_id
+            if task_id:
+                filters["task_id"] = task_id
+
+            model_list = position_record_crud.find(
+                filters=filters,
+                page_size=page_size if page_size > 0 else None,
+            )
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} position records (DataFrame)",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"查询持仓(df)失败: {str(e)}")
+            return ServiceResult.error(f"查询持仓(df)失败: {str(e)}")
+
     @retry(max_try=3)
     def create_order_record(self, **kwargs) -> ServiceResult:
         """

@@ -46,15 +46,17 @@ def mock_orders_df():
 
 @pytest.fixture
 def mock_positions_df():
+    # #5964: 字段对齐 PositionRecord 流水表（volume/cost/price/fee）
     return pd.DataFrame({
         "uuid": ["pos1"],
         "portfolio_id": ["p1"],
         "engine_id": ["e1"],
         "task_id": ["t1"],
         "code": ["000001.SZ"],
-        "quantity": [100],
-        "average_price": [10.5],
-        "market_value": [1050.0],
+        "volume": [100],
+        "cost": [1000.0],
+        "price": [10.5],
+        "fee": [5.0],
         "timestamp": ["2026-01-01"],
     })
 
@@ -107,7 +109,7 @@ class TestRecordPositionFilters:
         """-e/-t 透传到 service.get_positions_df"""
         mock_service = MagicMock()
         mock_service.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
-        mock_container.position_service.return_value = mock_service
+        mock_container.result_service.return_value = mock_service
 
         result = cli_runner.invoke(record_cli.app, [
             "position", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
@@ -117,6 +119,29 @@ class TestRecordPositionFilters:
         assert kwargs.get("portfolio_id") == "p1"
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestRecordPositionReadPath:
+    """#5964: record position 读流水表（PositionRecordCRUD），读写同源。
+
+    原误调 position_service（查状态表 PositionCRUD，回测从不写）→ 读空。
+    改调 result_service.get_positions_df（查流水表，与 create_position_record 同源）。
+    """
+
+    @patch("ginkgo.data.containers.Container")
+    def test_position_uses_result_service(self, mock_container, cli_runner, mock_positions_df):
+        """record position 应调 result_service，非 position_service。"""
+        result_svc = MagicMock()
+        result_svc.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
+        mock_container.result_service.return_value = result_svc
+        mock_container.position_service = MagicMock()
+
+        result = cli_runner.invoke(record_cli.app, ["position", "--portfolio", "p1"])
+        assert result.exit_code == 0
+        result_svc.get_positions_df.assert_called_once()
+        mock_container.position_service.assert_not_called()
 
 
 # ============================================================================
