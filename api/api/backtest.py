@@ -237,6 +237,32 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
     logger.info(f"Task {task_uuid} sent to Kafka with {len(portfolio_uuids)} portfolio(s)")
 
 
+def _on_kafka_dispatch_done(task_uuid: str, asyncio_task: "asyncio.Future") -> None:
+    """asyncio.create_task 的 done_callback：派发失败时记日志 + 落库 failed。
+
+    create_backtest 的 fire-and-forget 派发（asyncio.create_task）默认吞掉
+    producer.send 抛出的异常，任务会永远停在 PENDING，而 API 已返回 success。
+    此回调把派发失败显式落库，使任务状态 PENDING→FAILED 可查（#5478）。
+
+    - cancelled：不作处理（取消非失败）
+    - 无异常：成功，不作处理
+    - 有异常：记 ERROR 日志 + update_status(status="failed", error_message=...)
+    """
+    if asyncio_task.cancelled():
+        return
+    exc = asyncio_task.exception()
+    if exc is None:
+        return
+    logger.error(f"Kafka dispatch failed for backtest task {task_uuid}: {exc}")
+    try:
+        get_backtest_task_service().update_status(
+            task_uuid, status="failed", error_message=f"Kafka dispatch failed: {exc}"
+        )
+    except Exception as update_exc:
+        # 落库失败不应掩盖原始派发异常
+        logger.error(f"Failed to mark backtest task {task_uuid} as failed: {update_exc}")
+
+
 # ==================== API 路由 ====================
 
 @router.get("/")
@@ -376,12 +402,18 @@ async def create_backtest(data: BacktestTaskCreate):
 
         # 2. 发送到Kafka（后台任务，不阻塞响应）
         # 使用 asyncio.create_task 让 Kafka 发送在后台运行
-        asyncio.create_task(send_task_to_kafka(
+        dispatch_task = asyncio.create_task(send_task_to_kafka(
             task_uuid=task["uuid"],
             portfolio_uuids=data.portfolio_uuids,
             name=data.name,
             config=task["config"],
         ))
+        # 派发失败（producer.send 抛异常）不再被静默吞：done_callback 记日志 +
+        # 落库 failed，使任务状态可查（#5478）。lambda 用默认参数捕获当前 uuid，
+        # 避免闭包在并发/多任务下捕获到漂移后的 task["uuid"]。
+        dispatch_task.add_done_callback(
+            lambda t, _uuid=task["uuid"]: _on_kafka_dispatch_done(_uuid, t)
+        )
 
         # 立即返回响应，不等待 Kafka
         return ok(data=task, message="Backtest task created successfully")
