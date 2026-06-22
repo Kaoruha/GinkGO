@@ -93,6 +93,37 @@ def _count_backtests(portfolio_id: str) -> int:
     return 0
 
 
+def _compute_portfolio_metrics(p, mode_int: int) -> dict:
+    """计算 portfolio 的 performance metrics + 回测统计（list/detail 共用）。
+
+    backtest 模式走最新已完成回测的指标 + 回测次数；非 backtest 模式
+    取 portfolio 模型自身字段（annual_return 等）。返回统一 schema 的 dict，
+    供 list_portfolios 和 get_portfolio 共享，避免两端点 schema 漂移（#5686）。
+    """
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+    if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+        metrics = _get_latest_backtest_metrics(p.uuid)
+        backtest_count = _count_backtests(p.uuid)
+    else:
+        metrics = {
+            "annual_return": float(getattr(p, "annual_return", 0) or 0),
+            "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
+            "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
+            "win_rate": float(getattr(p, "win_rate", 0) or 0),
+        }
+        backtest_count = 0
+
+    return {
+        "annual_return": metrics.get("annual_return"),
+        "sharpe_ratio": metrics.get("sharpe_ratio"),
+        "max_drawdown": metrics.get("max_drawdown"),
+        "win_rate": metrics.get("win_rate"),
+        "backtest_count": backtest_count,
+        "last_backtest_date": metrics.get("last_backtest_date"),
+    }
+
+
 def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
     """获取关联组合摘要"""
     try:
@@ -213,19 +244,8 @@ async def list_portfolios(
         items = []
         for p in (portfolios or []):
             mode_int = p.mode
-
-            # Performance metrics
-            if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
-                metrics = _get_latest_backtest_metrics(p.uuid)
-                backtest_count = _count_backtests(p.uuid)
-            else:
-                metrics = {
-                    "annual_return": float(getattr(p, "annual_return", 0) or 0),
-                    "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
-                    "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
-                    "win_rate": float(getattr(p, "win_rate", 0) or 0),
-                }
-                backtest_count = 0
+            # #5686: metrics 计算提取为 _compute_portfolio_metrics，list/detail 共用
+            metrics = _compute_portfolio_metrics(p, mode_int)
 
             items.append({
                 "uuid": p.uuid,
@@ -233,12 +253,12 @@ async def list_portfolios(
                 "mode": _map_mode(p.mode),
                 "state": _map_state(p.state),
                 "config_locked": portfolio_service.is_portfolio_frozen(p.uuid),
-                "annual_return": metrics.get("annual_return"),
-                "sharpe_ratio": metrics.get("sharpe_ratio"),
-                "max_drawdown": metrics.get("max_drawdown"),
-                "win_rate": metrics.get("win_rate"),
-                "backtest_count": backtest_count,
-                "last_backtest_date": metrics.get("last_backtest_date"),
+                "annual_return": metrics["annual_return"],
+                "sharpe_ratio": metrics["sharpe_ratio"],
+                "max_drawdown": metrics["max_drawdown"],
+                "win_rate": metrics["win_rate"],
+                "backtest_count": metrics["backtest_count"],
+                "last_backtest_date": metrics["last_backtest_date"],
                 "related": _get_related_portfolios(p.uuid, mode_int),
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None,
             })
@@ -355,12 +375,21 @@ async def get_portfolio(uuid: str):
         from datetime import datetime
         create_at_value = portfolio_model.create_at if hasattr(portfolio_model, 'create_at') and portfolio_model.create_at else None
 
+        # #5686: detail 复用 list 的 metrics 计算，两端点 schema 统一
+        metrics = _compute_portfolio_metrics(portfolio_model, portfolio_model.mode)
+
         data = {
             "uuid": uuid,
             "name": portfolio_model.name,
             "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
             "state": _map_state(portfolio_model.state),
             "config_locked": portfolio_service.is_portfolio_frozen(uuid),
+            "annual_return": metrics["annual_return"],
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "max_drawdown": metrics["max_drawdown"],
+            "win_rate": metrics["win_rate"],
+            "backtest_count": metrics["backtest_count"],
+            "last_backtest_date": metrics["last_backtest_date"],
             "net_value": 1.0,
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
             "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
@@ -371,6 +400,7 @@ async def get_portfolio(uuid: str):
             "sizers": sizers,
             "risk_managers": risk_managers,
             "analyzers": analyzers,
+            "related": _get_related_portfolios(uuid, portfolio_model.mode),
             "risk_alerts": []
         }
 
