@@ -65,7 +65,10 @@ data_sources:
     retry_enabled: true
 
 # 日志设置
-log_path: /home/kaoru/.ginkgo/logs/
+# log_path 用相对路径（cwd/logs）：checked-in 默认配置不应硬编码个人绝对路径，
+# 否则无用户配置覆盖的环境（如 CI runner）对 /home/<user> 无写权致 GLOG
+# mkdir PermissionError。用户应在 ~/.ginkgo/config.yml 覆盖为自己路径。
+log_path: logs/
 working_directory: /home/kaoru/Documents/Ginkgo/
 python_path: /home/kaoru/Documents/Ginkgo/venv/bin/python
 log_file_on: False
