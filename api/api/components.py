@@ -94,6 +94,7 @@ async def list_components(
     component_type: Optional[str] = None,
     is_active: Optional[bool] = None,
     keyword: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -113,9 +114,11 @@ async def list_components(
             types_to_check = list(COMPONENT_FILE_TYPE_MAP.values())
 
         # 调用 service 层分页查询
+        # #5444: search 与 keyword 同义——前端用 keyword，API 调用者/手测惯用 search。
+        # 任一非空即下推过滤，避免 search 被当未声明 query 静默忽略致返回首页。
         result = file_service.list_components(
             file_types=types_to_check,
-            keyword=keyword,
+            keyword=keyword or search,
             is_del=False if is_active else (not is_active if is_active is not None else False),
             page=page - 1,
             page_size=page_size,

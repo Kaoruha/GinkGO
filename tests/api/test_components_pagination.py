@@ -108,3 +108,36 @@ class TestComponentsPagination:
         assert item["name"] == "MyStrategy"
         assert item["component_type"] == "strategy"
         assert item["is_active"] is True
+
+    def test_search_param_filters_as_keyword(self):
+        """#5444: search 参数应下推到 service 作 keyword 过滤（与 keyword 等价）"""
+        mock_service = MagicMock()
+        mock_service.list_components.return_value = make_mock_result(
+            data={"data": [], "total": 0}
+        )
+
+        from api.components import list_components
+
+        with patch("api.components.get_file_service", return_value=mock_service):
+            run_async(list_components(search="moving_average", page=1, page_size=20))
+
+        call_kwargs = mock_service.list_components.call_args.kwargs
+        assert call_kwargs.get("keyword") == "moving_average"
+
+    def test_search_no_match_returns_empty(self):
+        """#5444 验收3: search 无匹配时返回空列表，非首页默认结果"""
+        mock_service = MagicMock()
+        mock_service.list_components.return_value = make_mock_result(
+            data={"data": [], "total": 0}
+        )
+
+        from api.components import list_components
+
+        with patch("api.components.get_file_service", return_value=mock_service):
+            result = run_async(list_components(search="不存在的组件", page=1, page_size=20))
+
+        # search 值下推到 service（非被当未声明 query 忽略）
+        assert mock_service.list_components.call_args.kwargs.get("keyword") == "不存在的组件"
+        # 无匹配返回空，非首页默认结果
+        assert result["data"] == []
+        assert result["meta"]["total"] == 0
