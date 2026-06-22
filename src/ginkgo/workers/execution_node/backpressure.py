@@ -74,37 +74,36 @@ class BackpressureChecker:
                 "message": str
             }
         """
-        self.total_checks += 1
-
         # 计算队列使用率
         if max_size <= 0:
             usage = 0.0
         else:
             usage = current_size / max_size
 
-        # 判断背压级别
+        # 判断背压级别（纯计算，无需持锁）
         if usage >= self.critical_threshold:
             # CRITICAL级别：拒绝新消息
             level = "CRITICAL"
             action = "reject"
             message = f"Queue {portfolio_id} at {usage*100:.1f}% capacity (CRITICAL)"
-            self.critical_count += 1
-
         elif usage >= self.warning_threshold:
             # WARNING级别：记录警告
             level = "WARNING"
             action = "warn"
             message = f"Queue {portfolio_id} at {usage*100:.1f}% capacity (WARNING)"
-            self.warning_count += 1
-
         else:
             # OK级别：正常
             level = "OK"
             action = "accept"
             message = f"Queue {portfolio_id} at {usage*100:.1f}% capacity"
 
-        # 记录历史
+        # 原子更新计数器 + 历史（#5563：int += 非原子，须与 history 同锁）
         with self.lock:
+            self.total_checks += 1
+            if level == "CRITICAL":
+                self.critical_count += 1
+            elif level == "WARNING":
+                self.warning_count += 1
             self.backpressure_history.append({
                 "timestamp": datetime.now().isoformat(),
                 "portfolio_id": portfolio_id,

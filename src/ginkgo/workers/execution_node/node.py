@@ -105,9 +105,12 @@ class ExecutionNode:
         self.heartbeat_ttl = 30  # 心跳TTL 30秒
 
         # 背压统计
+        # 注意：这些计数器被多线程并发访问（market-data 消费线程写、
+        # 心跳线程/API status 读），必须通过 _counter_lock 保护，禁止裸 +=。
         self.backpressure_count = 0
         self.dropped_event_count = 0
         self.total_event_count = 0
+        self._counter_lock = Lock()
 
         # 节点元数据
         self.max_portfolios = 5  # 最大可运行的Portfolio数量
@@ -127,6 +130,27 @@ class ExecutionNode:
         # 初始化子模块（心跳管理 + 调度命令处理）
         self._heartbeat_manager = HeartbeatManager(self)
         self._command_handler = SchedulerCommandHandler(self)
+
+    # --- 背压计数器线程安全封装 (#5563) ---
+    # int += 1 是 LOAD/INCR/STORE 三步非原子（GIL 仅字节码边界释放），
+    # 多线程并发裸 += 会丢计数；独立读分子分母算 rate 会跨时刻不一致。
+    # 所有读写必须经封装方法，持 _counter_lock。
+
+    def record_event_processed(self):
+        """记录一个已路由的事件（原子递增 total_event_count）"""
+        with self._counter_lock:
+            self.total_event_count += 1
+
+    def record_backpressure_drop(self):
+        """记录一次队列满导致的背压丢弃（原子递增 backpressure/dropped）"""
+        with self._counter_lock:
+            self.backpressure_count += 1
+            self.dropped_event_count += 1
+
+    def _snapshot_counters(self):
+        """获取三个计数器的快照（原子读取，保证 rate 计算分子分母一致）"""
+        with self._counter_lock:
+            return (self.total_event_count, self.backpressure_count, self.dropped_event_count)
 
     def start(self):
         """
@@ -925,7 +949,7 @@ class ExecutionNode:
             logger.debug(f"ExecutionNode {self.node_id} is paused, skipping event routing for {event.code}")
             return
 
-        self.total_event_count += 1
+        self.record_event_processed()
 
         # Phase 4：使用InterestMap优化路由（O(1)查询）
         # 获取订阅该股票的Portfolio列表
@@ -953,8 +977,7 @@ class ExecutionNode:
 
             except queue.Full:
                 # 队列满，记录背压
-                self.backpressure_count += 1
-                self.dropped_event_count += 1
+                self.record_backpressure_drop()
 
                 # 获取队列使用率
                 try:
@@ -970,7 +993,8 @@ class ExecutionNode:
                 GLOG.WARN(f"[BACKPRESSURE] Portfolio {portfolio_id} queue full")
                 GLOG.WARN(f"  - Event: {event.code} at {event.timestamp if hasattr(event, 'timestamp') else 'N/A'}")
                 GLOG.WARN(f"  - Queue: {queue_size}/1000 ({queue_usage*100:.1f}%)")
-                GLOG.WARN(f"  - Total backpressure: {self.backpressure_count}, dropped: {self.dropped_event_count}")
+                _, _bp, _dropped = self._snapshot_counters()
+                GLOG.WARN(f"  - Total backpressure: {_bp}, dropped: {_dropped}")
 
                 # TODO: Phase 4 - 发送背压告警到监控系统
                 # self._send_backpressure_alert(portfolio_id, queue_usage, event)
@@ -1171,10 +1195,11 @@ class ExecutionNode:
         else:
             status = "RUNNING"
 
-        # 计算背压率
+        # 计算背压率（snapshot 保证分子分母来自同一时刻，#5563）
+        _total, _bp, _dropped = self._snapshot_counters()
         backpressure_rate = 0.0
-        if self.total_event_count > 0:
-            backpressure_rate = self.backpressure_count / self.total_event_count
+        if _total > 0:
+            backpressure_rate = _bp / _total
 
         # 获取所有Portfolio的详细状态
         with self.portfolio_lock:
@@ -1197,9 +1222,9 @@ class ExecutionNode:
 
             # 背压统计
             "backpressure": {
-                "total_events": self.total_event_count,
-                "backpressure_count": self.backpressure_count,
-                "dropped_events": self.dropped_event_count,
+                "total_events": _total,
+                "backpressure_count": _bp,
+                "dropped_events": _dropped,
                 "backpressure_rate": backpressure_rate
             }
         }
