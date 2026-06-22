@@ -290,6 +290,29 @@ class TestThreading:
         # Stop engine
         event_engine_with_time.stop()
 
+    def test_start_stop_start_does_not_raise(self, event_engine_with_time):
+        """#5499: EventEngine start-stop-start 不应抛 RuntimeError。
+
+        Python Thread 只能 start 一次；stop 后再次 start 必须重建 Thread 对象，
+        否则 ``self._main_thread.start()`` 抛
+        ``RuntimeError: threads can only be started once``。
+        """
+        engine = event_engine_with_time
+        engine.start()
+        time.sleep(0.1)
+        engine.stop()
+
+        # 记录 stop 后的 Thread 对象，用于后续验证是否重建
+        thread_before_restart = engine._main_thread
+
+        # 修复前：此处抛 RuntimeError: threads can only be started once
+        restart_ok = engine.start()
+        assert restart_ok is True
+
+        # #5499: 重启后应使用新的 Thread 对象（而非复用已 ended 的旧实例）
+        assert engine._main_thread is not thread_before_restart
+        assert engine._main_thread.is_alive()
+
 
 # ========== Attribute Tests ==========
 
