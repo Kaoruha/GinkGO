@@ -433,6 +433,24 @@ def status():
     console.print(":information: Data status check not yet implemented")
 
 
+def _is_valid_stock_code(code: str) -> bool:
+    """#5962: 校验 A 股代码格式。接受项目内**两种既有记法**：
+
+    - 后缀: ``NNNNNN.SH``/``NNNNNN.SZ``（如 ``000001.SZ``，``data get stockinfo -c`` 用此）
+    - 前缀: ``SHNNNNNN``/``SZNNNNNN``（如 ``SH600000``，position/adjustfactor/tick mapper 用此）
+
+    仅做**格式**校验，不做 DB 存在性校验（后者属 service 层职责）。
+    目的：拒绝 ``INVALIDCODE`` / 裸 ``000001``（无市场标记）等明显无效输入，避免穿透到
+    service 层后以 "no data" + exit 0 的形式误报成功（见 [[arch_ashare_code_market_prefix_gap]]）。
+    """
+    import re
+    if not code:
+        return False
+    suffix = r"\d{6}\.(SH|SZ)"
+    prefix = r"(SH|SZ)\d{6}"
+    return bool(re.fullmatch(suffix, code) or re.fullmatch(prefix, code))
+
+
 @app.command()
 def sync(
     data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/day/tick/adjustfactor)"),
@@ -447,6 +465,18 @@ def sync(
     """
     :repeat: Sync data from external sources.
     """
+    # #5962: --code 格式校验门。须在 try 块外，否则 typer.Exit 被外层 except(Exception) 吞
+    # 并多印 "Error updating data: 1" 噪音（见 arch_typer_exit_caught_by_except）。
+    # day/tick/adjustfactor 接受 --code；无效格式直接非零退出，避免穿透到 service 层
+    # 后以 "no data available" warning + exit 0 的形式误报成功。
+    if code is not None and data_type in ("day", "tick", "adjustfactor"):
+        if not _is_valid_stock_code(code):
+            console.print(
+                f":x: Invalid stock code '{code}'. "
+                "Expected format: NNNNNN.SH or NNNNNN.SZ (e.g. 000001.SZ, 600000.SH)."
+            )
+            raise typer.Exit(1)
+
     try:
         # 如果是daemon模式，发送Kafka消息并退出
         if daemon:
