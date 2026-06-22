@@ -313,6 +313,7 @@ def resume(
 @app.command()
 def status(
     node_id: Optional[str] = typer.Option(None, "--node-id", "-n", help="Query specific ExecutionNode (default: show all)"),
+    limit: int = typer.Option(100, "--limit", help="Max nodes to scan/display (SCAN count hint, production-safe, #5519)"),
 ):
     """
     :bar_chart: Query ExecutionNode status.
@@ -375,7 +376,12 @@ def status(
 
             # Get all heartbeat keys
             from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix, RedisKeyBuilder
-            heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+            # #5519: scan_iter 游标式非阻塞扫描；keys() 是 O(N) 阻塞 Redis 单线程。
+            # count=limit 作 SCAN COUNT hint（批次大小），[:limit] 截断结果上限。
+            heartbeat_keys = list(redis_client.scan_iter(
+                match=RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL,
+                count=limit,
+            ))[:limit]
 
             if not heartbeat_keys:
                 console.print("[yellow]:warning: No ExecutionNodes running (no heartbeats found)[/yellow]")
