@@ -217,6 +217,13 @@ async def create_paper_account(data: CreatePaperAccountRequest):
         # #5648: 关联已有 Portfolio（复用已绑定策略/选股/仓位/风控组件），不新建
         if data.portfolio_uuid:
             _require_portfolio(data.portfolio_uuid)  # 不存在则 raise NotFoundError
+            # #5648 review: 关联时设 mode=PAPER，使 list_paper_accounts 按 mode 过滤能查到
+            # （与新建路径 add(mode=PAPER) 对称；已部署冻结的 update 被拒则穿透 BusinessError）
+            from ginkgo.enums import PORTFOLIO_MODE_TYPES
+            portfolio_service = _get_portfolio_service()
+            upd = portfolio_service.update(data.portfolio_uuid, mode=PORTFOLIO_MODE_TYPES.PAPER)
+            if not upd.is_success():
+                raise BusinessError(f"Failed to link paper account: {upd.error}")
             logger.info(f"Paper account linked to existing portfolio: {data.portfolio_uuid}")
             return ok(
                 data={"account_id": data.portfolio_uuid},

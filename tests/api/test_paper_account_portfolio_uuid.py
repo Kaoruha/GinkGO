@@ -65,6 +65,32 @@ class TestCreatePaperAccountLinksExistingPortfolio:
         # 返回的 account_id 就是传入的 portfolio_uuid
         assert result["data"]["account_id"] == "exist-uuid"
 
+    def test_linked_portfolio_mode_updated_to_paper(self):
+        """#5648 review: 关联已有 portfolio 时设 mode=PAPER。
+
+        根因：list_paper_accounts 按 mode=PAPER 过滤；关联路径不改 mode，
+        关联的 BACKTEST portfolio 查不到。修复=关联时 update mode=PAPER，
+        与新建路径（add mode=PAPER）对称。
+        """
+        from api.trading import create_paper_account, CreatePaperAccountRequest
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        req = CreatePaperAccountRequest(name="t", portfolio_uuid="exist-uuid")
+        upd_ok = SimpleNamespace(is_success=lambda: True)
+
+        with patch("api.trading._require_portfolio",
+                   return_value=SimpleNamespace(uuid="exist-uuid")), \
+             patch("api.trading._get_portfolio_service") as mock_svc_factory:
+            mock_svc_factory.return_value.update.return_value = upd_ok
+            result = run_async(create_paper_account(req))
+
+        # 关联时 update 被调用，portfolio_id 位置传，mode=PAPER
+        mock_svc_factory.return_value.update.assert_called_once()
+        args, kwargs = mock_svc_factory.return_value.update.call_args
+        assert args[0] == "exist-uuid"
+        assert kwargs.get("mode") == PORTFOLIO_MODE_TYPES.PAPER
+        assert result["data"]["account_id"] == "exist-uuid"
+
     def test_nonexistent_uuid_raises_not_found(self):
         """提供不存在的 portfolio_uuid → NotFoundError（复用 _require_portfolio 校验）。"""
         from api.trading import create_paper_account, CreatePaperAccountRequest
