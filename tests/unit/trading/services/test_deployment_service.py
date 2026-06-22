@@ -177,3 +177,88 @@ class TestDeploymentServiceErrorMessages:
         assert not result.success
         # service error 不应有 "部署失败:" 前缀（CLI 层加）
         assert not result.error.startswith("部署失败:")
+
+
+class TestDeploymentCloneKeepsAllBindings:
+    """#6279: deploy 克隆必须保留全部组件绑定 (strategy/sizer 不被图同步删除)"""
+
+    def _source_mappings(self):
+        """4 类组件源映射 (selector/strategy/sizer/risk), 模拟 CLI bind-component 绑定"""
+        return [
+            {"uuid": "src_map_sel", "file_id": "f_sel", "type": 4, "name": "selector", "params": {}},
+            {"uuid": "src_map_str", "file_id": "f_str", "type": 6, "name": "strategy", "params": {}},
+            {"uuid": "src_map_siz", "file_id": "f_siz", "type": 5, "name": "sizer", "params": {}},
+            {"uuid": "src_map_rsk", "file_id": "f_rsk", "type": 3, "name": "risk", "params": {}},
+        ]
+
+    def test_deploy_copies_all_four_mapping_types(self):
+        """#6279 _deploy_core 必须对 4 类源映射各调一次 add_file + _copy_params_raw,
+        而非只复制 risk/selector。"""
+        svc = _make_svc()
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(
+            success=True, data=self._source_mappings()
+        )
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        # add_file 每次返回新 mapping_id
+        svc._mapping_service.add_file.side_effect = [
+            MagicMock(success=True, data={"mapping_id": f"new_map_{i}"}) for i in range(4)
+        ]
+        # _copy_params_raw 依赖: 源每条映射 1 个 param
+        svc._param_crud.find_by_mapping_id.return_value = [MagicMock(index=0, value="v", source=0)]
+        svc._deployment_crud.modify.return_value = None
+        # 关闭图拷贝路径以便隔离测 mapping 循环 (图路径单独测)
+        svc._mongo_driver = None
+
+        result = svc._deploy_core(
+            source_portfolio_id="src_pid",
+            mode=PORTFOLIO_MODE_TYPES.PAPER,
+            account_id=None,
+            name="Paper",
+            portfolio_name="Src",
+            deployment_id="d1",
+        )
+
+        assert result.success, f"_deploy_core 应成功: {result.error}"
+        # 4 类组件必须各复制一次 (回归锚点: 旧 bug 只复制 risk/selector 2 类)
+        assert svc._mapping_service.add_file.call_count == 4, (
+            f"应复制全部 4 类映射, 实际 {svc._mapping_service.add_file.call_count}"
+        )
+        # 参数原始复制也要 4 次
+        assert svc._param_crud.add.call_count == 4
+
+    def test_deploy_copy_graph_uses_sync_mysql_false(self):
+        """#6279 图拷贝必须传 sync_mysql=False, 否则 create_from_graph_editor 会删掉
+        deploy step5 已建的 strategy/sizer 映射 (它们不在源 Mongo 图里)。"""
+        svc = _make_svc()
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(
+            success=True, data=self._source_mappings()
+        )
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        svc._mapping_service.add_file.side_effect = [
+            MagicMock(success=True, data={"mapping_id": f"new_map_{i}"}) for i in range(4)
+        ]
+        svc._param_crud.find_by_mapping_id.return_value = []
+        svc._deployment_crud.modify.return_value = None
+        # 开启图拷贝路径
+        svc._mongo_driver = MagicMock()
+        svc._mapping_service.get_portfolio_graph.return_value = MagicMock(
+            success=True, data={"nodes": [], "edges": []}
+        )
+        svc._mapping_service.create_from_graph_editor.return_value = MagicMock(success=True)
+
+        result = svc._deploy_core(
+            source_portfolio_id="src_pid",
+            mode=PORTFOLIO_MODE_TYPES.PAPER,
+            account_id=None,
+            name="Paper",
+            portfolio_name="Src",
+            deployment_id="d1",
+        )
+
+        assert result.success, f"_deploy_core 应成功: {result.error}"
+        svc._mapping_service.create_from_graph_editor.assert_called_once()
+        _, kwargs = svc._mapping_service.create_from_graph_editor.call_args
+        assert kwargs.get("sync_mysql") is False, (
+            f"deploy 图拷贝必须 sync_mysql=False 以免覆盖 step5 映射, 实际 kwargs={kwargs}"
+        )
+
