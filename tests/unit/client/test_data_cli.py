@@ -75,7 +75,7 @@ class TestDataCLIHelp:
         """data get help 区分"可用"与 [planned] 未实现的 data_type（#4900/#5242）。
 
         adjustfactor/sources 已实现（PR #6234：接 service / 列数据源），列入可用；
-        calendar 仍不可用（报 Unknown data type，#5242 not_planned），标 [planned]。
+        calendar 仍未实现（dispatch 友好提示 planned 而非 Unknown data type，#5919），help 标 [planned]。
         help 必须与实际一致，否则误导用户——#6230 旧的 [planned: calendar/adjustfactor/sources]
         在 #6234 实现两者后已过时。
         """
@@ -251,6 +251,15 @@ class TestGetOtherTypes:
         result = cli_runner.invoke(data_cli.app, ["get", "nonexistent"])
         assert result.exit_code == 1
         assert "Unknown" in result.output or "unknown" in result.output
+
+    def test_get_calendar_shows_planned_not_unknown(self, cli_runner):
+        """#5919: calendar 在 help 标 [planned]，dispatch 应提示 planned/未实现，
+        不应报通用 'Unknown data type'（help 已声明该类型，只是未实现）。
+        区别于 test_get_unknown_data_type（nonexistent 真未知 → Unknown）。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "calendar"])
+        out = result.output.lower()
+        assert "planned" in out or "not yet implemented" in out
+        assert "unknown data type" not in out
 
     def test_get_sources_lists_configured_sources(self, cli_runner):
         """sources 数据类型列出已配置的数据源（不再显示 not yet implemented 桩）"""

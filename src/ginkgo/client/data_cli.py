@@ -414,6 +414,16 @@ def get(
             console.print(table)
             console.print(f":information: {len(configured_sources)} data source(s) configured")
 
+        elif data_type == "calendar":
+            # #5919: help 标 [planned: calendar]，dispatch 给友好提示而非 "Unknown data type"。
+            # 仿 sources 分支：print 后 fall-through 正常结束 try，不走 else。
+            # ⚠️ 勿用 raise typer.Exit —— click.Exit 是 Exception 子类（非 SystemExit），
+            # 会被外层 except Exception 捕获并转成 Exit(1) + "Error getting data" 污染输出。
+            console.print(
+                ":information: calendar is planned but not yet implemented. "
+                "See `ginkgo data get --help`."
+            )
+
         else:
             console.print(f":x: Unknown data type: {data_type}")
             raise typer.Exit(1)
