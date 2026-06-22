@@ -2,7 +2,7 @@
 系统设置相关API路由
 """
 
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Query
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
@@ -1375,7 +1375,7 @@ async def toggle_notification_template(uuid: str, enabled: bool):
 async def list_notification_history(
     type: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20
+    page_size: int = Query(default=20, ge=1, le=500)
 ):
     """获取通知历史"""
     try:
