@@ -60,7 +60,13 @@ class CommandHandler:
         Args:
             command_consumer: GinkgoConsumer 命令消费者实例
         """
-        if not command_consumer:
+        # #5316: GinkgoConsumer 连接失败时把内部 self.consumer 置 None
+        # （ginkgo_kafka.py:202/237/242），包装对象本身仍存在。原 `if not
+        # command_consumer` 只查包装非 None，放行后 consumer.poll() 抛
+        # AttributeError 被 except 吞成每 ~5s 一条 error log。补 is_connected
+        # 守卫（对齐 notification_worker/backtest_worker/data_worker 既有模式），
+        # getattr 防属性缺失。
+        if not command_consumer or not getattr(command_consumer, "is_connected", False):
             return
 
         try:
