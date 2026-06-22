@@ -456,6 +456,51 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"Failed to load persisted portfolio state: {e}")
             return ServiceResult.error(f"Database operation failed: {str(e)}")
 
+    def get_positions(self, portfolio_id: str, active_only: bool = False) -> ServiceResult:
+        """
+        获取 Portfolio 的当前持仓快照（#5783 验收2）。
+
+        数据层 PositionCRUD.find_by_portfolio / get_active_positions 早已存在，
+        本方法在 service 层接线并按 load_persisted_state 既有形状序列化，
+        供 GET /portfolios/{uuid}/positions 端点使用。
+
+        Args:
+            portfolio_id: 投资组合UUID
+            active_only: True 仅返回 volume>0 的活跃持仓
+
+        Returns:
+            ServiceResult: data 为持仓 dict 列表（字段对齐 load_persisted_state:425-440）
+        """
+        try:
+            position_crud = self._get_position_crud()
+            if active_only:
+                m_positions = position_crud.get_active_positions(portfolio_id)
+            else:
+                m_positions = position_crud.find_by_portfolio(portfolio_id)
+
+            positions_data = []
+            for m_pos in m_positions:
+                positions_data.append({
+                    "portfolio_id": m_pos.portfolio_id,
+                    "engine_id": m_pos.engine_id,
+                    "task_id": m_pos.task_id,
+                    "code": m_pos.code,
+                    "cost": str(m_pos.cost),
+                    "volume": m_pos.volume,
+                    "frozen_volume": m_pos.frozen_volume,
+                    "settlement_frozen_volume": m_pos.settlement_frozen_volume,
+                    "settlement_days": m_pos.settlement_days,
+                    "settlement_queue_json": m_pos.settlement_queue_json,
+                    "frozen_money": str(m_pos.frozen_money),
+                    "price": str(m_pos.price),
+                    "fee": str(m_pos.fee),
+                    "uuid": m_pos.uuid,
+                })
+            return ServiceResult.success(positions_data)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get positions for portfolio {(portfolio_id or '')[:8]}: {e}")
+            return ServiceResult.error(f"Database operation failed: {str(e)}")
+
     def _get_position_crud(self):
         """获取 PositionCRUD 实例（延迟导入避免循环依赖）"""
         from ginkgo import services
