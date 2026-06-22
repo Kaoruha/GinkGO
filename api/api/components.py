@@ -94,12 +94,21 @@ async def list_components(
     component_type: Optional[str] = None,
     is_active: Optional[bool] = None,
     keyword: Optional[str] = None,
+    name: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """获取组件列表（服务端分页）"""
+    """获取组件列表（服务端分页）
+
+    name 与 keyword 同义：均下推到 service 层做 name__like 过滤。
+    提供 name 是为了让 ?name=xxx（前端常用）与 ?keyword=xxx 行为一致，
+    不再被 FastAPI 当未知 query 参数静默丢弃（#5880 缺陷2）。
+    """
     try:
         file_service = get_file_service()
+
+        # name 作为 keyword 的别名（前端发 ?name=，CLI/内部发 ?keyword=）
+        effective_keyword = name if name else keyword
 
         # 构建类型列表
         if component_type:
@@ -115,7 +124,7 @@ async def list_components(
         # 调用 service 层分页查询
         result = file_service.list_components(
             file_types=types_to_check,
-            keyword=keyword,
+            keyword=effective_keyword,
             is_del=False if is_active else (not is_active if is_active is not None else False),
             page=page - 1,
             page_size=page_size,
