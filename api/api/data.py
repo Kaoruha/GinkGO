@@ -313,7 +313,8 @@ async def get_bars(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500)
+    page_size: int = Query(default=100, ge=1, le=500),
+    order: Optional[str] = None,  # #5652: asc|desc，默认降序（最新在前）
 ):
     """获取K线数据列表（分页）"""
     try:
@@ -329,6 +330,11 @@ async def get_bars(
             end_dt = datetime.utcnow()
             start_dt = end_dt - timedelta(days=365)
 
+        # #5652: order 参数映射为 desc_order。
+        # 原签名无 order，FastAPI 静默丢弃 ?order=desc → 用户无法控制排序方向。
+        # asc → 升序（最旧在前）；desc / None / 无效值 → 降序（最新在前，符合验收默认）。
+        desc_order = (order or "").lower() != "asc"
+
         # 使用BarService.get方法，支持分页
         result = bar_service.get(
             code=code,
@@ -339,7 +345,7 @@ async def get_bars(
             page=page - 1,  # Service层page是0-based
             page_size=page_size,
             order_by="timestamp",
-            desc_order=True
+            desc_order=desc_order
         )
 
         if not result.is_success() or not result.data:
