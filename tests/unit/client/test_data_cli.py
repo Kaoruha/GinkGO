@@ -640,3 +640,17 @@ class TestMisc:
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
         assert result.exit_code == 0
         assert "No stock records" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestDataGetStatusStub:
+    """#5992 data get status 返回友好 stub，而非 'Unknown data type: status'"""
+
+    def test_get_status_returns_friendly_not_unknown(self, cli_runner):
+        """data get status → exit 0，不含 'Unknown data type'，友好提示 status"""
+        result = cli_runner.invoke(data_cli.app, ["get", "status"])
+        assert result.exit_code == 0
+        assert "Unknown data type" not in result.output
+        out_lower = result.output.lower()
+        assert "status" in out_lower

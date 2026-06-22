@@ -446,6 +446,10 @@ def get(
                 ":information: calendar is planned but not yet implemented. "
                 "See `ginkgo data get --help`."
             )
+        elif data_type == "status":
+            # #5992: data get status 友好 stub，提示用 top-level 'data status' 命令，
+            # 而非落 else 分支报 'Unknown data type: status'。
+            console.print(":information: Data status check not yet implemented. Use 'ginkgo data status'.")
 
         else:
             console.print(f":x: Unknown data type: {data_type}")
