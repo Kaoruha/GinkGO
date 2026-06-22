@@ -572,3 +572,71 @@ class UserGroupService(BaseService):
                 f"Failed to search groups: {str(e)}",
                 message=f"Error: {str(e)}"
             )
+
+    # ==================== Settings API 端点契约适配层（#6235 统一）====================
+    # 以下方法对齐 api/api/settings.py 9 个 user-groups 端点的调用契约，
+    # 内部委托本服务既有实现（add_user_to_group/remove_user_from_group），
+    # 保留 @retry / System 组保护等业务逻辑，消除 data/user 双版本漂移。
+
+    def update_group(self, uuid: str, **updates) -> ServiceResult:
+        """更新用户组（端点契约：成功返 {"updated": True}；不存在则 error 含 'not found'）。"""
+        try:
+            groups = self.user_group_crud.find(filters={"uuid": uuid, "is_del": False})
+            if not groups:
+                return ServiceResult.error("Group not found")
+            self.user_group_crud.modify(filters={"uuid": uuid}, updates=updates)
+            return ServiceResult.success({"updated": True})
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update group: {e}")
+            return ServiceResult.error(str(e))
+
+    def list_members(self, group_uuid: str) -> ServiceResult:
+        """获取组成员列表（端点契约：data 为 [{'uuid': user_uuid, 'group_uuid': ...}]）。"""
+        try:
+            mappings = self.user_group_mapping_crud.find_by_group(group_uuid)
+            members = [{"uuid": m.user_uuid, "group_uuid": m.group_uuid} for m in mappings]
+            return ServiceResult.success(members)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to list members: {e}")
+            return ServiceResult.error(str(e))
+
+    def add_member(self, user_uuid: str, group_uuid: str) -> ServiceResult:
+        """添加成员（端点契约：委托 add_user_to_group，返含 mapping_uuid）。"""
+        return self.add_user_to_group(user_uuid, group_uuid)
+
+    def remove_member(self, user_uuid: str, group_uuid: str) -> ServiceResult:
+        """移除成员（端点契约：委托 remove_user_from_group）。"""
+        result = self.remove_user_from_group(user_uuid, group_uuid)
+        if not result.success:
+            return result
+        return ServiceResult.success({"removed": True})
+
+    def count_all_members(self) -> dict:
+        """批量统计各组员数，返 {group_uuid: count} 裸 dict（端点 list_user_groups :785 直接用）。
+
+        端点用它避免 N+1。用 MUserGroupMapping.group_uuid 分组——user 版
+        add_user_to_group 创建映射时即写 group_uuid 字段。注意 data 版旧实现
+        用 model.group_id（与 user 版创建字段不一致，是 latent 漂移，见 #6235）。
+        """
+        try:
+            from sqlalchemy import func
+            model = self.user_group_mapping_crud.model_class
+            conn = self.user_group_mapping_crud._get_connection()
+            with conn.get_session() as s:
+                rows = s.query(
+                    model.group_uuid,
+                    func.count(model.uuid),
+                ).group_by(model.group_uuid).all()
+                return {str(row[0]): row[1] for row in rows}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to count all members: {e}")
+            return {}
+
+    def count_members(self, group_uuid: str) -> int:
+        """统计单组成员数（N+1 方法）。
+
+        端点 list_user_groups 应用 count_all_members 批量替代，避免逐组调用本方法。
+        保留它是为了对齐 data 版契约 + 让 N+1 回归测试（test_settings_n_plus_1）能
+        断言「端点不调 count_members」——spec 强制方法存在，assert_not_called 守护批量路径。
+        """
+        return len(self.user_group_mapping_crud.find_by_group(group_uuid))

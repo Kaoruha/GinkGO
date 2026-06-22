@@ -1,8 +1,8 @@
-# Issue #5625: settings user-groups 端点装配正确的 UserGroupService（data 那份）
+# Issue #5625 / #6235: settings user-groups 端点装配 UserGroupService（user 版，容器注入）
 # Upstream: api.api.settings.list_user_groups / create_user_group / update_user_group
-# Downstream: ginkgo.data.services.user_group_service.UserGroupService
+# Downstream: ginkgo.user.services.user_group_service.UserGroupService（#6235 统一单版本）
 # Role: 验证端点装配的 service 具备端点所需全部方法（spec 强制），且按
-#       list_groups 返回的 list 结构解包（不再误用字典 ["groups"]）。
+#       list_groups 返回结构解包（端点 dict/list 双兼容，user 版真实返 dict）。
 
 """
 #5625 回归测试（review 修正版）：settings user-groups 端点不可用。
@@ -15,13 +15,18 @@ MagicMock auto-truthy 掩盖了缺失方法。
 
 本测试用 ``MagicMock(spec=UserGroupService)`` 强制 mock 只暴露真实方法，
 返回值用真实 ``ServiceResult``，避免再次掩盖契约不匹配。
+
+#6235 UPDATE：user 版已补全 count_all_members / update_group / list_members /
+add_member / remove_member（委托既有 add_user_to_group / remove_user_from_group），
+data 版类已删除。端点统一走 container.user_group_service()（user 版），spec 锁定
+user 版契约；list_groups 真实返 dict，端点 dict/list 双兼容。
 """
 import asyncio
 
 import pytest
 from unittest.mock import patch, MagicMock
 
-from ginkgo.data.services.user_group_service import UserGroupService
+from ginkgo.user.services.user_group_service import UserGroupService
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.libs import GCONF
 
