@@ -99,6 +99,8 @@ def run_task(
         build_engine_data,
         load_portfolio_components,
         build_portfolio_config,
+        preflight_data_coverage,
+        build_preflight_warning,
     )
     from ginkgo.libs import GinkgoLogger
     from ginkgo.trading.time.clock import now as clock_now
@@ -145,6 +147,17 @@ def run_task(
     )
 
     portfolio_uuid = task.portfolio_id
+
+    # #6282: 回测前数据预检 — 在标 running 前查 selector codes 的 bar 覆盖，
+    # 数据缺失/稀疏时前置阻断，避免跑完整个回测才给模糊警告。
+    preflight_report = preflight_data_coverage(
+        portfolio_uuid, config.start_date, config.end_date
+    )
+    warning = build_preflight_warning(preflight_report, config.start_date, config.end_date)
+    if warning:
+        console.print(warning)
+        service.update_status(task.uuid, "failed")
+        raise typer.Exit(1)
 
     # 更新状态为 running
     service.update_status(task.uuid, "running")
