@@ -170,3 +170,60 @@ class TestTDXFetchLive:
         mock_client.quotes.assert_called_once()
         call_kwargs = mock_client.quotes.call_args[1]
         assert "symbol" in call_kwargs
+
+
+@pytest.mark.unit
+class TestParseAShareCode:
+    """#5999 解析A股代码，无市场后缀时按前缀推断，避免 code.split('.')[1] 崩溃"""
+
+    def test_no_suffix_0_prefix_infers_sz(self):
+        """000001（无后缀）→ 推断 SZ（深市主板 0 开头）"""
+        from ginkgo.data.sources.ginkgo_tdx import _parse_a_share_code
+        assert _parse_a_share_code("000001") == ("000001", "SZ")
+
+    def test_no_suffix_3_prefix_infers_sz(self):
+        """300001（创业板无后缀）→ 推断 SZ"""
+        from ginkgo.data.sources.ginkgo_tdx import _parse_a_share_code
+        assert _parse_a_share_code("300001") == ("300001", "SZ")
+
+    def test_no_suffix_6_prefix_infers_sh(self):
+        """600000（沪市无后缀）→ 推断 SH"""
+        from ginkgo.data.sources.ginkgo_tdx import _parse_a_share_code
+        assert _parse_a_share_code("600000") == ("600000", "SH")
+
+    def test_with_suffix_uppercases(self):
+        """000001.sz（小写后缀）→ upper 归一为 SZ"""
+        from ginkgo.data.sources.ginkgo_tdx import _parse_a_share_code
+        assert _parse_a_share_code("000001.sz") == ("000001", "SZ")
+
+    def test_uninferable_returns_none(self):
+        """88888（北交所，tdx 不支持）→ None，交调用方友好处理"""
+        from ginkgo.data.sources.ginkgo_tdx import _parse_a_share_code
+        assert _parse_a_share_code("88888") is None
+
+
+@pytest.mark.unit
+class TestTDXFetchHistoryDetailNoSuffix:
+    """#5999 集成：fetch_history_transaction_detail 裸代码不再 IndexError 崩溃"""
+
+    @patch("ginkgo.data.sources.ginkgo_tdx.Quotes")
+    def test_bare_code_does_not_crash(self, mock_quotes):
+        """000001（无后缀）→ 推断 SZ，不再 IndexError，symbol 传纯数字"""
+        mock_client = MagicMock()
+        mock_quotes.factory.return_value = mock_client
+        mock_client.transactions.return_value = pd.DataFrame()
+        tdx = GinkgoTDX()
+        tdx.fetch_history_transaction_detail("000001", "2024-01-01")
+        # 不崩溃即通过；推断后 symbol 传纯数字给 mootdx
+        assert mock_client.transactions.called
+        assert mock_client.transactions.call_args[1]["symbol"] == "000001"
+
+    @patch("ginkgo.data.sources.ginkgo_tdx.Quotes")
+    def test_unsupported_market_returns_none(self, mock_quotes):
+        """88888（北交所 tdx 不支持）→ 解析失败友好返回，不调 client"""
+        mock_client = MagicMock()
+        mock_quotes.factory.return_value = mock_client
+        tdx = GinkgoTDX()
+        result = tdx.fetch_history_transaction_detail("88888", "2024-01-01")
+        assert result is None
+        assert not mock_client.transactions.called
