@@ -55,25 +55,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/cache@v4
+      - name: Install uv
+        # pyproject 用 uv 专有字段（override-dependencies）+ uv.lock 管理依赖；
+        # pip 不读 override-dependencies 致 ResolutionImpossible（首版 CI 实跑 failure）。
+        # uv sync --frozen 按 uv.lock 锁定版本装，不解析、不报 drift——
+        # master uv.lock 存在 pre-existing drift（滞后 pyproject），--locked 会立即报红；
+        # smoke tests 不依赖 drift 包，--frozen 可跑通。lock 修正另作独立维护。
+        uses: astral-sh/setup-uv@v8
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-      - name: Install (editable)
-        run: pip install -e . -q
+          enable-cache: true
+      - name: Sync deps (frozen, from uv.lock)
+        run: uv sync --frozen --python 3.12
       - name: user_crud mock tests (#6015 点名)
         run: |
-          python -m pytest tests/unit/data/crud/test_user_crud_mock.py \
+          uv run python -m pytest tests/unit/data/crud/test_user_crud_mock.py \
             -q -o "addopts=" --no-header --tb=short
       - name: containers import smoke (#6015 点名)
         # test_containers.py 本身是 features.containers 的 import smoke（带 ImportError 容错 skip）
         run: |
-          python -m pytest tests/unit/features/test_containers.py \
+          uv run python -m pytest tests/unit/features/test_containers.py \
             -q -o "addopts=" --no-header --tb=short
       - name: user_cli tests (#6015 点名)
         # test_user_cli.py 覆盖 #6013 崩溃链 CLI 层（CLI → containers → user_crud），
         # user_crud.py IndentationError 时必失败。单文件 pytest 不触发 client 全目录
         # 跨测试污染（记忆 project-client-test-state-pollution：污染仅在 client 全目录跑时发生）。
         run: |
-          python -m pytest tests/unit/client/test_user_cli.py \
+          uv run python -m pytest tests/unit/client/test_user_cli.py \
             -q -o "addopts=" --no-header --tb=short
