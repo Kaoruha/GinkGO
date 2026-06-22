@@ -100,3 +100,39 @@ class TestGetBarsCodeNormalization:
             run_async(get_bars(code="   "))
 
         assert exc.value.status_code == 422
+
+    def test_sz_etf_code_159_normalized_to_sz(self):
+        """#5760 review: 深 ETF 159xxx (首位1) → .SZ。对齐 mootdx '15'→sz。
+
+        旧规则首位 1 无分支 → 原样返回查空 (DB 存 159915.SZ)。
+        """
+        mock_service = MagicMock()
+        mock_service.get.return_value = make_mock_result(data=[])
+
+        from api.data import get_bars
+
+        with patch("api.data.get_bar_service", return_value=mock_service):
+            run_async(get_bars(code="159915"))
+
+        called_code = mock_service.get.call_args.kwargs.get("code")
+        assert called_code == "159915.SZ", (
+            f"#5760: 深ETF首位1应补 .SZ, got {called_code!r}"
+        )
+
+    def test_sh_b_code_900_normalized_to_sh(self):
+        """#5760 review: 沪 B 900xxx (首位9) → .SH 非 .BJ。对齐 mootdx 首位9→sh。
+
+        旧规则首位 9→.BJ 错标 (沪 B 实属上交所)。
+        """
+        mock_service = MagicMock()
+        mock_service.get.return_value = make_mock_result(data=[])
+
+        from api.data import get_bars
+
+        with patch("api.data.get_bar_service", return_value=mock_service):
+            run_async(get_bars(code="900901"))
+
+        called_code = mock_service.get.call_args.kwargs.get("code")
+        assert called_code == "900901.SH", (
+            f"#5760: 沪B首位9应补 .SH 非 .BJ, got {called_code!r}"
+        )
