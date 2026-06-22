@@ -77,16 +77,49 @@ class TestLiveBrokerBaseInitType:
 class TestAShareBrokerRejectedStatus:
     """#5484: AShareBroker 被拒绝的订单应使用 REJECTED 而非 NEW 状态"""
 
-    def test_rejected_uses_correct_status(self):
-        """验证 AShareBroker 中所有 # REJECTED 注释处使用 ORDERSTATUS_TYPES.REJECTED"""
-        import inspect
-        from ginkgo.trading.brokers.ashare_broker import AShareBroker
-        from ginkgo.enums import ORDERSTATUS_TYPES
+    def test_rejected_volume_below_min_returns_rejected(self):
+        """#6062: volume<100 违反 A股最小交易量 → _submit_to_exchange 返回 REJECTED。
 
-        source = inspect.getsource(AShareBroker)
-        # 不应存在 NEW + REJECTED 注释的组合
-        assert 'ORDERSTATUS_TYPES.NEW,  # REJECTED' not in source, \
-            "Found ORDERSTATUS_TYPES.NEW with # REJECTED comment - should use ORDERSTATUS_TYPES.REJECTED"
+        行为测试：构造违规 order 调提交入口，断言返回 ``status`` 而非源码文本。
+        原测试用 ``inspect.getsource`` 检查源码无 'NEW, # REJECTED' 字符串——耦合
+        实现细节，删注释/换行即假过/假败，且 REJECTED→NEW 逻辑回归但注释保留时漏检。
+        """
+        from ginkgo.trading.brokers.ashare_broker import AShareBroker
+        from ginkgo.entities import Order
+        from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES
+
+        broker = AShareBroker(name="test_rejected")
+        # volume=50 < 100 → _validate_order_rules 返回 False → 风控拒绝路径
+        order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=50)
+
+        result = broker._submit_to_exchange(order)
+
+        assert result.status == ORDERSTATUS_TYPES.REJECTED
+        # 风控拒绝的 error_message 标识规则违反
+        assert result.error_message is not None
+
+    def test_exception_path_returns_rejected(self, monkeypatch):
+        """#6062: 提交过程抛异常 → except 兜底返回 REJECTED（异常失败场景）。
+
+        覆盖 _submit_to_exchange try/except 的 REJECTED 分支，与风控拒绝
+        共同满足「≥2 个 REJECTED 场景」验收。
+        """
+        from ginkgo.trading.brokers.ashare_broker import AShareBroker
+        from ginkgo.entities import Order
+        from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES
+
+        broker = AShareBroker(name="test_exception")
+
+        def _boom(order):
+            raise RuntimeError("模拟提交失败")
+
+        monkeypatch.setattr(broker, "_validate_order_rules", _boom)
+
+        order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=100)
+        result = broker._submit_to_exchange(order)
+
+        assert result.status == ORDERSTATUS_TYPES.REJECTED
+        assert "失败" in (result.error_message or "")
 
 
 class TestTradeGatewayRejectedStatus:
