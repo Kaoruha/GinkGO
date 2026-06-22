@@ -61,7 +61,9 @@ jobs:
         # uv sync --frozen 按 uv.lock 锁定版本装，不解析、不报 drift——
         # master uv.lock 存在 pre-existing drift（滞后 pyproject），--locked 会立即报红；
         # smoke tests 不依赖 drift 包，--frozen 可跑通。lock 修正另作独立维护。
-        uses: astral-sh/setup-uv@v8
+        # astral-sh/setup-uv 未发布 v8 major rolling tag（仅 v8.0.0/v8.1.0/v8.2.0），
+        # @v8 解析失败；用具体版本 v8.2.0 可复现。
+        uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
       - name: Sync deps (frozen, from uv.lock)
