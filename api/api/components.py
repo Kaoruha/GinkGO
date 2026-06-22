@@ -71,6 +71,7 @@ COMPONENT_FILE_TYPE_MAP = {
     "risk": FILE_TYPES.RISKMANAGER,
     "sizer": FILE_TYPES.SIZER,
     "selector": FILE_TYPES.SELECTOR,
+    "engine": FILE_TYPES.ENGINE,
 }
 
 FILE_TYPE_TO_COMPONENT_TYPE = {
@@ -79,6 +80,7 @@ FILE_TYPE_TO_COMPONENT_TYPE = {
     FILE_TYPES.RISKMANAGER.value: "risk",
     FILE_TYPES.SIZER.value: "sizer",
     FILE_TYPES.SELECTOR.value: "selector",
+    FILE_TYPES.ENGINE.value: "engine",
 }
 
 
