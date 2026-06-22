@@ -651,6 +651,53 @@ async def get_backtest_order_records(uuid: str):
         raise BusinessError(f"Error getting order records: {str(e)}")
 
 
+@router.get("/{uuid}/fills")
+async def get_backtest_fills(uuid: str):
+    """获取回测已成交订单填充(仅 status==FILLED 的订单子集)。
+
+    与 /orders 区分: /orders 返回全部去重订单(含未成交/已撤);
+    /fills 只返回已成交(FILLED)订单, 用于成交明细分析。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.list_fills(uuid)
+
+        if not result.is_success():
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve fills")
+
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Fills retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting fills for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting fills: {str(e)}")
+
+
+@router.get("/{uuid}/results")
+async def get_backtest_results(uuid: str):
+    """获取回测运行结果摘要(组合/分析器/记录数/时间范围等聚合指标)。"""
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_results(uuid)
+
+        if not result.is_success():
+            return ok(data=None, message=result.error or "Failed to retrieve results")
+
+        return ok(data=result.data, message="Results retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting results for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting results: {str(e)}")
+
+
 @router.get("/{uuid}/positions")
 async def get_backtest_positions(uuid: str):
     """获取回测持仓记录"""

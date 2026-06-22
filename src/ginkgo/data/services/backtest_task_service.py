@@ -1080,6 +1080,76 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_orders failed: {e}")
             return ServiceResult.error(f"Failed to list orders: {e}")
 
+    def list_fills(self, uuid: str) -> "ServiceResult":
+        """获取回测已成交订单（fills），返回 list[BacktestOrderItem]。
+
+        fills = status==FILLED 的订单子集（订单被成交的填充语义）。
+        与 list_orders 同源（result_service.get_orders 去重订单），仅过滤成交态；
+        在 raw record 层过滤（status 字段未 str 化），兼容 int 值与 enum 实例。
+        """
+        from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
+        from ginkgo.enums import ORDERSTATUS_TYPES
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_orders(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            orders = result.data.get("data", [])
+            filled_value = ORDERSTATUS_TYPES.FILLED.value
+            filled = [o for o in orders
+                      if getattr(o, "status", None) == ORDERSTATUS_TYPES.FILLED
+                      or getattr(o, "status", None) == filled_value]
+
+            items = []
+            for o in filled:
+                items.append(BacktestOrderItem(
+                    uuid=getattr(o, "uuid", ""),
+                    portfolio_id=getattr(o, "portfolio_id", ""),
+                    engine_id=getattr(o, "engine_id", ""),
+                    task_id=getattr(o, "task_id", ""),
+                    code=getattr(o, "code", ""),
+                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
+                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
+                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
+                    volume=int(getattr(o, "volume", 0) or 0),
+                    limit_price=str(getattr(o, "limit_price", 0)),
+                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
+                    fee=str(getattr(o, "fee", 0)),
+                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                ))
+
+            sr = ServiceResult.success(data=items, message="Fills retrieved")
+            sr.set_metadata("total", len(items))
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_fills failed: {e}")
+            return ServiceResult.error(f"Failed to list fills: {e}")
+
+    def get_results(self, uuid: str) -> "ServiceResult":
+        """获取回测运行结果摘要（portfolios/analyzers/time_range/total_records）。
+
+        透传 result_service.get_run_summary(task_id)；uuid 经 _resolve_task_id 解析。
+        """
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            return result_service.get_run_summary(task_id)
+        except Exception as e:
+            GLOG.ERROR(f"get_results failed: {e}")
+            return ServiceResult.error(f"Failed to get results: {e}")
+
     def list_order_records(self, uuid: str) -> "ServiceResult":
         """获取回测订单记录流水(完整状态流转, 不去重), 返回 list[BacktestOrderItem]。
 
