@@ -135,10 +135,12 @@ class UserGroupService:
             model = self.mapping_crud.model_class
             conn = self.mapping_crud._get_connection()
             with conn.get_session() as s:
+                # #5675: MUserGroupMapping 字段是 group_uuid（非 group_id），
+                # 用错字段名会 AttributeError 被 except 吞成 {} → member_count 永远 0
                 rows = s.query(
-                    model.group_id,
+                    model.group_uuid,
                     func.count(model.uuid),
-                ).group_by(model.group_id).all()
+                ).group_by(model.group_uuid).all()
                 return {str(row[0]): row[1] for row in rows}
         except Exception as e:
             GLOG.ERROR(f"Failed to count all members: {e}")
