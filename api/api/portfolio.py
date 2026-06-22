@@ -413,6 +413,7 @@ async def create_portfolio(data: PortfolioCreate):
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
             mode=mode_int,
+            initial_cash=data.initial_cash,
             selectors=data.selectors,
             sizer=sizer_data,
             strategies=data.strategies,
