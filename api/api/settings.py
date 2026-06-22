@@ -13,6 +13,7 @@ from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
 from ginkgo.data.services.user_group_service import UserGroupService as DataUserGroupService
+from ginkgo.data.services.api_key_service import ApiKeyService
 from core.logging import logger
 from core.response import ok
 
@@ -39,6 +40,11 @@ def get_user_group_service():
 def get_notification_service() -> NotificationService:
     """获取NotificationService实例"""
     return NotificationService()
+
+
+def get_api_key_service() -> ApiKeyService:
+    """获取 ApiKeyService 实例（#5780/#5816: 替代硬编码桩端点）。"""
+    return container.api_key_service()
 
 
 def hash_password(password: str) -> str:
@@ -1797,33 +1803,40 @@ class APIStats(BaseModel):
 
 
 @router.get("/api-keys")
-async def list_api_keys():
-    """获取API密钥列表"""
-    # TODO: 从数据库获取API密钥
-    return ok(data=[
-        {
-            "key_id": "key-1",
-            "name": "生产环境密钥",
-            "masked_key": "ginkgo_sk_****",
-            "status": "active",
-            "expires_at": "2025-01-31T00:00:00Z",
-            "last_used": "2024-01-30T15:30:00Z"
-        }
-    ])
+async def list_api_keys(user_id: Optional[str] = None):
+    """获取API密钥列表（#5780: 接 ApiKeyService，不再返回硬编码桩）。
+
+    返回扁平数组（前端 apiKey.ts 期望 res.data 是 list），字段 uuid/key_prefix/
+    permissions_list 等对齐 service 返回，非旧桩的 key_id/masked_key。
+    """
+    result = get_api_key_service().list_api_keys(user_id=user_id)
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get("message", "Failed to list API keys"),
+        )
+    return ok(data=result["data"]["api_keys"])
 
 
 @router.post("/api-keys", status_code=201)
 async def create_api_key(data: dict):
-    """创建API密钥"""
-    # TODO: 创建API密钥
-    return ok(data={
-        "key_id": "new-key",
-        "name": data.get("name"),
-        "masked_key": "ginkgo_sk_****",
-        "status": "active",
-        "expires_at": None,
-        "last_used": None
-    })
+    """创建API密钥（#5816: 接 ApiKeyService，返回唯一 uuid + 完整 key_value 仅一次）。
+
+    service 生成 uuid + key_value（完整密钥仅在创建时返回一次），不再硬编码 new-key。
+    """
+    result = get_api_key_service().create_api_key(
+        name=data.get("name"),
+        permissions=data.get("permissions"),
+        description=data.get("description"),
+        expires_days=data.get("expires_days"),
+        auto_generate=data.get("auto_generate", False),
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get("message", "Failed to create API key"),
+        )
+    return ok(data=result["data"])
 
 
 @router.get("/api-stats")
