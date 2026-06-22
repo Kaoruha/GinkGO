@@ -235,6 +235,8 @@ class BaseMongoCRUD(Generic[T], ABC):
         try:
             collection = self._get_collection()
 
+            # 防御性 copy：隔离 caller 输入，避免 setdefault 原地污染 (#5564)
+            update_dict = dict(update_dict)
             # 自动更新 update_at 字段
             update_dict.setdefault("update_at", pd.Timestamp.now().isoformat())
 
@@ -411,6 +413,8 @@ class BaseMongoCRUD(Generic[T], ABC):
         try:
             collection = self._get_collection()
 
+            # 防御性 copy：隔离 caller 输入，避免 setdefault 原地污染 (#5564)
+            updates = dict(updates)
             # 自动更新 update_at 字段
             updates.setdefault("update_at", pd.Timestamp.now().isoformat())
 
