@@ -314,9 +314,15 @@ async def get_bars(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = 100,
+    order: str = "desc"
 ):
-    """获取K线数据列表（分页）"""
+    """获取K线数据列表（分页）
+
+    order: 排序方向，'desc'=最新在前（默认），'asc'=最旧在前
+    """
+    if order not in ("asc", "desc"):
+        raise HTTPException(status_code=400, detail="order must be 'asc' or 'desc'")
     try:
         bar_service = get_bar_service()
 
@@ -340,7 +346,7 @@ async def get_bars(
             page=page - 1,  # Service层page是0-based
             page_size=page_size,
             order_by="timestamp",
-            desc_order=True
+            desc_order=(order == "desc")
         )
 
         if not result.is_success() or not result.data:
