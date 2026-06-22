@@ -60,6 +60,7 @@ jobs:
       GINKGO_MONGODB_HOST: localhost
       GINKGO_MONGODB_PORT: "27017"
       GINKGO_MONGODB_DATABASE: ginkgo_ci
+      TERM: dumb  # GITHUB_ACTIONS=true 致 typer/rich 强制 colorize，--name 被 ANSI 分隔使断言失败；TERM=dumb 禁 color（NO_COLOR 无效，rich 只认 TERM）
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
