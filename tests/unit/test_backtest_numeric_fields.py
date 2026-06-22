@@ -4,6 +4,7 @@
 service.list_positions/list_orders 填充时用 str() 包装 Decimal/float。
 双层修复：schema str→float + service 去掉 str()。
 """
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -73,6 +74,23 @@ class TestPositionNumericFields:
             result = svc.list_positions("x")
         assert isinstance(result.data[0].fee, float)
         assert result.data[0].fee == pytest.approx(5.0)
+
+    def test_decimal_input_from_clickhouse(self):
+        """#5864 回归：ClickHouse DECIMAL 列返回 Decimal（非 float 子类），
+        convert_to_float 须正确转换，否则静默返 0.0（PR #6344 review 打回根因）。"""
+        svc = _make_service()
+        mock_rs = MagicMock()
+        mock_rs.get_positions.return_value = MagicMock(
+            is_success=lambda: True,
+            data={"data": [_make_position(cost=Decimal("19.81"), price=Decimal("20.5"), fee=Decimal("5"))], "total": 1},
+        )
+        with patch("ginkgo.data.containers.container.result_service", return_value=mock_rs):
+            result = svc.list_positions("x")
+        item = result.data[0]
+        assert isinstance(item.cost, float)
+        assert item.cost == pytest.approx(19.81)
+        assert item.price == pytest.approx(20.5)
+        assert item.fee == pytest.approx(5.0)
 
 
 class TestOrderNumericFields:
