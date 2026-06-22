@@ -184,18 +184,6 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         )
         return result
 
-    def stop(self) -> bool:
-        """停止引擎（带调试信息）"""
-        import traceback
-
-        GLOG.ERROR(f"{self.name}: 🔥 stop() called! Call stack:")
-        for line in traceback.format_stack()[-3:-1]:  # 显示最近3层调用栈
-            GLOG.ERROR(f"    {line.strip()}")
-
-        result = super().stop()
-        GLOG.DEBUG(f"{self.name}: stop() completed - result={result}")
-        return result
-
     def _initialize_components(self):
         """初始化引擎组件"""
 
