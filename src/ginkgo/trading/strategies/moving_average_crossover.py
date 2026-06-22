@@ -119,7 +119,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
         GLOG.INFO(f"{self.name}: Processing {code} price event, states: {len(self._ma_states)}")
 
         # 获取足够的历史数据来计算两条均线
-        # 需要至少 long_period 条数据
+        # 需要至少 long_period + 1 条数据（当前窗口 + 前期状态对比）
         try:
             bars = self.get_bars_cached(
                 symbol=code,
@@ -130,8 +130,8 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
 
             GLOG.INFO(f"{self.name}: {code} got {len(bars)} bars")
 
-            if not bars or len(bars) < self.long_period:
-                GLOG.DEBUG(f"{self.name}: {code} insufficient data, need {self.long_period} bars")
+            if not bars or len(bars) < self.long_period + 1:
+                GLOG.DEBUG(f"{self.name}: {code} insufficient data, need {self.long_period + 1} bars")
                 return []
 
             # 计算移动平均线
@@ -202,7 +202,7 @@ class MovingAverageCrossover(BaseStrategy, StrategyDataMixin):
                     # 兼容不同数据格式
                     closes.append(float(bar))
 
-            if len(closes) < self.long_period:
+            if len(closes) < self.long_period + 1:
                 return None
 
             # 计算均线（使用最近的数据）
