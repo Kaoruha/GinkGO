@@ -403,9 +403,14 @@ async def get_ticks(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500)
+    page_size: int = Query(default=100, ge=1, le=500),
+    limit: Optional[int] = None  # #5621: 显式约束返回条数，未传沿用 page_size
 ):
-    """获取Tick数据列表（分页）"""
+    """获取Tick数据列表（分页）
+
+    #5621: limit 参数显式约束返回条数（limit=3 → 至多 3 条），
+    未传时沿用 page_size，向后兼容。
+    """
     try:
         tick_service = get_tick_service()
 
@@ -420,6 +425,9 @@ async def get_ticks(
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
 
+        # #5621: limit 提供且 > 0 时作为实际 page_size（截断返回条数）
+        effective_page_size = limit if (limit is not None and limit > 0) else page_size
+
         # 使用TickService.get方法（支持分页）
         result = tick_service.get(
             code=code,
@@ -427,11 +435,11 @@ async def get_ticks(
             end_date=end_dt,
             adjustment_type=ADJUSTMENT_TYPES.NONE,
             page=page - 1,
-            page_size=page_size,
+            page_size=effective_page_size,
         )
 
         if not result.is_success() or not result.data:
-            return paginated(items=[], total=0, page=page, page_size=page_size)
+            return paginated(items=[], total=0, page=page, page_size=effective_page_size)
 
         # 处理返回的数据（已是分页后的结果）
         result_data = result.data
@@ -470,7 +478,7 @@ async def get_ticks(
             items=tick_summaries,
             total=total_count,
             page=page,
-            page_size=page_size
+            page_size=effective_page_size
         )
 
     except HTTPException:
