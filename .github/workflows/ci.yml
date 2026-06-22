@@ -50,6 +50,16 @@ jobs:
   smoke-tests:
     name: Smoke tests (mock + import)
     runs-on: ubuntu-latest
+    env:
+      # containers.py 在 import 时（class body, fail-fast 架构 #6024）读 GCONF
+      # MongoDB 凭据；CI 无 secure.yml，注入占位值让 import 通过。
+      # smoke 测的是 import 链 + mock，不真连 MongoDB。
+      GINKGO_SKIP_DEBUG_CHECK: "1"  # 豁免 conftest DEBUG 检查（CI 不开 debug）
+      GINKGO_MONGODB_USERNAME: ci
+      GINKGO_MONGODB_PASSWORD: ci
+      GINKGO_MONGODB_HOST: localhost
+      GINKGO_MONGODB_PORT: "27017"
+      GINKGO_MONGODB_DATABASE: ginkgo_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
