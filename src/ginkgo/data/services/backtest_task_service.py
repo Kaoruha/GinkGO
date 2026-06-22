@@ -19,9 +19,9 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.libs import cache_with_expiration, retry, GLOG
+from ginkgo.libs.data.number import convert_to_float
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.mappers.order_mapper import OrderMapper
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
@@ -1103,10 +1103,10 @@ class BacktestTaskService(BaseService):
                     order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
                     status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
                     volume=int(getattr(o, "volume", 0) or 0),
-                    limit_price=OrderMapper._price_to_dto(getattr(o, "limit_price", 0)),
-                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
+                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
-                    fee=str(getattr(o, "fee", 0)),
+                    fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
                 ))
 
@@ -1221,10 +1221,10 @@ class BacktestTaskService(BaseService):
                     order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
                     status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
                     volume=int(getattr(o, "volume", 0) or 0),
-                    limit_price=OrderMapper._price_to_dto(getattr(o, "limit_price", 0)),
-                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
+                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
-                    fee=str(getattr(o, "fee", 0)),
+                    fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
                 ))
 
@@ -1261,11 +1261,11 @@ class BacktestTaskService(BaseService):
                     engine_id=getattr(p, "engine_id", ""),
                     task_id=getattr(p, "task_id", ""),
                     code=getattr(p, "code", ""),
-                    cost=str(getattr(p, "cost", 0)),
+                    cost=convert_to_float(getattr(p, "cost", 0)),
                     volume=int(getattr(p, "volume", 0) or 0),
                     frozen_volume=int(getattr(p, "frozen_volume", 0) or 0),
-                    price=str(getattr(p, "price", 0)),
-                    fee=str(getattr(p, "fee", 0)),
+                    price=convert_to_float(getattr(p, "price", 0)),
+                    fee=convert_to_float(getattr(p, "fee", 0)),
                 ))
 
             sr = ServiceResult.success(data=items, message="Positions retrieved")

@@ -92,10 +92,11 @@ class BacktestOrderItem(BaseModel):
     order_type: Optional[str] = None
     status: Optional[str] = None
     volume: int = 0
-    limit_price: Optional[str] = None  # #5787: 市价单无价哨兵 None, 非 "0"
-    transaction_price: str = "0"
+    # #5864: 数值字段返回 JSON number；#5787: 市价单无价→None 哨兵（默认 None 兼容）
+    limit_price: Optional[float] = None
+    transaction_price: float = 0.0
     transaction_volume: int = 0
-    fee: str = "0"
+    fee: float = 0.0
     timestamp: Optional[str] = None
 
 
@@ -106,11 +107,12 @@ class BacktestPositionItem(BaseModel):
     engine_id: str = ""
     task_id: str = ""
     code: str = ""
-    cost: str = "0"
+    # #5864: 数值字段返回 JSON number 非 str
+    cost: float = 0.0
     volume: int = 0
     frozen_volume: int = 0
-    price: str = "0"
-    fee: str = "0"
+    price: float = 0.0
+    fee: float = 0.0
 
 
 class BacktestAnalyzerGroup(BaseModel):
