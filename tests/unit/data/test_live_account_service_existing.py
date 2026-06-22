@@ -51,7 +51,7 @@ class TestLiveAccountServiceCreation:
         )
 
         assert result["success"] is True
-        assert result["data"]["account_uuid"] == "test-account-uuid"
+        assert result["data"]["uuid"] == "test-account-uuid"
         assert result["data"]["validation_result"] is None
 
     def test_create_account_missing_user_id(self, live_account_service):
@@ -160,7 +160,7 @@ class TestLiveAccountServiceCreation:
         )
 
         assert result["success"] is True
-        assert result["data"]["account_uuid"] == "test-account-uuid"
+        assert result["data"]["uuid"] == "test-account-uuid"
         assert result["data"]["validation_result"]["success"] is True
         # 验证validate_account被调用过
         mock_validate.assert_called_once()
