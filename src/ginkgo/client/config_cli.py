@@ -80,6 +80,12 @@ def get(
                 console.print(f":white_check_mark: quiet: {GCONF.QUIET}")
             elif key.lower() == 'cpu_ratio':
                 console.print(f":white_check_mark: cpu_ratio: {GCONF.CPURATIO*100:.1f}%")
+            elif key.lower() == 'log_path':
+                # #5356: list 列出 log_path 但 get 缺分支，落 else 报 not found。
+                console.print(f":white_check_mark: log_path: {GCONF.LOGGING_PATH}")
+            elif key.lower() == 'working_path':
+                # #5356: 同根因——list 列出 working_path 但 get 缺分支。
+                console.print(f":white_check_mark: working_path: {GCONF.WORKING_PATH}")
             else:
                 console.print(f":x: Configuration key '{key}' not found")
         else:

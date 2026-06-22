@@ -128,6 +128,24 @@ class TestConfigGet:
         assert "cpu_ratio" in result.output
         assert "80" in result.output
 
+    def test_get_log_path_shows_value(self, cli_runner, mock_gconf):
+        """#5356: get log_path 返回日志路径（list 列出但 get 缺分支→not found）"""
+        mock_gconf.LOGGING_PATH = "/tmp/ginkgo/logs"
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["get", "log_path"])
+        assert result.exit_code == 0
+        assert "not found" not in result.output
+        assert "/tmp/ginkgo/logs" in result.output
+
+    def test_get_working_path_shows_value(self, cli_runner, mock_gconf):
+        """#5356: get working_path 返回工作目录（同 list↔get 不一致根因的另一受害者）"""
+        mock_gconf.WORKING_PATH = "/home/kaoru/Ginkgo"
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(config_cli.app, ["get", "working_path"])
+        assert result.exit_code == 0
+        assert "not found" not in result.output
+        assert "/home/kaoru/Ginkgo" in result.output
+
     def test_get_unknown_key_shows_not_found(self, cli_runner, mock_gconf):
         """get 未知 key 显示 not found"""
         with patch("ginkgo.libs.GCONF", mock_gconf):
