@@ -104,7 +104,7 @@ app.exception_handler(Exception)(global_error_handler)
 app.exception_handler(APIError)(global_error_handler)
 # #5405: 显式注册 fastapi.HTTPException，否则 raise HTTPException 走 Starlette
 # 内置默认处理器（针对父类 starlette.HTTPException 注册）返回 {detail} 无 trace_id。
-# global_error_handler 已有 HTTPException 分支（error_handler.py:27-37），此处激活它。
+# global_error_handler 已有 HTTPException 分支（error_handler.py:27-37），此处激活它。)
 app.exception_handler(HTTPException)(global_error_handler)
 
 
