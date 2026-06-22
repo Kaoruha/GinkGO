@@ -354,6 +354,40 @@ class TestSync:
         output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         assert "000001.SZ" in output_clean
 
+    @patch("ginkgo.service_hub")
+    def test_sync_day_records_added_zero_counts_skipped(self, mock_hub, cli_runner):
+        """records_added=0（源无数据）计入 skipped_count，汇总行含 Skipped"""
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+        from datetime import datetime
+        import re
+
+        mock_bar_service = MagicMock()
+        sync_data = DataSyncResult(
+            entity_type="bars",
+            entity_identifier="SH999999",
+            sync_range=(datetime(2025, 1, 1), datetime(2025, 6, 1)),
+            records_processed=0,
+            records_added=0,
+            records_updated=0,
+            records_skipped=0,
+            records_failed=0,
+            sync_duration=0.5,
+            is_idempotent=True,
+            sync_strategy="smart",
+        )
+        mock_bar_service.sync_smart.return_value = ServiceResult.success(
+            data=sync_data,
+            message="Successfully synced 0 bar records for SH999999",
+        )
+        mock_hub.data.bar_service.return_value = mock_bar_service
+
+        result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "SH999999"])
+        assert result.exit_code == 0
+        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+        # 第三态：源无数据，计入 Skipped 而非漏统计
+        assert "Skipped: 1" in output_clean
+        assert "Success: 0" in output_clean
+
     def test_sync_day_unknown_type_error(self, cli_runner):
         """sync 未知数据类型返回错误"""
         result = cli_runner.invoke(data_cli.app, ["sync", "nonexistent"])
