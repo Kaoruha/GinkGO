@@ -70,6 +70,12 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
+        # 3a. #6281: 校验 account 存在性（非法 account 早拦截，不穿透到 _deploy_core 撞 DB 漂移）
+        if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
+            account_info = self._live_account_service.get_account_by_uuid(account_id)
+            if not account_info or not account_info.get("success"):
+                return ServiceResult(success=False, error=f"实盘账户不存在: {account_id}")
+
         # 3c. 检查 live_account 是否已被其他 Portfolio 绑定
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
             existing_brokers = self._broker_instance_crud.get_broker_by_live_account(account_id)
@@ -150,11 +156,16 @@ class DeploymentService(BaseService):
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
         # 5c. Live模式: 回写 live_account_id 到 Portfolio
+        # #6281: 回写可能因 DB 漂移(live_account_id 列缺失, 见 arch_create_all_no_alter_drift)
+        #        抛 1054，属环境问题不应阻断部署 → 降级 WARN 继续
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
-            self._portfolio_service.update(
-                portfolio_id=new_portfolio_id,
-                live_account_id=account_id,
-            )
+            try:
+                self._portfolio_service.update(
+                    portfolio_id=new_portfolio_id,
+                    live_account_id=account_id,
+                )
+            except Exception as e:
+                GLOG.WARN(f"回写 live_account_id 失败(可能 DB 漂移缺列, 需重建库): {e}")
 
         # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
         for mapping in mappings:

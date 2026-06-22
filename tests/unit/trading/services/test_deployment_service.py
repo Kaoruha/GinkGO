@@ -128,3 +128,48 @@ class TestDeploymentServiceErrorMessages:
         assert not result.success
         # service error 不应有 "部署失败:" 前缀（CLI 层加）
         assert not result.error.startswith("部署失败:")
+
+
+class TestDeploymentServiceAccountValidation:
+    """#6281: deploy live 非法 account 应在校验阶段拦截，不穿透到 _deploy_core"""
+
+    def test_deploy_live_rejects_nonexistent_account(self):
+        """非法 account_id 在 deploy 阶段就被拦（#6281），不走到 _deploy_core 撞 DB 漂移"""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # account 不存在
+        svc._live_account_service.get_account_by_uuid.return_value = {"success": False, "data": None}
+        # broker 查询返回空（未被占用）
+        svc._broker_instance_crud.get_broker_by_live_account.return_value = []
+        # 若穿透到 _deploy_core，说明存在性校验缺失
+        svc._deploy_core = MagicMock(side_effect=AssertionError("account 校验应先拦截，不应走到 _deploy_core"))
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.LIVE, account_id="fake_nonexistent")
+
+        assert not result.success
+        assert "实盘账户不存在" in result.error
+        svc._live_account_service.get_account_by_uuid.assert_called_once_with("fake_nonexistent")
+        svc._deploy_core.assert_not_called()
+
+    def test_deploy_live_swallows_live_account_update_column_missing(self, monkeypatch):
+        """#6281: 回写 live_account_id 遇 DB 漂移(列缺失)时降级，部署仍成功不裸抛 1054"""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        svc._live_account_service.get_account_by_uuid.return_value = {"success": True, "data": {"uuid": "acc"}}
+        svc._broker_instance_crud.get_broker_by_live_account.return_value = []
+        svc._deployment_crud.add.return_value = MagicMock(success=True, data=MagicMock(uuid="d1"))
+        # _deploy_core 依赖
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(success=True, data=[])
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        svc._broker_instance_crud.add_broker_instance.return_value = None
+        svc._deployment_crud.modify.return_value = None
+        # update 回写 live_account_id 抛 1054（DB 漂移列缺失）
+        svc._portfolio_service.update.side_effect = Exception("(1054, Unknown column 'portfolio.live_account_id')")
+        # mock Kafka producer 避免真实连接
+        monkeypatch.setattr("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer", MagicMock())
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.LIVE, account_id="acc", name="L")
+
+        assert result.success, f"update 列缺失应降级不阻断部署: {result.error}"
