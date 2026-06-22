@@ -436,6 +436,8 @@ class PaperTradingWorker:
             effective_date = self._engine.now if self._engine else datetime.now()
 
         target_date_str = effective_date.strftime("%Y-%m-%d")
+        day_start = effective_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = effective_date.replace(hour=23, minute=59, second=59, microsecond=999999)
         records = {"analyzers": [], "signals": [], "orders": []}
 
         try:
@@ -455,13 +457,16 @@ class PaperTradingWorker:
         except Exception as e:
             GLOG.DEBUG(f"[PAPER-WORKER] Failed to load analyzer records: {e}")
 
-        # 补充 signal 记录
+        # 补充 signal 记录（走 Service 层 + 日期下推查询层，#6030）
         try:
-            signal_crud = services.data.cruds.signal()
-            signal_records = signal_crud.find(filters={"portfolio_id": portfolio_id})
-            for r in (signal_records or []):
-                ts = str(getattr(r, 'timestamp', ''))[:10]
-                if ts == target_date_str:
+            sig_service = services.data.services.signal_service()
+            sig_result = sig_service.get_signals_by_portfolio(
+                portfolio_id=portfolio_id,
+                start_date=day_start,
+                end_date=day_end,
+            )
+            if sig_result.is_success() and sig_result.data:
+                for r in sig_result.data:
                     records["signals"].append({
                         "code": getattr(r, 'code', ''),
                         "direction": getattr(r, 'direction', 0),
@@ -470,13 +475,16 @@ class PaperTradingWorker:
         except Exception as e:
             GLOG.DEBUG(f"[PAPER-WORKER] Failed to load signal records: {e}")
 
-        # 补充 order 记录
+        # 补充 order 记录（走 Service 层 + 日期下推查询层，#6030）
         try:
-            order_crud = services.data.cruds.order_record()
-            order_records = order_crud.find(filters={"portfolio_id": portfolio_id})
-            for r in (order_records or []):
-                ts = str(getattr(r, 'timestamp', ''))[:10]
-                if ts == target_date_str:
+            order_service = services.data.services.order_service()
+            order_result = order_service.get_orders_by_portfolio(
+                portfolio_id=portfolio_id,
+                start_date=day_start,
+                end_date=day_end,
+            )
+            if order_result.is_success() and order_result.data:
+                for r in order_result.data:
                     records["orders"].append({
                         "code": getattr(r, 'code', ''),
                         "volume": getattr(r, 'volume', 0),
