@@ -536,94 +536,110 @@ async def get_paper_report(
 
 def _query_positions(account_id: str) -> list:
     """查询指定账户的当前持仓列表"""
-    try:
-        result_service = _get_result_service()
-        positions_result = result_service.get_current_positions(account_id, min_volume=1)
-        records = positions_result.data if positions_result.success else []
+    result_service = _get_result_service()
+    positions_result = result_service.get_current_positions(account_id, min_volume=1)
+    if not positions_result.success:
+        # DB 故障：propagate 为 500（global_error_handler 加 trace_id），不吞为空列表 (#5479)
+        raise HTTPException(status_code=500, detail=f"查询持仓失败: {positions_result.error}")
+    records = positions_result.data
 
-        positions = []
-        for r in (records or []):
-            cost = float(getattr(r, 'cost', 0) or 0)
-            price = float(getattr(r, 'price', 0) or 0)
-            volume = int(getattr(r, 'volume', 0) or 0)
-            market_value = price * volume
+    positions = []
+    for r in (records or []):
+        cost = float(getattr(r, 'cost', 0) or 0)
+        price = float(getattr(r, 'price', 0) or 0)
+        volume = int(getattr(r, 'volume', 0) or 0)
+        market_value = price * volume
 
-            pnl = market_value - cost if cost > 0 else 0
-            pnl_ratio = (pnl / cost * 100) if cost > 0 else 0
+        pnl = market_value - cost if cost > 0 else 0
+        pnl_ratio = (pnl / cost * 100) if cost > 0 else 0
 
-            positions.append({
-                "code": getattr(r, 'code', ''),
-                "name": "",  # TODO: 从 stock_info 查询股票名称
-                "shares": volume,
-                "cost": round(cost, 4),
-                "current": round(price, 4),
-                "market_value": round(market_value, 2),
-                "pnl": round(pnl, 2),
-                "pnl_ratio": round(pnl_ratio, 2),
-                "updated_at": _format_datetime(getattr(r, 'timestamp', None)),
-            })
+        positions.append({
+            "code": getattr(r, 'code', ''),
+            "name": "",  # TODO: 从 stock_info 查询股票名称
+            "shares": volume,
+            "cost": round(cost, 4),
+            "current": round(price, 4),
+            "market_value": round(market_value, 2),
+            "pnl": round(pnl, 2),
+            "pnl_ratio": round(pnl_ratio, 2),
+            "updated_at": _format_datetime(getattr(r, 'timestamp', None)),
+        })
 
-        return positions
-
-    except Exception as e:
-        logger.error(f"Error querying positions for {account_id}: {str(e)}")
-        return []
+    return positions
 
 
 def _query_orders(account_id: str, status_filter: Optional[List[str]] = None) -> list:
     """查询指定账户的订单列表"""
-    try:
-        from ginkgo.enums import ORDERSTATUS_TYPES
+    from ginkgo.enums import ORDERSTATUS_TYPES
 
-        result_service = _get_result_service()
+    result_service = _get_result_service()
 
-        # 构建状态筛选
-        status_enum = None
-        if status_filter:
-            status_mapping = {
-                "pending": [ORDERSTATUS_TYPES.NEW, ORDERSTATUS_TYPES.SUBMITTED],
-                "partial": [ORDERSTATUS_TYPES.PARTIAL_FILLED],
-                "filled": [ORDERSTATUS_TYPES.FILLED],
-                "cancelled": [ORDERSTATUS_TYPES.CANCELED],
-                "rejected": [ORDERSTATUS_TYPES.REJECTED],
-            }
-            first_status = status_filter[0]
-            enums = status_mapping.get(first_status, [])
-            if enums:
-                status_enum = enums[0]
+    # 构建状态筛选：展开所有 filter 值的所有映射 enum (#5479，IN 语义，不取 enums[0])
+    status_mapping = {
+        "pending": [ORDERSTATUS_TYPES.NEW, ORDERSTATUS_TYPES.SUBMITTED],
+        "partial": [ORDERSTATUS_TYPES.PARTIAL_FILLED],
+        "filled": [ORDERSTATUS_TYPES.FILLED],
+        "cancelled": [ORDERSTATUS_TYPES.CANCELED],
+        "rejected": [ORDERSTATUS_TYPES.REJECTED],
+    }
+    status_enums = []
+    if status_filter:
+        seen = set()
+        for s in status_filter:
+            for e in status_mapping.get(s, []):
+                if e.value not in seen:
+                    seen.add(e.value)
+                    status_enums.append(e)
 
+    # service 仅支持单 status int：逐 enum 查询并合并去重，等价于 SQL IN (#5479)
+    if status_enums:
+        records = []
+        seen_ids = set()
+        for e in status_enums:
+            r = result_service.get_orders_by_portfolio(
+                account_id, status=e.value, page_size=100,
+            )
+            if not r.success:
+                # DB 故障：propagate 为 500（global_error_handler 加 trace_id），不吞为空列表 (#5479)
+                raise HTTPException(status_code=500, detail=f"查询订单失败: {r.error}")
+            for rec in ((r.data or {}).get("data", []) or []):
+                oid = getattr(rec, 'uuid', '') or getattr(rec, 'order_id', '')
+                if oid and oid in seen_ids:
+                    continue
+                if oid:
+                    seen_ids.add(oid)
+                records.append(rec)
+    else:
         orders_result = result_service.get_orders_by_portfolio(
-            account_id, status=status_enum.value if status_enum else None, page_size=100,
+            account_id, status=None, page_size=100,
         )
-        records = orders_result.data.get("data", []) if orders_result.success else []
+        if not orders_result.success:
+            raise HTTPException(status_code=500, detail=f"查询订单失败: {orders_result.error}")
+        records = (orders_result.data or {}).get("data", [])
 
-        orders = []
-        for r in (records or []):
-            direction = getattr(r, 'direction', 0)
-            direction_value = direction.value if hasattr(direction, 'value') else int(direction)
-            side = "buy" if direction_value == 1 else "sell"
+    orders = []
+    for r in (records or []):
+        direction = getattr(r, 'direction', 0)
+        direction_value = direction.value if hasattr(direction, 'value') else int(direction)
+        side = "buy" if direction_value == 1 else "sell"
 
-            order_id = getattr(r, 'uuid', '') or getattr(r, 'order_id', '')
+        order_id = getattr(r, 'uuid', '') or getattr(r, 'order_id', '')
 
-            orders.append({
-                "order_id": order_id,
-                "strategy_id": "",
-                "account_id": account_id,
-                "code": getattr(r, 'code', ''),
-                "name": "",  # TODO: 从 stock_info 查询
-                "side": side,
-                "price": float(getattr(r, 'limit_price', 0) or 0),
-                "volume": int(getattr(r, 'volume', 0) or 0),
-                "filled": int(getattr(r, 'transaction_volume', 0) or 0),
-                "avg_price": float(getattr(r, 'transaction_price', 0) or 0),
-                "status": _map_order_status(getattr(r, 'status', 0)),
-                "time": _format_datetime(getattr(r, 'business_timestamp', None)
-                    or getattr(r, 'timestamp', None)),
-                "updated_at": _format_datetime(getattr(r, 'timestamp', None)),
-            })
+        orders.append({
+            "order_id": order_id,
+            "strategy_id": "",
+            "account_id": account_id,
+            "code": getattr(r, 'code', ''),
+            "name": "",  # TODO: 从 stock_info 查询
+            "side": side,
+            "price": float(getattr(r, 'limit_price', 0) or 0),
+            "volume": int(getattr(r, 'volume', 0) or 0),
+            "filled": int(getattr(r, 'transaction_volume', 0) or 0),
+            "avg_price": float(getattr(r, 'transaction_price', 0) or 0),
+            "status": _map_order_status(getattr(r, 'status', 0)),
+            "time": _format_datetime(getattr(r, 'business_timestamp', None)
+                or getattr(r, 'timestamp', None)),
+            "updated_at": _format_datetime(getattr(r, 'timestamp', None)),
+        })
 
-        return orders
-
-    except Exception as e:
-        logger.error(f"Error querying orders for {account_id}: {str(e)}")
-        return []
+    return orders

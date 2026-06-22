@@ -289,7 +289,8 @@ class BacktestProcessor(Thread):
                 positions = getattr(portfolio, 'positions', {})
                 total_orders = len(positions) if isinstance(positions, dict) else 0
         except Exception as e:
-            pass  # 统计获取失败不影响主流程
+            # 统计获取失败不影响主流程，但记录日志便于排查 (#5479，不静默 pass)
+            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] 进度统计获取失败: {e}")
 
         # 每2秒上报一次（由ProgressTracker控制频率）
         self.progress_tracker.report_progress(
