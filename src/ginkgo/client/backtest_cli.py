@@ -23,6 +23,18 @@ app = typer.Typer(
 )
 
 
+def _display_progress(status_val, raw_progress):
+    """completed 状态语义上进度必为 100%。
+
+    #5996: 旧任务 DB progress 字段可能为 0（完成回调未覆盖历史数据），
+    但 status==completed 时进度语义上必然完成，CLI 输出层兜底显示 100%，
+    而非原样输出 DB 里的陈旧 0%。
+    """
+    if str(status_val).lower() == "completed":
+        return 100
+    return raw_progress
+
+
 @app.command("create")
 def create_task(
     portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
@@ -366,7 +378,8 @@ def list_tasks(
             else str(task.get("portfolio_id", ""))[:12]
         )
         status_val = task.status if hasattr(task, "status") else task.get("status", "")
-        progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
+        raw_progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
+        progress = _display_progress(status_val, raw_progress)
         created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
 
         status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
@@ -438,7 +451,8 @@ def cat_task(
         status_val, "white"
     )
     info_lines.append(f"[bold]Status:[/bold]       [{status_style}]{status_val}[/{status_style}]")
-    info_lines.append(f"[bold]Progress:[/bold]     {task.progress}%")
+    display_progress = _display_progress(status_val, task.progress)
+    info_lines.append(f"[bold]Progress:[/bold]     {display_progress}%")
     info_lines.append(f"[bold]Created:[/bold]      {task.create_at}")
 
     if task.start_time:
