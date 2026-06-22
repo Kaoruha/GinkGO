@@ -310,7 +310,7 @@ async def get_stockinfo(
 
 @router.get("/bars")
 async def get_bars(
-    code: Optional[str] = None,
+    code: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
