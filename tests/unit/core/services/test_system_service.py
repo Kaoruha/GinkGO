@@ -29,6 +29,23 @@ class TestSystemServiceConstruction:
         assert hasattr(SystemService, "VERSION")
         assert isinstance(SystemService.VERSION, str)
 
+    def test_version_read_from_package_metadata(self):
+        """#5406 验收点2: VERSION 从已安装包 metadata (pyproject.toml) 自动读取，
+        非硬编码常量——防版本漂移（曾硬编码 0.11.0 与 pyproject 0.8.2 不一致）。"""
+        from importlib.metadata import version as installed_version
+        assert SystemService.VERSION == installed_version("ginkgo"), (
+            "VERSION 应等于 pyproject.toml 声明版本（部署自动注入），非硬编码"
+        )
+
+    def test_read_version_fallback_unknown_when_not_installed(self):
+        """#5406: 包未安装时 _read_installed_version fallback "unknown"
+        （裸源码运行无 dist metadata 的兜底，不抛异常）。"""
+        from importlib.metadata import PackageNotFoundError
+        from ginkgo.core.services import system_service
+        with patch.object(system_service, "_installed_version",
+                          side_effect=PackageNotFoundError):
+            assert system_service._read_installed_version() == "unknown"
+
     def test_start_time_attribute(self):
         """启动时间属性"""
         assert hasattr(SystemService, "_start_time")

@@ -10,9 +10,24 @@ System Service - 系统状态和基础设施管理服务
 
 from typing import Dict, Any, List
 from time import time
+from importlib.metadata import version as _installed_version, PackageNotFoundError
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
+
+
+def _read_installed_version() -> str:
+    """从已安装包 metadata 读取版本（pyproject.toml version 字段）。
+
+    #5406 验收点2: 版本应在部署时自动注入，而非硬编码常量——此前 VERSION="0.11.0"
+    与 pyproject.toml version="0.8.2" 漂移。importlib.metadata 读 pip 安装的
+    dist metadata（editable install 同步 pyproject），部署即自动取 pyproject 版本。
+    包未安装（如裸源码运行）时 fallback "unknown"。
+    """
+    try:
+        return _installed_version("ginkgo")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 class SystemService:
@@ -26,7 +41,7 @@ class SystemService:
     - 获取所有Worker/组件状态
     """
 
-    VERSION = "0.11.0"
+    VERSION = _read_installed_version()
     _start_time = time()
 
     def __init__(self):
