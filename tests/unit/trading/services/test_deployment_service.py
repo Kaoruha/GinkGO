@@ -128,3 +128,45 @@ class TestDeploymentServiceErrorMessages:
         assert not result.success
         # service error 不应有 "部署失败:" 前缀（CLI 层加）
         assert not result.error.startswith("部署失败:")
+
+
+class TestGetDeploymentInfo:
+    """#5939: get_deployment_info 按 deployment_id(uuid 主键) 查, 非 target_portfolio_id。
+
+    根因: deploy 返回的 Deployment ID 是部署记录 uuid, 但 info 命令按 target_portfolio_id
+    查询, 致 deploy info <deployment_id> 报"未找到"。查询键须对齐主键(arch_backtest_id_boundary)。
+    """
+
+    def _make_deployment(self, uuid="d1"):
+        d = MagicMock()
+        d.uuid = uuid
+        d.source_task_id = None
+        d.target_portfolio_id = "tgt-1"
+        d.source_portfolio_id = "src-1"
+        d.mode = 1
+        d.account_id = None
+        d.status = 2
+        d.create_at = None
+        return d
+
+    def test_get_info_by_deployment_id_uuid(self):
+        """get_deployment_info(deployment_id) 按 uuid 查到正确记录。"""
+        svc = _make_svc()
+        dep = self._make_deployment(uuid="d-abc")
+        svc._deployment_crud.get_by_uuid.return_value = [dep]
+
+        result = svc.get_deployment_info("d-abc")
+
+        assert result.success, result.error
+        svc._deployment_crud.get_by_uuid.assert_called_once_with("d-abc")
+        assert result.data["target_portfolio_id"] == "tgt-1"
+
+    def test_get_info_not_found_returns_error(self):
+        """deployment_id 查不到 → success=False + 未找到提示。"""
+        svc = _make_svc()
+        svc._deployment_crud.get_by_uuid.return_value = []
+
+        result = svc.get_deployment_info("nonexistent-id")
+
+        assert not result.success
+        assert "未找到" in result.error

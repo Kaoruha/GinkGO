@@ -244,15 +244,16 @@ class DeploymentService(BaseService):
         }
         return result
 
-    def get_deployment_info(self, portfolio_id: str) -> ServiceResult:
-        """获取部署信息"""
-        records = self._deployment_crud.get_by_target_portfolio(portfolio_id)
+    def get_deployment_info(self, deployment_id: str) -> ServiceResult:
+        """获取部署信息(按 deployment_id 主键查) #5939"""
+        records = self._deployment_crud.get_by_uuid(deployment_id)
         if not records:
             return ServiceResult(success=False, error="未找到部署记录")
 
         deployment = records[0]
         result = ServiceResult(success=True)
         result.data = {
+            "deployment_id": deployment.uuid,
             "source_task_id": deployment.source_task_id,
             "target_portfolio_id": deployment.target_portfolio_id,
             "source_portfolio_id": deployment.source_portfolio_id,

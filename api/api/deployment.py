@@ -54,11 +54,11 @@ async def deploy(req: DeployRequest):
     return ok(data=deploy_data, message="部署成功")
 
 
-@router.get("/{portfolio_id}")
-async def get_deployment_info(portfolio_id: str):
-    """查询指定 Portfolio 的部署信息"""
+@router.get("/{deployment_id}")
+async def get_deployment_info(deployment_id: str):
+    """查询指定部署记录(deployment_id)的部署信息 #5939"""
     service = _get_deployment_service()
-    result = service.get_deployment_info(portfolio_id)
+    result = service.get_deployment_info(deployment_id)
 
     if not result.success:
         raise HTTPException(status_code=404, detail=result.error)
