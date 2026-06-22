@@ -368,6 +368,30 @@ class TestConfigWorkers:
         assert result.exit_code == 0
         assert "restarted" in result.output.lower()
 
+    def test_workers_list_shows_worker_ids(self, cli_runner, mock_gtm):
+        """#5991: workers list 列出 worker id（复用 status 的 GTM 数据源），不报 Unknown action"""
+        mock_gtm.get_workers_status.return_value = {
+            "worker-1": {"running": True},
+            "worker-2": {"running": False},
+        }
+        with patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.data.containers.container", MagicMock()):
+            result = cli_runner.invoke(config_cli.app, ["workers", "list"])
+        assert result.exit_code == 0
+        assert "Unknown action" not in result.output
+        assert "worker-1" in result.output
+        assert "worker-2" in result.output
+
+    def test_workers_list_no_workers(self, cli_runner, mock_gtm):
+        """#5991: workers list 无活跃 worker 时友好提示，不报 Unknown action"""
+        mock_gtm.get_workers_status.return_value = {}
+        with patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.data.containers.container", MagicMock()):
+            result = cli_runner.invoke(config_cli.app, ["workers", "list"])
+        assert result.exit_code == 0
+        assert "Unknown action" not in result.output
+        assert "No" in result.output or "无" in result.output
+
     def test_workers_unknown_action(self, cli_runner, mock_gtm):
         """workers 未知 action 显示错误"""
         with patch("ginkgo.libs.GTM", mock_gtm), \
@@ -481,6 +505,26 @@ class TestConfigContainers:
         result = cli_runner.invoke(config_cli.app, ["containers", "deploy"])
         assert result.exit_code == 0
         assert "Deployment" in result.output or "deploy" in result.output.lower()
+
+    def test_containers_list_shows_names(self, cli_runner):
+        """#5991: containers list 列出容器名（复用 status 的 docker ps 数据源），不报 Unknown action"""
+        fake = MagicMock(
+            stdout="my-real-container\tUp 1 hour\tmyimg:v1\nsecond-box\tExited\timg2\n",
+            stderr="", returncode=0,
+        )
+        with patch("subprocess.run", return_value=fake):
+            result = cli_runner.invoke(config_cli.app, ["containers", "list"])
+        assert result.exit_code == 0
+        assert "Unknown action" not in result.output
+        assert "my-real-container" in result.output
+        assert "second-box" in result.output
+
+    def test_containers_list_no_docker(self, cli_runner):
+        """#5991: containers list 无 docker 时友好提示，不报 Unknown action"""
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = cli_runner.invoke(config_cli.app, ["containers", "list"])
+        assert result.exit_code == 0
+        assert "Unknown action" not in result.output
 
     def test_containers_unknown_action(self, cli_runner):
         """containers 未知 action 显示错误"""
