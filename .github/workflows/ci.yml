@@ -70,3 +70,10 @@ jobs:
         run: |
           python -m pytest tests/unit/features/test_containers.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: user_cli tests (#6015 点名)
+        # test_user_cli.py 覆盖 #6013 崩溃链 CLI 层（CLI → containers → user_crud），
+        # user_crud.py IndentationError 时必失败。单文件 pytest 不触发 client 全目录
+        # 跨测试污染（记忆 project-client-test-state-pollution：污染仅在 client 全目录跑时发生）。
+        run: |
+          python -m pytest tests/unit/client/test_user_cli.py \
+            -q -o "addopts=" --no-header --tb=short
