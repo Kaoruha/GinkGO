@@ -919,6 +919,28 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"获取投资组合失败: {str(e)}")
             return ServiceResult.error(f"获取投资组合失败: {str(e)}")
 
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None,
+    ) -> ServiceResult:
+        """#5995: 模糊搜索投资组合，支持 UUID 片段 / 名称部分匹配。
+
+        Args:
+            query: 搜索字符串
+            fields: 搜索字段列表。默认: ['uuid', 'name']
+
+        Returns:
+            ServiceResult: data 为匹配的投资组合列表
+        """
+        try:
+            if not query or not query.strip():
+                return ServiceResult.success([])
+            results = self._crud_repo.fuzzy_search(query, fields)
+            return ServiceResult.success(results)
+        except Exception as e:
+            return ServiceResult.error(f"Portfolio fuzzy search failed: {str(e)}")
+
     # ===== ADR-010 Phase 4 R1a：类型即契约多出口（DF 出口，纯增量） =====
 
     def _build_portfolio_filters(self, portfolio_id: str = None, name: str = None,

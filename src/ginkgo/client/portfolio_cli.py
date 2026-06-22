@@ -433,24 +433,73 @@ def status(
         raise typer.Exit(1)
 
 
+def _resolve_portfolio_identifier(portfolio_service, identifier: str):
+    """#5995: 将 名称/部分UUID/完整UUID 解析为具体 UUID。
+
+    解析链：精确 UUID → 精确名称 → fuzzy（uuid/name 片段）。
+    与同文件 ``get``/``status`` 的 UUID→name 回退模式对齐，新增部分 UUID fuzzy 兜底。
+
+    注：本模块存在 ``def list(...)`` 命令函数遮蔽 builtin ``list``，故此处避免 ``list()``，
+    改用 ``len()`` + 直接索引（data 为 list/ModelList，支持 ``__len__``/``__getitem__``）。
+
+    Returns:
+        (uuid, None) 命中唯一；(None, error_msg) 未命中或歧义。
+    """
+    def _has_match(r) -> bool:
+        return r is not None and getattr(r, 'success', False) and bool(getattr(r, 'data', None))
+
+    def _first_uuid(data):
+        if not data:
+            return None
+        return data[0].uuid
+
+    # 1. 精确 UUID
+    r = portfolio_service.get(portfolio_id=identifier)
+    if _has_match(r):
+        return _first_uuid(r.data), None
+
+    # 2. 精确名称
+    r = portfolio_service.get(name=identifier)
+    if _has_match(r):
+        return _first_uuid(r.data), None
+
+    # 3. fuzzy: uuid/name 片段
+    r = portfolio_service.fuzzy_search(identifier)
+    if _has_match(r):
+        count = len(r.data)
+        if count == 1:
+            return r.data[0].uuid, None
+        return None, f"Multiple portfolios match '{identifier}' ({count} found), use full UUID"
+
+    return None, f"投资组合不存在: {identifier}"
+
+
 @app.command()
 def delete(
-    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID, name, or partial UUID (fuzzy)"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
-    :wastebasket: Delete portfolio.
+    :wastebasket: Delete portfolio. Accepts full UUID, name, or partial UUID (fuzzy match).
     """
     if not confirm:
         console.print(":x: Please use --confirm to delete portfolio")
         raise typer.Exit(1)
 
-    console.print(f":wastebasket: Deleting portfolio: {portfolio_id}")
-
     try:
         from ginkgo.data.containers import container
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.delete(portfolio_id)
+
+        # #5995: 名称/部分UUID 解析（精确 UUID → 名称 → fuzzy）
+        resolved_uuid, error = _resolve_portfolio_identifier(portfolio_service, portfolio_id)
+        if resolved_uuid is None:
+            console.print(f":x: {error}")
+            raise typer.Exit(1)
+
+        if resolved_uuid != portfolio_id:
+            console.print(f":wastebasket: Resolved '{portfolio_id}' -> {resolved_uuid}")
+        console.print(f":wastebasket: Deleting portfolio: {resolved_uuid}")
+        result = portfolio_service.delete(resolved_uuid)
 
         if result.success:
             console.print(":white_check_mark: Portfolio deleted successfully")
@@ -458,6 +507,8 @@ def delete(
             console.print(f":x: Failed to delete portfolio: {result.error}")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: Error: {e}")
         raise typer.Exit(1)
