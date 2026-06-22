@@ -83,28 +83,29 @@ class TestResetPasswordNoDefault:
         return req
 
     def test_reset_without_new_password_rejected(self):
-        """管理员未传 new_password 应返 400，而非默认 123456"""
-        from api.settings import reset_user_password
-        from fastapi import HTTPException
+        """#5465: 缺 new_password 由 ResetPasswordRequest schema 拒绝（防默认 123456 落库）。
 
-        with patch("api.settings.get_user_service") as mock_svc:
-            # #6175: admin 来自 DB（fail-closed），不再信任 req.state.is_admin
-            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
-            with pytest.raises(HTTPException) as exc_info:
-                asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
-        assert exc_info.value.status_code == 400
+        #5565: 端点签名改 ResetPasswordRequest 后，字段必传校验下沉到 schema 层；
+        缺密码的请求体在构造期即抛 ValidationError，端点函数不会执行（亦不会兜底
+        任何默认密码）。
+        """
+        from request_models import ResetPasswordRequest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ResetPasswordRequest()  # 缺 new_password → 构造失败
 
     def test_reset_does_not_call_service_with_default(self):
-        """被拒时 service.reset_password 不应被调用（防止任何默认值落库）"""
-        from api.settings import reset_user_password
-        from fastapi import HTTPException
+        """schema 构造期拒绝缺密码 → 端点不执行 → service.reset_password 不被调用。
+
+        保留 #5465 核心防护意图：任何默认值都无法落库。
+        """
+        from request_models import ResetPasswordRequest
+        from pydantic import ValidationError
 
         with patch("api.settings.get_user_service") as mock_svc:
-            # #6175: 显式 DB-admin，避免依赖 MagicMock 的隐式 truthy（is_admin）
-            mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
-            mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
-            with pytest.raises(HTTPException):
-                asyncio.run(reset_user_password("user-target", {}, self._admin_req()))
+            with pytest.raises(ValidationError):
+                ResetPasswordRequest()  # 构造失败 = 端点不会被调
             mock_svc.return_value.reset_password.assert_not_called()
 
 

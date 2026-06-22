@@ -7,6 +7,7 @@ from typing import Optional
 from core.logging import logger
 from core.response import ok, pagination_meta
 from core.exceptions import NotFoundError, ValidationError, BusinessError
+from request_models import UpdatePortfolioRequest
 from datetime import datetime
 import sys
 from pathlib import Path
@@ -452,7 +453,7 @@ async def create_portfolio(data: PortfolioCreate):
 
 
 @router.put("/{uuid}")
-async def update_portfolio(uuid: str, data: dict):
+async def update_portfolio(uuid: str, data: UpdatePortfolioRequest):
     """更新Portfolio及其组件配置（使用Saga事务保证一致性）
 
     通过Saga模式确保Portfolio更新的事务一致性：
@@ -462,25 +463,28 @@ async def update_portfolio(uuid: str, data: dict):
     - 添加新组件映射
 
     任何步骤失败都会自动回滚到更新前的状态。
+
+    #5565: 请求体由 UpdatePortfolioRequest 校验（顶层字段白名单 extra='forbid'，
+    防任意 key 流入 saga；嵌套组件结构 List[dict] 透传由 saga 内部解析）。
     """
     try:
         from services.saga_transaction import PortfolioSagaFactory
 
         # 准备更新参数
         sizer_data = None
-        if data.get('sizer_uuid'):
-            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': data.get('sizer_config') or {}}
+        if data.sizer_uuid:
+            sizer_data = {'component_uuid': data.sizer_uuid, 'config': data.sizer_config or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.update_portfolio_saga(
             portfolio_uuid=uuid,
-            name=data.get('name'),
-            initial_cash=data.get('initial_cash'),
-            selectors=data.get('selectors'),
+            name=data.name,
+            initial_cash=data.initial_cash,
+            selectors=data.selectors,
             sizer=sizer_data,
-            strategies=data.get('strategies'),
-            risk_managers=data.get('risk_managers'),
-            analyzers=data.get('analyzers')
+            strategies=data.strategies,
+            risk_managers=data.risk_managers,
+            analyzers=data.analyzers
         )
 
         # 执行 Saga 事务
