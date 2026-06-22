@@ -393,7 +393,7 @@ class PortfolioSagaFactory:
         # ==================== 步骤 2: 删除所有映射 ====================
         def remove_mappings():
             for mapping in context['mappings']:
-                file_id = mapping['file_id'] if isinstance(mapping, dict) else mapping.file_id
+                file_id = mapping['file_id']  # get_portfolio_mappings 始终返 dict（#3882）
                 mapping_service.remove_file(
                     portfolio_uuid=portfolio_uuid,
                     file_id=file_id
@@ -475,9 +475,9 @@ class PortfolioSagaFactory:
             mappings = mappings_result.data if mappings_result.is_success() else []
             context['old_mappings'] = [
                 {
-                    'file_id': m['file_id'] if isinstance(m, dict) else m.file_id,
-                    'type': m['type'] if isinstance(m, dict) else m.type,
-                    'params': m.get('params', {}) if isinstance(m, dict) else m.params,
+                    'file_id': m['file_id'],
+                    'type': m['type'],
+                    'params': m.get('params', {}),
                 }
                 for m in mappings
             ]

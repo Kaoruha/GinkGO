@@ -105,7 +105,7 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
             if deployments:
                 portfolio_svc = get_portfolio_service()
                 for dep in deployments:
-                    target_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                    target_list = portfolio_svc.get(portfolio_id=dep["target_portfolio_id"])
                     if target_list and target_list.data:
                         t = target_list.data[0]
                         mode_str = "PAPER" if t.mode == 1 else "LIVE"
@@ -125,7 +125,7 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
             deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
                 portfolio_svc = get_portfolio_service()
-                source_id = deployments[0].source_portfolio_id
+                source_id = deployments[0]["source_portfolio_id"]
                 source_list = portfolio_svc.get(portfolio_id=source_id)
                 if source_list and source_list.data:
                     s = source_list.data[0]
@@ -140,8 +140,8 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
                     })
                 # Other deployments from same source
                 for dep in deployments:
-                    if dep.target_portfolio_id != portfolio_id:
-                        other_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                    if dep["target_portfolio_id"] != portfolio_id:
+                        other_list = portfolio_svc.get(portfolio_id=dep["target_portfolio_id"])
                         if other_list and other_list.data:
                             o = other_list.data[0]
                             related.append({
