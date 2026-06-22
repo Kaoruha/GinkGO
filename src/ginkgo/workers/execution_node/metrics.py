@@ -3,7 +3,7 @@
 # Role: 监控指标收集器，负责ExecutionNode和Portfolio的运行状态指标收集和Redis缓存
 
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class MetricsCollector:
         """
         try:
             state_key = f"portfolio:{portfolio_id}:state"
-            state["last_update"] = datetime.now().isoformat()
+            state["last_update"] = datetime.now(timezone.utc).isoformat()
 
             # 写入Redis Hash
             self.redis_client.hset(state_key, mapping=state)
@@ -82,7 +82,7 @@ class MetricsCollector:
         """
         try:
             info_key = f"execution_node:{self.node_id}:info"
-            state["last_update"] = datetime.now().isoformat()
+            state["last_update"] = datetime.now(timezone.utc).isoformat()
 
             # 写入Redis Hash
             self.redis_client.hset(info_key, mapping=state)

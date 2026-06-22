@@ -163,7 +163,7 @@ class EventEngine(BaseEngine):
     @property
     def now(self) -> datetime.datetime:
         """获取当前时间 - 子类应重写此方法"""
-        return datetime.datetime.now()
+        return datetime.datetime.now(datetime.timezone.utc)
 
     def add_portfolio(self, portfolio: "PortfolioBase") -> None:
         """

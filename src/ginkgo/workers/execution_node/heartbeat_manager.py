@@ -21,7 +21,7 @@ HeartbeatManager - 心跳管理器
 from ginkgo.libs import GLOG
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -191,7 +191,7 @@ class HeartbeatManager:
             heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node.node_id)
 
             # 设置心跳值（当前时间戳）
-            heartbeat_value = datetime.now().isoformat()
+            heartbeat_value = datetime.now(timezone.utc).isoformat()
 
             # 设置键并附带TTL
             redis_client.setex(
@@ -392,9 +392,9 @@ class HeartbeatManager:
             uptime_seconds = 0
             if node.started_at:
                 try:
-                    from datetime import datetime
+                    from datetime import datetime, timezone
                     started = datetime.fromisoformat(node.started_at)
-                    uptime_seconds = int((datetime.now() - started).total_seconds())
+                    uptime_seconds = int((datetime.now(timezone.utc) - started).total_seconds())
                 except Exception as e:
                     GLOG.WARNING(f"{e}")
                     pass

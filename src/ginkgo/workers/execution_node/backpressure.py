@@ -25,7 +25,7 @@ BackpressureChecker监控PortfolioProcessor的队列使用率，防止内存溢�
 """
 
 from typing import Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
 
 
@@ -106,7 +106,7 @@ class BackpressureChecker:
         # 记录历史
         with self.lock:
             self.backpressure_history.append({
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "portfolio_id": portfolio_id,
                 "usage": usage,
                 "level": level,
