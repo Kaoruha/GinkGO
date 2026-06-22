@@ -603,6 +603,12 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
         service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
 
 
+# #5390: sync_data 支持的 type 白名单——新增 type 时须同步此常量与下方
+# if/elif 分支（stockinfo/bars/ticks/adjustfactor）。错误提示从此常量
+# 生成，避免有效值列表与分支漂移。
+_SUPPORTED_DATA_SYNC_TYPES = ("stockinfo", "bars", "ticks", "adjustfactor")
+
+
 @router.post("/sync")
 async def sync_data(request: DataUpdateRequest):
     """触发数据同步"""
@@ -715,7 +721,10 @@ async def sync_data(request: DataUpdateRequest):
             )
 
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported data type: {request.type}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported data type: {request.type}. Supported types: {', '.join(_SUPPORTED_DATA_SYNC_TYPES)}",
+            )
 
     except HTTPException:
         raise
