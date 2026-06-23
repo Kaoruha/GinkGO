@@ -475,6 +475,9 @@ async def create_portfolio(data: PortfolioCreate):
             raise BusinessError("Failed to get portfolio UUID after creation")
 
         response = await get_portfolio(portfolio_uuid)
+        # #5840: get_portfolio 复用其组装好的 data，但 message 是 "retrieved" 语义，
+        # 创建动作必须覆盖为 "created"，否则 POST /portfolios/ 谎报 retrieved。
+        response["message"] = "Portfolio created successfully"
         return response
 
     except BusinessError:
