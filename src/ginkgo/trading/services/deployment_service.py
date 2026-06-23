@@ -263,6 +263,19 @@ class DeploymentService(BaseService):
         }
         return result
 
+    def _deployment_to_dict(self, r) -> dict:
+        """部署记录 → dict（list_deployments / find_by_* 共用，#3882 统一返回类型）。"""
+        return {
+            "deployment_id": r.uuid,
+            "source_task_id": r.source_task_id,
+            "target_portfolio_id": r.target_portfolio_id,
+            "source_portfolio_id": r.source_portfolio_id,
+            "mode": r.mode,
+            "account_id": r.account_id,
+            "status": r.status,
+            "create_at": str(r.create_at) if r.create_at else None,
+        }
+
     def list_deployments(self, portfolio_id: str = None) -> ServiceResult:
         """列出部署记录"""
         if portfolio_id:
@@ -274,37 +287,25 @@ class DeploymentService(BaseService):
             return ServiceResult(success=True, data=[])
 
         result = ServiceResult(success=True)
-        result.data = [
-            {
-                "deployment_id": r.uuid,
-                "source_task_id": r.source_task_id,
-                "target_portfolio_id": r.target_portfolio_id,
-                "source_portfolio_id": r.source_portfolio_id,
-                "mode": r.mode,
-                "account_id": r.account_id,
-                "status": r.status,
-                "create_at": str(r.create_at) if r.create_at else None,
-            }
-            for r in records
-        ]
+        result.data = [self._deployment_to_dict(r) for r in records]
         return result
 
     # #3867: API 层不再直调 CRUD，通过 Service 封装
 
     def find_by_source_portfolio(self, source_portfolio_id: str) -> ServiceResult:
-        """查找源组合的所有部署记录"""
+        """查找源组合的所有部署记录（返回 dict 列表，字段对齐 list_deployments，#3882）。"""
         try:
             records = self._deployment_crud.get_by_source_portfolio(source_portfolio_id)
-            return ServiceResult.success(data=records or [])
+            return ServiceResult.success(data=[self._deployment_to_dict(r) for r in (records or [])])
         except Exception as e:
             GLOG.ERROR(f"Failed to find deployments by source: {e}")
             return ServiceResult.error(f"Failed to find deployments: {str(e)}")
 
     def find_by_target_portfolio(self, target_portfolio_id: str) -> ServiceResult:
-        """查找目标组合的所有部署记录"""
+        """查找目标组合的所有部署记录（返回 dict 列表，字段对齐 list_deployments，#3882）。"""
         try:
             records = self._deployment_crud.get_by_target_portfolio(target_portfolio_id)
-            return ServiceResult.success(data=records or [])
+            return ServiceResult.success(data=[self._deployment_to_dict(r) for r in (records or [])])
         except Exception as e:
             GLOG.ERROR(f"Failed to find deployments by target: {e}")
             return ServiceResult.error(f"Failed to find deployments: {str(e)}")
