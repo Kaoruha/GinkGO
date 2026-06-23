@@ -307,6 +307,32 @@ async def list_backtest_engines(
         raise BusinessError(f"Error listing engines: {str(e)}")
 
 
+@router.delete("/engines/stale")
+async def cleanup_stale_engines(
+    is_live: bool = Query(False, description="清理范围 False=回测引擎(默认)"),
+    dry_run: bool = Query(True, description="试运行 True=仅统计不删除(默认安全)"),
+):
+    """清理从未运行的僵尸引擎（#5779）。
+
+    僵尸判据：backtest_start_date + backtest_end_date 双空（创建后从未启动）。
+    默认 dry_run=True 安全模式仅统计；显式 dry_run=false 执行软删除（可恢复）。
+    """
+    try:
+        engine_service = get_engine_service()
+        result = engine_service.cleanup_stale_engines(
+            is_live=0 if not is_live else 1, dry_run=dry_run
+        )
+        if not result.is_success():
+            raise BusinessError(f"清理僵尸引擎失败: {result.message}")
+        return ok(data=result.data, message=result.message)
+
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error cleaning stale engines: {str(e)}")
+        raise BusinessError(f"Error cleaning stale engines: {str(e)}")
+
+
 @router.get("/analyzers")
 async def list_analyzers():
     """

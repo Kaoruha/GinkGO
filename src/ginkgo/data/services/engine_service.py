@@ -635,6 +635,57 @@ class EngineService(BaseService):
             GLOG.ERROR(f"批量删除引擎失败: {str(e)}")
             return ServiceResult.error(f"批量删除引擎失败: {str(e)}")
 
+    def cleanup_stale_engines(self, is_live=None, dry_run=True) -> ServiceResult:
+        """
+        清理从未运行的僵尸引擎（#5779）。
+
+        僵尸判据：backtest_start_date 与 backtest_end_date 均空 = 创建后从未启动。
+        判据与引擎命名解耦：生产引擎启动后 start_date 必非空，不会误伤；
+        遗留 test_engine_* 等历史残留同样满足双空条件被纳入清理。
+
+        Args:
+            is_live: 引擎类型过滤（None=全部 / 0=回测 / 1=实盘）
+            dry_run: True=仅统计不删除（默认安全），False=执行删除
+
+        Returns:
+            ServiceResult: dry_run 返回 {stale_count, stale_uuids, dry_run}；
+                          实删返回 delete_batch 统计（软删除，可恢复）。
+        """
+        try:
+            result = self.get(is_live=is_live)
+            if not result.is_success():
+                return ServiceResult.error(f"获取引擎失败: {result.message}")
+
+            stale_uuids = []
+            for engine in (result.data or []):
+                start = getattr(engine, 'backtest_start_date', None)
+                end = getattr(engine, 'backtest_end_date', None)
+                if start is None and end is None:
+                    uid = getattr(engine, 'uuid', None)
+                    if uid:
+                        stale_uuids.append(uid)
+
+            if dry_run:
+                return ServiceResult.success(
+                    data={
+                        "stale_count": len(stale_uuids),
+                        "stale_uuids": stale_uuids,
+                        "dry_run": True,
+                    },
+                    message=f"DRY RUN: 发现 {len(stale_uuids)} 个僵尸引擎"
+                )
+
+            if not stale_uuids:
+                return ServiceResult.success(
+                    data={"stale_count": 0, "successful_deletions": 0},
+                    message="无僵尸引擎需清理"
+                )
+
+            return self.delete_batch(stale_uuids)
+        except Exception as e:
+            GLOG.ERROR(f"清理僵尸引擎失败: {str(e)}")
+            return ServiceResult.error(f"清理僵尸引擎失败: {str(e)}")
+
     # 注意：重复的查询方法已删除
 # - get_engines: 使用标准 get 方法替代
 # - get_engine: 使用标准 get 方法替代
