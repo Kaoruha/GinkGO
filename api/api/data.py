@@ -628,6 +628,22 @@ async def sync_data(request: DataUpdateRequest):
 
         elif request.type == "bars":
             codes = request.codes or []
+            # #5866: codes=["all"] 展开为 stockinfo 全表 code（一键批量同步）
+            if len(codes) == 1 and codes[0].lower() == "all":
+                stockinfo_svc = get_stockinfo_service()
+                codes_result = stockinfo_svc.list_all_codes()
+                if not codes_result.is_success():
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to list stockinfo codes for batch sync",
+                    )
+                codes = codes_result.data or []
+                if not codes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No stockinfo records to sync; run stockinfo sync first "
+                               "(POST /api/v1/data/sync {\"type\":\"stockinfo\"})",
+                    )
             if not codes:
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
 
