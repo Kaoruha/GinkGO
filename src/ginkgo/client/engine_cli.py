@@ -689,7 +689,7 @@ def run(
 @app.command()
 def delete(
     engine_id: str = typer.Argument(..., help="Engine UUID"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete engine.
@@ -849,7 +849,7 @@ def bind_portfolio(
 def unbind_portfolio(
     engine_id: str = typer.Argument(..., help="Engine UUID or name"),
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm unbinding"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :broken_link: Unbind an engine from a portfolio.
