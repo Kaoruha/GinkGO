@@ -293,44 +293,20 @@ async def get_paper_account(account_id: str):
         raise BusinessError(f"Error getting paper account: {str(e)}")
 
 
-@router.post("/{account_id}/start", deprecated=True)
+@router.post("/{account_id}/start", deprecated=True, status_code=410)
 async def start_paper_trading(account_id: str, data: StartPaperTradingRequest = None):
-    """[DEPRECATED] Use POST /api/v1/portfolios/{uuid}/start instead"""
-    try:
-        from ginkgo.messages.control_command import ControlCommand
-        from ginkgo.interfaces.kafka_topics import KafkaTopics
+    """[DEPRECATED] 此端点已废弃，请使用 POST /api/v1/portfolios/{uuid}/start
 
-        # 验证 portfolio 存在
-        portfolio = _require_portfolio(account_id)
-        # #6095 review: _require_portfolio 经 PortfolioService.get → _crud_repo.find 返回 list，
-        # 与 get_paper_account(L258) 一致地解包取首元素，否则 _map_pt_status 收到 list → 恒为 "error"
-        if isinstance(portfolio, list):
-            portfolio = portfolio[0]
-
-        # 发送 Kafka deploy 命令
-        producer = _get_kafka_producer()
-        cmd = ControlCommand.deploy(account_id)
-        success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
-
-        if not success:
-            raise BusinessError("Failed to send deploy command via Kafka")
-
-        logger.info(f"Start paper trading command sent for {account_id}")
-
-        # #5401: 即发即忘——Kafka 命令已投递，但 worker 异步处理，状态不会立即变
-        # RUNNING。返回当前真实状态 + 诚实消息，避免前端误以为已启动。
-        return ok(
-            data={"success": True, "current_status": _map_pt_status(portfolio)},
-            message="Deploy command sent. Worker starts asynchronously; status will update shortly."
-        )
-
-    except NotFoundError:
-        raise
-    except BusinessError:
-        raise
-    except Exception as e:
-        logger.error(f"Error starting paper trading {account_id}: {str(e)}")
-        raise BusinessError(f"Error starting paper trading: {str(e)}")
+    原 Kafka ControlCommand.deploy 投递到 CONTROL_COMMANDS topic，但 worker 只消费
+    DATA_COMMANDS（worker.py:31 数据采集专用），topic 不匹配无消费者，命令发出后无人
+    处理，账户状态永不变。改返回 410 Gone + 迁移指引（#5860 A 方案）。「真启动引擎」
+    需 worker 改消费 CONTROL_COMMANDS，属基础设施改造，新旧端点同受影响，超本端点范围。
+    """
+    raise BusinessError(
+        "POST /api/v1/paper-trading/{account_id}/start is deprecated and no longer functional. "
+        "Use POST /api/v1/portfolios/{uuid}/start instead.",
+        code=410,
+    )
 
 
 @router.post("/{account_id}/stop", deprecated=True)
