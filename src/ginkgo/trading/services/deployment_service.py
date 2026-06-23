@@ -84,6 +84,15 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
+        # 3a. #6281: account 存在性预检
+        # 非法 account 不应直冲下游查询，否则环境层 DB 列漂移时抛裸 1054 (见 arch_create_all_no_alter_drift)。
+        if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
+            account_res = self._live_account_service.get_account_by_uuid(account_id)
+            if not account_res or not account_res.get("success"):
+                return ServiceResult(
+                    success=False, error=f"实盘账户不存在: {account_id}"
+                )
+
         # 3c. 检查 live_account 是否已被其他 Portfolio 绑定
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
             existing_brokers = self._broker_instance_crud.get_broker_by_live_account(account_id)
