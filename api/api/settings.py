@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, status, Request, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 import bcrypt
@@ -14,6 +14,7 @@ from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
 from core.response import ok
+from core.exceptions import BusinessError
 
 router = APIRouter()
 
@@ -38,6 +39,11 @@ def get_user_group_service():
 def get_notification_service() -> NotificationService:
     """获取NotificationService实例"""
     return NotificationService()
+
+
+def get_api_key_service():
+    """获取 ApiKeyService 实例（#5459: 持久化 API keys，替代硬编码 mock）。"""
+    return container.api_key_service()
 
 
 def hash_password(password: str) -> str:
@@ -1826,6 +1832,26 @@ async def test_notification_recipient(uuid: str):
 
 # ==================== API接口设置 ====================
 
+class CreateApiKeyRequest(BaseModel):
+    """#5459: 创建 API 密钥请求（对齐前端 apiKey.ts CreateApiKeyRequest）。"""
+    model_config = ConfigDict(extra="ignore")  # 忽略未知字段（#5474 同类校验理念）
+    name: str = Field(..., min_length=1, description="密钥名称")
+    permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
+    description: Optional[str] = Field(None, description="备注说明")
+    expires_days: Optional[int] = Field(None, description="有效期天数，None=永久")
+    auto_generate: bool = Field(True, description="是否自动生成 key 值（端点创建总是生成）")
+
+
+class UpdateApiKeyRequest(BaseModel):
+    """#5459: 更新 API 密钥请求（对齐前端 apiKey.ts UpdateApiKeyRequest，字段全可选）。"""
+    model_config = ConfigDict(extra="ignore")
+    name: Optional[str] = Field(None, min_length=1, description="密钥名称")
+    permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
+    is_active: Optional[bool] = Field(None, description="是否激活")
+    description: Optional[str] = Field(None, description="备注说明")
+    expires_days: Optional[int] = Field(None, description="有效期天数，None=不改")
+
+
 class APIKeySummary(BaseModel):
     """API密钥摘要"""
     key_id: str
@@ -1846,22 +1872,96 @@ class APIStats(BaseModel):
 
 @router.get("/api-keys")
 async def list_api_keys():
-    """获取API密钥列表"""
-    # #5595: API 密钥库未实现——诚实返 501，不返回硬编码假列表
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API key management is not implemented"
-    )
+    """获取API密钥列表
+
+    #5459: 透传 ApiKeyService.list_api_keys 的 api_keys 列表。
+    service 字段已对齐前端 apiKey.ts ApiKey（12 字段），无需重映射。
+    """
+    svc = get_api_key_service()
+    result = svc.list_api_keys()
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to list API Keys"))
+    return ok(data=result["data"]["api_keys"])
 
 
 @router.post("/api-keys", status_code=201)
-async def create_api_key(data: dict):
-    """创建API密钥"""
-    # #5595: API 密钥创建未实现——诚实返 501
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API key creation is not implemented"
+async def create_api_key(data: CreateApiKeyRequest):
+    """创建API密钥
+
+    #5459: 接线 ApiKeyService 持久化，透传 service.data（含一次性明文 key_value）。
+    service.data 字段已对齐前端 apiKey.ts CreateApiKeyResponse，无需重映射。
+    """
+    svc = get_api_key_service()
+    result = svc.create_api_key(
+        name=data.name,
+        permissions=data.permissions,
+        description=data.description,
+        expires_days=data.expires_days,
+        auto_generate=data.auto_generate,
     )
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to create API Key"))
+    return ok(data=result["data"])
+
+
+@router.get("/api-keys/{key_id}")
+async def get_api_key(key_id: str):
+    """获取API密钥详情
+
+    #5459: 透传 ApiKeyService.get_api_key（对齐前端 getApiKey，不含原始 key_value）。
+    """
+    svc = get_api_key_service()
+    result = svc.get_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data=result["data"])
+
+
+@router.put("/api-keys/{key_id}")
+async def update_api_key(key_id: str, data: UpdateApiKeyRequest):
+    """更新API密钥
+
+    #5459: 转发 UpdateApiKeyRequest 字段到 service.update_api_key（对齐前端 updateApiKey）。
+    service update 仅返回 {success, message}，端点补 {uuid} 对齐前端 APIResponse<{uuid}>。
+    """
+    svc = get_api_key_service()
+    result = svc.update_api_key(
+        uuid=key_id,
+        name=data.name,
+        permissions=data.permissions,
+        is_active=data.is_active,
+        description=data.description,
+        expires_days=data.expires_days,
+    )
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to update API Key"))
+    return ok(data={"uuid": key_id})
+
+
+@router.delete("/api-keys/{key_id}")
+async def delete_api_key(key_id: str):
+    """删除API密钥
+
+    #5459: 接线 ApiKeyService.delete_api_key（验收: Delete removes the key）。
+    """
+    svc = get_api_key_service()
+    result = svc.delete_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data={"uuid": key_id})
+
+
+@router.post("/api-keys/{key_id}/reveal")
+async def reveal_api_key(key_id: str):
+    """解密并返回完整API密钥
+
+    #5459: 透传 service.reveal_api_key（对齐前端 revealApiKey，返回明文 key_value 用于复制）。
+    """
+    svc = get_api_key_service()
+    result = svc.reveal_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data=result["data"])
 
 
 @router.get("/api-stats")
