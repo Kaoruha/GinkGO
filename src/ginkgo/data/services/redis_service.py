@@ -394,6 +394,30 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to check key existence: {e}")
             return ServiceResult.error(f"Failed to check key existence: {str(e)}")
 
+    def find_keys(self, pattern: str = "*") -> ServiceResult:
+        """
+        查找匹配 pattern 的 Redis 键列表
+
+        封装 _crud_repo.keys，供调用方（如 cache_cli）查询键列表，
+        避免直调 CRUD 实例（ BaseService 仅暴露私有 _crud_repo，外部直访抛
+        AttributeError 被 try/except 静默吞，见 #2592）。
+
+        Args:
+            pattern: Redis 键模式（默认 "*" 查全部）
+
+        Returns:
+            ServiceResult: data 含 keys（List[str]，空列表表示无匹配）
+        """
+        try:
+            keys = self._crud_repo.keys(pattern)
+            return ServiceResult.success(
+                data={"keys": keys or []},
+                message=f"Found {len(keys or [])} keys matching '{pattern}'"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to find keys for pattern '{pattern}': {e}")
+            return ServiceResult.error(f"Failed to find keys for pattern '{pattern}': {str(e)}")
+
     # ==================== 进程管理 ====================
     
     def register_main_process(self, pid: int) -> bool:
