@@ -156,7 +156,7 @@ async def list_components(
         logger.error(f"Error listing components: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to list components: {str(e)}"
+            detail="Failed to list components"
         )
 
 
@@ -227,7 +227,7 @@ async def get_component(uuid: str):
         logger.error(f"Error getting component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get component: {str(e)}"
+            detail="Failed to get component"
         )
 
 
@@ -277,7 +277,7 @@ async def create_component(data: ComponentCreate):
         logger.error(f"Error creating component: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create component: {str(e)}"
+            detail="Failed to create component"
         )
 
 
@@ -315,7 +315,7 @@ async def update_component(uuid: str, data: ComponentUpdate):
         logger.error(f"Error updating component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update component: {str(e)}"
+            detail="Failed to update component"
         )
 
 
@@ -342,7 +342,7 @@ async def delete_component(uuid: str):
         logger.error(f"Error deleting component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete component: {str(e)}"
+            detail="Failed to delete component"
         )
 
 
@@ -366,7 +366,7 @@ async def get_component_parameters(component_name: str):
         logger.error(f"Error getting component parameters for {component_name}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
+            detail="Failed to get component parameters"
         )
 
 
@@ -380,7 +380,7 @@ async def get_all_component_parameters():
         logger.error(f"Error getting all component parameters: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
+            detail="Failed to get component parameters"
         )
 
 
