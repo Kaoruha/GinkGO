@@ -689,10 +689,23 @@ def sync(
                         elif result is None:  # Some functions return None on success
                             sync_success = True
 
-                        
+
                         if sync_success:
-                            success_count += 1
-                            console.print(f":white_check_mark: {current_code} sync completed")
+                            # 仿 day 分支：从 result.data.records_added 提取实际入库条数，
+                            # 避免无数据时仍打印 ":white_check_mark: sync completed" 误导用户（#6053）。
+                            records_added = 0
+                            try:
+                                _data = getattr(result, 'data', None)
+                                raw = getattr(_data, 'records_added', 0)
+                                records_added = int(raw) if isinstance(raw, (int, float)) else 0
+                            except (AttributeError, TypeError, ValueError):
+                                records_added = 0
+                            if records_added > 0:
+                                success_count += 1
+                                console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
+                            else:
+                                # service.sync 成功但源端无数据：不算成功计数，避免误导（#6053）
+                                console.print(f":warning: {current_code} — no adjustfactor data available from source")
 
                             # 同步完成后立即计算该股票的复权因子
                             console.print(f":information: Calculating adjustment factors for {current_code}...")
