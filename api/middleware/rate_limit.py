@@ -5,6 +5,7 @@
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Dict
+import os
 import time
 
 from core.logging import logger
@@ -14,15 +15,36 @@ _MAX_IPS = 10000
 _FULL_CLEANUP_INTERVAL = 1000
 
 
+def _load_trusted_proxies() -> set:
+    """#5475: 从 TRUSTED_PROXIES 环境变量加载可信反向代理 IP（逗号分隔）。
+
+    部署在 nginx/反向代理后时配置，例如 TRUSTED_PROXIES=10.0.0.1,10.0.0.2。
+    空（默认）= fail-closed，不信任任何 X-Forwarded-For，只用 TCP 直连 IP。
+    """
+    raw = os.environ.get("TRUSTED_PROXIES", "")
+    return {p.strip() for p in raw.split(",") if p.strip()}
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """基于内存的请求限流中间件（开发环境）"""
 
-    def __init__(self, app, max_requests: int = 100, window_seconds: int = 60):
+    def __init__(
+        self,
+        app,
+        max_requests: int = 100,
+        window_seconds: int = 60,
+        trusted_proxies=None,
+    ):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests: Dict[str, list] = {}
         self._request_count = 0
+        # #5475: 仅直连 IP 属于此集合时才采信 X-Forwarded-For（防伪造绕过限流）。
+        # 默认从 TRUSTED_PROXIES 环境变量读；显式传入（测试）优先。
+        if trusted_proxies is None:
+            trusted_proxies = _load_trusted_proxies()
+        self.trusted_proxies = set(trusted_proxies)
 
     async def dispatch(self, request: Request, call_next):
         client_ip = self.get_client_ip(request)
@@ -44,17 +66,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     def get_client_ip(self, request: Request) -> str:
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip
-
-        if request.client:
-            return request.client.host
-
+        # #5475: 先取 TCP 直连 IP，仅当它来自可信反向代理时才采信 XFF/X-Real-IP
+        # 头（这些头可被任意客户端伪造）；否则用直连 IP（fail-closed，不可伪造）。
+        direct_ip = request.client.host if request.client else None
+        if direct_ip and direct_ip in self.trusted_proxies:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+            real_ip = request.headers.get("X-Real-IP")
+            if real_ip:
+                return real_ip.strip()
+        if direct_ip:
+            return direct_ip
         return "unknown"
 
     def is_rate_limited(self, client_ip: str) -> bool:
