@@ -178,7 +178,7 @@ async def get_data_stats():
         logger.error(f"Error getting data stats: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get data stats: {str(e)}"
+            detail="Failed to get data stats"
         )
 
 async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: int = 10) -> Dict[str, Any]:
@@ -230,8 +230,7 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
             "stocks_with_tick_data": 0,
             "sample_size": sample_size,
             "total_sampled_ticks": 0,
-            "top_stocks": [],
-            "error": str(e)
+            "top_stocks": []
         }
 
 
@@ -304,7 +303,7 @@ async def get_stockinfo(
         logger.error(f"Error getting stockinfo: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get stock info: {str(e)}"
+            detail="Failed to get stock info"
         )
 
 
@@ -380,7 +379,7 @@ async def get_bars(
         logger.error(f"Error getting bars: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get bars: {str(e)}"
+            detail="Failed to get bars"
         )
 
 
@@ -466,7 +465,7 @@ async def get_ticks(
         logger.error(f"Error getting ticks: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get ticks: {str(e)}"
+            detail="Failed to get ticks"
         )
 
 
@@ -534,7 +533,7 @@ async def get_adjust_factors(
         logger.error(f"Error getting adjust factors: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get adjust factors: {str(e)}"
+            detail="Failed to get adjust factors"
         )
 
 
@@ -721,7 +720,7 @@ async def sync_data(request: DataUpdateRequest):
         raise
     except Exception as e:
         logger.error(f"Error updating data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update data")
 
 
 @router.get("/sync/history")
@@ -748,7 +747,7 @@ async def get_sync_history(
         return paginated(items=items, total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Error getting sync history: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get sync history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get sync history")
 
 
 @router.get("/sources")
@@ -789,5 +788,5 @@ async def get_data_sources():
         logger.error(f"Error getting data sources: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get data sources: {str(e)}"
+            detail="Failed to get data sources"
         )
