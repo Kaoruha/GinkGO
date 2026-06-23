@@ -25,6 +25,7 @@ from decimal import Decimal
 from typing import Union
 
 from ginkgo.enums import DIRECTION_TYPES
+from ginkgo.libs import GLOG
 
 
 class SlippageModel(ABC):
@@ -103,7 +104,16 @@ class FixedSlippage(SlippageModel):
             return price + self.slippage
         else:
             # 卖出：价格下降
-            return price - self.slippage
+            # #5497: 低价股（price < slippage）裸 price-slippage 会产生负成交价，
+            # 负成交金额会污染 cash 余额。clamp 到最小 0.01 并告警。
+            fill_price = price - self.slippage
+            if fill_price < Decimal("0.01"):
+                GLOG.WARNING(
+                    f"FixedSlippage 卖出滑点({self.slippage})>=价格({price})，"
+                    f"成交价 clamp 到 0.01 防止负价"
+                )
+                return Decimal("0.01")
+            return fill_price
 
     def __repr__(self) -> str:
         return f"FixedSlippage(slippage={self.slippage})"
