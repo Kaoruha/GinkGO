@@ -15,6 +15,7 @@ from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
 from core.response import ok
 from core.exceptions import BusinessError
+from middleware.api_stats import collector as api_stats_collector
 
 router = APIRouter()
 
@@ -1966,9 +1967,5 @@ async def reveal_api_key(key_id: str):
 
 @router.get("/api-stats")
 async def get_api_stats():
-    """获取API统计"""
-    # #5595: API 统计采集未实现——诚实返 501，不返回硬编码假统计
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API stats collection is not implemented"
-    )
+    """获取API统计（来自 ApiStatsMiddleware 的实时聚合，非硬编码占位）。"""
+    return ok(data=api_stats_collector.get_stats())
