@@ -471,9 +471,28 @@ def _display_single_node_status(node_id: str, heartbeat_ttl: int, metrics: dict)
     console.print(f"  :chart_with_upwards_trend: Total Events: {total_events}")
 
 
+def _cleanup_node(redis_client, node_id: str) -> tuple:
+    """清理单个 ExecutionNode 的 heartbeat + metrics（#5980 deep module）。
+
+    返回 (heartbeat_deleted, metrics_deleted)，调用方据此决定输出与计数。
+    抽出此纯逻辑使 cleanup 命令能在「指定节点」与「扫描所有节点」两路径复用。
+    """
+    from ginkgo.data.redis_schema import RedisKeyBuilder
+
+    heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+    metrics_key = f"node:metrics:{node_id}"
+    heartbeat_exists = redis_client.exists(heartbeat_key)
+    metrics_exists = redis_client.exists(metrics_key)
+    if heartbeat_exists:
+        redis_client.delete(heartbeat_key)
+    if metrics_exists:
+        redis_client.delete(metrics_key)
+    return bool(heartbeat_exists), bool(metrics_exists)
+
+
 @app.command()
 def cleanup(
-    node_id: str = typer.Option("execution_node_1", "--node-id", "-n", help="ExecutionNode ID to cleanup"),
+    node_id: Optional[str] = typer.Option(None, "--node-id", "-n", help="ExecutionNode ID to cleanup (default: scan all nodes from heartbeats)"),
 ):
     """
     :broom: Cleanup stale data for an ExecutionNode.
@@ -481,44 +500,70 @@ def cleanup(
     Remove heartbeat and metrics data from Redis for a node that has stopped.
     Useful when a process exits abnormally and leaves stale data.
 
+    Without --node-id, scans all heartbeat keys and cleans every node
+    (consistent with `execution status`). With --node-id, cleans only that node.
+
     Examples:
-      ginkgo execution cleanup
-      ginkgo execution cleanup --node-id execution_node_1
+      ginkgo execution cleanup                      # Clean all stale nodes
+      ginkgo execution cleanup --node-id node_1     # Clean specific node only
     """
     try:
         from ginkgo.data.crud import RedisCRUD
-
-        console.print(f":information: Cleaning up data for ExecutionNode '{node_id}'...")
+        from ginkgo.data.redis_schema import (
+            RedisKeyPattern,
+            RedisKeyPrefix,
+            extract_id_from_key,
+        )
 
         # Get Redis client
         redis_crud = RedisCRUD()
         redis_client = redis_crud.redis
 
-        # Keys to cleanup
-        from ginkgo.data.redis_schema import RedisKeyBuilder
-        heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
-        metrics_key = f"node:metrics:{node_id}"
+        if node_id is None:
+            # #5980: 扫描所有 heartbeat keys（与 status 一致），逐个清理
+            console.print(":information: Cleaning up data for [bold]all[/bold] ExecutionNodes...")
+            heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
 
-        # Check what exists
-        heartbeat_exists = redis_client.exists(heartbeat_key)
-        metrics_exists = redis_client.exists(metrics_key)
+            if not heartbeat_keys:
+                console.print("[yellow]:warning: No ExecutionNodes running (no heartbeats found)[/yellow]")
+                return
 
-        if not heartbeat_exists and not metrics_exists:
-            console.print(f"[dim]:information: No data found for ExecutionNode '{node_id}'[/dim]")
-            return
+            node_ids = [
+                extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+                for key in heartbeat_keys
+            ]
 
-        # Delete heartbeat
-        if heartbeat_exists:
-            redis_client.delete(heartbeat_key)
-            console.print(f":white_check_mark: [green]Deleted heartbeat data[/green]")
+            total_hb = 0
+            total_mt = 0
+            for nid in node_ids:
+                hb_deleted, mt_deleted = _cleanup_node(redis_client, nid)
+                if hb_deleted:
+                    total_hb += 1
+                if mt_deleted:
+                    total_mt += 1
+                console.print(f":white_check_mark: [green]Cleaned ExecutionNode '{nid}'[/green]")
 
-        # Delete metrics
-        if metrics_exists:
-            redis_client.delete(metrics_key)
-            console.print(f":white_check_mark: [green]Deleted metrics data[/green]")
+            console.print(
+                f"\n:information: Cleanup completed: {total_hb} heartbeat(s), "
+                f"{total_mt} metrics removed across {len(node_ids)} node(s)"
+            )
+            console.print("[dim]Scheduler will detect these nodes as offline on next schedule loop[/dim]")
+        else:
+            console.print(f":information: Cleaning up data for ExecutionNode '{node_id}'...")
 
-        console.print(f"\n:information: Cleanup completed for ExecutionNode '{node_id}'")
-        console.print(f"[dim]Scheduler will detect this node as offline on next schedule loop[/dim]")
+            hb_deleted, mt_deleted = _cleanup_node(redis_client, node_id)
+
+            if not hb_deleted and not mt_deleted:
+                console.print(f"[dim]:information: No data found for ExecutionNode '{node_id}'[/dim]")
+                return
+
+            if hb_deleted:
+                console.print(":white_check_mark: [green]Deleted heartbeat data[/green]")
+            if mt_deleted:
+                console.print(":white_check_mark: [green]Deleted metrics data[/green]")
+
+            console.print(f"\n:information: Cleanup completed for ExecutionNode '{node_id}'")
+            console.print("[dim]Scheduler will detect this node as offline on next schedule loop[/dim]")
 
     except Exception as e:
         console.print(f"[red]:x: Error cleaning up ExecutionNode data: {e}[/red]")
