@@ -4,7 +4,7 @@ Live Account 相关API路由
 实盘账号管理接口，对应前端 web-ui/src/api/modules/live.ts
 """
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Query, Request, status, HTTPException
 from typing import Optional
 import asyncio
 from core.logging import logger
@@ -36,11 +36,16 @@ def get_live_account_service():
 
 
 def _get_user_id(request: Request) -> str:
-    """从 request.state 获取 user_id"""
-    try:
-        return request.state.user_id
-    except AttributeError:
-        return "default_user"
+    """从 request.state 获取 user_uuid（auth 中间件注入字段）。
+
+    #5476: 之前读 user_id（中间件从不设置）+ fallback "default_user"，
+    致所有 account 操作恒落 default_user。现对齐 user_uuid + fail-closed 抛 401。
+    """
+    user_uuid = getattr(request.state, "user_uuid", None)
+    if not user_uuid:
+        logger.warning("#5476: user_uuid missing on request.state — auth middleware may be absent")
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user_uuid
 
 
 @router.get("/")
