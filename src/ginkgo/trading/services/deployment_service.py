@@ -9,6 +9,18 @@ from ginkgo.enums import PORTFOLIO_MODE_TYPES, FILE_TYPES
 from ginkgo.data.models import MDeployment
 from ginkgo.enums import DEPLOYMENT_STATUS
 
+# #6285: int→枚举名映射，供 info/list 输出人类可读部署状态。
+# 动态收集 DEPLOYMENT_STATUS 类属性，新增成员自动覆盖，无需手维护 dict。
+_DEPLOYMENT_STATUS_NAMES = {
+    v: k for k, v in vars(DEPLOYMENT_STATUS).items()
+    if not k.startswith("_") and isinstance(v, int)
+}
+
+
+def _status_name(status: int) -> str:
+    """裸 int → 枚举名（未知值降级为字符串形式，不抛错）。"""
+    return _DEPLOYMENT_STATUS_NAMES.get(status, str(status))
+
 
 class DeploymentService(BaseService):
     """部署编排服务"""
@@ -39,6 +51,7 @@ class DeploymentService(BaseService):
         mode: PORTFOLIO_MODE_TYPES,
         account_id: Optional[str] = None,
         name: Optional[str] = None,
+        source_task_id: Optional[str] = None,
     ) -> ServiceResult:
         """
         一键部署：从组合部署到模拟盘/实盘
@@ -48,6 +61,7 @@ class DeploymentService(BaseService):
             mode: PAPER 或 LIVE
             account_id: MLiveAccount.uuid (live模式必填)
             name: 新Portfolio名称 (可选，自动生成)
+            source_task_id: 源回测任务 id (可选, #6285 记录回测→部署链路便于追溯)
 
         Returns:
             ServiceResult with data: {"portfolio_id": str, "deployment_id": str}
@@ -78,7 +92,7 @@ class DeploymentService(BaseService):
 
         # 3b. 创建 PENDING deployment 记录
         deployment = MDeployment(
-            source_task_id=None,
+            source_task_id=source_task_id,
             target_portfolio_id="",
             source_portfolio_id=portfolio_id,
             mode=mode.value,
@@ -263,6 +277,7 @@ class DeploymentService(BaseService):
             "mode": deployment.mode,
             "account_id": deployment.account_id,
             "status": deployment.status,
+            "status_name": _status_name(deployment.status),  # #6285
             "create_at": str(deployment.create_at) if deployment.create_at else None,
         }
         return result
@@ -277,6 +292,7 @@ class DeploymentService(BaseService):
             "mode": r.mode,
             "account_id": r.account_id,
             "status": r.status,
+            "status_name": _status_name(r.status),  # #6285
             "create_at": str(r.create_at) if r.create_at else None,
         }
 
