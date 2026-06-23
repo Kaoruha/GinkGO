@@ -203,13 +203,8 @@ class BacktestWorker:
                             # GinkgoConsumer 已反序列化，message.value 直接是 dict
                             assignment = message.value
 
-                            # 立即提交 offset，防止 worker 重启后重复消费
-                            # 任务状态由数据库跟踪，失败的任务会被标记为 failed
-                            try:
-                                self.task_consumer.commit()
-                            except Exception as e:
-                                GLOG.ERROR(f"Failed to commit offset after receiving task: {e}")
-
+                            # #5399②: 不在派发前提前提交 offset——派发失败会导致任务静默丢失
+                            # commit 移到 _handle_task_assignment 正常完成决策后（at-least-once）
                             self._handle_task_assignment(assignment)
 
                 except Exception as e:
@@ -220,38 +215,62 @@ class BacktestWorker:
         self.task_consumer_thread.start()
 
     def _handle_task_assignment(self, assignment: dict):
-        """处理任务分配"""
+        """处理任务分配
+
+        #5399②: Kafka offset 在派发决策成功「之后」提交（at-least-once）。
+        派发/处理异常时不提交，留给重启后 DB 状态去重 + Kafka 重投。
+        """
         task_uuid = assignment.get("task_uuid")
         command = assignment.get("command", "start")
 
-        if command == "start":
-            self._start_task(assignment)
-        elif command == "cancel":
-            self._cancel_task(task_uuid)
+        try:
+            if command == "start":
+                self._start_task(assignment)
+            elif command == "cancel":
+                self._cancel_task(task_uuid)
+        except Exception as e:
+            GLOG.ERROR(f"Error handling assignment {task_uuid}: {e}")
+            raise
+
+        # 派发决策完成（派发/skip/discard 均视为消息已正确消费）后提交 offset
+        self._commit_assignment_offset(task_uuid)
+
+    def _commit_assignment_offset(self, task_uuid: str):
+        """提交当前 Kafka offset（派发决策后调用，保证 at-least-once）"""
+        task_short = task_uuid[:8] if task_uuid else "unknown"
+        if self.task_consumer and self.task_consumer.is_connected:
+            try:
+                self.task_consumer.commit()
+                GLOG.DEBUG(f"[{task_short}] Kafka offset committed after dispatch")
+            except Exception as e:
+                GLOG.ERROR(f"[{task_short}] Failed to commit offset after dispatch: {e}")
 
     def _start_task(self, assignment: dict):
         """启动新任务（阻塞等待空闲槽位）"""
-        task_uuid = assignment.get("task_uuid", "unknown")[:8]
+        # #5399③: 去重查找用完整 task_uuid（与 self.tasks 存储 key 一致），
+        # 日志显示单独截断，避免 [:8] 截断导致 :238 查找与 :354 存储 key 不匹配
+        task_uuid = assignment.get("task_uuid", "unknown")
+        task_short = task_uuid[:8] if task_uuid else "unknown"
 
         # 检查任务是否已经在 Worker 中运行
         with self.task_lock:
             if task_uuid in self.tasks:
-                GLOG.WARN(f"[{task_uuid}] Task already running in this worker, skipping...")
+                GLOG.WARN(f"[{task_short}] Task already running in this worker, skipping...")
                 return
 
         # 检查任务状态
         existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
-        GLOG.DEBUG(f"[{task_uuid}] Current task status: {existing_status}")
+        GLOG.DEBUG(f"[{task_short}] Current task status: {existing_status}")
 
         # 如果任务已完成/失败/取消，跳过
         if existing_status and existing_status in ["completed", "failed", "cancelled"]:
-            GLOG.INFO(f"[{task_uuid}] Task already {existing_status}, skipping...")
+            GLOG.INFO(f"[{task_short}] Task already {existing_status}, skipping...")
             return
 
         # 如果任务状态是 pending 或 running，但不在 Worker 中运行，可能是僵尸任务
         # 重置任务状态为 created，允许重新处理
         if existing_status and existing_status in ["pending", "running"]:
-            GLOG.WARN(f"[{task_uuid}] Task is {existing_status} but not running, resetting to created...")
+            GLOG.WARN(f"[{task_short}] Task is {existing_status} but not running, resetting to created...")
             try:
                 # 尝试重置状态为 created
                 result = self.progress_tracker.task_service.update_status(
@@ -259,21 +278,21 @@ class BacktestWorker:
                     status="created"
                 )
                 if result.is_success():
-                    GLOG.INFO(f"[{task_uuid}] Reset task status to created")
+                    GLOG.INFO(f"[{task_short}] Reset task status to created")
                 else:
-                    GLOG.ERROR(f"[{task_uuid}] Failed to reset status: {result.error}")
+                    GLOG.ERROR(f"[{task_short}] Failed to reset status: {result.error}")
             except Exception as e:
-                GLOG.ERROR(f"[{task_uuid}] Error resetting status: {e}")
+                GLOG.ERROR(f"[{task_short}] Error resetting status: {e}")
 
         # 阻塞等待空闲槽位
         while not self._can_accept_task():
-            GLOG.INFO(f"[{task_uuid}] Worker at full capacity, waiting for slot...")
+            GLOG.INFO(f"[{task_short}] Worker at full capacity, waiting for slot...")
             # 清除标志，等待任务完成时被设置
             self._slot_available.clear()
             # 等待最多 60 秒，每隔 1 秒检查一次是否应该停止
             for _ in range(60):
                 if self.should_stop:
-                    GLOG.WARN(f"[{task_uuid}] Worker stopping, discarding task")
+                    GLOG.WARN(f"[{task_short}] Worker stopping, discarding task")
                     return
                 if self._slot_available.wait(timeout=1):
                     break
@@ -283,13 +302,13 @@ class BacktestWorker:
 
             # 被唤醒后再次检查容量
             if self._can_accept_task():
-                GLOG.INFO(f"[{task_uuid}] Slot available, proceeding with task")
+                GLOG.INFO(f"[{task_short}] Slot available, proceeding with task")
                 break
 
         # 验证必要的任务参数
         portfolio_uuid = assignment.get("portfolio_uuid")
         if not portfolio_uuid:
-            GLOG.ERROR(f"[{task_uuid}] ERROR: portfolio_uuid is required but missing, discarding task")
+            GLOG.ERROR(f"[{task_short}] ERROR: portfolio_uuid is required but missing, discarding task")
             # 上报任务失败到数据库
             self.progress_tracker.report_failed_by_uuid(
                 task_uuid=assignment.get("task_uuid", ""),
@@ -302,7 +321,7 @@ class BacktestWorker:
         start_date = config_dict.get("start_date")
         end_date = config_dict.get("end_date")
         if not start_date or not end_date:
-            GLOG.ERROR(f"[{task_uuid}] ERROR: start_date and end_date are required, discarding task")
+            GLOG.ERROR(f"[{task_short}] ERROR: start_date and end_date are required, discarding task")
             self.progress_tracker.report_failed_by_uuid(
                 task_uuid=assignment.get("task_uuid", ""),
                 error=f"Missing dates: start_date={start_date}, end_date={end_date}"
