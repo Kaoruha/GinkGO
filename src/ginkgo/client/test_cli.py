@@ -56,7 +56,9 @@ def list_tests():
     # Get project root
     from ginkgo.libs.core.config import GCONF
     
-    test_root = Path(GCONF.WORKING_PATH) / "test"
+    # WORKING_PATH 在 working_directory 配置缺失时可能为 None（同 LOGGING_PATH/COMPOSE_FILE_PATH
+    # 均有 None 守卫），fallback Path.cwd() 避免 Path(None) TypeError（#6017）
+    test_root = Path(GCONF.WORKING_PATH or Path.cwd()) / "test"
     
     console.print(":test_tube: [bold green]Ginkgo Test Suite - Modern Testing Framework[/bold green]")
     console.print()
@@ -308,7 +310,9 @@ def run(
     if debug:
         GLOG.set_level("debug")
     
-    test_root = Path(GCONF.WORKING_PATH) / "test"
+    # WORKING_PATH 在 working_directory 配置缺失时可能为 None（同 LOGGING_PATH/COMPOSE_FILE_PATH
+    # 均有 None 守卫），fallback Path.cwd() 避免 Path(None) TypeError（#6017）
+    test_root = Path(GCONF.WORKING_PATH or Path.cwd()) / "test"
     test_paths = []
     pytest_args = []
     
