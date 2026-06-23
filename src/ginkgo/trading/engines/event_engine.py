@@ -287,9 +287,16 @@ class EventEngine(BaseEngine):
         except Exception as e:
             GLOG.WARN(f"Failed to log engine start event: {e}")
 
-        # 启动已存在的线程对象（每个线程只能启动一次）
+        # 启动主线程对象
         GLOG.INFO(f"🔍 Before thread start: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
         if not self._main_thread_started and not self._main_thread.is_alive():
+            # #5499: Python Thread 只能 start 一次；stop 后复用同一 Thread 对象会抛
+            # RuntimeError: threads can only be started once。检测到该对象已启动过
+            # （_started=True）时，必须重建实例。
+            if getattr(self._main_thread, '_started', False):
+                GLOG.INFO(f"🔄 Rebuilding ended _main_thread before restart.")
+                self._main_thread = Thread(target=self.main_loop, args=(self._main_flag,))
+                self._main_thread.daemon = True
             GLOG.INFO(f"🔄 Clearing main_flag before thread start: {not self._main_flag.is_set()}")
             self._main_flag.clear()  # 确保清除标志
             GLOG.INFO(f"🚀 Starting main thread...")
@@ -306,6 +313,11 @@ class EventEngine(BaseEngine):
 
         # 根据开关状态决定是否启动定时器线程
         if self._enable_timer and not self._timer_thread_started and not self._timer_thread.is_alive():
+            # #5499: 同 _main_thread，stop 后须重建已 ended 的 Thread 对象
+            if getattr(self._timer_thread, '_started', False):
+                GLOG.INFO(f"🔄 Rebuilding ended _timer_thread before restart.")
+                self._timer_thread = Thread(target=self.timer_loop, args=(self._timer_flag,))
+                self._timer_thread.daemon = True
             self._timer_flag.clear()
             self._timer_thread.start()
             self._timer_thread_started = True
