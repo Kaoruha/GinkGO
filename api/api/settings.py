@@ -1828,11 +1828,16 @@ async def create_api_key(data: dict):
 
 @router.get("/api-stats")
 async def get_api_stats():
-    """获取API统计"""
-    # TODO: 获取实际统计数据
+    """获取API统计
+
+    fix(#5861): 统计基础设施尚未实现（rate_limit 中间件仅做 IP 限流，无全局调用统计）。
+    前端 settings.ts 依赖本端点结构，故保留字段但归零假数据并标记 implemented=False，
+    避免硬编码 99.8% success_rate 误导用户以为系统健康。
+    """
     return ok(data={
-        "today_calls": 15234,
-        "month_calls": 456789,
-        "success_rate": 99.8,
-        "avg_response_time": 85.0
+        "implemented": False,
+        "today_calls": 0,
+        "month_calls": 0,
+        "success_rate": 0.0,
+        "avg_response_time": 0.0,
     })
