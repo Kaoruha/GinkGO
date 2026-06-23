@@ -12,7 +12,6 @@ from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
-from ginkgo.data.services.user_group_service import UserGroupService as DataUserGroupService
 from core.logging import logger
 from core.response import ok
 
@@ -27,13 +26,13 @@ def get_user_service():
 
 
 def get_user_group_service():
-    """获取 UserGroupService 实例（data 那份，契约匹配 settings 端点）。
+    """获取 UserGroupService 实例（容器装配的 user.services 那份，#6235 统一）。
 
-    container.user_group_service() 装配的是 user.services 那份（Upstream=CLI），
-    缺 count_all_members / update_group / list_members 等端点所需方法；端点按
-    data.services 那份（Upstream=Settings API）契约编写，故直接实例化它。见 #5625。
+    历史上 #6227 因 user 版缺 count_all_members/update_group 等方法而绕开容器
+    直接实例化 data 版，制造双版本漂移。#6235 将端点契约方法补全到 user 版后，
+    统一走 container（单一 source of truth）。
     """
-    return DataUserGroupService()
+    return container.user_group_service()
 
 
 def get_notification_service() -> NotificationService:
@@ -816,8 +815,12 @@ async def list_user_groups():
             )
 
         raw_groups = result.data
+        # user 版 list_groups 返 dict {"groups":[...],"count":N}；#5625 mock 仍返 list。
+        # 两者兼容：dict 取 "groups"，list 直用。
+        if isinstance(raw_groups, dict):
+            raw_groups = raw_groups.get("groups", [])
 
-        # 批量获取成员数（避免 N+1）：data 版 count_all_members 一次 GROUP BY 全统计
+        # 批量获取成员数（避免 N+1）：count_all_members 一次 GROUP BY 全统计
         member_counts = group_service.count_all_members()
 
         group_list = []
@@ -904,7 +907,13 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
             # 检查新名称是否与其他组冲突
             existing_result = group_service.list_groups()
             if existing_result.success:
-                for g in existing_result.data:
+                existing_data = existing_result.data
+                # user 版 list_groups 返 dict（取 "groups"）；#5625 mock 返 list（直用）
+                existing_groups = (
+                    existing_data.get("groups", []) if isinstance(existing_data, dict)
+                    else (existing_data or [])
+                )
+                for g in existing_groups:
                     if g["name"] == data.name and g["uuid"] != uuid:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,

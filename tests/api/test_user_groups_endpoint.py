@@ -1,7 +1,7 @@
-# Issue: #5625 — GET /api/v1/user-groups 空响应/500；#5601 — POST 创建空响应
+# Issue: #5625 — GET /api/v1/user-groups 空响应/500；#5601 — POST 创建空响应；#6235 — 统一 user 版
 # Upstream: api.api.settings.list_user_groups / create_user_group
-# Downstream: ginkgo.data.services.user_group_service.UserGroupService（data 版本，#6227）
-# Role: 验证 user-groups 端点对 data 版本 UserGroupService 的契约（list 迭代 + count_all_members 批量）
+# Downstream: ginkgo.user.services.user_group_service.UserGroupService（#6235 统一，容器注入）
+# Role: 验证 user-groups 端点契约（list 迭代 + count_all_members 批量；端点 dict/list 双兼容）
 
 """
 user-groups 端点契约测试（data 版本，#6227）
