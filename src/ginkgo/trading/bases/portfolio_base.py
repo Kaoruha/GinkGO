@@ -506,6 +506,29 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
     # ========== 绑定方法 ==========
 
+    def _propagate_context(self, component) -> None:
+        """
+        把 portfolio 当前上下文同步给单个组件（#4607 提取，消除 add/bind 系列重复传播）。
+
+        bind_portfolio 总是执行；bind_engine / set_time_provider / bind_data_feeder
+        仅当 portfolio 已持有对应对象时传播（与原 add_strategy/bind_selector/bind_sizer 行为一致）。
+        """
+        component.bind_portfolio(self)
+        if self._bound_engine is not None:
+            component.bind_engine(self._bound_engine)
+        if self._time_provider is not None:
+            component.set_time_provider(self._time_provider)
+        if self._data_feeder is not None:
+            component.bind_data_feeder(self._data_feeder)
+
+    def _rebind_portfolio_and_engine(self, component, engine) -> None:
+        """
+        bind_engine 变更引擎时对已注册组件重绑（#4607 提取，消除 bind_engine 循环内重复）。
+        仅重绑 portfolio 引用与新 engine，不触碰 time_provider/data_feeder（保持原两步语义）。
+        """
+        component.bind_portfolio(self)
+        component.bind_engine(engine)
+
     def bind_selector(self, selector: SelectorBase) -> None:
         """
         Bind selector to portfolio, and bind portfolio itself to selector.
@@ -515,17 +538,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             GLOG.ERROR(f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
             return
         self._selectors.append(selector)
-        # 绑定portfolio引用，让selector可以直接从portfolio获取ID
-        selector.bind_portfolio(self)
-        # 如果portfolio已绑定引擎，也绑定引擎到selector
-        if self._bound_engine is not None:
-            selector.bind_engine(self._bound_engine)
-        # 如果portfolio有TimeProvider，也设置给selector
-        if self._time_provider is not None:
-            selector.set_time_provider(self._time_provider)
-        # 如果portfolio已有data_feeder，也传播给selector
-        if self._data_feeder is not None:
-            selector.bind_data_feeder(self._data_feeder)
+        # 传播 portfolio 上下文（engine/time_provider/data_feeder）
+        self._propagate_context(selector)
 
     def bind_engine(self, engine: BaseEngine):
         """
@@ -544,24 +558,20 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # 通过统一的ContextMixin同步给所有已绑定的组件
         # 策略组件（支持多个）- 先 bind_portfolio 设置 _context，后 bind_engine
         for strategy in self._strategies:
-            strategy.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
-            strategy.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
+            self._rebind_portfolio_and_engine(strategy, engine)
 
         # Sizer组件（单个）- 需要engine_id创建Order
         if self._sizer is not None:
-            self._sizer.bind_portfolio(self)  # 先绑定 Portfolio（设置 PortfolioContext）
-            self._sizer.bind_engine(engine)   # 后绑定 Engine（保留引擎引用，不覆盖 context）
+            self._rebind_portfolio_and_engine(self._sizer, engine)
 
         # Selector组件（支持多个）
         for selector in self._selectors:
-            selector.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
-            selector.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
+            self._rebind_portfolio_and_engine(selector, engine)
 
         # 分析器组件（支持多个）- 需要更新 context 引用
         # 当 portfolio 绑定到 engine 后，analyzer 需要重新绑定以获取正确的 engine_context
         for analyzer in self._analyzers.values():
-            analyzer.bind_portfolio(self)    # 重新绑定 Portfolio（更新 PortfolioContext）
-            analyzer.bind_engine(engine)     # 绑定 Engine（设置引擎引用）
+            self._rebind_portfolio_and_engine(analyzer, engine)
 
     def set_time_provider(self, time_provider) -> None:
         """
@@ -594,17 +604,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     def add_strategy(self, strategy: "BaseStrategy") -> None:
         if strategy not in self.strategies:
             self.strategies.append(strategy)
-            # 绑定portfolio引用给strategy
-            strategy.bind_portfolio(self)
-            # 如果portfolio已绑定引擎，也绑定引擎到strategy
-            if self._bound_engine is not None:
-                strategy.bind_engine(self._bound_engine)
-            # 如果portfolio有TimeProvider，也设置给strategy
-            if self._time_provider is not None:
-                strategy.set_time_provider(self._time_provider)
-            # 如果portfolio已有data_feeder，也传播给strategy
-            if self._data_feeder is not None:
-                strategy.bind_data_feeder(self._data_feeder)
+            # 传播 portfolio 上下文（engine/time_provider/data_feeder）
+            self._propagate_context(strategy)
 
     def add_position(self, position: Position) -> None:
         code = position.code
@@ -621,17 +622,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             GLOG.ERROR(f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
             return
         self._sizer = sizer
-        # 绑定portfolio引用，让sizer可以直接从portfolio获取ID
-        sizer.bind_portfolio(self)
-        # 如果portfolio已绑定engine，也绑定给sizer
-        if self._bound_engine is not None:
-            sizer.bind_engine(self._bound_engine)
-        # 传递时间提供者给sizer
-        if self.get_time_provider() is not None:
-            sizer.set_time_provider(self.get_time_provider())
-        # 如果portfolio已有data_feeder，也传播给sizer
-        if self._data_feeder is not None:
-            sizer.bind_data_feeder(self._data_feeder)
+        # 传播 portfolio 上下文（engine/time_provider/data_feeder）
+        self._propagate_context(sizer)
 
     def freeze(self, money: any) -> bool:
         """
