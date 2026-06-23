@@ -43,6 +43,19 @@ def _get_user_id(request: Request) -> str:
         return "default_user"
 
 
+def _require_account_ownership(account_data: dict, user_id: str) -> None:
+    """#5468: 校验实盘账户归属，非 owner 抛 BusinessError(code=403)。
+
+    防止任意登录用户读/改/删他人实盘账户。account_data 来自
+    service.get_account_by_uuid 的 to_dict()（含 user_id，已脱敏无 api_secret）。
+    用 BusinessError(code=403) 而非 HTTPException——status_code 经
+    APIError ``status_code = status_code or code`` 自动映射 403，穿透端点既有
+    ``except (NotFoundError, BusinessError): raise`` 链（见 arch_httpexception_caught_by_except）。
+    """
+    if not isinstance(account_data, dict) or account_data.get("user_id") != user_id:
+        raise BusinessError("无权访问该实盘账户", code=403)
+
+
 @router.get("/")
 async def list_accounts(
     request: Request,
@@ -106,17 +119,19 @@ async def create_account(request: Request, data: CreateLiveAccountRequest):
 
 
 @router.get("/{account_id}")
-async def get_account(account_id: str):
+async def get_account(account_id: str, request: Request):
     """获取实盘账号详情"""
     try:
         service = get_live_account_service()
         result = service.get_account_by_uuid(account_id)
 
-        if not result["success"]:
+        if not result["success"] or not result.get("data"):
             raise NotFoundError("Account", account_id)
 
+        _require_account_ownership(result["data"], _get_user_id(request))
+
         return ok(data=result["data"], message="Account retrieved successfully")
-    except NotFoundError:
+    except (NotFoundError, BusinessError):
         raise
     except Exception as e:
         logger.error(f"Error getting account {account_id}: {e}")
@@ -124,10 +139,16 @@ async def get_account(account_id: str):
 
 
 @router.put("/{account_id}")
-async def update_account(account_id: str, data: UpdateLiveAccountRequest):
+async def update_account(account_id: str, data: UpdateLiveAccountRequest, request: Request):
     """更新实盘账号信息"""
     try:
         service = get_live_account_service()
+
+        # #5468: ownership 前置——非 owner 改他人实盘账户 → BusinessError(403)
+        existing = service.get_account_by_uuid(account_id)
+        if not existing["success"] or not existing.get("data"):
+            raise NotFoundError("Account", account_id)
+        _require_account_ownership(existing["data"], _get_user_id(request))
 
         result = service.update_account(
             account_uuid=account_id,
@@ -151,17 +172,24 @@ async def update_account(account_id: str, data: UpdateLiveAccountRequest):
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_account(account_id: str):
+async def delete_account(account_id: str, request: Request):
     """删除实盘账号（软删除）"""
     try:
         service = get_live_account_service()
+
+        # #5468: ownership 前置——非 owner 删他人实盘账户 → BusinessError(403)
+        existing = service.get_account_by_uuid(account_id)
+        if not existing["success"] or not existing.get("data"):
+            raise NotFoundError("Account", account_id)
+        _require_account_ownership(existing["data"], _get_user_id(request))
+
         result = service.delete_account(account_id)
 
         if not result["success"]:
             raise NotFoundError("Account", account_id)
 
         logger.info(f"Account {account_id} deleted successfully")
-    except NotFoundError:
+    except (NotFoundError, BusinessError):
         raise
     except Exception as e:
         logger.error(f"Error deleting account {account_id}: {e}")
