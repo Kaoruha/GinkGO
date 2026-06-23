@@ -719,25 +719,35 @@ class PortfolioMappingService(BaseService):
         mapping_uuid: str,
         params: Dict[str, Any],
     ) -> None:
-        """同步参数到指定的 mapping"""
+        """同步参数到指定的 mapping（落库格式与 CLI create_component_parameters 对齐）
+
+        value 序列化：字符串原样存（对齐 CLI 原样 str），非字符串才 json.dumps，
+        这样读端 json.loads+fallback（component_loader 约定）能正确还原类型。
+        原实现一律 json.dumps，字符串 value 会多一层引号，与 CLI 同值产出类型分歧。
+        """
         # 将参数字典转换为扁平列表
         param_list = []
         for key, value in params.items():
-            try:
-                value_str = json.dumps(value, ensure_ascii=False)
-            except Exception as e:
-                GLOG.ERROR(f"序列化参数值失败: {e}")
-                value_str = str(value)
+            if isinstance(value, str):
+                value_str = value
+            else:
+                try:
+                    value_str = json.dumps(value, ensure_ascii=False)
+                except Exception as e:
+                    GLOG.ERROR(f"序列化参数值失败: {e}")
+                    value_str = str(value)
             param_list.append({"key": key, "value": value_str})
 
         # 删除旧参数
         self._param_service.remove_by_mapping(mapping_uuid)
 
-        # 添加新参数
-        for idx, param in enumerate(param_list):
+        # 添加新参数：index 取自 params 的 key（逻辑位置），与 CLI
+        # create_component_parameters 的 MParam(index=key) 对齐；enumerate 顺序位
+        # 会在 key 跳号时丢失逻辑位置（#5880 缺陷5）。
+        for param in param_list:
             self._param_service.add_param(
                 mapping_id=mapping_uuid,
-                index=idx,
+                index=int(param["key"]),
                 value=param["value"],
                 source=SOURCE_TYPES.SIM,
             )
