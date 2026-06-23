@@ -253,6 +253,27 @@ class PortfolioMappingService(BaseService):
             ServiceResult
         """
         try:
+            # #5776: 校验 file_id 实际类型(MFile.type)与请求绑定的 file_type 一致，
+            # 防止策略组件被错误绑定到 selector/sizer/risk 等角色。
+            file_result = self._file_service.get_by_uuid(file_id)
+            if not file_result.success:
+                return ServiceResult.error(f"File not found: {file_id}")
+            file_obj = file_result.data.get("file") if file_result.data else None
+            if file_obj is None:
+                return ServiceResult.error(f"File not found: {file_id}")
+            actual_type = getattr(file_obj, "type", None)
+            expected_value = file_type.value if hasattr(file_type, "value") else file_type
+            if actual_type is None or int(actual_type) != int(expected_value):
+                actual_name = (
+                    FILE_TYPES(int(actual_type)).name
+                    if actual_type is not None
+                    else "UNKNOWN"
+                )
+                return ServiceResult.error(
+                    f"File type mismatch: file {file_id} is {actual_name}, "
+                    f"cannot bind as {file_type.name}"
+                )
+
             # 1. 创建 MySQL Mapping
             mapping = MPortfolioFileMapping(
                 portfolio_id=portfolio_uuid,
