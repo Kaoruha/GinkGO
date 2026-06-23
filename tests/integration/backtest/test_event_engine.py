@@ -25,7 +25,7 @@ def event_engine():
     if hasattr(engine, 'stop'):
         try:
             engine.stop()
-        except:
+        except Exception:
             pass
 
 
