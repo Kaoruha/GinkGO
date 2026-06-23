@@ -261,7 +261,11 @@ async def create_component(data: ComponentCreate):
             )
 
         # 获取创建的文件记录
-        file_uuid = result.data.get("uuid") if result.data else None
+        # #5885: FileService.add 返回 data={"file_info": {"uuid": ...}}，
+        # uuid 嵌套在 file_info 下。裸 result.data.get("uuid") 取到 None 抛 500，
+        # 但此时记录已在 add 内部 create() 落库，致数据残留 + 重试重复入库。
+        file_info = result.data.get("file_info") if result.data else None
+        file_uuid = file_info.get("uuid") if file_info else None
         if not file_uuid:
             raise HTTPException(
                 status_code=500,
