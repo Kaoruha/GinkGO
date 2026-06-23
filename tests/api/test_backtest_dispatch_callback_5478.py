@@ -72,3 +72,91 @@ class TestBacktestDispatchFailureCallback:
             _on_kafka_dispatch_done("task-cancelled-789", fake_task)
 
             mock_svc.update_status.assert_not_called()
+
+
+class TestSendTaskToKafkaTranslatesBoolFailure:
+    """#5478 review P0：GinkgoProducer.send 返 bool 不 raise（ginkgo_kafka.py:89-123
+    三处 return False，成功 return True），send_task_to_kafka 必须判返回值
+    False→raise。否则协程无异常，create_task 的 done_callback 里
+    asyncio_task.exception() 永远 None，失败分支（落库 failed）是死代码。"""
+
+    @pytest.mark.asyncio
+    async def test_raises_when_producer_send_returns_false(self, api_modules):
+        """producer.send 返 False（未连接/KafkaError/异常）时，send_task_to_kafka
+        必须显式 raise，让异常进入 asyncio task 供 done_callback 捕获。"""
+        from api.backtest import send_task_to_kafka
+
+        fake_producer = MagicMock()
+        fake_producer.send.return_value = False  # send 契约：返 bool 非 raise
+
+        with patch("api.backtest.get_kafka_producer", return_value=fake_producer):
+            with pytest.raises(RuntimeError, match="Kafka dispatch failed"):
+                await send_task_to_kafka(
+                    task_uuid="task-fail-001",
+                    portfolio_uuids=["port-1"],
+                    name="bt",
+                    config={"k": "v"},
+                )
+
+    @pytest.mark.asyncio
+    async def test_does_not_raise_when_producer_send_returns_true(self, api_modules):
+        """producer.send 返 True（成功）时，send_task_to_kafka 正常完成不抛。"""
+        from api.backtest import send_task_to_kafka
+
+        fake_producer = MagicMock()
+        fake_producer.send.return_value = True
+
+        with patch("api.backtest.get_kafka_producer", return_value=fake_producer):
+            await send_task_to_kafka(
+                task_uuid="task-ok-002",
+                portfolio_uuids=["port-1"],
+                name="bt",
+                config={"k": "v"},
+            )
+            fake_producer.send.assert_called_once()
+
+
+class TestDispatchFailureE2eRealChain:
+    """#5478 端到端：走真实 asyncio.create_task → send_task_to_kafka →
+    _on_kafka_dispatch_done 链路（非 mock task.exception），证明死代码已激活——
+    send 返 False → send_task_to_kafka raise → 异常存入 task → done_callback
+    经 exception() 捕获 → 落库 failed。这是 AC2 的真实证据。"""
+
+    @pytest.mark.asyncio
+    async def test_e2e_send_false_marks_task_failed_via_done_callback(self, api_modules):
+        """producer.send 返 False 时，完整派发链路自动落库 failed（done_callback
+        经 asyncio_task.exception() 真实捕获，非测试直接注入异常）。"""
+        import asyncio
+        from api.backtest import send_task_to_kafka, _on_kafka_dispatch_done
+
+        fake_producer = MagicMock()
+        fake_producer.send.return_value = False
+
+        with patch("api.backtest.get_kafka_producer", return_value=fake_producer), \
+             patch("api.backtest.get_backtest_task_service") as mock_get_svc:
+            mock_svc = MagicMock()
+            mock_get_svc.return_value = mock_svc
+
+            task = asyncio.create_task(send_task_to_kafka(
+                task_uuid="task-e2e-003",
+                portfolio_uuids=["p1"],
+                name="bt",
+                config={},
+            ))
+            task.add_done_callback(lambda t: _on_kafka_dispatch_done("task-e2e-003", t))
+
+            # send_task_to_kafka 会 raise（Slice 1 已证）；await 重抛，吞掉让
+            # done_callback 执行。done_callback 经 call_soon 调度，await 返回后
+            # 让出一轮确保回调落库完成。
+            try:
+                await task
+            except RuntimeError:
+                pass
+            await asyncio.sleep(0)
+
+            # 真实链路：异常经 task.exception() 被 done_callback 捕获 → 落库 failed
+            mock_svc.update_status.assert_called_once()
+            call = mock_svc.update_status.call_args
+            assert call.args[0] == "task-e2e-003"
+            assert call.kwargs.get("status") == "failed"
+            assert "producer.send returned False" in call.kwargs.get("error_message", "")

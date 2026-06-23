@@ -229,10 +229,19 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
         "priority": 0,
     }
 
-    producer.send(
+    result = producer.send(
         topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
         msg=assignment,
     )
+    # GinkgoProducer.send 返 bool 不 raise（ginkgo_kafka.py:89-123 三处 return False：
+    # 未连接/KafkaError/异常，成功 return True）。不判返回值则协程无异常，create_task
+    # 的 done_callback 里 asyncio_task.exception() 永远 None，失败分支（落库 failed）
+    # 是死代码（#5478 review P0）。False 时显式 raise，让异常进入 asyncio 通道供
+    # _on_kafka_dispatch_done 捕获。
+    if not result:
+        raise RuntimeError(
+            f"Kafka dispatch failed for backtest task {task_uuid}: producer.send returned False"
+        )
 
     logger.info(f"Task {task_uuid} sent to Kafka with {len(portfolio_uuids)} portfolio(s)")
 
@@ -241,7 +250,8 @@ def _on_kafka_dispatch_done(task_uuid: str, asyncio_task: "asyncio.Future") -> N
     """asyncio.create_task 的 done_callback：派发失败时记日志 + 落库 failed。
 
     create_backtest 的 fire-and-forget 派发（asyncio.create_task）默认吞掉
-    producer.send 抛出的异常，任务会永远停在 PENDING，而 API 已返回 success。
+    send_task_to_kafka 抛出的异常（producer.send 返 False 时翻译为 RuntimeError，
+    见 send_task_to_kafka），任务会永远停在 PENDING，而 API 已返回 success。
     此回调把派发失败显式落库，使任务状态 PENDING→FAILED 可查（#5478）。
 
     - cancelled：不作处理（取消非失败）
