@@ -272,6 +272,50 @@ class TestPortfolioCreate:
         assert result.exit_code == 1
         assert "Error" in result.output
 
+    # #5984: --capital 必须 > 0，拒绝负数和零。
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_rejects_negative_capital(self, mock_container, cli_runner):
+        """#5984 --capital 为负数时拒绝创建"""
+        mock_service = MagicMock()
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "EdgeNeg", "--capital", "-1"
+        ])
+        assert result.exit_code == 1
+        assert "capital" in _strip_ansi(result.output).lower()
+        # 负资本绝不应触达 service
+        mock_service.add.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_rejects_zero_capital(self, mock_container, cli_runner):
+        """#5984 --capital 为零时拒绝创建（边界）"""
+        mock_service = MagicMock()
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "EdgeZero", "--capital", "0"
+        ])
+        assert result.exit_code == 1
+        assert "capital" in _strip_ansi(result.output).lower()
+        mock_service.add.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_accepts_positive_capital(self, mock_container, cli_runner):
+        """#5984 正资本仍正常创建（回归守护）"""
+        mock_service = MagicMock()
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "ok-uuid", "name": "Ok"}
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "Ok", "--capital", "0.01"
+        ])
+        assert result.exit_code == 0
+        assert "created successfully" in _strip_ansi(result.output)
+
 
 # ============================================================================
 # 4. Get 测试
