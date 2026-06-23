@@ -16,7 +16,7 @@ BacktestWorker Node
 
 from typing import Dict, Optional
 from threading import Thread, RLock, Event
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import logging
 from ginkgo.libs import GLOG
@@ -91,7 +91,7 @@ class BacktestWorker:
 
         self.should_stop = False
         self.is_running = True
-        self.started_at = datetime.now().isoformat()
+        self.started_at = datetime.now(timezone.utc).isoformat()
 
         GLOG.INFO(f"Starting BacktestWorker {self.worker_id}")
 

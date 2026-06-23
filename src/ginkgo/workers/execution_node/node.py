@@ -33,7 +33,7 @@ ExecutionNode是Portfolio的运行容器，负责：
 from typing import Dict, Optional, TYPE_CHECKING, List
 from threading import Thread, Lock, Event
 from queue import Queue
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import logging
 
@@ -174,7 +174,7 @@ class ExecutionNode:
 
         # 设置运行标志
         self.is_running = True
-        self.started_at = datetime.now().isoformat()
+        self.started_at = datetime.now(timezone.utc).isoformat()
 
         if self.is_paused:
             GLOG.INFO(f"Resuming ExecutionNode {self.node_id} (was paused)")
@@ -1215,9 +1215,9 @@ class ExecutionNode:
             return "未知"
 
         try:
-            from datetime import datetime
+            from datetime import datetime, timezone
             start_time = datetime.fromisoformat(self.started_at)
-            uptime_seconds = (datetime.now() - start_time).total_seconds()
+            uptime_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             hours = int(uptime_seconds // 3600)
             minutes = int((uptime_seconds % 3600) // 60)
