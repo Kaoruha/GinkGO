@@ -175,14 +175,15 @@ async def list_paper_accounts():
         for p in (db_portfolios or []):
             initial_capital = float(getattr(p, 'initial_capital', 100000) or 100000)
             cash = float(getattr(p, 'cash', initial_capital) or initial_capital)
+            position_value = _compute_position_value(_query_positions(p.uuid))
 
             accounts.append({
                 "uuid": p.uuid,
                 "name": p.name,
                 "initial_capital": initial_capital,
                 "available_cash": cash,
-                "position_value": 0,  # TODO: 从 position_record 计算
-                "total_asset": cash,   # TODO: 现金 + 持仓市值
+                "position_value": position_value,
+                "total_asset": cash + position_value,
                 "today_pnl": 0,
                 "total_pnl": 0,
                 "status": _map_pt_status(p),
@@ -261,6 +262,7 @@ async def get_paper_account(account_id: str):
 
         # 查询当前持仓
         positions = _query_positions(account_id)
+        position_value = _compute_position_value(positions)
 
         # 查询活跃订单（pending 状态）
         orders = _query_orders(account_id, status_filter=["pending"])
@@ -271,8 +273,8 @@ async def get_paper_account(account_id: str):
                 "name": p.name,
                 "initial_capital": initial_capital,
                 "available_cash": cash,
-                "position_value": 0,
-                "total_asset": cash,
+                "position_value": position_value,
+                "total_asset": cash + position_value,
                 "today_pnl": 0,
                 "total_pnl": 0,
                 "status": _map_pt_status(p),
@@ -568,6 +570,23 @@ def _query_positions(account_id: str) -> list:
     except Exception as e:
         logger.error(f"Error querying positions for {account_id}: {str(e)}")
         return []
+
+
+def _compute_position_value(positions: list) -> float:
+    """从持仓列表计算总市值（Σ market_value）。
+
+    用于 ``list_paper_accounts`` / ``get_paper_account`` 的 ``position_value``
+    字段（#6048：替代硬编码 0）。``positions`` 来自 ``_query_positions``，每个
+    dict 含 ``market_value``（price * volume，``_query_positions``）。缺键按 0
+    容错（不崩），非数值安全降级为 0。
+    """
+    try:
+        return round(
+            sum(float(p.get("market_value", 0) or 0) for p in (positions or [])),
+            2,
+        )
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _query_orders(account_id: str, status_filter: Optional[List[str]] = None) -> list:
