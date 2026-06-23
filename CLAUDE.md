@@ -50,7 +50,7 @@ ginkgo version / status                       # 版本/状态
 ginkgo debug on                               # 开启 debug（必须）
 ginkgo serve api                              # API 服务器 (:8000)
 ginkgo serve webui                            # Web UI (:5173)
-ginkgo serve worker-backtest -id test2        # 回测 Worker
+ginkgo serve worker-backtest --id test2       # 回测 Worker
 ```
 日志：`/tmp/ginkgo-api.log` | `/tmp/webui.log` | `/tmp/ginkgo-backtest.log`
 
