@@ -64,39 +64,6 @@ class TestMapPtStatus:
         assert _map_pt_status(SimpleNamespace(state=running_int)) == "running"
 
 
-class TestStartReturnsCurrentStatus:
-    """#5401: start 即发即忘，返回必须含当前真实状态，避免前端误判已启动"""
-
-    def test_start_returns_current_status_not_running(self, monkeypatch):
-        """worker 尚未处理 deploy，state 仍 INITIALIZED；返回应诚实反映 stopped，而非假装 running"""
-        import asyncio
-        from api import trading
-        from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
-
-        portfolio = SimpleNamespace(uuid="acc-1",
-                                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED)
-
-        # #6095 review: 真实 PortfolioService.get 经 _crud_repo.find 返回的是 list，
-        # FakeResult.data 必须是 list 形状，否则测试退化成"测 mock"而非"测生产契约"。
-        # 旧实现 FakeResult.data = portfolio（单对象）掩盖了 start 端点未解包 list 的 bug。
-        class FakeResult:
-            data = [portfolio]
-            def is_success(self): return True
-
-        class FakeSvc:
-            def get(self, portfolio_id): return FakeResult()
-
-        class FakeProducer:
-            def send(self, *a, **k): return True
-
-        monkeypatch.setattr(trading, "_get_portfolio_service", lambda: FakeSvc())
-        monkeypatch.setattr(trading, "_get_kafka_producer", lambda: FakeProducer())
-
-        resp = asyncio.run(trading.start_paper_trading("acc-1", None))
-
-        assert resp["code"] == 0
-        assert resp["data"]["success"] is True
-        # 关键：current_status 反映 DB 真实状态（INITIALIZED→stopped），非误导性 "running"
-        assert resp["data"]["current_status"] == "stopped"
-        # 消息必须诚实说明异步性，不再宣称"已启动"
-        assert "asynchronously" in resp["message"].lower()
+# #5860 取代 #5401 对 start 端点的处理：端点废弃为 410 Gone（原 success+current_status
+# 返回行为已移除）。start 废弃语义测试迁移至 test_paper_trading_start_deprecated_5860.py。
+# TestMapPtStatus（_map_pt_status 映射）保留——仍用于 get/list 端点（#5392 未受 #5860 影响）。
