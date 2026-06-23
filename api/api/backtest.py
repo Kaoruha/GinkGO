@@ -133,18 +133,20 @@ def build_backtest_config(data: BacktestTaskCreate) -> dict:
         "initial_cash": data.engine_config.initial_cash,
         # 分析器配置（Engine 级别）
         "analyzers": [a.dict() for a in (data.engine_config.analyzers or [])],
+        # #5386: frequency 为 Engine 级数据频率（与 CLI 一致），从 engine_config 取值
+        "frequency": data.engine_config.frequency,
         # Portfolio 列表
         "portfolio_uuids": data.portfolio_uuids,
     }
 
     # 添加组件配置（如果有）
+    # 注：frequency 已迁移至 EngineConfig，此处不再从 component_config 映射，避免覆盖引擎权威值
     if data.component_config:
         config.update({
             "max_position_ratio": data.component_config.max_position_ratio,
             "stop_loss_ratio": data.component_config.stop_loss_ratio,
             "take_profit_ratio": data.component_config.take_profit_ratio,
             "benchmark_return": data.component_config.benchmark_return,
-            "frequency": data.component_config.frequency,
         })
 
     # 如果提供了 Engine，获取其信息

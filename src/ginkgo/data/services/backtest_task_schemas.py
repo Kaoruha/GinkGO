@@ -159,6 +159,9 @@ class EngineConfig(BaseModel):
     broker_attitude: int = Field(2, ge=1, le=3, description="Broker态度")
     commission_min: Optional[int] = Field(5, ge=0, description="最小手续费")
     analyzers: Optional[List[AnalyzerConfig]] = Field(default_factory=list, description="分析器列表")
+    # #5386: frequency 是 Engine 级数据频率（与 CLI backtest_cli.py 一致），
+    # 此前误置于 ComponentConfig 致客户端 engine_config.frequency 被 Pydantic 静默丢弃。
+    frequency: Optional[str] = Field("DAY", description="数据频率 (DAY/MIN 等)")
 
 
 class ComponentConfig(BaseModel):
@@ -167,7 +170,8 @@ class ComponentConfig(BaseModel):
     stop_loss_ratio: Optional[float] = Field(0.05, ge=0, le=1, description="止损比例")
     take_profit_ratio: Optional[float] = Field(0.15, ge=0, le=1, description="止盈比例")
     benchmark_return: Optional[float] = Field(0.0, description="基准收益率")
-    frequency: Optional[str] = Field("DAY", description="数据频率")
+    # frequency 保留字段以兼容旧客户端入参，但映射以 EngineConfig.frequency 为准。
+    frequency: Optional[str] = Field("DAY", description="[已迁移至 EngineConfig] 数据频率")
 
 
 class BacktestTaskCreate(BaseModel):
