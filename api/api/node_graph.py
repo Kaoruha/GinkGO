@@ -82,7 +82,7 @@ async def list_node_graphs(
         logger.error(f"Error listing node graphs: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing node graphs: {str(e)}"
+            detail="Error listing node graphs"
         )
 
 
@@ -127,7 +127,7 @@ async def get_node_graph(
         logger.error(f"Error getting node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting node graph: {str(e)}"
+            detail="Error getting node graph"
         )
 
 
@@ -176,7 +176,7 @@ async def create_node_graph(
         logger.error(f"Error creating node graph: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating node graph: {str(e)}"
+            detail="Error creating node graph"
         )
 
 
@@ -212,7 +212,7 @@ async def update_node_graph(
         logger.error(f"Error updating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating node graph: {str(e)}"
+            detail="Error updating node graph"
         )
 
 
@@ -235,7 +235,7 @@ async def delete_node_graph(
         logger.error(f"Error deleting node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting node graph: {str(e)}"
+            detail="Error deleting node graph"
         )
 
 
@@ -259,7 +259,7 @@ async def duplicate_node_graph(
         logger.error(f"Error duplicating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error duplicating node graph: {str(e)}"
+            detail="Error duplicating node graph"
         )
 
 
@@ -311,7 +311,7 @@ async def validate_node_graph(
         logger.error(f"Error validating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error validating node graph: {str(e)}"
+            detail="Error validating node graph"
         )
 
 
@@ -350,7 +350,7 @@ async def compile_node_graph(
         logger.error(f"Error compiling node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error compiling node graph: {str(e)}"
+            detail="Error compiling node graph"
         )
 
 
@@ -373,7 +373,7 @@ async def create_from_backtest(
         logger.error(f"Error creating from backtest {backtest_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating from backtest: {str(e)}"
+            detail="Error creating from backtest"
         )
 
 
@@ -412,7 +412,7 @@ async def get_portfolio_mappings(
         logger.error(f"Error getting portfolio mappings {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting portfolio mappings: {str(e)}"
+            detail="Error getting portfolio mappings"
         )
 
 
@@ -464,7 +464,7 @@ async def add_file_to_portfolio(
         logger.error(f"Error adding file to portfolio {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error adding file: {str(e)}"
+            detail="Error adding file"
         )
 
 
@@ -495,5 +495,5 @@ async def remove_file_from_portfolio(
         logger.error(f"Error removing file from portfolio {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error removing file: {str(e)}"
+            detail="Error removing file"
         )
