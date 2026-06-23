@@ -125,6 +125,8 @@ class OrderService(BaseService):
         status: Any = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        start_date: Optional[Any] = None,
+        end_date: Optional[Any] = None,
     ) -> ServiceResult:
         """
         按组合查询订单。
@@ -149,6 +151,10 @@ class OrderService(BaseService):
                 kwargs["page"] = page
             if page_size is not None:
                 kwargs["page_size"] = page_size
+            if start_date is not None:
+                kwargs["start_date"] = start_date
+            if end_date is not None:
+                kwargs["end_date"] = end_date
 
             orders = self._crud_repo.find_by_portfolio(**kwargs)
             return ServiceResult.success(data=orders)
