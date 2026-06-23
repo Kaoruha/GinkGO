@@ -654,6 +654,7 @@ async def sync_data(request: DataUpdateRequest):
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
 
             bar_service = get_bar_service()
+            failed = 0  # #6071: 统计失败 code 数，供前端判断 success（旧版 data 无此字段致硬编码误报）
             for code in codes:
                 rec = sync_svc.record_start(sync_type="bars", code=code)
                 started_at = _time.time()
@@ -662,12 +663,13 @@ async def sync_data(request: DataUpdateRequest):
                     if rec.is_success():
                         _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
                 except Exception as e:
+                    failed += 1
                     if rec.is_success():
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "bars", "codes": codes},
-                message=f"Bars update completed for {len(codes)} codes"
+                data={"type": "bars", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
+                message=f"Bars update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
             )
 
         elif request.type == "ticks":
@@ -679,6 +681,7 @@ async def sync_data(request: DataUpdateRequest):
             start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
             end_dt = datetime.fromisoformat(request.end_date) if request.end_date else None
 
+            failed = 0  # #6071: 统计失败 code 数，供前端判断 success
             for code in codes:
                 rec = sync_svc.record_start(sync_type="ticks", code=code)
                 started_at = _time.time()
@@ -687,12 +690,13 @@ async def sync_data(request: DataUpdateRequest):
                     if rec.is_success():
                         _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
                 except Exception as e:
+                    failed += 1
                     if rec.is_success():
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "ticks", "codes": codes},
-                message=f"Ticks update completed for {len(codes)} codes"
+                data={"type": "ticks", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
+                message=f"Ticks update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
             )
 
         elif request.type in ("adjustfactor", "adjustfactors"):
