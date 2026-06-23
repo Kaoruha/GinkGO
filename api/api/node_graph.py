@@ -3,7 +3,7 @@
 提供节点图的 CRUD、验证、编译等接口
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -51,7 +51,7 @@ def get_file_service():
 async def list_node_graphs(
     portfolio_uuid: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = Query(default=20, ge=1, le=500),
 ):
     """
     获取节点图列表

@@ -2,7 +2,7 @@
 数据相关API路由
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -238,7 +238,7 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
 async def get_stockinfo(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = Query(default=50, ge=1, le=500)
 ):
     """获取股票信息列表（分页，搜索下推到DB层）"""
     try:
@@ -313,7 +313,7 @@ async def get_bars(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500)
 ):
     """获取K线数据列表（分页）"""
     try:
@@ -389,7 +389,7 @@ async def get_ticks(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500)
 ):
     """获取Tick数据列表（分页）"""
     try:
@@ -475,7 +475,7 @@ async def get_adjust_factors(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500)
 ):
     """获取复权因子列表（分页）"""
     try:
@@ -743,7 +743,7 @@ async def sync_data(request: DataUpdateRequest):
 async def get_sync_history(
     sync_type: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = Query(default=20, ge=1, le=500),
 ):
     """获取同步历史记录"""
     try:
