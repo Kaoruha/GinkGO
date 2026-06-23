@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Request
 from typing import Optional
 from core.logging import logger
 from core.response import ok, pagination_meta
-from core.exceptions import NotFoundError, ValidationError, BusinessError
+from core.exceptions import NotFoundError, ValidationError, BusinessError, ConflictError
 from datetime import datetime
 import sys
 from pathlib import Path
@@ -648,11 +648,23 @@ async def get_portfolio_events(
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_portfolio(uuid: str):
+async def delete_portfolio(
+    uuid: str,
+    force: bool = Query(False, description="强制删除含回测的 portfolio（#5688）"),
+):
     """删除Portfolio（通过 service 层）"""
     try:
         # 获取 PortfolioService
         portfolio_service = get_portfolio_service()
+
+        # #5688: 含回测的 portfolio 误删不可恢复，删除前警告。
+        # 复用 _count_backtests（list 端点已用），有回测 + 未强制 → 409 阻止。
+        backtest_count = _count_backtests(uuid)
+        if backtest_count > 0 and not force:
+            raise ConflictError(
+                f"Portfolio has {backtest_count} backtest(s). "
+                f"Pass ?force=true to confirm deletion."
+            )
 
         # 调用 service 的 delete 方法
         result = portfolio_service.delete(portfolio_id=uuid)
@@ -662,7 +674,8 @@ async def delete_portfolio(uuid: str):
 
         logger.info(f"Portfolio {uuid} deleted successfully")
 
-    except NotFoundError:
+    except (NotFoundError, ConflictError):
+        # ConflictError 继承 APIError(Exception)，须在通用 except 前透传，否则被吞成 BusinessError
         raise
     except Exception as e:
         logger.error(f"Error deleting portfolio {uuid}: {str(e)}")
