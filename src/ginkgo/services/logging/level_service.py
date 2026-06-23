@@ -3,7 +3,9 @@
 # Role: LevelService 动态日志级别管理服务 - 运行时调整日志级别，无需重启服务
 
 from typing import Dict, List, Optional
+import json
 import logging
+from pathlib import Path
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs import GLOG, GCONF
@@ -24,6 +26,10 @@ class LevelService(BaseService):
         _whitelist: 模块白名单
     """
 
+    # 持久化文件: 跨进程保留自定义级别（CLI 每次是独立进程）#5932
+    # 测试可 monkeypatch 此类变量注入 tmp_path
+    _LEVELS_FILE = Path.home() / ".ginkgo" / "logging_levels.json"
+
     # 有效的日志级别
     VALID_LEVELS = {
         "DEBUG": logging.DEBUG,
@@ -43,7 +49,8 @@ class LevelService(BaseService):
         super().__init__(glog=glog)
 
         self._glog = glog if glog else GLOG
-        self._custom_levels: Dict[str, str] = {}
+        # 内存是持久化文件的缓存; CLI 跨进程通过文件传递状态 #5932
+        self._custom_levels: Dict[str, str] = self._load_persisted_levels()
         self._whitelist: List[str] = self._load_whitelist()
 
     def _load_whitelist(self) -> List[str]:
@@ -55,6 +62,48 @@ class LevelService(BaseService):
         """
         whitelist = getattr(GCONF, 'LOGGING_LEVEL_WHITELIST', ["backtest", "trading", "data", "analysis"])
         return whitelist if isinstance(whitelist, list) else []
+
+    def _load_persisted_levels(self) -> Dict[str, str]:
+        """
+        从持久化文件加载自定义级别 #5932
+
+        CLI 每次调用是独立进程, 内存 _custom_levels 跨进程隔离。
+        文件缺失/损坏/格式错 → 返回空 dict（降级为旧行为）。
+
+        Returns:
+            Dict[str, str]: {module: level_upper}，仅保留白名单校验通过的条目
+        """
+        try:
+            f = self._LEVELS_FILE
+            if f.exists():
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return {
+                        str(k): str(v).upper()
+                        for k, v in data.items()
+                        if str(v).upper() in self.VALID_LEVELS
+                    }
+        except Exception as e:
+            self._logger.WARNING(f"加载持久化日志级别失败: {e}")
+        return {}
+
+    def _persist_levels(self) -> None:
+        """
+        原子写入 _custom_levels 到持久化文件 #5932
+
+        tmp + replace 防半写; 失败仅警告不中断主流程。
+        """
+        try:
+            f = self._LEVELS_FILE
+            f.parent.mkdir(parents=True, exist_ok=True)
+            tmp = f.with_suffix(f.suffix + ".tmp")
+            tmp.write_text(
+                json.dumps(self._custom_levels, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            tmp.replace(f)
+        except Exception as e:
+            self._logger.WARNING(f"持久化日志级别失败: {e}")
 
     def set_level(self, module_name: str, level: str) -> ServiceResult:
         """
@@ -85,6 +134,7 @@ class LevelService(BaseService):
 
         # 设置自定义级别
         self._custom_levels[module_name] = level_upper
+        self._persist_levels()  # 持久化供新进程读取 #5932
 
         # 应用到 GLOG（如果有 set_level 方法）
         if hasattr(self._glog, 'set_level'):
@@ -136,6 +186,7 @@ class LevelService(BaseService):
         """
         cleared_count = len(self._custom_levels)
         self._custom_levels.clear()
+        self._persist_levels()  # 同步清空持久化文件 #5932
 
         self._logger.INFO(f"已重置 {cleared_count} 个模块的日志级别为默认值")
 
