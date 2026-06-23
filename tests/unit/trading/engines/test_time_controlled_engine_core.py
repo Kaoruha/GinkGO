@@ -807,7 +807,7 @@ class TestEventQueueOperations:
                     if event:
                         with operation_lock:
                             dequeue_count += 1
-                except:
+                except Exception:
                     # 超时或其他异常是正常的
                     pass
 

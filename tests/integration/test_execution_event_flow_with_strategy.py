@@ -216,7 +216,7 @@ def test_execution_with_strategy():
                 print(f"   数量: {order.volume}")
                 print(f"   限价: {order.limit_price}")
                 print(f"   状态: {order.status.name}")
-        except:
+        except Exception:
             break
 
     # ============================================================

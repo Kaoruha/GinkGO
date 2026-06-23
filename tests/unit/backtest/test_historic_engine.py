@@ -25,7 +25,7 @@ class HistoricEngineTest(unittest.TestCase):
         if hasattr(self.engine, 'stop'):
             try:
                 self.engine.stop()
-            except:
+            except Exception:
                 pass
 
     def test_HistoricEngine_Init(self):

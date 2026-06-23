@@ -2665,7 +2665,7 @@ class TestBacktestModeManagerCore:
         while not engine._event_queue.empty():
             try:
                 safe_get_event(engine, timeout=0.01)
-            except:
+            except Exception:
                 break
 
         # 创建乱序提交但期望按FIFO处理的事件
@@ -2947,7 +2947,7 @@ class TestBacktestModeManagerCore:
         while not engine._event_queue.empty():
             try:
                 safe_get_event(engine, timeout=0.01)
-            except:
+            except Exception:
                 break
 
         # 投递新的事件批次
@@ -2985,7 +2985,7 @@ class TestBacktestModeManagerCore:
         while not engine._event_queue.empty():
             try:
                 safe_get_event(engine, timeout=0.01)
-            except:
+            except Exception:
                 break
 
         # 投递更多事件
