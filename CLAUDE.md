@@ -39,7 +39,7 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 - ClickHouse=时序 | MySQL=关系 | Redis=缓存 | MongoDB=文档
 
 ### Debug 模式
-数据库操作前必须开启：`ginkgo system config set --debug on`
+数据库操作前必须开启：`ginkgo debug on`
 
 ### 基础组件
 **禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
@@ -47,7 +47,7 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
-ginkgo system config set --debug on           # 开启 debug（必须）
+ginkgo debug on                               # 开启 debug（必须）
 ginkgo serve api                              # API 服务器 (:8000)
 ginkgo serve webui                            # Web UI (:5173)
 ginkgo serve worker-backtest -id test2        # 回测 Worker
@@ -91,6 +91,9 @@ ginkgo backtest cat <backtest_id>
 ```
 
 ### 可用组件
+
+> **实际命名**：DB 组件名多为 `<name>_<type>` 格式（如 `fixed_selector`/`atr_sizer`/`fixed_sizer`），部分带描述前缀（如 `qr_momentum_selector`/`sharpe_ratio`）。`bind-component` 前用 `ginkgo component list` 查实际 `file_id` 与名称；下表为短名速查。
+
 - **Strategy**: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor, social_signal, game_theory, random_choice
 - **Selector**: fixed, cn_all, momentum, popularity, multi_params
 - **Sizer**: fixed, atr, ratio
