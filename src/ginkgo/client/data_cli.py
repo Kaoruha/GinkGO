@@ -830,26 +830,31 @@ def migrate(
         if database == "mysql":
             import subprocess
             import os
+            import sys
 
             migrations_dir = "/home/kaoru/Ginkgo/migrations/mysql"
             alembic_ini = os.path.join(migrations_dir, "alembic.ini")
+
+            # #5941: 用 [sys.executable, "-m", "alembic"] 绑定当前解释器，
+            # 避免裸 `alembic` 在 venv/uv 下 PATH 不可见触发 FileNotFoundError。
+            alembic_cmd = [sys.executable, "-m", "alembic"]
 
             if autogenerate:
                 # Auto-generate migration
                 console.print(f":memo: Generating migration for MySQL database...")
                 if message:
-                    cmd = ["alembic", "revision", "--autogenerate", "-m", message]
+                    cmd = alembic_cmd + ["revision", "--autogenerate", "-m", message]
                 else:
-                    cmd = ["alembic", "revision", "--autogenerate"]
+                    cmd = alembic_cmd + ["revision", "--autogenerate"]
                 subprocess.run(cmd, cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Migration generated successfully")
 
             elif action == "upgrade":
                 console.print(f":arrow_up: Upgrading MySQL database to latest version...")
                 if revision:
-                    subprocess.run(["alembic", "upgrade", revision], cwd=migrations_dir, check=True)
+                    subprocess.run(alembic_cmd + ["upgrade", revision], cwd=migrations_dir, check=True)
                 else:
-                    subprocess.run(["alembic", "upgrade", "head"], cwd=migrations_dir, check=True)
+                    subprocess.run(alembic_cmd + ["upgrade", "head"], cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Database upgraded successfully")
 
             elif action == "downgrade":
@@ -857,15 +862,15 @@ def migrate(
                     console.print(":x: --revision is required for downgrade")
                     raise typer.Exit(1)
                 console.print(f":arrow_down: Downgrading MySQL database to {revision}...")
-                subprocess.run(["alembic", "downgrade", revision], cwd=migrations_dir, check=True)
+                subprocess.run(alembic_cmd + ["downgrade", revision], cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Database downgraded successfully")
 
             elif action == "heads":
-                subprocess.run(["alembic", "heads"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["heads"], cwd=migrations_dir)
             elif action == "history":
-                subprocess.run(["alembic", "history"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["history"], cwd=migrations_dir)
             elif action == "current":
-                subprocess.run(["alembic", "current"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["current"], cwd=migrations_dir)
             else:
                 # Show current status
                 console.print(f":information: MySQL Database Migration Status")
