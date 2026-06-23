@@ -110,6 +110,55 @@ class TestDeploymentServiceDeploy:
         svc._deployment_crud.add.assert_called_once()
         svc._deploy_core.assert_called_once()
 
+    def test_deploy_live_fails_when_account_update_fails(self):
+        """#6073 LIVE 部署回写 live_account_id 失败时 deploy 应返回 error，不应静默成功。
+
+        根因: _deploy_core step5c 调 portfolio_service.update 后丢弃返回值，
+        update 失败时 live_account_id 未写入但部署仍标记成功，portfolio 与 account 关联丢失。
+        """
+        svc = _make_svc()
+        source = MagicMock()
+        source.name = "Src"
+        source.initial_capital = 100000
+        svc._portfolio_service.get.return_value = MagicMock(success=True, data=[source])
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        svc._broker_instance_crud.get_broker_by_live_account.return_value = []  # 无冲突
+        # _deploy_core 依赖
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(success=True, data=[])
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        # 关键: 回写 live_account_id 失败
+        svc._portfolio_service.update.return_value = MagicMock(success=False, error="update failed")
+        svc._deployment_crud.modify.return_value = None
+
+        result = svc.deploy(portfolio_id="src", mode=PORTFOLIO_MODE_TYPES.LIVE, account_id="acc-1")
+
+        # 失败时 deploy 必须返回 error，不得静默成功
+        assert not result.success, f"update 失败时 deploy 不应静默成功: {result.error}"
+        # 行为断言: update 被调用且传了 live_account_id
+        svc._portfolio_service.update.assert_called_once()
+        _, kwargs = svc._portfolio_service.update.call_args
+        assert kwargs.get("live_account_id") == "acc-1"
+
+    def test_deploy_live_succeeds_when_account_update_succeeds(self):
+        """#6073 回归保护: update 成功时 LIVE 部署应正常完成，不得因检查逻辑误伤 happy path。"""
+        svc = _make_svc()
+        source = MagicMock()
+        source.name = "Src"
+        source.initial_capital = 100000
+        svc._portfolio_service.get.return_value = MagicMock(success=True, data=[source])
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        svc._broker_instance_crud.get_broker_by_live_account.return_value = []
+        svc._mapping_service.get_portfolio_mappings.return_value = MagicMock(success=True, data=[])
+        svc._portfolio_service.add.return_value = MagicMock(success=True, data={"uuid": "new_pid"})
+        # update 成功
+        svc._portfolio_service.update.return_value = MagicMock(success=True)
+        svc._broker_instance_crud.add_broker_instance.return_value = MagicMock(success=True)
+        svc._deployment_crud.modify.return_value = None
+
+        result = svc.deploy(portfolio_id="src", mode=PORTFOLIO_MODE_TYPES.LIVE, account_id="acc-1")
+
+        assert result.success, f"update 成功时 LIVE 部署应成功: {result.error}"
+
 
 class TestDeploymentServiceErrorMessages:
     """#5327 错误信息不应重复"""

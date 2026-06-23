@@ -150,11 +150,15 @@ class DeploymentService(BaseService):
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
         # 5c. Live模式: 回写 live_account_id 到 Portfolio
+        # #6073: 检查 update 返回值，失败时终止部署（否则 live_account_id 未写入但部署仍标记成功）
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
-            self._portfolio_service.update(
+            update_result = self._portfolio_service.update(
                 portfolio_id=new_portfolio_id,
                 live_account_id=account_id,
             )
+            if not update_result.success:
+                GLOG.ERROR(f"回写 live_account_id 失败: {update_result.error}")
+                raise RuntimeError(f"回写 live_account_id 失败: {update_result.error}")
 
         # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
         for mapping in mappings:
