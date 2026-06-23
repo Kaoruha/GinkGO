@@ -589,6 +589,7 @@ def sync(
             try:
                 success_count = 0
                 error_count = 0
+                skipped_count = 0
 
                 for current_code in codes:
                     try:
@@ -619,6 +620,7 @@ def sync(
                                 success_count += 1
                                 console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
                             else:
+                                skipped_count += 1
                                 console.print(f":warning: {current_code} — no data available from source")
                         else:
                             error_count += 1
@@ -630,7 +632,7 @@ def sync(
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Day sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: Day sync completed. Success: {success_count}, Skipped: {skipped_count}, Errors: {error_count}")
 
             except Exception as e:
                 console.print(f":x: Error in day sync process: {e}")
