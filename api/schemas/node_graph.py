@@ -88,6 +88,9 @@ class NodeGraphCreate(BaseModel):
     graph_data: GraphData
     is_template: bool = False
     is_public: bool = False
+    # #5387: 创建路由 node_graph.py:145 读 data.portfolio_uuid 关联 portfolio，
+    # 缺此字段致 AttributeError。默认 None 时路由兜底 str(uuid.uuid4())，向后兼容。
+    portfolio_uuid: Optional[str] = None
 
 
 class NodeGraphUpdate(BaseModel):
