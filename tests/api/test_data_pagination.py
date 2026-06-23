@@ -67,6 +67,42 @@ class TestTicksPagination:
         # 不应因空结果报错
         assert "data" in result or "items" in result
 
+    def test_limit_param_sets_page_size(self):
+        """#5621: limit 参数应映射到 service.get 的 page_size（limit=3 → page_size=3）"""
+
+        mock_tick = MagicMock()
+        mock_tick.uuid = "tick-1"
+        mock_tick.timestamp = datetime(2025, 1, 1)
+        mock_tick.price = 10.0
+        mock_tick.volume = 100
+        mock_tick.direction = 0
+
+        mock_service = MagicMock()
+        mock_service.get.return_value = make_mock_result(data=[mock_tick])
+
+        from api.data import get_ticks
+
+        with patch("api.data.get_tick_service", return_value=mock_service):
+            run_async(get_ticks(code="000001.SZ", limit=3))
+
+        # limit=3 应直接作为 page_size 传给 service（截断返回数）
+        call_kwargs = mock_service.get.call_args.kwargs
+        assert call_kwargs.get("page_size") == 3
+
+    def test_limit_none_keeps_default_page_size(self):
+        """#5621: 未传 limit 时 page_size 保持默认（向后兼容）"""
+
+        mock_service = MagicMock()
+        mock_service.get.return_value = make_mock_result(data=[])
+
+        from api.data import get_ticks
+
+        with patch("api.data.get_tick_service", return_value=mock_service):
+            run_async(get_ticks(code="000001.SZ", page=1, page_size=100))
+
+        call_kwargs = mock_service.get.call_args.kwargs
+        assert call_kwargs.get("page_size") == 100
+
 
 class TestAdjustFactorsPagination:
     """adjustfactors 分页测试"""
