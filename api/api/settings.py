@@ -656,13 +656,13 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
 
         # 根据联系方式类型发送测试通知
         if contact_type == CONTACT_TYPES.EMAIL:
-            # TODO: 实现邮件发送
-            logger.info(f"Email test sent to: {data.address}")
-            return ok(data={
-                "detail": "Email sending not implemented yet"
-            }, message=f"Test email sent to {data.address}")
+            # #5595: 邮件发送未实现——诚实返 501，不假装发送成功
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Email sending is not implemented"
+            )
         elif contact_type == CONTACT_TYPES.WEBHOOK:
-            # TODO: 实现Webhook调用
+            # Webhook 已实现（下方 requests.post 实发），原 TODO 注释为过期残留（#5595）
             import requests
             try:
                 response = requests.post(
@@ -1328,10 +1328,11 @@ async def test_notification_template(uuid: str):
                 detail="Notification template not found"
             )
 
-        # TODO: 实现真实的测试发送
-        logger.info(f"Test notification template: {uuid}")
-
-        return ok(message="Test notification sent")
+        # #5595: 真实测试发送未实现——诚实返 501，不假装发送成功
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Notification template test send is not implemented"
+        )
 
     except HTTPException:
         raise
@@ -1386,7 +1387,9 @@ async def list_notification_history(
 
         # 构建查询条件
         filters = {"is_del": False}
-        # TODO: 添加类型筛选支持
+        # #5595: type 筛选接入 channels 字段（email/webhook/wechat/discord 等通知渠道）
+        if type is not None:
+            filters["channels"] = type
 
         result = notification_service.list_records(
             filters=filters,
@@ -1799,40 +1802,28 @@ class APIStats(BaseModel):
 @router.get("/api-keys")
 async def list_api_keys():
     """获取API密钥列表"""
-    # TODO: 从数据库获取API密钥
-    return ok(data=[
-        {
-            "key_id": "key-1",
-            "name": "生产环境密钥",
-            "masked_key": "ginkgo_sk_****",
-            "status": "active",
-            "expires_at": "2025-01-31T00:00:00Z",
-            "last_used": "2024-01-30T15:30:00Z"
-        }
-    ])
+    # #5595: API 密钥库未实现——诚实返 501，不返回硬编码假列表
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="API key management is not implemented"
+    )
 
 
 @router.post("/api-keys", status_code=201)
 async def create_api_key(data: dict):
     """创建API密钥"""
-    # TODO: 创建API密钥
-    return ok(data={
-        "key_id": "new-key",
-        "name": data.get("name"),
-        "masked_key": "ginkgo_sk_****",
-        "status": "active",
-        "expires_at": None,
-        "last_used": None
-    })
+    # #5595: API 密钥创建未实现——诚实返 501
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="API key creation is not implemented"
+    )
 
 
 @router.get("/api-stats")
 async def get_api_stats():
     """获取API统计"""
-    # TODO: 获取实际统计数据
-    return ok(data={
-        "today_calls": 15234,
-        "month_calls": 456789,
-        "success_rate": 99.8,
-        "avg_response_time": 85.0
-    })
+    # #5595: API 统计采集未实现——诚实返 501，不返回硬编码假统计
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="API stats collection is not implemented"
+    )
