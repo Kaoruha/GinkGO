@@ -3,6 +3,7 @@
 # Role: BrokerManager 管理实盘Broker实例的生命周期
 
 
+import threading
 from typing import Dict, Optional, List
 from datetime import datetime
 
@@ -443,10 +444,21 @@ class BrokerManager:
 
 # 全局单例
 _broker_manager = None
+_broker_manager_lock = threading.Lock()
+
 
 def get_broker_manager() -> BrokerManager:
-    """获取BrokerManager单例"""
+    """获取BrokerManager单例（线程安全）。
+
+    #5541: 旧实现无锁 check-then-set，多线程可同时穿过 `if _broker_manager
+    is None` 各自构造实例，导致 broker 状态不一致/丢失。改用双重检查锁定
+    （double-checked locking）：第一道无锁检查让初始化后热路径零锁开销，
+    第二道在锁内串行保证只构造一次。锁为模块级，在 BrokerManager 实例存在
+    前就可用。
+    """
     global _broker_manager
     if _broker_manager is None:
-        _broker_manager = BrokerManager()
+        with _broker_manager_lock:
+            if _broker_manager is None:
+                _broker_manager = BrokerManager()
     return _broker_manager
