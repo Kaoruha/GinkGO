@@ -681,7 +681,7 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
                 logger.error(f"Webhook test failed: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Webhook test failed: {str(e)}"
+                    detail="Webhook test failed"
                 )
         else:
             raise HTTPException(
@@ -1547,7 +1547,7 @@ async def create_notification_recipient(data: NotificationRecipientCreate):
         logger.error(f"Error creating notification recipient: {e}\nTraceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create notification recipient: {str(e)}"
+            detail="Failed to create notification recipient"
         )
 
 
@@ -1772,7 +1772,7 @@ async def test_notification_recipient(uuid: str):
         logger.error(f"Error testing notification recipient {uuid}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to test notification recipient: {str(e)}"
+            detail="Failed to test notification recipient"
         )
 
 
