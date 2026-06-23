@@ -119,8 +119,10 @@ def data_status(
                 return
 
             # 汇总统计
+            # #5515: get_workers_status() 返回 Dict[pid, dict]（threading.py: res[pid]=data），
+            # 迭代 dict 默认拿到 key(pid 字符串)；须 .values() 迭代 status dict。
             total_workers = len(worker_list)
-            active_workers = len([w for w in worker_list if w.get("status") == "running"])
+            active_workers = len([w for w in worker_list.values() if w.get("status") == "running"])
 
             # 创建汇总表格
             table = Table(title=":gear: Data Worker Status Summary")
@@ -142,7 +144,7 @@ def data_status(
                 detailed_table.add_column("Memory", justify="right")
                 detailed_table.add_column("Tasks", justify="center")
 
-                for w in worker_list:
+                for w in worker_list.values():  # #5515: 迭代 Dict[pid,dict] 的 value
                     pid = w.get("pid", "N/A")
                     status = w.get("status", "unknown")
                     cpu = f"{w.get('cpu_percent', 0):.1f}%" if "cpu_percent" in w else "N/A"
