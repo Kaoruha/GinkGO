@@ -23,6 +23,27 @@ console = Console()
 import random
 
 
+def _parse_a_share_code(code: str) -> "tuple[str, str] | None":
+    """解析A股代码为 (code_num, code_market)，无后缀时按前缀推断市场。
+
+    #5999: ``code.split(".")[1]`` 在无市场后缀（如 "000001"）时 IndexError 崩溃。
+    tdx 仅支持 SH/SZ，按 A 股代码前缀规则推断：
+      - 6 开头 → SH（沪市主板/科创板）
+      - 0/3 开头 → SZ（深市主板/创业板）
+      - 其他 → None（北交所等 tdx 不支持，交调用方友好处理）
+    有后缀时原样返回（upper 归一）。
+    """
+    parts = code.split(".")
+    code_num = parts[0]
+    if len(parts) > 1:
+        return code_num, parts[1].upper()
+    if code_num.startswith("6"):
+        return code_num, "SH"
+    if code_num.startswith(("0", "3")):
+        return code_num, "SZ"
+    return None
+
+
 class GinkgoTDX(GinkgoSourceBase):
     def __init__(self):
         self.client = Quotes.factory(market="std", bestip=False, timeout=15, quiet=True, verbose=0)
@@ -118,9 +139,12 @@ class GinkgoTDX(GinkgoSourceBase):
             time = datetime.datetime.strptime(time, "%H:%M").time()
             return datetime.datetime.combine(new_date, time)
 
-        code_num = code.split(".")[0]
-        code_market = code.split(".")[1]
-        if code_market.upper() not in ["SH", "SZ"]:
+        parsed = _parse_a_share_code(code)
+        if parsed is None:
+            console.print(f":warning: 无法解析 {code} 的市场后缀，请使用完整格式（如 000001.SZ）")
+            return
+        code_num, code_market = parsed
+        if code_market not in ["SH", "SZ"]:
             console.print("TDX api just support SH and SZ now.")
             return
         date = datetime_normalize(date)
