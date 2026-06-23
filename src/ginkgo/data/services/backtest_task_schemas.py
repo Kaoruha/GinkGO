@@ -183,6 +183,14 @@ class BacktestTaskCreate(BaseModel):
     component_config: Optional[ComponentConfig] = None
     # 旧字段兼容：旧客户端可能发送 portfolio_id (str) 而非 portfolio_uuids (list)
     portfolio_id: Optional[str] = Field(None, exclude=True, description="[已废弃] 请使用 portfolio_uuids")
+    # #5581: 顶层可选日期字段，优先级高于 engine_config 中的值；
+    # 未传时由 create_backtest_task 回退到 engine_config.start_date/end_date。
+    start_date: Optional[str] = Field(
+        None, description="[可选] 回测开始日期 (YYYY-MM-DD)，提供时优先于 engine_config.start_date"
+    )
+    end_date: Optional[str] = Field(
+        None, description="[可选] 回测结束日期 (YYYY-MM-DD)，提供时优先于 engine_config.end_date"
+    )
 
     @model_validator(mode='before')
     @classmethod
