@@ -834,6 +834,13 @@ class GinkgoConfig(object):
             os.environ[key] = quiet
         return quiet.upper() == "TRUE"
 
+    def set_quiet(self, value: bool) -> None:
+        """设置静默模式并持久化（#5931：config set quiet 此前因此方法缺失而 AttributeError）。"""
+        key = "GINKGO_QUIET"
+        if isinstance(value, bool):
+            self._write_config("quiet", value)
+            os.environ[key] = str(value)
+
     @property
     def PYTHONPATH(self) -> str:
         """Python路径（环境标识，有默认值）"""
