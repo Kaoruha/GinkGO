@@ -78,6 +78,7 @@ class PortfolioMappingService(BaseService):
         portfolio_uuid: str,
         graph_data: Dict[str, Any],
         name: str,
+        sync_mysql: bool = True,
     ) -> ServiceResult:
         """
         从图编辑器创建配置
@@ -91,6 +92,10 @@ class PortfolioMappingService(BaseService):
             portfolio_uuid: 投资组合 UUID
             graph_data: 图数据 {"nodes": [...], "edges": [...], "viewport": {...}}
             name: 配置名称
+            sync_mysql: 是否回写 MySQL Mapping/MParam。图编辑器场景为 True（以图为权威，
+                删除图外孤立映射）；deploy 克隆场景传 False —— MySQL 映射已由 deploy
+                源组合权威复制，此处仅需搬运 Mongo 图供 UI，绝不能按（可能不完整的）
+                源图删除已建的 strategy/sizer 映射。#6279
 
         Returns:
             ServiceResult: 包含 mongo_id、mappings_count、params_count
@@ -115,13 +120,7 @@ class PortfolioMappingService(BaseService):
             ... )
         """
         try:
-            # 1. 提取图中的文件映射
-            file_mappings = self._extract_files_from_graph(graph_data)
-
-            # 2. 提取图中的节点参数
-            node_params = self._extract_params_from_graph(graph_data)
-
-            # 3. 保存到 MongoDB
+            # 1. 保存到 MongoDB（图文档本体，UI 可视化用）
             mongo_id = self._save_graph_to_mongo(
                 portfolio_uuid=portfolio_uuid,
                 graph_data=graph_data,
@@ -129,24 +128,31 @@ class PortfolioMappingService(BaseService):
                 source="GRAPH_EDITOR"
             )
 
-            # 4. 同步到 MySQL Mapping
-            # 5. 同步到 MySQL MParam
-            # 下游 MySQL sync 失败时补偿删 Mongo 孤儿（#5559）：
-            # Mongo 已在步骤3写入，若 MySQL sync 抛异常，反向删除已写的 Mongo 文档，
-            # 保持跨库一致性。raise 让外层 @retry/except 决定重试或返错。
-            try:
-                mapping_sync_result = self._sync_mappings_from_files(
-                    portfolio_uuid=portfolio_uuid,
-                    file_mappings=file_mappings
-                )
+            # 2. MySQL 同步（图编辑器权威；deploy 克隆传 False 跳过以保 step5 已建映射）
+            file_mappings: list = []
+            node_params: list = []
+            if sync_mysql:
+                file_mappings = self._extract_files_from_graph(graph_data)
+                node_params = self._extract_params_from_graph(graph_data)
 
-                param_sync_result = self._sync_params_from_nodes(
-                    portfolio_uuid=portfolio_uuid,
-                    node_params=node_params
-                )
-            except Exception:
-                self._delete_graph_from_mongo(mongo_id)
-                raise
+                # 下游 MySQL sync 失败时补偿删 Mongo 孤儿（#5559）：
+                # Mongo 已在步骤1写入，若 MySQL sync 抛异常，反向删除已写的 Mongo 文档，
+                # 保持跨库一致性。raise 让外层 @retry/except 决定重试或返错。
+                try:
+                    # 同步到 MySQL Mapping
+                    self._sync_mappings_from_files(
+                        portfolio_uuid=portfolio_uuid,
+                        file_mappings=file_mappings
+                    )
+
+                    # 同步到 MySQL MParam
+                    self._sync_params_from_nodes(
+                        portfolio_uuid=portfolio_uuid,
+                        node_params=node_params
+                    )
+                except Exception:
+                    self._delete_graph_from_mongo(mongo_id)
+                    raise
 
             GLOG.INFO(f"从图编辑器创建配置: {portfolio_uuid} ({mongo_id})")
             GLOG.DEBUG(f"  同步了 {len(file_mappings)} 个文件映射")

@@ -357,4 +357,8 @@ class DeploymentService(BaseService):
             portfolio_uuid=target_portfolio_id,
             graph_data=graph_result.data,
             name=f"deploy_{target_portfolio_id[:8]}",
+            # #6279: MySQL 映射已由 _deploy_core step5 从源组合权威复制（全类型+原始参数）。
+            # 此处仅搬运 Mongo 图供 UI，绝不能按（经 CLI bind-component 绑定时可能不完整的）
+            # 源图删除已建的 strategy/sizer 映射，否则 paper 组合装配 Strategies:0。
+            sync_mysql=False,
         )
