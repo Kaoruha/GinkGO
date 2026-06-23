@@ -183,6 +183,7 @@ docker-compose.override.yml
 private_*
 *secret*
 *credential*
+!*.py
 credentials.*
 api_key.*
 access_token.*
