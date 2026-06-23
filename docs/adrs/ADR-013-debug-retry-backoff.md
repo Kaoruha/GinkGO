@@ -31,7 +31,7 @@ else:
 ## Rationale
 
 - **为何保留语义不改装饰器**：`@retry` 被 ~160 处使用（实测 `src/ginkgo` 下 163 处装饰器应用，覆盖 `tick_service`/`ginkgo_kafka`/`stockinfo`/`param`/`adjustfactor`/`tushare` 及各 driver/crud …），改 debug 分支牵动全系统；且 debug 下跳过退避是刻意的测试加速设计。
-- **为何用纪律而非代码强制**：debug 是开发者手动开关（`ginkgo system config set --debug on`），批量同步也是手动操作；在装饰器层探测"是否批量远端调用"会引入运行时判断复杂度，得不偿失。
+- **为何用纪律而非代码强制**：debug 是开发者手动开关（`ginkgo debug on`），批量同步也是手动操作；在装饰器层探测"是否批量远端调用"会引入运行时判断复杂度，得不偿失。
 - **已排除 A：debug 下也退避**——单测/集成测试会卡 `30s × N`，破坏 debug 加速反馈的初衷。
 - **已排除 B：装饰器加"远端 API 识别"自动限流**——跨切面耦合（装饰器要知道被调函数是否打远端），违背单一职责。
 

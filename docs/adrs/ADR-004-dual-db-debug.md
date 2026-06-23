@@ -19,7 +19,7 @@ Docker 部署两套数据库（ClickHouse + MySQL），用端口前缀区分：
 - Debug 模式下 `GCONF.CLICKPORT` 端口首位 +1（8123 → 18123），自动指向 test 实例。
 - `.env` 默认 `GINKGO_CLICKHOUSE_HOST=clickhouse-test`。
 - Vector 默认连 `clickhouse-test`，与 Worker/API 保持一致。
-- 开启 Debug：`ginkgo system config set --debug on`。
+- 开启 Debug：`ginkgo debug on`。
 
 ## Rationale
 
