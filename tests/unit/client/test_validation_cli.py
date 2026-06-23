@@ -25,6 +25,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ginkgo.client import validation_cli
+from ginkgo.data.services.base_service import ServiceResult
 
 
 @pytest.fixture
@@ -102,11 +103,17 @@ class TestValidateErrors:
         assert "Invalid format" in result.output
 
     def test_file_not_found(self, cli_runner):
-        result = cli_runner.invoke(validation_cli.app, [
-            "nonexistent_file.py"
-        ])
+        """#5357: 名称/UUID 均未命中时给清晰中文提示，不再误报 'File not found'。"""
+        mock_container = _mock_file_container_for_name("nonexistent_file.py", [])
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("ginkgo.trading.evaluation.utils.database_loader.DatabaseStrategyLoader") as MockLoader:
+            MockLoader.return_value.load_by_file_id.side_effect = FileNotFoundError("not in db")
+            result = cli_runner.invoke(validation_cli.app, [
+                "nonexistent_file.py"
+            ])
         assert result.exit_code == 2
-        assert "File not found" in result.output
+        assert "未找到组件" in result.output
+        assert "File not found" not in result.output
 
     def test_multiple_sources_mutually_exclusive(self, cli_runner):
         """Cannot specify both file and --file-id."""
@@ -199,3 +206,73 @@ class TestHelperFunctions:
 
     def test_get_format_extension_unknown(self):
         assert validation_cli._get_format_extension("unknown") == "txt"
+
+
+# ============================================================================
+# 6. Component name / UUID resolution (#5357)
+# ============================================================================
+
+
+def _mock_file_container_for_name(name, files):
+    """Build a mock container whose file_service().get_by_name(name) returns
+    a real ServiceResult wrapping the given ORM-like file objects."""
+    mock_container = MagicMock()
+    mock_file_service = MagicMock()
+    mock_file_service.get_by_name.return_value = ServiceResult.success(
+        data={"files": files, "count": len(files)},
+        message=f"Found {len(files)} files with name '{name}'",
+    )
+    mock_container.file_service.return_value = mock_file_service
+    return mock_container
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestComponentNameUuidResolution:
+    """#5357: validate <name> / <uuid> should resolve from DB, not just file paths."""
+
+    def test_validate_by_component_name_resolves_from_db(self, cli_runner):
+        """validate momentum (momentum in DB) → resolves to file_id, loads, validates.
+        Must NOT print 'File not found'."""
+        mock_file = MagicMock()
+        mock_file.uuid = "abc123def4567890abcdef1234567890"
+        mock_container = _mock_file_container_for_name("momentum", [mock_file])
+
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("ginkgo.trading.evaluation.utils.database_loader.DatabaseStrategyLoader") as MockLoader, \
+             patch.object(validation_cli, "_validate_single_strategy") as mock_validate:
+            mock_loader = MockLoader.return_value
+            mock_cm = MagicMock()
+            mock_cm.__enter__.return_value = Path("/tmp/resolved_momentum.py")
+            mock_cm.__exit__.return_value = False
+            mock_loader.load_by_file_id.return_value = mock_cm
+
+            result = cli_runner.invoke(validation_cli.app, ["momentum", "--type", "strategy"])
+
+        assert result.exit_code == 0, result.output
+        assert "File not found" not in result.output, f"误报 File not found:\n{result.output}"
+        # 名称命中 → 用 get_by_name 返回的 uuid 加载
+        mock_loader.load_by_file_id.assert_called_once_with("abc123def4567890abcdef1234567890")
+        mock_validate.assert_called_once()
+
+    def test_validate_by_uuid_falls_back_when_name_misses(self, cli_runner):
+        """validate <uuid> (uuid 不在 name 表但有效) → name 未命中后按 uuid 加载。"""
+        # 名称查不到（count=0）
+        mock_container = _mock_file_container_for_name("deadbeefdeadbeefdeadbeefdeadbeef", [])
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("ginkgo.trading.evaluation.utils.database_loader.DatabaseStrategyLoader") as MockLoader, \
+             patch.object(validation_cli, "_validate_single_strategy") as mock_validate:
+            mock_loader = MockLoader.return_value
+            mock_cm = MagicMock()
+            mock_cm.__enter__.return_value = Path("/tmp/resolved_uuid.py")
+            mock_cm.__exit__.return_value = False
+            mock_loader.load_by_file_id.return_value = mock_cm
+
+            result = cli_runner.invoke(
+                validation_cli.app, ["deadbeefdeadbeefdeadbeefdeadbeef", "--type", "strategy"]
+            )
+
+        assert result.exit_code == 0, result.output
+        # name 未命中 → 用原始 uuid 输入加载
+        mock_loader.load_by_file_id.assert_called_once_with("deadbeefdeadbeefdeadbeefdeadbeef")
+        mock_validate.assert_called_once()

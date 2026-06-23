@@ -200,14 +200,54 @@ def validate(
 
     else:  # component_file
         file_path = Path(component_file)
-        if not file_path.exists():
-            console.print(f":x: [red]File not found: {component_file}[/red]")
+        if file_path.exists():
+            # Backward compat: real file path
+            source_info = f"Local file: {file_path.name}"
+            _validate_single_strategy(
+                file_path, component_type, report_format, output, verbose,
+                show_trace, code, events, source_info, console
+            )
+            return
+
+        # #5357: 非文件路径 → 尝试按组件名/UUID 从 DB 解析
+        from ginkgo.data.containers import container
+        from ginkgo.trading.evaluation.utils.database_loader import DatabaseStrategyLoader
+
+        # 先按名称查；命中则取其 file_id (uuid)
+        resolved_file_id = None
+        try:
+            name_result = container.file_service().get_by_name(component_file)
+            if name_result.is_success() and name_result.data and name_result.data.get("count", 0) > 0:
+                resolved_file_id = name_result.data["files"][0].uuid
+        except Exception as e:
+            if verbose:
+                console.print(f":warning: 名称查询异常，改按 UUID 尝试: {e}")
+
+        # 名称未命中 → 当作 UUID 直接交给 loader（内部按 uuid 查，查不到抛 FileNotFoundError）
+        if resolved_file_id is None:
+            resolved_file_id = component_file
+
+        loader = DatabaseStrategyLoader()
+        try:
+            with loader.load_by_file_id(resolved_file_id) as temp_path:
+                temp_file_path = temp_path
+                source_info = f"Database (resolved '{component_file}' → file_id: {resolved_file_id[:8]}...)"
+                if verbose:
+                    console.print(f":link: 已将 '{component_file}' 解析为 file_id {resolved_file_id[:8]}...")
+                _validate_single_strategy(
+                    temp_path, component_type, report_format, output, verbose,
+                    show_trace, code, events, source_info, console
+                )
+        except FileNotFoundError:
+            console.print(f":x: [red]未找到组件 '{component_file}'，请使用文件路径或组件名称/UUID[/red]")
+            console.print("  提示: 运行 `ginkgo validate --list` 查看可用组件")
             raise typer.Exit(2)
-        source_info = f"Local file: {file_path.name}"
-        _validate_single_strategy(
-            file_path, component_type, report_format, output, verbose,
-            show_trace, code, events, source_info, console
-        )
+        except Exception as e:
+            console.print(f":x: [red]Error loading from database: {e}[/red]")
+            if verbose:
+                import traceback
+                console.print(traceback.format_exc())
+            raise typer.Exit(5)
 
 def _validate_single_strategy(
     file_path: Path,
