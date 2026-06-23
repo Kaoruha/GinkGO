@@ -99,7 +99,8 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
         deployment_svc = _get_deployment_service()
         related = []
 
-        if mode_int == 0:  # BACKTEST: find deployed PAPER/LIVE
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:  # BACKTEST: find deployed PAPER/LIVE
             dep_result = deployment_svc.find_by_source_portfolio(source_portfolio_id=portfolio_id)
             deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
@@ -108,7 +109,7 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
                     target_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
                     if target_list and target_list.data:
                         t = target_list.data[0]
-                        mode_str = "PAPER" if t.mode == 1 else "LIVE"
+                        mode_str = "PAPER" if t.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE"
                         metrics = {
                             "annual_return": float(getattr(t, "annual_return", 0) or 0),
                             "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
@@ -147,7 +148,7 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
                             related.append({
                                 "uuid": o.uuid,
                                 "name": o.name,
-                                "mode": "PAPER" if o.mode == 1 else "LIVE",
+                                "mode": "PAPER" if o.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE",
                                 "state": _map_state(o.state),
                                 "annual_return": float(getattr(o, "annual_return", 0) or 0),
                                 "max_drawdown": float(getattr(o, "max_drawdown", 0) or 0),
@@ -358,7 +359,7 @@ async def get_portfolio(uuid: str):
         data = {
             "uuid": uuid,
             "name": portfolio_model.name,
-            "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
+            "mode": _map_mode(portfolio_model.mode),
             "state": _map_state(portfolio_model.state),
             "config_locked": portfolio_service.is_portfolio_frozen(uuid),
             "net_value": 1.0,
