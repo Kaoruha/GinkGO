@@ -429,7 +429,7 @@ def status(
 @app.command()
 def delete(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete portfolio.
@@ -614,7 +614,7 @@ def bind_component(
 def unbind_component(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     file_id: str = typer.Argument(..., help="File UUID or name"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm unbinding"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :broken_link: Unbind a component from a portfolio.

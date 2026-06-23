@@ -420,6 +420,20 @@ class TestPortfolioDelete:
         assert result.exit_code == 1
         assert "Failed to delete portfolio" in result.output
 
+    @patch("ginkgo.data.containers.container")
+    def test_delete_with_yes_short_flag(self, mock_container, cli_runner):
+        """使用 -y 短标志成功删除（#6006: 统一确认标志跨命令一致）"""
+        mock_service = MagicMock()
+        mock_service.delete.return_value = ServiceResult.success(data=None)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "portfolio-uuid-001", "-y"
+        ])
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output
+        mock_service.delete.assert_called_once_with("portfolio-uuid-001")
+
 
 # ============================================================================
 # 6. Bind/Unbind 测试
@@ -599,6 +613,33 @@ class TestPortfolioUnbindComponent:
         ])
         assert result.exit_code == 0
         assert "binding deleted successfully" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_unbind_with_yes_short_flag(self, mock_container, cli_runner, mock_portfolio):
+        """使用 -y 短标志成功解绑（#6006: 统一确认标志跨命令一致）"""
+        mock_pf_service = MagicMock()
+        mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
+
+        mock_file = MagicMock()
+        mock_file.uuid = "file-uuid-001"
+        mock_file.name = "MyStrategy"
+
+        mock_file_service = MagicMock()
+        mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=mock_file)
+
+        mock_mapping_service = MagicMock()
+        mock_mapping_service.delete_portfolio_file_binding.return_value = ServiceResult.success(data=None)
+
+        mock_container.portfolio_service.return_value = mock_pf_service
+        mock_container.file_service.return_value = mock_file_service
+        mock_container.mapping_service.return_value = mock_mapping_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "unbind-component", "TestPortfolio", "MyStrategy", "-y"
+        ])
+        assert result.exit_code == 0
+        assert "binding deleted successfully" in result.output
+        mock_mapping_service.delete_portfolio_file_binding.assert_called_once()
 
     def test_unbind_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝解绑"""

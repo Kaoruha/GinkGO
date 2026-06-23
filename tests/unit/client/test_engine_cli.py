@@ -494,6 +494,18 @@ class TestDelete:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    def test_delete_with_yes_short_flag(self, cli_runner):
+        """-y 短标志成功删除（#6006: 统一确认标志跨命令一致）"""
+        svc = _mock_engine_service(delete=ServiceResult.success(data=None))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["delete", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "-y"])
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output
+        svc.delete.assert_called_once_with("aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_delete_missing_confirm(self, cli_runner):
         result = cli_runner.invoke(engine_cli.app, ["delete", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 1
@@ -638,6 +650,39 @@ class TestUnbindPortfolio:
             )
         assert result.exit_code == 0
         assert "deleted successfully" in result.output.lower()
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_unbind_with_yes_short_flag(self, cli_runner):
+        """-y 短标志成功解绑（#6006: 统一确认标志跨命令一致）"""
+        mock_portfolio = MagicMock()
+        mock_portfolio.uuid = "port-uuid"
+        mock_portfolio.name = "TestPortfolio"
+
+        port_model_list = MagicMock()
+        port_model_list.__len__ = MagicMock(return_value=1)
+        port_model_list.__getitem__ = MagicMock(return_value=mock_portfolio)
+
+        portfolio_svc = MagicMock()
+        portfolio_svc.get.return_value = ServiceResult.success(data=port_model_list)
+
+        mapping_svc = MagicMock()
+        mapping_svc.delete_engine_portfolio_mapping.return_value = ServiceResult.success(data=None)
+
+        container = _mock_container(
+            portfolio_service=portfolio_svc,
+            mapping_service=mapping_svc,
+        )
+
+        with patch("ginkgo.data.containers.container", container), \
+             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+            result = cli_runner.invoke(
+                engine_cli.app,
+                ["unbind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid", "-y"],
+            )
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output.lower()
+        mapping_svc.delete_engine_portfolio_mapping.assert_called_once()
 
     @pytest.mark.unit
     @pytest.mark.cli
