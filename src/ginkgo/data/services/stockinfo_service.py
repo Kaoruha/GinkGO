@@ -424,6 +424,21 @@ class StockinfoService(BaseService):
         )
         return self._crud_repo.find(filters=filters, **query_params)
 
+    def list_all_codes(self) -> ServiceResult:
+        """列出 stockinfo 表所有股票 code。
+
+        #5866: 供 bars sync 端点 codes=["all"] 展开为全表 code 列表，
+        一键批量同步所有已登记股票的 K 线数据，避免用户逐只手动 sync。
+        """
+        try:
+            model_list = self._find_modellist()
+            if not model_list:
+                return ServiceResult.success(data=[])
+            codes = [info.code for info in model_list if getattr(info, "code", None)]
+            return ServiceResult.success(data=codes)
+        except Exception as e:
+            return ServiceResult.error(f"Failed to list stockinfo codes: {e}")
+
     # ===== ADR-010 Phase 4.2：类型即契约多出口 =====
 
     def get_stockinfos_df(self, code: str = None, name: str = None, exchange: str = None,
