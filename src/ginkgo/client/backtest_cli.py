@@ -49,6 +49,29 @@ def create_task(
     """:plus: Create a backtest task."""
     from ginkgo.data.containers import container
     from ginkgo.workers.backtest_worker.task_helpers import load_portfolio_components
+    from datetime import datetime
+
+    # 校验日期格式（#5994/#6083：仅接受 YYYY-MM-DD）
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
+    except ValueError:
+        console.print(
+            f":x: 日期格式无效，要求 YYYY-MM-DD；start={start} end={end}"
+        )
+        raise typer.Exit(1)
+
+    # 校验日期范围（#5993：end 早于 start 拒绝）
+    if end_date < start_date:
+        console.print(f":x: 结束日期 {end} 早于开始日期 {start}")
+        raise typer.Exit(1)
+
+    # 未来日期警告（#6009：未来日期无历史数据，警告但不阻断）
+    today = datetime.now().date()
+    if start_date.date() > today or end_date.date() > today:
+        console.print(
+            f":warning: 警告：start={start} 或 end={end} 为未来日期，该区间可能无历史数据"
+        )
 
     # 校验 cash 为正（#5983/#6004：拒绝非正现金，避免回测以零/负资金运行）
     if cash <= 0:
