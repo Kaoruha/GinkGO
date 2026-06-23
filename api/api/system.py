@@ -5,6 +5,7 @@
 from fastapi import APIRouter
 from typing import Dict, Any
 
+from core.config import settings
 from core.response import ok
 from core.logging import logger
 
@@ -24,7 +25,9 @@ async def get_system_status():
         return ok(data=svc.get_system_status())
     except Exception as e:
         logger.error(f"Failed to get system status: {e}")
-        return ok(data={"status": "error", "version": "unknown", "error": str(e)})
+        # #5481: 生产环境 error 字段不泄露内部异常细节；DEBUG 才附 str(e)
+        _err = str(e) if settings.DEBUG else "internal error (see server logs)"
+        return ok(data={"status": "error", "version": "unknown", "error": _err})
 
 
 @router.get("/workers")
