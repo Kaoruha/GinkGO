@@ -755,3 +755,42 @@ class TestResolveEngineIdFuzzy:
 
         # fuzzy 命中第一条的 UUID 应被返回，而非因 NameError 返回 None
         assert resolved == engine.uuid
+
+
+# ---------------------------------------------------------------------------
+# #5988: engine create 输出 Engine ID 应为纯 UUID，非 dict repr
+# ---------------------------------------------------------------------------
+
+class TestEngineCreate:
+    """#5988: ``engine create`` 成功后 ``Engine ID`` 行应只含纯 UUID 字符串。
+
+    Service 层 ``engine_service.add`` 返回 ``data={"engine_info": {...}}``（dict），
+    而非带 ``.uuid`` 属性的 Model 对象。旧代码用 ``hasattr(result.data, 'uuid')``
+    探测 dict 必然 False，回退分支把整个 dict ``repr`` 当成 Engine ID 打印。
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_create_shows_pure_uuid_not_dict_repr(self, cli_runner):
+        engine_info = {
+            "uuid": "abc123def4567890abcdef1234567890",
+            "name": "test_engine",
+            "is_live": False,
+            "status": "IDLE",
+            "desc": "回测引擎: test_engine",
+        }
+        svc = _mock_engine_service(
+            add=ServiceResult.success(data={"engine_info": engine_info})
+        )
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(
+                engine_cli.app, ["create", "-n", "test_engine", "-t", "backtest"]
+            )
+
+        assert result.exit_code == 0, result.output
+        engine_id_lines = [l for l in result.output.splitlines() if "Engine ID" in l]
+        assert engine_id_lines, f"未找到 Engine ID 行:\n{result.output}"
+        engine_id_line = engine_id_lines[0]
+        # dict repr 含 '{' / '}' —— 纯 UUID 行不应含这些
+        assert "{" not in engine_id_line, f"Engine ID 行含 dict repr:\n{engine_id_line}"
+        assert "abc123def4567890abcdef1234567890" in engine_id_line
