@@ -118,8 +118,14 @@ class GinkgoTDX(GinkgoSourceBase):
             time = datetime.datetime.strptime(time, "%H:%M").time()
             return datetime.datetime.combine(new_date, time)
 
-        code_num = code.split(".")[0]
-        code_market = code.split(".")[1]
+        code_parts = code.split(".")
+        code_num = code_parts[0]
+        if len(code_parts) < 2:
+            console.print(
+                f"TDX tick 需要完整代码格式（如 000001.SZ），收到: {code}"
+            )
+            return
+        code_market = code_parts[1]
         if code_market.upper() not in ["SH", "SZ"]:
             console.print("TDX api just support SH and SZ now.")
             return

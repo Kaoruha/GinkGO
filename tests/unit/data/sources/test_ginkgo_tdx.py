@@ -170,3 +170,57 @@ class TestTDXFetchLive:
         mock_client.quotes.assert_called_once()
         call_kwargs = mock_client.quotes.call_args[1]
         assert "symbol" in call_kwargs
+
+
+@pytest.mark.unit
+class TestTDXFetchTransactionDetailSuffixGuard:
+    """fetch_history_transaction_detail 代码后缀防御 (#5999)
+
+    无市场后缀（如 000001）曾导致 code.split(".")[1] 抛 IndexError 崩溃。
+    """
+
+    @patch("ginkgo.data.sources.ginkgo_tdx.Quotes")
+    def test_no_suffix_does_not_raise_indexerror(self, mock_quotes):
+        """无市场后缀（000001）不抛 IndexError，对齐无效 market 的 return None 模式"""
+        mock_client = MagicMock()
+        mock_quotes.factory.return_value = mock_client
+
+        tdx = GinkgoTDX()
+        # 核心断言：不抛 IndexError（修复前 code.split(".")[1] 越界）
+        result = tdx.fetch_history_transaction_detail(
+            "000001", datetime.datetime(2025, 6, 5)
+        )
+        # 对齐现有无效 market 的 return None 行为
+        assert result is None
+        # 提前返回，不应触达 mootdx transactions
+        mock_client.transactions.assert_not_called()
+
+    @patch("ginkgo.data.sources.ginkgo_tdx.Quotes")
+    def test_invalid_market_returns_none(self, mock_quotes):
+        """无效市场后缀（000001.XX）返回 None（现有行为回归守护）"""
+        mock_client = MagicMock()
+        mock_quotes.factory.return_value = mock_client
+
+        tdx = GinkgoTDX()
+        result = tdx.fetch_history_transaction_detail(
+            "000001.XX", datetime.datetime(2025, 6, 5)
+        )
+        assert result is None
+        mock_client.transactions.assert_not_called()
+
+    @patch("ginkgo.data.sources.ginkgo_tdx.Quotes")
+    def test_valid_sz_code_extracts_num_and_market(self, mock_quotes):
+        """合法 .SZ 代码正常提取 code_num 并调用 transactions（回归守护）"""
+        mock_client = MagicMock()
+        mock_quotes.factory.return_value = mock_client
+        mock_client.transactions.return_value = pd.DataFrame(
+            {"price": [10.0], "volume": [100], "time": ["09:30"]}
+        )
+
+        tdx = GinkgoTDX()
+        tdx.fetch_history_transaction_detail(
+            "000001.SZ", datetime.datetime(2025, 6, 5)
+        )
+
+        call_kwargs = mock_client.transactions.call_args[1]
+        assert call_kwargs["symbol"] == "000001"
