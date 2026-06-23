@@ -560,6 +560,31 @@ class TestDeploy:
         result = worker._handle_deploy({"portfolio_id": "p-001"})
         assert result is False
 
+    def test_deploy_backtest_mode_rejected(self):
+        """BACKTEST 模式 portfolio 不应被 PaperTradingWorker deploy (#6029)
+
+        锁定 _handle_deploy 的模式判断行为：portfolio.mode == BACKTEST 时拒绝部署。
+        #6029 将魔法数字 0 替换为 PORTFOLIO_MODE_TYPES.BACKTEST.value，行为不变。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        worker._engine = MagicMock()  # 引擎就绪，排除 engine 检查干扰
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.BACKTEST.value  # 0
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container = MagicMock()
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.container = mock_container
+            result = worker._handle_deploy({"portfolio_id": "p-backtest-001"})
+
+        assert result is False
+
 
 class TestUnload:
     """unload 命令处理测试"""
