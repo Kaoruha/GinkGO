@@ -20,6 +20,26 @@ app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="ric
 console = Console(emoji=True, legacy_windows=False)
 
 
+def _normalize_stock_code(code: str) -> str:
+    """#5920: 归一化 A 股代码到**后缀形式** ``NNNNNN.SH``/``NNNNNN.SZ``（DB stockinfo 存后缀）。
+
+    项目内并存两种记法（见 [[arch_ashare_code_market_prefix_gap]]）：
+    - 后缀 ``600000.SH``（stockinfo 表、data get stockinfo -c）
+    - 前缀 ``SH600000``（策略/回测组件、position/adjustfactor/tick mapper）
+
+    get（读取侧）应兼容两种，故前缀 → 后缀归一化后查询。已是后缀或无法识别的原样返回
+    （读取侧不因格式惩罚用户；无效格式交由下游 ``No bar data`` 提示）。纯字符串变换，
+    不依赖 mootdx 首位推断（前缀已带市场标记）。
+    """
+    import re
+    if not code:
+        return code
+    m = re.fullmatch(r"(SH|SZ)(\d{6})", code)
+    if m:
+        return f"{m.group(2)}.{m.group(1)}"
+    return code
+
+
 @app.command()
 def get(
     data_type: str = typer.Argument(..., help="Data type to get (stockinfo/day/tick/adjustfactor/sources) \\[planned: calendar]"),
@@ -251,6 +271,9 @@ def get(
             if not code:
                 console.print(":x: Stock code required for bar data")
                 raise typer.Exit(1)
+
+            # #5920: 前缀 SH600000 → 后缀 600000.SH（DB 存后缀），与策略/回测组件格式对齐
+            code = _normalize_stock_code(code)
 
             from datetime import datetime, timedelta
             if not end:
