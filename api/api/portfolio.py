@@ -619,6 +619,38 @@ async def get_portfolio_analytics(uuid: str):
         raise BusinessError(f"Error getting analytics: {e}")
 
 
+@router.get("/{uuid}/positions")
+async def get_portfolio_positions(
+    uuid: str,
+    active_only: bool = Query(False, description="仅返回 volume>0 的活跃持仓"),
+):
+    """获取 Portfolio 当前持仓快照（#5783 验收2）
+
+    数据层 PositionCRUD 早已支持按 portfolio 查询，本端点在 portfolio router
+    暴露持仓查询能力（对齐 backtest /{uuid}/positions，序列化形状与
+    load_persisted_state 一致）。
+    """
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.get_positions(uuid, active_only=active_only)
+
+        if not result.is_success():
+            return ok(data=[], message=result.error or "Failed to retrieve positions")
+
+        items = result.data
+        meta = pagination_meta(
+            page=1,
+            total=len(items),
+            page_size=max(len(items), 1),
+        )
+        return ok(data=items, message="Positions retrieved successfully", meta=meta)
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting positions for portfolio {uuid}: {e}")
+        raise BusinessError(f"Error getting positions: {e}")
+
+
 @router.get("/{uuid}/events")
 async def get_portfolio_events(
     uuid: str,
