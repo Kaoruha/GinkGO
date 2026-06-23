@@ -67,14 +67,14 @@ def deploy(
 
 @app.command("info")
 def info(
-    portfolio_id: Annotated[str, typer.Argument(help="部署后的Portfolio ID")],
+    deployment_id: Annotated[str, typer.Argument(help="部署记录 ID (Deployment ID)")],
 ):
     """查看部署详情"""
     try:
         from ginkgo.trading.containers import trading_container
 
         svc = trading_container.deployment_service()
-        result = svc.get_deployment_info(portfolio_id)
+        result = svc.get_deployment_by_id(deployment_id)
 
         if result.success:
             data = result.data

@@ -296,6 +296,26 @@ class DeploymentService(BaseService):
             "create_at": str(r.create_at) if r.create_at else None,
         }
 
+    def get_deployment_by_id(self, deployment_id: str) -> ServiceResult:
+        """按部署记录 UUID 获取部署信息（#5335：deploy info <deployment_id>）"""
+        records = self._deployment_crud.get_by_uuid(deployment_id)
+        if not records:
+            return ServiceResult(success=False, error="未找到部署记录")
+
+        deployment = records[0]
+        result = ServiceResult(success=True)
+        result.data = {
+            "source_task_id": deployment.source_task_id,
+            "target_portfolio_id": deployment.target_portfolio_id,
+            "source_portfolio_id": deployment.source_portfolio_id,
+            "mode": deployment.mode,
+            "account_id": deployment.account_id,
+            "status": deployment.status,
+            "status_name": _status_name(deployment.status),  # #6285
+            "create_at": str(deployment.create_at) if deployment.create_at else None,
+        }
+        return result
+
     def list_deployments(self, portfolio_id: str = None) -> ServiceResult:
         """列出部署记录"""
         if portfolio_id:
