@@ -73,6 +73,40 @@ def _require_admin(req: Request) -> None:
         )
 
 
+def _require_contact_ownership(req: Request, contact_uuid: str) -> None:
+    """#5680: by-contact_uuid 操作须 ownership 校验——contact.user_id == 当前用户 OR admin。
+
+    防止任意登录用户篡改/删除他人联系方式。JWT 中间件注入 req.state.user_uuid
+    为当前用户；contact 归属经 user_service.get_contact 查询（service/CRUD 层不改，
+    守分层边界）。非 owner 非 admin → 403；contact 不存在 → 404；未认证 → 403。
+    """
+    current_user_uuid = getattr(req.state, "user_uuid", None)
+    if not current_user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+        )
+    svc = get_user_service()
+    contact_result = svc.get_contact(contact_uuid)
+    if not contact_result.success or contact_result.data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contact not found",
+        )
+    contact = contact_result.data
+    owner_id = getattr(contact, "user_id", None)
+    if owner_id is None and isinstance(contact, dict):
+        owner_id = contact.get("user_id")
+    if owner_id == current_user_uuid:
+        return
+    if _resolve_is_admin(current_user_uuid):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not allowed to modify others' contacts",
+    )
+
+
 # ==================== 用户管理 ====================
 
 class UserSummary(BaseModel):
@@ -559,9 +593,11 @@ async def create_user_contact(user_uuid: str, data: UserContactCreate):
 
 
 @router.put("/users/contacts/{contact_uuid}")
-async def update_user_contact(contact_uuid: str, data: UserContactUpdate):
+async def update_user_contact(contact_uuid: str, data: UserContactUpdate, req: Request):
     """更新用户联系方式"""
     try:
+        # #5680: ownership 校验在前——非 owner 非 admin 不得改他人联系方式
+        _require_contact_ownership(req, contact_uuid)
         user_service = get_user_service()
 
         # 构建更新数据
