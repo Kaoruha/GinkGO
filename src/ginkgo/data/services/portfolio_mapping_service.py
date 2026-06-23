@@ -357,6 +357,109 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"移除文件失败: {e}")
             return ServiceResult.error(f"移除文件失败: {str(e)}")
 
+    @retry
+    def delete_graph(
+        self,
+        portfolio_uuid: str,
+    ) -> ServiceResult:
+        """
+        删除投资组合的图配置（保留 portfolio 本身）
+
+        流程：
+        1. 删除该 portfolio 全部 Mapping 及其 MParam
+        2. 删除 MongoDB 中的图文档
+
+        与 remove_file 的删除范式一致（find_by_portfolio → remove_by_mapping
+        → delete_mapping），只是范围从单个 file 扩展到全部。
+
+        Args:
+            portfolio_uuid: 投资组合 UUID（即 graph_uuid）
+
+        Returns:
+            ServiceResult: 包含 portfolio_uuid 与已删除 mapping 数
+        """
+        try:
+            # 1. 删除全部 mapping 及其参数
+            mappings = self._mapping_crud.find_by_portfolio(portfolio_uuid)
+            for mapping in mappings:
+                self._param_service.remove_by_mapping(mapping.uuid)
+                self._mapping_crud.delete_mapping(portfolio_uuid, mapping.file_id)
+
+            # 2. 删除 MongoDB 图文档
+            collection = self._mongo_driver.get_collection("portfolio_graph_data")
+            collection.delete_many({"portfolio_uuid": portfolio_uuid})
+
+            GLOG.INFO(f"删除图配置: {portfolio_uuid} (mappings={len(mappings)})")
+
+            return ServiceResult.success(data={
+                "portfolio_uuid": portfolio_uuid,
+                "deleted_mappings": len(mappings),
+            })
+
+        except Exception as e:
+            GLOG.ERROR(f"删除图配置失败: {e}")
+            return ServiceResult.error(f"删除图配置失败: {str(e)}")
+
+    @retry
+    def duplicate_graph(
+        self,
+        source_uuid: str,
+        name: Optional[str] = None,
+    ) -> ServiceResult:
+        """
+        复制图配置到新的 portfolio_uuid
+
+        流程：
+        1. 读取源图 (get_portfolio_graph)
+        2. 生成新 portfolio_uuid
+        3. 以新 uuid 调 create_from_graph_editor 写入图 + mapping + param
+
+        注：仅复制图配置层（mongo + mapping + param），不创建 Portfolio 实体
+        （create_from_graph_editor 本身不要求 Portfolio 行存在，行为一致）。
+
+        Args:
+            source_uuid: 源投资组合 UUID（即源 graph_uuid）
+            name: 副本名称，缺省时自动生成
+
+        Returns:
+            ServiceResult: 包含 source_uuid / new_portfolio_uuid / mongo_id
+        """
+        try:
+            # 1. 读源图
+            read_result = self.get_portfolio_graph(source_uuid)
+            if not read_result.is_success():
+                return ServiceResult.error(
+                    f"源图不存在: {source_uuid} ({read_result.error})"
+                )
+            graph_data = read_result.data.get("graph_data", {})
+
+            # 2. 生成新 uuid 并创建副本
+            new_uuid = uuid.uuid4().hex
+            new_name = name or f"Copy of {source_uuid[:8]}"
+
+            create_result = self.create_from_graph_editor(
+                portfolio_uuid=new_uuid,
+                graph_data=graph_data,
+                name=new_name,
+            )
+            if not create_result.is_success():
+                return ServiceResult.error(
+                    create_result.error or "复制图配置失败"
+                )
+
+            GLOG.INFO(f"复制图配置: {source_uuid} -> {new_uuid}")
+
+            return ServiceResult.success(data={
+                "source_uuid": source_uuid,
+                "new_portfolio_uuid": new_uuid,
+                "mongo_id": create_result.data.get("mongo_id"),
+                "mappings_count": create_result.data.get("mappings_count", 0),
+            })
+
+        except Exception as e:
+            GLOG.ERROR(f"复制图配置失败: {e}")
+            return ServiceResult.error(f"复制图配置失败: {str(e)}")
+
     # ==================== 查询方法 ====================
 
     def get_portfolio_graph(
