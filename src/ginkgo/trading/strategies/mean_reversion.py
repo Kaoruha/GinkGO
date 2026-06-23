@@ -105,10 +105,10 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
         code = event.code
 
         try:
-            # 获取足够的历史数据计算 RSI（需要 rsi_period + 1 根 bar）
+            # 获取足够的历史数据计算 Wilder RSI（2*period+1 根起递推充分）
             bars = self.get_bars_cached(
                 symbol=code,
-                count=self.rsi_period + 1,
+                count=2 * self.rsi_period + 1,
                 frequency=self.frequency,
                 use_cache=True,
             )
@@ -152,17 +152,23 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
 
     def _calculate_rsi(self, bars: List) -> Optional[float]:
         """
-        计算 RSI (Relative Strength Index)
+        计算 RSI (Relative Strength Index)，采用 Wilder 平滑（行业标准）。
+
+        #5489: 旧实现用 SMA（sum/period，即 Cutler's RSI），与标准 Wilder RSI
+        在震荡市可差 5-10 点，导致超买/超卖阈值（默认 30/70）误触发。
+        Wilder 平滑：前 period 个变化做 SMA 种子，后续按 EMA 递推
+        avg = (prev_avg * (period-1) + cur) / period（等价 alpha=1/period）。
+        bars 越多递推越充分；bars 恰为 period+1 时退化为 SMA 种子（与旧实现一致）。
 
         Args:
-            bars: K线数据列表（至少 rsi_period + 1 根）
+            bars: K线数据列表（至少 rsi_period + 1 根；2*period+1 根起递推充分）
 
         Returns:
             Optional[float]: RSI 值 (0-100)，计算失败返回 None
         """
         try:
-            # 提取收盘价
-            closes = [bar.close for bar in bars[-(self.rsi_period + 1):]]
+            # 提取收盘价（用全部 bars，给 Wilder 递推足够历史）
+            closes = [bar.close for bar in bars]
 
             # 计算价格变化
             changes = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
@@ -170,16 +176,17 @@ class MeanReversion(BaseStrategy, StrategyDataMixin):
             if len(changes) < self.rsi_period:
                 return None
 
-            # 只看最近 rsi_period 个变化
-            changes = changes[-self.rsi_period:]
+            # 前 period 个变化做 SMA 种子
+            seed = changes[: self.rsi_period]
+            avg_gain = sum(max(c, 0.0) for c in seed) / self.rsi_period
+            avg_loss = sum(abs(min(c, 0.0)) for c in seed) / self.rsi_period
 
-            # 分离涨跌
-            gains = [float(max(c, 0.0)) for c in changes]
-            losses = [float(abs(min(c, 0.0))) for c in changes]
-
-            # 计算平均涨跌幅
-            avg_gain = sum(gains) / self.rsi_period
-            avg_loss = sum(losses) / self.rsi_period
+            # 后续变化按 Wilder EMA 递推（alpha=1/period）
+            for c in changes[self.rsi_period:]:
+                gain = float(max(c, 0.0))
+                loss = float(abs(min(c, 0.0)))
+                avg_gain = (avg_gain * (self.rsi_period - 1) + gain) / self.rsi_period
+                avg_loss = (avg_loss * (self.rsi_period - 1) + loss) / self.rsi_period
 
             # RS 计算
             if avg_loss == 0:
