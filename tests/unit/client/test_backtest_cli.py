@@ -86,6 +86,7 @@ class TestBacktestListProgressFormat:
 
         task = _mock_task()
         task.progress = 50
+        task.status = "running"  # progress=50 进行中；避免 completed 兜底(#5996)干扰格式化断言
 
         mock_service = MagicMock()
         list_result = MagicMock()
@@ -154,3 +155,59 @@ class TestBacktestCatNoTradesWarning:
 
         plain = _strip_ansi(invoke_result.output)
         assert "No trades" in plain or "未产生" in plain or "no trades" in plain.lower()
+
+
+class TestBacktestCompletedProgressFallback:
+    """#5996 completed 回测即使 DB progress=0（旧任务完成回调未更新）也应兜底显示 100%"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_completed_zero_progress_shows_100(self, mock_container):
+        """#5996 list: status=completed + progress=0 → 兜底 100%（复现 issue 现场）
+
+        根因: backtest_cli.py:369 原样输出 task.progress，无 completed 语义兜底。
+        990 条历史 completed 任务 DB progress=0，全显 0%。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        task.progress = 0  # 旧任务 DB 未被完成回调更新，复现 issue 现场
+
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list"])
+        assert invoke_result.exit_code == 0
+
+        plain = _strip_ansi(invoke_result.output)
+        # 兜底: completed 必显 100%，而非原样 0%
+        assert "100%" in plain
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_completed_zero_progress_shows_100(self, mock_container):
+        """#5996 cat: status=completed + progress=0 → 兜底 100%
+
+        与 list 同根因，cat 输出层也须兜底，保证两命令一致。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        task.progress = 0  # 旧任务 DB 未更新
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = True
+        result.data = task
+        mock_service.get_by_id.return_value = result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc123456789"])
+        assert invoke_result.exit_code == 0
+
+        plain = _strip_ansi(invoke_result.output)
+        assert "100%" in plain
