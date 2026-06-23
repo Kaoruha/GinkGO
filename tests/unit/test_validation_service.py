@@ -182,3 +182,79 @@ class TestMonteCarlo:
         actual_return = 0.05
         result = svc._calc_monte_carlo_stats(simulated_returns, actual_return, 0.95)
         assert result["cvar"] <= result["var"]
+
+
+class TestWalkForward:
+    """#5867: walk_forward 走步验证——基于已有 net_value 切 train/test 窗口算绩效"""
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_walk_forward_insufficient_data(self, mock_get_records):
+        from ginkgo.data.services.validation_service import ValidationService
+        mock_get_records.return_value = []
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.walk_forward(task_id="t", portfolio_id="p")
+        assert not result.is_success()
+        assert "数据不足" in result.error
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_walk_forward_basic(self, mock_get_records):
+        from ginkgo.data.services.validation_service import ValidationService
+        # 120 天稳定正收益
+        daily_returns = [0.001] * 120
+        records = _make_net_value_records("2024-01-02", daily_returns, task_id="test-task")
+        mock_get_records.return_value = records
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.walk_forward(task_id="test-task", portfolio_id="pf-001", n_folds=3, train_ratio=0.7)
+        assert result.is_success(), result.error
+        data = result.data
+        assert data["n_folds"] == 3
+        assert len(data["folds"]) == 3
+        fold = data["folds"][0]
+        # 每折含 train/test 日期窗口 + 绩效
+        assert "train_start" in fold and "test_end" in fold
+        assert "train_return" in fold and "test_return" in fold
+        # 汇总指标
+        assert "avg_train_return" in data and "avg_test_return" in data
+        assert "overfit_score" in data
+
+
+class TestSensitivity:
+    """#5867: sensitivity 敏感性分析——策略绩效对回测分段数（n_segments）的稳健性。
+    真参数扫描需重跑回测（超范围），此处为基于已有 net_value 的统计敏感性：不同分段粒度下绩效的离散度。"""
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_sensitivity_unsupported_param_name(self, mock_get_records):
+        from ginkgo.data.services.validation_service import ValidationService
+        records = _make_net_value_records("2024-01-02", [0.001] * 100, task_id="t")
+        mock_get_records.return_value = records
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.sensitivity(task_id="t", portfolio_id="p", param_name="unknown_param", param_values=[2, 4])
+        assert not result.is_success()
+        assert "param_name" in result.error or "不支持" in result.error
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_sensitivity_n_segments(self, mock_get_records):
+        from ginkgo.data.services.validation_service import ValidationService
+        records = _make_net_value_records("2024-01-02", [0.001] * 200, task_id="t")
+        mock_get_records.return_value = records
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.sensitivity(task_id="t", portfolio_id="p", param_name="n_segments", param_values=[2, 4, 8])
+        assert result.is_success(), result.error
+        data = result.data
+        assert data["param_name"] == "n_segments"
+        assert len(data["records"]) == 3
+        rec = data["records"][0]
+        assert rec["param_value"] == 2
+        assert "total_return" in rec and "sharpe" in rec and "max_drawdown" in rec
+        assert "sensitivity_score" in data
+
+    @patch("ginkgo.data.services.validation_service.ValidationService._get_net_value_records")
+    def test_sensitivity_accepts_csv_string(self, mock_get_records):
+        from ginkgo.data.services.validation_service import ValidationService
+        # 前端 paramValues 是逗号分隔字符串，service 应兼容
+        records = _make_net_value_records("2024-01-02", [0.001] * 200, task_id="t")
+        mock_get_records.return_value = records
+        svc = ValidationService(analyzer_record_crud=MagicMock(), validation_result_crud=None)
+        result = svc.sensitivity(task_id="t", portfolio_id="p", param_name="n_segments", param_values="2,4,8")
+        assert result.is_success(), result.error
+        assert len(result.data["records"]) == 3
