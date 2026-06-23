@@ -36,7 +36,7 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
-from ._file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
+from ._file_type import _resolve_file_type, _validate_file_id  # noqa: F401 — 无副作用，可安全导入
 
 
 def get_file_service():
@@ -436,6 +436,9 @@ async def add_file_to_portfolio(
     try:
         from ginkgo.enums import FILE_TYPES
 
+        # #5645: 空 file_id 校验（空串/None/纯空白）防止静默成功创建无效映射
+        file_id = _validate_file_id(file_id)
+
         service = get_portfolio_mapping_service()
 
         # 解析 file_type：支持整数、数字字符串、枚举名、别名（#5774）
@@ -460,6 +463,12 @@ async def add_file_to_portfolio(
         }, message="File added successfully")
     except HTTPException:
         raise
+    except ValueError as e:
+        # #5645: 入参校验失败（空 file_id / 无效 file_type）→ 400 而非 500
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error adding file to portfolio {portfolio_uuid}: {str(e)}")
         raise HTTPException(
