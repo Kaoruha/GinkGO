@@ -138,6 +138,22 @@ class TestMomentumCal:
             result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
             assert result == []
 
+    def test_returns_empty_when_exactly_lookback_period_bars(self, bound_strategy):
+        """#5498: 恰好 lookback_period 条应判数据不足（请求 lookback_period+1）。
+
+        off-by-one: 请求 N+1 但校验 >= N。恰好 5 条上升数据当前会产 LONG 信号
+        （动量 0.1 > 阈值 0.02），但动量区间短缺一天（应跨 6 条 lookback）。
+        修复后校验 >= N+1，恰好 5 条 return []。
+        """
+        s = bound_strategy  # lookback_period=5
+        now = datetime(2024, 1, 20)
+        portfolio_info = _make_portfolio_info(now=now)
+        bars = _make_bars([100.0, 101.0, 103.0, 106.0, 110.0])  # 恰好 5 条，上升
+
+        with patch.object(s, "get_bars_cached", return_value=bars):
+            result = s.cal(portfolio_info, _make_price_event("000001.SZ"))
+        assert result == [], "恰好 lookback_period 条应判数据不足 return []（请求 N+1）"
+
     def test_long_signal_when_momentum_exceeds_threshold(self, bound_strategy):
         """动量超过正阈值且无持仓 → LONG 信号"""
         s = bound_strategy
