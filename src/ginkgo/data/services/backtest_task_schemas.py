@@ -92,7 +92,7 @@ class BacktestOrderItem(BaseModel):
     order_type: Optional[str] = None
     status: Optional[str] = None
     volume: int = 0
-    limit_price: str = "0"
+    limit_price: Optional[str] = None  # #5787: 市价单无价哨兵 None, 非 "0"
     transaction_price: str = "0"
     transaction_volume: int = 0
     fee: str = "0"
