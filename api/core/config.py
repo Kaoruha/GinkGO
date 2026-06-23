@@ -47,13 +47,28 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_secret_key(self) -> "Settings":
-        """#5464: 拒绝不安全的默认 SECRET_KEY"""
+        """#5464/#6064: 拒绝不安全的默认 SECRET_KEY
+
+        生产模式（DEBUG=False）硬拒绝启动；开发模式（DEBUG=True）降级为
+        warning，避免未配 SECRET_KEY 的环境因模块级 ``settings = Settings()``
+        在 import 期崩溃（#6064）。
+        """
         if self.SECRET_KEY == _INSECURE_DEFAULT_KEY:
-            raise ValueError(
+            message = (
                 "SECRET_KEY must be set via environment variable and cannot use "
                 f"the default value '{_INSECURE_DEFAULT_KEY}'. "
                 "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
+            if self.DEBUG:
+                import warnings
+                warnings.warn(
+                    "SECRET_KEY using unsafe default — set env var before production. "
+                    f"({message})",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
+                raise ValueError(message)
         return self
 
     class Config:
