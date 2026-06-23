@@ -69,7 +69,7 @@ class LiveAccountService(BaseService):
         Returns:
             Dict: {
                 "success": bool,
-                "data": {"account_uuid": str} or None,
+                "data": {"uuid": str} or None,
                 "message": str,
                 "error": str
             }
@@ -142,7 +142,7 @@ class LiveAccountService(BaseService):
             return {
                 "success": True,
                 "data": {
-                    "account_uuid": account.uuid,
+                    "uuid": account.uuid,
                     "validation_result": validation_result
                 },
                 "message": "Live account created successfully"
@@ -573,7 +573,7 @@ class LiveAccountService(BaseService):
                 "success": True,
                 "message": f"Account status updated to {status}",
                 "data": {
-                    "account_uuid": updated_account.uuid,
+                    "uuid": updated_account.uuid,
                     "status": updated_account.status
                 }
             }
