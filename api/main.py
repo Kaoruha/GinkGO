@@ -112,14 +112,16 @@ app.exception_handler(HTTPException)(global_error_handler)
 
 @app.get("/health")
 async def health_check():
-    """健康检查接口"""
-    return {"status": "healthy", "service": "ginkgo-api-server"}
+    """健康检查接口（深度：联动 SystemService，核心模块出错时降级 unhealthy）"""
+    from health import compute_health
+    return compute_health()
 
 
 @app.get("/api/health")
 async def health_check_api():
-    """健康检查接口（API路径，用于前端代理）"""
-    return {"status": "healthy", "service": "ginkgo-api-server"}
+    """健康检查接口（API路径，用于前端代理；深度检查同 /health）"""
+    from health import compute_health
+    return compute_health()
 
 
 # 路由注册 - 统一使用 /api/v1 前缀
