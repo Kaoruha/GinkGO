@@ -151,7 +151,7 @@ def _require_portfolio(portfolio_id: str):
 # Endpoints
 # ============================================================
 
-@router.get("/")
+@router.get("")
 async def list_paper_accounts_root():
     """[兼容旧路由] GET / → 等价于 GET /accounts"""
     return await list_paper_accounts()

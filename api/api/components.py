@@ -89,7 +89,7 @@ def get_file_service():
 
 # ==================== API路由 ====================
 
-@router.get("/")
+@router.get("")
 async def list_components(
     component_type: Optional[str] = None,
     is_active: Optional[bool] = None,
@@ -231,7 +231,7 @@ async def get_component(uuid: str):
         )
 
 
-@router.post("/")
+@router.post("")
 async def create_component(data: ComponentCreate):
     """创建组件"""
     try:

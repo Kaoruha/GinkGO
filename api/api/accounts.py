@@ -61,7 +61,7 @@ def _require_account_ownership(account_data: dict, user_id: str) -> None:
         raise BusinessError("无权访问该实盘账户", code=403)
 
 
-@router.get("/")
+@router.get("")
 async def list_accounts(
     request: Request,
     exchange: Optional[str] = Query(None, description="过滤交易所"),
@@ -93,7 +93,7 @@ async def list_accounts(
         raise BusinessError(f"Error listing accounts: {e}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_account(request: Request, data: CreateLiveAccountRequest):
     """创建实盘账号"""
     try:
