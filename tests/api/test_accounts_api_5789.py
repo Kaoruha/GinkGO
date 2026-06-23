@@ -10,6 +10,7 @@ fixture 临时加入 sys.path, 故 import 须延迟到测试函数内。
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -22,6 +23,11 @@ def test_put_account_handler_passes_status(api_modules, monkeypatch):
     from models.accounts import UpdateLiveAccountRequest, AccountStatus
 
     mock_service = Mock()
+    # #5468: ownership 前置校验先经 get_account_by_uuid 查归属
+    mock_service.get_account_by_uuid.return_value = {
+        "success": True,
+        "data": {"uuid": "test-uuid", "user_id": "test-user"},
+    }
     mock_service.update_account.return_value = {
         "success": True,
         "data": {"uuid": "test-uuid"},
@@ -31,7 +37,9 @@ def test_put_account_handler_passes_status(api_modules, monkeypatch):
 
     # model 必须接受 status 字段（#5789 修复后）
     data = UpdateLiveAccountRequest(status=AccountStatus.ENABLED)
-    asyncio.run(accounts_api.update_account("test-uuid", data))
+    # #5468: 端点新增 request 参数（ownership 校验需 request.state.user_id）
+    req = SimpleNamespace(state=SimpleNamespace(user_id="test-user"))
+    asyncio.run(accounts_api.update_account("test-uuid", data, req))
 
     # handler 必须把 status 透传给 service
     mock_service.update_account.assert_called_once()
