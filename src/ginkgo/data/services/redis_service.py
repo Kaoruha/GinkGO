@@ -394,6 +394,71 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to check key existence: {e}")
             return ServiceResult.error(f"Failed to check key existence: {str(e)}")
 
+    # ==================================================================
+    # #5482: login brute-force 防护（per-username 失败计数 / progressive
+    # delay / lockout）。热路径方法返原始值（非 ServiceResult），fail-open：
+    # Redis 异常返安全默认（count=0 / ttl=0）不阻塞登录，与 rate_limit 的
+    # fail-open 安全网一致（见 arch_rate_limit_redis_fallback）。
+    # ==================================================================
+
+    def incr_login_failures(self, username: str, window_seconds: int = 600) -> int:
+        """#5482: 原子递增 per-username 登录失败计数（pipeline 保证 incr+expire
+        原子，避免无 TTL 计数键泄漏）。fail-open：Redis 异常返 0。"""
+        try:
+            key = f"auth:login_fail:{username}"
+            pipe = self.redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, window_seconds)
+            count, _ = pipe.execute()
+            return int(count)
+        except Exception as e:
+            self._logger.ERROR(f"#5482 incr_login_failures failed for {username}: {e}")
+            return 0
+
+    def set_login_throttle(self, username: str, seconds: int) -> None:
+        """#5482: 设 progressive delay 节流键（3/5/7/9 失败后 1/2/4/8s）。"""
+        try:
+            self.redis.setex(f"auth:login_throttle:{username}", seconds, 1)
+        except Exception as e:
+            self._logger.ERROR(f"#5482 set_login_throttle failed for {username}: {e}")
+
+    def set_login_lockout(self, username: str, seconds: int = 300) -> None:
+        """#5482: 设账户锁定键（10 连续失败锁 5min）。"""
+        try:
+            self.redis.setex(f"auth:login_lockout:{username}", seconds, 1)
+        except Exception as e:
+            self._logger.ERROR(f"#5482 set_login_lockout failed for {username}: {e}")
+
+    def get_login_throttle_ttl(self, username: str) -> int:
+        """#5482: 返回节流键剩余秒数（0=未节流）。"""
+        try:
+            ttl = self.redis.ttl(f"auth:login_throttle:{username}")
+            return int(ttl) if ttl and ttl > 0 else 0
+        except Exception as e:
+            self._logger.ERROR(f"#5482 get_login_throttle_ttl failed for {username}: {e}")
+            return 0
+
+    def get_login_lockout_ttl(self, username: str) -> int:
+        """#5482: 返回锁定键剩余秒数（0=未锁定）。"""
+        try:
+            ttl = self.redis.ttl(f"auth:login_lockout:{username}")
+            return int(ttl) if ttl and ttl > 0 else 0
+        except Exception as e:
+            self._logger.ERROR(f"#5482 get_login_lockout_ttl failed for {username}: {e}")
+            return 0
+
+    def reset_login_state(self, username: str) -> None:
+        """#5482: 成功登录后清失败计数/节流/锁定三键。"""
+        try:
+            for key in (
+                f"auth:login_fail:{username}",
+                f"auth:login_throttle:{username}",
+                f"auth:login_lockout:{username}",
+            ):
+                self.redis.delete(key)
+        except Exception as e:
+            self._logger.ERROR(f"#5482 reset_login_state failed for {username}: {e}")
+
     def find_keys(self, pattern: str = "*") -> ServiceResult:
         """
         查找匹配 pattern 的 Redis 键列表
