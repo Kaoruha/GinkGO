@@ -286,6 +286,10 @@ async def get_paper_account(account_id: str):
 
     except NotFoundError:
         raise
+    except HTTPException:
+        # 透传 helper 的 HTTPException(500)，避免被下方 except Exception 吞成 BusinessError(400)。
+        # HTTPException 继承 Exception，须显式前置 except，否则 AC1 生产路径返 400 非 500。
+        raise
     except Exception as e:
         logger.error(f"Error getting paper account {account_id}: {str(e)}")
         raise BusinessError(f"Error getting paper account: {str(e)}")
@@ -381,6 +385,9 @@ async def get_paper_positions(account_id: str):
 
     except NotFoundError:
         raise
+    except HTTPException:
+        # 透传 helper 的 HTTPException(500)，避免被 except Exception 吞成 BusinessError(400)（AC1）。
+        raise
     except Exception as e:
         logger.error(f"Error getting paper positions {account_id}: {str(e)}")
         raise BusinessError(f"Error getting paper positions: {str(e)}")
@@ -404,6 +411,9 @@ async def get_paper_orders(
         )
 
     except NotFoundError:
+        raise
+    except HTTPException:
+        # 透传 helper 的 HTTPException(500)，避免被 except Exception 吞成 BusinessError(400)（AC1）。
         raise
     except Exception as e:
         logger.error(f"Error getting paper orders {account_id}: {str(e)}")
