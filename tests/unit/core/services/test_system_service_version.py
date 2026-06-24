@@ -61,3 +61,37 @@ class TestVersionFallbackChain:
                 result = get_version()
                 assert isinstance(result, str)
                 assert result  # 非空
+
+
+@pytest.mark.unit
+class TestVersionPyprojectDiscovery:
+    """_version_from_pyproject 真实路径查找（回归 off-by-one）。
+
+    src-layout 下 version.py 位于 src/ginkgo/libs/utils/，pyproject.toml 在
+    repo root（第 5 层）。原实现固定遍历 4 层够不到 root，永远返 None；
+    改 while 循环向上查找后应命中。本测试不 mock，走真实文件系统查找。
+    """
+
+    def test_finds_real_pyproject_at_repo_root(self):
+        """真实路径：_version_from_pyproject 应向上命中 repo root pyproject.toml。
+
+        回归锚点：off-by-one 时此断言失败（返 None）。
+        """
+        from ginkgo.libs.utils.version import _version_from_pyproject
+
+        result = _version_from_pyproject()
+        assert result is not None, "未找到 repo root pyproject.toml（向上查找层数不足？off-by-one）"
+        assert "." in result, f"版本非 semver 形态: {result!r}"
+
+    def test_real_version_matches_pyproject(self, monkeypatch):
+        """隔离 metadata 后，get_version() 应回退到真实 pyproject 版本（非 fallback 常量）。"""
+        import ginkgo.libs.utils.version as v
+
+        # 强制 metadata 不可用（模拟生产镜像未装 dist），逼 fallback 走 pyproject 真实路径
+        monkeypatch.setattr(v, "_version_from_metadata", lambda: None)
+        result = get_version()
+        assert result  # 非空
+        assert result != v._FALLBACK_VERSION, (
+            f"get_version() 退化到 fallback 常量 {v._FALLBACK_VERSION!r}，"
+            "说明 _version_from_pyproject 未命中真实 pyproject（off-by-one?）"
+        )

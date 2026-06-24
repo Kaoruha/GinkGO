@@ -29,15 +29,20 @@ def _version_from_metadata() -> Optional[str]:
 
 
 def _version_from_pyproject() -> Optional[str]:
-    """从 pyproject.toml [project].version 读取（开发环境兜底）。"""
+    """从 pyproject.toml [project].version 读取（开发环境 / Docker 仅 COPY src 场景）。
+
+    向上逐层查找 pyproject.toml 直到文件系统根，不依赖固定层数 —— 兼容
+    src-layout（src/ginkgo/libs/utils/ → ... → repo root，4 次 dirname）及
+    生产镜像 /app/src/ginkgo/libs/utils/ → /app 布局（pyproject 需 COPY 进镜像，
+    见 Dockerfile.api-server）。原实现固定遍历 4 层，src-layout 下 repo root
+    在第 5 层，永远返 None（off-by-one）。
+    """
     if tomllib is None:
         return None
     try:
         here = os.path.dirname(os.path.abspath(__file__))
-        # ginkgo/libs/utils/version.py → 向上逐层找 pyproject.toml
-        for parent in (here, os.path.dirname(here),
-                       os.path.dirname(os.path.dirname(here)),
-                       os.path.dirname(os.path.dirname(os.path.dirname(here)))):
+        parent = here
+        while True:
             candidate = os.path.join(parent, "pyproject.toml")
             if os.path.isfile(candidate):
                 with open(candidate, "rb") as f:
@@ -45,6 +50,10 @@ def _version_from_pyproject() -> Optional[str]:
                 version = data.get("project", {}).get("version")
                 if version:
                     return version
+            nxt = os.path.dirname(parent)
+            if nxt == parent:  # 已到文件系统根
+                break
+            parent = nxt
     except Exception:
         return None
     return None
