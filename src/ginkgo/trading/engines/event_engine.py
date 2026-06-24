@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 import uuid
 import datetime
+import logging
 import time
 import threading
 from threading import Thread
@@ -212,9 +213,11 @@ class EventEngine(BaseEngine):
                 event = self._event_queue.get(timeout=1.0)  # 1秒超时
                 event_id = id(event)
                 order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
-                GLOG.DEBUG(f"🔍 [EVENT ENGINE MAIN LOOP] Got event from queue: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+                if GLOG.logger.isEnabledFor(logging.DEBUG):
+                    GLOG.DEBUG(f"🔍 [EVENT ENGINE MAIN LOOP] Got event from queue: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
                 self._process(event)
-                GLOG.DEBUG(f"🔍 [EVENT ENGINE MAIN LOOP] Event processing completed: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+                if GLOG.logger.isEnabledFor(logging.DEBUG):
+                    GLOG.DEBUG(f"🔍 [EVENT ENGINE MAIN LOOP] Event processing completed: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             except Empty:
                 # 队列为空，继续循环
                 continue
@@ -428,31 +431,40 @@ class EventEngine(BaseEngine):
         with self._queue_lock:
             event_id = id(enhanced_event)
             order_uuid = enhanced_event.order.uuid[:8] if hasattr(enhanced_event, 'order') and enhanced_event.order else 'NO_ORDER'
-            GLOG.DEBUG(f"🔍 [EVENT ENGINE TRACKING] Putting event into queue: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+            if GLOG.logger.isEnabledFor(logging.DEBUG):
+                GLOG.DEBUG(f"🔍 [EVENT ENGINE TRACKING] Putting event into queue: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             self._event_queue.put(enhanced_event)
-            GLOG.DEBUG(f"🔍 [EVENT ENGINE TRACKING] Event put into queue successfully: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+            if GLOG.logger.isEnabledFor(logging.DEBUG):
+                GLOG.DEBUG(f"🔍 [EVENT ENGINE TRACKING] Event put into queue successfully: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
 
-        GLOG.DEBUG(f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
+        if GLOG.logger.isEnabledFor(logging.DEBUG):
+            GLOG.DEBUG(f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
 
     def _process(self, event: "EventBase") -> None:
         """安全事件处理 - 默认启用统计"""
         event_id = id(event)
         order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
-        GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Processing event: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
-        GLOG.DEBUG(f"Process {event.event_type}")
+        if GLOG.logger.isEnabledFor(logging.DEBUG):
+            GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Processing event: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
+        if GLOG.logger.isEnabledFor(logging.DEBUG):
+            GLOG.DEBUG(f"Process {event.event_type}")
 
         try:
             # 具体事件处理器
             if event.event_type in self._handlers:
                 handlers_count = len(self._handlers[event.event_type])
-                GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Found {handlers_count} handlers for {event.event_type}")
+                if GLOG.logger.isEnabledFor(logging.DEBUG):
+                    GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Found {handlers_count} handlers for {event.event_type}")
                 for i, handler in enumerate(self._handlers[event.event_type]):
                     handler_id = id(handler)
                     handler_name = getattr(handler, '__name__', 'unknown')
-                    GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Calling handler {i+1}/{handlers_count}: {handler_name}, handler_id={handler_id}")
+                    if GLOG.logger.isEnabledFor(logging.DEBUG):
+                        GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Calling handler {i+1}/{handlers_count}: {handler_name}, handler_id={handler_id}")
                     result = handler(event)
-                    GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Handler {i+1} completed: result={type(result)}")
-                GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")
+                    if GLOG.logger.isEnabledFor(logging.DEBUG):
+                        GLOG.DEBUG(f"🔍 [EVENT ENGINE PROCESSING] Handler {i+1} completed: result={type(result)}")
+                if GLOG.logger.isEnabledFor(logging.DEBUG):
+                    GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")
             else:
                 GLOG.WARN(f"There is no handler for {event.event_type}")
 
@@ -637,7 +649,8 @@ class EventEngine(BaseEngine):
             # 分配序列号
             event.sequence_number = self._get_next_sequence_number()
 
-            GLOG.DEBUG(f"Event enhanced: {event.event_type} seq={event.sequence_number}")
+            if GLOG.logger.isEnabledFor(logging.DEBUG):
+                GLOG.DEBUG(f"Event enhanced: {event.event_type} seq={event.sequence_number}")
             return event
 
         except Exception as e:
