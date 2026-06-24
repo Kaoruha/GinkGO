@@ -209,6 +209,7 @@ async def list_paper_accounts():
             initial_capital = float(getattr(p, 'initial_capital', 100000) or 100000)
             cash = float(getattr(p, 'cash', initial_capital) or initial_capital)
             position_value = _compute_position_value(_query_positions(p.uuid))
+            total_asset = cash + position_value
 
             accounts.append({
                 "uuid": p.uuid,
@@ -216,9 +217,9 @@ async def list_paper_accounts():
                 "initial_capital": initial_capital,
                 "available_cash": cash,
                 "position_value": position_value,
-                "total_asset": cash + position_value,
-                "today_pnl": 0,
-                "total_pnl": 0,
+                "total_asset": total_asset,
+                "today_pnl": 0,  # TODO(#6048): 需历史 position_record 按日对比（独立 slice）
+                "total_pnl": _compute_total_pnl(total_asset, initial_capital),
                 "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
             })
@@ -318,6 +319,7 @@ async def get_paper_account(account_id: str):
         # 查询当前持仓
         positions = _query_positions(account_id)
         position_value = _compute_position_value(positions)
+        total_asset = cash + position_value
 
         # 查询活跃订单（pending 状态）
         orders = _query_orders(account_id, status_filter=["pending"])
@@ -329,9 +331,9 @@ async def get_paper_account(account_id: str):
                 "initial_capital": initial_capital,
                 "available_cash": cash,
                 "position_value": position_value,
-                "total_asset": cash + position_value,
-                "today_pnl": 0,
-                "total_pnl": 0,
+                "total_asset": total_asset,
+                "today_pnl": 0,  # TODO(#6048): 需历史 position_record 按日对比（独立 slice）
+                "total_pnl": _compute_total_pnl(total_asset, initial_capital),
                 "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
                 "positions": positions,
@@ -620,6 +622,19 @@ def _compute_position_value(positions: list) -> float:
             sum(float(p.get("market_value", 0) or 0) for p in (positions or [])),
             2,
         )
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _compute_total_pnl(total_asset: float, initial_capital: float) -> float:
+    """计算总盈亏 = 当前净资产 − 初始资金（#6048）。
+
+    含已实现盈亏（体现在 cash 变化）+ 未实现盈亏（体现在持仓市值）。
+    用于 ``list_paper_accounts`` / ``get_paper_account`` 的 ``total_pnl``
+    字段（替代硬编码 0）。非数值入参安全降级为 0.0（不崩）。
+    """
+    try:
+        return round(float(total_asset) - float(initial_capital), 2)
     except (TypeError, ValueError):
         return 0.0
 
