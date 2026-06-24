@@ -81,6 +81,8 @@ class TestUnifiedConfirmFlagRegistered:
         ("ginkgo.client.component_cli_db", "app", ["delete"]),
         ("ginkgo.client.kafka_cli", "app", ["purge"]),
         ("ginkgo.client.engine_cli", "app", ["unbind-portfolio"]),
+        ("ginkgo.client.portfolio_cli", "app", ["delete"]),
+        ("ginkgo.client.portfolio_cli", "app", ["unbind-component"]),
     ]
 
     @pytest.mark.parametrize("module_name, app_attr, cmd", UNIFIED)
