@@ -188,6 +188,30 @@ class TestVolatilityRiskLotAlignment:
         assert order.volume % 100 == 0
         assert order.volume > 0
 
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效：自定义手数按自定义值对齐，而非硬编码 100。
+
+        框架设计不限于 A 股（100 股/手）。lot_size 参数化以支持港股/美股/
+        期货等不同最小交易单位；默认 100 保持 A 股现状。"""
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0, lot_size=80)
+        r._volatility_cache["000001.SZ"] = 100.0
+        order = _make_order(volume=10000)
+        result = r.cal({}, order)
+        # factor=(25/100)^2=0.0625, scaled=625, lot_size=80 → aligned=(625//80)*80=560
+        assert result is order
+        assert order.volume == 560
+
+    def test_custom_lot_size_changes_reject_threshold(self):
+        """lot_size 参数控制拒单阈值：lot_size=200 时 scaled=150（>=100 但 <200）应拒单。
+
+        现状硬编码 100 会放行（aligned=100）；证明 lot_size 改变了不足 1 手的判定边界。"""
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0, lot_size=200)
+        r._volatility_cache["000001.SZ"] = 100.0
+        order = _make_order(volume=2400)
+        result = r.cal({}, order)
+        # factor=0.0625, scaled=150, lot_size=200 → aligned=0 < 200 → blocked
+        assert result is None
+
 
 @pytest.mark.tdd
 @pytest.mark.risk

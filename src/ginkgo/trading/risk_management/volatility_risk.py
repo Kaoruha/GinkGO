@@ -25,6 +25,7 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
@@ -32,7 +33,7 @@ from ginkgo.libs import GLOG
 import math
 
 
-class VolatilityRisk(BaseRiskManagement):
+class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
     """
     波动率风控模块
 
@@ -49,6 +50,7 @@ class VolatilityRisk(BaseRiskManagement):
         warning_volatility: float = 20.0,
         lookback_period: int = 20,
         volatility_window: int = 10,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -58,12 +60,15 @@ class VolatilityRisk(BaseRiskManagement):
             warning_volatility(float): 预警波动率阈值，百分比
             lookback_period(int): 历史数据回看期，天数
             volatility_window(int): 波动率计算窗口，天数
+            lot_size(int): 最小交易单位（手），缩放后向下取整对齐。A 股默认 100 股/手；
+                参数化以支持港股/美股/期货等不同最小交易单位（#6038）。
         """
         super().__init__(name, *args, **kwargs)
         self._max_volatility = float(max_volatility)
         self._warning_volatility = float(warning_volatility)
         self._lookback_period = lookback_period
         self._volatility_window = volatility_window
+        self._lot_size = int(lot_size)
 
         # 存储历史价格数据用于波动率计算
         self._price_history = {}  # code: [price_list]
@@ -104,12 +109,12 @@ class VolatilityRisk(BaseRiskManagement):
             reduction_factor = (self._max_volatility / current_volatility) ** 2
             original_volume = order.volume
             scaled = int(order.volume * reduction_factor)
-            # A股最小交易单位 100 股/手，缩放后向下取整对齐到手（#6038）
-            aligned = (scaled // 100) * 100
-            if aligned < 100:
+            # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+            aligned = self.align_to_lot(scaled)
+            if aligned < self._lot_size:
                 # 不足 1 手，拒单（调用方对 None 软拦截）
                 GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
-                         f"scaled {original_volume} → {scaled} below 1 lot (100), blocking order")
+                         f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                 return None
             order.adjust_volume(aligned)
 
@@ -120,11 +125,11 @@ class VolatilityRisk(BaseRiskManagement):
             # 波动率预警，适度减少订单规模
             reduction_factor = (self._max_volatility / current_volatility) ** 1.5
             scaled = int(order.volume * reduction_factor)
-            # A股最小交易单位 100 股/手，缩放后向下取整对齐到手（#6038）
-            aligned = (scaled // 100) * 100
-            if aligned < 100:
+            # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+            aligned = self.align_to_lot(scaled)
+            if aligned < self._lot_size:
                 GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
-                         f"scaled {order.volume} → {scaled} below 1 lot (100), blocking order")
+                         f"scaled {order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                 return None
             order.adjust_volume(aligned)
 
