@@ -103,11 +103,15 @@ class VolatilityRisk(BaseRiskManagement):
             # 波动率过高，大幅减少订单规模
             reduction_factor = (self._max_volatility / current_volatility) ** 2
             original_volume = order.volume
-            order.adjust_volume(int(order.volume * reduction_factor))
-
-            # 确保最小订单量
-            min_volume = max(1, int(original_volume * 0.1))
-            order.adjust_volume(max(order.volume, min_volume))
+            scaled = int(order.volume * reduction_factor)
+            # A股最小交易单位 100 股/手，缩放后向下取整对齐到手（#6038）
+            aligned = (scaled // 100) * 100
+            if aligned < 100:
+                # 不足 1 手，拒单（调用方对 None 软拦截）
+                GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
+                         f"scaled {original_volume} → {scaled} below 1 lot (100), blocking order")
+                return None
+            order.adjust_volume(aligned)
 
             GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
                      f"reducing order {original_volume} → {order.volume}")
@@ -115,7 +119,14 @@ class VolatilityRisk(BaseRiskManagement):
         elif current_volatility > self._warning_volatility:
             # 波动率预警，适度减少订单规模
             reduction_factor = (self._max_volatility / current_volatility) ** 1.5
-            order.adjust_volume(int(order.volume * reduction_factor))
+            scaled = int(order.volume * reduction_factor)
+            # A股最小交易单位 100 股/手，缩放后向下取整对齐到手（#6038）
+            aligned = (scaled // 100) * 100
+            if aligned < 100:
+                GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
+                         f"scaled {order.volume} → {scaled} below 1 lot (100), blocking order")
+                return None
+            order.adjust_volume(aligned)
 
             GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
                      f"adjusting order to {order.volume}")

@@ -160,6 +160,38 @@ class TestVolatilityRiskOrderProcessing:
 @pytest.mark.tdd
 @pytest.mark.risk
 @pytest.mark.financial
+class TestVolatilityRiskLotAlignment:
+    def test_high_volatility_scaled_aligns_to_lot(self):
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        r._volatility_cache["000001.SZ"] = 100.0
+        order = _make_order(volume=10000)
+        result = r.cal({}, order)
+        # factor=(25/100)^2=0.0625, scaled=625, aligned to 100-share lot=600
+        assert result is order
+        assert order.volume == 600
+
+    def test_high_volatility_below_lot_rejects(self):
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        r._volatility_cache["000001.SZ"] = 100.0
+        order = _make_order(volume=1000)
+        result = r.cal({}, order)
+        # factor=0.0625, scaled=62, aligned=0 < 1 lot (100) → blocked
+        assert result is None
+
+    def test_warning_level_adjusts_to_lot(self):
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=10.0)
+        r._volatility_cache["000001.SZ"] = 22.0
+        order = _make_order(volume=10000)
+        result = r.cal({}, order)
+        assert result is order
+        # 缩放后必对齐到 100 股/手
+        assert order.volume % 100 == 0
+        assert order.volume > 0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
 class TestVolatilityRiskSignalGeneration:
     def test_extreme_volatility_signal(self):
         r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
