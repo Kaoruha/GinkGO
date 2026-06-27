@@ -448,6 +448,44 @@ async def get_portfolio_mappings(
         )
 
 
+@router.get("/{portfolio_uuid}/files")
+async def get_portfolio_files(portfolio_uuid: str):
+    """
+    获取投资组合已绑定的文件列表 (#5806)
+
+    委托 service.get_portfolio_mappings 返回文件级视图。
+    与 GET /{portfolio_uuid}/mappings 同源；本端点 URL 语义更直白
+    （RESTful /files），供前端「列文件」场景免带参数负载。
+    """
+    try:
+        service = get_portfolio_mapping_service()
+
+        result = service.get_portfolio_mappings(
+            portfolio_uuid=portfolio_uuid,
+            include_params=False,
+        )
+
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Portfolio {portfolio_uuid} not found"
+            )
+
+        return ok(data={
+            "portfolio_uuid": portfolio_uuid,
+            "files": result.data,
+            "total": len(result.data),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting portfolio files {portfolio_uuid}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error getting portfolio files"
+        )
+
+
 @router.post("/{portfolio_uuid}/files")
 async def add_file_to_portfolio(
     portfolio_uuid: str,
