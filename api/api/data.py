@@ -599,6 +599,25 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
         if isinstance(dsr, list):
             dsr = _aggregate_dsr_list(dsr)
         if hasattr(dsr, 'records_processed'):
+            # #5450: 检测 service 层标记的带 reason 的成功语义（如 already_up_to_date）。
+            # 此时 records_processed=0/skipped=0，旧 #5893 逻辑会误判 partial；但"数据已最新"
+            # 属 success。把 result.message 透传到 error_message（model 唯一 Text 字段，
+            # get_history 端到端返回），不加 schema 字段避免 DB 安全阀。验收标准 2 端到端。
+            _meta = getattr(dsr, 'metadata', None)
+            _reason = _meta.get("reason", "") if isinstance(_meta, dict) else ""
+            if _reason:
+                service.record_complete(
+                    uuid=record_uuid,
+                    status="success",
+                    duration_ms=duration_ms,
+                    records_processed=dsr.records_processed,
+                    records_added=dsr.records_added,
+                    records_updated=dsr.records_updated,
+                    records_failed=dsr.records_failed,
+                    sync_strategy=getattr(dsr, 'sync_strategy', ''),
+                    error_message=getattr(result, 'message', '') or f"已是最新 ({_reason})",
+                )
+                return
             # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
             # 否则报 partial——含"0 条可疑空"和"有 records_failed/errors"。
             # DataSyncResult.is_successful() 只判 has_errors 不看 processed=0，故需此处显式区分。
