@@ -79,12 +79,12 @@ class TestTradingTimeRiskMarketHoursControl:
     def test_market_opening_time_control(self):
         r = TradingTimeRisk()
         now = datetime(2024, 1, 1, 9, 30)
-        assert r.is_trading_allowed(now) is True
+        assert r.is_trading_allowed(now) is False
 
     def test_market_closing_time_control(self):
         r = TradingTimeRisk()
         now = datetime(2024, 1, 1, 14, 55)
-        assert r.is_trading_allowed(now) is True
+        assert r.is_trading_allowed(now) is False
 
     def test_lunch_break_management(self):
         r = TradingTimeRisk(lunch_start_hour=11, lunch_start_minute=30,
@@ -211,7 +211,7 @@ class TestTradingTimeRiskOrderProcessing:
     def test_optimal_time_order_scheduling(self):
         r = TradingTimeRisk()
         for hour in [9, 10, 13, 14]:
-            now = datetime(2024, 1, 1, hour, 30)
+            now = datetime(2024, 1, 1, hour, 40)
             assert r.is_trading_allowed(now) is True
 
 
@@ -314,3 +314,63 @@ class TestTradingTimeRiskPerformance:
             r.cal(_make_portfolio_info(now=datetime(2024, 1, 1, 10, 30)), _make_order())
         elapsed = time.time() - start
         assert elapsed < 5.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+@pytest.mark.critical
+class TestTradingTimeRiskOpenCloseBoundaries:
+    """开盘/收盘保护窗口边界语义固化（AC1 open_minutes_after + AC2 close_minutes_before）。"""
+
+    def test_open_window_blocks_from_open(self):
+        # 默认 open=5：[9:30, 9:35) 阻塞，9:30 起即拦截
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 30)) is False
+
+    def test_open_window_last_blocked_minute(self):
+        # 9:34 仍在窗口内（半开右端 9:35 不含）
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 34)) is False
+
+    def test_open_window_releases_at_boundary(self):
+        # 9:35 恰好出窗口，立即放行
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 35)) is True
+
+    def test_open_window_disabled_when_zero(self):
+        # open=0 表示无开盘保护，9:30 放行
+        r = TradingTimeRisk(open_minutes_after=0)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 30)) is True
+
+    def test_open_window_custom_size(self):
+        # open=10：9:39 仍在窗口，9:40 出窗口
+        r = TradingTimeRisk(open_minutes_after=10)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 39)) is False
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 40)) is True
+
+    def test_close_window_blocks_until_close(self):
+        # 默认 close=5：[14:55, 15:00] 阻塞
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 55)) is False
+
+    def test_close_window_last_allowed_minute(self):
+        # 14:54 在窗口外，放行（闭区间左端 14:55 含）
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 54)) is True
+
+    def test_close_window_blocks_last_minute(self):
+        # 14:59 仍在窗口内（含收盘点 15:00）
+        r = TradingTimeRisk()
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 59)) is False
+
+    def test_close_window_disabled_when_zero(self):
+        # close=0 表示无收盘保护，14:59 放行
+        r = TradingTimeRisk(close_minutes_before=0)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 59)) is True
+
+    def test_close_window_custom_size(self):
+        # close=10：14:50 起阻塞（15:00-10=14:50），14:49 放行
+        r = TradingTimeRisk(close_minutes_before=10)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 50)) is False
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 49)) is True

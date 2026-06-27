@@ -42,6 +42,17 @@ class TradingTimeRisk(BaseRiskManagement):
         from datetime import time as dt_time
         if hasattr(current_time, "hour"):
             h, m = current_time.hour, current_time.minute
+            minutes = h * 60 + m
+            # 开盘保护窗口 [9:30, 9:30+open_minutes_after)，0 表示不限制
+            if self._open_minutes_after > 0:
+                open_start = 9 * 60 + 30
+                if open_start <= minutes < open_start + self._open_minutes_after:
+                    return False
+            # 收盘保护窗口 [15:00-close_minutes_before, 15:00]，0 表示不限制
+            if self._close_minutes_before > 0:
+                close_end = 15 * 60
+                if close_end - self._close_minutes_before <= minutes <= close_end:
+                    return False
             if h == self._lunch_start_hour and m >= self._lunch_start_minute:
                 return False
             if h == self._lunch_end_hour and m < self._lunch_end_minute:
