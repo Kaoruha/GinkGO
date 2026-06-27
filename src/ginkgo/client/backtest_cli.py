@@ -353,7 +353,7 @@ def edit_task(
 @app.command("delete")
 def delete_task(
     task_id: str = typer.Argument(help="Task UUID to delete"),
-    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation (--confirm alias, #6006)"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """:wastebasket: Delete a backtest task (soft delete)."""
     from ginkgo.data.containers import container
