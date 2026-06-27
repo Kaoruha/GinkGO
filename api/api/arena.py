@@ -4,7 +4,7 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core.response import ok
@@ -70,9 +70,16 @@ def _to_date_str(raw) -> Optional[str]:
 
 @router.get("/portfolios")
 async def get_arena_portfolios():
-    """获取竞技场Portfolio列表"""
-    # TODO: 实现实际的竞技场数据获取逻辑
-    return ok(data={"items": []})
+    """获取竞技场Portfolio列表
+
+    #5861: 竞技场 portfolio 集合的业务语义未定义（哪些 portfolio 参与
+    竞技场）。在明确语义并实现前，返回 501 诚实标记未实现，不返
+    {"items": []} 空数据伪装"已实现但无数据"。AC#1 允许此回退。
+    """
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Arena portfolio listing is not implemented",
+    )
 
 
 @router.post("/comparison")
