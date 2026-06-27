@@ -216,3 +216,36 @@ class TestMOrderRecordUpdateSeriesFrozenMoney:
         m.update(df.iloc[0])
         assert isinstance(m.frozen_money, Decimal)
         assert m.frozen_money == Decimal("1549.50")
+
+
+class TestFrozenVolumeIntCoercionRemainingPaths:
+    """#6087: frozen_volume int() 转换遗漏路径（延续 #6080）。
+
+    #6080 修了 _create_from_params(kwargs) 与 update(Series) 路径，
+    但 __init__ 直赋值与 update(str) dispatch 分支仍直赋 float。
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.tdd
+    def test_order_init_float_coerced_int(self):
+        """MOrder(__init__) float frozen_volume 应转 int（#6087 路径1: model_order L93）"""
+        m = MOrder(frozen_volume=484.03)
+        assert isinstance(m.frozen_volume, int)
+        assert m.frozen_volume == 484
+
+    @pytest.mark.unit
+    @pytest.mark.tdd
+    def test_order_update_str_float_coerced_int(self):
+        """MOrder.update(str dispatch) float frozen_volume 应转 int（#6087 路径2: model_order L158）"""
+        m = MOrder()
+        m.update("p1", "e1", frozen_volume=150.7)
+        assert isinstance(m.frozen_volume, int)
+        assert m.frozen_volume == 150
+
+    @pytest.mark.unit
+    @pytest.mark.tdd
+    def test_record_init_float_coerced_int(self):
+        """MOrderRecord(__init__) float frozen_volume 应转 int（#6087 路径3: model_order_record L93）"""
+        m = MOrderRecord(frozen_volume=484.03)
+        assert isinstance(m.frozen_volume, int)
+        assert m.frozen_volume == 484

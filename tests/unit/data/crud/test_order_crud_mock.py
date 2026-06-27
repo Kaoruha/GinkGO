@@ -444,3 +444,31 @@ class TestOrderCRUDFrozenVolumeIntConversion:
         )
         assert isinstance(model.frozen_volume, int)
         assert model.frozen_volume == 0
+
+
+@pytest.mark.tdd
+@pytest.mark.bug
+class TestOrderCRUDConvertInputItemFrozenVolumeInt:
+    """#6087: _convert_input_item 路径 frozen_volume 应 int() 转换（延续 #6080）。
+
+    _convert_input_item 用 getattr(item, ...) 鸭子类型读取外部输入，
+    SimpleNamespace 是该接口契约的合法替身（非掩盖：接口设计即鸭子类型）。
+    """
+
+    @pytest.mark.unit
+    def test_convert_input_item_float_frozen_volume(self, crud_instance):
+        """_convert_input_item 传入 float frozen_volume 的鸭子输入应转 int"""
+        from types import SimpleNamespace
+        item = SimpleNamespace(
+            portfolio_id="p1", engine_id="e1", task_id="t1",
+            code="000001.SZ", direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER, status=ORDERSTATUS_TYPES.NEW,
+            volume=100, limit_price=10.0, frozen_money=1000.0,
+            frozen_volume=484.03,
+            transaction_price=0, transaction_volume=0, remain=0, fee=0,
+            timestamp=None,
+        )
+        model = crud_instance._convert_input_item(item)
+        assert model is not None
+        assert isinstance(model.frozen_volume, int)
+        assert model.frozen_volume == 484
