@@ -115,6 +115,34 @@ def _get_kafka_producer():
     return GinkgoProducer()
 
 
+def _get_stockinfo_service():
+    """获取 StockinfoService 实例（#6048: 查询股票名称）。"""
+    from ginkgo.data.containers import container
+    return container.stockinfo_service()
+
+
+def _resolve_stock_names(codes: list) -> dict:
+    """批量查询股票名称，返回 {code: name}（#6048）。
+
+    去重后逐 code 查询，避免 N+1（同类陷阱见 #5675 settings user-groups）。
+    未查到的 code 不进 dict，消费方用 ``names.get(code, "")`` 降级为空。
+    """
+    unique_codes = {c for c in codes if c}
+    if not unique_codes:
+        return {}
+    svc = _get_stockinfo_service()
+    names = {}
+    for code in unique_codes:
+        result = svc.get_stockinfos(code=code)
+        if result.success and result.data:
+            # StockInfo Entity 中文字段是 code_name（非 name，arch_stockinfo_entity_code_name_field）。
+            # 出口 API key 仍为 "name"（前端契约），值从 code_name 取。
+            name = getattr(result.data[0], 'code_name', '') or ''
+            if name:
+                names[code] = name
+    return names
+
+
 def _format_datetime(dt) -> Optional[str]:
     """安全格式化 datetime 对象为 ISO 字符串"""
     if dt is None:
@@ -546,8 +574,12 @@ def _query_positions(account_id: str) -> list:
         positions_result = result_service.get_current_positions(account_id, min_volume=1)
         records = positions_result.data if positions_result.success else []
 
+        # #6048: 批量查股票名称（去重避免 N+1）
+        names = _resolve_stock_names([getattr(r, 'code', '') for r in (records or [])])
+
         positions = []
         for r in (records or []):
+            code = getattr(r, 'code', '')
             cost = float(getattr(r, 'cost', 0) or 0)
             price = float(getattr(r, 'price', 0) or 0)
             volume = int(getattr(r, 'volume', 0) or 0)
@@ -557,8 +589,8 @@ def _query_positions(account_id: str) -> list:
             pnl_ratio = (pnl / cost * 100) if cost > 0 else 0
 
             positions.append({
-                "code": getattr(r, 'code', ''),
-                "name": "",  # TODO: 从 stock_info 查询股票名称
+                "code": code,
+                "name": names.get(code, ""),  # #6048: 从 stock_info 查询
                 "shares": volume,
                 "cost": round(cost, 4),
                 "current": round(price, 4),
@@ -644,6 +676,9 @@ def _query_orders(account_id: str, status_filter: Optional[List[str]] = None) ->
             )
             records = orders_result.data.get("data", []) if orders_result.success else []
 
+        # #6048: 批量查股票名称（去重避免 N+1）
+        names = _resolve_stock_names([getattr(r, 'code', '') for r in (records or [])])
+
         orders = []
         for r in (records or []):
             direction = getattr(r, 'direction', 0)
@@ -651,13 +686,14 @@ def _query_orders(account_id: str, status_filter: Optional[List[str]] = None) ->
             side = "buy" if direction_value == 1 else "sell"
 
             order_id = getattr(r, 'uuid', '') or getattr(r, 'order_id', '')
+            code = getattr(r, 'code', '')
 
             orders.append({
                 "order_id": order_id,
                 "strategy_id": "",
                 "account_id": account_id,
-                "code": getattr(r, 'code', ''),
-                "name": "",  # TODO: 从 stock_info 查询
+                "code": code,
+                "name": names.get(code, ""),  # #6048: 从 stock_info 查询
                 "side": side,
                 "price": float(getattr(r, 'limit_price', 0) or 0),
                 "volume": int(getattr(r, 'volume', 0) or 0),
