@@ -492,11 +492,12 @@ class PortfolioMappingService(BaseService):
         try:
             collection = self._mongo_driver.get_collection("portfolio_graph_data")
 
-            # 查找现有图数据（优先 GRAPH_EDITOR 来源的）
-            graph_doc = collection.find_one(
-                {"portfolio_uuid": portfolio_uuid},
-                sort=[("metadata.source", 1), ("created_at", -1)]
-            )
+            # 查找现有图数据，按应用层优先级选图：
+            #   #5742 — 原先 find_one(sort by source asc) 让 AUTO_GENERATED 空图
+            #   抢占 GRAPH_EDITOR 非空图（"A" < "G"）。改为取全部后按
+            #   「非空优先 + GRAPH_EDITOR 优先」选最佳文档。
+            all_docs = list(collection.find({"portfolio_uuid": portfolio_uuid}))
+            graph_doc = self._select_best_graph_doc(all_docs)
 
             if graph_doc:
                 return ServiceResult.success(data={
@@ -511,7 +512,8 @@ class PortfolioMappingService(BaseService):
             self._sync_graph_from_mappings(portfolio_uuid)
 
             # 再次查询
-            graph_doc = collection.find_one({"portfolio_uuid": portfolio_uuid})
+            all_docs = list(collection.find({"portfolio_uuid": portfolio_uuid}))
+            graph_doc = self._select_best_graph_doc(all_docs)
             return ServiceResult.success(data={
                 "graph_data": graph_doc["graph_data"] if graph_doc else {"nodes": [], "edges": []},
                 "metadata": graph_doc.get("metadata", {}) if graph_doc else {},
@@ -521,6 +523,39 @@ class PortfolioMappingService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"获取图数据失败: {e}")
             return ServiceResult.error(f"获取图数据失败: {str(e)}")
+
+    def _select_best_graph_doc(self, docs):
+        """
+        按优先级选最佳图文档 (#5742)
+
+        规则：
+          1. 非空图（有 nodes）优先于空图 —— 空图不得抢占非空图
+          2. 非空图中 GRAPH_EDITOR（用户手动编辑）优先于 AUTO_GENERATED
+          3. 全部为空图时返回第一个（保持旧行为兼容）
+
+        Args:
+            docs: 同 portfolio 的全部图文档列表
+
+        Returns:
+            最佳图文档，或 None（列表为空）
+        """
+        if not docs:
+            return None
+
+        def _has_nodes(doc):
+            return bool(doc.get("graph_data", {}).get("nodes"))
+
+        non_empty = [d for d in docs if _has_nodes(d)]
+        if non_empty:
+            editor = next(
+                (d for d in non_empty
+                 if d.get("metadata", {}).get("source") == "GRAPH_EDITOR"),
+                None,
+            )
+            return editor or non_empty[0]
+
+        # 全部为空图，保持旧行为返回第一个
+        return docs[0]
 
     def get_portfolio_mappings(
         self,
