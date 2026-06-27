@@ -186,6 +186,9 @@ class VolatilityRisk(BaseRiskManagement):
         if len(self._price_history[code]) > self._lookback_period:
             self._price_history[code] = self._price_history[code][-self._lookback_period:]
 
+        # 价格历史已变，失效该 code 的波动率缓存，下次 _get_stock_volatility 重算（#6037）
+        self._volatility_cache.pop(code, None)
+
     def _calculate_volatility(self, code: str) -> float:
         """计算指定股票的波动率"""
         if code not in self._price_history or len(self._price_history[code]) < 2:

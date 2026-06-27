@@ -245,6 +245,35 @@ class TestVolatilityRiskEdgeCases:
 @pytest.mark.tdd
 @pytest.mark.risk
 @pytest.mark.financial
+class TestVolatilityRiskCacheInvalidation:
+    def test_cache_invalidated_after_price_update(self):
+        r = VolatilityRisk(lookback_period=20, volatility_window=5)
+        # 低波动序列填充价格历史 + 首次计算并缓存
+        for p in [10.0, 10.01, 9.99, 10.02, 9.98, 10.0, 10.01, 9.99, 10.0, 10.01]:
+            r._update_price_history("000001.SZ", p)
+        vol_low = r._get_stock_volatility("000001.SZ")
+        assert "000001.SZ" in r._volatility_cache
+        assert vol_low >= 0
+        # 喂高波动序列更新价格历史
+        for p in [10.0, 12.0, 8.0, 12.5, 7.5, 13.0, 7.0, 12.0, 8.0, 12.0]:
+            r._update_price_history("000001.SZ", p)
+        # 修复后：cache 在 _update_price_history 失效 → 重算应反映高波动
+        vol_refreshed = r._get_stock_volatility("000001.SZ")
+        assert vol_refreshed > vol_low
+
+    def test_cache_hit_without_price_update(self):
+        r = VolatilityRisk()
+        for p in [10.0, 10.5, 11.0, 10.5]:
+            r._update_price_history("000001.SZ", p)
+        v1 = r._get_stock_volatility("000001.SZ")
+        # 无 _update_price_history 间隔：连续查询命中缓存（不退化为每 tick 全重算）
+        v2 = r._get_stock_volatility("000001.SZ")
+        assert v1 == v2
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
 @pytest.mark.performance
 class TestVolatilityRiskPerformance:
     def test_calculation_performance(self):
