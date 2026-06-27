@@ -63,7 +63,7 @@ class TestGetBarsBareListFix:
 
         with patch("api.data.get_bar_service", return_value=mock_service):
             # 修复前：line 339 bars_list=[] → line 358 [bar].count() TypeError → 500
-            result = run_async(get_bars())
+            result = run_async(get_bars(code="000001.SZ"))
 
         assert result.get("code") == 0
 
@@ -77,7 +77,7 @@ class TestGetBarsBareListFix:
         from api.data import get_bars
 
         with patch("api.data.get_bar_service", return_value=mock_service):
-            result = run_async(get_bars())
+            result = run_async(get_bars(code="000001.SZ"))
 
         # 修复前：line 339 bars_list=[] → items=[]（数据丢失）
         assert result.get("code") == 0
@@ -94,7 +94,7 @@ class TestGetBarsBareListFix:
         from api.data import get_bars
 
         with patch("api.data.get_bar_service", return_value=mock_service):
-            result = run_async(get_bars())
+            result = run_async(get_bars(code="000001.SZ"))
 
         assert result.get("code") == 0
         assert result["meta"]["total"] == 2
