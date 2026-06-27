@@ -46,6 +46,11 @@ class CreatePaperAccountRequest(BaseModel):
     restrictions: List[str] = Field(default_factory=list, description="交易限制: t1/limit/time")
     data_source: str = Field("paper", description="数据源: replay/paper")
     replay_date: Optional[str] = Field(None, description="回放起始日期")
+    portfolio_uuid: Optional[str] = Field(
+        None,
+        description="#5648: 关联已有 Portfolio（含策略/选股/仓位/风控组件）作为模拟盘账户；"
+                    "提供时校验存在并复用，不新建。未提供则新建空 PAPER 模式 Portfolio（现行行为）",
+    )
 
 
 class StartPaperTradingRequest(BaseModel):
@@ -207,8 +212,25 @@ async def create_paper_account(data: CreatePaperAccountRequest):
     """创建模拟盘账户
 
     创建 PAPER 模式的 Portfolio，并通过 Kafka 通知 Worker。
+    #5648: 若提供 portfolio_uuid，则关联已有 Portfolio（复用其策略组件），不新建。
     """
     try:
+        # #5648: 关联已有 Portfolio（复用已绑定策略/选股/仓位/风控组件），不新建
+        if data.portfolio_uuid:
+            _require_portfolio(data.portfolio_uuid)  # 不存在则 raise NotFoundError
+            # #5648 review: 关联时设 mode=PAPER，使 list_paper_accounts 按 mode 过滤能查到
+            # （与新建路径 add(mode=PAPER) 对称；已部署冻结的 update 被拒则穿透 BusinessError）
+            from ginkgo.enums import PORTFOLIO_MODE_TYPES
+            portfolio_service = _get_portfolio_service()
+            upd = portfolio_service.update(data.portfolio_uuid, mode=PORTFOLIO_MODE_TYPES.PAPER)
+            if not upd.is_success():
+                raise BusinessError(f"Failed to link paper account: {upd.error}")
+            logger.info(f"Paper account linked to existing portfolio: {data.portfolio_uuid}")
+            return ok(
+                data={"account_id": data.portfolio_uuid},
+                message="Paper account linked to existing portfolio",
+            )
+
         from ginkgo.enums import PORTFOLIO_MODE_TYPES
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -245,6 +267,10 @@ async def create_paper_account(data: CreatePaperAccountRequest):
         )
 
     except BusinessError:
+        raise
+    except NotFoundError:
+        # #5648: _require_portfolio 校验 portfolio_uuid 不存在时穿透为 404，
+        # 不被下方 except Exception 包装成模糊 BusinessError
         raise
     except Exception as e:
         logger.error(f"Error creating paper account: {str(e)}")
