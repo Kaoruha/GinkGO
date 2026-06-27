@@ -21,9 +21,9 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 ```mermaid
 graph TB
     subgraph "🖥️ Application Layer"
-        CLI["<b>CLI</b><br/>Typer + Rich<br/><i>40 commands</i>"]
-        API["<b>REST API</b><br/>FastAPI<br/><i>15 routers</i>"]
-        WEB["<b>Web UI</b><br/>Vue 3 + shadcn-vue<br/><i>19 views</i>"]
+        CLI["<b>CLI</b><br/>Typer + Rich<br/><i>35 command groups</i>"]
+        API["<b>REST API</b><br/>FastAPI<br/><i>16 routers</i>"]
+        WEB["<b>Web UI</b><br/>Vue 3 + shadcn-vue<br/><i>17 views</i>"]
     end
 
     subgraph "⚙️ Worker Layer"
@@ -41,12 +41,12 @@ graph TB
 
     subgraph "📊 Trading Engine"
         EE["EventEngine<br/><i>事件队列 + 线程分发</i>"] --> TCE["TimeControlledEngine<br/><i>回测/实盘统一</i>"]
-        EE --> FDR["Data Feeders (6)"]
+        EE --> FDR["Data Feeders (7)"]
         EE --> PTF["Portfolio<br/><i>中央编排器</i>"]
-        PTF --> STR["Strategy (15)"]
-        PTF --> RSK["Risk (18)"]
+        PTF --> STR["Strategy (11)"]
+        PTF --> RSK["Risk (16)"]
         PTF --> SIZ["Sizer (3)"]
-        PTF --> SEL2["Selector (5)"]
+        PTF --> SEL2["Selector (4)"]
     end
 
     subgraph "🔀 Gateway & Brokers"
@@ -124,22 +124,22 @@ graph LR
             engines["engines/<br/>BaseEngine → EventEngine → TimeControlled"]
             events["events/<br/>PriceUpdate · Signal · Order<br/>TimeAdvance · Portfolio"]
             bases["bases/<br/>Portfolio · Position · Order<br/>Strategy · Selector · Sizer · Risk"]
-            strat["strategies/ (15)"]
-            risk["risk_management/ (18)"]
-            sel["selectors/ (5)"]
+            strat["strategies/ (13)"]
+            risk["risk_management/ (16)"]
+            sel["selectors/ (4)"]
             sizer["sizers/ (3)"]
             brk["brokers/ (8)"]
-            fdr["feeders/ (6)"]
-            analysis["analysis/<br/>analyzers (24) · reports · plots"]
+            fdr["feeders/ (7)"]
+            analysis["analysis/<br/>analyzers (21) · reports · plots"]
             evl["evaluation/<br/>pipeline · rules · visualization"]
         end
 
         subgraph "data/"
             direction TB
             drv["drivers/<br/>ClickHouse · MySQL<br/>MongoDB · Redis · Kafka"]
-            mdl["models/ (51)"]
-            crud["crud/ (52)"]
-            svc["services/ (33)"]
+            mdl["models/ (50)"]
+            crud["crud/ (49)"]
+            svc["services/ (31)"]
             src["sources/ (5)"]
             stm["streaming/<br/>cache · checkpoint · recovery"]
         end
@@ -152,7 +152,7 @@ graph LR
         end
 
         subgraph "Supporting"
-            feat["features/<br/>definitions (17) · expression engine"]
+            feat["features/<br/>definitions (16) · expression engine"]
             ml["quant_ml/<br/>models · features · strategies"]
             res["research/<br/>IC · factor · orthogonal · decay"]
             val["validation/<br/>MonteCarlo · WalkForward · Sensitivity"]
@@ -179,13 +179,13 @@ graph LR
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **Strategies** | 15 | MA Crossover, Momentum, Mean Reversion, Dual Thrust, Scalping, ML Predictor |
-| **Risk Managers** | 18 | Position Ratio, Loss Limit, Profit Target, Max Drawdown, Volatility, Concentration |
-| **Selectors** | 5 | Fixed, CN All, Momentum, Popularity |
+| **Strategies** | 11 | MA Crossover, Momentum, Mean Reversion, Dual Thrust, Scalping, ML Predictor |
+| **Risk Managers** | 16 | Position Ratio, Loss Limit, Profit Target, Max Drawdown, Volatility, Concentration |
+| **Selectors** | 4 | Fixed, CN All, Momentum, Popularity |
 | **Sizers** | 3 | Fixed, ATR, Ratio |
 | **Brokers** | 8 | Sim, AShare, HK Stock, US Stock, Futures, OKX, Manual, Auto |
-| **Feeders** | 6 | Backtest, Live, OKX, Alpaca, EastMoney, Fushu |
-| **Analyzers** | 24 | Net Value, Max Drawdown, Sharpe, Calmar, Profit Factor, Annualized Returns |
+| **Feeders** | 7 | Backtest, Live, OKX, OKX Data, Alpaca, EastMoney, Fushu |
+| **Analyzers** | 21 | Net Value, Max Drawdown, Sharpe, Calmar, Profit Factor, Annualized Returns |
 | **Data Sources** | 5 | Tushare, AKShare, Yahoo, BaoStock, TDX |
 | **DB Drivers** | 5 | ClickHouse, MySQL, MongoDB, Redis, Kafka |
 | **Factors** | 158+ | Alpha158, Barra, Fama-French, WorldQuant Alpha101 |
