@@ -94,7 +94,7 @@ ginkgo backtest cat <backtest_id>
 
 > **实际命名**：DB 组件名多为 `<name>_<type>` 格式（如 `fixed_selector`/`atr_sizer`/`fixed_sizer`），部分带描述前缀（如 `qr_momentum_selector`/`sharpe_ratio`）。`bind-component` 前用 `ginkgo component list` 查实际 `file_id` 与名称；下表为短名速查。
 
-- **Strategy**: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor, social_signal, game_theory, random_choice
+- **Strategy**（内置类 11）: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor；另有 DB 脚本组件（src 无类，DB component 表实例）: social_signal, game_theory, random_choice
 - **Selector**: fixed, cn_all, momentum, popularity, multi_params
 - **Sizer**: fixed, atr, ratio
-- **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time
+- **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time, time_based
