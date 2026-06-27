@@ -275,13 +275,13 @@ def update_user(
 @app.command("delete")
 def delete_user(
     user_uuid: str = typer.Argument(..., help="User UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete a user (cascades to contacts and group mappings).
 
     Example:
-      ginkgo users delete abc123... --confirm
+      ginkgo users delete abc123... -y
     """
     try:
         from ginkgo.data.containers import container
@@ -514,13 +514,13 @@ def set_primary_contact(
 @contact_app.command("delete")
 def delete_contact(
     contact_uuid: str = typer.Argument(..., help="Contact UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete a contact.
 
     Example:
-      ginkgo user contact delete abc123... --confirm
+      ginkgo user contact delete abc123... -y
     """
     try:
         from ginkgo.data.containers import container
