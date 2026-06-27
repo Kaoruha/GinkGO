@@ -108,7 +108,12 @@ class RatioSizer(BaseSizer):
                 last_month_day = current_time + datetime.timedelta(days=-30)
                 yester_day = current_time + datetime.timedelta(days=-1)
                 result = container.bar_service().get(code=code, start_date=last_month_day, end_date=yester_day)
-                if not result.success or len(result.data) == 0:
+                # #6043: ServiceResult 允许 data=None（base_service.py:36 "允许None值"）。
+                # success=True + data=None 时 len(None) 抛 TypeError，被下方 except 吞成
+                # ERROR "failed to create order"（语义错配：数据缺失误报订单创建失败）。
+                # 用 result.data is None 短路（非 not result.data，后者对空 DataFrame 抛
+                # truth value ambiguous），让 data=None 走 CRITICAL 无数据守卫正确分类。
+                if not result.success or result.data is None or len(result.data) == 0:
                     GLOG.CRITICAL(f"{code} has no data from {last_month_day} to {yester_day}. {current_time}")
                     return None
                 past_price = result.data.to_dataframe()
