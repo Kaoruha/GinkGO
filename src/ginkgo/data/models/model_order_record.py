@@ -90,7 +90,7 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         if frozen_money is not None:
             self.frozen_money = to_decimal(frozen_money)
         if frozen_volume is not None:
-            self.frozen_volume = frozen_volume
+            self.frozen_volume = int(frozen_volume)  # #6087: 强制 int，防 float 写 Integer 列
         if transaction_price is not None:
             self.transaction_price = to_decimal(transaction_price)
         if transaction_volume is not None:
@@ -154,6 +154,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         # 设置其他字段
         for key, value in kwargs.items():
             if hasattr(self, key):
+                if key == 'frozen_volume' and value is not None:
+                    value = int(value)  # #6087: 强制 int，防 float 写 Integer 列
                 setattr(self, key, value)
 
     def __repr__(self) -> str:

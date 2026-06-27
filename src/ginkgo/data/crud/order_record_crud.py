@@ -182,7 +182,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                 volume=item.volume,
                 limit_price=item.limit_price,
                 frozen_money=item.frozen_money if hasattr(item, 'frozen_money') else 0,
-                frozen_volume=item.frozen_volume if hasattr(item, 'frozen_volume') else 0,
+                frozen_volume=int(item.frozen_volume) if hasattr(item, 'frozen_volume') else 0,  # #6087: 显式 int 防御（与 #6080 L160 对称）
                 transaction_price=item.transaction_price if hasattr(item, 'transaction_price') else 0,
                 remain=item.remain if hasattr(item, 'remain') else 0,
                 fee=item.fee if hasattr(item, 'fee') else 0,
