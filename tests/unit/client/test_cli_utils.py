@@ -27,11 +27,13 @@ from ginkgo.client import cli_utils
 from ginkgo.enums import FILE_TYPES
 
 
-def _make_mock_model_list(df: pd.DataFrame) -> MagicMock:
-    """创建模拟 ModelList 的 mock，支持 .to_dataframe() 返回 DataFrame。"""
-    mock_ml = MagicMock()
-    mock_ml.to_dataframe.return_value = df
-    return mock_ml
+def _make_service_result(df: pd.DataFrame, success: bool = True) -> MagicMock:
+    """模拟 ServiceResult：.success + .data(pandas.DataFrame)。
+    #6136 后调用方走 mapping_service._df 出口，data 即 DataFrame（类型即契约）。"""
+    result = MagicMock()
+    result.success = success
+    result.data = df
+    return result
 
 
 # ============================================================================
@@ -84,26 +86,26 @@ class TestAddPortfolioComponents:
     """Tests for _add_portfolio_components tree builder."""
 
     def test_no_components_shows_message(self):
-        mock_service = MagicMock()
-        mock_service.get_portfolio_file_mappings.return_value = _make_mock_model_list(
+        mock_mapping = MagicMock()
+        mock_mapping.get_portfolio_file_mappings_df.return_value = _make_service_result(
             pd.DataFrame(columns=["portfolio_id", "type", "name", "file_id", "uuid"])
         )
         parent = MagicMock()
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_container.portfolio_service.return_value = mock_service
+            mock_container.mapping_service.return_value = mock_mapping
             cli_utils._add_portfolio_components(parent, "portfolio-1", False, None)
         parent.add.assert_called_once()
         assert "No components bound" in parent.add.call_args[0][0]
 
     def test_components_added_to_tree(self):
-        mock_service = MagicMock()
-        mock_service.get_portfolio_file_mappings.return_value = _make_mock_model_list(pd.DataFrame([
+        mock_mapping = MagicMock()
+        mock_mapping.get_portfolio_file_mappings_df.return_value = _make_service_result(pd.DataFrame([
             {"portfolio_id": "portfolio-1", "type": FILE_TYPES.STRATEGY.value,
              "name": "MyStrategy", "file_id": "file-1", "uuid": "mapping-1"}
         ]))
         parent = MagicMock()
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_container.portfolio_service.return_value = mock_service
+            mock_container.mapping_service.return_value = mock_mapping
             cli_utils._add_portfolio_components(parent, "portfolio-1", False, None)
         # Should have added a section node via parent.add
         assert parent.add.call_count >= 1
@@ -123,24 +125,24 @@ class TestShowTree:
 
     def test_show_portfolio_tree(self):
         portfolio_row = {"name": "TestPortfolio", "uuid": "p-1"}
-        mock_service = MagicMock()
-        mock_service.get_portfolio_file_mappings.return_value = _make_mock_model_list(
+        mock_mapping = MagicMock()
+        mock_mapping.get_portfolio_file_mappings_df.return_value = _make_service_result(
             pd.DataFrame(columns=["portfolio_id", "type", "name", "file_id", "uuid"])
         )
         with patch("ginkgo.data.containers.container") as mock_container, \
              patch.object(cli_utils.console, "print") as mock_print:
-            mock_container.portfolio_service.return_value = mock_service
+            mock_container.mapping_service.return_value = mock_mapping
             cli_utils._show_portfolio_tree(portfolio_row, False, None)
         mock_print.assert_called_once()
 
     def test_show_engine_tree_no_portfolios(self):
         engine_row = {"name": "TestEngine", "uuid": "e-1"}
-        mock_engine_service = MagicMock()
-        mock_engine_service.get_engine_portfolio_mappings.return_value = _make_mock_model_list(
+        mock_mapping = MagicMock()
+        mock_mapping.get_engine_portfolio_mappings_df.return_value = _make_service_result(
             pd.DataFrame(columns=["engine_id", "portfolio_id"])
         )
         with patch("ginkgo.data.containers.container") as mock_container, \
              patch.object(cli_utils.console, "print") as mock_print:
-            mock_container.engine_service.return_value = mock_engine_service
+            mock_container.mapping_service.return_value = mock_mapping
             cli_utils._show_engine_tree(engine_row, False, None)
         mock_print.assert_called_once()
