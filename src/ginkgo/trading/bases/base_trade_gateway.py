@@ -18,11 +18,12 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
 from ginkgo.trading.mixins.order_management_mixin import OrderManagementMixin
 from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin
 from ginkgo.entities.base import Base
 from ginkgo.libs import GLOG
 
 
-class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBindableMixin, Base):
+class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBindableMixin, SubscribableMixin, Base):
     """
     TradeGateway基础类
 
@@ -33,6 +34,11 @@ class BaseTradeGateway(TimeMixin, ContextMixin, OrderManagementMixin, EngineBind
 
     子类继承后只需要专注于具体的路由逻辑。
     """
+
+    def bind_engine(self, engine) -> None:
+        super().bind_engine(engine)
+        # 入方向：注册组件订阅的事件处理器（ADR-017，与出方向 _engine_put 对称）
+        self.register_handlers(engine)
 
     def __init__(self, name: str = "BaseTradeGateway", *args, **kwargs):
         """

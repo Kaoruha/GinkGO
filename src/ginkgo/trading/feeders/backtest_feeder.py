@@ -25,6 +25,7 @@ from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
 from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin, subscribes
 from ginkgo.trading.feeders.interfaces import (
     IBacktestDataFeeder, DataFeedStatus
 )
@@ -34,11 +35,11 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 from ginkgo.data.mappers import BarMapper
 
 
-class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
+class BacktestFeeder(EngineBindableMixin, SubscribableMixin, BaseFeeder, IBacktestDataFeeder):
     """
     回测数据馈送器
     
@@ -268,7 +269,13 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
         return events
 
+    def bind_engine(self, engine) -> None:
+        super().bind_engine(engine)
+        # 入方向：注册组件订阅的事件处理器（ADR-017，与出方向 _engine_put 对称）
+        self.register_handlers(engine)
+
     # === 新增：兴趣集合事件处理 ===
+    @subscribes(EVENT_TYPES.INTERESTUPDATE)
     def on_interest_update(self, event: "EventInterestUpdate") -> None:
         try:
             codes = getattr(event, 'codes', []) or []
