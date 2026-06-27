@@ -383,3 +383,33 @@ class TestLiquidityRiskPerformance:
         for _ in range(10000):
             r._update_liquidity_history(event)
         assert time.perf_counter() - start < 2.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+class TestLiquidityRiskLotAlignment:
+    def test_default_lot_size_aligns_reduced_volume(self):
+        """默认 lot_size=100:流动性不足缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。"""
+        r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2)
+        # mock 流动性指标触发大幅缩减分支(避开历史数据计算)
+        r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
+        r._calculate_order_volume_ratio = lambda order, metrics: 0.5  # >warning 0.2 且 >min 0.1
+        r._calculate_price_impact = lambda order, metrics: 0.5  # <warning 3.0 不触发
+        order = _make_order(volume=625)
+        result = r.cal(_make_portfolio_info(), order)
+        # factor=min_avg/avg=0.1/0.5=0.2, scaled=int(625*0.2)=125, lot=100→100
+        assert result is order
+        assert order.volume == 100
+
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
+        r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2, lot_size=80)
+        r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
+        r._calculate_order_volume_ratio = lambda order, metrics: 0.5
+        r._calculate_price_impact = lambda order, metrics: 0.5
+        order = _make_order(volume=625)
+        result = r.cal(_make_portfolio_info(), order)
+        # scaled=125, lot=80→(125//80)*80=80
+        assert result is order
+        assert order.volume == 80

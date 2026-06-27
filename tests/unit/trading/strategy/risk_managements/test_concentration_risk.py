@@ -419,3 +419,34 @@ class TestConcentrationRiskDecimalCompatibility:
         event = EventPriceUpdate(payload=_make_bar())
         signals = r.generate_signals(info, event)
         assert isinstance(signals, list)
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+class TestConcentrationRiskLotAlignment:
+    def test_default_lot_size_aligns_reduced_volume(self):
+        """默认 lot_size=100:单一持仓超限缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。"""
+        r = ConcentrationRisk(max_single_position_ratio=10.0)
+        # mock 投影比例超限触发单一持仓缩减分支(避开复杂 helper 计算)
+        r._calculate_projected_ratio = lambda info, order: 25.0
+        r._get_current_position_ratio = lambda info, code: 0.0
+        r._calculate_projected_industry_ratio = lambda *a: 0.0  # 行业不超限
+        order = _make_order(volume=625)
+        result = r.cal(_make_portfolio_info(), order)
+        # factor=max_single/projected=10/25=0.4, scaled=int(625*0.4)=250, lot=100→200
+        assert result is order
+        assert order.volume == 200
+
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
+        r = ConcentrationRisk(max_single_position_ratio=10.0, lot_size=80)
+        r._calculate_projected_ratio = lambda info, order: 25.0
+        r._get_current_position_ratio = lambda info, code: 0.0
+        r._calculate_projected_industry_ratio = lambda *a: 0.0
+        order = _make_order(volume=625)
+        result = r.cal(_make_portfolio_info(), order)
+        # scaled=250, lot=80→(250//80)*80=240; min=int(625*0.1)=62→align80=0;
+        # max(240, 0)=240(scaled>min, 保护不触发)
+        assert result is order
+        assert order.volume == 240

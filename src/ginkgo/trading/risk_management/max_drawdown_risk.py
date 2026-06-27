@@ -26,12 +26,13 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
-class MaxDrawdownRisk(BaseRiskManagement):
+class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
     """
     最大回撤风控模块
 
@@ -47,6 +48,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
         max_drawdown: float = 15.0,
         warning_drawdown: float = 10.0,
         critical_drawdown: float = 20.0,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -74,6 +76,7 @@ class MaxDrawdownRisk(BaseRiskManagement):
         self._max_drawdown = float(max_drawdown)
         self._warning_drawdown = float(warning_drawdown)
         self._critical_drawdown = float(critical_drawdown)
+        self._lot_size = int(lot_size)
 
         # 记录历史最高点
         self._peak_values = {}  # code: peak_value
@@ -121,7 +124,9 @@ class MaxDrawdownRisk(BaseRiskManagement):
                 reduction_factor = (self._critical_drawdown - current_drawdown) / denominator
                 # 返回副本而非原地修改 (#5495)：避免多风险链共享同一 order 引用导致过度缩减与状态污染
                 reduced_order = copy.deepcopy(order)
-                reduced_order.adjust_volume(int(reduced_order.volume * max(reduction_factor, 0.1)))
+                scaled = int(reduced_order.volume * max(reduction_factor, 0.1))
+                # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+                reduced_order.adjust_volume(self.align_to_lot(scaled))
                 GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
                 return reduced_order
 

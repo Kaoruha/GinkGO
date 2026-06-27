@@ -25,12 +25,13 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
-class LiquidityRisk(BaseRiskManagement):
+class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
     """
     流动性风控模块
 
@@ -50,6 +51,7 @@ class LiquidityRisk(BaseRiskManagement):
         min_turnover_ratio: float = 1000000,  # 最小日成交额
         warning_turnover_ratio: float = 5000000,
         liquidity_lookback_days: int = 20,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -71,6 +73,7 @@ class LiquidityRisk(BaseRiskManagement):
         self._min_turnover_ratio = float(min_turnover_ratio)
         self._warning_turnover_ratio = float(warning_turnover_ratio)
         self._liquidity_lookback_days = liquidity_lookback_days
+        self._lot_size = int(lot_size)
 
         # 存储历史流动性数据
         self._volume_history = {}  # code: [volume_list]
@@ -114,9 +117,11 @@ class LiquidityRisk(BaseRiskManagement):
                 # 流动性严重不足，大幅减少订单
                 reduction_factor = self._min_avg_volume_ratio / avg_volume_ratio
                 original_volume = order.volume
-                order.adjust_volume(int(order.volume * reduction_factor))
+                scaled = int(order.volume * reduction_factor)
+                # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+                order.adjust_volume(self.align_to_lot(scaled))
 
-                min_volume = max(1, int(original_volume * 0.1))
+                min_volume = self.align_to_lot(max(1, int(original_volume * 0.1)))
                 order.adjust_volume(max(order.volume, min_volume))
 
                 GLOG.WARN(f"LiquidityRisk: Low liquidity for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._min_avg_volume_ratio}, "
@@ -124,7 +129,8 @@ class LiquidityRisk(BaseRiskManagement):
             else:
                 # 流动性预警，适度减少订单
                 reduction_factor = 0.8  # 预警时减少20%
-                order.adjust_volume(int(order.volume * reduction_factor))
+                scaled = int(order.volume * reduction_factor)
+                order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
 
                 GLOG.INFO(f"LiquidityRisk: Liquidity warning for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._warning_avg_volume_ratio}, "
                          f"adjusting order to {order.volume}")
@@ -138,7 +144,8 @@ class LiquidityRisk(BaseRiskManagement):
         elif price_impact > self._warning_price_impact:
             # 价格冲击预警，减少订单
             reduction_factor = self._warning_price_impact / price_impact
-            order.adjust_volume(int(order.volume * reduction_factor))
+            scaled = int(order.volume * reduction_factor)
+            order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
 
             GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
                      f"adjusting order to {order.volume}")
@@ -148,7 +155,8 @@ class LiquidityRisk(BaseRiskManagement):
         if avg_turnover < self._min_turnover_ratio:
             # 成交额过低，限制交易
             reduction_factor = avg_turnover / self._min_turnover_ratio
-            order.adjust_volume(int(order.volume * max(reduction_factor, 0.1)))
+            scaled = int(order.volume * max(reduction_factor, 0.1))
+            order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
 
             GLOG.WARN(f"LiquidityRisk: Low turnover {avg_turnover:,.0f} < {self._min_turnover_ratio:,.0f} for {order.code}, "
                      f"reducing order to {order.volume}")

@@ -7,21 +7,23 @@ from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
-class MarginRisk(BaseRiskManagement):
+class MarginRisk(LotAlignableMixin, BaseRiskManagement):
     __abstract__ = False
 
     def __init__(self, name="MarginRisk", max_leverage_ratio=2.0,
                  maintenance_margin_ratio=1.3, margin_call_warning_ratio=1.5,
-                 forced_liquidation_ratio=1.2, *args, **kwargs):
+                 forced_liquidation_ratio=1.2, lot_size: int = 100, *args, **kwargs):
         super().__init__(name, *args, **kwargs)
         self._max_leverage_ratio = float(max_leverage_ratio)
         self._maintenance_margin_ratio = float(maintenance_margin_ratio)
         self._margin_call_warning_ratio = float(margin_call_warning_ratio)
         self._forced_liquidation_ratio = float(forced_liquidation_ratio)
+        self._lot_size = int(lot_size)
         self.set_name(f"{name}_lev{self._max_leverage_ratio}x_mm{self._maintenance_margin_ratio}")
 
     @property
@@ -50,7 +52,9 @@ class MarginRisk(BaseRiskManagement):
         if current_leverage >= self._forced_liquidation_ratio:
             factor = max(0.1, (self._max_leverage_ratio - current_leverage) /
                         (self._max_leverage_ratio - self._forced_liquidation_ratio))
-            order.adjust_volume(int(order.volume * factor))
+            scaled = int(order.volume * factor)
+            # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+            order.adjust_volume(self.align_to_lot(scaled))
         return order
 
     def generate_signals(self, portfolio_info: Dict, event) -> List[Signal]:

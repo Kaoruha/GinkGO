@@ -356,3 +356,34 @@ class TestMarginRiskPerformance:
         for _ in range(10000):
             r.cal(_make_portfolio_info(), order)
         assert time.perf_counter() - start < 2.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+class TestMarginRiskLotAlignment:
+    def test_default_lot_size_aligns_scaled_volume(self):
+        """默认 lot_size=100:缩放后向下对齐到 100 股/手,而非裸 int() 留下零头。
+
+        与 VolatilityRisk 对齐策略一致(LotAlignableMixin,A 股 100 股/手)(#6038)。"""
+        r = MarginRisk(max_leverage_ratio=2.0, forced_liquidation_ratio=1.2)
+        portfolio_info = _make_portfolio_info(margin_info={"current_leverage": 1.6})
+        order = _make_order(volume=1010)
+        result = r.cal(portfolio_info, order)
+        # 触发缩放分支:forced_liquidation_ratio(1.2) ≤ lev(1.6) < max_leverage_ratio(2.0)
+        # factor=(2.0-1.6)/(2.0-1.2)=0.5, scaled=int(1010*0.5)=505, lot=100 → 500
+        assert result is order
+        assert order.volume == 500
+
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效:自定义手数按自定义值对齐,而非硬编码 100。
+
+        框架设计不限于 A 股(100 股/手),lot_size 参数化以支持港股/美股/期货等
+        不同最小交易单位;默认 100 保持 A 股现状。"""
+        r = MarginRisk(max_leverage_ratio=2.0, forced_liquidation_ratio=1.2, lot_size=80)
+        portfolio_info = _make_portfolio_info(margin_info={"current_leverage": 1.6})
+        order = _make_order(volume=1000)
+        result = r.cal(portfolio_info, order)
+        # factor=0.5, scaled=int(1000*0.5)=500, lot_size=80 → (500//80)*80=480
+        assert result is order
+        assert order.volume == 480

@@ -341,3 +341,34 @@ class TestMaxDrawdownRiskPerformance:
         for i in range(10000):
             r._update_peak_values({"worth": 100000 + i, "positions": {}})
         assert len(r._peak_values) <= 10000
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.critical
+@pytest.mark.financial
+class TestMaxDrawdownRiskLotAlignment:
+    def test_default_lot_size_aligns_reduced_volume(self):
+        """默认 lot_size=100:减仓缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。
+
+        cal 返回 deepcopy 副本(#5495 多风险链防污染),断言用 result.volume。"""
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=82500)
+        order = _make_order(volume=1010)
+        result = r.cal(portfolio_info, order)
+        # drawdown=(1-82500/100000)*100=17.5%∈(15,20], factor=(20-17.5)/5=0.5,
+        # scaled=int(1010*0.5)=505, lot=100 → 500
+        assert result is not None
+        assert result.volume == 500
+
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0, lot_size=80)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=82500)
+        order = _make_order(volume=1010)
+        result = r.cal(portfolio_info, order)
+        # scaled=505, lot_size=80 → (505//80)*80=480
+        assert result is not None
+        assert result.volume == 480
