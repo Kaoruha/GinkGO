@@ -280,6 +280,17 @@ class PortfolioMappingService(BaseService):
                     f"cannot bind as {file_type.name}"
                 )
 
+            # #5808: 去重 — 同 (portfolio_uuid, file_id) 已绑定时幂等返回，不创建重复 mapping
+            existing_mappings = self._mapping_crud.find_by_portfolio(portfolio_uuid)
+            for _existing in existing_mappings:
+                if getattr(_existing, "file_id", None) == file_id:
+                    GLOG.INFO(f"文件已绑定，幂等返回: {portfolio_uuid} -> {file_id}")
+                    return ServiceResult.success(data={
+                        "file_id": file_id,
+                        "mapping_id": _existing.uuid,
+                        "already_existed": True,
+                    })
+
             # 1. 创建 MySQL Mapping
             mapping = MPortfolioFileMapping(
                 portfolio_id=portfolio_uuid,
