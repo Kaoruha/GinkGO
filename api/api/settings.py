@@ -6,6 +6,9 @@ from fastapi import APIRouter, HTTPException, status, Request, Query
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
+import ipaddress
+import socket
+from urllib.parse import urlparse
 import bcrypt
 
 from ginkgo.data.containers import container
@@ -21,6 +24,72 @@ router = APIRouter()
 
 
 # ==================== 通用函数 ====================
+
+# #5469: SSRF 防护——webhook test 服务端直发用户可控 URL，须拦内网/云元数据。
+# 显式网络表（版本无关，精确对齐 AC：10/172.16-31/192.168/127/169.254 + IPv6 等价段）。
+_BLOCKED_NETWORKS = (
+    ipaddress.ip_network("127.0.0.0/8"),       # IPv4 loopback
+    ipaddress.ip_network("10.0.0.0/8"),        # RFC1918 私有
+    ipaddress.ip_network("172.16.0.0/12"),     # RFC1918 私有（172.16-31）
+    ipaddress.ip_network("192.168.0.0/16"),    # RFC1918 私有
+    ipaddress.ip_network("169.254.0.0/16"),    # link-local（含云元数据 169.254.169.254）
+    ipaddress.ip_network("0.0.0.0/8"),         # unspecified / current-network
+    ipaddress.ip_network("::1/128"),           # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),          # IPv6 unique-local
+    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
+    ipaddress.ip_network("::/128"),            # IPv6 unspecified
+)
+
+
+def _assert_safe_webhook_url(address: str) -> None:
+    """#5469: 校验 webhook test 目标 URL 防 SSRF，不安全则 HTTPException(400)。
+
+    校验三道：
+    1. scheme 限 http/https（拦 file:///、gopher:// 等）；
+    2. hostname 经 getaddrinfo 解析为 IP——拦域名直写私有段，亦防 DNS rebinding
+       （域名解析期公网、请求期内网）；
+    3. 解析所得 IP 命中 _BLOCKED_NETWORKS 即拒。
+
+    raise HTTPException（非 BusinessError）以穿透端点既有 ``except HTTPException: raise``
+    链（BusinessError 会被 ``except Exception`` 吞成 500，见 arch_httpexception_caught_by_except）。
+    DNS 解析失败 fail-closed（按不安全处理）。
+    """
+    try:
+        parsed = urlparse(address)
+    except Exception as e:
+        logger.warning(f"#5469 SSRF block: malformed URL: {address!r} ({e})")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid webhook URL")
+
+    if parsed.scheme not in ("http", "https"):
+        logger.warning(f"#5469 SSRF block: bad scheme {parsed.scheme!r}: {address!r}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook URL scheme must be http or https")
+
+    hostname = parsed.hostname
+    if not hostname:
+        logger.warning(f"#5469 SSRF block: no hostname: {address!r}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook URL missing hostname")
+
+    # 解析全部 IP（getaddrinfo 可能返回多条；含 v6）。解析失败 fail-closed。
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as e:
+        logger.warning(f"#5469 SSRF block: DNS resolve failed for {hostname!r}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook hostname could not be resolved")
+
+    ips = {info[4][0] for info in infos}
+    for ip_str in ips:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        for net in _BLOCKED_NETWORKS:
+            if ip in net:
+                logger.warning(f"#5469 SSRF block: {hostname!r} resolves to blocked {ip} ({net})")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Webhook URL targets a blocked internal or private network range",
+                )
+
 
 def get_user_service():
     """获取UserService实例"""
@@ -705,6 +774,8 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
             )
         elif contact_type == CONTACT_TYPES.WEBHOOK:
             # Webhook 已实现（下方 requests.post 实发），原 TODO 注释为过期残留（#5595）
+            # #5469: 发送前校验目标 URL 防 SSRF（拦内网/云元数据/scheme），不安全抛 400。
+            _assert_safe_webhook_url(data.address)
             import requests
             try:
                 response = requests.post(
@@ -1761,6 +1832,8 @@ async def test_notification_recipient(uuid: str):
             try:
                 if contact_type in ["DISCORD", "WEBHOOK"]:
                     # 使用 requests 直接发送 Discord Webhook
+                    # #5469: 发送前校验目标 URL 防 SSRF（address 来自 DB contact，用户自设仍可控）。
+                    _assert_safe_webhook_url(address)
                     import requests
                     payload = {
                         "content": test_content.replace("\n", " ").replace("\r", ""),
@@ -1796,6 +1869,10 @@ async def test_notification_recipient(uuid: str):
                     failed_count += 1
                     results.append(f"{contact_type}: 未知类型")
 
+            except HTTPException:
+                # #5469: SSRF 守卫抛的 400 须穿透内层兜底，否则被下方 except Exception
+                # 吞成 "failed"（返 200）。不安全 URL 直接拒整批请求。
+                raise
             except Exception as e:
                 err_name = type(e).__name__
                 if "Timeout" in err_name:
