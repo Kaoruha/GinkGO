@@ -291,7 +291,7 @@ async def create_paper_account(data: CreatePaperAccountRequest):
         logger.info(f"Paper account created: {portfolio_id} ({data.name})")
 
         return ok(
-            data={"account_id": portfolio_id},
+            data={"uuid": portfolio_id},
             message="Paper account created successfully"
         )
 
