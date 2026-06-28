@@ -64,10 +64,12 @@ ginkgo serve worker-backtest --id test2       # 回测 Worker
 - **架构决策记录 (ADR)** → `docs/adrs/README.md`（难逆转/反直觉/真实权衡的决策，触碰架构前先读）
 - **CLI 回测全链路操作指南** → 见下方
 
-## CLI 回测全链路
+## CLI 全链路（构建→回测→模拟盘→实盘）
+
+> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。
 
 ### 流程
-创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行
+创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行 → [deploy 模拟/实盘]
 
 **Python 环境**：`/home/kaoru/.ginkgo/.venv/bin/python`
 
@@ -88,6 +90,13 @@ ginkgo portfolio bind-component <pid> <file_id> --type strategy \
 ginkgo backtest create --portfolio <pid> --start 2025-05-07 --end 2026-05-07 --name "test" --cash 100000
 ginkgo backtest run <backtest_id>
 ginkgo backtest cat <backtest_id>
+
+# 部署（模拟盘/实盘）⚠️ 端到端待复测，见 docs/e2e-cli-flow-audit.md
+ginkgo deploy deploy <pid> --mode paper                          # 模拟盘
+ginkgo deploy deploy <pid> --mode live --account <account_uuid>  # 实盘（需先建账户）
+ginkgo deploy info <deployment_id>                               # 部署详情
+ginkgo account create <user_id> --exchange okx --name "..." --api-key ... --api-secret ...
+ginkgo account list <user_id>
 ```
 
 ### 可用组件
