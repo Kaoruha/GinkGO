@@ -113,7 +113,9 @@ class LogService(BaseService):
                 if strategy_id:
                     conditions.append(MBacktestLog.strategy_id == strategy_id)
                 if level:
-                    conditions.append(MBacktestLog.level == level.upper())
+                    # ClickHouse level 列混大小写存储（arch_log_level_lowercase_storage），
+                    # == 大小写敏感。双向 func.lower 归一，对齐 search_logs。
+                    conditions.append(func.lower(MBacktestLog.level) == level.lower())
                 if trace_id:
                     conditions.append(MBacktestLog.trace_id == trace_id)
                 if event_type:
@@ -181,7 +183,9 @@ class LogService(BaseService):
                 if component_name:
                     conditions.append(MComponentLog.component_name == component_name)
                 if level:
-                    conditions.append(MComponentLog.level == level.upper())
+                    # ClickHouse level 列混大小写存储（arch_log_level_lowercase_storage），
+                    # 双向 func.lower 归一，对齐 search_logs / query_backtest_logs。
+                    conditions.append(func.lower(MComponentLog.level) == level.lower())
                 if start_time:
                     conditions.append(MComponentLog.timestamp >= start_time)
                 if end_time:
