@@ -36,6 +36,7 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
 from ginkgo.entities.mixins import EngineBindableMixin
 from ginkgo.entities.mixins import NamedMixin
+from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin, subscribes
 from ginkgo.trading.bases.selector_base import SelectorBase
 from ginkgo.trading.bases.risk_base import RiskBase
 from ginkgo.trading.bases.sizer_base import SizerBase
@@ -51,14 +52,14 @@ from ginkgo.trading.events.order_lifecycle_events import (
 )
 from ginkgo.entities import Position
 from ginkgo.entities import Order
-from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES, DEFAULT_ANALYZER_SET
+from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES, DEFAULT_ANALYZER_SET, EVENT_TYPES
 from ginkgo.libs import GCONF, GLOG, to_decimal
 
 
 console = Console()
 
 
-class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
+class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMixin,
                    NamedMixin, Base, ABC):
     """
     投资组合组件基类
@@ -550,6 +551,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
         # 绑定引擎到portfolio自身 - ContextMixin.bind_engine在MRO中
         super().bind_engine(engine)
+        # 入方向：注册组件订阅的事件处理器（ADR-017，与出方向 _engine_put 对称）
+        self.register_handlers(engine)
 
         # 如果引擎有TimeProvider，设置给Portfolio
         if engine._time_provider is not None:
@@ -730,15 +733,21 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     def get_position(self, code: str) -> Position:
         raise NotImplementedError("Portfolio must implement get_position method")
 
+    @subscribes(EVENT_TYPES.PRICEUPDATE)
     def on_price_received(self, event: EventPriceUpdate) -> None:
         raise NotImplementedError("Portfolio must implement on_price_received method")
 
+    @subscribes(EVENT_TYPES.SIGNALGENERATION)
     def on_signal(self, event: EventSignalGeneration) -> Optional[Order]:
         raise NotImplementedError("Portfolio must implement on_signal method")
 
+    # 不订阅 ORDERPARTIALLYFILLED：回测路径经 TradeGateway.on_order_partially_filled
+    # 路由器按 portfolio_id 转发调用此方法（方法调用，非引擎订阅）。直接订阅会导致
+    # 引擎触发 + Gateway 路由双重处理。抽象方法保留以约束子类实现供 Gateway 路由调用。
     def on_order_partially_filled(self, event: EventOrderPartiallyFilled) -> None:
         raise NotImplementedError("Portfolio must implement on_order_partially_filled method")
 
+    @subscribes(EVENT_TYPES.ORDERCANCELACK)
     def on_order_cancel_ack(self, event: EventOrderCancelAck) -> None:
         raise NotImplementedError("Portfolio must implement on_order_cancel_ack method")
 

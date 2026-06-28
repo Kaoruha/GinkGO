@@ -35,7 +35,9 @@ from ginkgo.enums import (
     ORDERSTATUS_TYPES,
     RECORDSTAGE_TYPES,
     PORTFOLIO_RUNSTATE_TYPES,
+    EVENT_TYPES,
 )
+from ginkgo.trading.mixins.subscribable_mixin import subscribes
 
 from ginkgo.libs import datetime_normalize, to_decimal, GLOG
 from ginkgo.libs.core.config import GCONF
@@ -187,6 +189,7 @@ class PortfolioLive(PortfolioBase):
 
         return order_event
 
+    @subscribes(EVENT_TYPES.PRICEUPDATE)
     def on_price_update(self, event: EventPriceUpdate):
         """
         处理价格更新事件（实盘交易入口）
@@ -250,6 +253,7 @@ class PortfolioLive(PortfolioBase):
 
         return events
 
+    @subscribes(EVENT_TYPES.ORDERPARTIALLYFILLED, EVENT_TYPES.ORDERFILLED)
     def on_order_partially_filled(self, event: EventOrderPartiallyFilled):
         """
         处理订单成交事件（实盘交易入口）

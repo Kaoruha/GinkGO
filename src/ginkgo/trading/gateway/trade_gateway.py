@@ -32,6 +32,7 @@ from ginkgo.trading.events.order_lifecycle_events import (
     EventOrderAck, EventOrderPartiallyFilled, EventOrderRejected,
     EventOrderExpired, EventOrderCancelAck
 )
+from ginkgo.trading.mixins.subscribable_mixin import subscribes
 
 
 class TradeGateway(BaseTradeGateway):
@@ -174,6 +175,7 @@ class TradeGateway(BaseTradeGateway):
         GLOG.DEBUG(f"Order {order.code} routed to {market} broker: {broker.__class__.__name__}")
         return broker
 
+    @subscribes(EVENT_TYPES.ORDERACK)
     def on_order_ack(self, event, *args, **kwargs) -> None:
         """
         统一订单确认处理 - 支持同步/异步模式
@@ -225,6 +227,7 @@ class TradeGateway(BaseTradeGateway):
             # 模拟盘/实盘：异步执行
             self._handle_async_execution(order, selected_broker, execution_mode)
 
+    @subscribes(EVENT_TYPES.PRICEUPDATE)
     def on_price_received(self, event, *args, **kwargs) -> None:
         """
         价格接收处理 - 只对回测模式传递价格
@@ -855,6 +858,7 @@ class TradeGateway(BaseTradeGateway):
             GLOG.ERROR(f"Failed to register portfolio to router: {e}")
             raise
 
+    @subscribes(EVENT_TYPES.ORDERPARTIALLYFILLED)
     def on_order_partially_filled(self, event) -> None:
         """
         处理ORDERPARTIALLYFILLED事件，按portfolio_id路由到对应的Portfolio
