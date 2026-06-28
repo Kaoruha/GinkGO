@@ -34,9 +34,9 @@ class BacktestAssignmentConfig(BaseModel):
     契约化后此表是唯一源，worker BacktestConfig 默认删除（迁移 ③）。
     """
 
-    # required
-    start_date: str
-    end_date: str
+    # required（min_length=1 拒空串，ADR-018 第⑤步补第③步删 worker 校验后的真空）
+    start_date: str = Field(min_length=1)
+    end_date: str = Field(min_length=1)
 
     # optional（唯一默认表 —— 改任一处须同步 service 哨兵 :712 的 100000.0）
     initial_cash: float = 100000.0

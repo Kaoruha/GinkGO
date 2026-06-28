@@ -134,15 +134,20 @@ class TestStartTaskRestoresConfigFromSnapshot:
 
     @pytest.mark.unit
     def test_fallback_when_config_snapshot_empty(self, service):
-        """config_snapshot 为空时回退到默认值"""
+        """config_snapshot 为空且无 DB dates → ADR-018 第⑤步收敛：缺 dates 在 service 层
+        DTO 构造期即拒（Field min_length=1），不进 Kafka（#5646）。
+
+        旧 #5839 断言「空 snapshot 回退空串仍派发」已与此矛盾——空 dates 派发给 worker 是
+        #5646 要修的 bug（worker 侧字面校验第③步已删，DTO 是唯一关口）。
+        config_snapshot 空时 initial_cash 等可选字段的默认表归 DTO BacktestAssignmentConfig，
+        不再有「空 snapshot 派发空 dates」路径。
+        """
         task = _make_task(config_snapshot="{}", backtest_start_date=None, backtest_end_date=None)
         _setup_task(service, task)
 
         with _mock_kafka_and_container() as mock_producer:
             result = service.start_task(uuid="uuid-1234-5678")
 
-        assert result.is_success()
-        config = _get_kafka_config(mock_producer)
-        assert config["start_date"] == ""
-        assert config["end_date"] == ""
-        assert config["initial_cash"] == 100000.0
+        assert not result.is_success(), \
+            f"空 snapshot 无 dates 应在 service 层被拒（ADR-018⑤），got success"
+        mock_producer.send.assert_not_called()

@@ -601,15 +601,6 @@ class BacktestTaskService(BaseService):
                     f"Task must be in one of: {', '.join(startable_states)}"
                 )
 
-            # 校验 portfolio 关联：派发前确认 portfolio_uuid 可解析，否则 worker
-            # 消费空值时会报误导性的 'portfolio_uuid is required'（#5646）
-            if not (portfolio_uuid or task.portfolio_id):
-                return ServiceResult.error(
-                    f"Backtest task '{task.uuid[:8]}' has no portfolio associated. "
-                    f"Recreate the backtest with a valid --portfolio binding so the "
-                    f"worker receives a non-empty portfolio_uuid."
-                )
-
             # ========== 重新运行：删除旧数据 ==========
             task_id = task.task_id
 
@@ -712,17 +703,22 @@ class BacktestTaskService(BaseService):
             if initial_cash != 100000.0 or "initial_cash" not in kafka_config:
                 kafka_config["initial_cash"] = initial_cash
 
-            # ADR-018：手搓 dict literal → 判别联合 DTO（构造期校验 + 唯一默认表 + dict 序列化）
+            # ADR-018 第⑤步：DTO 构造期校验（缺 portfolio_uuid/空 dates 等）取代手写预校验，
+            # 缺字段在 service 层即拒，不进 Kafka（#5646 收敛）
+            from pydantic import ValidationError
             from ginkgo.interfaces.dtos.backtest_assignment_dto import (
                 BacktestAssignmentConfig, StartAssignment,
             )
             producer = GinkgoProducer()
-            assignment = StartAssignment(
-                task_uuid=task_id,  # task_id 保持不变
-                portfolio_uuid=portfolio_uuid or task.portfolio_id,
-                name=name or task.name or f"backtest_{task_id[:8]}",
-                config=BacktestAssignmentConfig(**kafka_config),
-            ).to_payload()
+            try:
+                assignment = StartAssignment(
+                    task_uuid=task_id,  # task_id 保持不变
+                    portfolio_uuid=portfolio_uuid or task.portfolio_id,
+                    name=name or task.name or f"backtest_{task_id[:8]}",
+                    config=BacktestAssignmentConfig(**kafka_config),
+                ).to_payload()
+            except ValidationError as e:
+                return ServiceResult.error(f"Invalid backtest assignment config: {e}")
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)

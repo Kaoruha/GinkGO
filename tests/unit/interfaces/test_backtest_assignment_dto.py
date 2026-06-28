@@ -133,6 +133,12 @@ class TestRejectMalformed:
             from_payload({"task_uuid": "t", "portfolio_uuid": "p", "name": "n",
                           "command": "start", "config": {}})
 
+    def test_start_empty_dates_rejected(self):
+        """空串 dates 视同缺失（ADR-018 第⑤步：补第③步删 worker 校验后的真空）。"""
+        with pytest.raises(MalformedAssignmentError):
+            from_payload({"task_uuid": "t", "portfolio_uuid": "p", "name": "n",
+                          "command": "start", "config": {"start_date": "", "end_date": "2025-01-01"}})
+
 
 # ---------- stop/cancel 多余字段忽略（守护在返回类型层面）----------
 
