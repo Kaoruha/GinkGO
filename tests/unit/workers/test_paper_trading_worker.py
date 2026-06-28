@@ -551,6 +551,59 @@ class TestDeploy:
         assert result is True
         mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)
 
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_deploy_seeds_selector_pick_after_add_portfolio(self, mock_portfolio_cls, mock_loader):
+        """#6473: _handle_deploy 应在 add_portfolio 后种子化 selector._interested。
+
+        运行时 deploy 路径漏调 selector.pick()（worker 启动 INIT 路径 L182-192 调了，
+        带 #6159 注释）→ selector._interested 空 → 不发 EventInterestUpdate →
+        BacktestFeeder _interested_codes 永不更新 → advance_time 喂 0 bar →
+        _run_live_paper_cycle skip → 0 signal/order（状态却 RUNNING）。仅 worker
+        重启愈合。验收：deploy 后无需重启即产信号。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_engine = MagicMock()
+        mock_engine.portfolios = []
+        worker._engine = mock_engine
+
+        mock_selector = MagicMock()
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance.uuid = "p-new-001"
+        # 装配后 portfolio 持有 selector 列表（与 INIT 测试 L113 同款 mock）
+        mock_portfolio_instance._selectors = [mock_selector]
+        mock_portfolio_cls.return_value = mock_portfolio_instance
+
+        mock_components = {
+            "strategies": [], "risk_managers": [],
+            "analyzers": [], "selectors": [], "sizers": [],
+        }
+        mock_container = MagicMock()
+        mock_crud = MagicMock()
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-new-001"
+        mock_db_portfolio.code = "test-portfolio"
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value=mock_components):
+            with patch("ginkgo.services", create=True) as mock_services:
+                mock_services.data.container = mock_container
+                result = worker._handle_deploy({"portfolio_id": "p-new-001"})
+
+        assert result is True
+        mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)
+        # #6473: deploy 后必须种子化 selector._interested（否则 feeder 0 行情 → 0 signal）
+        mock_selector.pick.assert_called_once()
+        # #6159: pick 必须传非 None time（MomentumSelector.pick(time=None) 崩溃）
+        pick_args = mock_selector.pick.call_args.args
+        pick_kwargs = mock_selector.pick.call_args.kwargs
+        time_arg = pick_args[0] if pick_args else pick_kwargs.get("time")
+        assert time_arg is not None, "selector.pick 必须传非 None time（#6159 bug#6）"
+
     def test_deploy_without_engine_returns_false(self):
         """引擎未初始化时 deploy 应返回 False"""
         from ginkgo.workers.paper_trading_worker import PaperTradingWorker

@@ -178,23 +178,9 @@ class PaperTradingWorker:
         # 6. 绑定 Gateway + Broker
         engine.bind_router(gateway)
 
-        # 7. 初始化 selector interested codes
+        # 7. 初始化 selector interested codes（INIT 与 _handle_deploy 共用 _seed_selectors）
         for portfolio in engine.portfolios:
-            try:
-                if hasattr(portfolio, "_selectors") and portfolio._selectors:
-                    for selector in portfolio._selectors:
-                        if hasattr(selector, "pick"):
-                            # #6159 bug#6: 必须传非 None time。MomentumSelector.pick(time=None)
-                            # → datetime_normalize(None)=None → None-timedelta 崩溃 → selector
-                            # 选股失败 → _interested_codes 空 → feeder WARN "No interested symbols"
-                            # → PRICEUPDATE=0 → signal=0。传 now() 作种子；后续 portfolio.advance_time
-                            # 会用 time provider 的逻辑时间重新 pick 覆盖。CNAllSelector 不用 time 不受影响。
-                            selector.pick(datetime.now())
-            except Exception as e:
-                GLOG.WARN(
-                    f"[PAPER-WORKER] selector.pick() failed for "
-                    f"{portfolio.name}: {e}"
-                )
+            self._seed_selectors(portfolio)
 
         # 8. 恢复状态 / 首次初始化（在设置 task_id 和 time provider 之前，需要读取持久化时间）
         portfolio_service = container.portfolio_service()
@@ -839,6 +825,31 @@ class PaperTradingWorker:
             GLOG.ERROR(f"[PAPER-WORKER] Engine advance error: {e}")
             return DailyCycleResult(skipped=False, advanced=False)
 
+    def _seed_selectors(self, portfolio) -> None:
+        """种子化 portfolio 各 selector 的 _interested，发布首轮 EventInterestUpdate。
+
+        INIT 启动路径（assemble_engine 第 7 步）与运行时部署路径（_handle_deploy）
+        共用此 helper，消除装配不对称：
+        - 不调 → selector._interested 空 → 不发 EventInterestUpdate → BacktestFeeder
+          _interested_codes 永不更新 → advance_time 喂 0 bar → _run_live_paper_cycle
+          skip → 0 signal/order（状态却 RUNNING，仅 worker 重启愈合）。#6473
+        - #6159 bug#6: pick(time=None) → datetime_normalize(None)=None → None-timedelta
+          崩溃（MomentumSelector）。故传 datetime.now() 作种子；后续 portfolio.advance_time
+          会用 time provider 的逻辑时间重新 pick 覆盖。CNAllSelector 不用 time 不受影响。
+        """
+        try:
+            if not (hasattr(portfolio, "_selectors") and portfolio._selectors):
+                return
+            for selector in portfolio._selectors:
+                if hasattr(selector, "pick"):
+                    selector.pick(datetime.now())
+        except Exception as e:
+            name = getattr(portfolio, "name", "?")
+            GLOG.WARN(
+                f"[PAPER-WORKER] selector.pick() failed for "
+                f"{name}: {e}"
+            )
+
     def _handle_deploy(self, params: Dict) -> bool:
         """
         处理 deploy 命令：动态加载新 Portfolio 到引擎
@@ -917,6 +928,10 @@ class PaperTradingWorker:
             # 添加到引擎
             with self._lock:
                 self._engine.add_portfolio(portfolio)
+
+            # #6473: 种子化 selector _interested（与 INIT 启动路径 assemble_engine 第 7 步对称）。
+            # 不调 → feeder 收不到 EventInterestUpdate → 0 行情 → 0 signal（状态却 RUNNING）。
+            self._seed_selectors(portfolio)
 
             GLOG.INFO(
                 f"[PAPER-WORKER] Deployed portfolio {db_portfolio.name} "
