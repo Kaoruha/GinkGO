@@ -46,20 +46,24 @@ class AnalyzerConfig:
 
 @dataclass
 class BacktestConfig:
-    """回测配置"""
+    """回测配置（状态主体，ADR-018：默认表归 DTO BacktestAssignmentConfig）
+
+    无默认值——所有 11 字段 required。映射函数 assignment_to_backtest_config 显式传全；
+    进程内直接构造（测试/CLI 直跑）也须显式传全，杜绝 BacktestConfig↔DTO 默认 drift。
+    """
 
     start_date: str
     end_date: str
-    initial_cash: float = 100000.0
-    commission_rate: float = 0.0003
-    slippage_rate: float = 0.0001
-    benchmark_return: float = 0.0
-    max_position_ratio: float = 0.3
-    stop_loss_ratio: float = 0.05
-    take_profit_ratio: float = 0.15
-    frequency: str = "DAY"
+    initial_cash: float
+    commission_rate: float
+    slippage_rate: float
+    benchmark_return: float
+    max_position_ratio: float
+    stop_loss_ratio: float
+    take_profit_ratio: float
+    frequency: str
     # 分析器配置（Engine 级别）
-    analyzers: list[AnalyzerConfig] = field(default_factory=list)
+    analyzers: list[AnalyzerConfig]
 
 
 def assignment_to_backtest_config(cmd) -> "BacktestConfig":
