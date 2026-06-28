@@ -11,8 +11,10 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 - **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX
 - **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
 - **Web UI**: Vue 3 + shadcn-vue + Tailwind CSS dashboard for backtest/portfolio/component management
-- **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery
+- **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery (⚠️ CLI end-to-end status — see [e2e audit](docs/e2e-cli-flow-audit.md))
 - **CLI Interface**: Typer-based CLI with Rich formatting
+
+> **CLI pipeline status (2026-06-28 verified)**: Build ✅ · Backtest ⚠️ (data traps, no pre-check) · Paper trading ⚠️ (core fix #6164 landed, end-to-end pending re-test) · Live ⚠️ (integration ready, end-to-end pending). Details: [docs/e2e-cli-flow-audit.md](docs/e2e-cli-flow-audit.md).
 
 ## Architecture
 
@@ -266,6 +268,28 @@ ginkgo backtest cat <backtest_id>
 ginkgo backtest list
 ```
 
+### Deployment (Paper / Live)
+
+> ⚠️ End-to-end status: see [e2e audit](docs/e2e-cli-flow-audit.md). Paper-trading core fix landed (#6164 deploy-clone completeness); full paper/live pipeline pending end-to-end re-test.
+
+```bash
+ginkgo deploy deploy <portfolio_id> --mode paper                # Paper trading deployment
+ginkgo deploy deploy <portfolio_id> --mode live --account <id>  # Live deployment (needs a live account)
+ginkgo deploy info <deployment_id>                              # Deployment details
+ginkgo deploy list                                              # List deployments
+```
+
+### Live Account Management
+
+> Added in #6284. Create an account first, then use its UUID with `deploy --mode live --account <id>`.
+
+```bash
+ginkgo account create <user_id> --exchange okx --name "my_okx" \
+  --api-key <key> --api-secret <secret> [--passphrase <pp>] [--environment testnet]
+ginkgo account list <user_id>
+ginkgo account get <account_uuid>
+```
+
 ### Worker Management
 
 ```bash
@@ -320,6 +344,8 @@ Features: portfolio management, backtest creation/monitoring, component editor (
 
 ## Live Trading
 
+> ⚠️ **Status**: OKX integration code is in place (classes below) and the CLI is wired (`ginkgo account` + `ginkgo deploy --mode live`, landed in #6284), but the end-to-end path (real account → order routing → fill) has not been re-verified since the 2026-06-22 audit. See [e2e audit](docs/e2e-cli-flow-audit.md).
+
 OKX exchange integration with:
 
 - **LiveEngine**: Unified lifecycle management
@@ -328,8 +354,13 @@ OKX exchange integration with:
 - **HeartbeatMonitor**: Timeout detection and recovery
 
 ```bash
+# Low-level engine lifecycle
 python -m ginkgo.livecore.main live-start   # Start live engine
 python -m ginkgo.livecore.main live-status  # Check status
+
+# High-level CLI pipeline: create account → deploy live
+ginkgo account create <user_id> --exchange okx --name "my_okx" --api-key <key> --api-secret <secret>
+ginkgo deploy deploy <portfolio_id> --mode live --account <account_uuid>
 ```
 
 ## System Requirements
