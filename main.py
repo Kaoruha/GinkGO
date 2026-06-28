@@ -189,7 +189,7 @@ def _register_all_commands():
                     from ginkgo.config.package import PACKAGENAME, VERSION
                     print(f"✨ {PACKAGENAME} {VERSION}")
                 except ImportError:
-                    print("✨ ginkgo 0.8.1")
+                    print("✨ ginkgo (version unavailable)")
             finally:
                 if str(config_path) in sys.path:
                     sys.path.remove(str(config_path))
@@ -207,7 +207,7 @@ if __name__ == "__main__":
             print(f"✨ {package.PACKAGENAME} {package.VERSION}")
             sys.path.remove(str(config_path))
         except:
-            print("✨ ginkgo 0.8.1")
+            print("✨ ginkgo (version unavailable)")
         sys.exit(0)
     
     # 正常路径：加载完整的CLI
