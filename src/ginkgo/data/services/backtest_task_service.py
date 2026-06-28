@@ -695,8 +695,8 @@ class BacktestTaskService(BaseService):
             # 构建 Kafka config：从 config_snapshot 恢复，显式参数覆盖
             kafka_config = {}
             # 从 snapshot 恢复所有字段作为基础
+            # ADR-018：死字段 broker_type/broker_attitude/commission_min 不进 wire spec（消费端 BacktestConfig 不读）
             for key in ("initial_cash", "commission_rate", "slippage_rate", "frequency",
-                        "broker_type", "broker_attitude", "commission_min",
                         "benchmark_return", "max_position_ratio",
                         "stop_loss_ratio", "take_profit_ratio"):
                 if key in snapshot_config:
@@ -712,14 +712,17 @@ class BacktestTaskService(BaseService):
             if initial_cash != 100000.0 or "initial_cash" not in kafka_config:
                 kafka_config["initial_cash"] = initial_cash
 
+            # ADR-018：手搓 dict literal → 判别联合 DTO（构造期校验 + 唯一默认表 + dict 序列化）
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import (
+                BacktestAssignmentConfig, StartAssignment,
+            )
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # task_id 保持不变
-                "portfolio_uuid": portfolio_uuid or task.portfolio_id,
-                "name": name or task.name or f"backtest_{task_id[:8]}",
-                "command": "start",
-                "config": kafka_config,
-            }
+            assignment = StartAssignment(
+                task_uuid=task_id,  # task_id 保持不变
+                portfolio_uuid=portfolio_uuid or task.portfolio_id,
+                name=name or task.name or f"backtest_{task_id[:8]}",
+                config=BacktestAssignmentConfig(**kafka_config),
+            ).to_payload()
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
@@ -764,11 +767,10 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
             task_id = task.task_id   # 任务标识
+            # ADR-018：StopAssignment.to_payload() —— 判别联合，command 是类型标记非手写字段
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import StopAssignment
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # 使用 task_id
-                "command": "stop",
-            }
+            assignment = StopAssignment(task_uuid=task_id).to_payload()  # 使用 task_id
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
@@ -817,11 +819,10 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
             task_id = task.task_id   # 任务标识
+            # ADR-018：CancelAssignment.to_payload() —— 判别联合
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import CancelAssignment
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # 使用 task_id
-                "command": "cancel",
-            }
+            assignment = CancelAssignment(task_uuid=task_id).to_payload()  # 使用 task_id
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
