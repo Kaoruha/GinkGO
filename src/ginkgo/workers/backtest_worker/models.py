@@ -62,6 +62,37 @@ class BacktestConfig:
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
 
 
+def assignment_to_backtest_config(cmd) -> "BacktestConfig":
+    """ADR-018：StartAssignment（DTO 信使）→ BacktestConfig（worker 状态主体）。
+
+    第三者胶水映射，不挂 DTO 也不挂状态主体（ADR-010 信使/主体分离）。
+    analyzers list[dict] → list[AnalyzerConfig]，字段不全转 MalformedAssignmentError
+    （与消费端窄捕一致）。DTO 唯一默认表已填齐 9 optional，此处逐字段复制。
+    """
+    from ginkgo.interfaces.dtos.backtest_assignment_dto import MalformedAssignmentError
+
+    cfg = cmd.config
+    analyzers = []
+    for d in cfg.analyzers:
+        try:
+            analyzers.append(AnalyzerConfig(**d))
+        except TypeError as e:
+            raise MalformedAssignmentError(f"invalid analyzer config {d!r}: {e}") from e
+    return BacktestConfig(
+        start_date=cfg.start_date,
+        end_date=cfg.end_date,
+        initial_cash=cfg.initial_cash,
+        commission_rate=cfg.commission_rate,
+        slippage_rate=cfg.slippage_rate,
+        benchmark_return=cfg.benchmark_return,
+        max_position_ratio=cfg.max_position_ratio,
+        stop_loss_ratio=cfg.stop_loss_ratio,
+        take_profit_ratio=cfg.take_profit_ratio,
+        frequency=cfg.frequency,
+        analyzers=analyzers,
+    )
+
+
 @dataclass
 class BacktestTask:
     """回测任务"""
