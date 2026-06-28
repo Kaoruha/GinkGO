@@ -40,6 +40,36 @@ def _normalize_stock_code(code: str) -> str:
     return code
 
 
+class SyncStats:
+    """#6054: data sync 三态计数器 + 统一汇总格式。
+
+    day/tick/adjustfactor 三分支共用，避免每分支独立维护 success/error[/skipped]
+    计数与拼接字符串导致格式漂移（day 加 skipped_count 时 tick/adjustfactor 未同步，
+    adjustfactor 的 no-data 情况漏计数——均是不抽象的代价）。
+    """
+
+    def __init__(self) -> None:
+        self.success = 0
+        self.skipped = 0
+        self.errors = 0
+
+    def record_success(self) -> None:
+        self.success += 1
+
+    def record_skipped(self) -> None:
+        self.skipped += 1
+
+    def record_error(self) -> None:
+        self.errors += 1
+
+    def summary(self, type_name: str) -> str:
+        """统一汇总行：``{Type} sync completed. Success: N, Skipped: S, Errors: M``。"""
+        return (
+            f"{type_name} sync completed. "
+            f"Success: {self.success}, Skipped: {self.skipped}, Errors: {self.errors}"
+        )
+
+
 @app.command()
 def get(
     data_type: str = typer.Argument(..., help="Data type to get (stockinfo/day/tick/adjustfactor/sources) \\[planned: calendar]"),
@@ -591,9 +621,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
-                skipped_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -621,22 +649,22 @@ def sync(
                             except (AttributeError, TypeError, ValueError):
                                 records_added = 0
                             if records_added > 0:
-                                success_count += 1
+                                stats.record_success()
                                 console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
                             else:
-                                skipped_count += 1
+                                stats.record_skipped()
                                 console.print(f":warning: {current_code} — no data available from source")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
                             console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Day sync completed. Success: {success_count}, Skipped: {skipped_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Day')}")
 
             except Exception as e:
                 console.print(f":x: Error in day sync process: {e}")
@@ -666,8 +694,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -689,19 +716,19 @@ def sync(
                             result = tick_service.sync_smart(current_code)
 
                         if result and result.is_success():
-                            success_count += 1
+                            stats.record_success()
                             console.print(f":white_check_mark: {current_code} sync completed")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
                             console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Tick sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Tick')}")
 
             except Exception as e:
                 console.print(f":x: Error in tick sync process: {e}")
@@ -730,8 +757,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -770,10 +796,11 @@ def sync(
                             except (AttributeError, TypeError, ValueError):
                                 records_added = 0
                             if records_added > 0:
-                                success_count += 1
+                                stats.record_success()
                                 console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
                             else:
-                                # service.sync 成功但源端无数据：不算成功计数，避免误导（#6053）
+                                # service.sync 成功但源端无数据：计 skipped（#6053/#6054 统一三态）
+                                stats.record_skipped()
                                 console.print(f":warning: {current_code} — no adjustfactor data available from source")
 
                             # 同步完成后立即计算该股票的复权因子
@@ -786,7 +813,7 @@ def sync(
                                 if hasattr(calc_result, 'error') and calc_result.error:
                                     console.print(f"   Error: {calc_result.error}")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             console.print(f":x: {current_code} sync failed")
                             if hasattr(result, 'error') and result.error:
                                 console.print(f"   Error: {result.error}")
@@ -794,11 +821,11 @@ def sync(
                                 console.print(f"   Message: {result.message}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Adjustfactor sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Adjustfactor')}")
 
             except Exception as e:
                 console.print(f":x: Error in adjustfactor sync process: {e}")
