@@ -31,7 +31,7 @@ class FixedSelector(BaseSelector):
             GLOG.WARNING(
                 f"FixedSelector({name}) codes 为空，pick() 将始终返回空列表，"
                 f"回测会零信号/零交易。请在 portfolio bind-component 时设置 codes "
-                f"(如 --param '0:\"000001.SZ\"')。(#5363)"
+                f"(如 --param 'codes:\"000001.SZ\"')。(#5363)"
             )
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
