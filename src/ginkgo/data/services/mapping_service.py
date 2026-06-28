@@ -19,6 +19,7 @@ Mapping Service - 统一管理所有映射关系
 提供统一的接口和业务逻辑，避免在各个地方直接操作CRUD。
 """
 
+import pandas as pd
 from typing import List, Dict, Any, Optional
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -336,6 +337,44 @@ class MappingService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"获取Engine-Portfolio映射失败: {str(e)}")
+
+    def get_engine_portfolio_mappings_df(self, engine_uuid: str = None) -> ServiceResult:
+        """出口：data 是 pandas.DataFrame（类型即契约）。ADR-010 _df 范式（#6136）。
+
+        消除调用方 ``result.data.to_dataframe()`` 反模式与对不存在复数方法的死调用。
+        """
+        try:
+            filters = {}
+            if engine_uuid:
+                filters["engine_id"] = engine_uuid
+            model_list = self._engine_portfolio_mapping_crud.find(filters=filters)
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} engine-portfolio mappings (DataFrame)",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"查询engine-portfolio映射(df)失败: {str(e)}")
+            return ServiceResult.error(f"查询engine-portfolio映射(df)失败: {str(e)}")
+
+    def get_portfolio_file_mappings_df(self, portfolio_uuid: str = None) -> ServiceResult:
+        """出口：data 是 pandas.DataFrame（类型即契约）。ADR-010 _df 范式（#6136）。
+
+        消除调用方 ``result.data.to_dataframe()`` 反模式与对不存在方法的死调用。
+        """
+        try:
+            filters = {}
+            if portfolio_uuid:
+                filters["portfolio_id"] = portfolio_uuid
+            model_list = self._portfolio_file_mapping_crud.find(filters=filters)
+            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            return ServiceResult.success(
+                data=df,
+                message=f"Retrieved {len(df)} portfolio-file mappings (DataFrame)",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"查询portfolio-file映射(df)失败: {str(e)}")
+            return ServiceResult.error(f"查询portfolio-file映射(df)失败: {str(e)}")
 
     @retry(max_try=3)
     def delete_engine_portfolio_mapping(self, engine_uuid: str, portfolio_uuid: str) -> ServiceResult:

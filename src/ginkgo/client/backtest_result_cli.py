@@ -76,6 +76,8 @@ def show(
     """
     from ginkgo.data.containers import container
     from ginkgo.enums import FILE_TYPES
+    import pandas as pd
+    from ginkgo.libs.utils.display import display_dataframe
 
     # 新方式：按 task_id 查询
     if task_id is not None:
@@ -109,14 +111,12 @@ def show(
         )
         return
     if portfolio is None:
-        # 使用新的Service API获取引擎-投资组合映射
-        engine_service = container.engine_service()
-        mappings_result = engine_service.get_engine_portfolio_mappings(engine)
+        # 使用 mapping_service._df 出口获取引擎-投资组合映射（#6136: data 即 DataFrame）
+        mapping_service = container.mapping_service()
+        mappings_result = mapping_service.get_engine_portfolio_mappings_df(engine_uuid=engine)
 
         if mappings_result.success:
             mappings_df = mappings_result.data
-            if hasattr(mappings_df, 'to_dataframe'):
-                mappings_df = mappings_df.to_dataframe()
         else:
             console.print(f":x: Failed to get engine-portfolio mappings: {mappings_result.error}")
             mappings_df = pd.DataFrame()  # 空DataFrame作为fallback
