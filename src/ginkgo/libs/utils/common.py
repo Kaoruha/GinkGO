@@ -15,6 +15,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeEl
 from ginkgo.libs.core.config import GinkgoConfig
 
 console = Console()
+# #6465: 诊断专用 console，走 stderr。模块级共享 `console` 默认写 stdout，被
+# data_cli 的 `-r` 纯 JSON 业务输出复用；time_logger/retry 的 FUNCTION 等诊断
+# 若也走它，会污染机器可读输出。诊断一律切到 stderr，stdout 只留业务结果。
+console_err = Console(stderr=True)
 _gconf = GinkgoConfig()
 
 
@@ -125,8 +129,8 @@ def time_logger(func=None, *, enabled=None, threshold=None, profile_mode=None):
                 # 异常情况下总是记录性能数据
                 duration = time.time() - start_time
                 if show_log or duration > actual_threshold:
-                    console.print(f":warning: FUNCTION [red]{f.__name__}[/] failed after {format_time_seconds(duration)}")
-                console.print_exception()
+                    console_err.print(f":warning: FUNCTION [red]{f.__name__}[/] failed after {format_time_seconds(duration)}")
+                console_err.print_exception()
                 raise
             finally:
                 if should_monitor or actual_profile_mode:
@@ -145,7 +149,7 @@ def time_logger(func=None, *, enabled=None, threshold=None, profile_mode=None):
                         else:  # 正常
                             icon, color = ":zap:", "green"
                             
-                        console.print(f"{icon} FUNCTION [{color}]{f.__name__}[/] executed in {format_time_seconds(duration)}")
+                        console_err.print(f"{icon} FUNCTION [{color}]{f.__name__}[/] executed in {format_time_seconds(duration)}")
 
         return wrapper
     
@@ -223,7 +227,7 @@ def skip_if_ran(func=None, *, cache_provider=None):
                     _cache[cache_key] = "Yeah"
                 return result
             except Exception as e:
-                console.print_exception()
+                console_err.print_exception()
 
         return wrapper
 
@@ -264,19 +268,19 @@ def retry(func=None, *, max_try: int = None, backoff_factor: float = None):
                     return f(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
-                    console.print(f"[red]Retry FUNCTION [yellow]{f.__name__}[/] {i+1}/{actual_max_try}[/red]")
+                    console_err.print(f"[red]Retry FUNCTION [yellow]{f.__name__}[/] {i+1}/{actual_max_try}[/red]")
                     if i >= actual_max_try - 1:
-                        console.print_exception()
+                        console_err.print_exception()
                         raise e
                     else:
                         if GCONF.DEBUGMODE:
                             # Debug模式：跳过等待，立即重试
-                            console.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{actual_max_try}[/]")
+                            console_err.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{actual_max_try}[/]")
                         else:
                             # 使用配置的退避因子计算等待时间
                             base_sleep = 30  # 基础等待时间30秒
                             sleep_time = int(base_sleep * (actual_backoff_factor ** i))
-                            console.print(
+                            console_err.print(
                                 f"[yellow]Starting wait: {sleep_time} seconds before retry {i+2}/{actual_max_try}[/]"
                             )
 
