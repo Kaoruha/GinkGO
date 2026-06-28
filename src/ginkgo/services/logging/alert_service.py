@@ -3,6 +3,7 @@
 # Role: 日志告警服务，监控日志错误模式并发送多渠道告警通知
 
 import hashlib
+import html
 import json
 import smtplib
 import time
@@ -364,11 +365,11 @@ class AlertService(BaseService):
                 "msgtype": "markdown",
                 "markdown": {
                     "title": content["title"],
-                    "text": f"## {content['title']}\n\n"
-                            f"**消息**: {content['message']}\n\n"
-                            f"**错误模式**: `{content['pattern']}`\n\n"
-                            f"**规则ID**: {content['rule_id']}\n\n"
-                            f"**时间**: {content['timestamp']}"
+                    "text": f"## {html.escape(content['title'])}\n\n"
+                            f"**消息**: {html.escape(content['message'])}\n\n"
+                            f"**错误模式**: `{html.escape(content['pattern'])}`\n\n"
+                            f"**规则ID**: {html.escape(content['rule_id'])}\n\n"
+                            f"**时间**: {html.escape(content['timestamp'])}"
                 }
             }
 
@@ -412,11 +413,11 @@ class AlertService(BaseService):
             message = {
                 "msgtype": "markdown",
                 "markdown": {
-                    "content": f"## {content['title']}\n"
-                               f"> 消息: {content['message']}\n"
-                               f"> 错误模式: <font color=\"warning\">{content['pattern']}</font>\n"
-                               f"> 规则ID: {content['rule_id']}\n"
-                               f"> 时间: {content['timestamp']}"
+                    "content": f"## {html.escape(content['title'])}\n"
+                               f"> 消息: {html.escape(content['message'])}\n"
+                               f"> 错误模式: <font color=\"warning\">{html.escape(content['pattern'])}</font>\n"
+                               f"> 规则ID: {html.escape(content['rule_id'])}\n"
+                               f"> 时间: {html.escape(content['timestamp'])}"
                 }
             }
 
@@ -466,11 +467,11 @@ class AlertService(BaseService):
             html_body = f"""
             <html>
               <body>
-                <h2>{content['title']}</h2>
-                <p><strong>消息:</strong> {content['message']}</p>
-                <p><strong>错误模式:</strong> <code>{content['pattern']}</code></p>
-                <p><strong>规则ID:</strong> {content['rule_id']}</p>
-                <p><strong>时间:</strong> {content['timestamp']}</p>
+                <h2>{html.escape(content['title'])}</h2>
+                <p><strong>消息:</strong> {html.escape(content['message'])}</p>
+                <p><strong>错误模式:</strong> <code>{html.escape(content['pattern'])}</code></p>
+                <p><strong>规则ID:</strong> {html.escape(content['rule_id'])}</p>
+                <p><strong>时间:</strong> {html.escape(content['timestamp'])}</p>
               </body>
             </html>
             """
