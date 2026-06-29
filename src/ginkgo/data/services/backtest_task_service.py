@@ -601,6 +601,17 @@ class BacktestTaskService(BaseService):
                     f"Task must be in one of: {', '.join(startable_states)}"
                 )
 
+            # 校验 portfolio 关联：派发前确认 portfolio_uuid 可解析，否则 worker
+            # 消费空值时会报误导性的 'portfolio_uuid is required'（#5646）
+            # 时序不变式：必须在清理块（删 9 表，CH 不可逆）之前——孤儿任务在删数据前即拒，
+            # 否则历史 order/position/signal/analyzer 被永久删除后才在 DTO 处拒绝（#6461 回归）
+            if not (portfolio_uuid or task.portfolio_id):
+                return ServiceResult.error(
+                    f"Backtest task '{task.uuid[:8]}' has no portfolio associated. "
+                    f"Recreate the backtest with a valid --portfolio binding so the "
+                    f"worker receives a non-empty portfolio_uuid."
+                )
+
             # ========== 重新运行：删除旧数据 ==========
             task_id = task.task_id
 
