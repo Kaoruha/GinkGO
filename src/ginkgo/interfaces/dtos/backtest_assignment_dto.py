@@ -67,8 +67,9 @@ class StartAssignment(_AssignmentBase):
     """启动回测命令：须带 portfolio + name + config。"""
 
     command: ClassVar[str] = "start"
-    portfolio_uuid: str
-    name: str
+    # required（min_length=1 拒空串，#5646 回归：与 config 字段同守 ADR-018 第⑤步真空）
+    portfolio_uuid: str = Field(min_length=1)
+    name: str = Field(min_length=1)
     config: BacktestAssignmentConfig
 
 

@@ -139,6 +139,18 @@ class TestRejectMalformed:
             from_payload({"task_uuid": "t", "portfolio_uuid": "p", "name": "n",
                           "command": "start", "config": {"start_date": "", "end_date": "2025-01-01"}})
 
+    def test_start_empty_portfolio_uuid_rejected(self):
+        """空串 portfolio_uuid 视同缺失（#5646 回归：start 字段与 config 同守 min_length=1 拒空串）。"""
+        with pytest.raises(MalformedAssignmentError):
+            from_payload({"task_uuid": "t", "portfolio_uuid": "", "name": "n",
+                          "command": "start", "config": {"start_date": "s", "end_date": "e"}})
+
+    def test_start_empty_name_rejected(self):
+        """空串 name 视同缺失（#5646 回归：start 字段与 config 同守 min_length=1 拒空串）。"""
+        with pytest.raises(MalformedAssignmentError):
+            from_payload({"task_uuid": "t", "portfolio_uuid": "p", "name": "",
+                          "command": "start", "config": {"start_date": "s", "end_date": "e"}})
+
 
 # ---------- stop/cancel 多余字段忽略（守护在返回类型层面）----------
 
