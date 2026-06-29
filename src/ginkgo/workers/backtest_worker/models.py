@@ -70,8 +70,10 @@ def assignment_to_backtest_config(cmd) -> "BacktestConfig":
     """ADR-018：StartAssignment（DTO 信使）→ BacktestConfig（worker 状态主体）。
 
     第三者胶水映射，不挂 DTO 也不挂状态主体（ADR-010 信使/主体分离）。
-    analyzers list[dict] → list[AnalyzerConfig]，字段不全转 MalformedAssignmentError
-    （与消费端窄捕一致）。DTO 唯一默认表已填齐 9 optional，此处逐字段复制。
+    analyzers list[dict] → list[AnalyzerConfig]，字段不全转 MalformedAssignmentError。
+    消费端窄捕在 BacktestWorker._handle_task_assignment 的 match 块：from_payload 与本映射
+    抛错均走 MalformedAssignmentError 窄捕 → report_failed + 提交 offset（不重投，防毒丸死循环）。
+    DTO 唯一默认表已填齐 9 optional，此处逐字段复制。
     """
     from ginkgo.interfaces.dtos.backtest_assignment_dto import MalformedAssignmentError
 

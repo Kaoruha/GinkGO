@@ -247,11 +247,18 @@ class BacktestWorker:
                     GLOG.WARN(f"[{task_uuid[:8]}] stop command received but graceful-stop handler not implemented, no-op")
                 case CancelAssignment():
                     self._cancel_task(task_uuid)
+        except MalformedAssignmentError as e:
+            # 畸形 analyzer/config：from_payload 已通过，_start_task 映射期抛错。
+            # 对称窄捕（与上方 from_payload 畸形处理器同方法）——report_failed + 落到下方提交 offset。
+            # 不向上抛：否则 except Exception→raise 跳过 commit，poll 重投同一消息；
+            # 且映射抛错前 task 状态未置 failed，DB 去重兜不住 → Kafka 毒丸永久死循环。
+            GLOG.ERROR(f"[{task_uuid[:8]}] Malformed assignment (analyzer/config mapping), marking failed: {e}")
+            self.progress_tracker.report_failed_by_uuid(task_uuid=task_uuid, error=str(e))
         except Exception as e:
             GLOG.ERROR(f"Error handling assignment {task_uuid}: {e}")
             raise
 
-        # 派发决策完成（派发/skip/no-op 均视为消息已正确消费）后提交 offset
+        # 派发决策完成（派发/skip/no-op/畸形窄捕 均视为消息已正确消费）后提交 offset
         self._commit_assignment_offset(task_uuid)
 
     def _commit_assignment_offset(self, task_uuid: str):

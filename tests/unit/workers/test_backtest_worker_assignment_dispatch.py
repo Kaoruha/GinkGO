@@ -117,3 +117,19 @@ class TestHandleAssignmentDispatch:
         worker.progress_tracker.report_failed_by_uuid.assert_called_once()
         worker._start_task.assert_not_called()
         worker.task_consumer.commit.assert_called_once()
+
+    @pytest.mark.unit
+    def test_malformed_analyzer_marks_failed_and_commits(self):
+        """畸形 analyzer（from_payload 通过、_start_task 映射期抛 MalformedAssignmentError）：
+        对称窄捕——report_failed + 提交 offset，不向上抛。
+        防 Kafka 毒丸死循环：否则 except Exception→raise 跳过 commit，poll 重投同一消息，
+        且映射抛错前 task 状态未置 failed，DB 去重兜不住 → 永久死循环。
+        """
+        worker = self._worker()
+        worker._handle_task_assignment({
+            "task_uuid": "abcdef1234567890abcdef1234567890",
+            "portfolio_uuid": "p", "name": "n", "command": "start",
+            "config": {"start_date": "s", "end_date": "e", "analyzers": [{"name": "wr"}]},  # 缺 type
+        })
+        worker.progress_tracker.report_failed_by_uuid.assert_called_once()
+        worker.task_consumer.commit.assert_called_once()
