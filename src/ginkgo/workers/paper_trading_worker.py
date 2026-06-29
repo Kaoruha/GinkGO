@@ -441,7 +441,7 @@ class PaperTradingWorker:
         records = {"analyzers": [], "signals": [], "orders": []}
 
         try:
-            analyzer_service = services.data.services.analyzer_service()
+            analyzer_service = services.data.analyzer_service()
             result = analyzer_service.get_by_task_id(
                 task_id=self._engine.task_id if self._engine else "paper",
                 portfolio_id=portfolio_id,
@@ -459,7 +459,7 @@ class PaperTradingWorker:
 
         # 补充 signal 记录（走 Service 层 + 日期下推查询层，#6030）
         try:
-            sig_service = services.data.services.signal_service()
+            sig_service = services.data.signal_service()
             sig_result = sig_service.get_signals_by_portfolio(
                 portfolio_id=portfolio_id,
                 start_date=day_start,
@@ -477,7 +477,7 @@ class PaperTradingWorker:
 
         # 补充 order 记录（走 Service 层 + 日期下推查询层，#6030）
         try:
-            order_service = services.data.services.order_service()
+            order_service = services.data.order_service()
             order_result = order_service.get_orders_by_portfolio(
                 portfolio_id=portfolio_id,
                 start_date=day_start,
@@ -788,7 +788,7 @@ class PaperTradingWorker:
 
         # 4. 同步拉取当日数据
         try:
-            bar_service = services.data.services.bar_service()
+            bar_service = services.data.bar_service()
             sync_result = bar_service.sync_range_batch(
                 codes=codes,
                 start_date=today,
