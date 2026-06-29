@@ -1,10 +1,12 @@
-"""ADR-018 第⑤步：#5646 预校验收敛进 DTO 构造。
+"""ADR-018：回测派发契约的早返回守卫 + DTO 二次校验（两层并存，职责不同）。
 
-门（L95）：缺字段任务在 service 层即 ServiceResult.error，不进 Kafka。
-- 空 dates → DTO BacktestAssignmentConfig Field(min_length=1) 构造期 ValidationError
-  （补第③步删 worker 字面校验后的真空——空串 dates 现由 DTO 构造期拒）
-- 缺 portfolio_uuid → DTO StartAssignment required str 构造期 ValidationError
-  （删 service :604-611 手写 portfolio_uuid if，DTO 构造期校验取代，校验更严）
+门：缺字段任务在 service 层即 ServiceResult.error，不进 Kafka。
+- 早返回守卫（start_task 状态检查后/清理块前）守「拒绝先于不可逆清理」时序不变式：
+  缺 portfolio_uuid / 空 dates 在删 9 表历史数据（CH 5 表异步 mutation 不可逆 +
+  MySQL 4 表单事务 commit）之前即拒，否则「先删后拒」数据永久丢失（#6461 round-4）。
+  含 test_*_rejects_before_cleanup：断言 9 表清理 CRUD.remove 未被调用（副作用非返回值）。
+- DTO 构造期 Field(min_length=1) 作为二次门守 wire spec 兜底（#5646），与守卫职责
+  不可互替——守卫保时序（先于删数据），DTO 保契约（派发本体）。
 
 详见 docs/adrs/ADR-018-backtest-assignment-contract.md
 """
