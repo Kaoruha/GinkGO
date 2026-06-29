@@ -231,6 +231,8 @@ async def list_paper_accounts():
 
     except BusinessError:
         raise
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing paper accounts: {str(e)}")
         raise BusinessError(f"Error listing paper accounts: {str(e)}")
