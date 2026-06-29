@@ -180,10 +180,8 @@ class EastMoneyFeeder(LiveDataFeeder):
                 volume=volume,
             )
 
-            # 发布事件
-            if self.event_publisher:
-                self.event_publisher(event)
-                self.stats['events_published'] += 1
+            # 发布事件（ADR-019：经 publish_price_update 统一 seam）
+            self.publish_price_update(event)
 
         except Exception as e:
             GLOG.ERROR(f"EastMoneyFeeder price update handling failed: {e}")

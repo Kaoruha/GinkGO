@@ -15,9 +15,10 @@ from ginkgo.entities.base import Base
 from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import NamedMixin
 from ginkgo.trading.events.base_event import EventBase
+from ginkgo.entities.mixins import EngineBindableMixin
 
 
-class BaseFeeder(TimeMixin, NamedMixin, Base):
+class BaseFeeder(EngineBindableMixin, TimeMixin, NamedMixin, Base):
     """
     Feed something like price info, news...
     """
@@ -26,7 +27,6 @@ class BaseFeeder(TimeMixin, NamedMixin, Base):
         super().__init__(name=name, *args, **kwargs)
         if timestamp is not None:
             self.set_business_timestamp(timestamp)
-        self._engine_put = None
 
         # 依赖注入：数据服务（支持测试Mock）
         if bar_service is None:
@@ -34,21 +34,6 @@ class BaseFeeder(TimeMixin, NamedMixin, Base):
             self.bar_service = container.bar_service()
         else:
             self.bar_service = bar_service
-
-    def set_event_publisher(self, publisher: Callable[[EventBase], None]) -> None:
-        """
-        Inject an event publisher (typically engine.put) for pushing events back to engine.
-        """
-        self._engine_put = publisher
-
-    def put(self, event) -> None:
-        """
-        Put event to eventengine.
-        """
-        if self._engine_put is None:
-            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
-            return
-        self._engine_put(event)
 
     def is_code_on_market(self, code: str, *args, **kwargs) -> bool:
         raise NotImplementedError()

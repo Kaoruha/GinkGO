@@ -33,6 +33,8 @@ from ginkgo.trading.feeders.interfaces import (
 )
 from ginkgo.trading.events import EventBase, EventPriceUpdate
 from ginkgo.trading.time.interfaces import ITimeProvider
+from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import GLOG
 from ginkgo.trading.time.clock import now as clock_now
@@ -173,7 +175,7 @@ class ConnectionManager:
             await asyncio.sleep(self.reconnect_delay_seconds * self.reconnect_attempts)
 
 
-class LiveDataFeeder(ILiveDataFeeder):
+class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
     """
     实盘数据馈送器实现
 
@@ -188,6 +190,7 @@ class LiveDataFeeder(ILiveDataFeeder):
         enable_rate_limit: bool = True,
         rate_limit_per_second: float = 10.0
     ):
+        super().__init__()  # 协 MRO 链：触发 EngineBindableMixin + FeederPublishMixin 初始化（ADR-019）
         # 连接参数
         self.host = host
         self.port = port
@@ -198,7 +201,6 @@ class LiveDataFeeder(ILiveDataFeeder):
         self.rate_limiter: Optional[RateLimiter] = None
         self.time_controller: Optional[ITimeProvider] = None
         self.time_boundary_validator: Optional[TimeBoundaryValidator] = None
-        self.event_publisher: Optional[Callable[[EventBase], None]] = None
 
         # 限流配置
         self.enable_rate_limit = enable_rate_limit
@@ -218,13 +220,13 @@ class LiveDataFeeder(ILiveDataFeeder):
         self.message_handlers: Dict[str, Callable] = {}
         self._initialize_handlers()
 
-        # 统计信息
-        self.stats = {
+        # 统计信息（super().__init__() 已设 stats={events_published, publish_errors}；
+        # 此处 update 补 LiveDataFeeder 特有字段，非覆盖，避免丢 publish_errors → ADR-019）
+        self.stats.update({
             'messages_received': 0,
-            'events_published': 0,
             'connection_errors': 0,
-            'last_message_time': None
-        }
+            'last_message_time': None,
+        })
     
     def _initialize_handlers(self):
         """初始化消息处理器"""
@@ -317,10 +319,6 @@ class LiveDataFeeder(ILiveDataFeeder):
     def get_status(self) -> DataFeedStatus:
         """获取当前状态"""
         return self.status
-    
-    def set_event_publisher(self, publisher: Callable[[EventBase], None]) -> None:
-        """设置事件发布器"""
-        self.event_publisher = publisher
     
     def set_time_provider(self, time_controller: ITimeProvider) -> None:
         """设置时间控制器"""
@@ -578,10 +576,8 @@ class LiveDataFeeder(ILiveDataFeeder):
                 timestamp=timestamp
             )
             
-            # 发布事件
-            if self.event_publisher:
-                self.event_publisher(event)
-                self.stats['events_published'] += 1
+            # 发布事件（ADR-019：经 publish_price_update 统一 seam，内部计 events_published）
+            self.publish_price_update(event)
                 
         except Exception as e:
             GLOG.ERROR(f"Price update handling error: {e}")

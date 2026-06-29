@@ -24,7 +24,7 @@ from typing import List, Dict, Any, Callable, Optional
 from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
-from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
 from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin, subscribes
 from ginkgo.trading.feeders.interfaces import (
     IBacktestDataFeeder, DataFeedStatus
@@ -39,7 +39,7 @@ from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 from ginkgo.data.mappers import BarMapper
 
 
-class BacktestFeeder(EngineBindableMixin, SubscribableMixin, BaseFeeder, IBacktestDataFeeder):
+class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktestDataFeeder):
     """
     回测数据馈送器
     
@@ -57,7 +57,6 @@ class BacktestFeeder(EngineBindableMixin, SubscribableMixin, BaseFeeder, IBackte
         # 时间控制组件（由Engine注入）
         self.time_controller: Optional[ITimeProvider] = None
         self.time_boundary_validator: Optional[TimeBoundaryValidator] = None
-        self.event_publisher: Optional[Callable[[EventBase], None]] = None
 
         # 数据缓存
         self._data_cache: Dict[str, Any] = {}
@@ -111,13 +110,7 @@ class BacktestFeeder(EngineBindableMixin, SubscribableMixin, BaseFeeder, IBackte
     def get_status(self) -> DataFeedStatus:
         """获取当前状态"""
         return self.status
-    
-    def set_event_publisher(self, publisher: Callable[[EventBase], None]) -> None:
-        """设置事件发布器"""
-        self.event_publisher = publisher
-        # 保持与原有接口的兼容性
-        self.put = publisher
-    
+
     def set_time_provider(self, time_controller: ITimeProvider) -> None:
         """设置时间控制器"""
         # 调用父类TimeMixin的set_time_provider
@@ -159,9 +152,8 @@ class BacktestFeeder(EngineBindableMixin, SubscribableMixin, BaseFeeder, IBackte
             for code in self._interested_codes:
                 price_events = self._generate_price_events(code, target_time)
                 for event in price_events:
-                    if self.event_publisher:
-                        self.event_publisher(event)
-                        event_count += 1
+                    self.publish_price_update(event)
+                    event_count += 1
 
             GLOG.INFO(f"BacktestFeeder: Published {event_count} price events for {target_time.date()}")
             return True

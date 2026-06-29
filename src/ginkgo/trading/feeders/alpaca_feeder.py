@@ -185,10 +185,8 @@ class AlpacaFeeder(LiveDataFeeder):
                 ask_volume=data.get("as") if msg_type == "q" else None,
             )
 
-            # 发布事件
-            if self.event_publisher:
-                self.event_publisher(event)
-                self.stats['events_published'] += 1
+            # 发布事件（ADR-019：经 publish_price_update 统一 seam）
+            self.publish_price_update(event)
 
         except Exception as e:
             GLOG.ERROR(f"AlpacaFeeder price update handling failed: {e}")
