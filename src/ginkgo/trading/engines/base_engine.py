@@ -420,9 +420,11 @@ class BaseEngine(NamedMixin, ABC):
             tp_name = type(feeder.time_controller).__name__ if hasattr(feeder, 'time_controller') and feeder.time_controller else "None"
             GLOG.INFO(f"  {tp_status} TimeProvider: {tp_name}")
 
-            # 检查EventPublisher绑定
-            pub_status = "✅" if hasattr(feeder, 'event_publisher') and feeder.event_publisher else "❌"
-            GLOG.INFO(f"  {pub_status} EventPublisher: {'已设置' if hasattr(feeder, 'event_publisher') and feeder.event_publisher else '未设置'}")
+            # 检查EventPublisher绑定（ADR-019：发布 seam 统一经 EngineBindableMixin.engine_put，
+            # 各 feeder 不再持有 event_publisher 实例属性，改读公开 engine_put property）
+            _pub_bound = getattr(feeder, "engine_put", None) is not None
+            pub_status = "✅" if _pub_bound else "❌"
+            GLOG.INFO(f"  {pub_status} EventPublisher: {'已设置' if _pub_bound else '未设置'}")
 
             # 检查BarService
             if hasattr(feeder, 'bar_service'):
