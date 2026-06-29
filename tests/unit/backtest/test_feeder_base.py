@@ -27,7 +27,7 @@ class TestFeederConstruction:
         """Test feeder initialization."""
         f = BaseFeeder()
         assert f is not None
-        assert callable(getattr(f, "put", None))
+        assert callable(getattr(f, "publish_event", None))
         assert callable(getattr(f, "set_event_publisher", None))
 
     def test_feeder_with_name(self):
@@ -54,12 +54,12 @@ class TestEventPublisher:
     def test_put_event_without_engine_bound(self, base_feeder):
         """Test putting event without bound engine does not crash."""
         event = Mock()
-        base_feeder.put(event)  # Should log error but not crash
+        base_feeder.publish_event(event)  # Should log error but not crash
 
     def test_put_event_with_engine_bound(self, base_feeder):
         """Test putting event with bound engine."""
         mock_publisher = Mock()
         base_feeder.set_event_publisher(mock_publisher)
         event = Mock()
-        base_feeder.put(event)
+        base_feeder.publish_event(event)
         mock_publisher.assert_called_once_with(event)

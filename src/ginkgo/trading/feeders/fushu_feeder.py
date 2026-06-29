@@ -221,10 +221,8 @@ class FuShuFeeder(LiveDataFeeder):
                     ask_volume=tick_data.get("ask_volume"),
                 )
 
-                # 发布事件
-                if self.event_publisher:
-                    self.event_publisher(event)
-                    self.stats['events_published'] += 1
+                # 发布事件（ADR-019：经 publish_price_update 统一 seam）
+                self.publish_price_update(event)
 
             self.stats['messages_received'] += len(tick_list)
 
