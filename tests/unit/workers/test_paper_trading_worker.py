@@ -367,7 +367,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             result = worker.run_daily_cycle()
 
         assert result.skipped is False
@@ -399,7 +399,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             worker.run_daily_cycle()
 
         # 验证 sync_range_batch 被调用，且 codes 包含两个股票
@@ -455,7 +455,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             result = worker.run_daily_cycle()
 
         assert result.advanced is True
@@ -996,7 +996,7 @@ class TestLoadTodayRecords:
         mock_analyzer_svc.get_by_task_id.return_value = mock_result
 
         with patch("ginkgo.services", create=True) as mock_services:
-            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            mock_services.data.analyzer_service.return_value = mock_analyzer_svc
             records = worker._load_today_records("p-001")
 
         assert len(records["analyzers"]) == 1
@@ -1016,7 +1016,7 @@ class TestLoadTodayRecords:
         )
 
         with patch("ginkgo.services", create=True) as mock_services:
-            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            mock_services.data.analyzer_service.return_value = mock_analyzer_svc
             records = worker._load_today_records("p-001")
 
         assert records["analyzers"] == []
@@ -1143,17 +1143,17 @@ class TestLoadTodayRecordsServiceLayer:
         mock_sig.get_signals_by_portfolio.return_value = ServiceResult.success(
             data=signals if signals is not None else []
         )
-        mock_services.data.services.signal_service.return_value = mock_sig
+        mock_services.data.signal_service.return_value = mock_sig
 
         mock_order = MagicMock()
         mock_order.get_orders_by_portfolio.return_value = ServiceResult.success(
             data=orders if orders is not None else []
         )
-        mock_services.data.services.order_service.return_value = mock_order
+        mock_services.data.order_service.return_value = mock_order
 
         mock_analy = MagicMock()
         mock_analy.get_by_task_id.return_value = ServiceResult.success(data=[])
-        mock_services.data.services.analyzer_service.return_value = mock_analy
+        mock_services.data.analyzer_service.return_value = mock_analy
 
         return mock_sig, mock_order
 

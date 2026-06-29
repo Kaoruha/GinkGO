@@ -118,7 +118,7 @@ class TaskEngineBuilder:
         last_error = None
         for attempt in range(max_retries):
             try:
-                portfolio_service = services.data.services.portfolio_service()
+                portfolio_service = services.data.portfolio_service()
 
                 # #3866: 通过 trading 层装配，data 层提供 writer 基础设施
                 from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
