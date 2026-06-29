@@ -55,6 +55,7 @@ import re
 _caller_local = threading.local()
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
+from rich.console import Console
 from pathlib import Path
 from ginkgo.libs.core.config import GCONF
 
@@ -624,6 +625,9 @@ class GinkgoLogger:
             omit_repeated_times=False,
             rich_tracebacks=True,
             log_time_format="[%X]",
+            # #6465: 诊断日志走 stderr，保留 stdout 给 CLI 业务输出（如 -r 纯 JSON）。
+            # 本 rich 版本裸 RichHandler 默认写 stdout，会污染机器可读输出。
+            console=Console(stderr=True),
         )
         self.console_handler.set_name(self._console_handler_name)
         self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))

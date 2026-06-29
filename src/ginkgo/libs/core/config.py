@@ -8,6 +8,7 @@
 
 
 import os
+import sys
 import yaml
 import shutil
 import base64
@@ -83,7 +84,7 @@ class GinkgoConfig(object):
                     os.environ.setdefault("GINKGO_FROM_ADDRESS", from_addr)
                 os.environ.setdefault("GINKGO_FROM_NAME", from_name)
             except Exception as e:
-                print(f"[GCONF] Error loading config to env: {e}")
+                print(f"[GCONF] Error loading config to env: {e}", file=sys.stderr)
 
         if self._has_local_secure:
             try:
@@ -155,7 +156,7 @@ class GinkgoConfig(object):
                     if fushu.get("api_key"):
                         os.environ.setdefault("GINKGO_FUSHU_API_KEY", fushu["api_key"])
             except Exception as e:
-                print(f"[GCONF] Error loading secure config to env: {e}")
+                print(f"[GCONF] Error loading secure config to env: {e}", file=sys.stderr)
 
         self._env_vars_initialized = True
 
@@ -237,10 +238,10 @@ class GinkgoConfig(object):
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, config_path)
-                print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
+                print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}", file=sys.stderr)
                 self._has_local_config = True  # ✅ 更新缓存
             else:
-                print(f"[GCONF] Source config not found, will use environment variables")
+                print(f"[GCONF] Source config not found, will use environment variables", file=sys.stderr)
                 self._has_local_config = False  # ✅ 更新缓存
         else:
             self._has_local_config = True  # ✅ 文件已存在
@@ -252,10 +253,10 @@ class GinkgoConfig(object):
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, secure_path)
-                print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
+                print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}", file=sys.stderr)
                 self._has_local_secure = True  # ✅ 更新缓存
             else:
-                print(f"[GCONF] Source secure config not found, will use environment variables")
+                print(f"[GCONF] Source secure config not found, will use environment variables", file=sys.stderr)
                 self._has_local_secure = False  # ✅ 更新缓存
         else:
             self._has_local_secure = True  # ✅ 文件已存在
@@ -275,11 +276,11 @@ class GinkgoConfig(object):
                     config_data = yaml.safe_load(file)
                 self._config_cache = config_data
                 self._config_mtime = current_mtime
-                print(f"[GCONF] Config cache updated (mtime: {current_mtime})")
+                print(f"[GCONF] Config cache updated (mtime: {current_mtime})", file=sys.stderr)
 
             return self._config_cache
         except Exception as e:
-            print(f"[GCONF] Error reading config: {e}")
+            print(f"[GCONF] Error reading config: {e}", file=sys.stderr)
             return {}
 
     def _read_secure(self) -> dict:
@@ -297,11 +298,11 @@ class GinkgoConfig(object):
                     secure_data = yaml.safe_load(file)
                 self._secure_cache = secure_data
                 self._secure_mtime = current_mtime
-                print(f"[GCONF] Secure cache updated (mtime: {current_mtime})")
+                print(f"[GCONF] Secure cache updated (mtime: {current_mtime})", file=sys.stderr)
 
             return self._secure_cache
         except Exception as e:
-            print(f"[GCONF] Error reading secure config: {e}")
+            print(f"[GCONF] Error reading secure config: {e}", file=sys.stderr)
             return {}
 
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
@@ -346,7 +347,7 @@ class GinkgoConfig(object):
                 if key in config and config[key] is not None:
                     return config[key]
             except Exception as e:
-                print(f"[GCONF] Error reading config file: {e}")
+                print(f"[GCONF] Error reading config file: {e}", file=sys.stderr)
 
         # 优先级3: 返回默认值
         return default
@@ -359,7 +360,7 @@ class GinkgoConfig(object):
             with open(self.setting_path, "w") as file:
                 yaml.safe_dump(data, file)
         except Exception as e:
-            print(e)
+            print(e, file=sys.stderr)
             return {}
 
     @property
@@ -1155,7 +1156,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return logging_config.get("mask_fields", [])
             except Exception as e:
-                print(f"[GCONF] Error reading logging.mask_fields: {e}")
+                print(f"[GCONF] Error reading logging.mask_fields: {e}", file=sys.stderr)
                 return []
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_MASK_FIELDS")
