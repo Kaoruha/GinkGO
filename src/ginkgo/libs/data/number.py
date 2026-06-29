@@ -34,6 +34,10 @@ def convert_to_float(value, default: float = 0.0) -> float:
         return value
     if isinstance(value, int):
         return float(value)
+    if isinstance(value, Decimal):
+        # ClickHouse DECIMAL 列读出为 Decimal（非 int/float 子类），须显式转换，
+        # 否则落入末尾 return default 静默返 0.0（#5864 数据丢失）。
+        return float(value)
     if isinstance(value, str):
         try:
             return float(value)

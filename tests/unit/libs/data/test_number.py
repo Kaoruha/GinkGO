@@ -16,7 +16,7 @@ _path = str(Path(__file__).parent.parent.parent)
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.libs.data.number import Number, to_decimal
+from ginkgo.libs.data.number import Number, convert_to_float, to_decimal
 
 
 # ---------------------------------------------------------------------------
@@ -116,3 +116,21 @@ class TestNumberTypeAlias:
     def test_number_rejects_none(self):
         """None 不符合 Number 类型"""
         assert not isinstance(None, Number)
+
+
+# ---------------------------------------------------------------------------
+# convert_to_float
+# ---------------------------------------------------------------------------
+@pytest.mark.unit
+class TestConvertToFloat:
+    """convert_to_float 类型转换测试
+
+    #5864: ClickHouse DECIMAL 列读出为 Decimal 实例（非 int/float 子类），
+    convert_to_float 必须正确处理，否则静默返 default=0.0（数据丢失）。
+    """
+
+    def test_decimal_to_float(self):
+        """Decimal 输入应转 float 而非静默返 default 0.0（#5864 回归核心）"""
+        result = convert_to_float(Decimal("19.81"))
+        assert isinstance(result, float)
+        assert result == pytest.approx(19.81)

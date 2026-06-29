@@ -272,6 +272,50 @@ class TestPortfolioCreate:
         assert result.exit_code == 1
         assert "Error" in result.output
 
+    # #5984: --capital 必须 > 0，拒绝负数和零。
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_rejects_negative_capital(self, mock_container, cli_runner):
+        """#5984 --capital 为负数时拒绝创建"""
+        mock_service = MagicMock()
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "EdgeNeg", "--capital", "-1"
+        ])
+        assert result.exit_code == 1
+        assert "capital" in _strip_ansi(result.output).lower()
+        # 负资本绝不应触达 service
+        mock_service.add.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_rejects_zero_capital(self, mock_container, cli_runner):
+        """#5984 --capital 为零时拒绝创建（边界）"""
+        mock_service = MagicMock()
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "EdgeZero", "--capital", "0"
+        ])
+        assert result.exit_code == 1
+        assert "capital" in _strip_ansi(result.output).lower()
+        mock_service.add.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_create_accepts_positive_capital(self, mock_container, cli_runner):
+        """#5984 正资本仍正常创建（回归守护）"""
+        mock_service = MagicMock()
+        mock_service.add.return_value = ServiceResult.success(
+            data={"uuid": "ok-uuid", "name": "Ok"}
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "create", "--name", "Ok", "--capital", "0.01"
+        ])
+        assert result.exit_code == 0
+        assert "created successfully" in _strip_ansi(result.output)
+
 
 # ============================================================================
 # 4. Get 测试
@@ -387,9 +431,10 @@ class TestPortfolioDelete:
     """portfolio delete 命令"""
 
     @patch("ginkgo.data.containers.container")
-    def test_delete_with_confirm(self, mock_container, cli_runner):
-        """使用 --confirm 成功删除"""
+    def test_delete_with_confirm(self, mock_container, cli_runner, mock_portfolio):
+        """使用 --confirm + 完整 UUID 成功删除"""
         mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
@@ -398,6 +443,7 @@ class TestPortfolioDelete:
         ])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
+        mock_service.delete.assert_called_once_with("portfolio-uuid-001")
 
     def test_delete_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝删除"""
@@ -408,17 +454,103 @@ class TestPortfolioDelete:
         assert "--confirm" in result.output
 
     @patch("ginkgo.data.containers.container")
-    def test_delete_service_error(self, mock_container, cli_runner):
-        """服务返回错误时删除失败"""
+    def test_delete_by_name_resolves_uuid(self, mock_container, cli_runner):
+        """#5995: 按名称删除——精确 UUID 查空后回退 name 查找，解析出 uuid 再删"""
         mock_service = MagicMock()
+        named = MagicMock()
+        named.uuid = "resolved-uuid-999"
+        mock_service.get.side_effect = [
+            ServiceResult.success(data=[]),              # get(portfolio_id=name) 空
+            ServiceResult.success(data=[named]),         # get(name=name) 命中
+        ]
+        mock_service.delete.return_value = ServiceResult.success(data=None)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "deploy_test", "--confirm"
+        ])
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output
+        mock_service.delete.assert_called_once_with("resolved-uuid-999")
+
+    @patch("ginkgo.data.containers.container")
+    def test_delete_by_partial_uuid_fuzzy(self, mock_container, cli_runner):
+        """#5995: 按 partial UUID 模糊匹配——精确 UUID/name 均空后 fuzzy 命中唯一"""
+        mock_service = MagicMock()
+        fuzzy_hit = MagicMock()
+        fuzzy_hit.uuid = "deadbeefdeadbeefdeadbeefdeadbeef"
+        mock_service.get.return_value = ServiceResult.success(data=[])
+        mock_service.fuzzy_search.return_value = ServiceResult.success(data=[fuzzy_hit])
+        mock_service.delete.return_value = ServiceResult.success(data=None)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "deadbeef", "--confirm"
+        ])
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output
+        mock_service.fuzzy_search.assert_called_once_with("deadbeef")
+        mock_service.delete.assert_called_once_with("deadbeefdeadbeefdeadbeefdeadbeef")
+
+    @patch("ginkgo.data.containers.container")
+    def test_delete_ambiguous_fuzzy_rejected(self, mock_container, cli_runner):
+        """#5995: fuzzy 多匹配时不删除，提示用完整 UUID"""
+        mock_service = MagicMock()
+        a, b = MagicMock(), MagicMock()
+        a.uuid, b.uuid = "uuid-aaa", "uuid-bbb"
+        mock_service.get.return_value = ServiceResult.success(data=[])
+        mock_service.fuzzy_search.return_value = ServiceResult.success(data=[a, b])
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "uuid", "--confirm"
+        ])
+        assert result.exit_code == 1
+        assert "Multiple" in result.output or "多个" in result.output
+        mock_service.delete.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_delete_not_found_clear_error(self, mock_container, cli_runner):
+        """#5995: 名称/UUID/fuzzy 均未命中时给明确错误，不报裸异常"""
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=[])
+        mock_service.fuzzy_search.return_value = ServiceResult.success(data=[])
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "nonexistent", "--confirm"
+        ])
+        assert result.exit_code == 1
+        assert "投资组合不存在" in result.output
+        mock_service.delete.assert_not_called()
+
+    @patch("ginkgo.data.containers.container")
+    def test_delete_service_error(self, mock_container, cli_runner, mock_portfolio):
+        """解析成功但 service.delete 返回错误时删除失败"""
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
         mock_service.delete.return_value = ServiceResult.error(error="Portfolio not found")
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "bad-uuid", "--confirm"
+            "delete", "portfolio-uuid-001", "--confirm"
         ])
         assert result.exit_code == 1
         assert "Failed to delete portfolio" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_delete_with_yes_short_flag(self, mock_container, cli_runner):
+        """使用 -y 短标志成功删除（#6006: 统一确认标志跨命令一致）"""
+        mock_service = MagicMock()
+        mock_service.delete.return_value = ServiceResult.success(data=None)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "delete", "portfolio-uuid-001", "-y"
+        ])
+        assert result.exit_code == 0
+        assert "deleted successfully" in result.output
+        mock_service.delete.assert_called_once_with("portfolio-uuid-001")
 
 
 # ============================================================================
@@ -599,6 +731,33 @@ class TestPortfolioUnbindComponent:
         ])
         assert result.exit_code == 0
         assert "binding deleted successfully" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_unbind_with_yes_short_flag(self, mock_container, cli_runner, mock_portfolio):
+        """使用 -y 短标志成功解绑（#6006: 统一确认标志跨命令一致）"""
+        mock_pf_service = MagicMock()
+        mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
+
+        mock_file = MagicMock()
+        mock_file.uuid = "file-uuid-001"
+        mock_file.name = "MyStrategy"
+
+        mock_file_service = MagicMock()
+        mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=mock_file)
+
+        mock_mapping_service = MagicMock()
+        mock_mapping_service.delete_portfolio_file_binding.return_value = ServiceResult.success(data=None)
+
+        mock_container.portfolio_service.return_value = mock_pf_service
+        mock_container.file_service.return_value = mock_file_service
+        mock_container.mapping_service.return_value = mock_mapping_service
+
+        result = cli_runner.invoke(portfolio_cli.app, [
+            "unbind-component", "TestPortfolio", "MyStrategy", "-y"
+        ])
+        assert result.exit_code == 0
+        assert "binding deleted successfully" in result.output
+        mock_mapping_service.delete_portfolio_file_binding.assert_called_once()
 
     def test_unbind_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝解绑"""

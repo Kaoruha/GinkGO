@@ -46,15 +46,18 @@ def mock_orders_df():
 
 @pytest.fixture
 def mock_positions_df():
+    # #5341: record position 读流水表 MPositionRecord，字段是 volume/cost/price/fee
+    # （非 MPosition 当前态的 quantity/average_price/market_value）
     return pd.DataFrame({
         "uuid": ["pos1"],
         "portfolio_id": ["p1"],
         "engine_id": ["e1"],
         "task_id": ["t1"],
         "code": ["000001.SZ"],
-        "quantity": [100],
-        "average_price": [10.5],
-        "market_value": [1050.0],
+        "volume": [100],
+        "cost": [10.5],
+        "price": [10.8],
+        "fee": [5.0],
         "timestamp": ["2026-01-01"],
     })
 
@@ -100,14 +103,19 @@ class TestRecordOrderFilters:
 @pytest.mark.unit
 @pytest.mark.cli
 class TestRecordPositionFilters:
-    """record position 的 engine/task 过滤透传（#4743）"""
+    """record position 的 engine/task 过滤透传（#4743）+ 读流水表（#5341）
+
+    #5341 根因：回测持仓写 MPositionRecord（流水），record position 原读
+    PositionService（MPosition 当前态）永远空。改读 ResultService.get_positions_df
+    （查 PositionRecordCRUD）。
+    """
 
     @patch("ginkgo.data.containers.Container")
     def test_position_passes_engine_and_task(self, mock_container, cli_runner, mock_positions_df):
-        """-e/-t 透传到 service.get_positions_df"""
+        """-e/-t 透传到 result_service.get_positions_df"""
         mock_service = MagicMock()
         mock_service.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
-        mock_container.position_service.return_value = mock_service
+        mock_container.result_service.return_value = mock_service
 
         result = cli_runner.invoke(record_cli.app, [
             "position", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
@@ -117,6 +125,25 @@ class TestRecordPositionFilters:
         assert kwargs.get("portfolio_id") == "p1"
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
+
+    @patch("ginkgo.data.containers.Container")
+    def test_position_reads_result_service_not_position_service(
+        self, mock_container, cli_runner, mock_positions_df
+    ):
+        """#5341 核心：必须读 result_service（流水表），不得读 position_service（当前态）"""
+        mock_result_svc = MagicMock()
+        mock_result_svc.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
+        mock_container.result_service.return_value = mock_result_svc
+        mock_position_svc = MagicMock()
+        mock_container.position_service.return_value = mock_position_svc
+
+        result = cli_runner.invoke(record_cli.app, [
+            "position", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
+        ])
+        assert result.exit_code == 0
+        mock_result_svc.get_positions_df.assert_called_once()
+        # 关键：position_service（当前态表）绝不能被调用——那是 #5341 的 bug 源头
+        mock_position_svc.get_positions_df.assert_not_called()
 
 
 # ============================================================================

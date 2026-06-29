@@ -61,10 +61,40 @@ def get_user_service():
     return container.user_service()
 
 
+def _check_login_throttle(username: str) -> None:
+    """#5482: 登录入口检查 per-username lockout/throttle，命中抛 429。
+    fail-open：Redis 异常时 ttl=0，不阻塞登录（可用性优先）。"""
+    rsvc = container.redis_service()
+    lockout_ttl = rsvc.get_login_lockout_ttl(username)
+    if lockout_ttl > 0:
+        logger.warning(f"#5482 login blocked for locked account {username}: {lockout_ttl}s remaining")
+        raise HTTPException(status_code=429, detail=f"Account temporarily locked. Retry in {lockout_ttl}s")
+    throttle_ttl = rsvc.get_login_throttle_ttl(username)
+    if throttle_ttl > 0:
+        raise HTTPException(status_code=429, detail=f"Too many failed attempts. Retry in {throttle_ttl}s")
+
+
+def _record_login_failure(username: str) -> None:
+    """#5482: 记录登录失败，触发 progressive delay（3/5/7/9→1/2/4/8s）与
+    lockout（10 连续失败锁 5min）。命中 lockout 阈值抛 429（取代后续 401）。"""
+    rsvc = container.redis_service()
+    count = rsvc.incr_login_failures(username)
+    if count >= 10:
+        rsvc.set_login_lockout(username, 300)
+        logger.warning(f"#5482 brute-force lockout triggered for {username} after {count} failures")
+        raise HTTPException(status_code=429, detail="Account locked for 5 minutes due to too many failed login attempts")
+    delay = {3: 1, 5: 2, 7: 4, 9: 8}.get(count, 0)
+    if delay > 0:
+        rsvc.set_login_throttle(username, delay)
+
+
 @router.post("/login")
 async def login(login_request: LoginRequest, req: Request):
     """用户登录"""
     logger.info(f"Login attempt for user: {login_request.username}")
+
+    # #5482: 入口检查 per-username brute-force 节流（lockout/throttle），命中抛 429
+    _check_login_throttle(login_request.username)
 
     user_service = get_user_service()
 
@@ -73,6 +103,7 @@ async def login(login_request: LoginRequest, req: Request):
 
     if not result.success or not result.data or not result.data.get("users"):
         logger.warning(f"Login failed for user: {login_request.username} - user not found")
+        _record_login_failure(login_request.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
@@ -86,6 +117,7 @@ async def login(login_request: LoginRequest, req: Request):
 
     if not credential:
         logger.warning(f"Login failed for user: {login_request.username} - no credential found")
+        _record_login_failure(login_request.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
@@ -102,6 +134,7 @@ async def login(login_request: LoginRequest, req: Request):
     # 验证密码
     if not verify_password(login_request.password, credential.password_hash):
         logger.warning(f"Login failed for user: {login_request.username} - wrong password")
+        _record_login_failure(login_request.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
@@ -110,6 +143,9 @@ async def login(login_request: LoginRequest, req: Request):
     # 更新最后登录时间
     client_ip = req.client.host if req.client else ""
     user_service.update_last_login(credential.uuid, client_ip)
+
+    # #5482: 登录成功，清除该用户的失败计数/节流/锁定状态
+    container.redis_service().reset_login_state(login_request.username)
 
     # 生成JWT token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

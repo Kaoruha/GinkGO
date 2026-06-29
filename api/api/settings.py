@@ -2,24 +2,94 @@
 系统设置相关API路由
 """
 
-from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, HTTPException, status, Request, Query
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
+import ipaddress
+import socket
+from urllib.parse import urlparse
 import bcrypt
 
 from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
-from ginkgo.data.services.user_group_service import UserGroupService as DataUserGroupService
 from core.logging import logger
 from core.response import ok
+from core.exceptions import BusinessError
+from middleware.api_stats import collector as api_stats_collector
 
 router = APIRouter()
 
 
 # ==================== 通用函数 ====================
+
+# #5469: SSRF 防护——webhook test 服务端直发用户可控 URL，须拦内网/云元数据。
+# 显式网络表（版本无关，精确对齐 AC：10/172.16-31/192.168/127/169.254 + IPv6 等价段）。
+_BLOCKED_NETWORKS = (
+    ipaddress.ip_network("127.0.0.0/8"),       # IPv4 loopback
+    ipaddress.ip_network("10.0.0.0/8"),        # RFC1918 私有
+    ipaddress.ip_network("172.16.0.0/12"),     # RFC1918 私有（172.16-31）
+    ipaddress.ip_network("192.168.0.0/16"),    # RFC1918 私有
+    ipaddress.ip_network("169.254.0.0/16"),    # link-local（含云元数据 169.254.169.254）
+    ipaddress.ip_network("0.0.0.0/8"),         # unspecified / current-network
+    ipaddress.ip_network("::1/128"),           # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),          # IPv6 unique-local
+    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
+    ipaddress.ip_network("::/128"),            # IPv6 unspecified
+)
+
+
+def _assert_safe_webhook_url(address: str) -> None:
+    """#5469: 校验 webhook test 目标 URL 防 SSRF，不安全则 HTTPException(400)。
+
+    校验三道：
+    1. scheme 限 http/https（拦 file:///、gopher:// 等）；
+    2. hostname 经 getaddrinfo 解析为 IP——拦域名直写私有段，亦防 DNS rebinding
+       （域名解析期公网、请求期内网）；
+    3. 解析所得 IP 命中 _BLOCKED_NETWORKS 即拒。
+
+    raise HTTPException（非 BusinessError）以穿透端点既有 ``except HTTPException: raise``
+    链（BusinessError 会被 ``except Exception`` 吞成 500，见 arch_httpexception_caught_by_except）。
+    DNS 解析失败 fail-closed（按不安全处理）。
+    """
+    try:
+        parsed = urlparse(address)
+    except Exception as e:
+        logger.warning(f"#5469 SSRF block: malformed URL: {address!r} ({e})")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid webhook URL")
+
+    if parsed.scheme not in ("http", "https"):
+        logger.warning(f"#5469 SSRF block: bad scheme {parsed.scheme!r}: {address!r}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook URL scheme must be http or https")
+
+    hostname = parsed.hostname
+    if not hostname:
+        logger.warning(f"#5469 SSRF block: no hostname: {address!r}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook URL missing hostname")
+
+    # 解析全部 IP（getaddrinfo 可能返回多条；含 v6）。解析失败 fail-closed。
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as e:
+        logger.warning(f"#5469 SSRF block: DNS resolve failed for {hostname!r}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook hostname could not be resolved")
+
+    ips = {info[4][0] for info in infos}
+    for ip_str in ips:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        for net in _BLOCKED_NETWORKS:
+            if ip in net:
+                logger.warning(f"#5469 SSRF block: {hostname!r} resolves to blocked {ip} ({net})")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Webhook URL targets a blocked internal or private network range",
+                )
+
 
 def get_user_service():
     """获取UserService实例"""
@@ -27,18 +97,23 @@ def get_user_service():
 
 
 def get_user_group_service():
-    """获取 UserGroupService 实例（data 那份，契约匹配 settings 端点）。
+    """获取 UserGroupService 实例（容器装配的 user.services 那份，#6235 统一）。
 
-    container.user_group_service() 装配的是 user.services 那份（Upstream=CLI），
-    缺 count_all_members / update_group / list_members 等端点所需方法；端点按
-    data.services 那份（Upstream=Settings API）契约编写，故直接实例化它。见 #5625。
+    历史上 #6227 因 user 版缺 count_all_members/update_group 等方法而绕开容器
+    直接实例化 data 版，制造双版本漂移。#6235 将端点契约方法补全到 user 版后，
+    统一走 container（单一 source of truth）。
     """
-    return DataUserGroupService()
+    return container.user_group_service()
 
 
 def get_notification_service() -> NotificationService:
     """获取NotificationService实例"""
     return NotificationService()
+
+
+def get_api_key_service():
+    """获取 ApiKeyService 实例（#5459: 持久化 API keys，替代硬编码 mock）。"""
+    return container.api_key_service()
 
 
 def hash_password(password: str) -> str:
@@ -71,6 +146,40 @@ def _require_admin(req: Request) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges required",
         )
+
+
+def _require_contact_ownership(req: Request, contact_uuid: str) -> None:
+    """#5680: by-contact_uuid 操作须 ownership 校验——contact.user_id == 当前用户 OR admin。
+
+    防止任意登录用户篡改/删除他人联系方式。JWT 中间件注入 req.state.user_uuid
+    为当前用户；contact 归属经 user_service.get_contact 查询（service/CRUD 层不改，
+    守分层边界）。非 owner 非 admin → 403；contact 不存在 → 404；未认证 → 403。
+    """
+    current_user_uuid = getattr(req.state, "user_uuid", None)
+    if not current_user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+        )
+    svc = get_user_service()
+    contact_result = svc.get_contact(contact_uuid)
+    if not contact_result.success or contact_result.data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contact not found",
+        )
+    contact = contact_result.data
+    owner_id = getattr(contact, "user_id", None)
+    if owner_id is None and isinstance(contact, dict):
+        owner_id = contact.get("user_id")
+    if owner_id == current_user_uuid:
+        return
+    if _resolve_is_admin(current_user_uuid):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not allowed to modify others' contacts",
+    )
 
 
 # ==================== 用户管理 ====================
@@ -559,9 +668,11 @@ async def create_user_contact(user_uuid: str, data: UserContactCreate):
 
 
 @router.put("/users/contacts/{contact_uuid}")
-async def update_user_contact(contact_uuid: str, data: UserContactUpdate):
+async def update_user_contact(contact_uuid: str, data: UserContactUpdate, req: Request):
     """更新用户联系方式"""
     try:
+        # #5680: ownership 校验在前——非 owner 非 admin 不得改他人联系方式
+        _require_contact_ownership(req, contact_uuid)
         user_service = get_user_service()
 
         # 构建更新数据
@@ -656,13 +767,15 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
 
         # 根据联系方式类型发送测试通知
         if contact_type == CONTACT_TYPES.EMAIL:
-            # TODO: 实现邮件发送
-            logger.info(f"Email test sent to: {data.address}")
-            return ok(data={
-                "detail": "Email sending not implemented yet"
-            }, message=f"Test email sent to {data.address}")
+            # #5595: 邮件发送未实现——诚实返 501，不假装发送成功
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Email sending is not implemented"
+            )
         elif contact_type == CONTACT_TYPES.WEBHOOK:
-            # TODO: 实现Webhook调用
+            # Webhook 已实现（下方 requests.post 实发），原 TODO 注释为过期残留（#5595）
+            # #5469: 发送前校验目标 URL 防 SSRF（拦内网/云元数据/scheme），不安全抛 400。
+            _assert_safe_webhook_url(data.address)
             import requests
             try:
                 response = requests.post(
@@ -681,7 +794,7 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
                 logger.error(f"Webhook test failed: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Webhook test failed: {str(e)}"
+                    detail="Webhook test failed"
                 )
         else:
             raise HTTPException(
@@ -780,8 +893,12 @@ async def list_user_groups():
             )
 
         raw_groups = result.data
+        # user 版 list_groups 返 dict {"groups":[...],"count":N}；#5625 mock 仍返 list。
+        # 两者兼容：dict 取 "groups"，list 直用。
+        if isinstance(raw_groups, dict):
+            raw_groups = raw_groups.get("groups", [])
 
-        # 批量获取成员数（避免 N+1）：data 版 count_all_members 一次 GROUP BY 全统计
+        # 批量获取成员数（避免 N+1）：count_all_members 一次 GROUP BY 全统计
         member_counts = group_service.count_all_members()
 
         group_list = []
@@ -868,7 +985,13 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
             # 检查新名称是否与其他组冲突
             existing_result = group_service.list_groups()
             if existing_result.success:
-                for g in existing_result.data:
+                existing_data = existing_result.data
+                # user 版 list_groups 返 dict（取 "groups"）；#5625 mock 返 list（直用）
+                existing_groups = (
+                    existing_data.get("groups", []) if isinstance(existing_data, dict)
+                    else (existing_data or [])
+                )
+                for g in existing_groups:
                     if g["name"] == data.name and g["uuid"] != uuid:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
@@ -1328,10 +1451,11 @@ async def test_notification_template(uuid: str):
                 detail="Notification template not found"
             )
 
-        # TODO: 实现真实的测试发送
-        logger.info(f"Test notification template: {uuid}")
-
-        return ok(message="Test notification sent")
+        # #5595: 真实测试发送未实现——诚实返 501，不假装发送成功
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Notification template test send is not implemented"
+        )
 
     except HTTPException:
         raise
@@ -1375,7 +1499,7 @@ async def toggle_notification_template(uuid: str, enabled: bool):
 async def list_notification_history(
     type: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20
+    page_size: int = Query(default=20, ge=1, le=500)
 ):
     """获取通知历史"""
     try:
@@ -1386,7 +1510,9 @@ async def list_notification_history(
 
         # 构建查询条件
         filters = {"is_del": False}
-        # TODO: 添加类型筛选支持
+        # #5595: type 筛选接入 channels 字段（email/webhook/wechat/discord 等通知渠道）
+        if type is not None:
+            filters["channels"] = type
 
         result = notification_service.list_records(
             filters=filters,
@@ -1547,7 +1673,7 @@ async def create_notification_recipient(data: NotificationRecipientCreate):
         logger.error(f"Error creating notification recipient: {e}\nTraceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create notification recipient: {str(e)}"
+            detail="Failed to create notification recipient"
         )
 
 
@@ -1706,6 +1832,8 @@ async def test_notification_recipient(uuid: str):
             try:
                 if contact_type in ["DISCORD", "WEBHOOK"]:
                     # 使用 requests 直接发送 Discord Webhook
+                    # #5469: 发送前校验目标 URL 防 SSRF（address 来自 DB contact，用户自设仍可控）。
+                    _assert_safe_webhook_url(address)
                     import requests
                     payload = {
                         "content": test_content.replace("\n", " ").replace("\r", ""),
@@ -1741,6 +1869,10 @@ async def test_notification_recipient(uuid: str):
                     failed_count += 1
                     results.append(f"{contact_type}: 未知类型")
 
+            except HTTPException:
+                # #5469: SSRF 守卫抛的 400 须穿透内层兜底，否则被下方 except Exception
+                # 吞成 "failed"（返 200）。不安全 URL 直接拒整批请求。
+                raise
             except Exception as e:
                 err_name = type(e).__name__
                 if "Timeout" in err_name:
@@ -1772,11 +1904,31 @@ async def test_notification_recipient(uuid: str):
         logger.error(f"Error testing notification recipient {uuid}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to test notification recipient: {str(e)}"
+            detail="Failed to test notification recipient"
         )
 
 
 # ==================== API接口设置 ====================
+
+class CreateApiKeyRequest(BaseModel):
+    """#5459: 创建 API 密钥请求（对齐前端 apiKey.ts CreateApiKeyRequest）。"""
+    model_config = ConfigDict(extra="ignore")  # 忽略未知字段（#5474 同类校验理念）
+    name: str = Field(..., min_length=1, description="密钥名称")
+    permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
+    description: Optional[str] = Field(None, description="备注说明")
+    expires_days: Optional[int] = Field(None, description="有效期天数，None=永久")
+    auto_generate: bool = Field(True, description="是否自动生成 key 值（端点创建总是生成）")
+
+
+class UpdateApiKeyRequest(BaseModel):
+    """#5459: 更新 API 密钥请求（对齐前端 apiKey.ts UpdateApiKeyRequest，字段全可选）。"""
+    model_config = ConfigDict(extra="ignore")
+    name: Optional[str] = Field(None, min_length=1, description="密钥名称")
+    permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
+    is_active: Optional[bool] = Field(None, description="是否激活")
+    description: Optional[str] = Field(None, description="备注说明")
+    expires_days: Optional[int] = Field(None, description="有效期天数，None=不改")
+
 
 class APIKeySummary(BaseModel):
     """API密钥摘要"""
@@ -1798,41 +1950,99 @@ class APIStats(BaseModel):
 
 @router.get("/api-keys")
 async def list_api_keys():
-    """获取API密钥列表"""
-    # TODO: 从数据库获取API密钥
-    return ok(data=[
-        {
-            "key_id": "key-1",
-            "name": "生产环境密钥",
-            "masked_key": "ginkgo_sk_****",
-            "status": "active",
-            "expires_at": "2025-01-31T00:00:00Z",
-            "last_used": "2024-01-30T15:30:00Z"
-        }
-    ])
+    """获取API密钥列表
+
+    #5459: 透传 ApiKeyService.list_api_keys 的 api_keys 列表。
+    service 字段已对齐前端 apiKey.ts ApiKey（12 字段），无需重映射。
+    """
+    svc = get_api_key_service()
+    result = svc.list_api_keys()
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to list API Keys"))
+    return ok(data=result["data"]["api_keys"])
 
 
 @router.post("/api-keys", status_code=201)
-async def create_api_key(data: dict):
-    """创建API密钥"""
-    # TODO: 创建API密钥
-    return ok(data={
-        "key_id": "new-key",
-        "name": data.get("name"),
-        "masked_key": "ginkgo_sk_****",
-        "status": "active",
-        "expires_at": None,
-        "last_used": None
-    })
+async def create_api_key(data: CreateApiKeyRequest):
+    """创建API密钥
+
+    #5459: 接线 ApiKeyService 持久化，透传 service.data（含一次性明文 key_value）。
+    service.data 字段已对齐前端 apiKey.ts CreateApiKeyResponse，无需重映射。
+    """
+    svc = get_api_key_service()
+    result = svc.create_api_key(
+        name=data.name,
+        permissions=data.permissions,
+        description=data.description,
+        expires_days=data.expires_days,
+        auto_generate=data.auto_generate,
+    )
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to create API Key"))
+    return ok(data=result["data"])
+
+
+@router.get("/api-keys/{key_id}")
+async def get_api_key(key_id: str):
+    """获取API密钥详情
+
+    #5459: 透传 ApiKeyService.get_api_key（对齐前端 getApiKey，不含原始 key_value）。
+    """
+    svc = get_api_key_service()
+    result = svc.get_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data=result["data"])
+
+
+@router.put("/api-keys/{key_id}")
+async def update_api_key(key_id: str, data: UpdateApiKeyRequest):
+    """更新API密钥
+
+    #5459: 转发 UpdateApiKeyRequest 字段到 service.update_api_key（对齐前端 updateApiKey）。
+    service update 仅返回 {success, message}，端点补 {uuid} 对齐前端 APIResponse<{uuid}>。
+    """
+    svc = get_api_key_service()
+    result = svc.update_api_key(
+        uuid=key_id,
+        name=data.name,
+        permissions=data.permissions,
+        is_active=data.is_active,
+        description=data.description,
+        expires_days=data.expires_days,
+    )
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "Failed to update API Key"))
+    return ok(data={"uuid": key_id})
+
+
+@router.delete("/api-keys/{key_id}")
+async def delete_api_key(key_id: str):
+    """删除API密钥
+
+    #5459: 接线 ApiKeyService.delete_api_key（验收: Delete removes the key）。
+    """
+    svc = get_api_key_service()
+    result = svc.delete_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data={"uuid": key_id})
+
+
+@router.post("/api-keys/{key_id}/reveal")
+async def reveal_api_key(key_id: str):
+    """解密并返回完整API密钥
+
+    #5459: 透传 service.reveal_api_key（对齐前端 revealApiKey，返回明文 key_value 用于复制）。
+    """
+    svc = get_api_key_service()
+    result = svc.reveal_api_key(key_id)
+    if not result.get("success"):
+        raise BusinessError(result.get("message", "API Key not found"))
+    return ok(data=result["data"])
 
 
 @router.get("/api-stats")
 async def get_api_stats():
-    """获取API统计"""
-    # TODO: 获取实际统计数据
-    return ok(data={
-        "today_calls": 15234,
-        "month_calls": 456789,
-        "success_rate": 99.8,
-        "avg_response_time": 85.0
-    })
+    """获取API统计（来自 ApiStatsMiddleware 的实时聚合，非硬编码占位）。"""
+    return ok(data=api_stats_collector.get_stats())

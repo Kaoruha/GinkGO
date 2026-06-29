@@ -4,7 +4,7 @@ Live Account 相关数据模型
 与前端 web-ui/src/api/modules/live.ts 中的类型定义对应
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, AliasChoices
 from typing import Optional, List, Dict, Any
 from enum import Enum
 from datetime import datetime
@@ -65,8 +65,17 @@ class LiveAccountDetail(LiveAccountSummary):
 
 class CreateLiveAccountRequest(BaseModel):
     """创建实盘账号请求"""
-    exchange: ExchangeType
-    name: str = Field(..., min_length=1, max_length=200)
+    exchange: ExchangeType = Field(
+        validation_alias=AliasChoices("exchange", "broker"),
+        description="交易所(OKX/BINANCE);也接受直觉别名 `broker`。",
+    )
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        validation_alias=AliasChoices("name", "account_name"),
+        description="账户显示名称;也接受直觉别名 `account_name`。",
+    )
     api_key: str = Field(..., min_length=1)
     api_secret: str = Field(..., min_length=1)
     passphrase: Optional[str] = None
@@ -77,7 +86,13 @@ class CreateLiveAccountRequest(BaseModel):
 
 class UpdateLiveAccountRequest(BaseModel):
     """更新实盘账号请求"""
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=200,
+        validation_alias=AliasChoices("name", "account_name"),
+        description="账户显示名称;也接受直觉别名 `account_name`。",
+    )
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
     passphrase: Optional[str] = None

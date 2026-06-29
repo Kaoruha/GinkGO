@@ -22,6 +22,7 @@ from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
 from ginkgo.client import cache_cli
+from ginkgo.data.services.base_service import ServiceResult
 
 
 @pytest.fixture
@@ -37,8 +38,8 @@ def mock_redis_service():
     m.clear_all_sync_progress.return_value = 3
     m.clear_sync_progress.return_value = 1
     m.get_redis_info.return_value = {"connected": True, "version": "7.0.0"}
-    # crud_repo 用于 keys() 查询
-    m.crud_repo.keys.return_value = []
+    # find_keys 返 ServiceResult（#2592: 走 service 非 crud_repo）
+    m.find_keys.return_value = ServiceResult.success(data={"keys": []})
     return m
 
 
@@ -187,7 +188,7 @@ class TestCacheStatus:
 
     def test_status_empty_cache(self, cli_runner, mock_container):
         """缓存为空时显示 Empty 状态"""
-        mock_container.redis_service.return_value.crud_repo.keys.return_value = []
+        mock_container.redis_service.return_value.find_keys.return_value = ServiceResult.success(data={"keys": []})
         with patch("ginkgo.data.containers.container", mock_container), \
              patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
             mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
@@ -235,7 +236,7 @@ class TestCacheList:
 
     def test_list_no_filter_empty(self, cli_runner, mock_container):
         """无过滤条件且缓存为空时显示提示"""
-        mock_container.redis_service.return_value.crud_repo.keys.return_value = []
+        mock_container.redis_service.return_value.find_keys.return_value = ServiceResult.success(data={"keys": []})
         with patch("ginkgo.data.containers.container", mock_container), \
              patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
             mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
@@ -246,9 +247,9 @@ class TestCacheList:
 
     def test_list_with_function_entries(self, cli_runner, mock_container):
         """存在函数缓存条目时正确展示"""
-        mock_container.redis_service.return_value.crud_repo.keys.return_value = [
+        mock_container.redis_service.return_value.find_keys.return_value = ServiceResult.success(data={"keys": [
             "ginkgo_func_cache_get_bars_000001.SZ",
-        ]
+        ]})
         with patch("ginkgo.data.containers.container", mock_container), \
              patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
             mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
@@ -260,9 +261,9 @@ class TestCacheList:
 
     def test_list_with_sync_entries(self, cli_runner, mock_container):
         """存在同步进度缓存条目时正确展示"""
-        mock_container.redis_service.return_value.crud_repo.keys.return_value = [
+        mock_container.redis_service.return_value.find_keys.return_value = ServiceResult.success(data={"keys": [
             "bar_update_000001.SZ",
-        ]
+        ]})
         with patch("ginkgo.data.containers.container", mock_container), \
              patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
             mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
@@ -286,9 +287,9 @@ class TestCacheList:
 
     def test_list_with_limit(self, cli_runner, mock_container):
         """--limit 参数控制返回条目数"""
-        mock_container.redis_service.return_value.crud_repo.keys.return_value = [
+        mock_container.redis_service.return_value.find_keys.return_value = ServiceResult.success(data={"keys": [
             f"ginkgo_func_cache_func_{i}" for i in range(10)
-        ]
+        ]})
         with patch("ginkgo.data.containers.container", mock_container), \
              patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
             mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
@@ -296,3 +297,53 @@ class TestCacheList:
             result = cli_runner.invoke(cache_cli.app, ["list", "--limit", "3"])
         assert result.exit_code == 0
         assert "Showing first 3" in result.output
+
+
+# ============================================================================
+# 5. #2592 封装契约：cache_cli 通过 find_keys 查询键，不直访 crud_repo
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestCacheCliUsesFindKeys:
+    """#2592: cache_cli 应通过 redis_service.find_keys 查询键列表，而非直访 crud_repo。
+
+    根因：crud_repo 不是 BaseService 的公共属性（仅私有 _crud_repo），
+    直访 redis_service.crud_repo.keys(...) 抛 AttributeError，被 try/except 吞成 ":x: Error"。
+    """
+
+    def _mock_container_with_find_keys(self, keys=None):
+        """构造 find_keys 返 ServiceResult 的 container mock"""
+        keys = keys if keys is not None else []
+        mock_svc = MagicMock()
+        mock_svc.get_redis_info.return_value = {"connected": True, "version": "7.0.0"}
+        mock_svc.find_keys.return_value = ServiceResult.success(data={"keys": keys})
+        mock_container = MagicMock()
+        mock_container.redis_service.return_value = mock_svc
+        return mock_container, mock_svc
+
+    def test_status_calls_find_keys(self, cli_runner):
+        """status 命令通过 find_keys 查询缓存键（走 service 层）"""
+        mock_container, mock_svc = self._mock_container_with_find_keys()
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
+            mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
+            mock_pattern.SYNC_PROGRESS_ALL = "*_update_*"
+            result = cli_runner.invoke(cache_cli.app, ["status"])
+        assert result.exit_code == 0
+        assert mock_svc.find_keys.called
+
+    def test_list_calls_find_keys(self, cli_runner):
+        """list 命令通过 find_keys 查询缓存键（走 service 层）"""
+        mock_container, mock_svc = self._mock_container_with_find_keys(
+            keys=["ginkgo_func_cache_get_bars_000001.SZ"]
+        )
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("ginkgo.data.redis_schema.RedisKeyPattern") as mock_pattern:
+            mock_pattern.FUNC_CACHE_ALL = "ginkgo_func_cache_*"
+            mock_pattern.SYNC_PROGRESS_ALL = "*_update_*"
+            result = cli_runner.invoke(cache_cli.app, ["list"])
+        assert result.exit_code == 0
+        assert mock_svc.find_keys.called
+        assert "get_bars" in result.output

@@ -12,6 +12,7 @@ Mock strategy:
 """
 
 import pytest
+from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock
 
 
@@ -304,6 +305,26 @@ class TestVersion:
         assert result.exit_code == 0
         # Output should contain version-like text
         assert "ginkgo" in result.output.lower() or "0." in result.output
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_no_hardcoded_stale_version_in_main(self):
+        """main.py 不得含硬编码版本号字面量（#5406 AC#3，防 0.8.1 漂移回归）。
+
+        兜底分支若回填具体版本号，CLI 与 API 版本会再次分裂。
+        用文件路径定位 main.py，避免 editable install 下 import 解析错位。
+        """
+        main_py = Path(__file__).resolve().parents[3] / "main.py"
+        src = main_py.read_text(encoding="utf-8")
+        assert "0.8.1" not in src, "main.py 残留硬编码版本号，破坏 CLI/API 版本一致性"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_version_output_not_stale(self, cli_runner):
+        """正常路径输出来自动态 VERSION，不含硬编码 0.8.1（#5406 AC#3）。"""
+        result = cli_runner.invoke(_get_main_app(), ["version"])
+        assert result.exit_code == 0
+        assert "0.8.1" not in result.output
 
 
 # ===========================================================================

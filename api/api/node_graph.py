@@ -3,7 +3,7 @@
 提供节点图的 CRUD、验证、编译等接口
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -36,7 +36,7 @@ def get_portfolio_mapping_service():
     return container.portfolio_mapping_service()
 
 
-from ._file_type import _resolve_file_type  # noqa: F401 — 无副作用，可安全导入
+from ._file_type import _resolve_file_type, _validate_file_id  # noqa: F401 — 无副作用，可安全导入
 
 
 def get_file_service():
@@ -47,11 +47,11 @@ def get_file_service():
 
 # ==================== CRUD 操作 ====================
 
-@router.get("/")
+@router.get("")
 async def list_node_graphs(
     portfolio_uuid: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = Query(default=20, ge=1, le=500),
 ):
     """
     获取节点图列表
@@ -82,7 +82,7 @@ async def list_node_graphs(
         logger.error(f"Error listing node graphs: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing node graphs: {str(e)}"
+            detail="Error listing node graphs"
         )
 
 
@@ -127,11 +127,11 @@ async def get_node_graph(
         logger.error(f"Error getting node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting node graph: {str(e)}"
+            detail="Error getting node graph"
         )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_node_graph(
     data: NodeGraphCreate,
 ):
@@ -176,7 +176,7 @@ async def create_node_graph(
         logger.error(f"Error creating node graph: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating node graph: {str(e)}"
+            detail="Error creating node graph"
         )
 
 
@@ -212,7 +212,7 @@ async def update_node_graph(
         logger.error(f"Error updating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating node graph: {str(e)}"
+            detail="Error updating node graph"
         )
 
 
@@ -221,21 +221,24 @@ async def delete_node_graph(
     graph_uuid: str,
 ):
     """
-    删除节点图
+    删除节点图（清空图配置：删 Mongo 图文档 + engine_portfolio_mapping 行 + 关联 MParam）
+    注：仅删图配置层，不删 Portfolio 实体本身。
     """
     try:
-        # TODO: 实现删除逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Delete operation not yet implemented"
-        )
+        service = get_portfolio_mapping_service()
+        result = service.delete_graph(graph_uuid)
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error or "Failed to delete node graph"
+            )
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting node graph: {str(e)}"
+            detail="Error deleting node graph"
         )
 
 
@@ -245,21 +248,24 @@ async def duplicate_node_graph(
     name: str,
 ):
     """
-    复制节点图
+    复制节点图（读源图 → 以新 portfolio_uuid 写入图配置副本）
     """
     try:
-        # TODO: 实现复制逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Duplicate operation not yet implemented"
-        )
+        service = get_portfolio_mapping_service()
+        result = service.duplicate_graph(graph_uuid, name=name)
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error or "Failed to duplicate node graph"
+            )
+        return ok(data=result.data, message="Graph duplicated successfully")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error duplicating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error duplicating node graph: {str(e)}"
+            detail="Error duplicating node graph"
         )
 
 
@@ -311,7 +317,7 @@ async def validate_node_graph(
         logger.error(f"Error validating node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error validating node graph: {str(e)}"
+            detail="Error validating node graph"
         )
 
 
@@ -350,7 +356,7 @@ async def compile_node_graph(
         logger.error(f"Error compiling node graph {graph_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error compiling node graph: {str(e)}"
+            detail="Error compiling node graph"
         )
 
 
@@ -359,21 +365,47 @@ async def create_from_backtest(
     backtest_uuid: str,
 ):
     """
-    从回测配置创建节点图
+    从回测配置读取节点图（查回测 → 取 portfolio_id → 返回该组合的现有图）
+    语义：返回现有图，不创建新图（与 duplicate 区分）。
     """
     try:
-        # TODO: 实现反向编译逻辑
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Not implemented yet"
-        )
+        from ginkgo.data.containers import container
+
+        bt_service = container.backtest_task_service()
+        bt_result = bt_service.get_by_id(backtest_uuid)
+        if not bt_result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backtest {backtest_uuid} not found"
+            )
+        portfolio_id = getattr(bt_result.data, "portfolio_id", "") or ""
+        if not portfolio_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backtest {backtest_uuid} has no portfolio_id"
+            )
+
+        mapping_service = get_portfolio_mapping_service()
+        graph_result = mapping_service.get_portfolio_graph(portfolio_id)
+        if not graph_result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Node graph for backtest {backtest_uuid} (portfolio {portfolio_id}) not found"
+            )
+
+        return ok(data={
+            "backtest_uuid": backtest_uuid,
+            "portfolio_uuid": portfolio_id,
+            "graph_data": graph_result.data.get("graph_data", {}),
+            "metadata": graph_result.data.get("metadata", {}),
+        })
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating from backtest {backtest_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating from backtest: {str(e)}"
+            detail="Error creating from backtest"
         )
 
 
@@ -412,7 +444,45 @@ async def get_portfolio_mappings(
         logger.error(f"Error getting portfolio mappings {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting portfolio mappings: {str(e)}"
+            detail="Error getting portfolio mappings"
+        )
+
+
+@router.get("/{portfolio_uuid}/files")
+async def get_portfolio_files(portfolio_uuid: str):
+    """
+    获取投资组合已绑定的文件列表 (#5806)
+
+    委托 service.get_portfolio_mappings 返回文件级视图。
+    与 GET /{portfolio_uuid}/mappings 同源；本端点 URL 语义更直白
+    （RESTful /files），供前端「列文件」场景免带参数负载。
+    """
+    try:
+        service = get_portfolio_mapping_service()
+
+        result = service.get_portfolio_mappings(
+            portfolio_uuid=portfolio_uuid,
+            include_params=False,
+        )
+
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Portfolio {portfolio_uuid} not found"
+            )
+
+        return ok(data={
+            "portfolio_uuid": portfolio_uuid,
+            "files": result.data,
+            "total": len(result.data),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting portfolio files {portfolio_uuid}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error getting portfolio files"
         )
 
 
@@ -435,6 +505,9 @@ async def add_file_to_portfolio(
     """
     try:
         from ginkgo.enums import FILE_TYPES
+
+        # #5645: 空 file_id 校验（空串/None/纯空白）防止静默成功创建无效映射
+        file_id = _validate_file_id(file_id)
 
         service = get_portfolio_mapping_service()
 
@@ -460,11 +533,17 @@ async def add_file_to_portfolio(
         }, message="File added successfully")
     except HTTPException:
         raise
+    except ValueError as e:
+        # #5645: 入参校验失败（空 file_id / 无效 file_type）→ 400 而非 500
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error adding file to portfolio {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error adding file: {str(e)}"
+            detail="Error adding file"
         )
 
 
@@ -495,5 +574,5 @@ async def remove_file_from_portfolio(
         logger.error(f"Error removing file from portfolio {portfolio_uuid}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error removing file: {str(e)}"
+            detail="Error removing file"
         )

@@ -77,14 +77,16 @@ class TestTradingTimeRiskConstruction:
 @pytest.mark.critical
 class TestTradingTimeRiskMarketHoursControl:
     def test_market_opening_time_control(self):
+        # 默认 open_minutes_after=5：开盘瞬间 9:30 落在保护窗口 [9:30,9:35) 内 → 拦截（#6041）
         r = TradingTimeRisk()
         now = datetime(2024, 1, 1, 9, 30)
-        assert r.is_trading_allowed(now) is True
+        assert r.is_trading_allowed(now) is False
 
     def test_market_closing_time_control(self):
+        # 默认 close_minutes_before=5：收盘前 14:55 落在保护窗口 [14:55,15:00) 内 → 拦截（#6041）
         r = TradingTimeRisk()
         now = datetime(2024, 1, 1, 14, 55)
-        assert r.is_trading_allowed(now) is True
+        assert r.is_trading_allowed(now) is False
 
     def test_lunch_break_management(self):
         r = TradingTimeRisk(lunch_start_hour=11, lunch_start_minute=30,
@@ -210,7 +212,9 @@ class TestTradingTimeRiskOrderProcessing:
 
     def test_optimal_time_order_scheduling(self):
         r = TradingTimeRisk()
-        for hour in [9, 10, 13, 14]:
+        # 避开开盘保护期（9:30 默认 open=5）与收盘保护期（14:55-15:00 默认 close=5），
+        # 10:30 / 13:30 / 14:30 均为连续竞价安全时段（#6041）
+        for hour in [10, 13, 14]:
             now = datetime(2024, 1, 1, hour, 30)
             assert r.is_trading_allowed(now) is True
 
@@ -314,3 +318,61 @@ class TestTradingTimeRiskPerformance:
             r.cal(_make_portfolio_info(now=datetime(2024, 1, 1, 10, 30)), _make_order())
         elapsed = time.time() - start
         assert elapsed < 5.0
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.financial
+@pytest.mark.critical
+class TestTradingTimeRiskOpenCloseProtection:
+    """open_minutes_after / close_minutes_before 参数在 is_trading_allowed() 生效（#6041 AC1/AC2）。
+
+    这两个参数此前被构造函数存储、property 暴露，但 is_trading_allowed() 体只查午休，
+    完全漏读——开盘竞价波动期与收盘集合竞价保护全空。本类钉死正确边界语义。
+    """
+
+    def test_open_minutes_after_blocks_opening_auction(self):
+        # 9:30 开盘瞬间落在 open=5 保护窗口 [9:30, 9:35) 内 → 拦截
+        r = TradingTimeRisk(open_minutes_after=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 30)) is False
+
+    def test_open_minutes_after_releases_after_window(self):
+        # 9:36 已过 open=5 窗口 → 放行
+        r = TradingTimeRisk(open_minutes_after=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 36)) is True
+
+    def test_open_minutes_after_window_boundary(self):
+        # 9:35 = 窗口右端（[9:30,9:35) 半开）→ 已放行
+        r = TradingTimeRisk(open_minutes_after=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 35)) is True
+
+    def test_open_minutes_after_zero_disables_protection(self):
+        # open=0 显式禁用开盘保护 → 9:30 放行
+        r = TradingTimeRisk(open_minutes_after=0)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 9, 30)) is True
+
+    def test_close_minutes_before_blocks_closing_auction(self):
+        # 14:55 落在 close=5 保护窗口 [14:55, 15:00) 内 → 拦截
+        r = TradingTimeRisk(close_minutes_before=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 55)) is False
+
+    def test_close_minutes_before_releases_before_window(self):
+        # 14:54 在 close=5 窗口前 → 放行
+        r = TradingTimeRisk(close_minutes_before=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 54)) is True
+
+    def test_close_minutes_before_window_inner(self):
+        # 14:59 仍在 close=5 窗口内 → 拦截
+        r = TradingTimeRisk(close_minutes_before=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 14, 59)) is False
+
+    def test_open_close_combined_no_regression_midday(self):
+        # open=5/close=5 同时生效，10:30 正常连续竞价时段 → 放行（不回归）
+        r = TradingTimeRisk(open_minutes_after=5, close_minutes_before=5)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 10, 30)) is True
+
+    def test_lunch_still_blocks_after_open_close_fix(self):
+        # 午休拦截不回归：11:45 仍 False
+        r = TradingTimeRisk(lunch_start_hour=11, lunch_start_minute=30,
+                            lunch_end_hour=13, lunch_end_minute=0)
+        assert r.is_trading_allowed(datetime(2024, 1, 1, 11, 45)) is False

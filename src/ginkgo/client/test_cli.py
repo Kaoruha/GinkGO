@@ -56,7 +56,8 @@ def list_tests():
     # Get project root
     from ginkgo.libs.core.config import GCONF
     
-    test_root = Path(GCONF.WORKING_PATH) / "test"
+    # #6017: WORKING_PATH 未配置（None）时回退当前目录，避免 Path(None) 崩溃
+    test_root = Path(GCONF.WORKING_PATH or ".") / "test"
     
     console.print(":test_tube: [bold green]Ginkgo Test Suite - Modern Testing Framework[/bold green]")
     console.print()
@@ -308,7 +309,8 @@ def run(
     if debug:
         GLOG.set_level("debug")
     
-    test_root = Path(GCONF.WORKING_PATH) / "test"
+    # #6017: WORKING_PATH 未配置（None）时回退当前目录，避免 Path(None) 崩溃
+    test_root = Path(GCONF.WORKING_PATH or ".") / "test"
     test_paths = []
     pytest_args = []
     

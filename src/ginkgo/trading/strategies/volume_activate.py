@@ -20,9 +20,27 @@ class StrategyVolumeActivate(BaseStrategy):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str = "VolumeActivate", spans: str = "20", *args, **kwargs):
+    def __init__(
+        self,
+        name: str = "VolumeActivate",
+        spans: str = "20",
+        volume_high: float = 2.0,
+        volume_low: float = 0.5,
+        *args,
+        **kwargs
+    ):
         super().__init__(name, *args, **kwargs)
         self._spans = int(spans)
+        self._volume_high = float(volume_high)
+        self._volume_low = float(volume_low)
+        if self._volume_low <= 0:
+            raise ValueError(
+                f"volume_low ({self._volume_low}) must be greater than 0"
+            )
+        if self._volume_high <= self._volume_low:
+            raise ValueError(
+                f"volume_high ({self._volume_high}) must be greater than volume_low ({self._volume_low})"
+            )
         self.win = 0
         self.loss = 0
 
@@ -39,7 +57,7 @@ class StrategyVolumeActivate(BaseStrategy):
         mean = df["volume"].mean()
         std = df["volume"].std()
         r = df["volume"].iloc[-1] / mean
-        if r < 0.67 and r > 0.6:
+        if r > self._volume_high or r < self._volume_low:
             GLOG.INFO(f"Gen Signal about {event.code} from {self.name}")
             s = self.create_signal(
                 code=event.code,

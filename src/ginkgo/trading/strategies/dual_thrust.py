@@ -8,7 +8,6 @@
 
 
 import datetime
-from decimal import Decimal
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.entities import Signal
@@ -30,10 +29,10 @@ class StrategyDualThrust(BaseStrategy):
     ):
         super().__init__(name, *args, **kwargs)
         self._spans = spans
-        self._k_buy = Decimal(str(k_buy))
-        self._k_sell = Decimal(str(k_sell))
+        self._k_buy = float(k_buy)
+        self._k_sell = float(k_sell)
 
-    def _calculate_range(self, df: pd.DataFrame) -> Decimal:
+    def _calculate_range(self, df: pd.DataFrame) -> float:
         """
         Calculates the range for the Dual Thrust strategy.
         """

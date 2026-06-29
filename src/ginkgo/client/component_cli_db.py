@@ -549,7 +549,7 @@ def edit(
 def delete(
     identifier: str = typer.Argument(..., help="Component UUID or name"),
     component_type: Optional[str] = typer.Option(None, "--type", "-t", help="Component type (required if using name)"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """[red]🗑️[/red] Delete component from database.
 

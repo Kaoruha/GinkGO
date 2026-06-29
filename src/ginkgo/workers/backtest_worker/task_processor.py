@@ -289,8 +289,10 @@ class BacktestProcessor(Thread):
                 positions = getattr(portfolio, 'positions', {})
                 total_orders = len(positions) if isinstance(positions, dict) else 0
         except Exception as e:
-            # 统计获取失败不影响主流程，但记录日志便于排查 (#5479，不静默 pass)
-            GLOG.ERROR(f"[{self.task.task_uuid[:8]}] 进度统计获取失败: {e}")
+            # 统计获取失败不影响主流程，但仍记录诊断信息（对齐 #6031：不再静默吞异常）
+            GLOG.WARN(
+                f"[{self.task.task_uuid[:8]}] Progress stats gathering failed: {e}"
+            )
 
         # 每2秒上报一次（由ProgressTracker控制频率）
         self.progress_tracker.report_progress(
@@ -403,7 +405,9 @@ class BacktestProcessor(Thread):
         except Exception as e:
             GLOG.ERROR(f"[{self.task.task_uuid[:8]}] Error in result aggregation: {e}")
             import traceback
-            traceback.print_exc()
+            # #6031: 对齐本文件 L128 范式，traceback 经结构化日志落库（后台 worker
+            # 不捕获控制台流），而非 print_exc() 泄漏到 stdout/stderr
+            GLOG.ERROR(traceback.format_exc())
 
     def cancel(self):
         """取消任务"""

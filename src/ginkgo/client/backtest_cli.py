@@ -23,6 +23,18 @@ app = typer.Typer(
 )
 
 
+def _display_progress(status_val, raw_progress):
+    """completed 状态语义上进度必为 100%。
+
+    #5996: 旧任务 DB progress 字段可能为 0（完成回调未覆盖历史数据），
+    但 status==completed 时进度语义上必然完成，CLI 输出层兜底显示 100%，
+    而非原样输出 DB 里的陈旧 0%。
+    """
+    if str(status_val).lower() == "completed":
+        return 100
+    return raw_progress
+
+
 @app.command("create")
 def create_task(
     portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
@@ -37,6 +49,40 @@ def create_task(
     """:plus: Create a backtest task."""
     from ginkgo.data.containers import container
     from ginkgo.workers.backtest_worker.task_helpers import load_portfolio_components
+    from datetime import datetime
+
+    # 校验日期格式（#5994/#6083：仅接受 YYYY-MM-DD）
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
+    except ValueError:
+        console.print(
+            f":x: 日期格式无效，要求 YYYY-MM-DD；start={start} end={end}"
+        )
+        raise typer.Exit(1)
+
+    # 校验日期范围（#5993：end 早于 start 拒绝）
+    if end_date < start_date:
+        console.print(f":x: 结束日期 {end} 早于开始日期 {start}")
+        raise typer.Exit(1)
+
+    # 未来日期警告（#6009：未来日期无历史数据，警告但不阻断）
+    today = datetime.now().date()
+    if start_date.date() > today or end_date.date() > today:
+        console.print(
+            f":warning: 警告：start={start} 或 end={end} 为未来日期，该区间可能无历史数据"
+        )
+
+    # 校验 cash 为正（#5983/#6004：拒绝非正现金，避免回测以零/负资金运行）
+    if cash <= 0:
+        console.print(f":x: cash 必须为正数，当前：{cash}")
+        raise typer.Exit(1)
+
+    # 范围外警告（#6004：极端 cash 警告但不阻断，建议合理范围 1,000~10,000,000,000）
+    if cash < 1000 or cash > 10_000_000_000:
+        console.print(
+            f":warning: 警告：cash={cash} 超出建议范围（1,000~10,000,000,000），结果可能无意义"
+        )
 
     # 校验 portfolio 存在
     portfolio_service = container.portfolio_service()
@@ -99,6 +145,8 @@ def run_task(
         build_engine_data,
         load_portfolio_components,
         build_portfolio_config,
+        preflight_data_coverage,
+        build_preflight_warning,
     )
     from ginkgo.libs import GinkgoLogger
     from ginkgo.trading.time.clock import now as clock_now
@@ -145,6 +193,17 @@ def run_task(
     )
 
     portfolio_uuid = task.portfolio_id
+
+    # #6282: 回测前数据预检 — 在标 running 前查 selector codes 的 bar 覆盖，
+    # 数据缺失/稀疏时前置阻断，避免跑完整个回测才给模糊警告。
+    preflight_report = preflight_data_coverage(
+        portfolio_uuid, config.start_date, config.end_date
+    )
+    warning = build_preflight_warning(preflight_report, config.start_date, config.end_date)
+    if warning:
+        console.print(warning)
+        service.update_status(task.uuid, "failed")
+        raise typer.Exit(1)
 
     # 更新状态为 running
     service.update_status(task.uuid, "running")
@@ -294,7 +353,7 @@ def edit_task(
 @app.command("delete")
 def delete_task(
     task_id: str = typer.Argument(help="Task UUID to delete"),
-    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """:wastebasket: Delete a backtest task (soft delete)."""
     from ginkgo.data.containers import container
@@ -366,7 +425,8 @@ def list_tasks(
             else str(task.get("portfolio_id", ""))[:12]
         )
         status_val = task.status if hasattr(task, "status") else task.get("status", "")
-        progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
+        raw_progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
+        progress = _display_progress(status_val, raw_progress)
         created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
 
         status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
@@ -438,7 +498,8 @@ def cat_task(
         status_val, "white"
     )
     info_lines.append(f"[bold]Status:[/bold]       [{status_style}]{status_val}[/{status_style}]")
-    info_lines.append(f"[bold]Progress:[/bold]     {task.progress}%")
+    display_progress = _display_progress(status_val, task.progress)
+    info_lines.append(f"[bold]Progress:[/bold]     {display_progress}%")
     info_lines.append(f"[bold]Created:[/bold]      {task.create_at}")
 
     if task.start_time:

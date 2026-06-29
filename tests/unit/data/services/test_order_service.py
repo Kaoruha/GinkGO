@@ -91,6 +91,28 @@ class TestGetOrdersByPortfolio:
             portfolio_id="p1", status=ORDERSTATUS_TYPES.FILLED, page=0, page_size=20
         )
 
+    def test_passes_date_range_to_crud(self, order_svc, mock_crud):
+        """start_date/end_date 透传到 crud.find_by_portfolio (#6030)"""
+        mock_crud.find_by_portfolio.return_value = []
+
+        order_svc.get_orders_by_portfolio(
+            "p1", start_date="2026-06-23", end_date="2026-06-24"
+        )
+
+        mock_crud.find_by_portfolio.assert_called_once_with(
+            portfolio_id="p1", start_date="2026-06-23", end_date="2026-06-24"
+        )
+
+    def test_date_omitted_when_not_passed(self, order_svc, mock_crud):
+        """未传 date 时不进 kwargs（仿 status 模式，#6030）"""
+        mock_crud.find_by_portfolio.return_value = []
+
+        order_svc.get_orders_by_portfolio("p1")
+
+        _, kwargs = mock_crud.find_by_portfolio.call_args
+        assert "start_date" not in kwargs
+        assert "end_date" not in kwargs
+
     def test_rejects_empty_portfolio_id(self, order_svc):
         result = order_svc.get_orders_by_portfolio("")
 

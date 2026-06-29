@@ -140,6 +140,53 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         return items
 
     # Business Helper Methods
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None,
+    ) -> List[MPortfolio]:
+        """#5995: 模糊搜索投资组合，支持 UUID 片段 / 名称部分匹配（去重）。
+
+        Args:
+            query: 搜索字符串（UUID 片段或名称片段）
+            fields: 搜索字段列表。默认: ['uuid', 'name']
+
+        Returns:
+            去重后的匹配列表
+        """
+        if not query or not query.strip():
+            return []
+
+        query_lower = query.lower().strip()
+
+        if fields is None:
+            fields = ['uuid', 'name']
+
+        all_results: List[MPortfolio] = []
+        seen_uuids = set()
+
+        if 'uuid' in fields:
+            try:
+                for item in self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False}):
+                    uuid_val = getattr(item, 'uuid', None)
+                    if uuid_val and uuid_val not in seen_uuids:
+                        all_results.append(item)
+                        seen_uuids.add(uuid_val)
+            except Exception as e:
+                GLOG.WARN(f"Portfolio UUID fuzzy search failed: {e}")
+
+        if 'name' in fields:
+            try:
+                for item in self.find(filters={"name__like": f"%{query_lower}%", "is_del": False}):
+                    uuid_val = getattr(item, 'uuid', None)
+                    if uuid_val and uuid_val not in seen_uuids:
+                        all_results.append(item)
+                        seen_uuids.add(uuid_val)
+            except Exception as e:
+                GLOG.WARN(f"Portfolio name fuzzy search failed: {e}")
+
+        return all_results
+
     def find_by_uuid(self, uuid: str) -> List[MPortfolio]:
         """Find portfolio by UUID."""
         return self.find(filters={"uuid": uuid}, page_size=1)

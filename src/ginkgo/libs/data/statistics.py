@@ -9,21 +9,42 @@
 
 import numpy as np
 import pandas as pd
+from collections import namedtuple
+
 # scipy使用延迟导入避免启动时冲突
 # import scipy.stats as stats
 # import matplotlib.pyplot as plt
+
+
+# 统计检验结构化结果（#5521：库函数返回结构化对象，不再以 print 作为副作用输出）
+TTestResult = namedtuple(
+    "TTestResult", ["statistic", "pvalue", "t_critical", "degree_of_freedom"]
+)
+Chi2TestResult = namedtuple(
+    "Chi2TestResult", ["chi2", "p", "degree_of_freedom", "expected"]
+)
 
 
 def t_test(
     backtest_values: list,
     observe_values: list,
     level_of_confidence: float = 0.99,
-):
+) -> TTestResult:
+    """独立样本 t 检验（回测 vs 实盘分布对比）。
+
+    Returns:
+        TTestResult(statistic, pvalue, t_critical, degree_of_freedom)。
+        #5521：移除 print 副作用，返回结构化结果含 t_critical。
+    """
     # 延迟导入scipy以避免启动时冲突
     try:
         import scipy.stats as stats
     except ImportError as e:
         raise ImportError(f"scipy is required for t_test function: {e}")
+
+    # 兼容 list / np.array 输入（签名标注 list，内部 .var() 需数组）
+    backtest_values = np.asarray(backtest_values, dtype=float)
+    observe_values = np.asarray(observe_values, dtype=float)
 
     len1 = len(backtest_values)
     len2 = len(observe_values)
@@ -36,19 +57,32 @@ def t_test(
     else:
         degree_of_freedom = (len1 - 1) * (len2 - 1) / (var1 / len1 + var2 / len2)
     t_critical = stats.t.ppf(level_of_confidence, degree_of_freedom)
-    print(result)
-    print(result.pvalue)
-    print(t_critical)
-    return result
+    return TTestResult(
+        statistic=result.statistic,
+        pvalue=result.pvalue,
+        t_critical=t_critical,
+        degree_of_freedom=degree_of_freedom,
+    )
 
 
-def chi2_test(backtest_values: list, observe_values: list, category_count: int = 7):
-    # Independent test
-    # H0: There is no relation between backtest_values and observe_values.
-    # H1: There is relation between backtest_values and observe_values.
-    # if p < 0.05, refuse H0. accept H1. Two samples are from the same distribution.
-    # if p > 0.05, accept H0. refuse H1. Two samples are from different distribution.
-    # 卡方检验要求观测频数表中的每个分类的观测频数都大于或等于 5。
+def chi2_test(
+    backtest_values: list,
+    observe_values: list,
+    category_count: int = 7,
+) -> Chi2TestResult:
+    """卡方独立性检验（回测 vs 实盘分布对比）。
+
+    Returns:
+        Chi2TestResult(chi2, p, degree_of_freedom, expected)。
+        #5521：移除 print 副作用返回结构化结果；修正原注释/文本与 p 值逻辑相反的错误。
+    """
+    # 卡方独立性检验
+    # H0: backtest_values 与 observe_values 独立（无关联）
+    # H1: 两者存在关联
+    # p < 0.05 拒 H0：两样本有关联（分布显著不同）
+    # p >= 0.05 接受 H0：无足够证据否定独立
+    # （原代码注释/文本与此逻辑完全相反，#5521 修正）
+    # 注：卡方检验要求观测频数表中每个分类的频数 >= 5
 
     # 延迟导入scipy以避免启动时冲突
     try:
@@ -78,16 +112,12 @@ def chi2_test(backtest_values: list, observe_values: list, category_count: int =
         raise ValueError("Insufficient non-empty bins for chi-square test")
 
     chi2, p, degree_of_freedom, expected = stats.chi2_contingency(observed_filtered)
-    print(chi2)
-    print(p)
-    print(degree_of_freedom)
-    # 检验结果
-    if p < 0.05:
-        print("Refuse the null hypothesis. Two samples are from the same distribution.")
-    else:
-        print("Accept the null hypothesis. Two samples are from the different distribution.")
-    
-    return chi2, p, degree_of_freedom, expected
+    return Chi2TestResult(
+        chi2=chi2,
+        p=p,
+        degree_of_freedom=degree_of_freedom,
+        expected=expected,
+    )
 
     # plt.bar(
     #     bins[:-1],

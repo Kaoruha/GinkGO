@@ -186,6 +186,9 @@ class VolatilityRisk(BaseRiskManagement):
         if len(self._price_history[code]) > self._lookback_period:
             self._price_history[code] = self._price_history[code][-self._lookback_period:]
 
+        # 价格历史已变，失效该 code 的波动率缓存，下次 _get_stock_volatility 重算（#6037）
+        self._volatility_cache.pop(code, None)
+
     def _calculate_volatility(self, code: str) -> float:
         """计算指定股票的波动率"""
         if code not in self._price_history or len(self._price_history[code]) < 2:
@@ -253,7 +256,11 @@ class VolatilityRisk(BaseRiskManagement):
         weighted_volatility = 0.0
         for code, position in positions.items():
             if position and position.market_value > 0:
-                weight = position.market_value / total_value
+                # #6181: market_value/total_value 均为 Decimal（ADR-010，自 1803ce39），
+                # weight 是 Decimal；stock_volatility 为 float。Decimal × float 抛
+                # TypeError。weight 转 float（权重为无量纲比值，float 无失真风险），
+                # 对齐方法签名 -> float。对齐 #6180 / #6181 修法。
+                weight = float(position.market_value / total_value)
                 stock_volatility = self._get_stock_volatility(code)
                 weighted_volatility += weight * stock_volatility
 

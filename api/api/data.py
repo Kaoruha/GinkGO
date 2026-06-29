@@ -2,10 +2,11 @@
 数据相关API路由
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import re
 import time as _time
 
 from ginkgo.data.containers import container
@@ -178,7 +179,7 @@ async def get_data_stats():
         logger.error(f"Error getting data stats: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get data stats: {str(e)}"
+            detail="Failed to get data stats"
         )
 
 async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: int = 10) -> Dict[str, Any]:
@@ -230,8 +231,7 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
             "stocks_with_tick_data": 0,
             "sample_size": sample_size,
             "total_sampled_ticks": 0,
-            "top_stocks": [],
-            "error": str(e)
+            "top_stocks": []
         }
 
 
@@ -239,10 +239,18 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
 async def get_stockinfo(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = Query(default=50, ge=1, le=500),
+    limit: Optional[int] = None
 ):
-    """获取股票信息列表（分页，搜索下推到DB层）"""
+    """获取股票信息列表（分页，搜索下推到DB层）
+
+    #5872: limit 参数显式约束返回条数（limit=1000 → 至多 1000 条），
+    未传时沿用 page_size（默认 50），向后兼容。与 #5621（ticks，PR#6335）同模式。
+    """
     try:
+        # #5872: limit 提供且 > 0 时作为实际 page_size（截断返回条数），
+        # 避免 ?limit=1000 被 FastAPI 静默丢弃致默认 50 截断
+        effective_page_size = limit if (limit is not None and limit > 0) else page_size
         stockinfo_service = get_stockinfo_service()
 
         if search:
@@ -250,10 +258,10 @@ async def get_stockinfo(
             result = stockinfo_service.search(
                 keyword=search,
                 page=page - 1,
-                page_size=page_size,
+                page_size=effective_page_size,
             )
             if not result.is_success() or not result.data:
-                return paginated(items=[], total=0, page=page, page_size=page_size)
+                return paginated(items=[], total=0, page=page, page_size=effective_page_size)
 
             result_data = result.data
             total_count = result_data.get("total", 0) if isinstance(result_data, dict) else 0
@@ -264,13 +272,13 @@ async def get_stockinfo(
             total_count = count_result.data if count_result.is_success() else 0
 
             result = stockinfo_service.get(
-                limit=page_size,
-                offset=(page - 1) * page_size,
+                limit=effective_page_size,
+                offset=(page - 1) * effective_page_size,
                 order_by="code"
             )
 
             if not result.is_success() or not result.data:
-                return paginated(items=[], total=total_count, page=page, page_size=page_size)
+                return paginated(items=[], total=total_count, page=page, page_size=effective_page_size)
 
             items = result.data
 
@@ -298,25 +306,56 @@ async def get_stockinfo(
                 "updated_at": update_at.isoformat() if update_at else None
             })
 
-        return paginated(items=stock_summaries, total=total_count, page=page, page_size=page_size)
+        return paginated(items=stock_summaries, total=total_count, page=page, page_size=effective_page_size)
 
     except Exception as e:
         logger.error(f"Error getting stockinfo: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get stock info: {str(e)}"
+            detail="Failed to get stock info"
         )
+
+
+def _normalize_bar_code(code: Optional[str]) -> str:
+    """#5760: 校验 code 必填 + 补全交易所后缀。
+
+    - None/空/空白 → HTTPException(422)（验收3：缺 code 报错而非空数据）
+    - 6 位数字按首位推断交易所（对齐 mootdx get_stock_market）：5/6/9→.SH（沪基金/A股/B股），0/1/2/3→.SZ（深A股/ETF/B股），4/8→.BJ（北交所，mootdx 未覆盖独立判）
+    - 已含后缀（含 "."）原样返回，大小写统一转大写
+    - 非 6 位数字的其他格式原样返回，交由下游 service 判断
+    """
+    if not code or not code.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="code 参数必填，需带交易所后缀，例如 000001.SZ 或 000001（自动补全）",
+        )
+    code = code.strip().upper()
+    if "." in code:
+        return code
+    if re.match(r"^\d{6}$", code):
+        first = code[0]
+        # 首位规则对齐 mootdx get_stock_market (裁判); 4/8 北交所 mootdx 未覆盖独立判 #5760 review
+        if first in ("5", "6", "9"):  # 5 沪基金/ETF, 6 沪 A 股, 9 沪 B (900xxx)
+            return code + ".SH"
+        if first in ("0", "1", "2", "3"):  # 0/3 深 A 股, 1 深 ETF (159xxx), 2 深 B (200xxx)
+            return code + ".SZ"
+        if first in ("4", "8"):  # 北交所
+            return code + ".BJ"
+    return code
 
 
 @router.get("/bars")
 async def get_bars(
-    code: Optional[str] = None,
+    code: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500),
+    order: Optional[str] = None,  # #5652: asc|desc，默认降序（最新在前）
 ):
     """获取K线数据列表（分页）"""
+    # #5760: code 必填校验 + 交易所后缀归一化（000001 → 000001.SZ）
+    code = _normalize_bar_code(code)
     try:
         bar_service = get_bar_service()
 
@@ -330,6 +369,11 @@ async def get_bars(
             end_dt = datetime.utcnow()
             start_dt = end_dt - timedelta(days=365)
 
+        # #5652: order 参数映射为 desc_order。
+        # 原签名无 order，FastAPI 静默丢弃 ?order=desc → 用户无法控制排序方向。
+        # asc → 升序（最旧在前）；desc / None / 无效值 → 降序（最新在前，符合验收默认）。
+        desc_order = (order or "").lower() != "asc"
+
         # 使用BarService.get方法，支持分页
         result = bar_service.get(
             code=code,
@@ -340,7 +384,7 @@ async def get_bars(
             page=page - 1,  # Service层page是0-based
             page_size=page_size,
             order_by="timestamp",
-            desc_order=True
+            desc_order=desc_order
         )
 
         if not result.is_success() or not result.data:
@@ -380,7 +424,7 @@ async def get_bars(
         logger.error(f"Error getting bars: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get bars: {str(e)}"
+            detail="Failed to get bars"
         )
 
 
@@ -390,9 +434,14 @@ async def get_ticks(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500),
+    limit: Optional[int] = None  # #5621: 显式约束返回条数，未传沿用 page_size
 ):
-    """获取Tick数据列表（分页）"""
+    """获取Tick数据列表（分页）
+
+    #5621: limit 参数显式约束返回条数（limit=3 → 至多 3 条），
+    未传时沿用 page_size，向后兼容。
+    """
     try:
         tick_service = get_tick_service()
 
@@ -407,6 +456,9 @@ async def get_ticks(
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
 
+        # #5621: limit 提供且 > 0 时作为实际 page_size（截断返回条数）
+        effective_page_size = limit if (limit is not None and limit > 0) else page_size
+
         # 使用TickService.get方法（支持分页）
         result = tick_service.get(
             code=code,
@@ -414,11 +466,11 @@ async def get_ticks(
             end_date=end_dt,
             adjustment_type=ADJUSTMENT_TYPES.NONE,
             page=page - 1,
-            page_size=page_size,
+            page_size=effective_page_size,
         )
 
         if not result.is_success() or not result.data:
-            return paginated(items=[], total=0, page=page, page_size=page_size)
+            return paginated(items=[], total=0, page=page, page_size=effective_page_size)
 
         # 处理返回的数据（已是分页后的结果）
         result_data = result.data
@@ -457,7 +509,7 @@ async def get_ticks(
             items=tick_summaries,
             total=total_count,
             page=page,
-            page_size=page_size
+            page_size=effective_page_size
         )
 
     except HTTPException:
@@ -466,7 +518,7 @@ async def get_ticks(
         logger.error(f"Error getting ticks: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get ticks: {str(e)}"
+            detail="Failed to get ticks"
         )
 
 
@@ -476,7 +528,7 @@ async def get_adjust_factors(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = Query(default=100, ge=1, le=500)
 ):
     """获取复权因子列表（分页）"""
     try:
@@ -534,7 +586,7 @@ async def get_adjust_factors(
         logger.error(f"Error getting adjust factors: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get adjust factors: {str(e)}"
+            detail="Failed to get adjust factors"
         )
 
 
@@ -578,6 +630,25 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
         if isinstance(dsr, list):
             dsr = _aggregate_dsr_list(dsr)
         if hasattr(dsr, 'records_processed'):
+            # #5450: 检测 service 层标记的带 reason 的成功语义（如 already_up_to_date）。
+            # 此时 records_processed=0/skipped=0，旧 #5893 逻辑会误判 partial；但"数据已最新"
+            # 属 success。把 result.message 透传到 error_message（model 唯一 Text 字段，
+            # get_history 端到端返回），不加 schema 字段避免 DB 安全阀。验收标准 2 端到端。
+            _meta = getattr(dsr, 'metadata', None)
+            _reason = _meta.get("reason", "") if isinstance(_meta, dict) else ""
+            if _reason:
+                service.record_complete(
+                    uuid=record_uuid,
+                    status="success",
+                    duration_ms=duration_ms,
+                    records_processed=dsr.records_processed,
+                    records_added=dsr.records_added,
+                    records_updated=dsr.records_updated,
+                    records_failed=dsr.records_failed,
+                    sync_strategy=getattr(dsr, 'sync_strategy', ''),
+                    error_message=getattr(result, 'message', '') or f"已是最新 ({_reason})",
+                )
+                return
             # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
             # 否则报 partial——含"0 条可疑空"和"有 records_failed/errors"。
             # DataSyncResult.is_successful() 只判 has_errors 不看 processed=0，故需此处显式区分。
@@ -601,6 +672,12 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
     else:
         # #5893: result 无 is_success 方法，无法判断成败，报 partial
         service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
+
+
+# #5390: sync_data 支持的 type 白名单——新增 type 时须同步此常量与下方
+# if/elif 分支（stockinfo/bars/ticks/adjustfactor）。错误提示从此常量
+# 生成，避免有效值列表与分支漂移。
+_SUPPORTED_DATA_SYNC_TYPES = ("stockinfo", "bars", "ticks", "adjustfactor")
 
 
 @router.post("/sync")
@@ -629,10 +706,27 @@ async def sync_data(request: DataUpdateRequest):
 
         elif request.type == "bars":
             codes = request.codes or []
+            # #5866: codes=["all"] 展开为 stockinfo 全表 code（一键批量同步）
+            if len(codes) == 1 and codes[0].lower() == "all":
+                stockinfo_svc = get_stockinfo_service()
+                codes_result = stockinfo_svc.list_all_codes()
+                if not codes_result.is_success():
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to list stockinfo codes for batch sync",
+                    )
+                codes = codes_result.data or []
+                if not codes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No stockinfo records to sync; run stockinfo sync first "
+                               "(POST /api/v1/data/sync {\"type\":\"stockinfo\"})",
+                    )
             if not codes:
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
 
             bar_service = get_bar_service()
+            failed = 0  # #6071: 统计失败 code 数，供前端判断 success（旧版 data 无此字段致硬编码误报）
             for code in codes:
                 rec = sync_svc.record_start(sync_type="bars", code=code)
                 started_at = _time.time()
@@ -641,12 +735,13 @@ async def sync_data(request: DataUpdateRequest):
                     if rec.is_success():
                         _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
                 except Exception as e:
+                    failed += 1
                     if rec.is_success():
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "bars", "codes": codes},
-                message=f"Bars update completed for {len(codes)} codes"
+                data={"type": "bars", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
+                message=f"Bars update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
             )
 
         elif request.type == "ticks":
@@ -658,6 +753,7 @@ async def sync_data(request: DataUpdateRequest):
             start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
             end_dt = datetime.fromisoformat(request.end_date) if request.end_date else None
 
+            failed = 0  # #6071: 统计失败 code 数，供前端判断 success
             for code in codes:
                 rec = sync_svc.record_start(sync_type="ticks", code=code)
                 started_at = _time.time()
@@ -666,12 +762,13 @@ async def sync_data(request: DataUpdateRequest):
                     if rec.is_success():
                         _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
                 except Exception as e:
+                    failed += 1
                     if rec.is_success():
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "ticks", "codes": codes},
-                message=f"Ticks update completed for {len(codes)} codes"
+                data={"type": "ticks", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
+                message=f"Ticks update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
             )
 
         elif request.type in ("adjustfactor", "adjustfactors"):
@@ -715,20 +812,23 @@ async def sync_data(request: DataUpdateRequest):
             )
 
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported data type: {request.type}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported data type: {request.type}. Supported types: {', '.join(_SUPPORTED_DATA_SYNC_TYPES)}",
+            )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update data")
 
 
 @router.get("/sync/history")
 async def get_sync_history(
     sync_type: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = Query(default=20, ge=1, le=500),
 ):
     """获取同步历史记录"""
     try:
@@ -748,7 +848,7 @@ async def get_sync_history(
         return paginated(items=items, total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Error getting sync history: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get sync history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get sync history")
 
 
 @router.get("/sources")
@@ -789,5 +889,5 @@ async def get_data_sources():
         logger.error(f"Error getting data sources: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get data sources: {str(e)}"
+            detail="Failed to get data sources"
         )

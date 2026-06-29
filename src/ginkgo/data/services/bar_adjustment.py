@@ -159,7 +159,12 @@ def get_precomputed_adjustment_factors(
             return df_factors[['timestamp', factor_column]].copy()
         else:
             # 基于adjustfactor计算临时因子（仅用于测试）
-            if 'adjustfactor' in df_factors.columns and not df_factors.empty():
+            if 'adjustfactor' in df_factors.columns and not df_factors.empty:
+                # #5501: 上游 adjustfactor_service.get 不保证排序顺序（crud 无 order_by），
+                # 显式按 timestamp 升序后再取 latest(iloc[-1])/earliest(iloc[0])，
+                # 否则降序输入下 fore/back 复权方向反转。
+                # 另：原 df_factors.empty() 把 @property 当方法调用致 TypeError，已修正。
+                df_factors = df_factors.sort_values('timestamp').reset_index(drop=True)
                 latest_factor = df_factors['adjustfactor'].iloc[-1]
                 if adjustment_type == ADJUSTMENT_TYPES.FORE:
                     # 前复权系数 = 最新因子 / 历史因子

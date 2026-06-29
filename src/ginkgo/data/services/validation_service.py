@@ -416,3 +416,176 @@ class ValidationService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"蒙特卡洛模拟失败: {e}")
             return ServiceResult.error(f"模拟失败: {e}")
+
+    @staticmethod
+    def _records_in_date_range(records, start_str: str, end_str: str) -> list:
+        """筛出 business_timestamp 落在 [start_str, end_str]（含）的记录，日期粒度比较"""
+        import datetime as _dt
+        start_d = _dt.datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_d = _dt.datetime.strptime(end_str, "%Y-%m-%d").date()
+        out = []
+        for r in records:
+            ts = r.business_timestamp or r.timestamp
+            if ts is None:
+                continue
+            d = ts.date() if hasattr(ts, "date") else ts
+            if start_d <= d <= end_d:
+                out.append(r)
+        return out
+
+    def walk_forward(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        n_folds: int = 5,
+        train_ratio: float = 0.7,
+        window_type: str = "expanding",
+    ) -> ServiceResult:
+        """走步验证：将回测区间切为 n_folds 个 train/test 窗口，每折基于已有 net_value 收益率算绩效，
+        以训练期与测试期绩效差异（退化程度）作为过拟合信号。
+
+        借用 ginkgo.validation.WalkForwardValidator 的日期窗口生成逻辑（generate_folds），
+        但不重跑回测（区别于其 validate() 需 set_backtest_function）——与 monte_carlo 同风格基于已有数据。
+        """
+        try:
+            records = self._get_net_value_records(task_id, portfolio_id)
+            if len(records) < 10:
+                return ServiceResult.error("数据不足：net_value 记录少于 10 条")
+
+            time_start, time_end = self._get_time_range(records)
+            if not time_start or not time_end:
+                return ServiceResult.error("无法确定回测时间范围")
+
+            from ginkgo.validation.walk_forward import WalkForwardValidator
+            validator = WalkForwardValidator(
+                start_date=time_start,
+                end_date=time_end,
+                n_folds=n_folds,
+                train_ratio=train_ratio,
+                expanding=(window_type == "expanding"),
+            )
+            folds = validator.generate_folds()
+
+            fold_records = []
+            for fold in folds:
+                train_recs = self._records_in_date_range(records, fold.train_start, fold.train_end)
+                test_recs = self._records_in_date_range(records, fold.test_start, fold.test_end)
+                train_m = self._calc_segment_metrics(self._records_to_returns(train_recs)) if len(train_recs) >= 2 else {}
+                test_m = self._calc_segment_metrics(self._records_to_returns(test_recs)) if len(test_recs) >= 2 else {}
+                fold_records.append({
+                    "fold_num": fold.fold_num,
+                    "train_start": fold.train_start,
+                    "train_end": fold.train_end,
+                    "test_start": fold.test_start,
+                    "test_end": fold.test_end,
+                    "train_return": train_m.get("total_return", 0.0),
+                    "test_return": test_m.get("total_return", 0.0),
+                    "train_sharpe": train_m.get("sharpe", 0.0),
+                    "test_sharpe": test_m.get("sharpe", 0.0),
+                    "train_max_drawdown": train_m.get("max_drawdown", 0.0),
+                    "test_max_drawdown": test_m.get("max_drawdown", 0.0),
+                })
+
+            avg_train_return = float(np.mean([f["train_return"] for f in fold_records])) if fold_records else 0.0
+            avg_test_return = float(np.mean([f["test_return"] for f in fold_records])) if fold_records else 0.0
+            # 退化程度：训练期收益高于测试期的幅度，正值提示过拟合
+            overfit_score = round(avg_train_return - avg_test_return, 6)
+
+            data = {
+                "n_folds": n_folds,
+                "train_ratio": train_ratio,
+                "window_type": window_type,
+                "folds": fold_records,
+                "avg_train_return": round(avg_train_return, 6),
+                "avg_test_return": round(avg_test_return, 6),
+                "overfit_score": overfit_score,
+            }
+
+            if self._result_crud:
+                self._save_result(
+                    task_id=task_id, portfolio_id=portfolio_id, method="walk_forward",
+                    config={"n_folds": n_folds, "train_ratio": train_ratio, "window_type": window_type},
+                    result_data=data,
+                )
+
+            return ServiceResult.success(data=data)
+
+        except Exception as e:
+            GLOG.ERROR(f"走步验证失败: {e}")
+            return ServiceResult.error(f"走步验证失败: {e}")
+
+    def sensitivity(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        param_name: str = "n_segments",
+        param_values=None,
+    ) -> ServiceResult:
+        """敏感性分析：策略绩效对回测区间划分粒度（n_segments）的稳健性。
+
+        真参数扫描需对每个参数值重跑回测（dispatch + worker，超单 PR 范围）。
+        此处提供基于已有 net_value 收益率的统计敏感性：以不同分段数切 returns，
+        看综合绩效（跨段均值）随分段粒度的变化；sensitivity_score 为跨分段数的
+        total_return 变异系数（CV），值越大表示绩效对区间划分越敏感（稳健性越差）。
+        """
+        try:
+            records = self._get_net_value_records(task_id, portfolio_id)
+            if len(records) < 10:
+                return ServiceResult.error("数据不足：net_value 记录少于 10 条")
+            returns = self._records_to_returns(records)
+
+            # param_values 规范化：逗号字符串（前端传入）或 list
+            if isinstance(param_values, str):
+                param_values = [v.strip() for v in param_values.split(",") if v.strip()]
+            if not param_values:
+                return ServiceResult.error("param_values 不能为空")
+
+            if param_name != "n_segments":
+                return ServiceResult.error(
+                    f"不支持的 param_name: {param_name}（当前仅支持 n_segments：策略绩效对回测分段数的稳健性；"
+                    f"真参数扫描重跑回测超本端点范围）"
+                )
+
+            records_out = []
+            for pv in param_values:
+                n = int(float(pv))
+                if n < 1 or n > len(returns):
+                    continue
+                segs = self._split_returns(returns, n)
+                seg_metrics = [self._calc_segment_metrics(s) for s in segs]
+                avg_return = float(np.mean([m["total_return"] for m in seg_metrics])) if seg_metrics else 0.0
+                avg_sharpe = float(np.mean([m["sharpe"] for m in seg_metrics])) if seg_metrics else 0.0
+                avg_dd = float(np.mean([m["max_drawdown"] for m in seg_metrics])) if seg_metrics else 0.0
+                records_out.append({
+                    "param_value": n,
+                    "total_return": round(avg_return, 6),
+                    "sharpe": round(avg_sharpe, 4),
+                    "max_drawdown": round(avg_dd, 6),
+                })
+
+            if not records_out:
+                return ServiceResult.error("param_values 均超出数据长度范围")
+
+            # 变异系数 CV = std/|mean|，越大越不稳健（对分段粒度越敏感）
+            rets = [r["total_return"] for r in records_out]
+            mean_r = float(np.mean(rets))
+            sensitivity_score = round(float(np.std(rets) / abs(mean_r)), 4) if abs(mean_r) > 1e-9 else 0.0
+
+            data = {
+                "param_name": param_name,
+                "records": records_out,
+                "sensitivity_score": sensitivity_score,
+            }
+
+            if self._result_crud:
+                self._save_result(
+                    task_id=task_id, portfolio_id=portfolio_id, method="sensitivity",
+                    config={"param_name": param_name, "param_values": list(param_values)},
+                    result_data=data,
+                )
+
+            return ServiceResult.success(data=data)
+
+        except Exception as e:
+            GLOG.ERROR(f"敏感性分析失败: {e}")
+            return ServiceResult.error(f"敏感性分析失败: {e}")

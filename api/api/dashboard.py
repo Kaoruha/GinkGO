@@ -3,6 +3,7 @@
 """
 
 from fastapi import APIRouter, Request
+from core.config import settings
 from core.logging import logger
 from core.response import ok
 from models.dashboard import DashboardStats, SystemHealthItem
@@ -14,6 +15,15 @@ ginkgo_path = Path(__file__).parent.parent.parent / "src"
 sys.path.insert(0, str(ginkgo_path))
 
 router = APIRouter()
+
+
+def _safe_detail(e: Exception) -> str:
+    """#5481: 生产环境响应体不泄露内部异常细节（DB 连接串/堆栈）；
+    DEBUG 模式才附 str(e) 便于本地排查。完整异常始终由 logger 记录服务端。
+    """
+    if settings.DEBUG:
+        return str(e)
+    return "service unavailable (see server logs)"
 
 
 def _check_health() -> list[SystemHealthItem]:
@@ -37,7 +47,7 @@ def _check_health() -> list[SystemHealthItem]:
             ))
     except Exception as e:
         health_items.append(SystemHealthItem(
-            name="MySQL", status="OFFLINE", detail=str(e)
+            name="MySQL", status="OFFLINE", detail=_safe_detail(e)
         ))
 
     # Redis 检查
@@ -58,13 +68,13 @@ def _check_health() -> list[SystemHealthItem]:
             ))
     except Exception as e:
         health_items.append(SystemHealthItem(
-            name="Redis", status="OFFLINE", detail=str(e)
+            name="Redis", status="OFFLINE", detail=_safe_detail(e)
         ))
 
     return health_items
 
 
-@router.get("/")
+@router.get("")
 async def get_dashboard_stats(request: Request):
     """获取仪表盘统计数据"""
     try:
@@ -135,7 +145,7 @@ async def get_dashboard_stats(request: Request):
             running_strategies=0,
             system_status="WARNING",
             health_checks=[SystemHealthItem(
-                name="System", status="WARNING", detail=str(e)
+                name="System", status="WARNING", detail=_safe_detail(e)
             )],
         )
         return ok(data=stats.model_dump(), message="Dashboard stats retrieved with degraded data")

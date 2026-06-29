@@ -39,7 +39,7 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 - ClickHouse=时序 | MySQL=关系 | Redis=缓存 | MongoDB=文档
 
 ### Debug 模式
-数据库操作前必须开启：`ginkgo system config set --debug on`
+数据库操作前必须开启：`ginkgo debug on`
 
 ### 基础组件
 **禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
@@ -47,10 +47,10 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
-ginkgo system config set --debug on           # 开启 debug（必须）
+ginkgo debug on                               # 开启 debug（必须）
 ginkgo serve api                              # API 服务器 (:8000)
 ginkgo serve webui                            # Web UI (:5173)
-ginkgo serve worker-backtest -id test2        # 回测 Worker
+ginkgo serve worker-backtest --id test2       # 回测 Worker
 ```
 日志：`/tmp/ginkgo-api.log` | `/tmp/webui.log` | `/tmp/ginkgo-backtest.log`
 
@@ -64,10 +64,12 @@ ginkgo serve worker-backtest -id test2        # 回测 Worker
 - **架构决策记录 (ADR)** → `docs/adrs/README.md`（难逆转/反直觉/真实权衡的决策，触碰架构前先读）
 - **CLI 回测全链路操作指南** → 见下方
 
-## CLI 回测全链路
+## CLI 全链路（构建→回测→模拟盘→实盘）
+
+> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。
 
 ### 流程
-创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行
+创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行 → [deploy 模拟/实盘]
 
 **Python 环境**：`/home/kaoru/.ginkgo/.venv/bin/python`
 
@@ -88,10 +90,20 @@ ginkgo portfolio bind-component <pid> <file_id> --type strategy \
 ginkgo backtest create --portfolio <pid> --start 2025-05-07 --end 2026-05-07 --name "test" --cash 100000
 ginkgo backtest run <backtest_id>
 ginkgo backtest cat <backtest_id>
+
+# 部署（模拟盘/实盘）⚠️ 端到端待复测，见 docs/e2e-cli-flow-audit.md
+ginkgo deploy deploy <pid> --mode paper                          # 模拟盘
+ginkgo deploy deploy <pid> --mode live --account <account_uuid>  # 实盘（需先建账户）
+ginkgo deploy info <deployment_id>                               # 部署详情
+ginkgo account create <user_id> --exchange okx --name "..." --api-key ... --api-secret ...
+ginkgo account list <user_id>
 ```
 
 ### 可用组件
-- **Strategy**: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor, social_signal, game_theory, random_choice
+
+> **实际命名**：DB 组件名多为 `<name>_<type>` 格式（如 `fixed_selector`/`atr_sizer`/`fixed_sizer`），部分带描述前缀（如 `qr_momentum_selector`/`sharpe_ratio`）。`bind-component` 前用 `ginkgo component list` 查实际 `file_id` 与名称；下表为短名速查。
+
+- **Strategy**（内置类 11）: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor；另有 DB 脚本组件（src 无类，DB component 表实例）: social_signal, game_theory, random_choice
 - **Selector**: fixed, cn_all, momentum, popularity, multi_params
 - **Sizer**: fixed, atr, ratio
-- **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time
+- **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time, time_based

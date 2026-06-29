@@ -48,7 +48,7 @@ def safe_get_event(engine, timeout=0.1):
     """安全获取事件，避免阻塞"""
     try:
         return engine._event_queue.get(timeout=timeout)
-    except:
+    except Exception:
         return None
 
 
@@ -769,7 +769,7 @@ class TestBacktestModeManagerCore:
         while not engine._event_queue.empty():
             try:
                 safe_get_event(engine, timeout=0.01)
-            except:
+            except Exception:
                 break
 
         # 创建乱序提交但期望按FIFO处理的事件

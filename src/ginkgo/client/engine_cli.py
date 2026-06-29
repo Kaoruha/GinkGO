@@ -181,7 +181,18 @@ def create(
         result = engine_service.add(name=name, is_live=is_live, description=description or "")
 
         if result.success:
-            engine_uuid = result.data.uuid if hasattr(result.data, 'uuid') else result.data
+            # #5988: service.add 返回 data={"engine_info": {...}}（dict），
+            # 旧 hasattr(result.data,'uuid') 对 dict 必然 False，会把整个 dict
+            # repr 当 Engine ID 打印。按实际契约逐层提取，并兼容扁平 dict / Model 对象。
+            data = result.data
+            if isinstance(data, dict) and "engine_info" in data:
+                engine_uuid = data["engine_info"].get("uuid", "")
+            elif isinstance(data, dict) and "uuid" in data:
+                engine_uuid = data["uuid"]
+            elif hasattr(data, "uuid"):
+                engine_uuid = data.uuid
+            else:
+                engine_uuid = data
             console.print(f":white_check_mark: Engine '{name}' created successfully")
             console.print(f"  • Engine ID: {engine_uuid}")
             console.print(f"  • Type: {engine_type}")
@@ -689,7 +700,7 @@ def run(
 @app.command()
 def delete(
     engine_id: str = typer.Argument(..., help="Engine UUID"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete engine.
@@ -849,7 +860,7 @@ def bind_portfolio(
 def unbind_portfolio(
     engine_id: str = typer.Argument(..., help="Engine UUID or name"),
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
-    confirm: bool = typer.Option(False, "--confirm", help="Confirm unbinding"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :broken_link: Unbind an engine from a portfolio.

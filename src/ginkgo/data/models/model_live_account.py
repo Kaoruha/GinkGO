@@ -65,7 +65,7 @@ class MLiveAccount(MMysqlBase):
     # 状态字段
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="enabled", comment="账号状态")
     last_validated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), comment="上次验证时间")
-    validation_status: Mapped[Optional[str]] = mapped_column(String(100), comment="验证状态消息")
+    validation_status: Mapped[Optional[str]] = mapped_column(Text, comment="验证状态消息")
 
     def __init__(self, **kwargs):
         """初始化MLiveAccount实例"""

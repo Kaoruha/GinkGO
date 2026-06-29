@@ -7,7 +7,7 @@ import time
 import asyncio
 from functools import wraps
 from typing import Optional, Callable, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 try:
@@ -855,7 +855,7 @@ class OKXBroker(IBroker):
                 fee=fee,
                 fee_currency=fee_currency,
                 order_type=order_type,
-                trade_time=datetime.now()
+                trade_time=datetime.now(timezone.utc)
             )
 
             GLOG.DEBUG(f"Trade recorded: {symbol} {side} {quantity} @ {price}")

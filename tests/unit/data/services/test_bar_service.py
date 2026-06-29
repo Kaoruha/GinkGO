@@ -99,7 +99,7 @@ class TestBarServiceGetBars:
             # 清理旧的测试数据
             try:
                 stockinfo_crud.remove({"code__in": ["000001.SZ", "000002.SZ"]})
-            except:
+            except Exception:
                 pass
 
             # 添加测试需要的股票信息
@@ -1127,7 +1127,7 @@ class TestBarServiceErrorHandling:
                         assert hasattr(result, 'data')
                         assert hasattr(result, 'message')
                         assert hasattr(result, 'error')
-                except:
+                except Exception:
                     # 某些错误可能抛出异常，这也是可以接受的
                     pass
 

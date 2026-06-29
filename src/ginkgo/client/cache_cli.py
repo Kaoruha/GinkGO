@@ -191,6 +191,19 @@ def _clear_tick_cache(progress: Progress, code: str):
         progress.update(task, description=f"Error: {str(e)}", completed=100)
         raise
 
+
+def _keys_from_find_keys(result) -> list:
+    """从 redis_service.find_keys 的 ServiceResult 提取键列表。
+
+    #2592: crud_repo 不是 BaseService 公共属性（仅私有 _crud_repo），cache_cli 直访
+    redis_service.crud_repo.keys(...) 抛 AttributeError 被 try/except 静默吞，
+    导致 status/list 命令的缓存统计永显示错误。find_keys 失败或无 data 时返空列表。
+    """
+    if result.is_success() and result.data:
+        return result.data.get("keys") or []
+    return []
+
+
 @app.command()
 def status():
     """
@@ -229,7 +242,7 @@ def status():
         try:
             # Get function cache keys count
             from ginkgo.data.redis_schema import RedisKeyPattern
-            func_cache_keys = redis_service.crud_repo.keys(RedisKeyPattern.FUNC_CACHE_ALL)
+            func_cache_keys = _keys_from_find_keys(redis_service.find_keys(RedisKeyPattern.FUNC_CACHE_ALL))
             func_cache_count = len(func_cache_keys) if func_cache_keys else 0
             table.add_row(
                 "Function Cache",
@@ -242,7 +255,7 @@ def status():
         # Sync progress cache
         try:
             from ginkgo.data.redis_schema import RedisKeyPattern
-            sync_keys = redis_service.crud_repo.keys(RedisKeyPattern.SYNC_PROGRESS_ALL)
+            sync_keys = _keys_from_find_keys(redis_service.find_keys(RedisKeyPattern.SYNC_PROGRESS_ALL))
             sync_count = len(sync_keys) if sync_keys else 0
             table.add_row(
                 "Sync Progress",
@@ -299,7 +312,7 @@ def list(
         
         total_shown = 0
         for pattern in patterns:
-            keys = redis_service.crud_repo.keys(pattern)
+            keys = _keys_from_find_keys(redis_service.find_keys(pattern))
             if keys:
                 for key in keys[:limit - total_shown]:
                     # Determine cache type from key

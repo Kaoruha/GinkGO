@@ -14,7 +14,7 @@ import asyncio
 import pytest
 from unittest.mock import patch, MagicMock, call
 
-from ginkgo.data.services.user_group_service import UserGroupService
+from ginkgo.user.services.user_group_service import UserGroupService
 from ginkgo.data.services.base_service import ServiceResult
 
 

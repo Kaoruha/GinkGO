@@ -80,6 +80,12 @@ def get(
                 console.print(f":white_check_mark: quiet: {GCONF.QUIET}")
             elif key.lower() == 'cpu_ratio':
                 console.print(f":white_check_mark: cpu_ratio: {GCONF.CPURATIO*100:.1f}%")
+            elif key.lower() == 'log_path':
+                # #5931: list 显示的 key 也须可 get（显示名 log_path ↔ 属性 LOGGING_PATH）
+                console.print(f":white_check_mark: log_path: {GCONF.LOGGING_PATH}")
+            elif key.lower() == 'working_path':
+                # #5931: list 显示的 key 也须可 get（显示名 working_path ↔ 属性 WORKING_PATH）
+                console.print(f":white_check_mark: working_path: {GCONF.WORKING_PATH}")
             else:
                 console.print(f":x: Configuration key '{key}' not found")
         else:
@@ -177,6 +183,14 @@ def set(
             cpu_value = float(value) / 100.0
             GCONF.set_cpu_ratio(cpu_value)
             console.print(f":white_check_mark: Set {key} = {value}%")
+        elif key.lower() == 'log_path':
+            # #5931: 接线到已存在的 set_logging_path（list 显示名 log_path ↔ setter 名 set_logging_path 命名漂移）
+            GCONF.set_logging_path(value)
+            console.print(f":white_check_mark: Set {key} = {value}")
+        elif key.lower() == 'working_path':
+            # #5931: 接线到已存在的 set_work_path（list 显示名 working_path ↔ setter 名 set_work_path 命名漂移）
+            GCONF.set_work_path(value)
+            console.print(f":white_check_mark: Set {key} = {value}")
         else:
             console.print(f":x: Configuration key '{key}' not found")
 
@@ -288,6 +302,21 @@ def workers(
             console.print(":repeat: Restarting legacy workers...")
             console.print(":bulb: Consider using: ginkgo config containers restart")
             console.print(":white_check_mark: Workers restarted")
+
+        elif action == "list":
+            # #5991: 列出已配置 worker（复用 status 的 GTM 数据源），无则友好提示。
+            # list 原落 else 报 "Unknown action: list"，应返回有意义结果。
+            console.print(":construction_worker: Workers:")
+            try:
+                workers_status = GTM.get_workers_status()
+                if workers_status:
+                    for worker_id in workers_status:
+                        console.print(f"  - {worker_id}")
+                else:
+                    console.print("  :clipboard: No workers configured")
+            except Exception as e:
+                GLOG.ERROR(f"Failed to list workers: {e}")
+                console.print("  :clipboard: Worker list not available")
 
         else:
             console.print(f":x: Unknown action: {action}")
@@ -404,6 +433,30 @@ def containers(
                     console.print(":x: Docker is not installed")
             else:
                 console.print(":x: docker-compose.yml not found")
+
+        elif action == "list":
+            # #5991: 列出容器名（复用 status 的 docker ps 数据源），无 docker 时友好提示。
+            # list 原落 else 报 "Unknown action: list"，应返回有意义结果。
+            console.print(":whale: Containers:")
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Image}}"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                lines = [l for l in result.stdout.splitlines() if l.strip()]
+                if lines:
+                    for line in lines:
+                        parts = line.split("\t")
+                        name = parts[0]
+                        image = parts[1] if len(parts) > 1 else "-"
+                        console.print(f"  - {name} ({image})")
+                else:
+                    console.print("  :clipboard: No containers")
+            except subprocess.TimeoutExpired:
+                console.print("  :clipboard: Docker 查询超时")
+            except FileNotFoundError:
+                console.print("  :clipboard: 未安装 Docker 或不在 PATH 中")
 
         else:
             console.print(f":x: Unknown action: {action}")

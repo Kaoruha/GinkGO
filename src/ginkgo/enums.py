@@ -189,6 +189,7 @@ class ORDERSTATUS_TYPES(EnumBase):
     PARTIALLY_FILLED = 3  # 别名，兼容不同命名风格
     FILLED = 4
     CANCELED = 5
+    CANCELLED = 5  # 双L别名，兼容 brokers 层拼写 (#6061)
     REJECTED = 6
 
 
@@ -199,6 +200,7 @@ class TRANSFERSTATUS_TYPES(EnumBase):
     SUBMITTED = 2
     FILLED = 3
     CANCELED = 4
+    CANCELLED = 4  # 双L别名 (#6061)
     PENDING = 5
 
 
@@ -255,6 +257,7 @@ class RECORDSTAGE_TYPES(EnumBase):
     ORDERSEND = 3
     ORDERFILLED = 4
     ORDERCANCELED = 5
+    ORDERCANCELLED = 5  # 双L别名 (#6061)
     ENDDAY = 6
     # T5/T6: 扩展订单生命周期阶段
     ORDERACK = 7
@@ -357,6 +360,7 @@ class ENGINE_TYPES(EnumBase):
     COMPLETED = 5
     ERROR = 6
     CANCELED = 7
+    CANCELLED = 7  # 双L别名 (#6061)
 
 
 class ENGINE_ARCHITECTURE(EnumBase):
@@ -425,6 +429,7 @@ class EXECUTION_STATUS(EnumBase):
     REJECTED = 2                # 被拒绝
     TIMEOUT = 3                 # 超时
     CANCELED = 4                # 已取消
+    CANCELLED = 4                # 双L别名 (#6061)
     FILLED = 5                  # 已成交
     PARTIAL_FILLED = 6          # 部分成交
     ERROR = 7                   # 执行错误
@@ -439,6 +444,7 @@ class TRACKINGSTATUS_TYPES(EnumBase):
     EXECUTED = 2                # 已执行
     TIMEOUT = 3                 # 超时
     CANCELED = 4                # 已取消
+    CANCELLED = 4                # 双L别名 (#6061)
 
 
 class ACCOUNT_TYPE(EnumBase):

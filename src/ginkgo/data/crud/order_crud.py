@@ -207,7 +207,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 volume=getattr(item, 'volume', 0),
                 limit_price=to_decimal(getattr(item, 'limit_price', 0)),
                 frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
-                frozen_volume=getattr(item, 'frozen_volume', 0),
+                frozen_volume=int(getattr(item, 'frozen_volume', 0)),  # #6087: 显式 int 防御（与 #6080 L184 对称）
                 transaction_price=to_decimal(getattr(item, 'transaction_price', 0)),
                 transaction_volume=getattr(item, 'transaction_volume', 0),
                 remain=to_decimal(getattr(item, 'remain', 0)),

@@ -39,13 +39,24 @@ class TradingTimeRisk(BaseRiskManagement):
     def is_trading_allowed(self, current_time: object = None) -> bool:
         if current_time is None:
             return True
-        from datetime import time as dt_time
         if hasattr(current_time, "hour"):
             h, m = current_time.hour, current_time.minute
+            # 午休时段（既有逻辑，保持不回归）
             if h == self._lunch_start_hour and m >= self._lunch_start_minute:
                 return False
             if h == self._lunch_end_hour and m < self._lunch_end_minute:
                 return False
+            cur_min = h * 60 + m
+            # 开盘后 N 分钟内禁交易（A股 9:30 开盘，开盘竞价波动期滑点大）
+            if self._open_minutes_after > 0:
+                open_start = 9 * 60 + 30
+                if open_start <= cur_min < open_start + self._open_minutes_after:
+                    return False
+            # 收盘前 N 分钟内禁交易（A股 15:00 收盘，收盘集合竞价价格异常）
+            if self._close_minutes_before > 0:
+                close_end = 15 * 60
+                if close_end - self._close_minutes_before <= cur_min < close_end:
+                    return False
         return True
 
     def cal(self, portfolio_info: Dict, order: Order) -> Order:

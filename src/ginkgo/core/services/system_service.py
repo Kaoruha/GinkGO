@@ -13,6 +13,7 @@ from time import time
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
+from ginkgo.libs.utils.version import get_version
 
 
 class SystemService:
@@ -26,7 +27,7 @@ class SystemService:
     - 获取所有Worker/组件状态
     """
 
-    VERSION = "0.11.0"
+    VERSION = get_version()
     _start_time = time()
 
     def __init__(self):

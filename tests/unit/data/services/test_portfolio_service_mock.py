@@ -686,3 +686,40 @@ class TestPersistState:
 
         assert result.is_success()
         assert result.data.get("engine_current_time") is None
+
+
+# ============================================================
+# 模糊搜索测试（#5995）
+# ============================================================
+
+
+class TestFuzzySearch:
+    """#5995: portfolio fuzzy_search 委托 CRUD 的薄包装测试"""
+
+    @pytest.mark.unit
+    def test_fuzzy_search_results(self, service, mock_deps):
+        """搜索返回匹配结果（委托 crud_repo.fuzzy_search）"""
+        mock_result = [_make_portfolio(name="p1", uuid="u1")]
+        mock_deps["crud_repo"].fuzzy_search.return_value = mock_result
+
+        result = service.fuzzy_search(query="p1")
+        assert result.success is True
+        assert result.data is mock_result
+        mock_deps["crud_repo"].fuzzy_search.assert_called_once_with("p1", None)
+
+    @pytest.mark.unit
+    def test_fuzzy_search_empty_query(self, service, mock_deps):
+        """空查询字符串返回空结果，不触 CRUD"""
+        result = service.fuzzy_search(query="")
+        assert result.success is True
+        assert result.data == []
+        mock_deps["crud_repo"].fuzzy_search.assert_not_called()
+
+    @pytest.mark.unit
+    def test_fuzzy_search_exception(self, service, mock_deps):
+        """搜索异常时返回 error（success=False）"""
+        mock_deps["crud_repo"].fuzzy_search.side_effect = Exception("search err")
+
+        result = service.fuzzy_search(query="p1")
+        assert result.success is False
+        assert "search err" in result.error

@@ -344,7 +344,7 @@ def serve_livecore():
 
 @app.command("execution")
 def serve_execution(
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="ExecutionNode unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="ExecutionNode unique identifier"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Specific portfolio ID to load"),
 ):
     """
@@ -505,7 +505,7 @@ def serve_scheduler(
 @app.command("tasktimer")
 def serve_tasktimer(
     config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node ID"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="Node ID"),
 ):
     """
     :alarm_clock: Start TaskTimer scheduled task manager.
@@ -513,7 +513,7 @@ def serve_tasktimer(
     Examples:
       ginkgo serve tasktimer
       ginkgo serve tasktimer --config /path/to/config.yml
-      ginkgo serve tasktimer --node-id timer_1
+      ginkgo serve tasktimer --id timer_1
     """
     import signal
     import time
@@ -577,14 +577,14 @@ def serve_tasktimer(
 
 @app.command("worker-data")
 def serve_worker_data(
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
 ):
     """
     :gear: Start DataWorker in foreground.
 
     Examples:
       ginkgo serve worker-data
-      ginkgo serve worker-data --node-id data_1
+      ginkgo serve worker-data --id data_1
     """
     import os
     import socket
@@ -624,7 +624,7 @@ def serve_worker_data(
 
 @app.command("worker-backtest")
 def serve_worker_backtest(
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
     max_tasks: int = typer.Option(5, "--max-tasks", "-m", help="Maximum concurrent tasks"),
 ):
     """
@@ -632,7 +632,7 @@ def serve_worker_backtest(
 
     Examples:
       ginkgo serve worker-backtest
-      ginkgo serve worker-backtest --node-id backtest_1
+      ginkgo serve worker-backtest --id backtest_1
       ginkgo serve worker-backtest --max-tasks 10
     """
     import signal
@@ -777,14 +777,14 @@ def serve_worker_paper(
 
 @app.command("worker-notify")
 def serve_worker_notify(
-    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
 ):
     """
     :bell: Start NotificationWorker in foreground.
 
     Examples:
       ginkgo serve worker-notify
-      ginkgo serve worker-notify --node-id notify_1
+      ginkgo serve worker-notify --id notify_1
     """
     import signal
     import time

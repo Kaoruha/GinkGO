@@ -121,9 +121,12 @@ def dev_shell():
     from ginkgo.libs import GCONF
     
     # Create startup script
-    startup_script = """
+    # #6018: 动态构建 src 路径，与 dev_server（GCONF.WORKING_PATH + "/api"）范式一致，
+    # 不再硬编码旧路径 /home/kaoru/Applications/Ginkgo/src
+    src_path = os.path.join(GCONF.WORKING_PATH, "src")
+    startup_script = f"""
 import sys
-sys.path.insert(0, '/home/kaoru/Applications/Ginkgo/src')
+sys.path.insert(0, {src_path!r})
 
 # Import commonly used Ginkgo modules
 from ginkgo.libs import GCONF, GLOG, GTM
@@ -215,7 +218,7 @@ def dev_test(
     if pattern:
         cmd.extend(["-k", pattern])
 
-    cmd.append("test/")
+    cmd.append("tests/")
 
     # Run tests
     subprocess.run(cmd, cwd=GCONF.WORKING_PATH)
@@ -250,12 +253,12 @@ def dev_lint(
     # Run formatting tools
     if fix:
         console.print(":wrench: Auto-fixing code formatting...")
-        subprocess.run(["black", "src/", "test/"])
-        subprocess.run(["isort", "src/", "test/"])
+        subprocess.run(["black", "src/", "tests/"])
+        subprocess.run(["isort", "src/", "tests/"])
 
     # Run linting
     console.print(":mag: Checking code style...")
-    subprocess.run(["flake8", "src/", "test/"])
+    subprocess.run(["flake8", "src/", "tests/"])
 
 
 @app.command("profile")

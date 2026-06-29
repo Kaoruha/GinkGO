@@ -7,6 +7,7 @@
 
 
 
+import pandas as pd
 from rich.console import Console
 from rich.tree import Tree
 from typing import Optional
@@ -39,10 +40,10 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
     """添加Portfolio的组件到树节点"""
     from ginkgo.data.containers import container
     
-    # 获取portfolio的文件映射
-    portfolio_service = container.portfolio_service()
-    mappings_df = portfolio_service.get_portfolio_file_mappings().to_dataframe()
-    portfolio_files = mappings_df[mappings_df["portfolio_id"] == portfolio_id]
+    # 获取portfolio的文件映射（#6136: 走 mapping_service._df 出口，data 即 DataFrame）
+    mapping_service = container.mapping_service()
+    mappings_result = mapping_service.get_portfolio_file_mappings_df(portfolio_uuid=portfolio_id)
+    portfolio_files = mappings_result.data if mappings_result.success else pd.DataFrame()
     
     if portfolio_files.shape[0] == 0:
         parent_node.add("[dim]No components bound to this portfolio[/dim]")
@@ -129,10 +130,10 @@ def _show_engine_tree(engine_row, detail: bool, filter_type: Optional[FILE_TYPES
     
     tree = Tree(f"[bold blue]Engine:[/bold blue] {engine_row['name']} ([cyan]{engine_row['uuid']}[/cyan])")
     
-    # 获取engine关联的portfolios
-    engine_service = container.engine_service()
-    mappings_df = engine_service.get_engine_portfolio_mappings().to_dataframe()
-    engine_portfolios = mappings_df[mappings_df["engine_id"] == engine_row["uuid"]]
+    # 获取engine关联的portfolios（#6136: 走 mapping_service._df 出口，data 即 DataFrame）
+    mapping_service = container.mapping_service()
+    mappings_result = mapping_service.get_engine_portfolio_mappings_df(engine_uuid=engine_row["uuid"])
+    engine_portfolios = mappings_result.data if mappings_result.success else pd.DataFrame()
     
     if engine_portfolios.shape[0] == 0:
         tree.add("[dim]No portfolios bound to this engine[/dim]")

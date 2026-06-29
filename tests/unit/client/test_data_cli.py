@@ -75,7 +75,7 @@ class TestDataCLIHelp:
         """data get help 区分"可用"与 [planned] 未实现的 data_type（#4900/#5242）。
 
         adjustfactor/sources 已实现（PR #6234：接 service / 列数据源），列入可用；
-        calendar 仍不可用（报 Unknown data type，#5242 not_planned），标 [planned]。
+        calendar 仍未实现（dispatch 友好提示 planned 而非 Unknown data type，#5919），help 标 [planned]。
         help 必须与实际一致，否则误导用户——#6230 旧的 [planned: calendar/adjustfactor/sources]
         在 #6234 实现两者后已过时。
         """
@@ -252,6 +252,15 @@ class TestGetOtherTypes:
         assert result.exit_code == 1
         assert "Unknown" in result.output or "unknown" in result.output
 
+    def test_get_calendar_shows_planned_not_unknown(self, cli_runner):
+        """#5919: calendar 在 help 标 [planned]，dispatch 应提示 planned/未实现，
+        不应报通用 'Unknown data type'（help 已声明该类型，只是未实现）。
+        区别于 test_get_unknown_data_type（nonexistent 真未知 → Unknown）。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "calendar"])
+        out = result.output.lower()
+        assert "planned" in out or "not yet implemented" in out
+        assert "unknown data type" not in out
+
     def test_get_sources_lists_configured_sources(self, cli_runner):
         """sources 数据类型列出已配置的数据源（不再显示 not yet implemented 桩）"""
         result = cli_runner.invoke(data_cli.app, ["get", "sources"])
@@ -353,6 +362,40 @@ class TestSync:
         import re
         output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         assert "000001.SZ" in output_clean
+
+    @patch("ginkgo.service_hub")
+    def test_sync_day_records_added_zero_counts_skipped(self, mock_hub, cli_runner):
+        """records_added=0（源无数据）计入 skipped_count，汇总行含 Skipped"""
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+        from datetime import datetime
+        import re
+
+        mock_bar_service = MagicMock()
+        sync_data = DataSyncResult(
+            entity_type="bars",
+            entity_identifier="SH999999",
+            sync_range=(datetime(2025, 1, 1), datetime(2025, 6, 1)),
+            records_processed=0,
+            records_added=0,
+            records_updated=0,
+            records_skipped=0,
+            records_failed=0,
+            sync_duration=0.5,
+            is_idempotent=True,
+            sync_strategy="smart",
+        )
+        mock_bar_service.sync_smart.return_value = ServiceResult.success(
+            data=sync_data,
+            message="Successfully synced 0 bar records for SH999999",
+        )
+        mock_hub.data.bar_service.return_value = mock_bar_service
+
+        result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "SH999999"])
+        assert result.exit_code == 0
+        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+        # 第三态：源无数据，计入 Skipped 而非漏统计
+        assert "Skipped: 1" in output_clean
+        assert "Success: 0" in output_clean
 
     def test_sync_day_unknown_type_error(self, cli_runner):
         """sync 未知数据类型返回错误"""
@@ -597,3 +640,17 @@ class TestMisc:
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
         assert result.exit_code == 0
         assert "No stock records" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestDataGetStatusStub:
+    """#5992 data get status 返回友好 stub，而非 'Unknown data type: status'"""
+
+    def test_get_status_returns_friendly_not_unknown(self, cli_runner):
+        """data get status → exit 0，不含 'Unknown data type'，友好提示 status"""
+        result = cli_runner.invoke(data_cli.app, ["get", "status"])
+        assert result.exit_code == 0
+        assert "Unknown data type" not in result.output
+        out_lower = result.output.lower()
+        assert "status" in out_lower

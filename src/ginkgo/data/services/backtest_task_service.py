@@ -19,6 +19,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.libs import cache_with_expiration, retry, GLOG
+from ginkgo.libs.data.number import convert_to_float
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -600,31 +601,67 @@ class BacktestTaskService(BaseService):
                     f"Task must be in one of: {', '.join(startable_states)}"
                 )
 
+            # 校验 portfolio 关联：派发前确认 portfolio_uuid 可解析，否则 worker
+            # 消费空值时会报误导性的 'portfolio_uuid is required'（#5646）
+            if not (portfolio_uuid or task.portfolio_id):
+                return ServiceResult.error(
+                    f"Backtest task '{task.uuid[:8]}' has no portfolio associated. "
+                    f"Recreate the backtest with a valid --portfolio binding so the "
+                    f"worker receives a non-empty portfolio_uuid."
+                )
+
             # ========== 重新运行：删除旧数据 ==========
             task_id = task.task_id
 
             GLOG.INFO(f"Cleaning old data for task_id: {task_id[:8]}...")
 
-            # 清理与 task_id 关联的所有历史数据（CRUD 由容器注入）
-            _cleanup_cruds = [
-                ("signal",          self._signal_crud),
+            # 库归属分组（_is_clickhouse 运行时属性为裁判，非 CRUD 注释）：
+            #   MySQL 4 个：共享单事务，任一失败全 rollback，cleanup 失败则不启动回测
+            #   ClickHouse 5 个：CH 无事务（ALTER DELETE 异步 mutation），best-effort 删除+告警，不阻断
+            # 设计变更见 #5562：原逐表 try-except 半清理仍启动 → 新回测用残留数据致结果污染。
+            # driver 经 get_db_connection 单例返回，4 个 MySQL CRUD 共享同一 session_factory。
+            _mysql_cleanups = [
                 ("order",           self._order_crud),
                 ("position",        self._position_crud),
+                ("transfer",        self._transfer_crud),
+                ("signal_tracker",  self._signal_tracker_crud),
+            ]
+            _click_cleanups = [
+                ("signal",          self._signal_crud),
                 ("position_record", self._position_record_crud),
                 ("analyzer_record", self._analyzer_record_crud),
                 ("order_record",    self._order_record_crud),
                 ("transfer_record", self._transfer_record_crud),
-                ("transfer",        self._transfer_crud),
-                ("signal_tracker",  self._signal_tracker_crud),
             ]
-            for name, crud in _cleanup_cruds:
-                # CRUD 未注入时走 None.remove() → AttributeError → except 转 WARN
-                # （刻意不静默跳过：清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
+
+            # ClickHouse 无事务：尽力删除，失败告警不阻断（CH 固有限制，无回滚能力）
+            for name, crud in _click_cleanups:
                 try:
                     crud.remove(filters={"task_id": task_id})
-                    GLOG.DEBUG(f"Deleted old {name}")
+                    GLOG.DEBUG(f"Deleted old {name} (clickhouse)")
                 except Exception as e:
-                    GLOG.WARN(f"Failed to delete {name}: {e}")
+                    GLOG.WARN(f"Failed to delete {name} (clickhouse, no rollback): {e}")
+
+            # MySQL 4 个：None 告警跳过，其余共享单事务（任一失败全 rollback）
+            # （清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）
+            _mysql_present = []
+            for name, crud in _mysql_cleanups:
+                if crud is None:
+                    GLOG.WARN(f"Failed to delete {name}: CRUD not injected")
+                else:
+                    _mysql_present.append((name, crud))
+
+            if _mysql_present:
+                try:
+                    # 4 个 MySQL CRUD 共享同一 driver 单例 → 同一 session_factory → 单事务
+                    _mysql_driver = _mysql_present[0][1]._get_connection()
+                    with _mysql_driver.get_session() as _cleanup_session:
+                        for name, crud in _mysql_present:
+                            crud.remove(filters={"task_id": task_id}, session=_cleanup_session)
+                            GLOG.DEBUG(f"Deleted old {name} (mysql, in transaction)")
+                except Exception as e:
+                    GLOG.ERROR(f"MySQL cleanup transaction failed (rolled back): {e}")
+                    return ServiceResult.error(f"Cleanup failed and rolled back: {str(e)}")
 
             # 发送启动命令到Kafka（task_id 保持不变）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
@@ -1066,10 +1103,10 @@ class BacktestTaskService(BaseService):
                     order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
                     status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
                     volume=int(getattr(o, "volume", 0) or 0),
-                    limit_price=str(getattr(o, "limit_price", 0)),
-                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
+                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
-                    fee=str(getattr(o, "fee", 0)),
+                    fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
                 ))
 
@@ -1079,6 +1116,76 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"list_orders failed: {e}")
             return ServiceResult.error(f"Failed to list orders: {e}")
+
+    def list_fills(self, uuid: str) -> "ServiceResult":
+        """获取回测已成交订单（fills），返回 list[BacktestOrderItem]。
+
+        fills = status==FILLED 的订单子集（订单被成交的填充语义）。
+        与 list_orders 同源（result_service.get_orders 去重订单），仅过滤成交态；
+        在 raw record 层过滤（status 字段未 str 化），兼容 int 值与 enum 实例。
+        """
+        from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
+        from ginkgo.enums import ORDERSTATUS_TYPES
+
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.get_orders(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            orders = result.data.get("data", [])
+            filled_value = ORDERSTATUS_TYPES.FILLED.value
+            filled = [o for o in orders
+                      if getattr(o, "status", None) == ORDERSTATUS_TYPES.FILLED
+                      or getattr(o, "status", None) == filled_value]
+
+            items = []
+            for o in filled:
+                items.append(BacktestOrderItem(
+                    uuid=getattr(o, "uuid", ""),
+                    portfolio_id=getattr(o, "portfolio_id", ""),
+                    engine_id=getattr(o, "engine_id", ""),
+                    task_id=getattr(o, "task_id", ""),
+                    code=getattr(o, "code", ""),
+                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
+                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
+                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
+                    volume=int(getattr(o, "volume", 0) or 0),
+                    limit_price=str(getattr(o, "limit_price", 0)),
+                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
+                    fee=str(getattr(o, "fee", 0)),
+                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                ))
+
+            sr = ServiceResult.success(data=items, message="Fills retrieved")
+            sr.set_metadata("total", len(items))
+            return sr
+        except Exception as e:
+            GLOG.ERROR(f"list_fills failed: {e}")
+            return ServiceResult.error(f"Failed to list fills: {e}")
+
+    def get_results(self, uuid: str) -> "ServiceResult":
+        """获取回测运行结果摘要（portfolios/analyzers/time_range/total_records）。
+
+        透传 result_service.get_run_summary(task_id)；uuid 经 _resolve_task_id 解析。
+        """
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            return result_service.get_run_summary(task_id)
+        except Exception as e:
+            GLOG.ERROR(f"get_results failed: {e}")
+            return ServiceResult.error(f"Failed to get results: {e}")
 
     def list_order_records(self, uuid: str) -> "ServiceResult":
         """获取回测订单记录流水(完整状态流转, 不去重), 返回 list[BacktestOrderItem]。
@@ -1114,10 +1221,10 @@ class BacktestTaskService(BaseService):
                     order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
                     status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
                     volume=int(getattr(o, "volume", 0) or 0),
-                    limit_price=str(getattr(o, "limit_price", 0)),
-                    transaction_price=str(getattr(o, "transaction_price", 0)),
+                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
+                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
-                    fee=str(getattr(o, "fee", 0)),
+                    fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
                 ))
 
@@ -1154,11 +1261,11 @@ class BacktestTaskService(BaseService):
                     engine_id=getattr(p, "engine_id", ""),
                     task_id=getattr(p, "task_id", ""),
                     code=getattr(p, "code", ""),
-                    cost=str(getattr(p, "cost", 0)),
+                    cost=convert_to_float(getattr(p, "cost", 0)),
                     volume=int(getattr(p, "volume", 0) or 0),
                     frozen_volume=int(getattr(p, "frozen_volume", 0) or 0),
-                    price=str(getattr(p, "price", 0)),
-                    fee=str(getattr(p, "fee", 0)),
+                    price=convert_to_float(getattr(p, "price", 0)),
+                    fee=convert_to_float(getattr(p, "fee", 0)),
                 ))
 
             sr = ServiceResult.success(data=items, message="Positions retrieved")

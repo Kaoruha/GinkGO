@@ -50,6 +50,30 @@ class TestFixedSlippage:
         with pytest.raises(ValueError):
             FixedSlippage(slippage=Decimal("-0.01"))
 
+    def test_sell_low_price_clamps_to_minimum(self):
+        """#5497: 低价股卖出（price < slippage）不应产生负成交价，clamp 到 0.01。
+
+        根因: apply() 卖出分支 `price - slippage`，price=0.03 slippage=0.05 时
+        得 -0.02，负成交价污染 cash 余额。
+        """
+        from ginkgo.trading.paper.slippage_models import FixedSlippage
+        from ginkgo.enums import DIRECTION_TYPES
+
+        model = FixedSlippage(slippage=Decimal("0.05"))
+        result = model.apply(Decimal("0.03"), DIRECTION_TYPES.SHORT)
+        assert result == Decimal("0.01"), f"低价股卖出应 clamp 到 0.01，实际 {result}"
+        assert result > 0, "成交价必须为正"
+
+    def test_sell_price_above_slippage_not_clamped(self):
+        """#5497 回归保护: price > slippage 的正常低价股不触发 clamp。"""
+        from ginkgo.trading.paper.slippage_models import FixedSlippage
+        from ginkgo.enums import DIRECTION_TYPES
+
+        model = FixedSlippage(slippage=Decimal("0.01"))
+        # price=0.05 > slippage=0.01，正常计算 0.04，不应 clamp
+        result = model.apply(Decimal("0.05"), DIRECTION_TYPES.SHORT)
+        assert result == Decimal("0.04")
+
 
 @pytest.mark.financial
 class TestPercentageSlippage:

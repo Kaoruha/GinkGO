@@ -46,9 +46,9 @@
                   <span class="mr-3">{{ child.icon || '•' }}</span>
                   <span>{{ child.label }}</span>
                 </div>
-                <a-tag v-if="child.status" :color="getStatusColor(child.status)" size="small">
+                <Badge v-if="child.status" :variant="getStatusVariant(child.status)">
                   {{ getStatusLabel(child.status) }}
-                </a-tag>
+                </Badge>
               </router-link>
             </div>
           </div>
@@ -64,9 +64,9 @@
               <span class="text-lg mr-3">{{ item.icon }}</span>
               <span>{{ item.label }}</span>
             </div>
-            <a-tag v-if="item.status" :color="getStatusColor(item.status)" size="small">
+            <Badge v-if="item.status" :variant="getStatusVariant(item.status)">
               {{ getStatusLabel(item.status) }}
-            </a-tag>
+            </Badge>
           </router-link>
         </template>
       </nav>
@@ -115,6 +115,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { Badge } from '@/components/ui/badge'
 
 const route = useRoute()
 
@@ -230,17 +231,17 @@ const toggleMenu = (path: string) => {
   expandedMenus.value[path] = !expandedMenus.value[path]
 }
 
-// 获取状态颜色
-const getStatusColor = (status?: MenuItemStatus) => {
+// 获取状态徽章变体（映射到 shadcn-vue Badge 变体）
+const getStatusVariant = (status?: MenuItemStatus) => {
   switch (status) {
     case 'done':
-      return 'green'  // 绿色 - 已完成
+      return 'success'  // 绿色 - 已完成
     case 'pending-api':
-      return 'orange'  // 橙色 - 待API对接
+      return 'warning'  // 橙色 - 待API对接
     case 'todo':
-      return 'default'   // 灰色 - 未实现
+      return 'secondary'   // 灰色 - 未实现
     default:
-      return 'default'
+      return 'secondary'
   }
 }
 

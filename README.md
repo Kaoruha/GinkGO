@@ -11,8 +11,10 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 - **Multiple Data Sources**: Tushare, Yahoo Finance, AKShare, BaoStock, TDX
 - **Complete Risk Control**: Position management, stop-loss/profit, real-time monitoring
 - **Web UI**: Vue 3 + shadcn-vue + Tailwind CSS dashboard for backtest/portfolio/component management
-- **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery
+- **Live Trading**: OKX broker integration with heartbeat monitoring and crash recovery (⚠️ CLI end-to-end status — see [e2e audit](docs/e2e-cli-flow-audit.md))
 - **CLI Interface**: Typer-based CLI with Rich formatting
+
+> **CLI pipeline status (2026-06-28 verified)**: Build ✅ · Backtest ⚠️ (data traps, no pre-check) · Paper trading ⚠️ (core fix #6164 landed, end-to-end pending re-test) · Live ⚠️ (integration ready, end-to-end pending). Details: [docs/e2e-cli-flow-audit.md](docs/e2e-cli-flow-audit.md).
 
 ## Architecture
 
@@ -21,9 +23,9 @@ Ginkgo is a quantitative trading framework featuring event-driven backtesting, m
 ```mermaid
 graph TB
     subgraph "🖥️ Application Layer"
-        CLI["<b>CLI</b><br/>Typer + Rich<br/><i>40 commands</i>"]
-        API["<b>REST API</b><br/>FastAPI<br/><i>15 routers</i>"]
-        WEB["<b>Web UI</b><br/>Vue 3 + shadcn-vue<br/><i>19 views</i>"]
+        CLI["<b>CLI</b><br/>Typer + Rich<br/><i>35 command groups</i>"]
+        API["<b>REST API</b><br/>FastAPI<br/><i>16 routers</i>"]
+        WEB["<b>Web UI</b><br/>Vue 3 + shadcn-vue<br/><i>17 views</i>"]
     end
 
     subgraph "⚙️ Worker Layer"
@@ -41,12 +43,12 @@ graph TB
 
     subgraph "📊 Trading Engine"
         EE["EventEngine<br/><i>事件队列 + 线程分发</i>"] --> TCE["TimeControlledEngine<br/><i>回测/实盘统一</i>"]
-        EE --> FDR["Data Feeders (6)"]
+        EE --> FDR["Data Feeders (7)"]
         EE --> PTF["Portfolio<br/><i>中央编排器</i>"]
-        PTF --> STR["Strategy (15)"]
-        PTF --> RSK["Risk (18)"]
+        PTF --> STR["Strategy (11)"]
+        PTF --> RSK["Risk (17)"]
         PTF --> SIZ["Sizer (3)"]
-        PTF --> SEL2["Selector (5)"]
+        PTF --> SEL2["Selector (4)"]
     end
 
     subgraph "🔀 Gateway & Brokers"
@@ -124,22 +126,22 @@ graph LR
             engines["engines/<br/>BaseEngine → EventEngine → TimeControlled"]
             events["events/<br/>PriceUpdate · Signal · Order<br/>TimeAdvance · Portfolio"]
             bases["bases/<br/>Portfolio · Position · Order<br/>Strategy · Selector · Sizer · Risk"]
-            strat["strategies/ (15)"]
-            risk["risk_management/ (18)"]
-            sel["selectors/ (5)"]
+            strat["strategies/ (13)"]
+            risk["risk_management/ (17)"]
+            sel["selectors/ (4)"]
             sizer["sizers/ (3)"]
             brk["brokers/ (8)"]
-            fdr["feeders/ (6)"]
-            analysis["analysis/<br/>analyzers (24) · reports · plots"]
+            fdr["feeders/ (7)"]
+            analysis["analysis/<br/>analyzers (21) · reports · plots"]
             evl["evaluation/<br/>pipeline · rules · visualization"]
         end
 
         subgraph "data/"
             direction TB
             drv["drivers/<br/>ClickHouse · MySQL<br/>MongoDB · Redis · Kafka"]
-            mdl["models/ (51)"]
-            crud["crud/ (52)"]
-            svc["services/ (33)"]
+            mdl["models/ (50)"]
+            crud["crud/ (49)"]
+            svc["services/ (31)"]
             src["sources/ (5)"]
             stm["streaming/<br/>cache · checkpoint · recovery"]
         end
@@ -152,7 +154,7 @@ graph LR
         end
 
         subgraph "Supporting"
-            feat["features/<br/>definitions (17) · expression engine"]
+            feat["features/<br/>definitions (16) · expression engine"]
             ml["quant_ml/<br/>models · features · strategies"]
             res["research/<br/>IC · factor · orthogonal · decay"]
             val["validation/<br/>MonteCarlo · WalkForward · Sensitivity"]
@@ -179,13 +181,13 @@ graph LR
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **Strategies** | 15 | MA Crossover, Momentum, Mean Reversion, Dual Thrust, Scalping, ML Predictor |
-| **Risk Managers** | 18 | Position Ratio, Loss Limit, Profit Target, Max Drawdown, Volatility, Concentration |
-| **Selectors** | 5 | Fixed, CN All, Momentum, Popularity |
+| **Strategies** | 11 | MA Crossover, Momentum, Mean Reversion, Dual Thrust, Scalping, ML Predictor |
+| **Risk Managers** | 17 | Position Ratio, Loss Limit, Profit Target, Max Drawdown, Volatility, Concentration, Time Based |
+| **Selectors** | 4 | Fixed, CN All, Momentum, Popularity |
 | **Sizers** | 3 | Fixed, ATR, Ratio |
 | **Brokers** | 8 | Sim, AShare, HK Stock, US Stock, Futures, OKX, Manual, Auto |
-| **Feeders** | 6 | Backtest, Live, OKX, Alpaca, EastMoney, Fushu |
-| **Analyzers** | 24 | Net Value, Max Drawdown, Sharpe, Calmar, Profit Factor, Annualized Returns |
+| **Feeders** | 7 | Backtest, Live, OKX, OKX Data, Alpaca, EastMoney, Fushu |
+| **Analyzers** | 21 | Net Value, Max Drawdown, Sharpe, Calmar, Profit Factor, Annualized Returns |
 | **Data Sources** | 5 | Tushare, AKShare, Yahoo, BaoStock, TDX |
 | **DB Drivers** | 5 | ClickHouse, MySQL, MongoDB, Redis, Kafka |
 | **Factors** | 158+ | Alpha158, Barra, Fama-French, WorldQuant Alpha101 |
@@ -266,6 +268,28 @@ ginkgo backtest cat <backtest_id>
 ginkgo backtest list
 ```
 
+### Deployment (Paper / Live)
+
+> ⚠️ End-to-end status: see [e2e audit](docs/e2e-cli-flow-audit.md). Paper-trading core fix landed (#6164 deploy-clone completeness); full paper/live pipeline pending end-to-end re-test.
+
+```bash
+ginkgo deploy deploy <portfolio_id> --mode paper                # Paper trading deployment
+ginkgo deploy deploy <portfolio_id> --mode live --account <id>  # Live deployment (needs a live account)
+ginkgo deploy info <deployment_id>                              # Deployment details
+ginkgo deploy list                                              # List deployments
+```
+
+### Live Account Management
+
+> Added in #6284. Create an account first, then use its UUID with `deploy --mode live --account <id>`.
+
+```bash
+ginkgo account create <user_id> --exchange okx --name "my_okx" \
+  --api-key <key> --api-secret <secret> [--passphrase <pp>] [--environment testnet]
+ginkgo account list <user_id>
+ginkgo account get <account_uuid>
+```
+
 ### Worker Management
 
 ```bash
@@ -320,6 +344,8 @@ Features: portfolio management, backtest creation/monitoring, component editor (
 
 ## Live Trading
 
+> ⚠️ **Status**: OKX integration code is in place (classes below) and the CLI is wired (`ginkgo account` + `ginkgo deploy --mode live`, landed in #6284), but the end-to-end path (real account → order routing → fill) has not been re-verified since the 2026-06-22 audit. See [e2e audit](docs/e2e-cli-flow-audit.md).
+
 OKX exchange integration with:
 
 - **LiveEngine**: Unified lifecycle management
@@ -328,8 +354,13 @@ OKX exchange integration with:
 - **HeartbeatMonitor**: Timeout detection and recovery
 
 ```bash
+# Low-level engine lifecycle
 python -m ginkgo.livecore.main live-start   # Start live engine
 python -m ginkgo.livecore.main live-status  # Check status
+
+# High-level CLI pipeline: create account → deploy live
+ginkgo account create <user_id> --exchange okx --name "my_okx" --api-key <key> --api-secret <secret>
+ginkgo deploy deploy <portfolio_id> --mode live --account <account_uuid>
 ```
 
 ## System Requirements

@@ -108,7 +108,7 @@ export function getPaperAccounts() {
  * 创建模拟盘账户
  */
 export function createPaperAccount(data: CreatePaperAccount) {
-  return request<APIResponse<{ account_id: string }>>({
+  return request<APIResponse<{ uuid: string }>>({
     url: '/api/v1/paper-trading/accounts',
     method: 'POST',
     data

@@ -59,21 +59,33 @@ export interface PositionListParams {
   size?: number
 }
 
+/**
+ * 后端统一响应信封。
+ * request.ts 响应拦截器已 `return data`（= response.data = 后端 body），
+ * 故 request.get() 返回的已经是 body 本身；API 模块不得再 `.data` 二次解包。
+ * 后端 orders/positions 端点用 ok(data=...)，body = {code, data, message}，
+ * 无 total/meta（分页由调用方自行处理）。
+ */
+export interface ApiResponse<T> {
+  code: number
+  data: T
+  message: string
+  trace_id?: string
+}
+
 export const orderApi = {
   /**
    * 获取订单列表
    */
-  async list(params: OrderListParams = {}): Promise<{ data: Order[], total: number }> {
-    const response = await request.get('/api/v1/orders', { params })
-    return response.data
+  list(params: OrderListParams = {}): Promise<ApiResponse<Order[]>> {
+    return request.get('/api/v1/orders', { params })
   },
 
   /**
    * 获取订单详情
    */
-  async get(orderId: string): Promise<Order> {
-    const response = await request.get(`/api/v1/orders/${orderId}`)
-    return response.data
+  get(orderId: string): Promise<ApiResponse<Order>> {
+    return request.get(`/api/v1/orders/${orderId}`)
   },
 }
 
@@ -81,17 +93,15 @@ export const positionApi = {
   /**
    * 获取持仓列表
    */
-  async list(params: PositionListParams = {}): Promise<{ data: Position[], total: number, summary: PositionSummary }> {
-    const response = await request.get('/api/v1/positions', { params })
-    return response.data
+  list(params: PositionListParams = {}): Promise<ApiResponse<Position[]>> {
+    return request.get('/api/v1/positions', { params })
   },
 
   /**
    * 获取持仓详情
    */
-  async get(positionId: string): Promise<Position> {
-    const response = await request.get(`/api/v1/positions/${positionId}`)
-    return response.data
+  get(positionId: string): Promise<ApiResponse<Position>> {
+    return request.get(`/api/v1/positions/${positionId}`)
   },
 }
 

@@ -3,6 +3,7 @@
 # Role: BrokerManager 管理实盘Broker实例的生命周期
 
 
+import threading
 from typing import Dict, Optional, List
 from datetime import datetime
 
@@ -253,6 +254,11 @@ class BrokerManager:
         """
         broker_crud, _, _ = self._get_cruds()
 
+        # #5552: 前置初始化 broker，避免 CRUD 查询抛异常时 except 块访问
+        # broker.uuid 触发 UnboundLocalError（被内层 except 吞掉，污染诊断日志、
+        # 掩盖原始异常）。
+        broker = None
+
         try:
             broker = broker_crud.get_broker_by_portfolio(portfolio_id)
             if not broker:
@@ -283,15 +289,17 @@ class BrokerManager:
 
         except Exception as e:
             GLOG.ERROR(f"Failed to start broker for portfolio {portfolio_id}: {e}")
-            # 尝试更新状态为错误
-            try:
-                broker_crud.update_broker_instance_status(
-                    broker.uuid,
-                    "error",
-                    error_message=str(e)
-                )
-            except Exception as e:
-                GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
+            # 尝试更新状态为错误（仅当 broker 已查到——查询失败时无 broker 可更新，
+            # 强行访问 broker.uuid 会触发 UnboundLocalError，见 #5552）
+            if broker is not None:
+                try:
+                    broker_crud.update_broker_instance_status(
+                        broker.uuid,
+                        "error",
+                        error_message=str(e)
+                    )
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to update broker status to error for portfolio {portfolio_id}: {e}")
             return False
 
     def stop_broker(self, portfolio_id: str) -> bool:
@@ -436,10 +444,21 @@ class BrokerManager:
 
 # 全局单例
 _broker_manager = None
+_broker_manager_lock = threading.Lock()
+
 
 def get_broker_manager() -> BrokerManager:
-    """获取BrokerManager单例"""
+    """获取BrokerManager单例（线程安全）。
+
+    #5541: 旧实现无锁 check-then-set，多线程可同时穿过 `if _broker_manager
+    is None` 各自构造实例，导致 broker 状态不一致/丢失。改用双重检查锁定
+    （double-checked locking）：第一道无锁检查让初始化后热路径零锁开销，
+    第二道在锁内串行保证只构造一次。锁为模块级，在 BrokerManager 实例存在
+    前就可用。
+    """
     global _broker_manager
     if _broker_manager is None:
-        _broker_manager = BrokerManager()
+        with _broker_manager_lock:
+            if _broker_manager is None:
+                _broker_manager = BrokerManager()
     return _broker_manager

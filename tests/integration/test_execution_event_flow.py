@@ -170,7 +170,7 @@ def test_execution_event_flow():
                 print(f"   方向: {order.direction.name}")
                 print(f"   数量: {order.volume}")
                 print(f"   限价: {order.limit_price}")
-        except:
+        except Exception:
             break
 
     # ============================================================
