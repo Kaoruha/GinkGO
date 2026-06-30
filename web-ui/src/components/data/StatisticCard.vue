@@ -1,5 +1,5 @@
 <template>
-  <a-card :class="['statistic-card', `card-${type}`]" :hoverable="hoverable" :bordered="bordered">
+  <Card :class="['statistic-card', `card-${type}`]">
     <div class="stat-header">
       <div v-if="icon || $slots.icon" class="stat-icon-wrapper" :style="{ backgroundColor: iconColor }">
         <slot name="icon">
@@ -33,10 +33,11 @@
         <span class="trend-value">{{ trendValue }}</span>
       </div>
     </div>
-  </a-card>
+  </Card>
 </template>
 
 <script setup lang="ts">
+import { Card } from '@/components/ui/card'
 
 type CardType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 type TrendType = 'up' | 'down' | 'flat'

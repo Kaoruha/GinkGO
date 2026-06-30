@@ -162,3 +162,65 @@ class TestSchedulePlanRead:
             if c.args and c.args[0] == "schedule:plan"
         ]
         assert get_calls == [], "schedule:plan 是 hash，用 get() 会触发 WRONGTYPE"
+
+
+# ===========================================================================
+# 输出转义（#6001）
+# ===========================================================================
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestSchedulerOutputEscape:
+    """#6001: scheduler 系列命令输出不应含字面 ``\\n``（反斜杠+n 两字符）。
+
+    根因：scheduler_cli.py 源码字符串字面量写成 ``\\\\n``（双反斜杠），
+    Python 解析为字面「反斜杠+n」，rich console.print 原样输出；
+    应为 ``\\n``（单反斜杠）→ 解析为真换行 LF。验收：输出无字面 \\n。
+    """
+
+    def test_nodes_no_literal_backslash_n(self, cli_runner):
+        """#6001 tracer: nodes 输出 'Total healthy nodes' 行不含字面 \\n，应为真换行。"""
+        mock_redis = MagicMock()
+        mock_redis.keys.return_value = [b"heartbeat:node:node-1"]
+        mock_redis.ttl.return_value = 30
+        mock_redis.hgetall.return_value = {
+            b'portfolio_count': b'1', b'queue_size': b'0', b'cpu_usage': b'5.0',
+        }
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = mock_redis
+            result = cli_runner.invoke(scheduler_cli.app, ["nodes"])
+
+        assert result.exit_code == 0
+        assert "Total healthy nodes" in result.output
+        # 字面 \n（反斜杠+n）= 源码 \\n 双反斜杠误用所致，修复后必须消失
+        assert "\\n" not in result.output, (
+            f"nodes 输出含字面 \\n（应为真换行）: {repr(result.output[-120:])}"
+        )
+
+    def test_plan_no_literal_backslash_n(self, cli_runner):
+        """#6001: plan 输出 'Total portfolios scheduled' 行不含字面 \\n。"""
+        mock_redis = MagicMock()
+        mock_redis.hgetall.return_value = {b"port-uuid-1": b"node-1"}
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = mock_redis
+            result = cli_runner.invoke(scheduler_cli.app, ["plan"])
+
+        assert result.exit_code == 0
+        assert "Total portfolios scheduled" in result.output
+        assert "\\n" not in result.output, (
+            f"plan 输出含字面 \\n: {repr(result.output[-120:])}"
+        )
+
+    def test_reload_no_literal_backslash_n(self, cli_runner):
+        """#6001: reload --force 输出 'Reload Plan' 不含字面 \\n。"""
+        with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer") as MockProducer:
+            MockProducer.return_value.send.return_value = True
+            result = cli_runner.invoke(
+                scheduler_cli.app, ["reload", "port-uuid-1", "--force"]
+            )
+
+        assert result.exit_code == 0
+        assert "Reload Plan" in result.output
+        assert "\\n" not in result.output, (
+            f"reload 输出含字面 \\n: {repr(result.output[-120:])}"
+        )

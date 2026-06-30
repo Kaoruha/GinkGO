@@ -7,7 +7,7 @@ ADR-010 Phase 4 Task R1c：TickService / AdjustfactorService / ResultService 多
 消费点：
 - tick：data_cli.py:307 调 tick_service.get(code,start,end) → 新出口 get_ticks_df
 - adjustfactor：data_cli.py:359 注释占位（R1c 不迁）→ 新出口 get_adjustfactors_df
-- analyzer：backtest_result_cli.py:354 / flat_cli.py:768 调 get_analyzer_values 再 to_dataframe
+- analyzer：flat_cli.py:768 调 get_analyzer_values 再 to_dataframe
   → 新出口 get_analyzer_values_df（对应 result_service.get_analyzer_values()）
 
 设计：Mock crud_repo.find / get_by_task_id 返真实 ModelList（带 mock crud 支持

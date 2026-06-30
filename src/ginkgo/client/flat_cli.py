@@ -627,18 +627,27 @@ def list(
 
 @result_app.command()
 def get(
-    task_id: str = typer.Argument(..., help=":mag: 回测任务ID (uuid 或 task_id)"),
+    task_id: Optional[str] = typer.Argument(None, help=":mag: 回测任务ID (uuid 或 task_id, 与 --task-id 二选一)"),
+    task_id_opt: Optional[str] = typer.Option(None, "--task-id", help=":mag: 同位置参数, 统一参数名"),
     details: bool = typer.Option(False, "--details", "-d", help=":information_source: 显示完整回测记录详情"),
     trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: 显示成交订单(按 order_id 去重后的最终态)"),
 ):
     """
-    :mag: 获取回测结果详情。参数为 task_id。
+    :mag: 获取回测结果详情。参数为 task_id (位置参数或 --task-id)。
 
     Examples:
         ginkgo result get <task_id>
+        ginkgo result get --task-id <task_id>
         ginkgo result get <task_id> --details
         ginkgo result get <task_id> --trades
     """
+    # #5998: 位置参数与 --task-id 二选一, 统一参数命名
+    tid = task_id or task_id_opt
+    if not tid:
+        console.print(":x: [red]错误: 需提供 task_id (位置参数或 --task-id)[/red]")
+        raise typer.Exit(1)
+    task_id = tid
+
     from ginkgo.data.containers import container
 
     console.print(f":mag: 获取回测结果: {task_id}")
@@ -696,7 +705,9 @@ def get(
 
 @result_app.command("show")
 def show(
-    task_id: Optional[str] = typer.Option(None, "--run-id", "-r", help=":abc: Run session ID"),
+    task_id: Optional[str] = typer.Option(None, "--task-id", "-t", help=":abc: 回测任务ID (统一参数名)"),
+    run_id: Optional[str] = typer.Option(
+        None, "--run-id", "-r", help="⚠ 已弃用, 请改用 --task-id", hidden=True),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Portfolio ID"),
     analyzer: Optional[str] = typer.Option(None, "--analyzer", "-a", help=":bar_chart: Analyzer name"),
     mode: str = typer.Option("table", "--mode", "-m", help=":display: Display mode (table/terminal/plot)"),
@@ -707,9 +718,16 @@ def show(
 
     Examples:
         ginkgo result show                    # List available runs
-        ginkgo result show --run-id a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2
-        ginkgo result show --run-id xxx --portfolio yyy --analyzer net_value --mode terminal
+        ginkgo result show --task-id a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2
+        ginkgo result show --task-id xxx --portfolio yyy --analyzer net_value --mode terminal
+        ginkgo result show --run-id xxx       # 旧名, 已弃用 (deprecation warning)
     """
+    # #5998: 向后兼容旧 --run-id, 提示弃用
+    if run_id is not None:
+        console.print(":warning: [yellow]--run-id 已弃用, 请改用 --task-id[/yellow]")
+        if task_id is None:
+            task_id = run_id
+
     from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import (
         display_dataframe,
@@ -750,8 +768,8 @@ def show(
             title=":chart_with_upwards_trend: [bold]可用的运行会话[/bold]",
             console=console
         )
-        console.print("\n[yellow]使用 --run-id 参数查看详细结果[/yellow]")
-        console.print("[dim]示例: ginkgo result show --run-id <task_id>[/dim]")
+        console.print("\n[yellow]使用 --task-id 参数查看详细结果[/yellow]")
+        console.print("[dim]示例: ginkgo result show --task-id <task_id>[/dim]")
         raise typer.Exit(0)
 
     # 获取运行摘要

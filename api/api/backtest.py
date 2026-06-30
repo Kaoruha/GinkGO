@@ -120,10 +120,14 @@ def get_portfolio_info(portfolio_uuid: str) -> dict:
 
 def build_backtest_config(data: BacktestTaskCreate) -> dict:
     """构建回测配置（不访问数据库）"""
+    # #5581: 顶层 start_date/end_date 优先于 engine_config，保证 config_snapshot
+    # 与 task 字段（backtest_start_date/backtest_end_date）一致，回测引擎据此取数。
+    start_date = data.start_date or data.engine_config.start_date
+    end_date = data.end_date or data.engine_config.end_date
     config = {
         # Engine 配置
-        "start_date": data.engine_config.start_date,
-        "end_date": data.engine_config.end_date,
+        "start_date": start_date,
+        "end_date": end_date,
         "commission_rate": data.engine_config.commission_rate,
         "slippage_rate": data.engine_config.slippage_rate,
         "broker_attitude": data.engine_config.broker_attitude,
@@ -133,18 +137,20 @@ def build_backtest_config(data: BacktestTaskCreate) -> dict:
         "initial_cash": data.engine_config.initial_cash,
         # 分析器配置（Engine 级别）
         "analyzers": [a.dict() for a in (data.engine_config.analyzers or [])],
+        # #5386: frequency 为 Engine 级数据频率（与 CLI 一致），从 engine_config 取值
+        "frequency": data.engine_config.frequency,
         # Portfolio 列表
         "portfolio_uuids": data.portfolio_uuids,
     }
 
     # 添加组件配置（如果有）
+    # 注：frequency 已迁移至 EngineConfig，此处不再从 component_config 映射，避免覆盖引擎权威值
     if data.component_config:
         config.update({
             "max_position_ratio": data.component_config.max_position_ratio,
             "stop_loss_ratio": data.component_config.stop_loss_ratio,
             "take_profit_ratio": data.component_config.take_profit_ratio,
             "benchmark_return": data.component_config.benchmark_return,
-            "frequency": data.component_config.frequency,
         })
 
     # 如果提供了 Engine，获取其信息
@@ -164,29 +170,41 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
 
     按照 Engine 装配逻辑组织配置，支持多个 Portfolio
     """
+    # #5462: 校验日期顺序 —— 在建任务前拒绝 start_date 晚于 end_date。
+    # ISO "YYYY-MM-DD" 字符串字典序 == 时间序，可直接比较。
+    start_date = data.engine_config.start_date
+    end_date = data.engine_config.end_date
+    if start_date and end_date and start_date > end_date:
+        raise ValidationError(
+            "start_date must be before end_date",
+            field="end_date",
+        )
+
     # 构建配置
     config = build_backtest_config(data)
 
     # 获取 Portfolio 名称（主Portfolio）
+    # #5462: 不吞 NotFoundError —— 无效 portfolio UUID 应在建任务前报错，
+    # 而非回填 "Unknown Portfolio" 继续创建一个指向不存在组合的任务。
     primary_portfolio_uuid = data.portfolio_uuids[0]
-    try:
-        portfolio_info = get_portfolio_info(primary_portfolio_uuid)
-        portfolio_name = portfolio_info["name"]
-    except NotFoundError:
-        portfolio_name = "Unknown Portfolio"
+    portfolio_info = get_portfolio_info(primary_portfolio_uuid)
+    portfolio_name = portfolio_info["name"]
 
     # 使用服务层创建任务
-    # #5577 #5443: engine_config 日期映射到 task 级别字段
+    # #5577 #5443 #5581: 日期映射到 task 级别字段；顶层 start_date/end_date
+    # 优先于 engine_config（与 build_backtest_config 同源 effective 日期）。
+    effective_start = data.start_date or data.engine_config.start_date
+    effective_end = data.end_date or data.engine_config.end_date
     create_kwargs = {
         "name": data.name,
         "portfolio_id": primary_portfolio_uuid,
         "portfolio_name": portfolio_name,
         "config_snapshot": config,
     }
-    if data.engine_config.start_date:
-        create_kwargs["backtest_start_date"] = data.engine_config.start_date
-    if data.engine_config.end_date:
-        create_kwargs["backtest_end_date"] = data.engine_config.end_date
+    if effective_start:
+        create_kwargs["backtest_start_date"] = effective_start
+    if effective_end:
+        create_kwargs["backtest_end_date"] = effective_end
 
     task_service = get_backtest_task_service()
     result = task_service.create(**create_kwargs)
@@ -229,17 +247,53 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
         "priority": 0,
     }
 
-    producer.send(
+    result = producer.send(
         topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
         msg=assignment,
     )
+    # GinkgoProducer.send 返 bool 不 raise（ginkgo_kafka.py:89-123 三处 return False：
+    # 未连接/KafkaError/异常，成功 return True）。不判返回值则协程无异常，create_task
+    # 的 done_callback 里 asyncio_task.exception() 永远 None，失败分支（落库 failed）
+    # 是死代码（#5478 review P0）。False 时显式 raise，让异常进入 asyncio 通道供
+    # _on_kafka_dispatch_done 捕获。
+    if not result:
+        raise RuntimeError(
+            f"Kafka dispatch failed for backtest task {task_uuid}: producer.send returned False"
+        )
 
     logger.info(f"Task {task_uuid} sent to Kafka with {len(portfolio_uuids)} portfolio(s)")
 
 
+def _on_kafka_dispatch_done(task_uuid: str, asyncio_task: "asyncio.Future") -> None:
+    """asyncio.create_task 的 done_callback：派发失败时记日志 + 落库 failed。
+
+    create_backtest 的 fire-and-forget 派发（asyncio.create_task）默认吞掉
+    send_task_to_kafka 抛出的异常（producer.send 返 False 时翻译为 RuntimeError，
+    见 send_task_to_kafka），任务会永远停在 PENDING，而 API 已返回 success。
+    此回调把派发失败显式落库，使任务状态 PENDING→FAILED 可查（#5478）。
+
+    - cancelled：不作处理（取消非失败）
+    - 无异常：成功，不作处理
+    - 有异常：记 ERROR 日志 + update_status(status="failed", error_message=...)
+    """
+    if asyncio_task.cancelled():
+        return
+    exc = asyncio_task.exception()
+    if exc is None:
+        return
+    logger.error(f"Kafka dispatch failed for backtest task {task_uuid}: {exc}")
+    try:
+        get_backtest_task_service().update_status(
+            task_uuid, status="failed", error_message=f"Kafka dispatch failed: {exc}"
+        )
+    except Exception as update_exc:
+        # 落库失败不应掩盖原始派发异常
+        logger.error(f"Failed to mark backtest task {task_uuid} as failed: {update_exc}")
+
+
 # ==================== API 路由 ====================
 
-@router.get("/")
+@router.get("")
 async def list_backtests(
     status: Optional[str] = Query(None, description="按状态筛选"),
     portfolio_id: Optional[str] = Query(None, description="按投资组合筛选"),
@@ -307,6 +361,32 @@ async def list_backtest_engines(
         raise BusinessError(f"Error listing engines: {str(e)}")
 
 
+@router.delete("/engines/stale")
+async def cleanup_stale_engines(
+    is_live: bool = Query(False, description="清理范围 False=回测引擎(默认)"),
+    dry_run: bool = Query(True, description="试运行 True=仅统计不删除(默认安全)"),
+):
+    """清理从未运行的僵尸引擎（#5779）。
+
+    僵尸判据：backtest_start_date + backtest_end_date 双空（创建后从未启动）。
+    默认 dry_run=True 安全模式仅统计；显式 dry_run=false 执行软删除（可恢复）。
+    """
+    try:
+        engine_service = get_engine_service()
+        result = engine_service.cleanup_stale_engines(
+            is_live=0 if not is_live else 1, dry_run=dry_run
+        )
+        if not result.is_success():
+            raise BusinessError(f"清理僵尸引擎失败: {result.message}")
+        return ok(data=result.data, message=result.message)
+
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error cleaning stale engines: {str(e)}")
+        raise BusinessError(f"Error cleaning stale engines: {str(e)}")
+
+
 @router.get("/analyzers")
 async def list_analyzers():
     """
@@ -360,7 +440,7 @@ async def get_backtest(uuid: str):
         raise BusinessError(f"Error getting backtest: {str(e)}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_backtest(data: BacktestTaskCreate):
     """
     创建回测任务
@@ -376,17 +456,23 @@ async def create_backtest(data: BacktestTaskCreate):
 
         # 2. 发送到Kafka（后台任务，不阻塞响应）
         # 使用 asyncio.create_task 让 Kafka 发送在后台运行
-        asyncio.create_task(send_task_to_kafka(
+        dispatch_task = asyncio.create_task(send_task_to_kafka(
             task_uuid=task["uuid"],
             portfolio_uuids=data.portfolio_uuids,
             name=data.name,
             config=task["config"],
         ))
+        # 派发失败（producer.send 抛异常）不再被静默吞：done_callback 记日志 +
+        # 落库 failed，使任务状态可查（#5478）。lambda 用默认参数捕获当前 uuid，
+        # 避免闭包在并发/多任务下捕获到漂移后的 task["uuid"]。
+        dispatch_task.add_done_callback(
+            lambda t, _uuid=task["uuid"]: _on_kafka_dispatch_done(_uuid, t)
+        )
 
         # 立即返回响应，不等待 Kafka
         return ok(data=task, message="Backtest task created successfully")
 
-    except (NotFoundError, BusinessError):
+    except (NotFoundError, ValidationError, BusinessError):
         raise
     except Exception as e:
         logger.error(f"Error creating backtest: {str(e)}")
@@ -649,6 +735,53 @@ async def get_backtest_order_records(uuid: str):
     except Exception as e:
         logger.error(f"Error getting order records for {uuid}: {str(e)}")
         raise BusinessError(f"Error getting order records: {str(e)}")
+
+
+@router.get("/{uuid}/fills")
+async def get_backtest_fills(uuid: str):
+    """获取回测已成交订单填充(仅 status==FILLED 的订单子集)。
+
+    与 /orders 区分: /orders 返回全部去重订单(含未成交/已撤);
+    /fills 只返回已成交(FILLED)订单, 用于成交明细分析。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.list_fills(uuid)
+
+        if not result.is_success():
+            return paginated(items=[], total=0,
+                             message=result.error or "Failed to retrieve fills")
+
+        items = result.data
+        total = result.metadata.get("total", 0)
+        return paginated(items=[o.dict() for o in items], total=total,
+                         page=1, page_size=max(total, 1),
+                         message="Fills retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting fills for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting fills: {str(e)}")
+
+
+@router.get("/{uuid}/results")
+async def get_backtest_results(uuid: str):
+    """获取回测运行结果摘要(组合/分析器/记录数/时间范围等聚合指标)。"""
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_results(uuid)
+
+        if not result.is_success():
+            return ok(data=None, message=result.error or "Failed to retrieve results")
+
+        return ok(data=result.data, message="Results retrieved successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting results for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting results: {str(e)}")
 
 
 @router.get("/{uuid}/positions")

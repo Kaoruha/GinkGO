@@ -230,6 +230,14 @@ class TestSecretKeyConfig:
         with pytest.raises(ValueError, match="SECRET_KEY"):
             Settings(SECRET_KEY="your-secret-key-change-in-production")
 
+    def test_debug_mode_allows_default_secret_key_with_warning(self):
+        """#6064: DEBUG 模式用默认 SECRET_KEY 应仅 warn，不阻塞启动"""
+        from core.config import Settings
+        with pytest.warns(UserWarning, match="SECRET_KEY"):
+            s = Settings(SECRET_KEY="your-secret-key-change-in-production", DEBUG=True)
+        assert s.DEBUG is True
+        assert s.SECRET_KEY == "your-secret-key-change-in-production"
+
 
 # ============================================================
 # PR #6057 review: delete_user 后旧 token 应被撤销

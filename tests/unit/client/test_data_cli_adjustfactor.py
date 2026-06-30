@@ -143,3 +143,87 @@ class TestGetAdjustfactor:
 
         assert result.exit_code == 0, f"exit={result.exit_code} out={result.output}\nexc={result.exception}"
         assert "No adjustfactor data found" in result.output
+
+
+class TestSyncAdjustfactorNoDataHandling:
+    """#6053: sync adjustfactor 无数据不再误导性成功（仿 day 分支 records_added 检查）
+
+    旧代码 L685-695 用 duck typing（hasattr 'success' / result is None）判定成功，
+    service.sync 返回 success=True 但 records_added=0 时仍打印 ":white_check_mark: ... sync completed"，
+    误导用户以为同步到了数据。
+    """
+
+    @pytest.mark.unit
+    def test_sync_records_added_shown_in_success_message(self):
+        """sync 返回 records_added=5 → 成功信息应含 "(5 records)"
+
+        RED: 旧代码打印 "sync completed" 不含记录数。
+        """
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+
+        mock_svc = MagicMock()
+        mock_svc.sync.return_value = ServiceResult(
+            success=True,
+            message="ok",
+            data=DataSyncResult(
+                entity_type="adjustfactor",
+                entity_identifier="000001.SZ",
+                sync_range=(None, None),
+                records_processed=5,
+                records_added=5,
+                records_updated=0,
+                records_skipped=0,
+                records_failed=0,
+                sync_duration=0.1,
+                is_idempotent=True,
+                sync_strategy="incremental",
+            ),
+        )
+        mock_svc.calculate.return_value = _ok_result()
+
+        with patch("ginkgo.data.containers.container.adjustfactor_service", return_value=mock_svc):
+            result = runner.invoke(app, ["sync", "adjustfactor", "--code", "000001.SZ"])
+
+        assert result.exit_code == 0, \
+            f"CLI 崩溃 (exit={result.exit_code}): {result.output}\nexc={result.exception}"
+        assert "sync completed (5 records)" in result.output
+
+    @pytest.mark.unit
+    def test_sync_zero_records_warns_not_success(self):
+        """sync 返回 records_added=0 → 警告「无数据」，不计入 Success
+
+        RED: 旧代码无数据仍打印 ":white_check_mark: sync completed" 且 Success: 1。
+        """
+        from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+
+        mock_svc = MagicMock()
+        mock_svc.sync.return_value = ServiceResult(
+            success=True,
+            message="ok",
+            data=DataSyncResult(
+                entity_type="adjustfactor",
+                entity_identifier="000001.SZ",
+                sync_range=(None, None),
+                records_processed=0,
+                records_added=0,
+                records_updated=0,
+                records_skipped=0,
+                records_failed=0,
+                sync_duration=0.1,
+                is_idempotent=True,
+                sync_strategy="incremental",
+            ),
+        )
+        mock_svc.calculate.return_value = _ok_result()
+
+        with patch("ginkgo.data.containers.container.adjustfactor_service", return_value=mock_svc):
+            result = runner.invoke(app, ["sync", "adjustfactor", "--code", "000001.SZ"])
+
+        assert result.exit_code == 0, \
+            f"CLI 崩溃 (exit={result.exit_code}): {result.output}\nexc={result.exception}"
+        # 无数据警告（不误报成功）
+        assert "no adjustfactor data available" in result.output
+        # 未计入成功
+        assert "Success: 0" in result.output
+        # 不应出现带记录数的成功标记
+        assert "sync completed (0 records)" not in result.output

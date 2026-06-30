@@ -147,8 +147,11 @@ def position(
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        position_svc = Container.position_service()
-        result = position_svc.get_positions_df(
+        # #5341: 回测持仓经 create_position_record 写 MPositionRecord（流水表），
+        # PositionService 查 MPosition（当前态表）永远空。改读 ResultService
+        # （get_positions_df 查 PositionRecordCRUD，与写路径同表）。
+        result_svc = Container.result_service()
+        result = result_svc.get_positions_df(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
@@ -161,13 +164,15 @@ def position(
         # ADR-010 R2b: get_positions_df 出口已保证 data 为 DataFrame（类型即契约）
         positions_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
+        # MPositionRecord 流水字段（volume/cost/price/fee），非 MPosition 当前态字段
         position_columns_config = {
             "uuid": {"display_name": "Position ID", "style": "dim"},
             "portfolio_id": {"display_name": "Portfolio ID", "style": "dim"},
             "code": {"display_name": "Code", "style": "cyan"},
-            "quantity": {"display_name": "Quantity", "style": "yellow"},
-            "average_price": {"display_name": "Avg Price", "style": "yellow"},
-            "market_value": {"display_name": "Market Value", "style": "green"},
+            "volume": {"display_name": "Volume", "style": "yellow"},
+            "cost": {"display_name": "Cost", "style": "yellow"},
+            "price": {"display_name": "Price", "style": "yellow"},
+            "fee": {"display_name": "Fee", "style": "green"},
             "timestamp": {"display_name": "Timestamp", "style": "dim"}
         }
 

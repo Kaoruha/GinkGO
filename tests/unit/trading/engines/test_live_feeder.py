@@ -48,7 +48,7 @@ class TestLiveFeederInitialization:
         feeder = LiveDataFeeder()
         publisher = MagicMock()
         feeder.set_event_publisher(publisher)
-        assert feeder.event_publisher is publisher
+        assert feeder._engine_put is publisher
 
 
 @pytest.mark.unit
@@ -133,7 +133,7 @@ class TestMessageHandling:
         publisher = MagicMock()
         feeder.set_event_publisher(publisher)
         # _handle_price_update is async, test the sync path
-        assert feeder.event_publisher is publisher
+        assert feeder._engine_put is publisher
 
     def test_handle_orderbook_update(self):
         feeder = LiveDataFeeder()

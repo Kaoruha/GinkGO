@@ -29,6 +29,9 @@
 | ADR-014 | [core/database.py 半 gitignore + api 层禁裸 SQL](ADR-014-core-database-gitignored.md) | Accepted | 2026-06-19 |
 | ADR-015 | [web-ui 以 shadcn-vue 为唯一 UI 组件标准栈](ADR-015-webui-shadcn-vue.md) | Accepted | 2026-06-19 |
 | ADR-016 | [回测标识符边界（task_id / engine_id / uuid）](ADR-016-backtest-id-boundary.md) | Accepted | 2026-06-19 |
+| ADR-017 | [事件订阅契约归组件（@subscribes + __init_subclass__）](ADR-017-event-subscription-contract.md) | Accepted | 2026-06-23 |
+| ADR-018 | [回测派发契约（判别联合 + DTO 层 wire spec）](ADR-018-backtest-assignment-contract.md) | Accepted | 2026-06-28 |
+| ADR-019 | [Feeder 价格发布统一 Seam（publish_price_update）](ADR-019-feeder-publish-seam.md) | Accepted | 2026-06-29 |
 
 ## 如何新增 / 修订
 

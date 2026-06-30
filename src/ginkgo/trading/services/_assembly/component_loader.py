@@ -14,6 +14,21 @@ import json
 from typing import Dict, Any, List
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.portfolios import PortfolioT1Backtest
+from ginkgo.enums import FILE_TYPES
+
+
+# 源码回退导入映射：动态加载失败时，按组件类型从对应源码包回退导入。
+# key 必须用 FILE_TYPES 的 .value（int），与传入的 component_type(int) 比较一致。
+# NOTE: ENGINE(=7) 不在此映射 —— engine 是内置回测/实盘引擎，非用户上传 .py 组件，
+# 无需源码回退。原实现 key 7 错指 risk_managements（7=ENGINE 却映射到 risk），
+# 已修正为 key 3（RISKMANAGER）—— 见 #5880 缺陷4a。
+SOURCE_FALLBACK_IMPORT_MAP = {
+    FILE_TYPES.STRATEGY.value: ("ginkgo.trading.strategies", "strategies"),
+    FILE_TYPES.SELECTOR.value: ("ginkgo.trading.selectors", "selectors"),
+    FILE_TYPES.SIZER.value: ("ginkgo.trading.sizers", "sizers"),
+    FILE_TYPES.RISKMANAGER.value: ("ginkgo.trading.risk_managements", "risk_managements"),
+    FILE_TYPES.ANALYZER.value: ("ginkgo.trading.analysis.analyzers", "analyzers"),
+}
 
 
 def resolve_param_kwargs(
@@ -345,13 +360,7 @@ class ComponentLoader:
                         else:
                             return None, f"Failed to get file info for fallback: {file_result.error}"
 
-                        source_import_map = {
-                            6: ("ginkgo.trading.strategies", "strategies"),
-                            4: ("ginkgo.trading.selectors", "selectors"),
-                            5: ("ginkgo.trading.sizers", "sizers"),
-                            7: ("ginkgo.trading.risk_managements", "risk_managements"),
-                            1: ("ginkgo.trading.analysis.analyzers", "analyzers"),
-                        }
+                        source_import_map = SOURCE_FALLBACK_IMPORT_MAP
 
                         if component_type not in source_import_map:
                             return None, f"No source fallback for component type {component_type}"

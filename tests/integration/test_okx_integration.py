@@ -207,7 +207,7 @@ class TestLiveAccountServiceIntegration:
         result = live_account_service.create_account(**sample_account_data)
 
         assert result["success"] is True
-        account_uuid = result["data"]["account_uuid"]
+        account_uuid = result["data"]["uuid"]
 
         # 2. 获取账号
         result = live_account_service.get_account_by_uuid(account_uuid)

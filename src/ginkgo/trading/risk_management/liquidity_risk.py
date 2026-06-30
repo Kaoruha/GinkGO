@@ -364,8 +364,11 @@ class LiquidityRisk(BaseRiskManagement):
             Dict: 流动性分析报告
         """
         positions = portfolio_info.get("positions", {})
-        portfolio_liquidity_score = 0.0
-        total_value = 0.0
+        # #6181: market_value 为 Decimal（ADR-010，自 1803ce39），float 累加器与之
+        # 算术混算会抛 TypeError（float + Decimal）。累加器用 Decimal(0)，
+        # 对齐 #6180 ConcentrationRisk 修法。
+        portfolio_liquidity_score = Decimal(0)
+        total_value = Decimal(0)
         low_liquidity_positions = []
 
         for code, position in positions.items():
@@ -374,8 +377,8 @@ class LiquidityRisk(BaseRiskManagement):
                 position_weight = position.market_value
                 total_value += position_weight
 
-                # 计算加权流动性评分
-                portfolio_liquidity_score += liquidity_score * position_weight
+                # 计算加权流动性评分（liquidity_score 为 float，转 Decimal 避免与 Decimal 混算）
+                portfolio_liquidity_score += Decimal(str(liquidity_score)) * position_weight
 
                 # 识别低流动性持仓
                 if liquidity_score < 30:

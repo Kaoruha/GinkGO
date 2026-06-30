@@ -21,7 +21,7 @@ def _get_deployment_service():
     return trading_container.deployment_service()
 
 
-@router.post("/")
+@router.post("")
 async def deploy(req: DeployRequest):
     """一键部署（走 Saga 事务）"""
     from ginkgo.enums import PORTFOLIO_MODE_TYPES
@@ -66,7 +66,7 @@ async def get_deployment_info(portfolio_id: str):
     return ok(data=result.data, message="查询成功")
 
 
-@router.get("/")
+@router.get("")
 async def list_deployments(portfolio_id: Optional[str] = Query(None, description="按源组合 ID 筛选")):
     """列出部署记录"""
     service = _get_deployment_service()

@@ -44,7 +44,9 @@ from ginkgo.enums import (
     SOURCE_TYPES,
     ORDERSTATUS_TYPES,
     RECORDSTAGE_TYPES,
+    EVENT_TYPES,
 )
+from ginkgo.trading.mixins.subscribable_mixin import subscribes
 from ginkgo.data.containers import container
 
 
@@ -828,6 +830,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             self.blog.log_engine_error_event(error_code="CANCEL_HANDLER_FAILED", error_message=str(e))
 
+    @subscribes(EVENT_TYPES.ORDERFILLED)
     def on_order_filled(self, event) -> None:
         """订单完全成交事件处理器 - 特殊的partially_filled (remain=0)"""
         try:

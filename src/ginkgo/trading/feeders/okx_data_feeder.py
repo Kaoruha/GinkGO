@@ -31,6 +31,8 @@ from ginkgo.entities import Bar
 from ginkgo.entities import Tick
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.libs import GLOG
+from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
 
 
 class DataFetchMode(Enum):
@@ -39,7 +41,7 @@ class DataFetchMode(Enum):
     REST_API = "rest_api"    # 轮询降级
 
 
-class OKXDataFeeder(ILiveDataFeeder):
+class OKXDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
     """
     OKX 实盘数据馈送器（统一版）
 
@@ -59,6 +61,7 @@ class OKXDataFeeder(ILiveDataFeeder):
         Args:
             environment: 环境 ("testnet" 或 "production")
         """
+        super().__init__()  # 协 MRO 链：触发 EngineBindableMixin + FeederPublishMixin 初始化（ADR-019）
         self.environment = environment
         self.source = SOURCE_TYPES.OKX
 
@@ -81,9 +84,6 @@ class OKXDataFeeder(ILiveDataFeeder):
         self._status = DataFeedStatus.IDLE
         self._is_running = False
         self._is_connected = False
-
-        # 事件发布器
-        self._event_publisher: Optional[Callable[[EventBase], None]] = None
 
         # 时间提供者（接口兼容）
         self._time_provider = None
@@ -201,16 +201,6 @@ class OKXDataFeeder(ILiveDataFeeder):
     def get_status(self) -> DataFeedStatus:
         """获取当前状态"""
         return self._status
-
-    def set_event_publisher(self, publisher: Callable[[EventBase], None]) -> None:
-        """
-        设置事件发布器
-
-        Args:
-            publisher: 事件发布函数
-        """
-        self._event_publisher = publisher
-        GLOG.DEBUG("Event publisher set for OKXDataFeeder")
 
     def set_time_provider(self, time_provider) -> None:
         """
@@ -632,8 +622,8 @@ class OKXDataFeeder(ILiveDataFeeder):
             event.set_source(self.source)
             event.timestamp = datetime.now()
 
-            # 发布事件
-            self._publish_event(event)
+            # 发布事件（ADR-019：经 publish_price_update 统一 seam）
+            self.publish_price_update(event)
 
         except Exception as e:
             GLOG.ERROR(f"Error processing candlestick message: {e}")
@@ -716,26 +706,11 @@ class OKXDataFeeder(ILiveDataFeeder):
             event.set_source(self.source)
             event.timestamp = datetime.now()
 
-            # 发布事件
-            self._publish_event(event)
+            # 发布事件（ADR-019：经 publish_price_update 统一 seam）
+            self.publish_price_update(event)
 
         except Exception as e:
             GLOG.ERROR(f"Error processing REST ticker: {e}")
-
-    # ==================== 事件发布 ====================
-
-    def _publish_event(self, event: EventBase) -> None:
-        """
-        发布事件
-
-        Args:
-            event: 事件对象
-        """
-        if self._event_publisher:
-            try:
-                self._event_publisher(event)
-            except Exception as e:
-                GLOG.ERROR(f"Error publishing event: {e}")
 
     # ==================== 公共方法 ====================
 

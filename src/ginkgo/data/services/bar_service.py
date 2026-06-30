@@ -287,6 +287,22 @@ class BarService(BaseService):
             # Determine date range based on fast_mode
             start_date, end_date = self._get_fetch_date_range(code, fast_mode, frequency)
 
+            # #5450: fast_mode 下若库中数据已是最新（latest_timestamp 已到今天，
+            # 致 start_date=明天 > end_date=今天），明确返回"已是最新"，避免
+            # _validate_and_set_date_range 抛 ValueError 被 except 吞成失败 proc=0。
+            # 验收标准2: 数据已最新时说明为何 0 records。
+            if fast_mode and start_date > end_date:
+                up_to_date_result = DataSyncResult.create_for_entity(
+                    entity_type="bars",
+                    entity_identifier=code,
+                    sync_strategy="smart",
+                )
+                up_to_date_result.set_metadata("reason", "already_up_to_date")
+                return ServiceResult.success(
+                    data=up_to_date_result,
+                    message=f"{code} 数据已是最新，无需同步",
+                )
+
             # Call the new date range method
             sync_result = self.sync_range(code, start_date, end_date, frequency)
 

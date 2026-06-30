@@ -235,6 +235,8 @@ class BaseMongoCRUD(Generic[T], ABC):
         try:
             collection = self._get_collection()
 
+            # 防御性 copy：隔离 caller 输入，避免 setdefault 原地污染 (#5564)
+            update_dict = dict(update_dict)
             # 自动更新 update_at 字段
             update_dict.setdefault("update_at", pd.Timestamp.now().isoformat())
 
@@ -411,6 +413,8 @@ class BaseMongoCRUD(Generic[T], ABC):
         try:
             collection = self._get_collection()
 
+            # 防御性 copy：隔离 caller 输入，避免 setdefault 原地污染 (#5564)
+            updates = dict(updates)
             # 自动更新 update_at 字段
             updates.setdefault("update_at", pd.Timestamp.now().isoformat())
 
@@ -438,10 +442,21 @@ class BaseMongoCRUD(Generic[T], ABC):
 
         Returns:
             MongoDB 集合对象
+
+        Raises:
+            ConnectionError: 当 driver 连接失败返回 None 时（#5557）。
+                GinkgoMongo.get_collection() 按降级契约在连接未建立时返 None，
+                透传会让 CRUD 方法 None.find_one() 抛误导性的 AttributeError；
+                这里转成有意义的连接错误，让调用方能区分"连接问题"与"代码 bug"。
         """
-        return self._driver.get_collection(
-            self.model_class.get_collection_name()
-        )
+        collection_name = self.model_class.get_collection_name()
+        collection = self._driver.get_collection(collection_name)
+        if collection is None:
+            raise ConnectionError(
+                f"MongoDB collection '{collection_name}' 不可用："
+                f"driver 连接未建立或已断开（{type(self._driver).__name__}）"
+            )
+        return collection
 
     def exists(self, uuid: str) -> bool:
         """

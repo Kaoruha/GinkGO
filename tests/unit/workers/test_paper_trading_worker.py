@@ -367,7 +367,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             result = worker.run_daily_cycle()
 
         assert result.skipped is False
@@ -399,7 +399,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             worker.run_daily_cycle()
 
         # 验证 sync_range_batch 被调用，且 codes 包含两个股票
@@ -455,7 +455,7 @@ class TestDailyCycle:
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.cruds.trade_day.return_value = mock_trade_day_crud
-            mock_services.data.services.bar_service.return_value = mock_bar_service
+            mock_services.data.bar_service.return_value = mock_bar_service
             result = worker.run_daily_cycle()
 
         assert result.advanced is True
@@ -551,6 +551,59 @@ class TestDeploy:
         assert result is True
         mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)
 
+    @patch("ginkgo.trading.services._assembly.component_loader.ComponentLoader")
+    @patch("ginkgo.trading.portfolios.t1backtest.PortfolioT1Backtest")
+    def test_deploy_seeds_selector_pick_after_add_portfolio(self, mock_portfolio_cls, mock_loader):
+        """#6473: _handle_deploy 应在 add_portfolio 后种子化 selector._interested。
+
+        运行时 deploy 路径漏调 selector.pick()（worker 启动 INIT 路径 L182-192 调了，
+        带 #6159 注释）→ selector._interested 空 → 不发 EventInterestUpdate →
+        BacktestFeeder _interested_codes 永不更新 → advance_time 喂 0 bar →
+        _run_live_paper_cycle skip → 0 signal/order（状态却 RUNNING）。仅 worker
+        重启愈合。验收：deploy 后无需重启即产信号。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_engine = MagicMock()
+        mock_engine.portfolios = []
+        worker._engine = mock_engine
+
+        mock_selector = MagicMock()
+        mock_portfolio_instance = MagicMock()
+        mock_portfolio_instance.uuid = "p-new-001"
+        # 装配后 portfolio 持有 selector 列表（与 INIT 测试 L113 同款 mock）
+        mock_portfolio_instance._selectors = [mock_selector]
+        mock_portfolio_cls.return_value = mock_portfolio_instance
+
+        mock_components = {
+            "strategies": [], "risk_managers": [],
+            "analyzers": [], "selectors": [], "sizers": [],
+        }
+        mock_container = MagicMock()
+        mock_crud = MagicMock()
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-new-001"
+        mock_db_portfolio.code = "test-portfolio"
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_container.cruds.portfolio.return_value = mock_crud
+
+        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
+                   return_value=mock_components):
+            with patch("ginkgo.services", create=True) as mock_services:
+                mock_services.data.container = mock_container
+                result = worker._handle_deploy({"portfolio_id": "p-new-001"})
+
+        assert result is True
+        mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)
+        # #6473: deploy 后必须种子化 selector._interested（否则 feeder 0 行情 → 0 signal）
+        mock_selector.pick.assert_called_once()
+        # #6159: pick 必须传非 None time（MomentumSelector.pick(time=None) 崩溃）
+        pick_args = mock_selector.pick.call_args.args
+        pick_kwargs = mock_selector.pick.call_args.kwargs
+        time_arg = pick_args[0] if pick_args else pick_kwargs.get("time")
+        assert time_arg is not None, "selector.pick 必须传非 None time（#6159 bug#6）"
+
     def test_deploy_without_engine_returns_false(self):
         """引擎未初始化时 deploy 应返回 False"""
         from ginkgo.workers.paper_trading_worker import PaperTradingWorker
@@ -559,6 +612,36 @@ class TestDeploy:
         worker._engine = None
         result = worker._handle_deploy({"portfolio_id": "p-001"})
         assert result is False
+
+    def test_deploy_rejects_backtest_mode_portfolio(self):
+        """#6029: BACKTEST mode portfolio 不应被 paper worker deploy。
+
+        _handle_deploy 的 mode 校验只接受 PAPER/LIVE，BACKTEST 必须拒绝。
+        characterization test：锁定当前拒绝行为，后续用枚举替换魔术数字 0 时此测保持绿。
+        """
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+        worker = PaperTradingWorker(worker_id="test-1")
+        mock_engine = MagicMock()
+        worker._engine = mock_engine
+
+        mock_db_portfolio = MagicMock()
+        mock_db_portfolio.uuid = "p-bt-001"
+        mock_db_portfolio.mode = PORTFOLIO_MODE_TYPES.BACKTEST.value  # == 0
+
+        # 对齐真实代码路径 services.data.cruds.portfolio().find()
+        mock_crud = MagicMock()
+        mock_crud.find.return_value = [mock_db_portfolio]
+        mock_data = MagicMock()
+        mock_data.cruds.portfolio.return_value = mock_crud
+
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data = mock_data
+            result = worker._handle_deploy({"portfolio_id": "p-bt-001"})
+
+        assert result is False
+        mock_engine.add_portfolio.assert_not_called()
 
 
 class TestUnload:
@@ -966,7 +1049,7 @@ class TestLoadTodayRecords:
         mock_analyzer_svc.get_by_task_id.return_value = mock_result
 
         with patch("ginkgo.services", create=True) as mock_services:
-            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            mock_services.data.analyzer_service.return_value = mock_analyzer_svc
             records = worker._load_today_records("p-001")
 
         assert len(records["analyzers"]) == 1
@@ -986,7 +1069,7 @@ class TestLoadTodayRecords:
         )
 
         with patch("ginkgo.services", create=True) as mock_services:
-            mock_services.data.services.analyzer_service.return_value = mock_analyzer_svc
+            mock_services.data.analyzer_service.return_value = mock_analyzer_svc
             records = worker._load_today_records("p-001")
 
         assert records["analyzers"] == []
@@ -1101,3 +1184,84 @@ class TestSendDeviationAlert:
 
         # 不应抛异常
         worker._send_deviation_alert(MagicMock(), "SEVERE", {})
+
+
+class TestLoadTodayRecordsServiceLayer:
+    """_load_today_records 通过 Service 层访问 signal/order + 日期下推 (#6030)"""
+
+    def _setup_service_mocks(self, mock_services, signals=None, orders=None):
+        from ginkgo.data.services.base_service import ServiceResult
+
+        mock_sig = MagicMock()
+        mock_sig.get_signals_by_portfolio.return_value = ServiceResult.success(
+            data=signals if signals is not None else []
+        )
+        mock_services.data.signal_service.return_value = mock_sig
+
+        mock_order = MagicMock()
+        mock_order.get_orders_by_portfolio.return_value = ServiceResult.success(
+            data=orders if orders is not None else []
+        )
+        mock_services.data.order_service.return_value = mock_order
+
+        mock_analy = MagicMock()
+        mock_analy.get_by_task_id.return_value = ServiceResult.success(data=[])
+        mock_services.data.analyzer_service.return_value = mock_analy
+
+        return mock_sig, mock_order
+
+    def test_signal_via_service_with_date_range(self):
+        """AC1: signal 走 signal_service.get_signals_by_portfolio（非 cruds.signal）；
+        AC2: 透传 start_date/end_date"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        with patch("ginkgo.services") as mock_services:
+            mock_sig, _ = self._setup_service_mocks(mock_services)
+            worker = PaperTradingWorker(worker_id="test-svc")
+            worker._engine = None
+            worker._load_today_records(
+                "p1", effective_date=datetime(2026, 6, 23, 12, 0)
+            )
+
+            mock_sig.get_signals_by_portfolio.assert_called_once()
+            _, kwargs = mock_sig.get_signals_by_portfolio.call_args
+            assert kwargs["portfolio_id"] == "p1"
+            assert kwargs.get("start_date") is not None
+            assert kwargs.get("end_date") is not None
+            mock_services.data.cruds.signal.assert_not_called()
+
+    def test_order_via_service_with_date_range(self):
+        """AC1: order 走 order_service.get_orders_by_portfolio（非 cruds.order_record）；
+        AC2: 透传 start_date/end_date"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        with patch("ginkgo.services") as mock_services:
+            _, mock_order = self._setup_service_mocks(mock_services)
+            worker = PaperTradingWorker(worker_id="test-svc")
+            worker._engine = None
+            worker._load_today_records(
+                "p1", effective_date=datetime(2026, 6, 23, 12, 0)
+            )
+
+            mock_order.get_orders_by_portfolio.assert_called_once()
+            _, kwargs = mock_order.get_orders_by_portfolio.call_args
+            assert kwargs["portfolio_id"] == "p1"
+            assert kwargs.get("start_date") is not None
+            assert kwargs.get("end_date") is not None
+            mock_services.data.cruds.order_record.assert_not_called()
+
+    def test_no_python_layer_date_filter(self):
+        """AC2: 日期过滤在查询层，service 返回的记录全部收录（无 Python ts== 过滤）"""
+        from ginkgo.workers.paper_trading_worker import PaperTradingWorker
+
+        sig1 = MagicMock(code="A", direction=1, volume=100)
+        sig2 = MagicMock(code="B", direction=-1, volume=200)
+        with patch("ginkgo.services") as mock_services:
+            self._setup_service_mocks(mock_services, signals=[sig1, sig2])
+            worker = PaperTradingWorker(worker_id="test-nofilter")
+            worker._engine = None
+            records = worker._load_today_records(
+                "p1", effective_date=datetime(2026, 6, 23, 12, 0)
+            )
+
+        assert len(records["signals"]) == 2

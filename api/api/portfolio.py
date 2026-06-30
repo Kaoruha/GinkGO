@@ -3,11 +3,11 @@ Portfolio相关API路由
 """
 
 from fastapi import APIRouter, HTTPException, status, Query, Request
-from typing import Optional
+from typing import Optional, List, Any
+from pydantic import BaseModel, Field, ConfigDict
 from core.logging import logger
 from core.response import ok, pagination_meta
-from core.exceptions import NotFoundError, ValidationError, BusinessError
-from request_models import UpdatePortfolioRequest
+from core.exceptions import NotFoundError, ValidationError, BusinessError, ConflictError
 from datetime import datetime
 import sys
 from pathlib import Path
@@ -94,22 +94,54 @@ def _count_backtests(portfolio_id: str) -> int:
     return 0
 
 
+def _compute_portfolio_metrics(p, mode_int: int) -> dict:
+    """计算 portfolio 的 performance metrics + 回测统计（list/detail 共用）。
+
+    backtest 模式走最新已完成回测的指标 + 回测次数；非 backtest 模式
+    取 portfolio 模型自身字段（annual_return 等）。返回统一 schema 的 dict，
+    供 list_portfolios 和 get_portfolio 共享，避免两端点 schema 漂移（#5686）。
+    """
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+    if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
+        metrics = _get_latest_backtest_metrics(p.uuid)
+        backtest_count = _count_backtests(p.uuid)
+    else:
+        metrics = {
+            "annual_return": float(getattr(p, "annual_return", 0) or 0),
+            "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
+            "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
+            "win_rate": float(getattr(p, "win_rate", 0) or 0),
+        }
+        backtest_count = 0
+
+    return {
+        "annual_return": metrics.get("annual_return"),
+        "sharpe_ratio": metrics.get("sharpe_ratio"),
+        "max_drawdown": metrics.get("max_drawdown"),
+        "win_rate": metrics.get("win_rate"),
+        "backtest_count": backtest_count,
+        "last_backtest_date": metrics.get("last_backtest_date"),
+    }
+
+
 def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
     """获取关联组合摘要"""
     try:
         deployment_svc = _get_deployment_service()
         related = []
 
-        if mode_int == 0:  # BACKTEST: find deployed PAPER/LIVE
+        from ginkgo.enums import PORTFOLIO_MODE_TYPES
+        if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:  # BACKTEST: find deployed PAPER/LIVE
             dep_result = deployment_svc.find_by_source_portfolio(source_portfolio_id=portfolio_id)
             deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
                 portfolio_svc = get_portfolio_service()
                 for dep in deployments:
-                    target_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                    target_list = portfolio_svc.get(portfolio_id=dep["target_portfolio_id"])
                     if target_list and target_list.data:
                         t = target_list.data[0]
-                        mode_str = "PAPER" if t.mode == 1 else "LIVE"
+                        mode_str = "PAPER" if t.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE"
                         metrics = {
                             "annual_return": float(getattr(t, "annual_return", 0) or 0),
                             "max_drawdown": float(getattr(t, "max_drawdown", 0) or 0),
@@ -126,7 +158,7 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
             deployments = dep_result.data if dep_result.is_success() else []
             if deployments:
                 portfolio_svc = get_portfolio_service()
-                source_id = deployments[0].source_portfolio_id
+                source_id = deployments[0]["source_portfolio_id"]
                 source_list = portfolio_svc.get(portfolio_id=source_id)
                 if source_list and source_list.data:
                     s = source_list.data[0]
@@ -141,14 +173,14 @@ def _get_related_portfolios(portfolio_id: str, mode_int: int) -> list:
                     })
                 # Other deployments from same source
                 for dep in deployments:
-                    if dep.target_portfolio_id != portfolio_id:
-                        other_list = portfolio_svc.get(portfolio_id=dep.target_portfolio_id)
+                    if dep["target_portfolio_id"] != portfolio_id:
+                        other_list = portfolio_svc.get(portfolio_id=dep["target_portfolio_id"])
                         if other_list and other_list.data:
                             o = other_list.data[0]
                             related.append({
                                 "uuid": o.uuid,
                                 "name": o.name,
-                                "mode": "PAPER" if o.mode == 1 else "LIVE",
+                                "mode": "PAPER" if o.mode == PORTFOLIO_MODE_TYPES.PAPER.value else "LIVE",
                                 "state": _map_state(o.state),
                                 "annual_return": float(getattr(o, "annual_return", 0) or 0),
                                 "max_drawdown": float(getattr(o, "max_drawdown", 0) or 0),
@@ -175,7 +207,7 @@ def get_param_names(component_name: str, file_type: str = None):
     return get_component_parameter_names(component_name, None, file_type, None)
 
 
-@router.get("/")
+@router.get("")
 async def list_portfolios(
     mode: Optional[PortfolioMode] = Query(None, description="按运行模式筛选"),
     page: int = Query(0, ge=0, description="页码（0-based）"),
@@ -214,19 +246,8 @@ async def list_portfolios(
         items = []
         for p in (portfolios or []):
             mode_int = p.mode
-
-            # Performance metrics
-            if mode_int == PORTFOLIO_MODE_TYPES.BACKTEST.value:
-                metrics = _get_latest_backtest_metrics(p.uuid)
-                backtest_count = _count_backtests(p.uuid)
-            else:
-                metrics = {
-                    "annual_return": float(getattr(p, "annual_return", 0) or 0),
-                    "sharpe_ratio": float(getattr(p, "sharpe_ratio", 0) or 0),
-                    "max_drawdown": float(getattr(p, "max_drawdown", 0) or 0),
-                    "win_rate": float(getattr(p, "win_rate", 0) or 0),
-                }
-                backtest_count = 0
+            # #5686: metrics 计算提取为 _compute_portfolio_metrics，list/detail 共用
+            metrics = _compute_portfolio_metrics(p, mode_int)
 
             items.append({
                 "uuid": p.uuid,
@@ -234,12 +255,12 @@ async def list_portfolios(
                 "mode": _map_mode(p.mode),
                 "state": _map_state(p.state),
                 "config_locked": portfolio_service.is_portfolio_frozen(p.uuid),
-                "annual_return": metrics.get("annual_return"),
-                "sharpe_ratio": metrics.get("sharpe_ratio"),
-                "max_drawdown": metrics.get("max_drawdown"),
-                "win_rate": metrics.get("win_rate"),
-                "backtest_count": backtest_count,
-                "last_backtest_date": metrics.get("last_backtest_date"),
+                "annual_return": metrics["annual_return"],
+                "sharpe_ratio": metrics["sharpe_ratio"],
+                "max_drawdown": metrics["max_drawdown"],
+                "win_rate": metrics["win_rate"],
+                "backtest_count": metrics["backtest_count"],
+                "last_backtest_date": metrics["last_backtest_date"],
                 "related": _get_related_portfolios(p.uuid, mode_int),
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None,
             })
@@ -356,12 +377,21 @@ async def get_portfolio(uuid: str):
         from datetime import datetime
         create_at_value = portfolio_model.create_at if hasattr(portfolio_model, 'create_at') and portfolio_model.create_at else None
 
+        # #5686: detail 复用 list 的 metrics 计算，两端点 schema 统一
+        metrics = _compute_portfolio_metrics(portfolio_model, portfolio_model.mode)
+
         data = {
             "uuid": uuid,
             "name": portfolio_model.name,
-            "mode": "BACKTEST" if portfolio_model.mode == 0 else ("PAPER" if portfolio_model.mode == 1 else "LIVE"),
+            "mode": _map_mode(portfolio_model.mode),
             "state": _map_state(portfolio_model.state),
             "config_locked": portfolio_service.is_portfolio_frozen(uuid),
+            "annual_return": metrics["annual_return"],
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "max_drawdown": metrics["max_drawdown"],
+            "win_rate": metrics["win_rate"],
+            "backtest_count": metrics["backtest_count"],
+            "last_backtest_date": metrics["last_backtest_date"],
             "net_value": 1.0,
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
             "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
@@ -372,6 +402,7 @@ async def get_portfolio(uuid: str):
             "sizers": sizers,
             "risk_managers": risk_managers,
             "analyzers": analyzers,
+            "related": _get_related_portfolios(uuid, portfolio_model.mode),
             "risk_alerts": []
         }
 
@@ -384,7 +415,7 @@ async def get_portfolio(uuid: str):
         raise BusinessError(f"Error getting portfolio: {str(e)}")
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_portfolio(data: PortfolioCreate):
     """创建Portfolio（使用Saga事务保证一致性）
 
@@ -414,6 +445,7 @@ async def create_portfolio(data: PortfolioCreate):
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
             mode=mode_int,
+            initial_cash=data.initial_cash,
             selectors=data.selectors,
             sizer=sizer_data,
             strategies=data.strategies,
@@ -443,6 +475,9 @@ async def create_portfolio(data: PortfolioCreate):
             raise BusinessError("Failed to get portfolio UUID after creation")
 
         response = await get_portfolio(portfolio_uuid)
+        # #5840: get_portfolio 复用其组装好的 data，但 message 是 "retrieved" 语义，
+        # 创建动作必须覆盖为 "created"，否则 POST /portfolios/ 谎报 retrieved。
+        response["message"] = "Portfolio created successfully"
         return response
 
     except BusinessError:
@@ -450,6 +485,19 @@ async def create_portfolio(data: PortfolioCreate):
     except Exception as e:
         logger.error(f"Error creating portfolio: {str(e)}")
         raise BusinessError(f"Error creating portfolio: {str(e)}")
+
+
+class UpdatePortfolioRequest(BaseModel):
+    """#5474: 更新 Portfolio 请求（替代裸 dict，输入校验 + 忽略未知字段）。"""
+    model_config = ConfigDict(extra="ignore")  # 忽略未知字段，防透传 Saga
+    name: Optional[str] = Field(None, min_length=1)  # 非空（若提供）
+    initial_cash: Optional[float] = Field(None, gt=0)  # 正数（若提供）
+    selectors: Optional[List[Any]] = None
+    sizer_uuid: Optional[str] = None
+    sizer_config: Optional[dict] = None
+    strategies: Optional[List[Any]] = None
+    risk_managers: Optional[List[Any]] = None
+    analyzers: Optional[List[Any]] = None
 
 
 @router.put("/{uuid}")
@@ -463,28 +511,26 @@ async def update_portfolio(uuid: str, data: UpdatePortfolioRequest):
     - 添加新组件映射
 
     任何步骤失败都会自动回滚到更新前的状态。
-
-    #5565: 请求体由 UpdatePortfolioRequest 校验（顶层字段白名单 extra='forbid'，
-    防任意 key 流入 saga；嵌套组件结构 List[dict] 透传由 saga 内部解析）。
     """
     try:
         from services.saga_transaction import PortfolioSagaFactory
 
-        # 准备更新参数
+        # #5474: schema extra=ignore 已丢未知字段；exclude_none 去未提供字段
+        payload = data.model_dump(exclude_none=True)
         sizer_data = None
-        if data.sizer_uuid:
-            sizer_data = {'component_uuid': data.sizer_uuid, 'config': data.sizer_config or {}}
+        if payload.get('sizer_uuid'):
+            sizer_data = {'component_uuid': payload['sizer_uuid'], 'config': payload.get('sizer_config') or {}}
 
         # 创建 Saga 事务
         saga = PortfolioSagaFactory.update_portfolio_saga(
             portfolio_uuid=uuid,
-            name=data.name,
-            initial_cash=data.initial_cash,
-            selectors=data.selectors,
+            name=payload.get('name'),
+            initial_cash=payload.get('initial_cash'),
+            selectors=payload.get('selectors'),
             sizer=sizer_data,
-            strategies=data.strategies,
-            risk_managers=data.risk_managers,
-            analyzers=data.analyzers
+            strategies=payload.get('strategies'),
+            risk_managers=payload.get('risk_managers'),
+            analyzers=payload.get('analyzers')
         )
 
         # 执行 Saga 事务
@@ -592,6 +638,38 @@ async def get_portfolio_analytics(uuid: str):
         raise BusinessError(f"Error getting analytics: {e}")
 
 
+@router.get("/{uuid}/positions")
+async def get_portfolio_positions(
+    uuid: str,
+    active_only: bool = Query(False, description="仅返回 volume>0 的活跃持仓"),
+):
+    """获取 Portfolio 当前持仓快照（#5783 验收2）
+
+    数据层 PositionCRUD 早已支持按 portfolio 查询，本端点在 portfolio router
+    暴露持仓查询能力（对齐 backtest /{uuid}/positions，序列化形状与
+    load_persisted_state 一致）。
+    """
+    try:
+        portfolio_service = get_portfolio_service()
+        result = portfolio_service.get_positions(uuid, active_only=active_only)
+
+        if not result.is_success():
+            return ok(data=[], message=result.error or "Failed to retrieve positions")
+
+        items = result.data
+        meta = pagination_meta(
+            page=1,
+            total=len(items),
+            page_size=max(len(items), 1),
+        )
+        return ok(data=items, message="Positions retrieved successfully", meta=meta)
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting positions for portfolio {uuid}: {e}")
+        raise BusinessError(f"Error getting positions: {e}")
+
+
 @router.get("/{uuid}/events")
 async def get_portfolio_events(
     uuid: str,
@@ -621,11 +699,23 @@ async def get_portfolio_events(
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_portfolio(uuid: str):
+async def delete_portfolio(
+    uuid: str,
+    force: bool = Query(False, description="强制删除含回测的 portfolio（#5688）"),
+):
     """删除Portfolio（通过 service 层）"""
     try:
         # 获取 PortfolioService
         portfolio_service = get_portfolio_service()
+
+        # #5688: 含回测的 portfolio 误删不可恢复，删除前警告。
+        # 复用 _count_backtests（list 端点已用），有回测 + 未强制 → 409 阻止。
+        backtest_count = _count_backtests(uuid)
+        if backtest_count > 0 and not force:
+            raise ConflictError(
+                f"Portfolio has {backtest_count} backtest(s). "
+                f"Pass ?force=true to confirm deletion."
+            )
 
         # 调用 service 的 delete 方法
         result = portfolio_service.delete(portfolio_id=uuid)
@@ -635,7 +725,8 @@ async def delete_portfolio(uuid: str):
 
         logger.info(f"Portfolio {uuid} deleted successfully")
 
-    except NotFoundError:
+    except (NotFoundError, ConflictError):
+        # ConflictError 继承 APIError(Exception)，须在通用 except 前透传，否则被吞成 BusinessError
         raise
     except Exception as e:
         logger.error(f"Error deleting portfolio {uuid}: {str(e)}")

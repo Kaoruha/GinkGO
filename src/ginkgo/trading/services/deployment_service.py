@@ -9,6 +9,18 @@ from ginkgo.enums import PORTFOLIO_MODE_TYPES, FILE_TYPES
 from ginkgo.data.models import MDeployment
 from ginkgo.enums import DEPLOYMENT_STATUS
 
+# #6285: int→枚举名映射，供 info/list 输出人类可读部署状态。
+# 动态收集 DEPLOYMENT_STATUS 类属性，新增成员自动覆盖，无需手维护 dict。
+_DEPLOYMENT_STATUS_NAMES = {
+    v: k for k, v in vars(DEPLOYMENT_STATUS).items()
+    if not k.startswith("_") and isinstance(v, int)
+}
+
+
+def _status_name(status: int) -> str:
+    """裸 int → 枚举名（未知值降级为字符串形式，不抛错）。"""
+    return _DEPLOYMENT_STATUS_NAMES.get(status, str(status))
+
 
 class DeploymentService(BaseService):
     """部署编排服务"""
@@ -39,6 +51,7 @@ class DeploymentService(BaseService):
         mode: PORTFOLIO_MODE_TYPES,
         account_id: Optional[str] = None,
         name: Optional[str] = None,
+        source_task_id: Optional[str] = None,
     ) -> ServiceResult:
         """
         一键部署：从组合部署到模拟盘/实盘
@@ -48,6 +61,7 @@ class DeploymentService(BaseService):
             mode: PAPER 或 LIVE
             account_id: MLiveAccount.uuid (live模式必填)
             name: 新Portfolio名称 (可选，自动生成)
+            source_task_id: 源回测任务 id (可选, #6285 记录回测→部署链路便于追溯)
 
         Returns:
             ServiceResult with data: {"portfolio_id": str, "deployment_id": str}
@@ -70,6 +84,15 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and not account_id:
             return ServiceResult(success=False, error="实盘部署需要提供 account_id")
 
+        # 3a. #6281: account 存在性预检
+        # 非法 account 不应直冲下游查询，否则环境层 DB 列漂移时抛裸 1054 (见 arch_create_all_no_alter_drift)。
+        if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
+            account_res = self._live_account_service.get_account_by_uuid(account_id)
+            if not account_res or not account_res.get("success"):
+                return ServiceResult(
+                    success=False, error=f"实盘账户不存在: {account_id}"
+                )
+
         # 3c. 检查 live_account 是否已被其他 Portfolio 绑定
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
             existing_brokers = self._broker_instance_crud.get_broker_by_live_account(account_id)
@@ -78,7 +101,7 @@ class DeploymentService(BaseService):
 
         # 3b. 创建 PENDING deployment 记录
         deployment = MDeployment(
-            source_task_id=None,
+            source_task_id=source_task_id,
             target_portfolio_id="",
             source_portfolio_id=portfolio_id,
             mode=mode.value,
@@ -150,11 +173,15 @@ class DeploymentService(BaseService):
         GLOG.INFO(f"创建新Portfolio: {new_portfolio_id} (mode={mode.value})")
 
         # 5c. Live模式: 回写 live_account_id 到 Portfolio
+        # #6073: 检查 update 返回值，失败时终止部署（否则 live_account_id 未写入但部署仍标记成功）
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
-            self._portfolio_service.update(
+            update_result = self._portfolio_service.update(
                 portfolio_id=new_portfolio_id,
                 live_account_id=account_id,
             )
+            if not update_result.success:
+                GLOG.ERROR(f"回写 live_account_id 失败: {update_result.error}")
+                raise RuntimeError(f"回写 live_account_id 失败: {update_result.error}")
 
         # 5. 引用组件: Mapping(新建, 引用源file_id) + Param(原始值复制)
         for mapping in mappings:
@@ -259,6 +286,41 @@ class DeploymentService(BaseService):
             "mode": deployment.mode,
             "account_id": deployment.account_id,
             "status": deployment.status,
+            "status_name": _status_name(deployment.status),  # #6285
+            "create_at": str(deployment.create_at) if deployment.create_at else None,
+        }
+        return result
+
+    def _deployment_to_dict(self, r) -> dict:
+        """部署记录 → dict（list_deployments / find_by_* 共用，#3882 统一返回类型）。"""
+        return {
+            "deployment_id": r.uuid,
+            "source_task_id": r.source_task_id,
+            "target_portfolio_id": r.target_portfolio_id,
+            "source_portfolio_id": r.source_portfolio_id,
+            "mode": r.mode,
+            "account_id": r.account_id,
+            "status": r.status,
+            "status_name": _status_name(r.status),  # #6285
+            "create_at": str(r.create_at) if r.create_at else None,
+        }
+
+    def get_deployment_by_id(self, deployment_id: str) -> ServiceResult:
+        """按部署记录 UUID 获取部署信息（#5335：deploy info <deployment_id>）"""
+        records = self._deployment_crud.get_by_uuid(deployment_id)
+        if not records:
+            return ServiceResult(success=False, error="未找到部署记录")
+
+        deployment = records[0]
+        result = ServiceResult(success=True)
+        result.data = {
+            "source_task_id": deployment.source_task_id,
+            "target_portfolio_id": deployment.target_portfolio_id,
+            "source_portfolio_id": deployment.source_portfolio_id,
+            "mode": deployment.mode,
+            "account_id": deployment.account_id,
+            "status": deployment.status,
+            "status_name": _status_name(deployment.status),  # #6285
             "create_at": str(deployment.create_at) if deployment.create_at else None,
         }
         return result
@@ -274,37 +336,25 @@ class DeploymentService(BaseService):
             return ServiceResult(success=True, data=[])
 
         result = ServiceResult(success=True)
-        result.data = [
-            {
-                "deployment_id": r.uuid,
-                "source_task_id": r.source_task_id,
-                "target_portfolio_id": r.target_portfolio_id,
-                "source_portfolio_id": r.source_portfolio_id,
-                "mode": r.mode,
-                "account_id": r.account_id,
-                "status": r.status,
-                "create_at": str(r.create_at) if r.create_at else None,
-            }
-            for r in records
-        ]
+        result.data = [self._deployment_to_dict(r) for r in records]
         return result
 
     # #3867: API 层不再直调 CRUD，通过 Service 封装
 
     def find_by_source_portfolio(self, source_portfolio_id: str) -> ServiceResult:
-        """查找源组合的所有部署记录"""
+        """查找源组合的所有部署记录（返回 dict 列表，字段对齐 list_deployments，#3882）。"""
         try:
             records = self._deployment_crud.get_by_source_portfolio(source_portfolio_id)
-            return ServiceResult.success(data=records or [])
+            return ServiceResult.success(data=[self._deployment_to_dict(r) for r in (records or [])])
         except Exception as e:
             GLOG.ERROR(f"Failed to find deployments by source: {e}")
             return ServiceResult.error(f"Failed to find deployments: {str(e)}")
 
     def find_by_target_portfolio(self, target_portfolio_id: str) -> ServiceResult:
-        """查找目标组合的所有部署记录"""
+        """查找目标组合的所有部署记录（返回 dict 列表，字段对齐 list_deployments，#3882）。"""
         try:
             records = self._deployment_crud.get_by_target_portfolio(target_portfolio_id)
-            return ServiceResult.success(data=records or [])
+            return ServiceResult.success(data=[self._deployment_to_dict(r) for r in (records or [])])
         except Exception as e:
             GLOG.ERROR(f"Failed to find deployments by target: {e}")
             return ServiceResult.error(f"Failed to find deployments: {str(e)}")
@@ -336,4 +386,8 @@ class DeploymentService(BaseService):
             portfolio_uuid=target_portfolio_id,
             graph_data=graph_result.data,
             name=f"deploy_{target_portfolio_id[:8]}",
+            # #6279: MySQL 映射已由 _deploy_core step5 从源组合权威复制（全类型+原始参数）。
+            # 此处仅搬运 Mongo 图供 UI，绝不能按（经 CLI bind-component 绑定时可能不完整的）
+            # 源图删除已建的 strategy/sizer 映射，否则 paper 组合装配 Strategies:0。
+            sync_mysql=False,
         )

@@ -5,7 +5,7 @@
 """
 
 import time
-from typing import Any, Dict, Optional, List, Callable
+from typing import Any, Dict, Optional, List, Callable, Tuple
 
 from ginkgo.libs import GLOG, time_logger
 
@@ -131,12 +131,13 @@ class _Streaming:
             # 获取流式查询引擎
             engine = self._get_streaming_engine()
 
-            # 构建基础查询
-            base_query = self._build_streaming_query(filters, order_by, desc_order)
+            # 构建基础查询（参数化，防 SQL 注入 #3859）
+            base_query, params = self._build_streaming_query(filters, order_by, desc_order)
 
-            # 执行流式查询
+            # 执行流式查询（params 绑定 value）
             return engine.execute_stream(
                 query=base_query,
+                params=params,
                 filters=filters or {},
                 batch_size=batch_size
             )
@@ -228,13 +229,22 @@ class _Streaming:
     def _build_streaming_query(self,
                               filters: Optional[Dict[str, Any]] = None,
                               order_by: Optional[str] = None,
-                              desc_order: bool = False) -> str:
-        """构建流式查询SQL语句"""
+                              desc_order: bool = False) -> Tuple[str, Dict[str, Any]]:
+        """构建流式查询SQL语句（value 参数化绑定，防 SQL 注入 #3859）。
+
+        列名经 ``hasattr`` 白名单保护（不可注入）；value 经 ``%(name)s`` 命名占位符
+        绑定（MySQL PyMySQL/mysqlclient 与 ClickHouse clickhouse-driver 均支持
+        named paramstyle + dict params）。
+
+        Returns:
+            (query, params): query 含占位符模板，params 为绑定值字典。
+        """
         # 基础SELECT语句
         table_name = self.model_class.__tablename__
         query = f"SELECT * FROM {table_name}"
+        params: Dict[str, Any] = {}
 
-        # 添加WHERE条件
+        # 添加WHERE条件（value 参数化，len(params) 作索引保证占位符 key 唯一）
         if filters:
             where_conditions = []
             for key, value in filters.items():
@@ -242,33 +252,53 @@ class _Streaming:
                     field, operator = key.split("__", 1)
                     if hasattr(self.model_class, field):
                         if operator == "gte":
-                            where_conditions.append(f"{field} >= '{value}'")
+                            pk = f"flt_{field}_gte_{len(params)}"
+                            where_conditions.append(f"{field} >= %({pk})s")
+                            params[pk] = value
                         elif operator == "lte":
-                            where_conditions.append(f"{field} <= '{value}'")
+                            pk = f"flt_{field}_lte_{len(params)}"
+                            where_conditions.append(f"{field} <= %({pk})s")
+                            params[pk] = value
                         elif operator == "gt":
-                            where_conditions.append(f"{field} > '{value}'")
+                            pk = f"flt_{field}_gt_{len(params)}"
+                            where_conditions.append(f"{field} > %({pk})s")
+                            params[pk] = value
                         elif operator == "lt":
-                            where_conditions.append(f"{field} < '{value}'")
+                            pk = f"flt_{field}_lt_{len(params)}"
+                            where_conditions.append(f"{field} < %({pk})s")
+                            params[pk] = value
                         elif operator == "in":
                             if isinstance(value, (list, tuple)):
-                                value_str = "', '".join(str(v) for v in value)
-                                where_conditions.append(f"{field} IN ('{value_str}')")
+                                placeholders = []
+                                for v in value:
+                                    pk = f"flt_{field}_in_{len(params)}"
+                                    placeholders.append(f"%({pk})s")
+                                    params[pk] = v
+                                where_conditions.append(
+                                    f"{field} IN ({', '.join(placeholders)})"
+                                )
                         elif operator == "like":
-                            where_conditions.append(f"{field} LIKE '%{value}%'")
+                            pk = f"flt_{field}_like_{len(params)}"
+                            where_conditions.append(f"{field} LIKE %({pk})s")
+                            # % 放 Python 值侧，SQL 模板不留裸 %（PyMySQL
+                            # string-formatting 会把裸 % 误当占位符）
+                            params[pk] = f"%{value}%"
                 else:
                     if hasattr(self.model_class, key):
-                        where_conditions.append(f"{key} = '{value}'")
+                        pk = f"flt_{key}_eq_{len(params)}"
+                        where_conditions.append(f"{key} = %({pk})s")
+                        params[pk] = value
 
             if where_conditions:
                 query += f" WHERE {' AND '.join(where_conditions)}"
 
-        # 添加ORDER BY
+        # 添加ORDER BY（列名白名单保护，非用户 value）
         if order_by and hasattr(self.model_class, order_by):
             query += f" ORDER BY {order_by}"
             if desc_order:
                 query += " DESC"
 
-        return query
+        return query, params
 
     def _fallback_to_traditional_query(self,
                                      filters: Optional[Dict[str, Any]] = None,
@@ -345,8 +375,11 @@ class _Streaming:
                 GLOG.INFO(f"Resuming from checkpoint: {checkpoint_id}")
             elif auto_checkpoint:
                 # 创建新断点
+                # query_text 带占位符模板；params 不存——执行路径 resumable→stream_find
+                # 重建查询，checkpoint.query_text 仅参与 hash + 人类可读（#3859）
+                query_text, _params = self._build_streaming_query(filters, order_by, desc_order)
                 checkpoint_id = checkpoint_manager.create_checkpoint(
-                    query=self._build_streaming_query(filters, order_by, desc_order),
+                    query=query_text,
                     filters=filters or {},
                     batch_size=batch_size or 1000,
                     database_type=getattr(self.driver, '_db_type', 'unknown'),

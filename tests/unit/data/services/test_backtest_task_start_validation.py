@@ -1,0 +1,170 @@
+"""ADR-018：回测派发契约的早返回守卫 + DTO 二次校验（两层并存，职责不同）。
+
+门：缺字段任务在 service 层即 ServiceResult.error，不进 Kafka。
+- 早返回守卫（start_task 状态检查后/清理块前）守「拒绝先于不可逆清理」时序不变式：
+  缺 portfolio_uuid / 空 dates 在删 9 表历史数据（CH 5 表异步 mutation 不可逆 +
+  MySQL 4 表单事务 commit）之前即拒，否则「先删后拒」数据永久丢失（#6461 round-4）。
+  含 test_*_rejects_before_cleanup：断言 9 表清理 CRUD.remove 未被调用（副作用非返回值）。
+- DTO 构造期 Field(min_length=1) 作为二次门守 wire spec 兜底（#5646），与守卫职责
+  不可互替——守卫保时序（先于删数据），DTO 保契约（派发本体）。
+
+详见 docs/adrs/ADR-018-backtest-assignment-contract.md
+"""
+import sys
+import os
+import json
+import pytest
+from unittest.mock import MagicMock, patch
+from contextlib import contextmanager
+
+_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+if _path not in sys.path:
+    sys.path.insert(0, _path)
+
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
+from ginkgo.data.services.base_service import ServiceResult
+
+
+def _make_task(**overrides):
+    task = MagicMock()
+    task.uuid = "uuid-1234"
+    task.task_id = "task-abc"
+    task.portfolio_id = "portfolio-001"
+    task.name = "test"
+    task.backtest_start_date = None
+    task.backtest_end_date = None
+    task.status = "created"
+    task.config_snapshot = json.dumps({"start_date": "2025-01-01", "end_date": "2025-12-31"})
+    for k, v in overrides.items():
+        setattr(task, k, v)
+    return task
+
+
+@contextmanager
+def _mock_kafka():
+    mp = MagicMock()
+    with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer", return_value=mp), \
+         patch("ginkgo.data.containers.container", MagicMock()):
+        yield mp
+
+
+def _inject_cleanup_cruds(service):
+    """注入 9 个 mock 清理 CRUD（CH 5 + MySQL 4），返回 {name: MagicMock}。
+
+    用于断言「先删后拒」副作用：孤儿/空字段重跑时，9 表清理 CRUD.remove
+    不应在拒绝前被调用（不可逆删除历史数据，见 #6461 round-4 finding）。
+    """
+    cleanup = {
+        "signal": MagicMock(), "position_record": MagicMock(),
+        "analyzer_record": MagicMock(), "order_record": MagicMock(),
+        "transfer_record": MagicMock(),            # ClickHouse 5（异步 mutation，不可逆）
+        "order": MagicMock(), "position": MagicMock(),
+        "transfer": MagicMock(), "signal_tracker": MagicMock(),  # MySQL 4（单事务）
+    }
+    service._signal_crud = cleanup["signal"]
+    service._position_record_crud = cleanup["position_record"]
+    service._analyzer_record_crud = cleanup["analyzer_record"]
+    service._order_record_crud = cleanup["order_record"]
+    service._transfer_record_crud = cleanup["transfer_record"]
+    service._order_crud = cleanup["order"]
+    service._position_crud = cleanup["position"]
+    service._transfer_crud = cleanup["transfer"]
+    service._signal_tracker_crud = cleanup["signal_tracker"]
+    return cleanup
+
+
+def _assert_no_cleanup_ran(cleanup, *, dimension):
+    """断言清理块未执行：9 个 CRUD.remove 均未被调用。
+
+    违反「拒绝必须先于不可逆清理」时序不变式时，给出泄漏表名。
+    """
+    leaked = [n for n, c in cleanup.items() if c.remove.called]
+    assert not leaked, (
+        f"{dimension} 守卫缺失：清理块在拒绝前执行，删除了 {leaked}"
+        f"（违反'拒绝先于不可逆清理'时序不变式，见 #6461 round-4 finding）"
+    )
+
+
+@pytest.fixture
+def service():
+    return BacktestTaskService(crud_repo=MagicMock())
+
+
+def _setup(service, task):
+    service._crud_repo.get_by_uuid.return_value = task
+    service._crud_repo.find.return_value = []
+    service.update_status = MagicMock(return_value=ServiceResult.success(task, "ok"))
+
+
+class TestStartTaskValidationInDto:
+    """#5646 预校验收敛：缺字段在 service 层 DTO 构造期即拒，不进 Kafka。"""
+
+    @pytest.mark.unit
+    def test_empty_dates_returns_error_no_kafka(self, service):
+        """空 dates → DTO 构造期 ValidationError → ServiceResult.error，producer.send 不调。"""
+        task = _make_task(config_snapshot=json.dumps({"start_date": "", "end_date": "2025-12-31"}))
+        _setup(service, task)
+        with _mock_kafka() as mp:
+            result = service.start_task(uuid="uuid-1234")
+        assert not result.is_success(), f"空 dates 应在 service 层被拒，got success: {result.error}"
+        mp.send.assert_not_called()
+
+    @pytest.mark.unit
+    def test_missing_portfolio_returns_error_no_kafka(self, service):
+        """缺 portfolio_uuid（task.portfolio_id 也无）→ #5646 守卫在清理块之前早返回 ServiceResult.error，不进 Kafka。
+
+        守卫恢复后拒绝发生在守卫（早返回），非 DTO 构造期；二者皆 service 层拒绝，不进 Kafka。
+        """
+        task = _make_task(
+            portfolio_id=None,
+            config_snapshot=json.dumps({"start_date": "2025-01-01", "end_date": "2025-12-31"}),
+        )
+        _setup(service, task)
+        with _mock_kafka() as mp:
+            result = service.start_task(uuid="uuid-1234")  # 不传 portfolio_uuid
+        assert not result.is_success(), f"缺 portfolio_uuid 应在 service 层被拒，got success"
+        mp.send.assert_not_called()
+
+    @pytest.mark.unit
+    def test_missing_portfolio_rejects_before_cleanup(self, service):
+        """#5646 守卫回归：孤儿任务（无 portfolio）重跑必须在清理块之前拒——
+        9 表清理 CRUD.remove 不应被调用，否则历史数据在拒绝前被不可逆删除。
+        （复现 PR 删守卫引入的回归：清理块在 DTO 拒绝前执行，删光 order/position/signal/analyzer 历史）
+        """
+        task = _make_task(
+            portfolio_id=None,
+            status="completed",  # 重跑场景：任务曾跑过，有历史数据
+            config_snapshot=json.dumps({"start_date": "2025-01-01", "end_date": "2025-12-31"}),
+        )
+        _setup(service, task)
+        cleanup = _inject_cleanup_cruds(service)
+
+        with _mock_kafka() as mp:
+            result = service.start_task(uuid="uuid-1234")  # 不传 portfolio_uuid
+
+        assert not result.is_success(), "孤儿任务应在 service 层被拒"
+        mp.send.assert_not_called()
+        _assert_no_cleanup_ran(cleanup, dimension="portfolio")
+
+    @pytest.mark.unit
+    def test_empty_dates_rejects_before_cleanup(self, service):
+        """dates 守卫扩展：portfolio 有效但 start_date 空时，重跑必须在清理块之前拒——
+        9 表清理 CRUD.remove 不应被调用（同 #5646 时序不变式，dates 维度）。
+
+        复现：原找回的守卫仅覆盖 portfolio，空 dates 仍走「清理→置 pending→DTO 拒」，
+        先删光历史 order/position/signal/transfer/analyzer 数据后才拒绝。
+        """
+        task = _make_task(
+            portfolio_id="portfolio-001",  # 有效 portfolio（绕过 portfolio 守卫）
+            status="completed",            # 重跑场景：任务曾跑过，有历史数据
+            config_snapshot=json.dumps({"start_date": "", "end_date": "2025-12-31"}),
+        )
+        _setup(service, task)
+        cleanup = _inject_cleanup_cruds(service)
+
+        with _mock_kafka() as mp:
+            result = service.start_task(uuid="uuid-1234")  # 不传 start/end
+
+        assert not result.is_success(), "空 dates 应在 service 层被拒"
+        mp.send.assert_not_called()
+        _assert_no_cleanup_ran(cleanup, dimension="dates")

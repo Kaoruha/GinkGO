@@ -46,3 +46,23 @@ class TestFixedSelectorEmptyCodesWarns:
         with patch("ginkgo.trading.selectors.fixed_selector.GLOG"):
             sel = FixedSelector(codes="")
         assert sel.pick() == []
+
+    def test_warning_codes_example_uses_key_form_not_misleading_index(self):
+        """#6466: 空 codes 告警里的绑定示例不得用 index 0。
+
+        portfolio_cli 的 index 语义: index 0 = name, index 1 = codes (见 #5955)。
+        若示例写成 --param '0:"000001.SZ"'，用户照做会把股票代码塞进 name、codes 仍空，
+        正好触发本告警所警告的零信号坑。须改用 key 形式 codes:"..."（最不易歧义）。
+        """
+        with patch("ginkgo.trading.selectors.fixed_selector.GLOG") as mock_glog:
+            FixedSelector(codes="")
+        msg = mock_glog.WARNING.call_args[0][0]
+        # 反向: 不得出现 index 0 绑定 codes 的示例（index 0 是 name）
+        assert "'0:\"" not in msg, (
+            "告警示例不得用 index 0 绑定 codes（index 0=name），"
+            "会误导用户触发零信号坑 #6466"
+        )
+        # 正向: 须用 key 形式 codes:"..."（issue #6466 推荐，避免 index 歧义）
+        assert "codes:\"" in msg, (
+            "告警示例应用 key 形式 codes:\"...\" 绑定 codes，避免 index 歧义 #6466"
+        )

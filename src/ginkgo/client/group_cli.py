@@ -199,13 +199,13 @@ def cat_group(
 @app.command("delete")
 def delete_group(
     group_uuid: str = typer.Argument(..., help="Group UUID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompt"),
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
 ):
     """
     :wastebasket: Delete a group (cascades to user mappings).
 
     Example:
-      ginkgo groups delete abc123... --confirm
+      ginkgo groups delete abc123... -y
     """
     try:
         from ginkgo.data.containers import container

@@ -121,7 +121,7 @@ class Momentum(BaseStrategy, StrategyDataMixin):
                 use_cache=True,
             )
 
-            if not bars or len(bars) < self.lookback_period:
+            if not bars or len(bars) < self.lookback_period + 1:
                 return []
 
             # 提取收盘价序列

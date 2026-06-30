@@ -354,3 +354,101 @@ class TestResultGetRealData:
         task_svc.get_by_id.assert_called_once_with("task-9")
         assert "not yet implemented" not in result.output
         assert "15.2%" not in result.output
+
+
+# ============================================================================
+# #5998: result 子命令参数命名统一为 --task-id（兼容旧 --run-id + deprecation）
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestResultShowTaskIdUnify:
+    """#5998: result show 主 flag 统一为 --task-id，保留 --run-id 别名 + 弃用提示。"""
+
+    def _wire_show(self, task_id_value):
+        """装配 show 完整路径 mock，返回 (mock_result_svc, mock_container_ctx)。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        import pandas as pd
+
+        summary = {"task_id": task_id_value, "engine_id": "e1", "total_records": 1,
+                   "portfolio_count": 1, "portfolios": ["p1"]}
+        mock_result_svc = MagicMock()
+        mock_result_svc.get_run_summary.return_value = ServiceResult.success(data=summary)
+        mock_result_svc.get_portfolio_analyzers.return_value = ServiceResult.success(data=["net_value"])
+        mock_result_svc.get_analyzer_values_df.return_value = ServiceResult.success(
+            data=pd.DataFrame([{"timestamp": "2025-01-01", "value": 1.05}]))
+        return mock_result_svc
+
+    def test_show_help_exposes_task_id(self, cli_runner):
+        """show --help 含 --task-id（统一参数名）。"""
+        result = cli_runner.invoke(flat_cli.result_app, ["show", "--help"])
+        assert result.exit_code == 0
+        assert "--task-id" in result.output
+
+    def test_show_help_keeps_run_id_alias(self, cli_runner):
+        """show --help 仍含 --run-id（向后兼容）。"""
+        result = cli_runner.invoke(flat_cli.result_app, ["show", "--help"])
+        assert result.exit_code == 0
+        assert "--run-id" in result.output
+
+    def test_show_task_id_routes_to_summary(self, cli_runner):
+        """--task-id <id> 透传到 result_service.get_run_summary(task_id)。"""
+        svc = self._wire_show("t1")
+        with patch("ginkgo.data.containers.container") as mc:
+            mc.result_service.return_value = svc
+            r = cli_runner.invoke(flat_cli.result_app, ["show", "--task-id", "t1"])
+        assert r.exit_code == 0, r.output
+        svc.get_run_summary.assert_called_once_with("t1")
+
+    def test_show_run_id_still_works_and_warns(self, cli_runner):
+        """旧 --run-id 仍工作 + 透传 task_id + 输出弃用提示。"""
+        svc = self._wire_show("r1")
+        with patch("ginkgo.data.containers.container") as mc:
+            mc.result_service.return_value = svc
+            r = cli_runner.invoke(flat_cli.result_app, ["show", "--run-id", "r1"])
+        assert r.exit_code == 0, r.output
+        svc.get_run_summary.assert_called_once_with("r1")
+        assert "弃用" in r.output or "deprecated" in r.output.lower()
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestResultGetTaskIdOption:
+    """#5998: result get 新增 --task-id Option（位置参数二选一），统一命名。"""
+
+    def _task_svc(self, record=None):
+        from ginkgo.data.services.base_service import ServiceResult
+        svc = MagicMock()
+        svc.get_by_id.return_value = ServiceResult(success=True, data=record)
+        return svc
+
+    def test_get_with_task_id_option(self, cli_runner):
+        """get --task-id <id> 透传到 backtest_task_service.get_by_id。"""
+        record = MagicMock(name="bt")
+        record.name = "opt-bt"
+        svc = self._task_svc(record=record)
+        with patch("ginkgo.data.containers.container") as mc:
+            mc.backtest_task_service.return_value = svc
+            r = cli_runner.invoke(flat_cli.result_app, ["get", "--task-id", "opt-1"])
+        assert r.exit_code == 0, r.output
+        svc.get_by_id.assert_called_once_with("opt-1")
+
+    def test_get_positional_still_works(self, cli_runner):
+        """位置参数回归不破：get <id> 仍透传。"""
+        record = MagicMock(name="bt")
+        record.name = "pos-bt"
+        svc = self._task_svc(record=record)
+        with patch("ginkgo.data.containers.container") as mc:
+            mc.backtest_task_service.return_value = svc
+            r = cli_runner.invoke(flat_cli.result_app, ["get", "pos-1"])
+        assert r.exit_code == 0, r.output
+        svc.get_by_id.assert_called_once_with("pos-1")
+
+    def test_get_without_any_id_errors(self, cli_runner):
+        """get 无位置参数且无 --task-id时报错（必填校验）。"""
+        with patch("ginkgo.data.containers.container") as mc:
+            mc.backtest_task_service.return_value = self._task_svc()
+            r = cli_runner.invoke(flat_cli.result_app, ["get"])
+        assert r.exit_code != 0, r.output
+        assert "task" in r.output.lower()

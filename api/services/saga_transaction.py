@@ -231,6 +231,7 @@ class PortfolioSagaFactory:
     def create_portfolio_saga(
         name: str,
         mode: int = 0,
+        initial_cash: Optional[float] = None,
         selectors: List[Dict[str, Any]] = None,
         sizer: Optional[Dict[str, Any]] = None,
         strategies: List[Dict[str, Any]] = None,
@@ -242,6 +243,7 @@ class PortfolioSagaFactory:
         Args:
             name: Portfolio 名称
             mode: 运行模式 (0=BACKTEST, 1=PAPER, 2=LIVE)
+            initial_cash: 初始资金（None 时由 service 回退默认 1000000.0）
             selectors: 选股器列表 [{"component_uuid": "...", "config": {...}}]
             sizer: 仓位管理器 {"component_uuid": "...", "config": {...}}
             strategies: 策略列表 [{"component_uuid": "...", "config": {...}}]
@@ -268,7 +270,8 @@ class PortfolioSagaFactory:
 
         # ==================== 步骤 1: 创建 Portfolio ====================
         def create_portfolio():
-            result = portfolio_service.add(name=name, mode=mode)
+            # #5407 #5380: 转发 initial_cash -> initial_capital，否则 service 回退默认值
+            result = portfolio_service.add(name=name, mode=mode, initial_capital=initial_cash)
             if not result.is_success():
                 raise Exception(f"Failed to create portfolio: {result.error}")
             context['portfolio_result'] = result.data
@@ -393,7 +396,7 @@ class PortfolioSagaFactory:
         # ==================== 步骤 2: 删除所有映射 ====================
         def remove_mappings():
             for mapping in context['mappings']:
-                file_id = mapping['file_id'] if isinstance(mapping, dict) else mapping.file_id
+                file_id = mapping['file_id']  # get_portfolio_mappings 始终返 dict（#3882）
                 mapping_service.remove_file(
                     portfolio_uuid=portfolio_uuid,
                     file_id=file_id
@@ -475,9 +478,9 @@ class PortfolioSagaFactory:
             mappings = mappings_result.data if mappings_result.is_success() else []
             context['old_mappings'] = [
                 {
-                    'file_id': m['file_id'] if isinstance(m, dict) else m.file_id,
-                    'type': m['type'] if isinstance(m, dict) else m.type,
-                    'params': m.get('params', {}) if isinstance(m, dict) else m.params,
+                    'file_id': m['file_id'],
+                    'type': m['type'],
+                    'params': m.get('params', {}),
                 }
                 for m in mappings
             ]

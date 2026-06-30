@@ -196,4 +196,4 @@ class TestSetupDataFeederForEngine:
         )
         assert result is True
         # BacktestFeeder 应该已经通过 set_event_publisher 绑定了 engine.put
-        assert engine._datafeeder.event_publisher is not None
+        assert engine._datafeeder._engine_put is not None

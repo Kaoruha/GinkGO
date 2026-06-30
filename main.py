@@ -105,7 +105,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli, comparison_cli, record_cli, dev_cli, test_cli, cache_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli, comparison_cli, record_cli, dev_cli, test_cli, cache_cli, account_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -125,6 +125,7 @@ def _register_all_commands():
     _main_app.add_typer(config_cli.app, name="config", help=":gear: Configuration management")
     _main_app.add_typer(logging_cli.app, name="logging", help=":memo: Logging management")
     _main_app.add_typer(deploy_cli.app, name="deploy", help="Deploy backtest to paper/live trading")
+    _main_app.add_typer(account_cli.app, name="account", help=":credit_card: Live account management (实盘账户)")
     _main_app.add_typer(backtest_cli.app, name="backtest", help=":chart_with_upwards_trend: Backtest task management")
 
     # Serve commands (api, webui, worker-data, worker-backtest, etc.)
@@ -188,7 +189,7 @@ def _register_all_commands():
                     from ginkgo.config.package import PACKAGENAME, VERSION
                     print(f"✨ {PACKAGENAME} {VERSION}")
                 except ImportError:
-                    print("✨ ginkgo 0.8.1")
+                    print("✨ ginkgo (version unavailable)")
             finally:
                 if str(config_path) in sys.path:
                     sys.path.remove(str(config_path))
@@ -206,7 +207,7 @@ if __name__ == "__main__":
             print(f"✨ {package.PACKAGENAME} {package.VERSION}")
             sys.path.remove(str(config_path))
         except:
-            print("✨ ginkgo 0.8.1")
+            print("✨ ginkgo (version unavailable)")
         sys.exit(0)
     
     # 正常路径：加载完整的CLI

@@ -24,7 +24,8 @@ from typing import List, Dict, Any, Callable, Optional
 from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
-from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
+from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin, subscribes
 from ginkgo.trading.feeders.interfaces import (
     IBacktestDataFeeder, DataFeedStatus
 )
@@ -34,11 +35,11 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 from ginkgo.data.mappers import BarMapper
 
 
-class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
+class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktestDataFeeder):
     """
     回测数据馈送器
     
@@ -56,7 +57,6 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
         # 时间控制组件（由Engine注入）
         self.time_controller: Optional[ITimeProvider] = None
         self.time_boundary_validator: Optional[TimeBoundaryValidator] = None
-        self.event_publisher: Optional[Callable[[EventBase], None]] = None
 
         # 数据缓存
         self._data_cache: Dict[str, Any] = {}
@@ -110,13 +110,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
     def get_status(self) -> DataFeedStatus:
         """获取当前状态"""
         return self.status
-    
-    def set_event_publisher(self, publisher: Callable[[EventBase], None]) -> None:
-        """设置事件发布器"""
-        self.event_publisher = publisher
-        # 保持与原有接口的兼容性
-        self.put = publisher
-    
+
     def set_time_provider(self, time_controller: ITimeProvider) -> None:
         """设置时间控制器"""
         # 调用父类TimeMixin的set_time_provider
@@ -158,9 +152,8 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             for code in self._interested_codes:
                 price_events = self._generate_price_events(code, target_time)
                 for event in price_events:
-                    if self.event_publisher:
-                        self.event_publisher(event)
-                        event_count += 1
+                    self.publish_price_update(event)
+                    event_count += 1
 
             GLOG.INFO(f"BacktestFeeder: Published {event_count} price events for {target_time.date()}")
             return True
@@ -268,7 +261,13 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
         return events
 
+    def bind_engine(self, engine) -> None:
+        super().bind_engine(engine)
+        # 入方向：注册组件订阅的事件处理器（ADR-017，与出方向 _engine_put 对称）
+        self.register_handlers(engine)
+
     # === 新增：兴趣集合事件处理 ===
+    @subscribes(EVENT_TYPES.INTERESTUPDATE)
     def on_interest_update(self, event: "EventInterestUpdate") -> None:
         try:
             codes = getattr(event, 'codes', []) or []

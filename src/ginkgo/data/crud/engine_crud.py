@@ -84,7 +84,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         else:
             broker_attitude_value = ATTITUDE_TYPES.validate_input(broker_attitude_value) or 2
 
-        return MEngine(
+        engine_kwargs = dict(
             name=kwargs.get("name", "test_engine"),
             status=status_value,
             is_live=kwargs.get("is_live", False),
@@ -95,8 +95,12 @@ class EngineCRUD(BaseCRUD[MEngine]):
             config_snapshot=kwargs.get("config_snapshot", "{}"),
             backtest_start_date=kwargs.get("backtest_start_date"),
             backtest_end_date=kwargs.get("backtest_end_date"),
-            broker_attitude=broker_attitude_value
+            broker_attitude=broker_attitude_value,
         )
+        # #6005: 仅在显式传入 desc 时转发，避免 None 覆盖 MMysqlBase 模型默认描述
+        if "desc" in kwargs:
+            engine_kwargs["desc"] = kwargs["desc"]
+        return MEngine(**engine_kwargs)
 
     def _convert_input_item(self, item: Any) -> Optional[MEngine]:
         """

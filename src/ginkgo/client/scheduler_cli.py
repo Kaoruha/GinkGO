@@ -49,21 +49,21 @@ def start(
 
         # Display Scheduler info
         console.print(Panel.fit(
-            f"[bold cyan]:calendar: Scheduler[/bold cyan]\\n"
-            f"[dim]Configuration:[/dim]\\n"
-            f"  • Schedule Interval: {interval}s\\n"
-            f"  • Debug Mode: {'On' if debug else 'Off'}\\n"
-            f"[dim]Features:[/dim]\\n"
-            f"  • Heartbeat monitoring (TTL=30s)\\n"
-            f"  • Load balancing algorithm\\n"
-            f"  • Automatic failover\\n"
-            f"  • Portfolio migration\\n",
+            f"[bold cyan]:calendar: Scheduler[/bold cyan]\n"
+            f"[dim]Configuration:[/dim]\n"
+            f"  • Schedule Interval: {interval}s\n"
+            f"  • Debug Mode: {'On' if debug else 'Off'}\n"
+            f"[dim]Features:[/dim]\n"
+            f"  • Heartbeat monitoring (TTL=30s)\n"
+            f"  • Load balancing algorithm\n"
+            f"  • Automatic failover\n"
+            f"  • Portfolio migration\n",
             title="[bold]Portfolio Dynamic Scheduler[/bold]",
             border_style="cyan"
         ))
 
         if debug:
-            console.print("\\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]\\n")
+            console.print("\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]\n")
 
         # Get Redis client
         console.print(f":hourglass: Connecting to Redis...")
@@ -80,7 +80,7 @@ def start(
         console.print(":white_check_mark: Kafka connected")
 
         # Create Scheduler instance
-        console.print(f"\\n:rocket: [bold green]Creating Scheduler...[/bold green]")
+        console.print(f"\n:rocket: [bold green]Creating Scheduler...[/bold green]")
         scheduler = Scheduler(
             redis_client=redis_client,
             kafka_producer=kafka_producer,
@@ -90,7 +90,7 @@ def start(
 
         # Start Scheduler
         console.print(f":rocket: [bold green]Starting Scheduler...[/bold green]")
-        console.print(":information: Press Ctrl+C to stop\\n")
+        console.print(":information: Press Ctrl+C to stop\n")
 
         scheduler.start()
 
@@ -104,15 +104,15 @@ def start(
             import time
 
             def signal_handler(signum, frame):
-                console.print("\\n\\n:stop_button: [yellow]Stopping Scheduler...[/yellow]")
+                console.print("\n\n:stop_button: [yellow]Stopping Scheduler...[/yellow]")
                 scheduler.stop()
 
                 # Show statistics
                 healthy_nodes = scheduler._get_healthy_nodes()
                 console.print(Panel.fit(
-                    f"[bold green]:white_check_mark: Scheduler stopped[/bold green]\\n"
-                    f"[dim]Runtime Statistics:[/dim]\\n"
-                    f"  • Healthy Nodes: {len(healthy_nodes)}\\n"
+                    f"[bold green]:white_check_mark: Scheduler stopped[/bold green]\n"
+                    f"[dim]Runtime Statistics:[/dim]\n"
+                    f"  • Healthy Nodes: {len(healthy_nodes)}\n"
                     f"  • Schedule Interval: {scheduler.schedule_interval}s",
                     title="[bold]Shutdown Complete[/bold]"
                 ))
@@ -125,7 +125,7 @@ def start(
 
             # Keep running until interrupted
             console.print(":gear: [dim]Scheduler is running...[/dim]")
-            console.print(":information: [dim]Monitoring ExecutionNode heartbeats[/dim]\\n")
+            console.print(":information: [dim]Monitoring ExecutionNode heartbeats[/dim]\n")
 
             while scheduler.is_running:
                 time.sleep(1)
@@ -141,7 +141,7 @@ def start(
         except SystemExit:
             raise
         except Exception as e:
-            console.print(f"\\n[red]:x: Scheduler error: {e}[/red]")
+            console.print(f"\n[red]:x: Scheduler error: {e}[/red]")
             scheduler.stop()
             raise typer.Exit(1)
 
@@ -248,7 +248,7 @@ def plan():
             table.add_row(portfolio_short, node_short)
 
         console.print(table)
-        console.print(f"\\n:information: Total portfolios scheduled: [bold]{len(plan_data)}[/bold]")
+        console.print(f"\n:information: Total portfolios scheduled: [bold]{len(plan_data)}[/bold]")
 
     except Exception as e:
         console.print(f"[red]:x: Error getting schedule plan: {e}[/red]")
@@ -315,7 +315,7 @@ def nodes():
             table.add_row(node_short, portfolio_count, queue_size, f"{cpu_usage}%", heartbeat_time)
 
         console.print(table)
-        console.print(f"\\n:information: Total healthy nodes: [bold]{len(heartbeat_keys)}[/bold]")
+        console.print(f"\n:information: Total healthy nodes: [bold]{len(heartbeat_keys)}[/bold]")
 
     except Exception as e:
         console.print(f"[red]:x: Error listing ExecutionNodes: {e}[/red]")
@@ -360,21 +360,21 @@ def migrate(
         )
 
         # Show migration plan
-        console.print(f"\\n:clipboard: Migration Plan:")
+        console.print(f"\n:clipboard: Migration Plan:")
         console.print(f"  • Portfolio: [cyan]{portfolio_id}[/cyan]")
         console.print(f"  • Target Node: [green]{target_node}[/green]")
         console.print(f"  • Timestamp: {migration_dto.timestamp}")
 
         # Confirm unless force
         if not force:
-            console.print("\\n[yellow]:warning: This will migrate the portfolio to a different node[/yellow]")
+            console.print("\n[yellow]:warning: This will migrate the portfolio to a different node[/yellow]")
             confirm = typer.confirm("Are you sure you want to proceed?", default=False)
             if not confirm:
                 console.print("[red]:x: Migration cancelled[/red]")
                 raise typer.Exit(0)
 
         # Send migration command to Kafka
-        console.print(f"\\n:satellite: Sending migration command to Kafka...")
+        console.print(f"\n:satellite: Sending migration command to Kafka...")
         producer = GinkgoProducer()
         success = producer.send(KafkaTopics.SCHEDULE_UPDATES, migration_dto.model_dump())
 
@@ -419,14 +419,14 @@ def reload(
         )
 
         # Show reload plan
-        console.print(f"\\n:clipboard: Reload Plan:")
+        console.print(f"\n:clipboard: Reload Plan:")
         console.print(f"  • Portfolio: [cyan]{portfolio_id}[/cyan]")
         console.print(f"  • Action: Reload from database")
         console.print(f"  • Timestamp: {reload_dto.timestamp}")
 
         # Confirm unless force
         if not force:
-            console.print("\\n[yellow]:warning: This will reload the portfolio configuration[/yellow]")
+            console.print("\n[yellow]:warning: This will reload the portfolio configuration[/yellow]")
             console.print("[yellow]:warning: The portfolio will be temporarily stopped[/yellow]")
             confirm = typer.confirm("Are you sure you want to proceed?", default=False)
             if not confirm:
@@ -434,7 +434,7 @@ def reload(
                 raise typer.Exit(0)
 
         # Send reload command to Kafka
-        console.print(f"\\n:satellite: Sending reload command to Kafka...")
+        console.print(f"\n:satellite: Sending reload command to Kafka...")
         producer = GinkgoProducer()
         success = producer.send(KafkaTopics.SCHEDULE_UPDATES, reload_dto.model_dump())
 

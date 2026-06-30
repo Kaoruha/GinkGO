@@ -7,15 +7,11 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import ast
-import inspect
 
 from ginkgo.data.containers import container
-from ginkgo.enums import FILE_TYPES, COMPONENT_TYPES
-from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
+from ginkgo.enums import FILE_TYPES
 from core.logging import logger
 from core.response import ok, paginated
-from services.component_parameter_service import get_component_parameter_service
-from models.component import ComponentParameter
 
 router = APIRouter()
 
@@ -71,6 +67,7 @@ COMPONENT_FILE_TYPE_MAP = {
     "risk": FILE_TYPES.RISKMANAGER,
     "sizer": FILE_TYPES.SIZER,
     "selector": FILE_TYPES.SELECTOR,
+    "engine": FILE_TYPES.ENGINE,
 }
 
 FILE_TYPE_TO_COMPONENT_TYPE = {
@@ -79,6 +76,7 @@ FILE_TYPE_TO_COMPONENT_TYPE = {
     FILE_TYPES.RISKMANAGER.value: "risk",
     FILE_TYPES.SIZER.value: "sizer",
     FILE_TYPES.SELECTOR.value: "selector",
+    FILE_TYPES.ENGINE.value: "engine",
 }
 
 
@@ -89,17 +87,26 @@ def get_file_service():
 
 # ==================== API路由 ====================
 
-@router.get("/")
+@router.get("")
 async def list_components(
     component_type: Optional[str] = None,
     is_active: Optional[bool] = None,
     keyword: Optional[str] = None,
+    name: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """获取组件列表（服务端分页）"""
+    """获取组件列表（服务端分页）
+
+    name 与 keyword 同义：均下推到 service 层做 name__like 过滤。
+    提供 name 是为了让 ?name=xxx（前端常用）与 ?keyword=xxx 行为一致，
+    不再被 FastAPI 当未知 query 参数静默丢弃（#5880 缺陷2）。
+    """
     try:
         file_service = get_file_service()
+
+        # name 作为 keyword 的别名（前端发 ?name=，CLI/内部发 ?keyword=）
+        effective_keyword = name if name else keyword
 
         # 构建类型列表
         if component_type:
@@ -115,7 +122,7 @@ async def list_components(
         # 调用 service 层分页查询
         result = file_service.list_components(
             file_types=types_to_check,
-            keyword=keyword,
+            keyword=effective_keyword,
             is_del=False if is_active else (not is_active if is_active is not None else False),
             page=page - 1,
             page_size=page_size,
@@ -156,7 +163,97 @@ async def list_components(
         logger.error(f"Error listing components: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to list components: {str(e)}"
+            detail="Failed to list components"
+        )
+
+
+# ==================== 组件参数端点 ====================
+# 注意: GET /parameters* 必须在 GET /{uuid} 之前注册，否则 Starlette 按声明
+# 顺序匹配时会将 /parameters 当成 uuid 吞掉 (#5408)
+
+
+@router.get("/parameters")
+async def get_all_component_parameters():
+    """获取所有组件的参数定义（#5408: 动态从源码提取，key 为文件名）"""
+    try:
+        file_service = get_file_service()
+
+        list_result = file_service.list_components(page=0, page_size=10000)
+        if not list_result.is_success() or not list_result.data:
+            return ok(data={})
+        files = list_result.data.get("data", []) or []
+
+        definitions: Dict[str, List[Dict[str, Any]]] = {}
+        for file_record in files:
+            content_result = file_service.get_content(file_record.uuid)
+            code = None
+            if content_result.is_success() and content_result.data:
+                raw = content_result.data
+                code = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
+            if not code:
+                continue
+            component_type = FILE_TYPE_TO_COMPONENT_TYPE.get(file_record.type, "unknown")
+            params = extract_component_parameters(file_record.name, code, component_type)
+            if params:
+                definitions[file_record.name] = params
+        return ok(data=definitions)
+    except Exception as e:
+        logger.error(f"Error getting all component parameters: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get component parameters: {str(e)}"
+        )
+
+
+@router.get("/parameters/{component_name}")
+async def get_component_parameters(component_name: str):
+    """获取组件的参数定义（#5408: 从源码动态提取，与 /components/{uuid} 同源）"""
+    try:
+        file_service = get_file_service()
+
+        # 按文件名查 MFile（get_by_name 返回复数列表，取首条）
+        name_result = file_service.get_by_name(component_name)
+        if not name_result.is_success() or not name_result.data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Component not found: {component_name}"
+            )
+        files = name_result.data.get("files", [])
+        if not files:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Component not found: {component_name}"
+            )
+        file_record = files[0]
+
+        # 读源码
+        content_result = file_service.get_content(file_record.uuid)
+        code = None
+        if content_result.is_success() and content_result.data:
+            raw = content_result.data
+            code = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
+        if not code:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Component source empty: {component_name}"
+            )
+
+        # 动态提取参数（复用 /components/{uuid} 同一提取器，废弃过时硬编码表）
+        component_type = FILE_TYPE_TO_COMPONENT_TYPE.get(file_record.type, "unknown")
+        params = extract_component_parameters(component_name, code, component_type)
+        if not params:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Component parameters not found: {component_name}"
+            )
+        return ok(data=params)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting component parameters for {component_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get component parameters: {str(e)}"
         )
 
 
@@ -227,11 +324,11 @@ async def get_component(uuid: str):
         logger.error(f"Error getting component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get component: {str(e)}"
+            detail="Failed to get component"
         )
 
 
-@router.post("/")
+@router.post("")
 async def create_component(data: ComponentCreate):
     """创建组件"""
     try:
@@ -261,7 +358,11 @@ async def create_component(data: ComponentCreate):
             )
 
         # 获取创建的文件记录
-        file_uuid = result.data.get("uuid") if result.data else None
+        # #5885: FileService.add 返回 data={"file_info": {"uuid": ...}}，
+        # uuid 嵌套在 file_info 下。裸 result.data.get("uuid") 取到 None 抛 500，
+        # 但此时记录已在 add 内部 create() 落库，致数据残留 + 重试重复入库。
+        file_info = result.data.get("file_info") if result.data else None
+        file_uuid = file_info.get("uuid") if file_info else None
         if not file_uuid:
             raise HTTPException(
                 status_code=500,
@@ -277,7 +378,7 @@ async def create_component(data: ComponentCreate):
         logger.error(f"Error creating component: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create component: {str(e)}"
+            detail="Failed to create component"
         )
 
 
@@ -315,7 +416,7 @@ async def update_component(uuid: str, data: ComponentUpdate):
         logger.error(f"Error updating component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update component: {str(e)}"
+            detail="Failed to update component"
         )
 
 
@@ -342,45 +443,7 @@ async def delete_component(uuid: str):
         logger.error(f"Error deleting component {uuid}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete component: {str(e)}"
-        )
-
-
-# ==================== 组件参数端点 ====================
-
-@router.get("/parameters/{component_name}")
-async def get_component_parameters(component_name: str):
-    """获取组件的参数定义"""
-    try:
-        service = get_component_parameter_service()
-        params = service.get_component_parameters(component_name)
-        if not params:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component parameters not found: {component_name}"
-            )
-        return ok(data=params)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting component parameters for {component_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
-        )
-
-
-@router.get("/parameters")
-async def get_all_component_parameters():
-    """获取所有组件的参数定义"""
-    try:
-        service = get_component_parameter_service()
-        return ok(data=service.get_all_component_definitions())
-    except Exception as e:
-        logger.error(f"Error getting all component parameters: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
+            detail="Failed to delete component"
         )
 
 

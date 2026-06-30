@@ -58,3 +58,32 @@ class TestGetSignalsDfFilters:
 
         _, kwargs = mock_crud.find.call_args
         assert "task_id" not in kwargs["filters"]
+
+
+@pytest.mark.unit
+class TestGetSignalsByPortfolioDateFilter:
+    """get_signals_by_portfolio: 日期范围下推到 crud.find_by_portfolio (#6030)"""
+
+    def test_passes_start_end_date_to_crud(self, signal_svc, mock_crud):
+        mock_crud.find_by_portfolio.return_value = []
+        signal_svc.get_signals_by_portfolio(
+            portfolio_id="p1", start_date="2026-06-23", end_date="2026-06-24"
+        )
+        _, kwargs = mock_crud.find_by_portfolio.call_args
+        assert kwargs["portfolio_id"] == "p1"
+        assert kwargs["start_date"] == "2026-06-23"
+        assert kwargs["end_date"] == "2026-06-24"
+
+    def test_date_optional(self, signal_svc, mock_crud):
+        mock_crud.find_by_portfolio.return_value = []
+        signal_svc.get_signals_by_portfolio(portfolio_id="p1")
+        _, kwargs = mock_crud.find_by_portfolio.call_args
+        assert kwargs["portfolio_id"] == "p1"
+        assert kwargs.get("start_date") is None
+        assert kwargs.get("end_date") is None
+
+    def test_returns_crud_results_in_success(self, signal_svc, mock_crud):
+        mock_crud.find_by_portfolio.return_value = ["sig1", "sig2"]
+        result = signal_svc.get_signals_by_portfolio(portfolio_id="p1")
+        assert result.is_success()
+        assert result.data == ["sig1", "sig2"]

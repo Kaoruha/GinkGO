@@ -1044,7 +1044,7 @@ class TestTimeControlledEngineIntegration:
             from ginkgo.trading.events import EventPriceUpdate
             engine3.register(EventPriceUpdate, price_update_handler)
             price_handler_registered = True
-        except:
+        except Exception:
             price_handler_registered = False
 
         engine3.start()

@@ -405,10 +405,22 @@ class FuturesBroker(LiveBrokerBase):
         except Exception:
             return False
 
-    def _is_contract_expired(self, code: str) -> bool:
-        """检查合约是否已到期"""
+    def _is_contract_expired(self, code: str, today=None) -> bool:
+        """检查合约是否已到期。
+
+        #5542: 按合约到期月份末 vs 当前真实日期判断，不再用硬编码日期截止
+        （旧逻辑 `year>2024 or (year==2024 and month>=12)` 会把 2024-12 前的
+        合约一律判到期，拒绝当月合约交易）。
+        today 可注入（默认 date.today()）便于测试不依赖系统时钟。
+        到期日取该月最后一日（calendar.monthrange）——跨品种通用近似，
+        无需市场数据；精确交割日（中金所第三周五等）作为后续增强。
+        """
+        from datetime import date as _date
+        import calendar
+
+        if today is None:
+            today = _date.today()
         try:
-            # 解析到期月份
             if len(code) < 4:
                 return False
 
@@ -416,12 +428,9 @@ class FuturesBroker(LiveBrokerBase):
             year = int(year_month[:2]) + 2000  # 假设为2020年后
             month = int(year_month[2:4])
 
-            # TODO: 实现具体的合约到期检查逻辑
-            # 这里简化处理，假设24年12月之后的合约未到期
-            if year > 2024 or (year == 2024 and month >= 12):
-                return False
-
-            return True  # 假设已到期
+            last_day = calendar.monthrange(year, month)[1]
+            expiry = _date(year, month, last_day)
+            return today > expiry
 
         except Exception:
             return False

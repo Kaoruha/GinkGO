@@ -18,9 +18,9 @@ Usage:
 
     # Data services - 完善的数据访问层
     bar_crud = service_hub.data.cruds.bar()
-    bar_service = service_hub.data.services.bar_service()
-    stockinfo_service = service_hub.data.services.stockinfo_service()
-    tick_service = service_hub.data.services.tick_service()
+    bar_service = service_hub.data.bar_service()
+    stockinfo_service = service_hub.data.stockinfo_service()
+    tick_service = service_hub.data.tick_service()
 
     # Trading services - 交易引擎和组件
     engine = service_hub.trading.engines.time_controlled()

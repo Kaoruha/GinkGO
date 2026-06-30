@@ -78,6 +78,7 @@ class PortfolioMappingService(BaseService):
         portfolio_uuid: str,
         graph_data: Dict[str, Any],
         name: str,
+        sync_mysql: bool = True,
     ) -> ServiceResult:
         """
         从图编辑器创建配置
@@ -91,6 +92,10 @@ class PortfolioMappingService(BaseService):
             portfolio_uuid: 投资组合 UUID
             graph_data: 图数据 {"nodes": [...], "edges": [...], "viewport": {...}}
             name: 配置名称
+            sync_mysql: 是否回写 MySQL Mapping/MParam。图编辑器场景为 True（以图为权威，
+                删除图外孤立映射）；deploy 克隆场景传 False —— MySQL 映射已由 deploy
+                源组合权威复制，此处仅需搬运 Mongo 图供 UI，绝不能按（可能不完整的）
+                源图删除已建的 strategy/sizer 映射。#6279
 
         Returns:
             ServiceResult: 包含 mongo_id、mappings_count、params_count
@@ -115,13 +120,7 @@ class PortfolioMappingService(BaseService):
             ... )
         """
         try:
-            # 1. 提取图中的文件映射
-            file_mappings = self._extract_files_from_graph(graph_data)
-
-            # 2. 提取图中的节点参数
-            node_params = self._extract_params_from_graph(graph_data)
-
-            # 3. 保存到 MongoDB
+            # 1. 保存到 MongoDB（图文档本体，UI 可视化用）
             mongo_id = self._save_graph_to_mongo(
                 portfolio_uuid=portfolio_uuid,
                 graph_data=graph_data,
@@ -129,17 +128,31 @@ class PortfolioMappingService(BaseService):
                 source="GRAPH_EDITOR"
             )
 
-            # 4. 同步到 MySQL Mapping
-            mapping_sync_result = self._sync_mappings_from_files(
-                portfolio_uuid=portfolio_uuid,
-                file_mappings=file_mappings
-            )
+            # 2. MySQL 同步（图编辑器权威；deploy 克隆传 False 跳过以保 step5 已建映射）
+            file_mappings: list = []
+            node_params: list = []
+            if sync_mysql:
+                file_mappings = self._extract_files_from_graph(graph_data)
+                node_params = self._extract_params_from_graph(graph_data)
 
-            # 5. 同步到 MySQL MParam
-            param_sync_result = self._sync_params_from_nodes(
-                portfolio_uuid=portfolio_uuid,
-                node_params=node_params
-            )
+                # 下游 MySQL sync 失败时补偿删 Mongo 孤儿（#5559）：
+                # Mongo 已在步骤1写入，若 MySQL sync 抛异常，反向删除已写的 Mongo 文档，
+                # 保持跨库一致性。raise 让外层 @retry/except 决定重试或返错。
+                try:
+                    # 同步到 MySQL Mapping
+                    self._sync_mappings_from_files(
+                        portfolio_uuid=portfolio_uuid,
+                        file_mappings=file_mappings
+                    )
+
+                    # 同步到 MySQL MParam
+                    self._sync_params_from_nodes(
+                        portfolio_uuid=portfolio_uuid,
+                        node_params=node_params
+                    )
+                except Exception:
+                    self._delete_graph_from_mongo(mongo_id)
+                    raise
 
             GLOG.INFO(f"从图编辑器创建配置: {portfolio_uuid} ({mongo_id})")
             GLOG.DEBUG(f"  同步了 {len(file_mappings)} 个文件映射")
@@ -246,6 +259,38 @@ class PortfolioMappingService(BaseService):
             ServiceResult
         """
         try:
+            # #5776: 校验 file_id 实际类型(MFile.type)与请求绑定的 file_type 一致，
+            # 防止策略组件被错误绑定到 selector/sizer/risk 等角色。
+            file_result = self._file_service.get_by_uuid(file_id)
+            if not file_result.success:
+                return ServiceResult.error(f"File not found: {file_id}")
+            file_obj = file_result.data.get("file") if file_result.data else None
+            if file_obj is None:
+                return ServiceResult.error(f"File not found: {file_id}")
+            actual_type = getattr(file_obj, "type", None)
+            expected_value = file_type.value if hasattr(file_type, "value") else file_type
+            if actual_type is None or int(actual_type) != int(expected_value):
+                actual_name = (
+                    FILE_TYPES(int(actual_type)).name
+                    if actual_type is not None
+                    else "UNKNOWN"
+                )
+                return ServiceResult.error(
+                    f"File type mismatch: file {file_id} is {actual_name}, "
+                    f"cannot bind as {file_type.name}"
+                )
+
+            # #5808: 去重 — 同 (portfolio_uuid, file_id) 已绑定时幂等返回，不创建重复 mapping
+            existing_mappings = self._mapping_crud.find_by_portfolio(portfolio_uuid)
+            for _existing in existing_mappings:
+                if getattr(_existing, "file_id", None) == file_id:
+                    GLOG.INFO(f"文件已绑定，幂等返回: {portfolio_uuid} -> {file_id}")
+                    return ServiceResult.success(data={
+                        "file_id": file_id,
+                        "mapping_id": _existing.uuid,
+                        "already_existed": True,
+                    })
+
             # 1. 创建 MySQL Mapping
             mapping = MPortfolioFileMapping(
                 portfolio_id=portfolio_uuid,
@@ -323,6 +368,109 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"移除文件失败: {e}")
             return ServiceResult.error(f"移除文件失败: {str(e)}")
 
+    @retry
+    def delete_graph(
+        self,
+        portfolio_uuid: str,
+    ) -> ServiceResult:
+        """
+        删除投资组合的图配置（保留 portfolio 本身）
+
+        流程：
+        1. 删除该 portfolio 全部 Mapping 及其 MParam
+        2. 删除 MongoDB 中的图文档
+
+        与 remove_file 的删除范式一致（find_by_portfolio → remove_by_mapping
+        → delete_mapping），只是范围从单个 file 扩展到全部。
+
+        Args:
+            portfolio_uuid: 投资组合 UUID（即 graph_uuid）
+
+        Returns:
+            ServiceResult: 包含 portfolio_uuid 与已删除 mapping 数
+        """
+        try:
+            # 1. 删除全部 mapping 及其参数
+            mappings = self._mapping_crud.find_by_portfolio(portfolio_uuid)
+            for mapping in mappings:
+                self._param_service.remove_by_mapping(mapping.uuid)
+                self._mapping_crud.delete_mapping(portfolio_uuid, mapping.file_id)
+
+            # 2. 删除 MongoDB 图文档
+            collection = self._mongo_driver.get_collection("portfolio_graph_data")
+            collection.delete_many({"portfolio_uuid": portfolio_uuid})
+
+            GLOG.INFO(f"删除图配置: {portfolio_uuid} (mappings={len(mappings)})")
+
+            return ServiceResult.success(data={
+                "portfolio_uuid": portfolio_uuid,
+                "deleted_mappings": len(mappings),
+            })
+
+        except Exception as e:
+            GLOG.ERROR(f"删除图配置失败: {e}")
+            return ServiceResult.error(f"删除图配置失败: {str(e)}")
+
+    @retry
+    def duplicate_graph(
+        self,
+        source_uuid: str,
+        name: Optional[str] = None,
+    ) -> ServiceResult:
+        """
+        复制图配置到新的 portfolio_uuid
+
+        流程：
+        1. 读取源图 (get_portfolio_graph)
+        2. 生成新 portfolio_uuid
+        3. 以新 uuid 调 create_from_graph_editor 写入图 + mapping + param
+
+        注：仅复制图配置层（mongo + mapping + param），不创建 Portfolio 实体
+        （create_from_graph_editor 本身不要求 Portfolio 行存在，行为一致）。
+
+        Args:
+            source_uuid: 源投资组合 UUID（即源 graph_uuid）
+            name: 副本名称，缺省时自动生成
+
+        Returns:
+            ServiceResult: 包含 source_uuid / new_portfolio_uuid / mongo_id
+        """
+        try:
+            # 1. 读源图
+            read_result = self.get_portfolio_graph(source_uuid)
+            if not read_result.is_success():
+                return ServiceResult.error(
+                    f"源图不存在: {source_uuid} ({read_result.error})"
+                )
+            graph_data = read_result.data.get("graph_data", {})
+
+            # 2. 生成新 uuid 并创建副本
+            new_uuid = uuid.uuid4().hex
+            new_name = name or f"Copy of {source_uuid[:8]}"
+
+            create_result = self.create_from_graph_editor(
+                portfolio_uuid=new_uuid,
+                graph_data=graph_data,
+                name=new_name,
+            )
+            if not create_result.is_success():
+                return ServiceResult.error(
+                    create_result.error or "复制图配置失败"
+                )
+
+            GLOG.INFO(f"复制图配置: {source_uuid} -> {new_uuid}")
+
+            return ServiceResult.success(data={
+                "source_uuid": source_uuid,
+                "new_portfolio_uuid": new_uuid,
+                "mongo_id": create_result.data.get("mongo_id"),
+                "mappings_count": create_result.data.get("mappings_count", 0),
+            })
+
+        except Exception as e:
+            GLOG.ERROR(f"复制图配置失败: {e}")
+            return ServiceResult.error(f"复制图配置失败: {str(e)}")
+
     # ==================== 查询方法 ====================
 
     def get_portfolio_graph(
@@ -344,11 +492,12 @@ class PortfolioMappingService(BaseService):
         try:
             collection = self._mongo_driver.get_collection("portfolio_graph_data")
 
-            # 查找现有图数据（优先 GRAPH_EDITOR 来源的）
-            graph_doc = collection.find_one(
-                {"portfolio_uuid": portfolio_uuid},
-                sort=[("metadata.source", 1), ("created_at", -1)]
-            )
+            # 查找现有图数据，按应用层优先级选图：
+            #   #5742 — 原先 find_one(sort by source asc) 让 AUTO_GENERATED 空图
+            #   抢占 GRAPH_EDITOR 非空图（"A" < "G"）。改为取全部后按
+            #   「非空优先 + GRAPH_EDITOR 优先」选最佳文档。
+            all_docs = list(collection.find({"portfolio_uuid": portfolio_uuid}))
+            graph_doc = self._select_best_graph_doc(all_docs)
 
             if graph_doc:
                 return ServiceResult.success(data={
@@ -363,7 +512,8 @@ class PortfolioMappingService(BaseService):
             self._sync_graph_from_mappings(portfolio_uuid)
 
             # 再次查询
-            graph_doc = collection.find_one({"portfolio_uuid": portfolio_uuid})
+            all_docs = list(collection.find({"portfolio_uuid": portfolio_uuid}))
+            graph_doc = self._select_best_graph_doc(all_docs)
             return ServiceResult.success(data={
                 "graph_data": graph_doc["graph_data"] if graph_doc else {"nodes": [], "edges": []},
                 "metadata": graph_doc.get("metadata", {}) if graph_doc else {},
@@ -373,6 +523,39 @@ class PortfolioMappingService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"获取图数据失败: {e}")
             return ServiceResult.error(f"获取图数据失败: {str(e)}")
+
+    def _select_best_graph_doc(self, docs):
+        """
+        按优先级选最佳图文档 (#5742)
+
+        规则：
+          1. 非空图（有 nodes）优先于空图 —— 空图不得抢占非空图
+          2. 非空图中 GRAPH_EDITOR（用户手动编辑）优先于 AUTO_GENERATED
+          3. 全部为空图时返回第一个（保持旧行为兼容）
+
+        Args:
+            docs: 同 portfolio 的全部图文档列表
+
+        Returns:
+            最佳图文档，或 None（列表为空）
+        """
+        if not docs:
+            return None
+
+        def _has_nodes(doc):
+            return bool(doc.get("graph_data", {}).get("nodes"))
+
+        non_empty = [d for d in docs if _has_nodes(d)]
+        if non_empty:
+            editor = next(
+                (d for d in non_empty
+                 if d.get("metadata", {}).get("source") == "GRAPH_EDITOR"),
+                None,
+            )
+            return editor or non_empty[0]
+
+        # 全部为空图，保持旧行为返回第一个
+        return docs[0]
 
     def get_portfolio_mappings(
         self,
@@ -553,6 +736,27 @@ class PortfolioMappingService(BaseService):
         collection.insert_one(document)
         return doc_id
 
+    def _delete_graph_from_mongo(self, doc_id: str) -> bool:
+        """从 MongoDB 删除图数据文档（补偿原语，#5559）
+
+        用于跨库写失败时反向补偿：create_from_graph_editor 写入 MongoDB 后，
+        若 MySQL Mapping/MParam 同步失败，调用此方法删除已写的 Mongo 文档，
+        避免孤儿。delete_one 对不存在的 _id 无害（幂等）。
+
+        Args:
+            doc_id: MongoDB 文档 ID（_save_graph_to_mongo 返回值）
+
+        Returns:
+            True 表示删除了一条文档；False 表示文档不存在或删除异常
+        """
+        try:
+            collection = self._mongo_driver.get_collection("portfolio_graph_data")
+            result = collection.delete_one({"_id": doc_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            GLOG.ERROR(f"补偿删除 MongoDB 图文档失败: {doc_id}, {e}")
+            return False
+
     def _update_graph_in_mongo(
         self,
         portfolio_uuid: str,
@@ -691,25 +895,35 @@ class PortfolioMappingService(BaseService):
         mapping_uuid: str,
         params: Dict[str, Any],
     ) -> None:
-        """同步参数到指定的 mapping"""
+        """同步参数到指定的 mapping（落库格式与 CLI create_component_parameters 对齐）
+
+        value 序列化：字符串原样存（对齐 CLI 原样 str），非字符串才 json.dumps，
+        这样读端 json.loads+fallback（component_loader 约定）能正确还原类型。
+        原实现一律 json.dumps，字符串 value 会多一层引号，与 CLI 同值产出类型分歧。
+        """
         # 将参数字典转换为扁平列表
         param_list = []
         for key, value in params.items():
-            try:
-                value_str = json.dumps(value, ensure_ascii=False)
-            except Exception as e:
-                GLOG.ERROR(f"序列化参数值失败: {e}")
-                value_str = str(value)
+            if isinstance(value, str):
+                value_str = value
+            else:
+                try:
+                    value_str = json.dumps(value, ensure_ascii=False)
+                except Exception as e:
+                    GLOG.ERROR(f"序列化参数值失败: {e}")
+                    value_str = str(value)
             param_list.append({"key": key, "value": value_str})
 
         # 删除旧参数
         self._param_service.remove_by_mapping(mapping_uuid)
 
-        # 添加新参数
-        for idx, param in enumerate(param_list):
+        # 添加新参数：index 取自 params 的 key（逻辑位置），与 CLI
+        # create_component_parameters 的 MParam(index=key) 对齐；enumerate 顺序位
+        # 会在 key 跳号时丢失逻辑位置（#5880 缺陷5）。
+        for param in param_list:
             self._param_service.add_param(
                 mapping_id=mapping_uuid,
-                index=idx,
+                index=int(param["key"]),
                 value=param["value"],
                 source=SOURCE_TYPES.SIM,
             )

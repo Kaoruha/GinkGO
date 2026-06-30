@@ -92,10 +92,11 @@ class BacktestOrderItem(BaseModel):
     order_type: Optional[str] = None
     status: Optional[str] = None
     volume: int = 0
-    limit_price: str = "0"
-    transaction_price: str = "0"
+    # #5864: 数值字段返回 JSON number；#5787: 市价单无价→None 哨兵（默认 None 兼容）
+    limit_price: Optional[float] = None
+    transaction_price: float = 0.0
     transaction_volume: int = 0
-    fee: str = "0"
+    fee: float = 0.0
     timestamp: Optional[str] = None
 
 
@@ -106,11 +107,12 @@ class BacktestPositionItem(BaseModel):
     engine_id: str = ""
     task_id: str = ""
     code: str = ""
-    cost: str = "0"
+    # #5864: 数值字段返回 JSON number 非 str
+    cost: float = 0.0
     volume: int = 0
     frozen_volume: int = 0
-    price: str = "0"
-    fee: str = "0"
+    price: float = 0.0
+    fee: float = 0.0
 
 
 class BacktestAnalyzerGroup(BaseModel):
@@ -159,6 +161,9 @@ class EngineConfig(BaseModel):
     broker_attitude: int = Field(2, ge=1, le=3, description="Broker态度")
     commission_min: Optional[int] = Field(5, ge=0, description="最小手续费")
     analyzers: Optional[List[AnalyzerConfig]] = Field(default_factory=list, description="分析器列表")
+    # #5386: frequency 是 Engine 级数据频率（与 CLI backtest_cli.py 一致），
+    # 此前误置于 ComponentConfig 致客户端 engine_config.frequency 被 Pydantic 静默丢弃。
+    frequency: Optional[str] = Field("DAY", description="数据频率 (DAY/MIN 等)")
 
 
 class ComponentConfig(BaseModel):
@@ -167,7 +172,8 @@ class ComponentConfig(BaseModel):
     stop_loss_ratio: Optional[float] = Field(0.05, ge=0, le=1, description="止损比例")
     take_profit_ratio: Optional[float] = Field(0.15, ge=0, le=1, description="止盈比例")
     benchmark_return: Optional[float] = Field(0.0, description="基准收益率")
-    frequency: Optional[str] = Field("DAY", description="数据频率")
+    # frequency 保留字段以兼容旧客户端入参，但映射以 EngineConfig.frequency 为准。
+    frequency: Optional[str] = Field("DAY", description="[已迁移至 EngineConfig] 数据频率")
 
 
 class BacktestTaskCreate(BaseModel):
@@ -179,6 +185,14 @@ class BacktestTaskCreate(BaseModel):
     component_config: Optional[ComponentConfig] = None
     # 旧字段兼容：旧客户端可能发送 portfolio_id (str) 而非 portfolio_uuids (list)
     portfolio_id: Optional[str] = Field(None, exclude=True, description="[已废弃] 请使用 portfolio_uuids")
+    # #5581: 顶层可选日期字段，优先级高于 engine_config 中的值；
+    # 未传时由 create_backtest_task 回退到 engine_config.start_date/end_date。
+    start_date: Optional[str] = Field(
+        None, description="[可选] 回测开始日期 (YYYY-MM-DD)，提供时优先于 engine_config.start_date"
+    )
+    end_date: Optional[str] = Field(
+        None, description="[可选] 回测结束日期 (YYYY-MM-DD)，提供时优先于 engine_config.end_date"
+    )
 
     @model_validator(mode='before')
     @classmethod

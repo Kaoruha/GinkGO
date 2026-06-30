@@ -38,7 +38,7 @@ PortfolioProcessor是Portfolio的完整运行控制器，类似于回测Engine�
 from threading import Thread
 from queue import Queue, Empty
 from typing import TYPE_CHECKING, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
@@ -314,7 +314,7 @@ class PortfolioProcessor(Thread):
                     self._route_event(event)
                     # 更新统计信息
                     self.processed_count += 1
-                    self.last_event_time = datetime.now()
+                    self.last_event_time = datetime.now(timezone.utc)
                 except Empty:
                     # 超时，继续轮询Kafka控制命令
                     pass
@@ -552,7 +552,7 @@ class PortfolioProcessor(Thread):
                 for selector in self.portfolio._selectors:
                     try:
                         # 调用selector.pick()获取选中codes
-                        current_time = datetime.now()
+                        current_time = datetime.now(timezone.utc)
                         codes = selector.pick(current_time)
 
                         if codes:
@@ -573,7 +573,7 @@ class PortfolioProcessor(Thread):
             event = EventInterestUpdate(
                 portfolio_id=self.portfolio_id,
                 codes=all_codes,
-                timestamp=datetime.now()
+                timestamp=datetime.now(timezone.utc)
             )
 
             # 发布到output_queue（由ExecutionNode转发到Kafka）

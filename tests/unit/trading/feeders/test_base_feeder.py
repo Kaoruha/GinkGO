@@ -120,14 +120,14 @@ class TestEventPublishing:
         publisher = MagicMock()
         feeder.set_event_publisher(publisher)
         event = MagicMock()
-        feeder.put(event)
+        feeder.publish_event(event)
         publisher.assert_called_once_with(event)
 
     def test_put_without_publisher(self):
         """测试无发布器时的事件发送"""
         feeder = BaseFeeder(bar_service=_mock_bar_service())
         event = MagicMock()
-        feeder.put(event)
+        feeder.publish_event(event)
         assert feeder._engine_put is None
 
     def test_event_publisher_callable_validation(self):
@@ -143,7 +143,7 @@ class TestEventPublishing:
         feeder.set_event_publisher(publisher)
         events = [MagicMock() for _ in range(3)]
         for event in events:
-            feeder.put(event)
+            feeder.publish_event(event)
         assert publisher.call_count == 3
 
 
@@ -373,7 +373,7 @@ class TestBaseFeederIntegration:
         publisher = MagicMock()
         feeder.set_event_publisher(publisher)
         event = MagicMock()
-        feeder.put(event)
+        feeder.publish_event(event)
         publisher.assert_called_once_with(event)
 
     def test_time_sync_data_query_workflow(self):
@@ -390,7 +390,7 @@ class TestBaseFeederIntegration:
         feeder.set_event_publisher(publisher)
         events = [MagicMock() for _ in range(2)]
         for e in events:
-            feeder.put(e)
+            feeder.publish_event(e)
         assert publisher.call_count == 2
 
     def test_cache_time_interaction(self):

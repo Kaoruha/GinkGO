@@ -5,8 +5,8 @@
 """
 
 from fastapi import APIRouter, Query
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field, field_validator
 
 from core.logging import logger
 from core.response import ok, paginated
@@ -19,8 +19,24 @@ router = APIRouter()
 class SegmentStabilityRequest(BaseModel):
     task_id: str = Field(..., description="回测任务 UUID")
     portfolio_id: str = Field(..., description="组合 UUID")
-    n_segments: Optional[List[int]] = Field(default=[2, 4, 8], description="分段数列表")
+    # #5393: 字段名 n_segments 暗示单数，但服务层按「多分段数列表」循环。
+    # 接受 int 或 list[int]，int 自动归一化为 [int]，list 与默认 [2,4,8] 保留。
+    n_segments: Optional[Union[int, List[int]]] = Field(
+        default=[2, 4, 8],
+        description="分段数：单个整数或列表（如 4 或 [2,4,8]，int 自动归一化为 [int]）",
+    )
     metrics: Optional[List[str]] = Field(default=None, description="分析器名称列表")
+
+    @field_validator("n_segments", mode="before")
+    @classmethod
+    def _coerce_n_segments(cls, v):
+        """#5393: int → [int] 归一化；list 与 None 原样透传（None 由 service 兜底为默认）。"""
+        # bool 是 int 子类，JSON true 不应归一化为 [1]
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, int):
+            return [v]
+        return v
 
 
 class AvailableMetricsRequest(BaseModel):
@@ -33,6 +49,21 @@ class MonteCarloRequest(BaseModel):
     portfolio_id: str = Field(..., description="组合 UUID")
     n_simulations: int = Field(default=10000, ge=100, le=100000, description="模拟次数")
     confidence: float = Field(default=0.95, ge=0.8, le=0.99, description="置信水平")
+
+
+class WalkForwardRequest(BaseModel):
+    task_id: str = Field(..., description="回测任务 UUID")
+    portfolio_id: str = Field(..., description="组合 UUID")
+    n_folds: int = Field(default=5, ge=2, le=20, description="验证折数（train/test 窗口对数）")
+    train_ratio: float = Field(default=0.7, ge=0.5, le=0.9, description="训练期占比")
+    window_type: str = Field(default="expanding", description="窗口类型：expanding（扩展）或 rolling（滚动）")
+
+
+class SensitivityRequest(BaseModel):
+    task_id: str = Field(..., description="回测任务 UUID")
+    portfolio_id: str = Field(..., description="组合 UUID")
+    param_name: str = Field(default="n_segments", description="敏感参数名（当前支持 n_segments）")
+    param_values: List[str] = Field(..., description="参数值列表，如 [\"2\", \"4\", \"8\"]")
 
 
 def get_validation_service():
@@ -97,6 +128,49 @@ async def monte_carlo(req: MonteCarloRequest):
     except Exception as e:
         logger.error(f"蒙特卡洛接口异常: {e}")
         raise BusinessError(f"蒙特卡洛模拟失败: {e}")
+
+
+@router.post("/walk-forward")
+async def walk_forward(req: WalkForwardRequest):
+    """走步验证：将回测区间切为多个 train/test 窗口，基于已有净值算每折绩效，以训练/测试绩效差异检测过拟合"""
+    try:
+        svc = get_validation_service()
+        result = svc.walk_forward(
+            task_id=req.task_id,
+            portfolio_id=req.portfolio_id,
+            n_folds=req.n_folds,
+            train_ratio=req.train_ratio,
+            window_type=req.window_type,
+        )
+        if not result.is_success():
+            raise BusinessError(result.error)
+        return ok(data=result.data)
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"走步验证接口异常: {e}")
+        raise BusinessError(f"走步验证失败: {e}")
+
+
+@router.post("/sensitivity")
+async def sensitivity(req: SensitivityRequest):
+    """敏感性分析：策略绩效对回测分段数（n_segments）的稳健性，sensitivity_score 为跨分段绩效变异系数"""
+    try:
+        svc = get_validation_service()
+        result = svc.sensitivity(
+            task_id=req.task_id,
+            portfolio_id=req.portfolio_id,
+            param_name=req.param_name,
+            param_values=req.param_values,
+        )
+        if not result.is_success():
+            raise BusinessError(result.error)
+        return ok(data=result.data)
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"敏感性分析接口异常: {e}")
+        raise BusinessError(f"敏感性分析失败: {e}")
 
 
 @router.get("/results")

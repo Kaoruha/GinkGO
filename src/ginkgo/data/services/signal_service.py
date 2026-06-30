@@ -54,6 +54,36 @@ class SignalService(BaseService):
             GLOG.ERROR(f"查询信号失败: {e}")
             return ServiceResult.error(str(e))
 
+    def get_signals_by_portfolio(
+        self,
+        portfolio_id: str,
+        start_date: Optional[Any] = None,
+        end_date: Optional[Any] = None,
+    ) -> ServiceResult:
+        """
+        按组合查询信号（日期范围下推到 crud.find_by_portfolio，#6030）。
+
+        Args:
+            portfolio_id: 组合 UUID
+            start_date: 起始时间（可选，下推为 timestamp__gte）
+            end_date: 结束时间（可选，下推为 timestamp__lte）
+
+        Returns:
+            ServiceResult.data: List[Signal]
+        """
+        if not portfolio_id:
+            return ServiceResult.error("portfolio_id 不能为空")
+        try:
+            results = self._crud_repo.find_by_portfolio(
+                portfolio_id=portfolio_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            return ServiceResult.success(data=results)
+        except Exception as e:
+            GLOG.ERROR(f"查询组合信号失败: {e}")
+            return ServiceResult.error(str(e))
+
     def _build_signal_filters(
         self,
         engine_id: Optional[str] = None,

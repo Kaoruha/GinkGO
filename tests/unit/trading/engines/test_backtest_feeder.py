@@ -71,8 +71,9 @@ class TestBacktestFeederConstruction:
         # 验证time_controller初始化为None
         assert feeder.time_controller is None
 
-        # 验证event_publisher初始化为None
-        assert feeder.event_publisher is None
+        # 验证事件发布统计初始化（FeederPublishMixin，ADR-019）
+        assert feeder.stats["events_published"] == 0
+        assert feeder.stats["publish_errors"] == 0
 
         # 验证_interested_codes初始化为空列表
         assert feeder._interested_codes == []

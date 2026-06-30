@@ -20,6 +20,56 @@ app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="ric
 console = Console(emoji=True, legacy_windows=False)
 
 
+def _normalize_stock_code(code: str) -> str:
+    """#5920: 归一化 A 股代码到**后缀形式** ``NNNNNN.SH``/``NNNNNN.SZ``（DB stockinfo 存后缀）。
+
+    项目内并存两种记法（见 [[arch_ashare_code_market_prefix_gap]]）：
+    - 后缀 ``600000.SH``（stockinfo 表、data get stockinfo -c）
+    - 前缀 ``SH600000``（策略/回测组件、position/adjustfactor/tick mapper）
+
+    get（读取侧）应兼容两种，故前缀 → 后缀归一化后查询。已是后缀或无法识别的原样返回
+    （读取侧不因格式惩罚用户；无效格式交由下游 ``No bar data`` 提示）。纯字符串变换，
+    不依赖 mootdx 首位推断（前缀已带市场标记）。
+    """
+    import re
+    if not code:
+        return code
+    m = re.fullmatch(r"(SH|SZ)(\d{6})", code)
+    if m:
+        return f"{m.group(2)}.{m.group(1)}"
+    return code
+
+
+class SyncStats:
+    """#6054: data sync 三态计数器 + 统一汇总格式。
+
+    day/tick/adjustfactor 三分支共用，避免每分支独立维护 success/error[/skipped]
+    计数与拼接字符串导致格式漂移（day 加 skipped_count 时 tick/adjustfactor 未同步，
+    adjustfactor 的 no-data 情况漏计数——均是不抽象的代价）。
+    """
+
+    def __init__(self) -> None:
+        self.success = 0
+        self.skipped = 0
+        self.errors = 0
+
+    def record_success(self) -> None:
+        self.success += 1
+
+    def record_skipped(self) -> None:
+        self.skipped += 1
+
+    def record_error(self) -> None:
+        self.errors += 1
+
+    def summary(self, type_name: str) -> str:
+        """统一汇总行：``{Type} sync completed. Success: N, Skipped: S, Errors: M``。"""
+        return (
+            f"{type_name} sync completed. "
+            f"Success: {self.success}, Skipped: {self.skipped}, Errors: {self.errors}"
+        )
+
+
 @app.command()
 def get(
     data_type: str = typer.Argument(..., help="Data type to get (stockinfo/day/tick/adjustfactor/sources) \\[planned: calendar]"),
@@ -252,6 +302,9 @@ def get(
                 console.print(":x: Stock code required for bar data")
                 raise typer.Exit(1)
 
+            # #5920: 前缀 SH600000 → 后缀 600000.SH（DB 存后缀），与策略/回测组件格式对齐
+            code = _normalize_stock_code(code)
+
             from datetime import datetime, timedelta
             if not end:
                 end = datetime.now().strftime("%Y%m%d")
@@ -414,6 +467,20 @@ def get(
             console.print(table)
             console.print(f":information: {len(configured_sources)} data source(s) configured")
 
+        elif data_type == "calendar":
+            # #5919: help 标 [planned: calendar]，dispatch 给友好提示而非 "Unknown data type"。
+            # 仿 sources 分支：print 后 fall-through 正常结束 try，不走 else。
+            # ⚠️ 勿用 raise typer.Exit —— click.Exit 是 Exception 子类（非 SystemExit），
+            # 会被外层 except Exception 捕获并转成 Exit(1) + "Error getting data" 污染输出。
+            console.print(
+                ":information: calendar is planned but not yet implemented. "
+                "See `ginkgo data get --help`."
+            )
+        elif data_type == "status":
+            # #5992: data get status 友好 stub，提示用 top-level 'data status' 命令，
+            # 而非落 else 分支报 'Unknown data type: status'。
+            console.print(":information: Data status check not yet implemented. Use 'ginkgo data status'.")
+
         else:
             console.print(f":x: Unknown data type: {data_type}")
             raise typer.Exit(1)
@@ -433,6 +500,24 @@ def status():
     console.print(":information: Data status check not yet implemented")
 
 
+def _is_valid_stock_code(code: str) -> bool:
+    """#5962: 校验 A 股代码格式。接受项目内**两种既有记法**：
+
+    - 后缀: ``NNNNNN.SH``/``NNNNNN.SZ``（如 ``000001.SZ``，``data get stockinfo -c`` 用此）
+    - 前缀: ``SHNNNNNN``/``SZNNNNNN``（如 ``SH600000``，position/adjustfactor/tick mapper 用此）
+
+    仅做**格式**校验，不做 DB 存在性校验（后者属 service 层职责）。
+    目的：拒绝 ``INVALIDCODE`` / 裸 ``000001``（无市场标记）等明显无效输入，避免穿透到
+    service 层后以 "no data" + exit 0 的形式误报成功（见 [[arch_ashare_code_market_prefix_gap]]）。
+    """
+    import re
+    if not code:
+        return False
+    suffix = r"\d{6}\.(SH|SZ)"
+    prefix = r"(SH|SZ)\d{6}"
+    return bool(re.fullmatch(suffix, code) or re.fullmatch(prefix, code))
+
+
 @app.command()
 def sync(
     data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/day/tick/adjustfactor)"),
@@ -447,6 +532,18 @@ def sync(
     """
     :repeat: Sync data from external sources.
     """
+    # #5962: --code 格式校验门。须在 try 块外，否则 typer.Exit 被外层 except(Exception) 吞
+    # 并多印 "Error updating data: 1" 噪音（见 arch_typer_exit_caught_by_except）。
+    # day/tick/adjustfactor 接受 --code；无效格式直接非零退出，避免穿透到 service 层
+    # 后以 "no data available" warning + exit 0 的形式误报成功。
+    if code is not None and data_type in ("day", "tick", "adjustfactor"):
+        if not _is_valid_stock_code(code):
+            console.print(
+                f":x: Invalid stock code '{code}'. "
+                "Expected format: NNNNNN.SH or NNNNNN.SZ (e.g. 000001.SZ, 600000.SH)."
+            )
+            raise typer.Exit(1)
+
     try:
         # 如果是daemon模式，发送Kafka消息并退出
         if daemon:
@@ -524,8 +621,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -553,21 +649,22 @@ def sync(
                             except (AttributeError, TypeError, ValueError):
                                 records_added = 0
                             if records_added > 0:
-                                success_count += 1
+                                stats.record_success()
                                 console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
                             else:
+                                stats.record_skipped()
                                 console.print(f":warning: {current_code} — no data available from source")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
                             console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Day sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Day')}")
 
             except Exception as e:
                 console.print(f":x: Error in day sync process: {e}")
@@ -597,8 +694,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -620,19 +716,19 @@ def sync(
                             result = tick_service.sync_smart(current_code)
 
                         if result and result.is_success():
-                            success_count += 1
+                            stats.record_success()
                             console.print(f":white_check_mark: {current_code} sync completed")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
                             console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Tick sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Tick')}")
 
             except Exception as e:
                 console.print(f":x: Error in tick sync process: {e}")
@@ -661,8 +757,7 @@ def sync(
                     raise typer.Exit(1)
 
             try:
-                success_count = 0
-                error_count = 0
+                stats = SyncStats()
 
                 for current_code in codes:
                     try:
@@ -689,10 +784,24 @@ def sync(
                         elif result is None:  # Some functions return None on success
                             sync_success = True
 
-                        
+
                         if sync_success:
-                            success_count += 1
-                            console.print(f":white_check_mark: {current_code} sync completed")
+                            # 仿 day 分支：从 result.data.records_added 提取实际入库条数，
+                            # 避免无数据时仍打印 ":white_check_mark: sync completed" 误导用户（#6053）。
+                            records_added = 0
+                            try:
+                                _data = getattr(result, 'data', None)
+                                raw = getattr(_data, 'records_added', 0)
+                                records_added = int(raw) if isinstance(raw, (int, float)) else 0
+                            except (AttributeError, TypeError, ValueError):
+                                records_added = 0
+                            if records_added > 0:
+                                stats.record_success()
+                                console.print(f":white_check_mark: {current_code} sync completed ({records_added} records)")
+                            else:
+                                # service.sync 成功但源端无数据：计 skipped（#6053/#6054 统一三态）
+                                stats.record_skipped()
+                                console.print(f":warning: {current_code} — no adjustfactor data available from source")
 
                             # 同步完成后立即计算该股票的复权因子
                             console.print(f":information: Calculating adjustment factors for {current_code}...")
@@ -704,7 +813,7 @@ def sync(
                                 if hasattr(calc_result, 'error') and calc_result.error:
                                     console.print(f"   Error: {calc_result.error}")
                         else:
-                            error_count += 1
+                            stats.record_error()
                             console.print(f":x: {current_code} sync failed")
                             if hasattr(result, 'error') and result.error:
                                 console.print(f"   Error: {result.error}")
@@ -712,11 +821,11 @@ def sync(
                                 console.print(f"   Message: {result.message}")
 
                     except Exception as e:
-                        error_count += 1
+                        stats.record_error()
                         console.print(f":x: Error syncing {current_code}: {str(e)}")
                         continue
 
-                console.print(f":information: Adjustfactor sync completed. Success: {success_count}, Errors: {error_count}")
+                console.print(f":information: {stats.summary('Adjustfactor')}")
 
             except Exception as e:
                 console.print(f":x: Error in adjustfactor sync process: {e}")
@@ -739,6 +848,10 @@ def migrate(
     autogenerate: bool = typer.Option(False, "--autogenerate", "-a", help="Auto-generate migration from model changes"),
     revision: Optional[str] = typer.Option(None, "--revision", "-r", help="Specific revision to upgrade/downgrade"),
     action: str = typer.Option("upgrade", "--action", help="Action: upgrade/downgrade/heads/history/current"),
+    path: Optional[str] = typer.Option(
+        None, "--path", "-p",
+        help="Override migrations directory (absolute or relative to cwd). Default: <source-tree>/migrations/<database>",
+    ),
 ):
     """
     :page_facing_up: Database migration management.
@@ -754,26 +867,39 @@ def migrate(
         if database == "mysql":
             import subprocess
             import os
+            import sys
 
-            migrations_dir = "/home/kaoru/Ginkgo/migrations/mysql"
+            if path:
+                migrations_dir = os.path.abspath(path)
+            else:
+                # 相对源码树根解析（#5517）：src/ginkgo/client/data_cli.py 上溯 4 级
+                # (client -> ginkgo -> src -> 仓库根)，使迁移目录随安装位置走，
+                # 而非硬编码 /home/kaoru/Ginkgo/migrations/mysql。
+                _client_dir = os.path.dirname(os.path.abspath(__file__))
+                _source_root = os.path.dirname(os.path.dirname(os.path.dirname(_client_dir)))
+                migrations_dir = os.path.join(_source_root, "migrations", database)
             alembic_ini = os.path.join(migrations_dir, "alembic.ini")
+
+            # #5941: 用 [sys.executable, "-m", "alembic"] 绑定当前解释器，
+            # 避免裸 `alembic` 在 venv/uv 下 PATH 不可见触发 FileNotFoundError。
+            alembic_cmd = [sys.executable, "-m", "alembic"]
 
             if autogenerate:
                 # Auto-generate migration
                 console.print(f":memo: Generating migration for MySQL database...")
                 if message:
-                    cmd = ["alembic", "revision", "--autogenerate", "-m", message]
+                    cmd = alembic_cmd + ["revision", "--autogenerate", "-m", message]
                 else:
-                    cmd = ["alembic", "revision", "--autogenerate"]
+                    cmd = alembic_cmd + ["revision", "--autogenerate"]
                 subprocess.run(cmd, cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Migration generated successfully")
 
             elif action == "upgrade":
                 console.print(f":arrow_up: Upgrading MySQL database to latest version...")
                 if revision:
-                    subprocess.run(["alembic", "upgrade", revision], cwd=migrations_dir, check=True)
+                    subprocess.run(alembic_cmd + ["upgrade", revision], cwd=migrations_dir, check=True)
                 else:
-                    subprocess.run(["alembic", "upgrade", "head"], cwd=migrations_dir, check=True)
+                    subprocess.run(alembic_cmd + ["upgrade", "head"], cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Database upgraded successfully")
 
             elif action == "downgrade":
@@ -781,15 +907,15 @@ def migrate(
                     console.print(":x: --revision is required for downgrade")
                     raise typer.Exit(1)
                 console.print(f":arrow_down: Downgrading MySQL database to {revision}...")
-                subprocess.run(["alembic", "downgrade", revision], cwd=migrations_dir, check=True)
+                subprocess.run(alembic_cmd + ["downgrade", revision], cwd=migrations_dir, check=True)
                 console.print(f":white_check_mark: Database downgraded successfully")
 
             elif action == "heads":
-                subprocess.run(["alembic", "heads"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["heads"], cwd=migrations_dir)
             elif action == "history":
-                subprocess.run(["alembic", "history"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["history"], cwd=migrations_dir)
             elif action == "current":
-                subprocess.run(["alembic", "current"], cwd=migrations_dir)
+                subprocess.run(alembic_cmd + ["current"], cwd=migrations_dir)
             else:
                 # Show current status
                 console.print(f":information: MySQL Database Migration Status")

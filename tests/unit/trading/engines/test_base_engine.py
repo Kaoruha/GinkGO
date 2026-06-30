@@ -16,8 +16,10 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.entities import IdentityUtils
+from ginkgo.entities.mixins import EngineBindableMixin
+from ginkgo.libs import GLOG
 from ginkgo.trading.engines.base_engine import BaseEngine
-from ginkgo.enums import EXECUTION_MODE
+from ginkgo.enums import EXECUTION_MODE, EVENT_TYPES
 
 
 class DummyEngine(BaseEngine):
@@ -331,3 +333,70 @@ class TestBaseEngineValidation:
         engine = DummyEngine()
         assert engine.name == "BaseEngine"
         assert engine.mode is EXECUTION_MODE.BACKTEST
+
+
+@pytest.mark.unit
+class TestCheckComponentsBindingEventPublisherDiagnostic:
+    """check_components_binding 的 EventPublisher 诊断（ADR-019 发布 seam）"""
+
+    class _DiagnosticFeeder(EngineBindableMixin):
+        """最小 feeder：复用真实 engine_put property + set_event_publisher 注入口"""
+
+        name = "diag-feeder"
+
+    @staticmethod
+    def _record_info(monkeypatch):
+        captured = []
+        monkeypatch.setattr(
+            GLOG, "INFO", lambda *a, **k: captured.append(" ".join(str(x) for x in a))
+        )
+        monkeypatch.setattr(GLOG, "WARN", lambda *a, **k: None)
+        monkeypatch.setattr(GLOG, "set_log_category", lambda *a, **k: None)
+        return captured
+
+    @staticmethod
+    def _make_engine():
+        from types import SimpleNamespace
+
+        # DummyEngine 仅继承 BaseEngine，缺 TimeControlledEventEngine 的 now/get_queue_info；
+        # check_components_binding 在生产环境跑于完整引擎，测试补这两个诊断只读依赖
+        engine = DummyEngine()
+        engine.now = "test-now"
+        engine.get_queue_info = lambda: SimpleNamespace(
+            queue_size=0, max_size=100, is_full=False, is_empty=True
+        )
+        # 生产环境此诊断在组件装配后调用，_handlers 必非空（且让方法内局部 import 生效）
+        engine._handlers = {EVENT_TYPES.PRICEUPDATE: ["handler-stub"]}
+        return engine
+
+    def _event_publisher_lines(self, captured):
+        return [c for c in captured if "EventPublisher" in c]
+
+    def test_shows_set_when_engine_put_bound(self, monkeypatch):
+        """feeder 经 set_event_publisher 注入 engine_put 后，诊断应报 ✅ 已设置（非恒 ❌）"""
+        captured = self._record_info(monkeypatch)
+        engine = self._make_engine()
+        feeder = self._DiagnosticFeeder()
+        feeder.set_event_publisher(lambda event: None)  # 注入发布 seam
+        engine._datafeeder = feeder
+
+        engine.check_components_binding()
+
+        lines = self._event_publisher_lines(captured)
+        assert lines, "未输出 EventPublisher 诊断行"
+        assert "已设置" in lines[0]
+        assert "✅" in lines[0]
+
+    def test_shows_unset_when_not_bound(self, monkeypatch):
+        """feeder 未注入 engine_put 时，诊断应报 ❌ 未设置"""
+        captured = self._record_info(monkeypatch)
+        engine = self._make_engine()
+        feeder = self._DiagnosticFeeder()  # engine_put 保持 None
+        engine._datafeeder = feeder
+
+        engine.check_components_binding()
+
+        lines = self._event_publisher_lines(captured)
+        assert lines, "未输出 EventPublisher 诊断行"
+        assert "未设置" in lines[0]
+        assert "❌" in lines[0]
