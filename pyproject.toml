@@ -270,6 +270,7 @@ markers = [
     "lifecycle: 生命周期测试",
     "clickhouse: ClickHouse数据库测试",
     "mysql: MySQL数据库测试",
+    "bug: 回归 bug 守护测试(防已修 bug 复发)",
 ]
 
 # 警告过滤
