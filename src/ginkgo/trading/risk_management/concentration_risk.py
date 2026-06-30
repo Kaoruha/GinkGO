@@ -23,14 +23,16 @@
 from typing import List, Dict, Optional
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
+from ginkgo.libs import to_decimal
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.enums import DIRECTION_TYPES, EVENT_TYPES
 from ginkgo.libs import GLOG
 
 
-class ConcentrationRisk(BaseRiskManagement):
+class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
     """
     集中度风控模块
 
@@ -51,6 +53,7 @@ class ConcentrationRisk(BaseRiskManagement):
         warning_concept_ratio: float = 35.0,
         max_top5_ratio: float = 50.0,
         warning_top5_ratio: float = 45.0,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -74,6 +77,7 @@ class ConcentrationRisk(BaseRiskManagement):
         self._warning_concept_ratio = float(warning_concept_ratio)
         self._max_top5_ratio = float(max_top5_ratio)
         self._warning_top5_ratio = float(warning_top5_ratio)
+        self._lot_size = int(lot_size)
 
         # 存储股票的行业和概念信息
         self._stock_industry_map = {}  # code: industry_name
@@ -122,10 +126,15 @@ class ConcentrationRisk(BaseRiskManagement):
                 # 超过最大单一持仓比例，大幅减少订单
                 reduction_factor = self._max_single_position_ratio / projected_ratio
                 original_volume = order.volume
-                order.adjust_volume(int(order.volume * reduction_factor))
-
-                min_volume = max(1, int(original_volume * 0.1))
-                order.adjust_volume(max(order.volume, min_volume))
+                scaled = int(order.volume * reduction_factor)
+                # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
+                # 缩放后不足 1 手拒单(对齐 volatility_risk 模板, 调用方对 None 软拦截)(#6038)
+                aligned = self.align_to_lot(scaled)
+                if aligned < self._lot_size:
+                    GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
+                             f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                    return None
+                order.adjust_volume(aligned)
 
                 GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
                          f"reducing order {original_volume} → {order.volume}")
@@ -136,10 +145,19 @@ class ConcentrationRisk(BaseRiskManagement):
 
             if industry_ratio > self._max_industry_ratio:
                 reduction_factor = self._max_industry_ratio / industry_ratio
-                order.adjust_volume(int(order.volume * reduction_factor))
+                original_volume = order.volume
+                scaled = int(order.volume * reduction_factor)
+                # 行业集中度缩放同样 lot_size 对齐(LotAlignableMixin)(#6038)
+                # 缩放后不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
+                aligned = self.align_to_lot(scaled)
+                if aligned < self._lot_size:
+                    GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
+                             f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                    return None
+                order.adjust_volume(aligned)
 
                 GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
-                         f"adjusting order to {order.volume}")
+                         f"reducing order {original_volume} → {order.volume}")
 
         return order
 
@@ -278,6 +296,18 @@ class ConcentrationRisk(BaseRiskManagement):
 
         return float((position.market_value / total_value) * 100)
 
+    def _project_against_worth(self, portfolio_info: Dict, order_value) -> float:
+        """空组合(无持仓)时基于组合净值 worth 投影订单占比(%)(#6038 防"空仓首单误拒")。
+
+        worth 缺失或 <=0 时保守返回 100(维持旧行为)。worth/order_value 统一 to_decimal
+        归一:运行时 worth 为 Decimal(portfolio_base.worth property),市价单走 prices fallback
+        时 order_value 可能为 float,float/Decimal 直接相除抛 TypeError(#6038 review 回归)。
+        """
+        worth = portfolio_info.get("worth", 0) or 0
+        if worth > 0:
+            return float((to_decimal(order_value) / to_decimal(worth)) * 100)
+        return 100.0
+
     def _calculate_projected_ratio(self, portfolio_info: Dict, order: Order) -> float:
         """计算下单后的预计持仓比例"""
         current_ratio = self._get_current_position_ratio(portfolio_info, order.code)
@@ -294,7 +324,7 @@ class ConcentrationRisk(BaseRiskManagement):
         total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
 
         if total_value <= 0:
-            return 100.0  # 第一笔订单
+            return self._project_against_worth(portfolio_info, order_value)
 
         projected_total = total_value + order_value
         projected_position_value = positions.get(order.code).market_value if positions.get(order.code) else 0
@@ -307,8 +337,14 @@ class ConcentrationRisk(BaseRiskManagement):
         positions = portfolio_info.get("positions", {})
         total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
 
+        # #3959 使用实际价格计算订单价值(提前至空组合分支前,供 worth 投影复用)
+        price = getattr(order, 'limit_price', None)
+        if not price or price <= 0:
+            price = portfolio_info.get("prices", {}).get(order.code, 100)
+        order_value = order.volume * price
+
         if total_value <= 0:
-            return 100.0
+            return self._project_against_worth(portfolio_info, order_value)
 
         # 计算当前行业价值（Decimal(0)：market_value 为 Decimal，float 初值会与 Decimal 混算抛 TypeError）
         current_industry_value = Decimal(0)
@@ -317,12 +353,6 @@ class ConcentrationRisk(BaseRiskManagement):
                 stock_industry = self._stock_industry_map.get(code, "未知行业")
                 if stock_industry == industry:
                     current_industry_value += position.market_value
-
-        # #3959 使用实际价格计算订单价值
-        price = getattr(order, 'limit_price', None)
-        if not price or price <= 0:
-            price = portfolio_info.get("prices", {}).get(order.code, 100)
-        order_value = order.volume * price
 
         projected_industry_value = current_industry_value + order_value
         projected_total = total_value + order_value

@@ -341,3 +341,50 @@ class TestMaxDrawdownRiskPerformance:
         for i in range(10000):
             r._update_peak_values({"worth": 100000 + i, "positions": {}})
         assert len(r._peak_values) <= 10000
+
+
+@pytest.mark.tdd
+@pytest.mark.risk
+@pytest.mark.critical
+@pytest.mark.financial
+class TestMaxDrawdownRiskLotAlignment:
+    def test_default_lot_size_aligns_reduced_volume(self):
+        """默认 lot_size=100:减仓缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。
+
+        cal 返回 deepcopy 副本(#5495 多风险链防污染),断言用 result.volume。"""
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=82500)
+        order = _make_order(volume=1010)
+        result = r.cal(portfolio_info, order)
+        # drawdown=(1-82500/100000)*100=17.5%∈(15,20], factor=(20-17.5)/5=0.5,
+        # scaled=int(1010*0.5)=505, lot=100 → 500
+        assert result is not None
+        assert result.volume == 500
+
+    def test_custom_lot_size_aligns_to_param(self):
+        """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0, lot_size=80)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=82500)
+        order = _make_order(volume=1010)
+        result = r.cal(portfolio_info, order)
+        # scaled=505, lot_size=80 → (505//80)*80=480
+        assert result is not None
+        assert result.volume == 480
+
+    def test_reduced_below_one_lot_rejects(self):
+        """缩放后不足 1 手拒单(对齐 volatility_risk 模板)(#6038)。
+
+        drawdown=19.5%∈(15,20], factor=(20-19.5)/5=0.1 触 max(,0.1) 下限,
+        volume=800 → scaled=int(800*0.1)=80, aligned=0 < 1 lot(100) → 应 return None。
+        与 volatility/concentration/liquidity 三处拒单模板一致:本分支 5a7b3383 给 4 个
+        缩放型 Risk 混入 LotAlignableMixin 时,max_drawdown 漏了不足1手拒单守卫,本测试守护该一致性。
+        """
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=80500)
+        order = _make_order(volume=800)
+        result = r.cal(portfolio_info, order)
+        # scaled=80, aligned=0 < lot_size(100) → blocked
+        assert result is None
