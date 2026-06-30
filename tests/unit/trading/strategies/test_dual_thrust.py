@@ -131,3 +131,32 @@ class TestDualThrustTypeConsistency:
         info = _make_portfolio_info(positions={})
         # 不抛 TypeError 即通过
         s.cal(info, _make_price_event("000001.SZ"))
+
+
+class TestDualThrustHistoryWindow:
+    """#4658: 历史数据窗口须按交易日倍数预留，避免日历日不足致恒零信号"""
+
+    def test_history_window_covers_trading_days(self):
+        """#4658: spans=7 时窗口不可仅 spans+1=8 日历日
+
+        A 股 8 日历日 ≈ 5-6 交易日 < spans+1=8，触发
+        `df.shape[0] < spans+1` 守卫恒真 → 策略 100% 零信号。
+        修复后窗口日历日数须达 spans*2 级别，覆盖周末（每周 2/7 非交易日）
+        与法定节假日 buffer。此断言锁定“按交易日倍数预留”的语义，
+        不耦合具体公式（spans*2+5 / BDay 等任何 >= spans*2 的修复均通过）。
+        """
+        spans = 7
+        s = _make_strategy(LONG_BREAKOUT_DF, spans=spans)
+        info = _make_portfolio_info(now=datetime(2024, 1, 22))  # 周一
+        s.cal(info, _make_price_event("000001.SZ"))
+
+        call = s.data_feeder.get_historical_data.call_args
+        date_start = call.kwargs["start_time"]
+        calendar_days = (info["now"] - date_start).days
+
+        min_required = spans * 2
+        assert calendar_days >= min_required, (
+            f"历史窗口仅 {calendar_days} 日历日 < {min_required}，"
+            f"A 股下交易日数将不足 {spans + 1}，"
+            f"触发 df.shape[0] < spans+1 守卫恒零信号 (#4658)"
+        )
