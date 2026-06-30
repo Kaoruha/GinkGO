@@ -189,7 +189,12 @@ def run_task(
         initial_cash=config_snapshot.get("initial_cash", 100000),
         commission_rate=config_snapshot.get("commission_rate", 0.0003),
         slippage_rate=config_snapshot.get("slippage_rate", 0.0001),
+        benchmark_return=config_snapshot.get("benchmark_return", 0.0),
+        max_position_ratio=config_snapshot.get("max_position_ratio", 0.3),
+        stop_loss_ratio=config_snapshot.get("stop_loss_ratio", 0.05),
+        take_profit_ratio=config_snapshot.get("take_profit_ratio", 0.15),
         frequency=config_snapshot.get("frequency", "DAY"),
+        analyzers=[],
     )
 
     portfolio_uuid = task.portfolio_id

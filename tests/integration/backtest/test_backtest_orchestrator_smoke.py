@@ -161,7 +161,12 @@ class TestOrchestratorSmoke:
             initial_cash=100000,
             commission_rate=0.0003,
             slippage_rate=0.0001,
+            benchmark_return=0.0,
+            max_position_ratio=0.3,
+            stop_loss_ratio=0.05,
+            take_profit_ratio=0.15,
             frequency="DAY",
+            analyzers=[],
         )
 
         backtest_task_svc = container.backtest_task_service()

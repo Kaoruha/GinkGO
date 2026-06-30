@@ -41,13 +41,31 @@ def _make_processor(task) -> BacktestProcessor:
     return proc
 
 
+def _full_backtest_config(start: str = "2025-01-01", end: str = "2025-06-01") -> BacktestConfig:
+    """ADR-018：BacktestConfig 删默认值后，进程内构造须显式传全 11 字段。
+    config 内容对 task_processor 测试无关，集中此 helper 避免每处重复。"""
+    return BacktestConfig(
+        start_date=start,
+        end_date=end,
+        initial_cash=100000.0,
+        commission_rate=0.0003,
+        slippage_rate=0.0001,
+        benchmark_return=0.0,
+        max_position_ratio=0.3,
+        stop_loss_ratio=0.05,
+        take_profit_ratio=0.15,
+        frequency="DAY",
+        analyzers=[],
+    )
+
+
 @pytest.mark.skipif(not HAS_MODULE, reason="BacktestProcessor not available")
 @pytest.mark.tdd
 class TestOnProgressLogsOnStatsFailure:
     """#6031-A: _on_progress 统计获取失败时必须发 WARN，而非静默 pass。"""
 
     def test_warns_when_portfolio_stats_gather_raises(self, monkeypatch):
-        cfg = BacktestConfig(start_date="2025-01-01", end_date="2025-06-01")
+        cfg = _full_backtest_config()
         task = BacktestTask.create(portfolio_uuid="ptid", name="t", config=cfg)
         proc = _make_processor(task)
 
@@ -83,7 +101,7 @@ class TestAggregateResultsRoutesTracebackToGlog:
     GLOG.ERROR 落库，而非 print_exc() 泄漏到控制台流（后台 worker 不捕获）。"""
 
     def test_traceback_logged_not_printed(self, monkeypatch, capsys):
-        cfg = BacktestConfig(start_date="2025-01-01", end_date="2025-06-01")
+        cfg = _full_backtest_config()
         task = BacktestTask.create(portfolio_uuid="ptid", name="t", config=cfg)
         task.started_at = datetime(2025, 1, 1)
         task.completed_at = datetime(2025, 1, 2)

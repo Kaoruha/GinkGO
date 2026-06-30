@@ -49,12 +49,14 @@ class TestStartTaskDedupByFullUuid:
         worker.progress_tracker = MagicMock()
         worker.progress_tracker.get_task_status.return_value = None  # DB 无既有记录
 
-        assignment = _make_assignment()
+        # ADR-018：_start_task 接收 StartAssignment（DTO）非裸 dict
+        from ginkgo.interfaces.dtos.backtest_assignment_dto import from_payload
+        cmd = from_payload(_make_assignment())
 
         with patch("ginkgo.workers.backtest_worker.node.BacktestProcessor") as MockProc:
             MockProc.return_value = MagicMock()
-            worker._start_task(assignment)
-            worker._start_task(assignment)  # 重复派发同一任务
+            worker._start_task(cmd)
+            worker._start_task(cmd)  # 重复派发同一任务
 
         # 修复后：第二次被 self.tasks 完整 UUID 检测拦截，processor 只创建一次
         assert MockProc.call_count == 1, (

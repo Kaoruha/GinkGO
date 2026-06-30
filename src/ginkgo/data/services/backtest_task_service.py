@@ -601,13 +601,44 @@ class BacktestTaskService(BaseService):
                     f"Task must be in one of: {', '.join(startable_states)}"
                 )
 
+            # 解析派发输入（snapshot_config / dates）：必须在守卫与清理块之前完成，
+            # 下方 portfolio/dates 守卫据此判定有效性——空字段同样要在删数据前即拒。
+            try:
+                snapshot_config = json.loads(task.config_snapshot) if task.config_snapshot else {}
+            except (json.JSONDecodeError, TypeError):
+                snapshot_config = {}
+
+            # 优先级：显式参数 > 数据库列 backtest_start/end_date > config_snapshot > ""
+            if not start_date and task.backtest_start_date:
+                start_date = task.backtest_start_date.strftime("%Y-%m-%d")
+            elif not start_date:
+                start_date = snapshot_config.get("start_date", "")
+
+            if not end_date and task.backtest_end_date:
+                end_date = task.backtest_end_date.strftime("%Y-%m-%d")
+            elif not end_date:
+                end_date = snapshot_config.get("end_date", "")
+
             # 校验 portfolio 关联：派发前确认 portfolio_uuid 可解析，否则 worker
             # 消费空值时会报误导性的 'portfolio_uuid is required'（#5646）
+            # 时序不变式：必须在清理块（删 9 表，CH 不可逆）之前——孤儿任务在删数据前即拒，
+            # 否则历史 order/position/signal/analyzer 被永久删除后才在 DTO 处拒绝（#6461 回归）
             if not (portfolio_uuid or task.portfolio_id):
                 return ServiceResult.error(
                     f"Backtest task '{task.uuid[:8]}' has no portfolio associated. "
                     f"Recreate the backtest with a valid --portfolio binding so the "
                     f"worker receives a non-empty portfolio_uuid."
+                )
+
+            # 校验日期范围：空 dates 同样需在清理块之前拒——否则重跑先删光 9 表历史
+            # 数据（CH 5 表异步 mutation 不可逆）后才在 DTO 构造期拒绝，数据永久丢失。
+            # （#6461 round-4 finding 的 dates 维度：与 portfolio 守卫同一时序不变式）
+            if not start_date or not end_date:
+                return ServiceResult.error(
+                    f"Backtest task '{task.uuid[:8]}' has no valid date range "
+                    f"(start_date={start_date!r}, end_date={end_date!r}). "
+                    f"Recreate the backtest with valid --start/--end bindings so the "
+                    f"worker receives a non-empty date range."
                 )
 
             # ========== 重新运行：删除旧数据 ==========
@@ -668,22 +699,8 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
 
-            # 从 config_snapshot 恢复配置作为基础
-            try:
-                snapshot_config = json.loads(task.config_snapshot) if task.config_snapshot else {}
-            except (json.JSONDecodeError, TypeError):
-                snapshot_config = {}
-
-            # 如果没有提供日期，依次尝试数据库列和 config_snapshot
-            if not start_date and task.backtest_start_date:
-                start_date = task.backtest_start_date.strftime("%Y-%m-%d")
-            elif not start_date:
-                start_date = snapshot_config.get("start_date", "")
-
-            if not end_date and task.backtest_end_date:
-                end_date = task.backtest_end_date.strftime("%Y-%m-%d")
-            elif not end_date:
-                end_date = snapshot_config.get("end_date", "")
+            # snapshot_config / start_date / end_date 已在守卫前解析完成（见上方），
+            # 此处直接用于组装 Kafka config 与状态更新。
 
             # 先更新状态为 pending，确保 Worker 查询时能看到正确的状态
             status_result = self.update_status(real_uuid, status="pending")
@@ -695,8 +712,8 @@ class BacktestTaskService(BaseService):
             # 构建 Kafka config：从 config_snapshot 恢复，显式参数覆盖
             kafka_config = {}
             # 从 snapshot 恢复所有字段作为基础
+            # ADR-018：死字段 broker_type/broker_attitude/commission_min 不进 wire spec（消费端 BacktestConfig 不读）
             for key in ("initial_cash", "commission_rate", "slippage_rate", "frequency",
-                        "broker_type", "broker_attitude", "commission_min",
                         "benchmark_return", "max_position_ratio",
                         "stop_loss_ratio", "take_profit_ratio"):
                 if key in snapshot_config:
@@ -712,14 +729,24 @@ class BacktestTaskService(BaseService):
             if initial_cash != 100000.0 or "initial_cash" not in kafka_config:
                 kafka_config["initial_cash"] = initial_cash
 
+            # DTO 构造期校验作为二次门：缺 portfolio_uuid / 空 dates 等已由上方
+            # 早返回守卫在不可逆清理块之前拦截（时序不变式，#6461 round-4 finding）；
+            # 此处 DTO Field(min_length=1) 再兜底校验 wire spec，构造失败则不派发 Kafka（#5646）。
+            # 两层并存是有意为之：守卫保时序（先于删数据），DTO 保契约（派发本体）。
+            from pydantic import ValidationError
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import (
+                BacktestAssignmentConfig, StartAssignment,
+            )
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # task_id 保持不变
-                "portfolio_uuid": portfolio_uuid or task.portfolio_id,
-                "name": name or task.name or f"backtest_{task_id[:8]}",
-                "command": "start",
-                "config": kafka_config,
-            }
+            try:
+                assignment = StartAssignment(
+                    task_uuid=task_id,  # task_id 保持不变
+                    portfolio_uuid=portfolio_uuid or task.portfolio_id,
+                    name=name or task.name or f"backtest_{task_id[:8]}",
+                    config=BacktestAssignmentConfig(**kafka_config),
+                ).to_payload()
+            except ValidationError as e:
+                return ServiceResult.error(f"Invalid backtest assignment config: {e}")
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
@@ -764,11 +791,10 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
             task_id = task.task_id   # 任务标识
+            # ADR-018：StopAssignment.to_payload() —— 判别联合，command 是类型标记非手写字段
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import StopAssignment
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # 使用 task_id
-                "command": "stop",
-            }
+            assignment = StopAssignment(task_uuid=task_id).to_payload()  # 使用 task_id
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
@@ -817,11 +843,10 @@ class BacktestTaskService(BaseService):
 
             real_uuid = task.uuid  # 用于更新状态
             task_id = task.task_id   # 任务标识
+            # ADR-018：CancelAssignment.to_payload() —— 判别联合
+            from ginkgo.interfaces.dtos.backtest_assignment_dto import CancelAssignment
             producer = GinkgoProducer()
-            assignment = {
-                "task_uuid": task_id,  # 使用 task_id
-                "command": "cancel",
-            }
+            assignment = CancelAssignment(task_uuid=task_id).to_payload()  # 使用 task_id
 
             producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)

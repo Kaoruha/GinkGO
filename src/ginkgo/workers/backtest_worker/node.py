@@ -24,7 +24,7 @@ from ginkgo.libs import GLOG
 from ginkgo.workers.backtest_worker.task_processor import BacktestProcessor
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 from ginkgo.workers.backtest_worker.metrics import BacktestMetrics
-from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, AnalyzerConfig
+from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.data.drivers import create_redis_connection
 from ginkgo.libs import GCONF
@@ -215,24 +215,50 @@ class BacktestWorker:
         self.task_consumer_thread.start()
 
     def _handle_task_assignment(self, assignment: dict):
-        """处理任务分配
+        """处理任务分配（ADR-018：from_payload + match 判别联合）。
 
         #5399②: Kafka offset 在派发决策成功「之后」提交（at-least-once）。
         派发/处理异常时不提交，留给重启后 DB 状态去重 + Kafka 重投。
         """
-        task_uuid = assignment.get("task_uuid")
-        command = assignment.get("command", "start")
+        from ginkgo.interfaces.dtos.backtest_assignment_dto import (
+            from_payload, StartAssignment, StopAssignment, CancelAssignment,
+            MalformedAssignmentError,
+        )
 
+        # 畸形契约：构造期校验失败，标记任务失败 + 提交 offset（不重投，at-least-once）
         try:
-            if command == "start":
-                self._start_task(assignment)
-            elif command == "cancel":
-                self._cancel_task(task_uuid)
+            cmd = from_payload(assignment)
+        except MalformedAssignmentError as e:
+            task_uuid = assignment.get("task_uuid", "")
+            task_short = task_uuid[:8] if task_uuid else "unknown"
+            GLOG.ERROR(f"[{task_short}] Malformed assignment, marking failed: {e}")
+            self.progress_tracker.report_failed_by_uuid(task_uuid=task_uuid, error=str(e))
+            self._commit_assignment_offset(task_uuid)
+            return
+
+        task_uuid = cmd.task_uuid
+        try:
+            match cmd:
+                case StartAssignment():
+                    self._start_task(cmd)
+                case StopAssignment():
+                    # ADR-018 A1：stop 消费侧 handler 未实现，显式 WARN no-op（非静默掉 void）
+                    # graceful-stop handler 单开 issue；不改任务状态，提交 offset（消息已正确消费决策）
+                    GLOG.WARN(f"[{task_uuid[:8]}] stop command received but graceful-stop handler not implemented, no-op")
+                case CancelAssignment():
+                    self._cancel_task(task_uuid)
+        except MalformedAssignmentError as e:
+            # 畸形 analyzer/config：from_payload 已通过，_start_task 映射期抛错。
+            # 对称窄捕（与上方 from_payload 畸形处理器同方法）——report_failed + 落到下方提交 offset。
+            # 不向上抛：否则 except Exception→raise 跳过 commit，poll 重投同一消息；
+            # 且映射抛错前 task 状态未置 failed，DB 去重兜不住 → Kafka 毒丸永久死循环。
+            GLOG.ERROR(f"[{task_uuid[:8]}] Malformed assignment (analyzer/config mapping), marking failed: {e}")
+            self.progress_tracker.report_failed_by_uuid(task_uuid=task_uuid, error=str(e))
         except Exception as e:
             GLOG.ERROR(f"Error handling assignment {task_uuid}: {e}")
             raise
 
-        # 派发决策完成（派发/skip/discard 均视为消息已正确消费）后提交 offset
+        # 派发决策完成（派发/skip/no-op/畸形窄捕 均视为消息已正确消费）后提交 offset
         self._commit_assignment_offset(task_uuid)
 
     def _commit_assignment_offset(self, task_uuid: str):
@@ -245,11 +271,13 @@ class BacktestWorker:
             except Exception as e:
                 GLOG.ERROR(f"[{task_short}] Failed to commit offset after dispatch: {e}")
 
-    def _start_task(self, assignment: dict):
-        """启动新任务（阻塞等待空闲槽位）"""
-        # #5399③: 去重查找用完整 task_uuid（与 self.tasks 存储 key 一致），
-        # 日志显示单独截断，避免 [:8] 截断导致 :238 查找与 :354 存储 key 不匹配
-        task_uuid = assignment.get("task_uuid", "unknown")
+    def _start_task(self, cmd):
+        """启动新任务（阻塞等待空闲槽位）。
+
+        ADR-018：cmd 是 StartAssignment（DTO 构造期已校验 portfolio_uuid/dates/config）。
+        #5399③: 去重用完整 task_uuid（与 self.tasks 存储 key 一致）。
+        """
+        task_uuid = cmd.task_uuid
         task_short = task_uuid[:8] if task_uuid else "unknown"
 
         # 检查任务是否已经在 Worker 中运行
@@ -259,7 +287,7 @@ class BacktestWorker:
                 return
 
         # 检查任务状态
-        existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
+        existing_status = self.progress_tracker.get_task_status(task_uuid)
         GLOG.DEBUG(f"[{task_short}] Current task status: {existing_status}")
 
         # 如果任务已完成/失败/取消，跳过
@@ -274,7 +302,7 @@ class BacktestWorker:
             try:
                 # 尝试重置状态为 created
                 result = self.progress_tracker.task_service.update_status(
-                    uuid=assignment.get("task_uuid"),
+                    uuid=task_uuid,
                     status="created"
                 )
                 if result.is_success():
@@ -305,66 +333,22 @@ class BacktestWorker:
                 GLOG.INFO(f"[{task_short}] Slot available, proceeding with task")
                 break
 
-        # 验证必要的任务参数
-        portfolio_uuid = assignment.get("portfolio_uuid")
-        if not portfolio_uuid:
-            GLOG.ERROR(f"[{task_short}] ERROR: portfolio_uuid is required but missing, discarding task")
-            # 上报任务失败到数据库
-            self.progress_tracker.report_failed_by_uuid(
-                task_uuid=assignment.get("task_uuid", ""),
-                error="portfolio_uuid is required"
-            )
-            return
-
-        # 验证日期参数
-        config_dict = assignment.get("config", {})
-        start_date = config_dict.get("start_date")
-        end_date = config_dict.get("end_date")
-        if not start_date or not end_date:
-            GLOG.ERROR(f"[{task_short}] ERROR: start_date and end_date are required, discarding task")
-            self.progress_tracker.report_failed_by_uuid(
-                task_uuid=assignment.get("task_uuid", ""),
-                error=f"Missing dates: start_date={start_date}, end_date={end_date}"
-            )
-            return
-
-        # 解析任务配置
-        from ginkgo.workers.backtest_worker.models import BacktestConfig
-
-        config_dict = assignment.get("config", {})
-
-        # 转换 analyzers 配置
-        analyzers = []
-        if "analyzers" in config_dict:
-            for analyzer_dict in config_dict["analyzers"]:
-                analyzers.append(AnalyzerConfig(**analyzer_dict))
-
-        # 创建 BacktestConfig（包含 analyzers）
-        config = BacktestConfig(
-            start_date=config_dict.get("start_date"),
-            end_date=config_dict.get("end_date"),
-            initial_cash=config_dict.get("initial_cash", 100000.0),
-            commission_rate=config_dict.get("commission_rate", 0.0003),
-            slippage_rate=config_dict.get("slippage_rate", 0.0001),
-            benchmark_return=config_dict.get("benchmark_return", 0.0),
-            max_position_ratio=config_dict.get("max_position_ratio", 0.3),
-            stop_loss_ratio=config_dict.get("stop_loss_ratio", 0.05),
-            take_profit_ratio=config_dict.get("take_profit_ratio", 0.15),
-            frequency=config_dict.get("frequency", "DAY"),
-            analyzers=analyzers,  # Engine 级别的分析器
-        )
+        # ADR-018：DTO 构造期已校验 portfolio_uuid/dates，删除字面校验块；
+        # BacktestConfig 由映射函数从 cmd 构造（唯一默认表归 DTO，消费端硬编码默认表删除）
+        from ginkgo.workers.backtest_worker.models import assignment_to_backtest_config
+        config = assignment_to_backtest_config(cmd)
 
         task = BacktestTask(
-            task_uuid=assignment["task_uuid"],
-            portfolio_uuid=assignment["portfolio_uuid"],
-            name=assignment["name"],
+            task_uuid=cmd.task_uuid,
+            portfolio_uuid=cmd.portfolio_uuid,
+            name=cmd.name,
             config=config,
             state=BacktestTaskState.PENDING,
         )
 
         GLOG.INFO(f"Starting task {task.task_uuid[:8]}: {task.name}")
-        if analyzers:
-            GLOG.INFO(f"  with {len(analyzers)} analyzers: {[a.name for a in analyzers]}")
+        if task.config.analyzers:
+            GLOG.INFO(f"  with {len(task.config.analyzers)} analyzers: {[a.name for a in task.config.analyzers]}")
 
         # 创建Processor
         processor = BacktestProcessor(task, self.worker_id, self.progress_tracker)
