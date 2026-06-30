@@ -121,14 +121,50 @@ class TradeDayService(BaseService):
 
         self._logger.INFO(f"Successfully parsed {len(valid_items)} records, {failed_count} failed mapping")
 
-        # Step 2: Batch persist all trade calendar records
+        # Step 2: 幂等去重——镜像 StockinfoService.sync（find existing → 分 new/update → remove-then-add）
+        # 自然键 (market, timestamp)：日历每 (市场,日期) 一行，重复 sync 须先清既有再写，
+        # 否则行数翻倍，与末尾 is_idempotent=True 声明矛盾（#6488 review）。
+        # 按 .date() 比较避免 tz/微秒漂移——语义单位是「日历日」。
+        all_dates = [item.timestamp for item in valid_items]
+        try:
+            existing_records = self._crud_repo.find(
+                filters={"market": MARKET_TYPES.CHINA, "timestamp__in": all_dates},
+                page_size=max(len(all_dates) * 2, 1000),
+            )
+            existing_dates = {r.timestamp.date() for r in existing_records}
+            self._logger.INFO(
+                f"Found {len(existing_dates)} existing records out of {len(all_dates)} trade calendar dates"
+            )
+        except Exception as e:
+            self._logger.WARN(f"Failed to check existing trade calendar, treating all as new: {e}")
+            existing_dates = set()
+
+        new_items, update_items = [], []
+        for item in valid_items:
+            if item.timestamp.date() in existing_dates:
+                update_items.append(item)
+            else:
+                new_items.append(item)
+
+        self._logger.INFO(f"New records: {len(new_items)}, Update records: {len(update_items)}")
+
+        # Step 3: Batch persist（new 直插；update 先 remove 既有日期再 add_batch → 幂等）
         success_count = 0
         with RichProgress() as progress:
             task = progress.add_task("[green]Syncing Trade Calendar", total=len(valid_items))
             try:
-                self._crud_repo.add_batch(valid_items)
-                success_count = len(valid_items)
-                self._logger.INFO(f"Successfully batch inserted {len(valid_items)} trade calendar records")
+                if update_items:
+                    update_dates = [item.timestamp for item in update_items]
+                    self._crud_repo.remove(
+                        filters={"market": MARKET_TYPES.CHINA, "timestamp__in": update_dates}
+                    )
+                    self._logger.DEBUG(
+                        f"Removed {len(update_dates)} existing trade calendar records for update"
+                    )
+                to_add = new_items + update_items
+                self._crud_repo.add_batch(to_add)
+                success_count = len(to_add)
+                self._logger.INFO(f"Successfully batch inserted {len(to_add)} trade calendar records")
                 progress.update(task, completed=len(valid_items))
             except Exception as e:
                 self._logger.WARN(f"Batch insert failed: {e}")

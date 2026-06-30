@@ -115,6 +115,39 @@ class TestSync:
         assert result.success is False
         assert "API 超时" in result.message
 
+    @pytest.mark.unit
+    def test_sync_idempotent_removes_existing_before_add(self, service, mock_deps, raw_trade_df):
+        """重复 sync 幂等：已存在的 (market,timestamp) 先 remove 再 add，不累积重复行（镜像 stockinfo，#6488 review）
+
+        场景：DB 已含本次源返回的两个日期（第二次 sync）。sync 必须 find 出既有、
+        remove 清掉它们、再 add_batch 全量——否则每次 sync 行数翻倍，
+        与声明的 is_idempotent=True 自相矛盾。
+        """
+        mock_deps["data_source"].fetch_cn_stock_trade_day.return_value = raw_trade_df
+        # 模拟 DB 已存在这两个日期（第二次 sync 场景）
+        mock_deps["crud_repo"].find = MagicMock(return_value=[
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=False, timestamp="20240102"),
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=True, timestamp="20240103"),
+        ])
+        mock_deps["crud_repo"].remove = MagicMock()
+        mock_deps["crud_repo"].add_batch = MagicMock()
+
+        with patch("ginkgo.data.services.trade_day_service.RichProgress"):
+            result = service.sync()
+
+        assert result.success is True
+        # 幂等核心 1：先 find 既有记录
+        mock_deps["crud_repo"].find.assert_called_once()
+        find_filters = mock_deps["crud_repo"].find.call_args.kwargs.get("filters", {})
+        assert find_filters.get("market") == MARKET_TYPES.CHINA
+        # 幂等核心 2：既有日期被 remove 清理（防重复累积）
+        mock_deps["crud_repo"].remove.assert_called_once()
+        # 落库总条数 == 源条数（new + update 都经 add_batch，但不翻倍）
+        added = []
+        for call in mock_deps["crud_repo"].add_batch.call_args_list:
+            added.extend(call[0][0])
+        assert len(added) == 2
+
 
 # ============================================================
 # container 装配测试（DI wiring）
