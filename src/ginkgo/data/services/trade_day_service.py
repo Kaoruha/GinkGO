@@ -148,27 +148,81 @@ class TradeDayService(BaseService):
 
         self._logger.INFO(f"New records: {len(new_items)}, Update records: {len(update_items)}")
 
-        # Step 3: Batch persist（new 直插；update 先 remove 既有日期再 add_batch → 幂等）
+        # Step 3: Batch persist —— 镜像 StockinfoService.sync 分 new/update 两段，
+        # 各有 add_batch → 逐条 add_batch([item]) 容错 fallback（#6488 review 第3轮）。
+        # 关键：update 段 remove 已清旧行后，若 add_batch 失败须逐条回退，
+        # 否则 update_items 旧行已删、新行未写 → 永久丢失 + 静默 success。
         success_count = 0
         with RichProgress() as progress:
-            task = progress.add_task("[green]Syncing Trade Calendar", total=len(valid_items))
-            try:
-                if update_items:
-                    update_dates = [item.timestamp for item in update_items]
+            # 3a: new items 直插（无既有记录，不须 remove）
+            if new_items:
+                task_new = progress.add_task("[green]Adding New Trade Calendar", total=len(new_items))
+                try:
+                    self._crud_repo.add_batch(new_items)
+                    success_count += len(new_items)
+                    self._logger.INFO(
+                        f"Successfully batch inserted {len(new_items)} new trade calendar records"
+                    )
+                    progress.update(task_new, completed=len(new_items))
+                except Exception as e:
+                    self._logger.WARN(f"Batch insert failed, falling back to individual inserts: {e}")
+                    for item in new_items:
+                        try:
+                            self._crud_repo.add_batch([item])
+                            success_count += 1
+                        except Exception as individual_e:
+                            failed_count += 1
+                            self._logger.WARN(
+                                f"Failed to insert trade day {item.timestamp}: {individual_e}"
+                            )
+                        progress.update(task_new, advance=1)
+
+            # 3b: update items 先 remove 既有日期再 add_batch → 幂等；
+            # add 失败逐条回退防数据丢失（已 remove 的 update_items 须能重写）。
+            if update_items:
+                task_update = progress.add_task(
+                    "[blue]Updating Trade Calendar", total=len(update_items)
+                )
+                update_dates = [item.timestamp for item in update_items]
+                try:
                     self._crud_repo.remove(
                         filters={"market": MARKET_TYPES.CHINA, "timestamp__in": update_dates}
                     )
                     self._logger.DEBUG(
                         f"Removed {len(update_dates)} existing trade calendar records for update"
                     )
-                to_add = new_items + update_items
-                self._crud_repo.add_batch(to_add)
-                success_count = len(to_add)
-                self._logger.INFO(f"Successfully batch inserted {len(to_add)} trade calendar records")
-                progress.update(task, completed=len(valid_items))
-            except Exception as e:
-                self._logger.WARN(f"Batch insert failed: {e}")
-                failed_count += len(valid_items)
+                except Exception as e:
+                    self._logger.WARN(
+                        f"Failed to batch remove existing, falling back to individual: {e}"
+                    )
+                    for item in update_items:
+                        try:
+                            self._crud_repo.remove(
+                                filters={"market": MARKET_TYPES.CHINA, "timestamp": item.timestamp}
+                            )
+                        except Exception as remove_e:
+                            self._logger.WARN(f"Failed to remove {item.timestamp}: {remove_e}")
+                try:
+                    self._crud_repo.add_batch(update_items)
+                    success_count += len(update_items)
+                    progress.update(task_update, completed=len(update_items))
+                    self._logger.DEBUG(
+                        f"Successfully updated {len(update_items)} trade calendar records"
+                    )
+                except Exception as e:
+                    self._logger.WARN(
+                        f"Batch update failed, falling back to individual updates: {e}"
+                    )
+                    for item in update_items:
+                        try:
+                            self._crud_repo.add_batch([item])
+                            success_count += 1
+                        except Exception as individual_e:
+                            failed_count += 1
+                            self._logger.WARN(
+                                f"Failed to update trade day {item.timestamp}: {individual_e}"
+                            )
+                        progress.update(task_update, advance=1)
 
         # Update sync result statistics
         duration = time.time() - start_time

@@ -148,6 +148,90 @@ class TestSync:
             added.extend(call[0][0])
         assert len(added) == 2
 
+    @pytest.mark.unit
+    def test_sync_update_add_batch_failure_falls_back_per_item(self, service, mock_deps, raw_trade_df):
+        """update 分支 add_batch 失败 → 逐条 add_batch([item]) 回退，已 remove 的 update_items 不丢失（#6488 review 第3轮 blocking）
+
+        场景：DB 已含本次源日期（第二次 sync，触发 update 路径）。remove 成功清掉
+        旧行后，add_batch(update_items) 抛异常。若无逐条 fallback，update_items
+        旧行已删、新行未写 → 永久丢失且静默 success。镜像 stockinfo sync update
+        段逐条 add_batch([item]) 容错。
+        """
+        mock_deps["data_source"].fetch_cn_stock_trade_day.return_value = raw_trade_df
+        mock_deps["crud_repo"].find = MagicMock(return_value=[
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=False, timestamp="20240102"),
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=True, timestamp="20240103"),
+        ])
+        mock_deps["crud_repo"].remove = MagicMock()
+        # 批量 add 第1次抛异常（模拟 MySQL batch 死锁），后续逐条调用成功
+        mock_deps["crud_repo"].add_batch = MagicMock(
+            side_effect=[Exception("batch deadlock"), None, None]
+        )
+
+        with patch("ginkgo.data.services.trade_day_service.RichProgress"):
+            result = service.sync()
+
+        # 逐条回退：2 条 update 各经 add_batch([item]) 单条写入 → 数据不丢
+        per_item_calls = [
+            c for c in mock_deps["crud_repo"].add_batch.call_args_list
+            if len(c[0][0]) == 1
+        ]
+        assert len(per_item_calls) == 2, (
+            "add_batch 失败后须逐条回退，2 条 update 各一次单条调用；"
+            f"实际单条调用 {len(per_item_calls)} 次"
+        )
+        # 逐条成功 → success_count 完整，数据未丢
+        assert result.success is True
+        assert result.data.records_added == 2
+        assert result.data.records_failed == 0
+
+    @pytest.mark.unit
+    def test_sync_new_add_batch_failure_falls_back_per_item(self, service, mock_deps, raw_trade_df):
+        """new 分支 add_batch 失败 → 逐条 add_batch([item]) 回退（对称镜像 stockinfo，#6488 review 第3轮）
+
+        场景：find 返回空（首次 sync，全 new）。new_items 批量 add 抛异常，
+        须逐条回退写入，否则全量数据丢失。
+        """
+        mock_deps["data_source"].fetch_cn_stock_trade_day.return_value = raw_trade_df
+        mock_deps["crud_repo"].find = MagicMock(return_value=[])
+        mock_deps["crud_repo"].add_batch = MagicMock(
+            side_effect=[Exception("batch deadlock"), None, None]
+        )
+
+        with patch("ginkgo.data.services.trade_day_service.RichProgress"):
+            result = service.sync()
+
+        per_item_calls = [
+            c for c in mock_deps["crud_repo"].add_batch.call_args_list
+            if len(c[0][0]) == 1
+        ]
+        assert len(per_item_calls) == 2
+        assert result.success is True
+        assert result.data.records_added == 2
+
+    @pytest.mark.unit
+    def test_sync_update_batch_and_per_item_both_fail_records_failure(self, service, mock_deps, raw_trade_df):
+        """update 批量+逐条均失败 → failed_count 计入，不静默 success 掩盖丢失（#6488 review 第3轮）
+
+        场景：add_batch 持续抛异常（批量 + 逐条全失败）。须如实计入 records_failed，
+        不能假装全成功。镜像 stockinfo 逐条失败 failed_count += 1 语义。
+        """
+        mock_deps["data_source"].fetch_cn_stock_trade_day.return_value = raw_trade_df
+        mock_deps["crud_repo"].find = MagicMock(return_value=[
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=False, timestamp="20240102"),
+            TradeDay(market=MARKET_TYPES.CHINA, is_open=True, timestamp="20240103"),
+        ])
+        mock_deps["crud_repo"].remove = MagicMock()
+        # 所有 add_batch 调用（批量 + 逐条）全失败
+        mock_deps["crud_repo"].add_batch = MagicMock(side_effect=Exception("DB down"))
+
+        with patch("ginkgo.data.services.trade_day_service.RichProgress"):
+            result = service.sync()
+
+        # 不静默：2 条 update 全失败计入 records_failed
+        assert result.data.records_failed == 2
+        assert result.data.records_added == 0
+
 
 # ============================================================
 # container 装配测试（DI wiring）
