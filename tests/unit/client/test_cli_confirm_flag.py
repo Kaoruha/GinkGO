@@ -31,7 +31,6 @@ class TestUnifiedConfirmFlagRegistered:
         ("ginkgo.client.group_cli", "app", ["delete"]),
         ("ginkgo.client.templates_cli", "app", ["delete"]),
         ("ginkgo.client.user_cli", "app", ["delete"]),
-        ("ginkgo.client.component_cli_db", "app", ["delete"]),
         ("ginkgo.client.kafka_cli", "app", ["purge"]),
     ]
 

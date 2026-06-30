@@ -1,13 +1,12 @@
 """#6136: MappingService _df 出口契约测试（ADR-010 多出口范式）。
 
 补 get_engine_portfolio_mappings_df / get_portfolio_file_mappings_df：data 是
-pandas.DataFrame（类型即契约），消除 cli_utils/backtest_result_cli 调用方对
+pandas.DataFrame（类型即契约），消除 cli_utils 调用方对
 不存在方法的死调用 + result.data.to_dataframe() 反模式。
 
 消费点：
 - cli_utils._add_portfolio_components → get_portfolio_file_mappings_df
 - cli_utils._show_engine_tree          → get_engine_portfolio_mappings_df
-- backtest_result_cli 选 portfolio 分支 → get_engine_portfolio_mappings_df
 """
 
 import sys
