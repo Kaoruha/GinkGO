@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 
 def test_on_progress_logs_on_stats_failure():
-    """统计聚合异常 → GLOG.ERROR 被调用（非静默 pass），主流程仍上报进度。"""
+    """统计聚合异常 → GLOG.WARN 被调用（非静默 pass），主流程仍上报进度。"""
     from ginkgo.workers.backtest_worker import task_processor as tp_mod
     from ginkgo.workers.backtest_worker.task_processor import BacktestProcessor
 
@@ -30,5 +30,5 @@ def test_on_progress_logs_on_stats_failure():
     with patch.object(tp_mod, "GLOG") as m_glog:
         proc._on_progress(0.5, "2026-01-01")  # 不应抛（主流程继续）
 
-    assert m_glog.ERROR.called, "统计失败应记 GLOG.ERROR 而非静默 pass"
+    assert m_glog.WARN.called, "统计失败应记 GLOG.WARN 而非静默 pass"
     assert progress_tracker.report_progress.called, "主流程上报不应中断"

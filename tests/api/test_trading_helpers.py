@@ -121,3 +121,31 @@ def test_get_paper_account_endpoint_propagates_http_500(api_modules):
         with pytest.raises(HTTPException) as exc:
             asyncio.run(trading_mod.get_paper_account("acct-1"))
     assert exc.value.status_code == 500
+
+
+# #6495: #6380 给 get_paper_account/get_paper_positions/get_paper_orders 三端点加了
+# except HTTPException: raise，但 list_paper_accounts（循环内调 _query_positions）漏改，
+# DB 故障被 except Exception 吞成 BusinessError(400) 非 AC1 的 500。
+# 修法：异常链补 except HTTPException: raise，与三 sibling 对齐。
+def test_list_paper_accounts_endpoint_propagates_http_500(api_modules):
+    """AC1: list_paper_accounts 端点同型透传 HTTPException(500)（循环内 _query_positions raise）。"""
+    import asyncio
+    import api.trading as trading_mod
+    from ginkgo.data.services.base_service import ServiceResult
+
+    # list_paper_accounts 经 portfolio_service.get(mode=PAPER) 拿账户列表，循环内调 _query_positions
+    mock_p = MagicMock()
+    mock_p.uuid = "p1"
+    mock_p.initial_capital = 100000
+    mock_p.cash = 100000
+    mock_p.name = "paper-1"
+
+    svc = MagicMock()
+    svc.get.return_value = ServiceResult.success([mock_p])
+
+    with patch.object(trading_mod, "_get_portfolio_service", return_value=svc), \
+         patch.object(trading_mod, "_query_positions",
+                      side_effect=HTTPException(status_code=500, detail="DB down")):
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(trading_mod.list_paper_accounts())
+    assert exc.value.status_code == 500
