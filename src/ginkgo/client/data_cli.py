@@ -520,7 +520,7 @@ def _is_valid_stock_code(code: str) -> bool:
 
 @app.command()
 def sync(
-    data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/day/tick/adjustfactor)"),
+    data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/day/tick/adjustfactor/trade_day)"),
     code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (for day/tick data)"),
     date: Optional[str] = typer.Option(None, "--date", "-d", help="Specific date (YYYYMMDD, for tick data only)"),
     market: Optional[str] = typer.Option(None, "--market", help="Filter by market"),
@@ -576,6 +576,9 @@ def sync(
                 else:
                     # 全代码adjustfactor同步：直接pass参数
                     success = kafka_service.send_adjustfactor_all_signal(full=full, force=force)
+            elif data_type == "trade_day":
+                # 交易日历全量同步（#6488），paper worker 查 is_open 判断开市
+                success = kafka_service.send_trade_day_signal()
 
             if success:
                 console.print(f":white_check_mark: {data_type} sync task successfully queued for background processing")
@@ -831,6 +834,21 @@ def sync(
                 console.print(f":x: Error in adjustfactor sync process: {e}")
                 if not force:
                     raise typer.Exit(1)
+
+        elif data_type == "trade_day":
+            # 交易日历全量同步（#6488）。trade_cal 返回开市/休市标记，
+            # paper worker _run_live_paper_cycle 通过 trade_day_crud 查 is_open 判断开市，
+            # 表空则整轮 skip 致 0 signal。trade_day 无 code 参数，全量同步。
+            from ginkgo.data.containers import container
+            trade_day_service = container.trade_day_service()
+            console.print(":repeat: Syncing trade calendar...")
+            result = trade_day_service.sync()
+            if result and result.is_success():
+                console.print(f":white_check_mark: {result.message}")
+            else:
+                error_msg = result.message if result and hasattr(result, "message") else "unknown error"
+                console.print(f":x: Trade calendar sync failed: {error_msg}")
+                raise typer.Exit(1)
 
         else:
             console.print(f":x: Unknown data type: {data_type}")

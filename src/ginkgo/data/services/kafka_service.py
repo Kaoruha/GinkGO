@@ -928,6 +928,14 @@ class KafkaService(BaseService):
             "code": ""
         })
 
+    def send_trade_day_signal(self) -> bool:
+        """Send trade calendar update signal (#6488). Worker 消费后调用
+        TradeDayService.sync 落库，供 paper worker 查 is_open 判断开市。"""
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
+            "type": "trade_day",
+            "code": ""
+        })
+
     def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send adjustment factor update signal"""
         return self.publish_message(KafkaTopics.DATA_UPDATE, {
