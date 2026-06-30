@@ -54,7 +54,17 @@ class MarginRisk(LotAlignableMixin, BaseRiskManagement):
                         (self._max_leverage_ratio - self._forced_liquidation_ratio))
             scaled = int(order.volume * factor)
             # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
-            order.adjust_volume(self.align_to_lot(scaled))
+            # 缩放后不足 1 手拒单(对齐 volatility/concentration/liquidity/max_drawdown 模板,
+            # 调用方对 cal() 返回 None 走软拦截 ORDERBLOCKED,零侵入)(#6038)
+            aligned = self.align_to_lot(scaled)
+            if aligned < self._lot_size:
+                GLOG.WARN(f"MarginRisk: Leverage {current_leverage:.2f}x >= forced liquidation "
+                         f"{self._forced_liquidation_ratio}x, scaled {order.volume} → {scaled} "
+                         f"below 1 lot ({self._lot_size}), blocking order")
+                return None
+            order.adjust_volume(aligned)
+            GLOG.WARN(f"MarginRisk: Leverage {current_leverage:.2f}x >= forced liquidation, "
+                     f"reducing order to {order.volume}")
         return order
 
     def generate_signals(self, portfolio_info: Dict, event) -> List[Signal]:

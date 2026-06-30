@@ -139,7 +139,9 @@ class TestMarginRiskMaintenanceMargin:
     def test_collateral_value_assessment(self):
         r = MarginRisk()
         info = _make_portfolio_info(margin_info={"current_leverage": 1.5})
-        result = r.cal(info, _make_order(volume=100))
+        # volume=1000:缩放后 scaled=625→aligned=600≥1手,测"抵押品评估时订单经缩放对齐通过";
+        # 避免 volume=100 触发不足1手拒单(#6038 修复后该路径正确 return None)
+        result = r.cal(info, _make_order(volume=1000))
         assert isinstance(result, Order)
 
 
@@ -176,7 +178,9 @@ class TestMarginRiskMarginCall:
 
     def test_margin_call_response_strategies(self):
         r = MarginRisk(max_leverage_ratio=2.0)
-        order = _make_order()
+        # volume=1000:lev=1.8 缩放后 scaled=250→aligned=200≥1手,测"margin call 响应时订单缩放对齐通过";
+        # 避免 volume=100 触发不足1手拒单(#6038 修复后该路径正确 return None)
+        order = _make_order(volume=1000)
         info = _make_portfolio_info(margin_info={"current_leverage": 1.8})
         result = r.cal(info, order)
         assert isinstance(result, Order)
@@ -336,8 +340,11 @@ class TestMarginRiskPerformance:
         import time
         r = MarginRisk()
         start = time.perf_counter()
+        # lev=1.0 走 passthrough 监控基线(不触发缩放),测常态监控吞吐;
+        # #6038 修复后 volume=100+lev=1.5 命中不足1手拒单路径,每次打审计 WARN,
+        # 10000 次累积拖慢,非本测试关注的监控基线性能
         for _ in range(10000):
-            r.cal({"margin_info": {"current_leverage": 1.5}}, _make_order())
+            r.cal({"margin_info": {"current_leverage": 1.0}}, _make_order())
         assert time.perf_counter() - start < 2.0
 
     def test_margin_calculation_performance(self):
@@ -387,3 +394,19 @@ class TestMarginRiskLotAlignment:
         # factor=0.5, scaled=int(1000*0.5)=500, lot_size=80 → (500//80)*80=480
         assert result is order
         assert order.volume == 480
+
+    def test_scaled_below_one_lot_blocks_order(self):
+        """缩放后不足 1 手拒单(对齐 volatility/concentration/liquidity/max_drawdown 模板)(#6038)。
+
+        lev=1.6 ∈ [forced_liquidation(1.2), max_leverage(2.0)) 触发缩放分支,
+        factor=(2.0-1.6)/(2.0-1.2)=0.5, volume=150 → scaled=int(150*0.5)=75,
+        align_to_lot(75)=0 < 1 lot(100) → 应 return None(调用方走 ORDERBLOCKED 审计)。
+        与其余 4 个缩放型 Risk 拒单模板一致:本 PR 抽 LotAlignableMixin 时 MarginRisk
+        漏了不足1手拒单守卫,0量订单原走 ZERO_VOLUME 审计错配,本测试守护该一致性。
+        """
+        r = MarginRisk(max_leverage_ratio=2.0, forced_liquidation_ratio=1.2)
+        portfolio_info = _make_portfolio_info(margin_info={"current_leverage": 1.6})
+        order = _make_order(volume=150)
+        result = r.cal(portfolio_info, order)
+        # scaled=75, align_to_lot(75)=0 < lot_size(100) → blocked
+        assert result is None
