@@ -265,6 +265,42 @@ class TestConcentrationRiskOrderProcessing:
         assert result is order
         assert order.volume == 100
 
+    def test_empty_portfolio_first_order_decimal_worth(self):
+        """空仓首单 worth 为运行时 Decimal 类型,LIMITORDER 主路径不抛异常(#6038 类型守护)。
+
+        portfolio_base.worth property 返回 Decimal。LIMITORDER 下 order.limit_price 经
+        Order.__init__ to_decimal 亦为 Decimal,order_value=Decimal,Decimal/Decimal 合法。
+        本测试守护主路径(LIMITORDER)类型契约,与下方 float-prices 边界测试互补。
+        """
+        r = ConcentrationRisk()
+        order = _make_order(volume=100, code="000001.SZ")
+        info = _make_portfolio_info(worth=Decimal("100000"))
+        result = r.cal(info, order)
+        assert result is order
+        assert order.volume == 100
+
+    def test_empty_portfolio_first_order_float_prices_decimal_worth(self):
+        """空仓首单 prices 为 float(市价单走 fallback)+ worth 为 Decimal 时不应抛 TypeError(#6038 review 回归)。
+
+        limit_price<=0(市价单/未定价)时 _calculate_projected_ratio 走 prices fallback,
+        order_value = volume(int) * prices[code](float) = float; 与 Decimal worth 相除
+        抛 TypeError(float/Decimal 不兼容)。旧实现 order_value/worth 未做类型归一,
+        调用方 None 软拦截救不了异常,整条风控链崩。本测试守护 to_decimal 归一。
+        """
+        r = ConcentrationRisk()
+        # limit_price=0 触发 _calculate_projected_ratio 的 prices fallback 分支
+        order = _make_order(volume=100, code="000001.SZ", limit_price=0)
+        info = {
+            "worth": Decimal("100000"),
+            "positions": {},
+            "prices": {"000001.SZ": 10.0},  # float → order_value 变 float,触发 float/Decimal
+            "uuid": "p1",
+            "now": datetime.now(),
+        }
+        result = r.cal(info, order)
+        assert result is order
+        assert order.volume == 100
+
 
 @pytest.mark.tdd
 @pytest.mark.risk

@@ -23,6 +23,7 @@
 from typing import List, Dict, Optional
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
+from ginkgo.libs import to_decimal
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.entities.mixins import LotAlignableMixin
@@ -298,11 +299,13 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
     def _project_against_worth(self, portfolio_info: Dict, order_value) -> float:
         """空组合(无持仓)时基于组合净值 worth 投影订单占比(%)(#6038 防"空仓首单误拒")。
 
-        worth 缺失或 <=0 时保守返回 100(维持旧行为)。
+        worth 缺失或 <=0 时保守返回 100(维持旧行为)。worth/order_value 统一 to_decimal
+        归一:运行时 worth 为 Decimal(portfolio_base.worth property),市价单走 prices fallback
+        时 order_value 可能为 float,float/Decimal 直接相除抛 TypeError(#6038 review 回归)。
         """
         worth = portfolio_info.get("worth", 0) or 0
         if worth > 0:
-            return float((order_value / worth) * 100)
+            return float((to_decimal(order_value) / to_decimal(worth)) * 100)
         return 100.0
 
     def _calculate_projected_ratio(self, portfolio_info: Dict, order: Order) -> float:
