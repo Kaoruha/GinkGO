@@ -126,7 +126,14 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
                 reduced_order = copy.deepcopy(order)
                 scaled = int(reduced_order.volume * max(reduction_factor, 0.1))
                 # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
-                reduced_order.adjust_volume(self.align_to_lot(scaled))
+                # 缩放后不足 1 手拒单(对齐 volatility/concentration/liquidity 模板,
+                # 调用方对 cal() 返回 None 走软拦截 ORDERBLOCKED,零侵入)(#6038)
+                aligned = self.align_to_lot(scaled)
+                if aligned < self._lot_size:
+                    GLOG.WARN(f"MaxDrawdownRisk: Drawdown {current_drawdown:.1f}% > {self._max_drawdown}%, "
+                             f"scaled {reduced_order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                    return None
+                reduced_order.adjust_volume(aligned)
                 GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
                 return reduced_order
 

@@ -372,3 +372,19 @@ class TestMaxDrawdownRiskLotAlignment:
         # scaled=505, lot_size=80 → (505//80)*80=480
         assert result is not None
         assert result.volume == 480
+
+    def test_reduced_below_one_lot_rejects(self):
+        """缩放后不足 1 手拒单(对齐 volatility_risk 模板)(#6038)。
+
+        drawdown=19.5%∈(15,20], factor=(20-19.5)/5=0.1 触 max(,0.1) 下限,
+        volume=800 → scaled=int(800*0.1)=80, aligned=0 < 1 lot(100) → 应 return None。
+        与 volatility/concentration/liquidity 三处拒单模板一致:本分支 5a7b3383 给 4 个
+        缩放型 Risk 混入 LotAlignableMixin 时,max_drawdown 漏了不足1手拒单守卫,本测试守护该一致性。
+        """
+        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r._portfolio_peak = Decimal('100000')
+        portfolio_info = _make_portfolio_info(worth=80500)
+        order = _make_order(volume=800)
+        result = r.cal(portfolio_info, order)
+        # scaled=80, aligned=0 < lot_size(100) → blocked
+        assert result is None
