@@ -22,9 +22,42 @@ from rich.console import Console
 from ginkgo.libs import GLOG
 from rich.table import Table
 from rich.panel import Panel
+import json
 import signal
 import sys
 import time
+
+
+def parse_heartbeat_value(value):
+    """
+    稳健解析 Redis 心跳值，对非 JSON 值优雅降级（#4627）。
+
+    写入端（heartbeat_manager.py / utils/heartbeat.py）实际写入的是
+    ISO 8601 时间戳字符串，并非 JSON。读侧不应假定 JSON 格式。
+
+    Returns: {timestamp, host, pid, jobs_count}，解析失败时 timestamp 取原值，
+             其余字段为 "N/A"。
+    """
+    try:
+        data = json.loads(value)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        data = None
+
+    if isinstance(data, dict):
+        return {
+            "timestamp": data.get("timestamp", "N/A"),
+            "host": data.get("host", "N/A"),
+            "pid": data.get("pid", "N/A"),
+            "jobs_count": data.get("jobs_count", "N/A"),
+        }
+
+    return {
+        "timestamp": value,
+        "host": "N/A",
+        "pid": "N/A",
+        "jobs_count": "N/A",
+    }
+
 
 app = typer.Typer(help=":alarm_clock: TaskTimer - Scheduled Task Manager", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -183,18 +216,12 @@ def status(
             console.print(f"[green]:white_check_mark: TaskTimer is [bold]ALIVE[/bold][/green]")
             console.print(f"[dim]Heartbeat TTL: {ttl}s[/dim]")
 
-            # Try to parse JSON heartbeat
-            try:
-                import json
-                heartbeat_data = json.loads(heartbeat_value)
-
-                console.print(f"[dim]Host: {heartbeat_data.get('host', 'N/A')}[/dim]")
-                console.print(f"[dim]PID: {heartbeat_data.get('pid', 'N/A')}[/dim]")
-                console.print(f"[dim]Jobs: {heartbeat_data.get('jobs_count', 'N/A')}[/dim]")
-                console.print(f"[dim]Last Heartbeat: {heartbeat_data.get('timestamp', 'N/A')}[/dim]")
-            except Exception as e:
-                GLOG.ERROR(f"Failed to parse heartbeat JSON data: {e}")
-                console.print(f"[dim]Last Heartbeat: {heartbeat_value}[/dim]")
+            # 稳健解析心跳值：写入端写 ISO 时间戳（非 JSON），解析失败时降级展示（#4627）
+            heartbeat_data = parse_heartbeat_value(heartbeat_value)
+            console.print(f"[dim]Host: {heartbeat_data['host']}[/dim]")
+            console.print(f"[dim]PID: {heartbeat_data['pid']}[/dim]")
+            console.print(f"[dim]Jobs: {heartbeat_data['jobs_count']}[/dim]")
+            console.print(f"[dim]Last Heartbeat: {heartbeat_data['timestamp']}[/dim]")
         else:
             console.print(f"[red]:x: TaskTimer is [bold]DEAD[/bold] or not running[/red]")
             console.print(f"[dim]Heartbeat key not found or expired[/dim]")
@@ -291,7 +318,6 @@ def heartbeat(
         from redis import Redis
         from ginkgo.libs import GCONF
         from datetime import datetime
-        import json
 
         redis_client = Redis(
             host=GCONF.REDISHOST,
@@ -329,17 +355,11 @@ def heartbeat(
                         ttl = redis_client.ttl(key)
                         value = redis_client.get(key)
 
-                        # Parse heartbeat data
-                        try:
-                            heartbeat_data = json.loads(value)
-                            last_time = heartbeat_data.get("timestamp", "N/A")
-                            host = heartbeat_data.get("host", "N/A")
-                            pid = heartbeat_data.get("pid", "N/A")
-                        except Exception as e:
-                            GLOG.ERROR(f"Failed to parse heartbeat data for key '{key}': {e}")
-                            last_time = value
-                            host = "N/A"
-                            pid = "N/A"
+                        # 稳健解析心跳值：写入端写 ISO 时间戳（非 JSON），解析失败时降级展示（#4627）
+                        heartbeat_data = parse_heartbeat_value(value)
+                        last_time = heartbeat_data["timestamp"]
+                        host = heartbeat_data["host"]
+                        pid = heartbeat_data["pid"]
 
                         is_alive = ttl > 0 and ttl < 40
 
