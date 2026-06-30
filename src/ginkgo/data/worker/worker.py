@@ -648,11 +648,12 @@ class DataWorker(threading.Thread):
         处理数据采集命令
 
         DataWorker 订阅 ginkgo.data.commands topic，
-        只会收到 4 个核心数据采集命令：
+        只会收到 5 个核心数据采集命令：
         - bar_snapshot: K线数据采集
         - stockinfo: 股票基础信息同步
         - adjustfactor: 复权因子同步
         - tick: Tick数据采集
+        - trade_day: 交易日历同步
 
         Args:
             command: 命令类型
