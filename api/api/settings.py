@@ -19,6 +19,10 @@ from core.logging import logger
 from core.response import ok
 from core.exceptions import BusinessError
 from middleware.api_stats import collector as api_stats_collector
+from request_models import (
+    AddGroupMemberRequest,
+    ResetPasswordRequest,
+)
 
 router = APIRouter()
 
@@ -434,13 +438,16 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
 
 
 @router.post("/users/{uuid}/reset-password")
-async def reset_user_password(uuid: str, data: dict, req: Request):
+async def reset_user_password(uuid: str, data: ResetPasswordRequest, req: Request):
     """重置用户密码（#5770, #5679: 增加 admin 权限校验）
 
     权限规则：
     - admin 可重置任意用户密码
     - 普通用户只能重置自己的密码
     - 响应不返回明文密码
+
+    #5565: 请求体由 ResetPasswordRequest 校验（必传 + min_length=8 + extra='forbid'），
+    取代原 #5465 的手动必传校验。
     """
     # 权限校验（#5770, #5679, #6175: admin 须 DB 校验，不信任 JWT 内嵌 is_admin）
     caller_uuid = getattr(req.state, "user_uuid", None)
@@ -453,13 +460,7 @@ async def reset_user_password(uuid: str, data: dict, req: Request):
         )
 
     try:
-        # #5465: new_password 必传——禁止默认弱密码（原默认 "123456"）
-        new_password = data.get("new_password")
-        if not new_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="new_password is required",
-            )
+        new_password = data.new_password
 
         user_service = get_user_service()
         new_password_hash = hash_password(new_password)
@@ -1124,18 +1125,13 @@ async def list_group_members(group_uuid: str):
 
 
 @router.post("/user-groups/{group_uuid}/members", status_code=201)
-async def add_group_member(group_uuid: str, data: dict):
-    """添加用户到用户组"""
+async def add_group_member(group_uuid: str, data: AddGroupMemberRequest):
+    """添加用户到用户组（#5565: 请求体由 AddGroupMemberRequest 校验，extra='forbid'）"""
     try:
         group_service = get_user_group_service()
         user_service = get_user_service()
 
-        user_uuid = data.get("user_uuid")
-        if not user_uuid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="user_uuid is required"
-            )
+        user_uuid = data.user_uuid
 
         # 检查用户是否存在
         user_result = user_service.get_user(user_uuid)

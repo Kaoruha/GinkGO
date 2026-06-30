@@ -149,6 +149,7 @@ class TestResetPasswordAuthorization:
     def test_normal_user_cannot_reset_others_password(self):
         """普通用户重置他人密码应返回 403"""
         from api.settings import reset_user_password
+        from request_models import ResetPasswordRequest
         from fastapi import HTTPException
 
         req = MagicMock()
@@ -157,13 +158,14 @@ class TestResetPasswordAuthorization:
 
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(
-                reset_user_password("user-admin-uuid", {"new_password": "hacked123"}, req)
+                reset_user_password("user-admin-uuid", ResetPasswordRequest(new_password="hacked123"), req)
             )
         assert exc_info.value.status_code == 403
 
     def test_admin_can_reset_others_password(self):
         """DB 确认的 admin 应能重置他人密码（#6175: admin 来自 DB 非 JWT）"""
         from api.settings import reset_user_password
+        from request_models import ResetPasswordRequest
 
         req = MagicMock()
         req.state.user_uuid = "user-admin"
@@ -174,7 +176,7 @@ class TestResetPasswordAuthorization:
             mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             result = asyncio.run(
-                reset_user_password("user-target-uuid", {"new_password": "NewPass123!"}, req)
+                reset_user_password("user-target-uuid", ResetPasswordRequest(new_password="NewPass123!"), req)
             )
         # 不应抛异常
         assert result is not None
@@ -182,6 +184,7 @@ class TestResetPasswordAuthorization:
     def test_non_admin_can_reset_own_password(self):
         """普通用户可重置自己的密码（self-reset 路径，#6175 须保留）"""
         from api.settings import reset_user_password
+        from request_models import ResetPasswordRequest
 
         req = MagicMock()
         req.state.user_uuid = "user-self"
@@ -191,13 +194,14 @@ class TestResetPasswordAuthorization:
             mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=False)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             result = asyncio.run(
-                reset_user_password("user-self", {"new_password": "NewPass123!"}, req)
+                reset_user_password("user-self", ResetPasswordRequest(new_password="NewPass123!"), req)
             )
         assert result is not None
 
     def test_reset_password_response_no_plaintext(self):
         """密码重置响应不应包含明文密码"""
         from api.settings import reset_user_password
+        from request_models import ResetPasswordRequest
 
         req = MagicMock()
         req.state.user_uuid = "user-admin"
@@ -207,7 +211,7 @@ class TestResetPasswordAuthorization:
             mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=True)
             mock_svc.return_value.reset_password.return_value = MagicMock(success=True)
             result = asyncio.run(
-                reset_user_password("user-target-uuid", {"new_password": "Secret123!"}, req)
+                reset_user_password("user-target-uuid", ResetPasswordRequest(new_password="Secret123!"), req)
             )
         # 响应中不应有 new_password 字段
         assert "new_password" not in str(result)
@@ -293,6 +297,7 @@ class TestResetPasswordDbAdminCheck:
         """DB 已降权（is_admin=False）但 JWT 仍带 is_admin=True 的用户，
         不能重置他人密码——账户接管风险须阻断"""
         from api.settings import reset_user_password
+        from request_models import ResetPasswordRequest
         from fastapi import HTTPException
 
         req = MagicMock()
@@ -304,7 +309,7 @@ class TestResetPasswordDbAdminCheck:
             mock_svc.return_value.get_credential.return_value = MagicMock(is_admin=False)
             with pytest.raises(HTTPException) as exc_info:
                 asyncio.run(
-                    reset_user_password("victim-uuid", {"new_password": "hacked123"}, req)
+                    reset_user_password("victim-uuid", ResetPasswordRequest(new_password="hacked123"), req)
                 )
         assert exc_info.value.status_code == 403
 
