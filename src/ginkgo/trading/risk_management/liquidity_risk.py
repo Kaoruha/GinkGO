@@ -119,18 +119,28 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
                 original_volume = order.volume
                 scaled = int(order.volume * reduction_factor)
                 # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
-                order.adjust_volume(self.align_to_lot(scaled))
-
-                min_volume = self.align_to_lot(max(1, int(original_volume * 0.1)))
-                order.adjust_volume(max(order.volume, min_volume))
+                # 缩放后不足 1 手拒单(对齐 volatility_risk 模板, 调用方对 None 软拦截)(#6038)
+                aligned = self.align_to_lot(scaled)
+                if aligned < self._lot_size:
+                    GLOG.WARN(f"LiquidityRisk: Low liquidity for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._min_avg_volume_ratio}, "
+                             f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                    return None
+                order.adjust_volume(aligned)
 
                 GLOG.WARN(f"LiquidityRisk: Low liquidity for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._min_avg_volume_ratio}, "
                          f"reducing order {original_volume} → {order.volume}")
             else:
                 # 流动性预警，适度减少订单
                 reduction_factor = 0.8  # 预警时减少20%
+                original_volume = order.volume
                 scaled = int(order.volume * reduction_factor)
-                order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
+                # lot_size 对齐 + 不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
+                aligned = self.align_to_lot(scaled)
+                if aligned < self._lot_size:
+                    GLOG.INFO(f"LiquidityRisk: Liquidity warning for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._warning_avg_volume_ratio}, "
+                             f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                    return None
+                order.adjust_volume(aligned)
 
                 GLOG.INFO(f"LiquidityRisk: Liquidity warning for {order.code}, volume ratio {avg_volume_ratio:.3f} > {self._warning_avg_volume_ratio}, "
                          f"adjusting order to {order.volume}")
@@ -145,7 +155,13 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
             # 价格冲击预警，减少订单
             reduction_factor = self._warning_price_impact / price_impact
             scaled = int(order.volume * reduction_factor)
-            order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
+            # lot_size 对齐 + 不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
+            aligned = self.align_to_lot(scaled)
+            if aligned < self._lot_size:
+                GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
+                         f"scaled {order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                return None
+            order.adjust_volume(aligned)
 
             GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
                      f"adjusting order to {order.volume}")
@@ -156,7 +172,13 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
             # 成交额过低，限制交易
             reduction_factor = avg_turnover / self._min_turnover_ratio
             scaled = int(order.volume * max(reduction_factor, 0.1))
-            order.adjust_volume(self.align_to_lot(scaled))  # lot_size 对齐(#6038)
+            # lot_size 对齐 + 不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
+            aligned = self.align_to_lot(scaled)
+            if aligned < self._lot_size:
+                GLOG.WARN(f"LiquidityRisk: Low turnover {avg_turnover:,.0f} < {self._min_turnover_ratio:,.0f} for {order.code}, "
+                         f"scaled {order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
+                return None
+            order.adjust_volume(aligned)
 
             GLOG.WARN(f"LiquidityRisk: Low turnover {avg_turnover:,.0f} < {self._min_turnover_ratio:,.0f} for {order.code}, "
                      f"reducing order to {order.volume}")

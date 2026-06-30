@@ -172,7 +172,8 @@ class TestConcentrationRiskIndustryAnalysis:
         pos = _make_position(code="000001.SZ", market_value=50000)
         info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
         result = r.cal(info, order)
-        assert isinstance(result, Order)
+        # 单行业 100% 极端集中 + 1 手小单:投影 100% → 缩放至 10 股 → 不足 1 手拒单(#6038)
+        assert result is None
 
     def test_multi_industry_monitoring(self):
         r = ConcentrationRisk()
@@ -250,6 +251,19 @@ class TestConcentrationRiskOrderProcessing:
         info = _make_portfolio_info()
         result = r.cal(info, order)
         assert result is order
+
+    def test_empty_portfolio_first_order_passes(self):
+        """空组合首单不误拒:投影应基于 worth(订单金额/组合净值),非硬编码 100%(#6038 回归守护)。
+
+        空 portfolio + 首笔买单 volume=100×10元=1000元,组合净值 worth=100000。
+        真实投影 1.0% < max_single 10%,首单应直通。旧代码空组合硬编码 100% → 误拒。
+        """
+        r = ConcentrationRisk()
+        order = _make_order(volume=100, code="000001.SZ")
+        info = _make_portfolio_info(worth=100000)
+        result = r.cal(info, order)
+        assert result is order
+        assert order.volume == 100
 
 
 @pytest.mark.tdd
@@ -403,7 +417,9 @@ class TestConcentrationRiskDecimalCompatibility:
         pos = _make_position(code="000001.SZ", market_value=Decimal("90000"))
         info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
         result = r.cal(info, order)
-        assert isinstance(result, Order)
+        # 单票 ~90% 集中 + 1 手:投影 100% > 5% → 缩放至 5 股 → 不足 1 手拒单(#6038)。
+        # 本用例守护"Decimal 混算不抛 TypeError",拒单(无异常)即达成本目的。
+        assert result is None
 
     def test_generate_signals_decimal_market_value_no_typeerror(self):
         """Decimal market_value 经 generate_signals→_calculate_concentrations 不抛。
@@ -450,3 +466,34 @@ class TestConcentrationRiskLotAlignment:
         # max(240, 0)=240(scaled>min, 保护不触发)
         assert result is order
         assert order.volume == 240
+
+    def test_single_position_scaling_not_floored_to_10pct(self):
+        """缩放后量禁止被 10% 下限抬回(#6038 同型 bug, 对齐 volatility 模板)。
+
+        volume=10000, factor=10/160=0.0625 → scaled=625 → align=600。
+        旧实现 min_volume=align(1000)=1000, max(600,1000)=1000 把 600 抬回 1000,
+        缩放形同虚设(违反 Risk 组件边界「禁止增加订单量」)。
+        """
+        r = ConcentrationRisk(max_single_position_ratio=10.0)
+        r._calculate_projected_ratio = lambda info, order: 160.0
+        r._get_current_position_ratio = lambda info, code: 0.0
+        r._calculate_projected_industry_ratio = lambda *a: 0.0
+        order = _make_order(volume=10000)
+        result = r.cal(_make_portfolio_info(), order)
+        assert result is order
+        assert order.volume == 600
+
+    def test_single_position_below_one_lot_returns_none(self):
+        """缩放后不足 1 手(align<lot_size)拒单返回 None(#6038)。
+
+        volume=1000, factor=10/200=0.05 → scaled=50 → align=0 < 100。
+        旧实现 max(0, align(100)=100)=100 仍下发 100 股(不足 1 手未拒)。
+        对齐 volatility: align<lot_size → return None(调用方对 None 软拦截)。
+        """
+        r = ConcentrationRisk(max_single_position_ratio=10.0)
+        r._calculate_projected_ratio = lambda info, order: 200.0
+        r._get_current_position_ratio = lambda info, code: 0.0
+        r._calculate_projected_industry_ratio = lambda *a: 0.0
+        order = _make_order(volume=1000)
+        result = r.cal(_make_portfolio_info(), order)
+        assert result is None

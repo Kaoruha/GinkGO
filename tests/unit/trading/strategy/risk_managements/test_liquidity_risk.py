@@ -413,3 +413,32 @@ class TestLiquidityRiskLotAlignment:
         # scaled=125, lot=80→(125//80)*80=80
         assert result is order
         assert order.volume == 80
+
+    def test_low_liquidity_scaling_not_floored_to_10pct(self):
+        """流动性严重不足缩放后量禁止被 10% 下限抬回(#6038 同型 bug, 对齐 volatility 模板)。
+
+        volume=10000, factor=0.1/1.6=0.0625 → scaled=625 → align=600。
+        旧实现 min_volume=align(1000)=1000, max(600,1000)=1000 抬回, 缩放失效。
+        """
+        r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2)
+        r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
+        r._calculate_order_volume_ratio = lambda order, metrics: 1.6
+        r._calculate_price_impact = lambda order, metrics: 0.5
+        order = _make_order(volume=10000)
+        result = r.cal(_make_portfolio_info(), order)
+        assert result is order
+        assert order.volume == 600
+
+    def test_low_liquidity_below_one_lot_returns_none(self):
+        """缩放后不足 1 手拒单返回 None(#6038)。
+
+        volume=1000, factor=0.1/2.0=0.05 → scaled=50 → align=0 < 100。
+        对齐 volatility: align<lot_size → return None(调用方软拦截)。
+        """
+        r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2)
+        r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
+        r._calculate_order_volume_ratio = lambda order, metrics: 2.0
+        r._calculate_price_impact = lambda order, metrics: 0.5
+        order = _make_order(volume=1000)
+        result = r.cal(_make_portfolio_info(), order)
+        assert result is None
