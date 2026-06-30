@@ -279,6 +279,33 @@ class TestRedisCRUDSystemInfo:
         assert result["connected_clients"] == 5
 
     @pytest.mark.unit
+    def test_info_exposes_db0_keys_at_top_level(self, redis_crud):
+        """info() 顶层暴露 db0 keys（#4663：dashboard 读顶层 db0，crud 需提炼到位）"""
+        redis_crud.redis.info.return_value = {
+            "redis_version": "7.0.0",
+            "db0": {"keys": 100, "expires": 50, "avg_ttl": 0},
+        }
+
+        result = redis_crud.info()
+
+        # db0 从 raw_info 提到顶层，dashboard 无需深入 raw_info
+        assert result["connected"] is True
+        assert result["db0"] == {"keys": 100, "expires": 50, "avg_ttl": 0}
+        assert result["db0"]["keys"] == 100
+        # raw_info 仍保留完整原始数据（向后兼容）
+        assert result["raw_info"]["db0"]["keys"] == 100
+
+    @pytest.mark.unit
+    def test_info_db0_absent_yields_empty_dict(self, redis_crud):
+        """Redis 无 keyspace 数据时顶层 db0 为空 dict（dashboard 显示 N/A，不崩）"""
+        redis_crud.redis.info.return_value = {"redis_version": "7.0.0"}
+
+        result = redis_crud.info()
+
+        assert result["connected"] is True
+        assert result["db0"] == {}
+
+    @pytest.mark.unit
     def test_ping_success(self, redis_crud):
         """Redis ping 成功返回 True"""
         redis_crud.redis.ping.return_value = True
