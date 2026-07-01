@@ -123,7 +123,10 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
 
         elif current_volatility > self._warning_volatility:
             # 波动率预警，适度减少订单规模
-            reduction_factor = (self._max_volatility / current_volatility) ** 1.5
+            # 分子用 warning_volatility（非 max）：预警区间 warning < cur ≤ max，
+            # warning/cur < 1 使因子 < 1 且随 cur 升高递减（#6497）。
+            # 旧式 (max/cur) 在此区间 ≥ 1 会放大仓位，违反风控单调性。
+            reduction_factor = (self._warning_volatility / current_volatility) ** 1.5
             scaled = int(order.volume * reduction_factor)
             # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
             aligned = self.align_to_lot(scaled)

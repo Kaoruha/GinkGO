@@ -141,6 +141,50 @@ class TestVolatilityRiskOrderProcessing:
         # Source adjusts volume based on volatility ratio
         assert order.volume > 0
 
+    def test_warning_branch_reduces_not_amplifies(self):
+        """预警分支(warning < cur ≤ max)必须减仓而非放大仓位。
+
+        Regression guard for #6497：预警分支原照搬高波动分支的
+        (max_volatility/cur)^1.5，但预警区间 cur ≤ max 使 max/cur ≥ 1，
+        因子 ≥ 1 → 放大仓位，违反风控单调性。修法：分子改用
+        warning_volatility，使预警区间因子 < 1 且随 cur 升高递减。
+
+        默认 warning=20/max=25，cur=22 落在预警区间：
+          buggy (25/22)^1.5 ≈ 1.21 → 1211（放大，应失败）
+          fixed (20/22)^1.5 ≈ 0.87 → 866（减仓）
+        """
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        r._volatility_cache["000001.SZ"] = 22.0  # warning(20) < 22 ≤ max(25)
+        order = _make_order(volume=1000)
+        result = r.cal({}, order)
+        assert result is order
+        # 核心断言：预警触发后仓位必须减少，绝不能放大
+        assert order.volume < 1000, (
+            f"预警分支应减仓，实际 volume={order.volume}（原 1000）；"
+            "若 > 1000 说明因子方向仍错误（#6497 回归）"
+        )
+
+    def test_warning_branch_monotonic_decreasing(self):
+        """预警区间内 cur 越接近 max，减仓越多（因子随 cur 升高单调递减）。
+
+        #6497 影响：旧实现不仅放大仓位，且随 cur 升高放大更多（非单调）。
+        修复后预警分支应在区间内单调递减，到 max 处衔接高波动分支。"""
+        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        # cur=21（刚踩预警）应比 cur=24（接近 max）减得更少，但两者都 < 原量
+        r._volatility_cache["000001.SZ"] = 21.0
+        order_low = _make_order(volume=1000)
+        r.cal({}, order_low)
+
+        r._volatility_cache["000001.SZ"] = 24.0
+        order_high = _make_order(volume=1000)
+        r.cal({}, order_high)
+
+        assert order_low.volume < 1000 and order_high.volume < 1000
+        assert order_high.volume < order_low.volume, (
+            f"预警区间应单调递减：cur=24 volume={order_high.volume} 应 < "
+            f"cur=21 volume={order_low.volume}"
+        )
+
     def test_high_volatility_order_reduction(self):
         r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
         r._volatility_cache["000001.SZ"] = 50.0
