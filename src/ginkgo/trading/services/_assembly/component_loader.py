@@ -17,18 +17,94 @@ from ginkgo.trading.portfolios import PortfolioT1Backtest
 from ginkgo.enums import FILE_TYPES
 
 
-# 源码回退导入映射：动态加载失败时，按组件类型从对应源码包回退导入。
+# 组件类型元数据 —— 单一映射源（#4630: 原 type_map 与 SOURCE_FALLBACK_IMPORT_MAP
+# 双映射各写一份、键集相同却无单一真相源，曾致 #5880 缺陷4a 漂移）。
 # key 必须用 FILE_TYPES 的 .value（int），与传入的 component_type(int) 比较一致。
-# NOTE: ENGINE(=7) 不在此映射 —— engine 是内置回测/实盘引擎，非用户上传 .py 组件，
-# 无需源码回退。原实现 key 7 错指 risk_managements（7=ENGINE 却映射到 risk），
-# 已修正为 key 3（RISKMANAGER）—— 见 #5880 缺陷4a。
-SOURCE_FALLBACK_IMPORT_MAP = {
-    FILE_TYPES.STRATEGY.value: ("ginkgo.trading.strategies", "strategies"),
-    FILE_TYPES.SELECTOR.value: ("ginkgo.trading.selectors", "selectors"),
-    FILE_TYPES.SIZER.value: ("ginkgo.trading.sizers", "sizers"),
-    FILE_TYPES.RISKMANAGER.value: ("ginkgo.trading.risk_managements", "risk_managements"),
-    FILE_TYPES.ANALYZER.value: ("ginkgo.trading.analysis.analyzers", "analyzers"),
+# ENGINE(=7) 不在此映射 —— engine 是内置回测/实盘引擎，非用户上传 .py 组件，无需源码回退。
+COMPONENT_TYPE_INFO: Dict[int, Dict[str, str]] = {
+    FILE_TYPES.STRATEGY.value: {
+        "name": "strategy",
+        "module_path": "ginkgo.trading.strategies",
+        "subpackage": "strategies",
+    },
+    FILE_TYPES.SELECTOR.value: {
+        "name": "selector",
+        "module_path": "ginkgo.trading.selectors",
+        "subpackage": "selectors",
+    },
+    FILE_TYPES.SIZER.value: {
+        "name": "sizer",
+        "module_path": "ginkgo.trading.sizers",
+        "subpackage": "sizers",
+    },
+    FILE_TYPES.RISKMANAGER.value: {
+        "name": "risk_manager",
+        "module_path": "ginkgo.trading.risk_managements",
+        "subpackage": "risk_managements",
+    },
+    FILE_TYPES.ANALYZER.value: {
+        "name": "analyzer",
+        "module_path": "ginkgo.trading.analysis.analyzers",
+        "subpackage": "analyzers",
+    },
 }
+
+# 源码回退导入映射：从单一源派生，保持 (module_path, subpackage) 元组形状不变
+# （test_component_loader_source_fallback.py 锁定了元组值）。
+SOURCE_FALLBACK_IMPORT_MAP = {
+    ftype: (info["module_path"], info["subpackage"]) for ftype, info in COMPONENT_TYPE_INFO.items()
+}
+
+
+# --------------------------------------------------------------------------- #
+# 组件类检测（#4630: 主路径与源码 fallback 路径原各写一份检测循环，收敛为单一 helper）
+# --------------------------------------------------------------------------- #
+
+# method 2 命中的基类名后缀（含 SelectorBase）与精确基类名（Base* 抽象基类）
+_COMPONENT_BASE_SUFFIXES = ("Strategy", "Selector", "SelectorBase", "Sizer", "RiskManagement", "Analyzer")
+_COMPONENT_BASE_EXACT = ("BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer")
+
+# method 3 命中的类名后缀（不含 SelectorBase —— 与主路径原逻辑一致）
+_COMPONENT_NAME_SUFFIXES = ("Strategy", "Selector", "Sizer", "RiskManagement", "Analyzer")
+
+
+def _is_component_class(attr: type, attr_name: str) -> bool:
+    """判定一个类是否为组件类。
+
+    三种检测方法（任一命中即判定为组件类）：
+    1. ``__abstract__`` 属性存在且为 False（非抽象）；
+    2. 任一基类名匹配组件基类后缀（含 SelectorBase）或精确基类名（Base*）；
+    3. 类名本身匹配组件后缀，且不在 Base* 抽象基类排除清单内。
+    """
+    # method 1：__abstract__ 属性
+    if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
+        return True
+    # method 2：基类名
+    for base in getattr(attr, "__bases__", ()):
+        base_name = getattr(base, "__name__", "")
+        if any(base_name.endswith(s) for s in _COMPONENT_BASE_SUFFIXES) or base_name in _COMPONENT_BASE_EXACT:
+            return True
+    # method 3：类名本身（排除 Base* 抽象基类）
+    if attr_name not in _COMPONENT_BASE_EXACT and any(attr_name.endswith(s) for s in _COMPONENT_NAME_SUFFIXES):
+        return True
+    return False
+
+
+def _detect_component_class(module, logger=None):
+    """从模块属性中扫描首个组件类，找不到返回 None。
+
+    跳过下划线开头与非 type 属性。主路径与源码 fallback 路径共用此 helper，
+    保证 fallback 获得与主路径相同的检测能力（AC#2）。
+    """
+    for attr_name in dir(module):
+        if attr_name.startswith("_"):
+            continue
+        attr = getattr(module, attr_name)
+        if isinstance(attr, type) and hasattr(attr, "__bases__") and _is_component_class(attr, attr_name):
+            if logger is not None:
+                logger.DEBUG(f"Found component class: {attr.__name__}")
+            return attr
+    return None
 
 
 def resolve_param_kwargs(
@@ -204,8 +280,7 @@ class ComponentLoader:
                             from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
                             # #6103: 复用已取的 mfile.name，取代 container.cruds.file() 重复查询
                             comp_name = getattr(mfile, "name", None)
-                            type_map = {6: "strategy", 4: "selector", 5: "sizer", 3: "risk_manager", 1: "analyzer"}
-                            file_type_str = type_map.get(component_type)
+                            file_type_str = COMPONENT_TYPE_INFO.get(component_type, {}).get("name")
                             if comp_name and file_type_str:
                                 param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
                                 component_kwargs = resolve_param_kwargs(
@@ -246,58 +321,9 @@ class ComponentLoader:
                         spec.loader.exec_module(module)
                         self._logger.DEBUG(f"Module imported successfully")
 
-                        # 查找组件类
+                        # 查找组件类（#4630: 提取为 _detect_component_class，与源码 fallback 共用）
                         self._logger.DEBUG("Starting component class detection")
-                        component_class = None
-                        all_classes = []
-                        for attr_name in dir(module):
-                            if attr_name.startswith("_"):
-                                continue
-                            attr = getattr(module, attr_name)
-                            if isinstance(attr, type) and hasattr(attr, "__bases__"):
-                                all_classes.append(attr_name)
-                                is_component = False
-
-                                # 方法1：检查__abstract__属性
-                                if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
-                                    is_component = True
-
-                                # 方法2：检查基类名称
-                                for base in attr.__bases__:
-                                    if hasattr(base, "__name__"):
-                                        base_name = base.__name__
-                                        if (
-                                            base_name.endswith("Strategy")
-                                            or base_name.endswith("Selector")
-                                            or base_name.endswith("SelectorBase")
-                                            or base_name.endswith("Sizer")
-                                            or base_name.endswith("RiskManagement")
-                                            or base_name.endswith("Analyzer")
-                                            or base_name == "BaseStrategy"
-                                            or base_name == "BaseSelector"
-                                            or base_name == "BaseSizer"
-                                            or base_name == "BaseRiskManagement"
-                                            or base_name == "BaseAnalyzer"
-                                        ):
-                                            is_component = True
-                                            break
-
-                                # 方法3：检查类名本身
-                                if (
-                                    attr_name.endswith("Strategy")
-                                    or attr_name.endswith("Selector")
-                                    or attr_name.endswith("Sizer")
-                                    or attr_name.endswith("RiskManagement")
-                                    or attr_name.endswith("Analyzer")
-                                ) and attr_name not in ["BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer"]:
-                                    is_component = True
-
-                                if is_component:
-                                    component_class = attr
-                                    self._logger.DEBUG(f"Found component class: {attr.__name__}")
-                                    break
-
-                        self._logger.DEBUG(f"Component detection completed. Found classes: {all_classes}")
+                        component_class = _detect_component_class(module, self._logger)
                         if component_class is None:
                             class_names = [name for name in dir(module) if not name.startswith("_") and isinstance(getattr(module, name), type)]
                             class_details = []
@@ -373,29 +399,9 @@ class ComponentLoader:
                         self._logger.INFO(f"🔧 [SOURCE FALLBACK] Trying to import: {full_module_path}")
                         module = importlib.import_module(full_module_path)
 
-                        component_class = None
-                        for attr_name in dir(module):
-                            if attr_name.startswith("_"):
-                                continue
-                            attr = getattr(module, attr_name)
-                            if isinstance(attr, type) and hasattr(attr, "__bases__"):
-                                is_component = False
-                                if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
-                                    is_component = True
-                                else:
-                                    for base in attr.__bases__:
-                                        base_name = base.__name__
-                                        if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
-                                           base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
-                                           base_name.endswith("Analyzer") or base_name == "BaseStrategy" or \
-                                           base_name == "BaseSelector" or base_name == "BaseSizer" or \
-                                           base_name == "BaseRiskManagement" or base_name == "BaseAnalyzer":
-                                            is_component = True
-                                            break
-
-                                if is_component:
-                                    component_class = attr
-                                    break
+                        # #4630: 与主路径共用 _detect_component_class。原 fallback 缺 method 3
+                        # （类名后缀检测）、base.__name__ 未防 object 致 AttributeError，现统一修复。
+                        component_class = _detect_component_class(module, self._logger)
 
                         if component_class is None:
                             return None, f"No component class found in source module {full_module_path}"
