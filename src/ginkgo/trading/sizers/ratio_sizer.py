@@ -11,11 +11,12 @@ from typing import Tuple, Optional
 
 from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.entities import Order, Signal
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import to_decimal, GLOG
 
 
-class RatioSizer(BaseSizer):
+class RatioSizer(LotAlignableMixin, BaseSizer):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     """
@@ -30,6 +31,7 @@ class RatioSizer(BaseSizer):
         commission_rate: float = 0.0003,
         commission_min: float = 5,
         stamp_tax: float = 0.001,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -39,12 +41,16 @@ class RatioSizer(BaseSizer):
             commission_rate(float): 手续费率，默认对齐 SimBroker (0.0003)。
             commission_min(float): 最小手续费（元），默认对齐 SimBroker (5)。
             stamp_tax(float): 印花税率（仅卖出收取），默认 0.001；买入估算不计。
+            lot_size(int): 最小交易单位（手），A 股默认 100；参数化以支持
+                美股(1)/港股等不同最小交易单位（#6498）。仅作用于开仓(LONG)
+                路径的 lot 对齐/递减步长；平仓(SHORT)路径全量下单不受影响。
         """
         super().__init__(name, *args, **kwargs)
         self._ratio = float(ratio)
         self._commission_rate = Decimal(str(commission_rate))
         self._commission_min = Decimal(str(commission_min))
         self._stamp_tax = Decimal(str(stamp_tax))
+        self._lot_size = lot_size
 
     @property
     def ratio(self) -> float:
@@ -73,12 +79,12 @@ class RatioSizer(BaseSizer):
         budget = to_decimal(cash) * Decimal(str(ratio))
         # 粗估可买股数上限（忽略手续费，偏大），后续循环按真实成本递减校正
         size = int(budget / to_decimal(last_price))
-        size = (size // 100) * 100  # round down to nearest 100 (A-share lot size)
+        size = self.align_to_lot(size)  # 向下对齐到 lot_size 整数倍（#6498，原硬编码 100）
         while size > 0:
             planned_cost = self._estimate_cost(last_price, size)
             if budget >= planned_cost:
                 return (size, planned_cost)
-            size -= 100
+            size -= self._lot_size
         return (0, 0)
 
     def cal(self, portfolio_info, signal: Signal, *args, **kwargs) -> Optional[Order]:
