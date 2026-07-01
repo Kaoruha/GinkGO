@@ -61,7 +61,11 @@ class StrategyDualThrust(BaseStrategy):
         now = portfolio_info.get("now")
         if now is None:
             return []
-        date_start = now - datetime.timedelta(days=(self._spans + 1))
+        # #4658: 按交易日倍数预留日历日窗口。A 股每周 2/7 非交易 + 法定节假日，
+        # spans+1 日历日仅约 (spans+1)*5/7 交易日 < spans+1，触发下方 df.shape[0]
+        # 守卫恒真 → 策略 100% 零信号。spans*2+5 覆盖周末与节假日 buffer，
+        # 多取的历史行被 _calculate_range 的 rolling(window=spans).iloc[-1] 自然忽略。
+        date_start = now - datetime.timedelta(days=(self._spans * 2 + 5))
         df = self.data_feeder.get_historical_data(
             symbols=[event.code], start_time=date_start,
             end_time=now, data_type="bar"
