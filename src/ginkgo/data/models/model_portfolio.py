@@ -139,7 +139,7 @@ class MPortfolio(MMysqlBase):
         if winning_trades is not None:
             self.winning_trades = winning_trades
 
-        self.updated_at = datetime.datetime.now()
+        self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
@@ -151,7 +151,7 @@ class MPortfolio(MMysqlBase):
             self.state = PORTFOLIO_RUNSTATE_TYPES.validate_input(df["state"]) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value
         if "source" in df.keys():
             self.source = df["source"]
-        self.updated_at = datetime.datetime.now()
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
