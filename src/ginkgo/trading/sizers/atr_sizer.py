@@ -12,6 +12,7 @@ from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.entities import Order
 from ginkgo.entities import Signal
+from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.libs import GLOG
 from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # #3958 restored import
 from ginkgo.data.containers import container
@@ -20,7 +21,7 @@ import datetime
 import pandas as pd
 
 
-class ATRSizer(BaseSizer):
+class ATRSizer(LotAlignableMixin, BaseSizer):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
@@ -32,6 +33,7 @@ class ATRSizer(BaseSizer):
         risk: float = 0.01,
         risk_ratio: float = 2,
         min_atr_percent: float = 0.005,
+        lot_size: int = 100,
         *args,
         **kwargs,
     ):
@@ -43,6 +45,9 @@ class ATRSizer(BaseSizer):
         # zero (halt / limit board / stale quotes) the raw max_money/atr would
         # produce oversized positions; floor ATR before sizing.
         self.min_atr_percent = min_atr_percent
+        # #6498: 最小交易单位（手），A 股默认 100；参数化以支持美股(1)/港股。
+        # 仅作用于开仓(LONG)路径的 lot 对齐；平仓(SHORT)路径全量下单不受影响。
+        self._lot_size = lot_size
 
     def set_risk(self, risk: float):
         self.risk = risk
@@ -106,7 +111,7 @@ class ATRSizer(BaseSizer):
                 )
                 atr = min_atr
             max_money = portfolio_info["cash"] * self.risk
-            max_shares = int((max_money / atr) / 100) * 100
+            max_shares = self.align_to_lot(int(max_money / atr))  # 向下对齐到 lot_size 整数倍（#6498，原硬编码 100）
             price = close * 1.1
             o = self.create_order(
                 code=signal.code,
