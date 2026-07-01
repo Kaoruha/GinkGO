@@ -50,6 +50,10 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 2. 对比同模块其他文件的 import 路径，确认是否路径漂移
 3. 批量修复 PR（如"一次修 15 个 bug"）逐条抽检归因，最易凑合出事
 
+**深层诱因（架构陷阱）：**
+- 函数级 import（CLI 为快启把重度 import 延到命令体内）让路径漂移只在命令实跑时暴露——模块 import 不崩，最容易误判"未实现"
+- `return` stub 让失败静默（命令"安静失败"而非"响亮报错"），反而盖住真因，后续无人回头查；宁可原样 `raise` 也别加 stub 兜底
+
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
