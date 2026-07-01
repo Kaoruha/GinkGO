@@ -168,8 +168,8 @@ def evaluate_strategy(
 
 @app.command("stability")
 def evaluate_stability(
-    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")] = None,
-    engine: Annotated[str, typer.Option("--engine", "-e", help=":gear: Engine ID")] = None,
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    engine: Annotated[str, typer.Option("--engine", "-e", help=":gear: Engine ID")],
     start_date: Annotated[Optional[str], typer.Option("--start", help=":calendar: Start date (YYYY-MM-DD)")] = None,
     end_date: Annotated[Optional[str], typer.Option("--end", help=":calendar: End date (YYYY-MM-DD)")] = None,
     export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to file")] = None,
@@ -179,43 +179,10 @@ def evaluate_stability(
     """
     :chart_with_upwards_trend: Evaluate backtest stability using slice analysis.
     """
-    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
-    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
-    return
-    # TODO(#4639): Implement BacktestEvaluator for stability analysis
+    from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
     try:
-        # Step 1: Validate inputs or show available options
-        if portfolio is None:
-            portfolio_ids = get_portfolio_ids_from_analyzer_records()
-            if not portfolio_ids:
-                console.print(":exclamation: [yellow]No portfolios found in analyzer records.[/yellow]")
-                return
-                
-            console.print("Please specify a portfolio ID. Available portfolios:")
-            for pid in portfolio_ids[:10]:  # Show first 10
-                console.print(f"  • {pid}")
-            if len(portfolio_ids) > 10:
-                console.print(f"  ... and {len(portfolio_ids) - 10} more")
-            console.print(f"\n[dim]Use: ginkgo evaluation stability --portfolio <portfolio_id>[/dim]")
-            return
-            
-        if engine is None:
-            engine_ids = get_engine_ids_from_analyzer_records()
-            if not engine_ids:
-                console.print(":exclamation: [yellow]No engines found in analyzer records.[/yellow]")
-                return
-                
-            console.print("Please specify an engine ID. Available engines:")
-            for eid in engine_ids[:10]:  # Show first 10
-                console.print(f"  • {eid}")
-            if len(engine_ids) > 10:
-                console.print(f"  ... and {len(engine_ids) - 10} more")
-            console.print(f"\n[dim]Use: ginkgo evaluation stability --portfolio {portfolio} --engine <engine_id>[/dim]")
-            return
-            
-        # Step 2: Run stability evaluation
         console.print(f":hourglass_flowing_sand: [yellow]Evaluating stability for portfolio {portfolio}, engine {engine}...[/yellow]")
-        
+
         evaluator = BacktestEvaluator(
             min_signals_per_slice=min_signals,
             min_orders_per_slice=min_orders
@@ -259,13 +226,10 @@ def create_monitor(
     """
     :telescope: Create monitoring baseline from backtest data.
     """
-    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
-    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
-    return
-    # TODO(#4639): Implement BacktestEvaluator for monitor baseline
+    from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
     try:
         console.print(f":hourglass_flowing_sand: [yellow]Creating monitoring baseline from portfolio {portfolio}, engine {engine}...[/yellow]")
-        
+
         evaluator = BacktestEvaluator()
         
         # Run evaluation to get baseline
@@ -307,17 +271,15 @@ def monitor_live(
     """
     :eyes: Start live monitoring using baseline (demo mode).
     """
-    console.print("[yellow]⚠ This command requires BacktestEvaluator (not yet implemented).[/yellow]")
-    console.print("[dim]Track progress: https://github.com/Kaoruha/GinkGO/issues/4639[/dim]")
-    return
-    # TODO(#4639): Implement BacktestEvaluator for live monitoring
+    import time
+    from ginkgo.trading.analysis.evaluation.backtest_evaluator import BacktestEvaluator
     try:
         # Load baseline
         with open(baseline, 'r', encoding='utf-8') as f:
             baseline_data = json.load(f)
-            
+
         console.print(f":telescope: [green]Loaded baseline from: {baseline}[/green]")
-        
+
         # Create live monitor
         evaluator = BacktestEvaluator()
         monitor = evaluator.create_live_monitor(baseline_data)
@@ -357,7 +319,7 @@ def _display_stability_results(result: dict):
     # Overview panel
     overview_text = f"""
 [bold]Portfolio:[/bold] {result['portfolio_id']}
-[bold]Engine:[/bold] {result['engine_id']}
+[bold]Engine:[/bold] {result.get('engine_id') or result.get('task_id', 'N/A')}
 [bold]Evaluation Time:[/bold] {result['evaluation_time']}
 [bold]Status:[/bold] :white_check_mark: Success
     """
