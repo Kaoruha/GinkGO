@@ -130,8 +130,11 @@ class BacktestProcessor(Thread):
             GLOG.clear_context()
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
-        """
-        等待引擎主线程完成
+        """⚠️ 死代码（#6483）：无调用点。
+
+        回测等待已统一由 BacktestOrchestrator._wait_for_engine 处理（返回 timed_out
+        供聚合层报告 incomplete）。勿复活此方法——它只 force-stop 不报告状态，
+        会重新引入"超时静默标 completed"的 #6483 bug。
 
         Args:
             timeout: 最大等待时间（秒），默认1小时
@@ -350,7 +353,12 @@ class BacktestProcessor(Thread):
             }
 
     def _aggregate_and_save_results(self):
-        """汇总分析器结果并保存到数据库"""
+        """⚠️ 死代码（#6483）：无调用点。
+
+        结果聚合已统一由 BacktestOrchestrator._aggregate_results 处理（超时写
+        status=incomplete + backtest_end_date=engine.now）。勿复活此方法——其
+        L391 status="completed" 硬编码会重新引入 #6483 bug。
+        """
         try:
             # 从 data_container 获取服务（不直接使用 CRUD）
             from ginkgo.data.containers import container as data_container

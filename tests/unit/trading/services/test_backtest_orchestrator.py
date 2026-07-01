@@ -279,3 +279,155 @@ class TestOrchestratorErrorHandling:
                                    timeout=0.01)
         # Should have called stop on timeout
         engine.stop.assert_called()
+
+
+class TestOrchestratorTimeoutReporting:
+    """#6483: 引擎超时不应静默标 completed，应如实报告为 incomplete。
+
+    背景：3600s 挂钟超时被 _aggregate_results 硬编码 status="completed" 吞掉，
+    导致 ~600 行截断的回测显示"已完成"。验收：超时分支写非 completed 状态、
+    附 error_message、backtest_end_date 取引擎实际跑到的时间（非配置 end_date）。
+    """
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_timeout_marks_status_incomplete_not_completed(
+        self, mock_load_components, orchestrator,
+        mock_portfolio_service, mock_assembly_service, mock_aggregator):
+        """超时分支调 aggregator 时 status 必须不是 'completed'。"""
+        import datetime as _dt
+        config = _make_config()
+        engine = _make_engine_mock()
+        # join 超时（仍 alive），engine.stop() 后再 join 死亡
+        main_thread = MagicMock()
+        main_thread.is_alive.side_effect = [True, True, False]
+        engine._main_thread = main_thread
+        # 引擎实际跑到的时间点（远早于 config.end_date 2025-12-31）
+        engine.now = _dt.datetime(2023, 10, 5)
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=engine,
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        orchestrator.run(task_id="t", config=config, portfolio_id="p", timeout=0.01)
+
+        agg_kwargs = mock_aggregator.aggregate_and_save.call_args.kwargs
+        assert agg_kwargs["status"] != "completed", (
+            "超时不应静默标 completed（#6483）：实际 status="
+            f"{agg_kwargs.get('status')!r}"
+        )
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_timeout_end_date_uses_engine_now_not_config(
+        self, mock_load_components, orchestrator,
+        mock_portfolio_service, mock_assembly_service, mock_aggregator):
+        """超时时 backtest_end_date 应取引擎实际跑到的时间，而非配置 end_date。
+
+        #6483 诊断价值：让用户看到"跑到 2023-10"而非谎报配置的 2025-12-31。
+        """
+        import datetime as _dt
+        config = _make_config()  # end_date = "2025-12-31"
+        engine = _make_engine_mock()
+        main_thread = MagicMock()
+        main_thread.is_alive.side_effect = [True, True, False]
+        engine._main_thread = main_thread
+        engine_now = _dt.datetime(2023, 10, 5)
+        engine.now = engine_now  # 引擎实际只跑到 2023-10
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=engine,
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        orchestrator.run(task_id="t", config=config, portfolio_id="p", timeout=0.01)
+
+        agg_kwargs = mock_aggregator.aggregate_and_save.call_args.kwargs
+        assert agg_kwargs["backtest_end_date"] == engine_now, (
+            "超时 end_date 应反映引擎实际跑到的时间（#6483 诊断价值）："
+            f"期望 {engine_now}，实际 {agg_kwargs.get('backtest_end_date')}"
+        )
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_timeout_run_returns_failure_so_processor_can_raise(
+        self, mock_load_components, orchestrator,
+        mock_portfolio_service, mock_assembly_service, mock_aggregator):
+        """超时时 run() 应返回 success=False + timeout error。
+
+        #6483: task_processor.run L107 `if not result.is_success(): raise` 据此自动
+        标 FAILED，task_processor 主流程零改动。
+        """
+        config = _make_config()
+        engine = _make_engine_mock()
+        main_thread = MagicMock()
+        main_thread.is_alive.side_effect = [True, True, False]
+        engine._main_thread = main_thread
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=engine,
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        result = orchestrator.run(task_id="t", config=config, portfolio_id="p", timeout=0.01)
+
+        assert not result.is_success(), (
+            "超时应返回 success=False（#6483），让 task_processor L107 自动 raise"
+        )
+        assert result.error and "timed out" in result.error.lower(), (
+            f"error 应含 'timed out' 描述，实际: {result.error!r}"
+        )
+
+
+class TestOrchestratorTimeoutConfig:
+    """#6483: 超时阈值应可通过 GINKGO_BACKTEST_TIMEOUT 环境变量配置（覆盖默认 3600s）。"""
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_env_var_overrides_default_timeout(
+        self, mock_load_components, orchestrator,
+        mock_portfolio_service, mock_assembly_service,
+        mock_aggregator, monkeypatch):
+        """不显式传 timeout 时，GINKGO_BACKTEST_TIMEOUT 环境变量生效。"""
+        monkeypatch.setenv("GINKGO_BACKTEST_TIMEOUT", "42")
+        config = _make_config()
+        engine = _make_engine_mock()
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=engine,
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        # spy _wait_for_engine 捕获实际传入的 timeout
+        captured = {}
+        original_wait = orchestrator._wait_for_engine
+
+        def spy_wait(engine_arg, t):
+            captured["timeout"] = t
+            return original_wait(engine_arg, t)
+
+        orchestrator._wait_for_engine = spy_wait
+
+        orchestrator.run(task_id="t", config=config, portfolio_id="p")  # 不传 timeout
+
+        assert captured.get("timeout") == 42.0, (
+            "GINKGO_BACKTEST_TIMEOUT 应覆盖默认 timeout："
+            f"实际 _wait_for_engine 收到 {captured.get('timeout')}"
+        )
