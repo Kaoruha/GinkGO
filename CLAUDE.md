@@ -93,8 +93,9 @@ ginkgo portfolio get <uuid> --details
 ginkgo component list
 
 # 绑定（参数格式：'index:value'，字符串带引号，数值直接写）
+# 新组合(#5955后)：index0=首个业务参数（name 自动跳过，用构造器默认）；旧组合 index0=name
 ginkgo portfolio bind-component <pid> <file_id> --type strategy \
-  --param '0:"StrategyName"' --param '1:0.3'
+  --param '0:14' --param '1:30'
 
 # 回测
 ginkgo backtest create --portfolio <pid> --start 2025-05-07 --end 2026-05-07 --name "test" --cash 100000
