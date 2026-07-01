@@ -648,11 +648,12 @@ class DataWorker(threading.Thread):
         处理数据采集命令
 
         DataWorker 订阅 ginkgo.data.commands topic，
-        只会收到 4 个核心数据采集命令：
+        只会收到 5 个核心数据采集命令：
         - bar_snapshot: K线数据采集
         - stockinfo: 股票基础信息同步
         - adjustfactor: 复权因子同步
         - tick: Tick数据采集
+        - trade_day: 交易日历同步
 
         Args:
             command: 命令类型
@@ -676,8 +677,10 @@ class DataWorker(threading.Thread):
                 return self._handle_adjustfactor(payload)
             elif command == "tick":
                 return self._handle_tick(payload)
+            elif command == "trade_day":
+                return self._handle_trade_day(payload)
             else:
-                # 理论上不会到达这里（topic 只有这 4 个命令）
+                # 理论上不会到达这里（topic 只有这 5 个命令）
                 GLOG.WARN(f"[DataWorker:{self._node_id}] Unknown command: {command}")
                 return False
 
@@ -766,6 +769,35 @@ class DataWorker(threading.Thread):
 
         except Exception as e:
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling stockinfo: {e}")
+            import traceback
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            return False
+
+    def _handle_trade_day(self, payload: Dict[str, Any]) -> bool:
+        """
+        处理 trade_day 命令 - 交易日历更新（#6488）
+
+        TradeDayService.sync() 同步全量交易日历（开市/休市标记），不支持单日同步。
+        paper worker 通过 trade_day_crud 查 is_open 判断是否开市，表空则整轮 skip 致 0 signal。
+        """
+        try:
+            code = payload.get("code")  # 参数会被忽略，sync() 总是同步全量日历
+            GLOG.INFO(f"[DataWorker:{self._node_id}] Handling trade_day: code={code} (will sync all)")
+
+            from ginkgo.data.containers import container
+            trade_day_service = container.trade_day_service()
+
+            result = trade_day_service.sync()
+
+            if result.success:
+                GLOG.INFO(f"[DataWorker:{self._node_id}] Trade calendar sync completed")
+            else:
+                GLOG.ERROR(f"[DataWorker:{self._node_id}] Trade calendar sync failed: {result.error}")
+
+            return result.success
+
+        except Exception as e:
+            GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling trade_day: {e}")
             import traceback
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False

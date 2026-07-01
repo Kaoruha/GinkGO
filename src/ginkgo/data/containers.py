@@ -57,6 +57,7 @@ from ginkgo.libs import GCONF
 from ginkgo.data.services.adjustfactor_service import AdjustfactorService
 from ginkgo.data.services.backtest_task_service import BacktestTaskService
 from ginkgo.data.services.stockinfo_service import StockinfoService
+from ginkgo.data.services.trade_day_service import TradeDayService
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService
 from ginkgo.data.crud.tick_crud import TickCRUD
@@ -126,6 +127,7 @@ class Container(containers.DeclarativeContainer):
     # Backward compatibility - keep existing explicit providers
     adjustfactor_crud = providers.Singleton(get_crud, "adjustfactor")
     stockinfo_crud = providers.Singleton(get_crud, "stock_info")
+    trade_day_crud = providers.Singleton(get_crud, "trade_day")
     bar_crud = providers.Singleton(get_crud, "bar")
     engine_crud = providers.Singleton(get_crud, "engine")
     file_crud = providers.Singleton(get_crud, "file")
@@ -166,6 +168,11 @@ class Container(containers.DeclarativeContainer):
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
     stockinfo_service = providers.Singleton(
         StockinfoService, crud_repo=stockinfo_crud, data_source=ginkgo_tushare_source
+    )
+
+    # TradeDayService：交易日历同步（#6488），paper worker 查 is_open 判断开市
+    trade_day_service = providers.Singleton(
+        TradeDayService, crud_repo=trade_day_crud, data_source=ginkgo_tushare_source
     )
 
     adjustfactor_service = providers.Singleton(
