@@ -540,12 +540,15 @@ class RedisCRUD:
                 return {"connected": False, "error": "Connection failed"}
                 
             info_data = self._redis.info()
+            # db0 keyspace 与 version/memory 等同属展示型字段，从 raw_info 提到顶层，
+            # 消费端（dashboard health）无需感知 Redis INFO 的嵌套结构。#4663
             return {
                 "connected": True,
                 "version": info_data.get("redis_version"),
                 "used_memory": info_data.get("used_memory_human"),
                 "connected_clients": info_data.get("connected_clients"),
                 "uptime": info_data.get("uptime_in_seconds"),
+                "db0": info_data.get("db0", {}),
                 "raw_info": info_data
             }
             

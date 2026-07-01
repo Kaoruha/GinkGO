@@ -90,3 +90,60 @@ class TestEndpointSanitization:
         error_text = payload.get("data", {}).get("error", "") if isinstance(payload, dict) else ""
         assert "10.0.0.1" not in error_text, f"泄露内部地址: {error_text}"
         assert "Access denied" not in error_text, f"泄露异常细节: {error_text}"
+
+
+class TestRedisHealthKeysDisplay:
+    """#4663: dashboard Redis key count 应显示真实 keys 数而非恒 N/A。
+    契约：crud.info() 在顶层暴露 db0（与其他提炼字段对齐），dashboard 读顶层 db0 即生效。
+    """
+
+    def test_check_health_redis_online_shows_real_key_count(self):
+        """Redis online 且有 keyspace 时 detail 显示真实 keys 数（非 N/A）"""
+        from api.dashboard import _check_health
+
+        mock_container = MagicMock()
+        # MySQL 走通，避免干扰 Redis 断言
+        mysql_result = MagicMock()
+        mysql_result.is_success.return_value = True
+        mysql_result.data = {"count": 5}
+        mock_container.portfolio_service.return_value.count.return_value = mysql_result
+        # Redis online，get_redis_info 返回 crud 修复后的结构（顶层 db0）
+        mock_container.redis_service.return_value.ping.return_value = True
+        mock_container.redis_service.return_value.get_redis_info.return_value = {
+            "connected": True,
+            "version": "7.0.0",
+            "db0": {"keys": 100, "expires": 50},
+            "raw_info": {"db0": {"keys": 100, "expires": 50}},
+        }
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            health = _check_health()
+
+        redis_item = next(h for h in health if h.name == "Redis")
+        assert redis_item.status == "ONLINE"
+        assert "100" in redis_item.detail, f"应显示真实 keys 数: {redis_item.detail}"
+        assert "N/A" not in redis_item.detail, f"不应显示 N/A: {redis_item.detail}"
+
+    def test_check_health_redis_online_empty_db_shows_na(self):
+        """Redis online 但无 keyspace（空库）时 detail 显示 N/A，不崩"""
+        from api.dashboard import _check_health
+
+        mock_container = MagicMock()
+        mysql_result = MagicMock()
+        mysql_result.is_success.return_value = True
+        mysql_result.data = {"count": 5}
+        mock_container.portfolio_service.return_value.count.return_value = mysql_result
+        mock_container.redis_service.return_value.ping.return_value = True
+        # crud 对空库返回 db0={}（详见 test_redis_crud_mock）
+        mock_container.redis_service.return_value.get_redis_info.return_value = {
+            "connected": True,
+            "db0": {},
+            "raw_info": {},
+        }
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            health = _check_health()
+
+        redis_item = next(h for h in health if h.name == "Redis")
+        assert redis_item.status == "ONLINE"
+        assert "N/A" in redis_item.detail
