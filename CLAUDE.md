@@ -44,6 +44,12 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 ### 基础组件
 **禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
 
+### 归因纪律（防 #4652 类事故）
+撞 `ImportError` / 命令跑不通，**禁止直接判"未实现"加 `return`+TODO 存根**。#4652 把 `BacktestEvaluator` 的 import 路径漂移（`ginkgo.trading.evaluation` → `ginkgo.trading.analysis.evaluation.backtest_evaluator`）误判为"功能未实现"，加 stub 屏蔽了 `ginkgo eval stability/monitor-create/monitor-live` 三命令，而底层实现完好、且有 3 个调用方在真实运行。判未实现前必做：
+1. `grep` 类名/函数名全仓引用，看有无调用方在使用（有调用方 = 实现必存在）
+2. 对比同模块其他文件的 import 路径，确认是否路径漂移
+3. 批量修复 PR（如"一次修 15 个 bug"）逐条抽检归因，最易凑合出事
+
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
