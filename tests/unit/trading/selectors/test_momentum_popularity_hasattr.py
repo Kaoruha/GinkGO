@@ -29,13 +29,22 @@ def _make_bars(df: pd.DataFrame):
 class MomentumSelectorHasattrRemovalTest(unittest.TestCase):
     @patch("ginkgo.trading.selectors.momentum_selector.container")
     def test_non_empty_bars_uses_to_dataframe(self, mock_container):
-        """非空 bars：直接调 to_dataframe，按 momentum 排序产出 code。"""
+        """非空 bars：直接调 to_dataframe，按 momentum 排序产出 code。
+
+        批量实现（#4650）按 code 列 groupby，故 df 需含真实 bar 的 code/timestamp 列
+        （旧逐股实现 code 来自循环变量，fixture 曾省略 code 列）。
+        """
         mock_stockinfo = MagicMock()
         mock_stockinfo.get_all_codes.return_value = ["000001"]
         mock_container.cruds.stock_info.return_value = mock_stockinfo
 
         df = pd.DataFrame(
-            {"close": [10.0, 12.0], "volume": [100, 200]},
+            {
+                "code": ["000001", "000001"],
+                "close": [10.0, 12.0],
+                "volume": [100, 200],
+                "timestamp": [pd.Timestamp("2020-05-01"), pd.Timestamp("2020-05-31")],
+            }
         )
         mock_bar = MagicMock()
         mock_bar.find.return_value = _make_bars(df)

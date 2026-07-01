@@ -9,6 +9,11 @@ from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.data.containers import container
 from ginkgo.libs import GLOG
 
+# 热度统计窗口上限（日历日）。与 MomentumSelector.MAX_WINDOW 对齐：业务 ≤1 年，
+# 技术上防止未来改批量查询后一次取全表 OOM（当前逐股路径有 page_size=span+10 兜底，
+# 但参数校验是更上游、更稳的防御）。
+MAX_SPAN = 365
+
 
 class PopularitySelector(BaseSelector):
     __abstract__ = False
@@ -22,6 +27,11 @@ class PopularitySelector(BaseSelector):
         **kwargs,
     ) -> None:
         super().__init__(name, *args, **kwargs)
+        # 源头校验：span 必须为 [1, MAX_SPAN] 内 int。与 MomentumSelector 同款防御。
+        if isinstance(span, bool) or not isinstance(span, int) or not (1 <= span <= MAX_SPAN):
+            raise ValueError(
+                f"span must be int in [1, {MAX_SPAN}], got {span!r}"
+            )
         self.rank = rank
         self.span = span
         self._interested = []
