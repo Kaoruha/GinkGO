@@ -7,6 +7,10 @@ from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize, GLOG
 import datetime
 
+# 动量回看窗口上限（日历日）。业务上动量语义 ≤1 年；技术上防止批量 bar 查询
+# 一次取全表（master 库 5423 code × 35 年 ≈ 1568 万行）导致 OOM/卡死。
+MAX_WINDOW = 365
+
 
 class MomentumSelector(BaseSelector):
     __abstract__ = False
@@ -21,6 +25,12 @@ class MomentumSelector(BaseSelector):
         **kwargs,
     ) -> None:
         super().__init__(name, *args, **kwargs)
+        # 源头校验：window 必须为 [1, MAX_WINDOW] 内 int，避免 timedelta(days=) 语义错
+        # 或批量查询取全表 OOM。bool 是 int 子类，一并拒绝。
+        if isinstance(window, bool) or not isinstance(window, int) or not (1 <= window <= MAX_WINDOW):
+            raise ValueError(
+                f"window must be int in [1, {MAX_WINDOW}], got {window!r}"
+            )
         self._interested = []
         self._interval = interval
         self._rank = rank
