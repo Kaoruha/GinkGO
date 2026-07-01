@@ -614,7 +614,7 @@ def priority(
 def list(
     backtest_id: Optional[str] = typer.Option(None, "--backtest", "-b", help="Filter by backtest ID"),
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio ID"),
-    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+    page: int = typer.Option(20, "--page", "-P", help="Page size"),
 ):
     """
     :clipboard: List all backtest results.

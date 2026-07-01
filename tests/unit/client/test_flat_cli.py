@@ -83,6 +83,46 @@ class TestHelp:
 
 
 # ============================================================================
+# 1b. result list -p short-option conflict (#4621)
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestResultListParamConflict:
+    """#4621: --portfolio and --page both declared -p, triggering a Typer
+    'parameter -p is used more than once' warning at command-build time.
+    --portfolio keeps -p (consistent with `result show`, `record`); --page
+    must use a distinct short option.
+    """
+
+    @staticmethod
+    def _duplicate_warnings(records):
+        return [str(w.message) for w in records if "used more than once" in str(w.message)]
+
+    def test_result_list_help_no_duplicate_p_warning(self, cli_runner):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = cli_runner.invoke(flat_cli.result_app, ["list", "--help"])
+        assert result.exit_code == 0
+        assert self._duplicate_warnings(caught) == []
+
+    def test_result_list_portfolio_and_page_are_distinct_options(self, cli_runner):
+        """--portfolio and --page must each parse independently without the
+        duplicate-short-option warning, regardless of order."""
+        import warnings
+
+        for argv in (["list", "--portfolio", "abc123"], ["list", "--page", "2"]):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result = cli_runner.invoke(flat_cli.result_app, argv)
+            assert result.exit_code == 0, f"failed for {argv}: {result.output}"
+            assert self._duplicate_warnings(caught) == [], f"dup -p warning for {argv}"
+
+
+# ============================================================================
 # 2. Component list command
 # ============================================================================
 
