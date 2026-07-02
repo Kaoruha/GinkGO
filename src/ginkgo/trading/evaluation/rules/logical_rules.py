@@ -422,6 +422,29 @@ class ForbiddenOperationsRule(ASTBasedRule):
     severity = EvaluationSeverity.WARNING
     level = EvaluationLevel.STANDARD
 
+    # 合法数据访问前缀：datafeeder 直接访问（时间边界受控）
+    _ALLOWED_DATA_PREFIXES = ("data_feeder",)
+    # 合法缓存取数方法（StrategyDataMixin 提供，方法名精确匹配）
+    # 见 src/ginkgo/trading/interfaces/mixins/strategy_data_mixin.py
+    _ALLOWED_DATA_METHODS = frozenset({
+        "get_bars_cached",
+        "get_bar_cached",
+    })
+    # 禁止：精确方法名匹配（裸调用 = 模块级 CRUD/IO 函数，如 get_bars(...) / open(...)）
+    _FORBIDDEN_METHODS = {
+        "get_bars": "database",
+        "add_bars": "database",
+        "delete_bars": "database",
+        "open": "file I/O",
+    }
+    # 禁止：前缀子串匹配（对象属性链，如 cruds.xxx / requests.get）
+    _FORBIDDEN_PREFIXES = {
+        "cruds.": "database",
+        "crud.": "database",
+        "requests.": "network",
+        "urllib.": "network",
+    }
+
     def check_ast(self, tree: ast.Module, file_path: Path, source_code: str) -> Optional["EvaluationIssue"]:
         """Check for forbidden operations in cal() method."""
         for node in ast.walk(tree):
@@ -464,27 +487,62 @@ class ForbiddenOperationsRule(ASTBasedRule):
                 )
         elif isinstance(node, ast.Call):
             call_str = self._get_call_string(node)
-            # Check for forbidden patterns
-            forbidden_patterns = [
-                ("add_bars", "database"),
-                ("get_bars", "database"),
-                ("delete_bars", "database"),
-                ("cruds.", "database"),
-                ("crud.", "database"),
-                ("requests.", "network"),
-                ("urllib.", "network"),
-                ("open", "file I/O"),
-            ]
-
             if call_str:
-                for pattern, desc in forbidden_patterns:
-                    if pattern in call_str and "data_feeder" not in call_str:
-                        return self.get_issue(
-                            message=f"Forbidden operation detected: {desc}",
-                            suggestion="Use self.data_feeder for data access, avoid direct DB/network/file operations",
-                            file_path=file_path,
-                            line=node.lineno,
-                        )
+                issue = self._detect_forbidden_call(call_str, node, file_path)
+                if issue:
+                    return issue
+
+        return None
+
+    def _is_allowed_data_access(self, call_str: str) -> bool:
+        """合法数据访问：datafeeder 前缀 或 StrategyDataMixin 缓存方法。
+
+        datafeeder 调用受 BacktestFeeder 时间边界保护（无 look-ahead）；
+        get_bars_cached 是 StrategyDataMixin 经 datafeeder 取数的缓存封装。
+        两者均非直接 DB 访问，不应误报。
+        """
+        if any(prefix in call_str for prefix in self._ALLOWED_DATA_PREFIXES):
+            return True
+        method = call_str.rsplit(".", 1)[-1]
+        return method in self._ALLOWED_DATA_METHODS
+
+    def _detect_forbidden_call(
+        self, call_str: str, node: ast.Call, file_path: Path
+    ) -> Optional["EvaluationIssue"]:
+        """精确匹配 forbidden 调用：白名单优先，再按方法名/前缀分类判定。
+
+        历史问题（#4722）：旧实现用 ``pattern in call_str`` 子串匹配，
+        ``('get_bars','database')`` 命中合法的 ``self.get_bars_cached`` 致误报。
+        现按方法名末段精确匹配 + 白名单放行合法数据访问。
+        """
+        # 白名单优先：合法数据访问直接放行
+        if self._is_allowed_data_access(call_str):
+            return None
+
+        suggestion = (
+            "Use self.data_feeder for data access, "
+            "avoid direct DB/network/file operations"
+        )
+
+        # 精确方法名匹配（裸调用：get_bars(...) / open(...)）
+        method = call_str.rsplit(".", 1)[-1]
+        if method in self._FORBIDDEN_METHODS:
+            return self.get_issue(
+                message=f"Forbidden operation detected: {self._FORBIDDEN_METHODS[method]}",
+                suggestion=suggestion,
+                file_path=file_path,
+                line=node.lineno,
+            )
+
+        # 前缀子串匹配（对象属性链：cruds.xxx / requests.get）
+        for prefix, desc in self._FORBIDDEN_PREFIXES.items():
+            if prefix in call_str:
+                return self.get_issue(
+                    message=f"Forbidden operation detected: {desc}",
+                    suggestion=suggestion,
+                    file_path=file_path,
+                    line=node.lineno,
+                )
 
         return None
 
