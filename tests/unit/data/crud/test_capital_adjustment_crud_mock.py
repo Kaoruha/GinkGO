@@ -189,6 +189,23 @@ class TestCapitalAdjustmentCRUDBusinessHelpers:
 
         assert result == 150000.0
 
+    @pytest.mark.unit
+    def test_get_total_adjustment_filters_by_business_timestamp(self, capital_adjustment_crud):
+        """get_total_adjustment 传 start/end 时按 business_timestamp 过滤（非 record timestamp）"""
+        capital_adjustment_crud.find = MagicMock(return_value=[])
+
+        start = datetime(2025, 1, 1)
+        end = datetime(2025, 12, 31)
+        capital_adjustment_crud.get_total_adjustment("portfolio-001", start, end)
+
+        assert capital_adjustment_crud.find.called
+        call_kwargs = capital_adjustment_crud.find.call_args.kwargs
+        filters = call_kwargs["filters"]
+        assert filters["portfolio_id"] == "portfolio-001"
+        assert "business_timestamp__gte" in filters, "必须按业务时间过滤而非 record timestamp"
+        assert "business_timestamp__lte" in filters
+        assert "timestamp__gte" not in filters, "不应混用 record timestamp 口径"
+
 
 # ============================================================
 # 构造与类型检查测试
