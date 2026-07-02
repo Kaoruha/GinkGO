@@ -1,12 +1,12 @@
 """
-TDD test for #5955: get_component_parameter_names() should skip framework 'name'.
+ADR-020: 参数提取器镜像构造函数签名（含 name）。
 
-Bug: Index 0 maps to 'name' (framework display name) instead of the first
-business parameter. When CLI users pass --param '0:value', they intend to set
-a business param like 'codes' or 'rsi_period', not the component name.
+旧契约（#5955）：提取器跳过 name，假装 index0 = 首个业务参数；装配端再用
+打分启发式（resolve_param_kwargs）猜新旧组合 → #6481 崩溃链。
+新契约（ADR-020）：提取器原样镜像构造器（name 留在 index0），装配纯位置
+splat，提取器只服务 API/UI 展示，两类 bug 物理隔离。
 
-Root cause: _extract_via_ast_analysis_content and _extract_via_dynamic_import
-skip 'self'/'args'/'kwargs' but intentionally keep 'name'.
+回归保护：禁止重新引入 name-skip。
 """
 import pytest
 from ginkgo.data.services.component_parameter_extractor import (
@@ -15,7 +15,6 @@ from ginkgo.data.services.component_parameter_extractor import (
 )
 
 
-# Fake component source code simulating a typical strategy
 _FAKE_STRATEGY_CODE = '''
 from ginkgo.trading.bases.base_strategy import BaseStrategy
 
@@ -42,35 +41,29 @@ class FixedSelector(BaseSelector):
 
 
 @pytest.mark.unit
-class TestParameterExtractionSkipsName:
-    """参数提取应跳过框架参数 name"""
+class TestParameterExtractionMirrorsConstructor:
+    """ADR-020: 提取器镜像构造函数签名，name 保留在 index0"""
 
-    def test_ast_content_skips_name_strategy(self):
-        """策略参数索引 0 应为 period，不是 name"""
+    def test_strategy_keeps_name_at_index0(self):
+        """策略：index0=name, 1=period, 2=threshold（与构造器位置 1:1）"""
         result = get_component_parameter_names(
             "FakeStrategy",
             file_content=_FAKE_STRATEGY_CODE,
             component_type="strategy",
         )
-        assert result is not None
-        assert "name" not in result.values()
-        # 索引 0 应为第一个业务参数
-        assert result[0] == "period"
-        assert result[1] == "threshold"
+        assert result == {0: "name", 1: "period", 2: "threshold"}
 
-    def test_ast_content_skips_name_selector(self):
-        """选择器参数索引 0 应为 codes，不是 name"""
+    def test_selector_keeps_name_at_index0(self):
+        """选择器：index0=name, 1=codes"""
         result = get_component_parameter_names(
             "FixedSelector",
             file_content=_FAKE_SELECTOR_CODE,
             component_type="selector",
         )
-        assert result is not None
-        assert "name" not in result.values()
-        assert result[0] == "codes"
+        assert result == {0: "name", 1: "codes"}
 
-    def test_empty_params_when_only_name(self):
-        """只有 name 一个参数时，应返回空映射"""
+    def test_single_name_constructor_returns_name_only(self):
+        """只有 name 一个参数时返回 {0: 'name'}（非空映射）"""
         code = '''
 class SimpleStrategy:
     def __init__(self, name="Simple"):
@@ -81,21 +74,19 @@ class SimpleStrategy:
             file_content=code,
             component_type="strategy",
         )
-        assert result is not None
-        assert len(result) == 0
+        assert result == {0: "name"}
 
-    def test_parameter_count_excludes_name(self):
-        """参数计数应排除 name"""
+    def test_name_in_values(self):
+        """name 必须出现在提取结果中（回归：#5955 曾跳过 name）"""
         result = get_component_parameter_names(
             "FakeStrategy",
             file_content=_FAKE_STRATEGY_CODE,
             component_type="strategy",
         )
-        # period + threshold = 2 (not 3 with name)
-        assert len(result) == 2
+        assert "name" in result.values()
 
     def test_snake_case_component_name_matches_camel_case_class(self):
-        """组件名来自文件名时，snake_case 也应匹配 CamelCase 类名。"""
+        """组件名 snake_case 匹配 CamelCase 类名；name 仍在 index0"""
         code = '''
 class MovingAverageCrossover:
     def __init__(self, name="MovingAverageCrossover", short_period=20, long_period=60, **kwargs):
@@ -107,4 +98,4 @@ class MovingAverageCrossover:
             file_content=code,
             component_type="strategy",
         )
-        assert result == {0: "short_period", 1: "long_period"}
+        assert result == {0: "name", 1: "short_period", 2: "long_period"}

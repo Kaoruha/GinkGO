@@ -107,84 +107,6 @@ def _detect_component_class(module, logger=None):
     return None
 
 
-def resolve_param_kwargs(
-    component_params: list,
-    param_indices: List[int],
-    param_names: Dict[int, str],
-) -> Dict[str, Any]:
-    """将 DB 参数值映射到组件构造函数的 kwargs。
-
-    #5974: 支持新旧两种索引方案：
-    - 新组合（#5955 后创建）：索引从 0 开始，name 已跳过
-    - 旧组合（#5955 前创建）：索引从 1 开始（0=name）
-
-    策略（两轮打分择优）：
-    1. 直接匹配：param_indices[i] → param_names[该索引]。当全部命中且
-       min(param_indices)==0（确属新组合 0 起始）时立即返回。
-    2. 偏移匹配：整体 -1（name 曾占 index 0）。
-    选择规则：按 _score_mapping 的「命中数」优先；命中数相同时，若为多参数
-    旧组合（min>0）则偏好偏移方案，避免 [1,2] 被误读为第二、第三业务参数。
-    """
-    if not component_params or not param_indices:
-        return {}
-
-    def _score_mapping(mapped_kwargs: Dict[str, Any], source_indices: List[int]) -> tuple[int, int, int]:
-        """给候选映射打分，优先保留业务参数映射更完整、索引起点更合理的方案。"""
-        mapped_count = len(mapped_kwargs)
-        if not source_indices:
-            return (mapped_count, 0, 0)
-
-        min_index = min(source_indices)
-        # 更偏向 0 起始的新索引；旧索引在平分时由调用方显式选择
-        zero_based_bonus = 1 if min_index == 0 else 0
-        contiguous_bonus = 1 if source_indices == list(range(min_index, min_index + len(source_indices))) else 0
-        return (mapped_count, zero_based_bonus, contiguous_bonus)
-
-    # 第一轮：直接匹配（新组合）
-    kwargs: Dict[str, Any] = {}
-    for i, val in enumerate(component_params):
-        orig_idx = param_indices[i]
-        if orig_idx in param_names:
-            kwargs[param_names[orig_idx]] = val
-
-    if len(kwargs) == len(component_params) and (not param_indices or min(param_indices) == 0):
-        return kwargs
-
-    # 第二轮：旧组合，索引整体偏移 -1（name 曾在 index 0）
-    shifted: Dict[str, Any] = {}
-    shifted_indices: List[int] = []
-    for i, val in enumerate(component_params):
-        orig_idx = param_indices[i]
-        shifted_idx = orig_idx - 1
-        if shifted_idx >= 0 and shifted_idx in param_names:
-            shifted[param_names[shifted_idx]] = val
-            shifted_indices.append(shifted_idx)
-
-    direct_score = _score_mapping(kwargs, param_indices)
-    shifted_score = _score_mapping(shifted, shifted_indices)
-
-    # #6159: 提取器跳过了框架参数(如 name) → param_names 比 component_params 少一项，
-    # 而 DB 仍把被跳过的值(如 name)存在 index0。直接映射会把该值错绑给第一个
-    # 业务参数(如 FixedSelector codes 拿到 'default_selector')。此时偏移映射才正确：
-    # index1→param_names[0] 把真业务值绑对。仅当 len 相等(DB 未存 name)时不触发。
-    if shifted and len(param_names) < len(component_params):
-        return shifted
-
-    # 平分时优先旧索引兼容方案，避免 [1,2] 被误解释为第二、第三个业务参数
-    if shifted_score[0] > direct_score[0]:
-        return shifted
-    if (
-        shifted_score[0] == direct_score[0]
-        and shifted
-        and param_indices
-        and len(component_params) > 1
-        and min(param_indices) > 0
-    ):
-        return shifted
-
-    return kwargs
-
-
 class ComponentLoader:
     """
     组件加载器
@@ -271,23 +193,8 @@ class ComponentLoader:
                         return None, "Invalid file data structure"
 
                     # 获取组件参数（#6103: 走注入的 param_service，取代 container.cruds.param()）
-                    component_params, param_indices = self._resolve_component_params(mapping_uuid)
-                    component_kwargs = {}
-                    if component_params:
-                        # 用动态参数提取器获取参数名，构建 kwargs
-                        # #5974: 使用 resolve_param_kwargs 处理新旧索引兼容
-                        try:
-                            from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
-                            # #6103: 复用已取的 mfile.name，取代 container.cruds.file() 重复查询
-                            comp_name = getattr(mfile, "name", None)
-                            file_type_str = COMPONENT_TYPE_INFO.get(component_type, {}).get("name")
-                            if comp_name and file_type_str:
-                                param_names = get_component_parameter_names(comp_name, code_content, file_type_str, file_id)
-                                component_kwargs = resolve_param_kwargs(
-                                    component_params, param_indices, param_names,
-                                )
-                        except Exception as e:
-                            self._logger.WARN(f"Failed to resolve param names, falling back to positional: {e}")
+                    # ADR-020: 纯位置装配 — 按 MParam.index 排序后 splat，装配不再依赖提取器/kwargs
+                    component_params, _ = self._resolve_component_params(mapping_uuid)
 
                     # 动态执行代码来获取组件类
                     import importlib.util
@@ -335,12 +242,9 @@ class ComponentLoader:
                             self._logger.ERROR(f"No component class found in file. Available classes: {class_details}")
                             return None, f"No component class found in file. Available classes: {class_details}"
 
-                        # 实例化组件
+                        # 实例化组件（ADR-020: 纯位置 splat，无 kwargs 分支）
                         try:
-                            if component_kwargs:
-                                self._logger.DEBUG(f"Creating {component_class.__name__} with kwargs: {component_kwargs}")
-                                component = component_class(**component_kwargs)
-                            elif component_params:
+                            if component_params:
                                 self._logger.DEBUG(f"Creating {component_class.__name__} with positional params: {component_params}")
                                 component = component_class(*component_params)
                             else:
@@ -406,9 +310,7 @@ class ComponentLoader:
                         if component_class is None:
                             return None, f"No component class found in source module {full_module_path}"
 
-                        if component_kwargs:
-                            component = component_class(**component_kwargs)
-                        elif component_params:
+                        if component_params:
                             component = component_class(*component_params)
                         else:
                             component = component_class()

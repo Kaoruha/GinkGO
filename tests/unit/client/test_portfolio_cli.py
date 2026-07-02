@@ -563,9 +563,8 @@ class TestPortfolioDelete:
 class TestPortfolioBindComponent:
     """portfolio bind-component 命令"""
 
-    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_success(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
+    def test_bind_success(self, mock_container, cli_runner, mock_portfolio):
         """成功绑定组件到 portfolio"""
         mock_pf_service = MagicMock()
         # bind 源码检查 len(data) > 0，需要传列表
@@ -595,9 +594,8 @@ class TestPortfolioBindComponent:
         assert result.exit_code == 0
         assert "binding created successfully" in result.output
 
-    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_with_params(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
+    def test_bind_with_params(self, mock_container, cli_runner, mock_portfolio):
         """绑定组件并设置参数（index 格式向后兼容）"""
         mock_pf_service = MagicMock()
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
@@ -636,9 +634,8 @@ class TestPortfolioBindComponent:
         ])
         assert result.exit_code != 0
 
-    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names", return_value={})
     @patch("ginkgo.data.containers.container")
-    def test_bind_invalid_type(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
+    def test_bind_invalid_type(self, mock_container, cli_runner, mock_portfolio):
         """无效的组件类型时失败"""
         mock_pf_service = MagicMock()
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
@@ -657,10 +654,14 @@ class TestPortfolioBindComponent:
         assert result.exit_code == 1
         assert "Invalid component type" in result.output
 
-    @patch("ginkgo.client.portfolio_cli.get_component_parameter_names")
     @patch("ginkgo.data.containers.container")
-    def test_bind_with_keyword_params(self, mock_container, mock_get_names, cli_runner, mock_portfolio):
-        """#5325 支持关键字格式 --param short_period:20"""
+    def test_bind_rejects_keyword_param(self, mock_container, cli_runner, mock_portfolio):
+        """ADR-020: 关键字格式 --param short_period:20 已废弃，应报错退出。
+
+        纯位置装配后 CLI 只接受整数 index:value；关键字路径（依赖提取器/
+        打分启发式）已移除。回归保护：防止重新引入 name-skip + resolve_param_kwargs
+        打分链（#5955→#6032→#6159→#6481）。
+        """
         mock_pf_service = MagicMock()
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
 
@@ -671,34 +672,16 @@ class TestPortfolioBindComponent:
         mock_file_service = MagicMock()
         mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=mock_file)
 
-        mock_mapping = MagicMock()
-        mock_mapping.uuid = "mapping-uuid-kw"
-
-        mock_mapping_service = MagicMock()
-        mock_mapping_service.create_portfolio_file_binding.return_value = ServiceResult.success(data=mock_mapping)
-        mock_mapping_service.create_component_parameters.return_value = ServiceResult.success(data=None)
-
         mock_container.portfolio_service.return_value = mock_pf_service
         mock_container.file_service.return_value = mock_file_service
-        mock_container.mapping_service.return_value = mock_mapping_service
-
-        # 返回参数名映射 {0: "short_period", 1: "long_period"}
-        mock_get_names.return_value = {0: "short_period", 1: "long_period"}
 
         result = cli_runner.invoke(portfolio_cli.app, [
             "bind-component", "TestPortfolio", "moving_average_crossover",
             "--type", "strategy",
             "--param", "short_period:20",
-            "--param", "long_period:60"
         ])
-        assert result.exit_code == 0
-        assert "binding created successfully" in result.output
-        # 验证 create_component_parameters 收到的是 index 格式
-        call_args = mock_mapping_service.create_component_parameters.call_args
-        params_arg = call_args.kwargs.get("parameters") or call_args[1].get("parameters")
-        assert params_arg is not None
-        assert params_arg[0] == "20"
-        assert params_arg[1] == "60"
+        assert result.exit_code != 0
+        assert "仅支持整数 index" in result.output
 
 
 @pytest.mark.unit

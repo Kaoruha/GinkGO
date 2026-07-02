@@ -231,8 +231,8 @@ class ComponentParameterExtractor:
             param_index = 0
 
             for param_name, param in init_signature.parameters.items():
-                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
-                if param_name in ['self', 'args', 'kwargs', 'name']:
+                # ADR-020: 镜像构造函数签名 — name 保留在 index0，DB index 与构造器位置 1:1
+                if param_name in ['self', 'args', 'kwargs']:
                     continue
 
                 parameters[param_index] = param_name
@@ -284,8 +284,8 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
-                if arg_name in ['self', 'args', 'kwargs', 'name']:
+                # ADR-020: 镜像构造函数签名 — name 保留在 index0，DB index 与构造器位置 1:1
+                if arg_name in ['self', 'args', 'kwargs']:
                     continue
 
                 parameters[param_index] = arg_name
@@ -340,8 +340,8 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # #5955: 跳过 self/args/kwargs/name — name 是框架参数，非业务参数
-                if arg_name in ['self', 'args', 'kwargs', 'name']:
+                # ADR-020: 镜像构造函数签名 — name 保留在 index0，DB index 与构造器位置 1:1
+                if arg_name in ['self', 'args', 'kwargs']:
                     continue
 
                 parameters[param_index] = arg_name
