@@ -261,6 +261,20 @@ class GinkgoConfig(object):
         else:
             self._has_local_secure = True  # ✅ 文件已存在
 
+        # 处理 task_timer.yml (#4723)
+        # 与 config.yml/secure.yml 对称：init 链路（GCONF 初始化）幂等拷贝
+        # src/ginkgo/config/task_timer.yml → 目标目录，避免用户首次
+        # `ginkgo tasktimer validate` 因缺文件报 INVALID。已存在则保留用户自定义（不覆盖）。
+        task_timer_path = os.path.join(path, "task_timer.yml")
+        if not os.path.exists(task_timer_path):
+            origin_path = os.path.join(current_path, "src/ginkgo/config/task_timer.yml")
+            if os.path.exists(origin_path):
+                os.makedirs(path, exist_ok=True)
+                shutil.copy(origin_path, task_timer_path)
+                print(f"[GCONF] Copy task_timer.yml from {origin_path} to {task_timer_path}", file=sys.stderr)
+            # 源模板缺失时不阻塞（task_timer.yml 非启动核心依赖，缺失由
+            # TaskTimer._load_config 运行时降级兜底），故不引入 _has_local_task_timer 缓存。
+
     def _read_config(self) -> dict:
         self.generate_config_file()
         # 如果缓存标记为无本地文件，直接返回空字典

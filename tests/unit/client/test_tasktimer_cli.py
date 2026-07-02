@@ -126,3 +126,54 @@ class TestHeartbeatCommand:
         assert "json-node" in result.output
         assert "iso-node" in result.output
         assert "Failed to parse" not in result.output
+
+
+# ============================================================================
+# init 链路拷贝 task_timer.yml — #4723
+#   ginkgo init → GCONF.generate_config_file 未安装 task_timer.yml，
+#   用户首次 tasktimer validate 即报 INVALID。修复：与 config.yml/secure.yml
+#   对称，幂等拷贝 src/ginkgo/config/task_timer.yml → 目标目录。
+# ============================================================================
+
+
+@pytest.fixture
+def isolated_gconf(monkeypatch):
+    """隔离 GCONF 单例状态 + 重定向 GINKGO_DIR 到临时目录，避免污染其他测试"""
+    from ginkgo.libs.core.config import GCONF
+
+    saved = {
+        "_has_local_config": GCONF._has_local_config,
+        "_has_local_secure": GCONF._has_local_secure,
+    }
+    yield GCONF
+    # 恢复单例状态，防 _has_local_* 残留污染后续测试
+    GCONF._has_local_config = saved["_has_local_config"]
+    GCONF._has_local_secure = saved["_has_local_secure"]
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestTaskTimerInitConfig:
+    """ginkgo init 链路（GCONF.generate_config_file）拷贝 task_timer.yml 模板 (#4723)"""
+
+    def test_init_installs_task_timer_template(self, tmp_path, isolated_gconf):
+        """generate_config_file 后目标目录存在 task_timer.yml（从 src 模板拷贝）"""
+        isolated_gconf.generate_config_file(str(tmp_path))
+        installed = tmp_path / "task_timer.yml"
+        assert installed.exists(), "task_timer.yml 未被 init 链路拷贝"
+        assert installed.is_file()
+
+    def test_init_does_not_overwrite_existing_task_timer(self, tmp_path, isolated_gconf):
+        """已存在 task_timer.yml（用户自定义）→ init 链路不覆盖，保留用户配置"""
+        custom = tmp_path / "task_timer.yml"
+        custom.write_text("user-customized: true\n")
+        isolated_gconf.generate_config_file(str(tmp_path))
+        assert custom.read_text() == "user-customized: true\n", "init 覆盖了用户自定义 task_timer.yml"
+
+    def test_installed_task_timer_passes_validate(self, tmp_path, isolated_gconf):
+        """init 拷贝的 task_timer.yml 能通过 TaskTimer.validate_config (#4723 验收2)"""
+        from ginkgo.livecore.task_timer import TaskTimer
+        isolated_gconf.generate_config_file(str(tmp_path))
+        installed = str(tmp_path / "task_timer.yml")
+        timer = TaskTimer(config_path=installed)
+        assert timer.validate_config() is True, "拷贝的模板未通过 validate_config"
