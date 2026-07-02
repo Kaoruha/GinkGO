@@ -47,7 +47,8 @@ class EngineService(BaseService):
 
     # Standard interface methods
     def get(self, engine_id: str = None, name: str = None, is_live: bool = None,
-            status: ENGINESTATUS_TYPES = None) -> ServiceResult:
+            status: ENGINESTATUS_TYPES = None,
+            page: Optional[int] = None, page_size: Optional[int] = None) -> ServiceResult:
         """
         Get engine data
 
@@ -56,9 +57,13 @@ class EngineService(BaseService):
             name: Engine name
             is_live: Whether live trading
             status: Engine status
+            page: 0-based page number; None=不分行全量返回（默认，向后兼容）
+            page_size: 每页数量；仅当 page 非 None 时生效
 
         Returns:
-            ServiceResult: Query result with ModelList data
+            ServiceResult: Query result with ModelList data。
+            分页模式（page 非 None）额外设 metadata.total = 总匹配数，
+            供 API 层 paginated 响应消费；全量模式不设 total。
         """
         try:
             # Build filter conditions
@@ -76,9 +81,13 @@ class EngineService(BaseService):
             filters['is_del'] = False
 
             # #3955 Execute query - always return ModelList
-            result = self._crud_repo.find(filters=filters)
-
-            return ServiceResult.success(result, f"Successfully retrieved engine data")
+            # #5694: page/page_size 透传 CRUD；None=全量（向后兼容调用方）
+            result = self._crud_repo.find(filters=filters, page=page, page_size=page_size)
+            sr = ServiceResult.success(result, f"Successfully retrieved engine data")
+            # 分页模式补 total 供 paginated 响应；全量模式不设（避免误导）
+            if page is not None:
+                sr.set_metadata("total", self._crud_repo.count(filters=filters))
+            return sr
 
         except Exception as e:
             return ServiceResult.error(f"Failed to get engine data: {str(e)}")
