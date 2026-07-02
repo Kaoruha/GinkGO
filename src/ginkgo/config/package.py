@@ -8,6 +8,7 @@
 
 
 import os
+import logging
 
 PACKAGENAME = "ginkgo"
 
@@ -27,7 +28,7 @@ def _resolve_version() -> str:
         import importlib.metadata
         return importlib.metadata.version(PACKAGENAME)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("importlib.metadata version lookup failed", exc_info=True)
     # 2. 解析 pyproject.toml：开发环境 / 构建中（向上逐层查找至 repo root）
     try:
         import tomllib
@@ -45,7 +46,7 @@ def _resolve_version() -> str:
                 break
             parent = nxt
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("pyproject.toml version lookup failed", exc_info=True)
     # 3. 兜底常量（极端情况，永不抛异常）
     return "0.0.0+unknown"
 

@@ -974,7 +974,7 @@ class BacktestTaskService(BaseService):
                 try:
                     portfolio_names = self._portfolio_service.get_names_by_ids(list(portfolio_ids))
                 except Exception:
-                    pass
+                    GLOG.WARN("failed to fetch portfolio names for task list summary", exc_info=True)
 
             summaries: list[BacktestTaskSummary] = []
             for t in tasks:

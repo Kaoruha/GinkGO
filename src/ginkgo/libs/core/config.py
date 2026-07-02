@@ -9,6 +9,7 @@
 
 import os
 import sys
+import logging
 import yaml
 import shutil
 import base64
@@ -194,7 +195,7 @@ class GinkgoConfig(object):
             if not decoded_str.startswith("gAAAAA"):
                 return decoded_str.replace("\n", "")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("decode base64 password failed, using plaintext fallback", exc_info=True)
 
         # 优先级 3: 明文密码
         return pwd
@@ -1038,7 +1039,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return logging_config.get("mode", "auto")
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.mode failed, using fallback", exc_info=True)
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_MODE", "auto")
 
@@ -1059,7 +1060,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return logging_config.get("format", "json")
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.format failed, using fallback", exc_info=True)
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_FORMAT", "json")
 
@@ -1078,7 +1079,7 @@ class GinkgoConfig(object):
                 value = container_config.get("enabled", True)
                 return str(value).upper() == "TRUE"
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.container.enabled failed, using fallback", exc_info=True)
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_ENABLED", "true")
         return env_value.upper() == "TRUE"
@@ -1098,7 +1099,7 @@ class GinkgoConfig(object):
                 value = container_config.get("json_output", True)
                 return str(value).upper() == "TRUE"
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.container.json_output failed, using fallback", exc_info=True)
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_JSON_OUTPUT", "true")
         return env_value.upper() == "TRUE"
@@ -1118,7 +1119,7 @@ class GinkgoConfig(object):
                 value = local_config.get("file_enabled", True)
                 return str(value).upper() == "TRUE"
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.local.file_enabled failed, using fallback", exc_info=True)
         # 尝试环境变量
         env_value = os.environ.get("GINKGO_LOGGING_LOCAL_FILE_ENABLED", "true")
         return env_value.upper() == "TRUE"
@@ -1137,7 +1138,7 @@ class GinkgoConfig(object):
                 local_config = config.get("logging", {}).get("local", {})
                 return local_config.get("file_path", "ginkgo.log")
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.local.file_path failed, using fallback", exc_info=True)
         # 尝试环境变量
         return os.environ.get("GINKGO_LOGGING_LOCAL_FILE_PATH", "ginkgo.log")
 
@@ -1179,7 +1180,7 @@ class GinkgoConfig(object):
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("backtest", 180))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.ttl.backtest failed, using fallback", exc_info=True)
         # #5507: os.environ.get returns str; wrap with int() for type safety
         return int(os.environ.get("GINKGO_LOGGING_TTL_BACKTEST", 180))
 
@@ -1198,7 +1199,7 @@ class GinkgoConfig(object):
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("component", 90))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.ttl.component failed, using fallback", exc_info=True)
         return int(os.environ.get("GINKGO_LOGGING_TTL_COMPONENT", 90))
 
     @property
@@ -1216,7 +1217,7 @@ class GinkgoConfig(object):
                 ttl_config = config.get("logging", {}).get("ttl", {})
                 return int(ttl_config.get("performance", 30))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.ttl.performance failed, using fallback", exc_info=True)
         return int(os.environ.get("GINKGO_LOGGING_TTL_PERFORMANCE", 30))
 
     @property
@@ -1234,7 +1235,7 @@ class GinkgoConfig(object):
                 logging_config = config.get("logging", {})
                 return float(logging_config.get("sampling_rate", 0.1))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.sampling_rate failed, using fallback", exc_info=True)
         return float(os.environ.get("GINKGO_LOGGING_SAMPLING_RATE", 0.1))
 
     @property
@@ -1255,7 +1256,7 @@ class GinkgoConfig(object):
                     return whitelist
                 return []
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("read logging.level_whitelist failed, using fallback", exc_info=True)
         # 尝试环境变量（逗号分隔）
         env_value = os.environ.get("GINKGO_LOGGING_LEVEL_WHITELIST")
         if env_value:
