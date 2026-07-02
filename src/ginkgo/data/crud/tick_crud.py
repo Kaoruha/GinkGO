@@ -20,7 +20,7 @@ from ginkgo.data.models import MTick
 from ginkgo.entities import Tick
 from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
-from ginkgo.data.drivers import drop_table
+from ginkgo.data.drivers import drop_table, get_db_connection
 
 # Global registry for dynamically created tick models
 tick_model_registry = {}
@@ -269,6 +269,48 @@ class TickCRUD:
 
         # 统计记录
         return temp_crud.count(filters)
+
+    def count_all(self) -> int:
+        """
+        跨所有动态 _Tick 分表聚合行数（#5423）。
+
+        Tick 数据按股票代码动态分表（表名 ``{code}_Tick``，ClickHouse MergeTree），
+        无法用单次 ``count()`` 统计全量（``count`` 强制要求 code 过滤）。本方法
+        通过 ClickHouse ``system.tables`` 元数据表一次查询聚合所有 ``_Tick`` 后缀
+        分表的 ``total_rows``，返回跨所有股票的 tick 总行数。
+
+        MergeTree 引擎的 ``total_rows`` 为精确值（非 InnoDB 式估算），结果与
+        实际数据量一致。
+
+        Returns:
+            int: 所有 ``_Tick`` 分表行数之和；无分表或查询失败时返回 0
+                 （失败仅记日志，不抛异常——stats 端点不应因统计失败而 500）。
+        """
+        from sqlalchemy import text
+
+        try:
+            conn = get_db_connection(MTick)
+            if conn is None:
+                GLOG.ERROR("Failed to get ClickHouse connection for count_all")
+                return 0
+            with conn.get_session() as session:
+                # match(name, '_Tick$') 锚定命名约定（get_tick_model 生成 {code}_Tick）
+                # database=currentDatabase() 限定当前库，避免跨库同名干扰
+                result = session.execute(
+                    text(
+                        "SELECT sum(total_rows) AS total "
+                        "FROM system.tables "
+                        "WHERE database = currentDatabase() "
+                        "AND match(name, '_Tick$')"
+                    )
+                )
+                row = result.fetchone()
+                if row is None or row[0] is None:
+                    return 0
+                return int(row[0])
+        except Exception as e:
+            GLOG.ERROR(f"Failed to count all tick records across sharded tables: {e}")
+            return 0
 
     def exists(self, filters):
         """
