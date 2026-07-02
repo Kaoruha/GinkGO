@@ -686,20 +686,29 @@ async def get_backtest_signals(
 
 
 @router.get("/{uuid}/orders")
-async def get_backtest_orders(uuid: str):
-    """获取回测订单记录"""
+async def get_backtest_orders(
+    uuid: str,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(50, ge=1, le=500, description="每页数量")
+):
+    """获取回测订单记录
+
+    分页与同模块 /signals 端点对齐: orders 按 order_id 去重(取最新终态)后
+    再分页, total 为去重后订单总数(独立于当前页条数)。默认 page_size=50,
+    上限 le=500 防大回测全量返回致前端 OOM(#5429)。
+    """
     try:
         task_service = get_backtest_task_service()
-        result = task_service.list_orders(uuid)
+        result = task_service.list_orders(uuid, page=page, page_size=page_size)
 
         if not result.is_success():
-            return paginated(items=[], total=0,
+            return paginated(items=[], total=0, page=page, page_size=page_size,
                              message=result.error or "Failed to retrieve orders")
 
         items = result.data
         total = result.metadata.get("total", 0)
         return paginated(items=[o.dict() for o in items], total=total,
-                         page=1, page_size=max(total, 1),
+                         page=page, page_size=page_size,
                          message="Orders retrieved successfully")
 
     except NotFoundError:

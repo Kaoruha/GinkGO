@@ -1098,8 +1098,12 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_signals failed: {e}")
             return ServiceResult.error(f"Failed to list signals: {e}")
 
-    def list_orders(self, uuid: str) -> "ServiceResult":
-        """获取回测订单列表，返回 list[BacktestOrderItem]"""
+    def list_orders(self, uuid: str, page: int = 1, page_size: int = 0) -> "ServiceResult":
+        """获取回测订单列表，返回 list[BacktestOrderItem]
+
+        page_size 默认 0=全量(向后兼容 CLI/分析引擎等内部全量调用方);
+        端点层(Query 默认 50)显式传入时分页。
+        """
         from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
 
         try:
@@ -1109,7 +1113,7 @@ class BacktestTaskService(BaseService):
 
             from ginkgo.data.containers import container
             result_service = container.result_service()
-            result = result_service.get_orders(task_id=task_id)
+            result = result_service.get_orders(task_id=task_id, page=page, page_size=page_size)
             if not result.is_success():
                 return ServiceResult.success(data=[], message=result.error)
 
