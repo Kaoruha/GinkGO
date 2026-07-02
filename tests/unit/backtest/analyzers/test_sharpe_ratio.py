@@ -224,5 +224,88 @@ class TestSharpeRatioBoundaryConditions(unittest.TestCase):
         self.assertEqual(len(analyzer._returns), 0)
 
 
+class TestSharpeRatioDegenerateSeries(unittest.TestCase):
+    """退化序列守卫 (issue #5973)。
+
+    低换手策略（长期空仓/单股稀疏交易）下大量交易日收益为 0，
+    std 被压到趋零，同时 rf_daily 主导 excess return，导致
+    (mean_excess / std) * sqrt(252) 爆量到 ±10 量级（实测 -13）。
+    此时 Sharpe 公式前提（近似连续分布的收益）不成立，应返回 0.0 sentinel。
+    """
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def _make(self, risk_free_rate=0.03):
+        a = SharpeRatio("test_sharpe_degen", risk_free_rate=risk_free_rate)
+        a.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        a.advance_time(self.test_time)
+        a.set_analyzer_id("test_degen_001")
+        a.set_portfolio_id("test_degen_p_001")
+        return a
+
+    def test_low_turnover_majority_zero_days(self):
+        """>70% 交易日零收益（贴近 fe0cef7b 实测）→ 退化，sharpe 应为 0.0。
+
+        复现 owner 坐实场景：542 日，~74% 零收益日，std 被压到 ~1.5e-4，
+        rf_daily(1.19e-4) 主导 excess，未守卫时爆量到 -13.1571。
+        """
+        analyzer = self._make()
+        worth = 100000.0
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+        # 541 个交易日：402 个零收益（74.3%），139 个 ±0.05% 微动
+        zero_pattern = [True] * 402 + [False] * 139  # 74.3% 零收益
+        rng = np.random.RandomState(42)
+        for i, is_zero in enumerate(zero_pattern, start=1):
+            if not is_zero:
+                worth *= (1 + rng.normal(0, 0.0005))
+            analyzer.advance_time(self.test_time + timedelta(days=i))
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        # 未守卫时此处为 -7 ~ -13 量级；守卫后必须落入 0.0 sentinel
+        self.assertEqual(analyzer.current_sharpe_ratio, 0.0)
+
+    def test_segment_constant_worth(self):
+        """净值分段常数（长期持平偶发跳变）→ 退化，sharpe 应为 0.0。
+
+        贴近"净值分段常数"退化场景：std 趋零且零收益日占比极高。
+        守卫须同时覆盖 std 绝对趋零与高零收益占比两条路径。
+        """
+        analyzer = self._make()
+        worth = 100000.0
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+        # 300 个交易日，仅第 100、200 天跳变 ±1%，其余持平
+        for i in range(1, 301):
+            if i == 100:
+                worth *= 1.01
+            elif i == 200:
+                worth *= 0.995
+            analyzer.advance_time(self.test_time + timedelta(days=i))
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        self.assertEqual(analyzer.current_sharpe_ratio, 0.0)
+
+    def test_normal_volatility_not_guarded(self):
+        """正常波动序列（日 std~3e-3，零收益日 < 50%）→ 公式照算，sharpe 在 ±3。
+
+        回归守卫：确认守卫不误伤健康序列，sqrt(252) 年化与 rf 转换路径仍生效。
+        对照 owner 数据：标准回测 0d27a3b6 raw sharpe +0.61。
+        """
+        analyzer = self._make()
+        worth = 100000.0
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+        rng = np.random.RandomState(7)
+        for i in range(1, 252):
+            # 每日都有波动（零收益日 = 0），std ~ 3e-3 量级
+            worth *= (1 + rng.normal(0, 0.003))
+            analyzer.advance_time(self.test_time + timedelta(days=i))
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        sharpe = analyzer.current_sharpe_ratio
+        self.assertNotEqual(sharpe, 0.0, "正常波动序列不应被退化守卫捕获")
+        self.assertGreater(sharpe, -3.0)
+        self.assertLess(sharpe, 3.0)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -42,10 +42,22 @@ class SharpeRatio(BaseAnalyzer):
                     mean_excess_return = np.mean(excess_returns)
                     std = np.std(returns_array, ddof=1)
 
-                    if std > 0:
-                        sharpe_ratio = mean_excess_return / std * np.sqrt(252)
-                    else:
+                    # 退化序列守卫 (issue #5973)：
+                    # sharpe = mean_excess / std 的前提是收益序列近似连续分布。
+                    # 低换手策略（长期空仓/单股稀疏交易）下大量交易日收益为 0，
+                    # std 被压到趋零（实测 fe0cef7b：74% 零收益日，std≈1.5e-4），
+                    # 同时 rf_daily(0.03/252≈1.19e-4) 主导 excess return，
+                    # 除法爆量到 ±10 量级（实测 -13.1571）。此时公式前提不成立，
+                    # 返回 0.0 sentinel（与首日/数据不足/std==0 等无效值语义一致）。
+                    #
+                    # 阈值选择：brief 建议 std 绝对阈值，但实测 std≈1.5e-4 仍爆量，
+                    # 纯绝对阈值(<1e-6)卡不住真实退化场景且会误伤低波动正常策略；
+                    # 零收益日占比 > 50% 是低换手的直接代理指标，精准且不误伤。
+                    zero_ratio = float(np.count_nonzero(returns_array == 0.0)) / len(returns_array)
+                    if std < 1e-8 or zero_ratio > 0.5:
                         sharpe_ratio = 0.0
+                    else:
+                        sharpe_ratio = mean_excess_return / std * np.sqrt(252)
                 else:
                     sharpe_ratio = 0.0
             else:
