@@ -32,6 +32,9 @@
 4. **calendar 非合法 data_type**（help 里写了但实际报 Unknown data type）。
 
 ### Round 2 — 构建 portfolio + 绑定 + 建回测
+
+> ⚠️ **订正（ADR-020, 2026-07-02）**：本节及踩坑 5 描述的「index 0=name 默认、实参从 1 起 / `--param '1:code'`→codes」是 #5955 时代行为（靠运行时偏移/打分启发式生效）。ADR-020 已改为**纯位置装配**：`MParam.index` 从 0 连续存，`component_class(*params)` splat。只存 `{1:code}` 漏 index0 会让 code 绑到 name 位（#6481 同类崩溃）。新组合请 `--param 0:Name --param 1:<业务参数>` 从 0 连续传。详见 `docs/adrs/ADR-020-param-assembly-positional.md`。下文保留为历史记录。
+
 - [x] 创建 portfolio `loop_macross_cmb` = `a264aa05386e4b74890f50b2908d32dc`（capital 100000）
 - [x] 绑定四件套（index 0=name 默认，实参从 1 起）：
   - selector `fixed_selector` `--param '1:"600036.SH"'`

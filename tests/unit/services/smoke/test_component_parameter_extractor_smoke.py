@@ -23,7 +23,7 @@ class TestComponentParameterExtractorSmoke:
         assert isinstance(result, dict)
 
     def test_extract_component_parameters_with_content(self):
-        """传入源码内容时通过 AST 解析参数"""
+        """ADR-020: 传入源码内容时镜像构造器（name 留在 index0）"""
         ext = ComponentParameterExtractor()
         source = '''
 class FixedSelector:
@@ -35,9 +35,7 @@ class FixedSelector:
             component_name="fixed_selector", file_content=source,
         )
         assert isinstance(result, dict)
-        assert 0 in result
-        assert result[0] == "codes"
-        assert "name" not in result.values()
+        assert result == {0: "name", 1: "codes"}
 
     def test_get_parameter_info_callable(self):
         ext = ComponentParameterExtractor()
