@@ -187,3 +187,40 @@ class TestBacktestTaskCRUDCountAndRemove:
             filters={"engine_id": "TEST_ENGINE_BT_INTEG", "source": SOURCE_TYPES.TEST.value}
         )
         assert cnt_after == 0
+
+
+# ============================================================================
+# 测试类：状态更新与时间戳补全（#5424）
+# ============================================================================
+
+
+@pytest.mark.database
+@pytest.mark.integration
+class TestBacktestTaskCRUDUpdateStatusTimestamps:
+    """update_task_status 时间戳补全（#5424）端到端
+
+    复现路径：CLI run_task 调 update_status(uuid, "running") 不传 start_time，
+    此前 crud running 分支无兜底 → start_time 恒 NULL（实测 82% 缺失）。
+    修复后 running 分支与 end_time 对称自动补 start_time。
+    """
+
+    def test_running_writes_start_time_to_db(self, crud_instance, cleanup, sample_task_params):
+        """#5424 AC: status=running 不传 start_time，DB start_time 非空"""
+        task = crud_instance.create(**sample_task_params)
+        assert task.start_time is None  # 创建时无 start_time
+
+        crud_instance.update_task_status(uuid=task.uuid, status="running")
+
+        refreshed = crud_instance.get_by_uuid(task.uuid)
+        assert refreshed.status == "running"
+        assert refreshed.start_time is not None  # running 后由 crud 兜底落库
+
+    def test_completed_still_writes_end_time(self, crud_instance, cleanup, sample_task_params):
+        """对称回归: completed 分支仍补 end_time（修复不可破坏既有对称）"""
+        task = crud_instance.create(**sample_task_params)
+
+        crud_instance.update_task_status(uuid=task.uuid, status="completed")
+
+        refreshed = crud_instance.get_by_uuid(task.uuid)
+        assert refreshed.status == "completed"
+        assert refreshed.end_time is not None

@@ -297,6 +297,11 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         updates = {"status": status, "error_message": error_message}
         updates.update(result_fields)
 
+        # #5424: running 时补 start_time，与 end_time 对称。调用方（如 progress_tracker）
+        # 显式传入时尊重其值；CLI 同步路径漏传时由数据层兜底，避免 start_time 恒 NULL。
+        if status == "running" and "start_time" not in updates:
+            updates["start_time"] = datetime.now()
+
         if status in ["completed", "failed", "stopped"]:
             updates["end_time"] = datetime.now()
 
