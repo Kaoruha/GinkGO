@@ -224,5 +224,85 @@ class TestSharpeRatioBoundaryConditions(unittest.TestCase):
         self.assertEqual(len(analyzer._returns), 0)
 
 
+class TestSharpeRatioLowVarianceGuard(unittest.TestCase):
+    """低方差退化序列守卫测试（#5973）"""
+
+    def setUp(self):
+        self.test_time = datetime(2024, 1, 1, 9, 30, 0)
+
+    def _make_analyzer(self, name="test_sharpe_lowvar", risk_free_rate=0.03):
+        analyzer = SharpeRatio(name, risk_free_rate=risk_free_rate)
+        analyzer.set_time_provider(LogicalTimeProvider(initial_time=self.test_time))
+        analyzer.advance_time(self.test_time)
+        analyzer.set_analyzer_id("test_lowvar_001")
+        analyzer.set_portfolio_id("test_portfolio_001")
+        return analyzer
+
+    def test_sparse_zero_heavy_series_not_explosive(self):
+        """#5973: >70% 零收益日的稀疏交易序列，sharpe 不应爆量到 ±3 之外。
+
+        重现 fe0cef7b 形态（MA 单股稀疏交易）：长期常数净值 + 偶发单次抖动。
+        零收益占比 58/59 ≈ 98%，std 被压到 ~1.3e-4；同时 rf_daily(1.19e-4) 主导
+        excess → 当前实现爆到约 -12.5。修复后应落入 ±3（sentinel 0.0）。
+        """
+        analyzer = self._make_analyzer(risk_free_rate=0.03)
+
+        base_worth = 10000.0
+        # 60 个交易日：i=0..43 净值常数 10000；i=44..59 净值常数 10010（单次 0.1% 抖动）
+        for i in range(60):
+            worth = base_worth if i < 44 else base_worth * 1.001
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        sharpe = analyzer.current_sharpe_ratio
+        self.assertGreaterEqual(sharpe, -3.0, f"低方差序列 sharpe 爆量: {sharpe}")
+        self.assertLessEqual(sharpe, 3.0, f"低方差序列 sharpe 爆量: {sharpe}")
+
+    def test_piecewise_constant_net_value_returns_sentinel(self):
+        """#5973 AC: 分段常数净值（长平台 + 单次阶跃）应返回 sentinel 0.0。
+
+        净值前 30 日常数 10000，第 31 日阶跃到 10010 并保持。收益序列：
+        29 个零 + 0.001 + 若干零，mean≈1.7e-5 << rf_daily(1.19e-4) → rf 主导
+        excess → 修复前爆量约 -12，修复后应 sentinel 0.0（低换手/长期空仓典型形态）。
+        """
+        analyzer = self._make_analyzer(name="test_sharpe_piecewise", risk_free_rate=0.03)
+
+        for i in range(60):
+            worth = 10000.0 if i < 30 else 10010.0
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        self.assertEqual(analyzer.current_sharpe_ratio, 0.0)
+
+    def test_healthy_volatile_series_still_computed(self):
+        """#5973 回归守卫：健康波动序列（日 std~3e-3, mean>>rf）必须正常计算，
+        不被退化守卫误伤，且 sharpe 落入正常 ±3 范围。
+        """
+        analyzer = self._make_analyzer(name="test_sharpe_healthy", risk_free_rate=0.03)
+
+        # 30 个日收益：mean≈5e-4 (>>rf_daily 1.19e-4)，std≈3e-3（健康波动）
+        returns = [0.003, -0.002, 0.004, -0.001, 0.002, -0.003, 0.005, -0.002,
+                   0.001, -0.004, 0.003, -0.002, 0.004, -0.001, 0.002, -0.003,
+                   0.005, -0.002, 0.001, -0.004, 0.003, -0.002, 0.004, -0.001,
+                   0.002, -0.003, 0.005, -0.002, 0.001, -0.004]
+
+        worth = 10000.0
+        # 首日初始化 _last_worth
+        analyzer.advance_time(self.test_time)
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+        for i, ret in enumerate(returns):
+            worth = worth * (1 + ret)
+            day_time = self.test_time + timedelta(days=i + 1)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        sharpe = analyzer.current_sharpe_ratio
+        self.assertNotEqual(sharpe, 0.0, "健康序列不应被退化守卫 sentinel")
+        self.assertGreater(sharpe, -3.0)
+        self.assertLess(sharpe, 3.0)
+
+
 if __name__ == '__main__':
     unittest.main()
