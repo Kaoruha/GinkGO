@@ -328,7 +328,11 @@ def _validate_single_strategy(
         console.print(f":information: Source: {source_info}")
 
     try:
-        result = evaluator.evaluate(file_path)
+        # #4702: SimpleEvaluator.evaluate now filters rules by level. `validate`
+        # has no --level flag and historically runs ALL registered rules (14),
+        # so pin STRICT to preserve full-check semantics (STANDARD would drop
+        # the 5 best-practice STRICT rules registered above → regression).
+        result = evaluator.evaluate(file_path, level=EvaluationLevel.STRICT)
 
         # Generate report using selected format (T048)
         report_content = _generate_report(result, report_format)
