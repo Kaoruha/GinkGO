@@ -1,5 +1,5 @@
 # Upstream: PortfolioBase, ComponentFactoryService
-# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, container, pandas
+# Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, pandas
 # Role: ATR仓位管理器，基于平均真实波幅计算波动率自适应的订单仓位
 
 
@@ -15,7 +15,6 @@ from ginkgo.entities import Signal
 from ginkgo.entities.mixins import LotAlignableMixin
 from ginkgo.libs import GLOG
 from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # #3958 restored import
-from ginkgo.data.containers import container
 
 import datetime
 import pandas as pd
@@ -78,15 +77,26 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
             if self.now is None:
                 GLOG.WARN("ATRSizer: now is None, passing the signal")
                 return None
+            # #4706: LONG 取数走注入的 _data_feeder.get_historical_data()，对齐
+            # FixedSizer/RatioSizer 范式。原直查 container.bar_service() 是 sizer 中
+            # 旁路 feeder 的数据层穿透孤例：回测下常 result.success=False 致静默丢信号，
+            # 且绕过 feeder 的 validate_time 防未来数据泄露装饰器。
+            if self._data_feeder is None:
+                GLOG.ERROR(f"ATRSizer:{self.name} has no data_feeder bound")
+                return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now
-            result = container.bar_service().get(code=code, start_date=start_date, end_date=end_date)
-            if not result.success or not result.data:
+            df = self._data_feeder.get_historical_data(
+                symbols=[code],
+                start_time=start_date,
+                end_time=end_date,
+            )
+            if df is None or df.shape[0] == 0:
+                GLOG.WARN(f"ATRSizer: no bars for {code}, signal dropped")
                 return None
-            df = result.data.to_dataframe()
 
             # 检查数据是否足够
-            if df is None or len(df) < self.period + 1:
+            if len(df) < self.period + 1:
                 GLOG.WARN(f"ATRSizer: insufficient data for {code}, need {self.period + 1} bars")
                 return None
 
@@ -99,6 +109,7 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
             atr = ATR.cal(self.period, high_prices[-(self.period+1):], low_prices[-(self.period+1):], close_prices[-(self.period+1):]) * self.risk_ratio
 
             if atr == 0 or pd.isna(atr):
+                GLOG.WARN(f"ATRSizer: ATR is {atr} for {code}, signal dropped")
                 return None
             # #5490: floor ATR to a minimum fraction of close so a collapsed ATR
             # (halt / limit board / stale quotes) cannot inflate max_shares.
