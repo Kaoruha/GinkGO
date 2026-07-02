@@ -22,7 +22,6 @@ from rich.tree import Tree
 from rich import print as rprint
 
 from ginkgo.enums import PORTFOLIO_MODE_TYPES
-from ginkgo.data.services.component_parameter_extractor import get_component_parameter_names
 from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
@@ -526,7 +525,7 @@ def bind_component(
 
     Examples:
         ginkgo portfolio bind-component my_portfolio my_strategy --type strategy
-        ginkgo portfolio bind-component my_portfolio my_strategy --type strategy --param 0:0.5 --param 1:100
+        ginkgo portfolio bind-component my_portfolio my_strategy --type strategy --param 0:MyStrategy --param 1:14
     """
     from ginkgo.data.containers import container
     from ginkgo.enums import FILE_TYPES
@@ -600,35 +599,21 @@ def bind_component(
             console.print("Valid types: strategy, risk, selector, sizer, analyzer")
             raise typer.Exit(1)
 
-        # 解析参数
+        # 解析参数（ADR-020: 仅支持整数 index:value 位置格式）
+        # index0 = 构造器首参（通常为 name），按位置从 0 连续存；详见 docs/adrs/ADR-020
         parameters = {}
         if params:
-            # 获取组件参数名映射（用于关键字解析）
-            param_names = {}
-            try:
-                param_names = get_component_parameter_names(
-                    file_name, file_id=resolved_file_uuid, component_type=component_type
-                ) or {}
-            except Exception:
-                pass  # 参数名提取失败时回退到纯 index 模式
-            name_to_index = {v: k for k, v in param_names.items()} if param_names else {}
-
             for param in params:
                 if ':' not in param:
-                    console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' or 'key:value' format.")
+                    console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' format.")
                     raise typer.Exit(1)
                 key_str, value = param.split(':', 1)
                 try:
                     index = int(key_str)
-                    parameters[index] = value
                 except ValueError:
-                    # 非整数，尝试作为关键字解析
-                    if key_str in name_to_index:
-                        parameters[name_to_index[key_str]] = value
-                    else:
-                        valid_keys = ", ".join(sorted(name_to_index.keys())) if name_to_index else "(无法获取参数定义)"
-                        console.print(f":x: Unknown parameter '{key_str}'. Valid keys: {valid_keys}")
-                        raise typer.Exit(1)
+                    console.print(f":x: 仅支持整数 index 格式 (如 0:14)，不支持关键字 '{key_str}'。见 ADR-020。")
+                    raise typer.Exit(1)
+                parameters[index] = value
 
         # 使用 MappingService 创建绑定
         mapping_service = container.mapping_service()
