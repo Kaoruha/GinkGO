@@ -103,6 +103,16 @@ class TestCleanupNode:
         assert hb_deleted is True and mt_deleted is True
         assert redis.delete.call_count == 2
 
+    def test_never_expire_node_rejected_without_force(self):
+        """#4945 review: TTL=-1（永不过期异常 heartbeat）默认拒绝清理，与 heartbeat_manager 保守口径一致。"""
+        redis = MagicMock()
+        redis.exists.side_effect = self._make_exists(hb=1, mt=1)
+        redis.ttl.return_value = -1  # 永不过期（异常）
+        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-a")
+        assert skipped is True
+        assert hb_deleted is False and mt_deleted is False
+        redis.delete.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # cleanup 命令端到端（#5980：默认 node_id 应扫描所有节点，非硬编码 execution_node_1）
@@ -256,3 +266,14 @@ class TestIsNodeActive:
         redis.exists.return_value = 0
         assert _is_node_active(redis, "node-a") is False
         redis.ttl.assert_not_called()  # 短路，不查 TTL
+
+    def test_never_expire_heartbeat_is_active(self):
+        """TTL=-1（key 存在但永不过期，异常情况）→ 保守判活（#4945 review）。
+
+        与 heartbeat_manager._check_node_id_in_use 口径一致：永不过期的 heartbeat
+        视为"被占用=有实例运行"，cleanup 拒绝清理（需 --force），避免清掉可能的活跃节点。
+        """
+        redis = MagicMock()
+        redis.exists.return_value = 1
+        redis.ttl.return_value = -1  # Redis: key 存在但无过期时间
+        assert _is_node_active(redis, "node-a") is True

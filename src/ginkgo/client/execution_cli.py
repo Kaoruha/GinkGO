@@ -478,8 +478,13 @@ def _display_single_node_status(node_id: str, heartbeat_ttl: int, metrics: dict)
 def _is_node_active(redis_client, node_id: str) -> bool:
     """判断节点是否活跃（运行中，不应清理）（#4945 deep module）。
 
-    复用 status 命令的判活口径：heartbeat 存在且 TTL ≥ 阈值 = 活跃；
-    TTL < 阈值（即将过期）或无 heartbeat = stale/已停，可清理。
+    判活口径（三处对齐：本函数 / status 命令 / heartbeat_manager._check_node_id_in_use）：
+    - heartbeat 不存在 → 不活跃（可清理）。
+    - TTL ≥ 阈值 → 活跃（fresh heartbeat，运行中）。
+    - TTL < 阈值且 ≥ 0 → stale（即将过期），不活跃（可清理）。
+    - TTL < 0（key 存在但永不过期，异常情况）→ 保守判活（拒绝清理，需 --force）。
+      与 heartbeat_manager._check_node_id_in_use 一致：永不过期的 heartbeat 视为
+      "被占用=有实例运行"，避免清掉可能的活跃节点导致调度器误判离线（#4945 review）。
     """
     from ginkgo.data.redis_schema import RedisKeyBuilder
 
@@ -487,6 +492,9 @@ def _is_node_active(redis_client, node_id: str) -> bool:
     if not redis_client.exists(heartbeat_key):
         return False
     heartbeat_ttl = redis_client.ttl(heartbeat_key)
+    if heartbeat_ttl < 0:
+        # 永不过期（异常情况），保守判活
+        return True
     return heartbeat_ttl >= _STALE_HEARTBEAT_TTL_THRESHOLD
 
 
