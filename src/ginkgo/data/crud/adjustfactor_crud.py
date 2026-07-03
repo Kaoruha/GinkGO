@@ -96,9 +96,17 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         Called by BaseCRUD.create() template method.
         Automatically gets @time_logger + @retry effects.
         """
+        code = kwargs.get("code")
+        # #5431: code 是 MergeTree order_by 首键,空值会污染默认分页排序。
+        # MAdjustfactor.code 声明 nullable=False,但 ClickHouse 不强制,需代码层兜底。
+        if not code:
+            raise ValueError(
+                f"AdjustfactorCRUD._create_from_params: code 不能为空(传入 {code!r}),"
+                f"空 code 会作为 order_by 首键污染查询分页"
+            )
         return MAdjustfactor(
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            code=kwargs.get("code"),
+            code=code,
             foreadjustfactor=to_decimal(kwargs.get("foreadjustfactor", 1.0)),
             backadjustfactor=to_decimal(kwargs.get("backadjustfactor", 1.0)),
             adjustfactor=to_decimal(kwargs.get("adjustfactor", 1.0)),
@@ -112,9 +120,14 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         Automatically gets @time_logger + @retry effects.
         """
         if hasattr(item, "timestamp") and hasattr(item, "code") and hasattr(item, "adjustfactor"):
+            code = getattr(item, "code")
+            # #5431: 空 code 跳过该行(返回 None),防 order_by 首键被空值污染默认分页。
+            # 批量入库跳过坏行 > 中断整批;None=跳过是本 hook 既有契约。
+            if not code:
+                return None
             return MAdjustfactor(
                 timestamp=datetime_normalize(getattr(item, "timestamp")),
-                code=getattr(item, "code"),
+                code=code,
                 foreadjustfactor=to_decimal(getattr(item, "foreadjustfactor", 1.0)),
                 backadjustfactor=to_decimal(getattr(item, "backadjustfactor", 1.0)),
                 adjustfactor=to_decimal(getattr(item, "adjustfactor", 1.0)),
