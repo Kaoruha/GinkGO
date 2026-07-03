@@ -234,18 +234,19 @@ def plan():
 
         # Create table
         table = Table(title=":calendar: Schedule Plan", show_header=True, header_style="bold magenta")
-        table.add_column("Portfolio ID", style="cyan", no_wrap=False)
+        # #5116: Portfolio ID 列 overflow="fold"——rich 默认 ellipsis 会用 … 截断长 UUID，
+        # 即使移除代码层截断终端用户也看不到完整 id；fold 折行完整显示，终端宽时单行、窄时多行。
+        # 对齐 #4719 deploy list 范式。
+        table.add_column("Portfolio ID", style="cyan", overflow="fold")
         table.add_column("ExecutionNode", style="green")
 
         for portfolio_id_bytes, node_id_bytes in plan_data.items():
             portfolio_id = portfolio_id_bytes.decode('utf-8')
             node_id = node_id_bytes.decode('utf-8')
 
-            # Shorten IDs for display
-            portfolio_short = portfolio_id[:8] + "..." if len(portfolio_id) > 11 else portfolio_id
-            node_short = node_id[:20] if len(node_id) > 20 else node_id
-
-            table.add_row(portfolio_short, node_short)
+            # #5116: 输出完整 Portfolio ID，运维可据此识别具体组合（不再 [:8]+"..." 截断）。
+            # node_id 通常为短名（node_1）无需截断；保留 node 全显与 deploy list 一致。
+            table.add_row(portfolio_id, node_id)
 
         console.print(table)
         console.print(f"\n:information: Total portfolios scheduled: [bold]{len(plan_data)}[/bold]")

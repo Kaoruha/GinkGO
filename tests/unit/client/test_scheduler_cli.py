@@ -211,6 +211,27 @@ class TestSchedulerOutputEscape:
             f"plan 输出含字面 \\n: {repr(result.output[-120:])}"
         )
 
+    def test_plan_shows_full_portfolio_id_no_truncation(self, cli_runner):
+        """#5116: plan 输出完整 Portfolio ID（32hex 无横线），不截断为 8 位 + '...'。
+
+        生产 UUID 全 hex 无横线（32 字符），len > 11 必触发旧 `portfolio_id[:8]+"..."`
+        截断分支。修复后须全显，让运维能识别具体组合。对齐 #4719 deploy list 范式。
+        """
+        full_uuid = "0016f12fabcd1234ef5678abcd9012def"  # 32 hex，生产真实形态
+        mock_redis = MagicMock()
+        mock_redis.hgetall.return_value = {full_uuid.encode(): b"node-1"}
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = mock_redis
+            result = cli_runner.invoke(scheduler_cli.app, ["plan"])
+
+        assert result.exit_code == 0
+        assert full_uuid in result.output, (
+            f"plan 未输出完整 Portfolio ID（期望含 {full_uuid}）: {repr(result.output)}"
+        )
+        assert "..." not in result.output, (
+            f"plan 仍含 '...' 截断后缀: {repr(result.output)}"
+        )
+
     def test_reload_no_literal_backslash_n(self, cli_runner):
         """#6001: reload --force 输出 'Reload Plan' 不含字面 \\n。"""
         with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer") as MockProducer:
