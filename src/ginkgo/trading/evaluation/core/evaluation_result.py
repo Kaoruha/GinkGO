@@ -289,6 +289,9 @@ class SignalTraceReport:
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # #5317: cal() 运行时崩溃记录。区分"主动返回 []"(合法)与"异常被吞后返回 []"(失败)。
+    # 每条: {"exception_type", "message", "traceback_str", "timestamp"}
+    cal_exceptions: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def signal_count(self) -> int:
@@ -326,6 +329,27 @@ class SignalTraceReport:
         """Add a signal trace to the report."""
         self.traces.append(trace)
 
+    def add_cal_exception(
+        self,
+        exception_type: str,
+        message: str,
+        traceback_str: str,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
+        """#5317: Record a cal() runtime crash. Captured exceptions cause the
+        validation verdict to flip from PASSED to FAILED (a crashing strategy
+        is not a valid strategy), distinguishing a crash from a legitimate
+        empty-list return.
+        """
+        self.cal_exceptions.append(
+            {
+                "exception_type": exception_type,
+                "message": message,
+                "traceback_str": traceback_str,
+                "timestamp": (timestamp or datetime.now()).isoformat(),
+            }
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert report to dictionary representation."""
         return {
@@ -341,6 +365,8 @@ class SignalTraceReport:
             },
             "traces": [trace.to_dict() for trace in self.traces],
             "metadata": self.metadata,
+            # #5317: 暴露 cal() 运行时崩溃，JSON 消费方据此区分"主动空返回"与"崩溃"。
+            "cal_exceptions": self.cal_exceptions,
         }
 
     def to_csv_rows(self) -> List[Dict[str, Any]]:
@@ -386,5 +412,15 @@ class SignalTraceReport:
                 )
             if len(self.traces) > 20:
                 result.append(f"  ... and {len(self.traces) - 20} more")
+
+        # #5317: 在 trace 报告里显式列出 cal() 崩溃，避免"Total Signals: 0"被误读为合法空返回。
+        if self.cal_exceptions:
+            result.append(f"\nRuntime Crashes: {len(self.cal_exceptions)}")
+            for i, exc in enumerate(self.cal_exceptions[:5], 1):
+                result.append(
+                    f"  {i}. [{exc['exception_type']}] {exc['message']}"
+                )
+            if len(self.cal_exceptions) > 5:
+                result.append(f"  ... and {len(self.cal_exceptions) - 5} more")
 
         return "\n".join(result)

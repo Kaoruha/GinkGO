@@ -276,7 +276,8 @@ def _validate_single_strategy(
         source_info: Source description for report (T111)
         console: Rich console instance
     """
-    from ginkgo.trading.evaluation.core.enums import ComponentType, EvaluationLevel
+    from ginkgo.trading.evaluation.core.enums import ComponentType, EvaluationLevel, EvaluationSeverity
+    from ginkgo.trading.evaluation.core.evaluation_result import EvaluationIssue
     from ginkgo.libs import GLOG
     from ginkgo.trading.evaluation.evaluators.base_evaluator import SimpleEvaluator
     from ginkgo.trading.evaluation.rules.rule_registry import get_global_registry
@@ -334,7 +335,39 @@ def _validate_single_strategy(
         # the 5 best-practice STRICT rules registered above → regression).
         result = evaluator.evaluate(file_path, level=EvaluationLevel.STRICT)
 
-        # Generate report using selected format (T048)
+        # Runtime signal tracing (T109) — runs before report generation so that
+        # #5317 runtime crashes can be folded into `result` as ERROR issues and
+        # the report/verdict consistently show FAILED. A structurally-valid
+        # strategy that crashes at runtime is not a valid strategy.
+        tracer_report = None
+        if show_trace:
+            if result.passed:
+                tracer_report = _run_signal_tracing(file_path, code, events, verbose)
+            else:
+                console.print(":warning: [yellow]Skipping signal tracing - validation failed[/yellow]")
+
+        # #5317: 策略 cal() 运行时崩溃（_run_signal_tracing 捕获到 cal_exceptions）
+        # 记为 ERROR 级 EvaluationIssue，使 result.passed=False → 报告/最终判定
+        # 一致显示 FAILED，与"主动返回 []"（合法，仍 PASSED）区分开。
+        if tracer_report is not None and tracer_report.cal_exceptions:
+            crashes = tracer_report.cal_exceptions
+            first = crashes[0]
+            result.add_issue(EvaluationIssue(
+                severity=EvaluationSeverity.ERROR,
+                code="RUNTIME_CAL_CRASH",
+                message=(
+                    f"Strategy raised {first['exception_type']} during runtime tracing "
+                    f"({len(crashes)} event(s) crashed): {first['message']}"
+                ),
+                suggestion=(
+                    "Fix the runtime error in cal() — the strategy must execute "
+                    "without raising. Re-run with --verbose to see the full traceback."
+                ),
+                file_path=file_path,
+                context=first.get("traceback_str") if verbose else None,
+            ))
+
+        # Generate report using selected format (T048) — reflects runtime crashes
         report_content = _generate_report(result, report_format)
 
         # Determine output file
@@ -361,13 +394,6 @@ def _validate_single_strategy(
                 # Use console.print() for pre-formatted Rich content with ANSI codes
                 console.print()
                 console.print(report_content, end="")
-
-        # Runtime signal tracing (T109)
-        if show_trace:
-            if result.passed:
-                tracer_report = _run_signal_tracing(file_path, code, events, verbose)
-            else:
-                console.print(":warning: [yellow]Skipping signal tracing - validation failed[/yellow]")
 
         # Exit with appropriate code
         if result.passed:
@@ -671,6 +697,16 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
                     try:
                         signals = strategy.cal(portfolio_info, event)
                     except Exception as cal_error:
+                        # #5317: 区分"主动空返回"(合法)与"运行时崩溃"(失败)。
+                        # 崩溃记录到 report.cal_exceptions，由 _validate_single_strategy
+                        # 据此翻转最终判定为 FAILED；此处仍吞掉异常以保证后续 event 继续跑。
+                        import traceback as _tb
+                        tracer.get_report().add_cal_exception(
+                            exception_type=type(cal_error).__name__,
+                            message=str(cal_error),
+                            traceback_str=_tb.format_exc(),
+                            timestamp=bar.timestamp,
+                        )
                         if verbose:
                             console.print(f"  [CAL ERROR] {cal_error}")
                         signals = []
