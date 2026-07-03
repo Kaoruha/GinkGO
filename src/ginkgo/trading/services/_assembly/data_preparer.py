@@ -193,7 +193,7 @@ class DataPreparer:
         try:
             for portfolio_id in portfolio_configs.keys():
                 self._logger.DEBUG(f"Cleaning historic records for portfolio {portfolio_id}")
-                self._analyzer_record_crud.delete_filtered(portfolio_id=portfolio_id, engine_id=engine_id)
+                self._analyzer_record_crud.remove(filters={"portfolio_id": portfolio_id, "engine_id": engine_id})
 
         except Exception as e:
             self._logger.WARN(f"Failed to clean historic records: {e}")
