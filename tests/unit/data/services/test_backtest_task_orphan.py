@@ -12,7 +12,7 @@
 import sys
 import os
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from contextlib import contextmanager
 
@@ -107,7 +107,8 @@ class TestCleanupOrphanTasks:
     @pytest.mark.unit
     def test_stale_running_marked_failed(self, service):
         """running + start_time 早于阈值 → 标 failed。"""
-        now = datetime.now(timezone.utc)
+        # naive local，与 worker progress_tracker.py 写入语态一致（#4853 review 契约）。
+        now = datetime.now()
         stale = _make_task(
             status="running",
             start_time=now - timedelta(minutes=60),
@@ -126,7 +127,8 @@ class TestCleanupOrphanTasks:
     @pytest.mark.unit
     def test_fresh_running_not_touched(self, service):
         """running + start_time 新鲜 → 不动。"""
-        now = datetime.now(timezone.utc)
+        # naive local，与 worker progress_tracker.py 写入语态一致（#4853 review 契约）。
+        now = datetime.now()
         fresh = _make_task(
             status="running",
             start_time=now - timedelta(minutes=5),
@@ -150,3 +152,32 @@ class TestCleanupOrphanTasks:
 
         assert result.is_success()
         service.update_status.assert_not_called()
+
+    @pytest.mark.unit
+    def test_naive_local_start_time_cleaned_within_real_timeout(self, service):
+        """回归守护（#4853 PR #6565 review 抓的 bug）。
+
+        worker progress_tracker.py 写 start_time=datetime.now() 是 naive local
+        （宿主 Asia/Shanghai UTC+8）。cleanup 阈值必须与 worker 写入同语态
+        （naive local），否则 naive 北京时间被 replace(tzinfo=utc) 当 UTC 解释，
+        task 看起来比实际年轻 8 小时，声明的 30min timeout 实际变 ~8h30min，
+        孤儿永久不被清理 —— issue #4853 痛点未被有效兜底。
+
+        构造 naive local start_time = now-35min（与 worker 写入语态一致），
+        timeout=30min → 必须触发 failed。
+        """
+        naive_local_now = datetime.now()  # 无 tzinfo，模拟 worker 写入
+        stale = _make_task(
+            status="running",
+            start_time=naive_local_now - timedelta(minutes=35),
+        )
+        stale.uuid = "stale-naive-local"
+        service._crud_repo.get_running_tasks.return_value = [stale]
+        service.update_status = MagicMock(return_value=ServiceResult.success({}, "ok"))
+
+        result = service.cleanup_orphan_tasks(timeout_minutes=30)
+
+        assert result.is_success()
+        service.update_status.assert_called_once()
+        assert service.update_status.call_args.kwargs.get("status") == "failed"
+        assert service.update_status.call_args.args[0] == "stale-naive-local"

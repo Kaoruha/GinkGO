@@ -373,7 +373,13 @@ class BacktestTaskService(BaseService):
         """
         try:
             running = self._crud_repo.get_running_tasks()
-            threshold = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+            # 阈值语态绑死 worker 写入端：progress_tracker.py:218 写 naive local
+            # datetime.now()（宿主 Asia/Shanghai UTC+8）。两端必须同语态比较，
+            # 否则 naive 北京时间被 replace(tzinfo=utc) 当 UTC 解释会看起来年轻 8h，
+            # 30min timeout 实际变 ~8h30min（#4853 PR #6565 review 抓的 bug）。
+            # 治本（worker 改 aware UTC）属全仓 naive→UTC 迁移，超出本 PR 范围，
+            # 迁移完成时同步此行回 datetime.now(timezone.utc)。
+            threshold = datetime.now() - timedelta(minutes=timeout_minutes)
             cleaned = 0
 
             for task in running:
@@ -381,9 +387,6 @@ class BacktestTaskService(BaseService):
                 if st is None:
                     # start_time 残缺无法判定，跳过（不崩，留给下次或人工）。
                     continue
-                # 兼容历史 naive datetime（DateTime(timezone=True) 列可能存 naive 值）
-                if st.tzinfo is None:
-                    st = st.replace(tzinfo=timezone.utc)
 
                 if st < threshold:
                     self.update_status(
