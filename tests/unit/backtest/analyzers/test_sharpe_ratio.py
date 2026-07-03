@@ -303,6 +303,26 @@ class TestSharpeRatioLowVarianceGuard(unittest.TestCase):
         self.assertGreater(sharpe, -3.0)
         self.assertLess(sharpe, 3.0)
 
+    def test_rf_zero_low_std_series_not_explosive(self):
+        """#5973 rf=0 兜底：rf=0 时 |mean|>=rf 退化为 |mean|>=0 恒真，原守卫失效。
+        等差增长 worth（每日 +1 元）产生 std~1e-7 的近常数收益序列，rf=0 下会爆量
+        到 ~1e4（实测 +5.3 起）。修复后应被 std 下界兜底 sentinel，落入 ±3。
+        rf=0 是退化配置（无风险利率设 0），std 这么小的序列 sharpe 估计统计不可信。
+        """
+        analyzer = self._make_analyzer(name="test_sharpe_rf0", risk_free_rate=0.0)
+
+        base_worth = 10000.0
+        # 30 个交易日：worth 每日等差 +1 元 → 收益序列近常数（std~1e-7）
+        for i in range(30):
+            worth = base_worth + (i + 1) * 1.0
+            day_time = self.test_time + timedelta(days=i)
+            analyzer.advance_time(day_time)
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
+
+        sharpe = analyzer.current_sharpe_ratio
+        self.assertGreaterEqual(sharpe, -3.0, f"rf=0 低 std 序列 sharpe 爆量: {sharpe}")
+        self.assertLessEqual(sharpe, 3.0, f"rf=0 低 std 序列 sharpe 爆量: {sharpe}")
+
 
 if __name__ == '__main__':
     unittest.main()
