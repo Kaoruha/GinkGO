@@ -54,6 +54,26 @@ class TestLiveAccountServiceCreation:
         assert result["data"]["uuid"] == "test-account-uuid"
         assert result["data"]["validation_result"] is None
 
+    def test_create_account_returns_status_field(self, live_account_service):
+        """create_account 返回的 data 应含非空 status 字段 (#5830)"""
+        # Mock(spec=MLiveAccount) 的 status 默认是 child mock，须显式设真值
+        live_account_service._crud.add_live_account.return_value.status = AccountStatusType.ENABLED
+
+        result = live_account_service.create_account(
+            user_id="test-user-123",
+            exchange=ExchangeType.OKX,
+            name="测试OKX账号",
+            api_key="test-api-key",
+            api_secret="test-api-secret",
+            passphrase="test-passphrase",
+            environment="testnet",
+            auto_validate=False
+        )
+
+        assert result["success"] is True
+        assert "status" in result["data"], "返回 data 应含 status 字段"
+        assert result["data"]["status"] == AccountStatusType.ENABLED
+
     def test_create_account_missing_user_id(self, live_account_service):
         """测试缺少user_id参数"""
         result = live_account_service.create_account(
