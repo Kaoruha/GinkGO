@@ -876,8 +876,8 @@ def segment_stability(
     """:bar_chart: Run segment stability validation.
 
     Examples:
-        ginkgo get result segment-stability --task-id abc123
-        ginkgo get result segment-stability -t abc123 -s 2,4 -m sharpe_ratio,win_rate
+        ginkgo result segment-stability --task-id abc123
+        ginkgo result segment-stability -t abc123 -s 2,4 -m sharpe_ratio,win_rate
     """
     from ginkgo.data.containers import container
     from ginkgo.data.services.validation_service import ANALYZER_LABELS
