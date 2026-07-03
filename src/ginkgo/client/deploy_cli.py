@@ -112,19 +112,22 @@ def list_deployments(
 
         if result.success and result.data:
             table = Table(title="部署记录")
-            table.add_column("Deployment ID", style="cyan")
+            # #4719: id 列 overflow="fold"——rich 默认 ellipsis 会用 … 截断长 UUID，
+            # 导致终端用户也看不到完整 id；fold 折行完整显示，终端宽时单行、窄时多行
+            table.add_column("Deployment ID", style="cyan", overflow="fold")
             table.add_column("源任务")
-            table.add_column("目标Portfolio")
+            table.add_column("目标Portfolio", overflow="fold")
             table.add_column("模式")
             table.add_column("状态")
             table.add_column("创建时间")
 
             for d in result.data:
                 mode_str = "纸上" if d["mode"] == 1 else "实盘"
+                # #4719: 输出完整 UUID，list→info round-trip 可直接复制；rich Table 自适应列宽
                 table.add_row(
-                    d["deployment_id"][:8] + "...",
+                    d["deployment_id"],
                     d["source_task_id"],
-                    d["target_portfolio_id"][:8] + "...",
+                    d["target_portfolio_id"],
                     mode_str,
                     str(d["status"]),
                     d.get("create_at", "")[:19] if d.get("create_at") else "",
