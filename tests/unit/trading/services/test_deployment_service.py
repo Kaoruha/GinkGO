@@ -27,6 +27,8 @@ def _make_svc(**overrides):
     svc._live_account_service = overrides.get("live_account_service", MagicMock())
     svc._mongo_driver = overrides.get("mongo_driver", None)
     svc._param_crud = overrides.get("param_crud", MagicMock())
+    # #5196: deploy 自动溯源回测链路依赖 backtest_task_service
+    svc._backtest_task_service = overrides.get("backtest_task_service", MagicMock())
     return svc
 
 
@@ -311,5 +313,77 @@ class TestDeploymentCloneKeepsAllBindings:
         _, kwargs = svc._mapping_service.create_from_graph_editor.call_args
         assert kwargs.get("sync_mysql") is False, (
             f"deploy 图拷贝必须 sync_mysql=False 以免覆盖 step5 映射, 实际 kwargs={kwargs}"
+        )
+
+
+class TestDeploymentServiceSourceTaskAutoFill:
+    """#5196: deploy 未显式传 source_task_id 时自动从 portfolio 最近 completed 回测溯源"""
+
+    def test_deploy_auto_fills_source_task_id_from_latest_completed(self):
+        """调用方未传 source_task_id 且 portfolio 有 completed 回测时,
+        deploy 创建的 MDeployment.source_task_id 应自动填入最新 completed 回测的 task_id."""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # 溯源返回最新 completed 回测 task_id
+        svc._backtest_task_service.get_latest_completed_task_id.return_value = (
+            MagicMock(success=True, data="latest_task_uuid_123")
+        )
+        # 隔离核心流程, 只验证 MDeployment 创建期 source_task_id 填充
+        svc._deploy_core = MagicMock(
+            return_value=MagicMock(success=True, data={"portfolio_id": "p_new", "deployment_id": "d1"})
+        )
+
+        svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER)
+
+        # 断言: MDeployment 创建时 source_task_id 自动填入溯源结果
+        svc._deployment_crud.add.assert_called_once()
+        deployment_arg = svc._deployment_crud.add.call_args.args[0]
+        assert deployment_arg.source_task_id == "latest_task_uuid_123", (
+            f"未传 source_task_id 时应自动溯源填入, 实际={deployment_arg.source_task_id!r}"
+        )
+        # 溯源应基于源 portfolio_id
+        svc._backtest_task_service.get_latest_completed_task_id.assert_called_once_with("p1")
+
+    def test_deploy_explicit_source_task_id_not_overwritten(self):
+        """调用方显式传 source_task_id 时, 不触发自动溯源, 显式值优先(不覆盖意图)."""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        svc._deploy_core = MagicMock(
+            return_value=MagicMock(success=True, data={"portfolio_id": "p_new", "deployment_id": "d1"})
+        )
+
+        svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER, source_task_id="explicit_task_999")
+
+        # 显式值应保留, 不被溯源覆盖
+        svc._deployment_crud.add.assert_called_once()
+        deployment_arg = svc._deployment_crud.add.call_args.args[0]
+        assert deployment_arg.source_task_id == "explicit_task_999", (
+            f"显式 source_task_id 应保留, 实际={deployment_arg.source_task_id!r}"
+        )
+        # 显式传值时不应触发溯源查询
+        svc._backtest_task_service.get_latest_completed_task_id.assert_not_called()
+
+    def test_deploy_source_task_id_empty_when_no_completed_backtest(self):
+        """portfolio 无 completed 回测时, source_task_id 留空, 部署正常进行(不阻断)."""
+        svc = _make_svc()
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+        # 溯源返回 None(无 completed 回测)
+        svc._backtest_task_service.get_latest_completed_task_id.return_value = (
+            MagicMock(success=True, data=None)
+        )
+        svc._deploy_core = MagicMock(
+            return_value=MagicMock(success=True, data={"portfolio_id": "p_new", "deployment_id": "d1"})
+        )
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER)
+
+        assert result.success, f"无 completed 回测时部署应正常进行: {result.error}"
+        svc._deployment_crud.add.assert_called_once()
+        deployment_arg = svc._deployment_crud.add.call_args.args[0]
+        assert deployment_arg.source_task_id is None, (
+            f"无 completed 回测时 source_task_id 应留空, 实际={deployment_arg.source_task_id!r}"
         )
 

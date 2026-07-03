@@ -30,6 +30,7 @@ def _get_deployment_service():
             live_account_service=container.live_account_service(),
             mongo_driver=container.mongo_driver(),
             param_crud=container.cruds.param(),
+            backtest_task_service=container.backtest_task_service(),
         )
     return _deployment_service_instance
 

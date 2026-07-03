@@ -35,6 +35,7 @@ class DeploymentService(BaseService):
         live_account_service=None,
         mongo_driver=None,
         param_crud=None,
+        backtest_task_service=None,
     ):
         self._portfolio_service = portfolio_service
         self._mapping_service = mapping_service
@@ -44,6 +45,8 @@ class DeploymentService(BaseService):
         self._live_account_service = live_account_service
         self._mongo_driver = mongo_driver
         self._param_crud = param_crud
+        # #5196: deploy 自动溯源回测→部署链路(未显式传 source_task_id 时取 portfolio 最近 completed 回测)
+        self._backtest_task_service = backtest_task_service
 
     def deploy(
         self,
@@ -98,6 +101,18 @@ class DeploymentService(BaseService):
             existing_brokers = self._broker_instance_crud.get_broker_by_live_account(account_id)
             if existing_brokers:
                 return ServiceResult(success=False, error="该实盘账号已被其他组合绑定")
+
+        # 3d. #5196: 自动溯源回测→部署链路
+        # 调用方未显式传 source_task_id 时, 从 portfolio 最近一次 completed 回测取 task_id 填入,
+        # 使 deploy info 的"源回测任务"字段可追溯。无 completed 回测时留空并 INFO(不阻断部署)。
+        # 显式 source_task_id 优先, 不覆盖调用方意图。
+        if source_task_id is None and self._backtest_task_service is not None:
+            bt_res = self._backtest_task_service.get_latest_completed_task_id(portfolio_id)
+            if bt_res and getattr(bt_res, "success", False) and bt_res.data:
+                source_task_id = bt_res.data
+                GLOG.INFO(f"自动溯源源回测任务: {source_task_id[:8]}... (portfolio={portfolio_id[:8]}...)")
+            else:
+                GLOG.INFO(f"组合 {portfolio_id[:8]}... 无已完成回测, source_task_id 留空")
 
         # 3b. 创建 PENDING deployment 记录
         deployment = MDeployment(
