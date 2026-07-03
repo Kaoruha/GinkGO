@@ -130,6 +130,50 @@ class TestStopPayload:
         assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "stop"}
 
 
+# ---------- stop 状态机契约（#5421）----------
+
+class TestStopStateMachine:
+    """stop_task 状态机：created/pending/running 均可停（→ stopped）；终态拒绝。
+
+    背景：Worker 吞任务卡 created 时，stop 被硬拒只能 cancel（#5421）。
+    扩白名单后 created/pending 也走 StopAssignment + update_status(stopped)，
+    与 running 同路径——因 worker 可能已接收 assignment 卡住，须发 stop 让其清理。
+    """
+
+    @pytest.mark.unit
+    def test_stop_created_transitions_to_stopped(self, service):
+        """created 回测 stop → 成功，发 StopAssignment，状态转 stopped。"""
+        task = _make_task(status="created")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert result.is_success()
+        assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "stop"}
+        service.update_status.assert_called_once_with("uuid-1234-5678", status="stopped")
+
+    @pytest.mark.unit
+    def test_stop_pending_transitions_to_stopped(self, service):
+        """pending 回测 stop → 成功，发 StopAssignment，状态转 stopped。"""
+        task = _make_task(status="pending")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert result.is_success()
+        assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "stop"}
+        service.update_status.assert_called_once_with("uuid-1234-5678", status="stopped")
+
+    @pytest.mark.unit
+    def test_stop_terminal_state_still_rejected(self, service):
+        """终态（completed/failed/stopped）stop 仍拒绝——回归守卫，防白名单过宽。"""
+        task = _make_task(status="completed")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert not result.is_success()
+        mp.send.assert_not_called()
+        service.update_status.assert_not_called()
+
+
 # ---------- cancel payload 契约 ----------
 
 class TestCancelPayload:

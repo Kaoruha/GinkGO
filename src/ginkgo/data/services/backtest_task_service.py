@@ -763,7 +763,9 @@ class BacktestTaskService(BaseService):
         """
         停止回测任务（发送停止命令到Kafka）
 
-        状态机规则：只能停止 running 状态的任务
+        状态机规则：可停止 created/pending/running 状态的任务（#5421）
+        created/pending 任务可能已被 worker 接收但卡住，故同样发 StopAssignment
+        让 worker 收尾；终态（completed/failed/stopped）拒绝。
 
         Args:
             uuid: 任务标识（可以是 uuid 或 task_id）
@@ -779,11 +781,14 @@ class BacktestTaskService(BaseService):
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 状态机检查：只能停止运行中的任务
-            if task.status != "running":
+            # 状态机检查：created/pending/running 均可停（#5421）
+            # created/pending 任务可能已被 worker 接收但卡住，故同样发 StopAssignment
+            # 让 worker 收尾；终态（completed/failed/stopped）拒绝。
+            stoppable_states = ("running", "created", "pending")
+            if task.status not in stoppable_states:
                 return ServiceResult.error(
                     f"Cannot stop task with status '{task.status}'. "
-                    f"Only running tasks can be stopped."
+                    f"Only tasks in {', '.join(stoppable_states)} can be stopped."
                 )
 
             # 发送停止命令到Kafka（使用 task_id 作为任务标识）
