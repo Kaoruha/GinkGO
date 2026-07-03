@@ -344,7 +344,7 @@ def serve_livecore():
 
 @app.command("execution")
 def serve_execution(
-    node_id: Optional[str] = typer.Option(None, "--id", help="ExecutionNode unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="ExecutionNode unique identifier"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Specific portfolio ID to load"),
 ):
     """
@@ -505,7 +505,7 @@ def serve_scheduler(
 @app.command("tasktimer")
 def serve_tasktimer(
     config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
-    node_id: Optional[str] = typer.Option(None, "--id", help="Node ID"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="Node ID"),
 ):
     """
     :alarm_clock: Start TaskTimer scheduled task manager.
@@ -577,7 +577,7 @@ def serve_tasktimer(
 
 @app.command("worker-data")
 def serve_worker_data(
-    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="Node unique identifier"),
 ):
     """
     :gear: Start DataWorker in foreground.
@@ -624,7 +624,7 @@ def serve_worker_data(
 
 @app.command("worker-backtest")
 def serve_worker_backtest(
-    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="Node unique identifier"),
     max_tasks: int = typer.Option(5, "--max-tasks", "-m", help="Maximum concurrent tasks"),
 ):
     """
@@ -696,7 +696,7 @@ def serve_worker_backtest(
 
 @app.command("worker-paper")
 def serve_worker_paper(
-    node_id: Optional[str] = typer.Option(None, "--id", help="Worker unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="Worker unique identifier"),
 ):
     """
     :scroll: Start PaperTradingWorker in foreground.
@@ -777,7 +777,7 @@ def serve_worker_paper(
 
 @app.command("worker-notify")
 def serve_worker_notify(
-    node_id: Optional[str] = typer.Option(None, "--id", help="Node unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-i", help="Node unique identifier"),
 ):
     """
     :bell: Start NotificationWorker in foreground.
