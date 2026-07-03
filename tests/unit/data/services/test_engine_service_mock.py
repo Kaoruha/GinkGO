@@ -228,6 +228,35 @@ class TestGet:
         assert result.success is False
         assert "query failed" in result.error
 
+    @pytest.mark.unit
+    def test_get_with_pagination_passes_page_and_sets_total(self, service, mock_deps):
+        """分页查询：传 page/page_size → find 带分页参数 + metadata.total = count(#5694)"""
+        mock_deps["crud_repo"].find.return_value = [_make_engine("e1"), _make_engine("e2")]
+        mock_deps["crud_repo"].count.return_value = 15
+
+        result = service.get(is_live=False, page=1, page_size=2)
+
+        assert result.success is True
+        call_kwargs = mock_deps["crud_repo"].find.call_args
+        assert call_kwargs[1]["page"] == 1
+        assert call_kwargs[1]["page_size"] == 2
+        assert result.metadata.get("total") == 15
+
+    @pytest.mark.unit
+    def test_get_without_pagination_backward_compatible(self, service, mock_deps):
+        """向后兼容：不传 page → find 不带分页 + 不设 metadata.total(#5694)"""
+        mock_deps["crud_repo"].find.return_value = [_make_engine("e1"), _make_engine("e2")]
+
+        result = service.get(is_live=False)
+
+        assert result.success is True
+        call_kwargs = mock_deps["crud_repo"].find.call_args
+        # 不分页时 page/page_size 应为 None（CRUD 全量）
+        assert call_kwargs[1].get("page") is None
+        assert call_kwargs[1].get("page_size") is None
+        # 不分页不设 total（避免误导调用方）
+        assert "total" not in result.metadata
+
 
 # ============================================================
 # count 测试

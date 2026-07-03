@@ -328,16 +328,20 @@ async def list_backtests(
 
 @router.get("/engines")
 async def list_backtest_engines(
-    is_live: bool = Query(False, description="过滤是否实盘引擎")
+    is_live: bool = Query(False, description="过滤是否实盘引擎"),
+    page: int = Query(1, ge=1, description="页码(1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """获取可用的回测引擎列表"""
+    """获取可用的回测引擎列表（分页，#5694）"""
     try:
         engine_service = get_engine_service()
-        # is_live=0 表示回测引擎
-        result = engine_service.get(is_live=0 if not is_live else 1)
+        # is_live=0 表示回测引擎；page 1-based → service 0-based
+        result = engine_service.get(
+            is_live=0 if not is_live else 1, page=page - 1, page_size=page_size
+        )
 
         if not result.is_success():
-            return ok(data=[], message="Engines retrieved successfully")
+            return paginated(items=[], total=0, page=page, page_size=page_size)
 
         engines = []
         for engine in (result.data or []):
@@ -354,7 +358,8 @@ async def list_backtest_engines(
                 "end_date": engine_dict.get("backtest_end_date"),
             })
 
-        return ok(data=engines, message="Engines retrieved successfully")
+        total = result.metadata.get("total", 0)
+        return paginated(items=engines, total=total, page=page, page_size=page_size)
 
     except Exception as e:
         logger.error(f"Error listing engines: {str(e)}")
