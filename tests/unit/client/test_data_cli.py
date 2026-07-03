@@ -211,6 +211,35 @@ class TestGetStockinfo:
         assert result.exit_code == 0
         assert "No matching records" in result.output
 
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_pagesize_nontty_skips_interactive(self, mock_container, cli_runner, mock_stockinfo_df):
+        """非 TTY + --page-size 不进交互分页（#5280：CI/脚本/管道不阻塞）
+
+        CliRunner 注入的 stdin 非 TTY，模拟自动化场景。修复前守卫仅判
+        page_size>0 即进交互分支 Prompt.ask，非交互环境阻塞/污染输出。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--page-size", "5"])
+        assert result.exit_code == 0
+        # 不进入交互分支（无 Prompt 标记）
+        assert "Interactive mode enabled" not in result.output
+        assert "n/p/q" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_pagesize_nontty_limits_output(self, mock_container, cli_runner, mock_stockinfo_df):
+        """非 TTY + --page-size N 退化为 head(N) 输出，size 生效（#5280）"""
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--page-size", "2"])
+        assert result.exit_code == 0
+        # mock_stockinfo_df 共 3 条，page_size=2 退化 head(2)
+        assert "Showing first 2 of 3 records" in result.output
+
 
 # ============================================================================
 # 3. get 其他数据类型测试
