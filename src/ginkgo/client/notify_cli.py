@@ -332,98 +332,6 @@ def send_template_notification(
         raise typer.Exit(1)
 
 
-@app.command("history")
-def get_notification_history(
-    user_uuid: Optional[str] = typer.Option(None, "--user", "-u", help="User UUID"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (pending/sent/failed)"),
-    limit: int = typer.Option(50, "--limit", "-l", help="Max results"),
-    failed: bool = typer.Option(False, "--failed", "-f", help="Show only failed notifications"),
-):
-    """
-    :bookmark_tabs: Show notification history.
-
-    Examples:
-      ginkgo notify history --user <uuid>
-      ginkgo notify history --failed
-      ginkgo notify history -l 20
-    """
-    try:
-        from ginkgo.data.containers import container
-        from ginkgo.enums import NOTIFICATION_STATUS_TYPES
-
-        # Get service from container
-        service = container.notification_service()
-
-        # Get history
-        if failed:
-            result = service.get_failed_notifications(limit=limit)
-        elif user_uuid:
-            status_filter = None
-            if status:
-                status_map = {
-                    "pending": NOTIFICATION_STATUS_TYPES.PENDING.value,
-                    "sent": NOTIFICATION_STATUS_TYPES.SENT.value,
-                    "failed": NOTIFICATION_STATUS_TYPES.FAILED.value
-                }
-                status_filter = status_map.get(status.lower())
-
-            result = service.get_notification_history(
-                user_uuid=user_uuid,
-                limit=limit,
-                status=status_filter
-            )
-        else:
-            console.print("[yellow]:warning: Please specify --user or use --failed[/yellow]")
-            raise typer.Exit(1)
-
-        if result.is_success():
-            data = result.data
-            records = data.get("records", [])
-            count = data.get("count", 0)
-
-            if count == 0:
-                console.print(":memo: No notification records found.")
-                return
-
-            table = Table(title=f":bell: Notification History ({count} records)")
-            table.add_column("Message ID", style="cyan", max_width=20)
-            table.add_column("Status", style="yellow")
-            table.add_column("Channels", style="green")
-            table.add_column("Content", style="white", max_width=30)
-            table.add_column("Created", style="dim")
-
-            for rec in records[:limit]:
-                content = rec.get("content", "")[:30] + "..." if len(rec.get("content", "")) > 30 else rec.get("content", "")
-
-                status_val = rec.get("status", 0)
-                status_map = {
-                    0: "[dim]PENDING[/dim]",
-                    1: "[green]SENT[/green]",
-                    2: "[red]FAILED[/red]"
-                }
-                status_str = status_map.get(status_val, str(status_val))
-
-                channels = ", ".join(rec.get("channels", []))
-                created = str(rec.get("create_at", ""))[:16] if rec.get("create_at") else "N/A"
-
-                table.add_row(
-                    rec.get("message_id", "")[:18] + "...",
-                    status_str,
-                    channels,
-                    content,
-                    created
-                )
-
-            console.print(table)
-        else:
-            console.print(f"[red]:x: Failed to get history: {result.message}[/red]")
-            raise typer.Exit(1)
-
-    except Exception as e:
-        console.print(f"[red]:x: Error getting history: {e}[/red]")
-        raise typer.Exit(1)
-
-
 @app.command("search")
 def search_recipients(
     keyword: str = typer.Argument(..., help="Search keyword (user name or group name)"),
@@ -516,18 +424,17 @@ def search_recipients(
 @app.command("history")
 def notification_history(
     user: Optional[str] = typer.Option(None, "--user", "-u", help="Filter by user UUID or name"),
-    limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of records to show", min=1, max=500),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page", min=1, max=500),
     status: Optional[int] = typer.Option(None, "--status", "-s", help="Filter by status (0=pending, 1=sent, 2=failed)"),
-    offset: int = typer.Option(0, "--offset", "-o", help="Offset for pagination", min=0),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw JSON data"),
 ):
     """
     :book: Query notification history records.
 
     Examples:
-      ginkgo notify history                    # Show recent 50 records
+      ginkgo notify history                    # Show recent 20 records
       ginkgo notify history --user "Alice"     # Show records for user Alice
-      ginkgo notify history -u <uuid> -l 100   # Show last 100 records for user
+      ginkgo notify history -u <uuid> --page-size 100   # Show last 100 records for user
       ginkgo notify history --status 1         # Show only sent notifications
       ginkgo notify history --raw              # Output JSON format
     """
@@ -549,7 +456,7 @@ def notification_history(
         if user_uuid:
             result = service.get_notification_history(
                 user_uuid=user_uuid,
-                limit=limit,
+                limit=page_size,
                 status=status
             )
         else:
