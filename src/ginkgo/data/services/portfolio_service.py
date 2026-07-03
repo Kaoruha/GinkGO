@@ -167,6 +167,7 @@ class PortfolioService(BaseService):
         mode: PORTFOLIO_MODE_TYPES = None,
         state: PORTFOLIO_RUNSTATE_TYPES = None,
         description: str = None,
+        initial_capital=None,
         cash=None,
         frozen=None,
         current_capital=None,
@@ -199,6 +200,7 @@ class PortfolioService(BaseService):
         _only_state = state is not None and all(
             v is None for k, v in [
                 ("name", name), ("mode", mode), ("description", description),
+                ("initial_capital", initial_capital),
                 ("cash", cash), ("frozen", frozen), ("current_capital", current_capital),
                 ("total_fee", total_fee), ("total_profit", total_profit),
             ]
@@ -232,6 +234,10 @@ class PortfolioService(BaseService):
             updates["desc"] = description
             updates_applied.append("description")
 
+        if initial_capital is not None:
+            updates["initial_capital"] = initial_capital
+            updates_applied.append("initial_capital")
+
         if cash is not None:
             updates["cash"] = cash
             updates_applied.append("cash")
@@ -257,7 +263,12 @@ class PortfolioService(BaseService):
             updates_applied.append("live_account_id")
 
         if not updates:
-            return ServiceResult.success({}, "No updates provided for portfolio update", warnings)
+            # #5409: ServiceResult.success() 只收 (data, message)；warnings 通过 add_warning 附加，
+            # 否则传第 3 个位置参会抛 TypeError，端点误报 "rolled back" 但实际未回滚（假回滚）。
+            result = ServiceResult.success({}, "No updates provided for portfolio update")
+            for w in warnings:
+                result.add_warning(w)
+            return result
 
         # Check if name conflicts with existing portfolio (if name is being updated)
         if "name" in updates:
