@@ -478,13 +478,18 @@ def _display_single_node_status(node_id: str, heartbeat_ttl: int, metrics: dict)
 def _is_node_active(redis_client, node_id: str) -> bool:
     """判断节点是否活跃（运行中，不应清理）（#4945 deep module）。
 
-    判活口径（三处对齐：本函数 / status 命令 / heartbeat_manager._check_node_id_in_use）：
+    判活阈值 _STALE_HEARTBEAT_TTL_THRESHOLD=5 与 status 命令（L361 的 ``< 5``）一致：
+    避免 status 说活跃、cleanup 却清掉同一节点的数据。
     - heartbeat 不存在 → 不活跃（可清理）。
-    - TTL ≥ 阈值 → 活跃（fresh heartbeat，运行中）。
-    - TTL < 阈值且 ≥ 0 → stale（即将过期），不活跃（可清理）。
-    - TTL < 0（key 存在但永不过期，异常情况）→ 保守判活（拒绝清理，需 --force）。
-      与 heartbeat_manager._check_node_id_in_use 一致：永不过期的 heartbeat 视为
-      "被占用=有实例运行"，避免清掉可能的活跃节点导致调度器误判离线（#4945 review）。
+    - TTL ≥ 5 → 活跃（fresh heartbeat，运行中）。
+    - 0 ≤ TTL < 5 → stale（即将过期），不活跃（可清理）。
+    - TTL < 0（key 存在但永不过期，异常）→ 保守判活（拒绝清理，需 --force）。
+
+    注意：heartbeat_manager.is_node_id_in_use（节点启动时判 node_id 是否被占用）
+    用更宽松的阈值 10 秒（TTL<10 视为残留数据、允许抢占启动），与本函数的 5 秒口径
+    不同——目的不同：cleanup 问"清掉是否误杀运行节点"，is_node_id_in_use 问"能否用
+    此 node_id 启动"。仅 TTL<0 永不过期分支语义一致（都保守拒绝：拒绝清理/拒绝启动）
+    （#4945 review docstring 订正：方法名 + 阈值口径）。
     """
     from ginkgo.data.redis_schema import RedisKeyBuilder
 
