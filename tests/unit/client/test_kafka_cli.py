@@ -198,10 +198,76 @@ class TestHealth:
 class TestConsumerGroups:
     """Tests for the 'consumer-groups' command."""
 
-    def test_consumer_groups_stub(self, cli_runner):
-        result = cli_runner.invoke(kafka_cli.app, ["consumer-groups"])
-        # _list_consumer_groups is a stub (pass), so no error expected
-        assert result.exit_code == 0
+    def test_consumer_groups_lists_broker_groups(self, cli_runner):
+        """consumer-groups 命令走 service 列出 broker 端 consumer groups 并渲染表格。
+
+        回归 #5310：原 `_list_consumer_groups` 是 pass 桩函数，命令打印标题后无输出。
+        """
+        mock_service = MagicMock()
+        mock_service.list_consumer_groups.return_value = ServiceResult.success(data=[
+            {"name": "ginkgo_data_worker", "state": "Stable", "protocol_type": "consumer", "type": "classic"},
+            {"name": "ginkgo_backtest_worker", "state": "Empty", "protocol_type": "consumer", "type": "classic"},
+        ])
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.kafka_service.return_value = mock_service
+            result = cli_runner.invoke(kafka_cli.app, ["consumer-groups"])
+
+        assert result.exit_code == 0, result.output
+        mock_service.list_consumer_groups.assert_called_once()
+        assert "ginkgo_data_worker" in result.output
+        assert "ginkgo_backtest_worker" in result.output
+
+    def test_consumer_groups_empty(self, cli_runner):
+        """service 返回空列表时打印友好提示，不渲染空表。"""
+        mock_service = MagicMock()
+        mock_service.list_consumer_groups.return_value = ServiceResult.success(data=[])
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.kafka_service.return_value = mock_service
+            result = cli_runner.invoke(kafka_cli.app, ["consumer-groups"])
+
+        assert result.exit_code == 0, result.output
+        assert "No active consumer groups" in result.output
+
+    def test_consumer_groups_service_error(self, cli_runner):
+        """service 返回 error 时打印错误信息、不挂死（回归 #5310 友好退出）。"""
+        mock_service = MagicMock()
+        mock_service.list_consumer_groups.return_value = ServiceResult.error("connection refused")
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.kafka_service.return_value = mock_service
+            result = cli_runner.invoke(kafka_cli.app, ["consumer-groups"])
+
+        assert result.exit_code == 0, result.output
+        assert "Failed to list consumer groups" in result.output
+        assert "connection refused" in result.output
+
+    def test_consumer_groups_timeout_friendly_exit(self, cli_runner):
+        """service 阻塞超过硬超时时打印友好提示、不挂死（回归 #5310「挂住」核心诉求）。
+
+        直接调用底层函数（绕过 typer），用极小 timeout 触发超时分支；
+        断言函数在远小于 service sleep 的时长内返回（即未挂等 service）。
+        """
+        import time as _time
+
+        service_sleep = 5.0  # 模拟 broker 不可达阻塞
+        max_wait = 2.0       # 远小于 service_sleep；超过即说明挂死
+
+        def _slow_service():
+            _time.sleep(service_sleep)
+            return ServiceResult.success(data=[])
+
+        slow_service = MagicMock()
+        slow_service.list_consumer_groups.side_effect = _slow_service
+
+        start = _time.monotonic()
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.kafka_service.return_value = slow_service
+            kafka_cli._list_consumer_groups(timeout_seconds=0.2)
+        elapsed = _time.monotonic() - start
+
+        assert elapsed < max_wait, f"命令挂等 service（elapsed={elapsed:.1f}s），超时安全网失效"
 
 
 @pytest.mark.unit

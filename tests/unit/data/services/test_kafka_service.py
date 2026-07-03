@@ -11,6 +11,7 @@ from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 import time
+from unittest.mock import MagicMock
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent
@@ -365,3 +366,37 @@ class TestKafkaServiceEdgeCases:
                 # 尝试发布消息
                 publish_result = kafka_service.publish_message(topic, {"test": "data"})
                 assert publish_result is not None
+
+
+# ============================================================================
+# broker 端 consumer groups facade（list_consumer_groups）
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestKafkaServiceListConsumerGroups:
+    """list_consumer_groups 走 CRUD.list_broker_consumer_groups 的 facade 契约。
+
+    回归 #5310：service 层补齐 broker 端查询入口（非本地缓存语义）。
+    """
+
+    def test_success_wraps_crud_groups(self, kafka_service):
+        """CRUD 正常返回时，service 包成 ServiceResult.success(data=groups)。"""
+        sample = [{"name": "g1", "state": "Stable", "protocol_type": "consumer", "type": "classic"}]
+        kafka_service._crud_repo.list_broker_consumer_groups = MagicMock(return_value=sample)
+
+        result = kafka_service.list_consumer_groups()
+
+        assert result.success
+        assert result.data == sample
+
+    def test_crud_error_returns_service_error(self, kafka_service):
+        """CRUD 抛异常时返回 ServiceResult.error，不向上抛。"""
+        kafka_service._crud_repo.list_broker_consumer_groups = MagicMock(
+            side_effect=Exception("broker down")
+        )
+
+        result = kafka_service.list_consumer_groups()
+
+        assert not result.success
+        assert "broker down" in result.message

@@ -191,3 +191,67 @@ class TestKafkaCRUDTopicManagement:
             result = kafka_crud.get_kafka_status()
 
         assert result["connected"] is False
+
+
+# ============================================================
+# broker 端 consumer groups 查询（list_broker_consumer_groups）
+# ============================================================
+
+
+class TestKafkaCRUDBrokerConsumerGroups:
+    """list_broker_consumer_groups 走 KafkaAdminClient 真实查询 broker。
+
+    回归 #5310：CLI `consumer-groups` 命令原依赖桩函数，本方法补齐 broker 端查询。
+    """
+
+    @pytest.mark.unit
+    def test_returns_normalized_groups(self, kafka_crud):
+        """list_groups 返回的 dict 被归一化为 name/state/protocol_type/type。"""
+        mock_admin = MagicMock()
+        # kafka-python 3.x: list_groups 返回 ListedGroup.to_dict() 后的 dict 列表
+        mock_admin.list_groups.return_value = [
+            {"group_id": "ginkgo_data_worker", "group_state": "Stable",
+             "protocol_type": "consumer", "group_type": "classic"},
+            {"group_id": "backtest_worker", "group_state": "Empty",
+             "protocol_type": "consumer", "group_type": "classic"},
+        ]
+
+        with patch("kafka.admin.KafkaAdminClient", return_value=mock_admin):
+            result = kafka_crud.list_broker_consumer_groups()
+
+        assert len(result) == 2
+        assert result[0] == {
+            "name": "ginkgo_data_worker", "state": "Stable",
+            "protocol_type": "consumer", "type": "classic",
+        }
+        assert result[1]["name"] == "backtest_worker"
+        mock_admin.close.assert_called_once()
+
+    @pytest.mark.unit
+    def test_admin_error_returns_empty_no_raise(self, kafka_crud):
+        """admin client 抛异常时返回空列表且不向上抛（CLI 层友好看待连接失败）。"""
+        mock_admin = MagicMock()
+        mock_admin.list_groups.side_effect = Exception("broker unreachable")
+        mock_logger = MagicMock()
+
+        with patch("kafka.admin.KafkaAdminClient", return_value=mock_admin), \
+             patch("ginkgo.data.crud.kafka_crud.GLOG", mock_logger):
+            result = kafka_crud.list_broker_consumer_groups()
+
+        assert result == []
+        mock_admin.close.assert_called_once()
+        mock_logger.ERROR.assert_called_once()
+
+    @pytest.mark.unit
+    def test_namedtuple_fallback_normalizes(self, kafka_crud):
+        """旧版 kafka-python 返回 namedtuple/tuple 时归一化兜底仍生效。"""
+        mock_admin = MagicMock()
+        # 模拟旧版 (group_id, protocol_type) 二元组
+        mock_admin.list_groups.return_value = [("legacy_group", "consumer")]
+
+        with patch("kafka.admin.KafkaAdminClient", return_value=mock_admin):
+            result = kafka_crud.list_broker_consumer_groups()
+
+        assert len(result) == 1
+        assert result[0]["name"] == "legacy_group"
+        assert result[0]["protocol_type"] == "consumer"
