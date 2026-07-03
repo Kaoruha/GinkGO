@@ -174,7 +174,11 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
     ) -> float:
         """
         Business helper: Get total capital adjustment amount for a portfolio.
+
+        Filters by business_timestamp (业务生效时间) via find_by_business_time,
+        not record timestamp — total aligns with business intent.
         """
+        adjustments = self.find_by_business_time(portfolio_id, start_date, end_date)
         return sum(float(adj.amount) for adj in adjustments if adj.amount)
 
     def find_by_reason(self, reason: str) -> List[MCapitalAdjustment]:
