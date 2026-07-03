@@ -17,7 +17,16 @@ _deployment_service_instance = None
 def _make_capacity_checker():
     """#4800: 构造集群容量预检 callable，供 DeploymentService.deploy 早失败用。
 
-    复用 RedisService.get_execution_node_status()（data 层公共 API）聚合可用槽位。
+    数据源与 LoadBalancer.assign_portfolios 同源: 经 HeartbeatChecker 读
+    `node:metrics:{id}` Hash 的 `portfolio_count`（load_balancer.py:73,80,82 即此值）。
+
+    注意: 不能用 RedisService.get_execution_node_status() —— 该方法从心跳键
+    `heartbeat:node:{id}` 取 active_portfolios，但执行节点心跳键只存裸 ISO 时间戳
+    （heartbeat_manager.py:194 setex 直存非 JSON），parse_heartbeat_data 走 {"raw": data}
+    分支，active_portfolios 恒为 0，致 used_slots 恒 0、满载集群也放行（review #6568
+    指出的 #4800 假成功根因）。真容量数据写在另一 Hash node:metrics:{id}，LoadBalancer
+    一直读的就是它。
+
     lazy import Scheduler.MAX_PORTFOLIOS_PER_NODE 保证与 LoadBalancer 容量阈值同源。
     Redis 不可用等异常时 fail-open（available_slots=1），不因基础设施故障阻塞 deploy。
     """
@@ -25,18 +34,23 @@ def _make_capacity_checker():
     def _check():
         try:
             from ginkgo.data.containers import container
+            from ginkgo.livecore.scheduler.heartbeat import HeartbeatChecker
             from ginkgo.livecore.scheduler.scheduler import Scheduler
 
-            redis_svc = container.redis_service()
-            result = redis_svc.get_execution_node_status()
-            nodes = result.data if (result and result.success and result.data) else []
-            # 仅计 running 节点（stale 视为不可用）
-            healthy = [n for n in nodes if n.get("status") == "running"]
+            # 与 LoadBalancer 同源: HeartbeatChecker.get_healthy_nodes() 返回
+            # [{node_id, metrics:{portfolio_count, queue_size, cpu_usage}}]，
+            # 读 node:metrics:{id} Hash（非心跳键的 active_portfolios）。
+            redis_client = container.redis_service().redis
+            healthy_nodes = HeartbeatChecker(redis_client).get_healthy_nodes()
+
             max_per = Scheduler.MAX_PORTFOLIOS_PER_NODE
-            total = len(healthy) * max_per
-            used = sum(int(n.get("active_portfolios", 0)) for n in healthy)
+            total = len(healthy_nodes) * max_per
+            used = sum(
+                int(n.get("metrics", {}).get("portfolio_count", 0))
+                for n in healthy_nodes
+            )
             return {
-                "healthy_nodes": len(healthy),
+                "healthy_nodes": len(healthy_nodes),
                 "max_per_node": max_per,
                 "total_slots": total,
                 "used_slots": used,
