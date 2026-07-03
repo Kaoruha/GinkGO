@@ -45,6 +45,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import TextContent
 
 from ginkgo.libs import GLOG
+from ginkgo.config.package import VERSION  # 与 CLI `ginkgo version` 同源（#4969）
 
 # contextvars: 为 Streamable HTTP 多会话隔离不同的 API Key 工具实例
 _current_tools: contextvars.ContextVar = contextvars.ContextVar('current_tools')
@@ -348,7 +349,7 @@ class GinkgoMCPServer:
                 json.dumps({
                     "status": "ok",
                     "server": "ginkgo-okx",
-                    "version": "0.2.0",
+                    "version": VERSION,
                     "transports": ["stdio", "sse", "streamable_http"],
                     "endpoints": {
                         "/mcp": "Streamable HTTP (MCP 2025-03-26, recommended)",
@@ -365,7 +366,7 @@ class GinkgoMCPServer:
             return Response(
                 json.dumps({
                     "name": "Ginkgo OKX MCP Server",
-                    "version": "0.2.0",
+                    "version": VERSION,
                     "transports": ["stdio", "sse", "streamable_http"],
                     "endpoints": {
                         "/mcp": "Streamable HTTP (recommended)",

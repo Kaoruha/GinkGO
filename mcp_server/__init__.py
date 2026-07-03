@@ -11,4 +11,4 @@ Ginkgo MCP Server
     GINKGO_ACCOUNT_ID=xxx ginkgo serve mcp
 """
 
-__version__ = "0.2.0"
+from ginkgo.config.package import VERSION as __version__  # 跟随主版本（#4969）
