@@ -95,14 +95,51 @@ def dev_jupyter(
     subprocess.run([jupyter_path, "lab"])
 
 
+def _check_ollama_reachable(timeout: float = 2.0) -> bool:
+    """#5366: 轻量探活 Ollama 服务（GET /api/tags）。
+
+    返回 True 表示可连通且 HTTP 200；False 表示连不上或超时。
+    仅吞 requests 层的连接/超时异常（这正是要友好处理的场景），
+    其它异常原样抛出（避免静默掩盖编程错误，参见归因纪律）。
+    """
+    import requests
+    from ginkgo.libs import GCONF
+
+    url = f"{GCONF.OLLAMA_HOST}:{GCONF.OLLAMA_PORT}/api/tags"
+    try:
+        resp = requests.get(url, timeout=timeout)
+        return resp.status_code == 200
+    except requests.exceptions.RequestException:
+        # ConnectionError / Timeout / 等连接层问题 → 友好提示而非 traceback
+        return False
+
+
 @app.command("chat")
 def dev_chat():
     """
     :speech_balloon: Launch interactive command-line interface.
     """
+    # #5366: 前置守卫——非交互终端 / Ollama 不可用时友好退出而非崩溃。
+    # 守卫必须早于 os.system("clear") 与重 import，保证非 TTY 快速失败。
+    import sys
+
+    if not sys.stdin.isatty():
+        console.print(
+            ":warning: [yellow]检测到非交互终端。"
+            "请在交互式终端中运行 [bold]ginkgo dev chat[/bold]。[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    if not _check_ollama_reachable():
+        console.print(
+            ":warning: [yellow]无法连接 Ollama 服务。"
+            "请确认已安装并启动 Ollama（默认 http://localhost:11434）。[/yellow]"
+        )
+        raise typer.Exit(1)
+
     import os
     from ginkgo.client.interactive_cli import MyPrompt
-    
+
     os.system("clear")
     p = MyPrompt()
     p.cmdloop()

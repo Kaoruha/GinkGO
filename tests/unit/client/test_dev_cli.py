@@ -1,9 +1,12 @@
 # #6020 — dev test/lint 引用错误目录 test/ 应为 tests/
+# #5366 — dev chat 非 TTY / 无 Ollama 时应友好退出而非崩溃
 """
 验证 ginkgo dev test / dev lint 命令指向真实存在的 tests/ 目录，
 而非不存在的 test/（项目测试目录统一为 tests/，见 CLAUDE.md）。
+另验证 dev chat 在非交互终端或 Ollama 不可用时给出友好提示退出（#5366）。
 """
 import pytest
+import typer
 from unittest.mock import patch, MagicMock
 
 
@@ -58,3 +61,56 @@ class TestDevLintCommandTargetsTestsDir:
         for call in tool_calls:
             assert "tests/" in call, f"#6020: {call[0]} 未含 tests/: {call}"
             assert "test/" not in call, f"#6020: {call[0]} 仍含 test/: {call}"
+
+
+class TestDevChatNonTTYGuard:
+    """#5366: 非 TTY 环境应友好提示退出，不进入交互循环"""
+
+    def test_non_tty_exits_without_cmdloop(self):
+        """非交互终端调用 dev_chat 应 raise typer.Exit 且不进入 cmdloop"""
+        from ginkgo.client.dev_cli import dev_chat
+
+        with patch("sys.stdin.isatty", return_value=False), \
+             patch("ginkgo.client.interactive_cli.MyPrompt") as mock_prompt:
+            with pytest.raises(typer.Exit):
+                dev_chat()
+
+        # 守卫触发后绝不能构造 MyPrompt / 进入 cmdloop
+        assert not mock_prompt.called, "非 TTY 不应构造 MyPrompt"
+
+
+class TestDevChatOllamaUnreachableGuard:
+    """#5366: Ollama 不可用时应给出安装/启动提示而非 ConnectionError 堆栈"""
+
+    def test_ollama_unreachable_exits_without_cmdloop(self):
+        """TTY 正常但连不上 Ollama 应 raise typer.Exit 且不进入 cmdloop"""
+        import requests
+        from ginkgo.client.dev_cli import dev_chat
+
+        with patch("sys.stdin.isatty", return_value=True), \
+             patch("requests.get", side_effect=requests.exceptions.ConnectionError), \
+             patch("ginkgo.client.interactive_cli.MyPrompt") as mock_prompt:
+            with pytest.raises(typer.Exit):
+                dev_chat()
+
+        assert not mock_prompt.called, "Ollama 不可用时不应构造 MyPrompt"
+
+
+class TestDevChatHappyPathPreserved:
+    """#5366: TTY + Ollama 可用时，原有 cmdloop 行为必须保留"""
+
+    def test_tty_and_ollama_ok_enters_cmdloop(self):
+        """守卫不应误伤正常交互场景"""
+        from ginkgo.client.dev_cli import dev_chat
+
+        ok_resp = MagicMock(status_code=200)
+        with patch("sys.stdin.isatty", return_value=True), \
+             patch("requests.get", return_value=ok_resp), \
+             patch("ginkgo.client.interactive_cli.MyPrompt") as mock_prompt, \
+             patch("os.system") as mock_system:
+            dev_chat()
+
+        assert mock_prompt.called, "正常路径应构造 MyPrompt"
+        mock_prompt.return_value.cmdloop.assert_called_once(), "正常路径应进入 cmdloop"
+        # clear 仍在守卫之后执行
+        mock_system.assert_called_with("clear")
