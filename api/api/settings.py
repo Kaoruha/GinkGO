@@ -364,6 +364,39 @@ async def create_user(req: Request, data: UserCreate):
         )
 
 
+@router.get("/users/{uuid}")
+async def get_user_detail(req: Request, uuid: str):
+    """获取单个用户详情（basic + contacts + groups 聚合）。
+
+    #5834: 此前仅 list/POST/PUT{uuid}/DELETE{uuid}，缺 GET{uuid} 致 405。
+    service.get_user_full_info 已实现，端点仅装配 + 守卫，与 PUT/{uuid} 一致。
+    """
+    _require_admin(req)  # 与 list_users / update_user 一致（#5467）
+    try:
+        user_service = get_user_service()
+        result = user_service.get_user_full_info(uuid)
+        if not result.success:
+            if "not found" in (result.error or "").lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to get user detail",
+            )
+        return ok(data=result.data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user detail {uuid}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get user detail",
+        )
+
+
 @router.put("/users/{uuid}")
 async def update_user(req: Request, uuid: str, data: UserUpdate):
     """更新用户"""
