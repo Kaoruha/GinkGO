@@ -17,6 +17,8 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch, call
 import pytest
 
+from ginkgo.data.services.base_service import ServiceResult
+
 
 class TestConstruction:
     """构造和初始化测试"""
@@ -844,10 +846,11 @@ class TestGetBaseline:
     def test_returns_cached_baseline_from_redis(self):
         """Redis 有缓存时应直接返回，不查 ClickHouse"""
         worker = self._make_worker()
-        cached_baseline = {"slice_period_days": 30, "baseline_stats": {"sharpe_ratio": {"mean": 1.5}}}
+        cached_json = '{"slice_period_days": 30}'
 
         mock_redis = MagicMock()
-        mock_redis.get.return_value = '{"slice_period_days": 30}'
+        # 实现层调 redis_svc.get_cache()，返回 ServiceResult（.data 为 JSON 字符串）
+        mock_redis.get_cache.return_value = ServiceResult.success(data=cached_json)
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.redis_service.return_value = mock_redis
@@ -874,7 +877,8 @@ class TestGetBaseline:
         worker = self._make_worker()
 
         mock_redis = MagicMock()
-        mock_redis.get.return_value = None
+        # baseline 与 source 缓存均 miss（get_cache 返回 ServiceResult，.data=None）
+        mock_redis.get_cache.return_value = ServiceResult.success(data=None)
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.redis_service.return_value = mock_redis
@@ -887,7 +891,10 @@ class TestGetBaseline:
         worker = self._make_worker()
 
         mock_redis = MagicMock()
-        mock_redis.get.side_effect = lambda key: "source_uuid" if "source" in key else None
+        # baseline miss、source hit（get_cache 返回 ServiceResult）
+        mock_redis.get_cache.side_effect = lambda key: ServiceResult.success(
+            data="source_uuid" if "source" in key else None
+        )
 
         mock_task_svc = MagicMock()
         mock_task_svc.list.return_value = MagicMock(is_success=True, data=[])
@@ -910,7 +917,8 @@ class TestGetDeviationConfig:
         worker = PaperTradingWorker(worker_id="test-1")
 
         mock_redis = MagicMock()
-        mock_redis.get.return_value = None
+        # 配置缓存 miss（get_cache 返回 ServiceResult，.data=None）→ 返回默认配置
+        mock_redis.get_cache.return_value = ServiceResult.success(data=None)
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.redis_service.return_value = mock_redis
@@ -927,7 +935,10 @@ class TestGetDeviationConfig:
         worker = PaperTradingWorker(worker_id="test-1")
 
         mock_redis = MagicMock()
-        mock_redis.get.return_value = '{"auto_takedown": true, "slice_period_days": 14}'
+        # 实现层调 redis_svc.get_cache()，返回 ServiceResult（.data 为 JSON 字符串）
+        mock_redis.get_cache.return_value = ServiceResult.success(
+            data='{"auto_takedown": true, "slice_period_days": 14}'
+        )
 
         with patch("ginkgo.services", create=True) as mock_services:
             mock_services.data.redis_service.return_value = mock_redis
