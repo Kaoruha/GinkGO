@@ -137,6 +137,98 @@ class TestStatus:
 
 
 # ===========================================================================
+# 2b. status command — ExecutionNode 口径 (#5282)
+# ===========================================================================
+
+class TestStatusExecNodes:
+    """status 命令应反映 ExecutionNode 心跳数（#5282）。
+
+    原先 Workers 字段只查 GTM data_worker 进程池（Redis SET ginkgo:dataworker_pool），
+    完全忽略 ExecutionNode 心跳（Redis key heartbeat:node:*），导致实盘节点运行时
+    Workers 误显 0。新增 Exec Nodes 行，复用 redis_service.get_execution_node_status()
+    走 Service 层（与 scheduler_cli.nodes() 同源，不直连 Redis）。
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_shows_exec_nodes_count_when_heartbeat_present(self, cli_runner, mock_gconf, mock_gtm):
+        """#5282 tracer: ExecutionNode 心跳非空 → status 输出 Exec Nodes 行且计数≠0。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value.get_execution_node_status.return_value = ServiceResult.success(
+            data=[{"node_id": "node_a"}, {"node_id": "node_b"}, {"node_id": "node_c"}],
+        )
+        with patch("ginkgo.libs.GCONF", mock_gconf), \
+             patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.services", mock_services):
+            result = cli_runner.invoke(_get_main_app(), ["status"])
+
+        assert result.exit_code == 0
+        assert "Exec Nodes" in result.output
+        exec_line = next(l for l in result.output.splitlines() if "Exec Nodes" in l)
+        assert "3" in exec_line
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_shows_zero_exec_nodes_when_no_heartbeat(self, cli_runner, mock_gconf, mock_gtm):
+        """#5282: 无 ExecutionNode 心跳 → Exec Nodes 显示 0（与 Workers 字段口径并列，不崩）。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value.get_execution_node_status.return_value = ServiceResult.success(
+            data=[],
+        )
+        with patch("ginkgo.libs.GCONF", mock_gconf), \
+             patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.services", mock_services):
+            result = cli_runner.invoke(_get_main_app(), ["status"])
+
+        assert result.exit_code == 0
+        exec_line = next(l for l in result.output.splitlines() if "Exec Nodes" in l)
+        assert "0" in exec_line
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_shows_na_when_redis_service_raises(self, cli_runner, mock_gconf, mock_gtm):
+        """#5282: redis_service 异常（Redis 不可用）→ Exec Nodes 显示 N/A，status 其余字段照常输出。"""
+        mock_services = MagicMock()
+        mock_services.data.redis_service.side_effect = RuntimeError("redis down")
+        with patch("ginkgo.libs.GCONF", mock_gconf), \
+             patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.services", mock_services):
+            result = cli_runner.invoke(_get_main_app(), ["status"])
+
+        assert result.exit_code == 0
+        # status 其余字段不受影响
+        assert "System Status" in result.output
+        exec_line = next(l for l in result.output.splitlines() if "Exec Nodes" in l)
+        assert "N/A" in exec_line
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_worker_fields_distinct_labels(self, cli_runner, mock_gconf, mock_gtm):
+        """#5282 AC: 字段文案明确区分两类——Data Workers（GTM 进程池）与 Exec Nodes（心跳）并列。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_services = MagicMock()
+        mock_services.data.redis_service.return_value.get_execution_node_status.return_value = ServiceResult.success(
+            data=[{"node_id": "n1"}],
+        )
+        mock_gtm.get_worker_count.return_value = 2
+        with patch("ginkgo.libs.GCONF", mock_gconf), \
+             patch("ginkgo.libs.GTM", mock_gtm), \
+             patch("ginkgo.services", mock_services):
+            result = cli_runner.invoke(_get_main_app(), ["status"])
+
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+        # Data Workers 行（GTM data_worker 进程池口径）
+        dw_line = next(l for l in lines if "Data Workers" in l)
+        assert "2" in dw_line
+        # Exec Nodes 行（ExecutionNode 心跳口径，与 scheduler nodes 同源）
+        en_line = next(l for l in lines if "Exec Nodes" in l)
+        assert "1" in en_line
+
+
+# ===========================================================================
 # 3. debug command
 # ===========================================================================
 
