@@ -548,37 +548,42 @@ def sync(
         # 如果是daemon模式，发送Kafka消息并退出
         if daemon:
             from ginkgo.data.containers import container
+            from ginkgo.libs import quiet_function_timing
             kafka_service = container.kafka_service()
 
             console.print(f":information: Sending {data_type} sync task to background queue...")
 
-            success = False
-            if data_type == "stockinfo":
-                success = kafka_service.send_stockinfo_update_signal()
-            elif data_type == "day":
-                if code:
-                    # 单股票日K线同步：直接传递full和force参数
-                    success = kafka_service.send_daybar_update_signal(code=code, full=full, force=force)
-                else:
-                    # 全代码日K线同步
-                    success = kafka_service.send_bar_all_signal(full=full, force=force)
-            elif data_type == "tick":
-                if code:
-                    # 单股票tick同步：传递完整的full和force参数
-                    success = kafka_service.send_tick_update_signal(code=code, full=full, force=force)
-                else:
-                    # 全代码tick同步
-                    success = kafka_service.send_tick_all_signal(full=full, force=force)
-            elif data_type == "adjustfactor":
-                if code:
-                    # 单股票adjustfactor同步：直接传递full和force参数
-                    success = kafka_service.send_adjustfactor_update_signal(code=code, full=full, force=force)
-                else:
-                    # 全代码adjustfactor同步：直接pass参数
-                    success = kafka_service.send_adjustfactor_all_signal(full=full, force=force)
-            elif data_type == "trade_day":
-                # 交易日历全量同步（#6488），paper worker 查 is_open 判断开市
-                success = kafka_service.send_trade_day_signal()
+            # #4960: daemon 全代码同步会逐股触发 @time_logger 装饰的 Kafka send，
+            # 在 DEBUGMODE 下产生 15000+ 行 `⚡ FUNCTION executed in` 噪音。
+            # quiet_function_timing 静默逐调用打印，退出时统一输出一行汇总。
+            with quiet_function_timing():
+                success = False
+                if data_type == "stockinfo":
+                    success = kafka_service.send_stockinfo_update_signal()
+                elif data_type == "day":
+                    if code:
+                        # 单股票日K线同步：直接传递full和force参数
+                        success = kafka_service.send_daybar_update_signal(code=code, full=full, force=force)
+                    else:
+                        # 全代码日K线同步
+                        success = kafka_service.send_bar_all_signal(full=full, force=force)
+                elif data_type == "tick":
+                    if code:
+                        # 单股票tick同步：传递完整的full和force参数
+                        success = kafka_service.send_tick_update_signal(code=code, full=full, force=force)
+                    else:
+                        # 全代码tick同步
+                        success = kafka_service.send_tick_all_signal(full=full, force=force)
+                elif data_type == "adjustfactor":
+                    if code:
+                        # 单股票adjustfactor同步：直接传递full和force参数
+                        success = kafka_service.send_adjustfactor_update_signal(code=code, full=full, force=force)
+                    else:
+                        # 全代码adjustfactor同步：直接pass参数
+                        success = kafka_service.send_adjustfactor_all_signal(full=full, force=force)
+                elif data_type == "trade_day":
+                    # 交易日历全量同步（#6488），paper worker 查 is_open 判断开市
+                    success = kafka_service.send_trade_day_signal()
 
             if success:
                 console.print(f":white_check_mark: {data_type} sync task successfully queued for background processing")

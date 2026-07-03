@@ -6,7 +6,8 @@ import json
 import time
 import math
 import threading
-from collections import OrderedDict
+import contextlib
+from collections import OrderedDict, defaultdict
 from typing import Any, List
 
 from functools import wraps
@@ -20,6 +21,64 @@ console = Console()
 # 若也走它，会污染机器可读输出。诊断一律切到 stderr，stdout 只留业务结果。
 console_err = Console(stderr=True)
 _gconf = GinkgoConfig()
+
+
+class _QuietTimingState:
+    """#4960: 批处理/daemon 路径下 time_logger 逐调用 timing 的静默状态。
+
+    active=True 时，time_logger 的 finally 分支不再逐次打印
+    `⚡ FUNCTION ... executed in ...`，改为累积每函数耗时，由
+    quiet_function_timing 上下文退出时统一打印汇总，避免 data sync --daemon
+    逐股 Kafka send 产生 15000+ 行噪音。
+    """
+
+    def __init__(self):
+        self.active = False
+        self.stats = defaultdict(list)  # func_name -> [duration, ...]
+
+
+_QUIET_TIMING = _QuietTimingState()
+
+
+@contextlib.contextmanager
+def quiet_function_timing():
+    """批处理上下文：静默 time_logger 逐调用 timing，退出时打印汇总。
+
+    用于 `ginkgo data sync --daemon` 等触发海量 @time_logger 装饰调用的路径
+    （send_bar_all_signal 逐股 send_message + producer.send ≈ 15000 行/次）。
+    退出时打印每函数「调用次数 / 总耗时 / avg / max」一行汇总。
+
+    嵌套调用安全：内层仅复用外层的累积，不重复打印汇总。
+    """
+    if _QUIET_TIMING.active:
+        yield
+        return
+    _QUIET_TIMING.active = True
+    _QUIET_TIMING.stats = defaultdict(list)
+    try:
+        yield
+    finally:
+        _QUIET_TIMING.active = False
+        stats = _QUIET_TIMING.stats
+        _QUIET_TIMING.stats = defaultdict(list)
+        total_calls = sum(len(v) for v in stats.values())
+        # 仅在确实有累积调用时打印汇总；空上下文直接静默退出。
+        # 不得在此处 return（finally 内 return 会吞掉 with 体内正在传播的异常）。
+        if total_calls > 0:
+            console_err.print(
+                f":bar_chart: FUNCTION timing summary ({total_calls} "
+                f"call{'s' if total_calls != 1 else ''}):"
+            )
+            for name, durations in stats.items():
+                count = len(durations)
+                total = sum(durations)
+                console_err.print(
+                    f"  {name}: {count} call{'s' if count != 1 else ''}, "
+                    f"total {format_time_seconds(total)}, "
+                    f"avg {format_time_seconds(total / count)}, "
+                    f"max {format_time_seconds(max(durations))}"
+                )
+
 
 
 def ensure_list(val: Any) -> List[str]:
@@ -136,9 +195,13 @@ def time_logger(func=None, *, enabled=None, threshold=None, profile_mode=None):
                 if should_monitor or actual_profile_mode:
                     end_time = time.time()
                     duration = end_time - start_time
-                    
+
+                    # #4960: 批处理/daemon 上下文 — 累积每函数耗时，跳过逐调用打印
+                    if _QUIET_TIMING.active:
+                        _QUIET_TIMING.stats[f.__name__].append(duration)
+                        # 汇总由 quiet_function_timing 退出时统一打印
                     # 智能日志记录：只记录慢查询或调试模式
-                    if show_log and (_gconf.DEBUGMODE or duration > actual_threshold or actual_profile_mode):
+                    elif show_log and (_gconf.DEBUGMODE or duration > actual_threshold or actual_profile_mode):
                         # 根据执行时间选择不同的图标和颜色
                         if duration > actual_threshold * 10:  # 超慢查询
                             icon, color = ":snail:", "red"
