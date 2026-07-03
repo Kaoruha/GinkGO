@@ -80,11 +80,23 @@ def chunk_print(response):
     sys.stdout.write("\n")
 
 
+def _normalize_ollama_url(host: str, port: str, path: str) -> str:
+    """#5366: 归一化 Ollama URL，给裸 host 补 http:// scheme。
+
+    GCONF.OLLAMA_HOST 默认 "localhost"（无 scheme），裸拼出的 URL 会让
+    requests 抛 InvalidSchema（No connection adapters）。统一在此补 scheme，
+    dev_cli 启动守卫与 ask_ollama 运行时复用，避免两份裸 URL 各自维护。
+    """
+    if not host.startswith(("http://", "https://")):
+        host = f"http://{host}"
+    return f"{host}:{port}{path}"
+
+
 def ask_ollama(msg: str):
     global mem
     mem += msg
     from ginkgo.libs import GCONF
-    url = f"{GCONF.OLLAMA_HOST}:{GCONF.OLLAMA_PORT}/api/generate"
+    url = _normalize_ollama_url(GCONF.OLLAMA_HOST, GCONF.OLLAMA_PORT, "/api/generate")
     payload = {"model": "mistral:latest", "prompt": mem}
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, json=payload, headers=headers, stream=True)

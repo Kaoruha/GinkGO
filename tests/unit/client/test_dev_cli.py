@@ -105,7 +105,7 @@ class TestDevChatHappyPathPreserved:
 
         ok_resp = MagicMock(status_code=200)
         with patch("sys.stdin.isatty", return_value=True), \
-             patch("requests.get", return_value=ok_resp), \
+             patch("requests.get", return_value=ok_resp) as mock_get, \
              patch("ginkgo.client.interactive_cli.MyPrompt") as mock_prompt, \
              patch("os.system") as mock_system:
             dev_chat()
@@ -114,3 +114,79 @@ class TestDevChatHappyPathPreserved:
         mock_prompt.return_value.cmdloop.assert_called_once(), "正常路径应进入 cmdloop"
         # clear 仍在守卫之后执行
         mock_system.assert_called_with("clear")
+        # #5366 review: 校验传给 requests.get 的 URL 含 scheme
+        # （原 happy-path 用 MagicMock 整体替换 get，schema bug 测试不可见）
+        called_url = mock_get.call_args[0][0]
+        assert called_url.startswith(("http://", "https://")), \
+            f"URL 缺 scheme，默认配置会触发 InvalidSchema: {called_url}"
+        assert called_url.endswith("/api/tags"), f"URL 应指向 /api/tags: {called_url}"
+
+
+class TestCheckOllamaReachableSchemaException:
+    """#5366 review: except 收窄，schema 类异常（InvalidSchema/MissingSchema/InvalidURL）
+    必须原样抛出。宽 except RequestException 会把它们当「连不上」吞掉，
+    把配置 bug 伪装成「Ollama 没启动」，违背归因纪律。"""
+
+    def test_invalid_schema_propagates_not_swallowed(self):
+        """requests.get 抛 InvalidSchema 时应原样抛，不返 False"""
+        import requests
+        from ginkgo.client.dev_cli import _check_ollama_reachable
+
+        with patch("requests.get", side_effect=requests.exceptions.InvalidSchema("No connection adapters")):
+            with pytest.raises(requests.exceptions.InvalidSchema):
+                _check_ollama_reachable()
+
+    def test_connection_error_still_swallowed_friendly(self):
+        """真·连接错误仍应友好吞掉返 False（保留原 #5366 守卫语义）"""
+        import requests
+        from ginkgo.client.dev_cli import _check_ollama_reachable
+
+        with patch("requests.get", side_effect=requests.exceptions.ConnectionError):
+            assert _check_ollama_reachable() is False
+
+    def test_timeout_still_swallowed_friendly(self):
+        """超时仍应友好吞掉返 False"""
+        import requests
+        from ginkgo.client.dev_cli import _check_ollama_reachable
+
+        with patch("requests.get", side_effect=requests.exceptions.Timeout):
+            assert _check_ollama_reachable() is False
+
+
+class TestAskOllamaUsesNormalizedUrl:
+    """#5366 review: interactive_cli.ask_ollama 同款裸 URL（{OLLAMA_HOST}:{PORT}/api/generate），
+    守卫侥幸过了进 REPL 仍崩。必须复用归一化 helper。"""
+
+    def test_ask_ollama_url_contains_scheme(self):
+        """ask_ollama 传给 requests.post 的 URL 必须含 scheme"""
+        import ginkgo.client.interactive_cli as ic
+
+        with patch.object(ic, "mem", ""), \
+             patch.object(ic, "requests") as mock_requests, \
+             patch.object(ic, "chunk_print"):
+            ic.ask_ollama("hello")
+
+        called_url = mock_requests.post.call_args[0][0]
+        assert called_url.startswith(("http://", "https://")), \
+            f"ask_ollama URL 缺 scheme，进 REPL 仍会 InvalidSchema: {called_url}"
+        assert called_url.endswith("/api/generate"), \
+            f"URL 应指向 /api/generate: {called_url}"
+
+
+class TestNormalizeOllamaUrl:
+    """#5366 review: OLLAMA_HOST 默认裸 host（localhost），URL 必须归一化补 scheme，
+    否则 requests.get 抛 InvalidSchema 被宽 except 吞 → 守卫恒 False。"""
+
+    def test_bare_host_gets_http_scheme(self):
+        """裸 host（默认 localhost）应补 http:// 前缀"""
+        from ginkgo.client.interactive_cli import _normalize_ollama_url
+
+        url = _normalize_ollama_url("localhost", "11434", "/api/tags")
+        assert url == "http://localhost:11434/api/tags"
+
+    def test_host_with_scheme_preserved(self):
+        """用户显式配置 http:// 或 https:// 时不重复补 scheme"""
+        from ginkgo.client.interactive_cli import _normalize_ollama_url
+
+        assert _normalize_ollama_url("http://localhost", "11434", "/api/tags") == "http://localhost:11434/api/tags"
+        assert _normalize_ollama_url("https://ollama.example.com", "11434", "/api/tags") == "https://ollama.example.com:11434/api/tags"

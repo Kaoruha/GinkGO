@@ -99,18 +99,20 @@ def _check_ollama_reachable(timeout: float = 2.0) -> bool:
     """#5366: 轻量探活 Ollama 服务（GET /api/tags）。
 
     返回 True 表示可连通且 HTTP 200；False 表示连不上或超时。
-    仅吞 requests 层的连接/超时异常（这正是要友好处理的场景），
-    其它异常原样抛出（避免静默掩盖编程错误，参见归因纪律）。
+    仅吞连接/超时异常（这正是要友好处理的场景），schema 类异常
+    （InvalidSchema/MissingSchema/InvalidURL）原样抛出——它们是配置 bug，
+    吞掉会把「host 缺 scheme」伪装成「Ollama 没启动」，违背归因纪律。
     """
     import requests
     from ginkgo.libs import GCONF
+    from ginkgo.client.interactive_cli import _normalize_ollama_url
 
-    url = f"{GCONF.OLLAMA_HOST}:{GCONF.OLLAMA_PORT}/api/tags"
+    url = _normalize_ollama_url(GCONF.OLLAMA_HOST, GCONF.OLLAMA_PORT, "/api/tags")
     try:
         resp = requests.get(url, timeout=timeout)
         return resp.status_code == 200
-    except requests.exceptions.RequestException:
-        # ConnectionError / Timeout / 等连接层问题 → 友好提示而非 traceback
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        # 连接层问题（服务未启动/网络不通/超时）→ 友好提示而非 traceback
         return False
 
 
