@@ -211,12 +211,40 @@ def status():
 
 
 @app.command()
-def plan():
+def plan(
+    node: Optional[str] = typer.Option(
+        None, "--node", "-n",
+        help="Filter by ExecutionNode ID (only show portfolios mapped to this node).",
+    ),
+    page: int = typer.Option(
+        1, "--page", "-p",
+        help="Page number (1-based). Ignored when --page-size=0.",
+    ),
+    page_size: int = typer.Option(
+        50, "--page-size", "-s",
+        help="Entries per page. Set to 0 to show all (no pagination).",
+    ),
+):
     """
     :clipboard: Show current schedule plan.
 
-    Display Portfolio to ExecutionNode assignments.
+    Display Portfolio to ExecutionNode assignments, with optional
+    --node filter and --page/--page-size pagination (default 50 per page).
+
+    Examples:
+      ginkgo scheduler plan
+      ginkgo scheduler plan --node 3640219e75b6
+      ginkgo scheduler plan --page 2 --page-size 20
+      ginkgo scheduler plan --page-size 0        # show all
     """
+    # Validate pagination params (page_size=0 means unlimited)
+    if page < 1:
+        console.print("[red]:x: --page must be >= 1[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size must be >= 0 (0 = unlimited)[/red]")
+        raise typer.Exit(1)
+
     console.print(":information: Current schedule plan")
 
     try:
@@ -232,24 +260,69 @@ def plan():
             console.print("[yellow]:warning: No schedule plan found[/yellow]")
             return
 
+        # Decode + filter by node
+        entries = []
+        for portfolio_id_bytes, node_id_bytes in plan_data.items():
+            portfolio_id = portfolio_id_bytes.decode('utf-8')
+            node_id = node_id_bytes.decode('utf-8')
+            if node is not None and node_id != node:
+                continue
+            entries.append((portfolio_id, node_id))
+
+        total = len(entries)
+        if total == 0:
+            if node is not None:
+                console.print(
+                    f"[yellow]:warning: No portfolios mapped to node {node}[/yellow]"
+                )
+            else:
+                console.print("[yellow]:warning: No schedule plan found[/yellow]")
+            return
+
+        # Apply pagination (page_size=0 = unlimited)
+        unlimited = page_size == 0
+        total_pages = 1 if unlimited else max(1, (total + page_size - 1) // page_size)
+        if unlimited:
+            start = 0
+            end = total
+        else:
+            if page > total_pages:
+                console.print(
+                    f"[yellow]:warning: Page {page} out of range "
+                    f"(total {total_pages} pages, {total} entries)[/yellow]"
+                )
+                return
+            start = (page - 1) * page_size
+            end = start + page_size
+
+        page_entries = entries[start:end]
+
         # Create table
         table = Table(title=":calendar: Schedule Plan", show_header=True, header_style="bold magenta")
         table.add_column("Portfolio ID", style="cyan", no_wrap=False)
         table.add_column("ExecutionNode", style="green")
 
-        for portfolio_id_bytes, node_id_bytes in plan_data.items():
-            portfolio_id = portfolio_id_bytes.decode('utf-8')
-            node_id = node_id_bytes.decode('utf-8')
-
+        for portfolio_id, node_id in page_entries:
             # Shorten IDs for display
             portfolio_short = portfolio_id[:8] + "..." if len(portfolio_id) > 11 else portfolio_id
             node_short = node_id[:20] if len(node_id) > 20 else node_id
-
             table.add_row(portfolio_short, node_short)
 
         console.print(table)
-        console.print(f"\n:information: Total portfolios scheduled: [bold]{len(plan_data)}[/bold]")
+        # 总数始终显示（过滤后语义：满足 --node 条件的 portfolio 总数）
+        console.print(
+            f"\n:information: Total portfolios scheduled: [bold]{total}[/bold]"
+        )
+        if not unlimited:
+            shown_from = start + 1
+            shown_to = min(end, total)
+            console.print(
+                f":information: Page [bold]{page}/{total_pages}[/bold] "
+                f"(showing {shown_from}-{shown_to}) — use --page to navigate, --page-size 0 for all"
+            )
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error getting schedule plan: {e}[/red]")
         raise typer.Exit(1)
