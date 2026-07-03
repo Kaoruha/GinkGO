@@ -81,6 +81,18 @@ class TestHelp:
         assert "get" in result.output
         assert "show" in result.output
 
+    def test_result_segment_stability_help_prefix_correct(self, cli_runner):
+        """#4903: segment-stability --help 示例前缀不应残留已拍平的 'get' 子命令。
+
+        早期 CLI 把 `get result` 拍平为 `result` 子命令组，docstring 示例
+        需同步更新为 `ginkgo result segment-stability ...`，否则用户复制
+        会得到 'No such command'。
+        """
+        result = cli_runner.invoke(flat_cli.result_app, ["segment-stability", "--help"])
+        assert result.exit_code == 0
+        assert "ginkgo result segment-stability" in result.output
+        assert "ginkgo get result segment-stability" not in result.output
+
 
 # ============================================================================
 # 1b. result list -p short-option conflict (#4621)
