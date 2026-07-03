@@ -290,8 +290,10 @@ class BacktestWorker:
         existing_status = self.progress_tracker.get_task_status(task_uuid)
         GLOG.DEBUG(f"[{task_short}] Current task status: {existing_status}")
 
-        # 如果任务已完成/失败/取消，跳过
-        if existing_status and existing_status in ["completed", "failed", "cancelled"]:
+        # 如果任务已完成/失败/取消/停止，跳过
+        # #5421 review: stopped 须纳入 skip——stop_task/cancel_task 终态都标 stopped，
+        # 若 Kafka at-least-once 重投 StartAssignment，stopped 不进 skip 会继续执行并覆盖状态
+        if existing_status and existing_status in ["completed", "failed", "cancelled", "stopped"]:
             GLOG.INFO(f"[{task_short}] Task already {existing_status}, skipping...")
             return
 

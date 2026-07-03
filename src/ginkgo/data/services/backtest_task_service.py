@@ -764,8 +764,14 @@ class BacktestTaskService(BaseService):
         停止回测任务（发送停止命令到Kafka）
 
         状态机规则：可停止 created/pending/running 状态的任务（#5421）
-        created/pending 任务可能已被 worker 接收但卡住，故同样发 StopAssignment
-        让 worker 收尾；终态（completed/failed/stopped）拒绝。
+        - created/pending：委托 cancel_task（走 CancelAssignment，worker _cancel_task
+          真实清理 in-memory task；StopAssignment 在 worker 端是 no-op 死信）
+        - running：发 StopAssignment（worker 正在执行，发 stop 信号）
+        - 终态（completed/failed/stopped）拒绝
+
+        review #6543：原扩白名单后对 created/pending 一并发 StopAssignment，但 worker
+        端该 handler 是显式 no-op（DTO A1 未实现），与 CancelAssignment 走 _cancel_task
+        真实清理不对称——卡住场景未真正修复。故 created/pending 改走 cancel 路径。
 
         Args:
             uuid: 任务标识（可以是 uuid 或 task_id）
@@ -781,9 +787,7 @@ class BacktestTaskService(BaseService):
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 状态机检查：created/pending/running 均可停（#5421）
-            # created/pending 任务可能已被 worker 接收但卡住，故同样发 StopAssignment
-            # 让 worker 收尾；终态（completed/failed/stopped）拒绝。
+            # 状态机检查：created/pending/running 均可停（#5421）；终态拒绝
             stoppable_states = ("running", "created", "pending")
             if task.status not in stoppable_states:
                 return ServiceResult.error(
@@ -791,7 +795,14 @@ class BacktestTaskService(BaseService):
                     f"Only tasks in {', '.join(stoppable_states)} can be stopped."
                 )
 
-            # 发送停止命令到Kafka（使用 task_id 作为任务标识）
+            # created/pending：尚未执行或刚被 worker 接收，委托 cancel_task 走真实清理
+            # （CancelAssignment → worker _cancel_task → processor.cancel()）。
+            # review #6543：StopAssignment 在 worker 端是 no-op（DTO A1 未实现），
+            # created/pending 走它对 worker 卡住场景无效，须走 CancelAssignment。
+            if task.status in ("created", "pending"):
+                return self.cancel_task(uuid)
+
+            # running：worker 正在执行，发 StopAssignment（graceful-stop A1 实现后生效）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 
             real_uuid = task.uuid  # 用于更新状态
