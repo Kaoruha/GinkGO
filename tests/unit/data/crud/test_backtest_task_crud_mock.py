@@ -160,3 +160,42 @@ class TestBacktestTaskCRUDConstruction:
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
 
+
+# ============================================================
+# update_task_status 时间戳补全测试（#5424）
+# ============================================================
+
+
+class TestBacktestTaskCRUDUpdateStatusTimestamps:
+    """update_task_status 时间戳自动补全测试
+
+    #5424: 回测 running 时 start_time 应落库。end_time 在 completed/failed/stopped
+    时由 crud 自动补（对称），start_time 此前在 running 分支无对称补全——CLI 同步路径
+    (backtest_cli.run_task) 漏传时 start_time 恒 NULL（实测 82% 记录缺失）。
+    修复：在数据层 running 分支兜底，与 end_time 行为对称。
+    """
+
+    @pytest.mark.unit
+    def test_running_auto_fills_start_time(self, crud_instance):
+        """status=running 不传 start_time 时，crud 自动补 start_time（与 end_time 对称）"""
+        crud_instance.modify = MagicMock(return_value=1)
+
+        crud_instance.update_task_status(uuid="run-001", status="running")
+
+        updates = crud_instance.modify.call_args.kwargs["updates"]
+        assert "start_time" in updates
+        assert updates["start_time"] is not None
+
+    @pytest.mark.unit
+    def test_running_respects_explicit_start_time(self, crud_instance):
+        """status=running 显式传 start_time 时，不覆盖调用方值（progress_tracker 路径）"""
+        from datetime import datetime
+
+        crud_instance.modify = MagicMock(return_value=1)
+        explicit = datetime(2024, 1, 1, 12, 0, 0)
+
+        crud_instance.update_task_status(uuid="run-001", status="running", start_time=explicit)
+
+        updates = crud_instance.modify.call_args.kwargs["updates"]
+        assert updates["start_time"] == explicit
+
