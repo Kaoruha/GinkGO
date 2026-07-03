@@ -457,11 +457,11 @@ def update_contact(
 
         if result.success:
             console.print(Panel.fit(
-                f"[green]:white_check_mark: Contact updated successfully![/green]\\n\\n"
-                f"[cyan]UUID:[/cyan] {result.data['uuid']}\\n"
-                f"[cyan]Type:[/cyan] {result.data['contact_type']}\\n"
-                f"[cyan]Address:[/cyan] {result.data['address']}\\n"
-                f"[cyan]Primary:[/cyan] {result.data['is_primary']}\\n"
+                f"[green]:white_check_mark: Contact updated successfully![/green]\n\n"
+                f"[cyan]UUID:[/cyan] {result.data['uuid']}\n"
+                f"[cyan]Type:[/cyan] {result.data['contact_type']}\n"
+                f"[cyan]Address:[/cyan] {result.data['address']}\n"
+                f"[cyan]Primary:[/cyan] {result.data['is_primary']}\n"
                 f"[cyan]Active:[/cyan] {result.data['is_active']}",
                 title="[bold green]Success[/bold green]",
                 border_style="green"
@@ -495,9 +495,9 @@ def set_primary_contact(
 
         if result.success:
             console.print(Panel.fit(
-                f"[green]:white_check_mark: Primary contact set successfully![/green]\\n\\n"
-                f"[cyan]UUID:[/cyan] {result.data['uuid']}\\n"
-                f"[cyan]User:[/cyan] {result.data['user_uuid']}\\n"
+                f"[green]:white_check_mark: Primary contact set successfully![/green]\n\n"
+                f"[cyan]UUID:[/cyan] {result.data['uuid']}\n"
+                f"[cyan]User:[/cyan] {result.data['user_uuid']}\n"
                 f"[cyan]Primary:[/cyan] {result.data['is_primary']}",
                 title="[bold green]Success[/bold green]",
                 border_style="green"
