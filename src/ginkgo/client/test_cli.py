@@ -230,7 +230,8 @@ def validate():
     """
     :mag: Validate test environment configuration and safety settings.
     """
-    from test.database.test_isolation import validate_test_database_config
+    # #4751: test_isolation 实际位于 tests/unit/database/（历史 test/ 重构后未同步）
+    from tests.unit.database.test_isolation import validate_test_database_config
     
     console.print(":mag: [bold blue]Test Environment Validation[/bold blue]")
     console.print()
@@ -378,7 +379,8 @@ def run(
     if database:
         # Special handling for database tests with safety checks
         if not force:
-            from test.database.test_isolation import validate_test_database_config, print_database_test_warning
+            # #4751: test_isolation 实际位于 tests/unit/database/（与 validate 命令同源修复）
+            from tests.unit.database.test_isolation import validate_test_database_config, print_database_test_warning
             
             # Validate environment
             is_safe, issues = validate_test_database_config()
