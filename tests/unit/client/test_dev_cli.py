@@ -99,3 +99,46 @@ class TestDevProfileUsesSysExecutable:
         with pytest.raises(typer.Exit) as exc_info:
             dev_profile(script="foo.py", output="profile.stats")
         assert exc_info.value.exit_code == 2
+
+
+class TestDevJupyterMissingInstall:
+    """dev jupyter 在 jupyter 未安装时应友好提示并正常退出（#5091）"""
+
+    @patch("subprocess.run")
+    @patch("os.path.exists", return_value=False)
+    @patch("shutil.which", return_value=None)
+    @patch("ginkgo.libs.GCONF")
+    def test_missing_jupyter_no_traceback(
+        self, mock_gconf, mock_which, mock_exists, mock_run, capsys):
+        """#5091: which 找不到 + venv 路径也不存在 → 不调 subprocess.run、不抛异常"""
+        mock_gconf.PYTHONPATH = "/home/x/.venv/bin/python"
+        from ginkgo.client.dev_cli import dev_jupyter
+        # 不应抛 FileNotFoundError
+        dev_jupyter()
+        # jupyter 缺失时不应尝试启动子进程
+        assert not mock_run.called, "#5091: jupyter 缺失时不应调 subprocess.run"
+        # 应输出安装提示（含 jupyter 关键词）
+        captured = capsys.readouterr()
+        assert "jupyter" in (captured.out + captured.err).lower(), \
+            "#5091: 缺失时应提示安装 jupyter"
+
+
+class TestDevJupyterLaunch:
+    """dev jupyter 在 jupyter 可用时应正常启动（#5091 回归守护）"""
+
+    @patch("subprocess.run")
+    @patch("os.path.exists", return_value=True)  # venv 也有，但应被 which 优先覆盖
+    @patch("shutil.which", return_value="/usr/bin/jupyter")
+    @patch("ginkgo.libs.GCONF")
+    def test_which_finds_jupyter_launches_lab(
+        self, mock_gconf, mock_which, mock_exists, mock_run):
+        """#5091: shutil.which 找到 jupyter 时启动 lab，且优先用 which 结果而非 venv 推断"""
+        mock_gconf.PYTHONPATH = "/home/x/.venv/bin/python"
+        from ginkgo.client.dev_cli import dev_jupyter
+        dev_jupyter()
+
+        assert mock_run.called, "找到 jupyter 时应启动 lab"
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "/usr/bin/jupyter", \
+            f"#5091: 应优先用 shutil.which 结果而非 venv 推断, cmd={cmd}"
+        assert "lab" in cmd, f"应启动 lab 子命令, cmd={cmd}"

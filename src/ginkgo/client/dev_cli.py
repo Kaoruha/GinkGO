@@ -85,13 +85,28 @@ def dev_jupyter(
     :notebook: Launch Jupyter Lab server for interactive data analysis.
     """
     import os
+    import shutil
     import subprocess
     from ginkgo.libs import GCONF
-    
+
     if daemon:
         GLOG.WARN("Daemon mode is not supported for jupyter yet.")
 
-    jupyter_path = os.path.join(os.path.dirname(GCONF.PYTHONPATH), "jupyter")
+    # #5091: 动态查找 jupyter，缺失时友好提示而非 FileNotFoundError。
+    # 优先 PATH 查找（shutil.which），回退 venv bin 推断（兼容非标准 PATH）。
+    jupyter_path = shutil.which("jupyter")
+    if not jupyter_path:
+        venv_jupyter = os.path.join(os.path.dirname(GCONF.PYTHONPATH), "jupyter")
+        if os.path.exists(venv_jupyter):
+            jupyter_path = venv_jupyter
+
+    if not jupyter_path:
+        console.print(
+            ":warning: [yellow]未找到 jupyter，请先安装：[/yellow] "
+            "[bold]pip install jupyterlab[/bold]"
+        )
+        return
+
     subprocess.run([jupyter_path, "lab"])
 
 
