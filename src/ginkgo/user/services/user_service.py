@@ -576,6 +576,9 @@ class UserService(BaseService):
                 name_lower = name.lower()
                 users = [u for u in users if name_lower in u.username.lower() or (u.display_name and name_lower in u.display_name.lower())]
 
+            # #4948 应用 limit（在 Python 端过滤之后截断，保证 name/username 过滤语义不丢匹配）
+            users = users[:limit]
+
             # Batch-fetch credentials for is_admin enrichment
             credentials_map = self.get_all_credentials()
 
