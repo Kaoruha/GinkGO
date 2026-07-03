@@ -560,9 +560,17 @@ class TestOrderLifecycleEvents:
             fill_price=Decimal("10.0"), portfolio_id="pid",
             engine_id="eid", task_id="rid",
         )
+        # partial_fill 真实链路会触发 deduct_from_frozen（无冻结资金）+ Position 构造校验
+        # （portfolio.engine_id/task_id 未设）。本测试聚焦 analyzer activate hook 是否触发，
+        # 故 mock 掉资金扣除与持仓读取（走 deal 分支），与相邻
+        # test_terminal_partial_fill_releases_remaining_frozen_funds 同一mock 套路。
+        existing_pos = Mock()
+        existing_pos.uuid = "posuuid0"  # GLOG f-string 切片 [:8] 需真实 str
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
              patch('ginkgo.trading.portfolios.t1backtest.container'), \
              patch.object(p, 'is_event_from_future', return_value=False), \
+             patch.object(p, 'deduct_from_frozen'), \
+             patch.object(p, 'get_position', return_value=existing_pos), \
              patch.object(p, 'update_worth'), \
              patch.object(p, 'update_profit'):
             p.on_order_partially_filled(event)
