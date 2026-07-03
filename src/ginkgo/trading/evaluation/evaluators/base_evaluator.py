@@ -273,7 +273,11 @@ class SimpleEvaluator(BaseEvaluator):
 
             # Get applicable rules first
             rules = self.registry.get_rules(self.component_type)
-            GLOG.DEBUG(f"Applying {len(rules)} rules")
+            # #4702: filter by evaluation level via base_rule.is_applicable (uses
+            # EvaluationLevel.includes). Without this, basic/standard/strict run
+            # identical rule sets and the level flag is display-only.
+            rules = [r for r in rules if r.is_applicable(level)]
+            GLOG.DEBUG(f"Applying {len(rules)} rules at {level.value} level")
 
             # T093: Lazy loading - only load component class if RuntimeRule exists
             component_class = None

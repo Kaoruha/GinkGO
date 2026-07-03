@@ -66,6 +66,13 @@ def evaluate_strategy(
         TimeProviderUsageRule,
         ForbiddenOperationsRule,
     )
+    from ginkgo.trading.evaluation.rules.best_practice_rules import (
+        DecoratorUsageRule,
+        ExceptionHandlingRule,
+        LoggingRule,
+        ResetStateRule,
+        ParameterValidationRule,
+    )
 
     # Validate level parameter
     level_map = {
@@ -129,6 +136,28 @@ def evaluate_strategy(
     )
     registry.register_rule_class(
         ForbiddenOperationsRule,
+        ComponentType.STRATEGY,
+    )
+
+    # Strict level rules (best-practice checks; only run at --level strict)
+    registry.register_rule_class(
+        DecoratorUsageRule,
+        ComponentType.STRATEGY,
+    )
+    registry.register_rule_class(
+        ExceptionHandlingRule,
+        ComponentType.STRATEGY,
+    )
+    registry.register_rule_class(
+        LoggingRule,
+        ComponentType.STRATEGY,
+    )
+    registry.register_rule_class(
+        ResetStateRule,
+        ComponentType.STRATEGY,
+    )
+    registry.register_rule_class(
+        ParameterValidationRule,
         ComponentType.STRATEGY,
     )
 
