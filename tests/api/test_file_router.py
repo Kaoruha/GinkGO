@@ -32,14 +32,36 @@ def make_mock_result(data=None, success=True, message="ok"):
     return result
 
 
+def make_mock_file(uuid="f1", name="s.py", file_type=6, is_del=False):
+    """构造 ORM-like MFile 对象（#5659 review 修复）
+
+    FileService.list_components/get_by_uuid 返真实 MFile ORM 实例（ADR-010: file_crud
+    hook 为 identity）。早期测试用 dict mock 绕过了 ORM 路径，掩盖了端点缺 ORM→dict
+    转换层的 bug（端到端 TypeError: MFile not JSON serializable）。本 helper 用
+    MagicMock 设 ORM 属性，精确还原 service 真实返回形状。
+    """
+    import datetime
+    f = MagicMock()
+    f.uuid = uuid
+    f.name = name
+    f.type = file_type
+    f.is_del = is_del
+    f.create_at = datetime.datetime(2026, 1, 1, 12, 0, 0)
+    f.update_at = datetime.datetime(2026, 1, 2, 12, 0, 0)
+    return f
+
+
 class TestListFiles:
     """GET /api/v1/file_list — 薄委托 FileService.list_components"""
 
     def test_delegates_to_list_components_with_pagination(self):
-        """list_files 应将 page(1-based)→page(0-based) 下推，size 下推，返回 paginated。"""
+        """list_files 应将 page(1-based)→page(0-based) 下推，size 下推，返回 paginated。
+
+        service 返 MFile ORM 列表（非 dict），端点必须转 dict + isoformat() 才能序列化。
+        """
         mock_service = MagicMock()
         mock_service.list_components.return_value = make_mock_result(
-            data={"data": [{"uuid": "f1", "name": "s.py"}], "total": 1}
+            data={"data": [make_mock_file(uuid="f1", name="s.py")], "total": 1}
         )
 
         from api.file import list_files
@@ -53,7 +75,14 @@ class TestListFiles:
         assert kwargs["page_size"] == 100
         assert kwargs["is_del"] is False
         assert resp["meta"]["total"] == 1
-        assert resp["data"][0]["uuid"] == "f1"
+        # ORM→dict 转换层产出可 JSON 序列化的 dict（非 MagicMock）
+        item = resp["data"][0]
+        assert isinstance(item, dict)
+        assert item["uuid"] == "f1"
+        assert item["name"] == "s.py"
+        # datetime 必须 isoformat() 否则端到端序列化崩
+        assert item["created_at"] == "2026-01-01T12:00:00"
+        assert item["updated_at"] == "2026-01-02T12:00:00"
 
     def test_passes_keyword_when_query_nonempty(self):
         """非空 query 应作为 keyword 下推到 service。"""
@@ -75,9 +104,10 @@ class TestGetFile:
     """GET /api/v1/file/{file_id} — 薄委托 FileService.get_by_uuid"""
 
     def test_delegates_to_get_by_uuid(self):
+        """service 返 MFile ORM 单对象（非 dict），端点必须转 dict + isoformat()。"""
         mock = MagicMock()
         mock.get_by_uuid.return_value = make_mock_result(
-            data={"file": {"uuid": "f1", "name": "s.py"}, "exists": True}
+            data={"file": make_mock_file(uuid="f1", name="s.py"), "exists": True}
         )
 
         from api.file import get_file
@@ -86,7 +116,11 @@ class TestGetFile:
             resp = run_async(get_file("f1"))
 
         mock.get_by_uuid.assert_called_once_with("f1")
-        assert resp["data"]["uuid"] == "f1"
+        data = resp["data"]
+        assert isinstance(data, dict)
+        assert data["uuid"] == "f1"
+        assert data["name"] == "s.py"
+        assert data["created_at"] == "2026-01-01T12:00:00"
 
     def test_404_when_not_exists(self):
         mock = MagicMock()

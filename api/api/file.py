@@ -23,6 +23,29 @@ def get_file_service():
     return container.file_service()
 
 
+def _file_to_dict(file_record):
+    """ORM MFile → JSON 可序列化 dict（#5659 review 修复）
+
+    FileService.list_components/get_by_uuid 返 MFile ORM 实例（ADR-010: file_crud
+    hook 为 identity，直接返 ORM 不转 entity）。早期实现把 ORM 对象直接塞进
+    paginated()/ok()，端到端必 `TypeError: MFile not JSON serializable`。
+    参照同目录 components.py:137-158 的转换模式：datetime 调 isoformat()。
+    """
+    if file_record is None:
+        return None
+    created_at = file_record.create_at if hasattr(file_record, "create_at") else None
+    updated_at = file_record.update_at if hasattr(file_record, "update_at") else None
+    is_del = file_record.is_del if hasattr(file_record, "is_del") else False
+    return {
+        "uuid": file_record.uuid,
+        "name": file_record.name,
+        "type": file_record.type if hasattr(file_record, "type") else 0,
+        "created_at": created_at.isoformat() if created_at else None,
+        "updated_at": updated_at.isoformat() if updated_at else None,
+        "is_active": not is_del,
+    }
+
+
 @router.get("/file_list")
 async def list_files(
     query: str = "",
@@ -51,7 +74,8 @@ async def list_files(
                 detail=result.message or "Failed to list files",
             )
         result_data = result.data or {}
-        items = result_data.get("data", [])
+        # ORM MFile → dict（service 返 ModelList，直接塞 paginated 会序列化崩）
+        items = [_file_to_dict(f) for f in result_data.get("data", [])]
         total = result_data.get("total", 0)
         return paginated(items=items, total=total, page=page, page_size=size)
     except HTTPException:
@@ -96,7 +120,8 @@ async def get_file(file_id: str):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"File not found: {file_id}",
             )
-        return ok(data=data.get("file"))
+        # ORM MFile → dict（service 返 ORM 单对象，直接塞 ok 会序列化崩）
+        return ok(data=_file_to_dict(data.get("file")))
     except HTTPException:
         raise
     except Exception as e:
