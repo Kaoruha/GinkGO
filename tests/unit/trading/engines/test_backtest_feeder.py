@@ -937,3 +937,73 @@ class TestHistoricalDataAccess:
         assert isinstance(result, pd.DataFrame)
         assert result.empty
         assert len(result) == 0
+
+
+@pytest.mark.unit
+@pytest.mark.backtest
+class TestBacktestFeederNoDataDedup:
+    """BacktestFeeder 无数据警告去重（#5163）
+
+    宽 universe（cn_all）回测时，无数据 code 逐日逐票刷屏 WARN 拖慢性能。
+    验收：同一 code 的 'No bar data' WARN 至多一条。
+    """
+
+    def test_same_code_warns_at_most_once_across_days(self, monkeypatch):
+        """同一 code 跨多日无数据 → 'No bar data' WARN 至多一次（tracer bullet）"""
+        from unittest.mock import Mock
+        from ginkgo.trading.feeders import backtest_feeder as feeder_module
+        from ginkgo.data.services.base_service import ServiceResult
+
+        feeder = BacktestFeeder()
+        # bar_service.get 始终返回无数据
+        feeder.bar_service = Mock()
+        feeder.bar_service.get = Mock(
+            return_value=ServiceResult.error(error="no data")
+        )
+
+        warn_calls = []
+        monkeypatch.setattr(
+            feeder_module.GLOG, "WARN",
+            lambda msg, *a, **kw: warn_calls.append(msg),
+        )
+
+        day1 = datetime(2026, 1, 5, 9, 30, 0)
+        day2 = datetime(2026, 1, 6, 9, 30, 0)
+        day3 = datetime(2026, 1, 7, 9, 30, 0)
+
+        # 同一 code 跨三日重复调用
+        feeder._generate_price_events("NODATA.SZ", day1)
+        feeder._generate_price_events("NODATA.SZ", day2)
+        feeder._generate_price_events("NODATA.SZ", day3)
+
+        no_data_warns = [w for w in warn_calls if "No bar data" in str(w)]
+        assert len(no_data_warns) <= 1, (
+            f"同 code 应只 WARN 一次, 实际 {len(no_data_warns)}: {no_data_warns}"
+        )
+
+    def test_different_codes_each_warn_once(self, monkeypatch):
+        """不同无数据 code 各 WARN 一次（去重粒度=code，非全局静默）"""
+        from unittest.mock import Mock
+        from ginkgo.trading.feeders import backtest_feeder as feeder_module
+        from ginkgo.data.services.base_service import ServiceResult
+
+        feeder = BacktestFeeder()
+        feeder.bar_service = Mock()
+        feeder.bar_service.get = Mock(
+            return_value=ServiceResult.error(error="no data")
+        )
+
+        warn_calls = []
+        monkeypatch.setattr(
+            feeder_module.GLOG, "WARN",
+            lambda msg, *a, **kw: warn_calls.append(msg),
+        )
+
+        day = datetime(2026, 1, 5, 9, 30, 0)
+        feeder._generate_price_events("NODATA_A.SZ", day)
+        feeder._generate_price_events("NODATA_B.SZ", day)
+
+        no_data_warns = [w for w in warn_calls if "No bar data" in str(w)]
+        assert len(no_data_warns) == 2, (
+            f"两个不同 code 应各 WARN 一次, 实际 {len(no_data_warns)}: {no_data_warns}"
+        )

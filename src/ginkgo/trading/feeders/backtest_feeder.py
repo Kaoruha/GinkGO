@@ -63,6 +63,10 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
 
         # 兴趣集（通过EventInterestUpdate动态更新）
         self._interested_codes: List[str] = []
+
+        # 无数据 code 去重集合（#5163）：同 code 仅 WARN 一次，避免宽 universe
+        # 回测时逐日刷屏（5000 股 × 60 日 ≈ 30 万次 WARN）
+        self._warned_no_data: set = set()
         
     # === IDataFeeder 基础接口实现 ===
 
@@ -235,7 +239,10 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
             )
 
             if not result.success or not result.data:
-                GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
+                # #5163: 同 code 仅 WARN 一次，避免宽 universe 逐日刷屏
+                if code not in self._warned_no_data:
+                    self._warned_no_data.add(code)
+                    GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
                 return events
 
             # 转换ModelList → 业务对象列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
