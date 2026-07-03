@@ -143,6 +143,7 @@ class LiveAccountService(BaseService):
                 "success": True,
                 "data": {
                     "uuid": account.uuid,
+                    "status": account.status,
                     "validation_result": validation_result
                 },
                 "message": "Live account created successfully"
