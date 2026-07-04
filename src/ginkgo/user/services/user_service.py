@@ -564,17 +564,21 @@ class UserService(BaseService):
             if is_active is not None:
                 filters["is_active"] = is_active
 
-            # #3956
-            users = self.user_crud.find(filters=filters)
-
-            # 按 username 精确匹配（优先级高于模糊 name 搜索）
+            # username 精确匹配下推 DB 层（优先级高于模糊 name 搜索）
             if username:
-                users = [u for u in users if u.username == username]
-
-            # 按 name 过滤（在 Python 端实现模糊匹配，搜索 username 和 display_name）
+                filters["username"] = username
+            # name 模糊匹配下推 DB 层：搜 username + display_name（__or__ + __like，
+            # 详见 base_crud._parse_filters）。MySQL utf8mb4_general_ci 默认大小写
+            # 不敏感，与原 Python .lower() 语义一致；若换 cs 排序规则需另行处理
             if name:
-                name_lower = name.lower()
-                users = [u for u in users if name_lower in u.username.lower() or (u.display_name and name_lower in u.display_name.lower())]
+                filters["__or__"] = [
+                    {"username__like": name},
+                    {"display_name__like": name},
+                ]
+            # #4948 #6572 limit 下推为 page_size（DB 层 LIMIT），避免取全量后 Python
+            # 切片反模式（见 base_crud.find docstring 与 PR #6561 决策历史）
+            # #3956
+            users = self.user_crud.find(filters=filters, page_size=limit)
 
             # Batch-fetch credentials for is_admin enrichment
             credentials_map = self.get_all_credentials()
