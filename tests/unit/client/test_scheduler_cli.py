@@ -224,3 +224,109 @@ class TestSchedulerOutputEscape:
         assert "\\n" not in result.output, (
             f"reload 输出含字面 \\n: {repr(result.output[-120:])}"
         )
+
+
+# ===========================================================================
+# plan 分页与过滤（#4992）
+# ===========================================================================
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestSchedulerPlanFilter:
+    """#4992: scheduler plan 全量 hgetall 后无过滤/分页，组合多时刷屏。
+
+    修复后应支持 --node 过滤（仅显示映射到指定节点的 portfolio）和
+    --page/--page-size 分页（默认 page_size=50 防 OOM 刷屏）。
+    """
+
+    @staticmethod
+    def _multi_node_plan_redis(n_node1: int = 60, n_node2: int = 30):
+        """构造 RedisCRUD().redis 的 mock：返回 n_node1 条映射到 node-1 +
+        n_node2 条映射到 node-2 的 schedule:plan hash（超出默认 page_size=50）。
+        """
+        mock_redis = MagicMock()
+        plan = {}
+        for i in range(n_node1):
+            plan[f"port-{i:03d}".encode()] = b"node-1"
+        for i in range(n_node1, n_node1 + n_node2):
+            plan[f"port-{i:03d}".encode()] = b"node-2"
+        mock_redis.hgetall.return_value = plan
+        return mock_redis
+
+    def test_node_filter_returns_only_matching_node(self, cli_runner):
+        """#4992 tracer: `--node node-2` 只输出映射到 node-2 的 portfolio。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--node", "node-2"])
+
+        assert result.exit_code == 0
+        # 只剩 node-2 的 30 条（用 "scheduled: N" 文案锚定过滤后总数）
+        assert "node-2" in result.output
+        assert "node-1" not in result.output
+        assert "scheduled: 30" in result.output
+
+    def test_default_page_size_truncates_to_50(self, cli_runner):
+        """#4992: 默认 page_size=50，90 条映射只显示前 50（防 OOM 刷屏）。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()  # 60 + 30 = 90
+            result = cli_runner.invoke(scheduler_cli.app, ["plan"])
+
+        assert result.exit_code == 0
+        # 总数仍是 90（过滤后），但本页只展示 1-50
+        assert "scheduled: 90" in result.output
+        assert "Page 1/2" in result.output
+        assert "showing 1-50" in result.output
+
+    def test_page_2_shows_remaining(self, cli_runner):
+        """#4992: --page 2 显示第 51-90 条（90 条分 2 页：50+40）。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--page", "2"])
+
+        assert result.exit_code == 0
+        assert "Page 2/2" in result.output
+        assert "showing 51-90" in result.output
+
+    def test_page_size_0_shows_all(self, cli_runner):
+        """#4992: --page-size 0 关闭分页，全量展示（向后兼容逃生口）。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(
+                scheduler_cli.app, ["plan", "--page-size", "0"]
+            )
+
+        assert result.exit_code == 0
+        # 无 "Page X/Y" 行（unlimited 模式只输出总数）
+        assert "Page" not in result.output
+        assert "scheduled: 90" in result.output
+
+    def test_node_filter_no_match_shows_friendly_message(self, cli_runner):
+        """#4992: --node 不匹配任何节点时友好提示，不输出空表。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(
+                scheduler_cli.app, ["plan", "--node", "nonexistent-node"]
+            )
+
+        assert result.exit_code == 0
+        assert "No portfolios mapped to node nonexistent-node" in result.output
+
+    def test_invalid_page_rejected(self, cli_runner):
+        """#4992: --page 0 报错退出 1（page 必须 >= 1）。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--page", "0"])
+
+        assert result.exit_code == 1
+        assert "--page must be >= 1" in result.output
+
+    def test_invalid_page_size_rejected(self, cli_runner):
+        """#4992: --page-size -1 报错退出 1（page_size 必须 >= 0）。"""
+        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
+            MockCRUD.return_value.redis = self._multi_node_plan_redis()
+            result = cli_runner.invoke(
+                scheduler_cli.app, ["plan", "--page-size", "-1"]
+            )
+
+        assert result.exit_code == 1
+        assert "--page-size must be >= 0" in result.output
