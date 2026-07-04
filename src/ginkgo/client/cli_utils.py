@@ -292,22 +292,72 @@ def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
 
 
 def format_result(result, *, format: str, command: str) -> None:
-    """统一 ServiceResult → 输出（ADR-021 第 5 维）。
+    """统一 ServiceResult → stdout JSON 输出 + exit code 映射（ADR-021 第 5/6/9 维）。
 
-    .. warning::
-        **Step 2，阻塞 #6576**。依赖 ``ServiceResult.code`` 字段（``Optional[str]``），
-        由 E1 (#6576) 落地决策，当前 master 未合并。本 helper 现为占位，
-        待 #6576 合并后实现：
+    三种输出结构：
 
-        - 成功 list：``{"success": true, "data": [...], "count": N, "metadata": {}}``
-        - 成功 get：``{"success": true, "data": {...}}``
-        - 失败：``{"success": false, "error": {"code": ..., "message": ...}, "data": null}``
-        - exit code 映射：``BAD_PARAMS``→2 / ``TIMEOUT``→124 / 其余→1
+    - 成功 list（``data`` 是 ``list``）：``{"success": true, "data": [...], "count": N, "metadata": {}}``
+    - 成功 get（``data`` 非 list）：``{"success": true, "data": {...}}``
+    - 失败：``{"success": false, "error": {"code": <result.code>, "message": <result.error>}, "data": null}``
 
-        按归因纪律（CLAUDE.md）：raise 而非 stub 兜底——宁可响亮报错，
-        也不静默返回错误结构误导调用方。
+    list vs get 区分：由 ``result.data`` 类型推断（``isinstance(data, list)`` → list 结构，
+    含 ``count``/``metadata``）；其余（dict / 标量 / None）走 get 结构。对应 ADR-021 第 9 维
+    「list/get 二分」。
+
+    exit code 映射（ADR-021 第 6 维，失败路径 ``raise typer.Exit(code)``）：
+
+    - 成功 → ``return``（exit 0，不显式 Exit；呼应 ADR「0 = 正常 return，不 Exit」）
+    - ``code == "BAD_PARAMS"`` → exit 2（参数错误）
+    - ``code == "TIMEOUT"`` → exit 124（超时，GNU timeout 惯例）
+    - 其余失败（含 ``code is None``）→ exit 1（业务失败）
+
+    向后兼容：用 ``getattr(result, "code", None)`` 读取 code，无 ``code`` 属性的旧
+    ``ServiceResult`` 实例（全仓 436 处）按 ``code=None`` 处理，成功路径不受影响。
+
+    ``format="text"`` 当前复用 JSON 输出（过渡）：rich 人读渲染（红框/table）留给
+    E4/E5 接入时连同 ``make_console`` 一起落地；本 helper 保证 text 路径不崩、
+    exit code 仍正确分流。
+
+    Args:
+        result: ``ServiceResult`` 实例（或 duck-typed 对象，需 ``success``/``error``/``data``）
+        format: ``"json"`` 或 ``"text"``（来自 ``--format`` flag）
+        command: 调用方命令名（如 ``"list"`` / ``"get"``），当前仅用于诊断/日志
     """
-    raise NotImplementedError(
-        "format_result 待 #6576 (E1 ServiceResult.code) 合并后实现："
-        f"当前 command={command!r} format={format!r} 暂不支持。"
-    )
+    success = bool(getattr(result, "success", False))
+    # getattr 兜底：旧 ServiceResult 实例（无 code 字段）按 None 处理
+    code = getattr(result, "code", None)
+
+    if success:
+        data = getattr(result, "data", None)
+        if isinstance(data, list):
+            # list 结构（ADR-021 第 9 维 list 类）：含 count + metadata
+            payload = {
+                "success": True,
+                "data": data,
+                "count": len(data),
+                "metadata": getattr(result, "metadata", None) or {},
+            }
+        else:
+            # get 结构（ADR-021 第 9 维 get 类）
+            payload = {"success": True, "data": data}
+        print(json.dumps(payload, cls=GinkgoJSONEncoder))
+        # ADR-021 第 6 维：成功 = 正常 return（不显式 Exit），typer 自然 exit 0
+        return
+
+    # 失败路径（ADR-021 第 5 维 fail 结构）
+    error_message = getattr(result, "error", None) or ""
+    payload = {
+        "success": False,
+        "error": {"code": code, "message": error_message},
+        "data": None,
+    }
+    print(json.dumps(payload, cls=GinkgoJSONEncoder))
+
+    # exit code 映射（ADR-021 第 6 维）
+    if code == "BAD_PARAMS":
+        exit_code = 2
+    elif code == "TIMEOUT":
+        exit_code = 124
+    else:
+        exit_code = 1
+    raise typer.Exit(code=exit_code)

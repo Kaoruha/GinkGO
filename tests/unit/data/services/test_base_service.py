@@ -375,3 +375,54 @@ class TestBaseServiceStringRepresentation:
         assert "ConcreteService" in r
         assert "at 0x" in r
         assert hex(id(service)) in r
+
+
+# ============================================================================
+# ADR-021 第 5 维 (#6591): ServiceResult.code 字段
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestServiceResultCodeField:
+    """ServiceResult.code 字段测试（ADR-021 第 5 维，#6591）。
+
+    code 承载结构化业务错误码（BAD_PARAMS/TIMEOUT/NOT_FOUND/INTERNAL 等），
+    默认 None 保证全仓 436 处旧调用零改动（向后兼容）。
+    """
+
+    def test_code_field_defaults_none(self):
+        """默认构造 code=None，向后兼容旧调用"""
+        result = ServiceResult(success=True, data={"k": "v"})
+        assert result.code is None
+
+    def test_code_field_constructed_with_value(self):
+        """code 可通过构造函数传入"""
+        result = ServiceResult(success=False, error="参数错误", code="BAD_PARAMS")
+        assert result.code == "BAD_PARAMS"
+
+    def test_failure_factory_propagates_code(self):
+        """failure() 工厂支持 code 参数（失败路径源头打 code）"""
+        result = ServiceResult.failure(message="未找到", code="NOT_FOUND")
+        assert result.success is False
+        assert result.code == "NOT_FOUND"
+
+    def test_error_factory_propagates_code(self):
+        """error() 工厂支持 code 参数"""
+        result = ServiceResult.error(error="超时", code="TIMEOUT")
+        assert result.success is False
+        assert result.code == "TIMEOUT"
+
+    def test_success_factory_code_defaults_none(self):
+        """success() 工厂 code 默认 None（成功路径不打 code）"""
+        result = ServiceResult.success(data={"k": "v"})
+        assert result.code is None
+
+    def test_to_dict_omits_code_when_none(self):
+        """to_dict() 在 code=None 时不含 code 字段（向后兼容旧序列化输出）"""
+        d = ServiceResult.success(data={"x": 1}).to_dict()
+        assert "code" not in d
+
+    def test_to_dict_includes_code_when_set(self):
+        """to_dict() 在 code 非 None 时包含 code 字段"""
+        d = ServiceResult.failure(message="参数错误", code="BAD_PARAMS").to_dict()
+        assert d.get("code") == "BAD_PARAMS"
