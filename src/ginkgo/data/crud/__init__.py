@@ -1,6 +1,7 @@
 # Upstream: 数据服务层(BaseService), API层, 回测引擎
 # Downstream: BaseCRUD, ClickHouse/MySQL/MongoDB/Redis数据库模型
 # Role: CRUD包入口，统一导出全部CRUD类(BarCRUD、OrderCRUD、PortfolioCRUD等40+个)，供服务层和容器注册使用
+# Filters DSL: BaseCRUD.find 的 filters 经 _parse_filters 支持 __gte/__lte/__gt/__lt/__in/__like 与 __or__ 组合(跨字段 OR),page_size 即 SQL LIMIT;跨字段模糊匹配可 DB 层一体化,勿误判"只支持等值"(见 base_crud.BaseCRUD.find 与 issue #6572)
 
 # See #2715: PEP 562 懒加载（models/ 包除外，见该目录注释）
 _LAZY_IMPORTS = {
