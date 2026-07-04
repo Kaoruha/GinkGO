@@ -557,6 +557,22 @@ class KafkaService(BaseService):
             self._logger.ERROR(f"Failed to list active subscriptions: {e}")
             return ServiceResult.error(f"Failed to list active subscriptions: {str(e)}")
     
+    def list_consumer_groups(self) -> ServiceResult:
+        """
+        列出 broker 端所有 consumer groups
+
+        走 CRUD ``list_broker_consumer_groups`` 真实查询 broker（非本地缓存）。
+
+        Returns:
+            ServiceResult: data 为消费组列表（每项含 name/state/protocol_type/type）
+        """
+        try:
+            groups = self._crud_repo.list_broker_consumer_groups()
+            return ServiceResult.success(groups, f"Listed {len(groups)} consumer groups")
+        except Exception as e:
+            self._logger.ERROR(f"Failed to list consumer groups: {e}")
+            return ServiceResult.error(f"Failed to list consumer groups: {str(e)}")
+
     def unsubscribe_topic(self, topic: str) -> ServiceResult:
         """
         取消订阅主题

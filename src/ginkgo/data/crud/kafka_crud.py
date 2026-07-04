@@ -21,6 +21,7 @@ import threading
 import time
 
 from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.libs.core.config import GCONF
 from ginkgo.data.drivers import GinkgoProducer, GinkgoConsumer, kafka_topic_llen
 
 
@@ -419,8 +420,60 @@ class KafkaCRUD:
             topic_name, group_id = consumer_key.rsplit('_', 1)
             if topic is None or topic_name == topic:
                 groups.add(group_id)
-        
+
         return list(groups)
+
+    def list_broker_consumer_groups(self, request_timeout_ms: int = 10000) -> List[Dict[str, str]]:
+        """
+        列出 broker 端所有 consumer groups（真实管理查询）
+
+        与 ``list_consumer_groups``（读本地内存缓存）不同，本方法通过
+        ``KafkaAdminClient.list_groups`` 查询 broker 已注册的所有消费组。
+
+        Args:
+            request_timeout_ms: 单次请求超时（毫秒），防止 broker 不可达时阻塞
+
+        Returns:
+            List[Dict[str, str]]: 归一化消费组列表，每项含
+            ``name`` / ``state`` / ``protocol_type`` / ``type``；
+            查询失败时返回空列表并记录错误（不向上抛）。
+        """
+        admin_client = None
+        try:
+            from kafka.admin import KafkaAdminClient
+
+            admin_client = KafkaAdminClient(
+                bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],
+                client_id="ginkgo-admin",
+                request_timeout_ms=request_timeout_ms,
+            )
+            raw_groups = admin_client.list_groups()
+            normalized: List[Dict[str, str]] = []
+            for group in raw_groups:
+                # kafka-python 3.x 返回 dict；旧版本可能是 namedtuple/tuple，统一兜底
+                if hasattr(group, "to_dict"):
+                    data = group.to_dict()
+                elif isinstance(group, dict):
+                    data = group
+                else:
+                    data = {"group_id": group[0] if len(group) > 0 else "",
+                            "protocol_type": group[1] if len(group) > 1 else ""}
+                normalized.append({
+                    "name": data.get("group_id") or data.get("name") or data.get("group") or "",
+                    "state": data.get("group_state") or data.get("state") or "",
+                    "protocol_type": data.get("protocol_type") or data.get("protocol") or "",
+                    "type": data.get("group_type") or data.get("type") or "",
+                })
+            return normalized
+        except Exception as e:
+            GLOG.ERROR(f"Failed to list broker consumer groups: {e}")
+            return []
+        finally:
+            if admin_client is not None:
+                try:
+                    admin_client.close()
+                except Exception as close_err:
+                    GLOG.DEBUG(f"Error closing KafkaAdminClient: {close_err}")
     
     # ==================== 监控和状态 ====================
     

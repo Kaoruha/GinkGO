@@ -572,13 +572,75 @@ def _run_health_check():
         console.print(f"[red]{traceback.format_exc()}[/]")
 
 
-def _list_consumer_groups():
-    """列出Consumer Groups - 伪函数"""
-    # TODO: 实现Consumer Groups列表
-    # - 获取所有Consumer Groups
-    # - 显示状态和lag信息
-    # - 格式化表格输出
-    pass
+def _list_consumer_groups(timeout_seconds: float = 15.0):
+    """列出 broker 端所有 Consumer Groups
+
+    走 KafkaService.list_consumer_groups → KafkaCRUD.list_broker_consumer_groups
+    真实查询 broker。外层 daemon 线程 + queue 硬超时（默认 15s）兜底，防止 broker
+    不可达时 KafkaAdminClient 构造/连接阻塞（呼应 kafka_crud._test_connection 的 TODO）；
+    daemon 线程保证超时后不阻塞进程退出。
+
+    Args:
+        timeout_seconds: 硬超时秒数；超时打印友好提示而非挂死。
+    """
+    try:
+        import queue as _queue
+        import threading as _threading
+        from ginkgo.data.containers import container
+        from rich.table import Table
+
+        result_box: "_queue.Queue" = _queue.Queue()
+
+        def _fetch():
+            try:
+                service = container.kafka_service()
+                result_box.put(service.list_consumer_groups())
+            except Exception as e:  # 把异常也塞进队列，统一在主线程处理
+                result_box.put(e)
+
+        worker = _threading.Thread(target=_fetch, daemon=True)
+        worker.start()
+        try:
+            outcome = result_box.get(timeout=timeout_seconds)
+        except _queue.Empty:
+            console.print(
+                "[bold yellow]:hourglass: Listing consumer groups timed out "
+                f"(>{timeout_seconds}s). Check Kafka connectivity (ginkgo kafka status).[/]"
+            )
+            return
+
+        if isinstance(outcome, Exception):
+            console.print(f"[bold red]:x: Error listing consumer groups: {outcome}[/]")
+            return
+
+        result = outcome
+        if not result.success:
+            console.print(f"[bold red]:x: Failed to list consumer groups: {result.message}[/]")
+            return
+
+        groups = result.data or []
+        if not groups:
+            console.print("[bold yellow]:information: No active consumer groups found.[/]")
+            return
+
+        table = Table(title="Kafka Consumer Groups")
+        table.add_column("Group", style="cyan", no_wrap=True)
+        table.add_column("State", style="green")
+        table.add_column("Protocol", style="blue")
+        table.add_column("Type", style="yellow")
+        for group in groups:
+            table.add_row(
+                str(group.get("name", "")),
+                str(group.get("state", "")),
+                str(group.get("protocol_type", "")),
+                str(group.get("type", "")),
+            )
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]:x: Error listing consumer groups: {e}[/]")
+        import traceback
+        console.print(f"[red]{traceback.format_exc()}[/]")
 
 
 def _reset_consumer_offsets(group_id: str, strategy: str):
