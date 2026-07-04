@@ -130,14 +130,22 @@ class BacktestOrchestrator:
         if self._task_service is not None:
             self._task_service.update_status(task.uuid, "running")
 
-        # 3. 委派 run()
-        return self.run(
+        # 4. 委派 run()
+        result = self.run(
             task_id=task.uuid,
             config=config,
             portfolio_id=task.portfolio_id,
             progress_callback=progress_callback,
             timeout=timeout,
         )
+
+        # #6449: 成功路径回填 backtest_end_date 给调用方（CLI FINALIZING 进度用）。
+        # aggregator 只把它写进 DB task 表、不进返回 dict；config 解析下沉到本层后
+        # 调用方拿不到 config.end_date，故由用例层在此回填，对齐 master 的
+        # str(config.end_date) 语义。
+        if result.is_success() and isinstance(result.data, dict):
+            result.data["backtest_end_date"] = str(config.end_date)
+        return result
 
     def run(self, task_id: str, config, portfolio_id: str,
             timeout: Optional[float] = None,

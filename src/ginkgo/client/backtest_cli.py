@@ -248,6 +248,10 @@ def run_task(
 
             console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")
 
+    except typer.Exit:
+        # #6590/#6449 守卫：typer.Exit MRO 含 Exception，须在 except Exception 前透传，
+        # 否则 L229 的 raise typer.Exit(1) 被吞，error_message 被写成 str(e)=='1' 覆盖真因。
+        raise
     except Exception as e:
         service.update_status(task.uuid, "failed", error_message=str(e))
         console.print(f":x: Backtest failed: {e}")

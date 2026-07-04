@@ -211,3 +211,62 @@ class TestBacktestCompletedProgressFallback:
 
         plain = _strip_ansi(invoke_result.output)
         assert "100%" in plain
+
+
+class TestBacktestRunTaskExitGuard:
+    """#6449 review: run_task 失败路径的 typer.Exit 必须透传，不能被 except Exception 吞。
+
+    PR #6590 已为 8+ CLI 文件建立 `except typer.Exit: raise` 守卫；backtest_cli 是漏网者。
+    吞掉后果：typer.Exit(1) 被 except Exception 捕获，str(e)=='1'，error_message 被
+    覆盖成 '1' 丢失 preflight 真因（#6590 类陷阱）。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_failure_path_does_not_swallow_typer_exit(
+        self, mock_orch_cls, mock_container):
+        """run_from_task 返失败时，不应把 error_message 写成 str(typer.Exit)=='1'。"""
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-exit-001"
+        task.portfolio_id = "port-exit"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        # UseCase 层报业务事实（success=False + 真实原因），CLI 翻译为 typer.Exit
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(
+            success=False, error="preflight blocked: data coverage insufficient",
+        )
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-exit-001"])
+
+        # typer.Exit(1) 必须透传到 CliRunner（exit_code=1）
+        assert invoke_result.exit_code == 1, (
+            f"期望 exit_code=1，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+        # 真实原因应在输出中（L228 先打印 result.error）
+        plain = _strip_ansi(invoke_result.output)
+        assert "preflight blocked" in plain, (
+            f"输出应含真实 preflight 原因，实际: {plain!r}"
+        )
+        # 关键守卫断言：typer.Exit 被 except Exception 吞后 str(e)=='1' 会覆盖真因。
+        # 守卫就位时 L252 不执行，update_status 不会被写成 error_message='1'。
+        error_messages = [
+            str(c.kwargs.get("error_message"))
+            for c in mock_service.update_status.call_args_list
+            if "error_message" in c.kwargs
+        ]
+        assert "1" not in error_messages, (
+            "typer.Exit 不应被 except Exception 吞（#6590/#6449 守卫）："
+            f"update_status error_messages={error_messages}"
+        )

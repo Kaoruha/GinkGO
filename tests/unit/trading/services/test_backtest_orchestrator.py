@@ -426,9 +426,10 @@ class TestRunFromTaskConfigParse:
     收敛点：CLI/worker 不再各自构造 BacktestConfig，由 UseCase 层统一解析。
     """
 
+    @patch("ginkgo.trading.services.backtest_orchestrator.preflight_data_coverage")
     @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
     def test_dict_snapshot_converted_to_backtest_config(
-        self, mock_load_components, orchestrator,
+        self, mock_load_components, mock_preflight, orchestrator,
         mock_assembly_service, mock_portfolio_service, mock_aggregator):
         """传 dict config_snapshot 时，应转 BacktestConfig 传给 run()。"""
         from ginkgo.workers.backtest_worker.models import BacktestConfig
@@ -446,6 +447,9 @@ class TestRunFromTaskConfigParse:
             is_success=lambda: True, data=[_make_portfolio_result()],
         )
         mock_load_components.return_value = _make_components()
+        # #6449 review: 隔离 preflight，避免查真实 MySQL（portfolio "port-x" 不存在
+        # → selector 空 → 偶然命中"动态 selector 放行"分支，无 DB 的 CI 会红）。
+        mock_preflight.return_value = {"ok": True, "sparse": [], "codes": []}
         mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
             success=True, data=_make_engine_mock(),
         )
@@ -484,9 +488,10 @@ class TestRunFromTaskMarksRunning:
     收敛点：状态机更新（running）成为用例契约，调用方不必手动管理。
     """
 
+    @patch("ginkgo.trading.services.backtest_orchestrator.preflight_data_coverage")
     @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
     def test_marks_running_before_run(
-        self, mock_load_components, orchestrator,
+        self, mock_load_components, mock_preflight, orchestrator,
         mock_assembly_service, mock_portfolio_service,
         mock_aggregator, mock_task_service):
         """run_from_task 应调 task_service.update_status(task.uuid, 'running')。"""
@@ -499,6 +504,8 @@ class TestRunFromTaskMarksRunning:
             is_success=lambda: True, data=[_make_portfolio_result()],
         )
         mock_load_components.return_value = _make_components()
+        # #6449 review: 隔离 preflight，避免查真实 MySQL（同 test_dict_snapshot_*）。
+        mock_preflight.return_value = {"ok": True, "sparse": [], "codes": []}
         mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
             success=True, data=_make_engine_mock(),
         )
@@ -516,6 +523,54 @@ class TestRunFromTaskMarksRunning:
         assert called_running, (
             "run_from_task 应标 running（#6449）："
             f"实际 update_status 调用 {status_calls}"
+        )
+
+
+# ===========================================================================
+# #6449: run_from_task — 成功路径回填 backtest_end_date（CLI FINALIZING 进度用）
+# ===========================================================================
+
+
+class TestRunFromTaskExposesEndDate:
+    """#6449: run_from_task 成功时应把 backtest_end_date 放入 result.data。
+
+    收敛点：aggregator 只把 backtest_end_date 写进 DB task 表、不进返回 dict；
+    config 解析下沉到 UseCase 层后 CLI 拿不到 config.end_date。用例层需在
+    result.data 回填该键，否则 CLI 成功路径的 FINALIZING current_date 恒空。
+    """
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.preflight_data_coverage")
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_success_exposes_backtest_end_date(
+        self, mock_load_components, mock_preflight, orchestrator,
+        mock_assembly_service, mock_portfolio_service, mock_aggregator):
+        """run_from_task 成功时 result.data 应含 backtest_end_date（对齐 config.end_date）。"""
+        mock_preflight.return_value = {"ok": True, "sparse": [], "codes": []}
+
+        task = MagicMock()
+        task.uuid = "task-end"
+        task.portfolio_id = "port-end"
+        task.config_snapshot = {
+            "start_date": "2024-01-01", "end_date": "2024-06-30",
+            "initial_cash": 500000, "frequency": "DAY",
+        }
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=_make_engine_mock(),
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        result = orchestrator.run_from_task(task)
+
+        assert result.is_success(), f"应成功，实际 error: {result.error}"
+        assert result.data.get("backtest_end_date") == "2024-06-30", (
+            "run_from_task 应在 result.data 回填 backtest_end_date（#6449）："
+            f"实际 {result.data.get('backtest_end_date')!r}"
         )
 
 
