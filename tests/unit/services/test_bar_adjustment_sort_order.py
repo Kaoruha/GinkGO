@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 from ginkgo.data.services import bar_adjustment
+from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import ADJUSTMENT_TYPES
 
 
@@ -28,18 +29,15 @@ def _make_descending_factors() -> pd.DataFrame:
 
 
 def _make_mock_service(df: pd.DataFrame) -> MagicMock:
-    """构造 adjustfactor_service mock，data 支持 len() + to_dataframe()。
+    """构造 adjustfactor_service mock：get_adjustfactors_df 走 DF 出口契约。
 
-    MagicMock 默认 __len__ 返回 0 会触发 L146 空分支，须显式配非 0。
+    ADR-010 出口①：``data`` 已是 ``pandas.DataFrame``，不再绕 ``.to_dataframe()``。
+    用真实 ``ServiceResult`` 避免 MagicMock 链耦合 ModelList 实现细节。
     """
     mock_svc = MagicMock()
-    mock_result = MagicMock()
-    mock_result.success = True
-    mock_data = MagicMock()
-    mock_data.__len__ = MagicMock(return_value=len(df))
-    mock_data.to_dataframe.return_value = df
-    mock_result.data = mock_data
-    mock_svc.get.return_value = mock_result
+    mock_svc.get_adjustfactors_df.return_value = ServiceResult(
+        success=True, message="mock (df contract)", data=df,
+    )
     return mock_svc
 
 
