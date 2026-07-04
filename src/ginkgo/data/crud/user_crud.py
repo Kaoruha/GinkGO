@@ -209,7 +209,7 @@ class UserCRUD(BaseCRUD[MUser]):
 
         except Exception as e:
             GLOG.ERROR(f"级联删除联系方式失败: {e}")
-            return 0
+            raise
 
     def _cascade_delete_credentials(self, user_uuids: List[str], session: Optional[Session] = None) -> int:
         """
@@ -238,7 +238,7 @@ class UserCRUD(BaseCRUD[MUser]):
 
         except Exception as e:
             GLOG.ERROR(f"级联删除凭据失败: {e}")
-            return 0
+            raise
 
     def _cascade_delete_group_mappings(self, user_uuids: List[str], session: Optional[Session] = None) -> int:
         """
@@ -267,7 +267,7 @@ class UserCRUD(BaseCRUD[MUser]):
 
         except Exception as e:
             GLOG.ERROR(f"级联删除用户组映射失败: {e}")
-            return 0
+            raise
 
     # ==================== 业务辅助方法 ====================
 

@@ -301,3 +301,37 @@ class TestUserCRUDTransactions:
         session.execute.assert_called_once()
         session.commit.assert_not_called()
         session.close.assert_not_called()
+
+    @pytest.mark.unit
+    def test_delete_propagates_cascade_db_error_instead_of_swallowing(self, crud_instance):
+        """#6593: 级联 execute() 抛真实 DB 异常时,delete() 必须冒泡真因,而非 except:return 0 静默吞掉。
+
+        回归锚点:共享 session 下,若级联 except 吞异常,session 进入 PendingRollbackState,
+        后续级联与末尾 UPDATE 会在 poisoned session 上继续跑,真因被 PendingRollbackError 掩盖。
+        改 raise 后,第一处级联失败即冒泡真实异常,后续 cascade/UPDATE 的 execute 不应再执行。
+        """
+        from contextlib import contextmanager
+
+        from sqlalchemy.exc import OperationalError
+
+        transaction_session = MagicMock()
+        # 第 1 次 execute(级联 group_mappings)抛真实 DB 异常;后续 execute 即使成功也不应被触达
+        ok_result = MagicMock()
+        ok_result.rowcount = 1
+        db_error = OperationalError("DELETE FROM ...", {}, Exception("connection lost"))
+        transaction_session.execute.side_effect = [db_error, ok_result, ok_result, ok_result]
+
+        @contextmanager
+        def fake_scope(session=None):
+            yield transaction_session
+
+        mock_user = MagicMock()
+        mock_user.uuid = "user-1"
+        crud_instance._session_scope = fake_scope
+        crud_instance.find = MagicMock(return_value=[mock_user])
+
+        with pytest.raises(OperationalError):
+            crud_instance.delete(filters={"uuid": "user-1"})
+
+        # 修复后:第一处级联失败即冒泡,后续 cascade 与末尾 UPDATE 的 execute 不应执行
+        assert transaction_session.execute.call_count == 1
