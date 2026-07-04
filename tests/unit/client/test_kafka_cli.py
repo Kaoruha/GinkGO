@@ -124,7 +124,7 @@ class TestReset:
 class TestPurge:
     """Tests for the 'purge' command."""
 
-    def test_purge_with_force(self, cli_runner):
+    def test_purge_with_confirm(self, cli_runner):
         mock_service = MagicMock()
         mock_service.topic_exists.return_value = True
         mock_service.get_message_count.return_value = 10
@@ -134,7 +134,7 @@ class TestPurge:
 
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.kafka_service.return_value = mock_service
-            result = cli_runner.invoke(kafka_cli.app, ["purge", "test_topic", "--force"])
+            result = cli_runner.invoke(kafka_cli.app, ["purge", "test_topic", "--yes"])
 
         assert result.exit_code == 0
 
@@ -176,11 +176,11 @@ class TestResetConfirm:
 class TestPurgeConfirm:
     """kafka purge TTY 守卫（ADR-021 E3, #6578）。
 
-    场景 2（非 TTY + --force 执行）已由 TestPurge::test_purge_with_force 覆盖。
+    场景 2（非 TTY + --yes 执行）已由 TestPurge::test_purge_with_confirm 覆盖。
     """
 
-    def test_non_tty_without_force_exits1(self, cli_runner):
-        """非 TTY 无 --force → Exit(1)，kafka_service 未调用。"""
+    def test_non_tty_without_yes_exits1(self, cli_runner):
+        """非 TTY 无 --yes → Exit(1)，kafka_service 未调用。"""
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.kafka_service.return_value = MagicMock()
             result = cli_runner.invoke(kafka_cli.app, ["purge", "test_topic"])
@@ -442,7 +442,7 @@ class TestKafkaCLIExceptions:
 
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.kafka_service.return_value = mock_service
-            result = cli_runner.invoke(kafka_cli.app, ["purge", "nonexistent_topic", "--force"])
+            result = cli_runner.invoke(kafka_cli.app, ["purge", "nonexistent_topic", "--yes"])
 
         assert result.exit_code == 0
         assert "does not exist" in result.output.lower()

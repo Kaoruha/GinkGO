@@ -35,3 +35,18 @@ class TestConfirmOrExit:
             with patch("ginkgo.client.cli_utils.typer.confirm", return_value=True) as m:
                 confirm_or_exit("dangerous op")
             m.assert_called_once()
+
+    def test_tty_user_rejects_raises_exit0(self):
+        """TTY + 用户拒绝（typer.confirm 返 False）→ typer.Exit(0)。
+
+        master 原契约：用户主动取消 = 正常退出（exit 0），且不能继续
+        执行危险操作。typer.confirm 默认 abort=False，拒绝返 False 不
+        raise，故 confirm_or_exit 必须显式检查 safe_confirm 返回值
+        （#6578 review #1 抓到的 regression：原实现忽略返回值，用户拒绝
+        仍执行 destructive op，等于把 master 守卫整个删了）。
+        """
+        with patch("sys.stdin.isatty", return_value=True):
+            with patch("ginkgo.client.cli_utils.typer.confirm", return_value=False):
+                with pytest.raises(typer.Exit) as exc_info:
+                    confirm_or_exit("dangerous op")
+        assert exc_info.value.exit_code == 0

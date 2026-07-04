@@ -41,11 +41,11 @@ def reset(
 @app.command()
 def purge(
     queue_name: str = typer.Argument(..., help="要清理的队列名称"),
-    force: bool = typer.Option(False, "--force", "-f", help="跳过确认提示")
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="跳过确认提示"),
 ):
     """清理指定队列的所有消息"""
     console.print(f"[bold red][red]:wastebasket:[/red] Purging queue: {queue_name}[/]")
-    _purge_queue_messages(queue_name, force)
+    _purge_queue_messages(queue_name, confirm)
 
 
 @app.command()
@@ -231,7 +231,7 @@ def _reset_kafka_queues(queue_name: Optional[str], force: bool):
         console.print(f"[red]{traceback.format_exc()}[/]")
 
 
-def _purge_queue_messages(queue_name: str, force: bool):
+def _purge_queue_messages(queue_name: str, confirm: bool):
     """清理队列消息 - 使用KafkaService实现"""
     try:
         from ginkgo.data.containers import container
@@ -239,7 +239,7 @@ def _purge_queue_messages(queue_name: str, force: bool):
 
         console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
         console.print("[red]This will permanently delete all pending messages![/]")
-        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=force)
+        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=confirm)
 
         console.print(f"[red]:wastebasket: Purging messages from queue: {queue_name}[/]")
 
