@@ -425,7 +425,9 @@ class ResultService(BaseService):
     def get_orders(
         self,
         task_id: str,
-        portfolio_id: Optional[str] = None
+        portfolio_id: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 0,
     ) -> ServiceResult:
         """
         获取回测订单（去重后，每个 order_id 取时间最新的最终态）。
@@ -434,12 +436,17 @@ class ResultService(BaseService):
         多条状态流转(NEW→SUBMITTED→FILLED)只保留最终态一条; 失败单
         (CANCELED/REJECTED)也保留其终态。完整状态流水见 get_order_records。
 
+        分页在去重之后做: 不能下推到 crud.find, 否则按流水切片会切断同一 order_id
+        的多条状态记录, 跨页去重丢失订单。total 为去重后唯一订单总数, 独立于当前页。
+
         Args:
             task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
+            page: 页码(从 1 起)
+            page_size: 每页数量
 
         Returns:
-            ServiceResult[Dict]: {"data": 去重后订单列表, "total": 唯一订单数}
+            ServiceResult[Dict]: {"data": 当前页订单, "total": 唯一订单总数}
         """
         try:
             if not task_id:
@@ -457,8 +464,16 @@ class ResultService(BaseService):
                 seen.add(oid)
                 unique.append(r)
 
-            GLOG.INFO(f"获取 task_id={task_id} 的订单成功: {len(unique)} 个唯一订单 (流水 {len(records)} 条)")
-            return ServiceResult.success({"data": unique, "total": len(unique)})
+            total = len(unique)
+            # 去重后内存分页(page 从 1 起); page/page_size 非法时回退全量
+            if page >= 1 and page_size >= 1:
+                start = (page - 1) * page_size
+                paged = unique[start:start + page_size]
+            else:
+                paged = unique
+
+            GLOG.INFO(f"获取 task_id={task_id} 的订单成功: {total} 个唯一订单 (流水 {len(records)} 条), 返回第 {page} 页 {len(paged)} 条")
+            return ServiceResult.success({"data": paged, "total": total, "page": page, "page_size": page_size})
 
         except Exception as e:
             GLOG.ERROR(f"获取订单失败: {e}")
