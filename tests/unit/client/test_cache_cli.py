@@ -18,6 +18,7 @@ import os
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
 import pytest
+import typer
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
@@ -347,3 +348,35 @@ class TestCacheCliUsesFindKeys:
         assert result.exit_code == 0
         assert mock_svc.find_keys.called
         assert "get_bars" in result.output
+
+
+# ============================================================================
+# 4. clear TTY 守卫（ADR-021 E3, #6578）
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestCacheClearConfirm:
+    """cache clear 危险操作的 TTY 守卫（#6578）。
+
+    场景 2（非 TTY + --force 执行）已由 TestCacheClear::test_clear_all_with_force 覆盖。
+    """
+
+    def test_non_tty_without_force_exits1_and_skips_clear(self, cli_runner, mock_container):
+        """非 TTY 无 --force → Exit(1)，clear_function_cache 未调用。"""
+        with patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(cache_cli.app, ["clear", "--type", "all"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, (typer.Exit, SystemExit))
+        mock_container.redis_service.return_value.clear_function_cache.assert_not_called()
+
+    def test_confirmed_proceeds_with_clear(self, cli_runner, mock_container):
+        """确认通过（mock safe_confirm=True）→ 清缓存执行。"""
+        with patch("ginkgo.client.cli_utils.safe_confirm", return_value=True), \
+             patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(cache_cli.app, ["clear", "--type", "all"])
+
+        assert result.exit_code == 0, result.output
+        mock_container.redis_service.return_value.clear_function_cache.assert_called_once()

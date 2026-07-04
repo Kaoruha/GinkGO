@@ -272,6 +272,27 @@ def safe_confirm(
     return bool(default)
 
 
+def confirm_or_exit(message: str, *, yes_flag: bool = False) -> None:
+    """safe_confirm 命令层封装（ADR-021 第 3 维，#6578）。
+
+    危险操作命令的统一确认入口：非 TTY 且未提供 ``--force`` 时
+    ``safe_confirm`` 抛 ``CliConfirmError``，此处按具体类型 catch
+    （不被通用 ``except Exception`` 吞，呼应 ``CliConfirmError`` 设计）
+    → stderr 输出错误 + ``typer.Exit(1)``。非零退出码让 CI/脚本能
+    检测到"操作被拒绝"，而非静默 no-op 误以为成功。
+
+    - ``yes_flag=True``（命令的 ``--force``）：safe_confirm 短路返 True，放行
+    - TTY：走 typer.confirm，用户拒绝则 typer 自己 Exit
+    - 非 TTY + 无 yes_flag：本函数 Exit(1)
+    """
+    try:
+        safe_confirm(message, yes_flag=yes_flag)
+    except CliConfirmError as e:
+        # 错误走 stderr：保持 stdout（脚本数据通道）干净
+        Console(stderr=True).print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
     """构造 rich Progress（ADR-021 第 8 维）。
 

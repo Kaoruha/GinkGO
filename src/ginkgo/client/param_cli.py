@@ -14,7 +14,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
-from rich.prompt import Confirm
+from ginkgo.client.cli_utils import confirm_or_exit
 
 app = typer.Typer(
     help=":wrench: Module for [bold medium_spring_green]PARAMETER[/] management. [grey62]CRUD operations for component parameters.[/grey62]",
@@ -118,10 +118,7 @@ def delete(
     """
     from ginkgo.data.containers import container
 
-    if not force:
-        if not Confirm.ask(f":question: Delete parameter {param_id[:8]}...?", default=False):
-            console.print("Cancelled.")
-            return
+    confirm_or_exit(f":question: Delete parameter {param_id[:8]}...?", yes_flag=force)
 
     try:
         param_crud = container.cruds.param()
