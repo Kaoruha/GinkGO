@@ -937,3 +937,79 @@ class TestHistoricalDataAccess:
         assert isinstance(result, pd.DataFrame)
         assert result.empty
         assert len(result) == 0
+
+
+@pytest.mark.unit
+@pytest.mark.backtest
+class TestHistoricalDataDFExportContract:
+    """#6624: get_historical_data 走 DF 出口 get_bars_df(FORE)，不再接触 ORM ModelList。
+
+    ADR-010 例外：feeder 回测热路径依赖前复权（FORE）。get() 默认 FORE，DF 出口默认
+    NONE，故 feeder 须显式传 FORE 保行为 parity。本契约防回归把 get_bars_df 改回 get() +
+    .to_dataframe()（ModelList 重新泄漏过 Service 边界）。Mock-based，无 DB 依赖。
+    """
+
+    def test_get_historical_data_uses_df_export_with_fore_adjustment(self):
+        """get_historical_data 调 get_bars_df(adjustment_type=FORE)，不调 get()。"""
+        from unittest.mock import MagicMock
+        import pandas as pd
+        from ginkgo.data.services.base_service import ServiceResult
+        from ginkgo.enums import ADJUSTMENT_TYPES
+
+        feeder = BacktestFeeder()
+        # 注入 mock bar_service，隔绝 DB
+        mock_service = MagicMock()
+        expected_df = pd.DataFrame([{"code": "000001.SZ", "close": 10.0}])
+        mock_service.get_bars_df.return_value = ServiceResult(success=True, data=expected_df)
+        feeder.bar_service = mock_service
+
+        # 设置 time_provider（validate_time 装饰器需要 self.time_controller）
+        provider = LogicalTimeProvider(initial_time=datetime(2023, 6, 10))
+        feeder.set_time_provider(provider)
+
+        result = feeder.get_historical_data(
+            symbols=["000001.SZ"],
+            start_time=datetime(2023, 6, 1),
+            end_time=datetime(2023, 6, 2),
+            data_type="bar",
+        )
+
+        # 走 DF 出口，传 FORE 复权
+        mock_service.get_bars_df.assert_called_once()
+        _, kwargs = mock_service.get_bars_df.call_args
+        assert kwargs.get("adjustment_type") == ADJUSTMENT_TYPES.FORE
+        # 不再接触 ModelList 出口 get()
+        mock_service.get.assert_not_called()
+        # 直接返回 ServiceResult.data（DF），不再 .to_dataframe()
+        pd.testing.assert_frame_equal(result, expected_df)
+
+    def test_get_historical_data_empty_df_skips_append_without_ambiguous_truth(self):
+        """空 DF 不触发 'truth value of DataFrame is ambiguous'（pandas 真值陷阱回归保护）。
+
+        get_bars_df 返空 DF 时，get_historical_data 须靠 df.empty 判空而非 if result.data，
+        否则 bool(DataFrame) 多元素抛 ValueError。本测试覆盖该边界（#6624 迁移时踩过）。
+        """
+        from unittest.mock import MagicMock
+        import pandas as pd
+        from ginkgo.data.services.base_service import ServiceResult
+        from ginkgo.enums import ADJUSTMENT_TYPES
+
+        feeder = BacktestFeeder()
+        mock_service = MagicMock()
+        # 关键：返空 DataFrame（非 None）——触发真值歧义路径
+        mock_service.get_bars_df.return_value = ServiceResult(
+            success=True, data=pd.DataFrame())
+        feeder.bar_service = mock_service
+        provider = LogicalTimeProvider(initial_time=datetime(2023, 6, 10))
+        feeder.set_time_provider(provider)
+
+        # 不抛 'truth value of a DataFrame is ambiguous'
+        result = feeder.get_historical_data(
+            symbols=["000001.SZ"],
+            start_time=datetime(2023, 6, 1),
+            end_time=datetime(2023, 6, 2),
+            data_type="bar",
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
