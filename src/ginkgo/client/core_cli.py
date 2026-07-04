@@ -50,6 +50,24 @@ class ComponentType(str, Enum):
     SIZERS = "sizers"
     ANALYZERS = "analyzers"
 
+def _get_exec_node_count():
+    """统计活跃 ExecutionNode 数量（#5282）。
+
+    Workers 字段只查 GTM data_worker 进程池（Redis SET ginkgo:dataworker_pool），
+    不含实盘 ExecutionNode；后者通过 Redis 心跳键 heartbeat:node:*（TTL=30s）注册，
+    由 Scheduler 监控。此 helper 走 Service 层（与 scheduler nodes 同源）补全口径，
+    任一环节异常（Redis 不可用 / services 未就绪）返回 "N/A"，不破坏 status 其余字段。
+    """
+    try:
+        from ginkgo import services
+        result = services.data.redis_service().get_execution_node_status()
+        if result.is_success() and result.data is not None:
+            return len(result.data)
+        return 0
+    except Exception:
+        return "N/A"
+
+
 def status():
     """
     :bar_chart: Display system status (simplified from 'system status').
@@ -68,7 +86,8 @@ def status():
         console.print(f"Main Ctrl  : [medium_spring_green]{GTM.main_status}[/]")
         console.print(f"Watch Dog  : [medium_spring_green]{GTM.watch_dog_status}[/]")
         console.print(f"CPU Limit  : {GCONF.CPURATIO*100}%")
-        console.print(f"Workers    : {GTM.get_worker_count()}")
+        console.print(f"Data Workers : {GTM.get_worker_count()}")
+        console.print(f"Exec Nodes : {_get_exec_node_count()}")
         console.print(f"Log Path   : {GCONF.LOGGING_PATH}")
         console.print(f"Work Dir   : {GCONF.WORKING_PATH}")
         
