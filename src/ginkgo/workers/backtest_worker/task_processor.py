@@ -114,6 +114,7 @@ class BacktestProcessor(Thread):
             self.task.result = result.data
 
             self.progress_tracker.report_completed(self.task, None)
+            self._ingest_task_logs()
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
         except Exception as e:
@@ -302,6 +303,25 @@ class BacktestProcessor(Thread):
             self.task, progress, current_date,
             total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
         )
+
+    def _ingest_task_logs(self):
+        """灌入回测运行日志到 ClickHouse（静默降级）。
+
+        与 ``backtest_cli.py`` 本地同步路径（L287-296）对齐：worker 派发的回测
+        完成后也须灌入日志，否则 ``ginkgo logging logs/errors --task <id>``
+        永远空查询（#4774）。灌入失败非致命——回测已完成，日志缺失不应回滚状态。
+        """
+        try:
+            from ginkgo.services.logging.log_ingester import LogIngester
+            ingester = LogIngester()
+            ingest_result = ingester.ingest_task_logs(self.task.task_uuid)
+            if ingest_result.inserted > 0:
+                GLOG.INFO(
+                    f"[{self.task.task_uuid[:8]}] Logs ingested: "
+                    f"{ingest_result.inserted} records"
+                )
+        except Exception as e:
+            GLOG.WARN(f"[{self.task.task_uuid[:8]}] Log ingest failed: {e}")
 
     def _calculate_result(self, engine_result: Dict[str, Any]) -> Dict[str, Any]:
         """计算回测结果"""
