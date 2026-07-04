@@ -10,7 +10,7 @@ agent brief 已剔除 Claim #3，此处加守护测试防回归。
 """
 import datetime
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -147,8 +147,8 @@ class TestRatioSizerLotSize:
 class TestATRSizerLotSize:
     """ATRSizer 开仓路径 lot 对齐由 lot_size 决定（原硬编码 100 内联）。
 
-    ATRSizer 仍用 container.bar_service 取价（未迁 _data_feeder），故 patch
-    ginkgo.trading.sizers.atr_sizer.container（同 test_atr_sizer.py 范式）。
+    ATRSizer LONG 取数经注入的 _data_feeder.get_historical_data()（#4706），
+    模拟注入方式同 RatioSizer 测试（feeder.get_historical_data 返回 bar DF）。
     """
 
     @staticmethod
@@ -170,27 +170,19 @@ class TestATRSizerLotSize:
         # 默认 lot_size=100
         sizer_default = ATRSizer(name="T", period=14, risk=0.01, risk_ratio=2)
         sizer_default.now = datetime.datetime(2026, 1, 15, 10, 0, 0)
-        with patch("ginkgo.trading.sizers.atr_sizer.container") as cm:
-            service = MagicMock()
-            result = MagicMock()
-            result.success = True
-            result.data.to_dataframe.return_value = df
-            service.get.return_value = result
-            cm.bar_service.return_value = service
-            order_default = sizer_default.cal(info, signal)
+        feeder_default = MagicMock()
+        feeder_default.get_historical_data.return_value = df
+        sizer_default._data_feeder = feeder_default
+        order_default = sizer_default.cal(info, signal)
         assert order_default.volume == 1600
 
         # lot_size=50
         sizer_50 = ATRSizer(name="T", period=14, risk=0.01, risk_ratio=2, lot_size=50)
         sizer_50.now = datetime.datetime(2026, 1, 15, 10, 0, 0)
-        with patch("ginkgo.trading.sizers.atr_sizer.container") as cm:
-            service = MagicMock()
-            result = MagicMock()
-            result.success = True
-            result.data.to_dataframe.return_value = df
-            service.get.return_value = result
-            cm.bar_service.return_value = service
-            order_50 = sizer_50.cal(info, signal)
+        feeder_50 = MagicMock()
+        feeder_50.get_historical_data.return_value = df
+        sizer_50._data_feeder = feeder_50
+        order_50 = sizer_50.cal(info, signal)
         assert order_50.volume == 1650
 
 

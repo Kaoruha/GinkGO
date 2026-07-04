@@ -144,6 +144,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         self,
         query: str,
         fields: Optional[List[str]] = None,
+        limit: Optional[int] = None,
     ) -> List[MPortfolio]:
         """#5995: 模糊搜索投资组合，支持 UUID 片段 / 名称部分匹配（去重）。
 
@@ -167,7 +168,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
         if 'uuid' in fields:
             try:
-                for item in self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False}):
+                for item in self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False}, page_size=limit):
                     uuid_val = getattr(item, 'uuid', None)
                     if uuid_val and uuid_val not in seen_uuids:
                         all_results.append(item)
@@ -177,13 +178,17 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
         if 'name' in fields:
             try:
-                for item in self.find(filters={"name__like": f"%{query_lower}%", "is_del": False}):
+                for item in self.find(filters={"name__like": f"%{query_lower}%", "is_del": False}, page_size=limit):
                     uuid_val = getattr(item, 'uuid', None)
                     if uuid_val and uuid_val not in seen_uuids:
                         all_results.append(item)
                         seen_uuids.add(uuid_val)
             except Exception as e:
                 GLOG.WARN(f"Portfolio name fuzzy search failed: {e}")
+
+        # #6572: 多字段合并去重后按 limit 截断
+        if limit is not None:
+            all_results = all_results[:limit]
 
         return all_results
 

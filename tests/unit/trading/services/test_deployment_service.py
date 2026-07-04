@@ -29,6 +29,7 @@ def _make_svc(**overrides):
     svc._param_crud = overrides.get("param_crud", MagicMock())
     # #5196: deploy 自动溯源回测链路依赖 backtest_task_service
     svc._backtest_task_service = overrides.get("backtest_task_service", MagicMock())
+    svc._capacity_checker = overrides.get("capacity_checker", None)
     return svc
 
 
@@ -58,6 +59,55 @@ class TestDeploymentServiceDeploy:
         result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER)
         assert not result.success
         assert "已部署" in result.error
+
+    def test_deploy_rejects_when_cluster_at_max_capacity(self):
+        """#4800: 所有节点满载时 deploy 应早失败，错误含「容量」+ 节点数 + 扩容建议，且不写部署记录。
+
+        根因: deploy 链路与 worker 端 Scheduler 跨进程解耦，容量满时 LoadBalancer 仅 logger.warning，
+        deploy 侧无从知晓，仍报"部署成功"。修复: deploy 开头注入 capacity_checker 预检，满载早失败。
+        """
+        checker = MagicMock(return_value={
+            "healthy_nodes": 1,
+            "max_per_node": 5,
+            "total_slots": 5,
+            "used_slots": 5,
+            "available_slots": 0,
+        })
+        svc = _make_svc(capacity_checker=checker)
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = False
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER)
+
+        assert not result.success
+        assert "容量" in result.error
+        assert "1" in result.error  # 健康节点数
+        assert "扩容" in result.error or "清理" in result.error
+        # 早失败: 不应创建 PENDING 部署记录（避免假成功 + 垃圾记录）
+        svc._deployment_crud.add.assert_not_called()
+
+    def test_deploy_proceeds_when_cluster_has_capacity(self):
+        """#4800 回归: 有空位时预检放行，继续后续校验（不误伤正常部署）。
+
+        用 frozen 作为探针: 预检放行后应走到 frozen 检查并报"已部署"，而非容量错误。
+        """
+        checker = MagicMock(return_value={
+            "healthy_nodes": 2,
+            "max_per_node": 5,
+            "total_slots": 10,
+            "used_slots": 3,
+            "available_slots": 7,
+        })
+        svc = _make_svc(capacity_checker=checker)
+        svc._portfolio_service.get.return_value = _mock_portfolio_found()
+        svc._portfolio_service.is_portfolio_frozen.return_value = True  # 探针
+
+        result = svc.deploy(portfolio_id="p1", mode=PORTFOLIO_MODE_TYPES.PAPER)
+
+        checker.assert_called_once()  # 预检确实执行
+        assert not result.success
+        assert "已部署" in result.error  # 走到 frozen 检查（非容量错误）
+        assert "容量" not in result.error
 
     def test_deploy_rejects_live_without_account(self):
         """实盘模式缺少 account_id 应拒绝"""

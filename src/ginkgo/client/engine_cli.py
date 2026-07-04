@@ -849,7 +849,9 @@ def bind_portfolio(
             console.print(f"  • Engine: {engine_name} ({resolved_engine_uuid[:8]}...)")
             console.print(f"  • Portfolio: {portfolio_name} ({resolved_portfolio_uuid[:8]}...)")
         else:
-            console.print(f":white_check_mark: {result.message}")
+            # #5112: service 守卫拒绝（如模式不兼容）→ 显示错误并以非 0 退出
+            console.print(f":x: {result.error or result.message}")
+            raise typer.Exit(1)
 
     except Exception as e:
         console.print(f":x: Error: {e}")

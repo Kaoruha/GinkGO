@@ -1,6 +1,7 @@
 # Upstream: 回测引擎, 策略模块, 分析器模块, CLI命令, Web UI, Worker系统
 # Downstream: containers(Container), seeding(数据初始化), utils(get_crud)
 # Role: 数据层包入口，暴露依赖注入容器container和工具函数，统一数据访问入口
+# Filters DSL: 各 CRUD 的 find(filters=...) 经 BaseCRUD._parse_filters 支持 __like/__or__/__gte 等操作符,page_size 即 SQL LIMIT;跨字段模糊匹配可在 DB 层一体化,无需 service 端 Python 切片反模式(见 crud/base_crud 与 issue #6572)
 # See #2715: 聚合导入改为 __getattr__ 懒加载，打断全量模块加载链
 # 注意: models/ 包因 SQLAlchemy relationship() 要求使用 eager import，是唯一的例外
 

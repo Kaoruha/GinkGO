@@ -270,11 +270,27 @@ def dev_profile(
     :stopwatch: Profile Python script performance.
     """
     import subprocess
-    
+    import sys
+
     console.print(f":stopwatch: [bold blue]Profiling {script}...[/bold blue]")
 
-    cmd = ["python", "-m", "cProfile", "-o", output, script]
+    # #4768: 用 sys.executable 而非硬编码 "python"——venv/uv/容器环境下
+    # 裸 "python" 可能不在 PATH 或指向不同版本，导致 cProfile 调用崩溃。
+    cmd = [sys.executable, "-m", "cProfile", "-o", output, script]
 
-    subprocess.run(cmd)
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(
+            f":x: [bold red]Profiling 失败[/bold red] cProfile 退出码 {e.returncode}。"
+        )
+        raise typer.Exit(code=e.returncode)
+    except FileNotFoundError:
+        console.print(
+            f":x: [bold red]Profiling 失败[/bold red] 找不到解释器或脚本: {sys.executable}。"
+            "请检查运行环境。"
+        )
+        raise typer.Exit(code=1)
+
     console.print(f":chart_with_upwards_trend: Profile results saved to {output}")
     console.print(f"View with: [bold]python -m pstats {output}[/bold]")

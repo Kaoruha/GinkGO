@@ -422,6 +422,23 @@ class ForbiddenOperationsRule(ASTBasedRule):
     severity = EvaluationSeverity.WARNING
     level = EvaluationLevel.STANDARD
 
+    # StrategyDataMixin 提供的合规数据访问方法（内部走 self.data_feeder，
+    # 已受 BacktestFeeder 时间边界保护）。这些方法名是 forbidden_patterns
+    # 子串黑名单的合规豁免集——按精确方法名匹配，避免 "get_bars" 子串误伤
+    # "get_bars_cached" 等 mixin 封装（issue #4896）。
+    # 漂移风险：mixin 新增公开数据访问方法时须同步本集合。
+    # 来源：src/ginkgo/trading/interfaces/mixins/strategy_data_mixin.py
+    _ALLOWED_MIXIN_METHODS = frozenset({
+        "get_bars_cached",
+        "get_current_price",
+        "get_price_series",
+        "get_ohlcv_data",
+        "clear_data_cache",
+        "set_cache_ttl",
+        "get_data_statistics",
+        "reset_data_statistics",
+    })
+
     def check_ast(self, tree: ast.Module, file_path: Path, source_code: str) -> Optional["EvaluationIssue"]:
         """Check for forbidden operations in cal() method."""
         for node in ast.walk(tree):
@@ -477,6 +494,11 @@ class ForbiddenOperationsRule(ASTBasedRule):
             ]
 
             if call_str:
+                # StrategyDataMixin 合规封装方法（如 self.get_bars_cached）
+                # 按精确方法名豁免，不进子串黑名单判定（issue #4896）。
+                method_name = call_str.rsplit(".", 1)[-1]
+                if method_name in self._ALLOWED_MIXIN_METHODS:
+                    return None
                 for pattern, desc in forbidden_patterns:
                     if pattern in call_str and "data_feeder" not in call_str:
                         return self.get_issue(

@@ -118,7 +118,8 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
 
     def fuzzy_search(
         self,
-        query: str
+        query: str,
+        limit: Optional[int] = None,
     ) -> ModelList[MUserGroup]:
         """
         模糊搜索用户组 - 在 uuid 和 name 字段中搜索
@@ -129,6 +130,7 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
 
         Args:
             query: 搜索关键词（UUID或组名）
+            limit: 最大返回条数，None 表示全量（SQL LIMIT 下推，避免全量拉回）
 
         Returns:
             ModelList[MUserGroup]: 用户组模型列表，支持 .to_dataframe() 转换
@@ -158,6 +160,10 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
                         MUserGroup.name.like(search_pattern)
                     )
                 )
+
+            # #6572: limit 下推到 SQL LIMIT，避免全量拉回
+            if limit is not None:
+                query_obj = query_obj.limit(limit)
 
             results = query_obj.all()
             # Detach objects from session

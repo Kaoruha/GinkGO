@@ -293,6 +293,27 @@ class MappingService(BaseService):
                                        engine_name: str = None, portfolio_name: str = None) -> ServiceResult:
         """创建Engine-Portfolio映射关系"""
         try:
+            # #5112: 守卫——校验 engine.is_live 与 portfolio.mode 兼容
+            # 引擎只分 BACKTEST/LIVE（arch-engine-unification）：
+            #   BACKTEST engine (is_live=False) 只能绑 BACKTEST portfolio (mode=0)
+            #   LIVE engine (is_live=True) 只能绑 PAPER/LIVE portfolio (mode>=1)
+            # 查不到实体时跳过（保持原存在性行为，mode 校验仅在新绑定时生效）
+            from ginkgo.data.crud.engine_crud import EngineCRUD
+            from ginkgo.data.crud.portfolio_crud import PortfolioCRUD
+            from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+            engines = EngineCRUD().find_by_uuid(engine_uuid)
+            portfolios = PortfolioCRUD().find_by_uuid(portfolio_uuid)
+            if engines and portfolios:
+                engine_is_live = bool(engines[0].is_live)
+                portfolio_is_live = portfolios[0].mode is not None and portfolios[0].mode >= PORTFOLIO_MODE_TYPES.PAPER.value
+                if engine_is_live != portfolio_is_live:
+                    eng_type = "LIVE" if engine_is_live else "BACKTEST"
+                    port_type = "PAPER/LIVE" if portfolio_is_live else "BACKTEST"
+                    return ServiceResult.error(
+                        f"模式不兼容: {eng_type} engine 不能绑定 {port_type} portfolio"
+                    )
+
             # 检查是否已存在
             existing = self._engine_portfolio_mapping_crud.find(
                 filters={"engine_id": engine_uuid, "portfolio_id": portfolio_uuid}

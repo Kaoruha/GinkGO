@@ -356,18 +356,32 @@ class _CoreCRUD(Generic[T], ABC):
     ) -> ModelList[T]:
         """
         Template method: Find items with enhanced filters and pagination.
-        Supports operator filters like field__gte, field__lte, field__in.
-        Subclasses should override _do_find() instead.
+        Supports operator filters via _parse_filters:
+        field__gte / __lte / __gt / __lt / __in / __like, and __or__ combinator
+        for cross-field OR (e.g. multi-field fuzzy match). Subclasses should
+        override _do_find() instead.
 
         Args:
-            filters: Dictionary of field -> value filters (supports operators)
-                    Examples: {"code": "000001.SZ", "timestamp__gte": "2023-01-01"}
+            filters: Dictionary of field -> value filters (supports operators).
+                无后缀键为等值匹配；带 __operator 后缀走对应比较；__or__ 值为
+                子 filter dict 列表，递归解析后用 OR 组合。
+                    Examples:
+                    {"code": "000001.SZ"}                                   # 等值
+                    {"timestamp__gte": "2023-01-01"}                        # 范围
+                    {"code__in": ["000001.SZ", "000002.SZ"]}                # IN
+                    {"name__like": "ali"}                                   # LIKE '%ali%'
+                    {"__or__": [                                            # 跨字段 OR+LIKE
+                        {"username__like": "ali"},
+                        {"display_name__like": "ali"},
+                    ]}
                     source 字段筛选运行模式（使用 SOURCE_TYPES 枚举的 value）：
                     {"source": SOURCE_TYPES.BACKTEST.value}     # 回测数据
                     {"source": SOURCE_TYPES.PAPER_REPLAY.value}  # 历史模拟数据
                     {"source": SOURCE_TYPES.PAPER_LIVE.value}    # 实盘模拟数据
             page: Page number (0-based)
-            page_size: Number of items per page
+            page_size: Number of items per page;底层即 SQL LIMIT（page 缺省时
+                等价 LIMIT page_size）。优先用此参数在 DB 层截断，避免取全量后
+                Python 切片（反模式，见 issue #6572 与 PR #6561 讨论）
             order_by: Field name to order by
             desc_order: Whether to use descending order
             distinct_field: Field name for DISTINCT query (returns unique values of this field)
@@ -892,12 +906,17 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Parse enhanced filters with operator support.
         Supports operators: gte, lte, gt, lt, in, like, and __or__ combinator.
+        __like 自动在值两侧加 % 通配符（即 SQL LIKE '%value%'）。
         Uses _get_enum_mappings() for precise enum-to-integer conversion.
 
         Args:
             filters: Dictionary with field__operator keys
                    Examples: {"timestamp__gte": "2023-01-01", "volume__in": [100, 200]}
                    OR combinator: {"__or__": [{"code__like": "x"}, {"name__like": "x"}]}
+                   跨字段模糊 + DB 层截断（配合 find 的 page_size 即 SQL LIMIT）:
+                       crud.find(filters={"__or__": [{"username__like": "ali"},
+                                                     {"display_name__like": "ali"}]},
+                                 page_size=10)
 
         Returns:
             List of SQLAlchemy filter conditions

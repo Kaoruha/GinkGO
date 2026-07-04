@@ -214,6 +214,53 @@ class TestUserUpdate:
 
 
 # ============================================================================
+# 2b. contact 命令换行转义测试 (#4882)
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestUserContactNewlineEscape:
+    """contact set-primary/update 输出框中 \\n 应渲染为真实换行，非字面 \\n (#4882)"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_set_primary_renders_real_newline(self, mock_container, cli_runner, mock_user_service):
+        """set-primary 成功输出不应含字面反斜杠 n，应含真实换行"""
+        mock_container.user_service.return_value = mock_user_service
+        mock_user_service.set_primary.return_value = ServiceResult.success(
+            data={"uuid": "ct-001", "user_uuid": "user-001", "is_primary": True}
+        )
+        result = cli_runner.invoke(user_cli.app, ["contact", "set-primary", "ct-001"])
+        assert result.exit_code == 0
+        assert "Primary contact set successfully" in result.output
+        # 字面两字符序列 "\n" 不应出现（bug 状态：f-string \\n 渲染为字面）
+        assert "\\n" not in result.output
+        # 真实换行符应存在（Panel.fit 内多行内容）
+        assert "\n" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_update_contact_renders_real_newline(self, mock_container, cli_runner, mock_user_service):
+        """update 成功输出不应含字面反斜杠 n，应含真实换行"""
+        mock_container.user_service.return_value = mock_user_service
+        mock_user_service.update_contact.return_value = ServiceResult.success(
+            data={
+                "uuid": "ct-002",
+                "contact_type": "EMAIL",
+                "address": "new@x.com",
+                "is_primary": False,
+                "is_active": True,
+            }
+        )
+        result = cli_runner.invoke(
+            user_cli.app, ["contact", "update", "ct-002", "--address", "new@x.com"]
+        )
+        assert result.exit_code == 0
+        assert "Contact updated successfully" in result.output
+        assert "\\n" not in result.output
+        assert "\n" in result.output
+
+
+# ============================================================================
 # 3. 验证/错误测试
 # ============================================================================
 

@@ -26,6 +26,10 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 app = typer.Typer(help=":execution: ExecutionNode - Portfolio Execution Engine", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
+# #4945: heartbeat TTL < 此阈值视为 stale（节点即将离线/已停），可安全清理。
+# 与 status 命令 (L352-360) 的 stale 判定阈值一致，避免 status 说活跃、cleanup 却清掉。
+_STALE_HEARTBEAT_TTL_THRESHOLD = 5
+
 
 @app.command()
 def start(
@@ -471,13 +475,48 @@ def _display_single_node_status(node_id: str, heartbeat_ttl: int, metrics: dict)
     console.print(f"  :chart_with_upwards_trend: Total Events: {total_events}")
 
 
-def _cleanup_node(redis_client, node_id: str) -> tuple:
-    """清理单个 ExecutionNode 的 heartbeat + metrics（#5980 deep module）。
+def _is_node_active(redis_client, node_id: str) -> bool:
+    """判断节点是否活跃（运行中，不应清理）（#4945 deep module）。
 
-    返回 (heartbeat_deleted, metrics_deleted)，调用方据此决定输出与计数。
-    抽出此纯逻辑使 cleanup 命令能在「指定节点」与「扫描所有节点」两路径复用。
+    判活阈值 _STALE_HEARTBEAT_TTL_THRESHOLD=5 与 status 命令（L361 的 ``< 5``）一致：
+    避免 status 说活跃、cleanup 却清掉同一节点的数据。
+    - heartbeat 不存在 → 不活跃（可清理）。
+    - TTL ≥ 5 → 活跃（fresh heartbeat，运行中）。
+    - 0 ≤ TTL < 5 → stale（即将过期），不活跃（可清理）。
+    - TTL < 0（key 存在但永不过期，异常）→ 保守判活（拒绝清理，需 --force）。
+
+    注意：heartbeat_manager.is_node_id_in_use（节点启动时判 node_id 是否被占用）
+    用更宽松的阈值 10 秒（TTL<10 视为残留数据、允许抢占启动），与本函数的 5 秒口径
+    不同——目的不同：cleanup 问"清掉是否误杀运行节点"，is_node_id_in_use 问"能否用
+    此 node_id 启动"。仅 TTL<0 永不过期分支语义一致（都保守拒绝：拒绝清理/拒绝启动）
+    （#4945 review docstring 订正：方法名 + 阈值口径）。
     """
     from ginkgo.data.redis_schema import RedisKeyBuilder
+
+    heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+    if not redis_client.exists(heartbeat_key):
+        return False
+    heartbeat_ttl = redis_client.ttl(heartbeat_key)
+    if heartbeat_ttl < 0:
+        # 永不过期（异常情况），保守判活
+        return True
+    return heartbeat_ttl >= _STALE_HEARTBEAT_TTL_THRESHOLD
+
+
+def _cleanup_node(redis_client, node_id: str, force: bool = False) -> tuple:
+    """清理单个 ExecutionNode 的 heartbeat + metrics（#5980 deep module，#4945 加活跃守卫）。
+
+    返回 (skipped_active, heartbeat_deleted, metrics_deleted)：
+    - skipped_active=True：节点活跃（fresh heartbeat）且非 force，已拒绝清理，调用方应警告用户。
+    - 其余情况按 key 是否存在删除，返回删除标志，供调用方统计/输出。
+
+    force=True 跳过活跃守卫，强制清理（用于运维明确知道要清的场景）。
+    """
+    from ginkgo.data.redis_schema import RedisKeyBuilder
+
+    # #4945: 活跃守卫——fresh heartbeat 表示节点在运行，删它会让调度器误判离线。
+    if not force and _is_node_active(redis_client, node_id):
+        return (True, False, False)
 
     heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
     metrics_key = f"node:metrics:{node_id}"
@@ -487,12 +526,13 @@ def _cleanup_node(redis_client, node_id: str) -> tuple:
         redis_client.delete(heartbeat_key)
     if metrics_exists:
         redis_client.delete(metrics_key)
-    return bool(heartbeat_exists), bool(metrics_exists)
+    return (False, bool(heartbeat_exists), bool(metrics_exists))
 
 
 @app.command()
 def cleanup(
     node_id: Optional[str] = typer.Option(None, "--node-id", "-n", help="ExecutionNode ID to cleanup (default: scan all nodes from heartbeats)"),
+    force: bool = typer.Option(False, "--force", help="Force cleanup even if heartbeat is still fresh (node appears running). Use only for stuck/zombie nodes."),
 ):
     """
     :broom: Cleanup stale data for an ExecutionNode.
@@ -500,12 +540,18 @@ def cleanup(
     Remove heartbeat and metrics data from Redis for a node that has stopped.
     Useful when a process exits abnormally and leaves stale data.
 
-    Without --node-id, scans all heartbeat keys and cleans every node
-    (consistent with `execution status`). With --node-id, cleans only that node.
+    #4945: Refuses to clean a node whose heartbeat is still fresh (running) unless
+    --force is given, since deleting a live heartbeat makes the scheduler mark the
+    node offline while it is actually still running.
+
+    Without --node-id, scans all heartbeat keys and cleans every stale node
+    (consistent with `execution status`); running nodes are skipped.
+    With --node-id, cleans only that node (also guarded by --force).
 
     Examples:
       ginkgo execution cleanup                      # Clean all stale nodes
       ginkgo execution cleanup --node-id node_1     # Clean specific node only
+      ginkgo execution cleanup --node-id node_1 --force  # Force clean a running node
     """
     try:
         from ginkgo.data.crud import RedisCRUD
@@ -535,23 +581,50 @@ def cleanup(
 
             total_hb = 0
             total_mt = 0
+            total_skipped = 0
             for nid in node_ids:
-                hb_deleted, mt_deleted = _cleanup_node(redis_client, nid)
+                # #4945: 三元组 (skipped_active, hb_deleted, mt_deleted)
+                skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, nid, force=force)
+                if skipped:
+                    total_skipped += 1
+                    console.print(
+                        f"[yellow]:warning: ExecutionNode '{nid}' still running (fresh heartbeat). "
+                        f"Skipped. Use --force to clean anyway.[/yellow]"
+                    )
+                    continue
                 if hb_deleted:
                     total_hb += 1
                 if mt_deleted:
                     total_mt += 1
                 console.print(f":white_check_mark: [green]Cleaned ExecutionNode '{nid}'[/green]")
 
+            cleaned_count = len(node_ids) - total_skipped
             console.print(
                 f"\n:information: Cleanup completed: {total_hb} heartbeat(s), "
-                f"{total_mt} metrics removed across {len(node_ids)} node(s)"
+                f"{total_mt} metrics removed across {cleaned_count} node(s)"
             )
-            console.print("[dim]Scheduler will detect these nodes as offline on next schedule loop[/dim]")
+            if total_skipped:
+                console.print(
+                    f"[yellow]:warning: {total_skipped} running node(s) skipped "
+                    f"(fresh heartbeat). Re-run with --force to clean them.[/yellow]"
+                )
+            # 仅在确实清理了 stale 节点时才提示调度器将判定离线（语义对这些节点成立）
+            if cleaned_count:
+                console.print("[dim]Scheduler will detect cleaned nodes as offline on next schedule loop[/dim]")
         else:
             console.print(f":information: Cleaning up data for ExecutionNode '{node_id}'...")
 
-            hb_deleted, mt_deleted = _cleanup_node(redis_client, node_id)
+            # #4945: 三元组 (skipped_active, hb_deleted, mt_deleted)
+            skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, node_id, force=force)
+
+            if skipped:
+                # 节点仍在运行——拒绝清理，绝不声称"调度器会判定它离线"（那正是 bug 表象）
+                console.print(
+                    f"[yellow]:warning: ExecutionNode '{node_id}' still has a fresh heartbeat "
+                    f"(it is running). Cleanup refused to avoid the scheduler falsely marking it offline.[/yellow]"
+                )
+                console.print(f"[dim]Re-run with --force if the node is genuinely stuck/zombie.[/dim]")
+                return
 
             if not hb_deleted and not mt_deleted:
                 console.print(f"[dim]:information: No data found for ExecutionNode '{node_id}'[/dim]")

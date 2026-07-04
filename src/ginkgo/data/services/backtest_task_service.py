@@ -16,7 +16,7 @@ import time
 import json
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from ginkgo.libs import cache_with_expiration, retry, GLOG
 from ginkgo.libs.data.number import convert_to_float
@@ -353,6 +353,62 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"Failed to delete backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to delete backtest task: {str(e)}")
+
+    def cleanup_orphan_tasks(self, timeout_minutes: int = 30) -> ServiceResult:
+        """
+        清理孤儿回测任务（#4853）。
+
+        扫描 status=running 但 start_time 早于 timeout_minutes 的任务，标记为 failed。
+        处理两类孤儿：
+        - Worker 重启期间 Kafka 消息丢失（派发成功但 Worker 未消费）
+        - 派发期未被 send 返回值检查拦截的历史残留（本方法上线前的存量）
+
+        与 portfolio_service.reset_stale_running() 同构：状态机兜底，防永久 running。
+
+        Args:
+            timeout_minutes: running 状态超时阈值（分钟），默认 30。
+
+        Returns:
+            ServiceResult: data 含 cleaned（标记 failed 数量）与 total_running（扫描时 running 总数）。
+        """
+        try:
+            running = self._crud_repo.get_running_tasks()
+            # 阈值语态绑死 worker 写入端：progress_tracker.py:218 写 naive local
+            # datetime.now()（宿主 Asia/Shanghai UTC+8）。两端必须同语态比较，
+            # 否则 naive 北京时间被 replace(tzinfo=utc) 当 UTC 解释会看起来年轻 8h，
+            # 30min timeout 实际变 ~8h30min（#4853 PR #6565 review 抓的 bug）。
+            # 治本（worker 改 aware UTC）属全仓 naive→UTC 迁移，超出本 PR 范围，
+            # 迁移完成时同步此行回 datetime.now(timezone.utc)。
+            threshold = datetime.now() - timedelta(minutes=timeout_minutes)
+            cleaned = 0
+
+            for task in running:
+                st = task.start_time
+                if st is None:
+                    # start_time 残缺无法判定，跳过（不崩，留给下次或人工）。
+                    continue
+
+                if st < threshold:
+                    self.update_status(
+                        task.uuid, status="failed",
+                        error_message=(
+                            f"Orphan task: running > {timeout_minutes}min without progress "
+                            "(worker lost Kafka message or crashed)"
+                        ),
+                    )
+                    cleaned += 1
+                    GLOG.INFO(f"Marked orphan backtest task {task.uuid[:8]}... as failed")
+
+            if cleaned > 0:
+                GLOG.INFO(f"Cleaned {cleaned}/{len(running)} orphan running backtest tasks")
+
+            return ServiceResult.success(
+                {"cleaned": cleaned, "total_running": len(running)},
+                f"清理 {cleaned} 个孤儿 running 任务",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"Failed to cleanup orphan backtest tasks: {e}")
+            return ServiceResult.error(f"Failed to cleanup orphan backtest tasks: {str(e)}")
 
     def get_statistics(self) -> ServiceResult:
         """
@@ -748,9 +804,22 @@ class BacktestTaskService(BaseService):
             except ValidationError as e:
                 return ServiceResult.error(f"Invalid backtest assignment config: {e}")
 
-            producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
+            # #4853：检查 send 返回值，失败即标 failed，避免永久 running 孤儿。
+            # GinkgoProducer.send 已装饰 @retry(max_try=3)，此处 False 表示重试耗尽仍未送达。
+            send_ok = producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
             producer.close()
+
+            if not send_ok:
+                self.update_status(
+                    real_uuid, status="failed",
+                    error_message="Kafka dispatch failed: message not delivered after retries",
+                )
+                GLOG.ERROR(f"Failed to dispatch backtest task {task_id}: Kafka send returned False")
+                return ServiceResult.error(
+                    f"Failed to dispatch backtest task to Kafka (task {task_id}): "
+                    "message not delivered. Task marked as failed."
+                )
 
             GLOG.INFO(f"Started backtest task with task_id: {task_id}")
             return ServiceResult.success({"uuid": real_uuid, "task_id": task_id}, "Backtest task started")
@@ -763,7 +832,15 @@ class BacktestTaskService(BaseService):
         """
         停止回测任务（发送停止命令到Kafka）
 
-        状态机规则：只能停止 running 状态的任务
+        状态机规则：可停止 created/pending/running 状态的任务（#5421）
+        - created/pending：委托 cancel_task（走 CancelAssignment，worker _cancel_task
+          真实清理 in-memory task；StopAssignment 在 worker 端是 no-op 死信）
+        - running：发 StopAssignment（worker 正在执行，发 stop 信号）
+        - 终态（completed/failed/stopped）拒绝
+
+        review #6543：原扩白名单后对 created/pending 一并发 StopAssignment，但 worker
+        端该 handler 是显式 no-op（DTO A1 未实现），与 CancelAssignment 走 _cancel_task
+        真实清理不对称——卡住场景未真正修复。故 created/pending 改走 cancel 路径。
 
         Args:
             uuid: 任务标识（可以是 uuid 或 task_id）
@@ -779,14 +856,22 @@ class BacktestTaskService(BaseService):
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 状态机检查：只能停止运行中的任务
-            if task.status != "running":
+            # 状态机检查：created/pending/running 均可停（#5421）；终态拒绝
+            stoppable_states = ("running", "created", "pending")
+            if task.status not in stoppable_states:
                 return ServiceResult.error(
                     f"Cannot stop task with status '{task.status}'. "
-                    f"Only running tasks can be stopped."
+                    f"Only tasks in {', '.join(stoppable_states)} can be stopped."
                 )
 
-            # 发送停止命令到Kafka（使用 task_id 作为任务标识）
+            # created/pending：尚未执行或刚被 worker 接收，委托 cancel_task 走真实清理
+            # （CancelAssignment → worker _cancel_task → processor.cancel()）。
+            # review #6543：StopAssignment 在 worker 端是 no-op（DTO A1 未实现），
+            # created/pending 走它对 worker 卡住场景无效，须走 CancelAssignment。
+            if task.status in ("created", "pending"):
+                return self.cancel_task(uuid)
+
+            # running：worker 正在执行，发 StopAssignment（graceful-stop A1 实现后生效）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 
             real_uuid = task.uuid  # 用于更新状态
@@ -993,8 +1078,8 @@ class BacktestTaskService(BaseService):
             if portfolio_ids and self._portfolio_service:
                 try:
                     portfolio_names = self._portfolio_service.get_names_by_ids(list(portfolio_ids))
-                except Exception:
-                    pass
+                except Exception as e:
+                    GLOG.WARN(f"failed to fetch portfolio names for task list summary: {e}")
 
             summaries: list[BacktestTaskSummary] = []
             for t in tasks:
@@ -1118,8 +1203,12 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_signals failed: {e}")
             return ServiceResult.error(f"Failed to list signals: {e}")
 
-    def list_orders(self, uuid: str) -> "ServiceResult":
-        """获取回测订单列表，返回 list[BacktestOrderItem]"""
+    def list_orders(self, uuid: str, page: int = 1, page_size: int = 0) -> "ServiceResult":
+        """获取回测订单列表，返回 list[BacktestOrderItem]
+
+        page_size 默认 0=全量(向后兼容 CLI/分析引擎等内部全量调用方);
+        端点层(Query 默认 50)显式传入时分页。
+        """
         from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
 
         try:
@@ -1129,7 +1218,7 @@ class BacktestTaskService(BaseService):
 
             from ginkgo.data.containers import container
             result_service = container.result_service()
-            result = result_service.get_orders(task_id=task_id)
+            result = result_service.get_orders(task_id=task_id, page=page, page_size=page_size)
             if not result.is_success():
                 return ServiceResult.success(data=[], message=result.error)
 

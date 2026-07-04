@@ -213,3 +213,58 @@ class TestTickCRUDConstruction:
         from ginkgo.data.crud.base_crud import BaseCRUD
 
         assert not isinstance(tick_crud, BaseCRUD)
+
+
+# ============================================================
+# count_all 测试 — #5423 跨分表全量统计
+# Tick 数据按股票代码动态分表（{code}_Tick，ClickHouse MergeTree），
+# count_all 通过 system.tables 元数据一次聚合所有分表的 total_rows。
+# ============================================================
+
+
+class TestTickCRUDCountAll:
+    """count_all: 跨所有 _Tick 分表聚合行数（#5423）"""
+
+    @pytest.mark.unit
+    def test_count_all_sums_total_rows_via_system_tables(self, tick_crud):
+        """count_all 应查 system.tables 聚合所有 _Tick 分表的 total_rows 并返回 int"""
+        with patch("ginkgo.data.crud.tick_crud.get_db_connection") as mock_conn_fn:
+            mock_session = MagicMock()
+            mock_result = MagicMock()
+            mock_result.fetchone.return_value = (543452,)
+            mock_session.execute.return_value = mock_result
+            mock_conn = MagicMock()
+            mock_conn.get_session.return_value.__enter__.return_value = mock_session
+            mock_conn_fn.return_value = mock_conn
+
+            total = tick_crud.count_all()
+
+            assert total == 543452
+            # 核心契约：必须查 system.tables 元数据表（跨分表聚合的入口）
+            sql_text = str(mock_session.execute.call_args[0][0])
+            assert "system.tables" in sql_text
+
+    @pytest.mark.unit
+    def test_count_all_returns_zero_when_no_tick_tables(self, tick_crud):
+        """无 _Tick 分表时（sum 为 NULL），应规整为 0 而非 None"""
+        with patch("ginkgo.data.crud.tick_crud.get_db_connection") as mock_conn_fn:
+            mock_session = MagicMock()
+            mock_result = MagicMock()
+            # ClickHouse sum() over empty set 返回 NULL/None
+            mock_result.fetchone.return_value = (None,)
+            mock_session.execute.return_value = mock_result
+            mock_conn = MagicMock()
+            mock_conn.get_session.return_value.__enter__.return_value = mock_session
+            mock_conn_fn.return_value = mock_conn
+
+            assert tick_crud.count_all() == 0
+
+    @pytest.mark.unit
+    def test_count_all_degrades_to_zero_on_db_error(self, tick_crud):
+        """DB 异常时不应抛出，应降级返回 0（stats 端点不能因统计失败而 500）"""
+        with patch("ginkgo.data.crud.tick_crud.get_db_connection") as mock_conn_fn:
+            mock_conn = MagicMock()
+            mock_conn.get_session.side_effect = RuntimeError("clickhouse unreachable")
+            mock_conn_fn.return_value = mock_conn
+
+            assert tick_crud.count_all() == 0

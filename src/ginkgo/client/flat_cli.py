@@ -612,17 +612,76 @@ def priority(
 # Result 相关命令
 @result_app.command()
 def list(
-    backtest_id: Optional[str] = typer.Option(None, "--backtest", "-b", help="Filter by backtest ID"),
+    task_id: Optional[str] = typer.Option(None, "--task-id", help=":mag: 按任务ID过滤 (uuid 或 task_id)"),
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio ID"),
-    page: int = typer.Option(20, "--page", "-P", help="Page size"),
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"),
+    page: int = typer.Option(0, "--page", "-P", help="Page number"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page"),
 ):
     """
     :clipboard: List all backtest results.
     """
-    console.print(":clipboard: Listing results...")
+    from ginkgo.data.containers import container
 
-    # TODO: Implement actual result listing
-    console.print(":information: Result listing not yet implemented")
+    service = container.backtest_task_service()
+
+    # --task-id: 复用 result get 查询路径(ADR-016 task_id 主键), 单条展示
+    if task_id:
+        result = service.get_by_id(task_id)
+        if not result.is_success() or result.data is None:
+            console.print(f":x: [red]未找到回测任务: {task_id}[/red]")
+            raise typer.Exit(1)
+        tasks = [result.data]
+        total = 1
+    else:
+        result = service.list(
+            page=page, page_size=page_size, portfolio_id=portfolio, status=status
+        )
+        if not result.is_success():
+            console.print(f":x: {result.error}")
+            raise typer.Exit(1)
+        # service 返回 dict 包装({"data":[...],"total":N}); 兼容直接返回 list
+        data = result.data or {}
+        if isinstance(data, dict):
+            tasks = data.get("data", [])
+            total = data.get("total", 0)
+        else:
+            tasks = data or []
+            total = len(tasks)
+
+    if not tasks:
+        console.print(":memo: No backtest results found.")
+        return
+
+    table = Table(title=":chart_with_upwards_trend: Backtest Results")
+    table.add_column("UUID", style="dim", width=12)
+    table.add_column("Name", style="bold", width=20)
+    table.add_column("Portfolio", width=12)
+    table.add_column("Status", width=12)
+    table.add_column("Created", width=19)
+
+    for task in tasks:
+        uuid_str = task.uuid[:12] if hasattr(task, "uuid") else str(task.get("uuid", ""))[:12]
+        name = task.name if hasattr(task, "name") else task.get("name", "")
+        portfolio_id = (
+            task.portfolio_id[:12] if hasattr(task, "portfolio_id")
+            else str(task.get("portfolio_id", ""))[:12]
+        )
+        status_val = task.status if hasattr(task, "status") else task.get("status", "")
+        created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
+        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
+            status_val, "white"
+        )
+        table.add_row(
+            uuid_str,
+            name[:20],
+            portfolio_id,
+            f"[{status_style}]{status_val}[/{status_style}]",
+            created,
+        )
+
+    console.print(table)
+    console.print(f"\n  Total: {total} results (Page {page}, size {page_size})")
 
 
 @result_app.command()
@@ -876,8 +935,8 @@ def segment_stability(
     """:bar_chart: Run segment stability validation.
 
     Examples:
-        ginkgo get result segment-stability --task-id abc123
-        ginkgo get result segment-stability -t abc123 -s 2,4 -m sharpe_ratio,win_rate
+        ginkgo result segment-stability --task-id abc123
+        ginkgo result segment-stability -t abc123 -s 2,4 -m sharpe_ratio,win_rate
     """
     from ginkgo.data.containers import container
     from ginkgo.data.services.validation_service import ANALYZER_LABELS

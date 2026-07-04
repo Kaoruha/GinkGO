@@ -545,11 +545,7 @@ class UserGroupService(BaseService):
             result = service.fuzzy_search("fbe6e147")
         """
         try:
-            groups = self.user_group_crud.fuzzy_search(query)
-
-            # Apply limit
-            if limit and len(groups) > limit:
-                groups = groups.head(limit)
+            groups = self.user_group_crud.fuzzy_search(query, limit=limit)
 
             group_list = []
             for group in groups:

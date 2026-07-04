@@ -616,6 +616,49 @@ class TestBindPortfolio:
         assert result.exit_code == 1
         assert "not found" in result.output
 
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_bind_mode_mismatch_shows_error(self, cli_runner):
+        """#5112: service 返回模式不兼容错误时，CLI 显示错误（非 ✅）且退出码非 0"""
+        mock_portfolio = MagicMock()
+        mock_portfolio.uuid = "port-uuid"
+        mock_portfolio.name = "TestPortfolio"
+
+        port_model_list = MagicMock()
+        port_model_list.__len__ = MagicMock(return_value=1)
+        port_model_list.__getitem__ = MagicMock(return_value=mock_portfolio)
+
+        eng_model_list = MagicMock()
+        eng_model_list.__len__ = MagicMock(return_value=1)
+        eng_model_list.__getitem__ = MagicMock(return_value=_make_engine_model())
+
+        portfolio_svc = MagicMock()
+        portfolio_svc.get.return_value = ServiceResult.success(data=port_model_list)
+        engine_svc = MagicMock()
+        engine_svc.get.return_value = ServiceResult.success(data=eng_model_list)
+
+        mapping_svc = MagicMock()
+        mapping_svc.get_engine_portfolio_mapping.return_value = ServiceResult.success(data=[])
+        mapping_svc.create_engine_portfolio_mapping.return_value = ServiceResult.error(
+            "模式不兼容: BACKTEST engine 不能绑定 PAPER/LIVE portfolio"
+        )
+
+        container = _mock_container(
+            engine_service=engine_svc,
+            portfolio_service=portfolio_svc,
+            mapping_service=mapping_svc,
+        )
+
+        with patch("ginkgo.data.containers.container", container), \
+             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+            result = cli_runner.invoke(
+                engine_cli.app,
+                ["bind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid"],
+            )
+        assert result.exit_code == 1, f"模式不兼容应非 0 退出: {result.output}"
+        assert "模式不兼容" in result.output, f"输出应含错误信息: {result.output}"
+        assert "binding created successfully" not in result.output.lower()
+
 
 class TestUnbindPortfolio:
     """Tests for the 'unbind-portfolio' command."""

@@ -149,31 +149,34 @@ def list_templates(
             console.print(":memo: No templates found.")
             return
 
+        # 列宽不设 max_width：template_id/UUID/Created 全显，避免 list 截断致
+        # 下游 templates get/update/delete/render 拿不到完整 ID (#5033)。
+        # Rich 按终端宽度自动 wrap/分配，超长时换行而非硬截断。
         table = Table(title=f":memo: Templates ({len(templates)} found)")
-        table.add_column("UUID", style="cyan", no_wrap=False, max_width=12)
-        table.add_column("ID", style="green", max_width=15)
+        table.add_column("UUID", style="cyan", no_wrap=False)
+        table.add_column("ID", style="green")
         table.add_column("Name", style="yellow")
         table.add_column("Type", style="blue")
         table.add_column("Active", justify="center")
         table.add_column("Tags", style="magenta")
-        table.add_column("Created", style="dim", max_width=16)
+        table.add_column("Created", style="dim")
 
         for t in templates[:limit]:
             active_style = "green" if t.is_active else "red"
             tags_str = ", ".join(t.tags[:3]) if t.tags else ""
             if len(t.tags) > 3:
                 tags_str += "..."
-            uuid_short = t.uuid[:8] + "..." if len(t.uuid) > 11 else t.uuid
-            created_short = str(t.create_at)[:16] if t.create_at else "N/A"
+            uuid_value = t.uuid if t.uuid else "N/A"
+            created_value = str(t.create_at) if t.create_at else "N/A"
 
             table.add_row(
-                uuid_short,
+                uuid_value,
                 t.template_id,
                 t.template_name,
                 t.get_template_type_enum().name,
                 f"[{active_style}]{t.is_active}[/{active_style}]",
                 tags_str,
-                created_short
+                created_value
             )
 
         console.print(table)

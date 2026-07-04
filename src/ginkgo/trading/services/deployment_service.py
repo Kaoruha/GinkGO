@@ -36,6 +36,7 @@ class DeploymentService(BaseService):
         mongo_driver=None,
         param_crud=None,
         backtest_task_service=None,
+        capacity_checker=None,
     ):
         self._portfolio_service = portfolio_service
         self._mapping_service = mapping_service
@@ -47,6 +48,10 @@ class DeploymentService(BaseService):
         self._param_crud = param_crud
         # #5196: deploy 自动溯源回测→部署链路(未显式传 source_task_id 时取 portfolio 最近 completed 回测)
         self._backtest_task_service = backtest_task_service
+        # #4800: 集群容量预检 callable，返回 {"healthy_nodes","max_per_node",
+        # "total_slots","used_slots","available_slots"}。None=跳过预检(向后兼容，
+        # 容量查询依赖 Redis，未注入时不阻塞 deploy)。
+        self._capacity_checker = capacity_checker
 
     def deploy(
         self,
@@ -78,6 +83,27 @@ class DeploymentService(BaseService):
         portfolio_obj = portfolio_list[0] if portfolio_list else None
         if not portfolio_obj:
             return ServiceResult(success=False, error=f"组合不存在: {portfolio_id}")
+
+        # 1.5 #4800: 集群容量预检（best-effort，防"假成功"）
+        # deploy 与 worker 端 Scheduler 跨进程解耦: deploy 只写记录+发 Kafka，真正分配由
+        # LoadBalancer 异步完成。容量满时 worker 仅 logger.warning，deploy 侧无从知晓仍报成功。
+        # 此处注入 capacity_checker(查询 Redis 心跳键聚合可用槽位)，满载则早失败 + 明确提示，
+        # 不写 PENDING 记录避免假成功 + 垃圾记录。None=未注入(向后兼容)，跳过预检。
+        _checker = getattr(self, "_capacity_checker", None)
+        if _checker is not None:
+            cap = _checker() or {}
+            available = cap.get("available_slots", 1)
+            if available <= 0:
+                healthy = cap.get("healthy_nodes", 0)
+                max_per = cap.get("max_per_node", 0)
+                return ServiceResult(
+                    success=False,
+                    error=(
+                        f"集群容量已满: 当前 {healthy} 个健康节点, "
+                        f"每节点上限 {max_per}, 可用槽位 0。"
+                        f"建议扩容 worker 或清理历史 paper portfolio。"
+                    ),
+                )
 
         # 2. 检查是否已冻结
         if self._portfolio_service.is_portfolio_frozen(portfolio_id):

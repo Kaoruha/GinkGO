@@ -81,6 +81,18 @@ class TestHelp:
         assert "get" in result.output
         assert "show" in result.output
 
+    def test_result_segment_stability_help_prefix_correct(self, cli_runner):
+        """#4903: segment-stability --help 示例前缀不应残留已拍平的 'get' 子命令。
+
+        早期 CLI 把 `get result` 拍平为 `result` 子命令组，docstring 示例
+        需同步更新为 `ginkgo result segment-stability ...`，否则用户复制
+        会得到 'No such command'。
+        """
+        result = cli_runner.invoke(flat_cli.result_app, ["segment-stability", "--help"])
+        assert result.exit_code == 0
+        assert "ginkgo result segment-stability" in result.output
+        assert "ginkgo get result segment-stability" not in result.output
+
 
 # ============================================================================
 # 1b. result list -p short-option conflict (#4621)
@@ -113,9 +125,18 @@ class TestResultListParamConflict:
         """--portfolio and --page must each parse independently without the
         duplicate-short-option warning, regardless of order."""
         import warnings
+        from ginkgo.data.services.base_service import ServiceResult
 
+        # #4634: result list 已实现, 会调 backtest_task_service.list;
+        # 此测试聚焦参数解析, mock service 隔离 DB
+        mock_service = MagicMock()
+        mock_service.list.return_value = ServiceResult.success(
+            data={"data": [], "total": 0, "page": 0, "page_size": 20}
+        )
         for argv in (["list", "--portfolio", "abc123"], ["list", "--page", "2"]):
-            with warnings.catch_warnings(record=True) as caught:
+            with patch("ginkgo.data.containers.container") as mock_container, \
+                 warnings.catch_warnings(record=True) as caught:
+                mock_container.backtest_task_service.return_value = mock_service
                 warnings.simplefilter("always")
                 result = cli_runner.invoke(flat_cli.result_app, argv)
             assert result.exit_code == 0, f"failed for {argv}: {result.output}"
@@ -267,10 +288,73 @@ class TestMappingCommands:
 class TestResultCommands:
     """Tests for result sub-app commands."""
 
-    def test_result_list_shows_not_implemented(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.result_app, ["list"])
-        assert result.exit_code == 0
-        assert "not yet implemented" in result.output
+    def test_result_list_returns_tasks(self, cli_runner):
+        """#4634: result list 应调 backtest_task_service.list 返回任务表格，
+        而非 'not yet implemented' 占位。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        task = MagicMock()
+        task.uuid = "abc123def456"
+        task.name = "TestBacktest"
+        task.portfolio_id = "port12345678"
+        task.status = "completed"
+        task.progress = 100
+        task.create_at = datetime(2025, 1, 1)
+        mock_service = MagicMock()
+        mock_service.list.return_value = ServiceResult.success(
+            data={"data": [task], "total": 1, "page": 0, "page_size": 20}
+        )
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = mock_service
+            result = cli_runner.invoke(flat_cli.result_app, ["list"])
+        assert result.exit_code == 0, result.output
+        assert "TestBacktest" in result.output
+        assert "not yet implemented" not in result.output
+        mock_service.list.assert_called_once()
+
+    def test_result_list_with_task_id_calls_get_by_id(self, cli_runner):
+        """#4634: --task-id 应复用 result get 查询路径(get_by_id), 单条展示。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        task = MagicMock()
+        task.uuid = "task-uuid-12345"
+        task.name = "SingleBT"
+        task.portfolio_id = "port-abc12345"
+        task.status = "completed"
+        task.create_at = datetime(2025, 6, 1)
+        mock_service = MagicMock()
+        mock_service.get_by_id.return_value = ServiceResult.success(data=task)
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = mock_service
+            result = cli_runner.invoke(
+                flat_cli.result_app, ["list", "--task-id", "task-uuid-12345"]
+            )
+        assert result.exit_code == 0, result.output
+        assert "SingleBT" in result.output
+        mock_service.get_by_id.assert_called_once_with("task-uuid-12345")
+        mock_service.list.assert_not_called()
+
+    def test_result_list_empty_shows_no_results(self, cli_runner):
+        """#4634: 空结果应优雅提示, 非 crash。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_service = MagicMock()
+        mock_service.list.return_value = ServiceResult.success(
+            data={"data": [], "total": 0, "page": 0, "page_size": 20}
+        )
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = mock_service
+            result = cli_runner.invoke(flat_cli.result_app, ["list"])
+        assert result.exit_code == 0, result.output
+        assert "No backtest results" in result.output
+
+    def test_result_list_service_error_exits_nonzero(self, cli_runner):
+        """#4634: service 失败应 exit 1 + 显示错误, 非 crash。"""
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_service = MagicMock()
+        mock_service.list.return_value = ServiceResult.error("DB down")
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = mock_service
+            result = cli_runner.invoke(flat_cli.result_app, ["list"])
+        assert result.exit_code == 1, result.output
+        assert "DB down" in result.output
 
     # #5957: 旧 test_result_get_* 断言已删除的假数据("Sharpe Ratio"/"Trade History")，
     # 新契约(真实 service + task_id 参数)由 TestResultGetRealData 覆盖，故移除。
