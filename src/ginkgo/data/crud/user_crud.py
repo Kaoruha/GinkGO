@@ -313,7 +313,8 @@ class UserCRUD(BaseCRUD[MUser]):
 
     def fuzzy_search(
         self,
-        query: str
+        query: str,
+        limit: Optional[int] = None,
     ) -> ModelList[MUser]:
         """
         模糊搜索用户 - 在 uuid、username 和 display_name 字段中搜索
@@ -324,6 +325,7 @@ class UserCRUD(BaseCRUD[MUser]):
 
         Args:
             query: 搜索关键词（UUID或用户名）
+            limit: 最大返回条数，None 表示全量（SQL LIMIT 下推，避免全量拉回）
 
         Returns:
             ModelList[MUser]: 用户模型列表，支持 .to_dataframe() 转换
@@ -354,6 +356,10 @@ class UserCRUD(BaseCRUD[MUser]):
                         MUser.display_name.like(search_pattern)
                     )
                 )
+
+            # #6572: limit 下推到 SQL LIMIT，避免全量拉回
+            if limit is not None:
+                query_obj = query_obj.limit(limit)
 
             results = query_obj.all()
             # Detach objects from session

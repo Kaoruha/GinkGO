@@ -220,7 +220,8 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
     def fuzzy_search(
         self,
         query: str,
-        fields: Optional[List[str]] = None
+        fields: Optional[List[str]] = None,
+        limit: Optional[int] = None,
     ) -> ModelList[MBacktestTask]:
         """
         模糊搜索回测任务，支持 UUID、名称、task_id 的部分匹配。
@@ -245,7 +246,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         if 'uuid' in fields:
             try:
-                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False})
+                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False}, page_size=limit)
                 for item in results:
                     if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
                         all_results.append(item)
@@ -255,7 +256,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         if 'name' in fields:
             try:
-                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False})
+                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False}, page_size=limit)
                 for item in results:
                     if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
                         all_results.append(item)
@@ -265,13 +266,17 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         if 'task_id' in fields:
             try:
-                results = self.find(filters={"task_id__like": f"%{query_lower}%", "is_del": False})
+                results = self.find(filters={"task_id__like": f"%{query_lower}%", "is_del": False}, page_size=limit)
                 for item in results:
                     if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
                         all_results.append(item)
                         seen_uuids.add(item.uuid)
             except Exception as e:
                 GLOG.WARN(f"Task ID fuzzy search failed: {e}")
+
+        # #6572: 多字段合并去重后按 limit 截断
+        if limit is not None:
+            all_results = all_results[:limit]
 
         return ModelList(all_results, self)
 

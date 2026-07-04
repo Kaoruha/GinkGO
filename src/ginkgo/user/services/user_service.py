@@ -888,11 +888,7 @@ class UserService(BaseService):
             result = service.fuzzy_search("a2eaba95")
         """
         try:
-            users = self.user_crud.fuzzy_search(query)
-
-            # Apply limit
-            if limit and len(users) > limit:
-                users = users.head(limit)
+            users = self.user_crud.fuzzy_search(query, limit=limit)
 
             user_list = []
             for user in users:
