@@ -219,7 +219,9 @@ class TestUserCRUDCascadeCredentials:
 
         crud_instance.delete(filters={"uuid": "test-uuid-123"})
 
-        crud_instance._cascade_delete_credentials.assert_called_once_with(["test-uuid-123"])
+        crud_instance._cascade_delete_credentials.assert_called_once_with(
+            ["test-uuid-123"], session=mock_session
+        )
 
 
 class TestUserCRUDConstruction:

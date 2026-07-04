@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from types import SimpleNamespace
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, PropertyMock, mock_open, patch
 
 import pytest
 
@@ -44,7 +44,7 @@ def test_create_example_files_does_not_commit_inside_managed_session():
 
     with patch("ginkgo.data.crud.file_crud.FileCRUD", return_value=file_crud), \
          patch("ginkgo.data.seeding.container.file_service", return_value=file_service), \
-         patch("ginkgo.data.seeding.GCONF.WORKING_PATH", "/tmp/work"), \
+         patch("ginkgo.libs.core.config.GinkgoConfig.WORKING_PATH", new_callable=PropertyMock, return_value="/tmp/work"), \
          patch("ginkgo.data.seeding.os.path.isdir", return_value=True), \
          patch("ginkgo.data.seeding.os.listdir", return_value=["alpha.py"]), \
          patch("builtins.open", mock_open(read_data=b"print('x')")):
