@@ -20,7 +20,7 @@ The `Datahandler` class will provide access to historical price and volume data 
 import time
 import pandas as pd
 from datetime import datetime, date, timedelta
-from typing import List, Dict, Any, Callable, Optional
+from typing import List, Dict, Any, Callable, Optional, Set
 from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
@@ -63,6 +63,10 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
 
         # 兴趣集（通过EventInterestUpdate动态更新）
         self._interested_codes: List[str] = []
+
+        # 无数据 code WARN 去重（#6586）：同一 code 整个回测内 "No bar data" 至多 WARN 一次。
+        # 预过滤后仍可能出现的"当日无 bar"（停牌等）走此去重，避免逐日刷屏。
+        self._warned_no_data: Set[str] = set()
         
     # === IDataFeeder 基础接口实现 ===
 
@@ -133,7 +137,14 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
     # === IBacktestDataFeeder 扩展接口实现 ===
     
     def advance_time(self, target_time: datetime, *args, **kwargs) -> bool:
-        """推进到指定时间，主动推送价格事件到引擎"""
+        """推进到指定时间，主动推送价格事件到引擎。
+
+        #6586：无数据 code 过滤下沉到本层——
+          1. 用 bar_service.get_available_codes 与 _interested_codes 取交集（feedable），
+             剔除 DB 中完全无 bar 的 code，不为其查询/发事件/WARN；
+          2. 按日批量取当日全市场复权 bar（一次 get(code=None)，消除逐股 N+1）；
+          3. feedable code 当日无 bar 时 WARN，且整个回测内同一 code 至多 WARN 一次。
+        """
         try:
             # 调用父类TimeMixin的advance_time
             success = super().advance_time(target_time, *args, **kwargs)
@@ -145,15 +156,31 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
                 GLOG.WARN(f"BacktestFeeder: No interested symbols at {target_time.date()}")
                 return True
 
-            GLOG.INFO(f"BacktestFeeder: Advancing to {target_time.date()}, {len(self._interested_codes)} symbols: {self._interested_codes}")
+            # 1. 预过滤：interested ∩ available（剔除 DB 中完全无 bar 数据的 code）
+            feedable = self._compute_feedable_codes()
+            if len(feedable) == 0:
+                GLOG.WARN(f"BacktestFeeder: No feedable symbols at {target_time.date()}")
+                return True
 
-            # 为每个股票生成并推送价格更新事件
+            GLOG.INFO(
+                f"BacktestFeeder: Advancing to {target_time.date()}, "
+                f"feeding {len(feedable)}/{len(self._interested_codes)} symbols"
+            )
+
+            # 2. 批量取当日复权 bar（一次查询，消除逐股 N+1），按 code 索引
+            bars_by_code = self._fetch_day_bars_batch(target_time)
+
+            # 3. 对 feedable code 发事件；当日无 bar 的走 WARN 去重
             event_count = 0
-            for code in self._interested_codes:
-                price_events = self._generate_price_events(code, target_time)
-                for event in price_events:
-                    self.publish_price_update(event)
-                    event_count += 1
+            for code in feedable:
+                bar = bars_by_code.get(code)
+                if bar is None:
+                    self._warn_no_data_once(code, target_time)
+                    continue
+                event = EventPriceUpdate(payload=bar)
+                event.set_source(SOURCE_TYPES.BACKTESTFEEDER)
+                self.publish_price_update(event)
+                event_count += 1
 
             GLOG.INFO(f"BacktestFeeder: Published {event_count} price events for {target_time.date()}")
             return True
@@ -161,6 +188,63 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
         except Exception as e:
             GLOG.ERROR(f"BacktestFeeder: Error advancing time to {target_time}: {e}")
             return False
+
+    def _compute_feedable_codes(self) -> List[str]:
+        """interested ∩ available：剔除 DB 中完全无 bar 数据的 code（#6586）。
+
+        - available 取自 bar_service.get_available_codes（DB 中实际有 bar 的 code 集合）；
+        - _interested_codes 由事件链维护，**不改写它**（保护事件契约，见 ADR-019 与
+          arch_backtest_feeder_interested_event_driven），预过滤结果只作用于"实际取 bar 的循环"；
+        - get_available_codes 失败时降级为全 interested（不阻断回测，保留旧行为）。
+        """
+        result = self.bar_service.get_available_codes()
+        if not result.success or not result.data:
+            GLOG.WARN(
+                f"BacktestFeeder: get_available_codes unavailable, "
+                f"falling back to all {len(self._interested_codes)} interested codes"
+            )
+            return list(self._interested_codes)
+
+        available = set(result.data)
+        feedable = [c for c in self._interested_codes if c in available]
+        dropped = len(self._interested_codes) - len(feedable)
+        if dropped > 0:
+            GLOG.INFO(
+                f"BacktestFeeder: prefiltered {dropped} code(s) without bar data; "
+                f"feeding {len(feedable)}/{len(self._interested_codes)}"
+            )
+        return feedable
+
+    def _fetch_day_bars_batch(self, target_time: datetime) -> Dict[str, Any]:
+        """批量取当日全市场复权 bar，按 code 索引返回（#6586 消除 N+1）。
+
+        走 bar_service.get(code=None)（多股复权分支），一次查询取当日全部 code 的 bar
+        并按 code 索引；调用方只用 feedable 子集。相比逐股 bar_service.get，把每日 N 次
+        DB round-trip 压成 1 次（#5163 宽 universe 性能根因）。保留复权语义，与原
+        _generate_price_events 单股 get(code) 一致。
+        """
+        bars_by_code: Dict[str, Any] = {}
+        result = self.bar_service.get(
+            code=None,
+            start_date=target_time.date(),
+            end_date=target_time.date(),
+        )
+        if not result.success or not result.data:
+            return bars_by_code
+
+        bar_entities = BarMapper.from_models(result.data)
+        for bar in bar_entities:
+            code = getattr(bar, "code", None)
+            if code is not None:
+                bars_by_code.setdefault(code, bar)
+        return bars_by_code
+
+    def _warn_no_data_once(self, code: str, target_time: datetime) -> None:
+        """同一 code 的 "No bar data" WARN 整个回测内至多输出一次（#6586 刷屏根因）。"""
+        if code in self._warned_no_data:
+            return
+        self._warned_no_data.add(code)
+        GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
     
     @TimeMixin.validate_time(['start_time', 'end_time'])
     def get_historical_data(self,
