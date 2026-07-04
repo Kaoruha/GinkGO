@@ -173,15 +173,63 @@ def list_portfolios(
     """
     :clipboard: List all Portfolios loaded in ExecutionNode.
 
-    Display Portfolio IDs and their subscription status.
+    Display Portfolio IDs assigned to the given ExecutionNode.
+    Source of truth: schedule:plan Redis hash ({portfolio_id -> node_id}),
+    same key the scheduler inverts to map node -> portfolios.
+
+    Examples:
+      ginkgo execution list-portfolios
+      ginkgo execution list-portfolios --node-id node_1
     """
-    # STUB: Portfolio 热管理功能尚未实现
-    # See: https://github.com/Kaoruha/GinkGO/issues/4637
-    console.print(
-        f"[yellow]:warning: STUB: list_portfolios 尚未实现。[/yellow]\n"
-        f"[dim]Portfolio 热加载/卸载/列表功能待开发，参见 #4637。[/dim]"
-    )
-    return
+    try:
+        from ginkgo.data.crud import RedisCRUD
+        from ginkgo.data.redis_schema import RedisKeyBuilder
+
+        redis_client = RedisCRUD().redis
+
+        # schedule:plan hash: {portfolio_id -> node_id}
+        # (Scheduler.SCHEDULE_PLAN_KEY；CLI 沿用 status 命令既有先例直接引用键名)
+        plan = redis_client.hgetall("schedule:plan")
+
+        def _decode(v):
+            return v.decode("utf-8") if isinstance(v, bytes) else v
+
+        portfolios_on_node = [
+            _decode(pid)
+            for pid, assigned_node in plan.items()
+            if _decode(assigned_node) == node_id
+        ]
+
+        if not portfolios_on_node:
+            console.print(
+                f"[yellow]:information: No portfolios assigned to ExecutionNode '{node_id}'[/yellow]"
+            )
+            # 信息性心跳提示（不阻断；调度计划为空也可能是节点未启动）
+            heartbeat_ttl = redis_client.ttl(
+                RedisKeyBuilder.execution_node_heartbeat(node_id)
+            )
+            if heartbeat_ttl < 0:
+                console.print(
+                    f"[dim]  (node '{node_id}' 心跳未检出 — TTL={heartbeat_ttl}；"
+                    f"若节点未运行，调度计划自然为空)[/dim]"
+                )
+            return
+
+        table = Table(
+            title=f":clipboard: Portfolios on ExecutionNode '{node_id}' "
+            f"({len(portfolios_on_node)})",
+            show_header=True,
+        )
+        table.add_column("#", style="dim", no_wrap=True)
+        table.add_column("Portfolio ID", style="cyan")
+        for idx, pid in enumerate(portfolios_on_node, 1):
+            table.add_row(str(idx), pid)
+        console.print("\n")
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error listing portfolios: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command()
