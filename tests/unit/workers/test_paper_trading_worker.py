@@ -78,9 +78,9 @@ class TestAssembleEngine:
         mock_engine.return_value = mock_engine_instance
 
         worker = PaperTradingWorker(worker_id="test-1")
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value=mock_components):
-            worker.assemble_engine(mock_container)
+        # #6448: collect 走 container.portfolio_service() 链，配 mock 返 ServiceResult
+        mock_container.portfolio_service.return_value.collect_portfolio_components.return_value = ServiceResult.success(mock_components)
+        worker.assemble_engine(mock_container)
 
         mock_engine.assert_called_once()
         call_kwargs = mock_engine.call_args
@@ -134,9 +134,9 @@ class TestAssembleEngine:
         mock_engine_cls.return_value = mock_engine_instance
 
         worker = PaperTradingWorker(worker_id="test-1")
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value=mock_components):
-            worker.assemble_engine(mock_container)
+        # #6448: collect 走 container.portfolio_service() 链，配 mock 返 ServiceResult
+        mock_container.portfolio_service.return_value.collect_portfolio_components.return_value = ServiceResult.success(mock_components)
+        worker.assemble_engine(mock_container)
 
         # 断言 pick 被调且传了非 None time（位置参数或 time= kwarg）
         mock_selector.pick.assert_called()
@@ -189,9 +189,9 @@ class TestAssembleEngine:
         mock_engine_cls.return_value = mock_engine_instance
 
         worker = PaperTradingWorker(worker_id="test-1")
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value=mock_components):
-            worker.assemble_engine(mock_container)
+        # #6448: collect 走 container.portfolio_service() 链，配 mock 返 ServiceResult
+        mock_container.portfolio_service.return_value.collect_portfolio_components.return_value = ServiceResult.success(mock_components)
+        worker.assemble_engine(mock_container)
 
         # Engine 应已创建
         assert worker._engine is not None
@@ -252,10 +252,12 @@ class TestAssembleEngine:
         mock_engine_cls.return_value = mock_engine_instance
 
         worker = PaperTradingWorker(worker_id="test-replay")
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value={"strategies": [], "risk_managers": [], "analyzers": [],
-                                 "selectors": [], "sizers": []}):
-            worker.assemble_engine(mock_container)
+        # #6448: collect 走 portfolio_service 链（已 mock 为 mock_pservice），配 ServiceResult
+        mock_pservice.collect_portfolio_components.return_value = ServiceResult.success(
+            {"strategies": [], "risk_managers": [], "analyzers": [],
+             "selectors": [], "sizers": []}
+        )
+        worker.assemble_engine(mock_container)
 
         # feeder 必须收到 LogicalTimeProvider，否则 REPLAY 快进喂 bar 全失败
         mock_feeder_instance.set_time_provider.assert_called()
@@ -544,11 +546,11 @@ class TestDeploy:
         mock_crud.find.return_value = [mock_db_portfolio]
         mock_container.cruds.portfolio.return_value = mock_crud
 
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value=mock_components):
-            with patch("ginkgo.services", create=True) as mock_services:
-                mock_services.data.container = mock_container
-                result = worker._handle_deploy({"portfolio_id": "p-new-001"})
+        # #6448: collect 走 container.portfolio_service() 链，配 mock 返 ServiceResult
+        mock_container.portfolio_service.return_value.collect_portfolio_components.return_value = ServiceResult.success(mock_components)
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.container = mock_container
+            result = worker._handle_deploy({"portfolio_id": "p-new-001"})
 
         assert result is True
         mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)
@@ -590,11 +592,11 @@ class TestDeploy:
         mock_crud.find.return_value = [mock_db_portfolio]
         mock_container.cruds.portfolio.return_value = mock_crud
 
-        with patch("ginkgo.client.portfolio_cli.collect_portfolio_components",
-                   return_value=mock_components):
-            with patch("ginkgo.services", create=True) as mock_services:
-                mock_services.data.container = mock_container
-                result = worker._handle_deploy({"portfolio_id": "p-new-001"})
+        # #6448: collect 走 container.portfolio_service() 链，配 mock 返 ServiceResult
+        mock_container.portfolio_service.return_value.collect_portfolio_components.return_value = ServiceResult.success(mock_components)
+        with patch("ginkgo.services", create=True) as mock_services:
+            mock_services.data.container = mock_container
+            result = worker._handle_deploy({"portfolio_id": "p-new-001"})
 
         assert result is True
         mock_engine.add_portfolio.assert_called_once_with(mock_portfolio_instance)

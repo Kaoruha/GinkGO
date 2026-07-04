@@ -189,25 +189,11 @@ def run_backtest(message):
             bot.send_message(message.chat.id, i)
         return
 
-    uuid = extract_arg(message.text)[0]
-    # TODO: Fix this reference - backtest_cli has been removed
-    # from ginkgo.client.backtest_cli import run as run_backtest
-    # For now, create a placeholder or use flat_cli
-    from ginkgo.client import flat_cli
-    def run_backtest(engine_id):
-        """Placeholder function for running backtest"""
-        # This should be implemented properly
-        pass
-
-    global is_running
-
-    if not is_running:
-        is_running = True
-        run_backtest(uuid)
-        is_running = False
-    else:
-        bot.reply_to(message, "Please wait for the previous backtest to finish.")
-        return
+    # #6448: notifier → client 反向依赖已解除；Telegram 触发回测已禁用，请用 CLI 跑
+    bot.reply_to(
+        message,
+        "Backtest via Telegram is disabled. Run via CLI: `ginkgo backtest run <uuid>`",
+    )
 
 
 @bot.message_handler(commands=["compare"])
