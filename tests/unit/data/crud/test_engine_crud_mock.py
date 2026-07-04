@@ -193,6 +193,28 @@ class TestEngineCRUDBusinessHelpers:
         assert call_kwargs["desc_order"] is True
         assert call_kwargs["order_by"] == "update_at"
 
+    @pytest.mark.unit
+    def test_fuzzy_search_limit_pushes_page_size(self, engine_crud):
+        """#6572: fuzzy_search 传 limit 时，每个字段查询都下推 page_size 到 find（SQL LIMIT）"""
+        engine_crud.find = MagicMock(return_value=[])
+
+        engine_crud.fuzzy_search("x", limit=5, fields=["uuid", "name"])
+
+        assert engine_crud.find.call_count >= 1
+        for call in engine_crud.find.call_args_list:
+            assert call.kwargs.get("page_size") == 5
+
+    @pytest.mark.unit
+    def test_fuzzy_search_limit_truncates_merged_results(self, engine_crud):
+        """#6572: 多字段合并去重后按 limit 截断（跨字段去重必在 Python）"""
+        mock_engine = MagicMock()
+        mock_engine.uuid = "u1"
+        engine_crud.find = MagicMock(return_value=[mock_engine, mock_engine, mock_engine])
+
+        result = engine_crud.fuzzy_search("x", limit=2, fields=["uuid", "name"])
+
+        assert len(result) <= 2
+
 
 # ============================================================
 # 构造与类型检查测试

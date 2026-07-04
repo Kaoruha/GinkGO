@@ -133,6 +133,34 @@ class TestUserGroupCRUDBusinessHelpers:
         call_kwargs = crud_instance.find.call_args[1]
         assert call_kwargs["filters"]["name__like"] == "%trader%"
 
+    @pytest.mark.unit
+    def test_fuzzy_search_limit_pushes_sql_limit(self, crud_instance):
+        """#6572: fuzzy_search 传 limit 时下推到 SQL LIMIT"""
+        mock_conn = MagicMock()
+        mock_session = MagicMock()
+        mock_conn.get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_conn.get_session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = []
+        crud_instance._get_connection = MagicMock(return_value=mock_conn)
+
+        crud_instance.fuzzy_search("traders", limit=5)
+
+        mock_session.query.return_value.filter.return_value.limit.assert_called_once_with(5)
+
+    @pytest.mark.unit
+    def test_fuzzy_search_no_limit_keeps_full_query(self, crud_instance):
+        """#6572: limit=None 保持全量返回"""
+        mock_conn = MagicMock()
+        mock_session = MagicMock()
+        mock_conn.get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_conn.get_session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_session.query.return_value.filter.return_value.all.return_value = []
+        crud_instance._get_connection = MagicMock(return_value=mock_conn)
+
+        crud_instance.fuzzy_search("traders")
+
+        mock_session.query.return_value.filter.return_value.limit.assert_not_called()
+
 
 # ============================================================
 # 构造与类型检查测试

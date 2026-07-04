@@ -121,3 +121,58 @@ class TestGetGroupMemberUuidsReturnsServiceResult:
 
         assert isinstance(result, ServiceResult)
         assert result.success is False
+
+
+class TestUserServiceFuzzySearchLimitPushDown:
+    """#6572: service.fuzzy_search 透传 limit 给 CRUD，删 head() Python 截断"""
+
+    def test_passes_limit_to_crud(self):
+        from ginkgo.data.crud.model_conversion import ModelList
+        svc = _mock_user_service()
+        svc.user_crud = MagicMock()
+        svc.user_crud.fuzzy_search.return_value = ModelList([], MagicMock())
+
+        svc.fuzzy_search("Alice", limit=5)
+
+        svc.user_crud.fuzzy_search.assert_called_once_with("Alice", limit=5)
+
+    def test_does_not_head_truncate_when_limit_given(self):
+        """limit 下推 CRUD 后，service 不再用 ModelList.head() 截断（DB 层已 limit）"""
+        from ginkgo.data.crud.model_conversion import ModelList
+        svc = _mock_user_service()
+        svc.user_crud = MagicMock()
+        # 3 条结果 + limit=1：当前实现会 head(1)，改后不调 head
+        svc.user_crud.fuzzy_search.return_value = ModelList([
+            MagicMock(user_type=0), MagicMock(user_type=0), MagicMock(user_type=0),
+        ], MagicMock())
+
+        with patch.object(ModelList, "head") as head_spy, \
+             patch("ginkgo.user.services.user_service.USER_TYPES"):
+            svc.fuzzy_search("Alice", limit=1)
+
+        head_spy.assert_not_called()
+
+
+class TestUserGroupServiceFuzzySearchLimitPushDown:
+    """#6572: user_group_service.fuzzy_search 透传 limit，删 head() 截断"""
+
+    def test_passes_limit_to_crud(self):
+        from ginkgo.data.crud.model_conversion import ModelList
+        svc = _mock_user_group_service()
+        svc.user_group_crud.fuzzy_search.return_value = ModelList([], MagicMock())
+
+        svc.fuzzy_search("traders", limit=5)
+
+        svc.user_group_crud.fuzzy_search.assert_called_once_with("traders", limit=5)
+
+    def test_does_not_head_truncate_when_limit_given(self):
+        from ginkgo.data.crud.model_conversion import ModelList
+        svc = _mock_user_group_service()
+        svc.user_group_crud.fuzzy_search.return_value = ModelList([
+            MagicMock(), MagicMock(), MagicMock(),
+        ], MagicMock())
+
+        with patch.object(ModelList, "head") as head_spy:
+            svc.fuzzy_search("traders", limit=1)
+
+        head_spy.assert_not_called()

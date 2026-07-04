@@ -232,7 +232,8 @@ class EngineCRUD(BaseCRUD[MEngine]):
     def fuzzy_search(
         self,
         query: str,
-        fields: Optional[List[str]] = None
+        fields: Optional[List[str]] = None,
+        limit: Optional[int] = None,
     ) -> ModelList[MEngine]:
         """
         Fuzzy search engines across multiple fields with OR logic.
@@ -270,7 +271,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         # UUID search - partial match
         if 'uuid' in fields:
             try:
-                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False})
+                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False}, page_size=limit)
                 if hasattr(results, '__iter__'):
                     for item in results:
                         if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
@@ -282,7 +283,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         # Name search - partial match
         if 'name' in fields:
             try:
-                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False})
+                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False}, page_size=limit)
                 if hasattr(results, '__iter__'):
                     for item in results:
                         if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
@@ -295,9 +296,9 @@ class EngineCRUD(BaseCRUD[MEngine]):
         if 'is_live' in fields:
             try:
                 if query_lower in ['live', 'real', 'production']:
-                    results = self.find(filters={"is_live": True, "is_del": False})
+                    results = self.find(filters={"is_live": True, "is_del": False}, page_size=limit)
                 elif query_lower in ['backtest', 'test', 'simulation', 'sim']:
-                    results = self.find(filters={"is_live": False, "is_del": False})
+                    results = self.find(filters={"is_live": False, "is_del": False}, page_size=limit)
                 else:
                     results = []
 
@@ -346,7 +347,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
             if status_matches:
                 try:
                     # Use IN operator to search for multiple status values
-                    results = self.find(filters={"status__in": status_matches, "is_del": False})
+                    results = self.find(filters={"status__in": status_matches, "is_del": False}, page_size=limit)
                     if hasattr(results, '__iter__'):
                         for item in results:
                             if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
@@ -354,6 +355,10 @@ class EngineCRUD(BaseCRUD[MEngine]):
                                 seen_uuids.add(item.uuid)
                 except Exception as e:
                     GLOG.WARN(f"Status fuzzy search failed: {e}")
+
+        # #6572: 多字段合并去重后按 limit 截断（跨字段去重只能在 Python 层）
+        if limit is not None:
+            all_results = all_results[:limit]
 
         # Return ModelList for consistency with other CRUD methods
         return ModelList(all_results, self)

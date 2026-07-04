@@ -175,6 +175,28 @@ class TestPortfolioCRUDBusinessHelpers:
         assert call_kwargs["desc_order"] is True
         assert call_kwargs["order_by"] == "update_at"
 
+    @pytest.mark.unit
+    def test_fuzzy_search_limit_pushes_page_size(self, portfolio_crud):
+        """#6572: fuzzy_search 传 limit 时，每个字段查询都下推 page_size 到 find（SQL LIMIT）"""
+        portfolio_crud.find = MagicMock(return_value=[])
+
+        portfolio_crud.fuzzy_search("x", limit=5, fields=["uuid", "name"])
+
+        assert portfolio_crud.find.call_count >= 1
+        for call in portfolio_crud.find.call_args_list:
+            assert call.kwargs.get("page_size") == 5
+
+    @pytest.mark.unit
+    def test_fuzzy_search_limit_truncates_merged_results(self, portfolio_crud):
+        """#6572: 多字段合并去重后按 limit 截断"""
+        mock_pf = MagicMock()
+        mock_pf.uuid = "u1"
+        portfolio_crud.find = MagicMock(return_value=[mock_pf, mock_pf, mock_pf])
+
+        result = portfolio_crud.fuzzy_search("x", limit=2, fields=["uuid", "name"])
+
+        assert len(result) <= 2
+
 
 # ============================================================
 # 构造与类型检查测试
