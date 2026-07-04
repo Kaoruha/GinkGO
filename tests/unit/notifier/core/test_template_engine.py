@@ -195,6 +195,32 @@ class TestTemplateEngineRenderFromTemplateId:
         with pytest.raises(ValueError, match="template_crud is not initialized"):
             engine.render_from_template_id("test", {})
 
+    def test_render_from_template_id_syntax_error_includes_template_id(self):
+        """语法错时错误信息含 template_id（issue #4760：友好错误标注哪个模板）"""
+        mock_crud = Mock()
+        template = MNotificationTemplate(
+            template_id="live_signal",
+            template_name="Live Signal",
+            content="Hello, {{ name }!",  # 缺少闭合括号 → Jinja2 TemplateSyntaxError
+            is_active=True
+        )
+        mock_crud.get_by_template_id.return_value = template
+
+        engine = TemplateEngine(template_crud=mock_crud)
+
+        with pytest.raises(ValueError) as exc_info:
+            engine.render_from_template_id("live_signal", {"name": "X"})
+
+        # 错误信息必须指出是哪个 template_id，且仍是 ValueError 子类（向后兼容）
+        assert "live_signal" in str(exc_info.value)
+        # 仍含位置/原因信息
+        assert "syntax" in str(exc_info.value).lower()
+
+        # issue #4760 brief: "可读错误含模板名 + 转义位置"——位置结构化暴露
+        err = exc_info.value
+        assert getattr(err, "template_id", None) == "live_signal"
+        assert getattr(err, "lineno", None) == 1
+
 
 @pytest.mark.unit
 class TestTemplateEngineValidate:
@@ -306,6 +332,25 @@ class TestTemplateEnginePreview:
 
         assert "Hello, Alice!" in result["rendered"]
         assert result["context_used"]["name"] == "Alice"
+
+    def test_preview_template_syntax_error_includes_template_id(self):
+        """预览语法错时错误信息含 template_id（issue #4760：preview 路径同样友好标注）"""
+        mock_crud = Mock()
+        template = MNotificationTemplate(
+            template_id="live_signal",
+            template_name="Live Signal",
+            content="# {{ title }\nSymbol: {{ symbol }}",  # 第一行缺闭合 → TemplateSyntaxError
+            is_active=True
+        )
+        mock_crud.get_by_template_id.return_value = template
+
+        engine = TemplateEngine(template_crud=mock_crud)
+
+        with pytest.raises(ValueError) as exc_info:
+            engine.preview_template("live_signal")
+
+        assert "live_signal" in str(exc_info.value)
+        assert "syntax" in str(exc_info.value).lower()
 
 
 @pytest.mark.unit

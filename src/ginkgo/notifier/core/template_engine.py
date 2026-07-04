@@ -21,6 +21,32 @@ from ginkgo.data.models import MNotificationTemplate
 from ginkgo.libs import GLOG
 
 
+class TemplateRenderError(ValueError):
+    """模板渲染失败时抛出，携带 template_id 上下文与位置信息（issue #4760）。
+
+    继承 ValueError 以保持向后兼容（现有 `except ValueError` 调用方仍能捕获）。
+    底层 `render()` 抛出的 ValueError 不含 template_id；本类在
+    `render_from_template_id`/`preview_template` 等"知道 template_id 的入口"
+    处包装底层错误，让用户能定位是哪个模板出错。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        template_id: Optional[str] = None,
+        lineno: Optional[int] = None,
+    ) -> None:
+        self.template_id = template_id
+        self.lineno = lineno
+        parts = []
+        if template_id:
+            parts.append(f"template {template_id!r}")
+        if lineno is not None:
+            parts.append(f"line {lineno}")
+        prefix = f"Template render error ({', '.join(parts)}): " if parts else "Template render error: "
+        super().__init__(prefix + message)
+
+
 class TemplateEngine:
     """
     模板渲染引擎
@@ -91,7 +117,11 @@ class TemplateEngine:
 
         except TemplateSyntaxError as e:
             GLOG.ERROR(f"Template syntax error: {e}")
-            raise ValueError(f"Template syntax error at line {e.lineno}: {e.message}")
+            # 附加 lineno 属性供上层（render_from_template_id/preview_template）
+            # 包装成 TemplateRenderError 时结构化读取（issue #4760）
+            err = ValueError(f"Template syntax error at line {e.lineno}: {e.message}")
+            err.lineno = e.lineno
+            raise err
 
         except (UndefinedError, TemplateError) as e:
             GLOG.ERROR(f"Template rendering error: {e}")
@@ -134,11 +164,17 @@ class TemplateEngine:
             raise ValueError(f"Template is not active: {template_id}")
 
         # 渲染模板
-        return self.render(
-            template_content=template.content,
-            context=context,
-            strict=strict
-        )
+        try:
+            return self.render(
+                template_content=template.content,
+                context=context,
+                strict=strict
+            )
+        except ValueError as e:
+            # 底层 render 抛的 ValueError 不含 template_id 上下文；
+            # 此处知道 template_id，包装成 TemplateRenderError 让用户能定位是哪个模板出错（issue #4760）
+            lineno = getattr(e, "lineno", None)
+            raise TemplateRenderError(str(e), template_id=template_id, lineno=lineno) from e
 
     def validate_template(self, template_content: str) -> Dict[str, Any]:
         """
@@ -269,7 +305,13 @@ class TemplateEngine:
             context = {var: f"<{var}>" for var in variables}
 
         # 渲染模板
-        rendered = self.render(template.content, context)
+        try:
+            rendered = self.render(template.content, context)
+        except ValueError as e:
+            # 底层 render 抛的 ValueError 不含 template_id 上下文；
+            # 此处知道 template_id，包装成 TemplateRenderError（issue #4760）
+            lineno = getattr(e, "lineno", None)
+            raise TemplateRenderError(str(e), template_id=template_id, lineno=lineno) from e
 
         return {
             "template_id": template.template_id,
