@@ -33,6 +33,7 @@
 | ADR-018 | [回测派发契约（判别联合 + DTO 层 wire spec）](ADR-018-backtest-assignment-contract.md) | Accepted | 2026-06-28 |
 | ADR-019 | [Feeder 价格发布统一 Seam（publish_price_update）](ADR-019-feeder-publish-seam.md) | Accepted | 2026-06-29 |
 | ADR-020 | [组件参数纯位置装配（移除 name-skip + 打分启发式）](ADR-020-param-assembly-positional.md) | Accepted | 2026-07-02 |
+| ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Proposed | 2026-07-04 |
 
 ## 如何新增 / 修订
 
