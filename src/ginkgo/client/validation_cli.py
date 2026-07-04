@@ -524,6 +524,77 @@ def _batch_validate_database_strategies(
         raise typer.Exit(5)
 
 
+class _InMemoryBarService:
+    """
+    内存 BarService 包装器 (#5307)。
+
+    validate --show-tracing 预加载的 MBar models 经此类暴露为生产 BarService
+    契约：``get(code, start_date, end_date) -> ServiceResult``。
+    StrategyDataMixin.get_bars_cached 经 ``hasattr(feeder, 'bar_service')``
+    守卫并消费 ``result.success / result.data``；此处用内存数据满足该契约，
+    避免追踪环境重复查库，也修复原本静默 0 信号的问题。
+    """
+
+    def __init__(self, bars):
+        from collections import defaultdict
+
+        self._bars_by_code = defaultdict(list)
+        for bar in bars:
+            self._bars_by_code[bar.code].append(bar)
+
+    @staticmethod
+    def _to_date(value):
+        """归一化 date/datetime 为 date（mixin 传 ``.date()``，bar.timestamp 多为 datetime）。"""
+        if value is None:
+            return None
+        return value.date() if hasattr(value, "date") else value
+
+    def get(self, code, start_date=None, end_date=None):
+        from ginkgo.data.services.base_service import ServiceResult
+
+        start_d = self._to_date(start_date)
+        end_d = self._to_date(end_date)
+        matched = []
+        for bar in self._bars_by_code.get(code, []):
+            ts = self._to_date(bar.timestamp)
+            if start_d is not None and ts < start_d:
+                continue
+            if end_d is not None and ts > end_d:
+                continue
+            matched.append(bar)
+        return ServiceResult(success=True, data=matched)
+
+
+class SimpleDataFeeder:
+    """
+    validate --show-trace 的轻量 data_feeder (#5307)。
+
+    持有预加载的 MBar models，并按 feeder 契约暴露 ``bar_service``
+    (``_InMemoryBarService``)，使依赖 ``data_feeder.bar_service.get()``
+    的策略代码（如 ``StrategyDataMixin.get_bars_cached``）在追踪环境下
+    能正常取数，不再走 ``hasattr`` 守卫的 0 信号分支。
+    """
+
+    def __init__(self, bars, time_controller=None):
+        self.bars = bars
+        self.bars_by_code = {}
+        for bar in bars:
+            self.bars_by_code.setdefault(bar.code, []).append(bar)
+        self.bar_service = _InMemoryBarService(bars)
+        # feeder 契约：追踪时业务时间由 time_controller 提供（与 BacktestFeeder 一致），
+        # 使 StrategyDataMixin.get_bars_cached 用事件时间而非 wall clock 取数。
+        self.time_controller = time_controller
+
+    def get_bars(self, code, start_date=None, end_date=None):
+        """Get bars for a code within date range."""
+        bars = self.bars_by_code.get(code, [])
+        if start_date:
+            bars = [b for b in bars if b.timestamp >= start_date]
+        if end_date:
+            bars = [b for b in bars if b.timestamp <= end_date]
+        return bars
+
+
 def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose: bool, silent: bool = False):
     """
     Run runtime signal tracing on a strategy with database data.
@@ -590,25 +661,7 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
 
         console.print(f":page_facing_up: Loaded {len(all_bars)} bar records from database")
 
-        # Create a simple data_feeder for the strategy
-        class SimpleDataFeeder:
-            def __init__(self, bars):
-                self.bars = bars
-                self.bars_by_code = {}
-                for bar in bars:
-                    if bar.code not in self.bars_by_code:
-                        self.bars_by_code[bar.code] = []
-                    self.bars_by_code[bar.code].append(bar)
-
-            def get_bars(self, code, start_date=None, end_date=None):
-                """Get bars for a code within date range."""
-                bars = self.bars_by_code.get(code, [])
-                if start_date:
-                    bars = [b for b in bars if b.timestamp >= start_date]
-                if end_date:
-                    bars = [b for b in bars if b.timestamp <= end_date]
-                return bars
-
+        # Use module-level SimpleDataFeeder (exposes bar_service contract, #5307)
         # Create a simple time_provider for the strategy
         class SimpleTimeProvider:
             def __init__(self, initial_time):
@@ -621,13 +674,18 @@ def _run_signal_tracing(strategy_file, stock_code: str, max_events: int, verbose
                 self.current_time = new_time
                 return True
 
-        # Create and initialize strategy with data_feeder and time_provider
-        strategy = strategy_class(name=f"trace_{strategy_class.__name__}")
-        strategy.bind_data_feeder(SimpleDataFeeder(all_bars))
-
-        # Create and set time_provider (reused across all events)
+        # Create and initialize strategy with data_feeder and time_provider.
+        # time_provider 同时作为 data_feeder.time_controller，使策略 get_bars_cached
+        # 按事件时间取数（#5307），与回测 BacktestFeeder 契约一致。
         if all_bars:
             time_provider = SimpleTimeProvider(all_bars[0].timestamp)
+        else:
+            time_provider = None
+
+        strategy = strategy_class(name=f"trace_{strategy_class.__name__}")
+        strategy.bind_data_feeder(SimpleDataFeeder(all_bars, time_controller=time_provider))
+
+        if time_provider is not None:
             strategy.set_time_provider(time_provider)
 
         # Limit events if requested (use last N bars for events)
