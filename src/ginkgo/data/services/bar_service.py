@@ -774,13 +774,19 @@ class BarService(BaseService):
 
     def get_bars_df(self, code=None, start_date=None, end_date=None,
                     frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+                    adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.NONE,
                     page: int = None, page_size: int = None,
                     order_by: str = "timestamp", desc_order: bool = False) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：回测热路径及 DataFrame 消费方走此出口，不接触 ORM ModelList。
-        **不复权**——复权是多步状态变换，属 get() 的业务语义；DF 出口提供
-        原始数据，消费方按需自行处理。空结果返空 pd.DataFrame()。
+        **默认不复权**——DF 出口提供原始数据，消费方按需自行处理。空结果返空 pd.DataFrame()。
+
+        #6624 复权路径：feeder/sizer 等回测热路径消费方 historically 走 get(FORE) +
+        手动 .to_dataframe()（ADR-010 例外，依赖前复权语义防除权除息日跳空）。本出口
+        支持 ``adjustment_type`` 参数（默认 NONE 不破现有契约）；传 FORE/BACK 时走与
+        get() 完全一致的复权分支（_apply_price_adjustment_*），DF 出口内化复权，
+        消除 ModelList 向 feeder 泄漏的同时保行为 parity（避免回测静默错算）。
         """
         try:
             if not code and not start_date and not end_date:
@@ -794,10 +800,21 @@ class BarService(BaseService):
                 filters=filters, page=page, page_size=page_size,
                 order_by=order_by, desc_order=desc_order,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            # 空结果短路：复权对空集无定义，直接返空 DF
+            if not model_list:
+                df = pd.DataFrame()
+            elif adjustment_type == ADJUSTMENT_TYPES.NONE:
+                df = model_list.to_dataframe()
+            else:
+                # 复权路径：复用 get() 的复权入口，DF 在 Service 内转换（ModelList 不出边界）
+                if code is None:
+                    adjusted = self._apply_price_adjustment_multi_stock(model_list, adjustment_type)
+                else:
+                    adjusted = self._apply_price_adjustment_to_modellist(model_list, code, adjustment_type)
+                df = adjusted.to_dataframe() if adjusted else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
-                message=f"Retrieved {len(df)} bar records (DataFrame, no adjustment)",
+                message=f"Retrieved {len(df)} bar records (DataFrame, adjustment={adjustment_type.value})",
             )
         except Exception as e:
             self._logger.ERROR(f"Failed to get bars (df): {e}")
