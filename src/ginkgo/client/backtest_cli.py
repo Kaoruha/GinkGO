@@ -201,9 +201,19 @@ def run_task(
 
         if bg:
             def _run_in_thread():
-                result = orchestrator.run_from_task(
-                    task, progress_callback=_progress_callback,
-                )
+                # #6449 re-review 守卫：bg 线程内 run_from_task 在到达自带 try/except 的
+                # self.run() 之前有未包裹抛异常路径（_json.loads / preflight_data_coverage
+                # DB 不可达 / BacktestConfig 构造）。master 把这些放主线程同步执行从不触发；
+                # 本 PR 下沉进 bg 线程，须镜像非 bg 路径（L255 except Exception）标 failed +
+                # 印原因，否则线程静默死亡、CLI exit 0、task 卡 pending（ADR-022 §3 不静默）。
+                try:
+                    result = orchestrator.run_from_task(
+                        task, progress_callback=_progress_callback,
+                    )
+                except Exception as e:
+                    service.update_status(task.uuid, "failed", error_message=str(e))
+                    console.print(f":x: Backtest failed: {e}")
+                    return
                 if result.is_success():
                     service.update_progress(
                         task.uuid,

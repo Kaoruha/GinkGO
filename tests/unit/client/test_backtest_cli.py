@@ -270,3 +270,74 @@ class TestBacktestRunTaskExitGuard:
             "typer.Exit 不应被 except Exception 吞（#6590/#6449 守卫）："
             f"update_status error_messages={error_messages}"
         )
+
+
+class TestBacktestRunTaskBgGuard:
+    """#6449 re-review: --bg 模式 run_from_task 抛异常时 bg 线程不得静默死亡。
+
+    master 把 preflight/config 解析放主线程同步执行（try 外、bg 分支前），bg 线程只
+    调自带 try/except 的 orchestrator.run()，从不静默死亡。本 PR 把这些路径下沉进
+    run_from_task 并搬进 bg 线程，却没镜像非 bg 路径的 except Exception 守卫 → bg 线程
+    抛异常（JSONDecodeError / preflight DB 不可达 / BacktestConfig 构造）时静默死亡、
+    CLI exit 0、task 卡 pending，与 ADR-022 §3 "UseCase 层从不静默失败" 自相矛盾。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_bg_thread_marks_failed_on_run_from_task_exception(
+        self, mock_orch_cls, mock_container):
+        """--bg 模式 run_from_task 抛异常时，必须标 task failed + 印原因，不得静默死亡。"""
+        import time
+        from ginkgo.client.backtest_cli import app
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-bg-001"
+        task.portfolio_id = "port-bg"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        # run_from_task 抛异常：模拟 _json.loads 损坏 / preflight DB 不可达 / BacktestConfig 构造异常。
+        # 这些路径在到达自带 try/except 的 self.run() 之前抛出，bg 线程无 handler 即静默死亡。
+        boom = RuntimeError("config_snapshot JSON corrupted: boom")
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.side_effect = boom
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-bg-001", "--bg"])
+
+        # 主线程立即返回（exit 0，bg 线程后台跑）——这是 bg 模式契约，不是 bug
+        assert invoke_result.exit_code == 0, (
+            f"--bg 主线程应 exit 0，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+
+        # 轮询等待 bg 线程跑完异常处理（daemon 线程异步，最多等 2s）
+        deadline = time.monotonic() + 2.0
+        failed_call = None
+        while time.monotonic() < deadline:
+            for c in mock_service.update_status.call_args_list:
+                # 镜像非 bg 路径：update_status(task.uuid, "failed", error_message=str(e))
+                if len(c.args) >= 2 and c.args[1] == "failed":
+                    failed_call = c
+                    break
+            if failed_call is not None:
+                break
+            time.sleep(0.02)
+
+        # 关键守卫断言：bg 线程内 run_from_task 抛异常 → 必须标 failed（而非静默死亡）。
+        # 守卫缺失时 bg 线程无 handler 死亡，update_status 永不被调 → failed_call is None。
+        assert failed_call is not None, (
+            "--bg 模式 run_from_task 抛异常时必须标 task failed + 印原因"
+            "（ADR-022 §3 不静默）；update_status 未收到 failed 调用 = bg 线程静默死亡。"
+            f" calls={mock_service.update_status.call_args_list}"
+        )
+        # error_message 应含真实异常信息（非空、非 '1'）
+        err = failed_call.kwargs.get("error_message")
+        assert err and "boom" in str(err), (
+            f"error_message 应含异常真因，实际: {err!r}"
+        )
