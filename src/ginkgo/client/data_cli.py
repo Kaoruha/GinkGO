@@ -177,8 +177,9 @@ def get(
                 # 按code排序
                 formatted_df = formatted_df.sort_values('code')
 
-                # 如果设置了page_size，使用交互式翻页
-                if page_size and page_size > 0:
+                # 交互式翻页仅在 TTY 下启用；非 TTY（CI/脚本/管道）退化为 limit 输出（#5280）
+                import sys
+                if page_size and page_size > 0 and sys.stdin.isatty():
                     console.print(f":information: Interactive mode enabled (page size: {page_size})")
                     console.print(":information: Single-key navigation: n=next, p=prev, q=quit")
 
@@ -256,8 +257,9 @@ def get(
                         except Exception:
                             break
                 else:
-                    # 非交互式模式，显示前50条，按code排序
-                    display_df = formatted_df.sort_values('code').head(50)
+                    # 非交互模式：按 page_size 限制输出（无 page_size 默认 50），#5280
+                    limit = page_size or 50
+                    display_df = formatted_df.sort_values('code').head(limit)
 
                     if display_df.empty:
                         console.print(":memo: No stock records found.")
