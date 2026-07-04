@@ -12,6 +12,7 @@ from typing import Optional
 from rich.console import Console
 
 from ginkgo.libs import GLOG
+from ginkgo.client.cli_utils import confirm_or_exit
 
 app = typer.Typer(
     help=":satellite: Module for [bold medium_spring_green]KAFKA[/]. [grey62]Kafka queue management commands.[/grey62]",
@@ -40,7 +41,7 @@ def reset(
 @app.command()
 def purge(
     queue_name: str = typer.Argument(..., help="要清理的队列名称"),
-    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="跳过确认提示")
+    confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="跳过确认提示"),
 ):
     """清理指定队列的所有消息"""
     console.print(f"[bold red][red]:wastebasket:[/red] Purging queue: {queue_name}[/]")
@@ -171,19 +172,15 @@ def _reset_kafka_queues(queue_name: Optional[str], force: bool):
     try:
         from ginkgo.libs.core.threading import GinkgoThreadManager
         from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
-        from rich.prompt import Confirm
 
-        if not force:
-            if queue_name:
-                console.print(f"[yellow]:warning: You are about to reset the Kafka queue: '{queue_name}'[/]")
-                console.print("[red]This will delete all messages and recreate the topic![/]")
-            else:
-                console.print("[yellow]:warning: You are about to reset ALL Kafka queues![/]")
-                console.print("[red]This will delete all topics and recreate them![/]")
+        if queue_name:
+            console.print(f"[yellow]:warning: You are about to reset the Kafka queue: '{queue_name}'[/]")
+            console.print("[red]This will delete all messages and recreate the topic![/]")
+        else:
+            console.print("[yellow]:warning: You are about to reset ALL Kafka queues![/]")
+            console.print("[red]This will delete all topics and recreate them![/]")
 
-            if not Confirm.ask("[bold red]Are you sure you want to continue?[/]"):
-                console.print("[blue]Operation cancelled.[/]")
-                return
+        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=force)
 
         console.print("[yellow]:arrows_counterclockwise: Resetting Kafka queues...[/]")
 
@@ -223,6 +220,11 @@ def _reset_kafka_queues(queue_name: Optional[str], force: bool):
         console.print("• Run 'ginkgo worker start --count 4' to restart workers")
         console.print("• Run 'ginkgo kafka status' to verify queue status")
 
+    except typer.Exit:
+        # 守卫退出（confirm_or_exit 在非 TTY 无 --force 时抛 typer.Exit(1)）
+        # 必须透传，不能被通用 except 吞成 exit_code=0 否则守卫失效（#6578）。
+        # typer.Exit 继承 RuntimeError→Exception，会落入下方 except Exception。
+        raise
     except Exception as e:
         console.print(f"[bold red]Error during Kafka reset: {e}[/]")
         import traceback
@@ -233,15 +235,11 @@ def _purge_queue_messages(queue_name: str, confirm: bool):
     """清理队列消息 - 使用KafkaService实现"""
     try:
         from ginkgo.data.containers import container
-        from rich.prompt import Confirm
         import time
 
-        if not confirm:
-            console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
-            console.print("[red]This will permanently delete all pending messages![/]")
-            if not Confirm.ask("[bold red]Are you sure you want to continue?[/]"):
-                console.print("[blue]Operation cancelled.[/]")
-                return
+        console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
+        console.print("[red]This will permanently delete all pending messages![/]")
+        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=confirm)
 
         console.print(f"[red]:wastebasket: Purging messages from queue: {queue_name}[/]")
 
@@ -308,6 +306,10 @@ def _purge_queue_messages(queue_name: str, confirm: bool):
         except Exception as e:
             console.print(f"[red]Error during message purging: {e}[/]")
 
+    except typer.Exit:
+        # 守卫退出（confirm_or_exit 抛 typer.Exit(1)）必须透传，不能被
+        # 通用 except 吞成 exit_code=0（#6578，详见 _reset_kafka_queues 同款注释）
+        raise
     except Exception as e:
         console.print(f"[bold red]Error purging queue messages: {e}[/]")
         import traceback

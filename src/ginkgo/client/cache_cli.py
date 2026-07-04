@@ -13,7 +13,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
-from rich.prompt import Confirm
+from ginkgo.client.cli_utils import confirm_or_exit
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 console = Console()
@@ -80,11 +80,8 @@ def clear(
         operation_desc = f"tick cache for code '{code}'"
     
     # Confirmation prompt
-    if not force:
-        console.print(f":warning: [yellow]About to clear {operation_desc}[/yellow]")
-        if not Confirm.ask("Are you sure you want to proceed?"):
-            console.print(":x: [cyan]Operation cancelled[/cyan]")
-            raise typer.Exit(0)
+    console.print(f":warning: [yellow]About to clear {operation_desc}[/yellow]")
+    confirm_or_exit("Are you sure you want to proceed?", yes_flag=force)
     
     # Perform cache clearing operations
     try:
