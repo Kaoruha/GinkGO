@@ -2,7 +2,12 @@
 版本读取契约测试。
 
 验证 get_version() 的 fallback 链与 SystemService.VERSION 的单一真相源行为。
-通过公共接口 + mock 注入固定 fallback 各分支，不耦合内部解析实现。
+通过公共接口 + mock 注入固定 fallback 各分支。
+
+注：算法实现共享自 ``ginkgo.config._version_core``（``version.py`` 仅薄壳委托），
+故 fallback 链 mock 注入点为 ``ginkgo.config._version_core._version_from_*``。
+patch 必须作用在 ``resolve_version`` 实际查符号的命名空间（``_version_core``），
+否则 patch 命中调用方命名空间、被测函数看不到 → 假阳性。
 """
 
 import pytest
@@ -32,9 +37,9 @@ class TestVersionFallbackChain:
 
     def test_falls_back_to_pyproject_when_importlib_fails(self):
         """importlib.metadata 不可用时，fallback 读 pyproject.toml 返回有效版本。"""
-        with patch("ginkgo.libs.utils.version._version_from_metadata", return_value=None):
+        with patch("ginkgo.config._version_core._version_from_metadata", return_value=None):
             with patch(
-                "ginkgo.libs.utils.version._version_from_pyproject",
+                "ginkgo.config._version_core._version_from_pyproject",
                 return_value="0.8.2",
             ):
                 assert get_version() == "0.8.2"
@@ -42,20 +47,20 @@ class TestVersionFallbackChain:
     def test_prefers_metadata_when_available(self):
         """importlib.metadata 可用时，优先返回 dist 版本（不被 pyproject 覆盖）。"""
         with patch(
-            "ginkgo.libs.utils.version._version_from_metadata",
+            "ginkgo.config._version_core._version_from_metadata",
             return_value="1.2.3",
         ):
             with patch(
-                "ginkgo.libs.utils.version._version_from_pyproject",
+                "ginkgo.config._version_core._version_from_pyproject",
                 return_value="0.8.2",
             ):
                 assert get_version() == "1.2.3"
 
     def test_returns_fallback_when_all_sources_fail(self):
         """所有来源都读不到时，返回兜底常量，永不抛异常。"""
-        with patch("ginkgo.libs.utils.version._version_from_metadata", return_value=None):
+        with patch("ginkgo.config._version_core._version_from_metadata", return_value=None):
             with patch(
-                "ginkgo.libs.utils.version._version_from_pyproject",
+                "ginkgo.config._version_core._version_from_pyproject",
                 return_value=None,
             ):
                 result = get_version()
@@ -67,9 +72,10 @@ class TestVersionFallbackChain:
 class TestVersionPyprojectDiscovery:
     """_version_from_pyproject 真实路径查找（回归 off-by-one）。
 
-    src-layout 下 version.py 位于 src/ginkgo/libs/utils/，pyproject.toml 在
-    repo root（第 5 层）。原实现固定遍历 4 层够不到 root，永远返 None；
-    改 while 循环向上查找后应命中。本测试不 mock，走真实文件系统查找。
+    _version_core.py 位于 src/ginkgo/config/，pyproject.toml 在 repo root
+    （向上 3 层 dirname）。原 off-by-one 实现固定遍历 4 层在旧位置（libs/utils/，
+    5 层）永远返 None；改 while 循环向上查找后应命中。本测试不 mock，走真实
+    文件系统查找 —— 守护任意未来"固定层数"回退。
     """
 
     def test_finds_real_pyproject_at_repo_root(self):
@@ -77,7 +83,7 @@ class TestVersionPyprojectDiscovery:
 
         回归锚点：off-by-one 时此断言失败（返 None）。
         """
-        from ginkgo.libs.utils.version import _version_from_pyproject
+        from ginkgo.config._version_core import _version_from_pyproject
 
         result = _version_from_pyproject()
         assert result is not None, "未找到 repo root pyproject.toml（向上查找层数不足？off-by-one）"
@@ -85,13 +91,13 @@ class TestVersionPyprojectDiscovery:
 
     def test_real_version_matches_pyproject(self, monkeypatch):
         """隔离 metadata 后，get_version() 应回退到真实 pyproject 版本（非 fallback 常量）。"""
-        import ginkgo.libs.utils.version as v
+        import ginkgo.config._version_core as core
 
         # 强制 metadata 不可用（模拟生产镜像未装 dist），逼 fallback 走 pyproject 真实路径
-        monkeypatch.setattr(v, "_version_from_metadata", lambda: None)
+        monkeypatch.setattr(core, "_version_from_metadata", lambda: None)
         result = get_version()
         assert result  # 非空
-        assert result != v._FALLBACK_VERSION, (
-            f"get_version() 退化到 fallback 常量 {v._FALLBACK_VERSION!r}，"
+        assert result != core._FALLBACK_VERSION, (
+            f"get_version() 退化到 fallback 常量 {core._FALLBACK_VERSION!r}，"
             "说明 _version_from_pyproject 未命中真实 pyproject（off-by-one?）"
         )

@@ -1,14 +1,21 @@
 """
-CLI 版本真相源契约测试（#5406 AC#3）。
+CLI/API 版本真相源契约测试（#5406 AC#3）。
 
-验证 config/package.py 的 VERSION 与 API 侧 get_version() 同源，确保
-`ginkgo version` CLI 与 GET /system/status 返回一致版本。
+验证 ``ginkgo version`` CLI 与 ``GET /system/status`` 返回一致版本。
 
-package.py 是打包元数据层（被 setup.py / pip install 读取），不能 import
-ginkgo 包（打包时尚未安装；CLI 快速路径也不应触发 ServiceHub 重型加载），
-故独立解析同一真相源（importlib.metadata → pyproject.toml → 兜底），
-结果与 libs/utils/version.get_version() 收敛。
+架构约束（订正：原论据 setup.py 循环已失效，真约束如下）：
+  - ``config/package.py`` 被 CLI 快速路径（``main.py``）通过 ``sys.path.insert +
+    import package`` 提升为**顶层裸模块**导入，**绕过** ``ginkgo/__init__.py``
+    的 ServiceHub 重型加载。故 ``package.py`` 不能写任何 ``from ginkgo...``，
+    只能 import 同目录 sibling ``_version_core``。
+  - ``libs/utils/version.py`` 走运行时路径（``SystemService``），无此约束。
+  - 两端共享 ``config/_version_core.py::resolve_version`` 算法收敛。
+  - ``setup.py`` 现为空壳，setuptools 直接读 ``pyproject.toml``，**不**读
+    ``package.py``；故打包循环不再是约束。
 """
+
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -23,8 +30,8 @@ class TestPackageVersionSource:
     def test_package_version_equals_api_version(self):
         """CLI package.VERSION == API get_version()。
 
-        AC#3 核心：`ginkgo version` 与 /system/status 返回同一版本。
-        package.py 硬编码 0.8.1 而 get_version()=0.8.2 时此断言失败。
+        重构后两端委托同一 resolve_version()，此断言近乎同义反复，
+        但保留作 smoke：守护导入链（双模 shim / 委托）未断。
         """
         assert PACKAGE_VERSION == get_version(), (
             f"CLI {PACKAGE_VERSION!r} ≠ API {get_version()!r}，#5406 AC#3 违反"
@@ -34,3 +41,94 @@ class TestPackageVersionSource:
         """VERSION 非空、非占位符。"""
         assert PACKAGE_VERSION
         assert PACKAGE_VERSION != "unknown"
+        assert PACKAGE_VERSION != "0.0.0+unknown"
+
+    def test_package_version_matches_pyproject(self):
+        """两端都应解析到 pyproject.toml 的真实版本（当前 0.8.x），非兜底常量。
+
+        强制 exercise 真实解析路径，而非偶然命中兜底。
+        """
+        repo_root = Path(__file__).resolve().parents[3]
+        pyproject = repo_root / "pyproject.toml"
+        try:
+            import tomllib
+            with open(pyproject, "rb") as f:
+                expected = tomllib.load(f).get("project", {}).get("version")
+        except Exception:
+            pytest.skip("无法解析 pyproject.toml")
+        assert expected, "pyproject.toml 缺 [project].version"
+        assert PACKAGE_VERSION == expected
+        assert get_version() == expected
+
+    def test_package_importable_via_src_prefix(self):
+        """setup_install.py 契约：`from src.ginkgo.config.package import VERSION` 可用。
+
+        setup_install.py:10 在 install 阶段（pip uninstall 前后）从源码读 VERSION
+        命名构建产物（ginkgo-{VERSION}.tar.gz）。此时 ginkgo 可能尚未装/已卸载，
+        importlib.metadata 失败，resolver 必须回退读源码 pyproject.toml。
+
+        此导入路径要求 package.py 的 shim 第二分支用**相对导入**（`from
+        ._version_core`）而非绝对（`from ginkgo.config._version_core`）——后者
+        依赖 `ginkgo` 顶层可导入，违背 install 时"读源码不依赖已装包"原则。
+        相对导入锚定 package.py 自身位置，src.ginkgo.config.* / ginkgo.config.*
+        两种前缀都能定位到同目录源码文件。
+        """
+        import importlib
+        # repo root 已在 sys.path（pytest rootdir），src 为 namespace package
+        mod = importlib.import_module("src.ginkgo.config.package")
+        assert mod.VERSION == PACKAGE_VERSION, (
+            f"src.ginkgo.config.package.VERSION={mod.VERSION!r} ≠ "
+            f"常规 PACKAGE_VERSION={PACKAGE_VERSION!r}，相对导入 shim 失效"
+        )
+        assert mod.VERSION != "0.0.0+unknown", "install 时 resolver 退化到兜底常量"
+
+    def test_install_time_reads_source_when_metadata_fails(self):
+        """install 时 ginkgo 未装（metadata 失败）→ resolver 必须读源码 pyproject。
+
+        回归锚点：setup_install.py 在 pip uninstall ginkgo 后仍能拿到正确版本
+        命名 sdist。若 resolver 仅依赖 importlib.metadata，install 时会得到
+        兜底常量 `0.0.0+unknown` → pip install ginkgo-0.0.0+unknown.tar.gz 失败。
+        """
+        import ginkgo.config._version_core as core
+        # 模拟 ginkgo 未装：metadata 路径返 None
+        original = core._version_from_metadata
+        core._version_from_metadata = lambda: None
+        try:
+            result = core.resolve_version()
+        finally:
+            core._version_from_metadata = original
+        assert result == PACKAGE_VERSION, (
+            f"metadata 失败时 resolve_version()={result!r}，应回退读源码得 "
+            f"{PACKAGE_VERSION!r}（install 时命名 sdist 依赖此路径）"
+        )
+
+    def test_package_importable_as_top_level_module(self):
+        """CLI 快速路径契约：package.py 能作为顶层裸模块 `import package` 导入。
+
+        复刻 main.py:197-209 的 sys.path 技巧 —— 这要求 package.py 不能写任何
+        `from ginkgo...` 导入（否则 ginkgo 未在快速路径 sys.path 上 → ImportError，
+        或触发 ServiceHub 拖慢启动）。双模 shim 的第一分支（`from _version_core
+        import resolve_version`）必须在此模式命中。
+        """
+        repo_root = Path(__file__).resolve().parents[3]
+        config_dir = str(repo_root / "src" / "ginkgo" / "config")
+        saved_path = list(sys.path)
+        # 清掉可能已作为 ginkgo.config.* 缓存的副本，强制走顶层裸模块路径
+        for mod in list(sys.modules):
+            if mod in ("package", "_version_core") or mod.startswith("ginkgo.config._version_core"):
+                # 注意：不删 ginkgo.config.package（其它测试可能依赖）
+                if mod in ("package", "_version_core"):
+                    del sys.modules[mod]
+
+        sys.path.insert(0, config_dir)
+        try:
+            import package  # 顶层裸模块，与 main.py 快速路径一致
+            assert package.VERSION == PACKAGE_VERSION, (
+                f"快速路径 package.VERSION={package.VERSION!r} ≠ "
+                f"常规 PACKAGE_VERSION={PACKAGE_VERSION!r}，双模 shim 失效"
+            )
+            assert package.PACKAGENAME == "ginkgo"
+        finally:
+            sys.path[:] = saved_path
+            sys.modules.pop("package", None)
+            sys.modules.pop("_version_core", None)
