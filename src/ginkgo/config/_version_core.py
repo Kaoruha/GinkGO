@@ -9,8 +9,11 @@
   - ``ginkgo.libs.utils.version``：运行时/API 路径（SystemService /
     ``GET /system/status``），无上述约束，走 ``from ginkgo.config._version_core`` 导入。
 
-本文件因此**只依赖 stdlib**（``importlib.metadata`` / ``tomllib`` / ``os``），
-永不 import 任何 ``ginkgo.*``，否则会捅破 CLI 快速路径。
+本文件因此**只依赖 stdlib**（``importlib.metadata`` / ``tomllib`` / ``os`` /
+``logging`` / ``typing``），永不 import 任何 ``ginkgo.*``，否则会捅破 CLI 快速路径。
+诊断日志用标准库 ``logging.getLogger(__name__)`` 而非 GLOG —— 与 ``package.py``
+在 #6518/#6486 的选型同款（本层 stdlib-only 不能 import ginkgo），且搬迁自原
+``package.py::_resolve_version`` 的留痕一并携带，避免 refactor 静默丢语义。
 
 fallback 链（永不抛异常，#5406 AC#3）：
   1. ``importlib.metadata``：已安装 dist 时最准（``pip install .`` 后）。
@@ -21,6 +24,7 @@ fallback 链（永不抛异常，#5406 AC#3）：
 """
 
 import os
+import logging
 import importlib.metadata
 from typing import Optional
 
@@ -38,6 +42,9 @@ def _version_from_metadata() -> Optional[str]:
     try:
         return importlib.metadata.version(_PACKAGE_NAME)
     except Exception:
+        logging.getLogger(__name__).debug(
+            "importlib.metadata version lookup failed", exc_info=True
+        )
         return None
 
 
@@ -64,6 +71,9 @@ def _version_from_pyproject() -> Optional[str]:
                 break
             parent = nxt
     except Exception:
+        logging.getLogger(__name__).debug(
+            "pyproject.toml version lookup failed", exc_info=True
+        )
         return None
     return None
 

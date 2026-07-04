@@ -132,3 +132,57 @@ class TestPackageVersionSource:
             sys.path[:] = saved_path
             sys.modules.pop("package", None)
             sys.modules.pop("_version_core", None)
+
+    def test_version_core_logs_when_metadata_lookup_fails(self, caplog):
+        """metadata 查询失败时必须 emit debug log（#6518/#6486 可观测性不变量）。
+
+        回归锚点：``_version_core`` 的 except 块用 ``return None`` 形态（非 ``pass``），
+        绕过 ``test_except_pass_logging`` 守门扫描器（该扫描器只抓 ``except...: pass``
+        形态）。故 logging 行为须由本测试直接断言，否则未来有人删掉 logging 行
+        无人发现 —— 这正是 refactor 搬迁时漏带语义不变量的事故温床（CLAUDE.md
+        「归因纪律（防 #4652 类事故）」）。
+        """
+        import logging
+        from unittest.mock import patch
+
+        import ginkgo.config._version_core as core
+
+        # GinkgoLogger (logger.py:434) 把上层 logger propagate=False，caplog 经
+        # root 收不到；直接把 caplog.handler 挂到目标 logger 绕开传播链。
+        target = logging.getLogger(core.__name__)
+        target.addHandler(caplog.handler)
+        caplog.set_level(logging.DEBUG, logger=core.__name__)
+        try:
+            with patch("importlib.metadata.version", side_effect=Exception("boom")):
+                result = core._version_from_metadata()
+        finally:
+            target.removeHandler(caplog.handler)
+        assert result is None, "metadata 失败应返 None 触发 fallback"
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        assert any("importlib.metadata" in m for m in debug_msgs), (
+            f"metadata 失败应留 debug 日志，实际 caplog: {debug_msgs}"
+        )
+
+    def test_version_core_logs_when_pyproject_parse_fails(self, caplog):
+        """pyproject 解析失败时必须 emit debug log（同上，pyproject 路径对称）。"""
+        import logging
+        from unittest.mock import MagicMock, patch
+
+        import ginkgo.config._version_core as core
+
+        # tomllib.load 抛错 → except 块触发；walk 仍找到 repo root 的真 pyproject
+        fake_tomllib = MagicMock()
+        fake_tomllib.load.side_effect = Exception("parse boom")
+        target = logging.getLogger(core.__name__)
+        target.addHandler(caplog.handler)
+        caplog.set_level(logging.DEBUG, logger=core.__name__)
+        try:
+            with patch.object(core, "tomllib", fake_tomllib):
+                result = core._version_from_pyproject()
+        finally:
+            target.removeHandler(caplog.handler)
+        assert result is None, "pyproject 解析失败应返 None 触发 fallback"
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        assert any("pyproject.toml" in m for m in debug_msgs), (
+            f"pyproject 解析失败应留 debug 日志，实际 caplog: {debug_msgs}"
+        )
