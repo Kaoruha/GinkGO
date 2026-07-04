@@ -5,12 +5,14 @@
 
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.libs import GLOG
 from ginkgo.workers.backtest_worker.task_helpers import (
     load_portfolio_components,
+    preflight_data_coverage,
+    build_preflight_warning,
 )
 
 
@@ -24,6 +26,33 @@ class OrchestratorResult:
 
     def is_success(self) -> bool:
         return self.success
+
+
+@runtime_checkable
+class BacktestUseCase(Protocol):
+    """#6449: 回测应用用例层契约。
+
+    整洁架构的应用层入口——把"从 task 编排一次回测"这一业务用例固化成结构契约，
+    让 CLI / API / worker 通过统一入口调用，而非各自重复 config 解析、preflight、
+    状态机更新。BacktestOrchestrator 是该 Protocol 的参考实现。
+
+    Note: structural typing（鸭子类型）—— BacktestOrchestrator 无需显式继承，
+    只要实现了 run_from_task 即自动满足。@runtime_checkable 让 isinstance 可用。
+    """
+
+    def run_from_task(
+        self,
+        task,
+        config_snapshot: Optional[Dict] = None,
+        progress_callback=None,
+        timeout: Optional[float] = None,
+    ) -> OrchestratorResult:
+        """从 task 对象编排一次回测。
+
+        封装：config 解析 → preflight 数据预检 → 标 running → 委派 run()。
+        业务层报"事实"（success=False + 原因），由调用方（CLI）翻译为框架异常。
+        """
+        ...
 
 
 class BacktestOrchestrator:
@@ -40,6 +69,75 @@ class BacktestOrchestrator:
         self._portfolio_service = portfolio_service
         self._task_service = task_service
         self._result_aggregator = result_aggregator
+
+    def run_from_task(
+        self,
+        task,
+        config_snapshot: Optional[Dict] = None,
+        progress_callback=None,
+        timeout: Optional[float] = None,
+    ) -> OrchestratorResult:
+        """#6449: 从 task 对象编排回测（应用用例层入口）。
+
+        封装 config 解析 + preflight 数据预检 + 标 running + 委派 run()。
+        """
+        import json as _json
+        from ginkgo.workers.backtest_worker.models import BacktestConfig
+
+        # 1. 解析 config_snapshot → BacktestConfig
+        #    收敛点：CLI/worker 不再各自 11 行重复构造，由 UseCase 层统一解析。
+        if config_snapshot is None:
+            config_snapshot = task.config_snapshot
+        if isinstance(config_snapshot, str):
+            config_snapshot = _json.loads(config_snapshot)
+        config = BacktestConfig(
+            start_date=config_snapshot.get("start_date", "2024-01-01"),
+            end_date=config_snapshot.get("end_date", "2024-12-31"),
+            initial_cash=config_snapshot.get("initial_cash", 100000),
+            commission_rate=config_snapshot.get("commission_rate", 0.0003),
+            slippage_rate=config_snapshot.get("slippage_rate", 0.0001),
+            benchmark_return=config_snapshot.get("benchmark_return", 0.0),
+            max_position_ratio=config_snapshot.get("max_position_ratio", 0.3),
+            stop_loss_ratio=config_snapshot.get("stop_loss_ratio", 0.05),
+            take_profit_ratio=config_snapshot.get("take_profit_ratio", 0.15),
+            frequency=config_snapshot.get("frequency", "DAY"),
+            analyzers=[],
+        )
+
+        # 2. preflight 数据预检（#6282 数据覆盖前置阻断）
+        #    收敛点：CLI 不再各自跑 preflight + raise typer.Exit，
+        #    UseCase 层报业务事实（success=False + 原因），调用方翻译为框架异常。
+        preflight_report = preflight_data_coverage(
+            task.portfolio_id,
+            str(config.start_date),
+            str(config.end_date),
+        )
+        warning = build_preflight_warning(
+            preflight_report,
+            str(config.start_date),
+            str(config.end_date),
+        )
+        if warning:
+            if self._task_service is not None:
+                self._task_service.update_status(task.uuid, "failed")
+            return OrchestratorResult(
+                success=False,
+                error=f"preflight blocked: data coverage insufficient "
+                      f"({warning[:200]})",
+            )
+
+        # 3. 标 running（用例契约：状态机更新由 UseCase 层管，调用方不必手动标）
+        if self._task_service is not None:
+            self._task_service.update_status(task.uuid, "running")
+
+        # 3. 委派 run()
+        return self.run(
+            task_id=task.uuid,
+            config=config,
+            portfolio_id=task.portfolio_id,
+            progress_callback=progress_callback,
+            timeout=timeout,
+        )
 
     def run(self, task_id: str, config, portfolio_id: str,
             timeout: Optional[float] = None,

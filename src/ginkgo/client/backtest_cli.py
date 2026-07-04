@@ -136,20 +136,10 @@ def run_task(
     bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
 ):
     """:rocket: Run a backtest task locally."""
-    import json as _json
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
-    from ginkgo.workers.backtest_worker.models import BacktestConfig
-    from ginkgo.workers.backtest_worker.task_helpers import (
-        build_engine_data,
-        load_portfolio_components,
-        build_portfolio_config,
-        preflight_data_coverage,
-        build_preflight_warning,
-    )
     from ginkgo.libs import GinkgoLogger
-    from ginkgo.trading.time.clock import now as clock_now
 
     service = container.backtest_task_service()
     result = service.get_by_id(task_id)
@@ -181,44 +171,10 @@ def run_task(
 
     task = result.data
 
-    # 解析 config_snapshot → BacktestConfig
-    config_snapshot = _json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
-    config = BacktestConfig(
-        start_date=config_snapshot.get("start_date", "2024-01-01"),
-        end_date=config_snapshot.get("end_date", "2024-12-31"),
-        initial_cash=config_snapshot.get("initial_cash", 100000),
-        commission_rate=config_snapshot.get("commission_rate", 0.0003),
-        slippage_rate=config_snapshot.get("slippage_rate", 0.0001),
-        benchmark_return=config_snapshot.get("benchmark_return", 0.0),
-        max_position_ratio=config_snapshot.get("max_position_ratio", 0.3),
-        stop_loss_ratio=config_snapshot.get("stop_loss_ratio", 0.05),
-        take_profit_ratio=config_snapshot.get("take_profit_ratio", 0.15),
-        frequency=config_snapshot.get("frequency", "DAY"),
-        analyzers=[],
-    )
-
-    portfolio_uuid = task.portfolio_id
-
-    # #6282: 回测前数据预检 — 在标 running 前查 selector codes 的 bar 覆盖，
-    # 数据缺失/稀疏时前置阻断，避免跑完整个回测才给模糊警告。
-    preflight_report = preflight_data_coverage(
-        portfolio_uuid, config.start_date, config.end_date
-    )
-    warning = build_preflight_warning(preflight_report, config.start_date, config.end_date)
-    if warning:
-        console.print(warning)
-        service.update_status(task.uuid, "failed")
-        raise typer.Exit(1)
-
-    # 更新状态为 running
-    service.update_status(task.uuid, "running")
-
-    console.print(f":rocket: Starting backtest: [bold]{task.name}[/bold]")
-    console.print(f"   Period: {config.start_date} ~ {config.end_date}")
-    console.print(f"   Capital: {config.initial_cash}")
-    console.print(f"   Portfolio: {portfolio_uuid[:12]}")
-    console.print()
-
+    # #6449: 委派 UseCase 层（BacktestOrchestrator.run_from_task）。
+    # config 解析 / preflight 数据预检 / 标 running 全部由 UseCase 层统一处理，
+    # CLI 仅做 task 解析 + UI 输出 + 框架异常翻译。业务层报"事实"
+    # （OrchestratorResult.success=False + 原因），CLI 翻译为 typer.Exit。
     try:
         from ginkgo.trading.services.backtest_orchestrator import BacktestOrchestrator
         from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
@@ -245,18 +201,15 @@ def run_task(
 
         if bg:
             def _run_in_thread():
-                result = orchestrator.run(
-                    task_id=task.uuid,
-                    config=config,
-                    portfolio_id=portfolio_uuid,
-                    progress_callback=_progress_callback,
+                result = orchestrator.run_from_task(
+                    task, progress_callback=_progress_callback,
                 )
                 if result.is_success():
                     service.update_progress(
                         task.uuid,
                         progress=100,
                         current_stage="FINALIZING",
-                        current_date=str(config.end_date),
+                        current_date=str(result.data.get("backtest_end_date", "")) if result.data else "",
                     )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
                 else:
@@ -264,13 +217,11 @@ def run_task(
 
             thread = threading.Thread(target=_run_in_thread, daemon=True)
             thread.start()
+            console.print(f":rocket: Starting backtest (bg): [bold]{task.name}[/bold]")
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
-            result = orchestrator.run(
-                task_id=task.uuid,
-                config=config,
-                portfolio_id=portfolio_uuid,
-                progress_callback=_progress_callback,
+            result = orchestrator.run_from_task(
+                task, progress_callback=_progress_callback,
             )
 
             if not result.is_success():
@@ -281,7 +232,7 @@ def run_task(
                 task.uuid,
                 progress=100,
                 current_stage="FINALIZING",
-                current_date=str(config.end_date),
+                current_date=str(result.data.get("backtest_end_date", "")) if result.data else "",
             )
 
             # 灌入日志到 ClickHouse（静默降级）

@@ -392,6 +392,181 @@ class TestOrchestratorTimeoutReporting:
         )
 
 
+# ===========================================================================
+# #6449: BacktestUseCase Protocol — 应用用例层契约
+# ===========================================================================
+
+
+class TestUseCaseProtocol:
+    """#6449: BacktestOrchestrator 即隐式 UseCase。
+
+    ADR-022 引入 BacktestUseCase Protocol（structural typing），让 CLI/API/worker
+    通过统一的应用层入口编排回测，而非各自重复 config 解析/preflight/状态机。
+    验收：BacktestOrchestrator 实例满足 BacktestUseCase 结构契约。
+    """
+
+    def test_orchestrator_satisfies_usecase_protocol(self, orchestrator):
+        """BacktestOrchestrator 应当是 BacktestUseCase（duck typing 通过）。"""
+        from ginkgo.trading.services.backtest_orchestrator import BacktestUseCase
+
+        assert isinstance(orchestrator, BacktestUseCase), (
+            "BacktestOrchestrator 必须满足 BacktestUseCase Protocol（#6449）："
+            "缺少 run_from_task 方法"
+        )
+
+
+# ===========================================================================
+# #6449: run_from_task — config 解析下沉（dict snapshot → BacktestConfig）
+# ===========================================================================
+
+
+class TestRunFromTaskConfigParse:
+    """#6449: run_from_task 应把 task.config_snapshot（dict/JSON）解析为 BacktestConfig。
+
+    收敛点：CLI/worker 不再各自构造 BacktestConfig，由 UseCase 层统一解析。
+    """
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_dict_snapshot_converted_to_backtest_config(
+        self, mock_load_components, orchestrator,
+        mock_assembly_service, mock_portfolio_service, mock_aggregator):
+        """传 dict config_snapshot 时，应转 BacktestConfig 传给 run()。"""
+        from ginkgo.workers.backtest_worker.models import BacktestConfig
+
+        task = MagicMock()
+        task.uuid = "task-x"
+        task.portfolio_id = "port-x"
+        snapshot = {
+            "start_date": "2024-01-01", "end_date": "2024-06-30",
+            "initial_cash": 500000, "frequency": "DAY",
+        }
+        task.config_snapshot = snapshot
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=_make_engine_mock(),
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        # spy run() 捕获实际传入的 config
+        captured = {}
+        original_run = orchestrator.run
+
+        def spy_run(task_id, config, portfolio_id, **kw):
+            captured["config"] = config
+            return original_run(task_id, config, portfolio_id, **kw)
+
+        orchestrator.run = spy_run
+
+        orchestrator.run_from_task(task, config_snapshot=snapshot)
+
+        cfg = captured.get("config")
+        assert isinstance(cfg, BacktestConfig), (
+            "run_from_task 应把 dict snapshot 转 BacktestConfig（#6449）："
+            f"实际类型 {type(cfg).__name__}"
+        )
+        assert cfg.start_date == "2024-01-01"
+        assert cfg.initial_cash == 500000
+
+
+# ===========================================================================
+# #6449: run_from_task — 标 running 状态机下沉
+# ===========================================================================
+
+
+class TestRunFromTaskMarksRunning:
+    """#6449: run_from_task 应在委派 run() 前自动标 task 为 running。
+
+    收敛点：状态机更新（running）成为用例契约，调用方不必手动管理。
+    """
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.load_portfolio_components")
+    def test_marks_running_before_run(
+        self, mock_load_components, orchestrator,
+        mock_assembly_service, mock_portfolio_service,
+        mock_aggregator, mock_task_service):
+        """run_from_task 应调 task_service.update_status(task.uuid, 'running')。"""
+        task = MagicMock()
+        task.uuid = "task-r"
+        task.portfolio_id = "port-r"
+        task.config_snapshot = {}
+
+        mock_portfolio_service.get.return_value = MagicMock(
+            is_success=lambda: True, data=[_make_portfolio_result()],
+        )
+        mock_load_components.return_value = _make_components()
+        mock_assembly_service.assemble_backtest_engine.return_value = MagicMock(
+            success=True, data=_make_engine_mock(),
+        )
+        from ginkgo.data.services.base_service import ServiceResult
+        mock_aggregator.aggregate_and_save.return_value = ServiceResult.success()
+
+        orchestrator.run_from_task(task)
+
+        # task_service 是 orchestrator 的 _task_service
+        status_calls = mock_task_service.update_status.call_args_list
+        called_running = any(
+            c.args == ("task-r", "running") or c.kwargs == {"task_id": "task-r", "status": "running"}
+            for c in status_calls
+        )
+        assert called_running, (
+            "run_from_task 应标 running（#6449）："
+            f"实际 update_status 调用 {status_calls}"
+        )
+
+
+# ===========================================================================
+# #6449: run_from_task — preflight 数据预检下沉（不抛 typer.Exit）
+# ===========================================================================
+
+
+class TestRunFromTaskPreflight:
+    """#6449: preflight 数据预检由 UseCase 层做，业务层不抛框架异常。
+
+    收敛点：CLI 的 preflight 阻断语义（raise typer.Exit）下沉为业务事实
+    （success=False + 原因），CLI 翻译层负责转框架异常。
+    """
+
+    @patch("ginkgo.trading.services.backtest_orchestrator.preflight_data_coverage")
+    def test_preflight_fail_returns_failure_not_raises(
+        self, mock_preflight, orchestrator, mock_task_service):
+        """preflight 报数据缺失时，run_from_task 应返回失败结果，不抛异常。"""
+        # 构造一个会生成 warning 的 preflight 报告（数据稀疏）
+        # 字段名必须匹配 build_preflight_warning 的真实契约：sparse/coverage/ok
+        mock_preflight.return_value = {
+            "codes": ["000001.SZ", "000002.SZ"],
+            "coverage": {"000001.SZ": 2, "000002.SZ": 0},
+            "sparse": ["000001.SZ", "000002.SZ"],
+            "ok": False,
+        }
+
+        task = MagicMock()
+        task.uuid = "task-pf"
+        task.portfolio_id = "port-pf"
+        task.config_snapshot = {"start_date": "2024-01-01", "end_date": "2024-06-30"}
+
+        # 关键：调用不应抛任何异常（特别不能抛 typer.Exit）
+        result = orchestrator.run_from_task(task)
+
+        # 必须是失败结果（而非静默成功）
+        assert not result.is_success(), (
+            "preflight 失败应返回 success=False（#6449）"
+        )
+        assert "preflight" in result.error.lower(), (
+            f"error 应含 preflight 描述，实际: {result.error!r}"
+        )
+        # 应标 failed（保留原 CLI 语义）
+        status_calls = mock_task_service.update_status.call_args_list
+        called_failed = any(c.args == ("task-pf", "failed") for c in status_calls)
+        assert called_failed, (
+            f"preflight 阻断应标 failed（#6449 保留原 CLI 语义）：实际 {status_calls}"
+        )
+
+
 class TestOrchestratorTimeoutConfig:
     """#6483: 超时阈值应可通过 GINKGO_BACKTEST_TIMEOUT 环境变量配置（覆盖默认 3600s）。"""
 
