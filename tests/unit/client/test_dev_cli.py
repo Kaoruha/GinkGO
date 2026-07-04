@@ -58,3 +58,44 @@ class TestDevLintCommandTargetsTestsDir:
         for call in tool_calls:
             assert "tests/" in call, f"#6020: {call[0]} 未含 tests/: {call}"
             assert "test/" not in call, f"#6020: {call[0]} 仍含 test/: {call}"
+
+
+class TestDevProfileUsesSysExecutable:
+    """#4768 — dev profile 应调用当前解释器 (sys.executable) 而非硬编码 'python'"""
+
+    @patch("subprocess.run")
+    def test_dev_profile_cmd_uses_sys_executable(self, mock_run):
+        import sys
+        from ginkgo.client.dev_cli import dev_profile
+
+        dev_profile(script="foo.py", output="profile.stats")
+
+        assert mock_run.called, "dev_profile 未调用 subprocess.run"
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == sys.executable, (
+            f"#4768: cmd 首元素应为 sys.executable ({sys.executable}), got {cmd[0]!r}"
+        )
+        assert "-m" in cmd and "cProfile" in cmd, f"cProfile 调用丢失: {cmd}"
+
+    @patch("subprocess.run")
+    def test_dev_profile_interpreter_missing_outputs_friendly_error(self, mock_run):
+        """#4768: 解释器/脚本缺失时应友好退出 (typer.Exit)，非裸 FileNotFoundError traceback"""
+        import typer
+        mock_run.side_effect = FileNotFoundError("python not found")
+        from ginkgo.client.dev_cli import dev_profile
+
+        with pytest.raises(typer.Exit) as exc_info:
+            dev_profile(script="foo.py", output="profile.stats")
+        assert exc_info.value.exit_code != 0, "失败时应以非零码退出"
+
+    @patch("subprocess.run")
+    def test_dev_profile_nonzero_exit_outputs_friendly_error(self, mock_run):
+        """#4768: cProfile 非零退出应友好提示并透传退出码，非裸 CalledProcessError"""
+        import typer
+        from subprocess import CalledProcessError
+        mock_run.side_effect = CalledProcessError(returncode=2, cmd=[])
+        from ginkgo.client.dev_cli import dev_profile
+
+        with pytest.raises(typer.Exit) as exc_info:
+            dev_profile(script="foo.py", output="profile.stats")
+        assert exc_info.value.exit_code == 2
