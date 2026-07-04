@@ -379,6 +379,19 @@ async def get_bars(
         # asc → 升序（最旧在前）；desc / None / 无效值 → 降序（最新在前，符合验收默认）。
         desc_order = (order or "").lower() != "asc"
 
+        # #5689: total 来自独立 DB count 查询，与分页 page_size 解耦。
+        # 旧实现 total=len(bar_summaries)=当前页条数，随 page_size 变化（5 vs 100），
+        # 调用方无法据此判断数据总量或总页数。count 与 get 共用同一 where 条件
+        # （code/frequency/timestamp 范围），仿 stocks 端点（见本文件 stockinfo 分支）。
+        # count 失败时降级为 len(items)（旧行为），不抛 500。
+        count_result = bar_service.count(
+            code=code,
+            frequency=FREQUENCY_TYPES.DAY,
+            start_date=start_dt,
+            end_date=end_dt,
+        )
+        db_total = count_result.data if count_result.is_success() else None
+
         # 使用BarService.get方法，支持分页
         result = bar_service.get(
             code=code,
@@ -393,7 +406,11 @@ async def get_bars(
         )
 
         if not result.is_success() or not result.data:
-            return paginated(items=[], total=0, page=page, page_size=page_size)
+            # items 空仍返回真实 DB total，前端可据此判断其他页有数据（#5689）
+            return paginated(
+                items=[], total=db_total if db_total is not None else 0,
+                page=page, page_size=page_size,
+            )
 
         # 处理返回的数据
         # bar_service.get() 返回裸 list[MBar]（无 to_entities）；
@@ -418,9 +435,8 @@ async def get_bars(
 
         return paginated(
             items=bar_summaries,
-            # 裸 list 的 .count() 需要参数（#5599/#5610 500 根因）；
-            # 直接用 len(bar_summaries)，total 与返回 items 数一致
-            total=len(bar_summaries),
+            # #5689: total=DB count（与 page_size 解耦）；count 失败降级为当前页条数
+            total=db_total if db_total is not None else len(bar_summaries),
             page=page,
             page_size=page_size
         )

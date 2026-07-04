@@ -58,12 +58,15 @@ class TestGetBarsBareListFix:
         mock_service = MagicMock()
         # 真实环境 bar_service.get().data 是裸 list（非空，无 to_entities）
         mock_service.get.return_value = make_mock_result(data=[make_bar()])
+        # #5689: 端点现额外调 bar_service.count()；mock 出整数避免 MagicMock 穿透
+        mock_service.count.return_value = make_mock_result(data=1)
 
         from api.data import get_bars
 
         with patch("api.data.get_bar_service", return_value=mock_service):
+            # 显式传 page/page_size：直接调端点时 Query(ge=1,le=500) 默认是对象非 int
             # 修复前：line 339 bars_list=[] → line 358 [bar].count() TypeError → 500
-            result = run_async(get_bars(code="000001.SZ"))
+            result = run_async(get_bars(code="000001.SZ", page=1, page_size=100))
 
         assert result.get("code") == 0
 
@@ -73,11 +76,12 @@ class TestGetBarsBareListFix:
         mock_service.get.return_value = make_mock_result(
             data=[make_bar("b1", "000001.SZ"), make_bar("b2", "000002.SZ")]
         )
+        mock_service.count.return_value = make_mock_result(data=2)
 
         from api.data import get_bars
 
         with patch("api.data.get_bar_service", return_value=mock_service):
-            result = run_async(get_bars(code="000001.SZ"))
+            result = run_async(get_bars(code="000001.SZ", page=1, page_size=100))
 
         # 修复前：line 339 bars_list=[] → items=[]（数据丢失）
         assert result.get("code") == 0
@@ -85,16 +89,22 @@ class TestGetBarsBareListFix:
         assert result["data"][0]["code"] == "000001.SZ"
 
     def test_total_matches_items_for_bare_list(self):
-        """TDD Red: total 应等于 len(bar_summaries)，不调用 list.count()"""
+        """裸 list 场景 total 来自 count()，本例 count==items 数（2）
+
+        #5599/#5610 原 intent：total 不调 list.count()（会抛 TypeError）。
+        #5689 后：total 来自独立 bar_service.count() 查询。本例 DB 总数恰好等于
+        当前页 items 数（2），故 total==2 仍成立，且验证裸 list 端到端不崩。
+        """
         mock_service = MagicMock()
         mock_service.get.return_value = make_mock_result(
             data=[make_bar("b1"), make_bar("b2")]
         )
+        mock_service.count.return_value = make_mock_result(data=2)
 
         from api.data import get_bars
 
         with patch("api.data.get_bar_service", return_value=mock_service):
-            result = run_async(get_bars(code="000001.SZ"))
+            result = run_async(get_bars(code="000001.SZ", page=1, page_size=100))
 
         assert result.get("code") == 0
         assert result["meta"]["total"] == 2
