@@ -85,6 +85,7 @@ def _get_deployment_service():
             live_account_service=container.live_account_service(),
             mongo_driver=container.mongo_driver(),
             param_crud=container.cruds.param(),
+            backtest_task_service=container.backtest_task_service(),
             # #4800: 注入集群容量预检（防 paper worker 容量满时 deploy 假成功）
             capacity_checker=_make_capacity_checker(),
         )

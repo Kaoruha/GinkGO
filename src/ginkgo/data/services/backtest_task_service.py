@@ -971,6 +971,26 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to get latest backtest metrics: {str(e)}")
 
+    def get_latest_completed_task_id(self, portfolio_id: str) -> ServiceResult:
+        """获取 portfolio 最新已完成回测的 task_id (#5196: 供 deploy 自动溯源回测→部署链路).
+
+        复用 get_latest_completed 的 find 查询模式 (portfolio_id + status=completed,
+        order_by create_at desc, limit 1)。无记录时返回 success+data=None，由调用方决定留空。
+        """
+        try:
+            tasks = self._crud_repo.find(
+                filters={"portfolio_id": portfolio_id, "status": "completed", "is_del": False},
+                order_by="create_at",
+                desc_order=True,
+                page_size=1,
+            )
+            if not tasks:
+                return ServiceResult.success(data=None)
+            # task_id 是回测任务主标识(≡uuid, ADR-016)，deploy 写入 MDeployment.source_task_id
+            return ServiceResult.success(data=getattr(tasks[0], "task_id", None))
+        except Exception as e:
+            return ServiceResult.error(f"Failed to get latest completed task_id: {str(e)}")
+
     def count_by_portfolio(self, portfolio_id: str) -> ServiceResult:
         """统计 portfolio 的回测次数"""
         try:
