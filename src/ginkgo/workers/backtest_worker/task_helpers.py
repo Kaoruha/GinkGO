@@ -180,8 +180,8 @@ def _extract_codes_from_value(value: Any) -> List[str]:
             decoded = _json.loads(stripped)
             if decoded:
                 return _extract_codes_from_value(decoded)
-        except Exception:
-            pass
+        except Exception as e:
+            GLOG.DEBUG(f"json parse failed, regex fallback: {e}")
     return _CODE_TOKEN_RE.findall(value)
 
 

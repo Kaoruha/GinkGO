@@ -69,3 +69,21 @@ class TestLoadPortfolioComponentsAssemblyLog:
         log_msg = str(assembly_call)
         assert "selectors=" in log_msg, f"Assembly log should contain selectors=, got: {log_msg}"
         assert "fixed_selector" in log_msg, f"Assembly log should contain selector name, got: {log_msg}"
+
+
+class TestExtractCodesFromValueBadJsonFallback:
+    """#6486 review: _extract_codes_from_value 在 json 解析失败时应走 regex
+    fallback,不应抛 TypeError 把容错降级变崩溃。"""
+
+    def test_bad_json_falls_back_to_regex_without_crash(self):
+        """GLOG.DEBUG 签名 ``(msg: str)`` 不接受 ``exc_info`` 关键字参数;
+        except 块内若误用 ``exc_info=True`` 会在调用签名绑定阶段抛 TypeError,
+        使原本的静默降级(regex fallback)变成异常崩溃。此处刻意不 mock GLOG,
+        以真实调用暴露该签名误用。"""
+        from ginkgo.workers.backtest_worker.task_helpers import _extract_codes_from_value
+
+        # 以 [ 开头触发 json.loads 分支;内容畸形致解析失败 → 走 except → regex fallback
+        result = _extract_codes_from_value("[invalid json 000001.SZ")
+
+        assert isinstance(result, list)
+        assert "000001.SZ" in result

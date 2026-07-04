@@ -27,6 +27,10 @@ _ALLOWED_PRINT_FILES = {
     "notifier/channels/console_channel.py",
     # Logging infrastructure - can't use GLOG
     "libs/core/logger.py",
+    # GCONF startup-phase diagnostics: print(..., file=sys.stderr) runs before
+    # GLOG is initialized (config load / ImportError fallback). Same spirit as
+    # logger.py / core_containers.py above.
+    "libs/core/config.py",
     # GLOG fallback - print() used when GLOG is unavailable (ImportError branch)
     "core/core_containers.py",  # MockLoggerService in except ImportError
     "trading/strategies/random_signal_strategy.py",  # log_error() ImportError fallback
@@ -52,6 +56,10 @@ def _find_bare_prints(src_dir="src/ginkgo"):
                 stripped = line.strip()
                 if stripped.startswith("#") or stripped.startswith("..."):
                     continue
+                # Doctest/docstring examples (>>> prefix) are documentation,
+                # not executable code — AST does not treat them as Call.
+                if stripped.startswith(">>>"):
+                    continue
                 if re.search(r"(?<!\.)print\(", stripped) and "console.print" not in stripped:
                     results.append((rel, i + 1, stripped))
     return results
@@ -59,6 +67,26 @@ def _find_bare_prints(src_dir="src/ginkgo"):
 
 class TestBarePrintReplaced:
     """Bare print() should be replaced with GLOG except in allowed files."""
+
+    def test_find_bare_prints_skips_doctest_examples(self, tmp_path):
+        """防御：扫描器应跳过 >>> docstring/doctest 示例内的 print。
+
+        doctest 示例（>>> 开头）是文档非代码，AST 不视为 Call。扫描器若把
+        >>> print(...) 当真违规会逼作者删文档示例。已跳过 ... 续行，须同样跳 >>>。
+        """
+        (tmp_path / "doctest_mod.py").write_text('>>> print("doctest example")\n')
+        results = _find_bare_prints(str(tmp_path))
+        assert results == [], f"doctest 示例不应被报为违规: {results}"
+
+    def test_find_bare_prints_catches_real_bare_print(self, tmp_path):
+        """防御：扫描器仍能抓真违规（无 file=、无 >>> 的 stdout print）。
+
+        防止跳过逻辑过宽把真违规也漏掉（掏空测试）。
+        """
+        (tmp_path / "real_mod.py").write_text('print("real violation")\n')
+        results = _find_bare_prints(str(tmp_path))
+        assert len(results) == 1, f"应抓到 1 处真违规: {results}"
+        assert "real violation" in results[0][2]
 
     def test_bare_print_replaced_with_glog(self):
         prints = _find_bare_prints()
