@@ -233,3 +233,69 @@ class TestUserCRUDConstruction:
         assert crud_instance.model_class is MUser
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
+
+
+class TestUserCRUDTransactions:
+    """事务边界回归测试"""
+
+    @pytest.mark.unit
+    def test_delete_reuses_single_transaction_session_for_all_cascade_steps(self, crud_instance):
+        transaction_session = MagicMock()
+        transaction_session.execute.return_value.rowcount = 1
+        seen_sessions = []
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_scope(session=None):
+            assert session is None
+            yield transaction_session
+
+        mock_user = MagicMock()
+        mock_user.uuid = "user-1"
+
+        def fake_find(*args, **kwargs):
+            seen_sessions.append(("find", kwargs.get("session")))
+            return [mock_user]
+
+        def fake_group(*args, **kwargs):
+            seen_sessions.append(("group", kwargs.get("session")))
+            return 1
+
+        def fake_contacts(*args, **kwargs):
+            seen_sessions.append(("contacts", kwargs.get("session")))
+            return 1
+
+        def fake_credentials(*args, **kwargs):
+            seen_sessions.append(("credentials", kwargs.get("session")))
+            return 1
+
+        crud_instance._session_scope = fake_scope
+        crud_instance.find = fake_find
+        crud_instance._cascade_delete_group_mappings = fake_group
+        crud_instance._cascade_delete_contacts = fake_contacts
+        crud_instance._cascade_delete_credentials = fake_credentials
+
+        result = crud_instance.delete(filters={"uuid": "user-1"})
+
+        assert result == 1
+        assert seen_sessions == [
+            ("find", transaction_session),
+            ("group", transaction_session),
+            ("contacts", transaction_session),
+            ("credentials", transaction_session),
+        ]
+        transaction_session.commit.assert_not_called()
+        transaction_session.close.assert_not_called()
+
+    @pytest.mark.unit
+    def test_cascade_delete_credentials_with_external_session_does_not_commit(self, crud_instance):
+        session = MagicMock()
+        session.execute.return_value.rowcount = 2
+
+        result = crud_instance._cascade_delete_credentials(["user-1"], session=session)
+
+        assert result == 2
+        session.execute.assert_called_once()
+        session.commit.assert_not_called()
+        session.close.assert_not_called()

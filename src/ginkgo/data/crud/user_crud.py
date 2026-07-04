@@ -7,6 +7,7 @@ from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import update, or_, and_
+from sqlalchemy.orm import Session
 import re
 
 from ginkgo.data.crud.base_crud import BaseCRUD
@@ -112,7 +113,13 @@ class UserCRUD(BaseCRUD[MUser]):
 
     # ==================== 级联软删除实现 ====================
 
-    def delete(self, filters: Optional[Dict[str, Any]] = None, *args, **kwargs) -> int:
+    def delete(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        session: Optional[Session] = None,
+        *args,
+        **kwargs,
+    ) -> int:
         """
         软删除用户，并级联软删除相关记录
 
@@ -133,46 +140,39 @@ class UserCRUD(BaseCRUD[MUser]):
         if filters is None:
             raise ValueError("filters参数必须提供")
 
-        # #3955 查询要删除的用户
-        users = self.find(filters=filters)
-        user_uuids = [u.uuid for u in users]
+        with self._session_scope(session) as transaction_session:
+            # #3955 查询要删除的用户
+            users = self.find(filters=filters, session=transaction_session)
+            user_uuids = [u.uuid for u in users]
 
-        if not user_uuids:
-            GLOG.WARN(f"未找到匹配的用户: filters={filters}")
-            return 0
+            if not user_uuids:
+                GLOG.WARN(f"未找到匹配的用户: filters={filters}")
+                return 0
 
-        GLOG.INFO(f"开始软删除用户及其相关记录: {len(user_uuids)} 个用户")
+            GLOG.INFO(f"开始软删除用户及其相关记录: {len(user_uuids)} 个用户")
 
-        # 2. 先级联软删除用户组映射（避免外键约束）
-        self._cascade_delete_group_mappings(user_uuids)
+            # 2. 先级联软删除用户组映射（避免外键约束）
+            self._cascade_delete_group_mappings(user_uuids, session=transaction_session)
 
-        # 3. 级联软删除联系方式
-        self._cascade_delete_contacts(user_uuids)
+            # 3. 级联软删除联系方式
+            self._cascade_delete_contacts(user_uuids, session=transaction_session)
 
-        # 4. 级联软删除凭据
-        self._cascade_delete_credentials(user_uuids)
+            # 4. 级联软删除凭据
+            self._cascade_delete_credentials(user_uuids, session=transaction_session)
 
-        # 5. 最后软删除用户本身（直接执行 UPDATE）
-        import datetime
-        from sqlalchemy import update
-
-        conn = self._get_connection()
-        with conn.get_session() as session:
-            # 构建过滤条件
+            # 5. 最后软删除用户本身（直接执行 UPDATE）
             filter_conditions = []
             for field, value in filters.items():
                 if hasattr(MUser, field):
                     filter_conditions.append(getattr(MUser, field) == value)
 
-            # 执行软删除
             if filter_conditions:
                 stmt = (
                     update(MUser.__table__)
                     .where(and_(*filter_conditions))
-                    .values(is_del=True, update_at=datetime.datetime.now())
+                    .values(is_del=True, update_at=datetime.now())
                 )
-                result = session.execute(stmt)
-                session.commit()
+                result = transaction_session.execute(stmt)
                 count = result.rowcount
             else:
                 count = 0
@@ -180,7 +180,7 @@ class UserCRUD(BaseCRUD[MUser]):
         GLOG.INFO(f"已软删除用户: {count} 个")
         return count
 
-    def _cascade_delete_contacts(self, user_uuids: List[str]) -> int:
+    def _cascade_delete_contacts(self, user_uuids: List[str], session: Optional[Session] = None) -> int:
         """
         级联软删除用户联系方式
 
@@ -191,10 +191,7 @@ class UserCRUD(BaseCRUD[MUser]):
             删除的联系方式数量
         """
         try:
-            # 使用 CRUD 自己的连接
-            conn = self._get_connection()
-
-            with conn.get_session() as session:
+            with self._session_scope(session) as transaction_session:
                 # 批量更新联系方式
                 from sqlalchemy import update
                 stmt = (
@@ -204,8 +201,7 @@ class UserCRUD(BaseCRUD[MUser]):
                     .values(is_del=True, update_at=datetime.now())
                 )
 
-                result = session.execute(stmt)
-                session.commit()
+                result = transaction_session.execute(stmt)
 
                 contact_count = result.rowcount
                 GLOG.INFO(f"已级联软删除联系方式: {contact_count} 条")
@@ -215,7 +211,7 @@ class UserCRUD(BaseCRUD[MUser]):
             GLOG.ERROR(f"级联删除联系方式失败: {e}")
             return 0
 
-    def _cascade_delete_credentials(self, user_uuids: List[str]) -> int:
+    def _cascade_delete_credentials(self, user_uuids: List[str], session: Optional[Session] = None) -> int:
         """
         级联软删除用户凭据 — #3896
 
@@ -226,9 +222,7 @@ class UserCRUD(BaseCRUD[MUser]):
             删除的凭据数量
         """
         try:
-            conn = self._get_connection()
-
-            with conn.get_session() as session:
+            with self._session_scope(session) as transaction_session:
                 stmt = (
                     update(MUserCredential.__table__)
                     .where(MUserCredential.user_id.in_(user_uuids))
@@ -236,8 +230,7 @@ class UserCRUD(BaseCRUD[MUser]):
                     .values(is_del=True, update_at=datetime.now())
                 )
 
-                result = session.execute(stmt)
-                session.commit()
+                result = transaction_session.execute(stmt)
 
                 cred_count = result.rowcount
                 GLOG.INFO(f"已级联软删除凭据: {cred_count} 条")
@@ -247,7 +240,7 @@ class UserCRUD(BaseCRUD[MUser]):
             GLOG.ERROR(f"级联删除凭据失败: {e}")
             return 0
 
-    def _cascade_delete_group_mappings(self, user_uuids: List[str]) -> int:
+    def _cascade_delete_group_mappings(self, user_uuids: List[str], session: Optional[Session] = None) -> int:
         """
         级联删除用户组映射（硬删除）
 
@@ -258,10 +251,7 @@ class UserCRUD(BaseCRUD[MUser]):
             删除的映射数量
         """
         try:
-            # 使用 CRUD 自己的连接
-            conn = self._get_connection()
-
-            with conn.get_session() as session:
+            with self._session_scope(session) as transaction_session:
                 # 硬删除用户组映射
                 from sqlalchemy import delete
                 stmt = (
@@ -269,8 +259,7 @@ class UserCRUD(BaseCRUD[MUser]):
                     .where(MUserGroupMapping.user_uuid.in_(user_uuids))
                 )
 
-                result = session.execute(stmt)
-                session.commit()
+                result = transaction_session.execute(stmt)
 
                 mapping_count = result.rowcount
                 GLOG.INFO(f"已级联删除用户组映射: {mapping_count} 条")

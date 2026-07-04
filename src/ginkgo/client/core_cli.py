@@ -931,7 +931,6 @@ def _init_admin_user():
             "update_at": now
         })
 
-        session.commit()
 
         return {
             "username": "admin",

@@ -126,7 +126,6 @@ class MappingService(BaseService):
                     cleaned_count += count
                     cleaning_details.append(f"清理孤立Engine-Handler映射(Handler): {count} 个")
 
-                session.commit()
 
             if cleaned_count > 0:
                 GLOG.INFO(f"清理了 {cleaned_count} 个孤立映射关系")
@@ -182,7 +181,6 @@ class MappingService(BaseService):
                 result = session.execute(stmt, {"pattern": name_pattern})
                 engine_handler_deleted = result.rowcount
 
-                session.commit()
 
                 total_deleted = portfolio_file_deleted + engine_portfolio_deleted + engine_handler_deleted
 
@@ -235,7 +233,6 @@ class MappingService(BaseService):
                     cleaned_count += count
                     cleaning_details.append(f"清理孤立Handler映射: {count} 个")
 
-                session.commit()
 
             if cleaned_count > 0:
                 GLOG.INFO(f"清理了 {cleaned_count} 个孤立Engine-Handler映射关系")
@@ -276,7 +273,6 @@ class MappingService(BaseService):
                 result = session.execute(stmt, {"pattern": name_pattern})
                 deleted_count = result.rowcount
 
-                session.commit()
 
             GLOG.INFO(f"根据名称模式 '{name_pattern}' 清理了 {deleted_count} 个Engine-Handler映射关系")
 
