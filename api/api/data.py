@@ -165,10 +165,15 @@ async def get_data_stats():
         # Tick数据概况：抽样统计前10只股票（减少抽样数量以提高性能）
         tick_data_summary = await get_tick_data_summary(stockinfo_service, tick_service, sample_size=10)
 
+        # #5423: tick 按股票代码分表存储（{code}_Tick），count_all 跨分表聚合 system.tables
+        # 元数据的 total_rows（MergeTree 精确计数），与同步历史口径一致；失败降级为 0。
+        tick_count_result = tick_service.count_all()
+        total_ticks = tick_count_result.data if tick_count_result.is_success() else 0
+
         return ok(data={
             "total_stocks": total_stocks,
             "total_bars": total_bars,
-            "total_ticks": 0,  # Tick数据分表存储，无法直接统计总量
+            "total_ticks": total_ticks,
             "total_adjust_factors": total_adjust_factors,
             "tick_data_summary": tick_data_summary,
             "data_sources": ["Tushare", "Yahoo", "BaoStock", "TDX"],

@@ -375,6 +375,53 @@ class TestTickServiceCount:
 
 
 # ============================================================================
+# 测试类 - TickService.count_all 跨分表全量统计（#5423）
+# 不依赖真实 DB：构造带 mock crud_repo 的 TickService
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestTickServiceCountAll:
+    """count_all: 包装 CRUD 跨分表统计，返回 ServiceResult（#5423）"""
+
+    def _make_service_with_mock_crud(self, crud_count_all_return):
+        """构造带 mock crud_repo 的 TickService（不触达真实 DB/Redis）"""
+        from unittest.mock import MagicMock
+        from ginkgo.data.services.tick_service import TickService
+
+        mock_crud = MagicMock()
+        mock_crud.count_all.return_value = crud_count_all_return
+        return TickService(
+            data_source=MagicMock(),
+            stockinfo_service=MagicMock(),
+            crud_repo=mock_crud,
+            redis_service=MagicMock(),
+            adjustfactor_service=MagicMock(),
+        )
+
+    @pytest.mark.unit
+    def test_count_all_wraps_crud_and_returns_success(self):
+        """count_all 包装 crud.count_all，返回 ServiceResult.success(data=int)"""
+        service = self._make_service_with_mock_crud(543452)
+
+        result = service.count_all()
+
+        assert result.is_success()
+        assert result.data == 543452
+        service._crud_repo.count_all.assert_called_once()
+
+    @pytest.mark.unit
+    def test_count_all_propagates_zero_when_no_tick_data(self):
+        """crud 返回 0（无分表）时 service 也返回 0，保持数量级真实"""
+        service = self._make_service_with_mock_crud(0)
+
+        result = service.count_all()
+
+        assert result.is_success()
+        assert result.data == 0
+
+
+# ============================================================================
 # 测试类 - Tick数据验证
 # ============================================================================
 

@@ -555,6 +555,44 @@ class TickService(BaseService):
                 error=f"Database query failed: {str(e)}"
             )
 
+    def count_all(self) -> ServiceResult:
+        """
+        跨所有股票代码统计 tick 总行数（#5423）。
+
+        Tick 数据按股票代码动态分表，``count(code=...)`` 仅能统计单只股票。
+        本方法委托 ``TickCRUD.count_all()`` 通过 ClickHouse ``system.tables``
+        元数据一次聚合所有 ``_Tick`` 分表的 ``total_rows``，返回全量 tick 数。
+
+        用于 ``GET /api/v1/data/stats`` 的 ``total_ticks`` 字段，使其反映
+        实际数据量而非硬编码 0，与同步历史数据数量级一致。
+
+        Returns:
+            ServiceResult: ``data`` 为跨所有 ``_Tick`` 分表的行数之和（int）；
+            CRUD 层保证不抛异常（失败返回 0）。
+        """
+        start_time = time.time()
+        self._log_operation_start("count_all")
+
+        try:
+            if not self._crud_repo:
+                return ServiceResult.error("CRUD repository not available")
+
+            total = self._crud_repo.count_all()
+            duration = time.time() - start_time
+            self._log_operation_end("count_all", True, duration)
+
+            return ServiceResult.success(
+                data=total,
+                message=f"Total {total} tick records across all sharded tables",
+            )
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("count_all", False, duration)
+            GLOG.ERROR(f"Failed to count all tick records: {e}")
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
+
     def validate(self, tick_data: Union[List[Any], pd.DataFrame, ModelList]) -> ServiceResult:
         """
         Validate tick data integrity and quality.
