@@ -276,3 +276,186 @@ class TestComponentNameUuidResolution:
         # name 未命中 → 用原始 uuid 输入加载
         mock_loader.load_by_file_id.assert_called_once_with("deadbeefdeadbeefdeadbeefdeadbeef")
         mock_validate.assert_called_once()
+
+
+# ============================================================================
+# 7. Runtime crash detection (#5317)
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestRuntimeCrashDetection:
+    """#5317: validate --show-trace must distinguish a strategy that crashes in
+    cal() (FAILED) from one that legitimately returns [] (PASSED).
+
+    Before: cal() exceptions were swallowed into signals=[] and only printed
+    under --verbose, so a crashing strategy reported 'Validation PASSED'.
+    """
+
+    def test_signal_trace_report_has_cal_exceptions_field(self):
+        """SignalTraceReport exposes a cal_exceptions list (default empty)."""
+        from ginkgo.trading.evaluation.core.evaluation_result import SignalTraceReport
+
+        report = SignalTraceReport(strategy_name="s", strategy_file="s.py")
+        assert report.cal_exceptions == []
+
+    def test_signal_trace_report_add_cal_exception(self):
+        """add_cal_exception appends a structured record (type/message/traceback)."""
+        from ginkgo.trading.evaluation.core.evaluation_result import SignalTraceReport
+
+        report = SignalTraceReport(strategy_name="s", strategy_file="s.py")
+        report.add_cal_exception(
+            exception_type="AttributeError",
+            message="'SimpleDataFeeder' has no get_historical_data",
+            traceback_str="Traceback ...",
+        )
+        assert len(report.cal_exceptions) == 1
+        rec = report.cal_exceptions[0]
+        assert rec["exception_type"] == "AttributeError"
+        assert "get_historical_data" in rec["message"]
+        assert rec["traceback_str"] == "Traceback ..."
+
+    def test_run_signal_tracing_captures_cal_exceptions(self, tmp_path):
+        """A strategy whose cal() raises → _run_signal_tracing records each
+        crash in report.cal_exceptions (previously swallowed silently)."""
+        from datetime import datetime
+        from decimal import Decimal
+
+        from ginkgo.data.models import MBar
+        from ginkgo.enums import FREQUENCY_TYPES
+
+        crash_file = tmp_path / "crash.py"
+        crash_file.write_text(
+            "from ginkgo.trading.strategies.strategy_base import BaseStrategy\n"
+            "class CrashStrategy(BaseStrategy):\n"
+            "    def cal(self, portfolio_info, event):\n"
+            "        raise AttributeError(\"'SimpleDataFeeder' object has no attribute 'get_historical_data'\")\n"
+        )
+
+        bar = MBar(
+            code="000001.SZ",
+            timestamp=datetime(2023, 1, 3, 9, 30),
+            open=Decimal("10.0"),
+            high=Decimal("10.5"),
+            low=Decimal("9.8"),
+            close=Decimal("10.2"),
+            volume=1000000,
+            amount=Decimal("10200000.0"),
+            frequency=FREQUENCY_TYPES.DAY,
+        )
+
+        mock_container = MagicMock()
+        mock_bar_service = MagicMock()
+        mock_bar_service.get.return_value = ServiceResult.success(
+            data=[bar], message="ok"
+        )
+        mock_container.bar_service.return_value = mock_bar_service
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            report = validation_cli._run_signal_tracing(
+                crash_file, "000001.SZ", 0, verbose=False
+            )
+
+        assert report is not None
+        assert len(report.cal_exceptions) >= 1
+        rec = report.cal_exceptions[0]
+        assert rec["exception_type"] == "AttributeError"
+        assert "get_historical_data" in rec["message"]
+        assert "Traceback" in rec["traceback_str"]
+
+    def test_validate_crashing_strategy_reports_failed(self, cli_runner, tmp_path):
+        """#5317 验收: ginkgo validate --show-trace on a crashing strategy must
+        exit non-zero and print FAILED + exception info (previously: PASSED)."""
+        from datetime import datetime
+        from decimal import Decimal
+
+        from ginkgo.data.models import MBar
+        from ginkgo.enums import FREQUENCY_TYPES
+
+        crash_file = tmp_path / "crash.py"
+        crash_file.write_text(
+            "from ginkgo.trading.strategies.strategy_base import BaseStrategy\n"
+            "class CrashStrategy(BaseStrategy):\n"
+            "    def cal(self, portfolio_info, event):\n"
+            "        if event:\n"
+            "            raise AttributeError(\"no get_historical_data\")\n"
+            "        return []\n"
+        )
+
+        bar = MBar(
+            code="000001.SZ",
+            timestamp=datetime(2023, 1, 3, 9, 30),
+            open=Decimal("10.0"),
+            high=Decimal("10.5"),
+            low=Decimal("9.8"),
+            close=Decimal("10.2"),
+            volume=1000000,
+            amount=Decimal("10200000.0"),
+            frequency=FREQUENCY_TYPES.DAY,
+        )
+
+        mock_container = MagicMock()
+        mock_bar_service = MagicMock()
+        mock_bar_service.get.return_value = ServiceResult.success(
+            data=[bar], message="ok"
+        )
+        mock_container.bar_service.return_value = mock_bar_service
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(
+                validation_cli.app,
+                [str(crash_file), "--show-trace"],
+            )
+
+        assert result.exit_code == 1, f"expected FAILED (exit 1), got {result.exit_code}\n{result.output}"
+        assert "FAILED" in result.output
+        assert "AttributeError" in result.output
+        assert "PASSED" not in result.output
+
+    def test_validate_legitimate_empty_strategy_still_passes(self, cli_runner, tmp_path):
+        """#5317 回归保护: 策略主动 return [] (无崩溃) → 仍 PASSED。
+        修复不能误伤合法的零信号策略。"""
+        from datetime import datetime
+        from decimal import Decimal
+
+        from ginkgo.data.models import MBar
+        from ginkgo.enums import FREQUENCY_TYPES
+
+        quiet_file = tmp_path / "quiet.py"
+        quiet_file.write_text(
+            "from ginkgo.trading.strategies.strategy_base import BaseStrategy\n"
+            "class QuietStrategy(BaseStrategy):\n"
+            "    def cal(self, portfolio_info, event):\n"
+            "        return []\n"
+        )
+
+        bar = MBar(
+            code="000001.SZ",
+            timestamp=datetime(2023, 1, 3, 9, 30),
+            open=Decimal("10.0"),
+            high=Decimal("10.5"),
+            low=Decimal("9.8"),
+            close=Decimal("10.2"),
+            volume=1000000,
+            amount=Decimal("10200000.0"),
+            frequency=FREQUENCY_TYPES.DAY,
+        )
+
+        mock_container = MagicMock()
+        mock_bar_service = MagicMock()
+        mock_bar_service.get.return_value = ServiceResult.success(
+            data=[bar], message="ok"
+        )
+        mock_container.bar_service.return_value = mock_bar_service
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(
+                validation_cli.app,
+                [str(quiet_file), "--show-trace"],
+            )
+
+        assert result.exit_code == 0, f"expected PASSED (exit 0), got {result.exit_code}\n{result.output}"
+        assert "PASSED" in result.output
+        assert "FAILED" not in result.output
+        assert "RUNTIME_CAL_CRASH" not in result.output
