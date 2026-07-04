@@ -15,16 +15,24 @@ class DeploymentCRUD(BaseCRUD):
         super().__init__(MDeployment)
 
     def get_by_target_portfolio(self, portfolio_id: str):
-        """根据目标Portfolio ID查询部署记录"""
-        return self.find(filters={"target_portfolio_id": portfolio_id})
+        """根据目标Portfolio ID查询部署记录（#4982：按 create_at 降序，最近优先）"""
+        return self.find(
+            filters={"target_portfolio_id": portfolio_id},
+            order_by="create_at",
+            desc_order=True,
+        )
 
     def get_by_source_task(self, task_id: str):
         """根据源回测任务ID查询部署记录"""
         return self.find(filters={"source_task_id": task_id})
 
     def get_by_source_portfolio(self, portfolio_id: str):
-        """根据源Portfolio ID查询部署记录"""
-        return self.find(filters={"source_portfolio_id": portfolio_id})
+        """根据源Portfolio ID查询部署记录（#4982：按 create_at 降序，最近优先）"""
+        return self.find(
+            filters={"source_portfolio_id": portfolio_id},
+            order_by="create_at",
+            desc_order=True,
+        )
 
     def get_by_uuid(self, deployment_id: str):
         """根据部署记录 UUID 查询（#5335：deploy info 按 deployment_id 查）"""

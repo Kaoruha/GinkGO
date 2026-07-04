@@ -67,14 +67,26 @@ def deploy(
 
 @app.command("info")
 def info(
-    deployment_id: Annotated[str, typer.Argument(help="部署记录 ID (Deployment ID)")],
+    deployment_id: Annotated[str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")],
 ):
-    """查看部署详情"""
+    """查看部署详情（#4982：支持按部署 UUID 或 portfolio_id 反查）"""
     try:
         from ginkgo.trading.containers import trading_container
 
         svc = trading_container.deployment_service()
         result = svc.get_deployment_by_id(deployment_id)
+
+        # #4982: 按 deployment UUID 查无记录时，回退到 source/target portfolio_id 反查。
+        # find_by_* 返回 list[dict]，取最近一条归一为单 dict，
+        # 复用同一 ServiceResult 让后续展示逻辑与 get_deployment_by_id 形状对齐。
+        if not result.success:
+            for finder in (svc.find_by_source_portfolio, svc.find_by_target_portfolio):
+                fb = finder(deployment_id)
+                if fb.success and fb.data:
+                    records = fb.data if isinstance(fb.data, list) else [fb.data]
+                    fb.data = records[0]
+                    result = fb
+                    break
 
         if result.success:
             data = result.data

@@ -72,14 +72,16 @@ class TestDeploymentCRUDBusinessHelpers:
 
     @pytest.mark.unit
     def test_get_by_target_portfolio(self, deployment_crud, fake_deployment):
-        """根据目标 Portfolio ID 查询部署记录"""
+        """根据目标 Portfolio ID 查询部署记录（#4982：含 create_at 降序契约）"""
         deployment_crud.find = MagicMock(return_value=[fake_deployment])
 
         result = deployment_crud.get_by_target_portfolio("portfolio_001")
 
         assert result == [fake_deployment]
         deployment_crud.find.assert_called_once_with(
-            filters={"target_portfolio_id": "portfolio_001"}
+            filters={"target_portfolio_id": "portfolio_001"},
+            order_by="create_at",
+            desc_order=True,
         )
 
     @pytest.mark.unit
@@ -133,3 +135,35 @@ class TestDeploymentCRUDBusinessHelpers:
         call_args = deployment_crud.find.call_args[1]
         assert "source_task_id" in call_args["filters"]
         assert call_args["filters"]["source_task_id"] == "task_xyz"
+
+    @pytest.mark.unit
+    def test_get_by_source_portfolio_orders_recent_first(self, deployment_crud):
+        """#4982 多次部署同组合，get_by_source_portfolio 应按 create_at 降序，
+        records[0] = 最近一条部署（review PR #6549：原 find 未传 order_by 致取最旧）"""
+        deployment_crud.find = MagicMock(return_value=[])
+
+        deployment_crud.get_by_source_portfolio("portfolio_src")
+
+        call_kwargs = deployment_crud.find.call_args[1]
+        assert call_kwargs.get("order_by") == "create_at", (
+            f"应按 create_at 排序取最近部署，实际 find 参数：{call_kwargs}"
+        )
+        assert call_kwargs.get("desc_order") is True, (
+            f"应降序（最近优先），实际 find 参数：{call_kwargs}"
+        )
+
+    @pytest.mark.unit
+    def test_get_by_target_portfolio_orders_recent_first(self, deployment_crud):
+        """#4982 get_by_target_portfolio 同样按 create_at 降序（一处修三处：
+        get_deployment_info records[0] / list_deployments 顺序 / CLI fallback records[0]）"""
+        deployment_crud.find = MagicMock(return_value=[])
+
+        deployment_crud.get_by_target_portfolio("portfolio_tgt")
+
+        call_kwargs = deployment_crud.find.call_args[1]
+        assert call_kwargs.get("order_by") == "create_at", (
+            f"应按 create_at 排序取最近部署，实际 find 参数：{call_kwargs}"
+        )
+        assert call_kwargs.get("desc_order") is True, (
+            f"应降序（最近优先），实际 find 参数：{call_kwargs}"
+        )
