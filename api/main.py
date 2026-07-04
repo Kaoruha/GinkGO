@@ -158,6 +158,18 @@ app.add_websocket_route("/ws/portfolio", portfolio_handler.websocket_endpoint)
 app.add_websocket_route("/ws/system", system_handler.websocket_endpoint)
 
 
+# 自定义 OpenAPI schema：注入 Bearer JWT securityScheme（#5714）
+# 鉴权仍由 JWTAuthMiddleware 运行时负责，此处只补 spec 契约
+from openapi_schema import build_openapi_schema
+
+
+def custom_openapi():
+    return build_openapi_schema(app)
+
+
+app.openapi = custom_openapi
+
+
 if __name__ == "__main__":
     import uvicorn
 
