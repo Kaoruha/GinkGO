@@ -130,6 +130,67 @@ class TestStopPayload:
         assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "stop"}
 
 
+# ---------- stop 状态机契约（#5421）----------
+
+class TestStopStateMachine:
+    """stop_task 状态机：created/pending/running 均可停（→ stopped）；终态拒绝。
+
+    背景：Worker 吞任务卡 created 时，stop 被硬拒只能 cancel（#5421）。
+    分路径：created/pending 委托 cancel_task（走 CancelAssignment，worker
+    _cancel_task 真实清理 in-memory task）；running 走 StopAssignment。
+    review #6543：StopAssignment 在 worker 端是 no-op 死信（DTO 自认 A1 未实现），
+    created/pending 走它对核心场景无效；CancelAssignment 才有真实清理路径。
+    """
+
+    @pytest.mark.unit
+    def test_stop_created_routes_to_cancel_assignment(self, service):
+        """created 回测 stop → 委托 cancel_task，发 CancelAssignment（非死信 Stop）。"""
+        task = _make_task(status="created")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert result.is_success()
+        assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "cancel"}
+        service.update_status.assert_called_once_with("uuid-1234-5678", status="stopped")
+
+    @pytest.mark.unit
+    def test_stop_pending_routes_to_cancel_assignment(self, service):
+        """pending 回测 stop → 委托 cancel_task，发 CancelAssignment（非死信 Stop）。"""
+        task = _make_task(status="pending")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert result.is_success()
+        assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "cancel"}
+        service.update_status.assert_called_once_with("uuid-1234-5678", status="stopped")
+
+    @pytest.mark.unit
+    def test_stop_running_still_uses_stop_assignment(self, service):
+        """running 回测 stop → 仍发 StopAssignment（worker 正在执行，stop 信号路径不变）。
+
+        守卫：created/pending 改走 cancel 后，running 必须保留 StopAssignment，
+        防 review 后续把 running 也误改。
+        """
+        task = _make_task(status="running")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert result.is_success()
+        assert _sent_payload(mp) == {"task_uuid": "task-abc", "command": "stop"}
+        service.update_status.assert_called_once_with("uuid-1234-5678", status="stopped")
+
+    @pytest.mark.unit
+    def test_stop_terminal_state_still_rejected(self, service):
+        """终态（completed/failed/stopped）stop 仍拒绝——回归守卫，防白名单过宽。"""
+        task = _make_task(status="completed")
+        _setup_task(service, task)
+        with _mock_kafka() as mp:
+            result = service.stop_task(uuid="uuid-1234-5678")
+        assert not result.is_success()
+        mp.send.assert_not_called()
+        service.update_status.assert_not_called()
+
+
 # ---------- cancel payload 契约 ----------
 
 class TestCancelPayload:

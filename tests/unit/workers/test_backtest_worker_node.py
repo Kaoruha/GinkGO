@@ -108,3 +108,32 @@ class TestHandleAssignmentCommitTiming:
 
         # 异常分支绝不提交 offset（at-least-once：重启后重投）
         worker.task_consumer.commit.assert_not_called()
+
+
+@pytest.mark.unit
+class TestStartTaskSkipStopped:
+    """#5421 review: stopped 状态任务必须被 _start_task skip
+
+    bug: node.py _start_task skip 集合是 ["completed","failed","cancelled"]，
+    不含 stopped。stop_task/cancel_task 终态都标 stopped，若 worker 重投
+    StartAssignment（Kafka at-least-once 重投/worker 重启），stopped 任务不进
+    skip 分支，会继续走到 BacktestProcessor 创建并覆盖状态——竞态。
+    """
+
+    def test_stopped_task_skipped_not_reexecuted(self):
+        """stopped 状态任务重投 StartAssignment → skip，不创建 processor 不重置状态。"""
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+
+        worker = BacktestWorker("test-skip-stopped")
+        worker.progress_tracker = MagicMock()
+        worker.progress_tracker.get_task_status.return_value = "stopped"
+
+        from ginkgo.interfaces.dtos.backtest_assignment_dto import from_payload
+        cmd = from_payload(_make_assignment())
+
+        with patch("ginkgo.workers.backtest_worker.node.BacktestProcessor") as MockProc:
+            worker._start_task(cmd)
+
+        # stopped 应被 skip：不创建 processor，不重置状态
+        assert MockProc.call_count == 0, "stopped 任务不应创建 processor（应 skip）"
+        worker.progress_tracker.task_service.update_status.assert_not_called()
