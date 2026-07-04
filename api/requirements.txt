@@ -11,7 +11,7 @@ pydantic-settings>=2.1.0
 # 认证
 python-jose[cryptography]>=3.3.0
 bcrypt>=4.0.0
-python-multipart>=0.0.6
+python-multipart>=0.0.31
 
 # Kafka集成
 kafka-python>=2.0.2
