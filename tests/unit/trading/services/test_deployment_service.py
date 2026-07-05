@@ -10,6 +10,7 @@ if _path not in sys.path:
 import pytest
 from unittest.mock import MagicMock
 from ginkgo.enums import PORTFOLIO_MODE_TYPES
+from ginkgo.enums import DEPLOYMENT_STATUS
 
 # #3626 已修: MDeployment() 实例化不再触发 MUserCredential mapper 错误, 全部测试可跑。
 # deploy→_deploy_core 路径现可经公共接口测(见 test_deploy_propagates_source_initial_capital)。
@@ -282,6 +283,65 @@ class TestDeploymentServiceErrorMessages:
         assert not result.error.startswith("部署失败:")
 
 
+class TestDeploymentServiceUndeploy:
+    """#4988: 支持撤销部署，释放已部署组合生命周期。"""
+
+    def test_undeploy_stops_target_portfolio_and_marks_deployment_stopped(self):
+        svc = _make_svc()
+        deployment = MagicMock()
+        deployment.uuid = "dep-1"
+        deployment.source_portfolio_id = "src-pid"
+        deployment.target_portfolio_id = "tgt-pid"
+        deployment.status = DEPLOYMENT_STATUS.DEPLOYED
+        svc._deployment_crud.get_by_uuid.return_value = []
+        svc._deployment_crud.get_by_source_portfolio.return_value = [deployment]
+        svc._portfolio_service.stop.return_value = MagicMock(success=True, data={"portfolio_id": "tgt-pid"})
+
+        result = svc.undeploy("src-pid")
+
+        assert result.success, result.error
+        svc._portfolio_service.stop.assert_called_once_with("tgt-pid")
+        svc._deployment_crud.modify.assert_called_once_with(
+            filters={"uuid": "dep-1"},
+            updates={"status": DEPLOYMENT_STATUS.STOPPED},
+        )
+        assert result.data["deployment_id"] == "dep-1"
+        assert result.data["target_portfolio_id"] == "tgt-pid"
+
+    def test_undeploy_stopped_deployment_does_not_send_stop_again(self):
+        svc = _make_svc()
+        deployment = MagicMock()
+        deployment.uuid = "dep-1"
+        deployment.target_portfolio_id = "tgt-pid"
+        deployment.status = DEPLOYMENT_STATUS.STOPPED
+        svc._deployment_crud.get_by_uuid.return_value = [deployment]
+
+        result = svc.undeploy("dep-1")
+
+        assert not result.success
+        assert "已停止" in result.error
+        svc._portfolio_service.stop.assert_not_called()
+        svc._deployment_crud.modify.assert_not_called()
+
+    def test_undeploy_marks_deployment_stopped_when_target_already_stopped(self):
+        """目标组合已由旧 unload 停止时，仍应释放 deployment 冻结状态。"""
+        svc = _make_svc()
+        deployment = MagicMock()
+        deployment.uuid = "dep-1"
+        deployment.target_portfolio_id = "tgt-pid"
+        deployment.status = DEPLOYMENT_STATUS.DEPLOYED
+        svc._deployment_crud.get_by_uuid.return_value = [deployment]
+        svc._portfolio_service.stop.return_value = MagicMock(success=False, error="组合已停止")
+
+        result = svc.undeploy("dep-1")
+
+        assert result.success, result.error
+        svc._deployment_crud.modify.assert_called_once_with(
+            filters={"uuid": "dep-1"},
+            updates={"status": DEPLOYMENT_STATUS.STOPPED},
+        )
+
+
 class TestDeploymentCloneKeepsAllBindings:
     """#6279: deploy 克隆必须保留全部组件绑定 (strategy/sizer 不被图同步删除)"""
 
@@ -436,4 +496,3 @@ class TestDeploymentServiceSourceTaskAutoFill:
         assert deployment_arg.source_task_id is None, (
             f"无 completed 回测时 source_task_id 应留空, 实际={deployment_arg.source_task_id!r}"
         )
-
