@@ -54,6 +54,10 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 - 函数级 import（CLI 为快启把重度 import 延到命令体内）让路径漂移只在命令实跑时暴露——模块 import 不崩，最容易误判"未实现"
 - `return` stub 让失败静默（命令"安静失败"而非"响亮报错"），反而盖住真因，后续无人回头查；宁可原样 `raise` 也别加 stub 兜底
 
+### 测试（OOM 铁律）
+- **禁止单进程跑全量 `tests/`**：`Base.metadata` + autouse fixture 不释放，单进程累积到 80GB anon-rss 必 global OOM（96GB 仍爆）
+- **跑全量必须 `-n auto`**：xdist 进程隔离，worker 各自释放，总 RSS ~5.75GB
+
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
