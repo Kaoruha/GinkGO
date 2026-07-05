@@ -398,7 +398,7 @@ def nodes():
 @app.command()
 def migrate(
     portfolio_id: str = typer.Argument(..., help="Portfolio ID to migrate"),
-    target_node: str = typer.Option(None, "--target", "-t", help="Target ExecutionNode ID (if not specified, Scheduler will choose)"),
+    target_node: str = typer.Option(..., "--target", "-t", help="Target ExecutionNode ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Force migration without confirmation"),
 ):
     """
@@ -408,7 +408,7 @@ def migrate(
 
     Examples:
       ginkgo scheduler migrate portfolio_uuid --target node_1
-      ginkgo scheduler migrate portfolio_uuid --force
+      ginkgo scheduler migrate portfolio_uuid --target node_1 --force
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
@@ -417,19 +417,12 @@ def migrate(
 
         console.print(f":information: Migrating portfolio [cyan]{portfolio_id[:8]}...[/cyan]")
 
-        # If no target specified, get recommendation from Scheduler
-        if not target_node:
-            console.print(":information: No target specified, Scheduler will choose optimal node")
-            # TODO: Implement load-based recommendation
-            console.print("[yellow]:warning: Auto-selection not implemented, please specify --target[/yellow]")
-            raise typer.Exit(1)
-
         # Create migration command using DTO
         migration_dto = ScheduleUpdateDTO(
             command=ScheduleUpdateDTO.Commands.PORTFOLIO_MIGRATE,
             portfolio_id=portfolio_id,
             target_node=target_node,
-            source="cli"
+            source="cli",
         )
 
         # Show migration plan
@@ -799,5 +792,3 @@ def resume():
     except Exception as e:
         console.print(f"[red]:x: Error resuming scheduler: {e}[/red]")
         raise typer.Exit(1)
-
-
