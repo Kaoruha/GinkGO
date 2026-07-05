@@ -21,7 +21,7 @@ from rich.table import Table
 from rich.tree import Tree
 from rich import print as rprint
 
-from ginkgo.enums import PORTFOLIO_MODE_TYPES
+from ginkgo.enums import PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import GLOG
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
@@ -34,6 +34,18 @@ def _format_portfolio_mode(mode_value) -> str:
         return "N/A"
     enum_val = PORTFOLIO_MODE_TYPES.from_int(mode_value)
     return enum_val.name if enum_val else str(mode_value)
+
+
+def _format_portfolio_status(portfolio) -> str:
+    """Use explicit status when present, otherwise derive display status from state."""
+    status_value = portfolio.get("status", None)
+    if status_value is not None and not pd.isna(status_value):
+        status_text = str(status_value).strip()
+        if status_text and status_text.lower() != "unknown":
+            return status_text
+
+    enum_val = PORTFOLIO_RUNSTATE_TYPES.from_int(portfolio.get("state", None))
+    return enum_val.name if enum_val else "Unknown"
 
 
 def display_component_tree(console, component_data: dict):
@@ -151,7 +163,7 @@ def list(
             for _, portfolio in portfolios_df.iterrows():
                 initial_capital = f"¥{float(portfolio.get('initial_capital', 0)):,.2f}"
                 portfolio_type = "Live" if portfolio.get('is_live', False) else "Backtest"
-                status = portfolio.get('status', 'Unknown')
+                status = _format_portfolio_status(portfolio)
 
                 table.add_row(
                     str(portfolio.get('uuid', '')),

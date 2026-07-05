@@ -133,6 +133,27 @@ class TestPortfolioList:
         assert "LivePortfolio" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_list_uses_state_when_status_missing(self, mock_container, cli_runner):
+        """status 字段缺失时使用 state 枚举显示运行状态"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(
+            data=pd.DataFrame({
+                "uuid": ["portfolio-uuid-001"],
+                "name": ["StatePortfolio"],
+                "initial_capital": [1000000.0],
+                "is_live": [False],
+                "state": [1],
+            })
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list"])
+
+        assert result.exit_code == 0
+        assert "RUNNING" in result.output
+        assert "Unknown" not in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_list_empty_portfolios(self, mock_container, cli_runner):
         """没有 portfolio 时显示提示"""
         mock_service = MagicMock()
