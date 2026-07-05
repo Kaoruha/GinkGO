@@ -174,6 +174,42 @@ class TestWhitelist:
             assert mod in result.output
 
 
+@pytest.mark.unit
+@pytest.mark.cli
+class TestViewErrors:
+    """Tests for the 'errors' command."""
+
+    def test_errors_default_labels_all_history(self, cli_runner):
+        mock_service = MagicMock()
+        mock_service.query_backtest_logs.return_value = [
+            {"timestamp": "2026-05-06 12:00:00", "event_type": "BACKTEST", "message": "boom"}
+        ]
+
+        with patch("ginkgo.services.logging.containers.container") as mock_container:
+            mock_container.log_service.return_value = mock_service
+            result = cli_runner.invoke(logging_cli.app, ["errors"])
+
+        assert result.exit_code == 0
+        assert "all history" in result.output
+        assert "boom" in result.output
+        call_kwargs = mock_service.query_backtest_logs.call_args.kwargs
+        assert "start_time" not in call_kwargs
+
+    def test_errors_hours_filters_and_labels_time_window(self, cli_runner):
+        mock_service = MagicMock()
+        mock_service.query_backtest_logs.return_value = []
+
+        with patch("ginkgo.services.logging.containers.container") as mock_container:
+            mock_container.log_service.return_value = mock_service
+            result = cli_runner.invoke(logging_cli.app, ["errors", "--hours", "24"])
+
+        assert result.exit_code == 0
+        assert "last 24h" in result.output
+        call_kwargs = mock_service.query_backtest_logs.call_args.kwargs
+        assert call_kwargs["start_time"] is not None
+        assert call_kwargs["end_time"] is not None
+
+
 # ============================================================================
 # 3. Validation / errors (5)
 # ============================================================================
