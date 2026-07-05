@@ -121,10 +121,10 @@ def _get_stockinfo_service():
     return container.stockinfo_service()
 
 
-def _get_analyzer_record_crud():
-    """获取 AnalyzerRecordCRUD 实例（#6048: 查询上一日净资产）。"""
+def _get_analyzer_service():
+    """获取 AnalyzerService 实例（#6048: 查询上一日净资产，走 Service 分层非直访 CRUD）。"""
     from ginkgo.data.containers import container
-    return container.cruds.analyzer_record()
+    return container.analyzer_service()
 
 
 def _resolve_stock_names(codes: list) -> dict:
@@ -741,18 +741,22 @@ def _query_previous_net_asset(account_id: str, target_date: Optional[str] = None
         return None
 
     end_time = day_start - timedelta(microseconds=1)
-    crud = _get_analyzer_record_crud()
+    analyzer_service = _get_analyzer_service()
     for use_business_time in (True, False):
-        try:
-            records = crud.find_by_time_range(
-                portfolio_id=account_id,
-                end_time=end_time,
-                use_business_time=use_business_time,
-                analyzer_name="net_value",
+        result = analyzer_service.find_latest_before(
+            portfolio_id=account_id,
+            end_time=end_time,
+            analyzer_name="net_value",
+            use_business_time=use_business_time,
+        )
+        if not result.success:
+            # DB 故障：propagate 为 500（对齐 _query_positions, #5479 / 544c851c），
+            # 不吞为 None 让 today_pnl/daily_return 静默归 0。
+            raise HTTPException(
+                status_code=500,
+                detail=f"查询上一日净资产失败: {result.error}",
             )
-        except Exception:
-            continue
-        value = _record_value(records)
+        value = _record_value(result.data)
         if value is not None:
             return value
     return None

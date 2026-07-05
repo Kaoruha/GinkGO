@@ -101,3 +101,57 @@ def test_list_paper_accounts_today_pnl_uses_each_account_previous_net_asset(api_
     accounts = result["data"]
     assert accounts[0]["today_pnl"] == 3000.0
     assert accounts[1]["today_pnl"] == 5000.0
+
+
+def test_query_previous_net_asset_raises_on_db_failure(api_modules):
+    """AnalyzerService DB 故障（ServiceResult.error）必须 loud raise HTTPException 500，
+    不得静默归 None 让 today_pnl/daily_return 归 0（对齐 _query_positions, #5479 / 544c851c）。"""
+    from api.trading import _query_previous_net_asset
+    from fastapi import HTTPException
+
+    analyzer_service = MagicMock()
+    analyzer_service.find_latest_before.return_value = ServiceResult.error("DB connection lost")
+
+    with patch("api.trading._get_analyzer_service", return_value=analyzer_service):
+        with pytest.raises(HTTPException) as exc:
+            _query_previous_net_asset("acc-1")
+
+    assert exc.value.status_code == 500
+    # DB 故障必须立即 raise，不得降级试 use_business_time=False
+    assert analyzer_service.find_latest_before.call_count == 1
+
+
+def test_query_previous_net_asset_returns_value_and_falls_back_to_timestamp(api_modules):
+    """success + business_time 查空 → 降级 timestamp 查到 → 返回 value。"""
+    from api.trading import _query_previous_net_asset
+
+    record = SimpleNamespace(value=102000.0)
+    analyzer_service = MagicMock()
+    analyzer_service.find_latest_before.side_effect = [
+        ServiceResult.success([]),  # use_business_time=True 空
+        ServiceResult.success([record]),  # use_business_time=False 命中
+    ]
+
+    with patch("api.trading._get_analyzer_service", return_value=analyzer_service):
+        value = _query_previous_net_asset("acc-1", target_date="2026-07-05")
+
+    assert value == 102000.0
+    assert analyzer_service.find_latest_before.call_count == 2
+    _, kwargs_t = analyzer_service.find_latest_before.call_args_list[0]
+    _, kwargs_f = analyzer_service.find_latest_before.call_args_list[1]
+    assert kwargs_t["use_business_time"] is True
+    assert kwargs_f["use_business_time"] is False
+
+
+def test_query_previous_net_asset_none_when_no_history(api_modules):
+    """两次查询都空（无历史记录）→ 返回 None（合法，新账户未跑过）。"""
+    from api.trading import _query_previous_net_asset
+
+    analyzer_service = MagicMock()
+    analyzer_service.find_latest_before.return_value = ServiceResult.success([])
+
+    with patch("api.trading._get_analyzer_service", return_value=analyzer_service):
+        value = _query_previous_net_asset("acc-1", target_date="2026-07-05")
+
+    assert value is None
+    assert analyzer_service.find_latest_before.call_count == 2
