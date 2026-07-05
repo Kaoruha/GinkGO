@@ -67,6 +67,8 @@ class TestGetSignalsDfFilters:
         _, kwargs = mock_crud.find.call_args
         assert kwargs["page"] == 2
         assert kwargs["page_size"] == 30
+        assert kwargs["order_by"] == "create_at"
+        assert kwargs["desc_order"] is True
 
 
 @pytest.mark.unit
