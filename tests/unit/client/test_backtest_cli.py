@@ -341,3 +341,106 @@ class TestBacktestRunTaskBgGuard:
         assert err and "boom" in str(err), (
             f"error_message 应含异常真因，实际: {err!r}"
         )
+
+
+class TestBacktestRunTaskBanner:
+    """#6449 review fix: 非 bg 模式补回 master 启动 banner（Period/Capital/Portfolio）。
+
+    config 下沉到 run_from_task 后，banner 字段从 task.config_snapshot 轻量取。
+    回归契约：用户 `ginkgo backtest run <id>` 应看到回测参数概览（master 既有 UX），
+    不能因下沉丢失。
+    """
+
+    @patch("ginkgo.services.logging.log_ingester.LogIngester")
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_non_bg_prints_starting_banner(
+        self, mock_orch_cls, mock_container, mock_log_cls):
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        # 屏蔽 ClickHouse 日志灌入（避免真实连接副作用）
+        mock_log_cls.return_value.ingest_task_logs.return_value = MagicMock(inserted=0)
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-banner-001"
+        task.name = "MyBacktest"
+        task.portfolio_id = "port-banner-123456"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30", "initial_cash": 999999}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(success=True, data={})
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-banner-001"])
+
+        assert invoke_result.exit_code == 0, (
+            f"期望 exit_code=0，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+        plain = _strip_ansi(invoke_result.output)
+        assert "MyBacktest" in plain, f"输出应含 task.name，实际: {plain!r}"
+        assert "2024-01-01" in plain and "2024-06-30" in plain, (
+            f"输出应含 Period（start/end），实际: {plain!r}"
+        )
+        assert "999999" in plain, f"输出应含 Capital，实际: {plain!r}"
+        assert "port-banner-" in plain, f"输出应含 Portfolio 截断，实际: {plain!r}"
+
+
+class TestBacktestRunTaskListDataGuard:
+    """#6449 review fix: result.data 是 list（非 dict）时 FINALIZING 不得抛 AttributeError。
+
+    OrchestratorResult.data 可能是 list（backtest_orchestrator.py:98 有 isinstance(list)
+    分支）。master 用 str(config.end_date) 不依赖 data 类型；本 PR 改成 result.data.get(...)，
+    若 data 是 list，.get 抛 AttributeError。守卫：isinstance(result.data, dict) 退化 ""。
+    """
+
+    @patch("ginkgo.services.logging.log_ingester.LogIngester")
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_non_dict_data_does_not_raise(
+        self, mock_orch_cls, mock_container, mock_log_cls):
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        mock_log_cls.return_value.ingest_task_logs.return_value = MagicMock(inserted=0)
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-list-001"
+        task.portfolio_id = "port-list"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        # run_from_task 返回 list data（aggregator list 路径）+ success
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(
+            success=True, data=["net_value_row_1", "net_value_row_2"],
+        )
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-list-001"])
+
+        # 关键守卫：list data 不应抛 AttributeError（.get 在 list 上不存在）。
+        # 守卫缺失时（if result.data else）list truthy 进 .get 抛 AttributeError，
+        # CliRunner 捕获 → exception 非 None + exit_code=1。
+        assert invoke_result.exception is None, (
+            f"list data 路径不应抛异常；exception={invoke_result.exception!r}"
+        )
+        assert invoke_result.exit_code == 0, (
+            f"list data 路径应 exit 0；实际 {invoke_result.exit_code}"
+        )
+        # FINALIZING update_progress 应被调用（说明走到非 bg 成功路径末段未崩）
+        assert mock_service.update_progress.called, (
+            "list data 不应阻断 FINALIZING update_progress 调用"
+        )

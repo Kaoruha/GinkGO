@@ -136,6 +136,7 @@ def run_task(
     bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
 ):
     """:rocket: Run a backtest task locally."""
+    import json as _json
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
@@ -199,6 +200,20 @@ def run_task(
                 current_date=current_date,
             )
 
+        # #6449 review fix: 补回 master 启动 banner（Period/Capital/Portfolio）。
+        # config 已下沉到 run_from_task，banner 仅需 UI 字段，从 task.config_snapshot
+        # 轻量取值；完整 BacktestConfig 解析仍由 UseCase 层负责，避免重复构造。
+        # 解析损坏时退化 '?'；run_from_task 会抛 JSONDecodeError 进下方 except 兜底。
+        try:
+            _snap = _json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else (task.config_snapshot or {})
+        except Exception:
+            _snap = {}
+        console.print(f":rocket: Starting backtest: [bold]{task.name}[/bold]")
+        console.print(f"   Period: {_snap.get('start_date', '?')} ~ {_snap.get('end_date', '?')}")
+        console.print(f"   Capital: {_snap.get('initial_cash', '?')}")
+        console.print(f"   Portfolio: {(task.portfolio_id or '?')[:12]}")
+        console.print()
+
         if bg:
             def _run_in_thread():
                 # #6449 re-review 守卫：bg 线程内 run_from_task 在到达自带 try/except 的
@@ -219,7 +234,7 @@ def run_task(
                         task.uuid,
                         progress=100,
                         current_stage="FINALIZING",
-                        current_date=str(result.data.get("backtest_end_date", "")) if result.data else "",
+                        current_date=str(result.data.get("backtest_end_date", "")) if isinstance(result.data, dict) else "",
                     )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
                 else:
@@ -227,7 +242,6 @@ def run_task(
 
             thread = threading.Thread(target=_run_in_thread, daemon=True)
             thread.start()
-            console.print(f":rocket: Starting backtest (bg): [bold]{task.name}[/bold]")
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
             result = orchestrator.run_from_task(
@@ -242,7 +256,7 @@ def run_task(
                 task.uuid,
                 progress=100,
                 current_stage="FINALIZING",
-                current_date=str(result.data.get("backtest_end_date", "")) if result.data else "",
+                current_date=str(result.data.get("backtest_end_date", "")) if isinstance(result.data, dict) else "",
             )
 
             # 灌入日志到 ClickHouse（静默降级）
