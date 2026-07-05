@@ -137,6 +137,7 @@ class GinkgoJSONEncoder(json.JSONEncoder):
 ### 翻页条款（补充）
 - `--page-size N`：**表现层交互翻页**，仅 TTY + 非 JSON 模式生效；JSON 模式忽略
 - `--limit N` + `--offset N`：客户端分页，直通 `service.list(page_size=N, page=offset/N+1)`，所有模式生效
+- **过渡态（service 出口未透传 page_size 的命令）**：portfolio/engine/component list 暂用 client-side `head(limit)`/`[:limit]`。CRUD 层 `BaseCRUD.find` 已有 `page`/`page_size` 形参，但 service 出口方法 `get_portfolios_df`/`get_engines_df` 未透传 page_size；component 更绕过 service 直调 `file_crud.find(page_size=10000)` 硬编码。补 service 分页跟踪于 #6690，落地后 CLI 改直通。`data get` 各子类型（#6650）已合规。
 - **三层分页概念**：表现层翻页（--page-size，全量加载后切片显示）/ 截断（--limit，head/tail）/ 服务端分页（service.list page 参数，查一次取一页）
 - 表现层翻页不解决"查询 OOM"（全量加载后才切片），百万级数据靠服务端分页
 

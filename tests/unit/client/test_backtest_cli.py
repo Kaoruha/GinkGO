@@ -1,4 +1,5 @@
 # #5329 backtest cat 输出提示 result show 用法
+import json
 import sys
 from pathlib import Path
 
@@ -80,6 +81,28 @@ class TestBacktestListProgressFormat:
     """#5323 list 命令 progress 格式化应为 N% 而非 N00%"""
 
     @patch("ginkgo.data.containers.container")
+    def test_list_json_format_outputs_adr021_contract(self, mock_container):
+        """--format json 输出 list 契约，含 count/metadata。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is True
+        assert payload["count"] == 1
+        assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
+        assert payload["data"][0]["uuid"] == "abc123456789"
+
+    @patch("ginkgo.data.containers.container")
     def test_list_shows_correct_progress_percentage(self, mock_container):
         """#5323 progress=50 应显示 50% 而非 5000%"""
         from ginkgo.client.backtest_cli import app
@@ -129,6 +152,29 @@ class TestBacktestListProgressFormat:
 
 class TestBacktestCatNoTradesWarning:
     """#5322 completed 回测无交易时应显示警告"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_not_found_json_format_outputs_not_found_contract(self, mock_container):
+        """--format json 下 cat 未找到输出 NOT_FOUND 错误对象。"""
+        from ginkgo.client.backtest_cli import app
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = False
+        result.error = "Not found"
+        fuzzy_result = MagicMock()
+        fuzzy_result.is_success.return_value = True
+        fuzzy_result.data = []
+        mock_service.get_by_id.return_value = result
+        mock_service.fuzzy_search.return_value = fuzzy_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "missing-task", "--format", "json"])
+
+        assert invoke_result.exit_code == 1
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"] == {"code": "NOT_FOUND", "message": "Backtest task not found: missing-task"}
 
     @patch("ginkgo.data.containers.container")
     def test_cat_shows_no_trades_warning_when_zero_stats(self, mock_container):

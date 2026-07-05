@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.client.cli_utils import build_list_result, format_result
 
 console = Console(emoji=True, legacy_windows=False)
 app = typer.Typer(
@@ -52,6 +53,22 @@ def _emit_backtest_failure(result):
         console.print(preflight_warning)
 
 
+def _task_record(task) -> dict:
+    return {
+        "uuid": str(task.uuid if hasattr(task, "uuid") else task.get("uuid", "")),
+        "task_id": str(task.task_id if hasattr(task, "task_id") else task.get("task_id", "")),
+        "name": task.name if hasattr(task, "name") else task.get("name", ""),
+        "portfolio_id": task.portfolio_id if hasattr(task, "portfolio_id") else task.get("portfolio_id", ""),
+        "engine_id": task.engine_id if hasattr(task, "engine_id") else task.get("engine_id", ""),
+        "status": task.status if hasattr(task, "status") else task.get("status", ""),
+        "progress": _display_progress(
+            task.status if hasattr(task, "status") else task.get("status", ""),
+            task.progress if hasattr(task, "progress") else task.get("progress", 0),
+        ),
+        "created_at": str(task.create_at) if hasattr(task, "create_at") else str(task.get("create_at", "")),
+    }
+
+
 @app.command("create")
 def create_task(
     portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
@@ -73,9 +90,7 @@ def create_task(
         start_date = datetime.strptime(start, "%Y-%m-%d")
         end_date = datetime.strptime(end, "%Y-%m-%d")
     except ValueError:
-        console.print(
-            f":x: 日期格式无效，要求 YYYY-MM-DD；start={start} end={end}"
-        )
+        console.print(f":x: 日期格式无效，要求 YYYY-MM-DD；start={start} end={end}")
         raise typer.Exit(1)
 
     # 校验日期范围（#5993：end 早于 start 拒绝）
@@ -86,9 +101,7 @@ def create_task(
     # 未来日期警告（#6009：未来日期无历史数据，警告但不阻断）
     today = datetime.now().date()
     if start_date.date() > today or end_date.date() > today:
-        console.print(
-            f":warning: 警告：start={start} 或 end={end} 为未来日期，该区间可能无历史数据"
-        )
+        console.print(f":warning: 警告：start={start} 或 end={end} 为未来日期，该区间可能无历史数据")
 
     # 校验 cash 为正（#5983/#6004：拒绝非正现金，避免回测以零/负资金运行）
     if cash <= 0:
@@ -97,9 +110,7 @@ def create_task(
 
     # 范围外警告（#6004：极端 cash 警告但不阻断，建议合理范围 1,000~10,000,000,000）
     if cash < 1000 or cash > 10_000_000_000:
-        console.print(
-            f":warning: 警告：cash={cash} 超出建议范围（1,000~10,000,000,000），结果可能无意义"
-        )
+        console.print(f":warning: 警告：cash={cash} 超出建议范围（1,000~10,000,000,000），结果可能无意义")
 
     # 校验 portfolio 存在
     portfolio_service = container.portfolio_service()
@@ -198,9 +209,11 @@ def run_task(
         from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 
         orchestrator = BacktestOrchestrator(
-            assembly_service=container.engine_assembly_service()
-                if hasattr(container, 'engine_assembly_service')
-                else services.trading.services.engine_assembly_service(),
+            assembly_service=(
+                container.engine_assembly_service()
+                if hasattr(container, "engine_assembly_service")
+                else services.trading.services.engine_assembly_service()
+            ),
             portfolio_service=container.portfolio_service(),
             task_service=service,
             result_aggregator=BacktestResultAggregator(
@@ -232,6 +245,7 @@ def run_task(
         console.print()
 
         if bg:
+
             def _run_in_thread():
                 # #6449 re-review 守卫：bg 线程内 run_from_task 在到达自带 try/except 的
                 # self.run() 之前有未包裹抛异常路径（_json.loads / preflight_data_coverage
@@ -291,6 +305,7 @@ def run_task(
             # 灌入日志到 ClickHouse（静默降级）
             try:
                 from ginkgo.services.logging.log_ingester import LogIngester
+
                 ingester = LogIngester()
                 ingest_result = ingester.ingest_task_logs(task.uuid)
                 if ingest_result.inserted > 0:
@@ -337,7 +352,9 @@ def edit_task(
         console.print(":x: Cannot edit a completed task.")
         raise typer.Exit(1)
 
-    config_snapshot = json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
+    config_snapshot = (
+        json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
+    )
 
     if start:
         config_snapshot["start_date"] = start
@@ -400,15 +417,21 @@ def delete_task(
 @app.command("list")
 def list_tasks(
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio UUID"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"),
+    status: Optional[str] = typer.Option(
+        None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"
+    ),
     page_size: int = typer.Option(20, "--page-size", help="Items per page"),
     page: int = typer.Option(0, "--page", help="Page number"),
+    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """:clipboard: List backtest tasks."""
     from ginkgo.data.containers import container
 
     service = container.backtest_task_service()
-    result = service.list(page=page, page_size=page_size, portfolio_id=portfolio, status=status)
+    effective_page_size = limit or page_size
+    result = service.list(page=page, page_size=effective_page_size, portfolio_id=portfolio, status=status)
 
     if not result.is_success():
         console.print(f":x: {result.error}")
@@ -417,6 +440,14 @@ def list_tasks(
     data = result.data
     tasks = data.get("data", [])
     total = data.get("total", 0)
+
+    if format == "json":
+        records = [_task_record(task) for task in tasks]
+        json_result = build_list_result(
+            records, total=total, limit=effective_page_size, offset=page * effective_page_size
+        )
+        format_result(json_result, format="json", command="list")
+        return
 
     if not tasks:
         console.print(":memo: No backtest tasks found.")
@@ -434,17 +465,14 @@ def list_tasks(
         uuid_str = task.uuid[:12] if hasattr(task, "uuid") else str(task.get("uuid", ""))[:12]
         name = task.name if hasattr(task, "name") else task.get("name", "")
         portfolio_id = (
-            task.portfolio_id[:12] if hasattr(task, "portfolio_id")
-            else str(task.get("portfolio_id", ""))[:12]
+            task.portfolio_id[:12] if hasattr(task, "portfolio_id") else str(task.get("portfolio_id", ""))[:12]
         )
         status_val = task.status if hasattr(task, "status") else task.get("status", "")
         raw_progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
         progress = _display_progress(status_val, raw_progress)
         created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
 
-        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
-            status_val, "white"
-        )
+        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(status_val, "white")
 
         table.add_row(
             uuid_str,
@@ -456,12 +484,14 @@ def list_tasks(
         )
 
     console.print(table)
-    console.print(f"\n  Total: {total} tasks (Page {page}, size {page_size})")
+    console.print(f"\n  Total: {total} tasks (Page {page}, size {effective_page_size})")
 
 
 @app.command("cat")
 def cat_task(
     task_id: str = typer.Argument(help="Task UUID or task_id"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """:mag: Show backtest task details."""
     from ginkgo.data.containers import container
@@ -493,10 +523,21 @@ def cat_task(
             raise typer.Exit(1)
 
     if not result.is_success():
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Backtest task not found: {task_id}", code="NOT_FOUND"),
+                format="json",
+                command="get",
+            )
+            return
         console.print(f":x: {result.error}")
         raise typer.Exit(1)
 
     task = result.data
+
+    if format == "json":
+        format_result(ServiceResult.success(data=_task_record(task)), format="json", command="get")
+        return
 
     # -- Basic info --
     info_lines = []
@@ -507,9 +548,7 @@ def cat_task(
     info_lines.append(f"[bold]Portfolio:[/bold]    {task.portfolio_id}")
     info_lines.append(f"[bold]Engine:[/bold]       {task.engine_id}")
     status_val = task.status
-    status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
-        status_val, "white"
-    )
+    status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(status_val, "white")
     info_lines.append(f"[bold]Status:[/bold]       [{status_style}]{status_val}[/{status_style}]")
     display_progress = _display_progress(status_val, task.progress)
     info_lines.append(f"[bold]Progress:[/bold]     {display_progress}%")
@@ -530,11 +569,7 @@ def cat_task(
     # -- Configuration --
     if task.config_snapshot:
         try:
-            config = (
-                json.loads(task.config_snapshot)
-                if isinstance(task.config_snapshot, str)
-                else task.config_snapshot
-            )
+            config = json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
             config_lines = []
             config_lines.append(f"[bold]Start Date:[/bold]     {config.get('start_date', 'N/A')}")
             config_lines.append(f"[bold]End Date:[/bold]       {config.get('end_date', 'N/A')}")
@@ -578,10 +613,12 @@ def cat_task(
                 stats_lines.append(f"[bold]{label}:[/bold] {value}")
         console.print(Panel("\n".join(stats_lines), title=":1234: Statistics"))
     elif status_val == "completed":
-        console.print(Panel(
-            "[yellow]⚠️ No trades generated — selector may have returned empty symbols.[/yellow]",
-            title=":warning: Warning",
-        ))
+        console.print(
+            Panel(
+                "[yellow]⚠️ No trades generated — selector may have returned empty symbols.[/yellow]",
+                title=":warning: Warning",
+            )
+        )
 
 
 def _save_results(service, task_uuid: str, engine, portfolio_id: str):
@@ -603,8 +640,10 @@ def _save_results(service, task_uuid: str, engine, portfolio_id: str):
         )
         if not result.is_success():
             from ginkgo.libs import GLOG
+
             GLOG.ERROR(f"Failed to aggregate results for {task_uuid[:8]}: {result.error}")
 
     except Exception as e:
         from ginkgo.libs import GLOG
+
         GLOG.ERROR(f"Failed to save results for {task_uuid[:8]}: {e}")

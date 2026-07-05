@@ -3,10 +3,6 @@
 # Role: 引擎管理CLI提供列表/创建/查看/状态/运行/删除/绑定/解绑等生命周期管理
 
 
-
-
-
-
 """
 Ginkgo Engine CLI - 引擎管理命令
 """
@@ -22,6 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.client.cli_utils import build_list_result, format_result
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -41,16 +38,21 @@ console = Console(emoji=True, legacy_windows=False)
 def list_engines(
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio ID"),
-    filter: Optional[str] = typer.Option(None, "--filter", "-f", help="Filter engines (search in id, name, type, status)"),
+    filter: Optional[str] = typer.Option(
+        None, "--filter", "-f", help="Filter engines (search in id, name, type, status)"
+    ),
     limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+    format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """
     :clipboard: List all engines.
     """
     from ginkgo.data.containers import container
 
-    console.print(":clipboard: Listing engines...")
+    if format != "json":
+        console.print(":clipboard: Listing engines...")
 
     try:
         engine_service = container.engine_service()
@@ -61,7 +63,7 @@ def list_engines(
             filter_str = str(filter) if not isinstance(filter, str) else filter
             # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
-            fs_result = engine_service.fuzzy_search(filter_str, fields=['uuid', 'name', 'is_live', 'status'])
+            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"])
             if fs_result.success:
                 # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
                 engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
@@ -71,13 +73,17 @@ def list_engines(
         elif status:
             # If only status filter, use database-level filtering
             from ginkgo.enums import ENGINESTATUS_TYPES
+
             try:
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
                 result = engine_service.get_engines_df(status=status_enum)
             except Exception as e:
                 from ginkgo.libs import GLOG
-                GLOG.ERROR(f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}")
+
+                GLOG.ERROR(
+                    f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}"
+                )
                 # If conversion fails, fall back to application-level filtering
                 result = engine_service.get_engines_df()
         else:
@@ -90,15 +96,23 @@ def list_engines(
             # Raw output mode
             if raw:
                 import json
+
                 # ADR-010 R2a: result.data 已是 DataFrame（get_engines_df 出口契约）
                 engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
-                raw_data = engines_df.to_dict('records')
+                raw_data = engines_df.to_dict("records")
 
                 console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
                 return
 
             # ADR-010 R2a: result.data 已是 DataFrame（类型即契约，无需鸭子探测）
             engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
+
+            if format == "json":
+                total = len(engines_df)
+                records = engines_df.head(limit).to_dict("records")
+                json_result = build_list_result(records, total=total, limit=limit, offset=0)
+                format_result(json_result, format="json", command="list")
+                return
 
             if engines_df.empty:
                 console.print(":memo: No engines found.")
@@ -118,40 +132,41 @@ def list_engines(
 
             for _, engine in engines_df.iterrows():
                 # Format the update_at timestamp (simplified)
-                update_at = engine.get('update_at')
+                update_at = engine.get("update_at")
                 try:
-                    if update_at is None or (hasattr(update_at, '__len__') and len(str(update_at)) == 0):
-                        update_at_str = 'N/A'
+                    if update_at is None or (hasattr(update_at, "__len__") and len(str(update_at)) == 0):
+                        update_at_str = "N/A"
                     else:
                         update_at_str = str(update_at)[:20]  # Simple string conversion
                 except Exception as e:
                     from ginkgo.libs import GLOG
+
                     GLOG.ERROR(f"Failed to format update_at timestamp: {e}")
-                    update_at_str = 'N/A'
+                    update_at_str = "N/A"
 
                 # Extract clean status name (simplified)
-                status_raw = str(engine.get('status', 'Unknown'))
-                if 'ENGINESTATUS_TYPES.' in status_raw:
-                    status_clean = status_raw.split('ENGINESTATUS_TYPES.')[-1]
-                elif '.' in status_raw:
-                    status_clean = status_raw.split('.')[-1]
+                status_raw = str(engine.get("status", "Unknown"))
+                if "ENGINESTATUS_TYPES." in status_raw:
+                    status_clean = status_raw.split("ENGINESTATUS_TYPES.")[-1]
+                elif "." in status_raw:
+                    status_clean = status_raw.split(".")[-1]
                 else:
                     status_clean = status_raw
 
                 # Format the Type column properly
-                is_live_value = engine.get('is_live', False)
+                is_live_value = engine.get("is_live", False)
                 if isinstance(is_live_value, bool):
                     engine_type = "Live" if is_live_value else "History"
                 else:
                     # Handle string representation
-                    engine_type = "Live" if str(is_live_value).lower() in ['true', '1', 'live'] else "History"
+                    engine_type = "Live" if str(is_live_value).lower() in ["true", "1", "live"] else "History"
 
                 table.add_row(
-                    str(engine.get('uuid', ''))[:36],
-                    str(engine.get('name', ''))[:18],
+                    str(engine.get("uuid", ""))[:36],
+                    str(engine.get("name", ""))[:18],
                     engine_type,
                     status_clean,
-                    update_at_str
+                    update_at_str,
                 )
 
             console.print(table)
@@ -208,7 +223,9 @@ def create(
 
 @app.command()
 def cat(
-    engine_id: Optional[str] = typer.Argument(None, help="Engine UUID or name (if not provided, will list available engines)"),
+    engine_id: Optional[str] = typer.Argument(
+        None, help="Engine UUID or name (if not provided, will list available engines)"
+    ),
 ):
     """
     :cat: Show detailed engine information.
@@ -252,10 +269,10 @@ def cat(
             engines = result.data
 
             # Handle both ModelList and single object
-            if hasattr(engines, '__len__') and len(engines) > 0:
+            if hasattr(engines, "__len__") and len(engines) > 0:
                 # ModelList - get the first engine
                 engine = engines[0]
-            elif hasattr(engines, 'uuid'):
+            elif hasattr(engines, "uuid"):
                 # Single engine object
                 engine = engines
             else:
@@ -271,11 +288,11 @@ def cat(
             info_table.add_row("Name", str(engine.name))
             info_table.add_row("Type", "Live" if engine.is_live else "History")
             info_table.add_row("Status", str(engine.status))
-            info_table.add_row("Run Count", str(getattr(engine, 'run_count', 0)))
+            info_table.add_row("Run Count", str(getattr(engine, "run_count", 0)))
 
             # 显示时间范围
-            start_date = getattr(engine, 'backtest_start_date', None)
-            end_date = getattr(engine, 'backtest_end_date', None)
+            start_date = getattr(engine, "backtest_start_date", None)
+            end_date = getattr(engine, "backtest_end_date", None)
             if start_date and end_date:
                 time_range = f"{start_date.strftime('%Y-%m-%d %H:%M:%S')} to {end_date.strftime('%Y-%m-%d %H:%M:%S')}"
                 info_table.add_row("Time Range", time_range)
@@ -288,8 +305,10 @@ def cat(
             else:
                 info_table.add_row("Time Range", "Not configured")
 
-            info_table.add_row("Config Hash", str(getattr(engine, 'config_hash', 'N/A')))
-            info_table.add_row("Description", str(getattr(engine, 'desc', '') or getattr(engine, 'description', 'No description')))
+            info_table.add_row("Config Hash", str(getattr(engine, "config_hash", "N/A")))
+            info_table.add_row(
+                "Description", str(getattr(engine, "desc", "") or getattr(engine, "description", "No description"))
+            )
 
             console.print(info_table)
 
@@ -301,16 +320,18 @@ def cat(
             display_component_tree(console, component_data)
 
             # 3. 显示配置快照（如果有）
-            config_snapshot = getattr(engine, 'config_snapshot', '{}')
-            if config_snapshot and config_snapshot != '{}':
+            config_snapshot = getattr(engine, "config_snapshot", "{}")
+            if config_snapshot and config_snapshot != "{}":
                 console.print(f"\n📋 Configuration Snapshot:")
                 console.print(f"```json")
                 import json
+
                 try:
                     snapshot_obj = json.loads(config_snapshot)
                     console.print(json.dumps(snapshot_obj, indent=2, ensure_ascii=False))
                 except Exception as e:
                     from ginkgo.libs import GLOG
+
                     GLOG.ERROR(f"Failed to parse configuration snapshot as JSON: {e}")
                     console.print(config_snapshot)
                 console.print(f"```")
@@ -349,10 +370,10 @@ def status(
             engines = result.data
 
             # Handle both ModelList and single object
-            if hasattr(engines, '__len__') and len(engines) > 0:
+            if hasattr(engines, "__len__") and len(engines) > 0:
                 # ModelList - get the first engine
                 engine = engines[0]
-            elif hasattr(engines, 'uuid'):
+            elif hasattr(engines, "uuid"):
                 # Single engine object
                 engine = engines
             else:
@@ -372,7 +393,9 @@ def status(
 
 @app.command()
 def run(
-    engine_id: Optional[str] = typer.Argument(None, help="Engine UUID or name (if not provided, will list available engines)"),
+    engine_id: Optional[str] = typer.Argument(
+        None, help="Engine UUID or name (if not provided, will list available engines)"
+    ),
     background: bool = typer.Option(False, "--bg", help="Run in background"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate only, don't run"),
 ):
@@ -380,7 +403,9 @@ def run(
     :rocket: Run engine with assembled components.
     """
     # Deprecated warning
-    console.print(":warning: [bold yellow]Deprecated:[/bold yellow] 'ginkgo engine run' will be removed in a future version.")
+    console.print(
+        ":warning: [bold yellow]Deprecated:[/bold yellow] 'ginkgo engine run' will be removed in a future version."
+    )
     console.print("   Use [cyan]'ginkgo backtest run <task_id>'[/cyan] instead.")
     console.print()
 
@@ -433,36 +458,37 @@ def run(
 
                 for _, engine in engines_df.iterrows():
                     # Format the update_at timestamp
-                    update_at = engine.get('update_at')
+                    update_at = engine.get("update_at")
                     try:
-                        if update_at is None or (hasattr(update_at, '__len__') and len(str(update_at)) == 0):
-                            update_at_str = 'N/A'
+                        if update_at is None or (hasattr(update_at, "__len__") and len(str(update_at)) == 0):
+                            update_at_str = "N/A"
                         else:
                             update_at_str = str(update_at)[:20]
                     except Exception as e:
                         from ginkgo.libs import GLOG
+
                         GLOG.ERROR(f"Failed to format update_at timestamp: {e}")
-                        update_at_str = 'N/A'
+                        update_at_str = "N/A"
 
                     # Extract clean status name
-                    status_raw = str(engine.get('status', 'Unknown'))
-                    if 'ENGINESTATUS_TYPES.' in status_raw:
-                        status_clean = status_raw.split('ENGINESTATUS_TYPES.')[-1]
-                    elif '.' in status_raw:
-                        status_clean = status_raw.split('.')[-1]
+                    status_raw = str(engine.get("status", "Unknown"))
+                    if "ENGINESTATUS_TYPES." in status_raw:
+                        status_clean = status_raw.split("ENGINESTATUS_TYPES.")[-1]
+                    elif "." in status_raw:
+                        status_clean = status_raw.split(".")[-1]
                     else:
                         status_clean = status_raw
 
                     # Format the Type column properly
-                    is_live = engine.get('is_live', False)
+                    is_live = engine.get("is_live", False)
                     engine_type = "Live" if is_live else "Backtest"
 
                     table.add_row(
-                        str(engine.get('uuid', 'N/A')),
-                        str(engine.get('name', 'N/A')),
+                        str(engine.get("uuid", "N/A")),
+                        str(engine.get("name", "N/A")),
                         engine_type,
                         status_clean,
-                        update_at_str
+                        update_at_str,
                     )
 
                 console.print(table)
@@ -484,6 +510,7 @@ def run(
         console.print(f":mag: [bold]Dry run[/bold]: Validating engine assembly for {engine_id}...")
         try:
             from ginkgo.trading.core.containers import container
+
             assembly_service = container.services.engine_assembly_service()
             result = assembly_service.assemble_backtest_engine(engine_id=engine_id)
             if not result.success:
@@ -531,11 +558,12 @@ def run(
         console.print(f"Engine ID: {engine.engine_id}")
         try:
             mode_str = str(engine.mode)
-            engine_mode = 'BACKTEST' if 'BACKTEST' in mode_str else mode_str
+            engine_mode = "BACKTEST" if "BACKTEST" in mode_str else mode_str
         except Exception as e:
             from ginkgo.libs import GLOG
+
             GLOG.ERROR(f"Failed to determine engine mode: {e}")
-            engine_mode = 'UNKNOWN'
+            engine_mode = "UNKNOWN"
         console.print(f"Engine mode: {engine_mode}")
 
         # 🔧 在start前返回检查拼装逻辑
@@ -545,6 +573,7 @@ def run(
             portfolio_count = len(engine.portfolios)
         except Exception as e:
             from ginkgo.libs import GLOG
+
             GLOG.ERROR(f"Failed to count engine portfolios: {e}")
             portfolio_count = 0
         console.print(f"Portfolio数量: {portfolio_count}")
@@ -638,12 +667,11 @@ def run(
 
                 try:
                     # 获取Portfolio进行统计分析
-                    if hasattr(engine, 'portfolios') and engine.portfolios:
+                    if hasattr(engine, "portfolios") and engine.portfolios:
                         try:
                             # engine.portfolios可能是list或dict，统一处理
                             portfolio = None
 
-                            
                             if isinstance(engine.portfolios, dict):
                                 # 如果是字典，取第一个值
                                 if engine.portfolios:
@@ -693,6 +721,7 @@ def run(
                 GCONF.set_debug(False)
         except Exception as e:
             from ginkgo.libs import GLOG
+
             GLOG.ERROR(f"Failed to restore debug config after engine run error: {e}")
         raise typer.Exit(1)
 
@@ -713,6 +742,7 @@ def delete(
 
     try:
         from ginkgo.data.containers import container
+
         engine_service = container.engine_service()
         result = engine_service.delete(engine_id)
 
@@ -729,8 +759,12 @@ def delete(
 
 @app.command("bind-portfolio")
 def bind_portfolio(
-    engine_id: Optional[str] = typer.Argument(None, help="Engine UUID or name (if not provided, will list available engines)"),
-    portfolio_id: Optional[str] = typer.Argument(None, help="Portfolio UUID or name (if not provided, will list available portfolios)"),
+    engine_id: Optional[str] = typer.Argument(
+        None, help="Engine UUID or name (if not provided, will list available engines)"
+    ),
+    portfolio_id: Optional[str] = typer.Argument(
+        None, help="Portfolio UUID or name (if not provided, will list available portfolios)"
+    ),
 ):
     """
     :link: Bind an engine to a portfolio.
@@ -744,7 +778,9 @@ def bind_portfolio(
         console.print()
         list_engines(status=None, portfolio_id=None, filter=None, limit=20, raw=False)
         console.print()
-        console.print(":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding")
+        console.print(
+            ":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding"
+        )
         raise typer.Exit(0)
 
     # 如果没有提供 portfolio_id，显示可用的投资组合
@@ -773,11 +809,11 @@ def bind_portfolio(
                 table.add_column("Status", style="blue")
 
                 for _, row in portfolios_df.iterrows():
-                    uuid_str = str(row.get('uuid', ''))[:40]
-                    name = str(row.get('name', ''))
+                    uuid_str = str(row.get("uuid", ""))[:40]
+                    name = str(row.get("name", ""))
                     capital = f"¥{float(row.get('initial_capital', 0)):,.2f}"
-                    ptype = "Live" if row.get('is_live', False) else "Backtest"
-                    status = "Active" if not row.get('is_del', True) else "Deleted"
+                    ptype = "Live" if row.get("is_live", False) else "Backtest"
+                    status = "Active" if not row.get("is_del", True) else "Deleted"
 
                     table.add_row(uuid_str, name, capital, ptype, status)
 
@@ -786,7 +822,9 @@ def bind_portfolio(
             console.print(":memo: No portfolios found.")
 
         console.print()
-        console.print(":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding")
+        console.print(
+            ":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding"
+        )
         raise typer.Exit(0)
 
     console.print(f":link: Binding engine {engine_id} to portfolio {portfolio_id}...")
@@ -824,8 +862,7 @@ def bind_portfolio(
         # 先检查绑定是否已存在
         mapping_service = container.mapping_service()
         existing_result = mapping_service.get_engine_portfolio_mapping(
-            engine_uuid=resolved_engine_uuid,
-            portfolio_uuid=resolved_portfolio_uuid
+            engine_uuid=resolved_engine_uuid, portfolio_uuid=resolved_portfolio_uuid
         )
 
         if existing_result.success and existing_result.data and len(existing_result.data) > 0:
@@ -841,7 +878,7 @@ def bind_portfolio(
             engine_uuid=resolved_engine_uuid,
             portfolio_uuid=resolved_portfolio_uuid,
             engine_name=engine_name,
-            portfolio_name=portfolio_name
+            portfolio_name=portfolio_name,
         )
 
         if result.success:
@@ -903,8 +940,7 @@ def unbind_portfolio(
         # 使用 MappingService 删除绑定
         mapping_service = container.mapping_service()
         result = mapping_service.delete_engine_portfolio_mapping(
-            engine_uuid=resolved_engine_uuid,
-            portfolio_uuid=resolved_portfolio_uuid
+            engine_uuid=resolved_engine_uuid, portfolio_uuid=resolved_portfolio_uuid
         )
 
         if result.success:
@@ -916,6 +952,3 @@ def unbind_portfolio(
     except Exception as e:
         console.print(f":x: Error: {e}")
         raise typer.Exit(1)
-
-
-

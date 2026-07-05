@@ -12,6 +12,8 @@ Mock strategy:
     are imported at module level -> patch at the engine_cli import site.
 """
 
+import json
+
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 
@@ -25,6 +27,7 @@ from ginkgo.data.services.base_service import ServiceResult
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_engine_df(rows=None):
     """Build a DataFrame mimicking engine_service.get().data.to_dataframe()."""
@@ -82,6 +85,7 @@ def _mock_container(engine_service=None, portfolio_service=None, mapping_service
 # 1. Help tests
 # ===========================================================================
 
+
 class TestHelp:
     """Verify help output for engine commands."""
 
@@ -105,6 +109,7 @@ class TestHelp:
 # ===========================================================================
 # 2. list command
 # ===========================================================================
+
 
 class TestListEngines:
     """Tests for the 'list' command."""
@@ -170,6 +175,22 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    def test_list_json_format_outputs_adr021_contract(self, cli_runner):
+        df = _make_engine_df()
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--limit", "1"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["count"] == 1
+        assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
+        assert payload["data"][0]["name"] == "TestEngine"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_list_no_engines_found(self, cli_runner):
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=pd.DataFrame()))
 
@@ -204,6 +225,7 @@ class TestListEngines:
 # ===========================================================================
 # 3. create command
 # ===========================================================================
+
 
 class TestCreate:
     """Tests for the 'create' command."""
@@ -264,6 +286,7 @@ class TestCreate:
 # 4. cat command
 # ===========================================================================
 
+
 class TestCat:
     """Tests for the 'cat' command."""
 
@@ -276,10 +299,12 @@ class TestCat:
         model_list.__getitem__ = MagicMock(return_value=engine)
         svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"), \
-             patch("ginkgo.client.engine_cli.collect_component_info", return_value={"has_portfolio": False}), \
-             patch("ginkgo.client.engine_cli.display_component_tree"):
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+            patch("ginkgo.client.engine_cli.collect_component_info", return_value={"has_portfolio": False}),
+            patch("ginkgo.client.engine_cli.display_component_tree"),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["cat", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 0
         assert "TestEngine" in result.output
@@ -307,8 +332,10 @@ class TestCat:
     def test_cat_service_failure(self, cli_runner):
         svc = _mock_engine_service(get=ServiceResult.error(error="fetch failed"))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["cat", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 1
         assert "Failed" in result.output or "fetch failed" in result.output
@@ -333,10 +360,12 @@ class TestCat:
             "sizers": [],
         }
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"), \
-             patch("ginkgo.client.engine_cli.collect_component_info", return_value=component_data), \
-             patch("ginkgo.client.engine_cli.display_component_tree") as mock_tree:
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+            patch("ginkgo.client.engine_cli.collect_component_info", return_value=component_data),
+            patch("ginkgo.client.engine_cli.display_component_tree") as mock_tree,
+        ):
             result = cli_runner.invoke(engine_cli.app, ["cat", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 0
         mock_tree.assert_called_once()
@@ -345,6 +374,7 @@ class TestCat:
 # ===========================================================================
 # 5. status command
 # ===========================================================================
+
 
 class TestStatus:
     """Tests for the 'status' command."""
@@ -358,8 +388,10 @@ class TestStatus:
         model_list.__getitem__ = MagicMock(return_value=engine)
         svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["status", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 0
         assert "Engine Status" in result.output
@@ -381,8 +413,12 @@ class TestStatus:
         model_list.__getitem__ = MagicMock(return_value=engine)
         svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa") as mock_resolve:
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch(
+                "ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+            ) as mock_resolve,
+        ):
             result = cli_runner.invoke(engine_cli.app, ["status", "TestEngine"])
         assert result.exit_code == 0
         mock_resolve.assert_called_with("TestEngine")
@@ -392,8 +428,10 @@ class TestStatus:
     def test_status_service_failure(self, cli_runner):
         svc = _mock_engine_service(get=ServiceResult.error(error="db error"))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["status", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 1
         assert "Failed" in result.output or "db error" in result.output
@@ -402,6 +440,7 @@ class TestStatus:
 # ===========================================================================
 # 6. run command
 # ===========================================================================
+
 
 class TestRun:
     """Tests for the 'run' command."""
@@ -436,8 +475,10 @@ class TestRun:
         trading_container = MagicMock()
         trading_container.services.engine_assembly_service.return_value = assembly_svc
 
-        with patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"), \
-             patch("ginkgo.trading.core.containers.container", trading_container):
+        with (
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+            patch("ginkgo.trading.core.containers.container", trading_container),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["run", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "--dry-run"])
         assert result.exit_code == 0
         assert "Dry run" in result.output or "Validation" in result.output
@@ -446,12 +487,16 @@ class TestRun:
     @pytest.mark.cli
     def test_run_dry_run_failure(self, cli_runner):
         assembly_svc = MagicMock()
-        assembly_svc.assemble_backtest_engine.return_value = ServiceResult.error(error="assembly failed", message="assembly failed")
+        assembly_svc.assemble_backtest_engine.return_value = ServiceResult.error(
+            error="assembly failed", message="assembly failed"
+        )
         trading_container = MagicMock()
         trading_container.services.engine_assembly_service.return_value = assembly_svc
 
-        with patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"), \
-             patch("ginkgo.trading.core.containers.container", trading_container):
+        with (
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+            patch("ginkgo.trading.core.containers.container", trading_container),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["run", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "--dry-run"])
         assert result.exit_code == 0
         assert "Validation error" in result.output
@@ -460,16 +505,20 @@ class TestRun:
     @pytest.mark.cli
     def test_run_assembly_failure(self, cli_runner):
         assembly_svc = MagicMock()
-        assembly_svc.assemble_backtest_engine.return_value = ServiceResult.error(error="missing component", message="missing component")
+        assembly_svc.assemble_backtest_engine.return_value = ServiceResult.error(
+            error="missing component", message="missing component"
+        )
         trading_container = MagicMock()
         trading_container.services.engine_assembly_service.return_value = assembly_svc
 
         mock_gconf = MagicMock()
         mock_gconf.DEBUGMODE = False
 
-        with patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"), \
-             patch("ginkgo.trading.core.containers.container", trading_container), \
-             patch("ginkgo.libs.GCONF", mock_gconf):
+        with (
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+            patch("ginkgo.trading.core.containers.container", trading_container),
+            patch("ginkgo.libs.GCONF", mock_gconf),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["run", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"])
         assert result.exit_code == 0
         assert "assembly failed" in result.output or "Error" in result.output
@@ -478,6 +527,7 @@ class TestRun:
 # ===========================================================================
 # 7. delete command
 # ===========================================================================
+
 
 class TestDelete:
     """Tests for the 'delete' command."""
@@ -538,6 +588,7 @@ class TestDelete:
 # 8. bind-portfolio / unbind-portfolio commands
 # ===========================================================================
 
+
 class TestBindPortfolio:
     """Tests for the 'bind-portfolio' command."""
 
@@ -572,9 +623,13 @@ class TestBindPortfolio:
             mapping_service=mapping_svc,
         )
 
-        with patch("ginkgo.data.containers.container", container), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
-            result = cli_runner.invoke(engine_cli.app, ["bind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid"])
+        with (
+            patch("ginkgo.data.containers.container", container),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
+            result = cli_runner.invoke(
+                engine_cli.app, ["bind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid"]
+            )
         assert result.exit_code == 0
         assert "binding created" in result.output.lower() or "TestEngine" in result.output
 
@@ -610,8 +665,10 @@ class TestBindPortfolio:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_bind_engine_not_found(self, cli_runner):
-        with patch("ginkgo.client.engine_cli.resolve_engine_id", return_value=None), \
-             patch("ginkgo.data.containers.container", _mock_container()):
+        with (
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value=None),
+            patch("ginkgo.data.containers.container", _mock_container()),
+        ):
             result = cli_runner.invoke(engine_cli.app, ["bind-portfolio", "nonexistent", "port-uuid"])
         assert result.exit_code == 1
         assert "not found" in result.output
@@ -649,8 +706,10 @@ class TestBindPortfolio:
             mapping_service=mapping_svc,
         )
 
-        with patch("ginkgo.data.containers.container", container), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", container),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(
                 engine_cli.app,
                 ["bind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid"],
@@ -685,8 +744,10 @@ class TestUnbindPortfolio:
             mapping_service=mapping_svc,
         )
 
-        with patch("ginkgo.data.containers.container", container), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", container),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(
                 engine_cli.app,
                 ["unbind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid", "--confirm"],
@@ -717,8 +778,10 @@ class TestUnbindPortfolio:
             mapping_service=mapping_svc,
         )
 
-        with patch("ginkgo.data.containers.container", container), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", container),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(
                 engine_cli.app,
                 ["unbind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid", "-y"],
@@ -759,8 +822,10 @@ class TestUnbindPortfolio:
             mapping_service=mapping_svc,
         )
 
-        with patch("ginkgo.data.containers.container", container), \
-             patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"):
+        with (
+            patch("ginkgo.data.containers.container", container),
+            patch("ginkgo.client.engine_cli.resolve_engine_id", return_value="aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"),
+        ):
             result = cli_runner.invoke(
                 engine_cli.app,
                 ["unbind-portfolio", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "port-uuid", "--confirm"],
@@ -772,6 +837,7 @@ class TestUnbindPortfolio:
 # ===========================================================================
 # #5375: resolve_engine_id 的 fuzzy 搜索分支
 # ===========================================================================
+
 
 class TestResolveEngineIdFuzzy:
     """#5375: 模糊搜索命中时 resolve_engine_id 必须返回 UUID，不能崩溃。
@@ -804,6 +870,7 @@ class TestResolveEngineIdFuzzy:
 # #5988: engine create 输出 Engine ID 应为纯 UUID，非 dict repr
 # ---------------------------------------------------------------------------
 
+
 class TestEngineCreate:
     """#5988: ``engine create`` 成功后 ``Engine ID`` 行应只含纯 UUID 字符串。
 
@@ -822,13 +889,9 @@ class TestEngineCreate:
             "status": "IDLE",
             "desc": "回测引擎: test_engine",
         }
-        svc = _mock_engine_service(
-            add=ServiceResult.success(data={"engine_info": engine_info})
-        )
+        svc = _mock_engine_service(add=ServiceResult.success(data={"engine_info": engine_info}))
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
-            result = cli_runner.invoke(
-                engine_cli.app, ["create", "-n", "test_engine", "-t", "backtest"]
-            )
+            result = cli_runner.invoke(engine_cli.app, ["create", "-n", "test_engine", "-t", "backtest"])
 
         assert result.exit_code == 0, result.output
         engine_id_lines = [l for l in result.output.splitlines() if "Engine ID" in l]

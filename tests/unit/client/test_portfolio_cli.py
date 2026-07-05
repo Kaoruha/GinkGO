@@ -12,6 +12,7 @@ Portfolio CLI 单元测试
 - unbind-component: 解绑组件
 """
 
+import json
 import os
 import re
 
@@ -29,7 +30,7 @@ from ginkgo.data.services.base_service import ServiceResult
 
 def _strip_ansi(text: str) -> str:
     """去除 ANSI 转义码，便于断言"""
-    return re.sub(r'\x1b\[[0-9;]*m', '', text)
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 @pytest.fixture
@@ -50,16 +51,18 @@ class FakeModelList:
 @pytest.fixture
 def mock_portfolio_list_df():
     """标准 portfolio 测试 DataFrame"""
-    return pd.DataFrame({
-        "uuid": ["portfolio-uuid-001", "portfolio-uuid-002"],
-        "name": ["TestPortfolio", "LivePortfolio"],
-        "initial_capital": [1000000.0, 2000000.0],
-        "current_capital": [950000.0, 2100000.0],
-        "cash": [500000.0, 1000000.0],
-        "is_live": [False, True],
-        "status": ["Ready", "Running"],
-        "desc": ["Test desc", "Live desc"],
-    })
+    return pd.DataFrame(
+        {
+            "uuid": ["portfolio-uuid-001", "portfolio-uuid-002"],
+            "name": ["TestPortfolio", "LivePortfolio"],
+            "initial_capital": [1000000.0, 2000000.0],
+            "current_capital": [950000.0, 2100000.0],
+            "cash": [500000.0, 1000000.0],
+            "is_live": [False, True],
+            "status": ["Ready", "Running"],
+            "desc": ["Test desc", "Live desc"],
+        }
+    )
 
 
 @pytest.fixture
@@ -122,9 +125,7 @@ class TestPortfolioList:
     def test_list_all_portfolios(self, mock_container, cli_runner, mock_portfolio_list_df):
         """成功列出所有 portfolio"""
         mock_service = MagicMock()
-        mock_service.get_portfolios_df.return_value = ServiceResult.success(
-            data=mock_portfolio_list_df
-        )
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
@@ -157,9 +158,7 @@ class TestPortfolioList:
     def test_list_empty_portfolios(self, mock_container, cli_runner):
         """没有 portfolio 时显示提示"""
         mock_service = MagicMock()
-        mock_service.get_portfolios_df.return_value = ServiceResult.success(
-            data=pd.DataFrame()
-        )
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=pd.DataFrame())
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
@@ -170,15 +169,30 @@ class TestPortfolioList:
     def test_list_raw_output(self, mock_container, cli_runner, mock_portfolio_list_df):
         """--raw 模式输出 JSON 格式数据"""
         mock_service = MagicMock()
-        mock_service.get_portfolios_df.return_value = ServiceResult.success(
-            data=mock_portfolio_list_df
-        )
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--raw"])
         assert result.exit_code == 0
         assert "TestPortfolio" in result.output
         assert "portfolio-uuid-001" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_json_format_outputs_adr021_contract(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """--format json 输出 ADR-021 list 契约，stdout 仅含 JSON。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--limit", "1"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["count"] == 1
+        assert payload["metadata"] == {"total": 2, "limit": 1, "offset": 0}
+        assert payload["warnings"] == []
+        assert payload["data"][0]["name"] == "TestPortfolio"
 
     @patch("ginkgo.data.containers.container")
     def test_list_service_error(self, mock_container, cli_runner):
@@ -221,9 +235,7 @@ class TestPortfolioCreate:
         )
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "MyPortfolio", "--capital", "500000"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "MyPortfolio", "--capital", "500000"])
         assert result.exit_code == 0
         output = _strip_ansi(result.output)
         assert "created successfully" in output
@@ -234,14 +246,10 @@ class TestPortfolioCreate:
     def test_create_passes_initial_capital_to_service(self, mock_container, cli_runner):
         """#5331 create 命令必须将 initial_capital 传给 service.add()"""
         mock_service = MagicMock()
-        mock_service.add.return_value = ServiceResult.success(
-            data={"uuid": "new-uuid", "name": "CapTest"}
-        )
+        mock_service.add.return_value = ServiceResult.success(data={"uuid": "new-uuid", "name": "CapTest"})
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "CapTest", "--capital", "2000000"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "CapTest", "--capital", "2000000"])
         assert result.exit_code == 0
         # 验证 service.add 被调用时传入了 initial_capital
         call_kwargs = mock_service.add.call_args
@@ -257,9 +265,7 @@ class TestPortfolioCreate:
         mock_service.add.return_value = ServiceResult.success(data={"uuid": "live-uuid", "name": "LivePF"})
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "LivePF", "--live"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "LivePF", "--live"])
         assert result.exit_code == 0
         assert "Live" in result.output
 
@@ -276,9 +282,7 @@ class TestPortfolioCreate:
         mock_service.add.return_value = ServiceResult.error(error="Name already exists")
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "DupPortfolio"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "DupPortfolio"])
         assert result.exit_code == 1
         assert "creation failed" in result.output
 
@@ -287,9 +291,7 @@ class TestPortfolioCreate:
         """服务抛出异常时创建失败"""
         mock_container.portfolio_service.side_effect = Exception("DB down")
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "BadPortfolio"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "BadPortfolio"])
         assert result.exit_code == 1
         assert "Error" in result.output
 
@@ -301,9 +303,7 @@ class TestPortfolioCreate:
         mock_service = MagicMock()
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "EdgeNeg", "--capital", "-1"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "EdgeNeg", "--capital", "-1"])
         assert result.exit_code == 1
         assert "capital" in _strip_ansi(result.output).lower()
         # 负资本绝不应触达 service
@@ -315,9 +315,7 @@ class TestPortfolioCreate:
         mock_service = MagicMock()
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "EdgeZero", "--capital", "0"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "EdgeZero", "--capital", "0"])
         assert result.exit_code == 1
         assert "capital" in _strip_ansi(result.output).lower()
         mock_service.add.assert_not_called()
@@ -326,14 +324,10 @@ class TestPortfolioCreate:
     def test_create_accepts_positive_capital(self, mock_container, cli_runner):
         """#5984 正资本仍正常创建（回归守护）"""
         mock_service = MagicMock()
-        mock_service.add.return_value = ServiceResult.success(
-            data={"uuid": "ok-uuid", "name": "Ok"}
-        )
+        mock_service.add.return_value = ServiceResult.success(data={"uuid": "ok-uuid", "name": "Ok"})
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "create", "--name", "Ok", "--capital", "0.01"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["create", "--name", "Ok", "--capital", "0.01"])
         assert result.exit_code == 0
         assert "created successfully" in _strip_ansi(result.output)
 
@@ -385,6 +379,21 @@ class TestPortfolioGet:
         result = cli_runner.invoke(portfolio_cli.app, ["get", "nonexistent-uuid"])
         assert result.exit_code == 1
         assert "Failed to get portfolio" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_not_found_json_format_outputs_not_found_contract(self, mock_container, cli_runner):
+        """--format json 下 get 未找到输出 ADR-021 NOT_FOUND 错误对象。"""
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.error(error="Not found")
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "nonexistent-uuid", "--format", "json"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"] == {"code": "NOT_FOUND", "message": "Portfolio not found: nonexistent-uuid"}
+        assert payload["data"] is None
 
     @patch("ginkgo.data.containers.container")
     def test_get_with_details_empty_components(self, mock_container, cli_runner, mock_portfolio):
@@ -459,18 +468,14 @@ class TestPortfolioDelete:
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "portfolio-uuid-001", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001", "--confirm"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
         mock_service.delete.assert_called_once_with("portfolio-uuid-001")
 
     def test_delete_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝删除"""
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "portfolio-uuid-001"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001"])
         assert result.exit_code == 1
         assert "--confirm" in result.output
 
@@ -481,15 +486,13 @@ class TestPortfolioDelete:
         named = MagicMock()
         named.uuid = "resolved-uuid-999"
         mock_service.get.side_effect = [
-            ServiceResult.success(data=[]),              # get(portfolio_id=name) 空
-            ServiceResult.success(data=[named]),         # get(name=name) 命中
+            ServiceResult.success(data=[]),  # get(portfolio_id=name) 空
+            ServiceResult.success(data=[named]),  # get(name=name) 命中
         ]
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "deploy_test", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "deploy_test", "--confirm"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
         mock_service.delete.assert_called_once_with("resolved-uuid-999")
@@ -505,9 +508,7 @@ class TestPortfolioDelete:
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "deadbeef", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "deadbeef", "--confirm"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
         mock_service.fuzzy_search.assert_called_once_with("deadbeef")
@@ -523,9 +524,7 @@ class TestPortfolioDelete:
         mock_service.fuzzy_search.return_value = ServiceResult.success(data=[a, b])
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "uuid", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "uuid", "--confirm"])
         assert result.exit_code == 1
         assert "Multiple" in result.output or "多个" in result.output
         mock_service.delete.assert_not_called()
@@ -538,9 +537,7 @@ class TestPortfolioDelete:
         mock_service.fuzzy_search.return_value = ServiceResult.success(data=[])
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "nonexistent", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "nonexistent", "--confirm"])
         assert result.exit_code == 1
         assert "投资组合不存在" in result.output
         mock_service.delete.assert_not_called()
@@ -553,9 +550,7 @@ class TestPortfolioDelete:
         mock_service.delete.return_value = ServiceResult.error(error="Portfolio not found")
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "portfolio-uuid-001", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001", "--confirm"])
         assert result.exit_code == 1
         assert "Failed to delete portfolio" in result.output
 
@@ -566,9 +561,7 @@ class TestPortfolioDelete:
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "delete", "portfolio-uuid-001", "-y"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001", "-y"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
         mock_service.delete.assert_called_once_with("portfolio-uuid-001")
@@ -609,9 +602,9 @@ class TestPortfolioBindComponent:
         mock_container.file_service.return_value = mock_file_service
         mock_container.mapping_service.return_value = mock_mapping_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "bind-component", "TestPortfolio", "MyStrategy", "--type", "strategy"
-        ])
+        result = cli_runner.invoke(
+            portfolio_cli.app, ["bind-component", "TestPortfolio", "MyStrategy", "--type", "strategy"]
+        )
         assert result.exit_code == 0
         assert "binding created successfully" in result.output
 
@@ -639,10 +632,10 @@ class TestPortfolioBindComponent:
         mock_container.file_service.return_value = mock_file_service
         mock_container.mapping_service.return_value = mock_mapping_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "bind-component", "TestPortfolio", "RiskMgr",
-            "--type", "risk", "--param", "0:0.1", "--param", "1:100"
-        ])
+        result = cli_runner.invoke(
+            portfolio_cli.app,
+            ["bind-component", "TestPortfolio", "RiskMgr", "--type", "risk", "--param", "0:0.1", "--param", "1:100"],
+        )
         assert result.exit_code == 0
         output = _strip_ansi(result.output)
         assert "binding created successfully" in output
@@ -650,9 +643,7 @@ class TestPortfolioBindComponent:
 
     def test_bind_missing_type(self, cli_runner):
         """缺少 --type 参数时失败"""
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "bind-component", "portfolio-id", "file-id"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["bind-component", "portfolio-id", "file-id"])
         assert result.exit_code != 0
 
     @patch("ginkgo.data.containers.container")
@@ -662,16 +653,14 @@ class TestPortfolioBindComponent:
         mock_pf_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
 
         mock_file_service = MagicMock()
-        mock_file_service.get_by_uuid.return_value = ServiceResult.success(
-            data=MagicMock(uuid="f-1", name="Comp")
-        )
+        mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=MagicMock(uuid="f-1", name="Comp"))
 
         mock_container.portfolio_service.return_value = mock_pf_service
         mock_container.file_service.return_value = mock_file_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "bind-component", "TestPortfolio", "Comp", "--type", "invalid_type"
-        ])
+        result = cli_runner.invoke(
+            portfolio_cli.app, ["bind-component", "TestPortfolio", "Comp", "--type", "invalid_type"]
+        )
         assert result.exit_code == 1
         assert "Invalid component type" in result.output
 
@@ -696,11 +685,18 @@ class TestPortfolioBindComponent:
         mock_container.portfolio_service.return_value = mock_pf_service
         mock_container.file_service.return_value = mock_file_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "bind-component", "TestPortfolio", "moving_average_crossover",
-            "--type", "strategy",
-            "--param", "short_period:20",
-        ])
+        result = cli_runner.invoke(
+            portfolio_cli.app,
+            [
+                "bind-component",
+                "TestPortfolio",
+                "moving_average_crossover",
+                "--type",
+                "strategy",
+                "--param",
+                "short_period:20",
+            ],
+        )
         assert result.exit_code != 0
         assert "仅支持整数 index" in result.output
 
@@ -730,9 +726,7 @@ class TestPortfolioUnbindComponent:
         mock_container.file_service.return_value = mock_file_service
         mock_container.mapping_service.return_value = mock_mapping_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "unbind-component", "TestPortfolio", "MyStrategy", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["unbind-component", "TestPortfolio", "MyStrategy", "--confirm"])
         assert result.exit_code == 0
         assert "binding deleted successfully" in result.output
 
@@ -756,18 +750,14 @@ class TestPortfolioUnbindComponent:
         mock_container.file_service.return_value = mock_file_service
         mock_container.mapping_service.return_value = mock_mapping_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "unbind-component", "TestPortfolio", "MyStrategy", "-y"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["unbind-component", "TestPortfolio", "MyStrategy", "-y"])
         assert result.exit_code == 0
         assert "binding deleted successfully" in result.output
         mock_mapping_service.delete_portfolio_file_binding.assert_called_once()
 
     def test_unbind_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝解绑"""
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "unbind-component", "portfolio-id", "file-id"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["unbind-component", "portfolio-id", "file-id"])
         assert result.exit_code == 1
         assert "--confirm" in result.output
 
@@ -784,17 +774,13 @@ class TestPortfolioUnbindComponent:
         mock_file_service.get_by_uuid.return_value = ServiceResult.success(data=mock_file)
 
         mock_mapping_service = MagicMock()
-        mock_mapping_service.delete_portfolio_file_binding.return_value = ServiceResult.error(
-            error="Binding not found"
-        )
+        mock_mapping_service.delete_portfolio_file_binding.return_value = ServiceResult.error(error="Binding not found")
 
         mock_container.portfolio_service.return_value = mock_pf_service
         mock_container.file_service.return_value = mock_file_service
         mock_container.mapping_service.return_value = mock_mapping_service
 
-        result = cli_runner.invoke(portfolio_cli.app, [
-            "unbind-component", "TestPortfolio", "SomeFile", "--confirm"
-        ])
+        result = cli_runner.invoke(portfolio_cli.app, ["unbind-component", "TestPortfolio", "SomeFile", "--confirm"])
         assert result.exit_code == 1
         assert "Failed to delete binding" in result.output
 
@@ -829,12 +815,14 @@ class TestGenerateBaselinePagination:
         mock_task.engine_id = "engine-xyz"
 
         mock_task_svc = MagicMock()
-        mock_task_svc.list.return_value = ServiceResult.success({
-            "data": [mock_task],
-            "total": 1,
-            "page": 0,
-            "page_size": 20,
-        })
+        mock_task_svc.list.return_value = ServiceResult.success(
+            {
+                "data": [mock_task],
+                "total": 1,
+                "page": 0,
+                "page_size": 20,
+            }
+        )
 
         # Mock evaluator (prevent real evaluation)
         mock_evaluator = MagicMock()
@@ -850,9 +838,12 @@ class TestGenerateBaselinePagination:
         mock_services.data.backtest_task_service.return_value = mock_task_svc
         mock_services.data.redis_service.return_value = mock_redis
 
-        with patch("ginkgo.services", mock_services), \
-             patch("ginkgo.trading.analysis.evaluation.backtest_evaluator.BacktestEvaluator",
-                   return_value=mock_evaluator):
+        with (
+            patch("ginkgo.services", mock_services),
+            patch(
+                "ginkgo.trading.analysis.evaluation.backtest_evaluator.BacktestEvaluator", return_value=mock_evaluator
+            ),
+        ):
             _generate_baseline_if_possible("paper-id", "source-id")
 
         # The evaluator must have been called with the correct engine_id
@@ -866,12 +857,14 @@ class TestGenerateBaselinePagination:
         from ginkgo.client.portfolio_cli import _generate_baseline_if_possible
 
         mock_task_svc = MagicMock()
-        mock_task_svc.list.return_value = ServiceResult.success({
-            "data": [],
-            "total": 0,
-            "page": 0,
-            "page_size": 20,
-        })
+        mock_task_svc.list.return_value = ServiceResult.success(
+            {
+                "data": [],
+                "total": 0,
+                "page": 0,
+                "page_size": 20,
+            }
+        )
 
         mock_services = MagicMock()
         mock_services.data.backtest_task_service.return_value = mock_task_svc

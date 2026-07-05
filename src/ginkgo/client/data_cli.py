@@ -12,6 +12,8 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
+from ginkgo.client.cli_utils import build_list_result, format_result
+
 app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -64,19 +66,6 @@ class SyncStats:
         return (
             f"{type_name} sync completed. " f"Success: {self.success}, Skipped: {self.skipped}, Errors: {self.errors}"
         )
-
-
-def _emit_json_records(records: list, *, total: int, limit: Optional[int], order: Optional[str] = None) -> None:
-    from ginkgo.client.cli_utils import format_result
-    from ginkgo.data.services.base_service import ServiceResult
-
-    result = ServiceResult.success(data=records)
-    result.set_metadata("total", total)
-    result.set_metadata("limit", limit)
-    result.set_metadata("offset", 0)
-    if order:
-        result.set_metadata("order", order)
-    format_result(result, format="json", command="get")
 
 
 @app.command()
@@ -219,12 +208,13 @@ def get(
 
                 if format == "json":
                     json_df = formatted_df.head(limit) if limit is not None else formatted_df
-                    _emit_json_records(
+                    _list_result = build_list_result(
                         json_df.to_dict("records"),
                         total=total_records,
                         limit=limit,
                         order="head",
                     )
+                    format_result(_list_result, format="json", command="get")
                     return
 
                 # 交互式翻页仅在 TTY 下启用；非 TTY（CI/脚本/管道）退化为 limit 输出（#5280）
@@ -398,12 +388,13 @@ def get(
 
             if format == "json":
                 json_df = df.sort_values("timestamp").tail(limit) if limit is not None else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=limit,
                     order="tail",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             display_cols = ["code", "timestamp", "open", "high", "low", "close", "volume", "amount"]
@@ -461,12 +452,13 @@ def get(
                 # 解耦——机读场景需更多样本，1000 兼顾样本量与 stdout 友好）。
                 json_limit = limit if limit is not None else 1000
                 json_df = df.tail(json_limit) if len(df) > json_limit else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=json_limit,
                     order="tail",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             # ADR-021 第 2/3 维：tick = 分笔时序，--limit 取最新 N（tail）
@@ -522,12 +514,13 @@ def get(
 
             if format == "json":
                 json_df = df.sort_values("timestamp").head(limit) if limit is not None else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=limit,
                     order="head",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             # Raw JSON 输出（对齐 stockinfo 分支）
@@ -580,11 +573,13 @@ def get(
                     {
                         "name": name,
                         "type": cls.__name__,
-                        "configured": "yes" if token is None or token else "no",
+                        # bool 对齐既有 JSON 字段先例（notifier check_kafka_health "configured": False）
+                        "configured": token is None or bool(token),
                     }
                     for name, cls, token in configured_sources
                 ]
-                _emit_json_records(records, total=len(records), limit=None)
+                _list_result = build_list_result(records, total=len(records), limit=None)
+                format_result(_list_result, format="json", command="get")
                 return
 
             table = Table(title=":plug: Configured Data Sources", show_lines=False)
