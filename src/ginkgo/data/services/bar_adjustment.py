@@ -292,6 +292,62 @@ def apply_matrix_adjustment(
 # ==================== 单股票复权（含格式转换） ====================
 
 
+def _bars_to_df(bars_data) -> pd.DataFrame:
+    """将 bars_data（DataFrame 或 ModelList）转为计算用 DataFrame。"""
+    if isinstance(bars_data, pd.DataFrame):
+        return bars_data.copy()
+    return pd.DataFrame(
+        [
+            {
+                "code": bar.code,
+                "timestamp": bar.timestamp,
+                "open": float(bar.open),
+                "high": float(bar.high),
+                "low": float(bar.low),
+                "close": float(bar.close),
+                "volume": bar.volume,
+                "amount": float(bar.amount),
+            }
+            for bar in bars_data
+        ]
+    )
+
+
+def _df_to_modellist(adjusted_df: pd.DataFrame) -> list:
+    """将复权后的 DataFrame 转回 MBar 列表。"""
+    from ginkgo.data.models import MBar
+
+    adjusted_bars = []
+    for _, row in adjusted_df.iterrows():
+        bar = MBar()
+        bar.code = row["code"]
+        bar.timestamp = row["timestamp"]
+        bar.open = to_decimal(row["open"])
+        bar.high = to_decimal(row["high"])
+        bar.low = to_decimal(row["low"])
+        bar.close = to_decimal(row["close"])
+        bar.volume = int(row["volume"])
+        bar.amount = to_decimal(row["amount"])
+        adjusted_bars.append(bar)
+    return adjusted_bars
+
+
+def _apply_adjustment_with_factors(
+    bars_df: pd.DataFrame,
+    adjustfactors_df: pd.DataFrame,
+    adjustment_type: ADJUSTMENT_TYPES,
+) -> pd.DataFrame | None:
+    """
+    应用预取的复权因子（不查 service）。复权计算核心。
+
+    adjustfactors_df 必须是**单 code 子集**——calculate_adjusted_prices 按 timestamp
+    merge，跨 code 因子会串台。无因子时返回 None（调用方回退原数据）。
+    """
+    if adjustfactors_df is None or adjustfactors_df.empty:
+        return None
+    return calculate_adjusted_prices(bars_df, adjustfactors_df, adjustment_type)
+
+
 def apply_price_adjustment(
     bars_data,
     code: str,
@@ -321,26 +377,7 @@ def apply_price_adjustment(
         return bars_data
 
     try:
-        # 转换为DataFrame进行计算
-        if isinstance(bars_data, pd.DataFrame):
-            bars_df = bars_data.copy()
-        else:
-            # 将模型列表转换为DataFrame
-            bars_df = pd.DataFrame(
-                [
-                    {
-                        "code": bar.code,
-                        "timestamp": bar.timestamp,
-                        "open": float(bar.open),
-                        "high": float(bar.high),
-                        "low": float(bar.low),
-                        "close": float(bar.close),
-                        "volume": bar.volume,
-                        "amount": float(bar.amount),
-                    }
-                    for bar in bars_data
-                ]
-            )
+        bars_df = _bars_to_df(bars_data)
 
         if bars_df.empty:
             return bars_data
@@ -360,33 +397,15 @@ def apply_price_adjustment(
         # ADR-010 出口①：data 已是 DataFrame
         adjustfactors_df = adjustfactors_result.data
 
-        if adjustfactors_df.empty:
+        adjusted_df = _apply_adjustment_with_factors(bars_df, adjustfactors_df, adjustment_type)
+        if adjusted_df is None:
             GLOG.DEBUG(f"No adjustment factors found for {code}, returning original data")
             return bars_data
-
-        # 应用复权因子
-        adjusted_df = calculate_adjusted_prices(bars_df, adjustfactors_df, adjustment_type)
 
         # 以原始格式返回
         if isinstance(bars_data, pd.DataFrame):
             return adjusted_df
-        else:
-            # 转换回模型列表
-            from ginkgo.data.models import MBar
-
-            adjusted_bars = []
-            for _, row in adjusted_df.iterrows():
-                bar = MBar()
-                bar.code = row["code"]
-                bar.timestamp = row["timestamp"]
-                bar.open = to_decimal(row["open"])
-                bar.high = to_decimal(row["high"])
-                bar.low = to_decimal(row["low"])
-                bar.close = to_decimal(row["close"])
-                bar.volume = int(row["volume"])
-                bar.amount = to_decimal(row["amount"])
-                adjusted_bars.append(bar)
-            return adjusted_bars
+        return _df_to_modellist(adjusted_df)
 
     except Exception as e:
         GLOG.ERROR(f"Failed to apply price adjustment for {code}: {e}")
@@ -457,14 +476,37 @@ def apply_price_adjustment_to_modellist(
 
 # ==================== 多股票批量复权 ====================
 
-# TODO: 多股票复权方法性能优化
-# 当前多股票批量复权实现存在性能问题，在大数据量处理时效率较低
-# 需要优化的方向：
-# 1. 批量复权因子获取，避免逐股票查询
-# 2. 向量化计算替代逐行处理
-# 3. 内存使用优化，减少数据复制
-# 4. 并行处理多股票复权
-# 未来版本需要重构以提升批量处理性能
+
+def _prefetch_all_factors(adjustfactor_service, start_date, end_date) -> pd.DataFrame:
+    """一次性预取全市场复权因子（code=None），返回 factors DataFrame（可能为空）。
+
+    消除逐股 N+1：调用方循环内按 code 从返回的 DataFrame 切分子集复用。
+    ADR-010 出口①：data 已是 DataFrame（get_adjustfactors_df），无需 to_dataframe()。
+    """
+    result = adjustfactor_service.get_adjustfactors_df(
+        code=None, start_date=start_date, end_date=end_date
+    )
+    if not result.success or result.data.empty:
+        return pd.DataFrame()
+    return result.data
+
+
+def _factors_for_code(all_factors_df: pd.DataFrame, code: str) -> pd.DataFrame:
+    """从全市场 factors 中切出单 code 子集。
+
+    calculate_adjusted_prices 按 timestamp merge（不区分 code），跨 code 因子
+    会笛卡尔放大 → 静默错乱。故本函数要求 all_factors_df 含 code 列以精确切分；
+    缺列时 fail-loud（防 ADR-010 DF 出口形状漂移），而非原样返回全市场。
+    """
+    if all_factors_df is None or all_factors_df.empty:
+        return pd.DataFrame()
+    if "code" not in all_factors_df.columns:
+        raise ValueError(
+            "_factors_for_code: factors DataFrame 缺 'code' 列，无法按 code 切分"
+            "（calculate_adjusted_prices 按 timestamp merge 会跨 code 串台）"
+        )
+    subset = all_factors_df[all_factors_df["code"] == code]
+    return subset if not subset.empty else pd.DataFrame()
 
 
 def apply_price_adjustment_multi_stock(
@@ -476,7 +518,8 @@ def apply_price_adjustment_multi_stock(
     """
     对多股票K线数据批量应用价格复权
 
-    按股票代码分组，逐个应用复权因子
+    入口一次性预取全市场复权因子（adjustfactor_service.get(code=None)），
+    循环内按 code 切分复用，消除逐股 N+1 查询。
 
     Args:
         bars_data: 多股票K线数据（DataFrame或ModelList）
@@ -500,16 +543,21 @@ def apply_price_adjustment_multi_stock(
                 GLOG.ERROR("Cannot apply multi-stock adjustment: 'code' column missing")
                 return bars_data
 
-            # 按股票代码分组并逐个复权
-            adjusted_dfs = []
             unique_codes = bars_data["code"].unique()
-
             GLOG.INFO(f"Applying {adjustment_type.value} adjustment to {len(unique_codes)} stocks")
 
+            # 一次性预取全市场复权因子（消除逐股 N+1）
+            start_date = bars_data["timestamp"].min()
+            end_date = bars_data["timestamp"].max()
+            all_factors_df = _prefetch_all_factors(adjustfactor_service, start_date, end_date)
+
+            # 按 code 切分预取因子，循环内复用（不再查 service）
+            adjusted_dfs = []
             for code in unique_codes:
                 stock_data = bars_data[bars_data["code"] == code].copy()
-                adjusted_stock_data = apply_price_adjustment(stock_data, code, adjustment_type, adjustfactor_service)
-                adjusted_dfs.append(adjusted_stock_data)
+                factors_for_code = _factors_for_code(all_factors_df, code)
+                adjusted_df = _apply_adjustment_with_factors(stock_data, factors_for_code, adjustment_type)
+                adjusted_dfs.append(adjusted_df if adjusted_df is not None else stock_data)
 
             # 合并所有复权后的数据
             result_df = pd.concat(adjusted_dfs, ignore_index=True)
@@ -534,18 +582,26 @@ def apply_price_adjustment_multi_stock(
                     code_to_models[code] = []
                 code_to_models[code].append(bar)
 
-            # 对每只股票的数据应用复权
-            adjusted_models = []
             unique_codes = list(code_to_models.keys())
-
             GLOG.INFO(f"Applying {adjustment_type.value} adjustment to {len(unique_codes)} stocks")
 
+            # 一次性预取全市场复权因子（消除逐股 N+1）
+            all_bars_df = _bars_to_df(bars_data)
+            start_date = all_bars_df["timestamp"].min()
+            end_date = all_bars_df["timestamp"].max()
+            all_factors_df = _prefetch_all_factors(adjustfactor_service, start_date, end_date)
+
+            # 按 code 切分预取因子，循环内复用（不再查 service）
+            adjusted_models = []
             for code in unique_codes:
                 stock_models = code_to_models[code]
-                adjusted_stock_models = apply_price_adjustment(
-                    stock_models, code, adjustment_type, adjustfactor_service
-                )
-                adjusted_models.extend(adjusted_stock_models)
+                stock_df = _bars_to_df(stock_models)
+                factors_for_code = _factors_for_code(all_factors_df, code)
+                adjusted_df = _apply_adjustment_with_factors(stock_df, factors_for_code, adjustment_type)
+                if adjusted_df is None:
+                    adjusted_models.extend(stock_models)
+                else:
+                    adjusted_models.extend(_df_to_modellist(adjusted_df))
 
             # 保持原始顺序
             return adjusted_models
