@@ -93,6 +93,14 @@ class TestDataPreparerSmoke:
             assert isinstance(result, dict)
             assert "engine" in result
 
+    def test_get_sample_config_live_fallback_historic(self):
+        """ADR-003: live sample 已移除，get_sample_config('live') fallback 到 historic"""
+        with patch("ginkgo.trading.services._assembly.data_preparer.GLOG"):
+            preparer = DataPreparer()
+            live_config = preparer.get_sample_config("live")
+            historic_config = preparer.get_sample_config("historic")
+            assert live_config == historic_config
+
     def test_save_sample_config_callable(self, tmp_path):
         """save_sample_config() 可调用"""
         with patch("ginkgo.trading.services._assembly.data_preparer.GLOG"):
