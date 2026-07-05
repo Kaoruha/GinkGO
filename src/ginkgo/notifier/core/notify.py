@@ -325,11 +325,9 @@ def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
     手动执行后回报（POST /api/v1/signals/{id}/report）。
 
     镜像 notify()：收件人从配置表（notification_recipient）解析，
-    支持同步直发与异步 Kafka→worker 两种模式。
-
-    Note:
-        通知发送实现由后续测试驱动（S1b 异步路径 / S2 渠道配置）。
-        当前为 seam 占位，确保 _process_signal 已接线。
+    支持同步直发与异步 Kafka→worker 两种模式。渠道用 webhook（send 链路
+    特判动态解析的唯一渠道），与 notify() 对齐——email 等需 register_channel
+    预注册，生产从不注册，故不可用。
 
     Args:
         signal: Signal 对象（含 code/direction/reason）
@@ -367,11 +365,14 @@ def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
 
         if async_mode:
             # 异步路径：Kafka→worker 订阅→渠道发送（镜像 notify()）
+            # webhook 是 send 链路特判动态解析的唯一渠道
+            # （notification_service._get_webhook_channel_for_user），
+            # email/discord 等需 register_channel 预注册，生产从不注册→Channel not found。
             success_count = 0
             for user_uuid in user_uuids:
                 result = service.send_async(
                     content=content,
-                    channels=["email"],
+                    channels=["webhook"],
                     user_uuid=user_uuid,
                     priority=2,
                     title=title,
@@ -384,14 +385,14 @@ def notify_trading_signal(signal, order, async_mode: bool = True) -> bool:
             )
             return success_count > 0
 
-        # 同步路径：逐个收件人直发
+        # 同步路径：逐个收件人直发（渠道同 async：用 webhook 动态解析）
         success_count = 0
         for user_uuid in user_uuids:
             result = service.send_to_user(
                 user_uuid=user_uuid,
                 content=content,
                 title=title,
-                channels=["email"],
+                channels=["webhook"],
                 priority=2,
             )
             if result.is_success():
