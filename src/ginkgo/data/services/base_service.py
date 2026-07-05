@@ -19,7 +19,7 @@ T = TypeVar("T")
 class ServiceResult(Generic[T]):
     """Standardized service operation result structure."""
 
-    def __init__(self, success: bool = False, error: str = "", data: Optional[T] = None, message: str = ""):
+    def __init__(self, success: bool = False, error: str = "", data: Optional[T] = None, message: str = "", code: Optional[str] = None):
         """
         Initialize service result with success status, error info, data and message
 
@@ -28,6 +28,9 @@ class ServiceResult(Generic[T]):
             error: Error message when operation fails
             data: Result data payload
             message: Optional status message
+            code: Optional structured error code (ADR-021 第 5 维, e.g.
+                  BAD_PARAMS/TIMEOUT/NOT_FOUND/INTERNAL); defaults to None for
+                  backward compatibility (436 legacy call sites unchanged).
         """
         self.success = success
         self.error = error
@@ -35,6 +38,7 @@ class ServiceResult(Generic[T]):
         self.warnings = []
         self.data = data  # 允许None值，不自动转换为{}
         self.metadata = {}
+        self.code = code  # ADR-021 第 5 维：结构化错误码，默认 None 向后兼容
 
     def add_warning(self, message: str):
         """
@@ -84,25 +88,31 @@ class ServiceResult(Generic[T]):
             result.update(self.data)
         if self.metadata:
             result["metadata"] = self.metadata
+        # ADR-021 第 5 维 (#6591): code 仅在非 None 时序列化，避免 436 处旧调用
+        # 的 to_dict 输出突然多字段（向后兼容）
+        if self.code is not None:
+            result["code"] = self.code
 
         return result
 
     @classmethod
-    def success(cls, data: Any = None, message: str = "") -> 'ServiceResult':
+    def success(cls, data: Any = None, message: str = "", code: Optional[str] = None) -> 'ServiceResult':
         """
         Create successful service result
 
         Args:
             data: Return data
             message: Success message
+            code: Optional structured error code (rarely needed on success path;
+                  defaults to None per ADR-021 第 5 维)
 
         Returns:
             ServiceResult: Successful result object
         """
-        return cls(success=True, error="", data=data, message=message)
+        return cls(success=True, error="", data=data, message=message, code=code)
 
     @classmethod
-    def error(cls, error: str = "", data: Any = None, message: str = "") -> 'ServiceResult':
+    def error(cls, error: str = "", data: Any = None, message: str = "", code: Optional[str] = None) -> 'ServiceResult':
         """
         Create failed service result
 
@@ -110,27 +120,31 @@ class ServiceResult(Generic[T]):
             error: Error message
             data: Optional error-related data
             message: Optional message (uses error if not provided)
+            code: Optional structured error code (ADR-021 第 5 维, e.g.
+                  BAD_PARAMS/TIMEOUT/NOT_FOUND/INTERNAL); stamped at failure source
 
         Returns:
             ServiceResult: Failed result object
         """
         if not message:
             message = error
-        return cls(success=False, error=error, message=message, data=data)
+        return cls(success=False, error=error, message=message, data=data, code=code)
 
     @classmethod
-    def failure(cls, message: str = "", data: Any = None) -> 'ServiceResult':
+    def failure(cls, message: str = "", data: Any = None, code: Optional[str] = None) -> 'ServiceResult':
         """
         Create failed service result (alias method)
 
         Args:
             message: Failure message
             data: Optional failure-related data
+            code: Optional structured error code (ADR-021 第 5 维); stamped at
+                  failure source so format_result can map exit code
 
         Returns:
             ServiceResult: Failed result object
         """
-        return cls(success=False, error=message, message=message, data=data)
+        return cls(success=False, error=message, message=message, data=data, code=code)
 
     def is_success(self) -> bool:
         """

@@ -160,6 +160,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+import typer
+
 
 # ----------------------------------------------------------------------------
 # is_interactive (ADR-021 第 2 维: TTY 推断 + 显式覆盖)
@@ -390,16 +392,122 @@ class TestMakeProgress:
 
 
 # ----------------------------------------------------------------------------
-# format_result (Step 2, blocked by #6576 ServiceResult.code)
+# format_result (ADR-021 第 5/6/9 维, #6591 实现)
 # ----------------------------------------------------------------------------
+
+from ginkgo.data.services.base_service import ServiceResult
 
 
 @pytest.mark.unit
 @pytest.mark.cli
 class TestFormatResult:
-    def test_raises_not_implemented_anchored_to_6576(self):
-        # triage 契约: format_result 硬阻塞 #6576, 留 TODO 锚定
-        # 呼应 CLAUDE.md 归因纪律: raise 而非 stub 兜底
-        result = MagicMock()
-        with pytest.raises(NotImplementedError, match="6576"):
-            cli_utils.format_result(result, format="json", command="test")
+    """format_result 行为测试（ADR-021 第 5/6/9 维，#6591）。
+
+    三种输出结构（list/get/fail）+ exit code 映射（0/1/2/124）。
+    占位测试 test_raises_not_implemented_anchored_to_6576 已随 #6591 实现删除。
+    """
+
+    def test_success_list_json_structure(self, capsys):
+        """成功 list：data 是 list → {success:true, data:[...], count:N, metadata:{}}"""
+        result = ServiceResult.success(data=[{"id": 1}, {"id": 2}])
+        cli_utils.format_result(result, format="json", command="list")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+        assert out["data"] == [{"id": 1}, {"id": 2}]
+        assert out["count"] == 2
+        assert out["metadata"] == {}
+
+    def test_success_get_json_structure(self, capsys):
+        """成功 get：data 非 list → {success:true, data:{...}}（无 count/metadata）"""
+        result = ServiceResult.success(data={"uuid": "abc", "name": "foo"})
+        cli_utils.format_result(result, format="json", command="get")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+        assert out["data"] == {"uuid": "abc", "name": "foo"}
+        # get 结构不含 count / metadata
+        assert "count" not in out
+        assert "metadata" not in out
+
+    def test_success_empty_list_has_count_zero(self, capsys):
+        """空 list（ADR-021 第 9 维）：count=0，仍是成功 exit 0"""
+        result = ServiceResult.success(data=[])
+        cli_utils.format_result(result, format="json", command="list")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+        assert out["data"] == []
+        assert out["count"] == 0
+
+    def test_success_does_not_raise_exit(self, capsys):
+        """成功路径不 raise typer.Exit（ADR-021 第 6 维：0 = 正常 return）"""
+        result = ServiceResult.success(data={"x": 1})
+        # 不抛异常即成功路径 return
+        cli_utils.format_result(result, format="json", command="get")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+
+    def test_fail_json_structure_with_code(self, capsys):
+        """失败：{success:false, error:{code, message}, data:null}"""
+        result = ServiceResult.failure(message="参数错误", code="BAD_PARAMS")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(result, format="json", command="create")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is False
+        assert out["error"] == {"code": "BAD_PARAMS", "message": "参数错误"}
+        assert out["data"] is None
+        assert exc_info.value.exit_code == 2
+
+    def test_exit_code_bad_params_is_2(self, capsys):
+        """exit code 映射：BAD_PARAMS → 2"""
+        result = ServiceResult.failure(message="bad", code="BAD_PARAMS")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(result, format="json", command="x")
+        assert exc_info.value.exit_code == 2
+
+    def test_exit_code_timeout_is_124(self, capsys):
+        """exit code 映射：TIMEOUT → 124（GNU timeout 惯例）"""
+        result = ServiceResult.failure(message="超时", code="TIMEOUT")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(result, format="json", command="x")
+        assert exc_info.value.exit_code == 124
+
+    def test_exit_code_other_non_none_code_is_1(self, capsys):
+        """exit code 映射：其他非 None code（如 NOT_FOUND）→ 1"""
+        result = ServiceResult.failure(message="未找到", code="NOT_FOUND")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(result, format="json", command="get")
+        assert exc_info.value.exit_code == 1
+
+    def test_exit_code_none_code_failure_is_1(self, capsys):
+        """exit code 映射：code=None 的失败 → 1（默认业务失败）"""
+        result = ServiceResult.failure(message="未知错误")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(result, format="json", command="x")
+        assert exc_info.value.exit_code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"]["code"] is None
+
+    def test_backward_compat_legacy_result_without_code_attr(self, capsys):
+        """向后兼容：无 code 属性的旧 ServiceResult（duck-typed）调用不崩"""
+        # 旧实例：仅 success/error/data，无 code 属性（模拟 436 处历史调用）
+        legacy = SimpleNamespace(success=True, data={"k": "v"}, error="")
+        cli_utils.format_result(legacy, format="json", command="get")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+        assert out["data"] == {"k": "v"}
+
+    def test_backward_compat_legacy_failure_without_code_attr(self, capsys):
+        """向后兼容：无 code 属性的旧失败实例 → exit 1，error.code=null"""
+        legacy = SimpleNamespace(success=False, data=None, error="旧错误")
+        with pytest.raises(typer.Exit) as exc_info:
+            cli_utils.format_result(legacy, format="json", command="x")
+        assert exc_info.value.exit_code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == {"code": None, "message": "旧错误"}
+
+    def test_text_format_does_not_raise_not_implemented(self, capsys):
+        """format='text' 当前复用 JSON 输出（rich 渲染留 E4/E5），不抛 NotImplementedError"""
+        result = ServiceResult.success(data=[{"id": 1}])
+        cli_utils.format_result(result, format="text", command="list")
+        out = json.loads(capsys.readouterr().out)
+        assert out["success"] is True
+        assert out["count"] == 1
