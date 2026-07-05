@@ -143,6 +143,38 @@ def test_query_previous_net_asset_returns_value_and_falls_back_to_timestamp(api_
     assert kwargs_f["use_business_time"] is False
 
 
+def test_get_paper_report_propagates_helper_http_exception(api_modules):
+    """端点层须透传 _query_previous_net_asset 的 HTTPException(500)。
+
+    DB 故障时 helper 已 loud raise HTTPException(500)（见
+    test_query_previous_net_asset_raises_on_db_failure）；但 ``get_paper_report``
+    的 ``except Exception`` 会把 HTTPException 吞成 BusinessError(400)（HTTPException
+    继承 Exception，FastAPI 按 MRO 先于 HTTPException handler 匹配 except Exception），
+    违反本 PR AC + 544c851c/#5479 立规。须 ``except HTTPException: raise`` 前置透传，
+    对齐 list_paper_accounts / get_paper_account。
+    """
+    from api.trading import get_paper_report
+    from fastapi import HTTPException
+
+    portfolio = SimpleNamespace(uuid="acc-1", initial_capital=100000, cash=95000)
+    result_service = MagicMock()
+    result_service.get_orders_by_portfolio_date.return_value = ServiceResult.success([])
+    result_service.get_current_positions.return_value = ServiceResult.success([])
+
+    with (
+        patch("api.trading._require_portfolio", return_value=[portfolio]),
+        patch("api.trading._get_result_service", return_value=result_service),
+        patch(
+            "api.trading._query_previous_net_asset",
+            side_effect=HTTPException(status_code=500, detail="查询上一日净资产失败: DB down"),
+        ),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            run_async(get_paper_report("acc-1", date="2026-07-05"))
+
+    assert exc.value.status_code == 500
+
+
 def test_query_previous_net_asset_none_when_no_history(api_modules):
     """两次查询都空（无历史记录）→ 返回 None（合法，新账户未跑过）。"""
     from api.trading import _query_previous_net_asset

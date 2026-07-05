@@ -584,6 +584,11 @@ async def get_paper_report(
 
     except NotFoundError:
         raise
+    except HTTPException:
+        # 透传 helper 的 HTTPException(500)，避免被下方 except Exception 吞成 BusinessError(400)。
+        # HTTPException 继承 Exception，须显式前置 except，否则 AC1 生产路径返 400 非 500
+        # （544c851c/#5479 立规：DB 故障 loud，对齐 _query_positions / get_paper_account）。
+        raise
     except Exception as e:
         logger.error(f"Error getting paper report {account_id}: {str(e)}")
         raise BusinessError(f"Error getting paper report: {str(e)}")
