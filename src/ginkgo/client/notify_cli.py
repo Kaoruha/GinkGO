@@ -355,11 +355,12 @@ def search_recipients(
         users = []
         if users_result.success:
             all_users = users_result.data.get("users", [])
-            # 模糊匹配用户名
+            # 模糊匹配用户名：display_name 优先，username 补充（list_users 返回
+            # username/display_name，无 name；原 u.get("name") 恒空→搜不到）
             keyword_lower = keyword.lower()
             users = [
                 u for u in all_users
-                if keyword_lower in u.get("name", "").lower() or
+                if keyword_lower in (u.get("display_name") or u.get("username") or "").lower() or
                    keyword_lower in u.get("uuid", "").lower()
             ][:limit]
 
@@ -393,7 +394,7 @@ def search_recipients(
                 active_style = "green" if u.get("is_active") else "red"
                 table.add_row(
                     u.get("uuid", ""),
-                    u.get("name", ""),
+                    u.get("display_name") or u.get("username") or "",
                     u.get("user_type", ""),
                     f"[{active_style}]{u.get('is_active')}[/{active_style}]"
                 )

@@ -255,6 +255,89 @@ class TestNotifyHistoryCommand:
 
 @pytest.mark.unit
 @pytest.mark.cli
+class TestNotifySearchCommand:
+    """``search`` 命令的用户字段漂移回归（#6086 AC4）。
+
+    user_service.list_users 返回 ``username``/``display_name``（无 ``name``），
+    但 search 命令读 ``u.get("name")`` → 过滤恒空（搜不到）+ Name 列恒空。
+    本类固化：搜索能命中 display_name/username，且 Name 列渲染 display_name。
+    """
+
+    def test_search_matches_user_by_display_name(self, cli_runner, monkeypatch):
+        """search 关键词应命中 display_name（非读不存在的 name 字段过滤）。"""
+        monkeypatch.setattr(notify_cli.console, "width", 200)
+
+        mock_user_service = MagicMock()
+        mock_user_service.list_users.return_value = MagicMock(
+            success=True,
+            data={
+                "users": [
+                    {
+                        "uuid": "u-1",
+                        "username": "alice_co",
+                        "display_name": "Alice Cohen",
+                        "is_active": True,
+                        "user_type": "USER",
+                    }
+                ]
+            },
+        )
+        mock_group_service = MagicMock()
+        mock_group_service.list_groups.return_value = MagicMock(
+            success=True, data={"groups": []}
+        )
+
+        mock_container = MagicMock()
+        mock_container.user_service.return_value = mock_user_service
+        mock_container.user_group_service.return_value = mock_group_service
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(notify_cli.app, ["search", "alice"])
+
+        assert result.exit_code == 0, result.output
+        assert "Alice Cohen" in result.output, (
+            "search 应按 display_name 命中并渲染（原 u.get('name') 恒空→搜不到+Name 列空）"
+        )
+
+    def test_search_falls_back_to_username_when_no_display_name(self, cli_runner, monkeypatch):
+        """display_name 缺失时回退 username，保证可搜可显示。"""
+        monkeypatch.setattr(notify_cli.console, "width", 200)
+
+        mock_user_service = MagicMock()
+        mock_user_service.list_users.return_value = MagicMock(
+            success=True,
+            data={
+                "users": [
+                    {
+                        "uuid": "u-2",
+                        "username": "bob_trader",
+                        "display_name": "",  # 无 display_name
+                        "is_active": True,
+                        "user_type": "USER",
+                    }
+                ]
+            },
+        )
+        mock_group_service = MagicMock()
+        mock_group_service.list_groups.return_value = MagicMock(
+            success=True, data={"groups": []}
+        )
+
+        mock_container = MagicMock()
+        mock_container.user_service.return_value = mock_user_service
+        mock_container.user_group_service.return_value = mock_group_service
+
+        with patch("ginkgo.data.containers.container", mock_container):
+            result = cli_runner.invoke(notify_cli.app, ["search", "bob"])
+
+        assert result.exit_code == 0, result.output
+        assert "bob_trader" in result.output, (
+            "display_name 空时应回退 username 渲染/过滤"
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.cli
 class TestRecipientsList:
     """Tests for the 'recipients list' command."""
 
