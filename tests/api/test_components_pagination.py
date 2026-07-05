@@ -43,7 +43,7 @@ class TestComponentsPagination:
         mock_service.get_by_type.assert_not_called()
 
     def test_passes_filters_and_pagination(self):
-        """TDD Red: 过滤条件和分页参数应传给 service"""
+        """#5827: 过滤条件下推 service；分页在 API 层统一做（合并 DB+内置后切片）。"""
 
         mock_service = MagicMock()
         mock_service.list_components.return_value = make_mock_result(data={"data": [], "total": 0})
@@ -62,21 +62,43 @@ class TestComponentsPagination:
             )
 
         call_kwargs = mock_service.list_components.call_args.kwargs
-        assert call_kwargs.get("page") == 1  # 0-based
-        assert call_kwargs.get("page_size") == 15
+        # 过滤条件下推到 service
         assert call_kwargs.get("keyword") == "ma"
+        assert call_kwargs.get("is_del") is False
+        file_types = call_kwargs.get("file_types")
+        assert file_types is not None and len(file_types) == 1
+        # service 拿全量（page=0, page_size 大），分页在 API 层合并后切片
+        assert call_kwargs.get("page") == 0
+        assert call_kwargs.get("page_size") >= 10000
 
     def test_returns_total_from_service_plus_builtins(self):
-        """#5827: total 应包含 service/DB 组件和内置组件。"""
-        mock_service = MagicMock()
-        mock_service.list_components.return_value = make_mock_result(data={"data": [], "total": 50})
+        """#5827: total = DB 组件数 + 内置组件数（合并去重后实际长度）。"""
+        from api.components import _list_builtin_components
 
-        from api.components import list_components, _list_builtin_components
+        builtin_count = len(_list_builtin_components())
+        # service 拿全量，data 与 total 一致（mock 2 条真实 DB 记录）
+        mock_files = []
+        for i in range(2):
+            mf = MagicMock()
+            mf.uuid = f"uuid-{i}"
+            mf.name = f"DBStrategy{i}"
+            mf.type = 6  # STRATEGY
+            mf.is_del = False
+            mf.create_at.isoformat.return_value = "2025-01-01T00:00:00"
+            mf.update_at.isoformat.return_value = "2025-01-02T00:00:00"
+            mock_files.append(mf)
+
+        mock_service = MagicMock()
+        mock_service.list_components.return_value = make_mock_result(
+            data={"data": mock_files, "total": len(mock_files)}
+        )
+
+        from api.components import list_components
 
         with patch("api.components.get_file_service", return_value=mock_service):
             result = run_async(list_components(page=1, page_size=20))
 
-        assert result["meta"]["total"] == 50 + len(_list_builtin_components())
+        assert result["meta"]["total"] == len(mock_files) + builtin_count
 
     def test_handles_orm_objects_from_crud(self):
         """service 返回 ModelList（ORM 对象）时，API 应通过属性访问"""

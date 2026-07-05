@@ -106,7 +106,22 @@ def _builtin_component_root() -> Path:
 
 def _is_builtin_component_file(path: Path) -> bool:
     stem = path.stem
-    return path.suffix == ".py" and not stem.startswith("_") and "base" not in stem
+    if path.suffix != ".py" or stem.startswith("_") or "base" in stem:
+        return False
+    # 排除测试夹具（文件名含 test，如 simple_test_strategy）
+    if "test" in stem:
+        return False
+    # 排除无 class 定义的占位文件（纯注释/预留，如 moving_loss_limit/price_action）
+    return _has_component_class(path)
+
+
+def _has_component_class(path: Path) -> bool:
+    """文件是否含至少一个 class 定义（过滤纯注释/预留占位文件）。"""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return False
+    return any(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
 
 
 def _file_type_value(file_type) -> int:
@@ -157,6 +172,57 @@ def _list_builtin_components(
     return builtin_items
 
 
+def _parse_builtin_uuid(uuid: str):
+    """uuid 形如 builtin:{type}:{name}，返回 (type_name, name) 或 None。"""
+    if not uuid.startswith("builtin:"):
+        return None
+    rest = uuid[len("builtin:"):]
+    parts = rest.split(":", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return None
+    return parts[0], parts[1]
+
+
+def _builtin_component_detail(type_name: str, name: str) -> Optional[Dict[str, Any]]:
+    """读内置组件源码构造详情；文件不存在返回 None。"""
+    folder_filetype = BUILTIN_COMPONENT_DIRS.get(type_name)
+    if not folder_filetype:
+        return None
+    folder, file_type = folder_filetype
+    path = _builtin_component_root() / folder / f"{name}.py"
+    if not path.exists():
+        return None
+    try:
+        code = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        stat = path.stat()
+        created_at = datetime.fromtimestamp(stat.st_mtime).isoformat()
+    except OSError:
+        created_at = datetime.utcnow().isoformat()
+    parameters = extract_component_parameters(name, code, type_name)
+    return {
+        "uuid": f"builtin:{type_name}:{name}",
+        "name": name,
+        "component_type": type_name,
+        "file_type": file_type.value,
+        "code": code,
+        "description": f"Built-in {type_name} component",
+        "parameters": parameters,
+        "created_at": created_at,
+        "updated_at": None,
+    }
+
+
+def _find_builtin_type_by_name(name: str) -> Optional[str]:
+    """按 name 反查内置组件的 type_name，找不到返回 None。"""
+    for item in _list_builtin_components():
+        if item["name"] == name:
+            return item["component_type"]
+    return None
+
+
 # ==================== API路由 ====================
 
 
@@ -189,57 +255,62 @@ async def list_components(
         else:
             types_to_check = list(COMPONENT_FILE_TYPE_MAP.values())
 
-        # 调用 service 层分页查询
+        # is_active → is_del 语义：True/None 只查活跃，False 查已删
+        if is_active is None or is_active:
+            is_del = False
+        else:
+            is_del = True
+
+        # 拿 DB 全量（组件表通常小）。内置组件无 DB 记录，无法在 SQL 层与 DB 合并，
+        # 故在应用层合并后统一分页——满足 #4566 total 单源 + 服务端分页双契约，
+        # 修复 #5827 内置组件跨页重复（旧实现 builtin 全量 append 后 [:page_size] 截断）。
         result = file_service.list_components(
             file_types=types_to_check,
             keyword=effective_keyword,
-            is_del=False if is_active else (not is_active if is_active is not None else False),
-            page=page - 1,
-            page_size=page_size,
+            is_del=is_del,
+            page=0,
+            page_size=100000,
         )
-
-        if not result.is_success():
-            return paginated(items=[], total=0, page=page, page_size=page_size)
-
-        result_data = result.data or {}
-        total_count = result_data.get("total", 0)
-        files = result_data.get("data", [])
 
         items = []
         seen_keys = set()
-        for file_record in files:
-            file_type_value = _file_type_value(file_record.type) if hasattr(file_record, "type") else 0
-            component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(file_type_value, "unknown")
-            created_at = file_record.create_at if hasattr(file_record, "create_at") else None
-            updated_at = file_record.update_at if hasattr(file_record, "update_at") else None
-            if not created_at:
-                created_at = datetime.utcnow()
-            is_del = file_record.is_del if hasattr(file_record, "is_del") else False
-            items.append(
-                {
-                    "uuid": file_record.uuid,
-                    "name": file_record.name,
-                    "component_type": component_type_name,
-                    "file_type": file_type_value,
-                    "description": f"{component_type_name.capitalize()} component",
-                    "created_at": created_at.isoformat(),
-                    "updated_at": updated_at.isoformat() if updated_at else None,
-                    "is_active": not is_del,
-                }
-            )
-            seen_keys.add((component_type_name, file_record.name))
+        if result.is_success() and result.data:
+            for file_record in result.data.get("data", []) or []:
+                file_type_value = _file_type_value(file_record.type) if hasattr(file_record, "type") else 0
+                component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(file_type_value, "unknown")
+                created_at = file_record.create_at if hasattr(file_record, "create_at") else None
+                updated_at = file_record.update_at if hasattr(file_record, "update_at") else None
+                if not created_at:
+                    created_at = datetime.utcnow()
+                file_is_del = file_record.is_del if hasattr(file_record, "is_del") else False
+                items.append(
+                    {
+                        "uuid": file_record.uuid,
+                        "name": file_record.name,
+                        "component_type": component_type_name,
+                        "file_type": file_type_value,
+                        "description": f"{component_type_name.capitalize()} component",
+                        "created_at": created_at.isoformat(),
+                        "updated_at": updated_at.isoformat() if updated_at else None,
+                        "is_active": not file_is_del,
+                    }
+                )
+                seen_keys.add((component_type_name, file_record.name))
 
+        # 内置组件全量（已按 type/keyword/is_active 过滤），剔除与 DB 同名者（DB 优先）
         builtin_items = [
             item
             for item in _list_builtin_components(component_type, effective_keyword, is_active)
             if (item["component_type"], item["name"]) not in seen_keys
         ]
         items.extend(builtin_items)
-        total_count += len(builtin_items)
-        if len(items) > page_size:
-            items = items[:page_size]
 
-        return paginated(items=items, total=total_count, page=page, page_size=page_size)
+        # 合并后统一分页：内置组件也参与 offset，跨页不再重复
+        total_count = len(items)
+        offset = (page - 1) * page_size
+        page_items = items[offset : offset + page_size]
+
+        return paginated(items=page_items, total=total_count, page=page, page_size=page_size)
 
     except HTTPException:
         raise
@@ -291,28 +362,36 @@ async def get_component_parameters(component_name: str):
 
         # 按文件名查 MFile（get_by_name 返回复数列表，取首条）
         name_result = file_service.get_by_name(component_name)
-        if not name_result.is_success() or not name_result.data:
-            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
-        files = name_result.data.get("files", [])
-        if not files:
-            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
-        file_record = files[0]
+        files = []
+        if name_result.is_success() and name_result.data:
+            files = name_result.data.get("files", []) or []
 
-        # 读源码
-        content_result = file_service.get_content(file_record.uuid)
-        code = None
-        if content_result.is_success() and content_result.data:
-            raw = content_result.data
-            code = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
-        if not code:
-            raise HTTPException(status_code=404, detail=f"Component source empty: {component_name}")
+        if files:
+            file_record = files[0]
+            # 读源码
+            content_result = file_service.get_content(file_record.uuid)
+            code = None
+            if content_result.is_success() and content_result.data:
+                raw = content_result.data
+                code = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
+            if not code:
+                raise HTTPException(status_code=404, detail=f"Component source empty: {component_name}")
 
-        # 动态提取参数（复用 /components/{uuid} 同一提取器，废弃过时硬编码表）
-        component_type = FILE_TYPE_TO_COMPONENT_TYPE.get(file_record.type, "unknown")
-        params = extract_component_parameters(component_name, code, component_type)
-        if not params:
-            raise HTTPException(status_code=404, detail=f"Component parameters not found: {component_name}")
-        return ok(data=params)
+            # 动态提取参数（复用 /components/{uuid} 同一提取器，废弃过时硬编码表）
+            component_type = FILE_TYPE_TO_COMPONENT_TYPE.get(file_record.type, "unknown")
+            params = extract_component_parameters(component_name, code, component_type)
+            if not params:
+                raise HTTPException(status_code=404, detail=f"Component parameters not found: {component_name}")
+            return ok(data=params)
+
+        # DB miss：回退内置组件，读源码取参数（#5827 review③，list↔详情路径对称）
+        builtin_type = _find_builtin_type_by_name(component_name)
+        if builtin_type:
+            detail = _builtin_component_detail(builtin_type, component_name)
+            if detail is not None:
+                return ok(data=detail["parameters"])
+
+        raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
     except HTTPException:
         raise
     except Exception as e:
@@ -324,6 +403,15 @@ async def get_component_parameters(component_name: str):
 async def get_component(uuid: str):
     """获取组件详情"""
     try:
+        # 内置组件：uuid 形如 builtin:{type}:{name}，回源码读详情，不查 DB（#5827 review③）
+        builtin = _parse_builtin_uuid(uuid)
+        if builtin:
+            type_name, name = builtin
+            detail = _builtin_component_detail(type_name, name)
+            if detail is None:
+                raise HTTPException(status_code=404, detail=f"Built-in component not found: {uuid}")
+            return ok(data=detail)
+
         file_service = get_file_service()
 
         # 使用 get_by_uuid 方法获取单个文件
