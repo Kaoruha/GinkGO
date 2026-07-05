@@ -177,3 +177,20 @@ class TestTaskTimerInitConfig:
         installed = str(tmp_path / "task_timer.yml")
         timer = TaskTimer(config_path=installed)
         assert timer.validate_config() is True, "拷贝的模板未通过 validate_config"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestTaskTimerValidateCommand:
+    """tasktimer validate 友好处理缺失配置文件 (#5185)"""
+
+    def test_missing_config_prints_creation_hint_not_raw_exit_code(self, tmp_path, cli_runner):
+        missing = tmp_path / "missing-task_timer.yml"
+
+        result = cli_runner.invoke(tasktimer_cli.app, ["validate", "--config", str(missing)])
+
+        assert result.exit_code != 0
+        assert "Configuration file not found" in result.output
+        assert "ginkgo init" in result.output
+        assert "task_timer.yml" in result.output
+        assert "Error validating config: 1" not in result.output
