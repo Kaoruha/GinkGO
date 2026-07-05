@@ -30,6 +30,11 @@ if TYPE_CHECKING:
 
 # 获取日志记录器
 logger = logging.getLogger(__name__)
+# 审计 logger（#5555 AC3）：schedule 命令审计流，独立于调试 trace，
+# 便于运维侧按 logger 名 `ginkgo.audit.schedule_command` 单独采集。
+# 注：本项目不做命令签名 / Kafka ACL（自用、功能优先），审计仅满足
+# "Log all control commands with source info"，不闭合鉴权缺口。
+audit_logger = logging.getLogger("ginkgo.audit.schedule_command")
 
 
 class SchedulerCommandHandler:
@@ -73,6 +78,15 @@ class SchedulerCommandHandler:
             timestamp = command_data.get('timestamp')
             target_node = command_data.get('target_node', '')
             source_node = command_data.get('source_node', '')
+
+            # 审计留痕（#5555）：路由前 emit，保证所有命令（含未知/异常分支前）
+            # 都被记录，含来源 source_node 与执行者 executed_by。
+            audit_logger.info(
+                f"[AUDIT] schedule_command | command={command} | "
+                f"portfolio_id={portfolio_id} | source_node={source_node} | "
+                f"target_node={target_node} | timestamp={timestamp} | "
+                f"executed_by={self.node.node_id}"
+            )
 
             logger.info(f"{'─'*80}")
             logger.info(f"[KAFKA] Received schedule command: {command}")
