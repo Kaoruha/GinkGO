@@ -35,7 +35,7 @@ from ginkgo.entities.mixins import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
-from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
+from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES, ADJUSTMENT_TYPES
 from ginkgo.data.mappers import BarMapper
 
 
@@ -273,10 +273,16 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
         try:
             for symbol in symbols:
                 if data_type == "bar":
-                    result = self.bar_service.get(symbol, start_date=start_time.date(),
-                                    end_date=end_time.date())
-                    if result.success and result.data:
-                        df = result.data.to_dataframe()
+                    # #6624: 走 DF 出口 get_bars_df，传 FORE 保回测热路径前复权语义
+                    # （与原 get() 默认一致，ADR-010 例外），不再接触 ORM ModelList
+                    result = self.bar_service.get_bars_df(symbol,
+                                    start_date=start_time.date(),
+                                    end_date=end_time.date(),
+                                    adjustment_type=ADJUSTMENT_TYPES.FORE)
+                    # DF 出口 data 是 DataFrame；pandas 真值对多元素歧义，用 is not None
+                    # （空 DF 由下方 df.empty 兜底，不靠 DataFrame 布尔化）
+                    if result.success and result.data is not None:
+                        df = result.data
                     else:
                         GLOG.ERROR(f"Failed to get bars for {symbol}: {result.error}")
                         continue
