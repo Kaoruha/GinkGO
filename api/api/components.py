@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
 import ast
 
 from ginkgo.data.containers import container
@@ -18,8 +19,10 @@ router = APIRouter()
 
 # ==================== 数据模型 ====================
 
+
 class ComponentSummary(BaseModel):
     """组件摘要"""
+
     uuid: str
     name: str
     component_type: str  # strategy, analyzer, risk, sizer, selector
@@ -32,6 +35,7 @@ class ComponentSummary(BaseModel):
 
 class ComponentDetail(BaseModel):
     """组件详情"""
+
     uuid: str
     name: str
     component_type: str
@@ -45,6 +49,7 @@ class ComponentDetail(BaseModel):
 
 class ComponentCreate(BaseModel):
     """创建组件请求"""
+
     name: str
     component_type: str  # strategy, analyzer, risk, sizer, selector
     code: str
@@ -53,6 +58,7 @@ class ComponentCreate(BaseModel):
 
 class ComponentUpdate(BaseModel):
     """更新组件请求"""
+
     name: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None
@@ -80,12 +86,79 @@ FILE_TYPE_TO_COMPONENT_TYPE = {
 }
 
 
+BUILTIN_COMPONENT_DIRS = {
+    "strategy": ("strategies", FILE_TYPES.STRATEGY),
+    "selector": ("selectors", FILE_TYPES.SELECTOR),
+    "sizer": ("sizers", FILE_TYPES.SIZER),
+    "risk": ("risk_management", FILE_TYPES.RISKMANAGER),
+    "analyzer": ("analysis/analyzers", FILE_TYPES.ANALYZER),
+}
+
+
 def get_file_service():
     """获取FileService实例"""
     return container.file_service()
 
 
+def _builtin_component_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "src" / "ginkgo" / "trading"
+
+
+def _is_builtin_component_file(path: Path) -> bool:
+    stem = path.stem
+    return path.suffix == ".py" and not stem.startswith("_") and "base" not in stem
+
+
+def _file_type_value(file_type) -> int:
+    return file_type.value if hasattr(file_type, "value") else file_type
+
+
+def _list_builtin_components(
+    component_type: Optional[str] = None,
+    keyword: Optional[str] = None,
+    is_active: Optional[bool] = None,
+) -> List[Dict[str, Any]]:
+    """Return built-in component summaries discovered from source modules."""
+    if is_active is False:
+        return []
+
+    root = _builtin_component_root()
+    keyword_lower = keyword.lower() if keyword else None
+    builtin_items = []
+    for type_name, (folder, file_type) in BUILTIN_COMPONENT_DIRS.items():
+        if component_type and type_name != component_type:
+            continue
+        folder_path = root / folder
+        if not folder_path.exists():
+            continue
+        for path in sorted(folder_path.iterdir()):
+            if not _is_builtin_component_file(path):
+                continue
+            name = path.stem
+            if keyword_lower and keyword_lower not in name.lower():
+                continue
+            try:
+                stat = path.stat()
+                created_at = datetime.fromtimestamp(stat.st_mtime).isoformat()
+            except OSError:
+                created_at = datetime.utcnow().isoformat()
+            builtin_items.append(
+                {
+                    "uuid": f"builtin:{type_name}:{name}",
+                    "name": name,
+                    "component_type": type_name,
+                    "file_type": file_type.value,
+                    "description": f"Built-in {type_name} component",
+                    "created_at": created_at,
+                    "updated_at": None,
+                    "is_active": True,
+                }
+            )
+    return builtin_items
+
+
 # ==================== API路由 ====================
+
 
 @router.get("")
 async def list_components(
@@ -111,10 +184,7 @@ async def list_components(
         # 构建类型列表
         if component_type:
             if component_type not in COMPONENT_FILE_TYPE_MAP:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid component type: {component_type}"
-                )
+                raise HTTPException(status_code=400, detail=f"Invalid component type: {component_type}")
             types_to_check = [COMPONENT_FILE_TYPE_MAP[component_type]]
         else:
             types_to_check = list(COMPONENT_FILE_TYPE_MAP.values())
@@ -128,32 +198,46 @@ async def list_components(
             page_size=page_size,
         )
 
-        if not result.is_success() or not result.data:
+        if not result.is_success():
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
-        result_data = result.data
+        result_data = result.data or {}
         total_count = result_data.get("total", 0)
         files = result_data.get("data", [])
 
         items = []
+        seen_keys = set()
         for file_record in files:
-            file_type_value = file_record.type if hasattr(file_record, 'type') else 0
+            file_type_value = _file_type_value(file_record.type) if hasattr(file_record, "type") else 0
             component_type_name = FILE_TYPE_TO_COMPONENT_TYPE.get(file_type_value, "unknown")
-            created_at = file_record.create_at if hasattr(file_record, 'create_at') else None
-            updated_at = file_record.update_at if hasattr(file_record, 'update_at') else None
+            created_at = file_record.create_at if hasattr(file_record, "create_at") else None
+            updated_at = file_record.update_at if hasattr(file_record, "update_at") else None
             if not created_at:
                 created_at = datetime.utcnow()
-            is_del = file_record.is_del if hasattr(file_record, 'is_del') else False
-            items.append({
-                "uuid": file_record.uuid,
-                "name": file_record.name,
-                "component_type": component_type_name,
-                "file_type": file_type_value,
-                "description": f"{component_type_name.capitalize()} component",
-                "created_at": created_at.isoformat(),
-                "updated_at": updated_at.isoformat() if updated_at else None,
-                "is_active": not is_del,
-            })
+            is_del = file_record.is_del if hasattr(file_record, "is_del") else False
+            items.append(
+                {
+                    "uuid": file_record.uuid,
+                    "name": file_record.name,
+                    "component_type": component_type_name,
+                    "file_type": file_type_value,
+                    "description": f"{component_type_name.capitalize()} component",
+                    "created_at": created_at.isoformat(),
+                    "updated_at": updated_at.isoformat() if updated_at else None,
+                    "is_active": not is_del,
+                }
+            )
+            seen_keys.add((component_type_name, file_record.name))
+
+        builtin_items = [
+            item
+            for item in _list_builtin_components(component_type, effective_keyword, is_active)
+            if (item["component_type"], item["name"]) not in seen_keys
+        ]
+        items.extend(builtin_items)
+        total_count += len(builtin_items)
+        if len(items) > page_size:
+            items = items[:page_size]
 
         return paginated(items=items, total=total_count, page=page, page_size=page_size)
 
@@ -161,10 +245,7 @@ async def list_components(
         raise
     except Exception as e:
         logger.error(f"Error listing components: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to list components"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list components")
 
 
 # ==================== 组件参数端点 ====================
@@ -199,10 +280,7 @@ async def get_all_component_parameters():
         return ok(data=definitions)
     except Exception as e:
         logger.error(f"Error getting all component parameters: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get component parameters: {str(e)}")
 
 
 @router.get("/parameters/{component_name}")
@@ -214,16 +292,10 @@ async def get_component_parameters(component_name: str):
         # 按文件名查 MFile（get_by_name 返回复数列表，取首条）
         name_result = file_service.get_by_name(component_name)
         if not name_result.is_success() or not name_result.data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component not found: {component_name}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
         files = name_result.data.get("files", [])
         if not files:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component not found: {component_name}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
         file_record = files[0]
 
         # 读源码
@@ -233,28 +305,19 @@ async def get_component_parameters(component_name: str):
             raw = content_result.data
             code = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
         if not code:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component source empty: {component_name}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component source empty: {component_name}")
 
         # 动态提取参数（复用 /components/{uuid} 同一提取器，废弃过时硬编码表）
         component_type = FILE_TYPE_TO_COMPONENT_TYPE.get(file_record.type, "unknown")
         params = extract_component_parameters(component_name, code, component_type)
         if not params:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component parameters not found: {component_name}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component parameters not found: {component_name}")
         return ok(data=params)
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting component parameters for {component_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get component parameters: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get component parameters: {str(e)}")
 
 
 @router.get("/{uuid}")
@@ -267,19 +330,13 @@ async def get_component(uuid: str):
         result = file_service.get_by_uuid(uuid)
 
         if not result.is_success() or not result.data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component not found: {uuid}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component not found: {uuid}")
 
         # result.data 是字典，'file' 键才是 MFile 对象
         file_record = result.data.get("file")
 
         if not file_record:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component file not found: {uuid}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component file not found: {uuid}")
 
         # 处理文件类型 - MFile.type 是整数值
         file_type_value = file_record.type
@@ -291,9 +348,9 @@ async def get_component(uuid: str):
         file_data = content_result.data if content_result.is_success() else None
         if file_data:
             try:
-                code = file_data.decode('utf-8')
+                code = file_data.decode("utf-8")
             except:
-                code = file_data.decode('latin-1', errors='ignore')
+                code = file_data.decode("latin-1", errors="ignore")
 
         # 提取组件参数
         parameters = []
@@ -306,26 +363,25 @@ async def get_component(uuid: str):
         created_at = file_record.create_at if file_record.create_at else datetime.utcnow()
         updated_at = file_record.update_at if file_record.update_at else None
 
-        return ok(data={
-            "uuid": file_record.uuid,
-            "name": file_record.name,
-            "component_type": component_type,
-            "file_type": file_type_value,
-            "code": code,
-            "description": file_record.desc if file_record.desc else f"{component_type.capitalize()} component",
-            "parameters": parameters,
-            "created_at": created_at.isoformat(),
-            "updated_at": updated_at.isoformat() if updated_at else None
-        })
+        return ok(
+            data={
+                "uuid": file_record.uuid,
+                "name": file_record.name,
+                "component_type": component_type,
+                "file_type": file_type_value,
+                "code": code,
+                "description": file_record.desc if file_record.desc else f"{component_type.capitalize()} component",
+                "parameters": parameters,
+                "created_at": created_at.isoformat(),
+                "updated_at": updated_at.isoformat() if updated_at else None,
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting component {uuid}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get component"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get component")
 
 
 @router.post("")
@@ -336,10 +392,7 @@ async def create_component(data: ComponentCreate):
 
         # 获取对应的文件类型
         if data.component_type not in COMPONENT_FILE_TYPE_MAP:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid component type: {data.component_type}"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid component type: {data.component_type}")
 
         file_type = COMPONENT_FILE_TYPE_MAP[data.component_type]
 
@@ -347,15 +400,12 @@ async def create_component(data: ComponentCreate):
         result = file_service.add(
             name=data.name,
             file_type=file_type,
-            data=data.code.encode('utf-8') if data.code else b'',
-            description=data.description
+            data=data.code.encode("utf-8") if data.code else b"",
+            description=data.description,
         )
 
         if not result.is_success():
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to create component: {result.message}"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to create component: {result.message}")
 
         # 获取创建的文件记录
         # #5885: FileService.add 返回 data={"file_info": {"uuid": ...}}，
@@ -364,10 +414,7 @@ async def create_component(data: ComponentCreate):
         file_info = result.data.get("file_info") if result.data else None
         file_uuid = file_info.get("uuid") if file_info else None
         if not file_uuid:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to get created component UUID"
-            )
+            raise HTTPException(status_code=500, detail="Failed to get created component UUID")
 
         # 返回创建的组件详情
         return await get_component(file_uuid)
@@ -376,10 +423,7 @@ async def create_component(data: ComponentCreate):
         raise
     except Exception as e:
         logger.error(f"Error creating component: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create component"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create component")
 
 
 @router.put("/{uuid}")
@@ -391,10 +435,7 @@ async def update_component(uuid: str, data: ComponentUpdate):
         # 验证存在
         result = file_service.get_by_uuid(uuid)
         if not result.is_success() or not result.data or not result.data.get("exists"):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component not found: {uuid}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component not found: {uuid}")
 
         # 准备更新
         updates = {}
@@ -403,7 +444,7 @@ async def update_component(uuid: str, data: ComponentUpdate):
         if data.description is not None:
             updates["desc"] = data.description
         if data.code is not None:
-            updates["data"] = data.code.encode('utf-8')
+            updates["data"] = data.code.encode("utf-8")
 
         if updates:
             file_service.update(uuid, updates)
@@ -414,10 +455,7 @@ async def update_component(uuid: str, data: ComponentUpdate):
         raise
     except Exception as e:
         logger.error(f"Error updating component {uuid}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to update component"
-        )
+        raise HTTPException(status_code=500, detail="Failed to update component")
 
 
 @router.delete("/{uuid}")
@@ -430,10 +468,7 @@ async def delete_component(uuid: str):
         result = file_service.soft_delete(uuid)
 
         if not result.is_success():
-            raise HTTPException(
-                status_code=404,
-                detail=f"Component not found or already deleted: {uuid}"
-            )
+            raise HTTPException(status_code=404, detail=f"Component not found or already deleted: {uuid}")
 
         return ok(message="Component deleted successfully")
 
@@ -441,13 +476,11 @@ async def delete_component(uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting component {uuid}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to delete component"
-        )
+        raise HTTPException(status_code=500, detail="Failed to delete component")
 
 
 # ==================== 辅助函数 ====================
+
 
 def extract_component_parameters(component_name: str, code: str, component_type: str) -> List[Dict[str, Any]]:
     """
@@ -476,8 +509,8 @@ def extract_component_parameters(component_name: str, code: str, component_type:
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 # 查找包含component名称的类
-                class_name = node.name.lower().replace('_', '')
-                comp_name = component_name.lower().replace('_', '')
+                class_name = node.name.lower().replace("_", "")
+                comp_name = component_name.lower().replace("_", "")
                 if comp_name in class_name or class_name in comp_name:
                     component_class = node
                     break
@@ -485,13 +518,13 @@ def extract_component_parameters(component_name: str, code: str, component_type:
         # 如果没找到精确匹配，查找第一个包含组件类型关键词的类
         if not component_class:
             type_keywords = {
-                'strategy': 'strategy',
-                'selector': 'selector',
-                'sizer': 'sizer',
-                'risk': 'risk',
-                'analyzer': 'analyzer'
+                "strategy": "strategy",
+                "selector": "selector",
+                "sizer": "sizer",
+                "risk": "risk",
+                "analyzer": "analyzer",
             }
-            keyword = type_keywords.get(component_type.lower(), '')
+            keyword = type_keywords.get(component_type.lower(), "")
 
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
@@ -505,7 +538,7 @@ def extract_component_parameters(component_name: str, code: str, component_type:
         # 查找__init__方法
         init_method = None
         for node in component_class.body:
-            if isinstance(node, ast.FunctionDef) and node.name == '__init__':
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__":
                 init_method = node
                 break
 
@@ -517,7 +550,7 @@ def extract_component_parameters(component_name: str, code: str, component_type:
             arg_name = arg.arg
 
             # 跳过self
-            if arg_name == 'self':
+            if arg_name == "self":
                 continue
 
             # name参数保留，确保索引与构造函数位置一致
@@ -556,7 +589,7 @@ def extract_component_parameters(component_name: str, code: str, component_type:
                 "type": param_type,
                 "default": actual_default,
                 "required": not has_default,
-                "description": f"{_format_parameter_label(arg_name)}参数"
+                "description": f"{_format_parameter_label(arg_name)}参数",
             }
 
             # 根据参数名添加额外约束
@@ -595,10 +628,7 @@ def _get_default_value(node):
         elif isinstance(node, ast.List):
             return [_get_default_value(item) for item in node.elts]
         elif isinstance(node, ast.Dict):
-            return {
-                _get_default_value(k): _get_default_value(v)
-                for k, v in zip(node.keys, node.values)
-            }
+            return {_get_default_value(k): _get_default_value(v) for k, v in zip(node.keys, node.values)}
         elif isinstance(node, ast.Call):
             return None
         return None
@@ -610,12 +640,32 @@ def _infer_parameter_type(param_name: str, default_value: Any) -> str:
     """推断参数类型"""
     # 根据参数名推断是否为数字/布尔/数组类型
     name_lower = param_name.lower()
-    is_numeric_name = any(kw in name_lower for kw in [
-        'period', 'length', 'window', 'day', 'count', 'num',
-        'volume', 'amount', 'ratio', 'percent', 'rate',
-        'limit', 'max', 'min', 'threshold', 'level',
-        'cash', 'weight', 'size', 'price', 'fee',
-    ])
+    is_numeric_name = any(
+        kw in name_lower
+        for kw in [
+            "period",
+            "length",
+            "window",
+            "day",
+            "count",
+            "num",
+            "volume",
+            "amount",
+            "ratio",
+            "percent",
+            "rate",
+            "limit",
+            "max",
+            "min",
+            "threshold",
+            "level",
+            "cash",
+            "weight",
+            "size",
+            "price",
+            "fee",
+        ]
+    )
 
     if default_value is not None:
         if isinstance(default_value, bool):
@@ -640,10 +690,10 @@ def _infer_parameter_type(param_name: str, default_value: Any) -> str:
     if is_numeric_name:
         return "number"
 
-    if any(kw in name_lower for kw in ['enable', 'disable', 'use', 'is_', 'has_']):
+    if any(kw in name_lower for kw in ["enable", "disable", "use", "is_", "has_"]):
         return "boolean"
 
-    if any(kw in name_lower for kw in ['codes', 'symbols', 'list', 'array']):
+    if any(kw in name_lower for kw in ["codes", "symbols", "list", "array"]):
         return "array"
 
     return "string"
@@ -653,46 +703,46 @@ def _format_parameter_label(param_name: str) -> str:
     """格式化参数标签（将参数名转为可读的中文或英文标签）"""
     # 常见参数名的中文映射
     label_map = {
-        'codes': '股票代码',
-        'symbols': '股票代码',
-        'volume': '数量',
-        'amount': '金额',
-        'period': '周期',
-        'length': '长度',
-        'window': '窗口',
-        'ratio': '比例',
-        'percent': '百分比',
-        'rate': '比率',
-        'count': '数量',
-        'limit': '限制',
-        'max': '最大值',
-        'min': '最小值',
-        'threshold': '阈值',
-        'level': '水平',
-        'probability': '概率',
-        'buy_probability': '买入概率',
-        'sell_probability': '卖出概率',
-        'short_period': '短期周期',
-        'long_period': '长期周期',
-        'std_dev': '标准差',
-        'overbought': '超买',
-        'oversold': '超卖',
-        'fast_period': '快线周期',
-        'slow_period': '慢线周期',
-        'signal_period': '信号周期',
-        'atr_multiplier': 'ATR倍数',
-        'risk_percent': '风险比例',
-        'loss_limit': '止损限制',
-        'profit_limit': '止盈限制',
-        'max_drawdown': '最大回撤',
-        'win_rate': '胜率',
+        "codes": "股票代码",
+        "symbols": "股票代码",
+        "volume": "数量",
+        "amount": "金额",
+        "period": "周期",
+        "length": "长度",
+        "window": "窗口",
+        "ratio": "比例",
+        "percent": "百分比",
+        "rate": "比率",
+        "count": "数量",
+        "limit": "限制",
+        "max": "最大值",
+        "min": "最小值",
+        "threshold": "阈值",
+        "level": "水平",
+        "probability": "概率",
+        "buy_probability": "买入概率",
+        "sell_probability": "卖出概率",
+        "short_period": "短期周期",
+        "long_period": "长期周期",
+        "std_dev": "标准差",
+        "overbought": "超买",
+        "oversold": "超卖",
+        "fast_period": "快线周期",
+        "slow_period": "慢线周期",
+        "signal_period": "信号周期",
+        "atr_multiplier": "ATR倍数",
+        "risk_percent": "风险比例",
+        "loss_limit": "止损限制",
+        "profit_limit": "止盈限制",
+        "max_drawdown": "最大回撤",
+        "win_rate": "胜率",
     }
 
     if param_name in label_map:
         return label_map[param_name]
 
     # 转换为驼峰命名
-    return ''.join(word.capitalize() for word in param_name.split('_'))
+    return "".join(word.capitalize() for word in param_name.split("_"))
 
 
 def _get_parameter_constraints(param_name: str, param_type: str) -> Dict[str, Any]:
@@ -703,36 +753,16 @@ def _get_parameter_constraints(param_name: str, param_type: str) -> Dict[str, An
         name_lower = param_name.lower()
 
         # 比例/百分比参数
-        if any(kw in name_lower for kw in ['ratio', 'percent', 'probability', 'rate']):
-            constraints.update({
-                'min': 0,
-                'max': 100 if 'percent' in name_lower else 1,
-                'step': 0.01,
-                'precision': 2
-            })
+        if any(kw in name_lower for kw in ["ratio", "percent", "probability", "rate"]):
+            constraints.update({"min": 0, "max": 100 if "percent" in name_lower else 1, "step": 0.01, "precision": 2})
         # 周期参数
-        elif any(kw in name_lower for kw in ['period', 'length', 'window']):
-            constraints.update({
-                'min': 1,
-                'max': 1000,
-                'step': 1,
-                'precision': 0
-            })
+        elif any(kw in name_lower for kw in ["period", "length", "window"]):
+            constraints.update({"min": 1, "max": 1000, "step": 1, "precision": 0})
         # 数量/金额参数
-        elif any(kw in name_lower for kw in ['volume', 'amount', 'count']):
-            constraints.update({
-                'min': 0,
-                'max': 1000000,
-                'step': 1,
-                'precision': 0
-            })
+        elif any(kw in name_lower for kw in ["volume", "amount", "count"]):
+            constraints.update({"min": 0, "max": 1000000, "step": 1, "precision": 0})
         else:
             # 默认数字约束
-            constraints.update({
-                'min': 0,
-                'max': 10000,
-                'step': 1,
-                'precision': 0
-            })
+            constraints.update({"min": 0, "max": 10000, "step": 1, "precision": 0})
 
     return constraints
