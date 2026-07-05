@@ -503,6 +503,46 @@ class TestGetOtherTypes:
         assert prices == [10.05]
 
     @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json_default_limit(self, mock_container, cli_runner):
+        """#6579 review finding 2：tick ``--format json`` 无 ``--limit`` 时须有默认上限。
+
+        tick 默认 7 天窗单股可达 10-50 万行，json 无上限会爆 stdout。取 1000 作默认
+        （与文本路径 50 解耦——机读场景需更多样本）。``metadata.limit`` 报实际阈值
+        （用户值或默认 1000），让下游知边界而非 ``None``（无限制假象）。
+        """
+        import pandas as pd
+
+        mock_service = MagicMock()
+        # 1500 行 > 默认上限 1000，验证截断生效
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ"] * 1500,
+                "timestamp": [f"2026-07-01 09:{i // 60:02d}:{i % 60:02d}:00" for i in range(1500)],
+                "price": [10.0 + i * 0.001 for i in range(1500)],
+                "volume": [100 + i for i in range(1500)],
+                "amount": [1000.0 + i for i in range(1500)],
+                "direction": [1] * 1500,
+            }
+        )
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        # 默认上限 1000 生效：count 截断、total 仍是全量 1500、metadata.limit 报阈值
+        assert payload["count"] == 1000, f"expected default limit 1000, got count={payload['count']}"
+        assert payload["metadata"]["total"] == 1500
+        assert payload["metadata"]["limit"] == 1000
+
+    @patch("ginkgo.data.containers.container")
     def test_get_adjustfactor_format_json(self, mock_container, cli_runner):
         """--format json：adjustfactor 分支走 format_result list 契约（ADR-021 第 5/9 维）。
 
@@ -547,15 +587,20 @@ class TestGetOtherTypes:
         复权因子是低频事件型数据（一年通常 ≤3 条除权事件），归"全量列表"语义（与
         stockinfo 一致），head 取最早 N 条除权事件。改自原 tail 行为（从 day/tick
         复制的遗留逻辑）；业务理由：复权因子全量条数少，按时间正序阅读除权轨迹更直观。
+
+        #6579 review finding 3：mock df 用**倒序输入**（最新在前），复现 review 实测的
+        覆盖盲区——文本路径缺 ``sort_values`` 时 head 取到的是最新 N 条而非承诺的最早 N 条。
+        正序 mock 会掩盖此 bug（review 指出原测试 mock 恰好预排序）。
         """
         mock_service = MagicMock()
         mock_df = pd.DataFrame(
             {
                 "code": ["000001.SZ"] * 5,
-                "timestamp": ["2024-01-15", "2024-04-15", "2024-07-15", "2024-10-15", "2025-01-15"],
-                "foreadjustfactor": [1.0, 0.95, 0.92, 0.88, 0.85],
-                "backadjustfactor": [1.0, 1.05, 1.08, 1.12, 1.15],
-                "adjustfactor": [1.0, 1.05, 1.08, 1.12, 1.15],
+                # 倒序输入（最新在前）：修复前 head(2) 会错误返回 2025-01/2024-10
+                "timestamp": ["2025-01-15", "2024-10-15", "2024-07-15", "2024-04-15", "2024-01-15"],
+                "foreadjustfactor": [0.85, 0.88, 0.92, 0.95, 1.0],
+                "backadjustfactor": [1.15, 1.12, 1.08, 1.05, 1.0],
+                "adjustfactor": [1.15, 1.12, 1.08, 1.05, 1.0],
             }
         )
         mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=mock_df)
@@ -570,6 +615,27 @@ class TestGetOtherTypes:
         assert "2024-04-15" in result.output
         assert "2024-10-15" not in result.output
         assert "2025-01-15" not in result.output
+
+    def test_get_invalid_format_exits_with_code_2(self, cli_runner):
+        """#6579 review finding 1：无效 --format 须 exit 2（BAD_PARAMS，ADR-021 第 6 维）。
+
+        typer.Exit(2) 不能被 get 末尾的 ``except Exception`` 吞成 ``Exit(1)``
+        （typer.Exit MRO = Exit→RuntimeError→Exception，是 Exception 子类）。
+        校验在 service 调用前发生，无需 mock container。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "xml"])
+        assert result.exit_code == 2, (
+            f"expected exit 2 (BAD_PARAMS), got {result.exit_code}\noutput:\n{result.output}"
+        )
+        assert "Invalid --format" in result.output
+
+    def test_get_invalid_limit_exits_with_code_2(self, cli_runner):
+        """#6579 review finding 1：--limit < 1 须 exit 2（BAD_PARAMS），不被吞成 Exit(1)。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--limit", "0"])
+        assert result.exit_code == 2, (
+            f"expected exit 2 (BAD_PARAMS), got {result.exit_code}\noutput:\n{result.output}"
+        )
+        assert "--limit must be greater than 0" in result.output
 
     def test_get_sources_format_json(self, cli_runner):
         """--format json：sources 分支走 format_result list 契约（ADR-021 第 5/9 维）。

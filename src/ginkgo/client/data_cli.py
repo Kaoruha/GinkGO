@@ -107,17 +107,19 @@ def get(
     """
     :inbox_tray: Get data from database.
     """
-    try:
-        # ADR-021 E4: auto keeps legacy text output; explicit json is machine-readable.
-        if format is None or format == "auto":
-            format = "text"
-        elif format not in ("text", "json"):
-            console.print(f":x: Invalid --format {format!r}: must be 'auto', 'text' or 'json'")
-            raise typer.Exit(2)  # BAD_PARAMS 语义（ADR-021 第 6 维 exit 2）
-        if limit is not None and limit < 1:
-            console.print(":x: --limit must be greater than 0")
-            raise typer.Exit(2)
+    # ADR-021 第 6 维 + #6579 review finding 1：参数校验须在 try 块外，否则
+    # typer.Exit(2) 被末尾 except Exception 吞成 Exit(1)（MRO: Exit→RuntimeError→Exception）。
+    # 对齐 sync 函数写法（见本文件 sync 的 --code 校验，同样置于 try 外）。
+    if format is None or format == "auto":
+        format = "text"
+    elif format not in ("text", "json"):
+        console.print(f":x: Invalid --format {format!r}: must be 'auto', 'text' or 'json'")
+        raise typer.Exit(2)  # BAD_PARAMS 语义（ADR-021 第 6 维 exit 2）
+    if limit is not None and limit < 1:
+        console.print(":x: --limit must be greater than 0")
+        raise typer.Exit(2)
 
+    try:
         # ADR-021 任务1：--no-color 禁用 ANSI（TTY pipe 输出/CI 日志友好；json 模式本就无 ANSI，幂等）
         if no_color:
             console.no_color = True
@@ -454,11 +456,15 @@ def get(
                 return
 
             if format == "json":
-                json_df = df.tail(limit) if limit is not None else df
+                # #6579 review finding 2：tick 默认 7 天窗单股可达 10-50 万行，
+                # json 无 --limit 时全量 dump 爆 stdout。取 1000 作默认上限（与文本路径 50
+                # 解耦——机读场景需更多样本，1000 兼顾样本量与 stdout 友好）。
+                json_limit = limit if limit is not None else 1000
+                json_df = df.tail(json_limit) if len(df) > json_limit else df
                 _emit_json_records(
                     json_df.to_dict("records"),
                     total=len(df),
-                    limit=limit,
+                    limit=json_limit,
                     order="tail",
                 )
                 return
@@ -537,7 +543,10 @@ def get(
             display_cols = ["code", "timestamp", "foreadjustfactor", "backadjustfactor", "adjustfactor"]
             show_cols = [c for c in display_cols if c in df.columns]
             df_display = df[show_cols].copy()
+            # #6579 review finding 3：与 json 路径（sort_values("timestamp").head）对称，
+            # 文本路径须先按 timestamp 正序再 head，否则同一查询 text/json 返回不同行。
             if "timestamp" in df_display.columns:
+                df_display = df_display.sort_values("timestamp")
                 df_display["timestamp"] = df_display["timestamp"].astype(str).str[:10]
 
             # ADR-021 第 2 维 + 任务4 核实：adjustfactor = 低频事件型（全量列表语义），
