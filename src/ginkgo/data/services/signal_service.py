@@ -109,6 +109,7 @@ class SignalService(BaseService):
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
         task_id: Optional[str] = None,
+        page: int = 0,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -119,10 +120,13 @@ class SignalService(BaseService):
         """
         try:
             filters = self._build_signal_filters(
-                engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id,
+                engine_id=engine_id,
+                portfolio_id=portfolio_id,
+                task_id=task_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
+                page=page if page_size > 0 else None,
                 page_size=page_size if page_size > 0 else None,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()

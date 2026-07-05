@@ -18,7 +18,9 @@ def deploy(
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,
-    source_task: Annotated[Optional[str], typer.Option("--source-task", help="源回测任务ID (可选, 记录回测→部署链路)")] = None,
+    source_task: Annotated[
+        Optional[str], typer.Option("--source-task", help="源回测任务ID (可选, 记录回测→部署链路)")
+    ] = None,
 ):
     """一键部署：Portfolio → 纸上交易/实盘"""
     try:
@@ -67,7 +69,9 @@ def deploy(
 
 @app.command("info")
 def info(
-    deployment_id: Annotated[str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")],
+    deployment_id: Annotated[
+        str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")
+    ],
 ):
     """查看部署详情（#4982：支持按部署 UUID 或 portfolio_id 反查）"""
     try:
@@ -114,13 +118,15 @@ def info(
 @app.command("list")
 def list_deployments(
     portfolio_id: Annotated[Optional[str], typer.Option("--portfolio", "-p", help="按Portfolio ID筛选")] = None,
+    page: Annotated[int, typer.Option("--page", help="页码（0-based）")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", "--limit", "-l", help="每页数量")] = 20,
 ):
     """列出部署记录"""
     try:
         from ginkgo.trading.containers import trading_container
 
         svc = trading_container.deployment_service()
-        result = svc.list_deployments(portfolio_id=portfolio_id)
+        result = svc.list_deployments(portfolio_id=portfolio_id, page=page, page_size=page_size)
 
         if result.success and result.data:
             table = Table(title="部署记录")

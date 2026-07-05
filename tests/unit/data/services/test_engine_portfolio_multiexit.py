@@ -40,9 +40,7 @@ def _make_engine_modellist() -> ModelList:
 
     model = MEngine(name="test-engine", is_live=False)
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"name": "test-engine", "is_live": False}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-engine", "is_live": False}])
     return ModelList([model], crud_stub)
 
 
@@ -51,9 +49,7 @@ def _make_portfolio_modellist() -> ModelList:
 
     model = MPortfolio(name="test-portfolio")
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"name": "test-portfolio"}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-portfolio"}])
     return ModelList([model], crud_stub)
 
 
@@ -109,6 +105,16 @@ def test_get_engines_df_returns_dataframe():
 
 
 @pytest.mark.unit
+def test_get_engines_df_passes_pagination_to_crud():
+    svc = _make_engine_service(_make_engine_modellist())
+    svc.get_engines_df(page=2, page_size=15)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] == 2
+    assert kwargs["page_size"] == 15
+
+
+@pytest.mark.unit
 def test_get_engines_df_empty_returns_empty_dataframe():
     """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
     svc = _make_engine_service(_make_empty_modellist())
@@ -154,6 +160,16 @@ def test_get_portfolios_df_returns_dataframe():
 
 
 @pytest.mark.unit
+def test_get_portfolios_df_passes_pagination_to_crud():
+    svc = _make_portfolio_service(_make_portfolio_modellist())
+    svc.get_portfolios_df(page=3, page_size=25)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] == 3
+    assert kwargs["page_size"] == 25
+
+
+@pytest.mark.unit
 def test_get_portfolios_df_empty_returns_empty_dataframe():
     """空结果 data 仍是 pd.DataFrame。"""
     svc = _make_portfolio_service(_make_empty_modellist())
@@ -183,7 +199,9 @@ def test_build_portfolio_filters_construction():
 
     svc = _make_portfolio_service(_make_empty_modellist())
     filters = svc._build_portfolio_filters(
-        portfolio_id="uid", name="n", mode=PORTFOLIO_MODE_TYPES.LIVE,
+        portfolio_id="uid",
+        name="n",
+        mode=PORTFOLIO_MODE_TYPES.LIVE,
     )
     assert filters["uuid"] == "uid"
     assert filters["name"] == "n"
@@ -198,7 +216,10 @@ def test_build_engine_filters_construction():
 
     svc = _make_engine_service(_make_empty_modellist())
     filters = svc._build_engine_filters(
-        engine_id="uid", name="n", is_live=True, status=ENGINESTATUS_TYPES.RUNNING,
+        engine_id="uid",
+        name="n",
+        is_live=True,
+        status=ENGINESTATUS_TYPES.RUNNING,
     )
     assert filters["uuid"] == "uid"
     assert filters["name"] == "n"

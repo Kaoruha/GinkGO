@@ -29,37 +29,41 @@ def cli_runner():
 
 @pytest.fixture
 def mock_orders_df():
-    return pd.DataFrame({
-        "uuid": ["o1"],
-        "portfolio_id": ["p1"],
-        "engine_id": ["e1"],
-        "task_id": ["t1"],
-        "code": ["000001.SZ"],
-        "direction": ["LONG"],
-        "order_type": ["MARKET"],
-        "quantity": [100],
-        "limit_price": [10.5],
-        "timestamp": ["2026-01-01"],
-        "status": ["FILLED"],
-    })
+    return pd.DataFrame(
+        {
+            "uuid": ["o1"],
+            "portfolio_id": ["p1"],
+            "engine_id": ["e1"],
+            "task_id": ["t1"],
+            "code": ["000001.SZ"],
+            "direction": ["LONG"],
+            "order_type": ["MARKET"],
+            "quantity": [100],
+            "limit_price": [10.5],
+            "timestamp": ["2026-01-01"],
+            "status": ["FILLED"],
+        }
+    )
 
 
 @pytest.fixture
 def mock_positions_df():
     # #5341: record position 读流水表 MPositionRecord，字段是 volume/cost/price/fee
     # （非 MPosition 当前态的 quantity/average_price/market_value）
-    return pd.DataFrame({
-        "uuid": ["pos1"],
-        "portfolio_id": ["p1"],
-        "engine_id": ["e1"],
-        "task_id": ["t1"],
-        "code": ["000001.SZ"],
-        "volume": [100],
-        "cost": [10.5],
-        "price": [10.8],
-        "fee": [5.0],
-        "timestamp": ["2026-01-01"],
-    })
+    return pd.DataFrame(
+        {
+            "uuid": ["pos1"],
+            "portfolio_id": ["p1"],
+            "engine_id": ["e1"],
+            "task_id": ["t1"],
+            "code": ["000001.SZ"],
+            "volume": [100],
+            "cost": [10.5],
+            "price": [10.8],
+            "fee": [5.0],
+            "timestamp": ["2026-01-01"],
+        }
+    )
 
 
 # ============================================================================
@@ -79,9 +83,18 @@ class TestRecordOrderFilters:
         mock_service.get_orders_df.return_value = ServiceResult.success(data=mock_orders_df)
         mock_container.order_service.return_value = mock_service
 
-        result = cli_runner.invoke(record_cli.app, [
-            "order", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
-        ])
+        result = cli_runner.invoke(
+            record_cli.app,
+            [
+                "order",
+                "--portfolio",
+                "p1",
+                "--engine",
+                "e1",
+                "--task",
+                "t1",
+            ],
+        )
         assert result.exit_code == 0
         _, kwargs = mock_service.get_orders_df.call_args
         assert kwargs.get("portfolio_id") == "p1"
@@ -117,9 +130,18 @@ class TestRecordPositionFilters:
         mock_service.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
         mock_container.result_service.return_value = mock_service
 
-        result = cli_runner.invoke(record_cli.app, [
-            "position", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
-        ])
+        result = cli_runner.invoke(
+            record_cli.app,
+            [
+                "position",
+                "--portfolio",
+                "p1",
+                "--engine",
+                "e1",
+                "--task",
+                "t1",
+            ],
+        )
         assert result.exit_code == 0
         _, kwargs = mock_service.get_positions_df.call_args
         assert kwargs.get("portfolio_id") == "p1"
@@ -127,9 +149,7 @@ class TestRecordPositionFilters:
         assert kwargs.get("task_id") == "t1"
 
     @patch("ginkgo.data.containers.Container")
-    def test_position_reads_result_service_not_position_service(
-        self, mock_container, cli_runner, mock_positions_df
-    ):
+    def test_position_reads_result_service_not_position_service(self, mock_container, cli_runner, mock_positions_df):
         """#5341 核心：必须读 result_service（流水表），不得读 position_service（当前态）"""
         mock_result_svc = MagicMock()
         mock_result_svc.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
@@ -137,9 +157,18 @@ class TestRecordPositionFilters:
         mock_position_svc = MagicMock()
         mock_container.position_service.return_value = mock_position_svc
 
-        result = cli_runner.invoke(record_cli.app, [
-            "position", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
-        ])
+        result = cli_runner.invoke(
+            record_cli.app,
+            [
+                "position",
+                "--portfolio",
+                "p1",
+                "--engine",
+                "e1",
+                "--task",
+                "t1",
+            ],
+        )
         assert result.exit_code == 0
         mock_result_svc.get_positions_df.assert_called_once()
         # 关键：position_service（当前态表）绝不能被调用——那是 #5341 的 bug 源头
@@ -152,16 +181,18 @@ class TestRecordPositionFilters:
 
 
 def _signals_df():
-    return pd.DataFrame({
-        "uuid": ["s1"],
-        "engine_id": ["e1"],
-        "portfolio_id": ["p1"],
-        "task_id": ["t1"],
-        "code": ["000001.SZ"],
-        "direction": ["LONG"],
-        "timestamp": ["2026-01-01"],
-        "reason": ["test"],
-    })
+    return pd.DataFrame(
+        {
+            "uuid": ["s1"],
+            "engine_id": ["e1"],
+            "portfolio_id": ["p1"],
+            "task_id": ["t1"],
+            "code": ["000001.SZ"],
+            "direction": ["LONG"],
+            "timestamp": ["2026-01-01"],
+            "reason": ["test"],
+        }
+    )
 
 
 @pytest.mark.unit
@@ -174,15 +205,44 @@ class TestRecordSignalFilters:
     """
 
     @patch("ginkgo.data.containers.Container")
+    def test_signal_help_shows_page_size(self, mock_container, cli_runner):
+        result = cli_runner.invoke(record_cli.app, ["signal", "--help"])
+        assert result.exit_code == 0
+        assert "--page" in result.output
+        assert "--page-size" in result.output
+
+    @patch("ginkgo.data.containers.Container")
+    def test_signal_passes_page_and_page_size(self, mock_container, cli_runner):
+        mock_service = MagicMock()
+        mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
+        mock_container.signal_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["signal", "--page", "1", "--page-size", "5"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_service.get_signals_df.call_args
+        assert kwargs.get("page") == 1
+        assert kwargs.get("page_size") == 5
+
+    @patch("ginkgo.data.containers.Container")
     def test_signal_passes_all_filters(self, mock_container, cli_runner):
         """-p/-e/-t 全透传到 service.get_signals_df"""
         mock_service = MagicMock()
         mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
         mock_container.signal_service.return_value = mock_service
 
-        result = cli_runner.invoke(record_cli.app, [
-            "signal", "--portfolio", "p1", "--engine", "e1", "--task", "t1",
-        ])
+        result = cli_runner.invoke(
+            record_cli.app,
+            [
+                "signal",
+                "--portfolio",
+                "p1",
+                "--engine",
+                "e1",
+                "--task",
+                "t1",
+            ],
+        )
         assert result.exit_code == 0
         _, kwargs = mock_service.get_signals_df.call_args
         assert kwargs.get("portfolio_id") == "p1"

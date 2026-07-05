@@ -3,8 +3,6 @@
 # Role: 记录管理CLI，提供signal信号、order委托、position持仓、analyzer分析等命令，支持交易记录的查询与管理
 
 
-
-
 import typer
 from typing import Optional
 from typing_extensions import Annotated
@@ -20,10 +18,13 @@ console = Console()
 
 @app.command()
 def signal(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    portfolio: Annotated[
+        Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")
+    ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Page number (0-based)")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":1234: Items per page (0=no pagination)")] = 50,
 ):
     """
     :satellite_antenna: List trading signals.
@@ -39,7 +40,8 @@ def signal(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=page,
+            page_size=page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -60,19 +62,16 @@ def signal(
             "direction": {"display_name": "Direction", "style": "green"},
             "code": {"display_name": "Code", "style": "cyan"},
             "timestamp": {"display_name": "Timestamp", "style": "dim"},
-            "reason": {"display_name": "Reason", "style": "yellow"}
+            "reason": {"display_name": "Reason", "style": "yellow"},
         }
 
         title = ":satellite_antenna: [bold]Signals:[/bold]"
-        display_dataframe(
-            data=signals_df,
-            columns_config=signal_columns_config,
-            title=title,
-            console=console
-        )
+        display_dataframe(data=signals_df, columns_config=signal_columns_config, title=title, console=console)
 
-        if signals_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        if signals_df.shape[0] == page_size and page_size > 0:
+            console.print(
+                f"[dim]Showing page {page} ({page_size} records per page). Use --page-size 0 to see all records.[/dim]"
+            )
 
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch signals:[/bold red] {e}")
@@ -80,7 +79,9 @@ def signal(
 
 @app.command()
 def order(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    portfolio: Annotated[
+        Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")
+    ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
@@ -115,16 +116,15 @@ def order(
             "quantity": {"display_name": "Quantity", "style": "yellow"},
             "limit_price": {"display_name": "Limit Price", "style": "yellow"},
             "timestamp": {"display_name": "Timestamp", "style": "dim"},
-            "status": {"display_name": "Status", "style": "green"}
+            "status": {"display_name": "Status", "style": "green"},
         }
 
-        title = f":clipboard: [bold]Orders for portfolio {portfolio}:[/bold]" if portfolio else ":clipboard: [bold]Orders:[/bold]"
-        display_dataframe(
-            data=orders_df,
-            columns_config=order_columns_config,
-            title=title,
-            console=console
+        title = (
+            f":clipboard: [bold]Orders for portfolio {portfolio}:[/bold]"
+            if portfolio
+            else ":clipboard: [bold]Orders:[/bold]"
         )
+        display_dataframe(data=orders_df, columns_config=order_columns_config, title=title, console=console)
 
         if orders_df.shape[0] == page and page > 0:
             console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
@@ -135,7 +135,9 @@ def order(
 
 @app.command()
 def position(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    portfolio: Annotated[
+        Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")
+    ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
@@ -173,16 +175,15 @@ def position(
             "cost": {"display_name": "Cost", "style": "yellow"},
             "price": {"display_name": "Price", "style": "yellow"},
             "fee": {"display_name": "Fee", "style": "green"},
-            "timestamp": {"display_name": "Timestamp", "style": "dim"}
+            "timestamp": {"display_name": "Timestamp", "style": "dim"},
         }
 
-        title = f":bar_chart: [bold]Positions for portfolio {portfolio}:[/bold]" if portfolio else ":bar_chart: [bold]Positions:[/bold]"
-        display_dataframe(
-            data=positions_df,
-            columns_config=position_columns_config,
-            title=title,
-            console=console
+        title = (
+            f":bar_chart: [bold]Positions for portfolio {portfolio}:[/bold]"
+            if portfolio
+            else ":bar_chart: [bold]Positions:[/bold]"
         )
+        display_dataframe(data=positions_df, columns_config=position_columns_config, title=title, console=console)
 
         if positions_df.shape[0] == page and page > 0:
             console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
@@ -193,7 +194,9 @@ def position(
 
 @app.command()
 def analyzer(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
+    portfolio: Annotated[
+        Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")
+    ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
 ):
@@ -229,16 +232,15 @@ def analyzer(
             "analyzer_id": {"display_name": "Analyzer ID", "style": "cyan"},
             "name": {"display_name": "Name", "style": "cyan"},
             "value": {"display_name": "Value", "style": "yellow"},
-            "timestamp": {"display_name": "Timestamp", "style": "dim"}
+            "timestamp": {"display_name": "Timestamp", "style": "dim"},
         }
 
-        title = f":bar_chart: [bold]Analyzer records for {' and '.join(title_parts)}:[/bold]" if title_parts else ":bar_chart: [bold]Analyzer records:[/bold]"
-        display_dataframe(
-            data=analyzer_df,
-            columns_config=analyzer_columns_config,
-            title=title,
-            console=console
+        title = (
+            f":bar_chart: [bold]Analyzer records for {' and '.join(title_parts)}:[/bold]"
+            if title_parts
+            else ":bar_chart: [bold]Analyzer records:[/bold]"
         )
+        display_dataframe(data=analyzer_df, columns_config=analyzer_columns_config, title=title, console=console)
 
         if analyzer_df.shape[0] == page and page > 0:
             console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")

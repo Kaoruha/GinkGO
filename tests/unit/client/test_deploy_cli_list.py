@@ -3,6 +3,7 @@
 - list 输出的 deployment_id / target_portfolio_id 必须完整（不再 [:8]+"..."）
 - list 输出的 id 可直接被 info 消费（round-trip 契约的生产者侧）
 """
+
 import os
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
@@ -59,6 +60,23 @@ def _mock_svc_with_list():
 
 class TestDeployListFullId:
     """#4719: list 输出完整 ID，不截断"""
+
+    def test_list_help_shows_page_options(self, cli_runner):
+        result = cli_runner.invoke(deploy_cli.app, ["list", "--help"])
+        assert result.exit_code == 0
+        assert "--page" in result.output
+        assert "--page-size" in result.output
+
+    def test_list_passes_page_and_page_size(self, cli_runner):
+        svc = _mock_svc_with_list()
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=svc,
+        ):
+            result = cli_runner.invoke(deploy_cli.app, ["list", "--page", "1", "--page-size", "5"])
+
+        assert result.exit_code == 0, result.output
+        svc.list_deployments.assert_called_once_with(portfolio_id=None, page=1, page_size=5)
 
     def test_list_shows_full_deployment_id(self, cli_runner):
         # RED: 当前代码 d["deployment_id"][:8]+"..." 截断，完整 id 不会出现

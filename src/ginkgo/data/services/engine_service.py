@@ -3,10 +3,6 @@
 # Role: EngineService引擎配置管理服务提供引擎CRUD和组合绑定功能
 
 
-
-
-
-
 """
 Engine Management Service (Class-based)
 
@@ -38,17 +34,21 @@ class EngineService(BaseService):
             param_crud: Param CRUD repository (for engine parameters)
         """
         super().__init__(
-            crud_repo=crud_repo,
-            engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
-            param_crud=param_crud
+            crud_repo=crud_repo, engine_portfolio_mapping_crud=engine_portfolio_mapping_crud, param_crud=param_crud
         )
         # Store mapping repo for easier access
         self._mapping_repo = engine_portfolio_mapping_crud
 
     # Standard interface methods
-    def get(self, engine_id: str = None, name: str = None, is_live: bool = None,
-            status: ENGINESTATUS_TYPES = None,
-            page: Optional[int] = None, page_size: Optional[int] = None) -> ServiceResult:
+    def get(
+        self,
+        engine_id: str = None,
+        name: str = None,
+        is_live: bool = None,
+        status: ENGINESTATUS_TYPES = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> ServiceResult:
         """
         Get engine data
 
@@ -69,16 +69,16 @@ class EngineService(BaseService):
             # Build filter conditions
             filters = {}
             if engine_id:
-                filters['uuid'] = engine_id
+                filters["uuid"] = engine_id
             if name:
-                filters['name'] = name
+                filters["name"] = name
             if is_live is not None:
-                filters['is_live'] = is_live
+                filters["is_live"] = is_live
             if status:
-                filters['status'] = status
+                filters["status"] = status
 
             # Exclude deleted records by default
-            filters['is_del'] = False
+            filters["is_del"] = False
 
             # #3955 Execute query - always return ModelList
             # #5694: page/page_size 透传 CRUD；None=全量（向后兼容调用方）
@@ -94,8 +94,9 @@ class EngineService(BaseService):
 
     # ===== ADR-010 Phase 4 R1a：类型即契约多出口（DF 出口，纯增量） =====
 
-    def _build_engine_filters(self, engine_id: str = None, name: str = None,
-                              is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> dict:
+    def _build_engine_filters(
+        self, engine_id: str = None, name: str = None, is_live: bool = None, status: ENGINESTATUS_TYPES = None
+    ) -> dict:
         """从业务参数构造 Engine CRUD filters。get_engines_df 独立使用（DRY）。
 
         filter 域与现有 get() 一致（engine_id→uuid / name / is_live / status），
@@ -103,18 +104,25 @@ class EngineService(BaseService):
         """
         filters = {}
         if engine_id:
-            filters['uuid'] = engine_id
+            filters["uuid"] = engine_id
         if name:
-            filters['name'] = name
+            filters["name"] = name
         if is_live is not None:
-            filters['is_live'] = is_live
+            filters["is_live"] = is_live
         if status:
-            filters['status'] = status
-        filters['is_del'] = False
+            filters["status"] = status
+        filters["is_del"] = False
         return filters
 
-    def get_engines_df(self, engine_id: str = None, name: str = None,
-                       is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
+    def get_engines_df(
+        self,
+        engine_id: str = None,
+        name: str = None,
+        is_live: bool = None,
+        status: ENGINESTATUS_TYPES = None,
+        page: int = None,
+        page_size: int = None,
+    ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
@@ -123,9 +131,12 @@ class EngineService(BaseService):
         """
         try:
             filters = self._build_engine_filters(
-                engine_id=engine_id, name=name, is_live=is_live, status=status,
+                engine_id=engine_id,
+                name=name,
+                is_live=is_live,
+                status=status,
             )
-            model_list = self._crud_repo.find(filters=filters)
+            model_list = self._crud_repo.find(filters=filters, page=page, page_size=page_size)
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
@@ -150,19 +161,19 @@ class EngineService(BaseService):
             # Build filter conditions
             filters = {}
             if name:
-                filters['name'] = name
+                filters["name"] = name
             if is_live is not None:
-                filters['is_live'] = is_live
+                filters["is_live"] = is_live
             if status:
-                filters['status'] = status
+                filters["status"] = status
 
             # Exclude deleted records by default
-            filters['is_del'] = False
+            filters["is_del"] = False
 
             # Execute count
             count = self._crud_repo.count(filters=filters)
 
-            return ServiceResult.success({'count': count}, f"Successfully counted engines: {count}")
+            return ServiceResult.success({"count": count}, f"Successfully counted engines: {count}")
 
         except Exception as e:
             return ServiceResult.error(f"Failed to count engines: {str(e)}")
@@ -183,29 +194,29 @@ class EngineService(BaseService):
 
             if engine_id:
                 # Validate if engine exists
-                engine = self._crud_repo.find(filters={'uuid': engine_id, 'is_del': False})
+                engine = self._crud_repo.find(filters={"uuid": engine_id, "is_del": False})
                 if not engine:
                     validation_errors.append(f"Engine {engine_id} does not exist")
 
             if engine_data:
                 # Validate engine data format
-                if 'name' in engine_data:
-                    if not engine_data['name'] or not str(engine_data['name']).strip():
+                if "name" in engine_data:
+                    if not engine_data["name"] or not str(engine_data["name"]).strip():
                         validation_errors.append("Engine name cannot be empty")
-                    if len(str(engine_data['name'])) > 50:
+                    if len(str(engine_data["name"])) > 50:
                         validation_errors.append("Engine name length cannot exceed 50 characters")
 
-                if 'is_live' in engine_data and not isinstance(engine_data['is_live'], bool):
+                if "is_live" in engine_data and not isinstance(engine_data["is_live"], bool):
                     validation_errors.append("is_live must be boolean")
 
-                if 'status' in engine_data:
+                if "status" in engine_data:
                     try:
-                        ENGINESTATUS_TYPES(engine_data['status'])
+                        ENGINESTATUS_TYPES(engine_data["status"])
                     except (ValueError, TypeError):
                         validation_errors.append("Invalid engine status")
 
             if validation_errors:
-                return ServiceResult.error("Data validation failed", data={'errors': validation_errors})
+                return ServiceResult.error("Data validation failed", data={"errors": validation_errors})
 
             return ServiceResult.success({}, "Data validation passed")
 
@@ -227,11 +238,11 @@ class EngineService(BaseService):
 
             if engine_id:
                 # 检查单个引擎
-                engines = self._crud_repo.find(filters={'uuid': engine_id, 'is_del': False})
+                engines = self._crud_repo.find(filters={"uuid": engine_id, "is_del": False})
                 engine_list = engines if isinstance(engines, list) else [engines]
             else:
                 # 检查所有引擎
-                engine_list = self._crud_repo.find(filters={'is_del': False})
+                engine_list = self._crud_repo.find(filters={"is_del": False})
 
             for engine in engine_list:
                 if not engine:
@@ -241,18 +252,22 @@ class EngineService(BaseService):
                 if not engine.name:
                     integrity_issues.append(f"引擎 {engine.uuid}: 缺少名称")
 
-                if not hasattr(engine, 'status') or engine.status is None:
+                if not hasattr(engine, "status") or engine.status is None:
                     integrity_issues.append(f"引擎 {engine.uuid}: 缺少状态")
 
                 # 检查关联的投资组合映射
-                mappings = self._mapping_repo.find(filters={'engine_id': engine.uuid, 'is_del': False})
+                mappings = self._mapping_repo.find(filters={"engine_id": engine.uuid, "is_del": False})
                 if mappings:
-                    mapping_count = len(mappings) if isinstance(mappings, list) else len(mappings.index) if hasattr(mappings, 'index') else 1
+                    mapping_count = (
+                        len(mappings)
+                        if isinstance(mappings, list)
+                        else len(mappings.index) if hasattr(mappings, "index") else 1
+                    )
                     if mapping_count > 100:  # 假设一个引擎最多关联100个投资组合
                         integrity_issues.append(f"引擎 {engine.uuid}: 关联的投资组合数量过多 ({mapping_count})")
 
             if integrity_issues:
-                return ServiceResult.error("发现数据完整性问题", data={'issues': integrity_issues})
+                return ServiceResult.error("发现数据完整性问题", data={"issues": integrity_issues})
 
             return ServiceResult.success({}, "数据完整性检查通过")
 
@@ -287,27 +302,27 @@ class EngineService(BaseService):
                 warnings.append(f"引擎名称过长，已从 {len(original_name)} 字符截断至 {len(engine_name)} 字符")
 
             # 检查引擎名称是否已存在
-            if self._crud_repo.exists(filters={'name': engine_name, 'is_del': False}):
+            if self._crud_repo.exists(filters={"name": engine_name, "is_del": False}):
                 return ServiceResult.error(f"引擎名称 '{engine_name}' 已存在")
 
             # 创建引擎记录，包含时间范围参数
             create_params = {
-                'name': engine_name,
-                'is_live': is_live,
-                'status': ENGINESTATUS_TYPES.IDLE,
-                'desc': description or f"{'实盘' if is_live else '回测'}引擎: {engine_name}",
-                'source': SOURCE_TYPES.SIM,
+                "name": engine_name,
+                "is_live": is_live,
+                "status": ENGINESTATUS_TYPES.IDLE,
+                "desc": description or f"{'实盘' if is_live else '回测'}引擎: {engine_name}",
+                "source": SOURCE_TYPES.SIM,
             }
 
             # 添加时间范围参数（如果提供）
-            if 'backtest_start_date' in kwargs:
-                create_params['backtest_start_date'] = kwargs['backtest_start_date']
-            if 'backtest_end_date' in kwargs:
-                create_params['backtest_end_date'] = kwargs['backtest_end_date']
+            if "backtest_start_date" in kwargs:
+                create_params["backtest_start_date"] = kwargs["backtest_start_date"]
+            if "backtest_end_date" in kwargs:
+                create_params["backtest_end_date"] = kwargs["backtest_end_date"]
 
             # 添加broker_attitude参数（如果提供）
-            if 'broker_attitude' in kwargs:
-                create_params['broker_attitude'] = kwargs['broker_attitude']
+            if "broker_attitude" in kwargs:
+                create_params["broker_attitude"] = kwargs["broker_attitude"]
 
             engine_record = self._crud_repo.create(**create_params)
 
@@ -316,18 +331,13 @@ class EngineService(BaseService):
                 "name": engine_record.name,
                 "is_live": engine_record.is_live,
                 "status": (
-                    engine_record.status.name
-                    if hasattr(engine_record.status, "name")
-                    else str(engine_record.status)
+                    engine_record.status.name if hasattr(engine_record.status, "name") else str(engine_record.status)
                 ),
                 "desc": engine_record.desc,
             }
 
             GLOG.INFO(f"成功创建引擎 '{engine_name}' (实盘: {is_live})")
-            result = ServiceResult.success(
-                data={"engine_info": engine_info},
-                message=f"引擎创建成功"
-            )
+            result = ServiceResult.success(data={"engine_info": engine_info}, message=f"引擎创建成功")
             # 添加警告信息
             if warnings:
                 result.warnings.extend(warnings)
@@ -338,8 +348,15 @@ class EngineService(BaseService):
             return ServiceResult.error(f"创建引擎失败: {str(e)}")
 
     @retry(max_try=3)
-    def update(self, engine_id: str, name: str = None, is_live: bool = None,
-               description: str = None, status: ENGINESTATUS_TYPES = None, **kwargs) -> ServiceResult:
+    def update(
+        self,
+        engine_id: str,
+        name: str = None,
+        is_live: bool = None,
+        description: str = None,
+        status: ENGINESTATUS_TYPES = None,
+        **kwargs,
+    ) -> ServiceResult:
         """
         更新现有引擎信息 - 整合update_engine_status功能
 
@@ -371,7 +388,7 @@ class EngineService(BaseService):
                     name = name[:50]
 
                 # 检查名称冲突
-                existing_engines = self._crud_repo.find(filters={'name': name.strip(), 'is_del': False})
+                existing_engines = self._crud_repo.find(filters={"name": name.strip(), "is_del": False})
                 if existing_engines:
                     # 检查是否有其他引擎使用此名称
                     conflict_found = False
@@ -396,15 +413,11 @@ class EngineService(BaseService):
 
             if not updates:
                 return ServiceResult.success(
-                    data={"engine_id": engine_id, "updates_applied": []},
-                    message="未提供任何更新参数"
+                    data={"engine_id": engine_id, "updates_applied": []}, message="未提供任何更新参数"
                 )
 
             # 执行更新
-            self._crud_repo.modify(
-                filters={"uuid": engine_id},
-                updates=updates
-            )
+            self._crud_repo.modify(filters={"uuid": engine_id}, updates=updates)
 
             # 获取更新后的引擎信息
             updated_engines = self._crud_repo.find(filters={"uuid": engine_id})
@@ -415,20 +428,24 @@ class EngineService(BaseService):
             GLOG.INFO(f"成功更新引擎 {engine_id}，更新字段: {list(updates.keys())}")
 
             return ServiceResult.success(
-                    data={
-                        "engine_id": engine_id,
-                        "engine_info": {
-                            "uuid": updated_engine.uuid,
-                            "name": updated_engine.name,
-                            "is_live": updated_engine.is_live,
-                            "status": updated_engine.status.name if hasattr(updated_engine.status, 'name') else str(updated_engine.status),
-                            "description": updated_engine.desc
-                        },
-                        "updates_applied": list(updates.keys()),
-                        "warnings": warnings
+                data={
+                    "engine_id": engine_id,
+                    "engine_info": {
+                        "uuid": updated_engine.uuid,
+                        "name": updated_engine.name,
+                        "is_live": updated_engine.is_live,
+                        "status": (
+                            updated_engine.status.name
+                            if hasattr(updated_engine.status, "name")
+                            else str(updated_engine.status)
+                        ),
+                        "description": updated_engine.desc,
                     },
-                    message=f"引擎更新成功: {engine_id}"
-                )
+                    "updates_applied": list(updates.keys()),
+                    "warnings": warnings,
+                },
+                message=f"引擎更新成功: {engine_id}",
+            )
 
         except Exception as e:
             GLOG.ERROR(f"更新引擎失败 {engine_id}: {str(e)}")
@@ -486,12 +503,8 @@ class EngineService(BaseService):
                 GLOG.INFO(f"引擎 {engine_id} 状态已更新为: {status_name}")
 
                 return ServiceResult.success(
-                    data={
-                        "engine_id": engine_id,
-                        "new_status": status_name,
-                        "updated_count": updated_count
-                    },
-                    message=f"引擎状态更新成功: {engine_id} -> {status_name}"
+                    data={"engine_id": engine_id, "new_status": status_name, "updated_count": updated_count},
+                    message=f"引擎状态更新成功: {engine_id} -> {status_name}",
                 )
 
         except Exception as e:
@@ -521,9 +534,7 @@ class EngineService(BaseService):
                 # 清理引擎-投资组合映射
                 mappings_deleted = 0
                 try:
-                    mappings_deleted = self._mapping_repo.remove(
-                        filters={"engine_id": engine_id}, session=session
-                    )
+                    mappings_deleted = self._mapping_repo.remove(filters={"engine_id": engine_id}, session=session)
                     if mappings_deleted and mappings_deleted > 0:
                         GLOG.INFO(f"删除引擎 {engine_id} 的 {mappings_deleted} 个投资组合映射")
                 except Exception as e:
@@ -544,9 +555,9 @@ class EngineService(BaseService):
                         "engine_id": engine_id,
                         "deleted_count": 1,
                         "mappings_deleted": mappings_deleted if mappings_deleted else 0,
-                        "warnings": warnings
+                        "warnings": warnings,
                     },
-                    message=f"引擎删除成功: {engine_id}"
+                    message=f"引擎删除成功: {engine_id}",
                 )
 
         except Exception as e:
@@ -574,9 +585,9 @@ class EngineService(BaseService):
                         "successful_deletions": 0,
                         "failed_deletions": 0,
                         "total_mappings_deleted": 0,
-                        "warnings": ["空的引擎列表"]
+                        "warnings": ["空的引擎列表"],
                     },
-                    message="未提供要删除的引擎列表"
+                    message="未提供要删除的引擎列表",
                 )
 
             successful_deletions = 0
@@ -598,16 +609,10 @@ class EngineService(BaseService):
                             warnings.extend(delete_result.data["warnings"])
                     else:
                         failed_deletions += 1
-                        failures.append({
-                            "engine_id": engine_id,
-                            "error": delete_result.error
-                        })
+                        failures.append({"engine_id": engine_id, "error": delete_result.error})
                 except Exception as e:
                     failed_deletions += 1
-                    failures.append({
-                        "engine_id": engine_id,
-                        "error": f"意外错误: {str(e)}"
-                    })
+                    failures.append({"engine_id": engine_id, "error": f"意外错误: {str(e)}"})
                     GLOG.ERROR(f"删除引擎 {engine_id} 时发生异常: {e}")
 
             # 判断整体成功状态
@@ -618,26 +623,30 @@ class EngineService(BaseService):
                 f"清理映射 {total_mappings_deleted} 个"
             )
 
-            return ServiceResult.success(
-                data={
-                    "total_requested": len(engine_ids),
-                    "successful_deletions": successful_deletions,
-                    "failed_deletions": failed_deletions,
-                    "total_mappings_deleted": total_mappings_deleted,
-                    "warnings": warnings,
-                    "failures": failures
-                },
-                message=f"批量删除完成: 成功 {successful_deletions}, 失败 {failed_deletions}"
-            ) if overall_success else ServiceResult.error(
-                f"批量删除部分失败: {failed_deletions} 个引擎删除失败",
-                data={
-                    "total_requested": len(engine_ids),
-                    "successful_deletions": successful_deletions,
-                    "failed_deletions": failed_deletions,
-                    "total_mappings_deleted": total_mappings_deleted,
-                    "warnings": warnings,
-                    "failures": failures
-                }
+            return (
+                ServiceResult.success(
+                    data={
+                        "total_requested": len(engine_ids),
+                        "successful_deletions": successful_deletions,
+                        "failed_deletions": failed_deletions,
+                        "total_mappings_deleted": total_mappings_deleted,
+                        "warnings": warnings,
+                        "failures": failures,
+                    },
+                    message=f"批量删除完成: 成功 {successful_deletions}, 失败 {failed_deletions}",
+                )
+                if overall_success
+                else ServiceResult.error(
+                    f"批量删除部分失败: {failed_deletions} 个引擎删除失败",
+                    data={
+                        "total_requested": len(engine_ids),
+                        "successful_deletions": successful_deletions,
+                        "failed_deletions": failed_deletions,
+                        "total_mappings_deleted": total_mappings_deleted,
+                        "warnings": warnings,
+                        "failures": failures,
+                    },
+                )
             )
 
         except Exception as e:
@@ -666,11 +675,11 @@ class EngineService(BaseService):
                 return ServiceResult.error(f"获取引擎失败: {result.message}")
 
             stale_uuids = []
-            for engine in (result.data or []):
-                start = getattr(engine, 'backtest_start_date', None)
-                end = getattr(engine, 'backtest_end_date', None)
+            for engine in result.data or []:
+                start = getattr(engine, "backtest_start_date", None)
+                end = getattr(engine, "backtest_end_date", None)
                 if start is None and end is None:
-                    uid = getattr(engine, 'uuid', None)
+                    uid = getattr(engine, "uuid", None)
                     if uid:
                         stale_uuids.append(uid)
 
@@ -681,13 +690,12 @@ class EngineService(BaseService):
                         "stale_uuids": stale_uuids,
                         "dry_run": True,
                     },
-                    message=f"DRY RUN: 发现 {len(stale_uuids)} 个僵尸引擎"
+                    message=f"DRY RUN: 发现 {len(stale_uuids)} 个僵尸引擎",
                 )
 
             if not stale_uuids:
                 return ServiceResult.success(
-                    data={"stale_count": 0, "successful_deletions": 0},
-                    message="无僵尸引擎需清理"
+                    data={"stale_count": 0, "successful_deletions": 0}, message="无僵尸引擎需清理"
                 )
 
             return self.delete_batch(stale_uuids)
@@ -696,10 +704,10 @@ class EngineService(BaseService):
             return ServiceResult.error(f"清理僵尸引擎失败: {str(e)}")
 
     # 注意：重复的查询方法已删除
-# - get_engines: 使用标准 get 方法替代
-# - get_engine: 使用标准 get 方法替代
-# - get_engine_status: 使用 get 方法获取引擎后提取 status
-# - count_engines: 使用标准 count 方法替代
+    # - get_engines: 使用标准 get 方法替代
+    # - get_engine: 使用标准 get 方法替代
+    # - get_engine_status: 使用 get 方法获取引擎后提取 status
+    # - count_engines: 使用标准 count 方法替代
 
     # engine_exists方法已删除，使用标准exists方法替代
 
@@ -732,9 +740,7 @@ class EngineService(BaseService):
 
             # 检查映射是否已存在
             try:
-                existing_mappings = self.get_engine_portfolio_mappings(
-                    engine_id=engine_id, portfolio_id=portfolio_id
-                )
+                existing_mappings = self.get_engine_portfolio_mappings(engine_id=engine_id, portfolio_id=portfolio_id)
                 if not existing_mappings.empty:
                     return ServiceResult.error(f"投资组合 {portfolio_id} 已映射到引擎 {engine_id}")
             except Exception as e:
@@ -762,9 +768,9 @@ class EngineService(BaseService):
                             "engine_name": mapping_record.engine_name,
                             "portfolio_name": mapping_record.portfolio_name,
                         },
-                        "warnings": warnings
+                        "warnings": warnings,
                     },
-                    message=f"成功添加映射: 引擎 {engine_id} - 投资组合 {portfolio_id}"
+                    message=f"成功添加映射: 引擎 {engine_id} - 投资组合 {portfolio_id}",
                 )
 
         except Exception as e:
@@ -803,28 +809,20 @@ class EngineService(BaseService):
                 )
 
                 if removed_count == 0:
-                    return ServiceResult.error(
-                        f"未找到引擎 {engine_id} 与投资组合 {portfolio_id} 的映射关系"
-                    )
+                    return ServiceResult.error(f"未找到引擎 {engine_id} 与投资组合 {portfolio_id} 的映射关系")
 
                 GLOG.INFO(f"成功移除投资组合 {portfolio_id} 与引擎 {engine_id} 的关联")
 
                 return ServiceResult.success(
-                    data={
-                        "engine_id": engine_id,
-                        "portfolio_id": portfolio_id,
-                        "removed_count": removed_count
-                    },
-                    message=f"成功移除投资组合关联: {engine_id} - {portfolio_id}"
+                    data={"engine_id": engine_id, "portfolio_id": portfolio_id, "removed_count": removed_count},
+                    message=f"成功移除投资组合关联: {engine_id} - {portfolio_id}",
                 )
 
         except Exception as e:
             GLOG.ERROR(f"移除投资组合关联失败 {engine_id} - {portfolio_id}: {str(e)}")
             return ServiceResult.error(f"移除投资组合关联失败: {str(e)}")
 
-    def get_portfolios(
-        self, engine_id: str = None, **kwargs
-    ) -> ServiceResult:
+    def get_portfolios(self, engine_id: str = None, **kwargs) -> ServiceResult:
         """
         获取引擎的投资组合映射
 
@@ -837,10 +835,10 @@ class EngineService(BaseService):
         """
         try:
             # 构建过滤条件
-            filters = kwargs.get('filters', {})
+            filters = kwargs.get("filters", {})
 
             if engine_id:
-                filters['engine_id'] = engine_id
+                filters["engine_id"] = engine_id
 
             # 执行查询
             mappings = self._mapping_repo.find(filters=filters)
@@ -849,21 +847,17 @@ class EngineService(BaseService):
             portfolio_ids = []
             if mappings:
                 if isinstance(mappings, list):
-                    portfolio_ids = list(set(m.portfolio_id for m in mappings if hasattr(m, 'portfolio_id')))
+                    portfolio_ids = list(set(m.portfolio_id for m in mappings if hasattr(m, "portfolio_id")))
                 else:
                     # DataFrame的情况
-                    if 'portfolio_id' in mappings.columns:
-                        portfolio_ids = mappings['portfolio_id'].unique().tolist()
+                    if "portfolio_id" in mappings.columns:
+                        portfolio_ids = mappings["portfolio_id"].unique().tolist()
 
             GLOG.DEBUG(f"获取到引擎 {engine_id} 的 {len(portfolio_ids)} 个投资组合")
 
             return ServiceResult.success(
-                data={
-                    "portfolio_ids": portfolio_ids,
-                    "mappings": mappings,
-                    "count": len(portfolio_ids)
-                },
-                message=f"获取到{len(portfolio_ids)}个投资组合"
+                data={"portfolio_ids": portfolio_ids, "mappings": mappings, "count": len(portfolio_ids)},
+                message=f"获取到{len(portfolio_ids)}个投资组合",
             )
 
         except Exception as e:
@@ -887,21 +881,18 @@ class EngineService(BaseService):
             ServiceResult: 存在性检查结果
         """
         try:
-            filters = kwargs.get('filters', {})
+            filters = kwargs.get("filters", {})
 
             if engine_id:
-                filters['uuid'] = engine_id
+                filters["uuid"] = engine_id
             if name:
-                filters['name'] = name
+                filters["name"] = name
 
-            filters['is_del'] = False
+            filters["is_del"] = False
 
             count = self._crud_repo.count(filters=filters)
 
-            return ServiceResult.success(
-                data={'exists': count > 0, 'count': count},
-                message=f"引擎存在性检查完成"
-            )
+            return ServiceResult.success(data={"exists": count > 0, "count": count}, message=f"引擎存在性检查完成")
 
         except Exception as e:
             return ServiceResult.error(f"检查引擎存在性失败: {str(e)}")
@@ -922,20 +913,14 @@ class EngineService(BaseService):
             param_count = self._param_crud.count()
 
             health_data = {
-                'database_connection': 'ok',
-                'engine_count': engine_count,
-                'mapping_count': mapping_count,
-                'param_count': param_count,
-                'dependencies': {
-                    'engine_portfolio_mapping_crud': 'ok',
-                    'param_crud': 'ok'
-                }
+                "database_connection": "ok",
+                "engine_count": engine_count,
+                "mapping_count": mapping_count,
+                "param_count": param_count,
+                "dependencies": {"engine_portfolio_mapping_crud": "ok", "param_crud": "ok"},
             }
 
-            return ServiceResult.success(
-                data=health_data,
-                message="EngineService健康检查通过"
-            )
+            return ServiceResult.success(data=health_data, message="EngineService健康检查通过")
 
         except Exception as e:
             return ServiceResult.error(f"健康检查失败: {str(e)}")
@@ -966,7 +951,7 @@ class EngineService(BaseService):
             config_data = self._collect_engine_config(engine_id)
 
             # 3. 调用EngineAssemblyService进行程序化装配
-            assembly_service = self._dependencies.get('engine_assembly_service')
+            assembly_service = self._dependencies.get("engine_assembly_service")
             if not assembly_service:
                 return ServiceResult.error("缺少引擎装配服务依赖")
 
@@ -974,13 +959,10 @@ class EngineService(BaseService):
                 engine_id=engine_id,
                 engine_data=config_data["engine_data"],
                 portfolio_mappings=config_data["portfolio_mappings"],
-                engine_params=config_data["engine_params"]
+                engine_params=config_data["engine_params"],
             )
 
-            return ServiceResult.success(
-                data=assemble_result.data,
-                message=f"引擎装配成功: {engine_id}"
-            )
+            return ServiceResult.success(data=assemble_result.data, message=f"引擎装配成功: {engine_id}")
 
         except Exception as e:
             return ServiceResult.error(f"引擎装配失败: {str(e)}")
@@ -1010,24 +992,15 @@ class EngineService(BaseService):
                 "name": engine_info.name,
                 "is_live": engine_info.is_live,
                 "status": engine_info.status,
-                "description": engine_info.desc
+                "description": engine_info.desc,
             },
             "portfolio_mappings": [
-                {
-                    "portfolio_id": mapping.portfolio_id,
-                    "engine_id": mapping.engine_id
-                } for mapping in mappings
+                {"portfolio_id": mapping.portfolio_id, "engine_id": mapping.engine_id} for mapping in mappings
             ],
-            "engine_params": {
-                param.index: param.value for param in params
-            }
+            "engine_params": {param.index: param.value for param in params},
         }
 
-    def fuzzy_search(
-        self,
-        query: str,
-        fields: Optional[List[str]] = None
-    ) -> ServiceResult:
+    def fuzzy_search(self, query: str, fields: Optional[List[str]] = None) -> ServiceResult:
         """
         Fuzzy search engines across multiple fields with OR logic.
 
@@ -1049,4 +1022,3 @@ class EngineService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"Engine fuzzy search failed: {str(e)}")
-
