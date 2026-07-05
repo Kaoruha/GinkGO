@@ -341,7 +341,7 @@ def delete_template(
 @app.command("render")
 def render_template(
     template_id: str = typer.Option(..., "--id", "-t", help="Template ID"),
-    variables: Optional[str] = typer.Option(None, "--var", "-v", help="Variables as key=value (can be repeated)"),
+    variables: Optional[List[str]] = typer.Option(None, "--var", "-v", help="Variables as key=value (can be repeated)"),
     preview: bool = typer.Option(False, "--preview", "-p", help="Preview template without rendering"),
 ):
     """
@@ -381,11 +381,13 @@ def render_template(
             for var in variables:
                 if "=" in var:
                     key, value = var.split("=", 1)
-                    # Try to parse as JSON for complex values
-                    try:
-                        context[key] = json.loads(value)
-                    except Exception as e:
-                        GLOG.ERROR(f"解析模板变量JSON失败: {e}")
+                    stripped = value.strip()
+                    if stripped.startswith(("{", "[", '"')):
+                        try:
+                            context[key] = json.loads(value)
+                        except Exception:
+                            context[key] = value
+                    else:
                         context[key] = value
 
         # Render template
