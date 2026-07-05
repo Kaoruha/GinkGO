@@ -253,6 +253,18 @@ class TestDebug:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    @pytest.mark.parametrize("mode", ["status", "show"])
+    def test_debug_status_aliases_show_current_mode(self, cli_runner, mock_gconf, mode):
+        mock_gconf.DEBUGMODE = True
+        with patch("ginkgo.libs.GCONF", mock_gconf):
+            result = cli_runner.invoke(_get_main_app(), ["debug", mode])
+        assert result.exit_code == 0
+        assert "Debug mode" in result.output
+        assert "ON" in result.output
+        mock_gconf.set_debug.assert_not_called()
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_missing_argument_shows_error(self, cli_runner, mock_gconf):
         with patch("ginkgo.libs.GCONF", mock_gconf):
             result = cli_runner.invoke(_get_main_app(), ["debug"])

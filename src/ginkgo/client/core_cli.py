@@ -35,6 +35,8 @@ console = Console()
 class DebugMode(str, Enum):
     ON = "on"
     OFF = "off"
+    STATUS = "status"
+    SHOW = "show"
 
 class DataType(str, Enum):
     STOCKINFO = "stockinfo"
@@ -132,9 +134,9 @@ def status():
         console.print(f"[red]Error getting system status: {e}[/red]")
         console.print("Try: ginkgo system status (full command)")
 
-def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off")]):
+def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off/status")]):
     """
-    :bug: Toggle debug mode (simplified from 'system config set --debug').
+    :bug: Toggle or show debug mode (simplified from 'system config set/get debug').
     """
     try:
         from ginkgo.libs import GCONF
@@ -144,15 +146,17 @@ def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off")])
             console.print("[green]:white_check_mark: Debug mode enabled[/green]")
             console.print("[dim]This enables detailed logging and error information[/dim]")
             console.print("[dim]Configuration saved to ~/.ginkgo/config.yml[/dim]")
-        else:
+        elif mode == DebugMode.OFF:
             GCONF.set_debug(False)  # 正确的调用方式，会写入配置文件
             console.print("[yellow]:muted_speaker: Debug mode disabled[/yellow]")
             console.print("[dim]Switched to production logging level[/dim]")
             console.print("[dim]Configuration saved to ~/.ginkgo/config.yml[/dim]")
+        else:
+            console.print(f"Debug mode: {'[green]ON[/green]' if GCONF.DEBUGMODE else '[red]OFF[/red]'}")
             
     except Exception as e:
         console.print(f"[red]Error setting debug mode: {e}[/red]")
-        console.print("Try: ginkgo system config set --debug on/off")
+        console.print("Try: ginkgo system config set --debug on/off or ginkgo config get debug")
 
 def init():
     """
