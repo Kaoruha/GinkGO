@@ -35,6 +35,82 @@ def get_live_account_service():
     return container.live_account_service()
 
 
+def _get_portfolio_service():
+    """获取 PortfolioService 实例（paper account fallback 用）"""
+    from ginkgo.data.containers import container
+    return container.portfolio_service()
+
+
+def _query_paper_positions(account_id: str) -> list:
+    """查询 paper account 持仓，复用 paper-trading API 的持仓序列化。"""
+    from api.trading import _query_positions
+    return _query_positions(account_id)
+
+
+def _is_account_not_found(result: dict) -> bool:
+    return not result.get("success") and "account not found" in str(result.get("message", "")).lower()
+
+
+def _is_paper_portfolio(portfolio) -> bool:
+    from ginkgo.enums import PORTFOLIO_MODE_TYPES
+
+    mode = getattr(portfolio, "mode", None)
+    if hasattr(mode, "value"):
+        mode = mode.value
+    return mode == PORTFOLIO_MODE_TYPES.PAPER.value
+
+
+def _get_paper_portfolio(account_id: str):
+    result = _get_portfolio_service().get(portfolio_id=account_id)
+    if not result.is_success() or not result.data:
+        return None
+    portfolio = result.data[0] if isinstance(result.data, list) else result.data
+    return portfolio if _is_paper_portfolio(portfolio) else None
+
+
+def _money(value: float) -> str:
+    return str(round(float(value or 0), 2))
+
+
+def _paper_balance_data(portfolio, positions: list) -> dict:
+    cash = float(getattr(portfolio, "cash", 0) or 0)
+    frozen = float(getattr(portfolio, "frozen", 0) or 0)
+    position_value = sum(float(p.get("market_value", 0) or 0) for p in (positions or []))
+    total_equity = cash + frozen + position_value
+    return {
+        "total_equity": _money(total_equity),
+        "available_balance": _money(cash),
+        "frozen_balance": _money(frozen),
+        "currency_balances": [
+            {
+                "currency": "CNY",
+                "available": _money(cash),
+                "frozen": _money(frozen),
+                "balance": _money(total_equity),
+            }
+        ],
+    }
+
+
+def _paper_positions_data(positions: list) -> dict:
+    items = []
+    for p in positions or []:
+        shares = int(p.get("shares", 0) or 0)
+        cost = float(p.get("cost", 0) or 0)
+        avg_price = cost / abs(shares) if shares else 0
+        items.append({
+            "symbol": p.get("code", ""),
+            "side": "short" if shares < 0 else "long",
+            "size": str(abs(shares)),
+            "avg_price": _money(avg_price),
+            "current_price": _money(float(p.get("current", 0) or 0)),
+            "unrealized_pnl": _money(float(p.get("pnl", 0) or 0)),
+            "unrealized_pnl_percentage": _money(float(p.get("pnl_ratio", 0) or 0)),
+            "margin": "0",
+        })
+    return {"positions": items}
+
+
 def _get_user_id(request: Request) -> str:
     """从 request.state 获取 user_uuid（auth 中间件注入字段）。
 
@@ -286,10 +362,19 @@ async def get_account_balance(account_id: str):
         result = service.get_account_balance(account_id)
 
         if not result["success"]:
+            if _is_account_not_found(result):
+                portfolio = _get_paper_portfolio(account_id)
+                if portfolio is not None:
+                    return ok(
+                        data=_paper_balance_data(portfolio, _query_paper_positions(account_id)),
+                        message="Paper account balance retrieved successfully",
+                    )
             raise BusinessError(result.get("message", "Failed to get balance"))
 
         return ok(data=result["data"], message="Balance retrieved successfully")
     except BusinessError:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting account balance {account_id}: {e}")
@@ -304,10 +389,19 @@ async def get_account_positions(account_id: str):
         result = service.get_account_positions(account_id)
 
         if not result["success"]:
+            if _is_account_not_found(result):
+                portfolio = _get_paper_portfolio(account_id)
+                if portfolio is not None:
+                    return ok(
+                        data=_paper_positions_data(_query_paper_positions(account_id)),
+                        message="Paper account positions retrieved successfully",
+                    )
             raise BusinessError(result.get("message", "Failed to get positions"))
 
         return ok(data=result["data"], message="Positions retrieved successfully")
     except BusinessError:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting account positions {account_id}: {e}")
