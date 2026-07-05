@@ -36,101 +36,6 @@ def _format_portfolio_mode(mode_value) -> str:
     return enum_val.name if enum_val else str(mode_value)
 
 
-def collect_portfolio_components(portfolio_id: str, container) -> dict:
-    """收集Portfolio的所有组件绑定和参数信息"""
-    from ginkgo.enums import FILE_TYPES
-
-    component_data = {
-        'strategies': [],
-        'risk_managers': [],
-        'analyzers': [],
-        'selectors': [],
-        'sizers': []
-    }
-
-    try:
-        # 1. 获取Portfolio的所有文件绑定关系
-        file_mapping_crud = container.cruds.portfolio_file_mapping()
-        all_file_mappings = file_mapping_crud.find(filters={"portfolio_id": portfolio_id})
-
-        # 2. 按类型分类文件映射
-        for mapping in all_file_mappings:
-            file_info = {
-                'name': mapping.name,
-                'file_id': mapping.file_id,
-                'type': mapping.type,
-                'mapping_uuid': mapping.uuid,
-                'parameters': []
-            }
-
-            if mapping.type == FILE_TYPES.STRATEGY.value:
-                component_data['strategies'].append(file_info)
-            elif mapping.type == FILE_TYPES.RISKMANAGER.value:
-                component_data['risk_managers'].append(file_info)
-            elif mapping.type == FILE_TYPES.ANALYZER.value:
-                component_data['analyzers'].append(file_info)
-            elif mapping.type == FILE_TYPES.SELECTOR.value:
-                component_data['selectors'].append(file_info)
-            elif mapping.type == FILE_TYPES.SIZER.value:
-                component_data['sizers'].append(file_info)
-
-        # 3. 获取所有参数
-        param_crud = container.cruds.param()
-        mapping_uuids = [mapping.uuid for mapping in all_file_mappings]
-
-        all_params = {}
-        for mapping_uuid in mapping_uuids:
-            params = param_crud.find(filters={"mapping_id": mapping_uuid})
-            if params:
-                sorted_params = sorted(params, key=lambda p: p.index)
-                all_params[mapping_uuid] = sorted_params
-
-        # 4. 将参数分配给对应的组件
-        for mapping in all_file_mappings:
-            mapping_uuid = mapping.uuid
-
-            if mapping_uuid in all_params:
-                params = all_params[mapping_uuid]
-
-                # 找到对应的组件
-                component_list = None
-                if mapping.type == FILE_TYPES.STRATEGY.value:
-                    component_list = component_data['strategies']
-                elif mapping.type == FILE_TYPES.RISKMANAGER.value:
-                    component_list = component_data['risk_managers']
-                elif mapping.type == FILE_TYPES.ANALYZER.value:
-                    component_list = component_data['analyzers']
-                elif mapping.type == FILE_TYPES.SELECTOR.value:
-                    component_list = component_data['selectors']
-                elif mapping.type == FILE_TYPES.SIZER.value:
-                    component_list = component_data['sizers']
-
-                # 将参数分配给对应的组件
-                if component_list:
-                    for component in component_list:
-                        if component['file_id'] == mapping.file_id:
-                            for param in params:
-                                import json
-                                try:
-                                    # 尝试解析JSON值
-                                    display_value = json.loads(param.value) if param.value and param.value.startswith('[') else param.value
-                                except Exception as e:
-                                    GLOG.ERROR(f"Failed to parse JSON param value: {e}")
-                                    display_value = param.value
-
-                                component['parameters'].append({
-                                    'index': param.index,
-                                    'value': display_value,
-                                    'raw_value': param.value
-                                })
-
-        return component_data
-
-    except Exception as e:
-        console.print(f"[red]:x: Error collecting component info: {e}[/red]")
-        return component_data
-
-
 def display_component_tree(console, component_data: dict):
     """以文件树结构显示组件信息（与engine cat风格一致）"""
 
@@ -359,7 +264,16 @@ def get(
             if details:
                 # 显示Portfolio的组件绑定和参数
                 console.print("\n📁 Component Bindings:")
-                component_data = collect_portfolio_components(portfolio.uuid, container)
+                # #6448: 通过 PortfolioService，不再调用 client 层旧函数
+                result = container.portfolio_service().collect_portfolio_components(portfolio.uuid)
+                if result.is_success():
+                    component_data = result.data
+                else:
+                    console.print(f"[yellow]:warning: Failed to collect components: {result.error}[/yellow]")
+                    component_data = {
+                        'strategies': [], 'risk_managers': [],
+                        'analyzers': [], 'selectors': [], 'sizers': [],
+                    }
 
                 # 检查是否有任何组件绑定
                 total_components = sum(len(component_data[key]) for key in component_data.keys())

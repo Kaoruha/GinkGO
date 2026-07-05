@@ -209,6 +209,7 @@ class Container(containers.DeclarativeContainer):
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
         deployment_crud=deployment_crud,
+        param_crud=param_crud,
     )
 
     # Param service with ParamCRUD dependency (must be before portfolio_mapping_service)

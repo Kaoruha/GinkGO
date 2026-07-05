@@ -96,7 +96,6 @@ class PaperTradingWorker:
         from ginkgo.trading.gateway.trade_gateway import TradeGateway
         from ginkgo.trading.brokers.sim_broker import SimBroker
         from ginkgo.trading.services._assembly.component_loader import ComponentLoader
-        from ginkgo.client.portfolio_cli import collect_portfolio_components
 
         GLOG.INFO(f"[PAPER-WORKER] {self.worker_id}: Assembling engine...")
 
@@ -141,11 +140,17 @@ class PaperTradingWorker:
         # 4. 加载每个 Portfolio
         for db_portfolio in db_portfolios:
             try:
-                # 收集组件绑定信息
-                components = collect_portfolio_components(
-                    portfolio_id=db_portfolio.uuid,
-                    container=container,
+                # 收集组件绑定信息（#6448: 通过 PortfolioService，不再 import client）
+                components_result = container.portfolio_service().collect_portfolio_components(
+                    db_portfolio.uuid,
                 )
+                if not components_result.is_success():
+                    GLOG.ERROR(
+                        f"[PAPER-WORKER] Failed to collect components for "
+                        f"{db_portfolio.uuid}: {components_result.error}"
+                    )
+                    continue
+                components = components_result.data
 
                 # 创建 Portfolio 实例
                 portfolio = PortfolioT1Backtest()
@@ -878,7 +883,6 @@ class PaperTradingWorker:
 
         from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
         from ginkgo.trading.services._assembly.component_loader import ComponentLoader
-        from ginkgo.client.portfolio_cli import collect_portfolio_components
         from ginkgo import services
 
         try:
@@ -902,11 +906,17 @@ class PaperTradingWorker:
                 )
                 return False
 
-            # 收集组件绑定信息
-            components = collect_portfolio_components(
-                portfolio_id=portfolio_id,
-                container=container,
+            # 收集组件绑定信息（#6448: 通过 PortfolioService，不再 import client）
+            components_result = container.portfolio_service().collect_portfolio_components(
+                portfolio_id,
             )
+            if not components_result.is_success():
+                GLOG.ERROR(
+                    f"[PAPER-WORKER] Failed to collect components for "
+                    f"{portfolio_id}: {components_result.error}"
+                )
+                return False
+            components = components_result.data
 
             # 创建 Portfolio 实例
             portfolio = PortfolioT1Backtest()

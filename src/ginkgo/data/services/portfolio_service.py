@@ -19,6 +19,8 @@ Enhanced with comprehensive error handling, retry mechanisms, and structured ret
 import time
 
 from typing import List, Union, Any, Optional, Dict
+import json
+
 import pandas as pd
 from datetime import datetime
 
@@ -29,7 +31,7 @@ from ginkgo.data.crud.model_conversion import ModelList
 
 
 class PortfolioService(BaseService):
-    def __init__(self, crud_repo, portfolio_file_mapping_crud, deployment_crud=None):
+    def __init__(self, crud_repo, portfolio_file_mapping_crud, deployment_crud=None, param_crud=None):
         """
         初始化PortfolioService，设置投资组合和文件映射仓储依赖
 
@@ -37,9 +39,13 @@ class PortfolioService(BaseService):
             crud_repo: 投资组合数据CRUD仓储实例
             portfolio_file_mapping_crud: 投资组合文件映射CRUD仓储实例
             deployment_crud: 部署CRUD仓储实例（可选，用于冻结判定）
+            param_crud: 参数CRUD仓储实例（用于 collect_portfolio_components 收集组件参数；
+                        #6448 顺带修复 delete 清理参数时 self._param_crud 缺失的静默 AttributeError）
         """
         super().__init__(
-            crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
+            crud_repo=crud_repo,
+            portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+            param_crud=param_crud,
         )
         self._deployment_crud = deployment_crud
 
@@ -822,6 +828,103 @@ class PortfolioService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"卸载组件失败 {mount_id}: {str(e)}")
             return ServiceResult.error(f"卸载组件失败: {str(e)}")
+
+    def collect_portfolio_components(self, portfolio_id: str) -> ServiceResult:
+        """
+        收集 Portfolio 的所有组件绑定和参数信息（按类型分组）。
+
+        数据装配逻辑：读 file_mapping 按 FILE_TYPES 分组，再读 param 按 file_id
+        分配回对应组件。返回的 dict 是 ComponentLoader.perform_component_binding
+        的输入契约，字段必须逐一对齐。
+
+        #6448: 从 client/portfolio_cli.py 并入 Service 层，解除 workers/notifier → client 反向依赖。
+
+        Args:
+            portfolio_id: 投资组合UUID
+
+        Returns:
+            ServiceResult: data 为按类型分组的组件 dict：
+                {
+                    'strategies': [...], 'risk_managers': [...],
+                    'analyzers': [...], 'selectors': [...], 'sizers': [...]
+                }
+                元素结构: {name, file_id, type, mapping_uuid,
+                          parameters:[{index, value, raw_value}]}
+        """
+        # #6103 模式: param_crud 未注入 = 装配接线 bug，禁止静默 WARN+返空
+        if self._param_crud is None:
+            return ServiceResult.error(
+                "param_crud not injected; cannot resolve component parameters. "
+                "Inject via PortfolioService(param_crud=...) / containers.py DI."
+            )
+
+        # FILE_TYPES.value(int) → 分组 key 单一映射（消除原函数双重 if/elif 链）
+        type_to_key = {
+            FILE_TYPES.STRATEGY.value: 'strategies',
+            FILE_TYPES.RISKMANAGER.value: 'risk_managers',
+            FILE_TYPES.ANALYZER.value: 'analyzers',
+            FILE_TYPES.SELECTOR.value: 'selectors',
+            FILE_TYPES.SIZER.value: 'sizers',
+        }
+        component_data = {key: [] for key in type_to_key.values()}
+
+        try:
+            # 1. 获取 Portfolio 的所有文件绑定关系
+            all_file_mappings = self._portfolio_file_mapping_crud.find(
+                filters={"portfolio_id": portfolio_id}
+            ) or []
+
+            # 2. 按类型分类文件映射
+            for mapping in all_file_mappings:
+                file_info = {
+                    'name': mapping.name,
+                    'file_id': mapping.file_id,
+                    'type': mapping.type,
+                    'mapping_uuid': mapping.uuid,
+                    'parameters': []
+                }
+                key = type_to_key.get(mapping.type)
+                if key is not None:
+                    component_data[key].append(file_info)
+
+            # 3. 按 mapping_uuid 读参数（按 index 排序）
+            all_params = {}
+            for mapping in all_file_mappings:
+                params = self._param_crud.find(filters={"mapping_id": mapping.uuid})
+                if params:
+                    all_params[mapping.uuid] = sorted(params, key=lambda p: p.index)
+
+            # 4. 将参数分配给对应组件（按 file_id 匹配）
+            for mapping in all_file_mappings:
+                params = all_params.get(mapping.uuid)
+                if not params:
+                    continue
+                key = type_to_key.get(mapping.type)
+                if key is None:
+                    continue
+                for component in component_data[key]:
+                    if component['file_id'] != mapping.file_id:
+                        continue
+                    for param in params:
+                        # value 以 '[' 开头尝试 JSON 解析（原契约：列表参数）
+                        display_value = param.value
+                        if param.value and param.value.startswith('['):
+                            try:
+                                display_value = json.loads(param.value)
+                            except (json.JSONDecodeError, TypeError) as e:
+                                GLOG.ERROR(f"Failed to parse JSON param value: {e}")
+                                display_value = param.value
+                        component['parameters'].append({
+                            'index': param.index,
+                            'value': display_value,
+                            'raw_value': param.value,
+                        })
+
+            return ServiceResult.success(component_data)
+
+        except Exception as e:
+            GLOG.ERROR(f"收集组件信息失败 portfolio={portfolio_id}: {e}")
+            return ServiceResult.error(f"收集组件信息失败: {e}")
 
     def get_components(self, portfolio_id: str = None, component_type: FILE_TYPES = None) -> ServiceResult:
         """
