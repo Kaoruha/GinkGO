@@ -184,3 +184,38 @@ class TestMultiStockBatchPrefetch:
         out_by_code = {b.code: float(b.close) for b in out}
         assert out_by_code["000001.SZ"] == pytest.approx(20.0)
         assert out_by_code["000002.SZ"] == pytest.approx(40.0)
+
+    def test_factors_for_code_raises_without_code_column(self):
+        """_factors_for_code 缺 code 列时 raise ValueError（直接单元守卫不变量）。
+
+        全市场预取若返回无 code 列的 DF，calculate_adjusted_prices 按 timestamp
+        merge 会跨 code 笛卡尔放大 → 静默错乱。_factors_for_code fail-loud。
+        """
+        factors_no_code = pd.DataFrame([
+            {"timestamp": pd.Timestamp("2025-01-01"),
+             "foreadjustfactor": 2.0, "backadjustfactor": 0.5, "adjustfactor": 2.0}
+        ])
+        with pytest.raises(ValueError, match="code"):
+            bar_adjustment._factors_for_code(factors_no_code, "000001.SZ")
+
+    def test_multi_stock_degrades_on_factors_shape_drift(self):
+        """端到端：factors 缺 code 列时 multi_stock 降级返回原数据（不笛卡尔错乱）。
+
+        _factors_for_code raise ValueError 被 multi_stock 既有 try/except 捕获，
+        GLOG.ERROR 记录形状漂移，返回未复权原数据（降级，非跨 code 串台错乱）。
+        """
+        bars_df = _make_bars_df()
+        # 无 code 列的 factors（模拟 ADR-010 出口形状漂移）
+        factors_no_code = pd.DataFrame([
+            {"timestamp": pd.Timestamp("2025-01-01"),
+             "foreadjustfactor": 2.0, "backadjustfactor": 0.5, "adjustfactor": 2.0}
+        ])
+        svc = _make_service(factors_no_code)
+
+        out = bar_adjustment.apply_price_adjustment_multi_stock(
+            bars_df, ADJUSTMENT_TYPES.FORE, svc)
+
+        # 降级：原值未变（未复权），未发生笛卡尔错乱
+        assert set(out["code"]) == {"000001.SZ", "000002.SZ", "600000.SH"}
+        assert out[out["code"] == "000001.SZ"]["close"].iloc[0] == 10.0
+        assert out[out["code"] == "000002.SZ"]["close"].iloc[0] == 20.0

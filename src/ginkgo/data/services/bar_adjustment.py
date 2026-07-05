@@ -492,11 +492,19 @@ def _prefetch_all_factors(adjustfactor_service, start_date, end_date) -> pd.Data
 
 
 def _factors_for_code(all_factors_df: pd.DataFrame, code: str) -> pd.DataFrame:
-    """从全市场 factors 中切出单 code 子集（calculate_adjusted_prices 按 timestamp merge，须单 code）。"""
+    """从全市场 factors 中切出单 code 子集。
+
+    calculate_adjusted_prices 按 timestamp merge（不区分 code），跨 code 因子
+    会笛卡尔放大 → 静默错乱。故本函数要求 all_factors_df 含 code 列以精确切分；
+    缺列时 fail-loud（防 ADR-010 DF 出口形状漂移），而非原样返回全市场。
+    """
     if all_factors_df is None or all_factors_df.empty:
         return pd.DataFrame()
     if "code" not in all_factors_df.columns:
-        return all_factors_df
+        raise ValueError(
+            "_factors_for_code: factors DataFrame 缺 'code' 列，无法按 code 切分"
+            "（calculate_adjusted_prices 按 timestamp merge 会跨 code 串台）"
+        )
     subset = all_factors_df[all_factors_df["code"] == code]
     return subset if not subset.empty else pd.DataFrame()
 
