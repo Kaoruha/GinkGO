@@ -70,23 +70,47 @@ class SchedulerCommandHandler:
         }
         """
         try:
-            # GinkgoConsumer 已经反序列化了消息，msg.value 直接是 dict
+            # GinkgoConsumer 已经反序列化了消息，msg.value 通常是 dict
             command_data = msg.value
+
+            # 审计留痕（#5555 AC3）：必须在字段解包（.get()）之前 emit。
+            # command_data 可能不是 dict（#6169 坐实的生产场景：str 双重编码 /
+            # None tombstone），下面 .get() 会立即抛 AttributeError 跳到 except。
+            # 若审计在解包之后，非-dict payload 永远绕过审计采集——而畸形/可疑
+            # payload 恰是安全审计最该捕获的输入（攻击者可发非-dict 规避采集）。
+            # 故分两条审计路径：
+            #   - dict：结构化审计行（含 command/source_node/executed_by 等字段）
+            #   - 非-dict：malformed 审计 warning + type/repr 兜底（截断防爆，
+            #     复用 except 块 #6169 的 cd_type/cd_repr 模式）
+            if isinstance(command_data, dict):
+                audit_logger.info(
+                    f"[AUDIT] schedule_command | command={command_data.get('command')} | "
+                    f"portfolio_id={command_data.get('portfolio_id', '')} | "
+                    f"source_node={command_data.get('source_node', '')} | "
+                    f"target_node={command_data.get('target_node', '')} | "
+                    f"timestamp={command_data.get('timestamp')} | "
+                    f"executed_by={self.node.node_id}"
+                )
+            else:
+                # 非-dict payload：审计 warning 采集畸形输入；不提前 return，
+                # 让下面 .get() 抛 → except 块 logger.error 诊断（diag 测试守护）。
+                try:
+                    cd_type = type(command_data).__name__
+                    cd_repr = repr(command_data)
+                    if len(cd_repr) > 200:
+                        cd_repr = cd_repr[:200] + "...(truncated)"
+                except Exception:
+                    cd_type, cd_repr = "<unknown>", "<unreprable>"
+                audit_logger.warning(
+                    f"[AUDIT] schedule_command_malformed | type={cd_type} | "
+                    f"value={cd_repr} | executed_by={self.node.node_id}"
+                )
 
             command = command_data.get('command')
             portfolio_id = command_data.get('portfolio_id', '')
             timestamp = command_data.get('timestamp')
             target_node = command_data.get('target_node', '')
             source_node = command_data.get('source_node', '')
-
-            # 审计留痕（#5555）：路由前 emit，保证所有命令（含未知/异常分支前）
-            # 都被记录，含来源 source_node 与执行者 executed_by。
-            audit_logger.info(
-                f"[AUDIT] schedule_command | command={command} | "
-                f"portfolio_id={portfolio_id} | source_node={source_node} | "
-                f"target_node={target_node} | timestamp={timestamp} | "
-                f"executed_by={self.node.node_id}"
-            )
 
             logger.info(f"{'─'*80}")
             logger.info(f"[KAFKA] Received schedule command: {command}")

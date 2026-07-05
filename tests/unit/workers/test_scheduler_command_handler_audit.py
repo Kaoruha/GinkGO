@@ -83,3 +83,39 @@ class TestScheduleCommandAuditLog:
         assert line is not None, "未知命令也必须审计"
         assert "evil.die" in line
         assert "source_node=rogue-producer" in line
+
+    @pytest.mark.parametrize("payload, expected_type", [
+        ('{"command": "node.shutdown"}', "str"),   # 双重编码（#6154 生产场景）
+        (None, "NoneType"),                         # tombstone（#6157 生产场景）
+    ])
+    def test_malformed_payload_emits_audit_warning(self, payload, expected_type):
+        """
+        非-dict payload 不能绕过审计采集（#5555 review 指出的盲点）。
+
+        原实现 audit_logger.info 位于 command_data.get() 之后，非-dict 在 .get()
+        立即抛 AttributeError 跳到 except，审计行永不触发——攻击者可发非-dict
+        规避采集。畸形 payload 恰是安全审计最该捕获的输入，故走 warning 分支：
+        schedule_command_malformed + type/repr 兜底 + executed_by 执行者身份。
+        """
+        node = MagicMock()
+        node.node_id = "node-prod-01"
+        h = SchedulerCommandHandler(node=node)
+        msg = MagicMock()
+        msg.value = payload
+        with patch.object(_sch_mod, "audit_logger") as mock_audit:
+            h.handle_schedule_update(msg)
+        # 非-dict 必须触发 warning（不能因 .get() 抛而绕过审计）
+        assert mock_audit.warning.called, (
+            f"非-dict payload (type={expected_type}) 必须触发 audit_logger.warning，"
+            "审计不能被畸形 payload 绕过"
+        )
+        line = " ".join(
+            str(c.args[0]) for c in mock_audit.warning.call_args_list if c.args
+        )
+        assert "AUDIT" in line
+        assert "schedule_command_malformed" in line
+        assert f"type={expected_type}" in line
+        # 畸形审计仍含执行者身份（与正常审计对称）
+        assert "executed_by=node-prod-01" in line
+        # dict 路径的 info 不应触发（非-dict 专属 warning 分支）
+        assert not mock_audit.info.called
