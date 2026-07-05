@@ -12,16 +12,25 @@ from ginkgo.data.services.base_service import ServiceResult
 
 _PORTFOLIO_ID = "aa11223344556677889900aabbccddee"
 
+# 成员名 → 生产数字串映射（FILE_TYPES value，与 get_components 实际返回格式一致）。
+# 生产路径：MPortfolioFileMapping.type 经 FILE_TYPES.validate_input 转 int 存储，
+# get_components 用 `mapping.type.name if hasattr(mapping.type, "name") else str(mapping.type)`，
+# int 无 .name → 返回 str(int)，即数字串 "6"/"4"/"5"。
+# #6643 P0 回归保护：mock 必须用生产数字串格式，原 mock 用成员名 "STRATEGY" 掩盖了
+# requirements.py str 分支对数字串的归一化 bug（全绿却生产炸）。
+_MEMBER_TO_PROD = {"STRATEGY": "6", "SELECTOR": "4", "SIZER": "5"}
+
 
 def _portfolio_service_with(*component_types):
     """构造 mock portfolio_service，get_components 返回含指定类型组件的 ServiceResult。
 
-    component_type 字段模拟 PortfolioService.get_components 的返回格式
-    （mapping.type.name，即 FILE_TYPES 成员名，如 "STRATEGY"/"SELECTOR"/"SIZER"）。
+    component_type 字段模拟 PortfolioService.get_components 的【生产返回格式】：
+    数字字符串（FILE_TYPES value 的 str 形式，"6"/"4"/"5"），非成员名 "STRATEGY"。
+    调用方仍传可读成员名（"STRATEGY" 等），由本 helper 映射到生产格式。
     """
     svc = MagicMock()
     components = [
-        {"component_type": t, "component_name": f"{t.lower()}_1"}
+        {"component_type": _MEMBER_TO_PROD[t], "component_name": f"{t.lower()}_1"}
         for t in component_types
     ]
     svc.get_components.return_value = ServiceResult.success(components)

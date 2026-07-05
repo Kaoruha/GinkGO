@@ -935,7 +935,13 @@ class PortfolioService(BaseService):
             component_type: 组件类型过滤
 
         Returns:
-            ServiceResult: 组件列表
+            ServiceResult: 组件列表，每个组件为 dict，含字段：
+                - mount_id / portfolio_id / component_id / component_name / created_at
+                - component_type: 组件类型，**数字字符串**（FILE_TYPES value 的 str 形式，
+                  如 "6"/"4"/"5"）。生产路径 mapping.type 经 FILE_TYPES.validate_input
+                  转 int 存储，本方法用 `mapping.type.name if hasattr(...) else str(...)`
+                  兜底，int 无 .name → 返回 str(int)。消费方判类型须兼容数字串
+                  （见 _assembly/requirements.find_missing_required_components）。
         """
         try:
             filters = {"is_del": False}

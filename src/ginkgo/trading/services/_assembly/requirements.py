@@ -43,10 +43,16 @@ def find_missing_required_components(
         if isinstance(t, FILE_TYPES):
             bound_normalized.add(t)
         elif isinstance(t, str):
-            # 成员名（如 "STRATEGY"）；忽略未知字符串（非必需类型的合法组件可传入）
+            # 兼容两种字符串形态（与 engine_assembly_service._resolve_component_type 同语义）：
+            #   - 数字串（"6"）：生产 get_components 的真实返回格式。mapping.type 经
+            #     FILE_TYPES.validate_input 转 int 存储，get_components 用
+            #     `mapping.type.name if hasattr(...) else str(mapping.type)`，int 无 .name
+            #     → 返回 str(int)，即数字串。#6643 P0：原分支仅 FILE_TYPES[t] 会抛 KeyError
+            #     被静默吞，致全部已绑组件归一化为空集、预检误判全缺。
+            #   - 成员名（"STRATEGY"）：忽略未知字符串（非必需类型的合法组件可传入）。
             try:
-                bound_normalized.add(FILE_TYPES[t])
-            except KeyError:
+                bound_normalized.add(FILE_TYPES(int(t)) if t.isdigit() else FILE_TYPES[t])
+            except (KeyError, ValueError):
                 continue
         elif isinstance(t, int):
             try:

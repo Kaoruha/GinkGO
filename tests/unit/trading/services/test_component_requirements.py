@@ -27,11 +27,25 @@ class TestFindMissingRequiredComponents:
 
     @pytest.mark.unit
     def test_string_member_names_accepted(self):
-        """字符串成员名（PortfolioService.get_components 返回格式）→ 正确识别。"""
+        """字符串成员名（"STRATEGY"）→ 正确识别。"""
         result = find_missing_required_components(["STRATEGY", "SELECTOR"])
         # 仅缺 SIZER
         assert len(result) == 1
         assert result[0][0] == "Sizer"
+
+    @pytest.mark.unit
+    def test_numeric_string_values_accepted(self):
+        """数字字符串（生产 get_components 实际返回格式）→ 正确识别。
+
+        生产路径：MPortfolioFileMapping.type 经 FILE_TYPES.validate_input 转 int 存储，
+        get_components 用 `mapping.type.name if hasattr(mapping.type, "name") else str(mapping.type)`，
+        int 无 .name → 返回 str(int)，即 FILE_TYPES value 的数字串 "6"/"4"/"5"。
+        此为 #6643 P0 回归点：原 str 分支 FILE_TYPES["6"] 抛 KeyError 被静默吞，
+        致所有已绑组件归一化为空集、预检误判全部必需组件缺失。
+        """
+        result = find_missing_required_components(["6", "4"])  # strategy + selector 数字串
+        assert ("Sizer", "sizer") in result
+        assert len(result) == 1
 
     @pytest.mark.unit
     def test_int_values_accepted(self):
