@@ -268,7 +268,6 @@ class DataSeeder:
                 stmt = text("DELETE FROM engine WHERE name = :name")
                 result = session.execute(stmt, {"name": engine_name})
                 deleted_count = result.rowcount
-                session.commit()
 
                 if deleted_count > 0:
                     GLOG.WARN(f"直接SQL删除 {deleted_count} 个现有引擎: {engine_name}")
@@ -376,7 +375,6 @@ class DataSeeder:
                             "type": file_type.value
                         })
                         deleted_count = result.rowcount
-                        session.commit()
 
                         if deleted_count > 0:
                             GLOG.WARN(f"直接SQL删除 {deleted_count} 个现有文件: {preset_name} (包括所有前缀版本)")
@@ -447,7 +445,6 @@ class DataSeeder:
                 stmt = text("DELETE FROM portfolio WHERE name = :name")
                 result = session.execute(stmt, {"name": portfolio_name})
                 deleted_count = result.rowcount
-                session.commit()
 
                 if deleted_count > 0:
                     GLOG.WARN(f"删除 {deleted_count} 个现有投资组合: {portfolio_name}")

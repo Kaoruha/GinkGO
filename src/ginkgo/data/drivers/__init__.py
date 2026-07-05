@@ -398,6 +398,14 @@ def add(value, *args, **kwargs) -> any:
         return
 
     GLOG.DEBUG("Try add data to session.")
+    session = kwargs.get("session")
+    if session is not None:
+        session.add(value)
+        session.flush()  # 获取数据库生成的ID等信息
+        session.refresh(value)  # 确保所有属性都被加载
+        session.expunge(value)  # 将对象从session中分离，但保留属性
+        return value
+
     conn = get_db_connection(value)
 
     # 使用上下文管理器改进会话管理
@@ -424,9 +432,12 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     Returns:
         None
     """
+    from contextlib import nullcontext
+
     GLOG.DEBUG(f"Try add {len(values)} multi data to session.")
 
     from ginkgo.data.models import MClickBase, MMysqlBase
+    session = kwargs.get("session")
     click_list = []
     click_count = 0
     mysql_list = []
@@ -439,12 +450,19 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
         else:
             GLOG.DEBUG(f"Just support clickhouse and mysql now. Ignore other type: {type(i)}")
 
+    if session is not None and len(click_list) > 0 and len(mysql_list) > 0:
+        raise ValueError("External session mode does not support mixed ClickHouse/MySQL batches")
+
     if len(click_list) > 0:
         try:
-            click_conn = get_click_connection()
+            if session is None:
+                click_conn = get_click_connection()
+                session_context = click_conn.get_session()
+            else:
+                session_context = nullcontext(session)
 
             # 使用上下文管理器改进会话管理
-            with click_conn.get_session() as session:
+            with session_context as session_obj:
                 # 使用bulk_insert_mappings提高ClickHouse插入性能
                 if click_list:
                     # 按模型类型分组进行批量插入
@@ -467,7 +485,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
                                 mappings.append(mapping)
 
                             # 执行批量插入
-                            session.bulk_insert_mappings(model_type, mappings)
+                            session_obj.bulk_insert_mappings(model_type, mappings)
                             GLOG.DEBUG(f"ClickHouse bulk inserted {len(mappings)} {model_type.__name__} records")
 
                         except Exception as bulk_error:
@@ -475,7 +493,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
                                 f"ClickHouse bulk insert failed for {model_type.__name__}, falling back to add_all: {bulk_error}"
                             )
                             # 回退到add_all方法
-                            session.add_all(items)
+                            session_obj.add_all(items)
 
                 click_count = len(click_list)
                 GLOG.DEBUG(f"Clickhouse committed {len(click_list)} records total.")
@@ -486,19 +504,23 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
 
     if len(mysql_list) > 0:
         try:
-            mysql_conn = get_mysql_connection()
+            if session is None:
+                mysql_conn = get_mysql_connection()
+                session_context = mysql_conn.get_session()
+            else:
+                session_context = nullcontext(session)
 
             # 使用上下文管理器改进会话管理，支持对象解绑
-            with mysql_conn.get_session() as session:
-                session.add_all(mysql_list)
+            with session_context as session_obj:
+                session_obj.add_all(mysql_list)
                 mysql_count = len(mysql_list)
                 # 上下文管理器会在退出时自动commit
                 GLOG.DEBUG(f"MySQL will commit {len(mysql_list)} records.")
 
                 # 在session关闭前进行批量解绑，创建干净的脱管对象
                 # 常见做法：flush确保状态完整，expunge_all批量脱管
-                session.flush()          # 确保最新状态写入数据库
-                session.expunge_all()    # 批量脱管所有ORM实例
+                session_obj.flush()          # 确保最新状态写入数据库
+                session_obj.expunge_all()    # 批量脱管所有ORM实例
 
         except Exception as e:
             GLOG.ERROR(f"MySQL batch operation failed: {e}")
