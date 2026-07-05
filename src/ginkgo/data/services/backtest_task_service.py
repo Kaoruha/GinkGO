@@ -239,7 +239,12 @@ class BacktestTaskService(BaseService):
                     format_missing_components_message,
                 )
                 comp_result = portfolio_service.get_components(portfolio_id=portfolio_id)
-                if comp_result.is_success() and comp_result.data:
+                # 注意用 `is not None` 而非 truthiness：空 portfolio（0 绑定）的合法
+                # 返回是空 list []（falsy），但语义=「该 portfolio 无绑定」=缺全部必需组件，
+                # 是预检最该拦截的场景。truthiness 会把 [] 当「查询失败」放行，让 fast-feedback
+                # 对最常见的配置不全场景失效（用户须跑到 run 阶段才见错误）。None 才是
+                # 「无 payload / 查询异常」信号，交装配层兜底。
+                if comp_result.is_success() and comp_result.data is not None:
                     bound_types = {
                         c.get("component_type")
                         for c in comp_result.data

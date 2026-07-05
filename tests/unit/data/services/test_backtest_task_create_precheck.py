@@ -109,3 +109,28 @@ class TestCreatePrecheck:
         assert "Sizer" in result.error
         assert "--type strategy" in result.error
         assert "--type sizer" in result.error
+
+    @pytest.mark.unit
+    def test_empty_portfolio_rejected_not_silently_passed(self):
+        """#6643 review P0 回归：空 portfolio（0 绑定）是「缺全部必需组件」最常见场景，
+        必须在 create 时拦截。get_components 生产返回 ServiceResult.success([])（空 list，
+        falsy），若预检用 truthiness 判定会把 [] 当查询失败放行 → fast-feedback 失效，
+        用户须跑到 run 阶段才见错误。用 `is not None` 区分「空 list（查询成功，无绑定）」
+        与「None（查询异常）」。
+        """
+        crud = MagicMock()
+        portfolio_svc = MagicMock()
+        # 模拟生产 get_components 对无绑定 portfolio 的真实返回：success + 空 list
+        portfolio_svc.get_components.return_value = ServiceResult.success([])
+        svc = BacktestTaskService(crud, portfolio_service=portfolio_svc)
+
+        result = svc.create(name="empty", portfolio_id=_PORTFOLIO_ID)
+
+        assert not result.is_success(), "空 portfolio 应拒绝创建（缺全部必需组件）"
+        # 错误信息含全部必需组件 + 各自绑定命令
+        assert "Strategy" in result.error
+        assert "Sizer" in result.error
+        assert "--type strategy" in result.error
+        assert "--type sizer" in result.error
+        # 拒绝创建：crud.create 未被调用
+        crud.create.assert_not_called()
