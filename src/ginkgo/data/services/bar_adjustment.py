@@ -138,16 +138,15 @@ def get_precomputed_adjustment_factors(
         start_date = min(dates)
         end_date = max(dates)
 
-        # 获取原始adjustfactor数据
-        result = adjustfactor_service.get(
+        # 获取原始adjustfactor数据（ADR-010 出口①：data 已是 DataFrame）
+        result = adjustfactor_service.get_adjustfactors_df(
             code=code, start_date=start_date, end_date=end_date
         )
 
-        if not result.success or len(result.data) == 0:
+        if not result.success or result.data.empty:
             return pd.DataFrame(columns=['timestamp', factor_column])
 
-        # 使用ServiceResult.data中的ModelList转换为DataFrame
-        df_factors = result.data.to_dataframe()
+        df_factors = result.data
 
         if df_factors.empty:
             return pd.DataFrame(columns=['timestamp', factor_column])
@@ -350,16 +349,16 @@ def apply_price_adjustment(
         start_date = bars_df["timestamp"].min()
         end_date = bars_df["timestamp"].max()
 
-        adjustfactors_result = adjustfactor_service.get(
+        adjustfactors_result = adjustfactor_service.get_adjustfactors_df(
             code=code, start_date=start_date, end_date=end_date
         )
 
-        if not adjustfactors_result.success or not adjustfactors_result.data:
+        if not adjustfactors_result.success or adjustfactors_result.data.empty:
             GLOG.DEBUG(f"No adjustment factors found for {code}, returning original data")
             return bars_data
 
-        # 将ModelList转换为DataFrame
-        adjustfactors_df = adjustfactors_result.data.to_dataframe()
+        # ADR-010 出口①：data 已是 DataFrame
+        adjustfactors_df = adjustfactors_result.data
 
         if adjustfactors_df.empty:
             GLOG.DEBUG(f"No adjustment factors found for {code}, returning original data")
