@@ -54,6 +54,10 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
     def cal(self, portfolio_info, signal: Signal) -> Optional[Order]:
         code = signal.code
         o = None
+        # #4708: 对齐 RatioSizer/FixedSizer，经 get_time_provider() 取当前时间。
+        # #4706 误用 self.now（sizer 体系从未赋值），AttributeError 致全路径失效。
+        tp = self.get_time_provider()
+        now = tp.now() if tp is not None else None
         if signal.direction == DIRECTION_TYPES.SHORT:
             # 获取持仓信息
             if code not in portfolio_info["positions"]:
@@ -71,10 +75,10 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
                 transaction_volume=0,
                 remain=0,
                 fee=0,
-                timestamp=self.now,
+                timestamp=now,
             )
         if signal.direction == DIRECTION_TYPES.LONG:
-            if self.now is None:
+            if now is None:
                 GLOG.WARN("ATRSizer: now is None, passing the signal")
                 return None
             # #4706: LONG 取数走注入的 _data_feeder.get_historical_data()，对齐
@@ -84,8 +88,8 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
             if self._data_feeder is None:
                 GLOG.ERROR(f"ATRSizer:{self.name} has no data_feeder bound")
                 return None
-            start_date = self.now - datetime.timedelta(days=self.period + 7)
-            end_date = self.now
+            start_date = now - datetime.timedelta(days=self.period + 7)
+            end_date = now
             df = self._data_feeder.get_historical_data(
                 symbols=[code],
                 start_time=start_date,
@@ -106,7 +110,9 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
             close_prices = df['close'].tolist()
 
             # 使用新API计算ATR
-            atr = ATR.cal(self.period, high_prices[-(self.period+1):], low_prices[-(self.period+1):], close_prices[-(self.period+1):]) * self.risk_ratio
+            # #4708: Decimal 列下 ATR.cal 返回 Decimal，与 float 系数算术抛 TypeError；
+            # 显式 float() 归一（与 DualThrust._calculate_range 同范式）。
+            atr = float(ATR.cal(self.period, high_prices[-(self.period+1):], low_prices[-(self.period+1):], close_prices[-(self.period+1):])) * self.risk_ratio
 
             if atr == 0 or pd.isna(atr):
                 GLOG.WARN(f"ATRSizer: ATR is {atr} for {code}, signal dropped")
@@ -114,16 +120,16 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
             # #5490: floor ATR to a minimum fraction of close so a collapsed ATR
             # (halt / limit board / stale quotes) cannot inflate max_shares.
             close = df.iloc[-1]["close"]
-            min_atr = close * self.min_atr_percent
+            min_atr = float(close) * self.min_atr_percent
             if atr < min_atr:
                 GLOG.WARN(
                     f"ATRSizer: ATR {atr} below floor {min_atr:.4f} "
                     f"({self.min_atr_percent * 100:.2f}% of close {close}) for {code}; flooring"
                 )
                 atr = min_atr
-            max_money = portfolio_info["cash"] * self.risk
+            max_money = float(portfolio_info["cash"]) * self.risk
             max_shares = self.align_to_lot(int(max_money / atr))  # 向下对齐到 lot_size 整数倍（#6498，原硬编码 100）
-            price = close * 1.1
+            price = float(close) * 1.1
             o = self.create_order(
                 code=signal.code,
                 direction=signal.direction,
@@ -134,7 +140,7 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
                 transaction_volume=0,
                 remain=0,
                 fee=0,
-                timestamp=self.now,
+                timestamp=now,
             )
             GLOG.INFO("Order Generated.")
             GLOG.INFO(o)
