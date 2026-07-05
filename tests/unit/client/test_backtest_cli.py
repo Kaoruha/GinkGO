@@ -444,3 +444,134 @@ class TestBacktestRunTaskListDataGuard:
         assert mock_service.update_progress.called, (
             "list data 不应阻断 FINALIZING update_progress 调用"
         )
+
+
+class TestBacktestRunTaskPreflightWarningDisplay:
+    """#6449 re-review #2: CLI 失败分支应印全文 preflight_warning（含 #6282 sync 指引）。
+
+    UseCase 层把 warning 全文放 data['preflight_warning']，CLI 翻译层负责展示。
+    不再只印被截断的 error 字段——master 行为是 console.print(warning) 印全文。
+    bg/非 bg 两分支对称（ADR-022 §3 不静默）。
+    """
+
+    @patch("ginkgo.services.logging.log_ingester.LogIngester")
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_nonbg_preflight_failure_prints_full_warning(
+        self, mock_orch_cls, mock_container, mock_log_cls):
+        """非 bg preflight 失败：输出含 #6282 sync 指引 + 尾部 symbol（全文未截断）。"""
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        mock_log_cls.return_value.ingest_task_logs.return_value = MagicMock(inserted=0)
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-pfdisp"
+        task.portfolio_id = "port-pfdisp"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        # UseCase 层报业务事实：固定短语 error + 全文 warning in data（>200 字符）
+        full_warning = (
+            ":warning: Data preflight failed: 4 symbol(s) have insufficient bars\n"
+            "   Window: 2024-01-01 ~ 2024-06-30\n"
+            "   - 000001.SZ: 5 bar(s)\n"
+            "   - 000002.SZ: 5 bar(s)\n"
+            "   - 000063.SZ: 5 bar(s)\n"
+            "   - 000333.SZ: 5 bar(s)\n"
+            ":bulb: Tip: sync day bars first — "
+            "`ginkgo data sync --code <CODE>` or widen the backtest window."
+        )
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(
+            success=False,
+            error="preflight blocked: data coverage insufficient",
+            data={"preflight_warning": full_warning},
+        )
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-pfdisp"])
+
+        assert invoke_result.exit_code == 1, (
+            f"非 bg preflight 失败应 exit 1，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+        plain = _strip_ansi(invoke_result.output)
+        # 关键：#6282 symbol 级 sync 指引必须出现在输出（曾因 error[:200] 被截掉）
+        assert "ginkgo data sync" in plain, (
+            f"输出应含 #6282 全文 sync 指引，实际: {plain!r}"
+        )
+        # 尾部 symbol 也应出现（证明全文未截断，000333 在 200 字符之后）
+        assert "000333.SZ" in plain, (
+            f"输出应含尾部 symbol 000333.SZ，实际: {plain!r}"
+        )
+
+    @patch("ginkgo.services.logging.log_ingester.LogIngester")
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_bg_preflight_failure_uses_emit_helper(
+        self, mock_orch_cls, mock_container, mock_log_cls):
+        """--bg 模式 preflight 失败也走 _emit_backtest_failure（与非 bg 对称印全文 warning）。
+
+        bg 线程内 console.print 输出时机不可靠（daemon 线程，invoke 已返回），
+        故 spy 模块级 _emit_backtest_failure 验证 bg 失败分支调用了它且传入含
+        preflight_warning 的 result（与非 bg 分支共用 helper = 对称）。
+        """
+        import time as _time
+        from ginkgo.client import backtest_cli
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        mock_log_cls.return_value.ingest_task_logs.return_value = MagicMock(inserted=0)
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-bg-pf"
+        task.portfolio_id = "port-bg-pf"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        full_warning = (
+            ":warning: Data preflight failed: 4 symbol(s) have insufficient bars\n"
+            "   - 000333.SZ: 5 bar(s)\n"
+            ":bulb: Tip: `ginkgo data sync --code <CODE>` or widen the backtest window."
+        )
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(
+            success=False,
+            error="preflight blocked: data coverage insufficient",
+            data={"preflight_warning": full_warning},
+        )
+        mock_orch_cls.return_value = mock_orch
+
+        # wraps 保留原实现（bg 线程仍真实打印），spy 仅记录调用
+        with patch.object(
+            backtest_cli, "_emit_backtest_failure",
+            wraps=backtest_cli._emit_backtest_failure,
+        ) as spy_emit:
+            invoke_result = runner.invoke(app, ["run", "task-bg-pf", "--bg"])
+            # 轮询等 bg daemon 线程跑到失败分支（最多 2s）
+            deadline = _time.monotonic() + 2.0
+            while _time.monotonic() < deadline and spy_emit.call_count == 0:
+                _time.sleep(0.02)
+
+        assert invoke_result.exit_code == 0, (
+            f"--bg 主线程应 exit 0（bg 线程后台跑），实际 {invoke_result.exit_code}"
+        )
+        assert spy_emit.call_count >= 1, (
+            "--bg 失败分支应调用 _emit_backtest_failure（与非 bg 对称印全文 warning），"
+            f"实际调用次数 {spy_emit.call_count} = bg 分支仍只印截断 error"
+        )
+        result_arg = spy_emit.call_args.args[0]
+        assert result_arg.data.get("preflight_warning") == full_warning, (
+            "传给 helper 的 result 应携带全文 preflight_warning"
+        )

@@ -120,10 +120,14 @@ class BacktestOrchestrator:
         if warning:
             if self._task_service is not None:
                 self._task_service.update_status(task.uuid, "failed")
+            # #6449 re-review #2: warning 全文走 data['preflight_warning']，error 留固定短语。
+            # master 行为是 CLI console.print(warning) 印全文；本 PR 收敛进 UseCase 层后曾用
+            # warning[:200] 截断塞进 error 字段——多标的(≥4 symbol)时 #6282 symbol 级
+            # ginkgo data sync 指引被截掉，用户看不到如何补数据。调用方(CLI/worker)负责全文展示。
             return OrchestratorResult(
                 success=False,
-                error=f"preflight blocked: data coverage insufficient "
-                      f"({warning[:200]})",
+                error="preflight blocked: data coverage insufficient",
+                data={"preflight_warning": warning},
             )
 
         # 3. 标 running（用例契约：状态机更新由 UseCase 层管，调用方不必手动标）

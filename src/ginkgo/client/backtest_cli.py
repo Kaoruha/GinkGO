@@ -35,6 +35,23 @@ def _display_progress(status_val, raw_progress):
     return raw_progress
 
 
+def _emit_backtest_failure(result):
+    """#6449 re-review #2: 回测失败时若 result.data['preflight_warning'] 有全文，印全文。
+
+    UseCase 层(BacktestOrchestrator)把 preflight warning 全文放 data['preflight_warning']，
+    error 留固定短语；翻译层(CLI)负责全文展示（master console.print(warning) 行为）。
+    多标的(≥4 symbol)时含 #6282 symbol 级 `ginkgo data sync` 指引，曾因 error[:200]
+    截断丢失。bg/非 bg 两失败分支共用此 helper 保对称（ADR-022 §3 不静默）。
+    """
+    console.print(f":x: Backtest failed: {result.error}")
+    preflight_warning = (
+        result.data.get("preflight_warning")
+        if isinstance(result.data, dict) else None
+    )
+    if preflight_warning:
+        console.print(preflight_warning)
+
+
 @app.command("create")
 def create_task(
     portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
@@ -238,7 +255,7 @@ def run_task(
                     )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
                 else:
-                    console.print(f":x: Backtest failed: {result.error}")
+                    _emit_backtest_failure(result)
 
             thread = threading.Thread(target=_run_in_thread, daemon=True)
             thread.start()
@@ -249,7 +266,7 @@ def run_task(
             )
 
             if not result.is_success():
-                console.print(f":x: Backtest failed: {result.error}")
+                _emit_backtest_failure(result)
                 raise typer.Exit(1)
 
             service.update_progress(

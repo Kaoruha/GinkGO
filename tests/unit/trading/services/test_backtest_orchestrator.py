@@ -621,6 +621,49 @@ class TestRunFromTaskPreflight:
             f"preflight 阻断应标 failed（#6449 保留原 CLI 语义）：实际 {status_calls}"
         )
 
+    @patch("ginkgo.trading.services.backtest_orchestrator.preflight_data_coverage")
+    def test_preflight_warning_full_text_not_truncated(
+        self, mock_preflight, orchestrator, mock_task_service):
+        """#6449 re-review #2: 多标的 preflight 失败时 warning 全文不得被 [:200] 截断。
+
+        master 行为：CLI 直接 console.print(warning) 印全文（含 #6282 symbol 级
+        ginkgo data sync 指引）。本 PR 收敛进 UseCase 层后曾用 warning[:200] 截断
+        塞进 error 字段——多标的(≥4 symbol)时 #6282 指引被截掉，用户看不到如何补数据。
+        修复契约：warning 全文走 data['preflight_warning']，error 留固定短语。
+        """
+        # 4 个标的 sparse → build_preflight_warning 产出 >200 字符（含 Tip 行）
+        sparse_codes = ["000001.SZ", "000002.SZ", "000063.SZ", "000333.SZ"]
+        mock_preflight.return_value = {
+            "codes": sparse_codes,
+            "coverage": {c: 5 for c in sparse_codes},
+            "sparse": sparse_codes,
+            "ok": False,
+        }
+
+        task = MagicMock()
+        task.uuid = "task-pf-full"
+        task.portfolio_id = "port-pf-full"
+        task.config_snapshot = {"start_date": "2024-01-01", "end_date": "2024-06-30"}
+
+        result = orchestrator.run_from_task(task)
+
+        # 1. error 是固定短语（不再含 warning[:200] 截断正文）
+        assert result.error == "preflight blocked: data coverage insufficient", (
+            f"error 应为固定短语（不再截断 warning），实际: {result.error!r}"
+        )
+        # 2. warning 全文走 data['preflight_warning']，含全部 symbol + #6282 sync 指引
+        assert isinstance(result.data, dict), "data 应为 dict 以承载 preflight_warning"
+        warning = result.data.get("preflight_warning")
+        assert warning is not None, "warning 全文应进 data['preflight_warning']"
+        assert len(warning) > 200, (
+            f"4 标的 warning 应 >200 字符（验证截断回归），实际长度 {len(warning)}"
+        )
+        for code in sparse_codes:
+            assert code in warning, f"warning 应含 symbol {code}，实际: {warning!r}"
+        assert "ginkgo data sync" in warning, (
+            f"warning 应含 #6282 symbol 级 sync 指引，实际: {warning!r}"
+        )
+
 
 class TestOrchestratorTimeoutConfig:
     """#6483: 超时阈值应可通过 GINKGO_BACKTEST_TIMEOUT 环境变量配置（覆盖默认 3600s）。"""
