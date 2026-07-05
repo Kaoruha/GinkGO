@@ -48,8 +48,7 @@ class TestRouteOrderNotSwallowingParameters:
             resp = client.get("/components/parameters")
 
         assert resp.status_code == 200, (
-            f"应命中 get_all_component_parameters(200)，实际 {resp.status_code} "
-            f"(疑似被 /{{uuid}} 路由吞掉)"
+            f"应命中 get_all_component_parameters(200)，实际 {resp.status_code} " f"(疑似被 /{{uuid}} 路由吞掉)"
         )
 
 
@@ -107,16 +106,8 @@ class TestDynamicExtractionFromSource:
         from fastapi.testclient import TestClient
         from api import components
 
-        code_a = (
-            "class FakeStratA:\n"
-            "    def __init__(self, fast=5):\n"
-            "        self.fast = fast\n"
-        )
-        code_b = (
-            "class FakeStratB:\n"
-            "    def __init__(self, slow=20):\n"
-            "        self.slow = slow\n"
-        )
+        code_a = "class FakeStratA:\n" "    def __init__(self, fast=5):\n" "        self.fast = fast\n"
+        code_b = "class FakeStratB:\n" "    def __init__(self, slow=20):\n" "        self.slow = slow\n"
 
         mock_file_a = MagicMock()
         mock_file_a.name = "fake_strat_a"
@@ -156,3 +147,57 @@ class TestDynamicExtractionFromSource:
         assert "fake_strat_a" in data, f"key 应为文件名，实际 {list(data.keys())}"
         assert "fake_strat_b" in data
         assert any(p["name"] == "fast" for p in data["fake_strat_a"])
+
+
+class TestBuiltinComponentParameterFallback:
+    """#6085/#5758/#5836: DB 未同步内置组件时，参数端点仍应从源码发现内置组件。"""
+
+    def test_get_all_parameters_falls_back_to_builtin_sources_when_db_empty(self):
+        """GET /components/parameters 不应在 DB 为空时返回空系统。"""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from api import components
+
+        mock_list_result = MagicMock()
+        mock_list_result.is_success.return_value = True
+        mock_list_result.data = {"data": [], "total": 0}
+
+        mock_fs = MagicMock()
+        mock_fs.list_components.return_value = mock_list_result
+
+        app = FastAPI()
+        app.include_router(components.router, prefix="/components")
+        client = TestClient(app)
+
+        with patch.object(components, "get_file_service", return_value=mock_fs):
+            resp = client.get("/components/parameters")
+
+        assert resp.status_code == 200, f"实际 {resp.status_code}: {resp.text}"
+        data = resp.json()["data"]
+        assert "moving_average_crossover" in data
+        assert any(p["name"] == "short_period" for p in data["moving_average_crossover"])
+
+    def test_get_builtin_parameters_by_file_name_when_db_misses(self):
+        """GET /components/parameters/{name} 应支持内置组件文件名查询。"""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from api import components
+
+        mock_name_result = MagicMock()
+        mock_name_result.is_success.return_value = False
+        mock_name_result.data = None
+
+        mock_fs = MagicMock()
+        mock_fs.get_by_name.return_value = mock_name_result
+
+        app = FastAPI()
+        app.include_router(components.router, prefix="/components")
+        client = TestClient(app)
+
+        with patch.object(components, "get_file_service", return_value=mock_fs):
+            resp = client.get("/components/parameters/moving_average_crossover")
+
+        assert resp.status_code == 200, f"实际 {resp.status_code}: {resp.text}"
+        param_names = [p["name"] for p in resp.json()["data"]]
+        assert "short_period" in param_names
+        assert "long_period" in param_names
