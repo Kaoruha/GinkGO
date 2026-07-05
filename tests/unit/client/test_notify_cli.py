@@ -12,6 +12,7 @@ Mock strategy:
 import json
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
+from contextlib import contextmanager
 
 from ginkgo.client import notify_cli
 from ginkgo.data.services.base_service import ServiceResult
@@ -24,17 +25,21 @@ import ginkgo.service_hub as service_hub_module
 # ============================================================================
 
 
+@contextmanager
 def _patch_notifier_service(mock_service):
-    """Patch service_hub.notifier to return mock_service from notification_service()."""
-    # service_hub_module 实际是 ServiceHub 实例（由 ginkgo.__init__ 导出导致）
-    # 触发懒加载，让 __getattr__ 缓存到实例上
-    _ = service_hub_module.notifier
+    """注入 mock_service 为 service_hub.notifier.notification_service() 返回值。
+
+    ServiceHub.__getattr__ 走 ``_overrides``（测试覆盖优先）→ ``_module_cache`` →
+    ``_load_module``。``notifier`` 是动态属性（非类层 property），原实现用
+    ``patch.object(service_hub_module, "notifier", PropertyMock)`` 对 data
+    descriptor / 动态 __getattr__ 无效——mock 不生效，命令走 auto-MagicMock
+    链（恒 truthy），掩盖失败路径（send 异常/无用户 本应 exit≠0 却 exit 0）。
+    改走 ``_overrides`` 注入，mock 真正生效。
+    """
     mock_notifier = MagicMock()
     mock_notifier.notification_service.return_value = mock_service
-    return patch.object(
-        service_hub_module, "notifier",
-        new_callable=PropertyMock, return_value=mock_notifier,
-    )
+    with patch.dict(service_hub_module._overrides, {"notifier": mock_notifier}):
+        yield
 
 
 # ============================================================================
@@ -176,6 +181,76 @@ class TestChannels:
         assert result.exit_code == 0
         assert "console" in result.output
         assert "discord" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestNotifyHistoryCommand:
+    """``history`` 命令的回归测试（#6086 AC3）。
+
+    两个 PR 各自实现了 ``history`` 命令，Typer 同名 ``@app.command`` 静默覆盖
+    （后者生效），导致 #5968 的字段名修复进了**死代码**分支，active 版用错
+    字段名（timestamp/channel 单数/title）重现 bug。本类固化两件事：
+    1. 全仓只注册一个 ``history`` 命令（结构层抓双注册）；
+    2. active ``history`` 渲染模型真实字段 ``create_at``/``channels``(复数)，
+       不读模型不存的 ``title``。
+    """
+
+    def test_only_one_history_command_registered(self):
+        """Typer 同名 ``@app.command`` 静默覆盖；必须只剩一个 ``history``。"""
+        history_cmds = [
+            c for c in notify_cli.app.registered_commands
+            if getattr(c, "name", None) == "history"
+        ]
+        assert len(history_cmds) == 1, (
+            f"history 命令应只注册一次，实际 {len(history_cmds)} 次"
+            "（Typer 同名静默覆盖会让字段修复进死代码分支）"
+        )
+
+    def test_history_renders_create_at_and_channels_not_title(self, cli_runner, monkeypatch):
+        """active history 读模型真实字段 create_at/channels(复数)，不读 title。
+
+        回归锚点：active 版曾读 ``timestamp``/``channel``(单数)/``title``，
+        而 MNotificationRecord 只存 ``create_at``/``channels``(复数)/无 title，
+        导致时间恒 N/A、渠道恒空、Title 列恒空。
+        """
+        # CliRunner 默认 80 列，Rich 会把 Time 列压缩成 "2026-07-0…"，
+        # 完整时间串不出现（假阴性）。patch console 宽度避免压缩。
+        monkeypatch.setattr(notify_cli.console, "width", 200)
+
+        mock_result = MagicMock()
+        mock_result.is_success.return_value = True
+        mock_result.data = {
+            "count": 1,
+            "records": [
+                {
+                    "message_id": "msg-001",
+                    "content": "hello world",
+                    "channels": ["email", "webhook"],
+                    "status": 1,
+                    "create_at": "2026-07-05T10:00:00",
+                }
+            ],
+        }
+
+        mock_service = MagicMock()
+        mock_service._resolve_user_uuid.return_value = "user-uuid-1"
+        mock_service.get_notification_history.return_value = mock_result
+
+        with _patch_notifier_service(mock_service):
+            result = cli_runner.invoke(
+                notify_cli.app, ["history", "--user", "alice"]
+            )
+
+        assert result.exit_code == 0, result.output
+        # create_at 渲染为可读时间（非 N/A）
+        assert "2026-07-05 10:00" in result.output, (
+            "必须渲染 create_at 字段，不能读不存在的 timestamp"
+        )
+        # channels(复数) 至少渲染一个渠道（非空）
+        assert "email" in result.output, "必须渲染 channels(复数) 列表元素"
+        # 模型不存 title → 不应有 Title 列头
+        assert "Title" not in result.output, "模型无 title 字段，不应渲染 Title 列"
 
 
 @pytest.mark.unit
@@ -339,10 +414,8 @@ class TestNotifyCLIExceptions:
         mock_notifier = MagicMock()
         mock_notifier.notification_service.side_effect = Exception("service down")
 
-        with patch.object(
-            service_hub_module, "notifier",
-            new_callable=PropertyMock, return_value=mock_notifier,
-        ):
+        # 走 _overrides 让 mock 生效（同 _patch_notifier_service 原理）。
+        with patch.dict(service_hub_module._overrides, {"notifier": mock_notifier}):
             result = cli_runner.invoke(notify_cli.app, ["send", "-u", "Alice", "-c", "Hello"])
 
         # send_notification catches exceptions and raises typer.Exit(1)

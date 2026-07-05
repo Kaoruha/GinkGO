@@ -332,98 +332,6 @@ def send_template_notification(
         raise typer.Exit(1)
 
 
-@app.command("history")
-def get_notification_history(
-    user_uuid: Optional[str] = typer.Option(None, "--user", "-u", help="User UUID"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (pending/sent/failed)"),
-    limit: int = typer.Option(50, "--limit", "-l", help="Max results"),
-    failed: bool = typer.Option(False, "--failed", "-f", help="Show only failed notifications"),
-):
-    """
-    :bookmark_tabs: Show notification history.
-
-    Examples:
-      ginkgo notify history --user <uuid>
-      ginkgo notify history --failed
-      ginkgo notify history -l 20
-    """
-    try:
-        from ginkgo.data.containers import container
-        from ginkgo.enums import NOTIFICATION_STATUS_TYPES
-
-        # Get service from container
-        service = container.notification_service()
-
-        # Get history
-        if failed:
-            result = service.get_failed_notifications(limit=limit)
-        elif user_uuid:
-            status_filter = None
-            if status:
-                status_map = {
-                    "pending": NOTIFICATION_STATUS_TYPES.PENDING.value,
-                    "sent": NOTIFICATION_STATUS_TYPES.SENT.value,
-                    "failed": NOTIFICATION_STATUS_TYPES.FAILED.value
-                }
-                status_filter = status_map.get(status.lower())
-
-            result = service.get_notification_history(
-                user_uuid=user_uuid,
-                limit=limit,
-                status=status_filter
-            )
-        else:
-            console.print("[yellow]:warning: Please specify --user or use --failed[/yellow]")
-            raise typer.Exit(1)
-
-        if result.is_success():
-            data = result.data
-            records = data.get("records", [])
-            count = data.get("count", 0)
-
-            if count == 0:
-                console.print(":memo: No notification records found.")
-                return
-
-            table = Table(title=f":bell: Notification History ({count} records)")
-            table.add_column("Message ID", style="cyan", max_width=20)
-            table.add_column("Status", style="yellow")
-            table.add_column("Channels", style="green")
-            table.add_column("Content", style="white", max_width=30)
-            table.add_column("Created", style="dim")
-
-            for rec in records[:limit]:
-                content = rec.get("content", "")[:30] + "..." if len(rec.get("content", "")) > 30 else rec.get("content", "")
-
-                status_val = rec.get("status", 0)
-                status_map = {
-                    0: "[dim]PENDING[/dim]",
-                    1: "[green]SENT[/green]",
-                    2: "[red]FAILED[/red]"
-                }
-                status_str = status_map.get(status_val, str(status_val))
-
-                channels = ", ".join(rec.get("channels", []))
-                created = str(rec.get("create_at", ""))[:16] if rec.get("create_at") else "N/A"
-
-                table.add_row(
-                    rec.get("message_id", "")[:18] + "...",
-                    status_str,
-                    channels,
-                    content,
-                    created
-                )
-
-            console.print(table)
-        else:
-            console.print(f"[red]:x: Failed to get history: {result.message}[/red]")
-            raise typer.Exit(1)
-
-    except Exception as e:
-        console.print(f"[red]:x: Error getting history: {e}[/red]")
-        raise typer.Exit(1)
-
-
 @app.command("search")
 def search_recipients(
     keyword: str = typer.Argument(..., help="Search keyword (user name or group name)"),
@@ -583,9 +491,8 @@ def notification_history(
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Time", style="cyan", width=16)
         table.add_column("Message ID", style="white", width=28)
-        table.add_column("Channel", style="yellow", width=10)
+        table.add_column("Channels", style="yellow", width=14)
         table.add_column("Status", justify="center", width=8)
-        table.add_column("Title", style="green", width=20)
         table.add_column("Content", style="white", width=30)
 
         status_map = {
@@ -595,21 +502,13 @@ def notification_history(
         }
 
         for record in records:
-            # 格式化时间戳
-            timestamp = record.get("timestamp", "")
-            if timestamp:
-                try:
-                    from datetime import datetime
-                    if isinstance(timestamp, str):
-                        ts = datetime.fromisoformat(timestamp)
-                    else:
-                        ts = datetime.fromtimestamp(timestamp)
-                    timestamp_str = ts.strftime("%Y-%m-%d %H:%M")
-                except Exception as e:
-                    GLOG.ERROR(f"Failed to parse timestamp '{timestamp}': {e}")
-                    timestamp_str = str(timestamp)[:16]
-            else:
-                timestamp_str = "N/A"
+            # create_at：模型真实字段（MNotificationRecord.create_at），序列化为
+            # ISO str（含 T），截断 16 字符并把 T 换成空格得 "YYYY-MM-DD HH:MM"。
+            # 原代码读不存在的 ``timestamp`` → 恒 N/A（#6086 AC3 字段漂移）。
+            created_raw = record.get("create_at")
+            created_str = (
+                str(created_raw)[:16].replace("T", " ") if created_raw else "N/A"
+            )
 
             # 获取状态
             status_value = record.get("status", 0)
@@ -620,18 +519,16 @@ def notification_history(
             if len(content) > 27:
                 content = content[:27] + "..."
 
-            # 截断标题
-            title = record.get("title", "")
-            if len(title) > 18:
-                title = title[:18] + "..."
+            # channels：模型真实字段（复数列表）。原代码读 ``channel``（单数，
+            # 不存在）→ 恒空。
+            channels = ", ".join(str(c) for c in record.get("channels", []))
 
             table.add_row(
-                timestamp_str,
+                created_str,
                 str(record.get("message_id", ""))[:26],
-                str(record.get("channel", "")),
+                channels,
                 status_str,
-                title,
-                content
+                content,
             )
 
         console.print(table)
