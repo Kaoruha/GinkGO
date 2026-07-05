@@ -315,11 +315,63 @@ class TestStatus:
         assert result.exit_code == 0
         assert "status" in result.output.lower()
 
-    def test_status_shows_not_implemented(self, cli_runner):
-        """status 命令显示尚未实现"""
+    @patch("ginkgo.data.containers.container")
+    def test_status_reads_sync_record_service(self, mock_container, cli_runner):
+        """status 命令读取同步记录服务并显示最近同步状态"""
+        mock_service = MagicMock()
+        mock_service.get_history.return_value = ServiceResult.success(
+            data={
+                "total": 2,
+                "items": [
+                    {
+                        "sync_type": "day",
+                        "code": "000001.SZ",
+                        "status": "success",
+                        "started_at": "2026-07-05T10:00:00",
+                        "completed_at": "2026-07-05T10:01:00",
+                        "records_processed": 10,
+                        "records_added": 8,
+                        "records_updated": 2,
+                        "records_failed": 0,
+                        "sync_strategy": "smart",
+                    },
+                    {
+                        "sync_type": "tick",
+                        "code": "000002.SZ",
+                        "status": "failed",
+                        "started_at": "2026-07-05T11:00:00",
+                        "completed_at": "2026-07-05T11:00:30",
+                        "records_processed": 3,
+                        "records_added": 0,
+                        "records_updated": 0,
+                        "records_failed": 3,
+                        "sync_strategy": "full",
+                    },
+                ],
+            }
+        )
+        mock_container.data_sync_record_service.return_value = mock_service
+
         result = cli_runner.invoke(data_cli.app, ["status"])
         assert result.exit_code == 0
-        assert "not yet implemented" in result.output
+        mock_service.get_history.assert_called_once_with(sync_type=None, page=0, page_size=10)
+        assert "not yet implemented" not in result.output
+        assert "000001.SZ" in result.output
+        assert "success" in result.output
+        assert "failed" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_status_supports_type_filter_and_limit(self, mock_container, cli_runner):
+        """status 支持按同步类型和记录数筛选"""
+        mock_service = MagicMock()
+        mock_service.get_history.return_value = ServiceResult.success(data={"items": [], "total": 0})
+        mock_container.data_sync_record_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["status", "--type", "day", "--limit", "5"])
+
+        assert result.exit_code == 0
+        mock_service.get_history.assert_called_once_with(sync_type="day", page=0, page_size=5)
+        assert "No sync records found" in result.output
 
 
 # ============================================================================

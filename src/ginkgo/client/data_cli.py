@@ -493,13 +493,69 @@ def get(
 
 
 @app.command()
-def status():
+def status(
+    sync_type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by sync type"),
+    limit: int = typer.Option(10, "--limit", "-l", min=1, max=100, help="Recent records to show"),
+):
     """
     :gear: Show data synchronization status.
     """
-    console.print(":gear: Data synchronization status:")
-    # TODO: Implement data status check
-    console.print(":information: Data status check not yet implemented")
+    try:
+        from ginkgo.data.containers import container
+
+        sync_record_service = container.data_sync_record_service()
+        result = sync_record_service.get_history(sync_type=sync_type, page=0, page_size=limit)
+        if not result or not result.is_success():
+            error_msg = result.error if result and hasattr(result, "error") else "unknown error"
+            console.print(f":x: Failed to load data sync status: {error_msg}")
+            raise typer.Exit(1)
+
+        payload = result.data or {}
+        items = payload.get("items", []) if isinstance(payload, dict) else []
+        total = payload.get("total", len(items)) if isinstance(payload, dict) else len(items)
+
+        console.print(":gear: Data synchronization status:")
+        if not items:
+            console.print(":information: No sync records found")
+            return
+
+        counts = {}
+        for item in items:
+            status_value = str(item.get("status") or "unknown")
+            counts[status_value] = counts.get(status_value, 0) + 1
+        summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+        console.print(f":information: Showing {len(items)} of {total} sync record(s); {summary}")
+
+        table = Table(title="Recent Data Sync Records", show_lines=False)
+        table.add_column("Type", style="cyan", no_wrap=True)
+        table.add_column("Code", style="green", no_wrap=True)
+        table.add_column("Status", style="yellow", no_wrap=True)
+        table.add_column("Processed", justify="right")
+        table.add_column("Added", justify="right")
+        table.add_column("Failed", justify="right")
+        table.add_column("Completed", style="dim", no_wrap=True)
+        table.add_column("Strategy", style="dim", no_wrap=True)
+
+        for item in items:
+            completed_at = item.get("completed_at") or item.get("started_at") or ""
+            if isinstance(completed_at, str) and "T" in completed_at:
+                completed_at = completed_at.replace("T", " ")[:19]
+            table.add_row(
+                str(item.get("sync_type") or ""),
+                str(item.get("code") or ""),
+                str(item.get("status") or ""),
+                str(item.get("records_processed") or 0),
+                str(item.get("records_added") or 0),
+                str(item.get("records_failed") or 0),
+                str(completed_at),
+                str(item.get("sync_strategy") or ""),
+            )
+        console.print(table)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Error loading data sync status: {e}")
+        raise typer.Exit(1)
 
 
 def _is_valid_stock_code(code: str) -> bool:
