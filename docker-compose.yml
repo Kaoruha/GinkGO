@@ -562,7 +562,7 @@ services:
   # BacktestWorker - 回测任务执行节点
   backtest-worker:
     <<: *worker-common
-    command: ["python", "main.py", "serve", "worker-backtest", "-id", "${BACKTEST_WORKER_ID:-bw-1}"]
+    command: ["python", "main.py", "serve", "worker-backtest", "--id", "${BACKTEST_WORKER_ID:-bw-1}"]
     environment:
       <<: *worker-env
       BACKTEST_WORKER_ID: ${BACKTEST_WORKER_ID:-bw-1}
