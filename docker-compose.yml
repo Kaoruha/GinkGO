@@ -76,8 +76,8 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - '9092:29092'
-      - '9093:9093'
+      - '127.0.0.1:9092:29092'
+      - '127.0.0.1:9093:9093'
     environment:
       # KRaft 模式配置 (apache/kafka 使用 KAFKA_ 前缀)
       - KAFKA_PROCESS_ROLES=broker,controller
@@ -90,7 +90,7 @@ services:
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
       # 其他配置
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=${KAFKA_AUTO_CREATE_TOPICS_ENABLE:-false}
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
       # 日志配置
       - KAFKA_LOG_RETENTION_HOURS=2
@@ -109,8 +109,8 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - '9094:29094'
-      - '9095:9093'
+      - '127.0.0.1:9094:29094'
+      - '127.0.0.1:9095:9093'
     environment:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=2
@@ -125,7 +125,7 @@ services:
       - KAFKA_LOG_SEGMENT_BYTES=1073741824
       - KAFKA_LOG_CLEANUP_POLICY=delete
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=${KAFKA_AUTO_CREATE_TOPICS_ENABLE:-false}
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
     volumes:
       - .db/kafka2_data:/var/lib/kafka/data
@@ -139,8 +139,8 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - '9096:29096'
-      - '9097:9093'
+      - '127.0.0.1:9096:29096'
+      - '127.0.0.1:9097:9093'
     environment:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=3
@@ -155,7 +155,7 @@ services:
       - KAFKA_LOG_SEGMENT_BYTES=1073741824
       - KAFKA_LOG_CLEANUP_POLICY=delete
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=${KAFKA_AUTO_CREATE_TOPICS_ENABLE:-false}
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
     volumes:
       - .db/kafka3_data:/var/lib/kafka/data
@@ -169,7 +169,7 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - .conf/redis.conf:/etc/redis/redis.conf
       - .db/redis/data:/data
@@ -189,7 +189,7 @@ services:
       --default-time-zone='+08:00'
     restart: always
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ginkgo
@@ -216,7 +216,7 @@ services:
       --default-time-zone='+08:00'
     restart: always
     ports:
-      - "13306:3306"
+      - "127.0.0.1:13306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ginkgo
@@ -243,9 +243,9 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - "8123:8123"
-      - "9000:9000"
-      - "9009:9009"
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9009:9009"
     volumes:
       - .logs/clickhouse:/var/log/clickhouse-server
       - .conf/clickhouse_users.xml:/etc/clickhouse-server/users.xml
@@ -270,9 +270,9 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - "18123:8123"
-      - "19000:9000"
-      - "19009:9009"
+      - "127.0.0.1:18123:8123"
+      - "127.0.0.1:19000:9000"
+      - "127.0.0.1:19009:9009"
     volumes:
       - .logs/clickhouse_test:/var/log/clickhouse-server
       - .conf/clickhouse_users.xml:/etc/clickhouse-server/users.xml
@@ -355,10 +355,10 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change-me-randomize-in-env}
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
@@ -387,7 +387,7 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - "8686:8686"  # Vector metrics API
+      - "127.0.0.1:8686:8686"  # Vector metrics API
     volumes:
       # Vector configuration
       - .conf/vector.toml:/etc/vector/vector.toml:ro
@@ -427,7 +427,7 @@ services:
         max-size: "100m"
         max-file: "3"
     ports:
-      - '27017:27017'
+      - '127.0.0.1:27017:27017'
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
@@ -477,8 +477,8 @@ services:
     command: ["python", "main.py", "serve", "tasktimer"]
     volumes:
       - ginkgo-logs:/var/log/ginkgo
-      # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
-      - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
+      # 映射用户配置目录中的 task_timer.yml（容器内读取非 root 用户 HOME）
+      - ${HOME}/.ginkgo/task_timer.yml:/home/ginkgo/.ginkgo/task_timer.yml:ro
     deploy:
       resources:
         limits:
@@ -501,8 +501,8 @@ services:
     command: ["python", "main.py", "serve", "livecore"]
     volumes:
       - ginkgo-logs:/var/log/ginkgo
-      # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
-      - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
+      # 映射用户配置目录中的 task_timer.yml（容器内读取非 root 用户 HOME）
+      - ${HOME}/.ginkgo/task_timer.yml:/home/ginkgo/.ginkgo/task_timer.yml:ro
     deploy:
       resources:
         limits:

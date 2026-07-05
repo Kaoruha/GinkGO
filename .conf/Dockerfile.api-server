@@ -1,6 +1,9 @@
 # Ginkgo API Server Docker Image
 FROM python:3.12.8-slim
 
+RUN groupadd --system --gid 10001 ginkgo \
+    && useradd --system --uid 10001 --gid ginkgo --home-dir /home/ginkgo --create-home ginkgo
+
 WORKDIR /app
 
 # 安装系统依赖
@@ -24,14 +27,18 @@ COPY src/ /app/src/
 # 复制 pyproject.toml 供版本读取（SystemService.get_version fallback 链，#5406）
 # 生产镜像未安装 dist-info，importlib.metadata 失败 → 回退读 pyproject.toml
 COPY pyproject.toml /app/
+RUN chown -R ginkgo:ginkgo /app /home/ginkgo
 
 # 设置环境变量
 ENV PYTHONPATH=/app:/app/src
 ENV API_HOST=0.0.0.0
 ENV API_PORT=8000
+ENV HOME=/home/ginkgo
 
 # 暴露端口
 EXPOSE 8000
+
+USER ginkgo
 
 # 启动命令
 CMD ["python", "main.py"]
