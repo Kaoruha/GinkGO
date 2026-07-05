@@ -366,12 +366,17 @@ class DeploymentService(BaseService):
         if portfolio_id:
             records = self._deployment_crud.get_by_source_portfolio(portfolio_id)
         else:
-            records = self._deployment_crud.find(page=page, page_size=page_size)
+            records = self._deployment_crud.find(
+                page=page if page_size and page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,
+                order_by="create_at",
+                desc_order=True,
+            )
 
         if not records:
             return ServiceResult(success=True, data=[])
 
-        if portfolio_id and page is not None and page_size:
+        if portfolio_id and page is not None and page_size and page_size > 0:
             start = page * page_size
             records = records[start : start + page_size]
 

@@ -78,6 +78,18 @@ class TestDeployListFullId:
         assert result.exit_code == 0, result.output
         svc.list_deployments.assert_called_once_with(portfolio_id=None, page=1, page_size=5)
 
+    def test_list_shows_pagination_hint_when_full_page(self, cli_runner):
+        """#5009 review-1a: 满页时显示分页提示（对齐 record signal）。"""
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=_mock_svc_with_list(),
+        ):
+            result = cli_runner.invoke(deploy_cli.app, ["list", "--page-size", "1"])
+
+        assert result.exit_code == 0, result.output
+        assert "Showing page" in result.output
+        assert "Use --page-size 0" in result.output
+
     def test_list_shows_full_deployment_id(self, cli_runner):
         # RED: 当前代码 d["deployment_id"][:8]+"..." 截断，完整 id 不会出现
         with patch(

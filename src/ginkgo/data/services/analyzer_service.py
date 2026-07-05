@@ -3,10 +3,6 @@
 # Role: 分析器记录服务层，封装add_record并传递source_type参数
 
 
-
-
-
-
 """
 Analyzer Service Module
 
@@ -218,6 +214,7 @@ class AnalyzerService(BaseService):
         self,
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
+        page: int = 0,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -228,11 +225,15 @@ class AnalyzerService(BaseService):
         """
         try:
             filters = self._build_analyzer_record_filters(
-                portfolio_id=portfolio_id, engine_id=engine_id,
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
+                page=page if page_size > 0 else None,
                 page_size=page_size if page_size > 0 else None,
+                order_by="timestamp",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -244,10 +245,7 @@ class AnalyzerService(BaseService):
             return ServiceResult.error(f"查询 analyzer 记录(df)失败: {e}")
 
     def get_latest_by_portfolio(
-        self,
-        portfolio_id: str,
-        analyzer_name: Optional[str] = None,
-        limit: int = 10
+        self, portfolio_id: str, analyzer_name: Optional[str] = None, limit: int = 10
     ) -> ServiceResult:
         """
         获取指定 portfolio 的最新 analyzer 记录
@@ -265,12 +263,7 @@ class AnalyzerService(BaseService):
             if analyzer_name:
                 filters["name"] = analyzer_name
 
-            records = self._crud_repo.find(
-                filters=filters,
-                page_size=limit,
-                order_by="timestamp",
-                desc_order=True
-            )
+            records = self._crud_repo.find(filters=filters, page_size=limit, order_by="timestamp", desc_order=True)
 
             GLOG.INFO(f"获取最新记录成功: portfolio_id={portfolio_id}, count={len(records)}")
             return ServiceResult.success(records)

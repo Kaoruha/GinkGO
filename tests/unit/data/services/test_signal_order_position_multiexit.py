@@ -45,9 +45,7 @@ def _make_signal_modellist() -> ModelList:
 
     model = MSignal()
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001.SZ", "direction": 1}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "direction": 1}])
     return ModelList([model], crud_stub)
 
 
@@ -56,9 +54,7 @@ def _make_order_modellist() -> ModelList:
 
     model = MOrder()
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001.SZ", "status": 3}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "status": 3}])
     return ModelList([model], crud_stub)
 
 
@@ -67,9 +63,7 @@ def _make_position_modellist() -> ModelList:
 
     model = MPosition()
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001.SZ", "volume": 100}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "volume": 100}])
     return ModelList([model], crud_stub)
 
 
@@ -165,6 +159,18 @@ def test_get_orders_df_returns_dataframe():
 
 
 @pytest.mark.unit
+def test_get_orders_df_passes_page_and_page_size():
+    svc = _make_order_service(_make_order_modellist())
+    svc.get_orders_df(page=2, page_size=5)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] == 2
+    assert kwargs["page_size"] == 5
+    assert kwargs["order_by"] == "timestamp"
+    assert kwargs["desc_order"] is True
+
+
+@pytest.mark.unit
 def test_get_orders_df_empty_returns_empty_dataframe():
     """空结果 data 仍是 pd.DataFrame。"""
     svc = _make_order_service(_make_empty_modellist())
@@ -235,7 +241,8 @@ def test_build_signal_filters_construction():
     """_build_signal_filters 字段映射：engine_id / portfolio_id / is_del=False。"""
     svc = _make_signal_service(_make_empty_modellist())
     filters = svc._build_signal_filters(
-        engine_id="eng1", portfolio_id="pf1",
+        engine_id="eng1",
+        portfolio_id="pf1",
     )
     assert filters["engine_id"] == "eng1"
     assert filters["portfolio_id"] == "pf1"

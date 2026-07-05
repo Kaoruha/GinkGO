@@ -160,6 +160,11 @@ def list_engines(
                 )
 
             console.print(table)
+            if page_size > 0 and len(engines_df) == page_size:
+                console.print(
+                    f"[dim]Showing page {page} ({page_size} records per page). "
+                    "Use --page-size 0 to see all records.[/dim]"
+                )
         else:
             console.print(f":x: Failed to get engines: {result.error}")
 

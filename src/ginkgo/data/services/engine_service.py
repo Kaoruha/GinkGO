@@ -136,7 +136,13 @@ class EngineService(BaseService):
                 is_live=is_live,
                 status=status,
             )
-            model_list = self._crud_repo.find(filters=filters, page=page, page_size=page_size)
+            model_list = self._crud_repo.find(
+                filters=filters,
+                page=page if page_size and page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,
+                order_by="create_at",
+                desc_order=True,
+            )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,

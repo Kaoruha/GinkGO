@@ -112,6 +112,18 @@ def test_get_engines_df_passes_pagination_to_crud():
     _, kwargs = svc._crud_repo.find.call_args
     assert kwargs["page"] == 2
     assert kwargs["page_size"] == 15
+    assert kwargs["order_by"] == "create_at"
+    assert kwargs["desc_order"] is True
+
+
+@pytest.mark.unit
+def test_get_engines_df_page_size_zero_disables_pagination():
+    svc = _make_engine_service(_make_engine_modellist())
+    svc.get_engines_df(page=2, page_size=0)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] is None
+    assert kwargs["page_size"] is None
 
 
 @pytest.mark.unit
@@ -167,6 +179,18 @@ def test_get_portfolios_df_passes_pagination_to_crud():
     _, kwargs = svc._crud_repo.find.call_args
     assert kwargs["page"] == 3
     assert kwargs["page_size"] == 25
+    assert kwargs["order_by"] == "create_at"
+    assert kwargs["desc_order"] is True
+
+
+@pytest.mark.unit
+def test_get_portfolios_df_page_size_zero_disables_pagination():
+    svc = _make_portfolio_service(_make_portfolio_modellist())
+    svc.get_portfolios_df(page=3, page_size=0)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] is None
+    assert kwargs["page_size"] is None
 
 
 @pytest.mark.unit

@@ -76,6 +76,12 @@ def mock_positions_df():
 class TestRecordOrderFilters:
     """record order 的 engine/task 过滤透传（#4743）"""
 
+    def test_order_help_shows_page_options(self, cli_runner):
+        result = cli_runner.invoke(record_cli.app, ["order", "--help"])
+        assert result.exit_code == 0
+        assert "--page" in result.output
+        assert "--page-size" in result.output
+
     @patch("ginkgo.data.containers.Container")
     def test_order_passes_engine_and_task(self, mock_container, cli_runner, mock_orders_df):
         """-e/-t 透传到 service.get_orders_df"""
@@ -102,6 +108,19 @@ class TestRecordOrderFilters:
         assert kwargs.get("task_id") == "t1"
 
     @patch("ginkgo.data.containers.Container")
+    def test_order_passes_page_and_page_size(self, mock_container, cli_runner, mock_orders_df):
+        mock_service = MagicMock()
+        mock_service.get_orders_df.return_value = ServiceResult.success(data=mock_orders_df)
+        mock_container.order_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["order", "--page", "2", "--page-size", "5"])
+
+        assert result.exit_code == 0
+        _, kwargs = mock_service.get_orders_df.call_args
+        assert kwargs.get("page") == 2
+        assert kwargs.get("page_size") == 5
+
+    @patch("ginkgo.data.containers.Container")
     def test_order_without_filters_still_works(self, mock_container, cli_runner, mock_orders_df):
         """无过滤参数时正常返回全部（不传 None 进 service）"""
         mock_service = MagicMock()
@@ -122,6 +141,12 @@ class TestRecordPositionFilters:
     PositionService（MPosition 当前态）永远空。改读 ResultService.get_positions_df
     （查 PositionRecordCRUD）。
     """
+
+    def test_position_help_shows_page_options(self, cli_runner):
+        result = cli_runner.invoke(record_cli.app, ["position", "--help"])
+        assert result.exit_code == 0
+        assert "--page" in result.output
+        assert "--page-size" in result.output
 
     @patch("ginkgo.data.containers.Container")
     def test_position_passes_engine_and_task(self, mock_container, cli_runner, mock_positions_df):
@@ -147,6 +172,19 @@ class TestRecordPositionFilters:
         assert kwargs.get("portfolio_id") == "p1"
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
+
+    @patch("ginkgo.data.containers.Container")
+    def test_position_passes_page_and_page_size(self, mock_container, cli_runner, mock_positions_df):
+        mock_service = MagicMock()
+        mock_service.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
+        mock_container.result_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["position", "--page", "2", "--page-size", "5"])
+
+        assert result.exit_code == 0
+        _, kwargs = mock_service.get_positions_df.call_args
+        assert kwargs.get("page") == 2
+        assert kwargs.get("page_size") == 5
 
     @patch("ginkgo.data.containers.Container")
     def test_position_reads_result_service_not_position_service(self, mock_container, cli_runner, mock_positions_df):
@@ -273,3 +311,40 @@ class TestRecordSignalFilters:
         result = cli_runner.invoke(record_cli.app, ["signal"])
         assert result.exit_code == 0
         mock_service.get_signals_df.assert_called_once()
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestRecordAnalyzerPagination:
+    """record analyzer 分页参数与其他 record 子命令保持一致。"""
+
+    def test_analyzer_help_shows_page_options(self, cli_runner):
+        result = cli_runner.invoke(record_cli.app, ["analyzer", "--help"])
+        assert result.exit_code == 0
+        assert "--page" in result.output
+        assert "--page-size" in result.output
+
+    @patch("ginkgo.data.containers.Container")
+    def test_analyzer_passes_page_and_page_size(self, mock_container, cli_runner):
+        mock_service = MagicMock()
+        mock_service.get_records_df.return_value = ServiceResult.success(
+            data=pd.DataFrame(
+                {
+                    "uuid": ["a1"],
+                    "portfolio_id": ["p1"],
+                    "engine_id": ["e1"],
+                    "analyzer_id": ["an1"],
+                    "name": ["sharpe"],
+                    "value": [1.2],
+                    "timestamp": ["2026-01-01"],
+                }
+            )
+        )
+        mock_container.analyzer_service.return_value = mock_service
+
+        result = cli_runner.invoke(record_cli.app, ["analyzer", "--page", "2", "--page-size", "5"])
+
+        assert result.exit_code == 0
+        _, kwargs = mock_service.get_records_df.call_args
+        assert kwargs.get("page") == 2
+        assert kwargs.get("page_size") == 5

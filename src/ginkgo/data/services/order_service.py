@@ -94,6 +94,7 @@ class OrderService(BaseService):
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
         task_id: Optional[str] = None,
+        page: int = 0,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -104,11 +105,16 @@ class OrderService(BaseService):
         """
         try:
             filters = self._build_order_filters(
-                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
+                task_id=task_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
+                page=page if page_size > 0 else None,
                 page_size=page_size if page_size > 0 else None,
+                order_by="timestamp",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -178,8 +184,15 @@ class OrderService(BaseService):
 
         try:
             updates = {}
-            for attr in ("status", "transaction_price", "transaction_volume",
-                         "remain", "fee", "exchange_order_id", "exchange_response"):
+            for attr in (
+                "status",
+                "transaction_price",
+                "transaction_volume",
+                "remain",
+                "fee",
+                "exchange_order_id",
+                "exchange_response",
+            ):
                 val = getattr(order, attr, None)
                 if val is not None:
                     updates[attr] = val
@@ -211,12 +224,14 @@ class OrderService(BaseService):
             total_fee = sum(getattr(o, "fee", 0) or 0 for o in orders)
             filled = [o for o in orders if getattr(o, "status", 0) in (3, 4)]
 
-            return ServiceResult.success(data={
-                "total_orders": total,
-                "total_volume": total_volume,
-                "total_fee": float(total_fee),
-                "filled_count": len(filled),
-            })
+            return ServiceResult.success(
+                data={
+                    "total_orders": total,
+                    "total_volume": total_volume,
+                    "total_fee": float(total_fee),
+                    "filled_count": len(filled),
+                }
+            )
         except Exception as e:
             GLOG.ERROR(f"获取订单统计失败: {e}")
             return ServiceResult.error(str(e))

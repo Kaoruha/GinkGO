@@ -5,6 +5,7 @@ MPositionRecord（流水表），但 record_cli 读 PositionCRUD（MPosition 当
 result_service 新增 get_positions_df 查 PositionRecordCRUD，对齐
 position_service 出口签名（portfolio/engine/task 三过滤 + DataFrame）。
 """
+
 import os
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
@@ -26,17 +27,21 @@ def service():
 def mock_record_crud():
     crud = MagicMock()
     model_list = MagicMock()
-    model_list.to_dataframe.return_value = pd.DataFrame([{
-        "uuid": "pr1",
-        "portfolio_id": "p1",
-        "engine_id": "e1",
-        "task_id": "t1",
-        "code": "000001.SZ",
-        "volume": 100,
-        "cost": 10.5,
-        "price": 10.8,
-        "fee": 5.0,
-    }])
+    model_list.to_dataframe.return_value = pd.DataFrame(
+        [
+            {
+                "uuid": "pr1",
+                "portfolio_id": "p1",
+                "engine_id": "e1",
+                "task_id": "t1",
+                "code": "000001.SZ",
+                "volume": 100,
+                "cost": 10.5,
+                "price": 10.8,
+                "fee": 5.0,
+            }
+        ]
+    )
     crud.find.return_value = model_list
     return crud
 
@@ -52,9 +57,7 @@ class TestResultServiceGetPositionsDf:
             "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
             return_value=mock_record_crud,
         ):
-            service.get_positions_df(
-                portfolio_id="p1", engine_id="e1", task_id="t1"
-            )
+            service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1", page=2, page_size=5)
         mock_record_crud.find.assert_called_once()
         _, kwargs = mock_record_crud.find.call_args
         assert kwargs["filters"] == {
@@ -63,6 +66,10 @@ class TestResultServiceGetPositionsDf:
             "engine_id": "e1",
             "task_id": "t1",
         }
+        assert kwargs["page"] == 2
+        assert kwargs["page_size"] == 5
+        assert kwargs["order_by"] == "timestamp"
+        assert kwargs["desc_order"] is True
 
     def test_returns_dataframe_with_records(self, service, mock_record_crud):
         """to_dataframe() 结果透传到 ServiceResult.data（pandas.DataFrame）"""
@@ -70,9 +77,7 @@ class TestResultServiceGetPositionsDf:
             "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
             return_value=mock_record_crud,
         ):
-            result = service.get_positions_df(
-                portfolio_id="p1", engine_id="e1", task_id="t1"
-            )
+            result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
         assert result.is_success()
         assert isinstance(result.data, pd.DataFrame)
         assert len(result.data) == 1
@@ -88,9 +93,7 @@ class TestResultServiceGetPositionsDf:
             "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
             return_value=mock_record_crud,
         ):
-            result = service.get_positions_df(
-                portfolio_id="p1", engine_id="e1", task_id="t1"
-            )
+            result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
         assert result.is_success()
         assert isinstance(result.data, pd.DataFrame)
         assert len(result.data) == 0

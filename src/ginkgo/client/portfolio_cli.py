@@ -160,6 +160,11 @@ def list(
                 )
 
             console.print(table)
+            if page_size > 0 and len(portfolios_df) == page_size:
+                console.print(
+                    f"[dim]Showing page {page} ({page_size} records per page). "
+                    "Use --page-size 0 to see all records.[/dim]"
+                )
         else:
             console.print(f":x: Failed to get portfolios: {result.error}")
 

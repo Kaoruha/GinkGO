@@ -147,6 +147,21 @@ class TestPortfolioList:
         mock_service.get_portfolios_df.assert_called_once_with(page=1, page_size=5)
 
     @patch("ginkgo.data.containers.container")
+    def test_list_shows_pagination_hint_when_full_page(
+        self, mock_container, cli_runner, mock_portfolio_list_df
+    ):
+        """#5009 review-1a: 满页时显示分页提示（对齐 record signal）。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--page-size", "2"])
+
+        assert result.exit_code == 0, result.output
+        assert "Showing page" in result.output
+        assert "Use --page-size 0" in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_list_empty_portfolios(self, mock_container, cli_runner):
         """没有 portfolio 时显示提示"""
         mock_service = MagicMock()

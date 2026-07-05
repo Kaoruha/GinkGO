@@ -16,6 +16,13 @@ app = typer.Typer(
 console = Console()
 
 
+def _print_page_hint(row_count: int, page: int, page_size: int) -> None:
+    if page_size > 0 and row_count == page_size:
+        console.print(
+            f"[dim]Showing page {page} ({page_size} records per page). Use --page-size 0 to see all records.[/dim]"
+        )
+
+
 @app.command()
 def signal(
     portfolio: Annotated[
@@ -68,10 +75,7 @@ def signal(
         title = ":satellite_antenna: [bold]Signals:[/bold]"
         display_dataframe(data=signals_df, columns_config=signal_columns_config, title=title, console=console)
 
-        if signals_df.shape[0] == page_size and page_size > 0:
-            console.print(
-                f"[dim]Showing page {page} ({page_size} records per page). Use --page-size 0 to see all records.[/dim]"
-            )
+        _print_page_hint(signals_df.shape[0], page, page_size)
 
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch signals:[/bold red] {e}")
@@ -84,7 +88,8 @@ def order(
     ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Page number (0-based)")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":1234: Items per page (0=no pagination)")] = 50,
 ):
     """
     :clipboard: List order records.
@@ -98,7 +103,8 @@ def order(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=page,
+            page_size=page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -126,8 +132,7 @@ def order(
         )
         display_dataframe(data=orders_df, columns_config=order_columns_config, title=title, console=console)
 
-        if orders_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        _print_page_hint(orders_df.shape[0], page, page_size)
 
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch orders:[/bold red] {e}")
@@ -140,7 +145,8 @@ def position(
     ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Page number (0-based)")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":1234: Items per page (0=no pagination)")] = 50,
 ):
     """
     :bar_chart: List position records.
@@ -157,7 +163,8 @@ def position(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=page,
+            page_size=page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -185,8 +192,7 @@ def position(
         )
         display_dataframe(data=positions_df, columns_config=position_columns_config, title=title, console=console)
 
-        if positions_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        _print_page_hint(positions_df.shape[0], page, page_size)
 
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch positions:[/bold red] {e}")
@@ -198,7 +204,8 @@ def analyzer(
         Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")
     ] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Page number (0-based)")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":1234: Items per page (0=no pagination)")] = 50,
 ):
     """
     :bar_chart: List analyzer records.
@@ -211,7 +218,8 @@ def analyzer(
         result = analyzer_svc.get_records_df(
             portfolio_id=portfolio,
             engine_id=engine,
-            page_size=page,
+            page=page,
+            page_size=page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -242,8 +250,7 @@ def analyzer(
         )
         display_dataframe(data=analyzer_df, columns_config=analyzer_columns_config, title=title, console=console)
 
-        if analyzer_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        _print_page_hint(analyzer_df.shape[0], page, page_size)
 
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch analyzer records:[/bold red] {e}")

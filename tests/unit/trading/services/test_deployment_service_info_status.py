@@ -72,7 +72,26 @@ class TestDeploymentInfoStatusName:
         result = svc.list_deployments(page=1, page_size=10)
 
         assert result.success
-        svc._deployment_crud.find.assert_called_once_with(page=1, page_size=10)
+        svc._deployment_crud.find.assert_called_once_with(
+            page=1,
+            page_size=10,
+            order_by="create_at",
+            desc_order=True,
+        )
+
+    def test_list_page_size_zero_disables_pagination(self):
+        svc = _make_svc()
+        svc._deployment_crud.find.return_value = [_mock_deployment(status=0)]
+
+        result = svc.list_deployments(page=1, page_size=0)
+
+        assert result.success
+        svc._deployment_crud.find.assert_called_once_with(
+            page=None,
+            page_size=None,
+            order_by="create_at",
+            desc_order=True,
+        )
 
 
 class TestDeploymentRecordsSourceTask:

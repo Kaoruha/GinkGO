@@ -151,6 +151,11 @@ def list_deployments(
                     d.get("create_at", "")[:19] if d.get("create_at") else "",
                 )
             console.print(table)
+            if page_size > 0 and len(result.data) == page_size:
+                console.print(
+                    f"[dim]Showing page {page} ({page_size} records per page). "
+                    "Use --page-size 0 to see all records.[/dim]"
+                )
         else:
             console.print("[yellow]无部署记录[/yellow]")
 
