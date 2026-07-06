@@ -25,8 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # diff coverage needs the PR base commit
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -65,6 +63,11 @@ jobs:
       TERM: dumb  # GITHUB_ACTIONS=true 致 typer/rich 强制 colorize，--name 被 ANSI 分隔使断言失败；TERM=dumb 禁 color（NO_COLOR 无效，rich 只认 TERM）
     steps:
       - uses: actions/checkout@v4
+        with:
+          # diff coverage gate (#6135) runs `git diff <pr base.sha> <head>`;
+          # the base commit is absent in a depth-1 clone → "unknown revision".
+          # Full history only needed in this job (the one that runs the gate).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
