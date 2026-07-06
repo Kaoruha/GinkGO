@@ -65,6 +65,12 @@ def parse_unified_diff(diff_text: str) -> dict[str, set[int]]:
             current_line += 1
         elif line.startswith("-") and not line.startswith("---"):
             continue
+        elif line.startswith("\\"):
+            # git's "\ No newline at end of file" marker — metadata about the
+            # adjacent +/- line, not a file line. Skipping it (rather than the
+            # context branch's `current_line += 1`) prevents line-number drift
+            # for files without a trailing newline.
+            continue
         else:
             current_line += 1
 
@@ -91,15 +97,22 @@ def calculate_diff_coverage(changed_lines: dict[str, set[int]], coverage_json: d
 
     for path, lines in sorted(changed_lines.items()):
         data = coverage_files.get(path)
-        if data is None:
-            # File wasn't imported by the smoke subset → coverage unknown.
-            # Exempt it (diff_cover convention) instead of counting every
-            # changed line (incl. comments/blanks) as uncovered executable.
+        executed = set(data.get("executed_lines", [])) if data else set()
+        missing = set(data.get("missing_lines", [])) if data else set()
+
+        if data is None or not executed:
+            # No positive coverage signal for this file under the smoke subset:
+            #   - data is None: file absent from the report (never imported).
+            #   - executed empty: file present (e.g. coverage.py statically
+            #     scanned it under `--cov=src/...`) but no line was ever
+            #     executed, so the smoke subset gave no usable signal.
+            # Either way coverage is unknown, not "uncovered" — exempt it
+            # (diff_cover convention) and warn, instead of failing every
+            # changed line at 0%. A file the smoke subset DID execute keeps
+            # its full signal below (changed uncovered lines still gated).
             exempt[path] = sorted(lines)
             continue
 
-        executed = set(data.get("executed_lines", []))
-        missing = set(data.get("missing_lines", []))
         executable = lines & (executed | missing)
 
         for line_no in sorted(executable):

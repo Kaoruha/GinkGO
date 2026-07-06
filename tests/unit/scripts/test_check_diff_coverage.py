@@ -101,3 +101,74 @@ def test_calculate_diff_coverage_exempts_files_absent_from_coverage_report():
     assert "src/ginkgo/unmeasured.py" not in result.uncovered
     # And it must be surfaced so CI can warn the author their file wasn't measured.
     assert result.exempt == {"src/ginkgo/unmeasured.py": [5, 6, 7]}
+
+
+def test_parse_unified_diff_skips_no_newline_marker_without_drift():
+    r"""git emits `\ No newline at end of file` after a +/- line that lacks a
+    trailing newline. The marker (line starting with `\`) is metadata about
+    the adjacent diff line, not a file line. Falling through to the context
+    branch (`current_line += 1`) drifts the tracked line number so real changed
+    lines land outside `executed | missing` and are silently dropped.
+
+    Real repro: many src/api files lack a trailing newline (90/804 at audit).
+    """
+    module = _load_module()
+    diff = (
+        "diff --git a/api/foo.py b/api/foo.py\n"
+        "--- a/api/foo.py\n"
+        "+++ b/api/foo.py\n"
+        "@@ -1 +1,2 @@\n"
+        "-old()\n"
+        "\\ No newline at end of file\n"
+        "+x()\n"
+        "+y()\n"
+        "\\ No newline at end of file\n"
+    )
+
+    assert module.parse_unified_diff(diff) == {"api/foo.py": {1, 2}}
+
+
+def test_calculate_diff_coverage_exempts_files_with_zero_executed_lines():
+    """Under `--cov=src/ginkgo --cov=api`, coverage.py statically scans the
+    whole source tree, so an unimported file appears in coverage.json with
+    executed_lines=[] and every statement in missing_lines (0% present, NOT
+    absent). The `data is None` exemption never fires for such files, so a PR
+    editing any existing executable line in api/main.py (e.g. executed=0,
+    missing=[...95 lines...]) fails at 0% < 80% — even though the smoke subset
+    never ran that file and gave no coverage signal.
+
+    Fix: a file with no executed lines has no positive coverage signal from
+    the smoke subset → exempt (with warning), same as an absent file. A file
+    the smoke subset DID execute (executed_lines non-empty) stays fully gated.
+    """
+    module = _load_module()
+    changed = {
+        # 0%-present unimported file (the api/main.py reproducer): must exempt.
+        "api/main.py": {11},
+        # Measured file the smoke subset exercised: changed uncovered line must
+        # still be gated (no false exemption).
+        "src/ginkgo/foo.py": {11, 13},
+    }
+    coverage = {
+        "files": {
+            "api/main.py": {
+                "executed_lines": [],
+                "missing_lines": [1, 2, 3, 11, 95],
+            },
+            "src/ginkgo/foo.py": {
+                "executed_lines": [11, 12],
+                "missing_lines": [13],
+            },
+        }
+    }
+
+    result = module.calculate_diff_coverage(changed, coverage)
+
+    # api/main.py exempt (no signal), not counted in totals or uncovered.
+    assert "api/main.py" not in result.uncovered
+    assert result.exempt == {"api/main.py": [11]}
+    # foo.py still gated on its real signal: 2 executable, 1 covered, 1 missing.
+    assert result.total == 2
+    assert result.covered == 1
+    assert result.uncovered == {"src/ginkgo/foo.py": [13]}
+    assert result.percent == 50.0
