@@ -85,3 +85,6 @@ Result: 36 passed.
   avoid maintaining two equivalent coverage configs.
 - This baseline is not a quality target. It is a reproducible starting point for
   module-level trend tracking and later diff-coverage gates.
+- PR diff coverage (#6135) uses an 80% threshold for executable changed lines
+  under `src/` and `api/`. The gate is intentionally scoped to changed lines so
+  the low smoke-suite baseline above does not block unrelated cleanup.

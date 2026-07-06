@@ -63,6 +63,11 @@ jobs:
       TERM: dumb  # GITHUB_ACTIONS=true 致 typer/rich 强制 colorize，--name 被 ANSI 分隔使断言失败；TERM=dumb 禁 color（NO_COLOR 无效，rich 只认 TERM）
     steps:
       - uses: actions/checkout@v4
+        with:
+          # diff coverage gate (#6135) runs `git diff <pr base.sha> <head>`;
+          # the base commit is absent in a depth-1 clone → "unknown revision".
+          # Full history only needed in this job (the one that runs the gate).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -98,3 +103,22 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/client/test_user_cli.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: Diff coverage gate (#6135)
+        if: github.event_name == 'pull_request'
+        # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
+        # 不把当前全仓 6.85% smoke baseline 当作质量目标；无 src/api 改动时跳过。
+        run: |
+          uv run python -m pytest \
+            tests/unit/data/crud/test_user_crud_mock.py \
+            tests/unit/features/test_containers.py \
+            tests/unit/client/test_user_cli.py \
+            --cov=src/ginkgo \
+            --cov=api \
+            --cov-report=json:coverage.json \
+            --cov-report=term-missing:skip-covered \
+            -q -o "addopts=" --no-header --tb=short
+          uv run python scripts/check_diff_coverage.py \
+            --coverage-json coverage.json \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --threshold 80
