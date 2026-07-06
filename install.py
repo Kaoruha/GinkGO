@@ -143,7 +143,7 @@ def copy_config(path_conf, path_secure, update_config):
         target_path = os.path.join(path, "config.yml")
         shutil.copy(origin_path, target_path)
         print(f"Copy config.yml from {origin_path} to {target_path}")
-        origin_path = path_sec
+        origin_path = path_secure
         target_path = os.path.join(path, "secure.yml")
         print(f"Copy secure.yml from {origin_path} to {target_path}")
         shutil.copy(origin_path, target_path)

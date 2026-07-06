@@ -230,12 +230,15 @@ class GinkgoConfig(object):
         if path is None:
             path = self.get_conf_dir()
 
-        current_path = os.getcwd()
+        # 模板源跟随 ginkgo 包（__file__），脱离 cwd，与 install.py 对齐
+        # 容器/宿主机/wheel 三种安装方式统一解析到包内 config/ 目录
+        _pkg_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _config_src = os.path.join(_pkg_root, "config")
 
         # 处理 config.yml
         config_path = os.path.join(path, "config.yml")
         if not os.path.exists(config_path):
-            origin_path = os.path.join(current_path, "src/ginkgo/config/config.yml")
+            origin_path = os.path.join(_config_src, "config.yml")
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, config_path)
@@ -250,7 +253,7 @@ class GinkgoConfig(object):
         # 处理 secure.yml
         secure_path = os.path.join(path, "secure.yml")
         if not os.path.exists(secure_path):
-            origin_path = os.path.join(current_path, "src/ginkgo/config/secure.backup")
+            origin_path = os.path.join(_config_src, "secure.template")
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, secure_path)
@@ -268,7 +271,7 @@ class GinkgoConfig(object):
         # `ginkgo tasktimer validate` 因缺文件报 INVALID。已存在则保留用户自定义（不覆盖）。
         task_timer_path = os.path.join(path, "task_timer.yml")
         if not os.path.exists(task_timer_path):
-            origin_path = os.path.join(current_path, "src/ginkgo/config/task_timer.yml")
+            origin_path = os.path.join(_config_src, "task_timer.yml")
             if os.path.exists(origin_path):
                 os.makedirs(path, exist_ok=True)
                 shutil.copy(origin_path, task_timer_path)
