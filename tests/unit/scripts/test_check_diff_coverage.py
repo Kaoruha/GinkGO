@@ -67,3 +67,37 @@ def test_calculate_diff_coverage_reports_no_source_changes():
     assert result.total == 0
     assert result.covered == 0
     assert result.percent == 100.0
+
+
+def test_calculate_diff_coverage_exempts_files_absent_from_coverage_report():
+    """Files the smoke subset never imported are exempt, not 0%-covered.
+
+    Mirrors diff_cover: a file absent from the coverage report is "unknown
+    coverage", not "uncovered". Otherwise a PR touching any file outside the
+    3-test smoke subset fails at 0% even when it ships dedicated tests, and
+    comments/blank lines in the diff get counted as uncovered executable
+    lines — contradicting the module docstring.
+    """
+    module = _load_module()
+    changed = {
+        "src/ginkgo/foo.py": {11, 12, 13},  # measured below
+        "src/ginkgo/unmeasured.py": {5, 6, 7},  # absent from coverage.json
+    }
+    coverage = {
+        "files": {
+            "src/ginkgo/foo.py": {
+                "executed_lines": [11, 12],
+                "missing_lines": [13],
+            }
+        }
+    }
+
+    result = module.calculate_diff_coverage(changed, coverage)
+
+    # unmeasured.py must not pollute the totals or show up as uncovered.
+    assert result.total == 3
+    assert result.covered == 2
+    assert result.uncovered == {"src/ginkgo/foo.py": [13]}
+    assert "src/ginkgo/unmeasured.py" not in result.uncovered
+    # And it must be surfaced so CI can warn the author their file wasn't measured.
+    assert result.exempt == {"src/ginkgo/unmeasured.py": [5, 6, 7]}

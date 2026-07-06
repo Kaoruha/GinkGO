@@ -24,6 +24,10 @@ class DiffCoverageResult(NamedTuple):
     covered: int
     total: int
     uncovered: dict[str, list[int]]
+    # Changed src/api files the smoke subset never measured. These are exempt
+    # (unknown coverage, not "uncovered") so a PR touching a file outside the
+    # 3-test subset isn't failed at 0% — see diff_cover convention.
+    exempt: dict[str, list[int]] = {}
 
     @property
     def percent(self) -> float:
@@ -83,16 +87,20 @@ def calculate_diff_coverage(changed_lines: dict[str, set[int]], coverage_json: d
     covered = 0
     total = 0
     uncovered: dict[str, list[int]] = {}
+    exempt: dict[str, list[int]] = {}
 
     for path, lines in sorted(changed_lines.items()):
         data = coverage_files.get(path)
         if data is None:
-            executable = lines
-            executed: set[int] = set()
-        else:
-            executed = set(data.get("executed_lines", []))
-            missing = set(data.get("missing_lines", []))
-            executable = lines & (executed | missing)
+            # File wasn't imported by the smoke subset → coverage unknown.
+            # Exempt it (diff_cover convention) instead of counting every
+            # changed line (incl. comments/blanks) as uncovered executable.
+            exempt[path] = sorted(lines)
+            continue
+
+        executed = set(data.get("executed_lines", []))
+        missing = set(data.get("missing_lines", []))
+        executable = lines & (executed | missing)
 
         for line_no in sorted(executable):
             total += 1
@@ -101,7 +109,7 @@ def calculate_diff_coverage(changed_lines: dict[str, set[int]], coverage_json: d
             else:
                 uncovered.setdefault(path, []).append(line_no)
 
-    return DiffCoverageResult(covered=covered, total=total, uncovered=uncovered)
+    return DiffCoverageResult(covered=covered, total=total, uncovered=uncovered, exempt=exempt)
 
 
 def _git_diff(base: str, head: str) -> str:
@@ -127,8 +135,19 @@ def main(argv: list[str] | None = None) -> int:
     changed_lines = parse_unified_diff(_git_diff(args.base, args.head))
     result = calculate_diff_coverage(changed_lines, coverage_json)
 
+    # Surface files the smoke subset never measured so the PR author knows their
+    # change wasn't gated (not silently passed, not falsely failed).
+    for path, lines in result.exempt.items():
+        print(
+            f"::warning file={path}::{len(lines)} changed line(s) not measured by the "
+            f"smoke subset — diff coverage gate does not cover this file"
+        )
+
     if result.total == 0:
-        print("Diff coverage: no changed executable src/api Python lines; gate skipped.")
+        if result.exempt:
+            print("Diff coverage: all changed src/api lines are in exempt (unmeasured) files; gate skipped.")
+        else:
+            print("Diff coverage: no changed executable src/api Python lines; gate skipped.")
         return 0
 
     print(
