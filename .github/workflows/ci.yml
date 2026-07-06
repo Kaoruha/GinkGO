@@ -120,5 +120,5 @@ jobs:
           uv run python scripts/check_diff_coverage.py \
             --coverage-json coverage.json \
             --base "${{ github.event.pull_request.base.sha }}" \
-            --head "${{ github.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
             --threshold 80
