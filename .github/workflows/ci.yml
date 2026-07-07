@@ -112,6 +112,7 @@ jobs:
             tests/unit/data/crud/test_user_crud_mock.py \
             tests/unit/features/test_containers.py \
             tests/unit/client/test_user_cli.py \
+            tests/unit/data/mappers/test_bar_mapper.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \

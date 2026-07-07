@@ -6,12 +6,15 @@
 - to_dto smoke（symbol=code 映射、对接 BarDTO）
 - model_to_dto 直转
 """
+from datetime import datetime
 from decimal import Decimal
 
+import pandas as pd
 import pytest
 
 from ginkgo.enums import FREQUENCY_TYPES
 from ginkgo.entities import Bar
+from ginkgo.data.mappers import dataframe_to_bar_entities, dataframe_to_bar_models
 from ginkgo.data.mappers.bar_mapper import BarMapper
 
 
@@ -83,3 +86,23 @@ def test_from_model_frequency_handling():
     # None（DB NULL）→ DAY 兜底（or 防止 None.frequency 下游崩溃）
     model.frequency = None
     assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.DAY
+
+
+def test_legacy_dataframe_bar_mappers_preserve_integer_trade_date():
+    """legacy DataFrame mapper must not let iterrows coerce YYYYMMDD to float seconds."""
+    df = pd.DataFrame(
+        [
+            {
+                "trade_date": 20260525,
+                "open": 1.1,
+                "high": 2.2,
+                "low": 1.0,
+                "close": 2.0,
+                "vol": 100.0,
+                "amount": 200.0,
+            }
+        ]
+    )
+
+    assert dataframe_to_bar_entities(df, "600519.SH")[0].timestamp == datetime(2026, 5, 25)
+    assert dataframe_to_bar_models(df, "600519.SH")[0].timestamp == datetime(2026, 5, 25)
