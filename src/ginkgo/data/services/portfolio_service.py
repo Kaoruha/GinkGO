@@ -1085,18 +1085,22 @@ class PortfolioService(BaseService):
 
     def get_portfolios_df(self, portfolio_id: str = None, name: str = None,
                           mode: PORTFOLIO_MODE_TYPES = None,
-                          state: PORTFOLIO_RUNSTATE_TYPES = None) -> ServiceResult:
+                          state: PORTFOLIO_RUNSTATE_TYPES = None,
+                          page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        ADR-021 L139：``page_size`` 透传 ``find(page_size=)``，供 CLI ``--limit``
+        下推（替代 client-side ``head(limit)``）；``None`` 保持全量默认。
         """
         try:
             filters = self._build_portfolio_filters(
                 portfolio_id=portfolio_id, name=name, mode=mode, state=state,
             )
-            model_list = self._crud_repo.find(filters=filters)
+            model_list = self._crud_repo.find(filters=filters, page_size=page_size)
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,

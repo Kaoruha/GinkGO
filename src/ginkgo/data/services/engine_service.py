@@ -114,18 +114,22 @@ class EngineService(BaseService):
         return filters
 
     def get_engines_df(self, engine_id: str = None, name: str = None,
-                       is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
+                       is_live: bool = None, status: ENGINESTATUS_TYPES = None,
+                       page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        ADR-021 L139：``page_size`` 透传 ``find(page_size=)``，供 CLI ``--limit``
+        下推（替代 client-side ``head(limit)``）；``None`` 保持全量默认。
         """
         try:
             filters = self._build_engine_filters(
                 engine_id=engine_id, name=name, is_live=is_live, status=status,
             )
-            model_list = self._crud_repo.find(filters=filters)
+            model_list = self._crud_repo.find(filters=filters, page_size=page_size)
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
@@ -1026,7 +1030,8 @@ class EngineService(BaseService):
     def fuzzy_search(
         self,
         query: str,
-        fields: Optional[List[str]] = None
+        fields: Optional[List[str]] = None,
+        page_size: int = None,
     ) -> ServiceResult:
         """
         Fuzzy search engines across multiple fields with OR logic.
@@ -1034,6 +1039,8 @@ class EngineService(BaseService):
         Args:
             query: Search string
             fields: Fields to search in. Default: ['uuid', 'name', 'is_live', 'status']
+            page_size: ADR-021 L139 — ``--limit`` 下推，透传 ``crud.fuzzy_search(limit=)``；
+                ``None`` 保持全量默认。
 
         Returns:
             ServiceResult with list of engines data
@@ -1043,7 +1050,7 @@ class EngineService(BaseService):
                 return ServiceResult.success(ModelList([], self._crud_repo))
 
             # Delegate to CRUD layer for database-level fuzzy search
-            results = self._crud_repo.fuzzy_search(query, fields)
+            results = self._crud_repo.fuzzy_search(query, fields, limit=page_size)
 
             return ServiceResult.success(results)
 

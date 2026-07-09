@@ -183,6 +183,17 @@ class TestComponentList:
         assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
         assert payload["data"][0]["name"] == "TestStrategy"
 
+    def test_list_limit_pushes_page_size_to_file_crud(self, cli_runner, mock_component):
+        """ADR-021 L139：--limit 下推 file_crud.find page_size（all 路径，替代 page_size=10000 + [:limit]）。"""
+        crud = MagicMock()
+        crud.find.return_value = [mock_component]
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.file_crud.return_value = crud
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--limit", "5"])
+        assert result.exit_code == 0
+        _, kwargs = crud.find.call_args
+        assert kwargs.get("page_size") == 5
+
     def test_list_components_filter_by_type(self, cli_runner, mock_component):
         mock_component.type = FILE_TYPES.RISKMANAGER
         mock_component.name = "TestRisk"

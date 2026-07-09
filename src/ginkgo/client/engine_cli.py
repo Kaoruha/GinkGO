@@ -63,7 +63,7 @@ def list_engines(
             filter_str = str(filter) if not isinstance(filter, str) else filter
             # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
-            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"])
+            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"], page_size=limit)
             if fs_result.success:
                 # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
                 engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
@@ -77,7 +77,7 @@ def list_engines(
             try:
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
-                result = engine_service.get_engines_df(status=status_enum)
+                result = engine_service.get_engines_df(status=status_enum, page_size=limit)
             except Exception as e:
                 from ginkgo.libs import GLOG
 
@@ -85,10 +85,10 @@ def list_engines(
                     f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}"
                 )
                 # If conversion fails, fall back to application-level filtering
-                result = engine_service.get_engines_df()
+                result = engine_service.get_engines_df(page_size=limit)
         else:
             # Get all engines
-            result = engine_service.get_engines_df()
+            result = engine_service.get_engines_df(page_size=limit)
 
         if result.success:
             engines_data = result.data
@@ -109,7 +109,8 @@ def list_engines(
 
             if format == "json":
                 total = len(engines_df)
-                records = engines_df.head(limit).to_dict("records")
+                # ADR-021 L139：--limit 已下推 service page_size（DB 层截断），此处不再 head(limit)。
+                records = engines_df.to_dict("records")
                 json_result = build_list_result(records, total=total, limit=limit, offset=0)
                 format_result(json_result, format="json", command="list")
                 return
@@ -435,7 +436,7 @@ def run(
             from ginkgo.data.containers import container
 
             engine_service = container.engine_service()
-            result = engine_service.get_engines_df()
+            result = engine_service.get_engines_df(page_size=limit)
 
             if result.success:
                 engines_data = result.data

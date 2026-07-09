@@ -128,6 +128,25 @@ def test_get_engines_df_db_failure():
     assert result.success is False
 
 
+@pytest.mark.unit
+def test_get_engines_df_passes_page_size_to_find():
+    """ADR-021 L139：--limit 下推 service page_size → find(page_size=N)。"""
+    svc = _make_engine_service(_make_engine_modellist())
+    svc.get_engines_df(page_size=5)
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs.get("page_size") == 5
+
+
+@pytest.mark.unit
+def test_fuzzy_search_passes_page_size_to_crud():
+    """ADR-021 L139：filter 模式 --limit 下推 fuzzy_search page_size → crud.fuzzy_search(limit=N)。"""
+    svc = _make_engine_service(_make_engine_modellist())
+    svc._crud_repo.fuzzy_search.return_value = _make_engine_modellist()
+    svc.fuzzy_search("query", page_size=5)
+    _, kwargs = svc._crud_repo.fuzzy_search.call_args
+    assert kwargs.get("limit") == 5
+
+
 # ===== PortfolioService get_portfolios_df =====
 
 
@@ -171,6 +190,15 @@ def test_get_portfolios_df_db_failure():
     svc._crud_repo.find.side_effect = Exception("DB down")
     result = svc.get_portfolios_df()
     assert result.success is False
+
+
+@pytest.mark.unit
+def test_get_portfolios_df_passes_page_size_to_find():
+    """ADR-021 L139：--limit 下推 service page_size → find(page_size=N)。"""
+    svc = _make_portfolio_service(_make_portfolio_modellist())
+    svc.get_portfolios_df(page_size=5)
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs.get("page_size") == 5
 
 
 # ===== filter 构造正确性（_build_*_filters 字段映射 + is_del 固定注入） =====

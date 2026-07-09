@@ -143,7 +143,7 @@ def list(
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get_portfolios_df()
+        result = portfolio_service.get_portfolios_df(page_size=limit)
 
         if result.success:
             portfolios_data = result.data
@@ -164,7 +164,8 @@ def list(
 
             if format == "json":
                 total = len(portfolios_df)
-                records = portfolios_df.head(limit).to_dict("records")
+                # ADR-021 L139：--limit 已下推 service page_size（DB 层截断），此处不再 head(limit)。
+                records = portfolios_df.to_dict("records")
                 json_result = build_list_result(records, total=total, limit=limit, offset=0)
                 format_result(json_result, format="json", command="list")
                 return

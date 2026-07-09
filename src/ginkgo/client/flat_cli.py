@@ -253,11 +253,11 @@ def list(
         if component_type and component_type.lower() in type_mapping:
             # Single type query: filter by type (1 query)
             file_type = type_mapping[component_type.lower()]
-            components = file_crud.find(filters={"type": file_type.value}, page_size=10000)
+            components = file_crud.find(filters={"type": file_type.value}, page_size=limit)
         else:
             # All types query: get all components in ONE query, then filter client-side
             # Query without type filter to get all components at once
-            all_components = file_crud.find(filters={}, page_size=10000)
+            all_components = file_crud.find(filters={}, page_size=limit)
 
             # Filter to only include component types (exclude OTHER, VOID, ENGINE, HANDLER, INDEX)
             component_type_values = {
@@ -284,7 +284,8 @@ def list(
         if format == "json":
             total = len(components)
             records = []
-            for comp in components[:limit]:
+            # ADR-021 L139：--limit 已下推 file_crud.find page_size（DB 层截断），此处不再 [:limit]。
+            for comp in components:
                 type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
                 records.append(
                     {

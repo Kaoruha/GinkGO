@@ -127,6 +127,35 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    def test_list_limit_pushes_page_size_to_get_engines_df(self, cli_runner):
+        """ADR-021 L139：--limit 下推 get_engines_df page_size（all 路径）。"""
+        df = _make_engine_df()
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--limit", "5"])
+
+        assert result.exit_code == 0
+        svc.get_engines_df.assert_called_once_with(page_size=5)
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_filter_pushes_page_size_to_fuzzy_search(self, cli_runner):
+        """ADR-021 L139：filter 模式 --limit 下推 fuzzy_search page_size。"""
+        df = _make_engine_df()
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = df
+        svc = _mock_engine_service(fuzzy_search=ServiceResult.success(data=model_list))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test", "--limit", "5"])
+
+        assert result.exit_code == 0
+        _, kwargs = svc.fuzzy_search.call_args
+        assert kwargs.get("page_size") == 5
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_list_with_filter(self, cli_runner):
         df = _make_engine_df()
         model_list = MagicMock()

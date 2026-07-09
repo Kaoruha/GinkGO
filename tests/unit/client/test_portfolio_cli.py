@@ -189,10 +189,24 @@ class TestPortfolioList:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
-        assert payload["count"] == 1
+        # ADR-021 L139：--limit 下推 service page_size（DB 层截断），CLI 不再 head(limit)。
+        # count = service 返回行数（mock 返 2 行）；截断正确性由 service 层测试保证。
+        assert payload["count"] == 2
         assert payload["metadata"] == {"total": 2, "limit": 1, "offset": 0}
         assert payload["warnings"] == []
         assert payload["data"][0]["name"] == "TestPortfolio"
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_limit_pushes_page_size_to_service(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """ADR-021 L139：--limit 下推 service page_size，替代 client-side head(limit)。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--limit", "5"])
+
+        assert result.exit_code == 0
+        mock_service.get_portfolios_df.assert_called_once_with(page_size=5)
 
     @patch("ginkgo.data.containers.container")
     def test_list_service_error(self, mock_container, cli_runner):
