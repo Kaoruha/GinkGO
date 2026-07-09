@@ -54,18 +54,50 @@ def _emit_backtest_failure(result):
 
 
 def _task_record(task) -> dict:
+    """序列化 backtest task 为 JSON record。
+
+    覆盖 text 路径（cat_task）渲染的全部字段：元数据 + 回测结果 metrics +
+    statistics + 执行信息。ADR-021：--format json 让机读消费者在 JSON 路径拿到
+    与 text 等量的结构化回测结果，避免 text/json 信息量不对称（#6580 review）。
+    _task_record 被 list/cat 共用，list 每个 record 同步带上 metrics。
+    """
+
+    def _get(name, default=None):
+        # 兼容 model 实例 / MagicMock / dict（fuzzy_search 返回）
+        if hasattr(task, name):
+            return getattr(task, name)
+        return task.get(name, default)
+
+    status_val = _get("status", "")
+    start_time = _get("start_time")
+    end_time = _get("end_time")
     return {
-        "uuid": str(task.uuid if hasattr(task, "uuid") else task.get("uuid", "")),
-        "task_id": str(task.task_id if hasattr(task, "task_id") else task.get("task_id", "")),
-        "name": task.name if hasattr(task, "name") else task.get("name", ""),
-        "portfolio_id": task.portfolio_id if hasattr(task, "portfolio_id") else task.get("portfolio_id", ""),
-        "engine_id": task.engine_id if hasattr(task, "engine_id") else task.get("engine_id", ""),
-        "status": task.status if hasattr(task, "status") else task.get("status", ""),
-        "progress": _display_progress(
-            task.status if hasattr(task, "status") else task.get("status", ""),
-            task.progress if hasattr(task, "progress") else task.get("progress", 0),
-        ),
-        "created_at": str(task.create_at) if hasattr(task, "create_at") else str(task.get("create_at", "")),
+        # 元数据
+        "uuid": str(_get("uuid", "")),
+        "task_id": str(_get("task_id", "")),
+        "name": _get("name", ""),
+        "portfolio_id": _get("portfolio_id", ""),
+        "engine_id": _get("engine_id", ""),
+        "status": status_val,
+        "progress": _display_progress(status_val, _get("progress", 0)),
+        "created_at": str(_get("create_at", "")),
+        # 回测结果 metrics（text 路径 Results panel）
+        "final_portfolio_value": _get("final_portfolio_value", 0.0),
+        "total_pnl": _get("total_pnl", 0.0),
+        "max_drawdown": _get("max_drawdown", 0.0),
+        "sharpe_ratio": _get("sharpe_ratio", 0.0),
+        "annual_return": _get("annual_return", 0.0),
+        "win_rate": _get("win_rate", 0.0),
+        # 回测统计（text 路径 Statistics panel）
+        "total_signals": _get("total_signals", 0),
+        "total_orders": _get("total_orders", 0),
+        "total_positions": _get("total_positions", 0),
+        "total_events": _get("total_events", 0),
+        # 执行信息（None 原样保留，机读判 completed/failed 需要）
+        "start_time": str(start_time) if start_time is not None else None,
+        "end_time": str(end_time) if end_time is not None else None,
+        "duration_seconds": _get("duration_seconds"),
+        "error_message": _get("error_message"),
     }
 
 

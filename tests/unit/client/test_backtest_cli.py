@@ -687,3 +687,105 @@ class TestBacktestRunTaskPreflightWarningDisplay:
         assert result_arg.data.get("preflight_warning") == full_warning, (
             "传给 helper 的 result 应携带全文 preflight_warning"
         )
+
+
+class TestBacktestCatJsonResultData:
+    """#6580 backtest cat --format json 须输出完整回测结果数据
+
+    text 路径渲染的 final_portfolio_value/total_pnl/max_drawdown/sharpe_ratio
+    等核心指标在 JSON 路径缺失（PR #6652 review 打回）。_task_record 补全字段，
+    让机读消费者在 JSON 路径拿到与 text 等量的结构化回测结果（ADR-021 初衷）。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_json_includes_full_result_data(self, mock_container):
+        """--format json 成功路径输出含 metrics + statistics + 执行信息。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        # 回测结果 metrics（text 路径 Results panel）
+        task.final_portfolio_value = 125000.0
+        task.total_pnl = 25000.0
+        task.max_drawdown = -0.12
+        task.sharpe_ratio = 1.85
+        task.annual_return = 0.23
+        task.win_rate = 0.62
+        # 统计（text 路径 Statistics panel）
+        task.total_signals = 42
+        task.total_orders = 38
+        task.total_positions = 15
+        task.total_events = 500
+        # 执行信息
+        task.start_time = "2025-01-01T10:00:00"
+        task.end_time = "2025-01-01T10:05:00"
+        task.duration_seconds = 300
+        task.error_message = None
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = True
+        result.data = task
+        mock_service.get_by_id.return_value = result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc123456789", "--format", "json"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is True
+        record = payload["data"]
+        # Results metrics（reviewer 点名的核心指标）
+        assert record["final_portfolio_value"] == 125000.0
+        assert record["total_pnl"] == 25000.0
+        assert record["max_drawdown"] == -0.12
+        assert record["sharpe_ratio"] == 1.85
+        assert record["annual_return"] == 0.23
+        assert record["win_rate"] == 0.62
+        # Statistics
+        assert record["total_signals"] == 42
+        assert record["total_orders"] == 38
+        assert record["total_positions"] == 15
+        assert record["total_events"] == 500
+        # 执行信息
+        assert record["start_time"] == "2025-01-01T10:00:00"
+        assert record["end_time"] == "2025-01-01T10:05:00"
+        assert record["duration_seconds"] == 300
+        assert record["error_message"] is None
+
+
+class TestBacktestListJsonResultMetrics:
+    """#6580 list --format json 也含回测结果 metrics
+
+    _task_record 被 list/cat 共用，扩展后 list 每个 record 同步带上 metrics，
+    回测列表可机读每个任务收益/回撤（ADR-021 机读收益）。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_json_includes_metrics(self, mock_container):
+        """--format json list 每个 record 含 final_portfolio_value/sharpe_ratio 等。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        task.final_portfolio_value = 125000.0
+        task.total_pnl = 25000.0
+        task.max_drawdown = -0.12
+        task.sharpe_ratio = 1.85
+
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        record = payload["data"][0]
+        assert record["final_portfolio_value"] == 125000.0
+        assert record["sharpe_ratio"] == 1.85
+        assert record["total_pnl"] == 25000.0
+        assert record["max_drawdown"] == -0.12
