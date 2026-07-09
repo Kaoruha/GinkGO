@@ -103,6 +103,14 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/client/test_user_cli.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: page_size passthrough smoke (#6652 ADR-021 L139)
+        # service 层 page_size 透传 crud 的 3 个出口方法（engine get_engines_df/
+        # fuzzy_search、portfolio get_portfolios_df）被 containers import 链触达
+        # （class 定义行 executed → 非 exempt）但 smoke 不调其方法体，函数体内
+        # page_size 透传行无覆盖信号。此处用 mock 依赖补信号，供 #6685 门禁采集。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -113,6 +121,7 @@ jobs:
             tests/unit/features/test_containers.py \
             tests/unit/client/test_user_cli.py \
             tests/unit/data/mappers/test_bar_mapper.py \
+            tests/unit/data/services/test_page_size_passthrough_smoke.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
