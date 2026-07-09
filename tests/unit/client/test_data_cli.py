@@ -492,6 +492,32 @@ class TestGetOtherTypes:
         assert "000001.SZ" in codes
 
     @patch("ginkgo.data.containers.container")
+    def test_get_day_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + day 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No bar data found" 零 envelope——机读消费者（回测 worker/CI/脚本）
+        仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_bars_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.bar_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "day", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
+
+    @patch("ginkgo.data.containers.container")
     def test_get_day_limit_tail(self, mock_container, cli_runner):
         """--limit N：day 分支取最新 N 条（tail），ADR-021 第 2 维 order。
 
@@ -593,6 +619,32 @@ class TestGetOtherTypes:
         assert payload["metadata"]["limit"] == 1
         prices = [r["price"] for r in payload["data"]]
         assert prices == [10.05]
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + tick 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No tick data found" 零 envelope——day/tick/adjustfactor 三分支
+        空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
 
     @patch("ginkgo.data.containers.container")
     def test_get_tick_format_json_default_limit(self, mock_container, cli_runner):
@@ -707,6 +759,32 @@ class TestGetOtherTypes:
         assert "2024-04-15" in result.output
         assert "2024-10-15" not in result.output
         assert "2025-01-15" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_adjustfactor_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + adjustfactor 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No adjustfactor data found" 零 envelope——day/tick/adjustfactor
+        三分支空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.adjustfactor_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "adjustfactor", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
 
     def test_get_invalid_format_exits_with_code_2(self, cli_runner):
         """#6579 review finding 1：无效 --format 须 exit 2（BAD_PARAMS，ADR-021 第 6 维）。

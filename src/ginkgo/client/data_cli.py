@@ -414,6 +414,15 @@ def get(
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo 对称），
+                    # 机读消费者拿得到结构，不能纯文本零 envelope
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="tail"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No bar data found for {code} ({start}-{end})")
                 return
 
@@ -484,6 +493,14 @@ def get(
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo/day 对称）
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="tail"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No tick data found for {code} ({start}-{end})")
                 return
 
@@ -560,6 +577,14 @@ def get(
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo/day/tick 对称）
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="head"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No adjustfactor data found for {code} ({start}-{end})")
                 return
 
