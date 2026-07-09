@@ -166,8 +166,10 @@ def list(
                 # ADR-021：metadata.total 必须是未截断的匹配总数。
                 # portfolios_df 已被 page_size 截断，len(df) 是当前页记录数而非总数 → 用 service.count()。
                 count_result = portfolio_service.count()
-                if count_result.success and isinstance(count_result.data, int):
-                    total = count_result.data
+                # PortfolioService.count() 返回 ServiceResult.success({"count": N})（dict 契约，见 portfolio_service.py:1133）。
+                # 须解 dict 取 key；isinstance(int) 对 dict 恒 False 会导致 total 静默回退截断计数 len(df)。
+                if count_result.success and isinstance(count_result.data, dict) and "count" in count_result.data:
+                    total = count_result.data["count"]
                 else:
                     total = len(portfolios_df)
                 records = portfolios_df.to_dict("records")

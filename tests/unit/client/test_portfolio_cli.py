@@ -183,7 +183,8 @@ class TestPortfolioList:
         mock_service = MagicMock()
         # 模拟 DB 截断：get_portfolios_df 按 page_size 返回当前页（2 行），count 返回未截断总数。
         mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
-        mock_service.count.return_value = ServiceResult.success(data=100)
+        # 对齐真实 PortfolioService.count() 契约：返回 ServiceResult.success({"count": N})（dict，非裸 int）。
+        mock_service.count.return_value = ServiceResult.success(data={"count": 100})
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--limit", "1"])

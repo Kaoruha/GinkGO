@@ -118,7 +118,12 @@ def list_engines(
                     total = len(engines_df)
                 else:
                     count_result = engine_service.count(status=resolved_status)
-                    total = count_result.data if (count_result.success and isinstance(count_result.data, int)) else len(engines_df)
+                    # EngineService.count() 返回 ServiceResult.success({"count": N})（dict 契约，见 engine_service.py:169）。
+                    # 须解 dict 取 key；isinstance(int) 对 dict 恒 False 会导致 total 静默回退截断计数 len(df)。
+                    if count_result.success and isinstance(count_result.data, dict) and "count" in count_result.data:
+                        total = count_result.data["count"]
+                    else:
+                        total = len(engines_df)
                 records = engines_df.to_dict("records")
                 json_result = build_list_result(records, total=total, limit=limit, offset=0)
                 format_result(json_result, format="json", command="list")

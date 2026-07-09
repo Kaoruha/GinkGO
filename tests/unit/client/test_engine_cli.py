@@ -208,7 +208,8 @@ class TestListEngines:
         # 模拟 DB 截断：get_engines_df 返回当前页（1 行），count 返回未截断总数。
         df = _make_engine_df()
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
-        svc.count.return_value = ServiceResult.success(data=50)
+        # 对齐真实 EngineService.count() 契约：返回 ServiceResult.success({"count": N})（dict，非裸 int）。
+        svc.count.return_value = ServiceResult.success(data={"count": 50})
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--limit", "1"])
