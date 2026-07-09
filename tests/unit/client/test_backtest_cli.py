@@ -177,6 +177,32 @@ class TestBacktestCatNoTradesWarning:
         assert payload["error"] == {"code": "NOT_FOUND", "message": "Backtest task not found: missing-task"}
 
     @patch("ginkgo.data.containers.container")
+    def test_cat_fuzzy_multi_match_json_envelope(self, mock_container):
+        """ADR-021 第 1/5 维：--format json + fuzzy 多匹配 → stdout 合法 JSON VALIDATION_ERROR envelope + exit 1。"""
+        from ginkgo.client.backtest_cli import app
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = False
+        result.error = "Not found"
+        t1 = MagicMock(uuid="aaaa111122223333", name="bt-a", status="completed", create_at=None)
+        t2 = MagicMock(uuid="bbbb555566667777", name="bt-b", status="running", create_at=None)
+        fuzzy_result = MagicMock()
+        fuzzy_result.is_success.return_value = True
+        fuzzy_result.data = [t1, t2]
+        mock_service.get_by_id.return_value = result
+        mock_service.fuzzy_search.return_value = fuzzy_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc", "--format", "json"])
+
+        assert invoke_result.exit_code == 1
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "VALIDATION_ERROR"
+        assert "Multiple tasks match 'abc'" in payload["error"]["message"]
+
+    @patch("ginkgo.data.containers.container")
     def test_cat_shows_no_trades_warning_when_zero_stats(self, mock_container):
         """#5322 completed 回测 stats 全为 0 时应显示 'No trades' 提示"""
         from ginkgo.client.backtest_cli import app

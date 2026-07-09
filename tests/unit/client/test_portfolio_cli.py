@@ -216,7 +216,7 @@ class TestPortfolioList:
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原 exit 0 是 false-success）
         assert "Failed to get portfolios" in result.output
         assert "Database connection failed" in result.output
 
@@ -226,8 +226,33 @@ class TestPortfolioList:
         mock_container.portfolio_service.side_effect = Exception("Unexpected error")
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_service_error_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON
+        ``{"success": false, "error": {...}}`` + exit 1（真实失败路径，非合成）。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.error(error="Database connection failed")
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "Database connection failed" in payload["error"]["message"]
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_service_exception_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 服务异常 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        mock_container.portfolio_service.side_effect = Exception("Unexpected error")
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "Unexpected error" in payload["error"]["message"]
 
 
 # ============================================================================

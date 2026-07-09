@@ -470,8 +470,21 @@ class TestExceptionHandling:
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.file_crud.return_value = crud
             result = cli_runner.invoke(flat_cli.component_app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    def test_component_list_exception_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 异常 → stdout 合法 JSON INTERNAL 错误 envelope + exit 1。"""
+        crud = MagicMock()
+        crud.find.side_effect = Exception("DB connection error")
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.file_crud.return_value = crud
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "DB connection error" in payload["error"]["message"]
 
 
 # ============================================================================

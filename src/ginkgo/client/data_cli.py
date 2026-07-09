@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.data.services.base_service import ServiceResult
 
 app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -352,12 +353,27 @@ def get(
                     console.print(table)
                     console.print(f"\n:information_source: [dim]总记录数: {len(formatted_df)}[/dim]")
             else:
-                console.print(f":x: Failed to get stock info: {result.error}")
+                # ADR-021 第 5/6 维：service 失败时 JSON 模式发错误 envelope + exit 1；
+                # text 模式诊断 + exit 1（原隐式 exit 0 是 false-success，违反第 6 维）。
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get stock info: {result.error}")
+                    raise typer.Exit(1)
 
         elif data_type in ["day", "bars"]:
             if not code:
-                console.print(":x: Stock code required for bar data")
-                raise typer.Exit(1)
+                # ADR-021 第 5/6 维：JSON 模式发 envelope（code=None → exit 1，与 text 一致，
+                # 不升级为 BAD_PARAMS/exit 2，避免跨模式 exit 漂移破坏既有 exit-1 契约）。
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for bar data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for bar data")
+                    raise typer.Exit(1)
 
             # #5920: 前缀 SH600000 → 后缀 600000.SH（DB 存后缀），与策略/回测组件格式对齐
             code = _normalize_stock_code(code)
@@ -375,8 +391,12 @@ def get(
             result = bar_service.get_bars_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
-                console.print(f":x: Failed to get bar data: {result.error}")
-                raise typer.Exit(1)
+                # ADR-021 第 5/6 维：service 失败，JSON 模式发错误 envelope + exit 1。
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get bar data: {result.error}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
@@ -418,8 +438,15 @@ def get(
 
         elif data_type == "tick":
             if not code:
-                console.print(":x: Stock code required for tick data")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for tick data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for tick data")
+                    raise typer.Exit(1)
 
             from datetime import datetime, timedelta
 
@@ -435,8 +462,11 @@ def get(
             result = tick_service.get_ticks_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
-                console.print(f":x: Failed to get tick data: {result.error}")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get tick data: {result.error}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
@@ -479,8 +509,15 @@ def get(
 
         elif data_type == "adjustfactor":
             if not code:
-                console.print(":x: Stock code required for adjustfactor data")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for adjustfactor data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for adjustfactor data")
+                    raise typer.Exit(1)
 
             # 默认时间范围（对齐 day 分支：end 缺省补 now，start 缺省补 now-365d）
             from datetime import datetime, timedelta
@@ -501,8 +538,11 @@ def get(
             result = adjustfactor_service.get_adjustfactors_df(code=code, start_date=start_dt, end_date=end_dt)
 
             if not result.success:
-                console.print(f":x: Failed to get adjustfactor data: {result.message}")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get adjustfactor data: {result.message}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
@@ -607,12 +647,31 @@ def get(
             console.print(":information: Data status check not yet implemented. Use 'ginkgo data status'.")
 
         else:
-            console.print(f":x: Unknown data type: {data_type}")
-            raise typer.Exit(1)
+            if format == "json":
+                format_result(
+                    ServiceResult.failure(message=f"Unknown data type: {data_type}"),
+                    format="json",
+                    command="get",
+                )
+            else:
+                console.print(f":x: Unknown data type: {data_type}")
+                raise typer.Exit(1)
 
+    except typer.Exit:
+        # ADR-021 第 6 维：typer.Exit 是 Exception 子类，须在 except Exception 前透传，
+        # 否则上面的 raise typer.Exit(N) 被吞成 exit 1 + "Error getting data" 污染。
+        raise
     except Exception as e:
-        console.print(f":x: Error getting data: {e}")
-        raise typer.Exit(1)
+        # 兜底：service 之外的意外异常（如容器装配失败）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error getting data: {e}", code="INTERNAL"),
+                format="json",
+                command="get",
+            )
+        else:
+            console.print(f":x: Error getting data: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()

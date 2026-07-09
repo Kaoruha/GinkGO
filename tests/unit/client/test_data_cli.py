@@ -243,7 +243,7 @@ class TestGetStockinfo:
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
-        assert result.exit_code == 0  # 不抛异常，只打印错误
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原隐式 exit 0 是 false-success）
         assert "Database connection failed" in result.output
 
     @patch("ginkgo.data.containers.container")
@@ -254,6 +254,19 @@ class TestGetStockinfo:
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
         assert result.exit_code == 1
         assert "Service unavailable" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_service_error_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.error(error="DB down")
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "DB down" in payload["error"]["message"]
 
     @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_filter_no_match(self, mock_container, cli_runner, mock_stockinfo_df):
@@ -319,6 +332,22 @@ class TestGetOtherTypes:
         result = cli_runner.invoke(data_cli.app, ["get", "day"])
         assert result.exit_code == 1
         assert "code" in result.output.lower() or "required" in result.output.lower()
+
+    def test_get_unknown_type_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 未知 data_type → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "bogus", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "bogus" in payload["error"]["message"]
+
+    def test_get_bars_requires_code_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 缺 --code → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "day", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "code" in payload["error"]["message"].lower()
 
     def test_get_bars_with_code(self, cli_runner):
         """获取 bars 数据提供 code 不崩溃"""

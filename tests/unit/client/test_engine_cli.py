@@ -235,7 +235,7 @@ class TestListEngines:
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原 exit 0 是 false-success）
         assert "Failed" in result.output or "DB connection lost" in result.output
 
     @pytest.mark.unit
@@ -247,8 +247,35 @@ class TestListEngines:
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_service_failure_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        svc = _mock_engine_service(get_engines_df=ServiceResult.error(error="DB connection lost"))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "DB connection lost" in payload["error"]["message"]
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_exception_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 异常 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        svc = MagicMock()
+        svc.get_engines_df.side_effect = RuntimeError("container boom")
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "container boom" in payload["error"]["message"]
 
 
 # ===========================================================================

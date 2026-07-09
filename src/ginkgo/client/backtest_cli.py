@@ -463,11 +463,29 @@ def list_tasks(
 
     service = container.backtest_task_service()
     effective_page_size = limit or page_size
-    result = service.list(page=page, page_size=effective_page_size, portfolio_id=portfolio, status=status)
+    try:
+        result = service.list(page=page, page_size=effective_page_size, portfolio_id=portfolio, status=status)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）+ exit 1。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
     if not result.is_success():
-        console.print(f":x: {result.error}")
-        raise typer.Exit(1)
+        # ADR-021 第 5/6 维：JSON 模式发错误 envelope + exit 1；text 模式诊断 + exit 1。
+        if format == "json":
+            format_result(result, format="json", command="list")
+        else:
+            console.print(f":x: {result.error}")
+            raise typer.Exit(1)
 
     data = result.data
     tasks = data.get("data", [])
@@ -537,22 +555,37 @@ def cat_task(
         if fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) == 1:
             result = ServiceResult.success(fuzzy_result.data[0])
         elif fuzzy_result.is_success() and fuzzy_result.data and len(fuzzy_result.data) > 1:
-            console.print(f"[yellow]Fuzzy match found {len(fuzzy_result.data)} tasks:[/yellow]\n")
-            table = Table(show_header=True, header_style="bold")
-            table.add_column("UUID", style="cyan")
-            table.add_column("Name")
-            table.add_column("Status")
-            table.add_column("Created")
-            for t in fuzzy_result.data:
-                table.add_row(
-                    t.uuid[:12] + "...",
-                    t.name or "-",
-                    t.status or "-",
-                    str(t.create_at)[:-7] if t.create_at else "-",
+            if format == "json":
+                # ADR-021 第 1/5 维：JSON 模式不发 rich table（非 JSON），改发错误 envelope + exit 1。
+                candidates = ", ".join(
+                    (t.uuid[:12] if hasattr(t, "uuid") else str(t.get("uuid", ""))[:12])
+                    for t in fuzzy_result.data
                 )
-            console.print(table)
-            console.print(f"\n[yellow]Please use a more specific identifier.[/yellow]")
-            raise typer.Exit(1)
+                format_result(
+                    ServiceResult.failure(
+                        message=f"Multiple tasks match '{task_id}': {candidates}",
+                        code="VALIDATION_ERROR",
+                    ),
+                    format="json",
+                    command="get",
+                )
+            else:
+                console.print(f"[yellow]Fuzzy match found {len(fuzzy_result.data)} tasks:[/yellow]\n")
+                table = Table(show_header=True, header_style="bold")
+                table.add_column("UUID", style="cyan")
+                table.add_column("Name")
+                table.add_column("Status")
+                table.add_column("Created")
+                for t in fuzzy_result.data:
+                    table.add_row(
+                        t.uuid[:12] + "...",
+                        t.name or "-",
+                        t.status or "-",
+                        str(t.create_at)[:-7] if t.create_at else "-",
+                    )
+                console.print(table)
+                console.print(f"\n[yellow]Please use a more specific identifier.[/yellow]")
+                raise typer.Exit(1)
 
     if not result.is_success():
         if format == "json":

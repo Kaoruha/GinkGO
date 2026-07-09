@@ -16,6 +16,7 @@ import json
 import datetime
 
 from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.data.services.base_service import ServiceResult
 
 from typing import Optional, List
 
@@ -354,11 +355,24 @@ def list(
             if filter:
                 console.print(f"[dim]Try a different filter term[/dim]")
 
+    # typer.Exit 是 Exception 子类，须在 broad except 前透传 format_result 的 Exit(1)。
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
-        import traceback
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）+ exit 1；
+        # text 模式打印诊断 + traceback（stderr）+ exit 1（原隐式 exit 0 是 bug）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            import traceback
 
-        traceback.print_exc()
+            traceback.print_exc()
+            raise typer.Exit(1)
 
 
 @component_app.command()

@@ -197,10 +197,29 @@ def list(
 
             console.print(table)
         else:
-            console.print(f":x: Failed to get portfolios: {result.error}")
+            # ADR-021 第 5/6 维：service 失败时，JSON 模式发错误 envelope + exit 1；
+            # text 模式打印诊断 + exit 1（失败 exit code 跨格式一致，非隐式 exit 0）。
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f":x: Failed to get portfolios: {result.error}")
+                raise typer.Exit(1)
 
+    # typer.Exit 是 Exception 子类（[[arch_typer_exit_swallowed_by_except_exception]]），
+    # 必须在 broad except 前透传 format_result 抛出的 Exit(1)，否则被吞成 exit 0。
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
