@@ -208,6 +208,69 @@ class TestGetStockinfo:
         assert "000001.SZ" in codes
 
     @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_no_stdout_pollution(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 命中 + --format json：stdout 纯 JSON，filter 诊断 print 不污染（ADR-021 第1维）。
+
+        filter 块的诊断输出（🔍 Applying filter / ✅ Filter matched）是 text 时代预存代码，
+        json 模式须隔离——否则 ``jq .`` / ``json.loads(stdout)`` 崩。命中 2 条（平安银行/浦发银行
+        + 银行行业）。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "银行", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第1维：json 模式 stdout 不得混入 filter 诊断 emoji 文本
+        assert "Applying filter" not in result.output
+        assert "Filter matched" not in result.output
+        # stdout 仍是合法 JSON envelope
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 2
+        codes = [r["code"] for r in payload["data"]]
+        assert "000001.SZ" in codes and "600000.SH" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_empty_envelope(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 无命中 + --format json：发空 envelope exit 0（ADR-021 第9维）。
+
+        filter 无命中时 stdout 须是 ``{"success":true,"data":[],"count":0,...}``，不能纯文本
+        return 零 envelope——机读消费者（回测 worker/CI/脚本）仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "不存在的词xyz", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第9维：空结果发 envelope，非纯文本
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["data"] == []
+        assert payload["count"] == 0
+        # 无命中诊断 print 也不污染 stdout
+        assert "No matching records" not in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_limit_head(self, mock_container, cli_runner):
         """--limit N：stockinfo 分支取前 N 条（head，按 code 排序），ADR-021 第 2 维 order。
 

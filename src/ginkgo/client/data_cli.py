@@ -135,7 +135,9 @@ def get(
 
                 # 应用模糊过滤
                 if filter:
-                    console.print(f":mag: Applying filter: '{filter}'")
+                    # ADR-021 第1维：json 模式隔离 filter 诊断 print，stdout 保持纯 JSON（jq/json.loads 不崩）
+                    if format != "json":
+                        console.print(f":mag: Applying filter: '{filter}'")
                     filter_lower = filter.lower()
 
                     # 创建过滤条件
@@ -156,10 +158,19 @@ def get(
                     df = df[mask]
 
                     if df.empty:
+                        if format == "json":
+                            # ADR-021 第9维：空结果 exit 0 + envelope，机读消费者拿得到结构
+                            format_result(
+                                build_list_result([], total=0, limit=limit, order="head"),
+                                format="json",
+                                command="get",
+                            )
+                            return
                         console.print(":memo: No matching records found for the filter.")
                         return
 
-                    console.print(f":white_check_mark: Filter matched {len(df)} records")
+                    if format != "json":
+                        console.print(f":white_check_mark: Filter matched {len(df)} records")
 
                 # 配置列显示
                 columns_config = {
