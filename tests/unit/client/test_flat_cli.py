@@ -173,14 +173,19 @@ class TestComponentList:
         assert '"total"' in result.output
 
     def test_list_components_json_format_outputs_adr021_contract(self, cli_runner, mock_file_crud):
+        # 模拟 DB 截断：find 返回当前页（1 个），count 返回未截断总数（每类型 7）。
+        mock_file_crud.count.return_value = 7
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.file_crud.return_value = mock_file_crud
             result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json", "--limit", "1"])
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        # ADR-021：count = 当前页记录数，metadata.total = 未截断匹配总数（全类型 sum 5×7=35）。
         assert payload["count"] == 1
-        assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
+        assert payload["metadata"]["total"] == 35
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
         assert payload["data"][0]["name"] == "TestStrategy"
 
     def test_list_limit_pushes_page_size_to_file_crud(self, cli_runner, mock_component):

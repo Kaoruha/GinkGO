@@ -205,8 +205,10 @@ class TestListEngines:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_list_json_format_outputs_adr021_contract(self, cli_runner):
+        # 模拟 DB 截断：get_engines_df 返回当前页（1 行），count 返回未截断总数。
         df = _make_engine_df()
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
+        svc.count.return_value = ServiceResult.success(data=50)
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--limit", "1"])
@@ -214,8 +216,11 @@ class TestListEngines:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        # ADR-021：count = 当前页记录数，metadata.total = 未截断匹配总数（service.count）。
         assert payload["count"] == 1
-        assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
+        assert payload["metadata"]["total"] == 50
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
         assert payload["data"][0]["name"] == "TestEngine"
 
     @pytest.mark.unit
@@ -504,14 +509,18 @@ class TestRun:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_run_no_id_shows_list(self, cli_runner):
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = _make_engine_df()
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        # ADR-021: run 无 engine_id 时应列出可用引擎。
+        # 回归护栏：run 签名漏 limit 形参 → get_engines_df(page_size=limit) NameError
+        # 被 try/except 吞 → 静默不出列表却 exit 0。故断言引擎实际渲染 + limit 下推。
+        df = _make_engine_df()
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["run"])
         assert result.exit_code == 0
         assert "No engine ID" in result.output
+        assert "TestEngine" in result.output
+        assert svc.get_engines_df.call_args.kwargs["page_size"] == 20
 
     @pytest.mark.unit
     @pytest.mark.cli

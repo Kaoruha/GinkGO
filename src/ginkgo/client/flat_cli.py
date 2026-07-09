@@ -283,7 +283,25 @@ def list(
         value_to_type = {v.value: k for k, v in type_mapping.items()}
 
         if format == "json":
-            total = len(components)
+            # ADR-021：metadata.total = 未截断的匹配总数（components 已被 page_size 截断）。
+            if filter:
+                # name 是客户端 fuzzy 过滤，count 无法精确匹配 → 用当前过滤后行数。
+                total = len(components)
+            elif component_type and component_type.lower() in type_mapping:
+                ft = type_mapping[component_type.lower()]
+                total = file_crud.count(filters={"type": ft.value})
+            else:
+                # 全类型：sum 各组件类型 count（find(filters={}) 含非组件类型，须按类型聚合）。
+                total = sum(
+                    file_crud.count(filters={"type": t.value})
+                    for t in (
+                        FILE_TYPES.STRATEGY,
+                        FILE_TYPES.RISKMANAGER,
+                        FILE_TYPES.SELECTOR,
+                        FILE_TYPES.SIZER,
+                        FILE_TYPES.ANALYZER,
+                    )
+                )
             records = []
             # ADR-021 L139：--limit 已下推 file_crud.find page_size（DB 层截断），此处不再 [:limit]。
             for comp in components:

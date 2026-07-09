@@ -163,8 +163,13 @@ def list(
             portfolios_df = portfolios_data if isinstance(portfolios_data, pd.DataFrame) else pd.DataFrame()
 
             if format == "json":
-                total = len(portfolios_df)
-                # ADR-021 L139：--limit 已下推 service page_size（DB 层截断），此处不再 head(limit)。
+                # ADR-021：metadata.total 必须是未截断的匹配总数。
+                # portfolios_df 已被 page_size 截断，len(df) 是当前页记录数而非总数 → 用 service.count()。
+                count_result = portfolio_service.count()
+                if count_result.success and isinstance(count_result.data, int):
+                    total = count_result.data
+                else:
+                    total = len(portfolios_df)
                 records = portfolios_df.to_dict("records")
                 json_result = build_list_result(records, total=total, limit=limit, offset=0)
                 format_result(json_result, format="json", command="list")

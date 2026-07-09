@@ -54,6 +54,9 @@ def list_engines(
     if format != "json":
         console.print(":clipboard: Listing engines...")
 
+    # 用于 json total 计算：status 分支解析出的枚举（None 表示无 status 过滤）。
+    resolved_status = None
+
     try:
         engine_service = container.engine_service()
 
@@ -77,6 +80,7 @@ def list_engines(
             try:
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
+                resolved_status = status_enum
                 result = engine_service.get_engines_df(status=status_enum, page_size=limit)
             except Exception as e:
                 from ginkgo.libs import GLOG
@@ -108,8 +112,13 @@ def list_engines(
             engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
 
             if format == "json":
-                total = len(engines_df)
-                # ADR-021 L139：--limit 已下推 service page_size（DB 层截断），此处不再 head(limit)。
+                # ADR-021：metadata.total 必须是未截断的匹配总数（engines_df 已被 page_size 截断）。
+                if filter:
+                    # fuzzy_search 无 count 出口，total 用当前匹配页行数（搜索场景精确总数不可得）。
+                    total = len(engines_df)
+                else:
+                    count_result = engine_service.count(status=resolved_status)
+                    total = count_result.data if (count_result.success and isinstance(count_result.data, int)) else len(engines_df)
                 records = engines_df.to_dict("records")
                 json_result = build_list_result(records, total=total, limit=limit, offset=0)
                 format_result(json_result, format="json", command="list")
@@ -417,6 +426,7 @@ def run(
     ),
     background: bool = typer.Option(False, "--bg", help="Run in background"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate only, don't run"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Page size when listing available engines"),
 ):
     """
     :rocket: Run engine with assembled components.

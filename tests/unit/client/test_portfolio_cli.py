@@ -181,7 +181,9 @@ class TestPortfolioList:
     def test_list_json_format_outputs_adr021_contract(self, mock_container, cli_runner, mock_portfolio_list_df):
         """--format json 输出 ADR-021 list 契约，stdout 仅含 JSON。"""
         mock_service = MagicMock()
+        # 模拟 DB 截断：get_portfolios_df 按 page_size 返回当前页（2 行），count 返回未截断总数。
         mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_service.count.return_value = ServiceResult.success(data=100)
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--limit", "1"])
@@ -189,10 +191,11 @@ class TestPortfolioList:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
-        # ADR-021 L139：--limit 下推 service page_size（DB 层截断），CLI 不再 head(limit)。
-        # count = service 返回行数（mock 返 2 行）；截断正确性由 service 层测试保证。
+        # ADR-021：count = 当前页记录数（len records），metadata.total = 未截断匹配总数（service.count）。
         assert payload["count"] == 2
-        assert payload["metadata"] == {"total": 2, "limit": 1, "offset": 0}
+        assert payload["metadata"]["total"] == 100
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
         assert payload["warnings"] == []
         assert payload["data"][0]["name"] == "TestPortfolio"
 
