@@ -107,7 +107,8 @@ class TestPortfolioHelp:
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--help"])
         assert result.exit_code == 0
         assert "--status" in result.output
-        assert "--limit" in result.output
+        assert "--page" in result.output
+        assert "--page-size" in result.output
         assert "--raw" in result.output
 
 
@@ -187,7 +188,7 @@ class TestPortfolioList:
         mock_service.count.return_value = ServiceResult.success(data={"count": 100})
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--limit", "1"])
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--page-size", "1"])
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -201,16 +202,16 @@ class TestPortfolioList:
         assert payload["data"][0]["name"] == "TestPortfolio"
 
     @patch("ginkgo.data.containers.container")
-    def test_list_limit_pushes_page_size_to_service(self, mock_container, cli_runner, mock_portfolio_list_df):
-        """ADR-021 L139：--limit 下推 service page_size，替代 client-side head(limit)。"""
+    def test_list_page_size_pushes_to_service(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """#5009：--page-size 下推 service page_size（page 默认 0）。"""
         mock_service = MagicMock()
         mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
         mock_container.portfolio_service.return_value = mock_service
 
-        result = cli_runner.invoke(portfolio_cli.app, ["list", "--limit", "5"])
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--page-size", "5"])
 
         assert result.exit_code == 0
-        mock_service.get_portfolios_df.assert_called_once_with(page_size=5)
+        mock_service.get_portfolios_df.assert_called_once_with(page=0, page_size=5)
 
     @patch("ginkgo.data.containers.container")
     def test_list_service_error(self, mock_container, cli_runner):

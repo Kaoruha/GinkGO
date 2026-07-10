@@ -177,7 +177,7 @@ class TestComponentList:
         mock_file_crud.count.return_value = 7
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.file_crud.return_value = mock_file_crud
-            result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json", "--limit", "1"])
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json", "--page-size", "1"])
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
@@ -188,13 +188,13 @@ class TestComponentList:
         assert payload["metadata"]["offset"] == 0
         assert payload["data"][0]["name"] == "TestStrategy"
 
-    def test_list_limit_pushes_page_size_to_file_crud(self, cli_runner, mock_component):
-        """ADR-021 L139：--limit 下推 file_crud.find page_size（all 路径，替代 page_size=10000 + [:limit]）。"""
+    def test_list_page_size_pushes_to_file_crud(self, cli_runner, mock_component):
+        """#5009：--page-size 下推 file_crud.find page_size（all 路径，type__in DB 层过滤后分页）。"""
         crud = MagicMock()
         crud.find.return_value = [mock_component]
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.file_crud.return_value = crud
-            result = cli_runner.invoke(flat_cli.component_app, ["list", "--limit", "5"])
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--page-size", "5"])
         assert result.exit_code == 0
         _, kwargs = crud.find.call_args
         assert kwargs.get("page_size") == 5

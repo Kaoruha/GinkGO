@@ -41,7 +41,8 @@ def list_engines(
     filter: Optional[str] = typer.Option(
         None, "--filter", "-f", help="Filter engines (search in id, name, type, status)"
     ),
-    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
     format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
@@ -53,6 +54,18 @@ def list_engines(
 
     if format != "json":
         console.print(":clipboard: Listing engines...")
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    if page < 0:
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    # DB 层分页参数：全量时 page/page_size 均传 None（find 默认全量）
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     # 用于 json total 计算：status 分支解析出的枚举（None 表示无 status 过滤）。
     resolved_status = None
@@ -66,7 +79,9 @@ def list_engines(
             filter_str = str(filter) if not isinstance(filter, str) else filter
             # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
-            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"], page_size=limit)
+            # fuzzy_search CRUD 层只支持 limit（无 offset），故只下推 page_size；
+            # 搜索结果通常较小，total 取当前匹配页行数（精确总数不可得）。
+            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"], page_size=q_page_size)
             if fs_result.success:
                 # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
                 engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
@@ -81,7 +96,7 @@ def list_engines(
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
                 resolved_status = status_enum
-                result = engine_service.get_engines_df(status=status_enum, page_size=limit)
+                result = engine_service.get_engines_df(status=status_enum, page=q_page, page_size=q_page_size)
             except Exception as e:
                 from ginkgo.libs import GLOG
 
@@ -89,10 +104,10 @@ def list_engines(
                     f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}"
                 )
                 # If conversion fails, fall back to application-level filtering
-                result = engine_service.get_engines_df(page_size=limit)
+                result = engine_service.get_engines_df(page=q_page, page_size=q_page_size)
         else:
             # Get all engines
-            result = engine_service.get_engines_df(page_size=limit)
+            result = engine_service.get_engines_df(page=q_page, page_size=q_page_size)
 
         if result.success:
             engines_data = result.data
@@ -125,7 +140,11 @@ def list_engines(
                     else:
                         total = len(engines_df)
                 records = engines_df.to_dict("records")
-                json_result = build_list_result(records, total=total, limit=limit, offset=0)
+                # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
+                json_result = build_list_result(
+                    records, total=total, limit=q_page_size,
+                    offset=0 if unlimited else page * page_size,
+                )
                 format_result(json_result, format="json", command="list")
                 return
 
@@ -285,7 +304,7 @@ def cat(
         console.print()
 
         # 调用list_engines函数显示可用引擎，传递所有默认参数
-        list_engines(status=None, portfolio_id=None, filter=None, limit=20, raw=False)
+        list_engines(status=None, portfolio_id=None, filter=None, page=0, page_size=20, raw=False)
         console.print()
         console.print(":information: Use 'ginkgo engine cat <engine_uuid_or_name>' to see detailed information")
         raise typer.Exit(0)
@@ -810,7 +829,7 @@ def bind_portfolio(
         console.print(":information: [bold]No engine ID provided.[/bold]")
         console.print(":clipboard: Listing available engines:")
         console.print()
-        list_engines(status=None, portfolio_id=None, filter=None, limit=20, raw=False)
+        list_engines(status=None, portfolio_id=None, filter=None, page=0, page_size=20, raw=False)
         console.print()
         console.print(
             ":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding"

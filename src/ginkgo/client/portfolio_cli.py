@@ -128,7 +128,8 @@ def display_component_tree(console, component_data: dict):
 @app.command()
 def list(
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
-    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
@@ -141,9 +142,20 @@ def list(
     if format != "json":
         console.print(":clipboard: Listing portfolios...")
 
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    if page < 0:
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
+
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get_portfolios_df(page_size=limit)
+        result = portfolio_service.get_portfolios_df(page=q_page, page_size=q_page_size)
 
         if result.success:
             portfolios_data = result.data
@@ -173,7 +185,11 @@ def list(
                 else:
                     total = len(portfolios_df)
                 records = portfolios_df.to_dict("records")
-                json_result = build_list_result(records, total=total, limit=limit, offset=0)
+                # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
+                json_result = build_list_result(
+                    records, total=total, limit=q_page_size,
+                    offset=0 if unlimited else page * page_size,
+                )
                 format_result(json_result, format="json", command="list")
                 return
 

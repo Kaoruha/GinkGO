@@ -109,6 +109,7 @@ class SignalService(BaseService):
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
         task_id: Optional[str] = None,
+        page: int = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -116,6 +117,9 @@ class SignalService(BaseService):
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        #5009：page（0-based）/page_size 分页；MSignalTracker 为 MySQL，order_by=create_at
+        desc 保证分页确定性（MySQL 无隐式顺序，缺 order_by 则分页结果不稳定）。
         """
         try:
             filters = self._build_signal_filters(
@@ -123,7 +127,10 @@ class SignalService(BaseService):
             )
             model_list = self._crud_repo.find(
                 filters=filters,
+                page=page,
                 page_size=page_size if page_size > 0 else None,
+                order_by="create_at",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -133,6 +140,23 @@ class SignalService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询信号(df)失败: {str(e)}")
             return ServiceResult.error(f"查询信号(df)失败: {str(e)}")
+
+    def count_signals(
+        self,
+        engine_id: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> ServiceResult:
+        """统计匹配信号总数（#5009：metadata.total 真实总数，非 len(df)）。"""
+        try:
+            filters = self._build_signal_filters(
+                engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id,
+            )
+            count = self._crud_repo.count(filters=filters)
+            return ServiceResult.success({"count": count}, f"Successfully counted signals: {count}")
+        except Exception as e:
+            GLOG.ERROR(f"统计信号失败: {str(e)}")
+            return ServiceResult.error(f"统计信号失败: {str(e)}")
 
     def delete_signals_by_portfolio(self, portfolio_id: str) -> ServiceResult:
         """

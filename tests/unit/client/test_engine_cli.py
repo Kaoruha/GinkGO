@@ -102,7 +102,7 @@ class TestHelp:
     def test_list_help(self, cli_runner):
         result = cli_runner.invoke(engine_cli.app, ["list", "--help"])
         assert result.exit_code == 0
-        for opt in ("--status", "--portfolio", "--filter", "--limit", "--raw"):
+        for opt in ("--status", "--portfolio", "--filter", "--page", "--page-size", "--raw"):
             assert opt in result.output
 
 
@@ -127,28 +127,28 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
-    def test_list_limit_pushes_page_size_to_get_engines_df(self, cli_runner):
-        """ADR-021 L139：--limit 下推 get_engines_df page_size（all 路径）。"""
+    def test_list_page_size_pushes_to_get_engines_df(self, cli_runner):
+        """#5009：--page-size 下推 get_engines_df page_size（all 路径，page 默认 0）。"""
         df = _make_engine_df()
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
-            result = cli_runner.invoke(engine_cli.app, ["list", "--limit", "5"])
+            result = cli_runner.invoke(engine_cli.app, ["list", "--page-size", "5"])
 
         assert result.exit_code == 0
-        svc.get_engines_df.assert_called_once_with(page_size=5)
+        svc.get_engines_df.assert_called_once_with(page=0, page_size=5)
 
     @pytest.mark.unit
     @pytest.mark.cli
     def test_list_filter_pushes_page_size_to_fuzzy_search(self, cli_runner):
-        """ADR-021 L139：filter 模式 --limit 下推 fuzzy_search page_size。"""
+        """#5009：filter 模式 --page-size 下推 fuzzy_search page_size。"""
         df = _make_engine_df()
         model_list = MagicMock()
         model_list.to_dataframe.return_value = df
         svc = _mock_engine_service(fuzzy_search=ServiceResult.success(data=model_list))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
-            result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test", "--limit", "5"])
+            result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test", "--page-size", "5"])
 
         assert result.exit_code == 0
         _, kwargs = svc.fuzzy_search.call_args
@@ -212,7 +212,7 @@ class TestListEngines:
         svc.count.return_value = ServiceResult.success(data={"count": 50})
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
-            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--limit", "1"])
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--page-size", "1"])
 
         assert result.exit_code == 0
         payload = json.loads(result.output)

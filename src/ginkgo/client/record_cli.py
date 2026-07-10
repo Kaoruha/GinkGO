@@ -23,7 +23,9 @@ def signal(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
+    format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
     """
     :satellite_antenna: List trading signals.
@@ -32,6 +34,18 @@ def signal(
     """
     from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
+    from ginkgo.client.cli_utils import build_list_result, format_result
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    if page < 0:
+        console.print("[red]:x: --page 必须 >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size 必须 >= 0（0=全部）[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     try:
         signal_svc = container.signal_service()
@@ -39,7 +53,8 @@ def signal(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=q_page,
+            page_size=q_page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -47,6 +62,16 @@ def signal(
 
         # ADR-010 R2b: get_signals_df 出口已保证 data 为 DataFrame（类型即契约）
         signals_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
+
+        # #5009：metadata.total = count_signals 真实总数（signals_df 已被 page_size 截断）
+        count_res = signal_svc.count_signals(portfolio_id=portfolio, engine_id=engine, task_id=task)
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(signals_df)
+
+        if format == "json":
+            records = signals_df.to_dict("records") if not signals_df.empty else []
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=0 if unlimited else page * page_size)
+            format_result(json_result, format="json", command="signal")
+            return
 
         if signals_df.shape[0] == 0:
             console.print(":exclamation: [yellow]No signals found.[/yellow]")
@@ -71,9 +96,11 @@ def signal(
             console=console
         )
 
-        if signals_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        if unlimited is False and total > signals_df.shape[0]:
+            console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页，--page-size 0 看全部。[/dim]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch signals:[/bold red] {e}")
 
@@ -83,13 +110,27 @@ def order(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
+    format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
     """
     :clipboard: List order records.
     """
     from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
+    from ginkgo.client.cli_utils import build_list_result, format_result
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    if page < 0:
+        console.print("[red]:x: --page 必须 >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size 必须 >= 0（0=全部）[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     try:
         order_svc = container.order_service()
@@ -97,7 +138,8 @@ def order(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=q_page,
+            page_size=q_page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -105,6 +147,20 @@ def order(
 
         # ADR-010 R2b: get_orders_df 出口已保证 data 为 DataFrame（类型即契约）
         orders_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
+
+        # #5009：metadata.total = count_orders 真实总数
+        count_res = order_svc.count_orders(portfolio_id=portfolio, engine_id=engine, task_id=task)
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(orders_df)
+
+        if format == "json":
+            records = orders_df.to_dict("records") if not orders_df.empty else []
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=0 if unlimited else page * page_size)
+            format_result(json_result, format="json", command="order")
+            return
+
+        if orders_df.shape[0] == 0:
+            console.print(":exclamation: [yellow]No orders found.[/yellow]")
+            return
 
         order_columns_config = {
             "uuid": {"display_name": "Order ID", "style": "dim"},
@@ -126,9 +182,11 @@ def order(
             console=console
         )
 
-        if orders_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        if unlimited is False and total > orders_df.shape[0]:
+            console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页，--page-size 0 看全部。[/dim]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch orders:[/bold red] {e}")
 
@@ -138,13 +196,27 @@ def position(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
+    format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
     """
     :bar_chart: List position records.
     """
     from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
+    from ginkgo.client.cli_utils import build_list_result, format_result
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    if page < 0:
+        console.print("[red]:x: --page 必须 >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size 必须 >= 0（0=全部）[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     try:
         # #5341: 回测持仓经 create_position_record 写 MPositionRecord（流水表），
@@ -155,7 +227,8 @@ def position(
             portfolio_id=portfolio,
             engine_id=engine,
             task_id=task,
-            page_size=page,
+            page=q_page,
+            page_size=q_page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
@@ -163,6 +236,20 @@ def position(
 
         # ADR-010 R2b: get_positions_df 出口已保证 data 为 DataFrame（类型即契约）
         positions_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
+
+        # #5009：metadata.total = count_positions 真实总数（MPositionRecord ClickHouse 流水）
+        count_res = result_svc.count_positions(portfolio_id=portfolio, engine_id=engine, task_id=task)
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(positions_df)
+
+        if format == "json":
+            records = positions_df.to_dict("records") if not positions_df.empty else []
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=0 if unlimited else page * page_size)
+            format_result(json_result, format="json", command="position")
+            return
+
+        if positions_df.shape[0] == 0:
+            console.print(":exclamation: [yellow]No positions found.[/yellow]")
+            return
 
         # MPositionRecord 流水字段（volume/cost/price/fee），非 MPosition 当前态字段
         position_columns_config = {
@@ -184,9 +271,11 @@ def position(
             console=console
         )
 
-        if positions_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        if unlimited is False and total > positions_df.shape[0]:
+            console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页，--page-size 0 看全部。[/dim]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch positions:[/bold red] {e}")
 
@@ -195,26 +284,55 @@ def position(
 def analyzer(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":page_facing_up: Items per page (0=no pagination)")] = 50,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
+    format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
     """
     :bar_chart: List analyzer records.
     """
     from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
+    from ginkgo.client.cli_utils import build_list_result, format_result
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    if page < 0:
+        console.print("[red]:x: --page 必须 >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size 必须 >= 0（0=全部）[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     try:
         analyzer_svc = container.analyzer_service()
         result = analyzer_svc.get_records_df(
             portfolio_id=portfolio,
             engine_id=engine,
-            page_size=page,
+            page=q_page,
+            page_size=q_page_size,
         )
         if not result.success:
             console.print(f":x: [red]{result.error}[/red]")
             return
 
         analyzer_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
+
+        # #5009：metadata.total = count_records 真实总数
+        count_res = analyzer_svc.count_records(portfolio_id=portfolio, engine_id=engine)
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(analyzer_df)
+
+        if format == "json":
+            records = analyzer_df.to_dict("records") if not analyzer_df.empty else []
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=0 if unlimited else page * page_size)
+            format_result(json_result, format="json", command="analyzer")
+            return
+
+        if analyzer_df.shape[0] == 0:
+            console.print(":exclamation: [yellow]No analyzer records found.[/yellow]")
+            return
 
         title_parts = []
         if portfolio:
@@ -240,8 +358,10 @@ def analyzer(
             console=console
         )
 
-        if analyzer_df.shape[0] == page and page > 0:
-            console.print(f"[dim]Showing first {page} records. Use --page 0 to see all records.[/dim]")
+        if unlimited is False and total > analyzer_df.shape[0]:
+            console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页，--page-size 0 看全部。[/dim]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f":x: [bold red]Failed to fetch analyzer records:[/bold red] {e}")

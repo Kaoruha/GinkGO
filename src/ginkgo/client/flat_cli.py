@@ -215,7 +215,8 @@ def list(
     ),
     filter: Optional[str] = typer.Option(None, "--filter", "-f", help="Filter by component name (fuzzy search)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output in JSON format"),
-    limit: int = typer.Option(10000, "--limit", "-l", help="Limit results"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(100, "--page-size", help="Items per page (0 = all)"),
     format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
@@ -236,6 +237,17 @@ def list(
     if format != "json":
         console.print(":clipboard: Listing components...")
 
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    if page < 0:
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(1)
+    if page_size < 0:
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(1)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
+
     try:
         # Get file_crud to query database
         file_crud = container.file_crud()
@@ -250,30 +262,32 @@ def list(
             "analyzer": FILE_TYPES.ANALYZER,
         }
 
+        # 组件类型值集合（全类型路径的 type__in 过滤用）
+        component_type_values = [
+            FILE_TYPES.STRATEGY.value,
+            FILE_TYPES.RISKMANAGER.value,
+            FILE_TYPES.SELECTOR.value,
+            FILE_TYPES.SIZER.value,
+            FILE_TYPES.ANALYZER.value,
+        ]
+
         # Query components from database
+        # #5009 契约硬规则：type 过滤必须下推 find()（DB 层），禁先 page_size 截断再客户端过滤。
+        # 旧实现 find(filters={}, page_size=limit) 取 limit 行（含 ENGINE/OTHER 等非组件类型）
+        # 再客户端筛组件类型 → 非组件类型占满 limit 时返回 0 组件（即便组件存在）。
         if component_type and component_type.lower() in type_mapping:
             # Single type query: filter by type (1 query)
             file_type = type_mapping[component_type.lower()]
-            components = file_crud.find(filters={"type": file_type.value}, page_size=limit)
+            components = file_crud.find(
+                filters={"type": file_type.value}, page=q_page, page_size=q_page_size,
+                order_by="create_at", desc_order=True,
+            )
         else:
-            # All types query: get all components in ONE query, then filter client-side
-            # Query without type filter to get all components at once
-            all_components = file_crud.find(filters={}, page_size=limit)
-
-            # Filter to only include component types (exclude OTHER, VOID, ENGINE, HANDLER, INDEX)
-            component_type_values = {
-                FILE_TYPES.STRATEGY.value,
-                FILE_TYPES.RISKMANAGER.value,
-                FILE_TYPES.SELECTOR.value,
-                FILE_TYPES.SIZER.value,
-                FILE_TYPES.ANALYZER.value,
-            }
-
-            components = []
-            for comp in all_components:
-                type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
-                if type_value in component_type_values:
-                    components.append(comp)
+            # All types query: 用 type__in 在 DB 层过滤组件类型，再分页（修 #5009 截断前未过滤 bug）
+            components = file_crud.find(
+                filters={"type__in": component_type_values}, page=q_page, page_size=q_page_size,
+                order_by="create_at", desc_order=True,
+            )
 
         # Apply name filter if provided
         if filter:
@@ -303,7 +317,7 @@ def list(
                     )
                 )
             records = []
-            # ADR-021 L139：--limit 已下推 file_crud.find page_size（DB 层截断），此处不再 [:limit]。
+            # #5009 契约：page_size 已下推 file_crud.find（DB 层截断），此处不再二次截断。
             for comp in components:
                 type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
                 records.append(
@@ -315,7 +329,8 @@ def list(
                         "updated_at": str(comp.update_at) if hasattr(comp, "update_at") and comp.update_at else None,
                     }
                 )
-            json_result = build_list_result(records, total=total, limit=limit, offset=0)
+            offset = 0 if unlimited else page * page_size
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=offset)
             format_result(json_result, format="json", command="list")
             return
 

@@ -115,21 +115,27 @@ class EngineService(BaseService):
 
     def get_engines_df(self, engine_id: str = None, name: str = None,
                        is_live: bool = None, status: ENGINESTATUS_TYPES = None,
-                       page_size: int = None) -> ServiceResult:
+                       page: int = None, page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
 
-        ADR-021 L139：``page_size`` 透传 ``find(page_size=)``，供 CLI ``--limit``
-        下推（替代 client-side ``head(limit)``）；``None`` 保持全量默认。
+        ADR-021 L139（#5009 契约）：``page``/``page_size`` 透传 ``find(page=,
+        page_size=)``，DB 层 offset 分页；``order_by="create_at",
+        desc_order=True`` 保证翻页确定性（MySQL 无 ORDER BY 时 LIMIT/OFFSET
+        行序未定义，跨页可能重叠/丢行）。``page=None``/``page_size=None`` 保持
+        全量默认。fuzzy_search 路径不走此方法（见 ``fuzzy_search``）。
         """
         try:
             filters = self._build_engine_filters(
                 engine_id=engine_id, name=name, is_live=is_live, status=status,
             )
-            model_list = self._crud_repo.find(filters=filters, page_size=page_size)
+            model_list = self._crud_repo.find(
+                filters=filters, page=page, page_size=page_size,
+                order_by="create_at", desc_order=True,
+            )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
