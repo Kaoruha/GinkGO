@@ -2,7 +2,7 @@
 
 record_cli 4 命令为本 PR 重构（--page/--page-size offset 分页 + --format json ADR-021
 envelope + count_X metadata.total）。container import 链触达该模块但 smoke 不调命令体
-→ 改动行无覆盖信号 → 门禁红。本文件用 CliRunner + mock data.containers.Container 补
+→ 改动行无覆盖信号 → 门禁红。本文件用 CliRunner + mock data.containers.container 补
 信号（不连 DB / 不真起服务），覆盖 JSON/text/空记录/负值守卫四条路径 × 4 命令。
 """
 
@@ -40,7 +40,7 @@ def _df(columns):
 
 
 def _setup(command, records_df, count=1, ok=True):
-    """Patch Container.<svc_attr> → 返回 mock service；返回 (patch_ctx, svc, get_method)."""
+    """Patch container.<svc_attr> → 返回 mock service；返回 (patch_ctx, svc, get_method)."""
     svc_attr, get_method, count_method, _cols = _COMMANDS[command]
     svc = MagicMock()
     get_res = MagicMock()
@@ -54,7 +54,7 @@ def _setup(command, records_df, count=1, ok=True):
     count_res.success = True
     count_res.data = {"count": count}
     getattr(svc, count_method).return_value = count_res
-    ctx = patch("ginkgo.data.containers.Container")
+    ctx = patch("ginkgo.data.containers.container")
     return ctx, svc, svc_attr, get_method
 
 
@@ -62,8 +62,8 @@ def _invoke(command, args):
     """command: signal|order|position|analyzer。返回 (result, svc, get_method)。"""
     cols = _COMMANDS[command][3]
     ctx, svc, svc_attr, get_method = _setup(command, _df(cols), count=2)
-    with ctx as Container:
-        getattr(Container, svc_attr).return_value = svc
+    with ctx as container:
+        getattr(container, svc_attr).return_value = svc
         result = runner.invoke(app, [command] + args)
     return result, svc, get_method
 
@@ -107,8 +107,8 @@ class TestRecordTextAndEmpty:
     def test_text_empty_records(self, command):
         cols = _COMMANDS[command][3]
         ctx, svc, svc_attr, _ = _setup(command, pd.DataFrame(), count=0)  # 空 df
-        with ctx as Container:
-            getattr(Container, svc_attr).return_value = svc
+        with ctx as container:
+            getattr(container, svc_attr).return_value = svc
             result = runner.invoke(app, [command])
         assert result.exit_code == 0
         assert "No" in result.output  # "No signals/orders/positions/analyzer records found."
@@ -147,8 +147,8 @@ class TestRecordServiceFailure:
     def test_service_failure_json_envelope_exit_nonzero(self, command):
         cols = _COMMANDS[command][3]
         ctx, svc, svc_attr, get_method = _setup(command, _df(cols), count=0, ok=False)
-        with ctx as Container:
-            getattr(Container, svc_attr).return_value = svc
+        with ctx as container:
+            getattr(container, svc_attr).return_value = svc
             result = runner.invoke(app, [command, "--format", "json"])
         assert result.exit_code != 0  # 失败分支 JSON 模式 raise typer.Exit(1)
         payload = json.loads(result.output)
@@ -160,8 +160,8 @@ class TestRecordServiceFailure:
     def test_service_failure_text_exits_nonzero(self, command):
         cols = _COMMANDS[command][3]
         ctx, svc, svc_attr, _ = _setup(command, _df(cols), count=0, ok=False)
-        with ctx as Container:
-            getattr(Container, svc_attr).return_value = svc
+        with ctx as container:
+            getattr(container, svc_attr).return_value = svc
             result = runner.invoke(app, [command])  # 默认 text
         assert result.exit_code != 0  # text 失败也 exit 1（原隐式 exit 0 是 bug）
 
@@ -172,8 +172,8 @@ class TestRecordServiceFailure:
         cols = _COMMANDS[command][3]
         ctx, svc, svc_attr, get_method = _setup(command, _df(cols), count=0, ok=True)
         getattr(svc, get_method).side_effect = RuntimeError("db down")
-        with ctx as Container:
-            getattr(Container, svc_attr).return_value = svc
+        with ctx as container:
+            getattr(container, svc_attr).return_value = svc
             result = runner.invoke(app, [command, "--format", "json"])
         assert result.exit_code != 0
         payload = json.loads(result.output)
