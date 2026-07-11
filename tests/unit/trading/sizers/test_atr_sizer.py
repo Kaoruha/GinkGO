@@ -6,6 +6,7 @@ Covers:
   FixedSizer/RatioSizer），缺数据时 WARN + return None 恢复可诊断性。
 - #5490: 近零 ATR 保护（floor）。
 - #6019: 不得以 INFO 输出完整 DataFrame。
+- #4708: self.now 误用（应 get_time_provider()）+ Decimal 列/cash 算术 TypeError。
 
 注：ATRSizer 经 portfolio_base.bind_data_feeder 注入 feeder（见 sizer_base），
 单测通过直接设置 sizer._data_feeder 模拟注入，走公共 cal() 接口验证行为。
@@ -24,7 +25,12 @@ from ginkgo.trading.sizers.atr_sizer import ATRSizer
 @pytest.fixture
 def sizer():
     s = ATRSizer(name="TestATRSizer", period=14, risk=0.01, risk_ratio=2)
-    s.now = datetime.datetime(2026, 1, 15, 10, 0, 0)
+    # #4708: 对齐 RatioSizer/FixedSizer 范式，sizer 经 get_time_provider() 取当前时间。
+    # 旧 fixture 直接 `s.now = ...` 掩盖了 ATRSizer 误用 self.now（#4706 引入、不存在）
+    # 的 AttributeError —— 真实 engine 从不设置 sizer.now。
+    tp = MagicMock()
+    tp.now.return_value = datetime.datetime(2026, 1, 15, 10, 0, 0)
+    s._time_provider = tp
     return s
 
 
@@ -180,7 +186,9 @@ class TestATRSizerNearZeroFloor:
         Same tiny-ATR bar, min_atr_percent=0.01 → min_atr=0.1 → int(5000/0.1/100)*100=50,000.
         """
         s = ATRSizer(name="T", period=14, risk=0.01, risk_ratio=2, min_atr_percent=0.01)
-        s.now = datetime.datetime(2026, 1, 15, 10, 0, 0)
+        tp = MagicMock()
+        tp.now.return_value = datetime.datetime(2026, 1, 15, 10, 0, 0)
+        s._time_provider = tp
         df = _bar_df(15, high=10.001, low=10.0, close=10.0)
         _bind_feeder(s, df)
         signal = _make_signal("000001.SZ", DIRECTION_TYPES.LONG)
@@ -209,3 +217,62 @@ class TestATRSizerDoesNotLogDataFrame:
         assert not dataframe_logged, (
             f"#6019: ATRSizer 仍以 INFO 输出完整 DataFrame: {info_args}"
         )
+
+
+class TestATRSizerDecimalColumns:
+    """#4708: 真实回测下 bar 列为 Decimal、cash 也常为 Decimal。
+
+    #4706 引入的算术链 `ATR.cal()*risk_ratio` / `close*min_atr_percent` /
+    `cash*risk` / `close*1.1` 在 Decimal 输入下全部 TypeError（原测试用 float
+    bar + float cash 绕过）。本类补 Decimal 路径回归，与 DualThrust #4708 同源。
+    """
+
+    def test_decimal_bars_and_cash_no_typeerror(self):
+        """Decimal high/low/close + Decimal cash → cal() 不抛 TypeError 且产出合理 volume。
+
+        TR=1 → ATR=1 → atr=2；max_money=5000，max_shares=int(5000/2/100)*100=2500。
+        与 float 路径期望一致（ Decimal 不改变 sizing 语义）。
+        """
+        from decimal import Decimal
+        s = ATRSizer(name="T", period=14, risk=0.01, risk_ratio=2)
+        tp = MagicMock()
+        tp.now.return_value = datetime.datetime(2026, 1, 15, 10, 0, 0)
+        s._time_provider = tp
+        df = pd.DataFrame({
+            "high": [Decimal("11")] * 15,
+            "low": [Decimal("10")] * 15,
+            "close": [Decimal("10")] * 15,
+        })
+        _bind_feeder(s, df)
+        signal = _make_signal("000001.SZ", DIRECTION_TYPES.LONG)
+        info = {"cash": Decimal("500000"), "positions": {}}
+
+        order = s.cal(info, signal)
+
+        assert order is not None
+        assert order.volume == 2500
+
+    def test_decimal_bars_near_zero_atr_floor(self):
+        """Decimal 列 + 近零 ATR → floor 保护生效，不抛 TypeError。
+
+        high=Decimal('10.001')/low=Decimal('10')/close=Decimal('10') → TR=0.001 →
+        atr=0.002 < floor(0.05) → floor 生效 → int(5000/0.05/100)*100=100000。
+        """
+        from decimal import Decimal
+        s = ATRSizer(name="T", period=14, risk=0.01, risk_ratio=2)
+        tp = MagicMock()
+        tp.now.return_value = datetime.datetime(2026, 1, 15, 10, 0, 0)
+        s._time_provider = tp
+        df = pd.DataFrame({
+            "high": [Decimal("10.001")] * 15,
+            "low": [Decimal("10")] * 15,
+            "close": [Decimal("10")] * 15,
+        })
+        _bind_feeder(s, df)
+        signal = _make_signal("000001.SZ", DIRECTION_TYPES.LONG)
+        info = {"cash": Decimal("500000"), "positions": {}}
+
+        order = s.cal(info, signal)
+
+        assert order is not None
+        assert order.volume == 100000

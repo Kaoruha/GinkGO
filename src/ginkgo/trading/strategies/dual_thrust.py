@@ -40,7 +40,10 @@ class StrategyDualThrust(BaseStrategy):
         lc = df["close"].rolling(window=self._spans).min().iloc[-1]
         hc = df["close"].rolling(window=self._spans).max().iloc[-1]
         ll = df["low"].rolling(window=self._spans).min().iloc[-1]
-        return max(hh - lc, hc - ll)
+        # #4708: ClickHouse bar 列为 Decimal，max()/加减结果保留 Decimal；
+        # cal() 的 `open + k_buy * r`（float 系数）会触发 Decimal+float TypeError。
+        # 末尾 float() 归一，使本方法在 float / Decimal 列下都返回 float。
+        return float(max(hh - lc, hc - ll))
 
     def _generate_signal(
         self, portfolio_info, code: str, direction: DIRECTION_TYPES
@@ -75,12 +78,16 @@ class StrategyDualThrust(BaseStrategy):
             return []
 
         today_r = self._calculate_range(df)
-        today_buy_line = df.iloc[-1]["open"] + self._k_buy * today_r
-        today_sell_line = df.iloc[-1]["open"] - self._k_sell * today_r
+        # #4708: Decimal 列下 df.iloc[-1]["open"] 是 Decimal，与 float 系数算术抛
+        # TypeError；显式 float() 归一（与 _calculate_range 返回类型一致）。
+        today_open = float(df.iloc[-1]["open"])
+        today_buy_line = today_open + self._k_buy * today_r
+        today_sell_line = today_open - self._k_sell * today_r
 
         last_r = self._calculate_range(df.iloc[:-1])
-        last_buy_line = df.iloc[-2]["open"] + self._k_buy * last_r
-        last_sell_line = df.iloc[-2]["open"] - self._k_sell * last_r
+        last_open = float(df.iloc[-2]["open"])
+        last_buy_line = last_open + self._k_buy * last_r
+        last_sell_line = last_open - self._k_sell * last_r
 
         has_position = event.code in portfolio_info["positions"]
 

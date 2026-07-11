@@ -1,0 +1,30 @@
+[run]
+source =
+    src/ginkgo
+branch = True
+omit =
+    */tests/*
+    */test/*
+    */__pycache__/*
+    */venv/*
+    */migrations/*
+    */alembic/*
+    */__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

@@ -60,3 +60,44 @@ class TestTemplatesCliRenderFriendlyError:
         assert result.exit_code == 1
         assert "live_signal" in result.output
         assert "Traceback" not in result.output
+
+
+@pytest.mark.unit
+class TestTemplatesCliRenderVariables:
+    """#4873: render -v must pass repeated key=value variables into context."""
+
+    def test_render_repeated_var_options_populate_template_context(self):
+        runner = CliRunner()
+        template = MNotificationTemplate(
+            template_id="long_signal",
+            template_name="Long Signal",
+            content="symbol={{ symbol }} price={{ price }} quantity={{ quantity }}",
+            is_active=True,
+        )
+        mock_crud = MagicMock()
+        mock_crud.get_by_template_id.return_value = template
+
+        with patch(
+            "ginkgo.data.containers.container.notification_template_crud",
+            return_value=mock_crud,
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "render",
+                    "--id",
+                    "long_signal",
+                    "-v",
+                    "symbol=000001",
+                    "-v",
+                    "price=10.50",
+                    "-v",
+                    "quantity=100",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "symbol=000001" in result.output
+        assert "price=10.50" in result.output
+        assert "quantity=100" in result.output
+        assert "解析模板变量JSON失败" not in result.output

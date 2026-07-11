@@ -25,6 +25,53 @@ except ImportError:
     warnings.warn("Ginkgo modules not available, using mock objects")
 
 
+# 单进程 OOM 自动 xdist 守卫（防 Base.metadata 单进程累积触发 80GB monster，详见 memory: test_oom_investigation）
+# 实测 pytest_load_initial_conftests 钩子在 conftest 里注册太晚不被调用，故在 collection_modifyitems
+# （100% 触发）用 os.execvp 重启为 xdist：execvp 清空进程映像（内存归零），新进程 xdist master
+# collect 一次 + worker 进程隔离，总 RSS ~5.75GB（对比单进程 80GB）。
+SINGLE_PROCESS_TEST_THRESHOLD = 200  # 单进程允许的最多测试节点数；单文件 max ~88，余量充足
+
+
+def pytest_collection_modifyitems(config, items):
+    """collect 后若单进程 + 节点数超阈值，自动 execvp 重启为 xdist（防 OOM）。
+    execvp 替换进程映像，旧内存释放；新进程 numprocesses=auto → 守卫跳过，xdist 正常分发。
+    单文件调试（< 阈值）不触发；xdist worker/master 跳过；GINKGO_ALLOW_SINGLE_PROCESS=1 强制单进程。"""
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        return  # xdist worker 进程，跳过
+    if getattr(config.option, "numprocesses", None):
+        return  # 已是 xdist（master 或 -n 已指定），跳过
+    if os.environ.get("GINKGO_ALLOW_SINGLE_PROCESS") == "1":
+        return  # 显式 opt-in 单进程（极端调试，自负风险）
+    if len(items) <= SINGLE_PROCESS_TEST_THRESHOLD:
+        return  # 单文件/小批量调试，单进程最快
+
+    # 超阈值：检查 xdist 可用 → execvp 重启
+    import sys
+    try:
+        import xdist  # noqa: F401
+    except ImportError:
+        pytest.exit(
+            f"❌ 单进程收集到 {len(items)} 个节点（> {SINGLE_PROCESS_TEST_THRESHOLD}），"
+            "OOM 风险且 pytest-xdist 未安装，无法自动隔离。\n"
+            "解决：pip install pytest-xdist，或 GINKGO_ALLOW_SINGLE_PROCESS=1 自负风险。",
+            returncode=1,
+        )
+
+    print(
+        f"⚠️ 单进程收集到 {len(items)} 个测试节点（> {SINGLE_PROCESS_TEST_THRESHOLD}），"
+        f"自动重启为 xdist 进程隔离（防 Base.metadata 累积 OOM）...",
+        flush=True,
+    )
+    new_argv = [sys.executable, "-m", "pytest"] + sys.argv[1:] + ["-n", "auto"]
+    try:
+        os.execvp(sys.executable, new_argv)
+    except OSError as e:
+        pytest.exit(
+            f"❌ execvp 重启失败: {e}\n原始命令: {' '.join(new_argv)}",
+            returncode=1,
+        )
+
+
 # ===== TDD配置 =====
 
 def pytest_configure(config):
