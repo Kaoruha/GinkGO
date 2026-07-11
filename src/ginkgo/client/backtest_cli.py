@@ -454,7 +454,7 @@ def list_tasks(
     status: Optional[str] = typer.Option(
         None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"
     ),
-    page_size: int = typer.Option(20, "--page-size", help="Items per page"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     page: int = typer.Option(0, "--page", help="Page number"),
     limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),

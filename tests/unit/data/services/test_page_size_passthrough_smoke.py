@@ -19,6 +19,7 @@ if _path not in sys.path:
 
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
 
 
 @pytest.fixture
@@ -38,6 +39,12 @@ def portfolio_service():
             crud_repo=MagicMock(),
             portfolio_file_mapping_crud=MagicMock(),
         )
+
+
+@pytest.fixture
+def backtest_task_service():
+    with patch("ginkgo.libs.GLOG"):
+        return BacktestTaskService(crud_repo=MagicMock())
 
 
 class TestPageSizePassthrough:
@@ -95,3 +102,28 @@ class TestPageSizePassthrough:
 
         assert result.success is True
         assert portfolio_service._crud_repo.find.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_backtest_list_page_size_zero_means_all(self, backtest_task_service):
+        """page_size=0 → get_tasks_page_filtered(page_size=None)（0=全量守卫；#6652 review R4）。
+
+        裸 page_size=0 触发 BaseCRUD.find LIMIT 0 返空，破坏 ADR-021 "0=all" 契约；
+        service 层下推 None（与 signal/engine/portfolio service 对称）。
+        """
+        backtest_task_service._crud_repo.get_tasks_page_filtered.return_value = []
+        backtest_task_service._crud_repo.count.return_value = 0
+
+        result = backtest_task_service.list(page_size=0)
+
+        assert result.success is True
+        assert backtest_task_service._crud_repo.get_tasks_page_filtered.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_backtest_list_passes_positive_page_size(self, backtest_task_service):
+        """page_size=15 → get_tasks_page_filtered(page_size=15)（正常分页下推，非 None 归一）。"""
+        backtest_task_service._crud_repo.get_tasks_page_filtered.return_value = []
+        backtest_task_service._crud_repo.count.return_value = 0
+
+        backtest_task_service.list(page_size=15)
+
+        assert backtest_task_service._crud_repo.get_tasks_page_filtered.call_args[1]["page_size"] == 15
