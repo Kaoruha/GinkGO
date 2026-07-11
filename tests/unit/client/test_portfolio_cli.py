@@ -106,10 +106,12 @@ class TestPortfolioHelp:
         """portfolio list --help 显示 list 命令选项"""
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--help"])
         assert result.exit_code == 0
-        assert "--status" in result.output
-        assert "--page" in result.output
-        assert "--page-size" in result.output
-        assert "--raw" in result.output
+        # rich colorize 会把 "--status" 拆成 "-\x1b[1;36m-status"，须先 strip ANSI（见 test_rich_table_width_clirunner）
+        plain = _strip_ansi(result.output)
+        assert "--status" in plain
+        assert "--page" in plain
+        assert "--page-size" in plain
+        assert "--raw" in plain
 
 
 # ============================================================================
@@ -617,6 +619,11 @@ class TestPortfolioDelete:
     def test_delete_with_yes_short_flag(self, mock_container, cli_runner):
         """使用 -y 短标志成功删除（#6006: 统一确认标志跨命令一致）"""
         mock_service = MagicMock()
+        # delete 命令先经 _resolve_portfolio_identifier(portfolio_service.get) 解析 uuid 再删，
+        # 须 mock get 命中，否则 resolved_uuid 为 MagicMock 致断言失败（#5995 resolve 链）。
+        mock_portfolio = MagicMock()
+        mock_portfolio.uuid = "portfolio-uuid-001"
+        mock_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
@@ -905,10 +912,11 @@ class TestGenerateBaselinePagination:
         ):
             _generate_baseline_if_possible("paper-id", "source-id")
 
-        # The evaluator must have been called with the correct engine_id
+        # 代码传 task_id（portfolio_cli.py:991 evaluate_backtest_stability(task_id=task_id)），
+        # 非 engine_id；断言须对齐，否则将来代码真改成传错字段测试反而绿（掩盖回归）。
         mock_evaluator.evaluate_backtest_stability.assert_called_once_with(
             portfolio_id="source-id",
-            engine_id="engine-xyz",
+            task_id="task-abc-123",
         )
 
     def test_handles_empty_paginated_result(self):
