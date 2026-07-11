@@ -39,6 +39,10 @@ from ginkgo.trading.services._assembly.component_loader import ComponentLoader
 from ginkgo.trading.services._assembly.infrastructure_factory import InfrastructureFactory
 from ginkgo.trading.services._assembly.task_engine_builder import TaskEngineBuilder
 from ginkgo.trading.services._assembly.data_preparer import DataPreparer, EngineConfigurationError
+from ginkgo.trading.services._assembly.requirements import (
+    find_missing_required_from_bucketed,
+    format_missing_components_message,
+)
 
 
 # #6098: component_type int → perform_component_binding 的桶名
@@ -145,6 +149,8 @@ class EngineAssemblyService(BaseService):
         # 装配上下文 - 用于ID注入
         self._current_engine_id = None
         self._current_task_id = None
+        # #6640: 最近一次装配失败的具体原因（缺组件时含组件名+绑定命令）；每次装配重置
+        self._assembly_failure_reason = None
 
         # 配置管理器已统一使用GCONF
         self.config_manager = config_manager
@@ -400,6 +406,11 @@ class EngineAssemblyService(BaseService):
             )
 
             if engine is None:
+                # #6640: 优先透传装配层捕获的具体失败原因（如缺 Sizer 的组件名+绑定命令）；
+                # 无具体原因时 fallback 到原笼统信息（如实例化失败、未知装配异常）。
+                reason = self._assembly_failure_reason
+                if reason:
+                    return ServiceResult(success=False, error=reason)
                 return ServiceResult(success=False, error=f"No portfolios bound to engine {engine_id}")
 
             # 清理历史记录（仅当从数据服务获取时）
@@ -470,6 +481,8 @@ class EngineAssemblyService(BaseService):
         # 设置装配上下文
         self._current_engine_id = engine_id
         self._current_task_id = engine_data.get("task_id", engine_id)
+        # #6640: 每次装配重置失败原因，避免上次装配残留污染本次 error
+        self._assembly_failure_reason = None
 
         try:
             self._logger.INFO(
@@ -525,6 +538,18 @@ class EngineAssemblyService(BaseService):
 
                 if not success:
                     self._logger.ERROR(f"Failed to bind portfolio {portfolio_id} to engine")
+                    # #6640: 透传具体缺失组件——用清单检查分桶 components，记录到
+                    # assembly_failure_reason 供 assemble_backtest_engine 构造用户可读 error，
+                    # 替代笼统的 'No portfolios bound to engine'。仅保留首个失败原因，
+                    # 避免多 portfolio 场景下错误信息混乱。
+                    if self._assembly_failure_reason is None:
+                        missing = find_missing_required_from_bucketed(
+                            portfolio_components.get(portfolio_id, {})
+                        )
+                        if missing:
+                            self._assembly_failure_reason = (
+                                format_missing_components_message(portfolio_id, missing)
+                            )
                     continue
                 else:
                     self._logger.INFO(f"✅ Successfully bound portfolio {portfolio_id} to engine")

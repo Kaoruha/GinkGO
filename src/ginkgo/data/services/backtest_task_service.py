@@ -226,6 +226,36 @@ class BacktestTaskService(BaseService):
             ServiceResult: 创建结果
         """
         try:
+            # #6640: 创建预检——校验 portfolio 必需组件（清单单点定义于装配层 requirements）
+            # 缺必需组件时拒绝创建并返回具体组件名 + 绑定命令，避免用户跑到 run
+            # 阶段才看到笼统的 'No portfolios bound to engine'。校验在 service 层
+            # （API/CLI 共享）；portfolio_service 未注入或查询失败时保守放行，
+            # 由装配层 component_loader 兜底（错误经 #6640 透传机制回传具体缺失组件）。
+            portfolio_service = getattr(self, "_portfolio_service", None)
+            if portfolio_id and portfolio_service is not None:
+                # 延迟 import 规避 data → trading 的模块加载期循环
+                from ginkgo.trading.services._assembly.requirements import (
+                    find_missing_required_components,
+                    format_missing_components_message,
+                )
+                comp_result = portfolio_service.get_components(portfolio_id=portfolio_id)
+                # 注意用 `is not None` 而非 truthiness：空 portfolio（0 绑定）的合法
+                # 返回是空 list []（falsy），但语义=「该 portfolio 无绑定」=缺全部必需组件，
+                # 是预检最该拦截的场景。truthiness 会把 [] 当「查询失败」放行，让 fast-feedback
+                # 对最常见的配置不全场景失效（用户须跑到 run 阶段才见错误）。None 才是
+                # 「无 payload / 查询异常」信号，交装配层兜底。
+                if comp_result.is_success() and comp_result.data is not None:
+                    bound_types = {
+                        c.get("component_type")
+                        for c in comp_result.data
+                        if c.get("component_type")
+                    }
+                    missing = find_missing_required_components(bound_types)
+                    if missing:
+                        return ServiceResult.error(
+                            format_missing_components_message(portfolio_id, missing)
+                        )
+
             # 创建任务 (task_id 自动等于 uuid)
             task_data = {
                 "name": name,
