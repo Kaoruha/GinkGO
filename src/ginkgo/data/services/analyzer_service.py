@@ -164,6 +164,32 @@ class AnalyzerService(BaseService):
             GLOG.ERROR(f"按 portfolio 查询失败: {e}")
             return ServiceResult.error(f"按 portfolio 查询失败: {e}")
 
+    def find_latest_before(
+        self,
+        portfolio_id: str,
+        end_time: Any,
+        analyzer_name: Optional[str] = None,
+        use_business_time: bool = True,
+    ) -> ServiceResult:
+        """查询 ``end_time`` 之前最近的 analyzer 记录（按时间倒序，records[0] 为最近）。
+
+        #6048: 封装 ``crud.find_by_time_range``，供 API 层查询上一日净资产基准，
+        避免 API 层直访 CRUD 违反分层（API → Service → CRUD）。
+        """
+        try:
+            records = self._crud_repo.find_by_time_range(
+                portfolio_id=portfolio_id,
+                start_time=None,
+                end_time=end_time,
+                use_business_time=use_business_time,
+                analyzer_name=analyzer_name,
+            )
+            GLOG.INFO(f"按时间范围查询成功: portfolio_id={portfolio_id}, count={len(records) if records else 0}")
+            return ServiceResult.success(records)
+        except Exception as e:
+            GLOG.ERROR(f"按时间范围查询失败: {e}")
+            return ServiceResult.error(f"按时间范围查询失败: {e}")
+
     def get_records(
         self,
         portfolio_id: Optional[str] = None,
