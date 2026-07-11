@@ -111,6 +111,14 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/data/services/test_page_size_passthrough_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: list count_X smoke (#5009 metadata.total)
+        # count_signals/count_orders/count_records/count_positions + get_positions_df(page=)
+        # 是本 PR 新增可执行行，被 containers import 链触达但 smoke 不调方法体 → 门禁红。
+        # 用 mock 依赖（result count_positions/get_positions_df inline 实例化 PositionRecordCRUD
+        # → patch 类构造）补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_list_count_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -122,6 +130,7 @@ jobs:
             tests/unit/client/test_user_cli.py \
             tests/unit/data/mappers/test_bar_mapper.py \
             tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            tests/unit/data/services/test_list_count_smoke.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
