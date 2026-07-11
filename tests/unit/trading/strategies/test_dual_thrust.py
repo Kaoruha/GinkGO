@@ -4,8 +4,9 @@ Dual Thrust 策略单元测试
 覆盖范围:
 - TestDualThrustCal: 突破信号生成（LONG/SHORT/无信号）
 - #5496: Decimal * numpy.float64 类型混用导致 cal() 抛 TypeError 的回归防护
+- #4708: 真实回测下 ClickHouse bar 列为 Decimal，cal() 算术链 Decimal+float 抛 TypeError
 
-Related: #5496
+Related: #5496, #4708
 """
 
 import sys
@@ -160,3 +161,45 @@ class TestDualThrustHistoryWindow:
             f"A 股下交易日数将不足 {spans + 1}，"
             f"触发 df.shape[0] < spans+1 守卫恒零信号 (#4658)"
         )
+
+
+# #4708: 真实 ClickHouse bar 数据列为 Decimal（非 float）。#5496 仅覆盖 float 列路径，
+# 漏掉 Decimal 列：line 78 `df.iloc[-1]["open"] + k_buy * today_r` 触发
+# `Decimal + float` TypeError → cal() 抛 STRATEGY_FAILED → 回测 0 信号。
+# 下述 df 用 Decimal 列模拟真实回测数据形态。
+from decimal import Decimal as _Decimal
+
+DECIMAL_LONG_BREAKOUT_DF = pd.DataFrame({
+    "open":  [_Decimal("100"), _Decimal("100"), _Decimal("100"), _Decimal("100"), _Decimal("100")],
+    "high":  [_Decimal("100.1"), _Decimal("100.1"), _Decimal("100.1"), _Decimal("100.1"), _Decimal("101")],
+    "low":   [_Decimal("99.9"), _Decimal("99.9"), _Decimal("99.9"), _Decimal("99.9"), _Decimal("99")],
+    "close": [_Decimal("99.5"), _Decimal("99.5"), _Decimal("99.5"), _Decimal("99.5"), _Decimal("105")],
+})
+
+DECIMAL_SHORT_BREAKDOWN_DF = pd.DataFrame({
+    "open":  [_Decimal("100"), _Decimal("100"), _Decimal("100"), _Decimal("100"), _Decimal("100")],
+    "high":  [_Decimal("100.1"), _Decimal("100.1"), _Decimal("100.1"), _Decimal("100.1"), _Decimal("101")],
+    "low":   [_Decimal("99.9"), _Decimal("99.9"), _Decimal("99.9"), _Decimal("99.9"), _Decimal("99")],
+    "close": [_Decimal("100.5"), _Decimal("100.5"), _Decimal("100.5"), _Decimal("100.5"), _Decimal("95")],
+})
+
+
+class TestDualThrustDecimalColumns:
+    """#4708: Decimal 列（真实 ClickHouse 形态）下 cal() 不得抛 TypeError"""
+
+    def test_long_breakout_with_decimal_columns(self):
+        """Decimal open/high/low/close 列下，多头突破生成 LONG 不抛 TypeError"""
+        s = _make_strategy(DECIMAL_LONG_BREAKOUT_DF)
+        info = _make_portfolio_info(positions={})
+        result = s.cal(info, _make_price_event("000001.SZ"))
+        assert len(result) == 1
+        assert result[0].direction == DIRECTION_TYPES.LONG
+        assert result[0].code == "000001.SZ"
+
+    def test_short_breakdown_with_decimal_columns(self):
+        """Decimal 列 + 持仓下，空头跌破生成 SHORT 不抛 TypeError"""
+        s = _make_strategy(DECIMAL_SHORT_BREAKDOWN_DF)
+        info = _make_portfolio_info(positions={"000001.SZ": {}})
+        result = s.cal(info, _make_price_event("000001.SZ"))
+        assert len(result) == 1
+        assert result[0].direction == DIRECTION_TYPES.SHORT

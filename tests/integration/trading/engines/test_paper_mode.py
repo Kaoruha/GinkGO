@@ -45,14 +45,14 @@ class TestPaperModeInitialization:
         assert engine.mode == EXECUTION_MODE.PAPER
         assert engine.mode != EXECUTION_MODE.BACKTEST
 
-    def test_paper_mode_rejects_manual_time_advance(self):
-        """PAPER 模式不支持手动时间推进（advance_time_to 返回 False）"""
+    def test_paper_mode_allows_manual_time_advance(self):
+        """PAPER 模式支持手动时间推进（REPLAY 路径依赖 advance_time_to）"""
         engine = TimeControlledEventEngine(
             name="TestPaper",
             mode=EXECUTION_MODE.PAPER,
         )
         result = engine.advance_time_to(engine.now)
-        assert result is False
+        assert result is True
 
 
 class TestPaperLiveEquivalence:
@@ -83,9 +83,9 @@ class TestPaperLiveEquivalence:
         assert paper.get_time_info().time_mode == TIME_MODE.SYSTEM
         assert live.get_time_info().time_mode == TIME_MODE.SYSTEM
 
-    def test_both_reject_manual_time_advance(self):
-        """PAPER 和 LIVE 都不支持手动时间推进"""
+    def test_paper_allows_live_rejects_manual_time_advance(self):
+        """PAPER 支持 REPLAY 推进；LIVE 仍拒绝手动时间推进"""
         paper = self._create_engine(EXECUTION_MODE.PAPER)
         live = self._create_engine(EXECUTION_MODE.LIVE)
-        assert paper.advance_time_to(paper.now) is False
+        assert paper.advance_time_to(paper.now) is True
         assert live.advance_time_to(live.now) is False

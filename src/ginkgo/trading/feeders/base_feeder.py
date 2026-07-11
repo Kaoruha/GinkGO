@@ -79,22 +79,27 @@ class BaseFeeder(EngineBindableMixin, TimeMixin, NamedMixin, Base):
             return pd.DataFrame()
 
     def _load_daybar(self, code: str, dt, *args, **kwargs) -> pd.DataFrame:
-        """默认的数据加载实现（可被子类覆盖）。"""
+        """默认的数据加载实现（可被子类覆盖）。
+
+        #6624: 走 BarService DF 出口 get_bars_df，不再接触 ORM ModelList。
+        传 adjustment_type=FORE 保回测热路径前复权语义（与原 get() 默认一致，
+        ADR-010 例外：feeder 依赖前复权防除权除息日跳空）。
+        """
+        from ginkgo.enums import ADJUSTMENT_TYPES
+
         try:
-            # 调用BarService，获取ServiceResult包装的结果
-            result = self.bar_service.get(
+            result = self.bar_service.get_bars_df(
                 code=code,
                 start_date=dt.date(),
-                end_date=dt.date()
+                end_date=dt.date(),
+                adjustment_type=ADJUSTMENT_TYPES.FORE,
             )
 
-            # 检查ServiceResult并解包数据
-            if result.success and result.data:
-                # BarService现在返回ModelList，使用to_dataframe()转换
-                return result.data.to_dataframe()
-            else:
-                GLOG.ERROR(f"Failed to get bars data: {result.error}")
-                return pd.DataFrame()
+            # DF 出口 data 即 pandas.DataFrame，直接返回（不再 .to_dataframe()）
+            if result.success and result.data is not None:
+                return result.data
+            GLOG.ERROR(f"Failed to get bars data: {result.error}")
+            return pd.DataFrame()
 
         except Exception as e:
             GLOG.ERROR(f"Error in _load_daybar for {code} at {dt}: {e}")

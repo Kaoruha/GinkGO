@@ -11,7 +11,8 @@ Mock strategy:
 
 import json
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from contextlib import contextmanager
+from unittest.mock import MagicMock, patch
 
 from ginkgo.client import notify_cli
 from ginkgo.data.services.base_service import ServiceResult
@@ -24,17 +25,16 @@ import ginkgo.service_hub as service_hub_module
 # ============================================================================
 
 
+@contextmanager
 def _patch_notifier_service(mock_service):
     """Patch service_hub.notifier to return mock_service from notification_service()."""
-    # service_hub_module 实际是 ServiceHub 实例（由 ginkgo.__init__ 导出导致）
-    # 触发懒加载，让 __getattr__ 缓存到实例上
-    _ = service_hub_module.notifier
     mock_notifier = MagicMock()
     mock_notifier.notification_service.return_value = mock_service
-    return patch.object(
-        service_hub_module, "notifier",
-        new_callable=PropertyMock, return_value=mock_notifier,
-    )
+    service_hub_module.register_override("notifier", mock_notifier)
+    try:
+        yield
+    finally:
+        service_hub_module.clear_override("notifier")
 
 
 # ============================================================================
@@ -58,6 +58,13 @@ class TestNotifyCLIHelp:
         assert result.exit_code == 0
         for name in ("list", "add", "delete", "update", "contacts", "toggle"):
             assert name in result.output
+
+    def test_history_help_does_not_advertise_no_arg_mode(self, cli_runner):
+        result = cli_runner.invoke(notify_cli.app, ["history", "--help"])
+
+        assert result.exit_code == 0
+        assert "Show recent 50 records" not in result.output
+        assert 'history --user "Alice"' in result.output
 
 
 # ============================================================================
@@ -324,6 +331,16 @@ class TestNotifyCLIValidation:
 
         assert result.exit_code != 0
 
+    def test_history_without_user_does_not_print_raw_exit_code(self, cli_runner):
+        mock_service = MagicMock()
+
+        with _patch_notifier_service(mock_service):
+            result = cli_runner.invoke(notify_cli.app, ["history"])
+
+        assert result.exit_code != 0
+        assert "Currently only --user filtering is supported" in result.output
+        assert "Error: 1" not in result.output
+
 
 # ============================================================================
 # 4. Exception handling (2)
@@ -339,11 +356,11 @@ class TestNotifyCLIExceptions:
         mock_notifier = MagicMock()
         mock_notifier.notification_service.side_effect = Exception("service down")
 
-        with patch.object(
-            service_hub_module, "notifier",
-            new_callable=PropertyMock, return_value=mock_notifier,
-        ):
+        service_hub_module.register_override("notifier", mock_notifier)
+        try:
             result = cli_runner.invoke(notify_cli.app, ["send", "-u", "Alice", "-c", "Hello"])
+        finally:
+            service_hub_module.clear_override("notifier")
 
         # send_notification catches exceptions and raises typer.Exit(1)
         assert result.exit_code != 0

@@ -23,6 +23,7 @@ from ginkgo.libs import GLOG
 from rich.table import Table
 from rich.panel import Panel
 import json
+import os
 import signal
 import sys
 import time
@@ -277,6 +278,13 @@ def validate(
         console.print(f":information: Validating TaskTimer configuration")
         console.print(f":information: Config file: {config_path}\n")
 
+        if not os.path.isfile(config_path):
+            console.print("[red]:x: Configuration file not found[/red]")
+            console.print(f"[yellow]Missing:[/yellow] {config_path}")
+            console.print("[yellow]Create the default config with:[/yellow] ginkgo init")
+            console.print("[dim]Template: src/ginkgo/config/task_timer.yml -> ~/.ginkgo/task_timer.yml[/dim]")
+            raise typer.Exit(1)
+
         timer = TaskTimer(config_path=config_path)
         is_valid = timer.validate_config()
 
@@ -293,6 +301,8 @@ def validate(
             console.print("[red]:x: Configuration is [bold]INVALID[/bold][/red]")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error validating config: {e}[/red]")
         raise typer.Exit(1)

@@ -219,7 +219,9 @@ class TestUserCRUDCascadeCredentials:
 
         crud_instance.delete(filters={"uuid": "test-uuid-123"})
 
-        crud_instance._cascade_delete_credentials.assert_called_once_with(["test-uuid-123"])
+        crud_instance._cascade_delete_credentials.assert_called_once_with(
+            ["test-uuid-123"], session=mock_session
+        )
 
 
 class TestUserCRUDConstruction:
@@ -233,3 +235,103 @@ class TestUserCRUDConstruction:
         assert crud_instance.model_class is MUser
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
+
+
+class TestUserCRUDTransactions:
+    """事务边界回归测试"""
+
+    @pytest.mark.unit
+    def test_delete_reuses_single_transaction_session_for_all_cascade_steps(self, crud_instance):
+        transaction_session = MagicMock()
+        transaction_session.execute.return_value.rowcount = 1
+        seen_sessions = []
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_scope(session=None):
+            assert session is None
+            yield transaction_session
+
+        mock_user = MagicMock()
+        mock_user.uuid = "user-1"
+
+        def fake_find(*args, **kwargs):
+            seen_sessions.append(("find", kwargs.get("session")))
+            return [mock_user]
+
+        def fake_group(*args, **kwargs):
+            seen_sessions.append(("group", kwargs.get("session")))
+            return 1
+
+        def fake_contacts(*args, **kwargs):
+            seen_sessions.append(("contacts", kwargs.get("session")))
+            return 1
+
+        def fake_credentials(*args, **kwargs):
+            seen_sessions.append(("credentials", kwargs.get("session")))
+            return 1
+
+        crud_instance._session_scope = fake_scope
+        crud_instance.find = fake_find
+        crud_instance._cascade_delete_group_mappings = fake_group
+        crud_instance._cascade_delete_contacts = fake_contacts
+        crud_instance._cascade_delete_credentials = fake_credentials
+
+        result = crud_instance.delete(filters={"uuid": "user-1"})
+
+        assert result == 1
+        assert seen_sessions == [
+            ("find", transaction_session),
+            ("group", transaction_session),
+            ("contacts", transaction_session),
+            ("credentials", transaction_session),
+        ]
+        transaction_session.commit.assert_not_called()
+        transaction_session.close.assert_not_called()
+
+    @pytest.mark.unit
+    def test_cascade_delete_credentials_with_external_session_does_not_commit(self, crud_instance):
+        session = MagicMock()
+        session.execute.return_value.rowcount = 2
+
+        result = crud_instance._cascade_delete_credentials(["user-1"], session=session)
+
+        assert result == 2
+        session.execute.assert_called_once()
+        session.commit.assert_not_called()
+        session.close.assert_not_called()
+
+    @pytest.mark.unit
+    def test_delete_propagates_cascade_db_error_instead_of_swallowing(self, crud_instance):
+        """#6593: 级联 execute() 抛真实 DB 异常时,delete() 必须冒泡真因,而非 except:return 0 静默吞掉。
+
+        回归锚点:共享 session 下,若级联 except 吞异常,session 进入 PendingRollbackState,
+        后续级联与末尾 UPDATE 会在 poisoned session 上继续跑,真因被 PendingRollbackError 掩盖。
+        改 raise 后,第一处级联失败即冒泡真实异常,后续 cascade/UPDATE 的 execute 不应再执行。
+        """
+        from contextlib import contextmanager
+
+        from sqlalchemy.exc import OperationalError
+
+        transaction_session = MagicMock()
+        # 第 1 次 execute(级联 group_mappings)抛真实 DB 异常;后续 execute 即使成功也不应被触达
+        ok_result = MagicMock()
+        ok_result.rowcount = 1
+        db_error = OperationalError("DELETE FROM ...", {}, Exception("connection lost"))
+        transaction_session.execute.side_effect = [db_error, ok_result, ok_result, ok_result]
+
+        @contextmanager
+        def fake_scope(session=None):
+            yield transaction_session
+
+        mock_user = MagicMock()
+        mock_user.uuid = "user-1"
+        crud_instance._session_scope = fake_scope
+        crud_instance.find = MagicMock(return_value=[mock_user])
+
+        with pytest.raises(OperationalError):
+            crud_instance.delete(filters={"uuid": "user-1"})
+
+        # 修复后:第一处级联失败即冒泡,后续 cascade 与末尾 UPDATE 的 execute 不应执行
+        assert transaction_session.execute.call_count == 1

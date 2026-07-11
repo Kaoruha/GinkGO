@@ -91,6 +91,20 @@ class TickService(BaseService):
 
             GLOG.INFO(f"Syncing tick data for {code} on {normalized_date.date()}")
 
+            if normalized_date.weekday() >= 5:
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="tick",
+                    entity_identifier=code,
+                    sync_range=(normalized_date, normalized_date),
+                    sync_strategy="single_date"
+                )
+                sync_result.add_warning("No tick data available from source")
+                duration = time.time() - start_time
+                sync_result.sync_duration = duration
+                return ServiceResult(success=True,
+                                   message=f"No tick data available for {code} on {normalized_date.date()}",
+                                   data=sync_result)
+
             # Check if data exists and fast_mode is enabled
             if fast_mode:
                 try:

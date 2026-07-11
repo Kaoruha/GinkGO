@@ -518,3 +518,35 @@ class TestListComponentsEngines:
 
         mock_display.assert_not_called()
 
+
+
+class TestInitAdminUserTransactions:
+    @pytest.mark.unit
+    def test_init_admin_user_does_not_commit_inside_managed_session(self):
+        from ginkgo.client.core_cli import _init_admin_user
+
+        session = MagicMock()
+        select_result = MagicMock()
+        select_result.fetchone.return_value = None
+        session.execute.side_effect = [select_result, MagicMock(), MagicMock()]
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_session_manager():
+            yield session
+
+        user_crud = MagicMock()
+        user_crud.get_session.side_effect = fake_session_manager
+        mock_container = MagicMock()
+        mock_container.user_crud.return_value = user_crud
+        mock_container.user_credential_crud.return_value = MagicMock()
+
+        with patch("ginkgo.data.containers.container", mock_container), \
+             patch("bcrypt.gensalt", return_value=b"salt"), \
+             patch("bcrypt.hashpw", return_value=b"hashed"):
+            result = _init_admin_user()
+
+        assert result["status"] == "created"
+        assert session.execute.call_count == 3
+        session.commit.assert_not_called()

@@ -292,37 +292,6 @@ console_output_style = "progress"
 # 所需插件
 required_plugins = ["pytest-cov", "pytest-timeout"]
 
-[tool.coverage.run]
-source = ["src/ginkgo"]
-omit = [
-    "*/tests/*",
-    "*/test/*",
-    "*/__pycache__/*",
-    "*/venv/*",
-    "*/migrations/*",
-    "*/alembic/*",
-]
-branch = true
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
-]
-show_missing = true
-skip_covered = false
-
-[tool.coverage.html]
-directory = "htmlcov"
-
 [tool.ruff]
 line-length = 120
 target-version = "py311"

@@ -466,14 +466,14 @@ class TestEngineServiceIntegration:
         verify = engine_service.get(engine_id=uuid)
         assert len(verify.data) == 0
 
-    def test_backtest_to_live_transition(self, engine_service):
+    def test_backtest_to_live_transition(self, engine_service, unique_name):
         """测试回测到实盘的转换流程"""
         # 1. 创建回测引擎
         create = engine_service.add(
-            name="integration_transition",
+            name=f"integration_transition_{unique_name}",
             is_live=False
         )
-        assert create.is_success()
+        assert create.is_success(), f"Create failed: {create.error}"
         uuid = create.data["engine_info"]["uuid"]
 
         # 2. 升级为实盘

@@ -26,6 +26,8 @@ def _mock_bar_service():
     """创建mock bar_service, 返回空DataFrame."""
     service = MagicMock()
     service.get.return_value = ServiceResult(success=False, error="no data", data=None)
+    # #6624: _load_daybar 改走 DF 出口 get_bars_df；mock 失败路径保空结果语义
+    service.get_bars_df.return_value = ServiceResult(success=False, error="no data", data=None)
     return service
 
 
@@ -184,7 +186,32 @@ class TestDaybarDataAccess:
         feeder = _make_feeder_with_time(time_val=datetime.datetime(2023, 6, 1))
         feeder.bar_service = service
         feeder.get_daybar("000001.SZ", "2023-01-01")
-        service.get.assert_called_once()
+        service.get_bars_df.assert_called_once()
+
+    def test_load_daybar_uses_df_export_with_fore_adjustment(self):
+        """#6624: _load_daybar 走 DF 出口 get_bars_df(FORE)，不再 .to_dataframe() ModelList。
+
+        ADR-010 例外：feeder 回测热路径依赖前复权（FORE）。DF 出口内化复权后，
+        feeder 传 FORE 保行为 parity，ModelList 不再泄漏到 feeder。
+        """
+        from ginkgo.enums import ADJUSTMENT_TYPES
+
+        service = _mock_bar_service()
+        expected_df = pd.DataFrame([{"code": "000001.SZ", "close": 10.0}])
+        service.get_bars_df.return_value = ServiceResult(success=True, data=expected_df)
+
+        feeder = _make_feeder_with_time(time_val=datetime.datetime(2023, 6, 1))
+        feeder.bar_service = service
+        result = feeder.get_daybar("000001.SZ", "2023-01-01")
+
+        # 走 DF 出口，传 FORE 复权
+        service.get_bars_df.assert_called_once()
+        _, kwargs = service.get_bars_df.call_args
+        assert kwargs.get("adjustment_type") == ADJUSTMENT_TYPES.FORE
+        # 不再接触 ModelList 出口 get()
+        service.get.assert_not_called()
+        # 直接返回 ServiceResult.data（DF），不再 .to_dataframe()
+        pd.testing.assert_frame_equal(result, expected_df)
 
 
 @pytest.mark.unit
@@ -257,7 +284,7 @@ class TestDataCaching:
         feeder.get_daybar("000001.SZ", "2023-01-01")
         feeder.get_daybar("000001.SZ", "2023-01-01")
         # Second call may use cache
-        assert service.get.call_count >= 1
+        assert service.get_bars_df.call_count >= 1
 
     def test_cache_expiration(self):
         """测试缓存过期"""
@@ -274,7 +301,7 @@ class TestDataCaching:
         feeder.bar_service = service
         feeder.get_daybar("000001.SZ", "2023-01-01")
         feeder.get_daybar("000002.SZ", "2023-01-02")
-        assert service.get.call_count == 2
+        assert service.get_bars_df.call_count == 2
 
 
 @pytest.mark.unit
@@ -334,7 +361,7 @@ class TestErrorHandling:
     def test_data_loading_exception_handling(self):
         """测试数据加载异常处理"""
         service = MagicMock()
-        service.get.side_effect = Exception("DB error")
+        service.get_bars_df.side_effect = Exception("DB error")
         feeder = _make_feeder_with_time(time_val=datetime.datetime(2023, 6, 1))
         feeder.bar_service = service
         result = feeder.get_daybar("000001.SZ", "2023-01-01")

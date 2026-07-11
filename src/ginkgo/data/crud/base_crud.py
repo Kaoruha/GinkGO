@@ -5,13 +5,15 @@
 
 
 
-from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Type
+from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Callable, Type
+from contextlib import contextmanager
 from abc import ABC, abstractmethod
 import pandas as pd
 from sqlalchemy import and_, delete, text, update
 from sqlalchemy.orm import Session
 
 from ginkgo.data.drivers import get_db_connection, add, add_all
+from ginkgo.data.transaction import get_transaction_session, transaction_scope
 from ginkgo.data.models import MClickBase, MMysqlBase, MMongoBase
 from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
@@ -128,6 +130,22 @@ class _CoreCRUD(Generic[T], ABC):
     def get_session(self) -> Session:
         """Get a new database session for external transaction management."""
         return self._get_connection().get_session()
+
+    def _transaction_key(self) -> str:
+        """Return the transaction scope key for this CRUD's backing storage."""
+        return self._get_connection().driver_name
+
+    @contextmanager
+    def _session_scope(self, session: Optional[Session] = None):
+        """Reuse an explicit / active transaction session, or open one new scope."""
+        active_session = session or get_transaction_session(self._transaction_key())
+        if active_session is not None:
+            yield active_session
+            return
+
+        conn = self._get_connection()
+        with transaction_scope(self._transaction_key(), conn.get_session) as managed_session:
+            yield managed_session
 
     # ============================================================================
     # Template Methods - With unified decorators, should not be overridden
@@ -352,58 +370,59 @@ class _CoreCRUD(Generic[T], ABC):
                     f"got {type(item).__name__}"
                 )
 
-        # Step 1: Query existing items
-        backup_items = []
-        try:
-            existing_items = self.find(filters=filters, session=session)
-            backup_items = list(existing_items)
-
-            if len(backup_items) == 0:
-                GLOG.INFO(
-                    f"No existing {self.model_class.__name__} items found matching filters. "
-                    f"No replacement performed."
-                )
-                # Return empty result without performing any insertion
-                return ModelList([], self)
-
-            GLOG.DEBUG(f"Found {len(backup_items)} existing {self.model_class.__name__} items to replace")
-
-        except Exception as e:
-            GLOG.ERROR(f"Failed to query existing {self.model_class.__name__} items: {e}")
-            raise
-
-        # Step 2: Delete existing items
-        try:
-            removed_count = self.remove(filters=filters, session=session)
-            GLOG.DEBUG(f"Deleted {removed_count} existing {self.model_class.__name__} items")
-        except Exception as e:
-            GLOG.ERROR(f"Failed to delete {self.model_class.__name__} items: {e}")
-            raise
-
-        # Step 3: Insert new items
-        try:
-            inserted_items = self.add_batch(new_items, session=session)
-            GLOG.INFO(
-                f"Successfully replaced {len(backup_items)} with {len(new_items)} "
-                f"{self.model_class.__name__} items"
-            )
-            return inserted_items
-        except Exception as e:
-            GLOG.ERROR(f"Failed to insert new {self.model_class.__name__} items, attempting restoration: {e}")
-
-            # Step 4: Restore from backup if insertion fails
+        with self._session_scope(session) as transaction_session:
+            # Step 1: Query existing items
+            backup_items = []
             try:
-                if backup_items:
-                    self.add_batch(backup_items, session=session)
-                    GLOG.INFO(f"Successfully restored {len(backup_items)} backed up {self.model_class.__name__} items")
-            except Exception as restore_error:
-                GLOG.CRITICAL(
-                    f"CRITICAL: Failed to restore {self.model_class.__name__} backup! "
-                    f"Original error: {e}, Restore error: {restore_error}"
-                )
-                raise Exception(f"Replace operation failed and restoration failed: {restore_error}")
+                existing_items = self.find(filters=filters, session=transaction_session)
+                backup_items = list(existing_items)
 
-            raise Exception(f"Replace operation failed: {e}")
+                if len(backup_items) == 0:
+                    GLOG.INFO(
+                        f"No existing {self.model_class.__name__} items found matching filters. "
+                        f"No replacement performed."
+                    )
+                    # Return empty result without performing any insertion
+                    return ModelList([], self)
+
+                GLOG.DEBUG(f"Found {len(backup_items)} existing {self.model_class.__name__} items to replace")
+
+            except Exception as e:
+                GLOG.ERROR(f"Failed to query existing {self.model_class.__name__} items: {e}")
+                raise
+
+            # Step 2: Delete existing items
+            try:
+                removed_count = self.remove(filters=filters, session=transaction_session)
+                GLOG.DEBUG(f"Deleted {removed_count} existing {self.model_class.__name__} items")
+            except Exception as e:
+                GLOG.ERROR(f"Failed to delete {self.model_class.__name__} items: {e}")
+                raise
+
+            # Step 3: Insert new items
+            try:
+                inserted_items = self.add_batch(new_items, session=transaction_session)
+                GLOG.INFO(
+                    f"Successfully replaced {len(backup_items)} with {len(new_items)} "
+                    f"{self.model_class.__name__} items"
+                )
+                return inserted_items
+            except Exception as e:
+                GLOG.ERROR(f"Failed to insert new {self.model_class.__name__} items, attempting restoration: {e}")
+
+                # Step 4: Restore from backup if insertion fails
+                try:
+                    if backup_items:
+                        self.add_batch(backup_items, session=transaction_session)
+                        GLOG.INFO(f"Successfully restored {len(backup_items)} backed up {self.model_class.__name__} items")
+                except Exception as restore_error:
+                    GLOG.CRITICAL(
+                        f"CRITICAL: Failed to restore {self.model_class.__name__} backup! "
+                        f"Original error: {e}, Restore error: {restore_error}"
+                    )
+                    raise Exception(f"Replace operation failed and restoration failed: {restore_error}")
+
+                raise Exception(f"Replace operation failed: {e}")
 
     def count(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> int:
         """
@@ -473,12 +492,8 @@ class _CoreCRUD(Generic[T], ABC):
         # 🎯 Validate enum fields before adding to database
         validated_item = self._validate_item_enum_fields(item)
 
-        if session:
-            result = add(validated_item, session=session)
-        else:
-            conn = self._get_connection()
-            with conn.get_session() as s:
-                result = add(validated_item, session=s)
+        with self._session_scope(session) as s:
+            result = add(validated_item, session=s)
         GLOG.DEBUG(f"Added {self.model_class.__name__} item successfully")
         return result
 
@@ -488,12 +503,8 @@ class _CoreCRUD(Generic[T], ABC):
         """
         converted_items = self._convert_input_batch(items)
 
-        if session:
-            result = add_all(converted_items, session=session)
-        else:
-            conn = self._get_connection()
-            with conn.get_session() as s:
-                result = add_all(converted_items, session=s)
+        with self._session_scope(session) as s:
+            result = add_all(converted_items, session=s)
 
         GLOG.DEBUG(f"Added {len(converted_items)} {self.model_class.__name__} items in batch")
         return result
@@ -511,13 +522,7 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize find logic.
         """
-        if session is None:
-            conn = self._get_connection()
-            session_context = conn.get_session()
-        else:
-            session_context = session
-
-        with session_context as s:
+        with self._session_scope(session) as s:
             # Handle DISTINCT query for specific field
             if distinct_field and hasattr(self.model_class, distinct_field):
                 from sqlalchemy import distinct
@@ -596,13 +601,7 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize remove logic.
         """
-        if session is None:
-            conn = self._get_connection()
-            session_context = conn.get_session()
-        else:
-            session_context = session
-
-        with session_context as s:
+        with self._session_scope(session) as s:
             if self._is_clickhouse:
                 # ClickHouse requires native SQL for DELETE operations
                 from ginkgo.enums import EnumBase  # Import for enum conversion
@@ -662,7 +661,6 @@ class _CoreCRUD(Generic[T], ABC):
                 else:
                     GLOG.DEBUG(f"No filter conditions provided for MySQL delete operation")
                     return 0
-            s.commit()
 
     def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> int:
         """
@@ -671,13 +669,7 @@ class _CoreCRUD(Generic[T], ABC):
         Returns:
             int: Number of records updated
         """
-        if session is None:
-            conn = self._get_connection()
-            session_context = conn.get_session()
-        else:
-            session_context = session
-
-        with session_context as s:
+        with self._session_scope(session) as s:
             # Build filter conditions
             filter_conditions = []
             for field, value in filters.items():
@@ -704,13 +696,7 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize count logic.
         """
-        if session is None:
-            conn = self._get_connection()
-            session_context = conn.get_session()
-        else:
-            session_context = session
-
-        with session_context as s:
+        with self._session_scope(session) as s:
             query = s.query(self.model_class)
 
             if filters:
@@ -726,13 +712,7 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize exists logic.
         """
-        if session is None:
-            conn = self._get_connection()
-            session_context = conn.get_session()
-        else:
-            session_context = session
-
-        with session_context as s:
+        with self._session_scope(session) as s:
             query = s.query(self.model_class)
 
             if filters:
