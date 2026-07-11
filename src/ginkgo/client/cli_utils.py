@@ -4,6 +4,7 @@
 
 
 import json
+import math
 import os
 import sys
 from datetime import date, datetime
@@ -223,6 +224,9 @@ class GinkgoJSONEncoder(json.JSONEncoder):
     - SQLAlchemy DeclarativeBase → 列字典（isinstance 判定，非 ``hasattr(__table__)``）
     - 未识别类型 → ``raise TypeError``（响亮失败，json 标准契约；非 ``super().default()`` 兜底）
     - DataFrame → ``to_dict('records')``（每行一对象，jq 友好）
+    - NaN/±Inf → ``None``（``allow_nan=False`` 标准 JSON 契约；float 是原生类型，
+      ``default()`` 在 C 层直出非法 ``NaN``/``Infinity`` token 前拦不到，故各分支
+      返回值 + 出口 payload 双重 ``_sanitize_json`` 预处理）
     """
 
     def default(self, obj):
@@ -236,19 +240,21 @@ class GinkgoJSONEncoder(json.JSONEncoder):
         if isinstance(obj, UUID):
             return str(obj)
         if isinstance(obj, pd.DataFrame):
-            return obj.to_dict("records")
+            return _sanitize_json(obj.to_dict("records"))
         # pydantic v2 BaseModel —— isinstance 替代 hasattr，防 MagicMock duck-trap 无限递归
         try:
             from pydantic import BaseModel
             if isinstance(obj, BaseModel):
-                return obj.model_dump(mode="json")
+                return _sanitize_json(obj.model_dump(mode="json"))
         except ImportError:
             pass
         # SQLAlchemy ORM Model —— isinstance(DeclarativeBase) 替代 hasattr(__table__)
         try:
             from sqlalchemy.orm import DeclarativeBase
             if isinstance(obj, DeclarativeBase):
-                return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+                return _sanitize_json(
+                    {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+                )
         except ImportError:
             pass
         # 未识别类型：显式 TypeError（json 标准契约，响亮失败而非无限递归 OOM）
@@ -328,6 +334,25 @@ def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
     )
 
 
+def _sanitize_json(obj):
+    """递归将非有限浮点（NaN / +Inf / -Inf）转为 ``None``。
+
+    ``json.dumps`` 默认 ``allow_nan=True`` 会在 C 层直出 ``NaN`` / ``Infinity`` token，
+    非合法 JSON（jq / JS ``JSON.parse`` / Java 严格解析均失败）。``float`` 是原生可
+    序列化类型，``GinkgoJSONEncoder.default()`` 在 C 层输出 token 前拦不到，故序列化
+    前显式清洗；配合 ``json.dumps(..., allow_nan=False)`` 作硬断言（sanitizer 漏网时
+    响亮报错而非静默吐非法 token）。命中场景：ClickHouse 稀疏数值（record_cli 的
+    signal/order/position/analyzer）、新建组合未设 current_capital/cash（portfolio list）。
+    """
+    if isinstance(obj, float):
+        return None if not math.isfinite(obj) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_json(v) for v in obj]
+    return obj
+
+
 def format_result(result, *, format: str, command: str) -> None:
     """统一 ServiceResult → stdout JSON 输出 + exit code 映射（ADR-021 第 5/6/9 维）。
 
@@ -378,7 +403,7 @@ def format_result(result, *, format: str, command: str) -> None:
         else:
             # get 结构（ADR-021 第 9 维 get 类）
             payload = {"success": True, "data": data}
-        print(json.dumps(payload, cls=GinkgoJSONEncoder))
+        print(json.dumps(_sanitize_json(payload), cls=GinkgoJSONEncoder, allow_nan=False))
         # ADR-021 第 6 维：成功 = 正常 return（不显式 Exit），typer 自然 exit 0
         return
 
@@ -390,7 +415,7 @@ def format_result(result, *, format: str, command: str) -> None:
         "data": None,
         "warnings": getattr(result, "warnings", None) or [],
     }
-    print(json.dumps(payload, cls=GinkgoJSONEncoder))
+    print(json.dumps(_sanitize_json(payload), cls=GinkgoJSONEncoder, allow_nan=False))
 
     # exit code 映射（ADR-021 第 6 维）
     if code == "BAD_PARAMS":

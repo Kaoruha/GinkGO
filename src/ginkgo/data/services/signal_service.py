@@ -118,8 +118,9 @@ class SignalService(BaseService):
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
 
-        #5009：page（0-based）/page_size 分页；MSignalTracker 为 MySQL，order_by=create_at
-        desc 保证分页确定性（MySQL 无隐式顺序，缺 order_by 则分页结果不稳定）。
+        #5009：page（0-based）/page_size 分页；MSignal 为 ClickHouse（MClickBase），
+        order_by=timestamp desc 保证分页确定性（CH MergeTree 无隐式顺序保证，
+        缺 order_by 则分页结果不稳定；对齐 analyzer/result_service 同族出口）。
         """
         try:
             filters = self._build_signal_filters(
@@ -129,7 +130,7 @@ class SignalService(BaseService):
                 filters=filters,
                 page=page,
                 page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
-                order_by="create_at",
+                order_by="timestamp",
                 desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
