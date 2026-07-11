@@ -306,14 +306,28 @@ class TestGinkgoJSONEncoder:
         assert out == {"x": 1, "y": "abc"}
 
     def test_sqlalchemy_model_columns_dict(self):
-        col1 = SimpleNamespace(name="id")
-        col2 = SimpleNamespace(name="name")
-        tbl = SimpleNamespace(columns=[col1, col2])
-        record = SimpleNamespace(__table__=tbl)
-        record.id = 42
-        record.name = "foo"
+        # 真实 DeclarativeBase（isinstance 判定，非 SimpleNamespace duck-typing）
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+        class Base(DeclarativeBase):
+            pass
+
+        class Record(Base):
+            __tablename__ = "record_cli_utils_test"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            name: Mapped[str] = mapped_column()
+
+        record = Record(id=42, name="foo")
         out = json.loads(json.dumps(record, cls=cli_utils.GinkgoJSONEncoder))
         assert out == {"id": 42, "name": "foo"}
+
+    def test_magicmock_raises_typeerror_not_infinite_recursion(self):
+        """防回归（OOM 根因）：MagicMock 对任意属性 hasattr 恒 True，
+        旧 ``hasattr(obj, "model_dump")`` duck-typing 触发 C 层无限递归 ~1GB/s → OOM。
+        isinstance 白名单后须抛 TypeError（响亮失败），绝不递归。"""
+        m = MagicMock()
+        with pytest.raises(TypeError):
+            json.dumps(m, cls=cli_utils.GinkgoJSONEncoder)
 
     def test_unknown_type_falls_back_to_default(self):
         # 未覆盖类型应让父类 default 抛 TypeError
