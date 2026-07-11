@@ -190,7 +190,7 @@ class AnalyzerService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -218,6 +218,7 @@ class AnalyzerService(BaseService):
         self,
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
+        page: int = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -225,6 +226,9 @@ class AnalyzerService(BaseService):
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        #5009：page（0-based）/page_size 分页；MAnalyzerRecord 为 ClickHouse，
+        order_by=timestamp desc 保证分页确定性。
         """
         try:
             filters = self._build_analyzer_record_filters(
@@ -232,7 +236,10 @@ class AnalyzerService(BaseService):
             )
             model_list = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page=page,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                order_by="timestamp",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -242,6 +249,22 @@ class AnalyzerService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询 analyzer 记录(df)失败: {e}")
             return ServiceResult.error(f"查询 analyzer 记录(df)失败: {e}")
+
+    def count_records(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+    ) -> ServiceResult:
+        """统计匹配 analyzer 记录总数（#5009：metadata.total 真实总数，非 len(df)）。"""
+        try:
+            filters = self._build_analyzer_record_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id,
+            )
+            count = self._crud_repo.count(filters=filters)
+            return ServiceResult.success({"count": count}, f"Successfully counted analyzer records: {count}")
+        except Exception as e:
+            GLOG.ERROR(f"统计 analyzer 记录失败: {e}")
+            return ServiceResult.error(f"统计 analyzer 记录失败: {e}")
 
     def get_latest_by_portfolio(
         self,

@@ -3,11 +3,8 @@
 # Role: 提供CLI通用工具函数包括获取参数/添加组件/显示树结构等辅助方法
 
 
-
-
-
-
 import json
+import math
 import os
 import sys
 from datetime import date, datetime
@@ -23,49 +20,45 @@ from ginkgo.enums import FILE_TYPES
 
 console = Console()
 
+
 def _get_component_parameters(mapping_id: str, file_id: str, file_type: FILE_TYPES) -> dict:
     """获取组件的参数信息"""
     try:
         from ginkgo.data.containers import container
-        
+
         # 从params表获取所有构造参数
         param_crud = container.cruds.param()
         params_df = param_crud.find(filters={"mapping_id": mapping_id}, order_by="index")
         params_dict = {}
-        
+
         if params_df.shape[0] > 0:
             # 显示所有参数，使用索引作为键名
             for i, param_value in enumerate(params_df["value"].values):
                 params_dict[f"param_{i}"] = param_value
-        
+
         return params_dict
-        
+
     except Exception as e:
         console.print(f"[red]Error getting parameters for {file_id}: {e}[/red]")
         return {}
 
+
 def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filter_type: Optional[FILE_TYPES]):
     """添加Portfolio的组件到树节点"""
     from ginkgo.data.containers import container
-    
+
     # 获取portfolio的文件映射（#6136: 走 mapping_service._df 出口，data 即 DataFrame）
     mapping_service = container.mapping_service()
     mappings_result = mapping_service.get_portfolio_file_mappings_df(portfolio_uuid=portfolio_id)
     portfolio_files = mappings_result.data if mappings_result.success else pd.DataFrame()
-    
+
     if portfolio_files.shape[0] == 0:
         parent_node.add("[dim]No components bound to this portfolio[/dim]")
         return
-    
+
     # 按文件类型分组
-    components = {
-        "selectors": [],
-        "sizers": [],
-        "strategies": [],
-        "risks": [],
-        "analyzers": []
-    }
-    
+    components = {"selectors": [], "sizers": [], "strategies": [], "risks": [], "analyzers": []}
+
     for _, mapping in portfolio_files.iterrows():
         file_type_value = mapping["type"]
         # 将数字转换为枚举
@@ -74,9 +67,9 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
             "name": mapping["name"],
             "id": mapping["file_id"],
             "mapping_id": mapping["uuid"],
-            "type": file_type
+            "type": file_type,
         }
-        
+
         if file_type == FILE_TYPES.SELECTOR:
             components["selectors"].append(component_info)
         elif file_type == FILE_TYPES.SIZER:
@@ -87,7 +80,7 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
             components["risks"].append(component_info)
         elif file_type == FILE_TYPES.ANALYZER:
             components["analyzers"].append(component_info)
-    
+
     # 根据filter_type筛选要显示的组件类型
     component_sections = []
     if filter_type is None:
@@ -96,7 +89,7 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
             ("sizers", ":balance_scale: Sizers", "sizer"),
             ("strategies", ":chart_with_upwards_trend: Strategies", "strategy"),
             ("risks", ":shield: Risk Managements", "risk"),
-            ("analyzers", ":bar_chart: Analyzers", "analyzer")
+            ("analyzers", ":bar_chart: Analyzers", "analyzer"),
         ]
     else:
         type_mapping = {
@@ -104,11 +97,11 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
             FILE_TYPES.SIZER: ("sizers", ":balance_scale: Sizers", "sizer"),
             FILE_TYPES.STRATEGY: ("strategies", ":chart_with_upwards_trend: Strategies", "strategy"),
             FILE_TYPES.RISKMANAGER: ("risks", ":shield: Risk Managements", "risk"),
-            FILE_TYPES.ANALYZER: ("analyzers", ":bar_chart: Analyzers", "analyzer")
+            FILE_TYPES.ANALYZER: ("analyzers", ":bar_chart: Analyzers", "analyzer"),
         }
         if filter_type in type_mapping:
             component_sections = [type_mapping[filter_type]]
-    
+
     # 显示各类组件
     for component_key, section_title, _ in component_sections:
         component_list = components[component_key]
@@ -116,33 +109,37 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
             section_node = parent_node.add(f"[bold]{section_title}[/bold]")
             for component in component_list:
                 component_node = section_node.add(f"{component['name']} [dim]ID:{component['id']}[/dim]")
-                
+
                 if detail:
                     # 获取并显示组件参数详情
-                    params = _get_component_parameters(component['mapping_id'], component['id'], component['type'])
+                    params = _get_component_parameters(component["mapping_id"], component["id"], component["type"])
                     if params:
                         for param_name, param_value in params.items():
                             component_node.add(f"[cyan]{param_name}[/cyan]: [green]{param_value}[/green]")
                     else:
                         component_node.add("[dim]No parameters found[/dim]")
 
+
 def _show_portfolio_tree(portfolio_row, detail: bool, filter_type: Optional[FILE_TYPES]):
     """显示Portfolio树结构"""
-    tree = Tree(f"[bold green]Portfolio:[/bold green] {portfolio_row['name']} ([yellow]{portfolio_row['uuid']}[/yellow])")
-    _add_portfolio_components(tree, portfolio_row['uuid'], detail, filter_type)
+    tree = Tree(
+        f"[bold green]Portfolio:[/bold green] {portfolio_row['name']} ([yellow]{portfolio_row['uuid']}[/yellow])"
+    )
+    _add_portfolio_components(tree, portfolio_row["uuid"], detail, filter_type)
     console.print(tree)
+
 
 def _show_engine_tree(engine_row, detail: bool, filter_type: Optional[FILE_TYPES]):
     """显示Engine树结构"""
     from ginkgo.data.containers import container
-    
+
     tree = Tree(f"[bold blue]Engine:[/bold blue] {engine_row['name']} ([cyan]{engine_row['uuid']}[/cyan])")
-    
+
     # 获取engine关联的portfolios（#6136: 走 mapping_service._df 出口，data 即 DataFrame）
     mapping_service = container.mapping_service()
     mappings_result = mapping_service.get_engine_portfolio_mappings_df(engine_uuid=engine_row["uuid"])
     engine_portfolios = mappings_result.data if mappings_result.success else pd.DataFrame()
-    
+
     if engine_portfolios.shape[0] == 0:
         tree.add("[dim]No portfolios bound to this engine[/dim]")
     else:
@@ -153,7 +150,9 @@ def _show_engine_tree(engine_row, detail: bool, filter_type: Optional[FILE_TYPES
             portfolio_df = portfolio_service.get_portfolio(portfolio_id)
             if portfolio_df.shape[0] > 0:
                 portfolio_row = portfolio_df.iloc[0]
-                portfolio_branch = tree.add(f"[bold green]Portfolio:[/bold green] {portfolio_row['name']} ([yellow]{portfolio_id}[/yellow])")
+                portfolio_branch = tree.add(
+                    f"[bold green]Portfolio:[/bold green] {portfolio_row['name']} ([yellow]{portfolio_id}[/yellow])"
+                )
                 _add_portfolio_components(portfolio_branch, portfolio_id, detail, filter_type)
 
     console.print(tree)
@@ -225,6 +224,9 @@ class GinkgoJSONEncoder(json.JSONEncoder):
     - SQLAlchemy DeclarativeBase → 列字典（isinstance 判定，非 ``hasattr(__table__)``）
     - 未识别类型 → ``raise TypeError``（响亮失败，json 标准契约；非 ``super().default()`` 兜底）
     - DataFrame → ``to_dict('records')``（每行一对象，jq 友好）
+    - NaN/±Inf → ``None``（``allow_nan=False`` 标准 JSON 契约；float 是原生类型，
+      ``default()`` 在 C 层直出非法 ``NaN``/``Infinity`` token 前拦不到，故各分支
+      返回值 + 出口 payload 双重 ``_sanitize_json`` 预处理）
     """
 
     def default(self, obj):
@@ -238,19 +240,21 @@ class GinkgoJSONEncoder(json.JSONEncoder):
         if isinstance(obj, UUID):
             return str(obj)
         if isinstance(obj, pd.DataFrame):
-            return obj.to_dict("records")
+            return _sanitize_json(obj.to_dict("records"))
         # pydantic v2 BaseModel —— isinstance 替代 hasattr，防 MagicMock duck-trap 无限递归
         try:
             from pydantic import BaseModel
             if isinstance(obj, BaseModel):
-                return obj.model_dump(mode="json")
+                return _sanitize_json(obj.model_dump(mode="json"))
         except ImportError:
             pass
         # SQLAlchemy ORM Model —— isinstance(DeclarativeBase) 替代 hasattr(__table__)
         try:
             from sqlalchemy.orm import DeclarativeBase
             if isinstance(obj, DeclarativeBase):
-                return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+                return _sanitize_json(
+                    {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+                )
         except ImportError:
             pass
         # 未识别类型：显式 TypeError（json 标准契约，响亮失败而非无限递归 OOM）
@@ -276,9 +280,7 @@ def safe_confirm(
     if sys.stdin.isatty():
         return bool(typer.confirm(message, default=default))
     if require_tty:
-        raise CliConfirmError(
-            f"需要交互确认但当前非 TTY：{message!r}（用 --yes 显式跳过）"
-        )
+        raise CliConfirmError(f"需要交互确认但当前非 TTY：{message!r}（用 --yes 显式跳过）")
     return bool(default)
 
 
@@ -332,6 +334,25 @@ def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
     )
 
 
+def _sanitize_json(obj):
+    """递归将非有限浮点（NaN / +Inf / -Inf）转为 ``None``。
+
+    ``json.dumps`` 默认 ``allow_nan=True`` 会在 C 层直出 ``NaN`` / ``Infinity`` token，
+    非合法 JSON（jq / JS ``JSON.parse`` / Java 严格解析均失败）。``float`` 是原生可
+    序列化类型，``GinkgoJSONEncoder.default()`` 在 C 层输出 token 前拦不到，故序列化
+    前显式清洗；配合 ``json.dumps(..., allow_nan=False)`` 作硬断言（sanitizer 漏网时
+    响亮报错而非静默吐非法 token）。命中场景：ClickHouse 稀疏数值（record_cli 的
+    signal/order/position/analyzer）、新建组合未设 current_capital/cash（portfolio list）。
+    """
+    if isinstance(obj, float):
+        return None if not math.isfinite(obj) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_json(v) for v in obj]
+    return obj
+
+
 def format_result(result, *, format: str, command: str) -> None:
     """统一 ServiceResult → stdout JSON 输出 + exit code 映射（ADR-021 第 5/6/9 维）。
 
@@ -376,12 +397,13 @@ def format_result(result, *, format: str, command: str) -> None:
                 "success": True,
                 "data": data,
                 "count": len(data),
+                "warnings": getattr(result, "warnings", None) or [],
                 "metadata": getattr(result, "metadata", None) or {},
             }
         else:
             # get 结构（ADR-021 第 9 维 get 类）
             payload = {"success": True, "data": data}
-        print(json.dumps(payload, cls=GinkgoJSONEncoder))
+        print(json.dumps(_sanitize_json(payload), cls=GinkgoJSONEncoder, allow_nan=False))
         # ADR-021 第 6 维：成功 = 正常 return（不显式 Exit），typer 自然 exit 0
         return
 
@@ -391,8 +413,9 @@ def format_result(result, *, format: str, command: str) -> None:
         "success": False,
         "error": {"code": code, "message": error_message},
         "data": None,
+        "warnings": getattr(result, "warnings", None) or [],
     }
-    print(json.dumps(payload, cls=GinkgoJSONEncoder))
+    print(json.dumps(_sanitize_json(payload), cls=GinkgoJSONEncoder, allow_nan=False))
 
     # exit code 映射（ADR-021 第 6 维）
     if code == "BAD_PARAMS":
@@ -402,3 +425,27 @@ def format_result(result, *, format: str, command: str) -> None:
     else:
         exit_code = 1
     raise typer.Exit(code=exit_code)
+
+
+def build_list_result(
+    records: list,
+    *,
+    total: Optional[int] = None,
+    limit: Optional[int] = None,
+    offset: int = 0,
+    order: Optional[str] = None,
+):
+    """Build the ADR-021 list-shaped ServiceResult used by CLI list commands.
+
+    调用方拿到 result 后自行 ``format_result(result, format="json", command=...)``，
+    统一 list 输出 helper（取代 data_cli 旧 ``_emit_json_records``）。
+    """
+    from ginkgo.data.services.base_service import ServiceResult
+
+    result = ServiceResult.success(data=records)
+    result.set_metadata("total", len(records) if total is None else total)
+    result.set_metadata("limit", limit if limit is not None else len(records))
+    result.set_metadata("offset", offset)
+    if order:
+        result.set_metadata("order", order)
+    return result

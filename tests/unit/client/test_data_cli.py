@@ -208,6 +208,69 @@ class TestGetStockinfo:
         assert "000001.SZ" in codes
 
     @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_no_stdout_pollution(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 命中 + --format json：stdout 纯 JSON，filter 诊断 print 不污染（ADR-021 第1维）。
+
+        filter 块的诊断输出（🔍 Applying filter / ✅ Filter matched）是 text 时代预存代码，
+        json 模式须隔离——否则 ``jq .`` / ``json.loads(stdout)`` 崩。命中 2 条（平安银行/浦发银行
+        + 银行行业）。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "银行", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第1维：json 模式 stdout 不得混入 filter 诊断 emoji 文本
+        assert "Applying filter" not in result.output
+        assert "Filter matched" not in result.output
+        # stdout 仍是合法 JSON envelope
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 2
+        codes = [r["code"] for r in payload["data"]]
+        assert "000001.SZ" in codes and "600000.SH" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_empty_envelope(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 无命中 + --format json：发空 envelope exit 0（ADR-021 第9维）。
+
+        filter 无命中时 stdout 须是 ``{"success":true,"data":[],"count":0,...}``，不能纯文本
+        return 零 envelope——机读消费者（回测 worker/CI/脚本）仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "不存在的词xyz", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第9维：空结果发 envelope，非纯文本
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["data"] == []
+        assert payload["count"] == 0
+        # 无命中诊断 print 也不污染 stdout
+        assert "No matching records" not in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_limit_head(self, mock_container, cli_runner):
         """--limit N：stockinfo 分支取前 N 条（head，按 code 排序），ADR-021 第 2 维 order。
 
@@ -243,7 +306,7 @@ class TestGetStockinfo:
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
-        assert result.exit_code == 0  # 不抛异常，只打印错误
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原隐式 exit 0 是 false-success）
         assert "Database connection failed" in result.output
 
     @patch("ginkgo.data.containers.container")
@@ -254,6 +317,19 @@ class TestGetStockinfo:
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
         assert result.exit_code == 1
         assert "Service unavailable" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_service_error_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.error(error="DB down")
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "DB down" in payload["error"]["message"]
 
     @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_filter_no_match(self, mock_container, cli_runner, mock_stockinfo_df):
@@ -319,6 +395,22 @@ class TestGetOtherTypes:
         result = cli_runner.invoke(data_cli.app, ["get", "day"])
         assert result.exit_code == 1
         assert "code" in result.output.lower() or "required" in result.output.lower()
+
+    def test_get_unknown_type_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 未知 data_type → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "bogus", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "bogus" in payload["error"]["message"]
+
+    def test_get_bars_requires_code_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 缺 --code → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "day", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "code" in payload["error"]["message"].lower()
 
     def test_get_bars_with_code(self, cli_runner):
         """获取 bars 数据提供 code 不崩溃"""
@@ -398,6 +490,32 @@ class TestGetOtherTypes:
         assert payload["metadata"]["total"] == 2
         codes = [r["code"] for r in payload["data"]]
         assert "000001.SZ" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_day_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + day 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No bar data found" 零 envelope——机读消费者（回测 worker/CI/脚本）
+        仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_bars_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.bar_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "day", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
 
     @patch("ginkgo.data.containers.container")
     def test_get_day_limit_tail(self, mock_container, cli_runner):
@@ -501,6 +619,32 @@ class TestGetOtherTypes:
         assert payload["metadata"]["limit"] == 1
         prices = [r["price"] for r in payload["data"]]
         assert prices == [10.05]
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + tick 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No tick data found" 零 envelope——day/tick/adjustfactor 三分支
+        空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
 
     @patch("ginkgo.data.containers.container")
     def test_get_tick_format_json_default_limit(self, mock_container, cli_runner):
@@ -615,6 +759,32 @@ class TestGetOtherTypes:
         assert "2024-04-15" in result.output
         assert "2024-10-15" not in result.output
         assert "2025-01-15" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_adjustfactor_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + adjustfactor 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No adjustfactor data found" 零 envelope——day/tick/adjustfactor
+        三分支空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.adjustfactor_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "adjustfactor", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
 
     def test_get_invalid_format_exits_with_code_2(self, cli_runner):
         """#6579 review finding 1：无效 --format 须 exit 2（BAD_PARAMS，ADR-021 第 6 维）。

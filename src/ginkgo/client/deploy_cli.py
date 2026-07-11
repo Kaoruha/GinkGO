@@ -144,16 +144,57 @@ def undeploy(
 
 @app.command("list")
 def list_deployments(
-    portfolio_id: Annotated[Optional[str], typer.Option("--portfolio", "-p", help="按Portfolio ID筛选")] = None,
+    portfolio_id: Annotated[Optional[str], typer.Option("--portfolio", "-p", help="按 Portfolio ID 筛选")] = None,
+    page: int = typer.Option(0, "--page", help="页码（0-based）"),
+    page_size: int = typer.Option(20, "--page-size", help="每页条数（0=全部）"),
+    format: str = typer.Option("text", "--format", "-F", help="输出格式: text/json"),
 ):
     """列出部署记录"""
+    from ginkgo.trading.containers import trading_container
+    from ginkgo.client.cli_utils import build_list_result, format_result
+    from ginkgo.data.services.base_service import ServiceResult
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope（#6652 review E2）。
+    if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page 必须 >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]--page 必须 >= 0[/red]")
+        raise typer.Exit(2)
+    if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size 必须 >= 0（0=全部）", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]--page-size 必须 >= 0（0=全部）[/red]")
+        raise typer.Exit(2)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
+
     try:
-        from ginkgo.trading.containers import trading_container
-
         svc = trading_container.deployment_service()
-        result = svc.list_deployments(portfolio_id=portfolio_id)
+        result = svc.list_deployments(portfolio_id=portfolio_id, page=q_page, page_size=q_page_size)
 
-        if result.success and result.data:
+        if not result.success:
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f"[red]{result.error}[/red]")
+                raise typer.Exit(1)
+
+        records = result.data or []
+        # #5009：metadata.total = count() 真实总数（非 len(records)，records 已被 page_size 截断）
+        count_res = svc.count_deployments(portfolio_id=portfolio_id)
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(records)
+
+        if format == "json":
+            offset = 0 if unlimited else page * page_size
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=offset)
+            format_result(json_result, format="json", command="list")
+            return
+
+        if result.success and records:
             table = Table(title="部署记录")
             # #4719: id 列 overflow="fold"——rich 默认 ellipsis 会用 … 截断长 UUID，
             # 导致终端用户也看不到完整 id；fold 折行完整显示，终端宽时单行、窄时多行
@@ -164,7 +205,7 @@ def list_deployments(
             table.add_column("状态")
             table.add_column("创建时间")
 
-            for d in result.data:
+            for d in records:
                 mode_str = "纸上" if d["mode"] == 1 else "实盘"
                 # #4719: 输出完整 UUID，list→info round-trip 可直接复制；rich Table 自适应列宽
                 table.add_row(
@@ -176,9 +217,22 @@ def list_deployments(
                     d.get("create_at", "")[:19] if d.get("create_at") else "",
                 )
             console.print(table)
+            if unlimited is False and total > len(records):
+                console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页。[/dim]")
         else:
             console.print("[yellow]无部署记录[/yellow]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)

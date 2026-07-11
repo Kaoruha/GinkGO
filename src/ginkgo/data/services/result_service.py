@@ -577,6 +577,7 @@ class ResultService(BaseService):
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
         task_id: Optional[str] = None,
+        page: int = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（查 MPositionRecord 流水表）。
@@ -585,22 +586,23 @@ class ResultService(BaseService):
         非 MPosition（当前态表）。record position 读 MPosition 永远空，须查流水表。
         filter 域与 position_service.get_positions_df 对称（portfolio/engine/task），
         出口契约同为 DataFrame（ADR-010）。
+
+        #5009：page（0-based）/page_size 分页；MPositionRecord 为 ClickHouse 流水表，
+        order_by=timestamp desc 保证分页确定性（CH MergeTree 无隐式顺序保证）。
         """
         try:
+            filters = self._build_position_record_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
+            )
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
             position_record_crud = PositionRecordCRUD()
 
-            filters = {"is_del": False}
-            if portfolio_id:
-                filters["portfolio_id"] = portfolio_id
-            if engine_id:
-                filters["engine_id"] = engine_id
-            if task_id:
-                filters["task_id"] = task_id
-
             model_list = position_record_crud.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page=page,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                order_by="timestamp",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -610,6 +612,37 @@ class ResultService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询持仓记录(df)失败: {str(e)}")
             return ServiceResult.error(f"查询持仓记录(df)失败: {str(e)}")
+
+    def count_positions(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> ServiceResult:
+        """统计匹配持仓流水总数（#5009：metadata.total 真实总数，非 len(df)）。"""
+        try:
+            filters = self._build_position_record_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
+            )
+            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
+            position_record_crud = PositionRecordCRUD()
+            count = position_record_crud.count(filters=filters)
+            return ServiceResult.success({"count": count}, f"Successfully counted positions: {count}")
+        except Exception as e:
+            GLOG.ERROR(f"统计持仓记录失败: {str(e)}")
+            return ServiceResult.error(f"统计持仓记录失败: {str(e)}")
+
+    @staticmethod
+    def _build_position_record_filters(portfolio_id=None, engine_id=None, task_id=None) -> dict:
+        """MPositionRecord 流水表 filter 构造（get_positions_df/count_positions 共用）。"""
+        filters = {"is_del": False}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if engine_id:
+            filters["engine_id"] = engine_id
+        if task_id:
+            filters["task_id"] = task_id
+        return filters
 
     @retry(max_try=3)
     def create_order_record(self, **kwargs) -> ServiceResult:
