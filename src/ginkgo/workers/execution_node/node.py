@@ -511,6 +511,17 @@ class ExecutionNode:
             ValueError: Portfolio不是实盘Portfolio或不存在
         """
         try:
+            # #4863: 早期幂等检查——Scheduler reconcile 会重发加载命令，对已加载
+            # portfolio 在昂贵的 DB 查询 + 引擎装配前直接返回，避免每调度周期重复
+            # 装配。与下方 lock 内检查（node.py 装配后）语义一致，返回 False。
+            with self.portfolio_lock:
+                if portfolio_id in self.portfolios:
+                    logger.info(
+                        f"[LOAD] Portfolio {portfolio_id[:8]} already loaded "
+                        f"(early idempotent skip, reconcile resend)"
+                    )
+                    return False
+
             logger.info(f"[LOAD] Loading portfolio {portfolio_id[:8]} from database...")
 
             # 1. 通过PortfolioService从数据库查询Portfolio配置

@@ -19,6 +19,7 @@ HeartbeatManager - 心跳管理器
 """
 
 from ginkgo.libs import GLOG
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -212,6 +213,8 @@ class HeartbeatManager:
         Redis Key: node:metrics:{node_id} (Hash)
         Fields:
         - portfolio_count: Portfolio 数量
+        - loaded_portfolio_ids: 已加载的 portfolio_id 列表（JSON），供 Scheduler
+          reconcile 判定「plan 分配了但节点没加载」(#4863)
         - queue_size: 平均队列大小
         - status: 节点状态 (RUNNING/PAUSED/STOPPED)
         - cpu_usage: CPU 使用率（预留）
@@ -235,6 +238,7 @@ class HeartbeatManager:
             # 收集性能指标
             metrics = {
                 "portfolio_count": str(len(node.portfolios)),
+                "loaded_portfolio_ids": json.dumps(list(node.portfolios.keys())),
                 "queue_size": str(self.get_average_queue_size()),
                 "status": status,  # 节点状态
                 "cpu_usage": "0.0",  # 预留，未来实现
