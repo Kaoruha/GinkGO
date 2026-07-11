@@ -254,6 +254,18 @@ def run_task(
                         current_date=str(result.data.get("backtest_end_date", "")) if isinstance(result.data, dict) else "",
                     )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
+
+                    # 灌入日志到 ClickHouse（静默降级）—— 镜像非 bg 路径 (L279-288)，
+                    # 否则 --bg 回测日志不灌入、logging logs --task 恒空
+                    # （#5293 在 --bg 场景仍复现，#6564 review 曾标范围外）。
+                    try:
+                        from ginkgo.services.logging.log_ingester import LogIngester
+                        ingester = LogIngester()
+                        ingest_result = ingester.ingest_task_logs(task.uuid)
+                        if ingest_result.inserted > 0:
+                            console.print(f"   Logs ingested: {ingest_result.inserted} records")
+                    except Exception as e:
+                        GLOG.WARNING(f"{e}")
                 else:
                     _emit_backtest_failure(result)
 
