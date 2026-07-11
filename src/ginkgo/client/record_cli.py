@@ -57,8 +57,11 @@ def signal(
             page_size=q_page_size,
         )
         if not result.success:
-            console.print(f":x: [red]{result.error}[/red]")
-            return
+            if format == "json":
+                format_result(result, format="json", command="signal")
+            else:
+                console.print(f":x: [red]{result.error}[/red]")
+                raise typer.Exit(1)
 
         # ADR-010 R2b: get_signals_df 出口已保证 data 为 DataFrame（类型即契约）
         signals_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
@@ -102,7 +105,17 @@ def signal(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f":x: [bold red]Failed to fetch signals:[/bold red] {e}")
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="signal",
+            )
+        else:
+            console.print(f":x: [bold red]Failed to fetch signals:[/bold red] {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -142,8 +155,11 @@ def order(
             page_size=q_page_size,
         )
         if not result.success:
-            console.print(f":x: [red]{result.error}[/red]")
-            return
+            if format == "json":
+                format_result(result, format="json", command="order")
+            else:
+                console.print(f":x: [red]{result.error}[/red]")
+                raise typer.Exit(1)
 
         # ADR-010 R2b: get_orders_df 出口已保证 data 为 DataFrame（类型即契约）
         orders_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
@@ -188,7 +204,17 @@ def order(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f":x: [bold red]Failed to fetch orders:[/bold red] {e}")
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="order",
+            )
+        else:
+            console.print(f":x: [bold red]Failed to fetch orders:[/bold red] {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -231,8 +257,11 @@ def position(
             page_size=q_page_size,
         )
         if not result.success:
-            console.print(f":x: [red]{result.error}[/red]")
-            return
+            if format == "json":
+                format_result(result, format="json", command="position")
+            else:
+                console.print(f":x: [red]{result.error}[/red]")
+                raise typer.Exit(1)
 
         # ADR-010 R2b: get_positions_df 出口已保证 data 为 DataFrame（类型即契约）
         positions_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
@@ -277,7 +306,17 @@ def position(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f":x: [bold red]Failed to fetch positions:[/bold red] {e}")
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="position",
+            )
+        else:
+            console.print(f":x: [bold red]Failed to fetch positions:[/bold red] {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -315,8 +354,11 @@ def analyzer(
             page_size=q_page_size,
         )
         if not result.success:
-            console.print(f":x: [red]{result.error}[/red]")
-            return
+            if format == "json":
+                format_result(result, format="json", command="analyzer")
+            else:
+                console.print(f":x: [red]{result.error}[/red]")
+                raise typer.Exit(1)
 
         analyzer_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
@@ -364,4 +406,14 @@ def analyzer(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f":x: [bold red]Failed to fetch analyzer records:[/bold red] {e}")
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="analyzer",
+            )
+        else:
+            console.print(f":x: [bold red]Failed to fetch analyzer records:[/bold red] {e}")
+            raise typer.Exit(1)

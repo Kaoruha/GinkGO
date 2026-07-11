@@ -169,8 +169,11 @@ def list_deployments(
         result = svc.list_deployments(portfolio_id=portfolio_id, page=q_page, page_size=q_page_size)
 
         if not result.success:
-            console.print(f"[red]{result.error}[/red]")
-            raise typer.Exit(1)
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f"[red]{result.error}[/red]")
+                raise typer.Exit(1)
 
         records = result.data or []
         # #5009：metadata.total = count() 真实总数（非 len(records)，records 已被 page_size 截断）
@@ -214,5 +217,14 @@ def list_deployments(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        if format == "json":
+            from ginkgo.data.services.base_service import ServiceResult
+
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)

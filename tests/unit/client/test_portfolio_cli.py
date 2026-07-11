@@ -464,6 +464,21 @@ class TestPortfolioGet:
         assert "Error" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_get_service_exception_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + get 服务异常 → stdout 合法 JSON 错误 envelope + exit 1。
+
+        与同函数 NOT_FOUND 路径（test_get_not_found_json_format_outputs_not_found_contract）对称：
+        broad except 也须走 format_result，不能 JSON 模式直出 Rich 红字。"""
+        mock_container.portfolio_service.side_effect = Exception("Connection refused")
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "some-uuid", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "Connection refused" in payload["error"]["message"]
+
+    @patch("ginkgo.data.containers.container")
     def test_get_mode_shows_readable_text_backtest(self, mock_container, cli_runner, mock_portfolio):
         """#5326 Mode 字段显示 BACKTEST 而非数字 0"""
         mock_portfolio.mode = 0

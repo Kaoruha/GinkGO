@@ -41,6 +41,8 @@ def _mock_svc(records=None, count=5, list_ok=True):
     list_res.success = list_ok
     list_res.data = records if records is not None else []
     list_res.error = "boom"
+    list_res.code = None  # 真实 failed ServiceResult 形状；避免 MagicMock auto-attr 陷阱
+    list_res.warnings = []  # format_result 失败路径 getattr(result,"warnings") or []；不设则 auto-MagicMock 触发 json 无限递归
     svc.list_deployments.return_value = list_res
 
     count_res = MagicMock()
@@ -132,9 +134,26 @@ class TestDeployListTextAndError:
         assert "无部署记录" in result.output
 
     @pytest.mark.unit
-    def test_list_service_failure_exits_nonzero(self):
+    def test_list_service_failure_json_envelope_exit_nonzero(self):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
         svc = _mock_svc(list_ok=False)
         with patch("ginkgo.trading.containers.trading_container") as tc:
             tc.deployment_service.return_value = svc
             result = runner.invoke(app, ["list", "--format", "json"])
         assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["message"] == "boom"
+
+    @pytest.mark.unit
+    def test_list_service_exception_json_envelope_exit_nonzero(self):
+        """ADR-021 第 1/5/6 维：--format json + service 异常 → INTERNAL envelope + exit 1。"""
+        svc = _mock_svc()
+        svc.list_deployments.side_effect = RuntimeError("db down")
+        with patch("ginkgo.trading.containers.trading_container") as tc:
+            tc.deployment_service.return_value = svc
+            result = runner.invoke(app, ["list", "--format", "json"])
+        assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"

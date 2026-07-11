@@ -47,6 +47,8 @@ def _setup(command, records_df, count=1, ok=True):
     get_res.success = ok
     get_res.data = records_df
     get_res.error = "boom"
+    get_res.code = None  # 真实 failed ServiceResult 形状；避免 MagicMock auto-attr 陷阱
+    get_res.warnings = []  # format_result 失败路径 getattr(result,"warnings") or []；不设则 auto-MagicMock 触发 json 无限递归
     getattr(svc, get_method).return_value = get_res
     count_res = MagicMock()
     count_res.success = True
@@ -123,14 +125,43 @@ class TestRecordValidation:
 
 
 class TestRecordServiceFailure:
-    """get_X_df 失败分支：result.success False → 提示并 return（exit 0，非 raise）。"""
+    """get_X_df 失败分支：result.success False → JSON 模式发 error envelope + exit 1（ADR-021 第 5/6 维）。
+    text 模式打印诊断 + exit 1（原隐式 exit 0 是 bug）。"""
 
     @pytest.mark.unit
     @pytest.mark.parametrize("command", list(_COMMANDS))
-    def test_service_failure_returns_gracefully(self, command):
+    def test_service_failure_json_envelope_exit_nonzero(self, command):
+        cols = _COMMANDS[command][3]
+        ctx, svc, svc_attr, get_method = _setup(command, _df(cols), count=0, ok=False)
+        with ctx as Container:
+            getattr(Container, svc_attr).return_value = svc
+            result = runner.invoke(app, [command, "--format", "json"])
+        assert result.exit_code != 0  # 失败分支 JSON 模式 raise typer.Exit(1)
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["message"] == "boom"
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("command", list(_COMMANDS))
+    def test_service_failure_text_exits_nonzero(self, command):
         cols = _COMMANDS[command][3]
         ctx, svc, svc_attr, _ = _setup(command, _df(cols), count=0, ok=False)
         with ctx as Container:
             getattr(Container, svc_attr).return_value = svc
+            result = runner.invoke(app, [command])  # 默认 text
+        assert result.exit_code != 0  # text 失败也 exit 1（原隐式 exit 0 是 bug）
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("command", list(_COMMANDS))
+    def test_service_exception_json_envelope_exit_nonzero(self, command):
+        """service 抛异常 → except 分支 JSON 模式发 INTERNAL envelope + exit 1（ADR-021 第 1 维）。"""
+        cols = _COMMANDS[command][3]
+        ctx, svc, svc_attr, get_method = _setup(command, _df(cols), count=0, ok=True)
+        getattr(svc, get_method).side_effect = RuntimeError("db down")
+        with ctx as Container:
+            getattr(Container, svc_attr).return_value = svc
             result = runner.invoke(app, [command, "--format", "json"])
-        assert result.exit_code == 0  # 失败分支 return（非 typer.Exit）
+        assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"

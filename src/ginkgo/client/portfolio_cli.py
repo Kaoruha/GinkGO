@@ -391,8 +391,15 @@ def get(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
-        raise typer.Exit(1)
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="get",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
