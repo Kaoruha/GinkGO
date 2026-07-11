@@ -235,7 +235,6 @@ def view_logs(
         msg = str(entry.get("message", ""))[:60]
         style = LEVEL_STYLES.get(lvl, "")
         table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
-        table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
 
     console.print(table)
 

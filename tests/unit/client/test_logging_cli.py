@@ -210,6 +210,54 @@ class TestViewErrors:
         assert call_kwargs["end_time"] is not None
 
 
+@pytest.mark.unit
+@pytest.mark.cli
+class TestViewLogsRendering:
+    """Tests for the 'logs' command row rendering (#5293).
+
+    回归: ``view_logs`` 曾对每条日志 ``table.add_row(...)`` 连续调用两次,
+    导致有日志时每行在表格里渲染两遍。本测试 mock ``Table.add_row`` 计数,
+    断言 N 条日志恰好 N 次 add_row。
+    """
+
+    def _make_log(self, ts: str, msg: str) -> dict:
+        return {"timestamp": ts, "level": "INFO", "event_type": "BACKTEST",
+                "symbol": "", "message": msg}
+
+    def test_logs_no_duplicate_rows(self, cli_runner):
+        mock_service = MagicMock()
+        mock_service.query_backtest_logs.return_value = [
+            self._make_log("2026-05-06 12:00:00", "first"),
+            self._make_log("2026-05-06 13:00:00", "second"),
+        ]
+
+        with patch("ginkgo.services.logging.containers.container") as mock_container, \
+             patch("ginkgo.client.logging_cli.Table") as mock_table_cls:
+            mock_container.log_service.return_value = mock_service
+            table_instance = mock_table_cls.return_value
+            result = cli_runner.invoke(logging_cli.app, ["logs", "--task", "abc"])
+
+        assert result.exit_code == 0
+        assert table_instance.add_row.call_count == 2, (
+            f"每条日志应渲染 1 行, 2 条日志期望 add_row 调用 2 次, "
+            f"实际 {table_instance.add_row.call_count} 次 —— #5293 add_row 重复回归"
+        )
+
+    def test_logs_empty_shows_no_logs_message(self, cli_runner):
+        mock_service = MagicMock()
+        mock_service.query_backtest_logs.return_value = []
+
+        with patch("ginkgo.services.logging.containers.container") as mock_container, \
+             patch("ginkgo.client.logging_cli.Table") as mock_table_cls:
+            mock_container.log_service.return_value = mock_service
+            table_instance = mock_table_cls.return_value
+            result = cli_runner.invoke(logging_cli.app, ["logs", "--task", "abc"])
+
+        assert result.exit_code == 0
+        assert "no logs found" in result.output.lower()
+        assert table_instance.add_row.call_count == 0
+
+
 # ============================================================================
 # 3. Validation / errors (5)
 # ============================================================================
