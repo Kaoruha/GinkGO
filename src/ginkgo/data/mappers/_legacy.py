@@ -22,6 +22,16 @@ from ginkgo.data.models import MAdjustfactor, MStockInfo, MBar
 from ginkgo.data.crud.tick_crud import get_tick_model
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES, FREQUENCY_TYPES, TICKDIRECTION_TYPES
 
+
+def _normalize_tushare_trade_date(value: Any) -> Any:
+    """Keep numeric YYYYMMDD trade dates out of Unix timestamp parsing."""
+    if hasattr(value, "item"):
+        value = value.item()
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
 def dataframe_to_adjustfactor_models(df: pd.DataFrame, code: str) -> List[MAdjustfactor]:
     """
     Maps a DataFrame from Tushare to a list of MAdjustfactor models.
@@ -77,11 +87,13 @@ def dataframe_to_stockinfo_upsert_list(df: pd.DataFrame) -> List[dict]:
 def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[MBar]:
     """Maps a DataFrame from Tushare to a list of MBar models."""
     items = []
-    for _, r in df.iterrows():
+    trade_dates = df["trade_date"]
+    for row_pos, (_, r) in enumerate(df.iterrows()):
         # Skip rows with invalid data
         if pd.isna(r["open"]) or pd.isna(r["close"]) or pd.isna(r["high"]) or pd.isna(r["low"]):
             continue
 
+        trade_date = _normalize_tushare_trade_date(trade_dates.iloc[row_pos])
         items.append(
             MBar(
                 code=code,
@@ -92,22 +104,25 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
                 volume=int(r["vol"]) if pd.notna(r["vol"]) else 0,
                 amount=to_decimal(r["amount"]) if pd.notna(r["amount"]) else to_decimal(0),
                 frequency=FREQUENCY_TYPES.validate_input(frequency),
-                timestamp=datetime_normalize(r["trade_date"]),
+                timestamp=datetime_normalize(trade_date),
                 source=SOURCE_TYPES.TUSHARE.value,
             )
         )
     return items
+
 
 def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[Any]:
     """Maps a DataFrame from Tushare to a list of Bar business entities."""
     from ginkgo.entities import Bar
 
     items = []
-    for _, r in df.iterrows():
+    trade_dates = df["trade_date"]
+    for row_pos, (_, r) in enumerate(df.iterrows()):
         # Skip rows with invalid data
         if pd.isna(r["open"]) or pd.isna(r["close"]) or pd.isna(r["high"]) or pd.isna(r["low"]):
             continue
 
+        trade_date = _normalize_tushare_trade_date(trade_dates.iloc[row_pos])
         # Create Bar business entity in Service layer
         bar = Bar(
             code=code,
@@ -118,7 +133,7 @@ def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_
             volume=int(r["vol"]) if pd.notna(r["vol"]) else 0,
             amount=to_decimal(r["amount"]) if pd.notna(r["amount"]) else to_decimal(0),
             frequency=frequency,
-            timestamp=datetime_normalize(r["trade_date"])
+            timestamp=datetime_normalize(trade_date)
         )
         # Store source information as attribute for CRUD layer
         bar._source = SOURCE_TYPES.TUSHARE
@@ -183,4 +198,3 @@ def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Any]:
             )
         )
     return items
-
