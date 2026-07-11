@@ -119,6 +119,23 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/data/services/test_list_count_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: deployment_service list/count smoke (#5009 pagination)
+        # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
+        # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
+        # smoke 不调方法体 → 门禁红。用 mock 依赖补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/trading/services/test_deployment_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: deploy_cli + record_cli list smoke (#5009 pagination CliRunner)
+        # deploy_cli.list_deployments / record_cli(signal,order,position,analyzer) 为本 PR
+        # 重构（offset 分页 + ADR-021 json envelope + count metadata.total）。CliRunner +
+        # mock container 补命令体覆盖信号，使这些文件脱离 diff coverage gate 豁免（非
+        # list 命令仍豁免：portfolio_cli/engine_cli/flat_cli 的 get/create 等需另开 smoke）。
+        run: |
+          uv run python -m pytest \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -131,6 +148,9 @@ jobs:
             tests/unit/data/mappers/test_bar_mapper.py \
             tests/unit/data/services/test_page_size_passthrough_smoke.py \
             tests/unit/data/services/test_list_count_smoke.py \
+            tests/unit/trading/services/test_deployment_list_smoke.py \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
