@@ -13,7 +13,7 @@ Ginkgo 抽象层长期**四套命名约定并存**，前缀与契约机制错误
 |---|---|---|---|
 | `I*` ABC | `(ABC)` + `@abstractmethod`，nominal 契约 | 9 | `IBroker` `IEventRoutingCenter` `IDataFeeder` |
 | `Base*` ABC | `(ABC)`，带共享实现 | 18 | `BaseStrategy` `BaseEngine` `BaseService` |
-| `I*` + Protocol 混搭 | `class I*(Protocol)`，structural 却套 nominal 前缀 | 5 | `IStrategy(Protocol)` `IEngine(Protocol)` |
+| `I*` + Protocol 混搭 | `class I*(Protocol)`，structural 却套 nominal 前缀 | 4 | `IStrategy(Protocol)` `IEngine(Protocol)` `IPortfolio(Protocol)` `IRiskManagement(Protocol)` |
 | `XxxMixin` | 后缀，实现片段复用 | 14 | `TimeMixin` `ContextMixin` |
 
 **混乱根源**：同一个 `I*` 前缀下，`IBroker(ABC)` 是 nominal 契约、`IStrategy(Protocol)` 却是 structural 鸭子类型——前缀与子类型语义解耦，maintainer 面对一个 `I*` 类须同时回答"前缀归一"与"契约类型归一"两个正交问题。此外 `I*` 前缀是 Java/C# 遗存，PEP 8 不鼓励，Python 标准库从不用。
@@ -78,6 +78,64 @@ Epic A（#6697）的 5 个子 issue 是"抽象层收敛"同一主题的切面：
 - 异常兜底 `try/except+GLOG.ERROR+return nan`（~74×）→ 抽 `@with_error_handling` 装饰器或 `BaseOperator`
 - 窗口提取 `int(window.iloc[0]) if len(window)>0 else default`（41×）→ 抽 `_extract_window` helper
 
+### 原则 6 · 命名空间唯一性：类短名全局唯一
+
+类短名（去模块前缀）**全局唯一**。禁止两种漂移，二者皆为认知负担 + `isinstance` 误判温床：
+
+- **同名双胞胎**：两个不同模块定义同名类。`isinstance(x, BaseEngine)` 在两棵继承树间静默错判——`trade_gateway.py:62` 的 isinstance 用 `bases/` 版 `BaseBroker`，`ManualBroker`（`brokers/` 版子类）实例静默失败类型检查。
+- **同义不同名**：同一概念多种命名。ML 策略基类 `BaseMLStrategy`/`MLStrategyBase`/`StrategyMLBase` 三变体分布 core/quant_ml/trading，维护者须记忆"三者等价"。
+
+`as` 别名是**债务信号**而非消歧手段：出现 `from X import Y as Z` 消歧同名类，说明命名空间冲突，应消除冲突源（合并/改名），而非用别名掩盖。
+
+**判定法**：
+- 同名双胞胎：`grep -rn "^class <ShortName>" src/` 命中 >1 处 = 违反（可机械化，可沉淀为 CI 检查）。
+- 同义不同名：人工判定概念等价（相同 Upstream 角色 + 相同继承契约）。
+
+**收敛矩阵（6 项，2026-07-12 实测）**：
+
+*A. 同名双胞胎（4 项，消除其一）*：
+
+| 短名 | 定义点①（弱） | 定义点②（权威） | 收敛 |
+|---|---|---|---|
+| `BaseEngine` | `core/interfaces/engine_interface.py:37`（死 388 行·0 继承） | `trading/engines/base_engine.py:21`（8 继承者 + isinstance） | 删①留② |
+| `BaseStrategy` | `core/interfaces/strategy_interface.py:26`（0 真策略继承） | `trading/strategies/strategy_base.py:21`（14 继承者） | 删①留② |
+| `BaseBroker` | `trading/bases/base_broker.py:28`（Mixin 根·行情/持仓缓存） | `trading/brokers/base_broker.py:106`（订单/账户状态机） | ①降为 `BrokerCacheMixin`，②为唯一 `BaseBroker` 组合根 |
+| `IBroker` | `trading/interfaces/broker_interface.py:128`（sync·回测/模拟） | `trading/brokers/interfaces.py:281`（async·实盘） | 合并为单一 `Broker(ABC)`（原则 1 去前缀），async/sync 经 `sync_facade` 桥接 |
+
+*B. 同义不同名（2 项，统一命名）*：
+
+| 概念 | 变体 | 权威 | 收敛 |
+|---|---|---|---|
+| 组合基类 | `BasePortfolio`(core) vs `PortfolioBase`(trading·45 引用) | `PortfolioBase` | 删 core 版（随 core 下架） |
+| ML 策略基类 | `BaseMLStrategy`(core) / `MLStrategyBase`(quant_ml) / `StrategyMLBase`(trading) | 单一权威 | 三变体统一为单一类名，归 `trading/strategies/ml_strategy_base.py` |
+
+**消除同名双胞胎 ≠ 消除职责分工**：两个 `BaseBroker` 职责正交（行情缓存 vs 订单状态机），收敛方式是把弱侧降为 Mixin、强侧保留为组合根，而非揉成上帝对象。**类名唯一是约束，职责单一是设计**。
+
+### core/ 整层下架（原则 6 的系统级应用）
+
+`core/interfaces/` 自述"跨领域契约层"，但设计已双重失效，整层下架：
+
+1. **反向依赖实现层**：`core/interfaces/portfolio_interface.py:19-22` import 了 trading 的 `BaseAnalyzer`/`BaseSizer`/`BaseSelector`/`BaseRiskManagement`——契约层依赖实现层，依赖方向倒挂，core 不再是"底层"。
+2. **被同名架空**：core 定义的 `BaseEngine`/`BaseStrategy` 契约，trading 重新定义同名实现版（带 Mixin + ID 管理）、未继承 core 契约——core 契约对 trading 完全失效。
+3. **唯一活契约归域**：`BaseModel`（36 继承者，服务 quant_ml 的 lightgbm/xgboost/sklearn ML 模型层）是 core 唯一活契约，但其领域归属是 ML 而非"核心"——移入 `quant_ml/models/base_model.py`，纠正"万物皆核心"的过度泛化。
+
+**收敛后文件结构（核心目录 before → after）**：
+
+```
+【删除】core/interfaces/{engine,strategy,portfolio}_interface.py   ← 被 trading 同名架空
+【删除】core/interfaces/__init__.py + core/interfaces/ 目录         ← 整层下架
+【删除】core/adapters/（4 文件）                                    ← core 契约胶水层，契约没了胶水无用
+【删除】core/factories/                                             ← #6476 死工厂层
+【移动】core/interfaces/model_interface.py → quant_ml/models/base_model.py
+        （BaseModel 归 ML 域；删死子类 BaseTimeSeriesModel/BaseEnsembleModel）
+【改名】trading/bases/base_broker.py → trading/bases/broker_cache_mixin.py
+        （BaseBroker 弱侧降为 BrokerCacheMixin）
+【删除】trading/brokers/interfaces.py                               ← IBroker(async) 并入 broker.py
+【删除】trading/interfaces/broker_interface.py                      ← IBroker(sync) 并入 broker.py
+【新增】trading/brokers/broker.py                                   ← 统一契约 Broker(ABC)
+【保留】trading/brokers/base_broker.py                              ← 唯一 BaseBroker 组合根
+```
+
 ## Rationale
 
 **为什么删 `I*`、留 `Base*` + 无前缀**：
@@ -95,18 +153,23 @@ Epic A（#6697）的 5 个子 issue 是"抽象层收敛"同一主题的切面：
 
 **为什么模板 ≥3 次抽公共层**：复杂度外溢——74 个 operator 各抄异常模板，改兜底逻辑须改 74 处。集中化让实现体只表达"算什么"，不重抄"怎么兜底"。
 
+**为什么命名空间唯一**：同名双胞胎让 `isinstance` 在两棵继承树间静默错判（`ManualBroker` 通过不了 `bases/BaseBroker` 的类型检查），且 IDE 跳转 / import 自动补全产生歧义；同义不同名让"同一概念"在 codebase 里不可 grep——查 ML 策略基类须同时搜三个名字。两者都打断了"维护者心智模型与代码结构"的对应。`core/` 下架是本原则的系统级推论：core 契约层已被 trading 同名架空 + 反向依赖 trading，存续只会制造"哪个 BaseEngine 是真的"的永久歧义；唯一活契约 `BaseModel` 归域（ML）后，core 失去存续理由。
+
 ## Consequences
 
 **解锁执行**：
 - **#6116**：gateway 单实现 ABC 降级为具体类（原则 2），保留 `LoadBalancer`（多实现族）
-- **#6293**：删 `engine_interface.py` + `BacktestBase`（原则 2），原继承者直继承真实基类 + Mixin
-- **#6476**：删三死工厂层，`ComponentLoader` 文档化为单一接缝，订正 10 处 docstring 漂移，修 `risk_managements` 复数 bug（原则 3）
+- **#6293**：删 `engine_interface.py` + `BacktestBase`（原则 2），原继承者直继承真实基类 + Mixin；**原则 6 扩展范围**：按通则收敛全部 6 个双胞胎/变体（见收敛矩阵）+ `core/` 整层下架 + Broker 统一单根
+- **#6476**：删三死工厂层，`ComponentLoader` 文档化为单一接缝，订正 10 处 docstring 漂移，修 `risk_managements` 复数 bug（原则 3）；**原则 6 连带**：`core/adapters/`（契约胶水层）随 core 下架一并删除
 - **#6479**：operator 协议层（原则 5）+ 注册冲突检测（原则 4）+ 算术运算单一化（原则 3）
 
 **迁移影响**：
 - 9 个 `I*` ABC 改名（`IBroker`→`Broker` 等）+ 全仓 import 同步
-- 5 个 `I*Protocol` 重新定性（真鸭子保留去前缀 / 并入 `Base*`）
-- 删除清单：`engine_interface.py`、`BacktestBase`、`ComponentFactoryService`、`core/factories/`、`AnalyzerRegistry`
+- 4 个 `I*Protocol` 重新定性（真鸭子保留去前缀 / 并入 `Base*`）
+- **原则 6 同名双胞胎收敛**：4 项同名双胞胎（`BaseEngine`/`BaseStrategy`/`BaseBroker`/`IBroker`）消除其一 + 2 项同义不同名（`PortfolioBase`/ML 策略三变体）统一命名
+- **core/ 整层下架**：删 `core/interfaces/`（除 model_interface）+ `core/adapters/` + `core/factories/`；`BaseModel` 移入 `quant_ml/models/`
+- **Broker 统一单根**：`trading/brokers/broker.py`（统一契约）+ `base_broker.py`（唯一组合根）+ `broker_cache_mixin.py`（原 bases/ 弱侧降级）
+- 删除清单：`core/interfaces/{engine,strategy,portfolio}_interface.py`、`core/interfaces/__init__.py`、`core/adapters/`、`core/factories/`、`engine_interface.py`、`BacktestBase`、`ComponentFactoryService`、`AnalyzerRegistry`、`trading/brokers/interfaces.py`、`trading/interfaces/broker_interface.py`
 
 **不在本 ADR 裁定**：
 - #6479 因子引擎的求值解耦方案（`BinaryOpNode` 委托 registry vs 独立 visitor）属 expression 引擎专项架构，待 #6479 落地时另立 ADR
