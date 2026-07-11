@@ -35,6 +35,23 @@ def _display_progress(status_val, raw_progress):
     return raw_progress
 
 
+def _emit_backtest_failure(result):
+    """#6449 re-review #2: 回测失败时若 result.data['preflight_warning'] 有全文，印全文。
+
+    UseCase 层(BacktestOrchestrator)把 preflight warning 全文放 data['preflight_warning']，
+    error 留固定短语；翻译层(CLI)负责全文展示（master console.print(warning) 行为）。
+    多标的(≥4 symbol)时含 #6282 symbol 级 `ginkgo data sync` 指引，曾因 error[:200]
+    截断丢失。bg/非 bg 两失败分支共用此 helper 保对称（ADR-022 §3 不静默）。
+    """
+    console.print(f":x: Backtest failed: {result.error}")
+    preflight_warning = (
+        result.data.get("preflight_warning")
+        if isinstance(result.data, dict) else None
+    )
+    if preflight_warning:
+        console.print(preflight_warning)
+
+
 @app.command("create")
 def create_task(
     portfolio: str = typer.Option(..., "--portfolio", "-p", help="Portfolio UUID (required)"),
@@ -140,16 +157,7 @@ def run_task(
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
-    from ginkgo.workers.backtest_worker.models import BacktestConfig
-    from ginkgo.workers.backtest_worker.task_helpers import (
-        build_engine_data,
-        load_portfolio_components,
-        build_portfolio_config,
-        preflight_data_coverage,
-        build_preflight_warning,
-    )
     from ginkgo.libs import GinkgoLogger
-    from ginkgo.trading.time.clock import now as clock_now
 
     service = container.backtest_task_service()
     result = service.get_by_id(task_id)
@@ -181,44 +189,10 @@ def run_task(
 
     task = result.data
 
-    # 解析 config_snapshot → BacktestConfig
-    config_snapshot = _json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else task.config_snapshot
-    config = BacktestConfig(
-        start_date=config_snapshot.get("start_date", "2024-01-01"),
-        end_date=config_snapshot.get("end_date", "2024-12-31"),
-        initial_cash=config_snapshot.get("initial_cash", 100000),
-        commission_rate=config_snapshot.get("commission_rate", 0.0003),
-        slippage_rate=config_snapshot.get("slippage_rate", 0.0001),
-        benchmark_return=config_snapshot.get("benchmark_return", 0.0),
-        max_position_ratio=config_snapshot.get("max_position_ratio", 0.3),
-        stop_loss_ratio=config_snapshot.get("stop_loss_ratio", 0.05),
-        take_profit_ratio=config_snapshot.get("take_profit_ratio", 0.15),
-        frequency=config_snapshot.get("frequency", "DAY"),
-        analyzers=[],
-    )
-
-    portfolio_uuid = task.portfolio_id
-
-    # #6282: 回测前数据预检 — 在标 running 前查 selector codes 的 bar 覆盖，
-    # 数据缺失/稀疏时前置阻断，避免跑完整个回测才给模糊警告。
-    preflight_report = preflight_data_coverage(
-        portfolio_uuid, config.start_date, config.end_date
-    )
-    warning = build_preflight_warning(preflight_report, config.start_date, config.end_date)
-    if warning:
-        console.print(warning)
-        service.update_status(task.uuid, "failed")
-        raise typer.Exit(1)
-
-    # 更新状态为 running
-    service.update_status(task.uuid, "running")
-
-    console.print(f":rocket: Starting backtest: [bold]{task.name}[/bold]")
-    console.print(f"   Period: {config.start_date} ~ {config.end_date}")
-    console.print(f"   Capital: {config.initial_cash}")
-    console.print(f"   Portfolio: {portfolio_uuid[:12]}")
-    console.print()
-
+    # #6449: 委派 UseCase 层（BacktestOrchestrator.run_from_task）。
+    # config 解析 / preflight 数据预检 / 标 running 全部由 UseCase 层统一处理，
+    # CLI 仅做 task 解析 + UI 输出 + 框架异常翻译。业务层报"事实"
+    # （OrchestratorResult.success=False + 原因），CLI 翻译为 typer.Exit。
     try:
         from ginkgo.trading.services.backtest_orchestrator import BacktestOrchestrator
         from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
@@ -243,45 +217,63 @@ def run_task(
                 current_date=current_date,
             )
 
+        # #6449 review fix: 补回 master 启动 banner（Period/Capital/Portfolio）。
+        # config 已下沉到 run_from_task，banner 仅需 UI 字段，从 task.config_snapshot
+        # 轻量取值；完整 BacktestConfig 解析仍由 UseCase 层负责，避免重复构造。
+        # 解析损坏时退化 '?'；run_from_task 会抛 JSONDecodeError 进下方 except 兜底。
+        try:
+            _snap = _json.loads(task.config_snapshot) if isinstance(task.config_snapshot, str) else (task.config_snapshot or {})
+        except Exception:
+            _snap = {}
+        console.print(f":rocket: Starting backtest: [bold]{task.name}[/bold]")
+        console.print(f"   Period: {_snap.get('start_date', '?')} ~ {_snap.get('end_date', '?')}")
+        console.print(f"   Capital: {_snap.get('initial_cash', '?')}")
+        console.print(f"   Portfolio: {(task.portfolio_id or '?')[:12]}")
+        console.print()
+
         if bg:
             def _run_in_thread():
-                result = orchestrator.run(
-                    task_id=task.uuid,
-                    config=config,
-                    portfolio_id=portfolio_uuid,
-                    progress_callback=_progress_callback,
-                )
+                # #6449 re-review 守卫：bg 线程内 run_from_task 在到达自带 try/except 的
+                # self.run() 之前有未包裹抛异常路径（_json.loads / preflight_data_coverage
+                # DB 不可达 / BacktestConfig 构造）。master 把这些放主线程同步执行从不触发；
+                # 本 PR 下沉进 bg 线程，须镜像非 bg 路径（L255 except Exception）标 failed +
+                # 印原因，否则线程静默死亡、CLI exit 0、task 卡 pending（ADR-022 §3 不静默）。
+                try:
+                    result = orchestrator.run_from_task(
+                        task, progress_callback=_progress_callback,
+                    )
+                except Exception as e:
+                    service.update_status(task.uuid, "failed", error_message=str(e))
+                    console.print(f":x: Backtest failed: {e}")
+                    return
                 if result.is_success():
                     service.update_progress(
                         task.uuid,
                         progress=100,
                         current_stage="FINALIZING",
-                        current_date=str(config.end_date),
+                        current_date=str(result.data.get("backtest_end_date", "")) if isinstance(result.data, dict) else "",
                     )
                     console.print(f":white_check_mark: Backtest completed: {task.uuid[:12]}")
                 else:
-                    console.print(f":x: Backtest failed: {result.error}")
+                    _emit_backtest_failure(result)
 
             thread = threading.Thread(target=_run_in_thread, daemon=True)
             thread.start()
             console.print(f":hourglass: Backtest running in background (thread)")
         else:
-            result = orchestrator.run(
-                task_id=task.uuid,
-                config=config,
-                portfolio_id=portfolio_uuid,
-                progress_callback=_progress_callback,
+            result = orchestrator.run_from_task(
+                task, progress_callback=_progress_callback,
             )
 
             if not result.is_success():
-                console.print(f":x: Backtest failed: {result.error}")
+                _emit_backtest_failure(result)
                 raise typer.Exit(1)
 
             service.update_progress(
                 task.uuid,
                 progress=100,
                 current_stage="FINALIZING",
-                current_date=str(config.end_date),
+                current_date=str(result.data.get("backtest_end_date", "")) if isinstance(result.data, dict) else "",
             )
 
             # 灌入日志到 ClickHouse（静默降级）
@@ -297,6 +289,10 @@ def run_task(
 
             console.print(f":white_check_mark: Backtest completed: [bold green]{task.uuid[:12]}[/bold green]")
 
+    except typer.Exit:
+        # #6590/#6449 守卫：typer.Exit MRO 含 Exception，须在 except Exception 前透传，
+        # 否则 L229 的 raise typer.Exit(1) 被吞，error_message 被写成 str(e)=='1' 覆盖真因。
+        raise
     except Exception as e:
         service.update_status(task.uuid, "failed", error_message=str(e))
         console.print(f":x: Backtest failed: {e}")
