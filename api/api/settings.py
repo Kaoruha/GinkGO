@@ -16,6 +16,7 @@ from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
 from ginkgo.data.services.notification_service import NotificationService
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok
 from core.exceptions import BusinessError
 from middleware.api_stats import collector as api_stats_collector
@@ -1528,7 +1529,7 @@ async def toggle_notification_template(uuid: str, enabled: bool):
 async def list_notification_history(
     type: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=20, ge=1, le=500)
+    page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE)
 ):
     """获取通知历史"""
     try:

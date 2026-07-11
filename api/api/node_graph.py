@@ -21,6 +21,7 @@ from schemas.node_graph import (
     ValidationErrorItem,
 )
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok
 
 # 添加 Ginkgo 源码路径
@@ -51,7 +52,7 @@ def get_file_service():
 async def list_node_graphs(
     portfolio_uuid: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=20, ge=1, le=500),
+    page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
 ):
     """
     获取节点图列表

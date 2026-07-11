@@ -12,6 +12,7 @@ import time as _time
 from ginkgo.data.containers import container
 from ginkgo.enums import MARKET_TYPES, FREQUENCY_TYPES, ADJUSTMENT_TYPES
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok, paginated
 
 router = APIRouter()
@@ -244,7 +245,7 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
 async def get_stockinfo(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=50, ge=1, le=500),
+    page_size: int = Query(default=50, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
     limit: Optional[int] = None
 ):
     """获取股票信息列表（分页，搜索下推到DB层）
@@ -355,7 +356,7 @@ async def get_bars(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500),
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
     order: Optional[str] = None,  # #5652: asc|desc，默认降序（最新在前）
 ):
     """获取K线数据列表（分页）"""
@@ -455,7 +456,7 @@ async def get_ticks(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500),
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
     limit: Optional[int] = None  # #5621: 显式约束返回条数，未传沿用 page_size
 ):
     """获取Tick数据列表（分页）
@@ -549,7 +550,7 @@ async def get_adjust_factors(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500)
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE)
 ):
     """获取复权因子列表（分页）"""
     try:
@@ -849,7 +850,7 @@ async def sync_data(request: DataUpdateRequest):
 async def get_sync_history(
     sync_type: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=20, ge=1, le=500),
+    page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
 ):
     """获取同步历史记录"""
     try:
