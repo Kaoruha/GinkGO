@@ -117,7 +117,7 @@ def list_users(
 
             table = Table(title=f":bust_in_silhouette: Users ({result.data['count']} found)")
             table.add_column("UUID", style="cyan", no_wrap=True)
-            table.add_column("Username", style="green")
+            table.add_column("Username", style="green", no_wrap=True, max_width=24)
             table.add_column("Display Name", style="blue")
             table.add_column("Description", style="dim", max_width=30)
             table.add_column("Type", style="yellow")
@@ -128,7 +128,7 @@ def list_users(
                 active_style = "green" if user["is_active"] else "red"
                 table.add_row(
                     user["uuid"],
-                    user.get("username", ""),
+                    user.get("username", "")[:24],
                     user.get("display_name", "")[:20],
                     (user.get("description") or "")[:30],
                     user["user_type"],

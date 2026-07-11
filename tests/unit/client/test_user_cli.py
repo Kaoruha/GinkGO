@@ -149,6 +149,34 @@ class TestUserList:
         assert "PERSON" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_list_users_truncates_long_username_to_one_row(self, mock_container, cli_runner, mock_user_service):
+        """长 username 不应换行撑乱 user list 表格"""
+        mock_container.user_service.return_value = mock_user_service
+        mock_user_service.list_users.return_value = ServiceResult.success(
+            data={
+                "users": [
+                    {
+                        "uuid": "user-uuid-001",
+                        "username": "very long username with many words causing wrapping in table output",
+                        "display_name": "Display",
+                        "description": "Desc",
+                        "user_type": "PERSON",
+                        "is_active": True,
+                        "create_at": "2025-12-11",
+                    }
+                ],
+                "count": 1,
+            }
+        )
+
+        result = cli_runner.invoke(user_cli.app, ["list"])
+
+        assert result.exit_code == 0
+        assert "user-uuid-001" in result.output
+        assert "very long username with" in result.output
+        assert "\n│               │ long" not in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_list_users_empty(self, mock_container, cli_runner, mock_user_service):
         """无用户时显示提示"""
         mock_container.user_service.return_value = mock_user_service
