@@ -343,6 +343,72 @@ class TestBacktestRunTaskBgGuard:
         )
 
 
+class TestBacktestRunTaskBgIngest:
+    """#6704: --bg 成功分支必须镜像非 bg 路径调 ingest_task_logs。
+
+    否则 --bg 回测日志不灌入 ClickHouse、``logging logs --task`` 恒空
+    （#5293 在 --bg 场景仍复现；#6564 review 曾标范围外）。对称非 bg 路径 L279-288。
+    """
+
+    @patch("ginkgo.services.logging.log_ingester.LogIngester")
+    @patch("ginkgo.data.containers.container")
+    @patch("ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator")
+    def test_bg_success_ingests_task_logs(
+        self, mock_orch_cls, mock_container, mock_log_cls):
+        """--bg 成功后必须调 ingest_task_logs(task.uuid)，与非 bg 路径对称。"""
+        import time
+        from ginkgo.client.backtest_cli import app
+        from ginkgo.trading.services.backtest_orchestrator import OrchestratorResult
+
+        mock_ingester = MagicMock()
+        mock_ingester.ingest_task_logs.return_value = MagicMock(inserted=0)
+        mock_log_cls.return_value = mock_ingester
+
+        mock_service = MagicMock()
+        get_result = MagicMock()
+        get_result.is_success.return_value = True
+        task = MagicMock()
+        task.uuid = "task-bg-ingest-001"
+        task.portfolio_id = "port-bg"
+        task.config_snapshot = '{"start_date": "2024-01-01", "end_date": "2024-06-30"}'
+        get_result.data = task
+        mock_service.get_by_id.return_value = get_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        mock_orch = MagicMock()
+        mock_orch.run_from_task.return_value = OrchestratorResult(success=True, data={})
+        mock_orch_cls.return_value = mock_orch
+
+        invoke_result = runner.invoke(app, ["run", "task-bg-ingest-001", "--bg"])
+
+        # 主线程立即返回 exit 0（bg 契约，daemon 线程后台跑）
+        assert invoke_result.exit_code == 0, (
+            f"--bg 主线程应 exit 0，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+
+        # 轮询等待 bg 线程跑到 ingest（daemon 异步，最多等 2s）
+        deadline = time.monotonic() + 2.0
+        ingest_call = None
+        while time.monotonic() < deadline:
+            for c in mock_ingester.ingest_task_logs.call_args_list:
+                if c.args and c.args[0] == "task-bg-ingest-001":
+                    ingest_call = c
+                    break
+            if ingest_call is not None:
+                break
+            time.sleep(0.02)
+
+        # 守卫断言：--bg 成功必须调 ingest_task_logs（镜像非 bg L279-288）。
+        # 守卫缺失时 --bg 回测日志不灌入 → logging logs --task 恒空（#5293 --bg 场景）。
+        assert ingest_call is not None, (
+            "--bg 成功后必须调 ingest_task_logs(task.uuid) 灌入日志"
+            "（镜像非 bg 路径，#5293 --bg 场景）；"
+            "ingest_task_logs 未被调用 = --bg 回测日志恒不灌入。"
+            f" calls={mock_ingester.ingest_task_logs.call_args_list}"
+        )
+
+
 class TestBacktestRunTaskBanner:
     """#6449 review fix: 非 bg 模式补回 master 启动 banner（Period/Capital/Portfolio）。
 
