@@ -233,80 +233,78 @@ class DataManager(threading.Thread):
 
         return None
 
+    def initialize(self) -> None:
+        """
+        同步初始化：构造 Kafka producer、启动所有 feeders、恢复订阅。
+
+        与 start() 解耦——start() 仅负责孵化后台线程（run()），
+        所有同步 setup 集中在此，可独立调用（#6695）。
+        启动失败（编程错误）原样抛出，不静默吞错。
+        """
+        GLOG.INFO("DataManager initializing...")
+
+        # 初始化 Kafka Producer
+        self._producer = GinkgoProducer()
+
+        # 启动所有 feeders
+        with self._feeder_lock:
+            for feeder_type, feeder in self._feeders.items():
+                if not feeder.initialize():
+                    GLOG.ERROR(f"Failed to initialize feeder {feeder_type}")
+                    continue
+
+                # 设置事件发布器
+                feeder.set_event_publisher(
+                    lambda event, ft=feeder_type: self._on_live_data_received(event, ft)
+                )
+
+                # 启动 feeder
+                if not feeder.start():
+                    GLOG.ERROR(f"Failed to start feeder {feeder_type}")
+                    continue
+
+                GLOG.INFO(f"Feeder {feeder_type} started")
+
+        # 恢复订阅（从数据库）
+        self.restore_subscriptions()
+
+        GLOG.INFO("DataManager initialized")
+
     def start(self) -> bool:
         """
-        启动 DataManager
+        启动 DataManager 后台线程（run()）。
 
-        Returns:
-            bool: 启动是否成功
+        须先调用 initialize() 完成同步 setup（producer/feeders/订阅恢复）。
+        本方法仅孵化线程，遵循 threading.Thread 契约（调用 super().start()）。
+        启动路径上的编程错误原样抛出，不静默吞错（#6695）。
         """
+        GLOG.INFO("DataManager starting...")
+
+        # 标记运行状态
+        self._running.set()
+
+        # 孵化后台线程执行 run()
+        super().start()
+
+        GLOG.INFO("DataManager started successfully")
+
+        # 发送启动通知（通知失败不影响主流程）
         try:
-            GLOG.INFO("DataManager starting...")
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                "DataManager启动成功",
+                level="INFO",
+                module="DataManager",
+                details={
+                    "组件": "DataManager",
+                    "数据源": list(self._feeders.keys()),
+                    "启动时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        except Exception as notify_error:
+            GLOG.WARNING(f"Failed to send start notification: {notify_error}")
 
-            # 初始化 Kafka Producer
-            self._producer = GinkgoProducer()
-
-            # 启动所有 feeders
-            with self._feeder_lock:
-                for feeder_type, feeder in self._feeders.items():
-                    if not feeder.initialize():
-                        GLOG.ERROR(f"Failed to initialize feeder {feeder_type}")
-                        continue
-
-                    # 设置事件发布器
-                    feeder.set_event_publisher(lambda event, ft=feeder_type: self._on_live_data_received(event, ft))
-
-                    # 启动 feeder
-                    if not feeder.start():
-                        GLOG.ERROR(f"Failed to start feeder {feeder_type}")
-                        continue
-
-                    GLOG.INFO(f"Feeder {feeder_type} started")
-
-            # 恢复订阅（从数据库）
-            self.restore_subscriptions()
-
-            # 启动主线程
-            self._running.set()
-            self.start()
-
-            GLOG.INFO("DataManager started successfully")
-
-            # 发送启动通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    "DataManager启动成功",
-                    level="INFO",
-                    module="DataManager",
-                    details={
-                        "组件": "DataManager",
-                        "数据源": list(self._feeders.keys()),
-                        "启动时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    },
-                )
-            except Exception as notify_error:
-                GLOG.WARNING(f"Failed to send start notification: {notify_error}")
-
-            return True
-
-        except Exception as e:
-            GLOG.ERROR(f"DataManager start failed: {e}")
-
-            # 发送失败通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    f"DataManager启动失败: {e}",
-                    level="ERROR",
-                    module="DataManager",
-                    details={"组件": "DataManager", "错误信息": str(e)},
-                )
-            except Exception as e:
-                GLOG.WARNING(f"{e}")
-                pass
-
-            return False
+        return True
 
     def stop(self) -> bool:
         """
