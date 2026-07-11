@@ -33,16 +33,16 @@ router = APIRouter()
 # #5469: SSRF 防护——webhook test 服务端直发用户可控 URL，须拦内网/云元数据。
 # 显式网络表（版本无关，精确对齐 AC：10/172.16-31/192.168/127/169.254 + IPv6 等价段）。
 _BLOCKED_NETWORKS = (
-    ipaddress.ip_network("127.0.0.0/8"),       # IPv4 loopback
-    ipaddress.ip_network("10.0.0.0/8"),        # RFC1918 私有
-    ipaddress.ip_network("172.16.0.0/12"),     # RFC1918 私有（172.16-31）
-    ipaddress.ip_network("192.168.0.0/16"),    # RFC1918 私有
-    ipaddress.ip_network("169.254.0.0/16"),    # link-local（含云元数据 169.254.169.254）
-    ipaddress.ip_network("0.0.0.0/8"),         # unspecified / current-network
-    ipaddress.ip_network("::1/128"),           # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),          # IPv6 unique-local
-    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
-    ipaddress.ip_network("::/128"),            # IPv6 unspecified
+    ipaddress.ip_network("127.0.0.0/8"),  # IPv4 loopback
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC1918 私有
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC1918 私有（172.16-31）
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC1918 私有
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local（含云元数据 169.254.169.254）
+    ipaddress.ip_network("0.0.0.0/8"),  # unspecified / current-network
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 unique-local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+    ipaddress.ip_network("::/128"),  # IPv6 unspecified
 )
 
 
@@ -123,7 +123,7 @@ def get_api_key_service():
 
 def hash_password(password: str) -> str:
     """对密码进行哈希"""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def _resolve_is_admin(user_uuid) -> bool:
@@ -189,8 +189,10 @@ def _require_contact_ownership(req: Request, contact_uuid: str) -> None:
 
 # ==================== 用户管理 ====================
 
+
 class UserSummary(BaseModel):
     """用户摘要"""
+
     uuid: str
     username: str
     display_name: str
@@ -202,6 +204,7 @@ class UserSummary(BaseModel):
 
 class UserCreate(BaseModel):
     """创建用户请求"""
+
     username: str
     password: str
     display_name: str
@@ -212,6 +215,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """更新用户请求"""
+
     # #5458: email 不属于用户档案，由 contacts API 管理；拒绝多余字段
     model_config = ConfigDict(extra="forbid")
 
@@ -221,11 +225,7 @@ class UserUpdate(BaseModel):
 
 
 @router.get("/users")
-async def list_users(
-    req: Request,
-    status: Optional[str] = None,
-    search: Optional[str] = None
-):
+async def list_users(req: Request, status: Optional[str] = None, search: Optional[str] = None):
     """获取用户列表"""
     _require_admin(req)  # #5467
     try:
@@ -241,10 +241,7 @@ async def list_users(
         # 通过 Service 查询用户
         result = user_service.list_users(**filters)
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list users"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list users")
 
         # list_users 返回 {"users": [...], "count": N}
         raw_data = result.data
@@ -258,7 +255,12 @@ async def list_users(
         # 搜索过滤
         if search:
             search_lower = search.lower()
-            users = [u for u in users if search_lower in u.get("username", "").lower() or (u.get("display_name") and search_lower in u.get("display_name", "").lower())]
+            users = [
+                u
+                for u in users
+                if search_lower in u.get("username", "").lower()
+                or (u.get("display_name") and search_lower in u.get("display_name", "").lower())
+            ]
 
         result_list = []
         for user in users:
@@ -269,15 +271,17 @@ async def list_users(
             is_admin = user.get("is_admin", False)
             is_active = user.get("is_active", True)
 
-            result_list.append({
-                "uuid": user.get("uuid", ""),
-                "username": username,
-                "display_name": user.get("display_name") or username,
-                "email": user.get("email", ""),
-                "roles": ["admin"] if is_admin else [],
-                "status": "active" if is_active else "disabled",
-                "created_at": user.get("created_at") or datetime.utcnow().isoformat() + "Z"
-            })
+            result_list.append(
+                {
+                    "uuid": user.get("uuid", ""),
+                    "username": username,
+                    "display_name": user.get("display_name") or username,
+                    "email": user.get("email", ""),
+                    "roles": ["admin"] if is_admin else [],
+                    "status": "active" if is_active else "disabled",
+                    "created_at": user.get("created_at") or datetime.utcnow().isoformat() + "Z",
+                }
+            )
 
         return ok(data=result_list)
 
@@ -285,10 +289,7 @@ async def list_users(
         raise
     except Exception as e:
         logger.error(f"Error listing users: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list users"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list users")
 
 
 @router.post("/users", status_code=201)
@@ -302,10 +303,7 @@ async def create_user(req: Request, data: UserCreate):
         existing_result = user_service.list_users(username=data.username, is_del=False)
         existing_users = existing_result.data.get("users", []) if existing_result.success else []
         if existing_users:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Username already exists"
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
 
         # 哈希密码
         password_hash = hash_password(data.password)
@@ -321,10 +319,7 @@ async def create_user(req: Request, data: UserCreate):
             password_hash=password_hash,
         )
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
 
         created_user_data = result.data
 
@@ -345,24 +340,23 @@ async def create_user(req: Request, data: UserCreate):
 
         logger.info(f"User created: {data.username} (uuid={created_user_data['uuid']})")
 
-        return ok(data={
-            "uuid": created_user_data["uuid"],
-            "username": data.username,
-            "display_name": data.display_name,
-            "email": data.email,
-            "roles": data.roles,
-            "status": data.status,
-            "created_at": created_user_data.get("created_at") or datetime.utcnow().isoformat() + "Z"
-        })
+        return ok(
+            data={
+                "uuid": created_user_data["uuid"],
+                "username": data.username,
+                "display_name": data.display_name,
+                "email": data.email,
+                "roles": data.roles,
+                "status": data.status,
+                "created_at": created_user_data.get("created_at") or datetime.utcnow().isoformat() + "Z",
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
 
 
 @router.get("/users/{uuid}")
@@ -427,7 +421,7 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
             updates["display_name"] = data.display_name
 
         if data.status is not None:
-            updates["is_active"] = (data.status == "active")
+            updates["is_active"] = data.status == "active"
 
         # 凭据相关更新
         if data.roles is not None:
@@ -437,14 +431,8 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
             result = user_service.update_user(uuid, **updates)
             if not result.success:
                 if "not found" in result.error.lower():
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="User not found"
-                    )
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update user"
-                )
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user")
 
         # #6070: 仅当 status 或 roles 实际发生变更时撤销旧 token
         # （与 delete_user/reset_user_password/change_password 一致；改 display_name/email 不触发）
@@ -455,6 +443,7 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
             revoke = True
         if revoke:
             from middleware.auth import token_blacklist
+
             token_blacklist.revoke_user(uuid)
 
         logger.info(f"User updated: {uuid}")
@@ -465,10 +454,7 @@ async def update_user(req: Request, uuid: str, data: UserUpdate):
         raise
     except Exception as e:
         logger.error(f"Error updating user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update user"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user")
 
 
 @router.post("/users/{uuid}/reset-password")
@@ -502,19 +488,14 @@ async def reset_user_password(uuid: str, data: ResetPasswordRequest, req: Reques
         result = user_service.reset_password(uuid, new_password_hash)
         if not result.success:
             if "not found" in result.error.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User credential not found"
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update password"
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User credential not found")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
 
         logger.info(f"Password reset for user: {uuid} by: {caller_uuid}")
 
         # 撤销该用户所有旧 token（防止被重置密码的账户旧 session 仍可用）
         from middleware.auth import token_blacklist
+
         token_blacklist.revoke_user(uuid)
 
         # #5770: 响应不包含明文密码
@@ -524,10 +505,7 @@ async def reset_user_password(uuid: str, data: ResetPasswordRequest, req: Reques
         raise
     except Exception as e:
         logger.error(f"Error resetting password: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reset password"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to reset password")
 
 
 @router.delete("/users/{uuid}")
@@ -539,15 +517,13 @@ async def delete_user(req: Request, uuid: str):
 
         result = user_service.delete_user(uuid)
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         logger.info(f"User deleted: {uuid}")
 
         # 撤销该用户所有 token（防止已删除账户的旧 session 仍可用）
         from middleware.auth import token_blacklist
+
         token_blacklist.revoke_user(uuid)
 
         return ok(message=f"User {uuid} deleted")
@@ -556,16 +532,15 @@ async def delete_user(req: Request, uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete user"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete user")
 
 
 # ==================== 用户联系方式管理 ====================
 
+
 class UserContactSummary(BaseModel):
     """用户联系方式摘要"""
+
     uuid: str
     user_id: str
     contact_type: str  # email, webhook
@@ -577,6 +552,7 @@ class UserContactSummary(BaseModel):
 
 class UserContactCreate(BaseModel):
     """创建联系方式请求"""
+
     contact_type: str  # email, webhook
     address: str
     is_primary: bool = False
@@ -584,6 +560,7 @@ class UserContactCreate(BaseModel):
 
 class UserContactUpdate(BaseModel):
     """更新联系方式请求"""
+
     contact_type: Optional[str] = None
     address: Optional[str] = None
     is_primary: Optional[bool] = None
@@ -592,6 +569,7 @@ class UserContactUpdate(BaseModel):
 
 class UserContactTest(BaseModel):
     """测试联系方式请求"""
+
     address: str
     subject: str = "Ginkgo Test Notification"
     content: str = "This is a test notification from Ginkgo."
@@ -606,33 +584,31 @@ async def list_user_contacts(user_uuid: str):
         # 验证用户存在
         user_result = user_service.get_user(user_uuid)
         if not user_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         # 获取联系方式
         contacts_result = user_service.get_user_contacts(user_uuid)
         if not contacts_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list contacts"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list contacts")
 
         contacts_data = contacts_result.data
         contacts = contacts_data.get("contacts", []) if isinstance(contacts_data, dict) else contacts_data
 
         result = []
         for contact in contacts:
-            result.append({
-                "uuid": contact.get("uuid", ""),
-                "user_id": contact.get("user_id", ""),
-                "contact_type": contact.get("contact_type", "EMAIL").lower(),
-                "address": contact.get("address", ""),
-                "is_primary": contact.get("is_primary", False),
-                "is_active": contact.get("is_active", True),
-                "created_at": contact.get("created_at") or contact.get("create_at") or datetime.utcnow().isoformat() + "Z"
-            })
+            result.append(
+                {
+                    "uuid": contact.get("uuid", ""),
+                    "user_id": contact.get("user_id", ""),
+                    "contact_type": contact.get("contact_type", "EMAIL").lower(),
+                    "address": contact.get("address", ""),
+                    "is_primary": contact.get("is_primary", False),
+                    "is_active": contact.get("is_active", True),
+                    "created_at": contact.get("created_at")
+                    or contact.get("create_at")
+                    or datetime.utcnow().isoformat() + "Z",
+                }
+            )
 
         return ok(data=result)
 
@@ -640,10 +616,7 @@ async def list_user_contacts(user_uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error listing contacts: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list contacts"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list contacts")
 
 
 @router.post("/users/{user_uuid}/contacts", status_code=201)
@@ -655,16 +628,10 @@ async def create_user_contact(user_uuid: str, data: UserContactCreate):
         # 验证用户存在
         user_result = user_service.get_user(user_uuid)
         if not user_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         # 验证联系方式类型
-        type_map = {
-            "email": CONTACT_TYPES.EMAIL,
-            "webhook": CONTACT_TYPES.WEBHOOK
-        }
+        type_map = {"email": CONTACT_TYPES.EMAIL, "webhook": CONTACT_TYPES.WEBHOOK}
         contact_type_enum = type_map.get(data.contact_type.lower(), CONTACT_TYPES.EMAIL)
 
         # 通过 Service 创建联系方式
@@ -675,31 +642,27 @@ async def create_user_contact(user_uuid: str, data: UserContactCreate):
             is_primary=data.is_primary,
         )
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create contact"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create contact")
 
         logger.info(f"Contact created for user: {user_uuid}")
 
-        return ok(data={
-            "uuid": result.data.get("uuid", "") if isinstance(result.data, dict) else "",
-            "user_id": user_uuid,
-            "contact_type": data.contact_type,
-            "address": data.address,
-            "is_primary": data.is_primary,
-            "is_active": True,
-            "created_at": datetime.utcnow().isoformat() + "Z"
-        })
+        return ok(
+            data={
+                "uuid": result.data.get("uuid", "") if isinstance(result.data, dict) else "",
+                "user_id": user_uuid,
+                "contact_type": data.contact_type,
+                "address": data.address,
+                "is_primary": data.is_primary,
+                "is_active": True,
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating contact: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create contact"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create contact")
 
 
 @router.put("/users/contacts/{contact_uuid}")
@@ -714,10 +677,7 @@ async def update_user_contact(contact_uuid: str, data: UserContactUpdate, req: R
         updates = {}
 
         if data.contact_type is not None:
-            type_map = {
-                "email": CONTACT_TYPES.EMAIL,
-                "webhook": CONTACT_TYPES.WEBHOOK
-            }
+            type_map = {"email": CONTACT_TYPES.EMAIL, "webhook": CONTACT_TYPES.WEBHOOK}
             updates["contact_type"] = type_map.get(data.contact_type.lower(), CONTACT_TYPES.EMAIL).value
 
         if data.address is not None:
@@ -733,13 +693,9 @@ async def update_user_contact(contact_uuid: str, data: UserContactUpdate, req: R
             result = user_service.update_contact(contact_uuid, **updates)
             if not result.success:
                 if "not found" in result.error.lower():
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Contact not found"
-                    )
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update contact"
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update contact"
                 )
 
         logger.info(f"Contact updated: {contact_uuid}")
@@ -750,10 +706,7 @@ async def update_user_contact(contact_uuid: str, data: UserContactUpdate, req: R
         raise
     except Exception as e:
         logger.error(f"Error updating contact: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update contact"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update contact")
 
 
 @router.delete("/users/contacts/{contact_uuid}")
@@ -764,10 +717,7 @@ async def delete_user_contact(contact_uuid: str):
 
         result = user_service.delete_contact(contact_uuid)
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contact not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
 
         logger.info(f"Contact deleted: {contact_uuid}")
 
@@ -777,10 +727,7 @@ async def delete_user_contact(contact_uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting contact: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete contact"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete contact")
 
 
 @router.post("/users/contacts/{contact_uuid}/test")
@@ -792,10 +739,7 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
         # 获取联系方式
         contact_result = user_service.get_contact(contact_uuid)
         if not contact_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contact not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
 
         contact = contact_result.data
         contact_type = contact.get_contact_type_enum()
@@ -803,48 +747,34 @@ async def test_user_contact(contact_uuid: str, data: UserContactTest):
         # 根据联系方式类型发送测试通知
         if contact_type == CONTACT_TYPES.EMAIL:
             # #5595: 邮件发送未实现——诚实返 501，不假装发送成功
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="Email sending is not implemented"
-            )
+            raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Email sending is not implemented")
         elif contact_type == CONTACT_TYPES.WEBHOOK:
             # Webhook 已实现（下方 requests.post 实发），原 TODO 注释为过期残留（#5595）
             # #5469: 发送前校验目标 URL 防 SSRF（拦内网/云元数据/scheme），不安全抛 400。
             _assert_safe_webhook_url(data.address)
             import requests
+
             try:
                 response = requests.post(
-                    data.address,
-                    json={
-                        "subject": data.subject,
-                        "content": data.content,
-                        "test": True
-                    },
-                    timeout=10
+                    data.address, json={"subject": data.subject, "content": data.content, "test": True}, timeout=10
                 )
-                return ok(data={
-                    "detail": f"Status code: {response.status_code}"
-                }, message=f"Test webhook sent to {data.address}")
+                return ok(
+                    data={"detail": f"Status code: {response.status_code}"},
+                    message=f"Test webhook sent to {data.address}",
+                )
             except Exception as e:
                 logger.error(f"Webhook test failed: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Webhook test failed"
-                )
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Webhook test failed")
         else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported contact type: {contact_type}"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported contact type: {contact_type}"
             )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error testing contact: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to test contact"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to test contact")
 
 
 @router.post("/users/contacts/{contact_uuid}/set-primary")
@@ -856,10 +786,7 @@ async def set_primary_contact(contact_uuid: str):
         # 获取联系方式
         contact_result = user_service.get_contact(contact_uuid)
         if not contact_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contact not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
 
         contact = contact_result.data
 
@@ -883,16 +810,15 @@ async def set_primary_contact(contact_uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error setting primary contact: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set primary contact"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to set primary contact")
 
 
 # ==================== 用户组管理 ====================
 
+
 class UserGroupSummary(BaseModel):
     """用户组摘要"""
+
     uuid: str
     name: str
     description: Optional[str]
@@ -902,6 +828,7 @@ class UserGroupSummary(BaseModel):
 
 class UserGroupCreate(BaseModel):
     """创建用户组请求"""
+
     name: str
     description: Optional[str] = None
     permissions: List[str] = []
@@ -909,6 +836,7 @@ class UserGroupCreate(BaseModel):
 
 class UserGroupUpdate(BaseModel):
     """更新用户组请求"""
+
     name: Optional[str] = None
     description: Optional[str] = None
     permissions: Optional[List[str]] = None
@@ -922,10 +850,7 @@ async def list_user_groups():
 
         result = group_service.list_groups()
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list user groups"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list user groups")
 
         raw_groups = result.data
         # user 版 list_groups 返 dict {"groups":[...],"count":N}；#5625 mock 仍返 list。
@@ -939,13 +864,15 @@ async def list_user_groups():
         group_list = []
         for group_data in raw_groups:
             group_uuid = group_data["uuid"]
-            group_list.append({
-                "uuid": group_uuid,
-                "name": group_data["name"],
-                "description": group_data.get("description", ""),
-                "user_count": member_counts.get(group_uuid, 0),
-                "permissions": []
-            })
+            group_list.append(
+                {
+                    "uuid": group_uuid,
+                    "name": group_data["name"],
+                    "description": group_data.get("description", ""),
+                    "user_count": member_counts.get(group_uuid, 0),
+                    "permissions": [],
+                }
+            )
 
         return ok(data=group_list)
 
@@ -953,10 +880,7 @@ async def list_user_groups():
         raise
     except Exception as e:
         logger.error(f"Error listing user groups: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list user groups"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list user groups")
 
 
 @router.post("/user-groups", status_code=201)
@@ -969,43 +893,38 @@ async def create_user_group(data: UserGroupCreate):
         existing_result = group_service.list_groups()
         if existing_result.success:
             existing_payload = existing_result.data or {}
-            existing_groups = existing_payload.get("groups", []) if isinstance(existing_payload, dict) else (existing_payload or [])
+            existing_groups = (
+                existing_payload.get("groups", []) if isinstance(existing_payload, dict) else (existing_payload or [])
+            )
             for g in existing_groups:
                 if g["name"] == data.name:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="Group name already exists"
-                    )
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Group name already exists")
 
         result = group_service.create_group(
             name=data.name,
             description=data.description or "",
         )
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user group"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user group")
 
         group_data = result.data
         logger.info(f"User group created: {data.name} (uuid={group_data['uuid']})")
 
-        return ok(data={
-            "uuid": group_data["uuid"],
-            "name": data.name,
-            "description": data.description or "",
-            "user_count": 0,
-            "permissions": data.permissions
-        })
+        return ok(
+            data={
+                "uuid": group_data["uuid"],
+                "name": data.name,
+                "description": data.description or "",
+                "user_count": 0,
+                "permissions": data.permissions,
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating user group: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user group"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user group")
 
 
 @router.put("/user-groups/{uuid}")
@@ -1023,15 +942,11 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
                 existing_data = existing_result.data
                 # user 版 list_groups 返 dict（取 "groups"）；#5625 mock 返 list（直用）
                 existing_groups = (
-                    existing_data.get("groups", []) if isinstance(existing_data, dict)
-                    else (existing_data or [])
+                    existing_data.get("groups", []) if isinstance(existing_data, dict) else (existing_data or [])
                 )
                 for g in existing_groups:
                     if g["name"] == data.name and g["uuid"] != uuid:
-                        raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail="Group name already exists"
-                        )
+                        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Group name already exists")
             updates["name"] = data.name
 
         if data.description is not None:
@@ -1041,13 +956,9 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
             result = group_service.update_group(uuid, **updates)
             if not result.success:
                 if "not found" in result.error.lower():
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="User group not found"
-                    )
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User group not found")
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update user group"
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user group"
                 )
 
         logger.info(f"User group updated: {uuid}")
@@ -1058,10 +969,7 @@ async def update_user_group(uuid: str, data: UserGroupUpdate):
         raise
     except Exception as e:
         logger.error(f"Error updating user group: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update user group"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user group")
 
 
 @router.delete("/user-groups/{uuid}")
@@ -1073,14 +981,8 @@ async def delete_user_group(uuid: str):
         result = group_service.delete_group(uuid)
         if not result.success:
             if "not found" in result.error.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User group not found"
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete user group"
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User group not found")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete user group")
 
         logger.info(f"User group deleted: {uuid}")
 
@@ -1090,16 +992,15 @@ async def delete_user_group(uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting user group: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete user group"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete user group")
 
 
 # ==================== 用户组成员管理 ====================
 
+
 class GroupMemberSummary(BaseModel):
     """组成员摘要"""
+
     uuid: str
     user_uuid: str
     username: str
@@ -1117,17 +1018,13 @@ async def list_group_members(group_uuid: str):
         # 检查用户组是否存在
         group_result = group_service.get_group(group_uuid)
         if not group_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User group not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User group not found")
 
         # 获取组成员映射
         members_result = group_service.list_members(group_uuid)
         if not members_result.success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list group members"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list group members"
             )
 
         members = members_result.data
@@ -1138,13 +1035,15 @@ async def list_group_members(group_uuid: str):
             user_result = user_service.get_user(user_uuid)
             if user_result.success:
                 user = user_result.data
-                result.append({
-                    "uuid": member_data.get("group_uuid", ""),
-                    "user_uuid": user["uuid"],
-                    "username": user["username"],
-                    "display_name": user.get("display_name") or user["username"],
-                    "email": user.get("email", "")
-                })
+                result.append(
+                    {
+                        "uuid": member_data.get("group_uuid", ""),
+                        "user_uuid": user["uuid"],
+                        "username": user["username"],
+                        "display_name": user.get("display_name") or user["username"],
+                        "email": user.get("email", ""),
+                    }
+                )
 
         return ok(data=result)
 
@@ -1152,10 +1051,7 @@ async def list_group_members(group_uuid: str):
         raise
     except Exception as e:
         logger.error(f"Error listing group members: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list group members"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list group members")
 
 
 @router.post("/user-groups/{group_uuid}/members", status_code=201)
@@ -1170,28 +1066,16 @@ async def add_group_member(group_uuid: str, data: AddGroupMemberRequest):
         # 检查用户是否存在
         user_result = user_service.get_user(user_uuid)
         if not user_result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         # 添加成员到用户组
         result = group_service.add_member(user_uuid, group_uuid)
         if not result.success:
             if "already" in result.error.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="User is already in this group"
-                )
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already in this group")
             if "not found" in result.error.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User group not found"
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to add user to group"
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User group not found")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add user to group")
 
         mapping_data = result.data
         logger.info(f"User {user_uuid} added to group {group_uuid}")
@@ -1202,10 +1086,7 @@ async def add_group_member(group_uuid: str, data: AddGroupMemberRequest):
         raise
     except Exception as e:
         logger.error(f"Error adding group member: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add user to group"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add user to group")
 
 
 @router.delete("/user-groups/{group_uuid}/members/{user_uuid}")
@@ -1217,13 +1098,9 @@ async def remove_group_member(group_uuid: str, user_uuid: str):
         result = group_service.remove_member(user_uuid, group_uuid)
         if not result.success:
             if "not found" in result.error.lower() or "not a member" in result.error.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User is not in this group"
-                )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User is not in this group")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to remove user from group"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove user from group"
             )
 
         logger.info(f"User {user_uuid} removed from group {group_uuid}")
@@ -1235,15 +1112,16 @@ async def remove_group_member(group_uuid: str, user_uuid: str):
     except Exception as e:
         logger.error(f"Error removing group member: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to remove user from group"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove user from group"
         )
 
 
 # ==================== 通知管理 ====================
 
+
 class NotificationTemplateSummary(BaseModel):
     """通知模板摘要"""
+
     uuid: str
     name: str
     type: str  # email, discord, system
@@ -1254,6 +1132,7 @@ class NotificationTemplateSummary(BaseModel):
 
 class NotificationHistoryItem(BaseModel):
     """通知历史记录"""
+
     uuid: str
     type: str
     subject: str
@@ -1265,6 +1144,7 @@ class NotificationHistoryItem(BaseModel):
 
 class NotificationTemplateCreate(BaseModel):
     """创建通知模板请求"""
+
     name: str
     type: str  # email, discord, system
     subject: str
@@ -1274,6 +1154,7 @@ class NotificationTemplateCreate(BaseModel):
 
 class NotificationTemplateUpdate(BaseModel):
     """更新通知模板请求"""
+
     name: Optional[str] = None
     type: Optional[str] = None
     subject: Optional[str] = None
@@ -1295,8 +1176,7 @@ async def list_notification_templates():
         result = notification_service.list_templates(is_del=False)
         if not result.success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list notification templates"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list notification templates"
             )
 
         templates = result.data
@@ -1307,14 +1187,16 @@ async def list_notification_templates():
             template_type = tpl.get_template_type_enum()
             type_str = template_type.name.lower() if template_type else "text"
 
-            result_list.append({
-                "uuid": tpl.uuid,
-                "name": tpl.template_name,
-                "type": type_str,
-                "subject": tpl.subject or "",
-                "enabled": tpl.is_active,
-                "updated_at": tpl.update_at.isoformat() if tpl.update_at else datetime.utcnow().isoformat() + "Z"
-            })
+            result_list.append(
+                {
+                    "uuid": tpl.uuid,
+                    "name": tpl.template_name,
+                    "type": type_str,
+                    "subject": tpl.subject or "",
+                    "enabled": tpl.is_active,
+                    "updated_at": tpl.update_at.isoformat() if tpl.update_at else datetime.utcnow().isoformat() + "Z",
+                }
+            )
 
         return ok(data=result_list)
 
@@ -1323,8 +1205,7 @@ async def list_notification_templates():
     except Exception as e:
         logger.error(f"Error listing notification templates: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list notification templates"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list notification templates"
         )
 
 
@@ -1338,15 +1219,12 @@ async def create_notification_template(data: NotificationTemplateCreate):
         notification_service = get_notification_service()
 
         # 映射类型字符串到枚举
-        type_map = {
-            "email": TEMPLATE_TYPES.TEXT,
-            "discord": TEMPLATE_TYPES.MARKDOWN,
-            "system": TEMPLATE_TYPES.TEXT
-        }
+        type_map = {"email": TEMPLATE_TYPES.TEXT, "discord": TEMPLATE_TYPES.MARKDOWN, "system": TEMPLATE_TYPES.TEXT}
         template_type = type_map.get(data.type.lower(), TEMPLATE_TYPES.TEXT)
 
         # 生成 template_id
         import uuid
+
         template_id = f"tpl_{uuid.uuid4().hex[:8]}"
 
         template = MNotificationTemplate(
@@ -1355,35 +1233,35 @@ async def create_notification_template(data: NotificationTemplateCreate):
             template_type=template_type.value,
             subject=data.subject,
             content=data.content,
-            is_active=data.enabled
+            is_active=data.enabled,
         )
 
         result = notification_service.create_template(template)
         if not result.success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create notification template"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create notification template"
             )
 
         created_uuid = result.data.get("uuid") if isinstance(result.data, dict) else result.data
         logger.info(f"Notification template created: {data.name}")
 
-        return ok(data={
-            "uuid": created_uuid,
-            "name": data.name,
-            "type": data.type,
-            "subject": data.subject,
-            "enabled": data.enabled,
-            "updated_at": datetime.utcnow().isoformat() + "Z"
-        })
+        return ok(
+            data={
+                "uuid": created_uuid,
+                "name": data.name,
+                "type": data.type,
+                "subject": data.subject,
+                "enabled": data.enabled,
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating notification template: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create notification template"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create notification template"
         )
 
 
@@ -1397,10 +1275,7 @@ async def update_notification_template(uuid: str, data: NotificationTemplateUpda
 
         # 检查模板是否存在
         if not notification_service.template_exists(uuid):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Notification template not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification template not found")
 
         # 构建更新数据
         update_dict = {}
@@ -1408,11 +1283,7 @@ async def update_notification_template(uuid: str, data: NotificationTemplateUpda
             update_dict["template_name"] = data.name
 
         if data.type is not None:
-            type_map = {
-                "email": TEMPLATE_TYPES.TEXT,
-                "discord": TEMPLATE_TYPES.MARKDOWN,
-                "system": TEMPLATE_TYPES.TEXT
-            }
+            type_map = {"email": TEMPLATE_TYPES.TEXT, "discord": TEMPLATE_TYPES.MARKDOWN, "system": TEMPLATE_TYPES.TEXT}
             template_type = type_map.get(data.type.lower(), TEMPLATE_TYPES.TEXT)
             update_dict["template_type"] = template_type.value
 
@@ -1437,8 +1308,7 @@ async def update_notification_template(uuid: str, data: NotificationTemplateUpda
     except Exception as e:
         logger.error(f"Error updating notification template: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update notification template"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update notification template"
         )
 
 
@@ -1450,10 +1320,7 @@ async def delete_notification_template(uuid: str):
 
         result = notification_service.delete_template(uuid)
         if not result.success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Notification template not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification template not found")
 
         logger.info(f"Notification template deleted: {uuid}")
 
@@ -1464,8 +1331,7 @@ async def delete_notification_template(uuid: str):
     except Exception as e:
         logger.error(f"Error deleting notification template: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete notification template"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete notification template"
         )
 
 
@@ -1476,15 +1342,11 @@ async def test_notification_template(uuid: str):
         notification_service = get_notification_service()
 
         if not notification_service.template_exists(uuid):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Notification template not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification template not found")
 
         # #5595: 真实测试发送未实现——诚实返 501，不假装发送成功
         raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Notification template test send is not implemented"
+            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Notification template test send is not implemented"
         )
 
     except HTTPException:
@@ -1492,8 +1354,7 @@ async def test_notification_template(uuid: str):
     except Exception as e:
         logger.error(f"Error testing notification template: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to test notification template"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to test notification template"
         )
 
 
@@ -1504,10 +1365,7 @@ async def toggle_notification_template(uuid: str, enabled: bool):
         notification_service = get_notification_service()
 
         if not notification_service.template_exists(uuid):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Notification template not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification template not found")
 
         notification_service.update_template(uuid, is_active=enabled)
 
@@ -1520,16 +1378,13 @@ async def toggle_notification_template(uuid: str, enabled: bool):
     except Exception as e:
         logger.error(f"Error toggling notification template: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to toggle notification template"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to toggle notification template"
         )
 
 
 @router.get("/notifications/history")
 async def list_notification_history(
-    type: Optional[str] = None,
-    page: int = 1,
-    page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE)
+    type: Optional[str] = None, page: int = 1, page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE)
 ):
     """获取通知历史"""
     try:
@@ -1545,15 +1400,11 @@ async def list_notification_history(
             filters["channels"] = type
 
         result = notification_service.list_records(
-            filters=filters,
-            limit=page_size,
-            offset=offset,
-            sort=[("create_at", -1)]
+            filters=filters, limit=page_size, offset=offset, sort=[("create_at", -1)]
         )
         if not result.success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to list notification history"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list notification history"
             )
 
         records = result.data
@@ -1561,21 +1412,26 @@ async def list_notification_history(
         for record in records:
             # 获取状态
             from ginkgo.enums import NOTIFICATION_STATUS_TYPES
+
             status_enum = NOTIFICATION_STATUS_TYPES.from_int(record.status)
             status_str = "success" if status_enum == NOTIFICATION_STATUS_TYPES.SENT else "failed"
 
             # 从 channels 中获取类型
             channel = record.channels[0] if record.channels else "system"
 
-            result_list.append({
-                "uuid": record.uuid,
-                "type": channel,
-                "subject": record.message_id,
-                "recipient": ", ".join(record.channels),
-                "status": status_str,
-                "created_at": record.create_at.isoformat() if record.create_at else datetime.utcnow().isoformat() + "Z",
-                "error": getattr(record, 'error_message', None)
-            })
+            result_list.append(
+                {
+                    "uuid": record.uuid,
+                    "type": channel,
+                    "subject": record.message_id,
+                    "recipient": ", ".join(record.channels),
+                    "status": status_str,
+                    "created_at": (
+                        record.create_at.isoformat() if record.create_at else datetime.utcnow().isoformat() + "Z"
+                    ),
+                    "error": getattr(record, "error_message", None),
+                }
+            )
 
         return ok(data=result_list)
 
@@ -1584,15 +1440,16 @@ async def list_notification_history(
     except Exception as e:
         logger.error(f"Error listing notification history: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list notification history"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list notification history"
         )
 
 
 # ==================== 通知接收人管理 ====================
 
+
 class UserInfo(BaseModel):
     """用户信息"""
+
     uuid: str
     username: str
     display_name: Optional[str] = None
@@ -1600,12 +1457,14 @@ class UserInfo(BaseModel):
 
 class UserGroupInfo(BaseModel):
     """用户组信息"""
+
     uuid: str
     name: str
 
 
 class NotificationRecipientSummary(BaseModel):
     """通知接收人摘要"""
+
     uuid: str
     name: str
     recipient_type: str  # USER, USER_GROUP
@@ -1620,6 +1479,7 @@ class NotificationRecipientSummary(BaseModel):
 
 class NotificationRecipientCreate(BaseModel):
     """创建通知接收人请求"""
+
     name: str
     recipient_type: str  # USER, USER_GROUP
     user_id: Optional[str] = None
@@ -1630,6 +1490,7 @@ class NotificationRecipientCreate(BaseModel):
 
 class NotificationRecipientUpdate(BaseModel):
     """更新通知接收人请求"""
+
     name: Optional[str] = None
     recipient_type: Optional[str] = None
     user_id: Optional[str] = None
@@ -1646,10 +1507,7 @@ async def list_notification_recipients():
         result = service.list_all()
 
         if not result.is_success():
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.message
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
         return ok(data=result.data["recipients"])
 
@@ -1658,8 +1516,7 @@ async def list_notification_recipients():
     except Exception as e:
         logger.error(f"Error listing notification recipients: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list notification recipients"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list notification recipients"
         )
 
 
@@ -1675,35 +1532,34 @@ async def create_notification_recipient(data: NotificationRecipientCreate):
             user_id=data.user_id,
             user_group_id=data.user_group_id,
             is_default=data.is_default,
-            description=data.description
+            description=data.description,
         )
 
         if not result.is_success():
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.message
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
         recipient_data = result.data
-        return ok(data={
-            "uuid": recipient_data["uuid"],
-            "name": recipient_data["name"],
-            "recipient_type": recipient_data["recipient_type"].lower(),
-            "user_id": recipient_data["user_id"],
-            "user_group_id": recipient_data["user_group_id"],
-            "description": recipient_data["description"],
-            "is_default": recipient_data["is_default"],
-            "created_at": datetime.utcnow().isoformat() + "Z"
-        })
+        return ok(
+            data={
+                "uuid": recipient_data["uuid"],
+                "name": recipient_data["name"],
+                "recipient_type": recipient_data["recipient_type"].lower(),
+                "user_id": recipient_data["user_id"],
+                "user_group_id": recipient_data["user_group_id"],
+                "description": recipient_data["description"],
+                "is_default": recipient_data["is_default"],
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         import traceback
+
         logger.error(f"Error creating notification recipient: {e}\nTraceback: {traceback.format_exc()}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create notification recipient"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create notification recipient"
         )
 
 
@@ -1720,20 +1576,14 @@ async def update_notification_recipient(uuid: str, data: NotificationRecipientUp
             user_id=data.user_id,
             user_group_id=data.user_group_id,
             is_default=data.is_default,
-            description=data.description
+            description=data.description,
         )
 
         if not result.is_success():
             # Check if it's a "not found" error
             if "not found" in result.message.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=result.message
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.message
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
         return ok(message="Notification recipient updated successfully")
 
@@ -1742,8 +1592,7 @@ async def update_notification_recipient(uuid: str, data: NotificationRecipientUp
     except Exception as e:
         logger.error(f"Error updating notification recipient {uuid}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update notification recipient"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update notification recipient"
         )
 
 
@@ -1758,14 +1607,8 @@ async def delete_notification_recipient(uuid: str):
         if not result.is_success():
             # Check if it's a "not found" error
             if "not found" in result.message.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=result.message
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.message
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
         return ok(message="Notification recipient deleted successfully")
 
@@ -1774,8 +1617,7 @@ async def delete_notification_recipient(uuid: str):
     except Exception as e:
         logger.error(f"Error deleting notification recipient {uuid}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete notification recipient"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete notification recipient"
         )
 
 
@@ -1790,14 +1632,8 @@ async def toggle_notification_recipient(uuid: str):
         if not result.is_success():
             # Check if it's a "not found" error
             if "not found" in result.message.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=result.message
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.message
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
         return ok(data={"is_default": result.data["is_default"]}, message="Notification recipient toggled successfully")
 
@@ -1806,8 +1642,7 @@ async def toggle_notification_recipient(uuid: str):
     except Exception as e:
         logger.error(f"Error updating notification recipient {uuid}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update notification recipient"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update notification recipient"
         )
 
 
@@ -1823,14 +1658,8 @@ async def test_notification_recipient(uuid: str):
         if not contacts_result.is_success():
             # Check if it's a "not found" error
             if "not found" in contacts_result.message.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=contacts_result.message
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=contacts_result.message
-            )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=contacts_result.message)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=contacts_result.message)
 
         contacts_data = contacts_result.data
         contacts = contacts_data.get("contacts", [])
@@ -1838,8 +1667,7 @@ async def test_notification_recipient(uuid: str):
 
         if contact_count == 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Recipient has no valid contact addresses"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Recipient has no valid contact addresses"
             )
 
         recipient_name = contacts_data.get("recipient_name", "Unknown")
@@ -1847,7 +1675,8 @@ async def test_notification_recipient(uuid: str):
 
         # 准备测试消息内容
         from datetime import datetime
-        test_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        test_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         test_content = f"🧪 测试通知 - 接收人: {recipient_name} ({recipient_type}) | 发送时间: {test_time}"
 
         # 发送测试通知到每个联系方式
@@ -1865,21 +1694,20 @@ async def test_notification_recipient(uuid: str):
                     # #5469: 发送前校验目标 URL 防 SSRF（address 来自 DB contact，用户自设仍可控）。
                     _assert_safe_webhook_url(address)
                     import requests
+
                     payload = {
                         "content": test_content.replace("\n", " ").replace("\r", ""),
-                        "embeds": [{
-                            "title": "🧪 测试通知",
-                            "description": f"接收人: **{recipient_name}**\n类型: **{recipient_type}**",
-                            "color": 3447003,  # 蓝色
-                            "timestamp": datetime.now().isoformat()
-                        }]
+                        "embeds": [
+                            {
+                                "title": "🧪 测试通知",
+                                "description": f"接收人: **{recipient_name}**\n类型: **{recipient_type}**",
+                                "color": 3447003,  # 蓝色
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                        ],
                     }
 
-                    response = requests.post(
-                        address,
-                        json=payload,
-                        timeout=10
-                    )
+                    response = requests.post(address, json=payload, timeout=10)
 
                     if response.status_code in [200, 204]:
                         success_count += 1
@@ -1920,28 +1748,32 @@ async def test_notification_recipient(uuid: str):
 
         logger.info(f"Test notification completed for recipient {uuid}: {success_count} success, {failed_count} failed")
 
-        return ok(data={
-            "details": results,
-            "recipient_name": recipient_name,
-            "contact_count": contact_count,
-            "success_count": success_count,
-            "failed_count": failed_count
-        }, message=f"测试通知已发送: {success_count} 成功, {failed_count} 失败")
+        return ok(
+            data={
+                "details": results,
+                "recipient_name": recipient_name,
+                "contact_count": contact_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+            },
+            message=f"测试通知已发送: {success_count} 成功, {failed_count} 失败",
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error testing notification recipient {uuid}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to test notification recipient"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to test notification recipient"
         )
 
 
 # ==================== API接口设置 ====================
 
+
 class CreateApiKeyRequest(BaseModel):
     """#5459: 创建 API 密钥请求（对齐前端 apiKey.ts CreateApiKeyRequest）。"""
+
     model_config = ConfigDict(extra="ignore")  # 忽略未知字段（#5474 同类校验理念）
     name: str = Field(..., min_length=1, description="密钥名称")
     permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
@@ -1952,6 +1784,7 @@ class CreateApiKeyRequest(BaseModel):
 
 class UpdateApiKeyRequest(BaseModel):
     """#5459: 更新 API 密钥请求（对齐前端 apiKey.ts UpdateApiKeyRequest，字段全可选）。"""
+
     model_config = ConfigDict(extra="ignore")
     name: Optional[str] = Field(None, min_length=1, description="密钥名称")
     permissions: Optional[List[str]] = Field(None, description="权限列表 read/trade/admin")
@@ -1962,6 +1795,7 @@ class UpdateApiKeyRequest(BaseModel):
 
 class APIKeySummary(BaseModel):
     """API密钥摘要"""
+
     key_id: str
     name: str
     masked_key: str
@@ -1972,6 +1806,7 @@ class APIKeySummary(BaseModel):
 
 class APIStats(BaseModel):
     """API统计"""
+
     today_calls: int
     month_calls: int
     success_rate: float
