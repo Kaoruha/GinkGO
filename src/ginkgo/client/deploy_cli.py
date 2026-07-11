@@ -111,6 +111,37 @@ def info(
         raise typer.Exit(1)
 
 
+@app.command("undeploy")
+def undeploy(
+    deployment_id: Annotated[
+        str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")
+    ],
+):
+    """撤销部署并停止目标 Portfolio"""
+    try:
+        from ginkgo.trading.containers import trading_container
+
+        svc = trading_container.deployment_service()
+        result = svc.undeploy(deployment_id)
+
+        if result.success:
+            data = result.data or {}
+            console.print(f"[green]{result.message or '撤销部署成功'}[/green]")
+            if data.get("deployment_id"):
+                console.print(f"  Deployment ID: [cyan]{data['deployment_id']}[/cyan]")
+            if data.get("target_portfolio_id"):
+                console.print(f"  Target Portfolio: [cyan]{data['target_portfolio_id']}[/cyan]")
+        else:
+            console.print(f"[red]{result.error}[/red]")
+            raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 @app.command("list")
 def list_deployments(
     portfolio_id: Annotated[Optional[str], typer.Option("--portfolio", "-p", help="按Portfolio ID筛选")] = None,
