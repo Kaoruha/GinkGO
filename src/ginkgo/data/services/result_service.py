@@ -600,7 +600,7 @@ class ResultService(BaseService):
             model_list = position_record_crud.find(
                 filters=filters,
                 page=page,
-                page_size=page_size if page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
                 order_by="timestamp",
                 desc_order=True,
             )

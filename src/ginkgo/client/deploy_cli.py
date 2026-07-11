@@ -152,14 +152,22 @@ def list_deployments(
     """列出部署记录"""
     from ginkgo.trading.containers import trading_container
     from ginkgo.client.cli_utils import build_list_result, format_result
+    from ginkgo.data.services.base_service import ServiceResult
 
     # #5009 契约：--page（0-based）+ --page-size（0=全量）
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope（#6652 review E2）。
     if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page 必须 >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]--page 必须 >= 0[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
     if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size 必须 >= 0（0=全部）", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]--page-size 必须 >= 0（0=全部）[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
     unlimited = page_size == 0
     q_page = None if unlimited else page
     q_page_size = None if unlimited else page_size

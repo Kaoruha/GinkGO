@@ -115,13 +115,27 @@ class TestRecordTextAndEmpty:
 
 
 class TestRecordValidation:
-    """#5009 契约守卫：--page 负值 → typer.Exit(1)（4 命令各自独立守卫块）。"""
+    """#5009 契约守卫：--page/--page-size 负值 → exit 2（BAD_PARAMS，ADR-021 dim 6）。4 命令各自独立守卫块。"""
 
     @pytest.mark.unit
     @pytest.mark.parametrize("command", list(_COMMANDS))
     def test_negative_page_exits_nonzero(self, command):
         result, _, _ = _invoke(command, ["--page=-1"])
         assert result.exit_code != 0
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("command", list(_COMMANDS))
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    def test_negative_param_json_envelope_exit_2(self, command, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review E2，ADR-021 dim 1/6）。
+
+        旧实现 JSON 模式 console.print Rich 标记到 stdout + exit 1，stdout 非合法 JSON，jq 崩。
+        """
+        result, _, _ = _invoke(command, [bad_arg, "--format", "json"])
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
 
 
 class TestRecordServiceFailure:

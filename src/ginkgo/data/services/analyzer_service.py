@@ -190,7 +190,7 @@ class AnalyzerService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -237,7 +237,7 @@ class AnalyzerService(BaseService):
             model_list = self._crud_repo.find(
                 filters=filters,
                 page=page,
-                page_size=page_size if page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
                 order_by="timestamp",
                 desc_order=True,
             )

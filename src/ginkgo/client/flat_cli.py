@@ -237,12 +237,19 @@ def list(
         console.print(":clipboard: Listing components...")
 
     # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非 Rich 标记（#6652 review E2）。
     if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]:x: --page must be >= 0[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
     if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
     unlimited = page_size == 0
     q_page = None if unlimited else page
     q_page_size = None if unlimited else page_size

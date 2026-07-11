@@ -226,6 +226,20 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    def test_list_negative_param_json_envelope_exit_2(self, cli_runner, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review E2，ADR-021 dim 1/6）。
+
+        守卫在 service 调用前拦截，无需 mock；JSON 模式 stdout 须为合法 JSON（listing 文本被 format!=json 守卫跳过）。
+        """
+        result = cli_runner.invoke(engine_cli.app, ["list", bad_arg, "--format", "json"])
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_list_no_engines_found(self, cli_runner):
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=pd.DataFrame()))
 

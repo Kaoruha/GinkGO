@@ -188,6 +188,19 @@ class TestComponentList:
         assert payload["metadata"]["offset"] == 0
         assert payload["data"][0]["name"] == "TestStrategy"
 
+    @pytest.mark.unit
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    def test_list_components_negative_param_json_envelope_exit_2(self, cli_runner, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review E2，ADR-021 dim 1/6）。
+
+        守卫在 CRUD 调用前拦截，无需 mock；JSON 模式 stdout 须为合法 JSON（listing 文本被 format!=json 守卫跳过）。
+        """
+        result = cli_runner.invoke(flat_cli.component_app, ["list", bad_arg, "--format", "json"])
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+
     def test_list_page_size_pushes_to_file_crud(self, cli_runner, mock_component):
         """#5009：--page-size 下推 file_crud.find page_size（all 路径，type__in DB 层过滤后分页）。"""
         crud = MagicMock()
