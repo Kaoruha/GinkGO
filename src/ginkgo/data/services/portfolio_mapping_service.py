@@ -193,6 +193,11 @@ class PortfolioMappingService(BaseService):
             ServiceResult
         """
         try:
+            previous_doc = self._snapshot_graph_from_mongo(
+                portfolio_uuid=portfolio_uuid,
+                source="GRAPH_EDITOR"
+            )
+
             # 1. 提取图中的文件映射和参数
             file_mappings = self._extract_files_from_graph(graph_data)
             node_params = self._extract_params_from_graph(graph_data)
@@ -205,17 +210,24 @@ class PortfolioMappingService(BaseService):
                 source="GRAPH_EDITOR"
             )
 
-            # 3. 同步到 MySQL Mapping
-            self._sync_mappings_from_files(
-                portfolio_uuid=portfolio_uuid,
-                file_mappings=file_mappings
-            )
+            try:
+                # 3. 同步到 MySQL Mapping
+                self._sync_mappings_from_files(
+                    portfolio_uuid=portfolio_uuid,
+                    file_mappings=file_mappings
+                )
 
-            # 4. 同步到 MySQL MParam
-            self._sync_params_from_nodes(
-                portfolio_uuid=portfolio_uuid,
-                node_params=node_params
-            )
+                # 4. 同步到 MySQL MParam
+                self._sync_params_from_nodes(
+                    portfolio_uuid=portfolio_uuid,
+                    node_params=node_params
+                )
+            except Exception:
+                if previous_doc:
+                    self._restore_graph_in_mongo(previous_doc)
+                else:
+                    self._delete_graph_from_mongo(mongo_id)
+                raise
 
             GLOG.INFO(f"从图编辑器更新配置: {portfolio_uuid}")
 
@@ -349,18 +361,26 @@ class PortfolioMappingService(BaseService):
             mappings = self._mapping_crud.find(
                 filters={"portfolio_id": portfolio_uuid, "file_id": file_id}
             )
+            param_snapshots = {
+                mapping.uuid: list(self._param_service.find_by_mapping_id(mapping.uuid))
+                for mapping in mappings
+            }
 
-            # 2. 删除对应的参数
-            for mapping in mappings:
-                self._param_service.remove_by_mapping(mapping.uuid)
+            try:
+                # 2. 删除对应的参数
+                for mapping in mappings:
+                    self._param_service.remove_by_mapping(mapping.uuid)
 
-            # 3. 删除 MySQL Mapping
-            self._mapping_crud.delete_mapping(portfolio_uuid, file_id)
+                # 3. 删除 MySQL Mapping
+                self._mapping_crud.delete_mapping(portfolio_uuid, file_id)
 
-            GLOG.INFO(f"移除文件映射: {portfolio_uuid} -> {file_id}")
+                GLOG.INFO(f"移除文件映射: {portfolio_uuid} -> {file_id}")
 
-            # 4. 同步更新 MongoDB 图结构
-            self._sync_graph_from_mappings(portfolio_uuid)
+                # 4. 同步更新 MongoDB 图结构
+                self._sync_graph_from_mappings(portfolio_uuid)
+            except Exception:
+                self._restore_removed_file_mappings(mappings, param_snapshots)
+                raise
 
             return ServiceResult.success(data={"file_id": file_id})
 
@@ -757,6 +777,30 @@ class PortfolioMappingService(BaseService):
             GLOG.ERROR(f"补偿删除 MongoDB 图文档失败: {doc_id}, {e}")
             return False
 
+    def _snapshot_graph_from_mongo(
+        self,
+        portfolio_uuid: str,
+        source: str = "GRAPH_EDITOR",
+    ) -> Optional[Dict[str, Any]]:
+        """读取当前图文档快照，用于 update 失败补偿。"""
+        collection = self._mongo_driver.get_collection("portfolio_graph_data")
+        return collection.find_one({
+            "portfolio_uuid": portfolio_uuid,
+            "metadata.source": source
+        })
+
+    def _restore_graph_in_mongo(self, document: Dict[str, Any]) -> bool:
+        """恢复 MongoDB 图文档快照（补偿原语，#5559）。"""
+        try:
+            if not document or "_id" not in document:
+                return False
+            collection = self._mongo_driver.get_collection("portfolio_graph_data")
+            collection.replace_one({"_id": document["_id"]}, document, upsert=True)
+            return True
+        except Exception as e:
+            GLOG.ERROR(f"补偿恢复 MongoDB 图文档失败: {e}")
+            return False
+
     def _update_graph_in_mongo(
         self,
         portfolio_uuid: str,
@@ -857,6 +901,29 @@ class PortfolioMappingService(BaseService):
                 self._param_service.remove_by_mapping(existing_mapping.uuid)
 
         return mapping_uuids
+
+    def _restore_removed_file_mappings(self, mappings: list, param_snapshots: Dict[str, list]) -> None:
+        """恢复 remove_file 已删除的 MySQL mapping/params（补偿原语，#5559）。"""
+        for mapping in mappings or []:
+            try:
+                restored = MPortfolioFileMapping(
+                    portfolio_id=getattr(mapping, "portfolio_id", ""),
+                    file_id=getattr(mapping, "file_id", ""),
+                    name=getattr(mapping, "name", "ginkgo_bind"),
+                    type=getattr(mapping, "type", FILE_TYPES.OTHER),
+                    source=getattr(mapping, "source", SOURCE_TYPES.SIM),
+                )
+                restored_mapping = self._mapping_crud.add(restored)
+                restored_uuid = getattr(restored_mapping, "uuid", None) or getattr(mapping, "uuid", "")
+                for param in param_snapshots.get(getattr(mapping, "uuid", ""), []):
+                    self._param_service.add_param(
+                        mapping_id=restored_uuid,
+                        index=int(getattr(param, "index", 0)),
+                        value=getattr(param, "value", ""),
+                        source=getattr(param, "source", SOURCE_TYPES.SIM),
+                    )
+            except Exception as e:
+                GLOG.ERROR(f"补偿恢复文件映射失败: {getattr(mapping, 'uuid', '')}, {e}")
 
     def _sync_params_from_nodes(
         self,

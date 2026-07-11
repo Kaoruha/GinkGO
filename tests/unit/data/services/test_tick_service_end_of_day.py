@@ -33,6 +33,24 @@ def _make_service(crud):
     )
 
 
+class TestTickSyncDateNonTradingDay:
+    """周末无 tick 数据时不应进入数据源 retry（#4984）。"""
+
+    @pytest.mark.unit
+    def test_weekend_date_returns_no_data_without_fetching_source(self):
+        crud = Mock()
+        service = _make_service(crud)
+        service._stockinfo_service.exists.return_value = True
+
+        result = service.sync_date("000001.SZ", "20260606")
+
+        assert result.success is True
+        assert "No tick data available" in result.message
+        assert result.data.records_skipped == 0
+        assert result.data.records_failed == 0
+        service._data_source.fetch_history_transaction_detail.assert_not_called()
+
+
 class TestTickEndDateCoversFullDay:
     """end_date 闭区间上界须覆盖整天盘中时段（#6000）。"""
 

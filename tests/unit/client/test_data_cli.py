@@ -32,13 +32,15 @@ def cli_runner():
 @pytest.fixture
 def mock_stockinfo_df():
     """标准 stockinfo 测试数据"""
-    return pd.DataFrame({
-        "code": ["000001.SZ", "000002.SZ", "600000.SH"],
-        "code_name": ["平安银行", "万科A", "浦发银行"],
-        "industry": ["银行", "房地产", "银行"],
-        "market": ["SZ", "SZ", "SH"],
-        "list_date": ["1991-04-03", "1991-01-29", "1999-11-10"],
-    })
+    return pd.DataFrame(
+        {
+            "code": ["000001.SZ", "000002.SZ", "600000.SH"],
+            "code_name": ["平安银行", "万科A", "浦发银行"],
+            "industry": ["银行", "房地产", "银行"],
+            "market": ["SZ", "SZ", "SH"],
+            "list_date": ["1991-04-03", "1991-01-29", "1999-11-10"],
+        }
+    )
 
 
 # ============================================================================
@@ -179,6 +181,124 @@ class TestGetStockinfo:
         assert "000001.SZ" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_format_json(self, mock_container, cli_runner, mock_stockinfo_df):
+        """--format json：stdout 输出 format_result 契约（ADR-021 第 5/9 维 list 结构）。
+
+        list 结构：``{"success": true, "data": [...], "count": N, "metadata": {}}``。
+        显式 ``--format json`` 才走 JSON；auto/default 保持 text 兼容旧脚本。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "json"])
+        assert result.exit_code == 0
+        # 从 output 提取 format_result 的 JSON 行（stdout 可能混 [GCONF] 等日志噪音）
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert isinstance(payload["data"], list)
+        assert payload["count"] == 3  # mock_stockinfo_df 3 条
+        assert payload["metadata"]["total"] == 3
+        codes = [r["code"] for r in payload["data"]]
+        assert "000001.SZ" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_no_stdout_pollution(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 命中 + --format json：stdout 纯 JSON，filter 诊断 print 不污染（ADR-021 第1维）。
+
+        filter 块的诊断输出（🔍 Applying filter / ✅ Filter matched）是 text 时代预存代码，
+        json 模式须隔离——否则 ``jq .`` / ``json.loads(stdout)`` 崩。命中 2 条（平安银行/浦发银行
+        + 银行行业）。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "银行", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第1维：json 模式 stdout 不得混入 filter 诊断 emoji 文本
+        assert "Applying filter" not in result.output
+        assert "Filter matched" not in result.output
+        # stdout 仍是合法 JSON envelope
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 2
+        codes = [r["code"] for r in payload["data"]]
+        assert "000001.SZ" in codes and "600000.SH" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_filter_format_json_empty_envelope(
+        self, mock_container, cli_runner, mock_stockinfo_df
+    ):
+        """--filter 无命中 + --format json：发空 envelope exit 0（ADR-021 第9维）。
+
+        filter 无命中时 stdout 须是 ``{"success":true,"data":[],"count":0,...}``，不能纯文本
+        return 零 envelope——机读消费者（回测 worker/CI/脚本）仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "stockinfo", "--filter", "不存在的词xyz", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        # ADR-021 第9维：空结果发 envelope，非纯文本
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope，实际 output:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["data"] == []
+        assert payload["count"] == 0
+        # 无命中诊断 print 也不污染 stdout
+        assert "No matching records" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_limit_head(self, mock_container, cli_runner):
+        """--limit N：stockinfo 分支取前 N 条（head，按 code 排序），ADR-021 第 2 维 order。
+
+        stockinfo = 全量列表（非时序），head 取 code 字典序前 N。任务3：非交互模式
+        截断改用 ``--limit``，``--page-size`` 收窄为 TTY 翻页（此处 CliRunner 非 TTY）。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ", "000002.SZ", "000003.SZ", "600000.SH", "600001.SH"],
+                "code_name": ["平安银行", "万科A", "A 股票", "浦发银行", "B 股票"],
+                "industry": ["银行", "房地产", "科技", "银行", "科技"],
+                "market": ["SZ", "SZ", "SZ", "SH", "SH"],
+                "list_date": ["1991-04-03", "1991-01-29", "2020-01-01", "1999-11-10", "2021-01-01"],
+            }
+        )
+        mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "text", "--limit", "2"])
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        # head sort by code：000001 < 000002 < 000003 < 600000 < 600001，head 2 = 前两条
+        assert "000001" in result.output
+        assert "000002" in result.output
+        assert "000003" not in result.output
+        assert "600000" not in result.output
+
+    @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_service_error(self, mock_container, cli_runner):
         """服务返回错误时显示错误信息（DF 出口 else 分支）"""
         mock_service = MagicMock()
@@ -186,7 +306,7 @@ class TestGetStockinfo:
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
-        assert result.exit_code == 0  # 不抛异常，只打印错误
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原隐式 exit 0 是 false-success）
         assert "Database connection failed" in result.output
 
     @patch("ginkgo.data.containers.container")
@@ -197,6 +317,19 @@ class TestGetStockinfo:
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo"])
         assert result.exit_code == 1
         assert "Service unavailable" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_stockinfo_service_error_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        mock_service = MagicMock()
+        mock_service.get_stockinfos_df.return_value = ServiceResult.error(error="DB down")
+        mock_container.stockinfo_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "DB down" in payload["error"]["message"]
 
     @patch("ginkgo.data.containers.container")
     def test_get_stockinfo_filter_no_match(self, mock_container, cli_runner, mock_stockinfo_df):
@@ -229,16 +362,22 @@ class TestGetStockinfo:
         assert "n/p/q" not in result.output
 
     @patch("ginkgo.data.containers.container")
-    def test_get_stockinfo_pagesize_nontty_limits_output(self, mock_container, cli_runner, mock_stockinfo_df):
-        """非 TTY + --page-size N 退化为 head(N) 输出，size 生效（#5280）"""
+    def test_get_stockinfo_pagesize_nontty_keeps_text_output(self, mock_container, cli_runner, mock_stockinfo_df):
+        """非 TTY + --page-size N：ADR-021 任务3，page-size 仅 TTY 交互翻页生效。
+
+        auto/default 保持 text 输出兼容旧脚本，page-size 不再承担非 TTY 截断语义。
+        #5280 的"非 TTY 不阻塞"核心保证仍成立（exit_code==0 不 hang），但输出形式
+        仍是 text；截断改由 --limit 承担（见 test_get_stockinfo_limit_head）。
+        """
         mock_service = MagicMock()
         mock_service.get_stockinfos_df.return_value = ServiceResult.success(data=mock_stockinfo_df)
         mock_container.stockinfo_service.return_value = mock_service
 
         result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--page-size", "2"])
-        assert result.exit_code == 0
-        # mock_stockinfo_df 共 3 条，page_size=2 退化 head(2)
-        assert "Showing first 2 of 3 records" in result.output
+        assert result.exit_code == 0  # #5280：非 TTY 不阻塞、不 hang
+        assert "Interactive mode enabled" not in result.output
+        assert '{"success"' not in result.output
+        assert "000001" in result.output
 
 
 # ============================================================================
@@ -256,6 +395,22 @@ class TestGetOtherTypes:
         result = cli_runner.invoke(data_cli.app, ["get", "day"])
         assert result.exit_code == 1
         assert "code" in result.output.lower() or "required" in result.output.lower()
+
+    def test_get_unknown_type_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 未知 data_type → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "bogus", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "bogus" in payload["error"]["message"]
+
+    def test_get_bars_requires_code_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 缺 --code → stdout 合法 JSON 错误 envelope + exit 1。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "day", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "code" in payload["error"]["message"].lower()
 
     def test_get_bars_with_code(self, cli_runner):
         """获取 bars 数据提供 code 不崩溃"""
@@ -297,6 +452,426 @@ class TestGetOtherTypes:
         assert "not yet implemented" not in result.output
         # 容器注入了 tushare/tdx（containers.py），应被列出
         assert "tushare" in result.output.lower()
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_day_format_json(self, mock_container, cli_runner):
+        """--format json：day 分支走 format_result list 契约（ADR-021 第 5/9 维）。
+
+        list 结构：``{"success": true, "data": [...], "count": N, "metadata": {}}``。
+        无 --limit 时全量 records 进 data。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ", "000001.SZ"],
+                "timestamp": ["2026-07-01", "2026-07-02"],
+                "open": [10.0, 10.5],
+                "high": [10.8, 10.9],
+                "low": [9.9, 10.3],
+                "close": [10.5, 10.7],
+                "volume": [100000, 120000],
+                "amount": [1050000.0, 1284000.0],
+            }
+        )
+        mock_service.get_bars_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.bar_service.return_value = mock_service
+
+        result = cli_runner.invoke(data_cli.app, ["get", "day", "--code", "000001.SZ", "--format", "json"])
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert isinstance(payload["data"], list)
+        assert payload["count"] == 2
+        assert payload["metadata"]["total"] == 2
+        codes = [r["code"] for r in payload["data"]]
+        assert "000001.SZ" in codes
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_day_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + day 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No bar data found" 零 envelope——机读消费者（回测 worker/CI/脚本）
+        仅检 exit code 会误判成功但拿不到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_bars_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.bar_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "day", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_day_limit_tail(self, mock_container, cli_runner):
+        """--limit N：day 分支取最新 N 条（tail），ADR-021 第 2 维 order。
+
+        day = 时序行情，交易员关心近期 → tail。同时修复 day 分支隐藏 bug：原 text
+        模式直接 ``iterrows()`` 全量打印表格，``--page-size`` 只打印 "Showing N of M"
+        提示却**不实际截断**；``--limit`` 落地真正的 tail 截断。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ"] * 5,
+                "timestamp": [f"2026-07-0{i}" for i in range(1, 6)],
+                "open": [10.0] * 5,
+                "high": [10.5] * 5,
+                "low": [9.5] * 5,
+                "close": [10.2] * 5,
+                "volume": [100000] * 5,
+                "amount": [1020000.0] * 5,
+            }
+        )
+        mock_service.get_bars_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.bar_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "day", "--code", "000001.SZ", "--format", "text", "--limit", "2"]
+        )
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        # tail：只含最新 2 条 (07-04, 07-05)，不含前 3 条
+        assert "2026-07-04" in result.output
+        assert "2026-07-05" in result.output
+        assert "2026-07-01" not in result.output
+        assert "2026-07-03" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_limit_tail(self, mock_container, cli_runner):
+        """--limit N：tick 分支取最新 N 条（tail），ADR-021 第 2 维 order。
+
+        tick = 分笔时序，最新成交更受关注 → tail。``--limit`` 取代旧 ``--page-size``
+        双关用法（任务3：page-size 收窄为交互翻页语义）。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ"] * 5,
+                "timestamp": [f"2026-07-01 09:3{i}:00" for i in range(5)],
+                "price": [10.0 + i * 0.01 for i in range(5)],
+                "volume": [100 + i * 10 for i in range(5)],
+                "amount": [1000.0 + i * 100 for i in range(5)],
+                "direction": [1] * 5,
+            }
+        )
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "text", "--limit", "2"]
+        )
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        # tail：只含最新 2 条 (09:33, 09:34)
+        assert "09:33" in result.output
+        assert "09:34" in result.output
+        assert "09:30" not in result.output
+        assert "09:31" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json(self, mock_container, cli_runner):
+        """--format json：tick 分支走 format_result list 契约（ADR-021 第 5/9 维）。
+
+        --limit 对 json 同样生效，避免机器输出无限膨胀。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ", "000001.SZ"],
+                "timestamp": ["2026-07-01 09:30:00", "2026-07-01 09:31:00"],
+                "price": [10.0, 10.05],
+                "volume": [100, 200],
+                "amount": [1000.0, 2010.0],
+                "direction": [1, 1],
+            }
+        )
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json", "--limit", "1"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert isinstance(payload["data"], list)
+        assert payload["count"] == 1
+        assert payload["metadata"]["total"] == 2
+        assert payload["metadata"]["limit"] == 1
+        prices = [r["price"] for r in payload["data"]]
+        assert prices == [10.05]
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + tick 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No tick data found" 零 envelope——day/tick/adjustfactor 三分支
+        空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_tick_format_json_default_limit(self, mock_container, cli_runner):
+        """#6579 review finding 2：tick ``--format json`` 无 ``--limit`` 时须有默认上限。
+
+        tick 默认 7 天窗单股可达 10-50 万行，json 无上限会爆 stdout。取 1000 作默认
+        （与文本路径 50 解耦——机读场景需更多样本）。``metadata.limit`` 报实际阈值
+        （用户值或默认 1000），让下游知边界而非 ``None``（无限制假象）。
+        """
+        import pandas as pd
+
+        mock_service = MagicMock()
+        # 1500 行 > 默认上限 1000，验证截断生效
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ"] * 1500,
+                "timestamp": [f"2026-07-01 09:{i // 60:02d}:{i % 60:02d}:00" for i in range(1500)],
+                "price": [10.0 + i * 0.001 for i in range(1500)],
+                "volume": [100 + i for i in range(1500)],
+                "amount": [1000.0 + i for i in range(1500)],
+                "direction": [1] * 1500,
+            }
+        )
+        mock_service.get_ticks_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.tick_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "tick", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        # 默认上限 1000 生效：count 截断、total 仍是全量 1500、metadata.limit 报阈值
+        assert payload["count"] == 1000, f"expected default limit 1000, got count={payload['count']}"
+        assert payload["metadata"]["total"] == 1500
+        assert payload["metadata"]["limit"] == 1000
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_adjustfactor_format_json(self, mock_container, cli_runner):
+        """--format json：adjustfactor 分支走 format_result list 契约（ADR-021 第 5/9 维）。
+
+        --format json 优先于 --raw（format 是显式格式选择，raw 是旧 alias，
+        task #16 会把 --raw 别名到 --format json）。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ", "000001.SZ"],
+                "timestamp": ["2026-07-01", "2026-07-02"],
+                "foreadjustfactor": [1.0, 1.001],
+                "backadjustfactor": [1.0, 0.999],
+                "adjustfactor": [1.0, 1.0005],
+            }
+        )
+        mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.adjustfactor_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app,
+            ["get", "adjustfactor", "--code", "000001.SZ", "--format", "json"],
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert isinstance(payload["data"], list)
+        assert payload["count"] == 2
+        # 因子列正确序列化（非空、是数值）
+        factors = [r["foreadjustfactor"] for r in payload["data"]]
+        assert 1.0 in factors
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_adjustfactor_limit_head(self, mock_container, cli_runner):
+        """--limit N：adjustfactor 分支取前 N 条（head），ADR-021 第 2 维 + 任务4 核实结论。
+
+        复权因子是低频事件型数据（一年通常 ≤3 条除权事件），归"全量列表"语义（与
+        stockinfo 一致），head 取最早 N 条除权事件。改自原 tail 行为（从 day/tick
+        复制的遗留逻辑）；业务理由：复权因子全量条数少，按时间正序阅读除权轨迹更直观。
+
+        #6579 review finding 3：mock df 用**倒序输入**（最新在前），复现 review 实测的
+        覆盖盲区——文本路径缺 ``sort_values`` 时 head 取到的是最新 N 条而非承诺的最早 N 条。
+        正序 mock 会掩盖此 bug（review 指出原测试 mock 恰好预排序）。
+        """
+        mock_service = MagicMock()
+        mock_df = pd.DataFrame(
+            {
+                "code": ["000001.SZ"] * 5,
+                # 倒序输入（最新在前）：修复前 head(2) 会错误返回 2025-01/2024-10
+                "timestamp": ["2025-01-15", "2024-10-15", "2024-07-15", "2024-04-15", "2024-01-15"],
+                "foreadjustfactor": [0.85, 0.88, 0.92, 0.95, 1.0],
+                "backadjustfactor": [1.15, 1.12, 1.08, 1.05, 1.0],
+                "adjustfactor": [1.15, 1.12, 1.08, 1.05, 1.0],
+            }
+        )
+        mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=mock_df)
+        mock_container.adjustfactor_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "adjustfactor", "--code", "000001.SZ", "--format", "text", "--limit", "2"]
+        )
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        # head：最早 2 条除权事件 (2024-01, 2024-04)
+        assert "2024-01-15" in result.output
+        assert "2024-04-15" in result.output
+        assert "2024-10-15" not in result.output
+        assert "2025-01-15" not in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_adjustfactor_format_json_empty_envelope(self, mock_container, cli_runner):
+        """--format json + adjustfactor 无数据：发空 envelope exit 0（ADR-021 第 9 维）。
+
+        service 返回空 df 时，stdout 须是 ``{"success":true,"data":[],"count":0}``，
+        不能纯文本 "No adjustfactor data found" 零 envelope——day/tick/adjustfactor
+        三分支空结果对称，机读消费者拿得到结构。
+        """
+        mock_service = MagicMock()
+        mock_service.get_adjustfactors_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.adjustfactor_service.return_value = mock_service
+
+        result = cli_runner.invoke(
+            data_cli.app, ["get", "adjustfactor", "--code", "000001.SZ", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"空结果未发 JSON envelope:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert payload["count"] == 0
+        assert payload["data"] == []
+
+    def test_get_invalid_format_exits_with_code_2(self, cli_runner):
+        """#6579 review finding 1：无效 --format 须 exit 2（BAD_PARAMS，ADR-021 第 6 维）。
+
+        typer.Exit(2) 不能被 get 末尾的 ``except Exception`` 吞成 ``Exit(1)``
+        （typer.Exit MRO = Exit→RuntimeError→Exception，是 Exception 子类）。
+        校验在 service 调用前发生，无需 mock container。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--format", "xml"])
+        assert result.exit_code == 2, (
+            f"expected exit 2 (BAD_PARAMS), got {result.exit_code}\noutput:\n{result.output}"
+        )
+        assert "Invalid --format" in result.output
+
+    def test_get_invalid_limit_exits_with_code_2(self, cli_runner):
+        """#6579 review finding 1：--limit < 1 须 exit 2（BAD_PARAMS），不被吞成 Exit(1)。"""
+        result = cli_runner.invoke(data_cli.app, ["get", "stockinfo", "--limit", "0"])
+        assert result.exit_code == 2, (
+            f"expected exit 2 (BAD_PARAMS), got {result.exit_code}\noutput:\n{result.output}"
+        )
+        assert "--limit must be greater than 0" in result.output
+
+    def test_get_sources_format_json(self, cli_runner):
+        """--format json：sources 分支走 format_result list 契约（ADR-021 第 5/9 维）。
+
+        sources 是静态列表（非 service/DF），json 分叉直接构造 records。
+        不 mock（同 test_get_sources_lists_configured_sources）：容器注入了 tushare/tdx。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "sources", "--format", "json"])
+        assert result.exit_code == 0
+        json_line = next(
+            (l for l in result.output.splitlines() if l.strip().startswith('{"success"')),
+            None,
+        )
+        assert json_line is not None, f"未找到 format_result JSON:\n{result.output}"
+        payload = json.loads(json_line)
+        assert payload["success"] is True
+        assert isinstance(payload["data"], list)
+        assert payload["count"] >= 2  # 至少 tushare + tdx
+        names = [r["name"] for r in payload["data"]]
+        assert "tushare" in names
+
+    def test_get_sources_limit_ignored(self, cli_runner):
+        """--limit 对 sources 不截断（ADR-021 任务2：资源列表本就少）。
+
+        sources 是静态数据源列表（非查询结果），--limit 语义不适用。验证 --limit 1
+        仍输出全部已配置数据源（tushare + tdx），不被截断。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "sources", "--format", "text", "--limit", "1"])
+        assert result.exit_code == 0, f"exit≠0, output:\n{result.output}"
+        out = result.output.lower()
+        # containers 注入 tushare + tdx，--limit 1 仍全量显示（不截断）
+        assert "tushare" in out
+        assert "tdx" in out
+
+    def test_get_sources_format_auto_nontty(self, cli_runner):
+        """--format 缺省 → auto/default 保持 text 输出（ADR-021 第 1 维）。
+
+        JSON 必须显式传 ``--format json``，避免旧脚本在非 TTY 下突然收到 JSON。
+        """
+        result = cli_runner.invoke(data_cli.app, ["get", "sources"])
+        assert result.exit_code == 0
+        assert '{"success"' not in result.output
+        assert "tushare" in result.output.lower()
+
+    def test_get_no_color_wires_to_console(self, cli_runner):
+        """--no-color → console.no_color=True（ADR-021 任务1：flag wiring）。
+
+        Rich 非 TTY 本就无前景色输出，硬断言输出 ANSI 不可靠（Rich Table 在
+        force_terminal 下只产 bold(1m)/italic(3m)，Segment.remove_color 本就不剥这两种）。
+        改测契约：--no-color 真正抵达 console.no_color 属性。配对验证不带 flag 不误置。
+        """
+        from rich.console import Console
+
+        # 带 --no-color：置位
+        forced_on = Console(force_terminal=True, no_color=False)
+        with patch("ginkgo.client.data_cli.console", forced_on):
+            r = cli_runner.invoke(data_cli.app, ["get", "sources", "--no-color", "--format", "text"])
+        assert r.exit_code == 0, f"exit≠0:\n{r.output}"
+        assert forced_on.no_color is True, "--no-color 未置 console.no_color=True"
+
+        # 不带 --no-color：保持默认（不误置）
+        forced_off = Console(force_terminal=True, no_color=False)
+        with patch("ginkgo.client.data_cli.console", forced_off):
+            r2 = cli_runner.invoke(data_cli.app, ["get", "sources", "--format", "text"])
+        assert r2.exit_code == 0
+        assert not forced_off.no_color, "未传 --no-color 却误置 no_color"
 
 
 # ============================================================================
@@ -389,7 +964,8 @@ class TestSync:
         result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "000001.SZ"])
         assert result.exit_code == 0
         import re
-        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+
+        output_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
         assert "000001.SZ" in output_clean
 
     @patch("ginkgo.service_hub")
@@ -421,7 +997,7 @@ class TestSync:
 
         result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "SH999999"])
         assert result.exit_code == 0
-        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+        output_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
         # 第三态：源无数据，计入 Skipped 而非漏统计
         assert "Skipped: 1" in output_clean
         assert "Success: 0" in output_clean
@@ -561,7 +1137,8 @@ class TestSync:
         result = cli_runner.invoke(data_cli.app, ["sync", "day", "--code", "600000.SH"])
         assert result.exit_code == 0
         import re
-        output_clean = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
+
+        output_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
         assert "600000.SH" in output_clean
         assert "120" in output_clean or "sync completed" in output_clean
 

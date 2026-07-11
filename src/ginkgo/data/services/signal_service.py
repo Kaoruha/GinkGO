@@ -47,7 +47,9 @@ class SignalService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page_size=(
+                    page_size if page_size and page_size > 0 else None
+                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -109,7 +111,7 @@ class SignalService(BaseService):
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
         task_id: Optional[str] = None,
-        page: int = 0,
+        page: int = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -117,6 +119,10 @@ class SignalService(BaseService):
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        #5009：page（0-based）/page_size 分页；MSignal 为 ClickHouse（MClickBase），
+        order_by=timestamp desc 保证分页确定性（CH MergeTree 无隐式顺序保证，
+        缺 order_by 则分页结果不稳定；对齐 analyzer/result_service 同族出口）。
         """
         try:
             filters = self._build_signal_filters(
@@ -126,9 +132,11 @@ class SignalService(BaseService):
             )
             model_list = self._crud_repo.find(
                 filters=filters,
-                page=page if page_size > 0 else None,
-                page_size=page_size if page_size > 0 else None,
-                order_by="create_at",
+                page=page,
+                page_size=(
+                    page_size if page_size and page_size > 0 else None
+                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                order_by="timestamp",
                 desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
@@ -139,6 +147,25 @@ class SignalService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询信号(df)失败: {str(e)}")
             return ServiceResult.error(f"查询信号(df)失败: {str(e)}")
+
+    def count_signals(
+        self,
+        engine_id: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> ServiceResult:
+        """统计匹配信号总数（#5009：metadata.total 真实总数，非 len(df)）。"""
+        try:
+            filters = self._build_signal_filters(
+                engine_id=engine_id,
+                portfolio_id=portfolio_id,
+                task_id=task_id,
+            )
+            count = self._crud_repo.count(filters=filters)
+            return ServiceResult.success({"count": count}, f"Successfully counted signals: {count}")
+        except Exception as e:
+            GLOG.ERROR(f"统计信号失败: {str(e)}")
+            return ServiceResult.error(f"统计信号失败: {str(e)}")
 
     def delete_signals_by_portfolio(self, portfolio_id: str) -> ServiceResult:
         """

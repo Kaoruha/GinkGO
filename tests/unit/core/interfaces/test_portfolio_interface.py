@@ -38,8 +38,7 @@ class ConcretePortfolio(BasePortfolio):
                 self._strategies.remove(strategy)
         # 清理权重
         self._strategy_weights = {
-            name: w for name, w in self._strategy_weights.items()
-            if any(s.name == name for s in self._strategies)
+            name: w for name, w in self._strategy_weights.items() if any(s.name == name for s in self._strategies)
         }
         if self._strategy_weights:
             self._normalize_weights()
@@ -138,7 +137,7 @@ class TestBasePortfolioConstruction:
         assert portfolio.analyzers == []
         assert portfolio.sizers == []
         assert portfolio.selectors == []
-        assert portfolio.risk_managements == []
+        assert portfolio.risk_managers == []
 
     def test_initial_cash_equals_capital(self):
         """初始现金等于初始资金"""
@@ -192,12 +191,21 @@ class TestBasePortfolioComponentManagement:
         portfolio.add_selector(selector)
         assert selector in portfolio.selectors
 
-    def test_add_risk_management(self):
+    def test_add_risk_manager(self):
         """添加风险管理器"""
         portfolio = ConcretePortfolio()
         risk = MagicMock()
+        portfolio.add_risk_manager(risk)
+        assert risk in portfolio.risk_managers
+
+    def test_risk_managements_alias_matches_risk_managers(self):
+        """旧 risk_managements 名称保留为 risk_managers 的兼容 alias。"""
+        portfolio = ConcretePortfolio()
+        risk = MagicMock()
         portfolio.add_risk_managements(risk)
-        assert risk in portfolio.risk_managements
+
+        assert portfolio.risk_managements is portfolio.risk_managers
+        assert risk in portfolio.risk_managers
 
 
 # ── BasePortfolio 策略权重测试 ─────────────────────────────────────────

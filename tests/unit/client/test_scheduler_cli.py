@@ -165,6 +165,25 @@ class TestSchedulePlanRead:
 
 
 # ===========================================================================
+# migrate 命令（#5056）
+# ===========================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestSchedulerMigrateTarget:
+    """#5056: 自动选节点未实现时，--target 应作为 CLI 必填项暴露。"""
+
+    def test_migrate_without_target_fails_at_cli_validation(self, cli_runner):
+        result = cli_runner.invoke(scheduler_cli.app, ["migrate", "portfolio-001", "--force"])
+
+        assert result.exit_code == 2
+        assert "--target" in result.output
+        assert "Auto-selection not implemented" not in result.output
+        assert "Error migrating portfolio" not in result.output
+
+
+# ===========================================================================
 # 输出转义（#6001）
 # ===========================================================================
 

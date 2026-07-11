@@ -18,6 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.client.cli_utils import build_list_result, format_result
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -41,15 +42,45 @@ def list_engines(
         None, "--filter", "-f", help="Filter engines (search in id, name, type, status)"
     ),
     page: int = typer.Option(0, "--page", help="Page number (0-based)"),
-    page_size: int = typer.Option(20, "--page-size", "--limit", "-l", help="Items per page"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+    format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
 ):
     """
     :clipboard: List all engines.
     """
     from ginkgo.data.containers import container
 
-    console.print(":clipboard: Listing engines...")
+    if format != "json":
+        console.print(":clipboard: Listing engines...")
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非 Rich 标记（#6652 review E2）。
+    if page < 0:
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list"
+            )
+            raise typer.Exit(2)
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(2)
+    if page_size < 0:
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"),
+                format="json",
+                command="list",
+            )
+            raise typer.Exit(2)
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(2)
+    unlimited = page_size == 0
+    # DB 层分页参数：全量时 page/page_size 均传 None（find 默认全量）
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
+
+    # 用于 json total 计算：status 分支解析出的枚举（None 表示无 status 过滤）。
+    resolved_status = None
 
     try:
         engine_service = container.engine_service()
@@ -60,7 +91,11 @@ def list_engines(
             filter_str = str(filter) if not isinstance(filter, str) else filter
             # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
-            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"])
+            # fuzzy_search CRUD 层只支持 limit（无 offset），故只下推 page_size；
+            # 搜索结果通常较小，total 取当前匹配页行数（精确总数不可得）。
+            fs_result = engine_service.fuzzy_search(
+                filter_str, fields=["uuid", "name", "is_live", "status"], page_size=q_page_size
+            )
             if fs_result.success:
                 # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
                 engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
@@ -74,7 +109,8 @@ def list_engines(
             try:
                 # Try to convert status string to enum
                 status_enum = ENGINESTATUS_TYPES.validate_input(status.upper())
-                result = engine_service.get_engines_df(status=status_enum, page=page, page_size=page_size)
+                resolved_status = status_enum
+                result = engine_service.get_engines_df(status=status_enum, page=q_page, page_size=q_page_size)
             except Exception as e:
                 from ginkgo.libs import GLOG
 
@@ -82,10 +118,10 @@ def list_engines(
                     f"Failed to convert status filter '{status}' to enum, falling back to application-level filtering: {e}"
                 )
                 # If conversion fails, fall back to application-level filtering
-                result = engine_service.get_engines_df(page=page, page_size=page_size)
+                result = engine_service.get_engines_df(page=q_page, page_size=q_page_size)
         else:
             # Get all engines
-            result = engine_service.get_engines_df(page=page, page_size=page_size)
+            result = engine_service.get_engines_df(page=q_page, page_size=q_page_size)
 
         if result.success:
             engines_data = result.data
@@ -103,6 +139,32 @@ def list_engines(
 
             # ADR-010 R2a: result.data 已是 DataFrame（类型即契约，无需鸭子探测）
             engines_df = engines_data if isinstance(engines_data, pd.DataFrame) else pd.DataFrame()
+
+            if format == "json":
+                # ADR-021：metadata.total 必须是未截断的匹配总数（engines_df 已被 page_size 截断）。
+                if filter:
+                    # fuzzy_search 无 count 出口，total 用当前匹配页行数（搜索场景精确总数不可得）。
+                    total = len(engines_df)
+                else:
+                    count_result = engine_service.count(status=resolved_status)
+                    # EngineService.count() 返回 ServiceResult.success({"count": N})（dict 契约，见 engine_service.py:169）。
+                    # 须解 dict 取 key；isinstance(int) 对 dict 恒 False 会导致 total 静默回退截断计数 len(df)。
+                    if count_result.success and isinstance(count_result.data, dict) and "count" in count_result.data:
+                        total = count_result.data["count"]
+                    else:
+                        total = len(engines_df)
+                records = engines_df.to_dict("records")
+                # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
+                # fuzzy_search 无 offset 支持：filter 分支诚实标 offset=0（#6652 review B3）。
+                effective_offset = 0 if (unlimited or filter) else page * page_size
+                json_result = build_list_result(
+                    records,
+                    total=total,
+                    limit=q_page_size,
+                    offset=effective_offset,
+                )
+                format_result(json_result, format="json", command="list")
+                return
 
             if engines_df.empty:
                 console.print(":memo: No engines found.")
@@ -166,10 +228,28 @@ def list_engines(
                     "Use --page-size 0 to see all records.[/dim]"
                 )
         else:
-            console.print(f":x: Failed to get engines: {result.error}")
+            # ADR-021 第 5/6 维：service 失败时，JSON 模式发错误 envelope + exit 1；
+            # text 模式打印诊断 + exit 1（失败 exit code 跨格式一致，非隐式 exit 0）。
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f":x: Failed to get engines: {result.error}")
+                raise typer.Exit(1)
 
+    # typer.Exit 是 Exception 子类，须在 broad except 前透传 format_result 的 Exit(1)。
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -393,6 +473,7 @@ def run(
     ),
     background: bool = typer.Option(False, "--bg", help="Run in background"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate only, don't run"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Page size when listing available engines"),
 ):
     """
     :rocket: Run engine with assembled components.
@@ -430,7 +511,7 @@ def run(
             from ginkgo.data.containers import container
 
             engine_service = container.engine_service()
-            result = engine_service.get_engines_df()
+            result = engine_service.get_engines_df(page_size=limit)
 
             if result.success:
                 engines_data = result.data

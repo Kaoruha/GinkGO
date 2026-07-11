@@ -12,6 +12,7 @@ Portfolio CLI 单元测试
 - unbind-component: 解绑组件
 """
 
+import json
 import os
 import re
 
@@ -105,11 +106,12 @@ class TestPortfolioHelp:
         """portfolio list --help 显示 list 命令选项"""
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--help"])
         assert result.exit_code == 0
-        assert "--status" in result.output
-        assert "--page" in result.output
-        assert "--page-size" in result.output
-        assert "--limit" in result.output
-        assert "--raw" in result.output
+        # rich colorize 会把 "--status" 拆成 "-\x1b[1;36m-status"，须先 strip ANSI（见 test_rich_table_width_clirunner）
+        plain = _strip_ansi(result.output)
+        assert "--status" in plain
+        assert "--page" in plain
+        assert "--page-size" in plain
+        assert "--raw" in plain
 
 
 # ============================================================================
@@ -136,7 +138,7 @@ class TestPortfolioList:
 
     @patch("ginkgo.data.containers.container")
     def test_list_passes_page_and_page_size(self, mock_container, cli_runner, mock_portfolio_list_df):
-        """#5009: portfolio list supports --page/--page-size while preserving --limit alias."""
+        """#5009: portfolio list supports --page/--page-size."""
         mock_service = MagicMock()
         mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
         mock_container.portfolio_service.return_value = mock_service
@@ -147,9 +149,7 @@ class TestPortfolioList:
         mock_service.get_portfolios_df.assert_called_once_with(page=1, page_size=5)
 
     @patch("ginkgo.data.containers.container")
-    def test_list_shows_pagination_hint_when_full_page(
-        self, mock_container, cli_runner, mock_portfolio_list_df
-    ):
+    def test_list_shows_pagination_hint_when_full_page(self, mock_container, cli_runner, mock_portfolio_list_df):
         """#5009 review-1a: 满页时显示分页提示（对齐 record signal）。"""
         mock_service = MagicMock()
         mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
@@ -158,8 +158,32 @@ class TestPortfolioList:
         result = cli_runner.invoke(portfolio_cli.app, ["list", "--page-size", "2"])
 
         assert result.exit_code == 0, result.output
-        assert "Showing page" in result.output
-        assert "Use --page-size 0" in result.output
+        plain = _strip_ansi(result.output)
+        assert "Showing page" in plain
+        assert "Use --page-size 0" in plain
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_uses_state_when_status_missing(self, mock_container, cli_runner):
+        """status 字段缺失时使用 state 枚举显示运行状态"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(
+            data=pd.DataFrame(
+                {
+                    "uuid": ["portfolio-uuid-001"],
+                    "name": ["StatePortfolio"],
+                    "initial_capital": [1000000.0],
+                    "is_live": [False],
+                    "state": [1],
+                }
+            )
+        )
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list"])
+
+        assert result.exit_code == 0
+        assert "RUNNING" in result.output
+        assert "Unknown" not in result.output
 
     @patch("ginkgo.data.containers.container")
     def test_list_empty_portfolios(self, mock_container, cli_runner):
@@ -185,6 +209,41 @@ class TestPortfolioList:
         assert "portfolio-uuid-001" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_list_json_format_outputs_adr021_contract(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """--format json 输出 ADR-021 list 契约，stdout 仅含 JSON。"""
+        mock_service = MagicMock()
+        # 模拟 DB 截断：get_portfolios_df 按 page_size 返回当前页（2 行），count 返回未截断总数。
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        # 对齐真实 PortfolioService.count() 契约：返回 ServiceResult.success({"count": N})（dict，非裸 int）。
+        mock_service.count.return_value = ServiceResult.success(data={"count": 100})
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json", "--page-size", "1"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        # ADR-021：count = 当前页记录数（len records），metadata.total = 未截断匹配总数（service.count）。
+        assert payload["count"] == 2
+        assert payload["metadata"]["total"] == 100
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
+        assert payload["warnings"] == []
+        assert payload["data"][0]["name"] == "TestPortfolio"
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_page_size_pushes_to_service(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """#5009：--page-size 下推 service page_size（page 默认 0）。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--page-size", "5"])
+
+        assert result.exit_code == 0
+        mock_service.get_portfolios_df.assert_called_once_with(page=0, page_size=5)
+
+    @patch("ginkgo.data.containers.container")
     def test_list_service_error(self, mock_container, cli_runner):
         """服务返回错误时显示错误信息"""
         mock_service = MagicMock()
@@ -192,7 +251,7 @@ class TestPortfolioList:
         mock_container.portfolio_service.return_value = mock_service
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原 exit 0 是 false-success）
         assert "Failed to get portfolios" in result.output
         assert "Database connection failed" in result.output
 
@@ -202,8 +261,33 @@ class TestPortfolioList:
         mock_container.portfolio_service.side_effect = Exception("Unexpected error")
 
         result = cli_runner.invoke(portfolio_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_service_error_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON
+        ``{"success": false, "error": {...}}`` + exit 1（真实失败路径，非合成）。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.error(error="Database connection failed")
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "Database connection failed" in payload["error"]["message"]
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_service_exception_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 服务异常 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        mock_container.portfolio_service.side_effect = Exception("Unexpected error")
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "Unexpected error" in payload["error"]["message"]
 
 
 # ============================================================================
@@ -371,6 +455,21 @@ class TestPortfolioGet:
         assert "Failed to get portfolio" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_get_not_found_json_format_outputs_not_found_contract(self, mock_container, cli_runner):
+        """--format json 下 get 未找到输出 ADR-021 NOT_FOUND 错误对象。"""
+        mock_service = MagicMock()
+        mock_service.get.return_value = ServiceResult.error(error="Not found")
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "nonexistent-uuid", "--format", "json"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"] == {"code": "NOT_FOUND", "message": "Portfolio not found: nonexistent-uuid"}
+        assert payload["data"] is None
+
+    @patch("ginkgo.data.containers.container")
     def test_get_with_details_empty_components(self, mock_container, cli_runner, mock_portfolio):
         """--details 显示组件绑定（无组件时提示）"""
         mock_service = MagicMock()
@@ -393,6 +492,21 @@ class TestPortfolioGet:
         result = cli_runner.invoke(portfolio_cli.app, ["get", "some-uuid"])
         assert result.exit_code == 1
         assert "Error" in result.output
+
+    @patch("ginkgo.data.containers.container")
+    def test_get_service_exception_json_envelope(self, mock_container, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + get 服务异常 → stdout 合法 JSON 错误 envelope + exit 1。
+
+        与同函数 NOT_FOUND 路径（test_get_not_found_json_format_outputs_not_found_contract）对称：
+        broad except 也须走 format_result，不能 JSON 模式直出 Rich 红字。"""
+        mock_container.portfolio_service.side_effect = Exception("Connection refused")
+
+        result = cli_runner.invoke(portfolio_cli.app, ["get", "some-uuid", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "Connection refused" in payload["error"]["message"]
 
     @patch("ginkgo.data.containers.container")
     def test_get_mode_shows_readable_text_backtest(self, mock_container, cli_runner, mock_portfolio):
@@ -533,6 +647,11 @@ class TestPortfolioDelete:
     def test_delete_with_yes_short_flag(self, mock_container, cli_runner):
         """使用 -y 短标志成功删除（#6006: 统一确认标志跨命令一致）"""
         mock_service = MagicMock()
+        # delete 命令先经 _resolve_portfolio_identifier(portfolio_service.get) 解析 uuid 再删，
+        # 须 mock get 命中，否则 resolved_uuid 为 MagicMock 致断言失败（#5995 resolve 链）。
+        mock_portfolio = MagicMock()
+        mock_portfolio.uuid = "portfolio-uuid-001"
+        mock_service.get.return_value = ServiceResult.success(data=[mock_portfolio])
         mock_service.delete.return_value = ServiceResult.success(data=None)
         mock_container.portfolio_service.return_value = mock_service
 
@@ -821,10 +940,11 @@ class TestGenerateBaselinePagination:
         ):
             _generate_baseline_if_possible("paper-id", "source-id")
 
-        # The evaluator must have been called with the correct engine_id
+        # 代码传 task_id（portfolio_cli.py:991 evaluate_backtest_stability(task_id=task_id)），
+        # 非 engine_id；断言须对齐，否则将来代码真改成传错字段测试反而绿（掩盖回归）。
         mock_evaluator.evaluate_backtest_stability.assert_called_once_with(
             portfolio_id="source-id",
-            engine_id="engine-xyz",
+            task_id="task-abc-123",
         )
 
     def test_handles_empty_paginated_result(self):

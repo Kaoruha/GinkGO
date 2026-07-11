@@ -238,7 +238,19 @@ class LogIngester:
         return result
 
     def ingest_task_logs(self, task_uuid: str) -> IngestResult:
-        """根据 task_uuid 前缀匹配 bt_<prefix>_*.log 文件并灌入"""
+        """根据 task_uuid 前缀匹配 bt_<prefix>*.log 文件并灌入 (#5293)。
+
+        文件命名有两个 producer，下划线落点不同：
+        - ``engine_assembly_service`` (CLI/orchestrator): ``bt_<32hex 全UUID>_<ts>``
+        - ``backtest_worker.task_processor``: ``bt_<8hex>_<ts>``
+
+        故 glob 用 ``bt_{task_uuid[:8]}*`` —— 不要求第 8 位后紧跟下划线，
+        让 ``*`` 同时吸收 ``_<ts>`` (短) 与 ``<剩余24hex>_<ts>`` (全)。
+        原版 ``bt_{task_uuid[:8]}_*`` 要求下划线在第 8 位后, 全 UUID 文件
+        下划线在第 32 位后 → 永不匹配 → 本地 CLI 回测日志不灌入 ClickHouse
+        → ``ginkgo logging logs --task <id>`` 恒空 (#5293)。
+        行级 task_id 来自日志内容而非文件名, 文件级前缀碰撞不影响查询正确性。
+        """
         log_dir = GCONF.LOGGING_PATH
         prefix = f"bt_{task_uuid[:8]}"
         result = IngestResult()
@@ -247,7 +259,7 @@ class LogIngester:
             GLOG.WARN(f"Log directory not found: {log_dir}")
             return result
 
-        for fname in sorted(Path(log_dir).glob(f"{prefix}_*.log")):
+        for fname in sorted(Path(log_dir).glob(f"{prefix}*.log")):
             file_result = self.ingest_file(str(fname))
             result.total_lines += file_result.total_lines
             result.inserted += file_result.inserted

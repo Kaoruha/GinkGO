@@ -70,8 +70,9 @@ class TestEngineAssemblyServiceConstruction:
         mapping = service._data_preparer._engine_type_mapping
         assert "historic" in mapping
         assert "backtest" in mapping
-        assert "live" in mapping
-        assert "realtime" in mapping
+        # ADR-003: live/realtime 已从 mapping 移除（实盘走 livecore/execution_node）
+        assert "live" not in mapping
+        assert "realtime" not in mapping
         assert mapping["historic"] == mapping["backtest"]
 
 
@@ -143,8 +144,9 @@ class TestConfigurationValidation:
         assert "data_feeder" in config
         assert "portfolios" in config
         assert config["engine"]["type"] == "historic"
+        # ADR-003: live sample 已移除，get_sample_config("live") fallback 到 historic
         config_live = service.get_sample_config("live")
-        assert config_live["engine"]["type"] == "live"
+        assert config_live["engine"]["type"] == "historic"
 
 
 @pytest.mark.unit
@@ -536,8 +538,10 @@ class TestLiveModeAssembly:
 
     def test_live_engine_type_resolution(self):
         service = EngineAssemblyService()
-        assert service._data_preparer._engine_type_mapping["live"] == "LiveEngine"
-        assert service._data_preparer._engine_type_mapping["realtime"] == "LiveEngine"
+        # ADR-003: live/realtime 装配已废弃，data_preparer 不再支持
+        # （实盘走 livecore/execution_node 的 assemble_live_portfolio，不经过 YAML 装配）
+        assert "live" not in service._data_preparer._engine_type_mapping
+        assert "realtime" not in service._data_preparer._engine_type_mapping
 
     def test_live_feeder_binding(self):
         assert callable(getattr(InfrastructureFactory, 'create_feeder_for_mode', None))
@@ -562,3 +566,34 @@ class TestLiveModeAssembly:
         task_id = str(uuid.uuid4())
         assert len(task_id) == 36  # UUID format
         assert task_id.count("-") == 4
+
+
+@pytest.mark.unit
+class TestDeadEngineStubsRemoved:
+    """ADR-003: data_preparer 中已废弃的 live_engine / 不存在的 backtest_engine
+    import 必须彻底移除（与 #6118 threading.py 处置对称，refactor guard）。"""
+
+    def test_data_preparer_no_dead_engine_imports(self):
+        import inspect
+        from ginkgo.trading.services._assembly import data_preparer
+
+        src = inspect.getsource(data_preparer)
+        # 仅检查非注释代码行（注释里可能保留历史说明）
+        code_lines = [
+            ln for ln in src.splitlines()
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
+        code = "\n".join(code_lines)
+        assert "from ginkgo.trading.engines.live_engine" not in code, (
+            "dead live_engine import still present"
+        )
+        assert "from ginkgo.trading.engines.backtest_engine" not in code, (
+            "dead backtest_engine import still present"
+        )
+        assert "LiveEngine(" not in code, "LiveEngine still instantiated"
+
+    def test_create_engine_from_config_live_rejected(self):
+        """ADR-003: live 装配在 data_preparer 不支持，公共入口必须拒绝"""
+        service = EngineAssemblyService()
+        result = service.create_engine_from_config({"engine": {"type": "live"}})
+        assert not result.is_success()

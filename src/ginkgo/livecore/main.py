@@ -336,6 +336,7 @@ class LiveCore:
         from ginkgo.livecore.data_manager import DataManager
 
         self.data_manager = DataManager()
+        self.data_manager.initialize()
         self.data_manager.start()
         self.threads.append(self.data_manager)
         ```
@@ -346,6 +347,7 @@ class LiveCore:
         from ginkgo.livecore.data_manager import DataManager
 
         self.data_manager = DataManager()
+        self.data_manager.initialize()
         self.data_manager.start()
         self.threads.append(self.data_manager)
         GLOG.INFO("DataManager started successfully")

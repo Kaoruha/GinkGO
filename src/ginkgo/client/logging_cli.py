@@ -235,7 +235,6 @@ def view_logs(
         msg = str(entry.get("message", ""))[:60]
         style = LEVEL_STYLES.get(lvl, "")
         table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
-        table.add_row(ts, f"[{style}]{lvl}[/{style}]" if style else lvl, evt, sym, msg)
 
     console.print(table)
 
@@ -245,6 +244,7 @@ def view_errors(
     task_id: Optional[str] = typer.Option(None, "--task", "-t", help="Backtest task ID"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Portfolio ID"),
     limit: int = typer.Option(30, "--limit", "-n", help="Max results"),
+    hours: Optional[int] = typer.Option(None, "--hours", help="Lookback hours (default: all history)"),
 ):
     """
     :exclamation: View backtest error logs.
@@ -254,21 +254,30 @@ def view_errors(
         ginkgo logging errors --portfolio <id>
     """
     from ginkgo.services.logging.containers import container
+    from datetime import datetime, timedelta
 
     log_service = container.log_service()
+    end_time = datetime.utcnow() if hours is not None else None
+    start_time = end_time - timedelta(hours=hours) if end_time is not None else None
+    range_label = f"last {hours}h" if hours is not None else "all history"
 
-    logs = log_service.query_backtest_logs(
-        portfolio_id=portfolio_id,
-        task_id=task_id,
-        level="ERROR",
-        limit=limit,
-    )
+    query_kwargs = {
+        "portfolio_id": portfolio_id,
+        "task_id": task_id,
+        "level": "ERROR",
+        "limit": limit,
+    }
+    if start_time is not None:
+        query_kwargs["start_time"] = start_time
+        query_kwargs["end_time"] = end_time
+
+    logs = log_service.query_backtest_logs(**query_kwargs)
 
     if not logs:
-        console.print(":white_check_mark: No errors found.")
+        console.print(f":white_check_mark: No errors found ({range_label}).")
         return
 
-    console.print(f":exclamation: [red]{len(logs)} error(s) found[/red]")
+    console.print(f":exclamation: [red]{len(logs)} error(s) found[/red] ({range_label})")
 
     for entry in logs[-10:]:
         ts = str(entry.get("timestamp", ""))[:19]

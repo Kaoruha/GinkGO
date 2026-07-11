@@ -6,6 +6,7 @@ FileService 能力完整，但只通过 /components（组件视角）、
 /node-graphs/{uuid}/files（portfolio 绑定视角）暴露。本 router 提供面向
 "全局文件管理"语义的 flat 适配端点，薄委托 FileService 既有方法，不改 service 核心。
 """
+
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 from typing import Optional
@@ -13,6 +14,7 @@ from typing import Optional
 from ginkgo.data.containers import container
 from ginkgo.enums import FILE_TYPES
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok, paginated
 
 router = APIRouter()
@@ -50,7 +52,7 @@ def _file_to_dict(file_record):
 async def list_files(
     query: str = "",
     page: int = Query(1, ge=1),
-    size: int = Query(100, ge=1, le=500),
+    size: int = Query(100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
     type: Optional[int] = None,
 ):
     """获取文件列表（flat 适配路由，薄委托 FileService.list_components）

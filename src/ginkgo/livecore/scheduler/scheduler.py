@@ -350,6 +350,35 @@ class Scheduler(threading.Thread):
         # 4. 检测离线 Node 的 Portfolio
         orphaned_portfolios = self._plan_manager.detect_orphaned_portfolios(healthy_nodes, current_plan)
 
+        # 4.5. #4863: reconcile — 检测「plan 已分配给健康节点、但节点漏加载」的 portfolio，
+        # 重发加载命令。与 orphaned（节点下线）互补：orphaned 是 node 不在 healthy 列表，
+        # undelivered 是 node 健康但 Kafka schedule.updates 丢失/节点启动晚于消息/load 失败，
+        # 导致 plan 写了 pid→X 但 X 的 self.portfolios 不含 pid，plan 与 status 永久漂移。
+        # 重发复用新分配同条路径（PORTFOLIO_MIGRATE，target==self → _receive_portfolio →
+        # load_portfolio 幂等）；from_node=None 表示非真实迁移、仅触发目标节点加载，不改 plan。
+        try:
+            undelivered = self._plan_manager.detect_undelivered_portfolios(healthy_nodes, current_plan)
+        except Exception as e:
+            logger.warning(f"Failed to detect undelivered portfolios: {e}")
+            undelivered = []
+        if undelivered:
+            logger.warning(
+                f"Reconciling {len(undelivered)} undelivered portfolios "
+                f"(plan assigned but healthy node missing load, resend load command)"
+            )
+            for item in undelivered:
+                try:
+                    self._send_schedule_command({
+                        "portfolio_id": item["portfolio_id"],
+                        "from_node": None,
+                        "to_node": item["node_id"],
+                    })
+                except Exception as e:
+                    logger.error(
+                        f"Failed to resend load command for portfolio "
+                        f"{item.get('portfolio_id', '?')[:8]} → {item.get('node_id')}: {e}"
+                    )
+
         # ========== 调度信息打印 ==========
         logger.info("")
         logger.info("="*70)

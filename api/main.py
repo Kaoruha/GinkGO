@@ -126,6 +126,7 @@ async def health_check_api():
 
 # 路由注册 - 统一使用 /api/v1 前缀
 from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts, trading, validation, deployment
+from api import live_trading
 from api import file as file_router  # #5659: 文件管理 flat 适配路由（薄委托 FileService）
 from api import signals as signal_router
 from api import settings as settings_router
@@ -145,6 +146,7 @@ app.include_router(settings_router.router, prefix=f"{API_PREFIX}/settings", tags
 app.include_router(node_graph.router, prefix=f"{API_PREFIX}/node-graphs", tags=["node-graphs"])
 app.include_router(accounts.router, prefix=f"{API_PREFIX}/accounts", tags=["accounts"])
 app.include_router(trading.router, prefix=f"{API_PREFIX}/paper-trading", tags=["paper-trading"])
+app.include_router(live_trading.router, prefix=f"{API_PREFIX}/live-trading", tags=["live-trading"])
 app.include_router(signal_router.router, prefix=f"{API_PREFIX}/signals", tags=["signals"])
 app.include_router(validation.router, prefix=f"{API_PREFIX}/validation", tags=["validation"])
 app.include_router(deployment.router, prefix=f"{API_PREFIX}/deploy", tags=["deploy"])
@@ -157,8 +159,8 @@ app.include_router(task_timer_router.router, prefix=f"{API_PREFIX}/task-timer", 
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
 
-app.add_websocket_route("/ws/portfolio", portfolio_handler.websocket_endpoint)
-app.add_websocket_route("/ws/system", system_handler.websocket_endpoint)
+app.add_api_websocket_route("/ws/portfolio", portfolio_handler.websocket_endpoint)
+app.add_api_websocket_route("/ws/system", system_handler.websocket_endpoint)
 
 
 # 自定义 OpenAPI schema：注入 Bearer JWT securityScheme（#5714）

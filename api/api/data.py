@@ -12,6 +12,7 @@ import time as _time
 from ginkgo.data.containers import container
 from ginkgo.enums import MARKET_TYPES, FREQUENCY_TYPES, ADJUSTMENT_TYPES
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok, paginated
 
 router = APIRouter()
@@ -30,6 +31,7 @@ MARKET_ID_TO_NAME = {
 
 class StockInfoSummary(BaseModel):
     """股票信息摘要"""
+
     uuid: str
     code: str
     name: Optional[str] = None
@@ -41,6 +43,7 @@ class StockInfoSummary(BaseModel):
 
 class BarDataSummary(BaseModel):
     """K线数据摘要"""
+
     uuid: str
     code: str
     date: str
@@ -55,6 +58,7 @@ class BarDataSummary(BaseModel):
 
 class TickDataSummary(BaseModel):
     """Tick数据摘要"""
+
     uuid: str
     code: str
     timestamp: str
@@ -65,6 +69,7 @@ class TickDataSummary(BaseModel):
 
 class AdjustFactorSummary(BaseModel):
     """复权因子摘要"""
+
     uuid: str
     code: str
     timestamp: str
@@ -75,6 +80,7 @@ class AdjustFactorSummary(BaseModel):
 
 class DataStats(BaseModel):
     """数据统计"""
+
     total_stocks: int
     total_bars: int
     total_ticks: int = 0
@@ -90,6 +96,7 @@ class DataUpdateRequest(BaseModel):
     #5784: 同时接受单数 code (str) 与复数 codes (list)。
     单数 code 归一化为 codes=[code]，三种 sync 分支统一消费 codes。
     """
+
     type: str  # stockinfo, bars, ticks, adjustfactor
     code: Optional[str] = None
     codes: Optional[List[str]] = None
@@ -106,6 +113,7 @@ class DataUpdateRequest(BaseModel):
 
 class DataSource(BaseModel):
     """数据源"""
+
     name: str
     enabled: bool
     description: str
@@ -113,6 +121,7 @@ class DataSource(BaseModel):
 
 
 # ==================== 辅助函数 ====================
+
 
 def get_stockinfo_service():
     """获取StockinfoService实例"""
@@ -140,6 +149,7 @@ def get_sync_record_service():
 
 
 # ==================== API路由 ====================
+
 
 @router.get("/stats")
 async def get_data_stats():
@@ -170,22 +180,22 @@ async def get_data_stats():
         tick_count_result = tick_service.count_all()
         total_ticks = tick_count_result.data if tick_count_result.is_success() else 0
 
-        return ok(data={
-            "total_stocks": total_stocks,
-            "total_bars": total_bars,
-            "total_ticks": total_ticks,
-            "total_adjust_factors": total_adjust_factors,
-            "tick_data_summary": tick_data_summary,
-            "data_sources": ["Tushare", "Yahoo", "BaoStock", "TDX"],
-            "latest_update": datetime.utcnow().isoformat()
-        })
+        return ok(
+            data={
+                "total_stocks": total_stocks,
+                "total_bars": total_bars,
+                "total_ticks": total_ticks,
+                "total_adjust_factors": total_adjust_factors,
+                "tick_data_summary": tick_data_summary,
+                "data_sources": ["Tushare", "Yahoo", "BaoStock", "TDX"],
+                "latest_update": datetime.utcnow().isoformat(),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting data stats: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get data stats"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get data stats")
+
 
 async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: int = 10) -> Dict[str, Any]:
     """
@@ -204,17 +214,19 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
             # 限制抽样检查数量，最多5只，避免超时
             check_limit = min(5, len(stocks_result.data))
             for stock in list(stocks_result.data)[:check_limit]:
-                code = stock.code if hasattr(stock, 'code') else None
+                code = stock.code if hasattr(stock, "code") else None
                 if code:
                     try:
                         # 查询该股票的tick数据量（添加超时保护）
                         tick_count_result = tick_service.count(code=code)
                         if tick_count_result.is_success() and tick_count_result.data and tick_count_result.data > 0:
-                            stocks_with_ticks.append({
-                                "code": code,
-                                "name": stock.code_name if hasattr(stock, 'code_name') else "",
-                                "tick_count": tick_count_result.data
-                            })
+                            stocks_with_ticks.append(
+                                {
+                                    "code": code,
+                                    "name": stock.code_name if hasattr(stock, "code_name") else "",
+                                    "tick_count": tick_count_result.data,
+                                }
+                            )
                             total_sampled_ticks += tick_count_result.data
                     except Exception as e:
                         logger.warning(f"Failed to get tick count for {code}: {e}")
@@ -228,24 +240,19 @@ async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: in
             "sample_size": check_limit if stocks_result.is_success() else sample_size,
             "total_sampled_ticks": total_sampled_ticks,
             "top_stocks": top_ticks,
-            "note": "Tick数据按股票分表存储，显示为抽样统计结果"
+            "note": "Tick数据按股票分表存储，显示为抽样统计结果",
         }
     except Exception as e:
         logger.error(f"Error getting tick data summary: {e}")
-        return {
-            "stocks_with_tick_data": 0,
-            "sample_size": sample_size,
-            "total_sampled_ticks": 0,
-            "top_stocks": []
-        }
+        return {"stocks_with_tick_data": 0, "sample_size": sample_size, "total_sampled_ticks": 0, "top_stocks": []}
 
 
 @router.get("/stockinfo")
 async def get_stockinfo(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=50, ge=1, le=500),
-    limit: Optional[int] = None
+    page_size: int = Query(default=50, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
+    limit: Optional[int] = None,
 ):
     """获取股票信息列表（分页，搜索下推到DB层）
 
@@ -277,9 +284,7 @@ async def get_stockinfo(
             total_count = count_result.data if count_result.is_success() else 0
 
             result = stockinfo_service.get(
-                limit=effective_page_size,
-                offset=(page - 1) * effective_page_size,
-                order_by="code"
+                limit=effective_page_size, offset=(page - 1) * effective_page_size, order_by="code"
             )
 
             if not result.is_success() or not result.data:
@@ -289,36 +294,35 @@ async def get_stockinfo(
 
         stock_summaries = []
         for stock in items:
-            code = stock.code if hasattr(stock, 'code') else ""
-            code_name = stock.code_name if hasattr(stock, 'code_name') else ""
-            market_value = stock.market if hasattr(stock, 'market') else None
-            is_del = stock.is_del if hasattr(stock, 'is_del') else False
-            industry = stock.industry if hasattr(stock, 'industry') else None
-            uuid_val = stock.uuid if hasattr(stock, 'uuid') else ""
-            update_at = stock.update_at if hasattr(stock, 'update_at') else None
+            code = stock.code if hasattr(stock, "code") else ""
+            code_name = stock.code_name if hasattr(stock, "code_name") else ""
+            market_value = stock.market if hasattr(stock, "market") else None
+            is_del = stock.is_del if hasattr(stock, "is_del") else False
+            industry = stock.industry if hasattr(stock, "industry") else None
+            uuid_val = stock.uuid if hasattr(stock, "uuid") else ""
+            update_at = stock.update_at if hasattr(stock, "update_at") else None
 
             code_str = str(code) if code is not None else ""
             name_str = str(code_name) if code_name is not None else ""
             market_str = MARKET_ID_TO_NAME.get(market_value) if market_value is not None else None
 
-            stock_summaries.append({
-                "uuid": uuid_val,
-                "code": code_str,
-                "name": name_str if name_str else None,
-                "market": market_str,
-                "industry": industry,
-                "is_active": not is_del,
-                "updated_at": update_at.isoformat() if update_at else None
-            })
+            stock_summaries.append(
+                {
+                    "uuid": uuid_val,
+                    "code": code_str,
+                    "name": name_str if name_str else None,
+                    "market": market_str,
+                    "industry": industry,
+                    "is_active": not is_del,
+                    "updated_at": update_at.isoformat() if update_at else None,
+                }
+            )
 
         return paginated(items=stock_summaries, total=total_count, page=page, page_size=effective_page_size)
 
     except Exception as e:
         logger.error(f"Error getting stockinfo: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get stock info"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get stock info")
 
 
 def _normalize_bar_code(code: Optional[str]) -> str:
@@ -355,7 +359,7 @@ async def get_bars(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500),
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
     order: Optional[str] = None,  # #5652: asc|desc，默认降序（最新在前）
 ):
     """获取K线数据列表（分页）"""
@@ -371,6 +375,7 @@ async def get_bars(
         # 未提供日期范围时，默认查询最近1年数据
         if not start_dt and not end_dt:
             from datetime import timedelta
+
             end_dt = datetime.utcnow()
             start_dt = end_dt - timedelta(days=365)
 
@@ -402,51 +407,52 @@ async def get_bars(
             page=page - 1,  # Service层page是0-based
             page_size=page_size,
             order_by="timestamp",
-            desc_order=desc_order
+            desc_order=desc_order,
         )
 
         if not result.is_success() or not result.data:
             # items 空仍返回真实 DB total，前端可据此判断其他页有数据（#5689）
             return paginated(
-                items=[], total=db_total if db_total is not None else 0,
-                page=page, page_size=page_size,
+                items=[],
+                total=db_total if db_total is not None else 0,
+                page=page,
+                page_size=page_size,
             )
 
         # 处理返回的数据
         # bar_service.get() 返回裸 list[MBar]（无 to_entities）；
         # ModelList 容器走 to_entities()，裸 list 本身即 entities 列表
         bars_data = result.data
-        bars_list = bars_data.to_entities() if hasattr(bars_data, 'to_entities') else bars_data
+        bars_list = bars_data.to_entities() if hasattr(bars_data, "to_entities") else bars_data
 
         bar_summaries = []
         for bar in bars_list:
-            bar_summaries.append({
-                "uuid": bar.uuid if hasattr(bar, 'uuid') else "",
-                "code": str(bar.code) if hasattr(bar, 'code') else "",
-                "date": bar.timestamp.isoformat() if hasattr(bar, 'timestamp') and bar.timestamp else "",
-                "period": "day",
-                "open": float(bar.open) if hasattr(bar, 'open') else 0.0,
-                "high": float(bar.high) if hasattr(bar, 'high') else 0.0,
-                "low": float(bar.low) if hasattr(bar, 'low') else 0.0,
-                "close": float(bar.close) if hasattr(bar, 'close') else 0.0,
-                "volume": float(bar.volume) if hasattr(bar, 'volume') else 0.0,
-                "amount": float(bar.amount) if hasattr(bar, 'amount') and bar.amount else None
-            })
+            bar_summaries.append(
+                {
+                    "uuid": bar.uuid if hasattr(bar, "uuid") else "",
+                    "code": str(bar.code) if hasattr(bar, "code") else "",
+                    "date": bar.timestamp.isoformat() if hasattr(bar, "timestamp") and bar.timestamp else "",
+                    "period": "day",
+                    "open": float(bar.open) if hasattr(bar, "open") else 0.0,
+                    "high": float(bar.high) if hasattr(bar, "high") else 0.0,
+                    "low": float(bar.low) if hasattr(bar, "low") else 0.0,
+                    "close": float(bar.close) if hasattr(bar, "close") else 0.0,
+                    "volume": float(bar.volume) if hasattr(bar, "volume") else 0.0,
+                    "amount": float(bar.amount) if hasattr(bar, "amount") and bar.amount else None,
+                }
+            )
 
         return paginated(
             items=bar_summaries,
             # #5689: total=DB count（与 page_size 解耦）；count 失败降级为当前页条数
             total=db_total if db_total is not None else len(bar_summaries),
             page=page,
-            page_size=page_size
+            page_size=page_size,
         )
 
     except Exception as e:
         logger.error(f"Error getting bars: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get bars"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get bars")
 
 
 @router.get("/ticks")
@@ -455,8 +461,8 @@ async def get_ticks(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500),
-    limit: Optional[int] = None  # #5621: 显式约束返回条数，未传沿用 page_size
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
+    limit: Optional[int] = None,  # #5621: 显式约束返回条数，未传沿用 page_size
 ):
     """获取Tick数据列表（分页）
 
@@ -468,10 +474,7 @@ async def get_ticks(
 
         # Tick数据需要code参数
         if not code:
-            raise HTTPException(
-                status_code=400,
-                detail="Code is required for ticks data"
-            )
+            raise HTTPException(status_code=400, detail="Code is required for ticks data")
 
         # 将字符串日期转换为datetime
         start_dt = datetime.fromisoformat(start_date) if start_date else None
@@ -502,45 +505,39 @@ async def get_ticks(
         else:
             ticks_data = result_data
 
-        ticks_list = ticks_data.to_entities() if hasattr(ticks_data, 'to_entities') else []
+        ticks_list = ticks_data.to_entities() if hasattr(ticks_data, "to_entities") else []
 
         tick_summaries = []
         for tick in ticks_list:
             # 处理direction字段：可能是枚举类型或整数
             direction_value = 0
-            if hasattr(tick, 'direction'):
+            if hasattr(tick, "direction"):
                 dir_val = tick.direction
-                if hasattr(dir_val, 'value'):
+                if hasattr(dir_val, "value"):
                     direction_value = dir_val.value
-                elif hasattr(dir_val, 'to_int'):
+                elif hasattr(dir_val, "to_int"):
                     direction_value = dir_val.to_int()
                 else:
                     direction_value = int(dir_val) if dir_val is not None else 0
 
-            tick_summaries.append({
-                "uuid": tick.uuid if hasattr(tick, 'uuid') else "",
-                "code": code,
-                "timestamp": tick.timestamp.isoformat() if hasattr(tick, 'timestamp') and tick.timestamp else "",
-                "price": float(tick.price) if hasattr(tick, 'price') else 0.0,
-                "volume": int(tick.volume) if hasattr(tick, 'volume') else 0,
-                "direction": direction_value
-            })
+            tick_summaries.append(
+                {
+                    "uuid": tick.uuid if hasattr(tick, "uuid") else "",
+                    "code": code,
+                    "timestamp": tick.timestamp.isoformat() if hasattr(tick, "timestamp") and tick.timestamp else "",
+                    "price": float(tick.price) if hasattr(tick, "price") else 0.0,
+                    "volume": int(tick.volume) if hasattr(tick, "volume") else 0,
+                    "direction": direction_value,
+                }
+            )
 
-        return paginated(
-            items=tick_summaries,
-            total=total_count,
-            page=page,
-            page_size=effective_page_size
-        )
+        return paginated(items=tick_summaries, total=total_count, page=page, page_size=effective_page_size)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting ticks: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get ticks"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get ticks")
 
 
 @router.get("/adjustfactors")
@@ -549,7 +546,7 @@ async def get_adjust_factors(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=100, ge=1, le=500)
+    page_size: int = Query(default=100, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
 ):
     """获取复权因子列表（分页）"""
     try:
@@ -580,35 +577,31 @@ async def get_adjust_factors(
         else:
             factors_data = result_data
 
-        if hasattr(factors_data, 'to_entities'):
+        if hasattr(factors_data, "to_entities"):
             factors_list = factors_data.to_entities()
         else:
             factors_list = list(factors_data) if factors_data else []
 
         factor_summaries = []
         for factor in factors_list:
-            factor_summaries.append({
-                "uuid": factor.uuid if hasattr(factor, 'uuid') else "",
-                "code": str(factor.code) if hasattr(factor, 'code') else "",
-                "timestamp": factor.timestamp.isoformat() if hasattr(factor, 'timestamp') and factor.timestamp else "",
-                "foreadjustfactor": float(factor.foreadjustfactor) if hasattr(factor, 'foreadjustfactor') else 1.0,
-                "backadjustfactor": float(factor.backadjustfactor) if hasattr(factor, 'backadjustfactor') else 1.0,
-                "adjustfactor": float(factor.adjustfactor) if hasattr(factor, 'adjustfactor') else 1.0,
-            })
+            factor_summaries.append(
+                {
+                    "uuid": factor.uuid if hasattr(factor, "uuid") else "",
+                    "code": str(factor.code) if hasattr(factor, "code") else "",
+                    "timestamp": (
+                        factor.timestamp.isoformat() if hasattr(factor, "timestamp") and factor.timestamp else ""
+                    ),
+                    "foreadjustfactor": float(factor.foreadjustfactor) if hasattr(factor, "foreadjustfactor") else 1.0,
+                    "backadjustfactor": float(factor.backadjustfactor) if hasattr(factor, "backadjustfactor") else 1.0,
+                    "adjustfactor": float(factor.adjustfactor) if hasattr(factor, "adjustfactor") else 1.0,
+                }
+            )
 
-        return paginated(
-            items=factor_summaries,
-            total=total_count,
-            page=page,
-            page_size=page_size
-        )
+        return paginated(items=factor_summaries, total=total_count, page=page, page_size=page_size)
 
     except Exception as e:
         logger.error(f"Error getting adjust factors: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get adjust factors"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get adjust factors")
 
 
 def _aggregate_dsr_list(dsrs):
@@ -619,18 +612,19 @@ def _aggregate_dsr_list(dsrs):
     避免批量真实成功落入 else 被误降 partial，同时补齐 master 既有的统计丢失。
     """
     from ginkgo.libs.data.results.data_sync_result import DataSyncResult
+
     aggregated_errors = []
     for d in dsrs:
-        aggregated_errors.extend(getattr(d, 'errors', None) or [])
+        aggregated_errors.extend(getattr(d, "errors", None) or [])
     return DataSyncResult(
         entity_type="batch",
         entity_identifier=f"multiple({len(dsrs)})",
         sync_range=(None, None),
-        records_processed=sum(getattr(d, 'records_processed', 0) for d in dsrs),
-        records_added=sum(getattr(d, 'records_added', 0) for d in dsrs),
-        records_updated=sum(getattr(d, 'records_updated', 0) for d in dsrs),
-        records_skipped=sum(getattr(d, 'records_skipped', 0) for d in dsrs),
-        records_failed=sum(getattr(d, 'records_failed', 0) for d in dsrs),
+        records_processed=sum(getattr(d, "records_processed", 0) for d in dsrs),
+        records_added=sum(getattr(d, "records_added", 0) for d in dsrs),
+        records_updated=sum(getattr(d, "records_updated", 0) for d in dsrs),
+        records_skipped=sum(getattr(d, "records_skipped", 0) for d in dsrs),
+        records_failed=sum(getattr(d, "records_failed", 0) for d in dsrs),
         sync_duration=0.0,
         is_idempotent=True,
         sync_strategy="batch",
@@ -644,18 +638,18 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
     if result is None:
         service.record_fail(uuid=record_uuid, error_message="sync method returned None")
         return
-    if hasattr(result, 'is_success') and result.is_success() and result.data:
+    if hasattr(result, "is_success") and result.is_success() and result.data:
         dsr = result.data
         # #6217: sync_batch 返回 List[DataSyncResult]（adjustfactor 批量），聚合为
         # 单一统计视图后走统一四态决策，避免 list 落入 else 被误降 partial。
         if isinstance(dsr, list):
             dsr = _aggregate_dsr_list(dsr)
-        if hasattr(dsr, 'records_processed'):
+        if hasattr(dsr, "records_processed"):
             # #5450: 检测 service 层标记的带 reason 的成功语义（如 already_up_to_date）。
             # 此时 records_processed=0/skipped=0，旧 #5893 逻辑会误判 partial；但"数据已最新"
             # 属 success。把 result.message 透传到 error_message（model 唯一 Text 字段，
             # get_history 端到端返回），不加 schema 字段避免 DB 安全阀。验收标准 2 端到端。
-            _meta = getattr(dsr, 'metadata', None)
+            _meta = getattr(dsr, "metadata", None)
             _reason = _meta.get("reason", "") if isinstance(_meta, dict) else ""
             if _reason:
                 service.record_complete(
@@ -666,8 +660,8 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
                     records_added=dsr.records_added,
                     records_updated=dsr.records_updated,
                     records_failed=dsr.records_failed,
-                    sync_strategy=getattr(dsr, 'sync_strategy', ''),
-                    error_message=getattr(result, 'message', '') or f"已是最新 ({_reason})",
+                    sync_strategy=getattr(dsr, "sync_strategy", ""),
+                    error_message=getattr(result, "message", "") or f"已是最新 ({_reason})",
                 )
                 return
             # #5893: success 仅当无错误且有产出（processed>0）或幂等跳过（skipped>0）；
@@ -683,13 +677,13 @@ def _record_sync_result(service, record_uuid: str, result, started_at: float):
                 records_added=dsr.records_added,
                 records_updated=dsr.records_updated,
                 records_failed=dsr.records_failed,
-                sync_strategy=getattr(dsr, 'sync_strategy', ''),
+                sync_strategy=getattr(dsr, "sync_strategy", ""),
             )
         else:
             # #5893: 成功但无 records_processed 统计，无法判断产出，报 partial
             service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
-    elif hasattr(result, 'is_success') and not result.is_success():
-        service.record_fail(uuid=record_uuid, error_message=getattr(result, 'message', 'Unknown error'))
+    elif hasattr(result, "is_success") and not result.is_success():
+        service.record_fail(uuid=record_uuid, error_message=getattr(result, "message", "Unknown error"))
     else:
         # #5893: result 无 is_success 方法，无法判断成败，报 partial
         service.record_complete(uuid=record_uuid, status="partial", duration_ms=duration_ms)
@@ -741,7 +735,7 @@ async def sync_data(request: DataUpdateRequest):
                     raise HTTPException(
                         status_code=400,
                         detail="No stockinfo records to sync; run stockinfo sync first "
-                               "(POST /api/v1/data/sync {\"type\":\"stockinfo\"})",
+                        '(POST /api/v1/data/sync {"type":"stockinfo"})',
                     )
             if not codes:
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
@@ -761,8 +755,14 @@ async def sync_data(request: DataUpdateRequest):
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "bars", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
-                message=f"Bars update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
+                data={
+                    "type": "bars",
+                    "codes": codes,
+                    "total": len(codes),
+                    "failed": failed,
+                    "success_count": len(codes) - failed,
+                },
+                message=f"Bars update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else ""),
             )
 
         elif request.type == "ticks":
@@ -788,8 +788,14 @@ async def sync_data(request: DataUpdateRequest):
                         sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
 
             return ok(
-                data={"type": "ticks", "codes": codes, "total": len(codes), "failed": failed, "success_count": len(codes) - failed},
-                message=f"Ticks update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else "")
+                data={
+                    "type": "ticks",
+                    "codes": codes,
+                    "total": len(codes),
+                    "failed": failed,
+                    "success_count": len(codes) - failed,
+                },
+                message=f"Ticks update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else ""),
             )
 
         elif request.type in ("adjustfactor", "adjustfactors"):
@@ -797,7 +803,9 @@ async def sync_data(request: DataUpdateRequest):
             sync_type = "adjustfactor"
             codes = request.codes or []
             if not codes:
-                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for adjust factors update")
+                raise HTTPException(
+                    status_code=400, detail="codes (list of stock codes) is required for adjust factors update"
+                )
 
             adjustfactor_service = get_adjustfactor_service()
             # 批量同步复权因子，整体记录
@@ -829,7 +837,7 @@ async def sync_data(request: DataUpdateRequest):
 
             return ok(
                 data={"type": "adjustfactor", "codes": codes},
-                message=f"Adjust factors update completed for {len(codes)} codes"
+                message=f"Adjust factors update completed for {len(codes)} codes",
             )
 
         else:
@@ -849,7 +857,7 @@ async def sync_data(request: DataUpdateRequest):
 async def get_sync_history(
     sync_type: Optional[str] = None,
     page: int = 1,
-    page_size: int = Query(default=20, ge=1, le=500),
+    page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
 ):
     """获取同步历史记录"""
     try:
@@ -878,37 +886,14 @@ async def get_data_sources():
     try:
         # 返回可用的数据源及其状态
         sources = [
-            {
-                "name": "Tushare",
-                "enabled": True,
-                "description": "中国金融数据接口",
-                "status": "active"
-            },
-            {
-                "name": "Yahoo",
-                "enabled": True,
-                "description": "Yahoo Finance数据",
-                "status": "active"
-            },
-            {
-                "name": "BaoStock",
-                "enabled": True,
-                "description": "免费证券数据平台",
-                "status": "active"
-            },
-            {
-                "name": "TDX",
-                "enabled": True,
-                "description": "通达信数据",
-                "status": "active"
-            }
+            {"name": "Tushare", "enabled": True, "description": "中国金融数据接口", "status": "active"},
+            {"name": "Yahoo", "enabled": True, "description": "Yahoo Finance数据", "status": "active"},
+            {"name": "BaoStock", "enabled": True, "description": "免费证券数据平台", "status": "active"},
+            {"name": "TDX", "enabled": True, "description": "通达信数据", "status": "active"},
         ]
 
         return ok(data=sources)
 
     except Exception as e:
         logger.error(f"Error getting data sources: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get data sources"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get data sources")

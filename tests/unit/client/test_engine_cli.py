@@ -12,6 +12,9 @@ Mock strategy:
     are imported at module level -> patch at the engine_cli import site.
 """
 
+import json
+import re
+
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 
@@ -20,6 +23,11 @@ from typer.testing import CliRunner
 
 from ginkgo.client import engine_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言（rich colorize 会拆分 --option 文本）"""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 # ---------------------------------------------------------------------------
@@ -100,8 +108,9 @@ class TestHelp:
     def test_list_help(self, cli_runner):
         result = cli_runner.invoke(engine_cli.app, ["list", "--help"])
         assert result.exit_code == 0
-        for opt in ("--status", "--portfolio", "--filter", "--page", "--page-size", "--limit", "--raw"):
-            assert opt in result.output
+        plain = _strip_ansi(result.output)
+        for opt in ("--status", "--portfolio", "--filter", "--page", "--page-size", "--raw"):
+            assert opt in plain
 
 
 # ===========================================================================
@@ -125,15 +134,32 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
-    def test_list_passes_page_and_page_size(self, cli_runner):
+    def test_list_page_size_pushes_to_get_engines_df(self, cli_runner):
+        """#5009：--page-size 下推 get_engines_df page_size（all 路径，page 默认 0）。"""
         df = _make_engine_df()
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
-            result = cli_runner.invoke(engine_cli.app, ["list", "--page", "1", "--page-size", "5"])
+            result = cli_runner.invoke(engine_cli.app, ["list", "--page-size", "5"])
 
-        assert result.exit_code == 0, result.output
-        svc.get_engines_df.assert_called_once_with(page=1, page_size=5)
+        assert result.exit_code == 0
+        svc.get_engines_df.assert_called_once_with(page=0, page_size=5)
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_filter_pushes_page_size_to_fuzzy_search(self, cli_runner):
+        """#5009：filter 模式 --page-size 下推 fuzzy_search page_size。"""
+        df = _make_engine_df()
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = df
+        svc = _mock_engine_service(fuzzy_search=ServiceResult.success(data=model_list))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test", "--page-size", "5"])
+
+        assert result.exit_code == 0
+        _, kwargs = svc.fuzzy_search.call_args
+        assert kwargs.get("page_size") == 5
 
     @pytest.mark.unit
     @pytest.mark.cli
@@ -146,8 +172,9 @@ class TestListEngines:
             result = cli_runner.invoke(engine_cli.app, ["list", "--page-size", "1"])
 
         assert result.exit_code == 0, result.output
-        assert "Showing page" in result.output
-        assert "Use --page-size 0" in result.output
+        plain = _strip_ansi(result.output)
+        assert "Showing page" in plain
+        assert "Use --page-size 0" in plain
 
     @pytest.mark.unit
     @pytest.mark.cli
@@ -199,6 +226,42 @@ class TestListEngines:
 
     @pytest.mark.unit
     @pytest.mark.cli
+    def test_list_json_format_outputs_adr021_contract(self, cli_runner):
+        # 模拟 DB 截断：get_engines_df 返回当前页（1 行），count 返回未截断总数。
+        df = _make_engine_df()
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
+        # 对齐真实 EngineService.count() 契约：返回 ServiceResult.success({"count": N})（dict，非裸 int）。
+        svc.count.return_value = ServiceResult.success(data={"count": 50})
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json", "--page-size", "1"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        # ADR-021：count = 当前页记录数，metadata.total = 未截断匹配总数（service.count）。
+        assert payload["count"] == 1
+        assert payload["metadata"]["total"] == 50
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
+        assert payload["data"][0]["name"] == "TestEngine"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    def test_list_negative_param_json_envelope_exit_2(self, cli_runner, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review E2，ADR-021 dim 1/6）。
+
+        守卫在 service 调用前拦截，无需 mock；JSON 模式 stdout 须为合法 JSON（listing 文本被 format!=json 守卫跳过）。
+        """
+        result = cli_runner.invoke(engine_cli.app, ["list", bad_arg, "--format", "json"])
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+
+    @pytest.mark.unit
+    @pytest.mark.cli
     def test_list_no_engines_found(self, cli_runner):
         svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=pd.DataFrame()))
 
@@ -214,7 +277,7 @@ class TestListEngines:
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：service 失败 → exit 1（原 exit 0 是 false-success）
         assert "Failed" in result.output or "DB connection lost" in result.output
 
     @pytest.mark.unit
@@ -226,8 +289,35 @@ class TestListEngines:
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_service_failure_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + service 失败 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        svc = _mock_engine_service(get_engines_df=ServiceResult.error(error="DB connection lost"))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "DB connection lost" in payload["error"]["message"]
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_exception_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 异常 → stdout 合法 JSON 错误 envelope + exit 1。"""
+        svc = MagicMock()
+        svc.get_engines_df.side_effect = RuntimeError("container boom")
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert "container boom" in payload["error"]["message"]
 
 
 # ===========================================================================
@@ -456,14 +546,18 @@ class TestRun:
     @pytest.mark.unit
     @pytest.mark.cli
     def test_run_no_id_shows_list(self, cli_runner):
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = _make_engine_df()
-        svc = _mock_engine_service(get=ServiceResult.success(data=model_list))
+        # ADR-021: run 无 engine_id 时应列出可用引擎。
+        # 回归护栏：run 签名漏 limit 形参 → get_engines_df(page_size=limit) NameError
+        # 被 try/except 吞 → 静默不出列表却 exit 0。故断言引擎实际渲染 + limit 下推。
+        df = _make_engine_df()
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
 
         with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
             result = cli_runner.invoke(engine_cli.app, ["run"])
         assert result.exit_code == 0
         assert "No engine ID" in result.output
+        assert "TestEngine" in result.output
+        assert svc.get_engines_df.call_args.kwargs["page_size"] == 20
 
     @pytest.mark.unit
     @pytest.mark.cli

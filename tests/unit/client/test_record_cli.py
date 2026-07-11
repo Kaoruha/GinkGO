@@ -9,6 +9,7 @@ Run: pytest tests/unit/client/test_record_cli.py -v -o "addopts="
 """
 
 import os
+import re
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
@@ -20,6 +21,11 @@ from typer.testing import CliRunner
 
 from ginkgo.client import record_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言（rich colorize 会拆分 --option 文本）"""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 @pytest.fixture
@@ -79,10 +85,11 @@ class TestRecordOrderFilters:
     def test_order_help_shows_page_options(self, cli_runner):
         result = cli_runner.invoke(record_cli.app, ["order", "--help"])
         assert result.exit_code == 0
-        assert "--page" in result.output
-        assert "--page-size" in result.output
+        plain = _strip_ansi(result.output)
+        assert "--page" in plain
+        assert "--page-size" in plain
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_order_passes_engine_and_task(self, mock_container, cli_runner, mock_orders_df):
         """-e/-t 透传到 service.get_orders_df"""
         mock_service = MagicMock()
@@ -107,7 +114,7 @@ class TestRecordOrderFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_order_passes_page_and_page_size(self, mock_container, cli_runner, mock_orders_df):
         mock_service = MagicMock()
         mock_service.get_orders_df.return_value = ServiceResult.success(data=mock_orders_df)
@@ -120,7 +127,7 @@ class TestRecordOrderFilters:
         assert kwargs.get("page") == 2
         assert kwargs.get("page_size") == 5
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_order_without_filters_still_works(self, mock_container, cli_runner, mock_orders_df):
         """无过滤参数时正常返回全部（不传 None 进 service）"""
         mock_service = MagicMock()
@@ -145,10 +152,11 @@ class TestRecordPositionFilters:
     def test_position_help_shows_page_options(self, cli_runner):
         result = cli_runner.invoke(record_cli.app, ["position", "--help"])
         assert result.exit_code == 0
-        assert "--page" in result.output
-        assert "--page-size" in result.output
+        plain = _strip_ansi(result.output)
+        assert "--page" in plain
+        assert "--page-size" in plain
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_position_passes_engine_and_task(self, mock_container, cli_runner, mock_positions_df):
         """-e/-t 透传到 result_service.get_positions_df"""
         mock_service = MagicMock()
@@ -173,7 +181,7 @@ class TestRecordPositionFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_position_passes_page_and_page_size(self, mock_container, cli_runner, mock_positions_df):
         mock_service = MagicMock()
         mock_service.get_positions_df.return_value = ServiceResult.success(data=mock_positions_df)
@@ -186,7 +194,7 @@ class TestRecordPositionFilters:
         assert kwargs.get("page") == 2
         assert kwargs.get("page_size") == 5
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_position_reads_result_service_not_position_service(self, mock_container, cli_runner, mock_positions_df):
         """#5341 核心：必须读 result_service（流水表），不得读 position_service（当前态）"""
         mock_result_svc = MagicMock()
@@ -242,14 +250,15 @@ class TestRecordSignalFilters:
     都有→查 signals）。统一后 -p/-e/-t 全可选，与 order/position 一致。
     """
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_help_shows_page_size(self, mock_container, cli_runner):
         result = cli_runner.invoke(record_cli.app, ["signal", "--help"])
         assert result.exit_code == 0
-        assert "--page" in result.output
-        assert "--page-size" in result.output
+        plain = _strip_ansi(result.output)
+        assert "--page" in plain
+        assert "--page-size" in plain
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_passes_page_and_page_size(self, mock_container, cli_runner):
         mock_service = MagicMock()
         mock_service.get_signals_df.return_value = ServiceResult.success(data=_signals_df())
@@ -262,7 +271,7 @@ class TestRecordSignalFilters:
         assert kwargs.get("page") == 1
         assert kwargs.get("page_size") == 5
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_passes_all_filters(self, mock_container, cli_runner):
         """-p/-e/-t 全透传到 service.get_signals_df"""
         mock_service = MagicMock()
@@ -287,7 +296,7 @@ class TestRecordSignalFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_portfolio_only_queries_directly(self, mock_container, cli_runner):
         """单 -p 直接查该 portfolio 全部 signal，不再强制先选 engine"""
         mock_service = MagicMock()
@@ -301,7 +310,7 @@ class TestRecordSignalFilters:
         _, kwargs = mock_service.get_signals_df.call_args
         assert kwargs.get("portfolio_id") == "p1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_no_filters_returns_all(self, mock_container, cli_runner):
         """无任何过滤参数时查全部 signal（不再强制选 engine）"""
         mock_service = MagicMock()
@@ -321,10 +330,11 @@ class TestRecordAnalyzerPagination:
     def test_analyzer_help_shows_page_options(self, cli_runner):
         result = cli_runner.invoke(record_cli.app, ["analyzer", "--help"])
         assert result.exit_code == 0
-        assert "--page" in result.output
-        assert "--page-size" in result.output
+        plain = _strip_ansi(result.output)
+        assert "--page" in plain
+        assert "--page-size" in plain
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_analyzer_passes_page_and_page_size(self, mock_container, cli_runner):
         mock_service = MagicMock()
         mock_service.get_records_df.return_value = ServiceResult.success(

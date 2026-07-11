@@ -1,7 +1,7 @@
 """
 CRUD 层 Mock 单元测试共享 fixtures
 
-提供数据库连接、Session、CRUDResult 等通用 mock 对象
+提供数据库连接、Session 等通用 mock 对象
 """
 import pytest
 from unittest.mock import MagicMock, patch

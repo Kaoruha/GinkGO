@@ -63,6 +63,11 @@ jobs:
       TERM: dumb  # GITHUB_ACTIONS=true 致 typer/rich 强制 colorize，--name 被 ANSI 分隔使断言失败；TERM=dumb 禁 color（NO_COLOR 无效，rich 只认 TERM）
     steps:
       - uses: actions/checkout@v4
+        with:
+          # diff coverage gate (#6135) runs `git diff <pr base.sha> <head>`;
+          # the base commit is absent in a depth-1 clone → "unknown revision".
+          # Full history only needed in this job (the one that runs the gate).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -98,3 +103,61 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/client/test_user_cli.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: page_size passthrough smoke (#6652 ADR-021 L139)
+        # service 层 page_size 透传 crud 的 3 个出口方法（engine get_engines_df/
+        # fuzzy_search、portfolio get_portfolios_df）被 containers import 链触达
+        # （class 定义行 executed → 非 exempt）但 smoke 不调其方法体，函数体内
+        # page_size 透传行无覆盖信号。此处用 mock 依赖补信号，供 #6685 门禁采集。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: list count_X smoke (#5009 metadata.total)
+        # count_signals/count_orders/count_records/count_positions + get_positions_df(page=)
+        # 是本 PR 新增可执行行，被 containers import 链触达但 smoke 不调方法体 → 门禁红。
+        # 用 mock 依赖（result count_positions/get_positions_df inline 实例化 PositionRecordCRUD
+        # → patch 类构造）补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_list_count_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: deployment_service list/count smoke (#5009 pagination)
+        # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
+        # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
+        # smoke 不调方法体 → 门禁红。用 mock 依赖补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/trading/services/test_deployment_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: deploy_cli + record_cli list smoke (#5009 pagination CliRunner)
+        # deploy_cli.list_deployments / record_cli(signal,order,position,analyzer) 为本 PR
+        # 重构（offset 分页 + ADR-021 json envelope + count metadata.total）。CliRunner +
+        # mock container 补命令体覆盖信号，使这些文件脱离 diff coverage gate 豁免（非
+        # list 命令仍豁免：portfolio_cli/engine_cli/flat_cli 的 get/create 等需另开 smoke）。
+        run: |
+          uv run python -m pytest \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: Diff coverage gate (#6135)
+        if: github.event_name == 'pull_request'
+        # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
+        # 不把当前全仓 6.85% smoke baseline 当作质量目标；无 src/api 改动时跳过。
+        run: |
+          uv run python -m pytest \
+            tests/unit/data/crud/test_user_crud_mock.py \
+            tests/unit/features/test_containers.py \
+            tests/unit/client/test_user_cli.py \
+            tests/unit/data/mappers/test_bar_mapper.py \
+            tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            tests/unit/data/services/test_list_count_smoke.py \
+            tests/unit/trading/services/test_deployment_list_smoke.py \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
+            --cov=src/ginkgo \
+            --cov=api \
+            --cov-report=json:coverage.json \
+            --cov-report=term-missing:skip-covered \
+            -q -o "addopts=" --no-header --tb=short
+          uv run python scripts/check_diff_coverage.py \
+            --coverage-json coverage.json \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --threshold 80

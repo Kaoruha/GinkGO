@@ -362,16 +362,18 @@ class DeploymentService(BaseService):
         return result
 
     def list_deployments(self, portfolio_id: str = None, page: int = None, page_size: int = None) -> ServiceResult:
-        """列出部署记录"""
+        """列出部署记录（#5009：page/page_size 分页，portfolio 过滤下推 find）"""
+        filters = {}
         if portfolio_id:
-            records = self._deployment_crud.get_by_source_portfolio(portfolio_id)
-        else:
-            records = self._deployment_crud.find(
-                page=page if page_size and page_size > 0 else None,
-                page_size=page_size if page_size and page_size > 0 else None,
-                order_by="create_at",
-                desc_order=True,
-            )
+            filters["source_portfolio_id"] = portfolio_id
+
+        records = self._deployment_crud.find(
+            filters=filters,
+            page=page,
+            page_size=page_size,
+            order_by="create_at",
+            desc_order=True,
+        )
 
         if not records:
             return ServiceResult(success=True, data=[])
@@ -383,6 +385,14 @@ class DeploymentService(BaseService):
         result = ServiceResult(success=True)
         result.data = [self._deployment_to_dict(r) for r in records]
         return result
+
+    def count_deployments(self, portfolio_id: str = None) -> ServiceResult:
+        """统计部署记录总数（#5009：metadata.total 真实总数，非 len(data)）"""
+        filters = {}
+        if portfolio_id:
+            filters["source_portfolio_id"] = portfolio_id
+        count = self._deployment_crud.count(filters=filters)
+        return ServiceResult.success({"count": count}, f"Successfully counted deployments: {count}")
 
     # #3867: API 层不再直调 CRUD，通过 Service 封装
 
@@ -403,6 +413,63 @@ class DeploymentService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"Failed to find deployments by target: {e}")
             return ServiceResult.error(f"Failed to find deployments: {str(e)}")
+
+    def undeploy(self, deployment_id: str) -> ServiceResult:
+        """撤销部署：停止目标 Portfolio，并将部署记录标记为 STOPPED。"""
+        try:
+            if not deployment_id or not deployment_id.strip():
+                return ServiceResult(success=False, error="部署记录 ID 或 Portfolio ID 不能为空")
+
+            records = []
+            for finder in (
+                self._deployment_crud.get_by_uuid,
+                self._deployment_crud.get_by_source_portfolio,
+                self._deployment_crud.get_by_target_portfolio,
+            ):
+                found = finder(deployment_id) or []
+                records.extend(found)
+                if found:
+                    break
+
+            if not records:
+                return ServiceResult(success=False, error="未找到部署记录")
+
+            deployment = next(
+                (r for r in records if getattr(r, "status", None) == DEPLOYMENT_STATUS.DEPLOYED),
+                records[0],
+            )
+            if getattr(deployment, "status", None) == DEPLOYMENT_STATUS.STOPPED:
+                return ServiceResult(success=False, error="部署已停止")
+            if getattr(deployment, "status", None) != DEPLOYMENT_STATUS.DEPLOYED:
+                return ServiceResult(
+                    success=False,
+                    error=f"部署状态不允许撤销: {_status_name(getattr(deployment, 'status', None))}",
+                )
+
+            target_portfolio_id = getattr(deployment, "target_portfolio_id", "")
+            if not target_portfolio_id:
+                return ServiceResult(success=False, error="部署记录缺少目标 Portfolio")
+
+            stop_result = self._portfolio_service.stop(target_portfolio_id)
+            if not stop_result.success and "已停止" not in (stop_result.error or ""):
+                return ServiceResult(success=False, error=stop_result.error)
+
+            self._deployment_crud.modify(
+                filters={"uuid": deployment.uuid},
+                updates={"status": DEPLOYMENT_STATUS.STOPPED},
+            )
+
+            return ServiceResult(
+                success=True,
+                data={
+                    "deployment_id": deployment.uuid,
+                    "target_portfolio_id": target_portfolio_id,
+                },
+                message="撤销部署成功",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"撤销部署失败: {e}")
+            return ServiceResult(success=False, error=f"撤销部署失败: {str(e)}")
 
     def _copy_params_raw(self, old_mapping_id: str, new_mapping_id: str) -> None:
         """原始值复制参数，不经过 json 序列化/反序列化"""
