@@ -94,3 +94,105 @@ class TestGetAllPortfolios:
         result = PlanManager._get_all_portfolios()
 
         assert result == []
+
+
+@pytest.mark.tdd
+class TestDetectUndeliveredPortfolios:
+    """#4863: detect_undelivered_portfolios 找出 plan 已分配给健康节点、
+    但节点未实际加载的 portfolio。
+
+    detect_orphaned_portfolios 只处理「节点下线」（plan 中 node_id 不在
+    healthy_nodes），漏掉了「健康节点漏加载」——Kafka schedule.updates 丢失、
+    节点启动晚于消息、load_portfolio 失败等，都会让 plan 写了 pid→X 但
+    节点 X 的 self.portfolios 不含 pid，且无 reconcile 机制 → plan/status
+    永久漂移（scheduler plan 显示 5、execution status 显示 0）。
+
+    输入契约：healthy_nodes[i] = {
+        "node_id": str,
+        "metrics": {"portfolio_count": int, "loaded_portfolio_ids": [str, ...]}
+    }
+    返回：[{"portfolio_id": str, "node_id": str}, ...] 供 scheduler 重发加载命令。
+    """
+
+    def test_plan_assigned_but_node_not_loaded_returns_undelivered(self):
+        """plan 把 pid 分给健康节点 X，X 上报 loaded_portfolio_ids=[] → 返回该 pid。"""
+        from ginkgo.livecore.scheduler.plan_manager import PlanManager
+
+        redis_client = MagicMock()
+        pm = PlanManager(redis_client)
+
+        healthy_nodes = [
+            {"node_id": "nodeX", "metrics": {"portfolio_count": 0, "loaded_portfolio_ids": []}}
+        ]
+        current_plan = {"pid-1": "nodeX"}
+
+        result = pm.detect_undelivered_portfolios(healthy_nodes, current_plan)
+
+        assert result == [{"portfolio_id": "pid-1", "node_id": "nodeX"}]
+
+    def test_node_already_loaded_returns_empty(self):
+        """plan 把 pid 分给 X，X 已加载该 pid → 空列表（幂等重发不必要）。"""
+        from ginkgo.livecore.scheduler.plan_manager import PlanManager
+
+        redis_client = MagicMock()
+        pm = PlanManager(redis_client)
+
+        healthy_nodes = [
+            {"node_id": "nodeX", "metrics": {"portfolio_count": 1, "loaded_portfolio_ids": ["pid-1"]}}
+        ]
+        current_plan = {"pid-1": "nodeX"}
+
+        result = pm.detect_undelivered_portfolios(healthy_nodes, current_plan)
+
+        assert result == []
+
+    def test_old_node_missing_loaded_field_skipped(self):
+        """老节点未上报 loaded_portfolio_ids（字段缺失）→ 跳过，不误报其 plan 为漏加载。"""
+        from ginkgo.livecore.scheduler.plan_manager import PlanManager
+
+        redis_client = MagicMock()
+        pm = PlanManager(redis_client)
+
+        healthy_nodes = [
+            # 老节点：只有 portfolio_count，无 loaded_portfolio_ids
+            {"node_id": "node-old", "metrics": {"portfolio_count": 1}}
+        ]
+        current_plan = {"pid-1": "node-old"}
+
+        result = pm.detect_undelivered_portfolios(healthy_nodes, current_plan)
+
+        assert result == []
+
+    def test_node_not_healthy_left_to_orphaned(self):
+        """pid 分给的节点不在 healthy_nodes（已下线）→ 不归 undelivered（detect_orphaned 负责）。"""
+        from ginkgo.livecore.scheduler.plan_manager import PlanManager
+
+        redis_client = MagicMock()
+        pm = PlanManager(redis_client)
+
+        # nodeX 下线了，healthy 列表里是另一个节点
+        healthy_nodes = [
+            {"node_id": "nodeY", "metrics": {"portfolio_count": 0, "loaded_portfolio_ids": []}}
+        ]
+        current_plan = {"pid-1": "nodeX"}
+
+        result = pm.detect_undelivered_portfolios(healthy_nodes, current_plan)
+
+        assert result == []
+
+    def test_mixed_loaded_and_undelivered(self):
+        """X 加载了 pid-1 漏了 pid-2，Y 健康无 plan → 只报 pid-2。"""
+        from ginkgo.livecore.scheduler.plan_manager import PlanManager
+
+        redis_client = MagicMock()
+        pm = PlanManager(redis_client)
+
+        healthy_nodes = [
+            {"node_id": "nodeX", "metrics": {"portfolio_count": 1, "loaded_portfolio_ids": ["pid-1"]}},
+            {"node_id": "nodeY", "metrics": {"portfolio_count": 0, "loaded_portfolio_ids": []}},
+        ]
+        current_plan = {"pid-1": "nodeX", "pid-2": "nodeX"}
+
+        result = pm.detect_undelivered_portfolios(healthy_nodes, current_plan)
+
+        assert result == [{"portfolio_id": "pid-2", "node_id": "nodeX"}]

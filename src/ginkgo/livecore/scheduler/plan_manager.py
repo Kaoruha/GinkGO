@@ -93,6 +93,57 @@ class PlanManager:
             logger.error(f"Failed to detect orphaned portfolios: {e}")
             return []
 
+    def detect_undelivered_portfolios(self, healthy_nodes, current_plan=None) -> List[Dict[str, str]]:
+        """
+        #4863: 检测 plan 已分配给健康节点、但节点未实际加载的 Portfolio。
+
+        与 detect_orphaned_portfolios 互补：orphaned 处理「节点下线」（plan 的
+        node_id 不在 healthy_nodes），undelivered 处理「健康节点漏加载」——Kafka
+        schedule.updates 丢失、节点启动晚于消息、load_portfolio 失败等，会让
+        plan 写了 pid→X 但节点 X 的 self.portfolios 不含 pid，scheduler plan 与
+        execution status 永久漂移（plan 显示 5、status 显示 0）。
+
+        Args:
+            healthy_nodes: [{node_id, metrics: {portfolio_count, loaded_portfolio_ids}}]
+            current_plan: {portfolio_id: node_id}（为 None 时自动获取）
+
+        Returns:
+            List[Dict]: [{"portfolio_id": str, "node_id": str}, ...] 供 scheduler
+            重发 send_schedule_command（to_node 即原分配节点，幂等）。
+        """
+        try:
+            if current_plan is None:
+                current_plan = self.get_current_schedule_plan()
+
+            node_loaded = {}
+            for n in healthy_nodes:
+                metrics = n.get("metrics", {}) or {}
+                loaded = metrics.get("loaded_portfolio_ids")
+                if loaded is None:
+                    # 老节点未上报该字段，无法判定漏加载 → 跳过，不误报
+                    continue
+                node_loaded[n["node_id"]] = set(loaded)
+
+            undelivered = []
+            for portfolio_id, node_id in current_plan.items():
+                # 节点不健康（orphaned 职责）或未上报 loaded 字段 → 不在此处理
+                if node_id not in node_loaded:
+                    continue
+                if portfolio_id not in node_loaded[node_id]:
+                    undelivered.append({"portfolio_id": portfolio_id, "node_id": node_id})
+
+            if undelivered:
+                logger.warning(
+                    f"Undelivered portfolios (healthy node missing load): "
+                    f"{[(p['portfolio_id'][:8], p['node_id']) for p in undelivered]}"
+                )
+
+            return undelivered
+
+        except Exception as e:
+            logger.error(f"Failed to detect undelivered portfolios: {e}")
+            return []
+
     def detect_deleted_portfolios(self, current_plan: Dict[str, str]) -> List[str]:
         """
         检测已删除的 Portfolio（调度计划中有，但数据库不存在的）
