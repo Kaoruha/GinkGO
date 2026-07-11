@@ -220,9 +220,10 @@ class GinkgoJSONEncoder(json.JSONEncoder):
     - datetime/date → ISO8601（``T`` 分隔，非空格）
     - Decimal → str（金融精度，float 会丢；与 ADR-005 序列化对称同精神）
     - UUID → 带横线（用户面向，与库内 hex 存储 ``arch_uuid_storage_no_dashes`` 分层）
-    - pydantic BaseModel → ``model_dump(mode="json")``（duck-typing，避免顶部
-      import pydantic 拖慢 CLI 启动，呼应 ``arch_module_level_validator_import_crash``）
-    - SQLAlchemy Model → 列字典
+    - pydantic BaseModel → ``model_dump(mode="json")``（isinstance 判定 + 延迟 import，
+      防 MagicMock duck-trap 无限递归；呼应 ``arch_module_level_validator_import_crash``）
+    - SQLAlchemy DeclarativeBase → 列字典（isinstance 判定，非 ``hasattr(__table__)``）
+    - 未识别类型 → ``raise TypeError``（响亮失败，json 标准契约；非 ``super().default()`` 兜底）
     - DataFrame → ``to_dict('records')``（每行一对象，jq 友好）
     """
 
@@ -238,13 +239,22 @@ class GinkgoJSONEncoder(json.JSONEncoder):
             return str(obj)
         if isinstance(obj, pd.DataFrame):
             return obj.to_dict("records")
-        # pydantic v2 BaseModel（duck-typing on model_dump）
-        if hasattr(obj, "model_dump"):
-            return obj.model_dump(mode="json")
-        # SQLAlchemy ORM Model
-        if hasattr(obj, "__table__"):
-            return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
-        return super().default(obj)
+        # pydantic v2 BaseModel —— isinstance 替代 hasattr，防 MagicMock duck-trap 无限递归
+        try:
+            from pydantic import BaseModel
+            if isinstance(obj, BaseModel):
+                return obj.model_dump(mode="json")
+        except ImportError:
+            pass
+        # SQLAlchemy ORM Model —— isinstance(DeclarativeBase) 替代 hasattr(__table__)
+        try:
+            from sqlalchemy.orm import DeclarativeBase
+            if isinstance(obj, DeclarativeBase):
+                return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+        except ImportError:
+            pass
+        # 未识别类型：显式 TypeError（json 标准契约，响亮失败而非无限递归 OOM）
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def safe_confirm(
