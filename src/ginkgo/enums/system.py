@@ -93,8 +93,6 @@ class TIME_MODE(EnumBase):
     SYSTEM = 2       # 系统时间（实盘）
 
 
-# ==================== 用户管理系统枚举 (US2) ====================
-
 class LEVEL_TYPES(EnumBase):
     """日志级别枚举 - 用于标识日志严重程度"""
 
@@ -186,68 +184,6 @@ class VALIDATION_STATUS:
     RUNNING = 0
     COMPLETED = 1
     FAILED = 2
-
-
-# ==================== 导出所有枚举 ====================
-
-__all__ = [
-    # 原有枚举
-    "CURRENCY_TYPES",
-    "TICKDIRECTION_TYPES",
-    "EVENT_TYPES",
-    "PRICEINFO_TYPES",
-    "SOURCE_TYPES",
-    "DIRECTION_TYPES",
-    "TRANSFERDIRECTION_TYPES",
-    "ORDER_TYPES",
-    "ORDERSTATUS_TYPES",
-    "TRANSFERSTATUS_TYPES",
-    "FREQUENCY_TYPES",
-    "MARKET_TYPES",
-    "ATTITUDE_TYPES",
-    "FILE_TYPES",
-    "RECORDSTAGE_TYPES",
-    "GRAPHY_TYPES",
-    "PARAMETER_TYPES",
-    "CAPITALADJUSTMENT_TYPES",
-    "ADJUSTMENT_TYPES",
-    "ENGINESTATUS_TYPES",
-    "STRATEGY_TYPES",
-    "MODEL_TYPES",
-    "ENGINE_TYPES",
-    "EXECUTION_STATUS",
-    "TRACKINGSTATUS_TYPES",
-    "ACCOUNT_TYPE",
-    "COMPONENT_TYPES",
-    "ENTITY_TYPES",
-    "TIME_MODE",
-    # 用户管理系统枚举 (US2)
-    "USER_TYPES",
-    "CONTACT_TYPES",
-    "CONTACT_METHOD_STATUS_TYPES",
-    "NOTIFICATION_STATUS_TYPES",
-    "TEMPLATE_TYPES",
-    "RECIPIENT_TYPES",
-    # Portfolio运行时状态枚举 (Phase 5)
-    "PORTFOLIO_MODE_TYPES",
-    "PORTFOLIO_RUNSTATE_TYPES",
-    # Data Worker 枚举 (009-data-worker)
-    "WORKER_STATUS_TYPES",
-    # 默认分析器集合枚举
-    "DEFAULT_ANALYZER_SET",
-    # 日志系统枚举 (011-distributed-logging)
-    "LEVEL_TYPES",
-    "LOG_CATEGORY_TYPES",
-    # 实盘交易枚举 (#3880)
-    "ExchangeType",
-    "EnvironmentType",
-    "AccountStatusType",
-    "PermissionType",
-    "SubscriptionDataType",
-    "BrokerStateType",
-    "DEPLOYMENT_STATUS",
-    "VALIDATION_STATUS",
-]
 
 
 __all__ = ['FILE_TYPES', 'RECORDSTAGE_TYPES', 'GRAPHY_TYPES', 'PARAMETER_TYPES', 'COMPONENT_TYPES', 'ENTITY_TYPES', 'TIME_MODE', 'LEVEL_TYPES', 'LOG_CATEGORY_TYPES', 'EnvironmentType', 'PermissionType', 'DEPLOYMENT_STATUS', 'VALIDATION_STATUS']

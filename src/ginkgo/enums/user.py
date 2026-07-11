@@ -63,7 +63,4 @@ class TEMPLATE_TYPES(EnumBase):
     EMBEDDED = 3         # 嵌入式模板（Discord Embed）
 
 
-# ==================== Portfolio运行时状态枚举 (Phase 5: 优雅重启) ====================
-
-
 __all__ = ['USER_TYPES', 'CONTACT_TYPES', 'CONTACT_METHOD_STATUS_TYPES', 'NOTIFICATION_STATUS_TYPES', 'RECIPIENT_TYPES', 'TEMPLATE_TYPES']

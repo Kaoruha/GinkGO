@@ -29,8 +29,6 @@ class PORTFOLIO_RUNSTATE_TYPES(EnumBase):
     OFFLINE = 7                   # 已下线（人工停止策略执行，保留持仓）
 
 
-# ==================== 默认分析器集合枚举 ====================
-
 class WORKER_STATUS_TYPES(EnumBase):
     """Worker 状态枚举（Data Worker 容器化部署）"""
 
@@ -40,9 +38,6 @@ class WORKER_STATUS_TYPES(EnumBase):
     RUNNING = 2      # 运行中
     STOPPING = 3     # 停止中
     ERROR = 4        # 错误状态
-
-
-# ==================== 日志系统枚举 (011-distributed-logging) ====================
 
 
 __all__ = ['PORTFOLIO_MODE_TYPES', 'PORTFOLIO_RUNSTATE_TYPES', 'WORKER_STATUS_TYPES']

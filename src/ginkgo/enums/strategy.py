@@ -46,7 +46,4 @@ class DEFAULT_ANALYZER_SET(EnumBase):
     FULL = 3         # 完整集: 所有分析器
 
 
-# ==================== Data Worker 状态枚举 (009-data-worker) ====================
-
-
 __all__ = ['ATTITUDE_TYPES', 'STRATEGY_TYPES', 'MODEL_TYPES', 'DEFAULT_ANALYZER_SET']
