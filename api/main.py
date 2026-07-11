@@ -157,8 +157,8 @@ app.include_router(task_timer_router.router, prefix=f"{API_PREFIX}/task-timer", 
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
 
-app.add_websocket_route("/ws/portfolio", portfolio_handler.websocket_endpoint)
-app.add_websocket_route("/ws/system", system_handler.websocket_endpoint)
+app.add_api_websocket_route("/ws/portfolio", portfolio_handler.websocket_endpoint)
+app.add_api_websocket_route("/ws/system", system_handler.websocket_endpoint)
 
 
 # 自定义 OpenAPI schema：注入 Bearer JWT securityScheme（#5714）
