@@ -1,6 +1,7 @@
 # Upstream: CLI commands, API Server, external consumers
-# Downstream: BacktestBase, Container, Bar, Order, Position, Signal, Tick, entities, computation, services
+# Downstream: Container, Bar, Order, Position, Signal, Tick, entities, computation, services
 # Role: 交易模块顶层包，统一导出实体、引擎、策略、风控、经纪商、组合等全部核心组件
+# Note: 回测空壳基类已删（ADR-022 原则 2，0 真继承者，职责全移各 Mixin）
 
 
 
@@ -29,7 +30,6 @@ Ginkgo Backtest Module - 量化回测框架
 from ginkgo.libs import GLOG
 from ginkgo.entities.base import Base
 from ginkgo.entities.identity import IdentityUtils
-from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.entities.file_info import FileInfo
 from ginkgo.trading.core.containers import Container
 
@@ -56,7 +56,7 @@ from ginkgo.trading.computation import *
 # === 公共接口导出 ===
 __all__ = [
     # 核心基础设施
-    "Base", "BacktestBase", "FileInfo", "Container",
+    "Base", "FileInfo", "Container",
     
     # 业务实体
     "Bar", "Order", "Position", "Signal", "StockInfo", 

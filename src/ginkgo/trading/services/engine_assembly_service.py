@@ -614,7 +614,7 @@ class EngineAssemblyService(BaseService):
             if portfolio is None:
                 return False
 
-            # 为Portfolio注入ID（如果Portfolio支持BacktestBase）
+            # 为Portfolio注入ID（如果Portfolio支持 context 绑定）
             self._inject_ids_to_single_component(portfolio, engine_id, portfolio_id, task_id)
 
             # 🔥 延迟查找设计：先绑定组件到Portfolio，此时Portfolio还没有context

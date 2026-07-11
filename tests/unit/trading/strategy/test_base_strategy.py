@@ -11,7 +11,6 @@ from pathlib import Path
 # 导入BaseStrategy类和相关依赖
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
 from ginkgo.entities.signal import Signal
-from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.entities.mixins import TimeMixin, ContextMixin
 from ginkgo.enums import DIRECTION_TYPES
 from datetime import datetime
@@ -45,7 +44,7 @@ class TestBaseStrategyConstruction:
         assert isinstance(strategy._raw, dict)
         assert strategy._raw == {}
 
-        # 验证继承自BacktestBase和ContextMixin的属性
+        # 验证 Mixin 组合提供的上下文属性
         assert getattr(strategy, 'engine_id', None) is None
         assert getattr(strategy, 'portfolio_id', None) is None
         assert getattr(strategy, 'task_id', None) is None
@@ -59,11 +58,11 @@ class TestBaseStrategyConstruction:
         assert strategy.name == custom_name
         assert strategy.name == "MomentumStrategy"
 
-    def test_backtest_base_inheritance(self):
-        """测试BacktestBase类继承"""
+    def test_mixin_composition(self):
+        """测试 Mixin 组合提供的方法（原 BacktestBase 职责已收敛至 Mixin）"""
         strategy = BaseStrategy(name="TestStrategy")
 
-        # 验证正确继承BacktestBase的方法
+        # 验证 Mixin 提供的方法可用（bind_engine 来自 ContextMixin，set_name 来自 NamedMixin）
         assert callable(getattr(strategy, 'bind_engine', None))
         assert callable(getattr(strategy, 'set_name', None))
 
@@ -258,7 +257,7 @@ class TestBaseStrategyProperties:
         """测试继承属性"""
         strategy = BaseStrategy(name="InheritanceTest")
 
-        # 测试从BacktestBase和ContextMixin继承的属性
+        # 测试从各 Mixin 继承的属性
         assert getattr(strategy, 'engine_id', None) is None
         assert getattr(strategy, 'portfolio_id', None) is None
         assert getattr(strategy, 'task_id', None) is None
