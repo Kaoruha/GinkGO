@@ -380,6 +380,17 @@ ginkgo deploy deploy <portfolio_id> --mode live --account <account_uuid>
 3. Commit and push to branch
 4. Open Pull Request
 
+### Running Tests
+
+```bash
+# Full suite MUST use -n auto (process isolation via pytest-xdist)
+# Single-process accumulates 80GB+ RSS → OOM (Base.metadata + autouse fixtures never released, confirmed even on 96GB hosts)
+pytest tests/ -n auto --ignore=tests/integration
+
+# Single file/module — no -n auto needed
+pytest tests/unit/data/test_xxx.py -v
+```
+
 ## License
 
 MIT License - see the LICENSE file for details.

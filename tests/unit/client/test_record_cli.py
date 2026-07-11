@@ -72,7 +72,7 @@ def mock_positions_df():
 class TestRecordOrderFilters:
     """record order 的 engine/task 过滤透传（#4743）"""
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_order_passes_engine_and_task(self, mock_container, cli_runner, mock_orders_df):
         """-e/-t 透传到 service.get_orders_df"""
         mock_service = MagicMock()
@@ -88,7 +88,7 @@ class TestRecordOrderFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_order_without_filters_still_works(self, mock_container, cli_runner, mock_orders_df):
         """无过滤参数时正常返回全部（不传 None 进 service）"""
         mock_service = MagicMock()
@@ -110,7 +110,7 @@ class TestRecordPositionFilters:
     （查 PositionRecordCRUD）。
     """
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_position_passes_engine_and_task(self, mock_container, cli_runner, mock_positions_df):
         """-e/-t 透传到 result_service.get_positions_df"""
         mock_service = MagicMock()
@@ -126,7 +126,7 @@ class TestRecordPositionFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_position_reads_result_service_not_position_service(
         self, mock_container, cli_runner, mock_positions_df
     ):
@@ -173,7 +173,7 @@ class TestRecordSignalFilters:
     都有→查 signals）。统一后 -p/-e/-t 全可选，与 order/position 一致。
     """
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_passes_all_filters(self, mock_container, cli_runner):
         """-p/-e/-t 全透传到 service.get_signals_df"""
         mock_service = MagicMock()
@@ -189,7 +189,7 @@ class TestRecordSignalFilters:
         assert kwargs.get("engine_id") == "e1"
         assert kwargs.get("task_id") == "t1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_portfolio_only_queries_directly(self, mock_container, cli_runner):
         """单 -p 直接查该 portfolio 全部 signal，不再强制先选 engine"""
         mock_service = MagicMock()
@@ -203,7 +203,7 @@ class TestRecordSignalFilters:
         _, kwargs = mock_service.get_signals_df.call_args
         assert kwargs.get("portfolio_id") == "p1"
 
-    @patch("ginkgo.data.containers.Container")
+    @patch("ginkgo.data.containers.container")
     def test_signal_no_filters_returns_all(self, mock_container, cli_runner):
         """无任何过滤参数时查全部 signal（不再强制选 engine）"""
         mock_service = MagicMock()

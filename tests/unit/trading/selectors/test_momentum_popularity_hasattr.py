@@ -13,6 +13,7 @@ from unittest.mock import patch, MagicMock
 
 import pandas as pd
 
+from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.trading.selectors.momentum_selector import MomentumSelector
 from ginkgo.trading.selectors.popularity_selector import PopularitySelector
 
@@ -28,16 +29,12 @@ def _make_bars(df: pd.DataFrame):
 
 class MomentumSelectorHasattrRemovalTest(unittest.TestCase):
     @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_non_empty_bars_uses_to_dataframe(self, mock_container):
-        """非空 bars：直接调 to_dataframe，按 momentum 排序产出 code。
+    def test_non_empty_bars_uses_service_dataframe(self, mock_container):
+        """非空 bars：消费 service 的 DataFrame 出口，按 momentum 排序产出 code。
 
         批量实现（#4650）按 code 列 groupby，故 df 需含真实 bar 的 code/timestamp 列
         （旧逐股实现 code 来自循环变量，fixture 曾省略 code 列）。
         """
-        mock_stockinfo = MagicMock()
-        mock_stockinfo.get_all_codes.return_value = ["000001"]
-        mock_container.cruds.stock_info.return_value = mock_stockinfo
-
         df = pd.DataFrame(
             {
                 "code": ["000001", "000001"],
@@ -46,30 +43,28 @@ class MomentumSelectorHasattrRemovalTest(unittest.TestCase):
                 "timestamp": [pd.Timestamp("2020-05-01"), pd.Timestamp("2020-05-31")],
             }
         )
-        mock_bar = MagicMock()
-        mock_bar.find.return_value = _make_bars(df)
-        mock_container.cruds.bar.return_value = mock_bar
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["000001"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="t", window=30, rank=2)
         res = s.pick(time=datetime.datetime(2020, 6, 1))
         self.assertEqual(res, ["000001"])
-        mock_bar.find.return_value.to_dataframe.assert_called_once()
+        mock_bar_service.get_bars_df.assert_called_once()
 
     @patch("ginkgo.trading.selectors.momentum_selector.container")
     def test_empty_bars_continues(self, mock_container):
-        """空 bars：len < 2 守卫触发 continue，不调 to_dataframe。"""
-        mock_stockinfo = MagicMock()
-        mock_stockinfo.get_all_codes.return_value = ["000001"]
-        mock_container.cruds.stock_info.return_value = mock_stockinfo
-
-        mock_bar = MagicMock()
-        mock_bar.find.return_value = _make_bars(pd.DataFrame())
-        mock_container.cruds.bar.return_value = mock_bar
+        """空 bars：DataFrame 空结果短路。"""
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["000001"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=pd.DataFrame())
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="t", window=30, rank=2)
         res = s.pick(time=datetime.datetime(2020, 6, 1))
         self.assertEqual(res, [])
-        mock_bar.find.return_value.to_dataframe.assert_not_called()
+        mock_bar_service.get_bars_df.assert_called_once()
 
 
 class PopularitySelectorHasattrRemovalTest(unittest.TestCase):

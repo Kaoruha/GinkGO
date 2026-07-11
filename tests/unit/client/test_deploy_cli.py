@@ -23,7 +23,7 @@ def cli_runner():
 
 def _mock_svc():
     svc = MagicMock()
-    svc.get_deployment_info.return_value = ServiceResult(
+    deployment_info = ServiceResult(
         success=True,
         data={
             "source_task_id": "bt_task_123",
@@ -36,8 +36,17 @@ def _mock_svc():
             "create_at": "2026-06-22 10:00:00",
         },
     )
+    svc.get_deployment_info.return_value = deployment_info
+    svc.get_deployment_by_id.return_value = deployment_info
+    svc.find_by_source_portfolio.return_value = ServiceResult(success=True, data=[])
+    svc.find_by_target_portfolio.return_value = ServiceResult(success=True, data=[])
     svc.deploy.return_value = ServiceResult(
         success=True, data={"portfolio_id": "tgt_pid", "deployment_id": "d1"}
+    )
+    svc.undeploy.return_value = ServiceResult(
+        success=True,
+        data={"deployment_id": "d1", "target_portfolio_id": "tgt_pid"},
+        message="撤销部署成功",
     )
     return svc
 
@@ -77,3 +86,33 @@ class TestDeploySourceTaskPassthrough:
         svc.deploy.assert_called_once()
         _, kwargs = svc.deploy.call_args
         assert kwargs.get("source_task_id") == "bt_task_456"
+
+
+class TestDeployUndeployCommand:
+    """#4988: deploy undeploy 应撤销已部署组合。"""
+
+    def test_undeploy_calls_service(self, cli_runner):
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=_mock_svc(),
+        ) as factory:
+            result = cli_runner.invoke(deploy_cli.app, ["undeploy", "src_pid"])
+
+        assert result.exit_code == 0, result.output
+        svc = factory.return_value
+        svc.undeploy.assert_called_once_with("src_pid")
+        assert "撤销部署成功" in result.output
+        assert "tgt_pid" in result.output
+
+    def test_undeploy_failure_exits(self, cli_runner):
+        svc = _mock_svc()
+        svc.undeploy.return_value = ServiceResult(success=False, error="未找到部署记录")
+
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=svc,
+        ):
+            result = cli_runner.invoke(deploy_cli.app, ["undeploy", "missing_pid"])
+
+        assert result.exit_code == 1
+        assert "未找到部署记录" in result.output

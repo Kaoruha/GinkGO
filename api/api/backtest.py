@@ -14,6 +14,7 @@ import json
 import asyncio
 
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.redis_client import get_backtest_progress
 from core.response import ok, paginated
 from core.exceptions import APIError, NotFoundError, ValidationError, BusinessError
@@ -22,14 +23,19 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.data.containers import container
 from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.backtest_task_schemas import (
-    BacktestTaskSummary, BacktestTaskDetail, BacktestTaskCreate,
-    AnalyzerConfig, EngineConfig, ComponentConfig,
+    BacktestTaskSummary,
+    BacktestTaskDetail,
+    BacktestTaskCreate,
+    AnalyzerConfig,
+    EngineConfig,
+    ComponentConfig,
 )
 
 router = APIRouter()
 
 
 # ==================== Service 辅助函数 ====================
+
 
 def get_backtest_task_service():
     """获取 BacktestTaskService 实例"""
@@ -65,8 +71,10 @@ def get_kafka_producer() -> GinkgoProducer:
 
 # ==================== 仅 API 层使用的模型 ====================
 
+
 class AnalyzerTypeInfo(BaseModel):
     """分析器类型信息"""
+
     name: str
     type: str
     description: str = ""
@@ -74,6 +82,7 @@ class AnalyzerTypeInfo(BaseModel):
 
 
 # ==================== Service 层操作 ====================
+
 
 def get_engine_info(engine_uuid: str) -> dict:
     """从服务层获取Engine信息"""
@@ -91,9 +100,9 @@ def get_engine_info(engine_uuid: str) -> dict:
         raise NotFoundError("Engine", engine_uuid)
 
     return {
-        "uuid": getattr(engine, 'uuid', engine_uuid),
-        "name": getattr(engine, 'name', ''),
-        "is_live": getattr(engine, 'is_live', 0),
+        "uuid": getattr(engine, "uuid", engine_uuid),
+        "name": getattr(engine, "name", ""),
+        "is_live": getattr(engine, "is_live", 0),
     }
 
 
@@ -113,8 +122,8 @@ def get_portfolio_info(portfolio_uuid: str) -> dict:
         raise NotFoundError("Portfolio", portfolio_uuid)
 
     return {
-        "uuid": getattr(portfolio, 'uuid', portfolio_uuid),
-        "name": getattr(portfolio, 'name', 'Unknown Portfolio'),
+        "uuid": getattr(portfolio, "uuid", portfolio_uuid),
+        "name": getattr(portfolio, "name", "Unknown Portfolio"),
     }
 
 
@@ -146,20 +155,24 @@ def build_backtest_config(data: BacktestTaskCreate) -> dict:
     # 添加组件配置（如果有）
     # 注：frequency 已迁移至 EngineConfig，此处不再从 component_config 映射，避免覆盖引擎权威值
     if data.component_config:
-        config.update({
-            "max_position_ratio": data.component_config.max_position_ratio,
-            "stop_loss_ratio": data.component_config.stop_loss_ratio,
-            "take_profit_ratio": data.component_config.take_profit_ratio,
-            "benchmark_return": data.component_config.benchmark_return,
-        })
+        config.update(
+            {
+                "max_position_ratio": data.component_config.max_position_ratio,
+                "stop_loss_ratio": data.component_config.stop_loss_ratio,
+                "take_profit_ratio": data.component_config.take_profit_ratio,
+                "benchmark_return": data.component_config.benchmark_return,
+            }
+        )
 
     # 如果提供了 Engine，获取其信息
     if data.engine_uuid:
         engine_info = get_engine_info(data.engine_uuid)
-        config.update({
-            "engine_uuid": data.engine_uuid,
-            "engine_name": engine_info["name"],
-        })
+        config.update(
+            {
+                "engine_uuid": data.engine_uuid,
+                "engine_name": engine_info["name"],
+            }
+        )
 
     return config
 
@@ -224,7 +237,7 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
         "progress": 0.0,
         "engine_uuid": config.get("engine_uuid"),
         "config": config,
-        "created_at": task.created_at if hasattr(task, 'created_at') else datetime.utcnow().isoformat() + "Z",
+        "created_at": task.created_at if hasattr(task, "created_at") else datetime.utcnow().isoformat() + "Z",
         "started_at": None,
         "completed_at": None,
         "result": None,
@@ -257,9 +270,7 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
     # 是死代码（#5478 review P0）。False 时显式 raise，让异常进入 asyncio 通道供
     # _on_kafka_dispatch_done 捕获。
     if not result:
-        raise RuntimeError(
-            f"Kafka dispatch failed for backtest task {task_uuid}: producer.send returned False"
-        )
+        raise RuntimeError(f"Kafka dispatch failed for backtest task {task_uuid}: producer.send returned False")
 
     logger.info(f"Task {task_uuid} sent to Kafka with {len(portfolio_uuids)} portfolio(s)")
 
@@ -293,11 +304,14 @@ def _on_kafka_dispatch_done(task_uuid: str, asyncio_task: "asyncio.Future") -> N
 
 # ==================== API 路由 ====================
 
+
 @router.get("")
 async def list_backtests(
     status: Optional[str] = Query(None, description="按状态筛选"),
     portfolio_id: Optional[str] = Query(None, description="按投资组合筛选"),
-    sort_by: Optional[str] = Query(None, description="排序字段: annual_return / sharpe_ratio / max_drawdown / win_rate / created_at"),
+    sort_by: Optional[str] = Query(
+        None, description="排序字段: annual_return / sharpe_ratio / max_drawdown / win_rate / created_at"
+    ),
     sort_order: Optional[str] = Query("desc", description="排序方向: asc / desc"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -336,27 +350,31 @@ async def list_backtest_engines(
     try:
         engine_service = get_engine_service()
         # is_live=0 表示回测引擎；page 1-based → service 0-based
-        result = engine_service.get(
-            is_live=0 if not is_live else 1, page=page - 1, page_size=page_size
-        )
+        result = engine_service.get(is_live=0 if not is_live else 1, page=page - 1, page_size=page_size)
 
         if not result.is_success():
             return paginated(items=[], total=0, page=page, page_size=page_size)
 
         engines = []
-        for engine in (result.data or []):
-            engine_dict = engine if isinstance(engine, dict) else {
-                "uuid": getattr(engine, 'uuid', ''),
-                "name": getattr(engine, 'name', ''),
-                "backtest_start_date": getattr(engine, 'backtest_start_date', None),
-                "backtest_end_date": getattr(engine, 'backtest_end_date', None),
-            }
-            engines.append({
-                "uuid": engine_dict["uuid"],
-                "name": engine_dict["name"],
-                "start_date": engine_dict.get("backtest_start_date"),
-                "end_date": engine_dict.get("backtest_end_date"),
-            })
+        for engine in result.data or []:
+            engine_dict = (
+                engine
+                if isinstance(engine, dict)
+                else {
+                    "uuid": getattr(engine, "uuid", ""),
+                    "name": getattr(engine, "name", ""),
+                    "backtest_start_date": getattr(engine, "backtest_start_date", None),
+                    "backtest_end_date": getattr(engine, "backtest_end_date", None),
+                }
+            )
+            engines.append(
+                {
+                    "uuid": engine_dict["uuid"],
+                    "name": engine_dict["name"],
+                    "start_date": engine_dict.get("backtest_start_date"),
+                    "end_date": engine_dict.get("backtest_end_date"),
+                }
+            )
 
         total = result.metadata.get("total", 0)
         return paginated(items=engines, total=total, page=page, page_size=page_size)
@@ -378,9 +396,7 @@ async def cleanup_stale_engines(
     """
     try:
         engine_service = get_engine_service()
-        result = engine_service.cleanup_stale_engines(
-            is_live=0 if not is_live else 1, dry_run=dry_run
-        )
+        result = engine_service.cleanup_stale_engines(is_live=0 if not is_live else 1, dry_run=dry_run)
         if not result.is_success():
             raise BusinessError(f"清理僵尸引擎失败: {result.message}")
         return ok(data=result.data, message=result.message)
@@ -403,6 +419,7 @@ async def list_analyzers():
     try:
         # 从 AnalyzerRegistry 直接获取已注册的分析器
         from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
+
         registry = AnalyzerRegistry()
         count = registry.scan_builtin()
         if count > 0:
@@ -461,18 +478,18 @@ async def create_backtest(data: BacktestTaskCreate):
 
         # 2. 发送到Kafka（后台任务，不阻塞响应）
         # 使用 asyncio.create_task 让 Kafka 发送在后台运行
-        dispatch_task = asyncio.create_task(send_task_to_kafka(
-            task_uuid=task["uuid"],
-            portfolio_uuids=data.portfolio_uuids,
-            name=data.name,
-            config=task["config"],
-        ))
+        dispatch_task = asyncio.create_task(
+            send_task_to_kafka(
+                task_uuid=task["uuid"],
+                portfolio_uuids=data.portfolio_uuids,
+                name=data.name,
+                config=task["config"],
+            )
+        )
         # 派发失败（producer.send 抛异常）不再被静默吞：done_callback 记日志 +
         # 落库 failed，使任务状态可查（#5478）。lambda 用默认参数捕获当前 uuid，
         # 避免闭包在并发/多任务下捕获到漂移后的 task["uuid"]。
-        dispatch_task.add_done_callback(
-            lambda t, _uuid=task["uuid"]: _on_kafka_dispatch_done(_uuid, t)
-        )
+        dispatch_task.add_done_callback(lambda t, _uuid=task["uuid"]: _on_kafka_dispatch_done(_uuid, t))
 
         # 立即返回响应，不等待 Kafka
         return ok(data=task, message="Backtest task created successfully")
@@ -504,8 +521,9 @@ async def start_backtest(uuid: str):
             raise BusinessError(f"Failed to start task: {result.error}")
 
         task_id = result.data.get("task_id", uuid) if isinstance(result.data, dict) else uuid
-        return ok(data={"uuid": uuid, "task_id": task_id, "state": "PENDING"},
-                  message="Backtest task started successfully")
+        return ok(
+            data={"uuid": uuid, "task_id": task_id, "state": "PENDING"}, message="Backtest task started successfully"
+        )
 
     except NotFoundError:
         raise
@@ -534,8 +552,10 @@ async def stop_backtest(uuid: str):
         if not result.is_success():
             raise BusinessError(f"Failed to stop task: {result.error}")
 
-        return ok(data={"uuid": uuid, "task_id": result.data.get("task_id"), "status": "stopped"},
-                  message="Backtest task stopped successfully")
+        return ok(
+            data={"uuid": uuid, "task_id": result.data.get("task_id"), "status": "stopped"},
+            message="Backtest task stopped successfully",
+        )
 
     except NotFoundError:
         raise
@@ -564,8 +584,10 @@ async def cancel_backtest(uuid: str):
         if not result.is_success():
             raise BusinessError(f"Failed to cancel task: {result.error}")
 
-        return ok(data={"uuid": uuid, "task_id": result.data.get("task_id"), "status": "stopped"},
-                  message="Backtest task cancelled successfully")
+        return ok(
+            data={"uuid": uuid, "task_id": result.data.get("task_id"), "status": "stopped"},
+            message="Backtest task cancelled successfully",
+        )
 
     except NotFoundError:
         raise
@@ -667,7 +689,7 @@ async def backtest_events(uuid: str):
 async def get_backtest_signals(
     uuid: str,
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(100, ge=1, le=1000, description="每页数量")
+    page_size: int = Query(100, ge=1, le=1000, description="每页数量"),
 ):
     """获取回测信号记录"""
     try:
@@ -675,13 +697,19 @@ async def get_backtest_signals(
         result = task_service.list_signals(uuid, page=page, page_size=page_size)
 
         if not result.is_success():
-            return paginated(items=[], total=0, page=page, page_size=page_size,
-                             message=result.error or "Failed to retrieve signals")
+            return paginated(
+                items=[], total=0, page=page, page_size=page_size, message=result.error or "Failed to retrieve signals"
+            )
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return paginated(items=[s.dict() for s in items], total=total, page=page, page_size=page_size,
-                         message="Signals retrieved successfully")
+        return paginated(
+            items=[s.dict() for s in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            message="Signals retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -694,7 +722,7 @@ async def get_backtest_signals(
 async def get_backtest_orders(
     uuid: str,
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(50, ge=1, le=500, description="每页数量")
+    page_size: int = Query(50, ge=1, le=DEFAULT_MAX_PAGE_SIZE, description="每页数量"),
 ):
     """获取回测订单记录
 
@@ -707,14 +735,19 @@ async def get_backtest_orders(
         result = task_service.list_orders(uuid, page=page, page_size=page_size)
 
         if not result.is_success():
-            return paginated(items=[], total=0, page=page, page_size=page_size,
-                             message=result.error or "Failed to retrieve orders")
+            return paginated(
+                items=[], total=0, page=page, page_size=page_size, message=result.error or "Failed to retrieve orders"
+            )
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return paginated(items=[o.dict() for o in items], total=total,
-                         page=page, page_size=page_size,
-                         message="Orders retrieved successfully")
+        return paginated(
+            items=[o.dict() for o in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            message="Orders retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -735,14 +768,17 @@ async def get_backtest_order_records(uuid: str):
         result = task_service.list_order_records(uuid)
 
         if not result.is_success():
-            return paginated(items=[], total=0,
-                             message=result.error or "Failed to retrieve order records")
+            return paginated(items=[], total=0, message=result.error or "Failed to retrieve order records")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return paginated(items=[o.dict() for o in items], total=total,
-                         page=1, page_size=max(total, 1),
-                         message="Order records retrieved successfully")
+        return paginated(
+            items=[o.dict() for o in items],
+            total=total,
+            page=1,
+            page_size=max(total, 1),
+            message="Order records retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -763,14 +799,17 @@ async def get_backtest_fills(uuid: str):
         result = task_service.list_fills(uuid)
 
         if not result.is_success():
-            return paginated(items=[], total=0,
-                             message=result.error or "Failed to retrieve fills")
+            return paginated(items=[], total=0, message=result.error or "Failed to retrieve fills")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return paginated(items=[o.dict() for o in items], total=total,
-                         page=1, page_size=max(total, 1),
-                         message="Fills retrieved successfully")
+        return paginated(
+            items=[o.dict() for o in items],
+            total=total,
+            page=1,
+            page_size=max(total, 1),
+            message="Fills retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -806,14 +845,17 @@ async def get_backtest_positions(uuid: str):
         result = task_service.list_positions(uuid)
 
         if not result.is_success():
-            return paginated(items=[], total=0,
-                             message=result.error or "Failed to retrieve positions")
+            return paginated(items=[], total=0, message=result.error or "Failed to retrieve positions")
 
         items = result.data
         total = result.metadata.get("total", 0)
-        return paginated(items=[p.dict() for p in items], total=total,
-                         page=1, page_size=max(total, 1),
-                         message="Positions retrieved successfully")
+        return paginated(
+            items=[p.dict() for p in items],
+            total=total,
+            page=1,
+            page_size=max(total, 1),
+            message="Positions retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -833,8 +875,7 @@ async def get_backtest_netvalue(uuid: str):
             return ok(data={"strategy": [], "benchmark": []}, message="No net value data")
 
         nv = result.data
-        return ok(data={"strategy": [p.dict() for p in nv.strategy], "benchmark": []},
-                  message="Net value retrieved")
+        return ok(data={"strategy": [p.dict() for p in nv.strategy], "benchmark": []}, message="Net value retrieved")
 
     except NotFoundError:
         raise
@@ -864,10 +905,7 @@ async def get_backtest_analyzers(uuid: str):
 
 
 @router.get("/{uuid}/analyzer/{analyzer_name}")
-async def get_backtest_analyzer_data(
-    uuid: str,
-    analyzer_name: str
-):
+async def get_backtest_analyzer_data(uuid: str, analyzer_name: str):
     """获取回测分析器时序数据和统计信息。
 
     #5847: 指标名为准。权威白名单取自该回测实际产出的指标名
@@ -885,8 +923,7 @@ async def get_backtest_analyzer_data(
         if analyzer_name not in available:
             names = ", ".join(available) if available else "(无)"
             raise APIError(
-                f"Analyzer '{analyzer_name}' not found. "
-                f"Available analyzers: {names}",
+                f"Analyzer '{analyzer_name}' not found. " f"Available analyzers: {names}",
                 code=404,
                 status_code=status.HTTP_404_NOT_FOUND,
             )
@@ -897,8 +934,10 @@ async def get_backtest_analyzer_data(
             return ok(data={"data": [], "stats": None}, message="No analyzer data found")
 
         detail = result.data
-        return ok(data={"data": [p.dict() for p in detail.data], "stats": detail.stats},
-                  message="Analyzer data retrieved successfully")
+        return ok(
+            data={"data": [p.dict() for p in detail.data], "stats": detail.stats},
+            message="Analyzer data retrieved successfully",
+        )
 
     except NotFoundError:
         raise
@@ -916,7 +955,7 @@ async def get_backtest_logs(
     event_type: Optional[str] = Query(None, description="事件类型"),
     start_time: Optional[str] = Query(None, description="开始时间 (YYYY-MM-DD)"),
     end_time: Optional[str] = Query(None, description="结束时间 (YYYY-MM-DD)"),
-    limit: int = Query(100, ge=1, le=500, description="每页数量"),
+    limit: int = Query(100, ge=1, le=DEFAULT_MAX_PAGE_SIZE, description="每页数量"),
     offset: int = Query(0, ge=0, description="偏移量"),
 ):
     """获取回测任务的日志"""
@@ -927,10 +966,11 @@ async def get_backtest_logs(
             raise NotFoundError("BacktestTask", uuid)
 
         task = task_result.data
-        task_id = getattr(task, 'task_id', None)
-        portfolio_id = getattr(task, 'portfolio_id', None)
+        task_id = getattr(task, "task_id", None)
+        portfolio_id = getattr(task, "portfolio_id", None)
 
         from ginkgo.services.logging.containers import LoggingContainer
+
         logging_container = LoggingContainer()
         log_service = logging_container.log_service()
 
@@ -944,15 +984,16 @@ async def get_backtest_logs(
         )
 
         if start_time:
-            kwargs['start_time'] = datetime.strptime(start_time, "%Y-%m-%d")
+            kwargs["start_time"] = datetime.strptime(start_time, "%Y-%m-%d")
         if end_time:
-            kwargs['end_time'] = datetime.strptime(end_time + " 23:59:59", "%Y-%m-%d %H:%M:%S")
+            kwargs["end_time"] = datetime.strptime(end_time + " 23:59:59", "%Y-%m-%d %H:%M:%S")
 
         logs = log_service.query_backtest_logs(**kwargs)
         total = log_service.get_log_count(log_type="backtest", task_id=task_id, level=level)
 
-        return ok(data={"logs": logs, "total": total, "limit": limit, "offset": offset},
-                  message="Logs retrieved successfully")
+        return ok(
+            data={"logs": logs, "total": total, "limit": limit, "offset": offset}, message="Logs retrieved successfully"
+        )
 
     except NotFoundError:
         raise

@@ -935,7 +935,13 @@ class PortfolioService(BaseService):
             component_type: 组件类型过滤
 
         Returns:
-            ServiceResult: 组件列表
+            ServiceResult: 组件列表，每个组件为 dict，含字段：
+                - mount_id / portfolio_id / component_id / component_name / created_at
+                - component_type: 组件类型，**数字字符串**（FILE_TYPES value 的 str 形式，
+                  如 "6"/"4"/"5"）。生产路径 mapping.type 经 FILE_TYPES.validate_input
+                  转 int 存储，本方法用 `mapping.type.name if hasattr(...) else str(...)`
+                  兜底，int 无 .name → 返回 str(int)。消费方判类型须兼容数字串
+                  （见 _assembly/requirements.find_missing_required_components）。
         """
         try:
             filters = {"is_del": False}
@@ -1079,18 +1085,30 @@ class PortfolioService(BaseService):
 
     def get_portfolios_df(self, portfolio_id: str = None, name: str = None,
                           mode: PORTFOLIO_MODE_TYPES = None,
-                          state: PORTFOLIO_RUNSTATE_TYPES = None) -> ServiceResult:
+                          state: PORTFOLIO_RUNSTATE_TYPES = None,
+                          page: int = None, page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        ADR-021 L139（#5009 契约）：``page``/``page_size`` 透传 ``find(page=,
+        page_size=)``，DB 层 offset 分页；``order_by="create_at",
+        desc_order=True`` 保证翻页确定性（MySQL 无 ORDER BY 时 LIMIT/OFFSET
+        行序未定义，跨页可能重叠/丢行）。``page=None``/``page_size=None`` 保持
+        全量默认。
         """
         try:
             filters = self._build_portfolio_filters(
                 portfolio_id=portfolio_id, name=name, mode=mode, state=state,
             )
-            model_list = self._crud_repo.find(filters=filters)
+            # None 守卫：0=全量下推 None（与 signal_service 一致），裸 page_size=0 触发 LIMIT 0 返空（#6652 review R3-issue3）。
+            model_list = self._crud_repo.find(
+                filters=filters, page=page,
+                page_size=page_size if page_size and page_size > 0 else None,
+                order_by="create_at", desc_order=True,
+            )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,

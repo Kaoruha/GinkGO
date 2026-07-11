@@ -162,6 +162,18 @@ class Container(containers.DeclarativeContainer):
     api_key_crud = providers.Singleton(get_crud, "api_key")
     deployment_crud = providers.Singleton(get_crud, "deployment")
 
+    # Trading CRUDs（#5509：service 必须引用此处具名 provider，禁止 inline
+    # providers.Singleton(get_crud, name) —— 那会创建独立 provider → 独立实例
+    # → 独立 DB session，破坏同事务可见性）
+    position_crud = providers.Singleton(get_crud, "position")
+    signal_crud = providers.Singleton(get_crud, "signal")
+    order_crud = providers.Singleton(get_crud, "order")
+    signal_tracker_crud = providers.Singleton(get_crud, "signal_tracker")
+    position_record_crud = providers.Singleton(get_crud, "position_record")
+    order_record_crud = providers.Singleton(get_crud, "order_record")
+    transfer_crud = providers.Singleton(get_crud, "transfer")
+    transfer_record_crud = providers.Singleton(get_crud, "transfer_record")
+
     # NOTE: backtest_task_crud 已在上方主 CRUD 块(line 141)定义，勿重复（#5554）
 
     # Services (Dependencies are injected here)
@@ -191,8 +203,13 @@ class Container(containers.DeclarativeContainer):
     )
 
     # TickService with TickCRUD instance
+    # #5509 AC3: crud_repo 用 providers.Singleton(TickCRUD) 懒实例化；
+    # TickCRUD 需 code 参数的场景走 container.create_tick_crud(code)。
     tick_service = providers.Singleton(
-        TickService, data_source=ginkgo_tdx_source, stockinfo_service=stockinfo_service, crud_repo=TickCRUD()
+        TickService,
+        data_source=ginkgo_tdx_source,
+        stockinfo_service=stockinfo_service,
+        crud_repo=providers.Singleton(TickCRUD),
     )
 
     file_service = providers.Singleton(FileService, crud_repo=file_crud)
@@ -237,24 +254,24 @@ class Container(containers.DeclarativeContainer):
 
     position_service = providers.Singleton(
         PositionService,
-        crud_repo=providers.Singleton(get_crud, "position"),
+        crud_repo=position_crud,
     )
 
     kafka_service = providers.Singleton(KafkaService, kafka_crud=kafka_crud)
 
     # Signal tracking service with SignalTrackerCRUD dependency
     signal_tracking_service = providers.Singleton(
-        SignalTrackingService, tracker_crud=providers.Singleton(get_crud, "signal_tracker")
+        SignalTrackingService, tracker_crud=signal_tracker_crud
     )
 
     # Signal service with SignalCRUD dependency
     signal_service = providers.Singleton(
-        SignalService, crud_repo=providers.Singleton(get_crud, "signal")
+        SignalService, crud_repo=signal_crud
     )
 
     # Order service with OrderCRUD dependency
     order_service = providers.Singleton(
-        OrderService, crud_repo=providers.Singleton(get_crud, "order")
+        OrderService, crud_repo=order_crud
     )
 
     # Factor service with FactorCRUD dependency
@@ -273,15 +290,15 @@ class Container(containers.DeclarativeContainer):
         analyzer_service=analyzer_service,
         engine_service=engine_service,
         portfolio_service=portfolio_service,
-        signal_crud=providers.Singleton(get_crud, "signal"),
-        order_crud=providers.Singleton(get_crud, "order"),
-        position_crud=providers.Singleton(get_crud, "position"),
-        position_record_crud=providers.Singleton(get_crud, "position_record"),
+        signal_crud=signal_crud,
+        order_crud=order_crud,
+        position_crud=position_crud,
+        position_record_crud=position_record_crud,
         analyzer_record_crud=analyzer_record_crud,
-        order_record_crud=providers.Singleton(get_crud, "order_record"),
-        transfer_record_crud=providers.Singleton(get_crud, "transfer_record"),
-        transfer_crud=providers.Singleton(get_crud, "transfer"),
-        signal_tracker_crud=providers.Singleton(get_crud, "signal_tracker"),
+        order_record_crud=order_record_crud,
+        transfer_record_crud=transfer_record_crud,
+        transfer_crud=transfer_crud,
+        signal_tracker_crud=signal_tracker_crud,
     )
 
     # User management services
@@ -318,7 +335,7 @@ class Container(containers.DeclarativeContainer):
     # Live account service for live trading
     live_account_service = providers.Singleton(
         LiveAccountService,
-        live_account_crud=providers.Singleton(get_crud, "live_account")
+        live_account_crud=live_account_crud,
     )
 
     # API Key service for API key management
@@ -332,7 +349,7 @@ class Container(containers.DeclarativeContainer):
     # DEPRECATED: validation_result_crud 参数已废弃。验证结果存储方案需重新设计。
     validation_service = providers.Singleton(
         ValidationService,
-        analyzer_record_crud=providers.Singleton(get_crud, "analyzer_record"),
+        analyzer_record_crud=analyzer_record_crud,
         validation_result_crud=validation_result_crud,
     )
 

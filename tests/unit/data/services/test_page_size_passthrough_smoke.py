@@ -1,0 +1,129 @@
+"""ADR-021 L139: service 层 page_size 透传 smoke。
+
+#6685 diff coverage gate 只采集 smoke 子集的 coverage.json。CLI ``--limit``
+下推到 service 的 3 个出口方法（engine get_engines_df / fuzzy_search、
+portfolio get_portfolios_df）是本 PR 新增可执行行，containers import 链
+虽触达这些 service（class 定义行 executed → 非 exempt）但 smoke 不调用其
+方法体，函数体内 page_size 透传行无覆盖信号。本文件用 mock 依赖（不连 DB）
+补足该信号，纳入 smoke 子集供门禁测量。
+"""
+
+import os
+import sys
+import pytest
+from unittest.mock import patch, MagicMock
+
+_path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+if _path not in sys.path:
+    sys.path.insert(0, _path)
+
+from ginkgo.data.services.engine_service import EngineService
+from ginkgo.data.services.portfolio_service import PortfolioService
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
+
+
+@pytest.fixture
+def engine_service():
+    with patch("ginkgo.libs.GLOG"):
+        return EngineService(
+            crud_repo=MagicMock(),
+            engine_portfolio_mapping_crud=MagicMock(),
+            param_crud=MagicMock(),
+        )
+
+
+@pytest.fixture
+def portfolio_service():
+    with patch("ginkgo.libs.GLOG"):
+        return PortfolioService(
+            crud_repo=MagicMock(),
+            portfolio_file_mapping_crud=MagicMock(),
+        )
+
+
+@pytest.fixture
+def backtest_task_service():
+    with patch("ginkgo.libs.GLOG"):
+        return BacktestTaskService(crud_repo=MagicMock())
+
+
+class TestPageSizePassthrough:
+    """page_size 透传 crud（供 CLI --limit 下推，ADR-021 L139）。"""
+
+    @pytest.mark.unit
+    def test_engine_get_engines_df_passes_page_size_to_find(self, engine_service):
+        """engine.get_engines_df(page_size=) → crud.find(page_size=)。"""
+        engine_service._crud_repo.find.return_value = MagicMock()
+
+        result = engine_service.get_engines_df(page_size=10)
+
+        assert result.success is True
+        assert engine_service._crud_repo.find.call_args[1]["page_size"] == 10
+
+    @pytest.mark.unit
+    def test_engine_fuzzy_search_passes_page_size_as_limit(self, engine_service):
+        """engine.fuzzy_search(page_size=) → crud.fuzzy_search(limit=)。"""
+        engine_service._crud_repo.fuzzy_search.return_value = MagicMock()
+
+        result = engine_service.fuzzy_search(query="momentum", page_size=10)
+
+        assert result.success is True
+        assert engine_service._crud_repo.fuzzy_search.call_args[1]["limit"] == 10
+
+    @pytest.mark.unit
+    def test_portfolio_get_portfolios_df_passes_page_size_to_find(self, portfolio_service):
+        """portfolio.get_portfolios_df(page_size=) → crud.find(page_size=)。"""
+        portfolio_service._crud_repo.find.return_value = MagicMock()
+
+        result = portfolio_service.get_portfolios_df(page_size=10)
+
+        assert result.success is True
+        assert portfolio_service._crud_repo.find.call_args[1]["page_size"] == 10
+
+    @pytest.mark.unit
+    def test_engine_get_engines_df_page_size_zero_means_all(self, engine_service):
+        """page_size=0 → find(page_size=None)（0=全量守卫，与 signal_service 一致；#6652 review R3-issue3）。
+
+        裸 page_size=0 会触发 SQL LIMIT 0 返空，破坏 "0=all" 契约；service 层下推 None。
+        """
+        engine_service._crud_repo.find.return_value = MagicMock()
+
+        result = engine_service.get_engines_df(page_size=0)
+
+        assert result.success is True
+        assert engine_service._crud_repo.find.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_portfolio_get_portfolios_df_page_size_zero_means_all(self, portfolio_service):
+        """page_size=0 → find(page_size=None)（0=全量守卫；#6652 review R3-issue3）。"""
+        portfolio_service._crud_repo.find.return_value = MagicMock()
+
+        result = portfolio_service.get_portfolios_df(page_size=0)
+
+        assert result.success is True
+        assert portfolio_service._crud_repo.find.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_backtest_list_page_size_zero_means_all(self, backtest_task_service):
+        """page_size=0 → get_tasks_page_filtered(page_size=None)（0=全量守卫；#6652 review R4）。
+
+        裸 page_size=0 触发 BaseCRUD.find LIMIT 0 返空，破坏 ADR-021 "0=all" 契约；
+        service 层下推 None（与 signal/engine/portfolio service 对称）。
+        """
+        backtest_task_service._crud_repo.get_tasks_page_filtered.return_value = []
+        backtest_task_service._crud_repo.count.return_value = 0
+
+        result = backtest_task_service.list(page_size=0)
+
+        assert result.success is True
+        assert backtest_task_service._crud_repo.get_tasks_page_filtered.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_backtest_list_passes_positive_page_size(self, backtest_task_service):
+        """page_size=15 → get_tasks_page_filtered(page_size=15)（正常分页下推，非 None 归一）。"""
+        backtest_task_service._crud_repo.get_tasks_page_filtered.return_value = []
+        backtest_task_service._crud_repo.count.return_value = 0
+
+        backtest_task_service.list(page_size=15)
+
+        assert backtest_task_service._crud_repo.get_tasks_page_filtered.call_args[1]["page_size"] == 15

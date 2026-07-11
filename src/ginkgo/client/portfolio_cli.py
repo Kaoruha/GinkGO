@@ -3,10 +3,6 @@
 # Role: 投资组合管理CLI，提供 list/create/get/delete/status/bind/unbind/deploy/unload/baseline 命令
 
 
-
-
-
-
 """
 Ginkgo Portfolio CLI - 投资组合管理命令
 """
@@ -21,8 +17,10 @@ from rich.table import Table
 from rich.tree import Tree
 from rich import print as rprint
 
-from ginkgo.enums import PORTFOLIO_MODE_TYPES
+from ginkgo.enums import PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import GLOG
+from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.client.cli_utils import build_list_result, format_result
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -36,20 +34,44 @@ def _format_portfolio_mode(mode_value) -> str:
     return enum_val.name if enum_val else str(mode_value)
 
 
+def _format_portfolio_status(portfolio) -> str:
+    """Use explicit status when present, otherwise derive display status from state. (#6661)"""
+    status_value = portfolio.get("status", None)
+    if status_value is not None and not pd.isna(status_value):
+        status_text = str(status_value).strip()
+        if status_text and status_text.lower() != "unknown":
+            return status_text
+
+    enum_val = PORTFOLIO_RUNSTATE_TYPES.from_int(portfolio.get("state", None))
+    return enum_val.name if enum_val else "Unknown"
+
+
+def _portfolio_record(portfolio) -> dict:
+    return {
+        "uuid": str(getattr(portfolio, "uuid", "")),
+        "name": str(getattr(portfolio, "name", "")),
+        "initial_capital": getattr(portfolio, "initial_capital", None),
+        "current_capital": getattr(portfolio, "current_capital", None),
+        "cash": getattr(portfolio, "cash", None),
+        "mode": _format_portfolio_mode(getattr(portfolio, "mode", None)),
+        "description": str(getattr(portfolio, "desc", "") or ""),
+    }
+
+
 def display_component_tree(console, component_data: dict):
     """以文件树结构显示组件信息（与engine cat风格一致）"""
 
     # 计算总的组件类型数量
     component_types = []
-    if component_data['selectors']:
+    if component_data["selectors"]:
         component_types.append(("selectors", "🎯", "Selectors"))
-    if component_data['strategies']:
+    if component_data["strategies"]:
         component_types.append(("strategies", "🎯", "Strategies"))
-    if component_data['sizers']:
+    if component_data["sizers"]:
         component_types.append(("sizers", "📏", "Sizers"))
-    if component_data['risk_managers']:
+    if component_data["risk_managers"]:
         component_types.append(("risk_managers", "🛡️", "Risk Managers"))
-    if component_data['analyzers']:
+    if component_data["analyzers"]:
         component_types.append(("analyzers", "📊", "Analyzers"))
 
     # 如果没有任何组件
@@ -60,18 +82,18 @@ def display_component_tree(console, component_data: dict):
     # 显示各种组件
     for i, (key, icon, label) in enumerate(component_types):
         items = component_data[key]
-        is_last_component = (i == len(component_types) - 1)
+        is_last_component = i == len(component_types) - 1
 
         # 组件类型前缀
         component_prefix = "└──" if is_last_component else "├──"
         console.print(f"{component_prefix} {icon} {label} ({len(items)})")
 
         # 检查是否有组件有参数
-        has_params_in_this_component = any(item.get('parameters') for item in items)
+        has_params_in_this_component = any(item.get("parameters") for item in items)
 
         for j, item in enumerate(items):
-            is_last_file = (j == len(items) - 1)
-            has_file_params = item.get('parameters')
+            is_last_file = j == len(items) - 1
+            has_file_params = item.get("parameters")
 
             # 文件前缀：如果这个组件类型下有参数，或者这个文件有参数，需要保留垂直线
             if has_params_in_this_component or has_file_params:
@@ -83,8 +105,8 @@ def display_component_tree(console, component_data: dict):
 
             # 显示该组件的参数
             if has_file_params:
-                for k, param in enumerate(item['parameters']):
-                    is_last_param = (k == len(item['parameters']) - 1)
+                for k, param in enumerate(item["parameters"]):
+                    is_last_param = k == len(item["parameters"]) - 1
 
                     # 参数前缀：只需要文件层的垂直线
                     if is_last_file and is_last_param:
@@ -106,19 +128,43 @@ def display_component_tree(console, component_data: dict):
 @app.command()
 def list(
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
-    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
 ):
     """
     :clipboard: List all portfolios.
     """
     from ginkgo.data.containers import container
 
-    console.print(":clipboard: Listing portfolios...")
+    if format != "json":
+        console.print(":clipboard: Listing portfolios...")
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非纯文本（#6652 review E2）。
+    if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(2)
+    if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(2)
+    # --raw 语义为全量导出（旧契约），强制 unlimited 避免分页截断（#6652 review C2）。
+    if raw:
+        page_size = 0
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get_portfolios_df()
+        result = portfolio_service.get_portfolios_df(page=q_page, page_size=q_page_size)
 
         if result.success:
             portfolios_data = result.data
@@ -126,15 +172,35 @@ def list(
             # Raw output mode
             if raw:
                 import json
+
                 # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame
                 portfolios_df = portfolios_data if isinstance(portfolios_data, pd.DataFrame) else pd.DataFrame()
-                raw_data = portfolios_df.to_dict('records')
+                raw_data = portfolios_df.to_dict("records")
 
                 console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
                 return
 
             # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame（类型即契约，无需鸭子探测）
             portfolios_df = portfolios_data if isinstance(portfolios_data, pd.DataFrame) else pd.DataFrame()
+
+            if format == "json":
+                # ADR-021：metadata.total 必须是未截断的匹配总数。
+                # portfolios_df 已被 page_size 截断，len(df) 是当前页记录数而非总数 → 用 service.count()。
+                count_result = portfolio_service.count()
+                # PortfolioService.count() 返回 ServiceResult.success({"count": N})（dict 契约，见 portfolio_service.py:1133）。
+                # 须解 dict 取 key；isinstance(int) 对 dict 恒 False 会导致 total 静默回退截断计数 len(df)。
+                if count_result.success and isinstance(count_result.data, dict) and "count" in count_result.data:
+                    total = count_result.data["count"]
+                else:
+                    total = len(portfolios_df)
+                records = portfolios_df.to_dict("records")
+                # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
+                json_result = build_list_result(
+                    records, total=total, limit=q_page_size,
+                    offset=0 if unlimited else page * page_size,
+                )
+                format_result(json_result, format="json", command="list")
+                return
 
             if portfolios_df.empty:
                 console.print(":memo: No portfolios found.")
@@ -150,23 +216,42 @@ def list(
 
             for _, portfolio in portfolios_df.iterrows():
                 initial_capital = f"¥{float(portfolio.get('initial_capital', 0)):,.2f}"
-                portfolio_type = "Live" if portfolio.get('is_live', False) else "Backtest"
-                status = portfolio.get('status', 'Unknown')
+                portfolio_type = "Live" if portfolio.get("is_live", False) else "Backtest"
+                status = _format_portfolio_status(portfolio)
 
                 table.add_row(
-                    str(portfolio.get('uuid', '')),
-                    str(portfolio.get('name', ''))[:18],
+                    str(portfolio.get("uuid", "")),
+                    str(portfolio.get("name", ""))[:18],
                     initial_capital,
                     portfolio_type,
-                    status
+                    status,
                 )
 
             console.print(table)
         else:
-            console.print(f":x: Failed to get portfolios: {result.error}")
+            # ADR-021 第 5/6 维：service 失败时，JSON 模式发错误 envelope + exit 1；
+            # text 模式打印诊断 + exit 1（失败 exit code 跨格式一致，非隐式 exit 0）。
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f":x: Failed to get portfolios: {result.error}")
+                raise typer.Exit(1)
 
+    # typer.Exit 是 Exception 子类（[[arch_typer_exit_swallowed_by_except_exception]]），
+    # 必须在 broad except 前透传 format_result 抛出的 Exit(1)，否则被吞成 exit 0。
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -183,9 +268,7 @@ def create(
 
     # #5984: 初始资本必须为正，拒绝非正输入（负数/零）。
     if initial_capital <= 0:
-        console.print(
-            f":x: Invalid --capital: must be greater than 0 (got {initial_capital})"
-        )
+        console.print(f":x: Invalid --capital: must be greater than 0 (got {initial_capital})")
         raise typer.Exit(1)
 
     console.print(f":heavy_plus_sign: Creating portfolio: {name}")
@@ -200,7 +283,11 @@ def create(
 
         if result.success:
             data = result.data
-            portfolio_uuid = data.get('uuid', data) if isinstance(data, dict) else (data.uuid if hasattr(data, 'uuid') else str(data))
+            portfolio_uuid = (
+                data.get("uuid", data)
+                if isinstance(data, dict)
+                else (data.uuid if hasattr(data, "uuid") else str(data))
+            )
             console.print(f":white_check_mark: Portfolio '{name}' created successfully")
             console.print(f"  • Portfolio ID: {portfolio_uuid}")
             console.print(f"  • Initial Capital: ¥{initial_capital:,.2f}")
@@ -220,13 +307,15 @@ def get(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     details: bool = typer.Option(False, "--details", "-d", help="Show detailed portfolio information"),
     performance: bool = typer.Option(False, "--performance", "-p", help="Show performance metrics"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
 ):
     """
     :eyes: Show portfolio details and composition.
     """
     from ginkgo.data.containers import container
 
-    console.print(f":eyes: Showing portfolio {portfolio_id}...")
+    if format != "json":
+        console.print(f":eyes: Showing portfolio {portfolio_id}...")
 
     try:
         portfolio_service = container.portfolio_service()
@@ -234,18 +323,22 @@ def get(
         # 先尝试按 UUID 查找
         result = portfolio_service.get(portfolio_id=portfolio_id)
         # 如果 UUID 查找失败，尝试按名称查找
-        if not result.success or not result.data or (hasattr(result.data, '__len__') and len(result.data) == 0):
+        if not result.success or not result.data or (hasattr(result.data, "__len__") and len(result.data) == 0):
             result = portfolio_service.get(name=portfolio_id)
 
         if result.success and result.data:
             # 获取第一个 portfolio 实体（ModelList 支持）
-            if hasattr(result.data, '__len__') and len(result.data) > 0:
+            if hasattr(result.data, "__len__") and len(result.data) > 0:
                 portfolio = result.data[0]
-            elif hasattr(result.data, 'uuid'):
+            elif hasattr(result.data, "uuid"):
                 portfolio = result.data
             else:
                 console.print(":x: Portfolio data format error")
                 raise typer.Exit(1)
+
+            if format == "json":
+                format_result(ServiceResult.success(data=_portfolio_record(portfolio)), format="json", command="get")
+                return
 
             table = Table(title=f":bank: Portfolio Details")
             table.add_column("Property", style="cyan", width=15)
@@ -256,7 +349,7 @@ def get(
             table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
             table.add_row("Current Capital", f"¥{portfolio.current_capital:,.2f}")
             table.add_row("Cash", f"¥{portfolio.cash:,.2f}")
-            table.add_row("Mode", _format_portfolio_mode(getattr(portfolio, 'mode', None)))
+            table.add_row("Mode", _format_portfolio_mode(getattr(portfolio, "mode", None)))
             table.add_row("Description", str(portfolio.desc or "No description"))
 
             console.print(table)
@@ -271,8 +364,11 @@ def get(
                 else:
                     console.print(f"[yellow]:warning: Failed to collect components: {result.error}[/yellow]")
                     component_data = {
-                        'strategies': [], 'risk_managers': [],
-                        'analyzers': [], 'selectors': [], 'sizers': [],
+                        "strategies": [],
+                        "risk_managers": [],
+                        "analyzers": [],
+                        "selectors": [],
+                        "sizers": [],
                     }
 
                 # 检查是否有任何组件绑定
@@ -290,12 +386,28 @@ def get(
                 console.print(":information: Performance metrics not yet implemented")
 
         else:
+            if format == "json":
+                format_result(
+                    ServiceResult.failure(message=f"Portfolio not found: {portfolio_id}", code="NOT_FOUND"),
+                    format="json",
+                    command="get",
+                )
+                return
             console.print(f":x: Failed to get portfolio: {result.error}")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
-        raise typer.Exit(1)
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="get",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -314,14 +426,14 @@ def status(
 
         # 先尝试按 UUID 查找，失败后按名称查找
         result = portfolio_service.get(portfolio_id=portfolio_id)
-        if not result.success or not result.data or (hasattr(result.data, '__len__') and len(result.data) == 0):
+        if not result.success or not result.data or (hasattr(result.data, "__len__") and len(result.data) == 0):
             result = portfolio_service.get(name=portfolio_id)
 
         if result.success and result.data:
             # 获取第一个 portfolio 实体（ModelList 支持）
-            if hasattr(result.data, '__len__') and len(result.data) > 0:
+            if hasattr(result.data, "__len__") and len(result.data) > 0:
                 portfolio = result.data[0]
-            elif hasattr(result.data, 'uuid'):
+            elif hasattr(result.data, "uuid"):
                 portfolio = result.data
             else:
                 console.print(":x: Portfolio data format error")
@@ -358,8 +470,9 @@ def _resolve_portfolio_identifier(portfolio_service, identifier: str):
     Returns:
         (uuid, None) 命中唯一；(None, error_msg) 未命中或歧义。
     """
+
     def _has_match(r) -> bool:
-        return r is not None and getattr(r, 'success', False) and bool(getattr(r, 'data', None))
+        return r is not None and getattr(r, "success", False) and bool(getattr(r, "data", None))
 
     def _first_uuid(data):
         if not data:
@@ -401,6 +514,7 @@ def delete(
 
     try:
         from ginkgo.data.containers import container
+
         portfolio_service = container.portfolio_service()
 
         # #5995: 名称/部分UUID 解析（精确 UUID → 名称 → fuzzy）
@@ -431,8 +545,12 @@ def delete(
 def bind_component(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     file_id: str = typer.Argument(..., help="File UUID or name"),
-    component_type: str = typer.Option(..., "--type", "-t", help="Component type (strategy/risk/selector/sizer/analyzer)"),
-    params: List[str] = typer.Option([], "--param", "-p", help="Component parameters in format 'index:value', can be used multiple times"),
+    component_type: str = typer.Option(
+        ..., "--type", "-t", help="Component type (strategy/risk/selector/sizer/analyzer)"
+    ),
+    params: List[str] = typer.Option(
+        [], "--param", "-p", help="Component parameters in format 'index:value', can be used multiple times"
+    ),
 ):
     """
     :link: Bind a component to a portfolio.
@@ -473,11 +591,11 @@ def bind_component(
         file_result = file_service.get_by_uuid(file_id)
         if file_result.success and file_result.data:
             data = file_result.data
-            if isinstance(data, dict) and data.get('file') is not None:
-                resolved_file_uuid = data['file'].uuid
-                file_name = data['file'].name
+            if isinstance(data, dict) and data.get("file") is not None:
+                resolved_file_uuid = data["file"].uuid
+                file_name = data["file"].name
                 _file_resolved = True
-            elif hasattr(data, 'uuid'):
+            elif hasattr(data, "uuid"):
                 resolved_file_uuid = data.uuid
                 file_name = data.name
                 _file_resolved = True
@@ -487,8 +605,8 @@ def bind_component(
             file_result = file_service.get_by_name(file_id)
             if file_result.success and file_result.data:
                 data = file_result.data
-                files = data.get('files', data) if isinstance(data, dict) else data
-                if hasattr(files, '__len__') and len(files) > 0:
+                files = data.get("files", data) if isinstance(data, dict) else data
+                if hasattr(files, "__len__") and len(files) > 0:
                     resolved_file_uuid = files[0].uuid
                     file_name = files[0].name
                     _file_resolved = True
@@ -518,10 +636,10 @@ def bind_component(
         parameters = {}
         if params:
             for param in params:
-                if ':' not in param:
+                if ":" not in param:
                     console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' format.")
                     raise typer.Exit(1)
-                key_str, value = param.split(':', 1)
+                key_str, value = param.split(":", 1)
                 try:
                     index = int(key_str)
                 except ValueError:
@@ -535,7 +653,7 @@ def bind_component(
             portfolio_uuid=resolved_portfolio_uuid,
             file_uuid=resolved_file_uuid,
             file_name=file_name,
-            file_type=file_type
+            file_type=file_type,
         )
 
         if result.success:
@@ -548,9 +666,7 @@ def bind_component(
             if parameters:
                 mapping = result.data  # MPortfolioFileMapping 对象
                 param_result = mapping_service.create_component_parameters(
-                    mapping_uuid=mapping.uuid,
-                    file_uuid=resolved_file_uuid,
-                    parameters=parameters
+                    mapping_uuid=mapping.uuid, file_uuid=resolved_file_uuid, parameters=parameters
                 )
 
                 if param_result.success:
@@ -608,8 +724,8 @@ def unbind_component(
         file_result = file_service.get_by_uuid(file_id)
         if file_result.success and file_result.data:
             # 处理字典格式 {"file": MFile, "exists": True}
-            if isinstance(file_result.data, dict) and 'file' in file_result.data:
-                resolved_file_uuid = file_result.data['file'].uuid
+            if isinstance(file_result.data, dict) and "file" in file_result.data:
+                resolved_file_uuid = file_result.data["file"].uuid
             else:
                 resolved_file_uuid = file_result.data.uuid
         else:
@@ -624,8 +740,7 @@ def unbind_component(
         # 使用 MappingService 删除绑定
         mapping_service = container.mapping_service()
         result = mapping_service.delete_portfolio_file_binding(
-            portfolio_uuid=resolved_portfolio_uuid,
-            file_uuid=resolved_file_uuid
+            portfolio_uuid=resolved_portfolio_uuid, file_uuid=resolved_file_uuid
         )
 
         if result.success:
@@ -658,14 +773,16 @@ def deploy_portfolio(
             name=name,
         )
 
-        console.print(Panel(
-            f"[bold green]Paper trading deployed[/bold green]\n\n"
-            f"Portfolio ID: {portfolio_id}\n"
-            f"Source: {source}\n"
-            f"Mode: PAPER\n"
-            f"Notification sent to PaperTradingWorker via Kafka",
-            title="Deploy Success",
-        ))
+        console.print(
+            Panel(
+                f"[bold green]Paper trading deployed[/bold green]\n\n"
+                f"Portfolio ID: {portfolio_id}\n"
+                f"Source: {source}\n"
+                f"Mode: PAPER\n"
+                f"Notification sent to PaperTradingWorker via Kafka",
+                title="Deploy Success",
+            )
+        )
     except Exception as e:
         GLOG.ERROR(f"[DEPLOY] Deploy failed: {e}")
         console.print(f"[bold red]Deploy failed: {e}[/bold red]")
@@ -685,12 +802,14 @@ def unload_portfolio(
         success = _send_unload_command(portfolio_id)
 
         if success:
-            console.print(Panel(
-                f"[bold yellow]Unload command sent[/bold yellow]\n\n"
-                f"Portfolio ID: {portfolio_id}\n"
-                f"Notification sent to PaperTradingWorker via Kafka",
-                title="Unload Success",
-            ))
+            console.print(
+                Panel(
+                    f"[bold yellow]Unload command sent[/bold yellow]\n\n"
+                    f"Portfolio ID: {portfolio_id}\n"
+                    f"Notification sent to PaperTradingWorker via Kafka",
+                    title="Unload Success",
+                )
+            )
         else:
             console.print(f"[bold red]Failed to send unload command via Kafka[/bold red]")
             raise typer.Exit(1)
@@ -732,7 +851,7 @@ def _deploy_paper_trading(
         raise ValueError(f"Source portfolio not found: {source_portfolio_id}")
 
     source_data = source_result.data
-    if hasattr(source_data, '__len__') and not isinstance(source_data, dict):
+    if hasattr(source_data, "__len__") and not isinstance(source_data, dict):
         source_portfolio = source_data[0]
     else:
         source_portfolio = source_data
@@ -757,7 +876,7 @@ def _deploy_paper_trading(
     mappings = mapping_crud.find(filters={"portfolio_id": source_portfolio_id, "is_del": False})
     param_count = 0
     for mapping in mappings:
-        mapping_type = mapping.type.value if hasattr(mapping.type, 'value') else mapping.type
+        mapping_type = mapping.type.value if hasattr(mapping.type, "value") else mapping.type
         # create(**kwargs) 返回带 uuid 的新 mapping（add 收 model 对象，传 kwargs 会 TypeError）
         new_mapping = mapping_crud.create(
             portfolio_id=new_portfolio_id,
@@ -777,8 +896,7 @@ def _deploy_paper_trading(
             param_count += 1
 
     GLOG.INFO(
-        f"[DEPLOY] Copied {len(mappings)} component mapping(s) "
-        f"and {param_count} param(s) to {new_portfolio_id}"
+        f"[DEPLOY] Copied {len(mappings)} component mapping(s) " f"and {param_count} param(s) to {new_portfolio_id}"
     )
 
     # 4. 存储 source_portfolio_id 映射 + 计算 baseline
@@ -825,6 +943,7 @@ def _store_deploy_source(paper_portfolio_id: str, source_portfolio_id: str) -> N
     """将 source_portfolio_id 映射存入 Redis"""
     try:
         from ginkgo import services
+
         redis_svc = services.data.redis_service()
         if redis_svc:
             redis_svc.set_cache(f"deviation:source:{paper_portfolio_id}", source_portfolio_id)
@@ -858,7 +977,7 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
             return
 
         latest_task = tasks[0]
-        task_id = getattr(latest_task, 'task_id', None)
+        task_id = getattr(latest_task, "task_id", None)
 
         if not task_id:
             GLOG.WARN(f"[DEPLOY] Backtest task has no task_id, skipping baseline")
@@ -885,8 +1004,10 @@ def _generate_baseline_if_possible(paper_portfolio_id: str, source_portfolio_id:
         redis_svc = services.data.redis_service()
         if redis_svc:
             redis_svc.set_cache(f"deviation:baseline:{paper_portfolio_id}", json.dumps(baseline, default=str))
-            GLOG.INFO(f"[DEPLOY] Baseline cached: slice_period={baseline.get('slice_period_days')}, "
-                       f"metrics={len(baseline.get('baseline_stats', {}))}")
+            GLOG.INFO(
+                f"[DEPLOY] Baseline cached: slice_period={baseline.get('slice_period_days')}, "
+                f"metrics={len(baseline.get('baseline_stats', {}))}"
+            )
 
     except Exception as e:
         GLOG.WARN(f"[DEPLOY] Baseline generation failed (non-blocking): {e}")
@@ -909,6 +1030,7 @@ def generate_baseline(
 
     # 从 Redis 读取 source_portfolio_id
     from ginkgo import services
+
     redis_svc = services.data.redis_service()
     source_id = None
     if redis_svc:
@@ -924,12 +1046,14 @@ def generate_baseline(
 
     try:
         _generate_baseline_if_possible(portfolio_id, source_id)
-        console.print(Panel(
-            f"[bold green]Baseline generated/refreshed[/bold green]\n\n"
-            f"Portfolio ID: {portfolio_id}\n"
-            f"Source: {source_id}",
-            title="Baseline",
-        ))
+        console.print(
+            Panel(
+                f"[bold green]Baseline generated/refreshed[/bold green]\n\n"
+                f"Portfolio ID: {portfolio_id}\n"
+                f"Source: {source_id}",
+                title="Baseline",
+            )
+        )
     except Exception as e:
         GLOG.ERROR(f"[BASELINE] Generation failed: {e}")
         console.print(f"[bold red]Failed: {e}[/bold red]")

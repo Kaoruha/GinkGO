@@ -78,3 +78,33 @@ class TestLoadPortfolioAssemblyFailure:
                     result = node.load_portfolio("test-uuid-1234")
 
         assert result is False
+
+
+@pytest.mark.unit
+class TestLoadPortfolioEarlyIdempotency:
+    """#4863: load_portfolio 对已加载 portfolio 应在昂贵的 DB 查询 + 引擎装配前
+    早期返回，避免 Scheduler reconcile 每周期重发时重复执行装配（plan 已分配、
+    节点也已加载，仅 heartbeat 漏报或 Kafka 滞后等 transient 情况触发重发）。
+
+    既有幂等检查在 node.py 装配之后（lock 内），对 reconcile 风暴代价过高。
+    """
+
+    def test_already_loaded_skips_db_query_and_assembly(self):
+        """已加载 portfolio → 立即返回 False，不查 DB、不装配。"""
+        from ginkgo.workers.execution_node.node import ExecutionNode
+        import ginkgo.workers.execution_node.node as node_mod
+
+        node = ExecutionNode(node_id="test-node")
+        node.portfolios["pid-loaded"] = MagicMock()  # 预置已加载
+
+        mock_ps = MagicMock()
+        with patch.object(node_mod, "services") as mock_svc:
+            mock_svc.data.portfolio_service.return_value = mock_ps
+            with patch(
+                "ginkgo.trading.services.engine_assembly_service.EngineAssemblyService"
+            ) as mock_eas:
+                result = node.load_portfolio("pid-loaded")
+
+        assert result is False
+        mock_ps.get.assert_not_called()   # 未查 DB
+        mock_eas.assert_not_called()      # 未装配

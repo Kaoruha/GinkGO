@@ -236,36 +236,6 @@ class BarService(BaseService):
             )
 
     @retry(max_try=3)
-    def sync_full(
-        self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
-    ) -> ServiceResult:
-        """
-        全量同步单个股票的K线数据，从历史开始到当前日期。
-
-        Args:
-            code (str): 股票代码
-            frequency (FREQUENCY_TYPES): 数据频率
-
-        Returns:
-            ServiceResult: 全量同步结果，包含DataSyncResult统计信息
-        """
-
-    @retry(max_try=3)
-    def sync_incremental(
-        self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
-    ) -> ServiceResult:
-        """
-        增量同步单个股票的K线数据，从最新数据之后开始到当前日期。
-
-        Args:
-            code (str): 股票代码
-            frequency (FREQUENCY_TYPES): 数据频率
-
-        Returns:
-            ServiceResult: 增量同步结果，包含DataSyncResult统计信息
-        """
-
-    @retry(max_try=3)
     def sync_smart(
         self, code: str, fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:

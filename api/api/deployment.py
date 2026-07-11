@@ -1,16 +1,39 @@
 """部署 API 路由"""
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+from pydantic import AliasChoices, BaseModel, Field
 from core.response import ok
 from core.exceptions import BusinessError
 from core.logging import logger
 
 router = APIRouter()
 
+DEPLOYMENT_TEMPLATES: List[Dict[str, Any]] = [
+    {
+        "id": "paper",
+        "name": "Paper Trading",
+        "mode": "paper",
+        "description": "部署到模拟盘组合，用于无实盘风险验证策略。",
+        "required_fields": ["portfolio_id"],
+        "optional_fields": ["name"],
+    },
+    {
+        "id": "live",
+        "name": "Live Trading",
+        "mode": "live",
+        "description": "部署到实盘组合，需要绑定实盘账户。",
+        "required_fields": ["portfolio_id", "account_id"],
+        "optional_fields": ["name"],
+    },
+]
+
 
 class DeployRequest(BaseModel):
-    portfolio_id: str = Field(..., description="源组合 UUID")
+    portfolio_id: str = Field(
+        ...,
+        validation_alias=AliasChoices("portfolio_id", "portfolio_uuid"),
+        description="源组合 UUID; also accepts portfolio_uuid for API consistency",
+    )
     mode: str = Field(..., description="部署模式: paper / live")
     account_id: Optional[str] = Field(None, description="实盘账号 ID（live 模式必填）")
     name: Optional[str] = Field(None, description="新组合名称")
@@ -52,6 +75,12 @@ async def deploy(req: DeployRequest):
     result = saga.steps[0].result
     deploy_data = result.data if hasattr(result, 'data') else result
     return ok(data=deploy_data, message="部署成功")
+
+
+@router.get("/templates")
+async def list_deployment_templates():
+    """列出可用部署模板；必须位于 /{portfolio_id} 之前避免被动态路由吞掉。"""
+    return ok(data=DEPLOYMENT_TEMPLATES, message="查询成功")
 
 
 @router.get("/{portfolio_id}")

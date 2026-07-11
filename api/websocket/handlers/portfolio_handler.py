@@ -71,13 +71,13 @@ class PortfolioHandler:
             await websocket.send_json({"type": "pong"})
 
         elif msg_type == "subscribe":
-            topic = message.get("topic")
+            topic = message.get("topic") or message.get("channel")
             if topic:
                 await connection_manager.subscribe(websocket, topic)
                 await websocket.send_json({"type": "subscribed", "topic": topic})
 
         elif msg_type == "unsubscribe":
-            topic = message.get("topic")
+            topic = message.get("topic") or message.get("channel")
             if topic:
                 await connection_manager.unsubscribe(websocket, topic)
                 await websocket.send_json({"type": "unsubscribed", "topic": topic})

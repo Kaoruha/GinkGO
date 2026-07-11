@@ -9,6 +9,7 @@
 纯查询逻辑，无副作用。
 """
 
+import json
 import logging
 from typing import Dict, List
 
@@ -63,17 +64,33 @@ class HeartbeatChecker:
             node_id: ExecutionNode ID
 
         Returns:
-            Dict: 性能指标 {portfolio_count, queue_size, cpu_usage}
+            Dict: 性能指标 {portfolio_count, queue_size, cpu_usage, loaded_portfolio_ids}
+            loaded_portfolio_ids: 已加载 pid 列表；老节点未上报/JSON 损坏时为 None
+            (#4863 reconcile 据此判定漏加载，None 则跳过该节点)。
         """
         try:
             key = f"{self.NODE_METRICS_PREFIX}{node_id}"
             metrics = self.redis_client.hgetall(key)
 
+            # 解析 loaded_portfolio_ids（JSON 列表）；缺失或损坏降级为 None
+            loaded_raw = metrics.get(b'loaded_portfolio_ids')
+            loaded_ids = None
+            if loaded_raw is not None:
+                try:
+                    loaded_ids = json.loads(loaded_raw)
+                except (ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse loaded_portfolio_ids for node {node_id}: {e}"
+                    )
+                    loaded_ids = None
+
             return {
                 'portfolio_count': int(metrics.get(b'portfolio_count', 0)),
+                'loaded_portfolio_ids': loaded_ids,
                 'queue_size': int(metrics.get(b'queue_size', 0)),
                 'cpu_usage': float(metrics.get(b'cpu_usage', 0.0))
             }
         except Exception as e:
             logger.error(f"Failed to get metrics for node {node_id}: {e}")
-            return {'portfolio_count': 0, 'queue_size': 0, 'cpu_usage': 0.0}
+            return {'portfolio_count': 0, 'loaded_portfolio_ids': None,
+                    'queue_size': 0, 'cpu_usage': 0.0}

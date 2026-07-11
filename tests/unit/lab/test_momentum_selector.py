@@ -8,9 +8,15 @@ import datetime
 from time import sleep
 import pandas as pd
 from unittest.mock import patch, MagicMock
+from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.trading.selectors.momentum_selector import MomentumSelector
 
 engine_id = "backtest_example_001"
+
+
+class _ForbiddenCruds:
+    def __getattr__(self, name):
+        raise AssertionError(f"MomentumSelector must use services, not container.cruds.{name}")
 
 
 class MomentumSelectorTest(unittest.TestCase):
@@ -29,12 +35,36 @@ class MomentumSelectorTest(unittest.TestCase):
         print(s)
 
     @patch("ginkgo.trading.selectors.momentum_selector.container")
+    def test_pick_uses_bar_service_and_available_codes(self, mock_container):
+        """pick() uses the data service boundary and scans only codes with bar data."""
+        df = pd.DataFrame(
+            [
+                {"code": "A", "close": 10.0, "timestamp": pd.Timestamp("2019-12-10")},
+                {"code": "B", "close": 5.0, "timestamp": pd.Timestamp("2019-12-10")},
+                {"code": "A", "close": 20.0, "timestamp": pd.Timestamp("2019-12-30")},
+                {"code": "B", "close": 100.0, "timestamp": pd.Timestamp("2019-12-30")},
+                {"code": "NO_BAR_METADATA_ONLY", "close": 1.0, "timestamp": pd.Timestamp("2019-12-30")},
+            ]
+        )
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
+        mock_container.cruds = _ForbiddenCruds()
+        mock_container.bar_service.return_value = mock_bar_service
+
+        s = MomentumSelector(name="test_selector", window=30, rank=1)
+        res = s.pick(time="2020-01-01")
+
+        self.assertEqual(res, ["B"])
+        mock_bar_service.get_available_codes.assert_called_once()
+        mock_bar_service.get_bars_df.assert_called_once()
+
+    @patch("ginkgo.trading.selectors.momentum_selector.container")
     def test_pick(self, mock_container):
         """测试pick方法 - mock数据库依赖."""
-        # Mock stockinfo_crud返回空DataFrame（无股票信息）
-        mock_stockinfo_crud = MagicMock()
-        mock_stockinfo_crud.get_all_codes.return_value = []
-        mock_container.cruds.stock_info.return_value = mock_stockinfo_crud
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=[])
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="test_selector", window=30, rank=2)
         res = s.pick(time="2020-01-01")
@@ -65,12 +95,10 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "C", "close": 10.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_si = MagicMock()
-        mock_si.get_all_codes.return_value = ["A", "B", "C"]
-        mock_bar = MagicMock()
-        mock_bar.find.return_value.to_dataframe.return_value = df
-        mock_container.cruds.stock_info.return_value = mock_si
-        mock_container.cruds.bar.return_value = mock_bar
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B", "C"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="test_selector", window=30, rank=2)
         res = s.pick(time="2020-01-01")
@@ -90,19 +118,17 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "B", "close": 100.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_si = MagicMock()
-        mock_si.get_all_codes.return_value = ["A", "B"]
-        mock_bar = MagicMock()
-        mock_bar.find.return_value.to_dataframe.return_value = df
-        mock_container.cruds.stock_info.return_value = mock_si
-        mock_container.cruds.bar.return_value = mock_bar
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="test_selector", window=30, rank=2)
         s.pick(time="2020-01-01")
         self.assertEqual(
-            mock_bar.find.call_count,
+            mock_bar_service.get_bars_df.call_count,
             1,
-            "pick() 应只发起一次批量 bar 查询，而非逐股查询",
+            "pick() 应只通过 service 发起一次批量 bar 查询，而非逐股查询",
         )
 
     @patch("ginkgo.trading.selectors.momentum_selector.container")
@@ -123,12 +149,10 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "Y", "close": 10.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_si = MagicMock()
-        mock_si.get_all_codes.return_value = ["Z", "X", "Y"]
-        mock_bar = MagicMock()
-        mock_bar.find.return_value.to_dataframe.return_value = df
-        mock_container.cruds.stock_info.return_value = mock_si
-        mock_container.cruds.bar.return_value = mock_bar
+        mock_bar_service = MagicMock()
+        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["Z", "X", "Y"])
+        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
+        mock_container.bar_service.return_value = mock_bar_service
 
         s = MomentumSelector(name="test_selector", window=30, rank=2)
         res = s.pick(time="2020-01-01")

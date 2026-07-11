@@ -5,7 +5,10 @@
 FROM python:3.12.11-slim-bookworm
 
 # 设置工作目录
-RUN mkdir -p /ginkgo
+RUN groupadd --system --gid 10001 ginkgo \
+    && useradd --system --uid 10001 --gid ginkgo --home-dir /home/ginkgo --create-home ginkgo \
+    && mkdir -p /ginkgo /var/log/ginkgo \
+    && chown -R ginkgo:ginkgo /ginkgo /var/log/ginkgo /home/ginkgo
 
 WORKDIR /ginkgo
 
@@ -22,7 +25,7 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
 # 安装 uv（极快的 Python 包管理器）
 RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ uv
 
-ENV PATH="/root/.local/bin:${PATH}"
+ENV PATH="/home/ginkgo/.local/bin:${PATH}"
 
 # 只复制依赖安装所需文件（利用 Docker 层缓存：源码变动不触发重装依赖）
 COPY pyproject.toml uv.lock ./
@@ -37,9 +40,16 @@ RUN uv pip install --system . \
 COPY main.py ./
 COPY src/ ./src/
 
+# 非 root 用户（ginkgo）运行：COPY 产生的 root 属主文件归还给 ginkgo（master #6651 加固）
+# task_timer.yml 不再 bake 进镜像，由 worker-common 的 ~/.ginkgo volume 提供（PR 统一图式）
+RUN chown -R ginkgo:ginkgo /ginkgo /var/log/ginkgo /home/ginkgo
+
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/ginkgo/src
+ENV HOME=/home/ginkgo
+
+USER ginkgo
 
 # 默认命令（显示帮助，实际命令由 docker-compose 覆盖）
 CMD ["python", "main.py", "--help"]

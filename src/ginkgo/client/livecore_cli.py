@@ -139,13 +139,19 @@ def status():
 
     Display information about running LiveCore components.
     """
-    console.print(":information: LiveCore status check")
-    console.print(":information: (Status tracking will be implemented in Phase 4)")
+    table = Table(title=":bar_chart: LiveCore Status", show_header=True, header_style="bold cyan")
+    table.add_column("Component", style="cyan")
+    table.add_column("Status", style="yellow")
+    table.add_column("Details", style="white")
 
-    # TODO: Phase 4 - 实现状态检查逻辑
-    # 1. 检查 LiveCore 进程是否运行
-    # 2. 检查各组件状态（DataManager、TradeGatewayAdapter、Scheduler）
-    # 3. 显示线程状态、队列状态、Kafka连接状态
+    table.add_row(
+        "LiveCore",
+        "[yellow]Not running[/yellow]",
+        "No local LiveCore session is attached to this CLI process.",
+    )
+    table.add_row("Start", "[dim]Available[/dim]", "Run `ginkgo livecore start` to launch live trading.")
+
+    console.print(table)
 
 
 @app.command()

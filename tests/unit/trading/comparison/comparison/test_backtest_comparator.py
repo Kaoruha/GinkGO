@@ -15,6 +15,8 @@ TDD Green 阶段: 测试用例实现
 import pytest
 from decimal import Decimal
 from datetime import datetime
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 
 @pytest.mark.unit
@@ -103,6 +105,33 @@ class TestBacktestComparator:
 
         assert df is not None
         assert len(df) > 0
+
+    def test_load_backtest_result_uses_container_instance(self):
+        """#6028: DB service lookup must use injected `container`, not `Container` class."""
+        from ginkgo.trading.comparison.backtest_comparator import BacktestComparator
+
+        task_svc = MagicMock()
+        task_svc.get_by_task_id.return_value = SimpleNamespace(
+            success=True,
+            data=SimpleNamespace(portfolio_id="p1", engine_id="e1"),
+        )
+        result_svc = MagicMock()
+        result_svc.get_analyzer_values.return_value = SimpleNamespace(
+            success=True,
+            data=[SimpleNamespace(name="sharpe_ratio", value="1.25")],
+        )
+
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.backtest_task_service.return_value = task_svc
+            mock_container.result_service.return_value = result_svc
+
+            comparator = BacktestComparator()
+            metrics = comparator._load_backtest_result("bt_001")
+
+        assert metrics == {"sharpe_ratio": Decimal("1.25")}
+        mock_container.backtest_task_service.assert_called_once_with()
+        mock_container.result_service.assert_called_once_with()
+        result_svc.get_analyzer_values.assert_called_once_with(task_id="bt_001", portfolio_id="p1")
 
 
 @pytest.mark.unit

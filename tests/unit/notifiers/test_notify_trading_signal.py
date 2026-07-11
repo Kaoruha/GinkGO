@@ -98,7 +98,7 @@ class TestNotifyTradingSignalAsync:
 class TestSendFailureHandling:
     """回归（PR#6215 review Issue 1+2）：send 失败时不能报成功。
 
-    ServiceResult.is_success 是方法非属性；渠道必须用已注册的 email（非 mail）。
+    ServiceResult.is_success 是方法非属性；渠道必须用生产可解析的 webhook。
     两者叠加曾导致生产全程静默失败却返回 True。
     """
 
@@ -128,8 +128,18 @@ class TestSendFailureHandling:
 
         assert result is False, "send 失败时不能因 is_success 是方法而恒真报成功"
 
-    def test_uses_registered_email_channel_not_unregistered_mail(self):
-        """渠道必须用已注册的 email，而非不存在的 mail（否则 send 必 Channel not found）。"""
+    def test_uses_webhook_channel_dynamically_resolvable_not_email(self):
+        """渠道必须用 webhook（动态从 user contact 解析，无需预注册），
+        而非 email（生产运行时从未 register_channel → 必 Channel not found）。
+
+        回归锚点（#6086 AC2）：notify_trading_signal 早期硬编码 ``["email"]``，
+        但 EmailChannel 在 API/worker 启动时从不注册
+        （NotificationDeliveryService.__init__ self._channels={}，全仓仅
+        notify_cli.py:251 注册过 ConsoleChannel），导致交易信号通知全程
+        ``Channel not found: email`` 静默失败。webhook 是 send 链路特判动态
+        解析的唯一渠道（notification_service.py:220 ``_get_webhook_channel_for_user``），
+        必须与 notify() 对齐用 webhook。
+        """
         signal = Signal(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=1000)
         order = Order(code="000001.SZ", direction=DIRECTION_TYPES.LONG, volume=1000)
 
@@ -148,5 +158,5 @@ class TestSendFailureHandling:
             notify_trading_signal(signal, order, async_mode=True)
 
         channels = fake_service.send_async.call_args.kwargs["channels"]
-        assert "email" in channels, "必须用已注册的 email 渠道"
-        assert "mail" not in channels, "mail 未注册，会导致 Channel not found"
+        assert "webhook" in channels, "必须用 webhook（动态可解析），与 notify() 对齐"
+        assert "email" not in channels, "email 生产从未注册，会导致 Channel not found"
