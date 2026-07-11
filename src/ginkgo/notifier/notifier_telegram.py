@@ -3,19 +3,13 @@
 # Role: Telegram通知Bot使用telebot库实现机器人交互提供欢迎/帮助/消息/回显等方法
 
 
-
-
-
-
 from ginkgo.libs import GLOG
 from ginkgo.libs.core.config import GCONF
 from ginkgo.data.containers import container
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from ginkgo.enums import FILE_TYPES
-from ginkgo.trading.analysis.plots.result_plot import ResultPlot
 import telebot
-import shutil
 import yaml
 import os
 
@@ -196,188 +190,155 @@ def run_backtest(message):
     )
 
 
+def _get_backtest_service():
+    return container.backtest_task_service()
+
+
+def _is_success(result) -> bool:
+    if result is None:
+        return False
+    if hasattr(result, "is_success"):
+        return bool(result.is_success())
+    return bool(getattr(result, "success", False))
+
+
+def _error_text(result) -> str:
+    if result is None:
+        return "Unknown service error"
+    return getattr(result, "error", "") or getattr(result, "message", "") or "Unknown service error"
+
+
+def _value(record, *names, default="-"):
+    for name in names:
+        if isinstance(record, dict):
+            value = record.get(name)
+        else:
+            value = getattr(record, name, None)
+        if value not in (None, ""):
+            return value
+    return default
+
+
+def _task_items(data):
+    if isinstance(data, dict):
+        items = data.get("data", data.get("items", []))
+    else:
+        items = data or []
+    if hasattr(items, "to_dict"):
+        items = items.to_dict("records")
+    return list(items)
+
+
+def _format_backtest_task(index: int, record) -> str:
+    task_id = _value(record, "uuid", "task_id", "backtest_id")
+    name = _value(record, "name", "engine_name", default="")
+    status = _value(record, "status", default="-")
+    pnl = _value(record, "total_pnl", "profit", default="-")
+    start_at = _value(record, "start_at", "start_time", "create_at", default="-")
+    finish_at = _value(record, "finish_at", "end_time", "update_at", default="-")
+    label = f"{name} {task_id}".strip()
+    return f"[{index}]. {label}\nStatus: {status}\nWorth: {pnl}\nfrom {start_at} to {finish_at}"
+
+
+def _send_backtest_task_list(message, intro: str):
+    service = _get_backtest_service()
+    result = service.list()
+    bot.reply_to(message, intro)
+    if not _is_success(result):
+        bot.send_message(message.chat.id, f"Failed to list backtests: {_error_text(result)}")
+        return
+
+    records = _task_items(result.data)[:20]
+    if len(records) == 0:
+        bot.send_message(message.chat.id, "No backtest tasks found.")
+        return
+
+    for i, record in enumerate(records, 1):
+        bot.send_message(message.chat.id, _format_backtest_task(i, record))
+
+
+def _format_comparison(data) -> str:
+    metrics = data.get("metrics", {}) if isinstance(data, dict) else {}
+    if not metrics:
+        return "No comparison metrics found."
+
+    lines = ["Backtest comparison:"]
+    for metric_name, values in metrics.items():
+        lines.append(f"{metric_name}:")
+        if isinstance(values, dict):
+            for task_id, value in values.items():
+                lines.append(f"  {task_id}: {value}")
+        else:
+            lines.append(f"  {values}")
+    return "\n".join(lines)
+
+
+def _format_result_summary(data) -> str:
+    if not isinstance(data, dict):
+        return str(data)
+
+    lines = [f"Backtest: {data.get('task_id', data.get('uuid', '-'))}"]
+    for field in ("engine_id", "portfolio_count", "analyzer_count", "total_records"):
+        if field in data:
+            lines.append(f"{field}: {data[field]}")
+    if data.get("portfolios"):
+        lines.append(f"portfolios: {', '.join(map(str, data['portfolios']))}")
+    if data.get("analyzers"):
+        lines.append(f"analyzers: {', '.join(map(str, data['analyzers']))}")
+    time_range = data.get("time_range")
+    if isinstance(time_range, dict):
+        lines.append(f"time_range: {time_range.get('start', '-')} to {time_range.get('end', '-')}")
+    return "\n".join(lines)
+
+
 @bot.message_handler(commands=["compare"])
 def compare_backtest(message):
-    raw = get_engines().to_dataframe().head(20)
-    raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
-    if len(message.text.split()) <= 2:
-        bot.reply_to(
+    args = extract_arg(message.text)
+    if len(args) < 2:
+        _send_backtest_task_list(
             message,
-            "You could provide 2 backtest ids to confirm the detail.  For example: /res {uuid_1} {uuid_2}",
+            "You could provide 2 backtest ids. For example: /compare {uuid_1} {uuid_2}",
         )
-        for i, r in raw.iterrows():
-            bot.send_message(
-                message.chat.id,
-                f"[{i}]. {r['backtest_id']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
-            )
         return
 
-    backtest_id1 = extract_arg(message.text)[0]
-    backtest_id2 = extract_arg(message.text)[1]
-    # 获取回测记录
-    # 注意：这里需要根据实际的CRUD接口调整
-    # record1 = get_backtest_record(backtest_id1)
-    # record2 = get_backtest_record(backtest_id2)
-    # 临时注释，需要确认正确的CRUD方法
-    record1 = None
-    record2 = None
+    service = _get_backtest_service()
+    result = service.compare(args[:2])
+    if not _is_success(result):
+        bot.reply_to(message, f"Failed to compare backtests: {_error_text(result)}")
+        return
 
-    if len(message.text.split()) == 3:
-        if record1 is None or record2 is None:
-            bot.reply_to(message, "Ne such backtest record.")
-            for i, r in raw.iterrows():
-                bot.send_message(
-                    message.chat.id,
-                    f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
-                )
-            return
-        content1 = record1.content
-        content2 = record2.content
-        analyzers1 = yaml.safe_load(content1.decode("utf-8"))["analyzers"]
-        analyzers1 = {i["id"]: i["parameters"][0] for i in analyzers1}
-        analyzers2 = yaml.safe_load(content2.decode("utf-8"))["analyzers"]
-        analyzers2 = {i["id"]: i["parameters"][0] for i in analyzers2}
-        keys1 = list(analyzers1.keys())
-        keys2 = list(analyzers2.keys())
-        same_keys = list(set(keys1).intersection(set(keys2)))
-        if len(same_keys) == 0:
-            bot.send_message(message.chat.id, "No Related Analyzer.")
-            return
-
+    bot.send_message(message.chat.id, _format_comparison(result.data or {}))
+    if len(args) > 2:
         bot.send_message(
             message.chat.id,
-            "You could type /res {back1} {back2} {analyzer} to get the detail.",
+            "Analyzer plot comparison is not available through Telegram. Use /res {uuid} for summary.",
         )
-        for i in same_keys:
-            bot.send_message(message.chat.id, analyzers1[i])
-            bot.send_message(message.chat.id, i)
-        return
-
-    if len(message.text.split()) >= 3:
-        plot = ResultPlot("Backtest")
-        fig_data1 = {}
-        fig_data2 = {}
-        for analyzer_id in extract_arg(message.text)[2:]:
-            analyzer_record_crud = container.cruds.analyzer_record()
-            df = analyzer_record_crud.get_df_by_backtest(backtest_id1, analyzer_id)
-            if df.shape[0] == 0:
-                bot.reply_to(message, "No such analyzer record. Please check the id.")
-                return
-            pic_name = f"{backtest_id1}.{analyzer_id}.png"
-            pic_path = os.path.join(GCONF.get_conf_dir(), pic_name)
-            # Gen Pic
-            content = record1.content
-            analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
-            analyzer_name = "TestName"
-            for i in analyzers:
-                if i["id"] == analyzer_id:
-                    analyzer_name = i["parameters"][0]
-                    break
-            fig_data1[analyzer_name] = df
-
-            analyzer_record_crud = container.cruds.analyzer_record()
-            df = analyzer_record_crud.get_df_by_backtest(backtest_id2, analyzer_id)
-            if df.shape[0] == 0:
-                bot.reply_to(message, "No such analyzer record. Please check the id.")
-                return
-            fig_data2[analyzer_name] = df
-    plot.update_data(
-        f"{backtest_id1} vs {backtest_id2}",
-        [fig_data1, fig_data2],
-        [backtest_id1, backtest_id2],
-    )
-    plot.save_plot(pic_path)
-    photo = open(pic_path, "rb")
-    try:
-        shutil.os.remove(pic_path)
-    except Exception as e:
-        GLOG.ERROR(e)
-        pass
-    bot.send_photo(message.chat.id, photo)
 
 
 @bot.message_handler(commands=["res"])
 def res_backtest(message):
-    raw = get_engines().to_dataframe()
-    raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
-    if len(message.text.split()) == 1:
+    args = extract_arg(message.text)
+    if len(args) == 0:
+        _send_backtest_task_list(
+            message,
+            "You could provide a backtest id to confirm the detail. For example: /res {uuid}",
+        )
+        return
+    if len(args) > 1:
         bot.reply_to(
             message,
-            "You could provide a backtest id to confirm the detail.  For example: /res {uuid}",
+            "Analyzer detail plots are not available through Telegram. Use /res {uuid} for summary.",
         )
-        for i, r in raw.iterrows():
-            bot.send_message(
-                message.chat.id,
-                f"[{i}]. {r['backtest_id']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
-            )
         return
 
-    backtest_id = extract_arg(message.text)[0]
-    # 获取回测记录
-    # 注意：这里需要根据实际的CRUD接口调整
-    # record = get_backtest_record(backtest_id)
-    # 临时注释，需要确认正确的CRUD方法
-    record = None
+    backtest_id = args[0]
+    service = _get_backtest_service()
+    result = service.get_results(backtest_id)
+    if not _is_success(result):
+        bot.reply_to(message, f"Failed to get backtest result: {_error_text(result)}")
+        return
 
-    if len(message.text.split()) == 2:
-        if record is None:
-            bot.reply_to(message, "No such backtest record.")
-            for i, r in raw.iterrows():
-                bot.send_message(
-                    message.chat.id,
-                    f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
-                )
-            return
-        bot.send_message(message.chat.id, f"Backtest: {backtest_id}  \nWorth: {record.profit}")
-        content = record.content
-        analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
-        if len(analyzers) == 0:
-            bot.send_message(message.chat.id, "No Analyzer.")
-            return
-        bot.send_message(
-            message.chat.id,
-            "You could type /res {backtest} {analyzer} to get the detail.",
-        )
-        for i in analyzers:
-            bot.send_message(
-                message.chat.id,
-                i["parameters"][0],
-            )
-            bot.send_message(
-                message.chat.id,
-                i["id"],
-            )
-
-    if len(message.text.split()) >= 3:
-        backtest_id = extract_arg(message.text)[0]
-        plot = ResultPlot("Backtest")
-        fig_data = {}
-        for analyzer_id in extract_arg(message.text)[1:]:
-            analyzer_record_crud = container.cruds.analyzer_record()
-            df = analyzer_record_crud.get_df_by_backtest(backtest_id, analyzer_id)
-            if df.shape[0] == 0:
-                bot.reply_to(message, "No such analyzer record. Please check the id.")
-                return
-            pic_name = f"{backtest_id}.{analyzer_id}.png"
-            pic_path = os.path.join(GCONF.get_conf_dir(), pic_name)
-            # Gen Pic
-            content = record.content
-            analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
-            analyzer_name = "TestName"
-            for i in analyzers:
-                if i["id"] == analyzer_id:
-                    analyzer_name = i["parameters"][0]
-                    break
-            fig_data[analyzer_name] = df
-        plot.update_data(backtest_id, [fig_data], [backtest_id])
-        plot.save_plot(pic_path)
-        photo = open(pic_path, "rb")
-        try:
-            shutil.os.remove(pic_path)
-        except Exception as e:
-            GLOG.ERROR(e)
-            pass
-        bot.send_photo(message.chat.id, photo)
+    bot.send_message(message.chat.id, _format_result_summary(result.data))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -431,4 +392,3 @@ def run_telebot():
         GLOG.WARNING(f"Telegram Bot not configured, skipping bot startup")
         return
     bot.infinity_polling()
-
