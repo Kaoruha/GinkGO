@@ -6,6 +6,7 @@ FileService 能力完整，但只通过 /components（组件视角）、
 /node-graphs/{uuid}/files（portfolio 绑定视角）暴露。本 router 提供面向
 "全局文件管理"语义的 flat 适配端点，薄委托 FileService 既有方法，不改 service 核心。
 """
+
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 from typing import Optional
