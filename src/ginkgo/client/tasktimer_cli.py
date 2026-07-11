@@ -60,6 +60,20 @@ def parse_heartbeat_value(value):
     }
 
 
+def _discover_alive_task_timers(redis_client):
+    """Return live TaskTimer heartbeat entries as (node_id, key, ttl)."""
+    from ginkgo.data.redis_schema import RedisKeyPattern, RedisKeyPrefix
+
+    alive = []
+    for key in redis_client.keys(RedisKeyPattern.TASK_TIMER_HEARTBEAT_ALL):
+        ttl = redis_client.ttl(key)
+        if ttl and ttl > 0:
+            prefix = f"{RedisKeyPrefix.TASK_TIMER_HEARTBEAT}:"
+            node_id = key[len(prefix) :] if str(key).startswith(prefix) else key.split(":")[-1]
+            alive.append((node_id, key, ttl))
+    return alive
+
+
 app = typer.Typer(help=":alarm_clock: TaskTimer - Scheduled Task Manager", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -206,6 +220,12 @@ def status(
         # Check heartbeat
         exists = redis_client.exists(heartbeat_key)
         ttl = redis_client.ttl(heartbeat_key)
+        discovered = []
+        if not (exists and ttl > 0):
+            discovered = _discover_alive_task_timers(redis_client)
+            if len(discovered) == 1:
+                node_id, heartbeat_key, ttl = discovered[0]
+                exists = True
 
         console.print(f":information: TaskTimer Status Check")
         console.print(f":information: Node ID: {node_id}\n")
@@ -223,6 +243,11 @@ def status(
             console.print(f"[dim]PID: {heartbeat_data['pid']}[/dim]")
             console.print(f"[dim]Jobs: {heartbeat_data['jobs_count']}[/dim]")
             console.print(f"[dim]Last Heartbeat: {heartbeat_data['timestamp']}[/dim]")
+        elif discovered:
+            console.print("[yellow]:warning: Multiple TaskTimer heartbeats found[/yellow]")
+            for candidate_node_id, _, candidate_ttl in discovered:
+                console.print(f"[dim]- {candidate_node_id} (TTL: {candidate_ttl}s)[/dim]")
+            console.print("[dim]Please run: ginkgo tasktimer status --node-id <node_id>[/dim]")
         else:
             console.print(f"[red]:x: TaskTimer is [bold]DEAD[/bold] or not running[/red]")
             console.print(f"[dim]Heartbeat key not found or expired[/dim]")
