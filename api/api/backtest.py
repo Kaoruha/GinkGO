@@ -14,6 +14,7 @@ import json
 import asyncio
 
 from core.logging import logger
+from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.redis_client import get_backtest_progress
 from core.response import ok, paginated
 from core.exceptions import APIError, NotFoundError, ValidationError, BusinessError
@@ -694,7 +695,7 @@ async def get_backtest_signals(
 async def get_backtest_orders(
     uuid: str,
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(50, ge=1, le=500, description="每页数量")
+    page_size: int = Query(50, ge=1, le=DEFAULT_MAX_PAGE_SIZE, description="每页数量")
 ):
     """获取回测订单记录
 
@@ -916,7 +917,7 @@ async def get_backtest_logs(
     event_type: Optional[str] = Query(None, description="事件类型"),
     start_time: Optional[str] = Query(None, description="开始时间 (YYYY-MM-DD)"),
     end_time: Optional[str] = Query(None, description="结束时间 (YYYY-MM-DD)"),
-    limit: int = Query(100, ge=1, le=500, description="每页数量"),
+    limit: int = Query(100, ge=1, le=DEFAULT_MAX_PAGE_SIZE, description="每页数量"),
     offset: int = Query(0, ge=0, description="偏移量"),
 ):
     """获取回测任务的日志"""
