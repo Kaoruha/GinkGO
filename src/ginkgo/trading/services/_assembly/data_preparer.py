@@ -56,8 +56,7 @@ class DataPreparer:
         self._engine_type_mapping = {
             "historic": "TimeControlledEventEngine",
             "backtest": "TimeControlledEventEngine",  # 别名
-            "live": "LiveEngine",
-            "realtime": "LiveEngine",  # 别名
+            # ADR-003: live/realtime 装配已废弃，实盘走 livecore/execution_node，不再由此映射
             "time_controlled": "TimeControlledEventEngine",
             "time_based": "TimeControlledEventEngine",  # 别名
         }
@@ -361,29 +360,26 @@ class DataPreparer:
             # 延迟导入避免循环依赖
             engine_class_name = self._engine_type_mapping[engine_type]
 
-            if engine_class_name == "LiveEngine":
-                from ginkgo.trading.engines.live_engine import LiveEngine
-
-                engine_class = LiveEngine
-            elif engine_class_name == "TimeControlledEventEngine":
+            # ADR-003: 引擎二态化后唯一支持 TimeControlledEventEngine；
+            # 旧 LiveEngine 已废弃（实盘走 livecore/execution_node，不经 YAML 装配），
+            # 旧 BacktestEngine 路径已删除（ginkgo.trading.engines.backtest_engine 从未存在）。
+            if engine_class_name == "TimeControlledEventEngine":
                 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 
                 engine_class = TimeControlledEventEngine
-            else:  # BacktestEngine
-                from ginkgo.trading.engines.backtest_engine import BacktestEngine
+            else:
+                raise EngineConfigurationError(
+                    f"Unsupported engine class: {engine_class_name}. "
+                    "Only TimeControlledEventEngine is supported (ADR-003)."
+                )
 
-                engine_class = BacktestEngine
-
-            if engine_type in ["live", "realtime"]:
-                # LiveEngine需要task_id参数
-                engine = engine_class(task_id=task_id)
-            elif engine_type in ["time_controlled", "time_based"]:
-                # TimeControlledEventEngine需要特殊处理
+            if engine_type in ["time_controlled", "time_based"]:
+                # TimeControlledEventEngine 显式别名
                 name = config.get("name", "TimeControlledEngine")
                 engine = engine_class(name=name)
                 engine.set_task_id(task_id)
             else:
-                # BacktestEngine等其他引擎
+                # historic/backtest 统一走 TimeControlledEventEngine
                 name = config.get("name", f"{engine_type.title()}Engine")
                 engine = engine_class(name=name)
                 engine.set_task_id(task_id)
@@ -648,13 +644,8 @@ class DataPreparer:
                 ],
                 "settings": {"log_level": "INFO", "debug": False},
             },
-            "live": {
-                "engine": {"type": "live", "name": "LiveEngine", "task_id": "live_sample_001"},
-                "data_feeder": {"type": "live", "settings": {"symbols": ["000001.SZ"], "subscription_timeout": 30.0}},
-                "routing": {"enabled": True},
-                "portfolios": [{"type": "base", "name": "LivePortfolio", "strategies": [], "risk_managers": []}],
-                "settings": {"log_level": "INFO", "debug": True},
-            },
+            # ADR-003: "live" sample 已移除——实盘装配走 livecore/execution_node，
+            # 不再经 YAML 装配；get_sample_config("live") 自动 fallback 到 historic。
         }
 
         return sample_configs.get(engine_type, sample_configs["historic"])
