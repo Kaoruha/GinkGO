@@ -301,22 +301,19 @@ class TestConcreteSubclassCompatibility:
 
 
 # ===========================================================================
-# 8. CRUDResult compatibility
+# 8. CRUDResult 已下线（issue #6628 / ADR-010 收口）
 # ===========================================================================
 
 
-class TestCRUDResultCompatibility:
-    """CRUDResult 必须从 base_crud 模块继续可导入。"""
+class TestCRUDResultRemoved:
+    """AC #6628 ①: CRUDResult 不再作为与 ModelList 并行的结果协议存在。"""
 
     @pytest.mark.tdd
     @pytest.mark.refactor
-    def test_crud_result_importable(self):
-        CRUDResult = _import_or_skip("ginkgo.data.crud.base_crud", "CRUDResult")
-        assert CRUDResult is not None
+    def test_crud_result_not_exported_from_base_crud(self):
+        import ginkgo.data.crud.base_crud as base_crud_module
 
-    @pytest.mark.tdd
-    @pytest.mark.refactor
-    def test_crud_result_has_expected_methods(self):
-        CRUDResult = _import_or_skip("ginkgo.data.crud.base_crud", "CRUDResult")
-        for method in ["to_business_objects", "to_dataframe", "first", "count", "__len__"]:
-            assert hasattr(CRUDResult, method), f"CRUDResult missing method: {method}"
+        assert not hasattr(base_crud_module, "CRUDResult"), (
+            "CRUDResult 应已从 base_crud 下线（#6628），"
+            "数据层只保留 ModelList 单一结果协议"
+        )
