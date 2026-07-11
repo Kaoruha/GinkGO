@@ -1,7 +1,7 @@
 """部署 API 路由"""
 from fastapi import APIRouter, HTTPException, Query
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from core.response import ok
 from core.exceptions import BusinessError
 from core.logging import logger
@@ -29,7 +29,11 @@ DEPLOYMENT_TEMPLATES: List[Dict[str, Any]] = [
 
 
 class DeployRequest(BaseModel):
-    portfolio_id: str = Field(..., description="源组合 UUID")
+    portfolio_id: str = Field(
+        ...,
+        validation_alias=AliasChoices("portfolio_id", "portfolio_uuid"),
+        description="源组合 UUID; also accepts portfolio_uuid for API consistency",
+    )
     mode: str = Field(..., description="部署模式: paper / live")
     account_id: Optional[str] = Field(None, description="实盘账号 ID（live 模式必填）")
     name: Optional[str] = Field(None, description="新组合名称")
