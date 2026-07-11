@@ -218,7 +218,6 @@ def list(
     page: int = typer.Option(0, "--page", help="Page number (0-based)"),
     page_size: int = typer.Option(100, "--page-size", help="Items per page (0 = all)"),
     format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """
     :clipboard: List all components from database.
@@ -247,6 +246,11 @@ def list(
     unlimited = page_size == 0
     q_page = None if unlimited else page
     q_page_size = None if unlimited else page_size
+    # filter 模式：name 是客户端 fuzzy 过滤，全量查再过滤保证 total 准确（#6652 review B1）。
+    if filter:
+        q_page = None
+        q_page_size = None
+        unlimited = True
 
     try:
         # Get file_crud to query database
@@ -297,9 +301,9 @@ def list(
         value_to_type = {v.value: k for k, v in type_mapping.items()}
 
         if format == "json":
-            # ADR-021：metadata.total = 未截断的匹配总数（components 已被 page_size 截断）。
+            # ADR-021：metadata.total = 未截断的匹配总数。
             if filter:
-                # name 是客户端 fuzzy 过滤，count 无法精确匹配 → 用当前过滤后行数。
+                # filter 模式全量查 + 客户端 fuzzy 过滤，total = 过滤后全量行数（准确）。
                 total = len(components)
             elif component_type and component_type.lower() in type_mapping:
                 ft = type_mapping[component_type.lower()]

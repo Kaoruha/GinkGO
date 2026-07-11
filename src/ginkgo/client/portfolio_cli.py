@@ -35,7 +35,7 @@ def _format_portfolio_mode(mode_value) -> str:
 
 
 def _format_portfolio_status(portfolio) -> str:
-    """Use explicit status when present, otherwise derive display status from state."""
+    """Use explicit status when present, otherwise derive display status from state. (#6661)"""
     status_value = portfolio.get("status", None)
     if status_value is not None and not pd.isna(status_value):
         status_text = str(status_value).strip()
@@ -132,7 +132,6 @@ def list(
     page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """
     :clipboard: List all portfolios.
@@ -143,12 +142,22 @@ def list(
         console.print(":clipboard: Listing portfolios...")
 
     # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非纯文本（#6652 review E2）。
     if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]:x: --page must be >= 0[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
     if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
         console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(2)
+    # --raw 语义为全量导出（旧契约），强制 unlimited 避免分页截断（#6652 review C2）。
+    if raw:
+        page_size = 0
     unlimited = page_size == 0
     q_page = None if unlimited else page
     q_page_size = None if unlimited else page_size
@@ -207,7 +216,7 @@ def list(
 
             for _, portfolio in portfolios_df.iterrows():
                 initial_capital = f"¥{float(portfolio.get('initial_capital', 0)):,.2f}"
-                portfolio_type = "Live" if portfolio.get('is_live', False) else "Backtest"
+                portfolio_type = "Live" if portfolio.get("is_live", False) else "Backtest"
                 status = _format_portfolio_status(portfolio)
 
                 table.add_row(
@@ -299,7 +308,6 @@ def get(
     details: bool = typer.Option(False, "--details", "-d", help="Show detailed portfolio information"),
     performance: bool = typer.Option(False, "--performance", "-p", help="Show performance metrics"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """
     :eyes: Show portfolio details and composition.

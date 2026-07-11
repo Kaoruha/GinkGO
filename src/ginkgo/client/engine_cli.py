@@ -45,7 +45,6 @@ def list_engines(
     page_size: int = typer.Option(20, "--page-size", help="Items per page (0 = all)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
     format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """
     :clipboard: List all engines.
@@ -141,9 +140,11 @@ def list_engines(
                         total = len(engines_df)
                 records = engines_df.to_dict("records")
                 # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
+                # fuzzy_search 无 offset 支持：filter 分支诚实标 offset=0（#6652 review B3）。
+                effective_offset = 0 if (unlimited or filter) else page * page_size
                 json_result = build_list_result(
                     records, total=total, limit=q_page_size,
-                    offset=0 if unlimited else page * page_size,
+                    offset=effective_offset,
                 )
                 format_result(json_result, format="json", command="list")
                 return

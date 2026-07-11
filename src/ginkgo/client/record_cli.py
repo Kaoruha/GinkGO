@@ -23,7 +23,7 @@ def signal(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based，旧版 --page 语义为每页条数，已迁移至 --page-size）")] = 0,
     page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
     format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
@@ -123,7 +123,7 @@ def order(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based，旧版 --page 语义为每页条数，已迁移至 --page-size）")] = 0,
     page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
     format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
@@ -222,7 +222,7 @@ def position(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
     task: Annotated[Optional[str], typer.Option("--task", "-t", "--t", help=":id: Task ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based，旧版 --page 语义为每页条数，已迁移至 --page-size）")] = 0,
     page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
     format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):
@@ -323,7 +323,7 @@ def position(
 def analyzer(
     portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID filter")] = None,
     engine: Annotated[Optional[str], typer.Option("--engine", "-e", "--e", help=":id: Engine ID filter")] = None,
-    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based）")] = 0,
+    page: Annotated[int, typer.Option("--page", help=":1234: 页码（0-based，旧版 --page 语义为每页条数，已迁移至 --page-size）")] = 0,
     page_size: Annotated[int, typer.Option("--page-size", help=":page_facing_up: 每页条数（0=全部）")] = 50,
     format: Annotated[str, typer.Option("--format", "-F", help="输出格式: text/json")] = "text",
 ):

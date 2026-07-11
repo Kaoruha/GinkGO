@@ -98,6 +98,8 @@ def _task_record(task) -> dict:
         "end_time": str(end_time) if end_time is not None else None,
         "duration_seconds": _get("duration_seconds"),
         "error_message": _get("error_message"),
+        # config_snapshot：回测配置快照（text 路径 Config panel；#6652 review E6 补齐 _task_record 覆盖声明）。
+        "config_snapshot": _get("config_snapshot"),
     }
 
 
@@ -456,7 +458,6 @@ def list_tasks(
     page: int = typer.Option(0, "--page", help="Page number"),
     limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """:clipboard: List backtest tasks."""
     from ginkgo.data.containers import container
@@ -541,7 +542,6 @@ def list_tasks(
 def cat_task(
     task_id: str = typer.Argument(help="Task UUID or task_id"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text/json"),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
 ):
     """:mag: Show backtest task details."""
     from ginkgo.data.containers import container
