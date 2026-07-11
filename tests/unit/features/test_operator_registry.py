@@ -28,7 +28,8 @@ class TestOperatorRegistry:
         assert isinstance(ops, list)
         assert len(ops) > 0
         # Check some expected builtins
-        for name in ['Mean', 'Std', 'Rank', 'Abs', 'Sum', 'Delta', 'Ref']:
+        # 截面排名原名 Rank，#6706 为与 statistical.py 滚动 Rank(min_args=2) 消歧改名 CS_Rank
+        for name in ['Mean', 'Std', 'CS_Rank', 'Abs', 'Sum', 'Delta', 'Ref']:
             assert name in ops, f"Missing builtin operator: {name}"
 
     def test_is_registered(self):

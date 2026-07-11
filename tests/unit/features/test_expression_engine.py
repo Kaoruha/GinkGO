@@ -60,3 +60,16 @@ class TestExpressionEngine:
         assert "sum_price" in result.columns
         assert "double_close" in result.columns
         assert len(result) == 10
+
+    def test_execute_cs_rank_end_to_end(self, sample_df):
+        """#6706 回归：CS_Rank($close) 单参截面排名经 parser→registry 全链路可执行。
+
+        修复前滚动 Rank(min_args=2) 覆盖截面 Rank(min_args=1)，导致 alpha101 的
+        ``Rank($close)`` 在解析期即 ParseError（expects 2-2 arguments, got 1）。
+        """
+        engine = ExpressionEngine()
+        result = engine.execute_expression("CS_Rank($close)", sample_df)
+        assert isinstance(result, pd.Series)
+        assert len(result) == 10
+        # close 单调递增，截面排名应为 1..10
+        assert list(result) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
