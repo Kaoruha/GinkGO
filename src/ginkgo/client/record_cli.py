@@ -30,11 +30,11 @@ def signal(
 
     All filters (-p/-e/-t) optional. Symmetric with ``record order/position``.
     """
-    from ginkgo.data.containers import Container
+    from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        signal_svc = Container.signal_service()
+        signal_svc = container.signal_service()
         result = signal_svc.get_signals_df(
             portfolio_id=portfolio,
             engine_id=engine,
@@ -88,11 +88,11 @@ def order(
     """
     :clipboard: List order records.
     """
-    from ginkgo.data.containers import Container
+    from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        order_svc = Container.order_service()
+        order_svc = container.order_service()
         result = order_svc.get_orders_df(
             portfolio_id=portfolio,
             engine_id=engine,
@@ -143,14 +143,14 @@ def position(
     """
     :bar_chart: List position records.
     """
-    from ginkgo.data.containers import Container
+    from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
         # #5341: 回测持仓经 create_position_record 写 MPositionRecord（流水表），
         # PositionService 查 MPosition（当前态表）永远空。改读 ResultService
         # （get_positions_df 查 PositionRecordCRUD，与写路径同表）。
-        result_svc = Container.result_service()
+        result_svc = container.result_service()
         result = result_svc.get_positions_df(
             portfolio_id=portfolio,
             engine_id=engine,
@@ -200,11 +200,11 @@ def analyzer(
     """
     :bar_chart: List analyzer records.
     """
-    from ginkgo.data.containers import Container
+    from ginkgo.data.containers import container
     from ginkgo.libs.utils.display import display_dataframe
 
     try:
-        analyzer_svc = Container.analyzer_service()
+        analyzer_svc = container.analyzer_service()
         result = analyzer_svc.get_records_df(
             portfolio_id=portfolio,
             engine_id=engine,
