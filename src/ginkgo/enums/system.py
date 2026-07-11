@@ -113,8 +113,6 @@ class LOG_CATEGORY_TYPES(EnumBase):
     PERFORMANCE = 2  # 性能监控日志
 
 
-# ==================== 实盘交易枚举 (从模型文件迁移, #3880) ====================
-
 class EnvironmentType(str):
     """环境类型枚举"""
 
