@@ -525,11 +525,10 @@ def notification_history(
     :book: Query notification history records.
 
     Examples:
-      ginkgo notify history                    # Show recent 50 records
       ginkgo notify history --user "Alice"     # Show records for user Alice
       ginkgo notify history -u <uuid> -l 100   # Show last 100 records for user
-      ginkgo notify history --status 1         # Show only sent notifications
-      ginkgo notify history --raw              # Output JSON format
+      ginkgo notify history -u <uuid> --status 1  # Show only sent notifications
+      ginkgo notify history -u <uuid> --raw     # Output JSON format
     """
     try:
         from ginkgo import service_hub
@@ -640,6 +639,8 @@ def notification_history(
         if records:
             console.print(f"\n[dim]Showing {len(records)} of {data.get('count', 0)} records[/dim]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error: {e}[/red]")
         raise typer.Exit(1)
