@@ -72,3 +72,26 @@ class TestPageSizePassthrough:
 
         assert result.success is True
         assert portfolio_service._crud_repo.find.call_args[1]["page_size"] == 10
+
+    @pytest.mark.unit
+    def test_engine_get_engines_df_page_size_zero_means_all(self, engine_service):
+        """page_size=0 → find(page_size=None)（0=全量守卫，与 signal_service 一致；#6652 review R3-issue3）。
+
+        裸 page_size=0 会触发 SQL LIMIT 0 返空，破坏 "0=all" 契约；service 层下推 None。
+        """
+        engine_service._crud_repo.find.return_value = MagicMock()
+
+        result = engine_service.get_engines_df(page_size=0)
+
+        assert result.success is True
+        assert engine_service._crud_repo.find.call_args[1]["page_size"] is None
+
+    @pytest.mark.unit
+    def test_portfolio_get_portfolios_df_page_size_zero_means_all(self, portfolio_service):
+        """page_size=0 → find(page_size=None)（0=全量守卫；#6652 review R3-issue3）。"""
+        portfolio_service._crud_repo.find.return_value = MagicMock()
+
+        result = portfolio_service.get_portfolios_df(page_size=0)
+
+        assert result.success is True
+        assert portfolio_service._crud_repo.find.call_args[1]["page_size"] is None

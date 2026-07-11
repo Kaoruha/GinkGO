@@ -462,10 +462,84 @@ def list_tasks(
     """:clipboard: List backtest tasks."""
     from ginkgo.data.containers import container
 
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope（#6652 review R3-issue1）。
+    if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(2)
+    if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(2)
+
     service = container.backtest_task_service()
     effective_page_size = limit or page_size
+    # ADR-021 第 1/5 维：整段包 try，JSON 模式 stdout 永远合法 JSON。
+    # _task_record 逐条 DB enrichment（config_snapshot 查询）异常也走 INTERNAL envelope，非裸 traceback（#6652 review R3-issue2）。
     try:
         result = service.list(page=page, page_size=effective_page_size, portfolio_id=portfolio, status=status)
+
+        if not result.is_success():
+            # ADR-021 第 5/6 维：JSON 模式发错误 envelope + exit 1；text 模式诊断 + exit 1。
+            if format == "json":
+                format_result(result, format="json", command="list")
+            else:
+                console.print(f":x: {result.error}")
+                raise typer.Exit(1)
+
+        data = result.data
+        tasks = data.get("data", [])
+        total = data.get("total", 0)
+
+        if format == "json":
+            records = [_task_record(task) for task in tasks]
+            json_result = build_list_result(
+                records, total=total, limit=effective_page_size, offset=page * effective_page_size
+            )
+            format_result(json_result, format="json", command="list")
+            return
+
+        if not tasks:
+            console.print(":memo: No backtest tasks found.")
+            return
+
+        table = Table(title=":chart_with_upwards_trend: Backtest Tasks")
+        table.add_column("UUID", style="dim", width=12)
+        table.add_column("Name", style="bold", width=20)
+        table.add_column("Portfolio", width=12)
+        table.add_column("Status", width=12)
+        table.add_column("Progress", width=8)
+        table.add_column("Created", width=19)
+
+        for task in tasks:
+            uuid_str = task.uuid[:12] if hasattr(task, "uuid") else str(task.get("uuid", ""))[:12]
+            name = task.name if hasattr(task, "name") else task.get("name", "")
+            portfolio_id = (
+                task.portfolio_id[:12] if hasattr(task, "portfolio_id") else str(task.get("portfolio_id", ""))[:12]
+            )
+            status_val = task.status if hasattr(task, "status") else task.get("status", "")
+            raw_progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
+            progress = _display_progress(status_val, raw_progress)
+            created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
+
+            status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(status_val, "white")
+
+            table.add_row(
+                uuid_str,
+                name[:20],
+                portfolio_id,
+                f"[{status_style}]{status_val}[/{status_style}]",
+                f"{int(progress)}%" if isinstance(progress, (int, float)) else str(progress),
+                created,
+            )
+
+        console.print(table)
+        console.print(f"\n  Total: {total} tasks (Page {page}, size {effective_page_size})")
     except typer.Exit:
         raise
     except Exception as e:
@@ -479,63 +553,6 @@ def list_tasks(
         else:
             console.print(f":x: Error: {e}")
             raise typer.Exit(1)
-
-    if not result.is_success():
-        # ADR-021 第 5/6 维：JSON 模式发错误 envelope + exit 1；text 模式诊断 + exit 1。
-        if format == "json":
-            format_result(result, format="json", command="list")
-        else:
-            console.print(f":x: {result.error}")
-            raise typer.Exit(1)
-
-    data = result.data
-    tasks = data.get("data", [])
-    total = data.get("total", 0)
-
-    if format == "json":
-        records = [_task_record(task) for task in tasks]
-        json_result = build_list_result(
-            records, total=total, limit=effective_page_size, offset=page * effective_page_size
-        )
-        format_result(json_result, format="json", command="list")
-        return
-
-    if not tasks:
-        console.print(":memo: No backtest tasks found.")
-        return
-
-    table = Table(title=":chart_with_upwards_trend: Backtest Tasks")
-    table.add_column("UUID", style="dim", width=12)
-    table.add_column("Name", style="bold", width=20)
-    table.add_column("Portfolio", width=12)
-    table.add_column("Status", width=12)
-    table.add_column("Progress", width=8)
-    table.add_column("Created", width=19)
-
-    for task in tasks:
-        uuid_str = task.uuid[:12] if hasattr(task, "uuid") else str(task.get("uuid", ""))[:12]
-        name = task.name if hasattr(task, "name") else task.get("name", "")
-        portfolio_id = (
-            task.portfolio_id[:12] if hasattr(task, "portfolio_id") else str(task.get("portfolio_id", ""))[:12]
-        )
-        status_val = task.status if hasattr(task, "status") else task.get("status", "")
-        raw_progress = task.progress if hasattr(task, "progress") else task.get("progress", 0)
-        progress = _display_progress(status_val, raw_progress)
-        created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
-
-        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(status_val, "white")
-
-        table.add_row(
-            uuid_str,
-            name[:20],
-            portfolio_id,
-            f"[{status_style}]{status_val}[/{status_style}]",
-            f"{int(progress)}%" if isinstance(progress, (int, float)) else str(progress),
-            created,
-        )
-
-    console.print(table)
-    console.print(f"\n  Total: {total} tasks (Page {page}, size {effective_page_size})")
 
 
 @app.command("cat")

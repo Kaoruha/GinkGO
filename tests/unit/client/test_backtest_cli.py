@@ -815,3 +815,55 @@ class TestBacktestListJsonResultMetrics:
         assert record["sharpe_ratio"] == 1.85
         assert record["total_pnl"] == 25000.0
         assert record["max_drawdown"] == -0.12
+
+
+class TestBacktestListParamGuardAndEnvelope:
+    """#6652 review R3：backtest list 参数守卫 + JSON 异常 envelope。
+
+    补齐其他 list 命令（portfolio/engine/record/deploy/data）已有的两道契约：
+    ① page<0/page_size<0 → BAD_PARAMS + exit 2；② 整段包 try，JSON 模式 stdout 永远合法 JSON。
+    """
+
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    @patch("ginkgo.data.containers.container")
+    def test_list_negative_param_json_envelope_exit_2(self, mock_container, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review R3-issue1，ADR-021 dim 1/6）。
+
+        守卫在 service 调用前拦截，无需 mock service 调用。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        invoke_result = runner.invoke(app, ["list", bad_arg, "--format", "json"])
+
+        assert invoke_result.exit_code == 2, invoke_result.output
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+        # 守卫前置：service.list 不应被调用
+        mock_container.backtest_task_service.assert_not_called()
+
+    @patch("ginkgo.client.backtest_cli._task_record", side_effect=RuntimeError("enrichment boom"))
+    @patch("ginkgo.data.containers.container")
+    def test_list_json_enrichment_exception_internal_envelope(self, mock_container, _mock_record):
+        """_task_record 逐条 enrichment 异常 + --format json → INTERNAL envelope + exit 1，非裸 traceback（#6652 review R3-issue2，ADR-021 dim 1）。
+
+        整段包 try 后，enrichment 异常走 INTERNAL 错误对象，stdout 保持合法 JSON。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        # JSON 模式 stdout 永远合法 JSON：INTERNAL envelope，非裸 traceback
+        assert invoke_result.exit_code == 1, invoke_result.output
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "enrichment boom" in payload["error"]["message"]

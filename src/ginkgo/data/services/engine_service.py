@@ -132,8 +132,10 @@ class EngineService(BaseService):
             filters = self._build_engine_filters(
                 engine_id=engine_id, name=name, is_live=is_live, status=status,
             )
+            # None 守卫：0=全量下推 None（与 signal_service 一致），裸 page_size=0 触发 LIMIT 0 返空（#6652 review R3-issue3）。
             model_list = self._crud_repo.find(
-                filters=filters, page=page, page_size=page_size,
+                filters=filters, page=page,
+                page_size=page_size if page_size and page_size > 0 else None,
                 order_by="create_at", desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
