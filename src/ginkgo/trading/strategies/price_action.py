@@ -1,4 +1,4 @@
-# Upstream: PortfolioBase, ComponentFactoryService
+# Upstream: PortfolioBase, ComponentLoader
 # Downstream: BaseStrategy, Signal, DIRECTION_TYPES
 # Role: 价格行为策略占位文件，预留给Pinbar关键位交易策略实现
 

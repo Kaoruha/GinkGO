@@ -1,4 +1,4 @@
-# Upstream: PortfolioBase, ComponentFactoryService
+# Upstream: PortfolioBase, ComponentLoader
 # Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, to_decimal
 # Role: 固定仓位管理器，按固定数量下单并自动根据可用资金调整
 
