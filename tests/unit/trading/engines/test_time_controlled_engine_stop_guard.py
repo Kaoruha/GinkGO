@@ -61,7 +61,7 @@ def test_set_time_provider_defined_once():
     """set_time_provider() 只能定义一次（#5551 AC: remove duplicate definitions）。
 
     曾有两处定义：@161 静默吞版（无模式校验，try/except 吞异常 + 设 global）
-    被 @360 带校验版（BACKTEST/LIVE 模式 + ITimeProvider 注解）遮蔽为死代码，
+    被 @360 带校验版（BACKTEST/LIVE 模式 + TimeProvider 注解）遮蔽为死代码，
     与 stop() 同构。后定义覆盖前定义的命名空间绑定，前者从不被调用。
     """
     cls = _class_body("TimeControlledEventEngine")

@@ -1,5 +1,5 @@
 # Upstream: LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator
-# Downstream: ITimeProvider, ITimeAwareComponent, TIME_MODE
+# Downstream: TimeProvider, ITimeAwareComponent, TIME_MODE
 # Role: 时间控制接口定义，提供时间提供者和时间感知组件的抽象接口
 
 
@@ -19,7 +19,7 @@ from typing import Optional, List, Callable
 from ginkgo.enums import TIME_MODE
 
 
-class ITimeProvider(ABC):
+class TimeProvider(ABC):
     """时间提供者接口
     
     系统中唯一的时间权威，所有时间获取必须通过此接口。
@@ -59,7 +59,7 @@ class ITimeAwareComponent(ABC):
     """
     
     @abstractmethod
-    def set_time_provider(self, time_provider: ITimeProvider) -> None:
+    def set_time_provider(self, time_provider: TimeProvider) -> None:
         """设置时间提供者"""
         pass
     
