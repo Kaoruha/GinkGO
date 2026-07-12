@@ -136,6 +136,15 @@ jobs:
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: GCONF generate_config_file smoke (PR6686 模板源跟随包)
+        # PR6686 将配置模板源从 cwd 改为跟随 ginkgo 包（__file__→src/ginkgo/config/）。
+        # generate_config_file 的 origin_path 三分支（config.yml/secure.yml/task_timer.yml）
+        # 被 import 链部分触达会使 config.py 脱离豁免→未覆盖分支拉低 diff coverage gate。
+        # 用空 tmp_path 触发"目标不存在→从包内拷贝"覆盖三条分支。
+        run: |
+          uv run python -m pytest \
+            tests/unit/libs/test_config_generate_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -151,6 +160,7 @@ jobs:
             tests/unit/trading/services/test_deployment_list_smoke.py \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
+            tests/unit/libs/test_config_generate_smoke.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
