@@ -4,10 +4,15 @@
 
 
 """
-ComponentLoader - 组件加载器
+ComponentLoader - 组件加载器（组件创建的单一接缝，ADR-022 原则 3）
 
 负责从数据库文件加载组件源码，动态实例化并绑定到 Portfolio。
 所有组件统一通过 _instantiate_component_from_file() 加载。
+
+ADR-022 原则 3:ComponentLoader.perform_component_binding 是「从 DB 源码文件
+实例化组件并绑定到 Portfolio」的**唯一接缝**。历史上并存过多层死抽象
+（ComponentFactoryService / core.factories / core.adapters / AnalyzerRegistry）,
+均无业务调用方,已于 #6476 删除。新增组件创建逻辑应在此处扩展,勿另起工厂层。
 """
 
 import json
@@ -109,9 +114,11 @@ def _detect_component_class(module, logger=None):
 
 class ComponentLoader:
     """
-    组件加载器
+    组件加载器 —— 组件创建的单一接缝（ADR-022 原则 3）
 
     从数据库 File 表读取组件源码，动态执行并实例化，绑定到 Portfolio。
+    这是全仓唯一执行「DB 源码 → exec_module → 组件实例」的路径;
+    perform_component_binding 为对外入口,新增组件类型应在此扩展。
     """
 
     def __init__(self, file_service=None, param_service=None, logger=None):
@@ -153,7 +160,11 @@ class ComponentLoader:
     def perform_component_binding(
         self, portfolio: PortfolioT1Backtest, components: Dict[str, Any], logger: GinkgoLogger
     ) -> bool:
-        """执行组件绑定和实例化"""
+        """执行组件绑定和实例化（ADR-022 原则 3 的单一对外入口）。
+
+        从 components dict 取各类型组件元信息,逐个经 _instantiate_component_from_file
+        从 DB 源码实例化并绑定到 portfolio。所有组件创建必经此方法,勿绕开另建工厂。
+        """
         try:
             portfolio_id = getattr(portfolio, "uuid", getattr(portfolio, "_portfolio_id", "unknown"))
 

@@ -142,3 +142,40 @@ def test_core_package_intact_after_factories_adapters_removal():
     # factories/adapters 已下架
     assert not hasattr(core, "factories")
     assert not hasattr(core, "adapters")
+
+
+# ---------- ComponentLoader = 组件创建单一接缝(ADR-022 原则 3)----------
+
+@pytest.mark.unit
+def test_component_loader_is_single_component_creation_seam():
+    """ComponentLoader.perform_component_binding 是组件创建的单一对外入口。
+
+    ADR-022 原则 3:全仓唯一执行「DB 源码 → exec_module → 组件实例」的路径。
+    删除 4 层死工厂(ComponentFactoryService/core.factories/core.adapters/
+    AnalyzerRegistry)后,ComponentLoader 是唯一幸存的组件创建抽象。
+    本测试锁住该正向事实——单例接缝存在且可调,防过度删除伤及真路径。
+    """
+    from ginkgo.trading.services._assembly.component_loader import ComponentLoader
+
+    assert callable(ComponentLoader.perform_component_binding), (
+        "ComponentLoader.perform_component_binding 必须存在且可调 —— "
+        "它是组件创建的单一接缝(ADR-022 原则 3)"
+    )
+
+
+@pytest.mark.unit
+def test_component_loader_documents_single_seam_contract():
+    """文档契约:ComponentLoader 模块/类 docstring 必须记录 ADR-022 原则 3。
+
+    #6476 的交付之一是「将 ComponentLoader 记录为单一接缝」。docstring 是该
+    架构决策的载体;锁住它防未来 refactor 静默剥离架构边界说明,再次堆积工厂层。
+    """
+    import ginkgo.trading.services._assembly.component_loader as mod
+
+    # 模块 docstring 记录单一接缝契约
+    assert mod.__doc__ is not None, "ComponentLoader 模块必须有 docstring"
+    doc = mod.__doc__
+    assert "ADR-022" in doc, "模块 docstring 须引用 ADR-022(单一接缝契约)"
+    assert "单一接缝" in doc or "唯一接缝" in doc, (
+        "模块 docstring 须显式声明 ComponentLoader 为组件创建的单一/唯一接缝"
+    )
