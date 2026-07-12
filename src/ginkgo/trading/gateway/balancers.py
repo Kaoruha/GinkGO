@@ -29,11 +29,11 @@ from ginkgo.trading.time.clock import now as clock_now
 from collections import defaultdict, deque
 
 from .interfaces import (
-    ILoadBalancer, RouteTarget, RoutingRule, RoutingStrategy
+    LoadBalancer, RouteTarget, RoutingRule, RoutingStrategy
 )
 
 
-class BaseLoadBalancer(ILoadBalancer):
+class BaseLoadBalancer(LoadBalancer):
     """负载均衡器基类"""
     
     def __init__(self):
@@ -419,7 +419,7 @@ class LoadBalancerFactory:
     }
     
     @classmethod
-    def create_balancer(cls, strategy: RoutingStrategy) -> ILoadBalancer:
+    def create_balancer(cls, strategy: RoutingStrategy) -> LoadBalancer:
         """创建负载均衡器"""
         balancer_class = cls._balancers.get(strategy)
         if not balancer_class:

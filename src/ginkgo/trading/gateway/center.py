@@ -34,17 +34,17 @@ from uuid import uuid4
 from ginkgo.libs import GLOG
 from ginkgo.trading.time.clock import now as clock_now
 from .interfaces import (
-    IEventRoutingCenter, ILoadBalancer, ICircuitBreaker,
+    LoadBalancer,
     RouteTarget, RoutingRule, RoutingMetrics, RouteResult,
     HealthCheckResult, RoutingEvent, RoutingEventType,
     RoutingStrategy, RoutingMode, RouteStatus, EventPriority,
     CircuitBreakerState
 )
 from .balancers import LoadBalancerFactory
-from .circuit_breaker import get_circuit_breaker, CircuitBreakerConfig
+from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, get_circuit_breaker
 
 
-class EventRoutingCenter(IEventRoutingCenter):
+class EventRoutingCenter:
     """事件路由中心实现"""
     
     def __init__(self,
@@ -88,11 +88,11 @@ class EventRoutingCenter(IEventRoutingCenter):
         self._cache_lock = asyncio.Lock()
         
         # 负载均衡器
-        self._load_balancers: Dict[RoutingStrategy, ILoadBalancer] = {}
+        self._load_balancers: Dict[RoutingStrategy, LoadBalancer] = {}
         
         # 断路器配置
         self._circuit_breaker_config = CircuitBreakerConfig()
-        self._circuit_breakers: Dict[str, ICircuitBreaker] = {}
+        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
         
         # 异步任务管理
         self._background_tasks: Set[asyncio.Task] = set()

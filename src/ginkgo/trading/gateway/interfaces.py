@@ -10,11 +10,12 @@
 """
 事件路由中心接口定义
 
-提供统一的事件路由接口抽象，包括：
-- 路由中心接口(IEventRoutingCenter)
-- 路由数据结构(RouteTarget, RoutingRule, RoutingMetrics)  
-- 路由策略和负载均衡器接口
-- 断路器接口
+提供事件路由系统的数据结构、负载均衡器纯契约与断路器状态枚举：
+- 负载均衡器契约(LoadBalancer，多实现纯契约 ABC，ADR-022 原则 1)
+- 路由数据结构(RouteTarget, RoutingRule, RoutingMetrics)
+- 断路器状态枚举(CircuitBreakerState)
+路由中心(EventRoutingCenter)与断路器(CircuitBreaker)为单实现具体类，
+见 center.py / circuit_breaker.py（ADR-022 原则 2 单实现 ABC 降级）。
 """
 
 from abc import ABC, abstractmethod
@@ -213,101 +214,7 @@ class RoutingMetrics:
         return 100.0 - self.success_rate
 
 
-class IEventRoutingCenter(ABC):
-    """事件路由中心接口"""
-    
-    @abstractmethod
-    async def initialize(self) -> None:
-        """初始化路由中心"""
-        pass
-    
-    @abstractmethod
-    async def shutdown(self) -> None:
-        """关闭路由中心"""
-        pass
-    
-    @abstractmethod
-    async def register_target(self, target: RouteTarget) -> bool:
-        """注册路由目标"""
-        pass
-    
-    @abstractmethod
-    async def unregister_target(self, target_id: str) -> bool:
-        """注销路由目标"""
-        pass
-    
-    @abstractmethod
-    async def update_target(self, target_id: str, updates: Dict[str, Any]) -> bool:
-        """更新路由目标"""
-        pass
-    
-    @abstractmethod
-    async def get_target(self, target_id: str) -> Optional[RouteTarget]:
-        """获取路由目标"""
-        pass
-    
-    @abstractmethod
-    async def list_targets(self, status_filter: Optional[RouteStatus] = None) -> List[RouteTarget]:
-        """列出路由目标"""
-        pass
-    
-    @abstractmethod
-    async def add_routing_rule(self, rule: RoutingRule) -> bool:
-        """添加路由规则"""
-        pass
-    
-    @abstractmethod
-    async def remove_routing_rule(self, rule_id: str) -> bool:
-        """移除路由规则"""
-        pass
-    
-    @abstractmethod
-    async def update_routing_rule(self, rule_id: str, updates: Dict[str, Any]) -> bool:
-        """更新路由规则"""
-        pass
-    
-    @abstractmethod
-    async def get_routing_rule(self, rule_id: str) -> Optional[RoutingRule]:
-        """获取路由规则"""
-        pass
-    
-    @abstractmethod
-    async def list_routing_rules(self, enabled_only: bool = False) -> List[RoutingRule]:
-        """列出路由规则"""
-        pass
-    
-    @abstractmethod
-    async def route_event(self, event: Any) -> List[str]:
-        """路由事件"""
-        pass
-    
-    @abstractmethod
-    async def route_events(self, events: List[Any]) -> Dict[str, List[str]]:
-        """批量路由事件"""
-        pass
-    
-    @abstractmethod
-    async def get_routing_metrics(self) -> RoutingMetrics:
-        """获取路由指标"""
-        pass
-    
-    @abstractmethod
-    async def reset_metrics(self) -> None:
-        """重置指标"""
-        pass
-    
-    @abstractmethod
-    async def health_check(self) -> Dict[str, Any]:
-        """健康检查"""
-        pass
-    
-    @abstractmethod
-    async def reload_configuration(self, config: Dict[str, Any]) -> bool:
-        """重新加载配置"""
-        pass
-
-
-class ILoadBalancer(ABC):
+class LoadBalancer(ABC):
     """负载均衡器接口"""
     
     @abstractmethod
@@ -331,35 +238,6 @@ class CircuitBreakerState(Enum):
     CLOSED = "closed"
     OPEN = "open"  
     HALF_OPEN = "half_open"
-
-
-class ICircuitBreaker(ABC):
-    """断路器接口"""
-    
-    @abstractmethod
-    def is_open(self) -> bool:
-        """检查断路器是否开启"""
-        pass
-    
-    @abstractmethod
-    def record_success(self) -> None:
-        """记录成功"""
-        pass
-    
-    @abstractmethod
-    def record_failure(self) -> None:
-        """记录失败"""
-        pass
-    
-    @abstractmethod
-    def get_state(self) -> CircuitBreakerState:
-        """获取状态"""
-        pass
-    
-    @abstractmethod
-    def reset(self) -> None:
-        """重置断路器"""
-        pass
 
 
 @dataclass
