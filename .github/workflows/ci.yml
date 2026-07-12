@@ -145,6 +145,19 @@ jobs:
           uv run python -m pytest \
             tests/unit/libs/test_config_generate_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: expression registry/operator/engine smoke (#6708 ADR-022 原则4+5)
+        # registry.py 新增 override raise（注册冲突检测）+ with_error_handling +
+        # _extract_scalar 多分支，operators/*.py 用此重构。被 containers import 链触达
+        # 但 smoke 不调方法体 → diff coverage gate 红。PR 自带 3 测试补覆盖信号
+        # （register 冲突 + 异常兜底 + alpha101 cs_rank 端到端 + 全量 operator 参数化烟雾
+        # + windowed 冷分支）。独立 step 使 push→master 时也跑（gate 仅 PR 触发），
+        # 同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/features/test_expression_registry.py \
+            tests/unit/features/test_operator_registry.py \
+            tests/unit/features/test_expression_engine.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -161,6 +174,9 @@ jobs:
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             tests/unit/libs/test_config_generate_smoke.py \
+            tests/unit/features/test_expression_registry.py \
+            tests/unit/features/test_operator_registry.py \
+            tests/unit/features/test_expression_engine.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
