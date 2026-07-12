@@ -166,7 +166,8 @@ def test_get_orders_df_passes_page_and_page_size():
     _, kwargs = svc._crud_repo.find.call_args
     assert kwargs["page"] == 2
     assert kwargs["page_size"] == 5
-    assert kwargs["order_by"] == "timestamp"
+    # MOrder 是 MySQL 模型，按 ADR 用 create_at（非 signal 的 timestamp——MSignal 走 ClickHouse）
+    assert kwargs["order_by"] == "create_at"
     assert kwargs["desc_order"] is True
 
 
