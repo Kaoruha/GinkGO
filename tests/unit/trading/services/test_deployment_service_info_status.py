@@ -2,6 +2,7 @@
 # deploy info 输出打磨：status 返回枚举名、source_task_id deploy 记录后回显。
 import sys
 from pathlib import Path
+
 project_root = Path(__file__).parent.parent.parent.parent
 _path = str(project_root / "src")
 if _path not in sys.path:
@@ -64,6 +65,34 @@ class TestDeploymentInfoStatusName:
         assert result.data[0]["status_name"] == "PENDING"
         assert result.data[1]["status_name"] == "STOPPED"
 
+    def test_list_passes_pagination_to_find(self):
+        svc = _make_svc()
+        svc._deployment_crud.find.return_value = [_mock_deployment(status=0)]
+
+        result = svc.list_deployments(page=1, page_size=10)
+
+        assert result.success
+        svc._deployment_crud.find.assert_called_once_with(
+            page=1,
+            page_size=10,
+            order_by="create_at",
+            desc_order=True,
+        )
+
+    def test_list_page_size_zero_disables_pagination(self):
+        svc = _make_svc()
+        svc._deployment_crud.find.return_value = [_mock_deployment(status=0)]
+
+        result = svc.list_deployments(page=1, page_size=0)
+
+        assert result.success
+        svc._deployment_crud.find.assert_called_once_with(
+            page=None,
+            page_size=None,
+            order_by="create_at",
+            desc_order=True,
+        )
+
 
 class TestDeploymentRecordsSourceTask:
     """#6285: deploy 记录 source_task_id，info/list 回显"""
@@ -73,7 +102,9 @@ class TestDeploymentRecordsSourceTask:
         svc = _make_svc()
         svc._portfolio_service.get.return_value = _mock_portfolio_found()
         svc._portfolio_service.is_portfolio_frozen.return_value = False
-        svc._deploy_core = MagicMock(return_value=MagicMock(success=True, data={"portfolio_id": "p_new", "deployment_id": "d1"}))
+        svc._deploy_core = MagicMock(
+            return_value=MagicMock(success=True, data={"portfolio_id": "p_new", "deployment_id": "d1"})
+        )
 
         result = svc.deploy(
             portfolio_id="p1",
@@ -85,4 +116,3 @@ class TestDeploymentRecordsSourceTask:
         svc._deployment_crud.add.assert_called_once()
         created = svc._deployment_crud.add.call_args.args[0]
         assert created.source_task_id == "backtest_task_abc"
-

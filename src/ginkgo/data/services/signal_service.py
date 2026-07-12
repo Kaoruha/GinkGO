@@ -47,7 +47,9 @@ class SignalService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                page_size=(
+                    page_size if page_size and page_size > 0 else None
+                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -124,12 +126,16 @@ class SignalService(BaseService):
         """
         try:
             filters = self._build_signal_filters(
-                engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id,
+                engine_id=engine_id,
+                portfolio_id=portfolio_id,
+                task_id=task_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
                 page=page,
-                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                page_size=(
+                    page_size if page_size and page_size > 0 else None
+                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
                 order_by="timestamp",
                 desc_order=True,
             )
@@ -151,7 +157,9 @@ class SignalService(BaseService):
         """统计匹配信号总数（#5009：metadata.total 真实总数，非 len(df)）。"""
         try:
             filters = self._build_signal_filters(
-                engine_id=engine_id, portfolio_id=portfolio_id, task_id=task_id,
+                engine_id=engine_id,
+                portfolio_id=portfolio_id,
+                task_id=task_id,
             )
             count = self._crud_repo.count(filters=filters)
             return ServiceResult.success({"count": count}, f"Successfully counted signals: {count}")

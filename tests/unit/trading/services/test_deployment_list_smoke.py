@@ -61,6 +61,26 @@ class TestListDeploymentsPagination:
         assert result.success is True
         assert len(result.data) == 1
 
+    @pytest.mark.unit
+    def test_list_portfolio_and_pagination_coexist_in_find(self, service):
+        """#5009: portfolio 过滤 + page/page_size 同时下推 find（单层分页，service 不二次切片）。
+
+        分页单层委托 find（DB 层 offset/limit）；service 直接返回 find 结果。
+        早先的「find 后再内存切片 records[page*page_size:]」是双层分页——find 已按
+        page/page_size 截断后再切片，对 page>0 会返空集（生产 bug），且与 engine/
+        portfolio service（无内存切片）不一致。契约对齐 test_deployment_service_info_status。
+        """
+        recs = [MagicMock() for _ in range(3)]
+        service._deployment_crud.find.return_value = recs
+        result = service.list_deployments(portfolio_id="pf-src", page=1, page_size=2)
+        assert result.success is True
+        # 过滤 + 分页共存于同一次 find 调用；service 直返 find 结果（3 条），不二次切片
+        _, kwargs = service._deployment_crud.find.call_args
+        assert kwargs["filters"]["source_portfolio_id"] == "pf-src"
+        assert kwargs["page"] == 1
+        assert kwargs["page_size"] == 2
+        assert len(result.data) == 3
+
 
 class TestCountDeployments:
     """count_deployments → _deployment_crud.count(filters=)（#5009 metadata.total）。"""

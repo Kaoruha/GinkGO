@@ -13,6 +13,7 @@ Mock strategy:
 """
 
 import json
+import re
 
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
@@ -22,6 +23,11 @@ from typer.testing import CliRunner
 
 from ginkgo.client import engine_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言（rich colorize 会拆分 --option 文本）"""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +108,9 @@ class TestHelp:
     def test_list_help(self, cli_runner):
         result = cli_runner.invoke(engine_cli.app, ["list", "--help"])
         assert result.exit_code == 0
+        plain = _strip_ansi(result.output)
         for opt in ("--status", "--portfolio", "--filter", "--page", "--page-size", "--raw"):
-            assert opt in result.output
+            assert opt in plain
 
 
 # ===========================================================================
@@ -153,6 +160,21 @@ class TestListEngines:
         assert result.exit_code == 0
         _, kwargs = svc.fuzzy_search.call_args
         assert kwargs.get("page_size") == 5
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_list_shows_pagination_hint_when_full_page(self, cli_runner):
+        """#5009 review-1a: 满页时显示分页提示（对齐 record signal）。"""
+        df = _make_engine_df()  # 1 row
+        svc = _mock_engine_service(get_engines_df=ServiceResult.success(data=df))
+
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+            result = cli_runner.invoke(engine_cli.app, ["list", "--page-size", "1"])
+
+        assert result.exit_code == 0, result.output
+        plain = _strip_ansi(result.output)
+        assert "Showing page" in plain
+        assert "Use --page-size 0" in plain
 
     @pytest.mark.unit
     @pytest.mark.cli

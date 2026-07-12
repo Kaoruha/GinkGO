@@ -35,9 +35,7 @@ class TestGetSignalsDfFilters:
         model_list.to_dataframe.return_value = pd.DataFrame()
         mock_crud.find.return_value = model_list
 
-        signal_svc.get_signals_df(
-            engine_id="e1", portfolio_id="p1", task_id="t1"
-        )
+        signal_svc.get_signals_df(engine_id="e1", portfolio_id="p1", task_id="t1")
 
         _, kwargs = mock_crud.find.call_args
         filters = kwargs["filters"]
@@ -58,6 +56,19 @@ class TestGetSignalsDfFilters:
 
         _, kwargs = mock_crud.find.call_args
         assert "task_id" not in kwargs["filters"]
+
+    def test_passes_page_and_page_size(self, signal_svc, mock_crud):
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        signal_svc.get_signals_df(page=2, page_size=30)
+
+        _, kwargs = mock_crud.find.call_args
+        assert kwargs["page"] == 2
+        assert kwargs["page_size"] == 30
+        assert kwargs["order_by"] == "timestamp"
+        assert kwargs["desc_order"] is True
 
     def test_order_by_timestamp_not_create_at(self, signal_svc, mock_crud):
         """order_by=timestamp（MSignal 是 ClickHouse 模型无 create_at 字段）。
@@ -83,9 +94,7 @@ class TestGetSignalsByPortfolioDateFilter:
 
     def test_passes_start_end_date_to_crud(self, signal_svc, mock_crud):
         mock_crud.find_by_portfolio.return_value = []
-        signal_svc.get_signals_by_portfolio(
-            portfolio_id="p1", start_date="2026-06-23", end_date="2026-06-24"
-        )
+        signal_svc.get_signals_by_portfolio(portfolio_id="p1", start_date="2026-06-23", end_date="2026-06-24")
         _, kwargs = mock_crud.find_by_portfolio.call_args
         assert kwargs["portfolio_id"] == "p1"
         assert kwargs["start_date"] == "2026-06-23"

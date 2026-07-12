@@ -58,13 +58,19 @@ def list_engines(
     # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非 Rich 标记（#6652 review E2）。
     if page < 0:
         if format == "json":
-            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            format_result(
+                ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list"
+            )
             raise typer.Exit(2)
         console.print("[red]:x: --page must be >= 0[/red]")
         raise typer.Exit(2)
     if page_size < 0:
         if format == "json":
-            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            format_result(
+                ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"),
+                format="json",
+                command="list",
+            )
             raise typer.Exit(2)
         console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
         raise typer.Exit(2)
@@ -87,7 +93,9 @@ def list_engines(
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
             # fuzzy_search CRUD 层只支持 limit（无 offset），故只下推 page_size；
             # 搜索结果通常较小，total 取当前匹配页行数（精确总数不可得）。
-            fs_result = engine_service.fuzzy_search(filter_str, fields=["uuid", "name", "is_live", "status"], page_size=q_page_size)
+            fs_result = engine_service.fuzzy_search(
+                filter_str, fields=["uuid", "name", "is_live", "status"], page_size=q_page_size
+            )
             if fs_result.success:
                 # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
                 engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
@@ -150,7 +158,9 @@ def list_engines(
                 # fuzzy_search 无 offset 支持：filter 分支诚实标 offset=0（#6652 review B3）。
                 effective_offset = 0 if (unlimited or filter) else page * page_size
                 json_result = build_list_result(
-                    records, total=total, limit=q_page_size,
+                    records,
+                    total=total,
+                    limit=q_page_size,
                     offset=effective_offset,
                 )
                 format_result(json_result, format="json", command="list")
@@ -212,6 +222,11 @@ def list_engines(
                 )
 
             console.print(table)
+            if page_size > 0 and len(engines_df) == page_size:
+                console.print(
+                    f"[dim]Showing page {page} ({page_size} records per page). "
+                    "Use --page-size 0 to see all records.[/dim]"
+                )
         else:
             # ADR-021 第 5/6 维：service 失败时，JSON 模式发错误 envelope + exit 1；
             # text 模式打印诊断 + exit 1（失败 exit code 跨格式一致，非隐式 exit 0）。

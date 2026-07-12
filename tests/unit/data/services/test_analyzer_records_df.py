@@ -41,9 +41,7 @@ def _make_analyzer_modellist() -> ModelList:
 
     model = MAnalyzerRecord()
     crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"name": "SharpeRatio", "value": 1.5}]
-    )
+    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "SharpeRatio", "value": 1.5}])
     return ModelList([model], crud_stub)
 
 
@@ -80,6 +78,18 @@ def test_get_records_df_returns_dataframe():
 
 
 @pytest.mark.unit
+def test_get_records_df_passes_page_and_page_size():
+    svc = _make_analyzer_service(_make_analyzer_modellist())
+    svc.get_records_df(page=2, page_size=5)
+
+    _, kwargs = svc._crud_repo.find.call_args
+    assert kwargs["page"] == 2
+    assert kwargs["page_size"] == 5
+    assert kwargs["order_by"] == "timestamp"
+    assert kwargs["desc_order"] is True
+
+
+@pytest.mark.unit
 def test_get_records_df_empty_returns_empty_dataframe():
     """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
     svc = _make_analyzer_service(_make_empty_modellist())
@@ -107,7 +117,8 @@ def test_build_analyzer_record_filters_construction():
     """_build_analyzer_record_filters 字段映射：portfolio_id / engine_id / is_del=False。"""
     svc = _make_analyzer_service(_make_empty_modellist())
     filters = svc._build_analyzer_record_filters(
-        portfolio_id="pf1", engine_id="eng1",
+        portfolio_id="pf1",
+        engine_id="eng1",
     )
     assert filters["portfolio_id"] == "pf1"
     assert filters["engine_id"] == "eng1"

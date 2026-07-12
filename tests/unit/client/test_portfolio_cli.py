@@ -137,17 +137,45 @@ class TestPortfolioList:
         assert "LivePortfolio" in result.output
 
     @patch("ginkgo.data.containers.container")
+    def test_list_passes_page_and_page_size(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """#5009: portfolio list supports --page/--page-size."""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--page", "1", "--page-size", "5"])
+
+        assert result.exit_code == 0, result.output
+        mock_service.get_portfolios_df.assert_called_once_with(page=1, page_size=5)
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_shows_pagination_hint_when_full_page(self, mock_container, cli_runner, mock_portfolio_list_df):
+        """#5009 review-1a: 满页时显示分页提示（对齐 record signal）。"""
+        mock_service = MagicMock()
+        mock_service.get_portfolios_df.return_value = ServiceResult.success(data=mock_portfolio_list_df)
+        mock_container.portfolio_service.return_value = mock_service
+
+        result = cli_runner.invoke(portfolio_cli.app, ["list", "--page-size", "2"])
+
+        assert result.exit_code == 0, result.output
+        plain = _strip_ansi(result.output)
+        assert "Showing page" in plain
+        assert "Use --page-size 0" in plain
+
+    @patch("ginkgo.data.containers.container")
     def test_list_uses_state_when_status_missing(self, mock_container, cli_runner):
         """status 字段缺失时使用 state 枚举显示运行状态"""
         mock_service = MagicMock()
         mock_service.get_portfolios_df.return_value = ServiceResult.success(
-            data=pd.DataFrame({
-                "uuid": ["portfolio-uuid-001"],
-                "name": ["StatePortfolio"],
-                "initial_capital": [1000000.0],
-                "is_live": [False],
-                "state": [1],
-            })
+            data=pd.DataFrame(
+                {
+                    "uuid": ["portfolio-uuid-001"],
+                    "name": ["StatePortfolio"],
+                    "initial_capital": [1000000.0],
+                    "is_live": [False],
+                    "state": [1],
+                }
+            )
         )
         mock_container.portfolio_service.return_value = mock_service
 

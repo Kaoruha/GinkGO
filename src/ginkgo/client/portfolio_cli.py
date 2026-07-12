@@ -145,13 +145,19 @@ def list(
     # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非纯文本（#6652 review E2）。
     if page < 0:
         if format == "json":
-            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            format_result(
+                ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list"
+            )
             raise typer.Exit(2)
         console.print("[red]:x: --page must be >= 0[/red]")
         raise typer.Exit(2)
     if page_size < 0:
         if format == "json":
-            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            format_result(
+                ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"),
+                format="json",
+                command="list",
+            )
             raise typer.Exit(2)
         console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
         raise typer.Exit(2)
@@ -196,7 +202,9 @@ def list(
                 records = portfolios_df.to_dict("records")
                 # offset = page × page_size；全量时 offset=0、limit=None（ADR-021 metadata）。
                 json_result = build_list_result(
-                    records, total=total, limit=q_page_size,
+                    records,
+                    total=total,
+                    limit=q_page_size,
                     offset=0 if unlimited else page * page_size,
                 )
                 format_result(json_result, format="json", command="list")
@@ -228,6 +236,11 @@ def list(
                 )
 
             console.print(table)
+            if page_size > 0 and len(portfolios_df) == page_size:
+                console.print(
+                    f"[dim]Showing page {page} ({page_size} records per page). "
+                    "Use --page-size 0 to see all records.[/dim]"
+                )
         else:
             # ADR-021 第 5/6 维：service 失败时，JSON 模式发错误 envelope + exit 1；
             # text 模式打印诊断 + exit 1（失败 exit code 跨格式一致，非隐式 exit 0）。

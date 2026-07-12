@@ -3,7 +3,9 @@
 - list 输出的 deployment_id / target_portfolio_id 必须完整（不再 [:8]+"..."）
 - list 输出的 id 可直接被 info 消费（round-trip 契约的生产者侧）
 """
+
 import os
+import re
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
@@ -38,6 +40,11 @@ def _compact(s: str) -> str:
     return "".join(s.split())
 
 
+def _strip_ansi(text: str) -> str:
+    """去除 ANSI 转义码，便于断言（rich colorize 会拆分 --option 文本）"""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 def _mock_svc_with_list():
     svc = MagicMock()
     svc.list_deployments.return_value = ServiceResult(
@@ -54,11 +61,45 @@ def _mock_svc_with_list():
             }
         ],
     )
+    # count > len(records) 触发 deploy_cli 的 "共 N 条" 分页提示（master 用 total>len 逻辑）
+    svc.count_deployments.return_value = ServiceResult(success=True, data={"count": 2})
     return svc
 
 
 class TestDeployListFullId:
     """#4719: list 输出完整 ID，不截断"""
+
+    def test_list_help_shows_page_options(self, cli_runner):
+        result = cli_runner.invoke(deploy_cli.app, ["list", "--help"])
+        assert result.exit_code == 0
+        plain = _strip_ansi(result.output)
+        assert "--page" in plain
+        assert "--page-size" in plain
+
+    def test_list_passes_page_and_page_size(self, cli_runner):
+        svc = _mock_svc_with_list()
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=svc,
+        ):
+            result = cli_runner.invoke(deploy_cli.app, ["list", "--page", "1", "--page-size", "5"])
+
+        assert result.exit_code == 0, result.output
+        svc.list_deployments.assert_called_once_with(portfolio_id=None, page=1, page_size=5)
+
+    def test_list_shows_pagination_hint_when_full_page(self, cli_runner):
+        """#5009: 有更多记录时显示分页提示（master deploy_cli: total > 当前页条数）。"""
+        with patch(
+            "ginkgo.trading.containers.trading_container.deployment_service",
+            return_value=_mock_svc_with_list(),
+        ):
+            result = cli_runner.invoke(deploy_cli.app, ["list", "--page-size", "1"])
+
+        assert result.exit_code == 0, result.output
+        plain = _strip_ansi(result.output)
+        # master deploy_cli hint 文本：共 {total} 条，当前第 {page+1} 页...使用 --page 翻页
+        assert "共 2 条" in plain
+        assert "翻页" in plain
 
     def test_list_shows_full_deployment_id(self, cli_runner):
         # RED: 当前代码 d["deployment_id"][:8]+"..." 截断，完整 id 不会出现
