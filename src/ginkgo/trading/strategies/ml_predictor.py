@@ -1,4 +1,4 @@
-# Upstream: PortfolioBase, ComponentFactoryService
+# Upstream: PortfolioBase, ComponentLoader
 # Downstream: StrategyMLBase, BaseModel, FeatureProcessor, AlphaFactors, Signal, DIRECTION_TYPES
 # Role: ML预测策略，基于已训练机器学习模型预测股价收益率并生成交易信号
 

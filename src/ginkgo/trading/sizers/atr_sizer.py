@@ -1,4 +1,4 @@
-# Upstream: PortfolioBase, ComponentFactoryService
+# Upstream: PortfolioBase, ComponentLoader
 # Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, pandas
 # Role: ATR仓位管理器，基于平均真实波幅计算波动率自适应的订单仓位
 

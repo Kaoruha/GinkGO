@@ -14,13 +14,19 @@ from ginkgo.enums import FILE_TYPES
 class TestSourceFallbackImportMap:
     """缺陷4a: 源码回退类型映射正确性"""
 
-    def test_riskmanager_fallback_maps_to_risk_managements_package(self):
-        """RISKMANAGER(=3) 源码回退应从 ginkgo.trading.risk_managements 导入"""
+    def test_riskmanager_fallback_maps_to_risk_management_package(self):
+        """RISKMANAGER(=3) 源码回退应从 ginkgo.trading.risk_management 导入（单数）"""
         assert FILE_TYPES.RISKMANAGER.value in SOURCE_FALLBACK_IMPORT_MAP
         assert SOURCE_FALLBACK_IMPORT_MAP[FILE_TYPES.RISKMANAGER.value] == (
-            "ginkgo.trading.risk_managements",
-            "risk_managements",
+            "ginkgo.trading.risk_management",
+            "risk_management",
         )
+
+    def test_risk_fallback_module_path_importable(self):
+        """risk 回退 module_path 必须指向真实可 import 的模块（防复数路径 bug 复发，#6476）"""
+        import importlib
+        module_path, _ = SOURCE_FALLBACK_IMPORT_MAP[FILE_TYPES.RISKMANAGER.value]
+        importlib.import_module(module_path)
 
     def test_engine_not_misassigned_to_risk_managements(self):
         """ENGINE(=7) 不应映射到 risk_managements（原 bug: key 7 错指 risk）"""

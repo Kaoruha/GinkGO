@@ -1,4 +1,4 @@
-# Upstream: PortfolioBase, ComponentFactoryService
+# Upstream: PortfolioBase, ComponentLoader
 # Downstream: BaseSizer, Signal, Order, DIRECTION_TYPES, to_decimal, _data_feeder
 # Role: 比例仓位管理器，按资金比例动态计算订单仓位
 

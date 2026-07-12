@@ -1,4 +1,4 @@
-# Upstream: EngineAssemblyService, ComponentFactoryService, PortfolioBase
+# Upstream: EngineAssemblyService, ComponentLoader, PortfolioBase
 # Downstream: BaseStrategy, RandomSignalStrategy, StrategyMLBase, StrategyMLPredictor
 # Role: 策略模块包，导出策略基类及ML策略等策略组件
 #

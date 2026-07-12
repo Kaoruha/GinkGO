@@ -1,5 +1,5 @@
 # Upstream: API Server, CLI commands
-# Downstream: PortfolioT1Backtest, Position, ComponentFactoryService, PositionService, PortfolioService, FILE_TYPES, EventPositionUpdate
+# Downstream: PortfolioT1Backtest, Position, PositionService, PortfolioService, FILE_TYPES, EventPositionUpdate
 # Role: 投资组合管理服务，处理Portfolio生命周期、组件绑定和回测状态跟踪
 
 
