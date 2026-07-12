@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Callable
 from collections import deque
 from dataclasses import dataclass, field
 
-from .interfaces import ICircuitBreaker, CircuitBreakerState
+from .interfaces import CircuitBreakerState
 from ginkgo.trading.time.clock import now as clock_now
 
 
@@ -38,7 +38,7 @@ class CircuitBreakerConfig:
     min_calls_threshold: int = 10  # 最小调用数阈值
 
 
-class CircuitBreaker(ICircuitBreaker):
+class CircuitBreaker:
     """断路器实现"""
     
     def __init__(self, 

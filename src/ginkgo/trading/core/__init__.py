@@ -1,6 +1,7 @@
 # Upstream: 全系统（所有trading子模块和外部调用者）
-# Downstream: entities.base, entities.identity, entities.file_info, trading.core.backtest_base, trading.core.containers
-# Role: 交易核心基础设施模块包入口，导出Base基础类、BacktestBase回测基类、FileInfo文件信息、Container依赖注入容器
+# Downstream: entities.base, entities.identity, entities.file_info, trading.core.containers
+# Role: 交易核心基础设施模块包入口，导出Base基础类、FileInfo文件信息、Container依赖注入容器
+# Note: 回测空壳基类已删（ADR-022 原则 2，0 真继承者，职责全移各 Mixin）
 
 
 
@@ -20,12 +21,10 @@ Core Module - 核心基础设施
 from ginkgo.entities.base import Base
 from ginkgo.entities.identity import IdentityUtils
 from ginkgo.entities.file_info import FileInfo
-from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.core.containers import Container
 
 __all__ = [
     "Base",
-    "BacktestBase", 
     "FileInfo",
     "Container",
 ]

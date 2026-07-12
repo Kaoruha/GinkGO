@@ -525,3 +525,119 @@ class TestFormatResult:
         out = json.loads(capsys.readouterr().out)
         assert out["success"] is True
         assert out["count"] == 1
+
+
+# ----------------------------------------------------------------------------
+# _sanitize_json + format_result NaN 契约（ADR-021 第 9/10 维标准 JSON）
+# 回归：json.dumps 默认 allow_nan=True 在 C 层直出 NaN/Infinity token，非合法 JSON。
+# Python json.loads 默认宽容（能解析 NaN），故断言须走严格解析或查原始 token。
+# ----------------------------------------------------------------------------
+
+
+def _strict_json_loads(s: str):
+    """严格 JSON 解析：拒绝 NaN/Infinity/-Infinity token（对齐 jq / JS JSON.parse / Java）。"""
+    return json.loads(
+        s,
+        parse_constant=lambda c: (_ for _ in ()).throw(ValueError(f"illegal const {c}")),
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestSanitizeJson:
+    """_sanitize_json：非有限浮点 → None（float 是原生类型，default() 拦不到）。"""
+
+    def test_nan_to_none(self):
+        assert cli_utils._sanitize_json(float("nan")) is None
+
+    def test_pos_inf_to_none(self):
+        assert cli_utils._sanitize_json(float("inf")) is None
+
+    def test_neg_inf_to_none(self):
+        assert cli_utils._sanitize_json(float("-inf")) is None
+
+    def test_finite_float_passthrough(self):
+        assert cli_utils._sanitize_json(3.14) == 3.14
+        assert cli_utils._sanitize_json(0.0) == 0.0
+        assert cli_utils._sanitize_json(-1.5) == -1.5
+
+    def test_non_float_passthrough(self):
+        assert cli_utils._sanitize_json("x") == "x"
+        assert cli_utils._sanitize_json(42) == 42
+        assert cli_utils._sanitize_json(None) is None
+        assert cli_utils._sanitize_json(True) is True
+
+    def test_recursive_dict(self):
+        out = cli_utils._sanitize_json({"a": float("nan"), "b": 1, "c": float("inf")})
+        assert out == {"a": None, "b": 1, "c": None}
+
+    def test_recursive_list(self):
+        out = cli_utils._sanitize_json([float("nan"), 2, [float("-inf")]])
+        assert out == [None, 2, [None]]
+
+    def test_nested_dict_in_list(self):
+        out = cli_utils._sanitize_json([{"price": float("nan")}, {"price": 1.0}])
+        assert out == [{"price": None}, {"price": 1.0}]
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestFormatResultNanContract:
+    """format_result 出口 NaN → null + 输出严格 JSON 可解析（ADR-021 第 9/10 维）。
+
+    命中场景：ClickHouse 稀疏数值 NaN、新建组合未设 current_capital/cash。
+    """
+
+    def test_nan_in_get_data_emits_null_and_strict_parseable(self, capsys):
+        """get 成功路径：data 含 NaN → 输出 null，严格解析通过（无 NaN token）"""
+        result = ServiceResult.success(data={"price": float("nan"), "name": "x"})
+        cli_utils.format_result(result, format="json", command="get")
+        raw = capsys.readouterr().out
+        # 原始串不含非法 token（Python json.loads 默认宽容，须查 token 本身）
+        assert "NaN" not in raw
+        assert "Infinity" not in raw
+        out = _strict_json_loads(raw)  # 严格解析不抛 = 合法 JSON
+        assert out["data"] == {"price": None, "name": "x"}
+
+    def test_nan_in_list_data_emits_null(self, capsys):
+        """list 成功路径：data 列表内 NaN → null"""
+        result = ServiceResult.success(data=[{"price": float("nan")}, {"price": 1.0}])
+        cli_utils.format_result(result, format="json", command="list")
+        raw = capsys.readouterr().out
+        assert "NaN" not in raw
+        out = _strict_json_loads(raw)
+        assert out["data"] == [{"price": None}, {"price": 1.0}]
+
+    def test_nan_in_dataframe_data_emits_null(self, capsys):
+        """DataFrame data（ClickHouse 稀疏数值）：to_dict 物化的 NaN 须被分支内 sanitize。
+
+        验证 encoder 的 DataFrame 分支 _sanitize_json(df.to_dict('records'))，
+        非 payload 顶层 sanitize（DataFrame 在 json.dumps 内部才物化）。
+        """
+        df = pd.DataFrame({"price": [float("nan"), 1.0], "code": ["A", "B"]})
+        result = ServiceResult.success(data=df)
+        cli_utils.format_result(result, format="json", command="get")
+        raw = capsys.readouterr().out
+        assert "NaN" not in raw
+        out = _strict_json_loads(raw)
+        assert out["data"] == [{"price": None, "code": "A"}, {"price": 1.0, "code": "B"}]
+
+    def test_fail_path_strict_parseable(self, capsys):
+        """失败路径输出亦合法 JSON（L418 sanitize + allow_nan=False 对称）"""
+        result = ServiceResult.failure(message="boom", code="INTERNAL")
+        with pytest.raises(typer.Exit):
+            cli_utils.format_result(result, format="json", command="x")
+        raw = capsys.readouterr().out
+        out = _strict_json_loads(raw)
+        assert out["success"] is False
+        assert out["error"]["code"] == "INTERNAL"
+
+    def test_allow_nan_false_asserts_no_token_escape(self, capsys):
+        """端到端硬断言：即便有未覆盖容器，allow_nan=False 也应响亮报错而非吐 token。
+
+        此处用全 finite 数据确认 happy path 不被 allow_nan=False 误伤。
+        """
+        result = ServiceResult.success(data=[{"id": 1}, {"id": 2}])
+        cli_utils.format_result(result, format="json", command="list")
+        raw = capsys.readouterr().out
+        _strict_json_loads(raw)  # 不抛即通过

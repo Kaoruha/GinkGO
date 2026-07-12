@@ -7,7 +7,7 @@ Paper Trading 相关 API 路由
 from fastapi import APIRouter, HTTPException, status, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import sys
 from pathlib import Path
@@ -121,6 +121,12 @@ def _get_stockinfo_service():
     return container.stockinfo_service()
 
 
+def _get_analyzer_service():
+    """获取 AnalyzerService 实例（#6048: 查询上一日净资产，走 Service 分层非直访 CRUD）。"""
+    from ginkgo.data.containers import container
+    return container.analyzer_service()
+
+
 def _resolve_stock_names(codes: list) -> dict:
     """批量查询股票名称，返回 {code: name}（#6048）。
 
@@ -210,6 +216,7 @@ async def list_paper_accounts():
             cash = float(getattr(p, 'cash', initial_capital) or initial_capital)
             position_value = _compute_position_value(_query_positions(p.uuid))
             total_asset = cash + position_value
+            today_pnl = _compute_today_pnl(total_asset, _query_previous_net_asset(p.uuid))
 
             accounts.append({
                 "uuid": p.uuid,
@@ -218,7 +225,7 @@ async def list_paper_accounts():
                 "available_cash": cash,
                 "position_value": position_value,
                 "total_asset": total_asset,
-                "today_pnl": 0,  # TODO(#6048): 需历史 position_record 按日对比（独立 slice）
+                "today_pnl": today_pnl,
                 "total_pnl": _compute_total_pnl(total_asset, initial_capital),
                 "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
@@ -322,6 +329,7 @@ async def get_paper_account(account_id: str):
         positions = _query_positions(account_id)
         position_value = _compute_position_value(positions)
         total_asset = cash + position_value
+        today_pnl = _compute_today_pnl(total_asset, _query_previous_net_asset(account_id))
 
         # 查询活跃订单（pending 状态）
         orders = _query_orders(account_id, status_filter=["pending"])
@@ -334,7 +342,7 @@ async def get_paper_account(account_id: str):
                 "available_cash": cash,
                 "position_value": position_value,
                 "total_asset": total_asset,
-                "today_pnl": 0,  # TODO(#6048): 需历史 position_record 按日对比（独立 slice）
+                "today_pnl": today_pnl,
                 "total_pnl": _compute_total_pnl(total_asset, initial_capital),
                 "status": _map_pt_status(p),
                 "created_at": _format_datetime(getattr(p, 'create_at', None)),
@@ -556,14 +564,18 @@ async def get_paper_report(
         positions_result = result_service.get_current_positions(account_id, min_volume=1)
         positions = positions_result.data if positions_result.success else []
         positions_count = len(positions) if positions else 0
+        position_value = _compute_position_records_value(positions)
+        total_asset = cash + position_value
 
-        total_return = (cash / initial_capital - 1) * 100 if initial_capital > 0 else 0
+        total_return = _compute_return_rate(total_asset, initial_capital)
+        previous_net_asset = _query_previous_net_asset(account_id, target_date)
+        daily_return = _compute_daily_return(total_asset, previous_net_asset)
 
         return ok(
             data={
                 "date": target_date,
-                "total_return": round(total_return, 4),
-                "daily_return": 0,  # TODO: 需要前一日数据对比
+                "total_return": total_return,
+                "daily_return": daily_return,
                 "trades_count": trades_count,
                 "positions_count": positions_count,
             },
@@ -571,6 +583,11 @@ async def get_paper_report(
         )
 
     except NotFoundError:
+        raise
+    except HTTPException:
+        # 透传 helper 的 HTTPException(500)，避免被下方 except Exception 吞成 BusinessError(400)。
+        # HTTPException 继承 Exception，须显式前置 except，否则 AC1 生产路径返 400 非 500
+        # （544c851c/#5479 立规：DB 故障 loud，对齐 _query_positions / get_paper_account）。
         raise
     except Exception as e:
         logger.error(f"Error getting paper report {account_id}: {str(e)}")
@@ -636,6 +653,20 @@ def _compute_position_value(positions: list) -> float:
         return 0.0
 
 
+def _compute_position_records_value(positions: list) -> float:
+    """从持仓记录对象计算总市值（price * volume）。"""
+    try:
+        return round(
+            sum(
+                float(getattr(p, "price", 0) or 0) * int(getattr(p, "volume", 0) or 0)
+                for p in (positions or [])
+            ),
+            2,
+        )
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _compute_total_pnl(total_asset: float, initial_capital: float) -> float:
     """计算总盈亏 = 当前净资产 − 初始资金（#6048）。
 
@@ -647,6 +678,93 @@ def _compute_total_pnl(total_asset: float, initial_capital: float) -> float:
         return round(float(total_asset) - float(initial_capital), 2)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _compute_return_rate(total_asset: float, initial_capital: float) -> float:
+    """计算累计收益率百分比。"""
+    try:
+        initial = float(initial_capital)
+        if initial <= 0:
+            return 0.0
+        return round((float(total_asset) / initial - 1) * 100, 4)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _compute_today_pnl(total_asset: float, previous_net_asset: Optional[float]) -> float:
+    """计算今日盈亏；缺少上一日净资产时降级为 0。"""
+    try:
+        if previous_net_asset is None or float(previous_net_asset) <= 0:
+            return 0.0
+        return round(float(total_asset) - float(previous_net_asset), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _compute_daily_return(total_asset: float, previous_net_asset: Optional[float]) -> float:
+    """计算日收益率百分比；缺少上一日净资产时降级为 0。"""
+    try:
+        previous = float(previous_net_asset)
+        if previous <= 0:
+            return 0.0
+        return round((float(total_asset) / previous - 1) * 100, 4)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _target_day_start(target_date: Optional[str] = None) -> Optional[datetime]:
+    """返回目标日期 00:00；非法日期返回 None。"""
+    if target_date:
+        try:
+            return datetime.strptime(str(target_date), "%Y-%m-%d")
+        except (TypeError, ValueError):
+            return None
+    now = datetime.now()
+    return datetime(now.year, now.month, now.day)
+
+
+def _record_value(records) -> Optional[float]:
+    """提取查询结果第一条 analyzer value。"""
+    items = records if isinstance(records, list) else getattr(records, "data", [])
+    if not items:
+        return None
+    try:
+        value = float(getattr(items[0], "value", 0) or 0)
+        return value if value > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _query_previous_net_asset(account_id: str, target_date: Optional[str] = None) -> Optional[float]:
+    """查询目标日前最近一条 net_value 分析器记录。
+
+    NetValue analyzer 记录的是组合总资产（worth），不是归一化净值；因此可直接作为
+    ``today_pnl`` / ``daily_return`` 的上一期净资产基准。没有记录时返回 None。
+    """
+    day_start = _target_day_start(target_date)
+    if day_start is None:
+        return None
+
+    end_time = day_start - timedelta(microseconds=1)
+    analyzer_service = _get_analyzer_service()
+    for use_business_time in (True, False):
+        result = analyzer_service.find_latest_before(
+            portfolio_id=account_id,
+            end_time=end_time,
+            analyzer_name="net_value",
+            use_business_time=use_business_time,
+        )
+        if not result.success:
+            # DB 故障：propagate 为 500（对齐 _query_positions, #5479 / 544c851c），
+            # 不吞为 None 让 today_pnl/daily_return 静默归 0。
+            raise HTTPException(
+                status_code=500,
+                detail=f"查询上一日净资产失败: {result.error}",
+            )
+        value = _record_value(result.data)
+        if value is not None:
+            return value
+    return None
 
 
 def _expand_status_enums(status_filter: Optional[List[str]]) -> list:

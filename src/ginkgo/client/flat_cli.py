@@ -3,10 +3,6 @@
 # Role: 扁平化命令CLI，提供_get_engine_status_name状态转换等工具函数，简化命令行操作和数据访问
 
 
-
-
-
-
 """
 Ginkgo Flat CLI - 扁平化的顶级命令
 包含未迁移到独立文件的CLI功能
@@ -19,7 +15,11 @@ from rich.table import Table
 import json
 import datetime
 
+from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.data.services.base_service import ServiceResult
+
 from typing import Optional, List
+
 console = Console(emoji=True, legacy_windows=False)
 
 # 创建顶级命令
@@ -40,8 +40,10 @@ mapping_app = typer.Typer(help=":link: Mapping relationship management", rich_ma
 # Result管理命令
 result_app = typer.Typer(help=":bar_chart: Result management", rich_markup_mode="rich")
 
+
 def _file_type_name(type_val):
     from ginkgo.enums import FILE_TYPES
+
     mapping = {v.value: k.lower() for k, v in FILE_TYPES.__members__.items()}
     return mapping.get(type_val, str(type_val))
 
@@ -52,16 +54,16 @@ def _resolve_file(file_service, identifier):
     result = file_service.get_by_uuid(identifier)
     if result.success and result.data:
         data = result.data
-        if isinstance(data, dict) and data.get('file') is not None:
-            return data['file']
-        if hasattr(data, 'uuid'):
+        if isinstance(data, dict) and data.get("file") is not None:
+            return data["file"]
+        if hasattr(data, "uuid"):
             return data
     # 再按名称
     result = file_service.get_by_name(identifier)
     if result.success and result.data:
         data = result.data
-        files = data.get('files', data) if isinstance(data, dict) else data
-        if hasattr(files, '__len__') and len(files) > 0:
+        files = data.get("files", data) if isinstance(data, dict) else data
+        if hasattr(files, "__len__") and len(files) > 0:
             return files[0]
     raise ValueError(f"Component not found: '{identifier}'")
 
@@ -200,16 +202,22 @@ def _get_engine_status_name(status):
         ENGINESTATUS_TYPES.INITIALIZING.value: "Initializing",
         ENGINESTATUS_TYPES.RUNNING.value: "Running",
         ENGINESTATUS_TYPES.PAUSED.value: "Paused",
-        ENGINESTATUS_TYPES.STOPPED.value: "Stopped"
+        ENGINESTATUS_TYPES.STOPPED.value: "Stopped",
     }
     return status_map.get(status, f"Unknown({status})")
+
 
 # Component 相关命令
 @component_app.command()
 def list(
-    component_type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by component type (strategy/risk/sizer/selector/analyzer)"),
+    component_type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Filter by component type (strategy/risk/sizer/selector/analyzer)"
+    ),
     filter: Optional[str] = typer.Option(None, "--filter", "-f", help="Filter by component name (fuzzy search)"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output in JSON format"),
+    page: int = typer.Option(0, "--page", help="Page number (0-based)"),
+    page_size: int = typer.Option(100, "--page-size", help="Items per page (0 = all)"),
+    format: str = typer.Option("text", "--format", "-F", help="Output format: text/json"),
 ):
     """
     :clipboard: List all components from database.
@@ -225,7 +233,31 @@ def list(
     from ginkgo.enums import FILE_TYPES
     import json
 
-    console.print(":clipboard: Listing components...")
+    if format != "json":
+        console.print(":clipboard: Listing components...")
+
+    # #5009 契约：--page（0-based）+ --page-size（0=全量）。
+    # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope 而非 Rich 标记（#6652 review E2）。
+    if page < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page must be >= 0", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page must be >= 0[/red]")
+        raise typer.Exit(2)
+    if page_size < 0:
+        if format == "json":
+            format_result(ServiceResult.failure(message="--page-size must be >= 0 (0 = all)", code="BAD_PARAMS"), format="json", command="list")
+            raise typer.Exit(2)
+        console.print("[red]:x: --page-size must be >= 0 (0 = all)[/red]")
+        raise typer.Exit(2)
+    unlimited = page_size == 0
+    q_page = None if unlimited else page
+    q_page_size = None if unlimited else page_size
+    # filter 模式：name 是客户端 fuzzy 过滤，全量查再过滤保证 total 准确（#6652 review B1）。
+    if filter:
+        q_page = None
+        q_page_size = None
+        unlimited = True
 
     try:
         # Get file_crud to query database
@@ -241,46 +273,84 @@ def list(
             "analyzer": FILE_TYPES.ANALYZER,
         }
 
+        # 组件类型值集合（全类型路径的 type__in 过滤用）
+        component_type_values = [
+            FILE_TYPES.STRATEGY.value,
+            FILE_TYPES.RISKMANAGER.value,
+            FILE_TYPES.SELECTOR.value,
+            FILE_TYPES.SIZER.value,
+            FILE_TYPES.ANALYZER.value,
+        ]
+
         # Query components from database
+        # #5009 契约硬规则：type 过滤必须下推 find()（DB 层），禁先 page_size 截断再客户端过滤。
+        # 旧实现 find(filters={}, page_size=limit) 取 limit 行（含 ENGINE/OTHER 等非组件类型）
+        # 再客户端筛组件类型 → 非组件类型占满 limit 时返回 0 组件（即便组件存在）。
         if component_type and component_type.lower() in type_mapping:
             # Single type query: filter by type (1 query)
             file_type = type_mapping[component_type.lower()]
-            components = file_crud.find(filters={"type": file_type.value}, page_size=10000)
+            components = file_crud.find(
+                filters={"type": file_type.value}, page=q_page, page_size=q_page_size,
+                order_by="create_at", desc_order=True,
+            )
         else:
-            # All types query: get all components in ONE query, then filter client-side
-            # Query without type filter to get all components at once
-            all_components = file_crud.find(filters={}, page_size=10000)
-
-            # Filter to only include component types (exclude OTHER, VOID, ENGINE, HANDLER, INDEX)
-            component_type_values = {
-                FILE_TYPES.STRATEGY.value,
-                FILE_TYPES.RISKMANAGER.value,
-                FILE_TYPES.SELECTOR.value,
-                FILE_TYPES.SIZER.value,
-                FILE_TYPES.ANALYZER.value,
-            }
-
-            components = []
-            for comp in all_components:
-                type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
-                if type_value in component_type_values:
-                    components.append(comp)
+            # All types query: 用 type__in 在 DB 层过滤组件类型，再分页（修 #5009 截断前未过滤 bug）
+            components = file_crud.find(
+                filters={"type__in": component_type_values}, page=q_page, page_size=q_page_size,
+                order_by="create_at", desc_order=True,
+            )
 
         # Apply name filter if provided
         if filter:
             filter_lower = filter.lower()
             components = [c for c in components if filter_lower in str(c.name).lower()]
 
+        value_to_type = {v.value: k for k, v in type_mapping.items()}
+
+        if format == "json":
+            # ADR-021：metadata.total = 未截断的匹配总数。
+            if filter:
+                # filter 模式全量查 + 客户端 fuzzy 过滤，total = 过滤后全量行数（准确）。
+                total = len(components)
+            elif component_type and component_type.lower() in type_mapping:
+                ft = type_mapping[component_type.lower()]
+                total = file_crud.count(filters={"type": ft.value})
+            else:
+                # 全类型：sum 各组件类型 count（find(filters={}) 含非组件类型，须按类型聚合）。
+                total = sum(
+                    file_crud.count(filters={"type": t.value})
+                    for t in (
+                        FILE_TYPES.STRATEGY,
+                        FILE_TYPES.RISKMANAGER,
+                        FILE_TYPES.SELECTOR,
+                        FILE_TYPES.SIZER,
+                        FILE_TYPES.ANALYZER,
+                    )
+                )
+            records = []
+            # #5009 契约：page_size 已下推 file_crud.find（DB 层截断），此处不再二次截断。
+            for comp in components:
+                type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
+                records.append(
+                    {
+                        "uuid": str(comp.uuid),
+                        "name": str(comp.name),
+                        "type": value_to_type.get(type_value, "unknown"),
+                        "created_at": str(comp.create_at) if hasattr(comp, "create_at") and comp.create_at else None,
+                        "updated_at": str(comp.update_at) if hasattr(comp, "update_at") and comp.update_at else None,
+                    }
+                )
+            offset = 0 if unlimited else page * page_size
+            json_result = build_list_result(records, total=total, limit=q_page_size, offset=offset)
+            format_result(json_result, format="json", command="list")
+            return
+
         if components:
             # Reverse type mapping for display
-            value_to_type = {v.value: k for k, v in type_mapping.items()}
 
             if raw:
                 # JSON output format
-                result = {
-                    "total": len(components),
-                    "components": []
-                }
+                result = {"total": len(components), "components": []}
 
                 if component_type:
                     result["type"] = component_type
@@ -289,15 +359,15 @@ def list(
 
                 for comp in components:
                     # Get type value - handle both enum and int
-                    type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
+                    type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
                     type_name = value_to_type.get(type_value, "unknown")
 
                     component_data = {
                         "uuid": str(comp.uuid),
                         "name": str(comp.name),
                         "type": type_name,
-                        "created_at": str(comp.create_at) if hasattr(comp, 'create_at') and comp.create_at else None,
-                        "updated_at": str(comp.update_at) if hasattr(comp, 'update_at') and comp.update_at else None,
+                        "created_at": str(comp.create_at) if hasattr(comp, "create_at") and comp.create_at else None,
+                        "updated_at": str(comp.update_at) if hasattr(comp, "update_at") and comp.update_at else None,
                     }
                     result["components"].append(component_data)
 
@@ -312,14 +382,10 @@ def list(
 
                 for comp in components:
                     # Get type value - handle both enum and int
-                    type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
+                    type_value = comp.type.value if hasattr(comp.type, "value") else comp.type
                     type_name = value_to_type.get(type_value, "unknown")
 
-                    table.add_row(
-                        str(comp.uuid),
-                        str(comp.name)[:29],
-                        type_name
-                    )
+                    table.add_row(str(comp.uuid), str(comp.name)[:29], type_name)
 
                 console.print(table)
                 console.print(f"\n:information_source: [dim]Total: {len(components)} components[/dim]")
@@ -333,15 +399,31 @@ def list(
             if filter:
                 console.print(f"[dim]Try a different filter term[/dim]")
 
+    # typer.Exit 是 Exception 子类，须在 broad except 前透传 format_result 的 Exit(1)。
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f":x: Error: {e}")
-        import traceback
-        traceback.print_exc()
+        # ADR-021 第 1/5 维：JSON 模式 stdout 永远合法 JSON（异常=INTERNAL 错误对象）+ exit 1；
+        # text 模式打印诊断 + traceback（stderr）+ exit 1（原隐式 exit 0 是 bug）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error: {e}", code="INTERNAL"),
+                format="json",
+                command="list",
+            )
+        else:
+            console.print(f":x: Error: {e}")
+            import traceback
+
+            traceback.print_exc()
+            raise typer.Exit(1)
 
 
 @component_app.command()
 def create(
-    component_type: str = typer.Option(..., "--type", "-t", help="Component type (strategy/risk/riskmanager/sizer/selector/analyzer)"),
+    component_type: str = typer.Option(
+        ..., "--type", "-t", help="Component type (strategy/risk/riskmanager/sizer/selector/analyzer)"
+    ),
     name: str = typer.Option(..., "--name", "-n", help="Component name"),
     template: str = typer.Option("basic", "--template", help="Template type (basic)"),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Component description"),
@@ -369,11 +451,12 @@ def create(
             raise typer.Exit(1)
 
         from ginkgo.data.containers import container
+
         file_service = container.file_service()
 
         # 检查重名
         existing = file_service.get_by_name(name, file_type)
-        if existing.success and existing.data.get('count', 0) > 0:
+        if existing.success and existing.data.get("count", 0) > 0:
             console.print(f":x: Component '{name}' already exists")
             raise typer.Exit(1)
 
@@ -384,12 +467,12 @@ def create(
         result = file_service.add(
             name=name,
             file_type=file_type,
-            data=code.encode('utf-8'),
+            data=code.encode("utf-8"),
             description=description or f"{component_type}: {name}",
         )
 
         if result.success:
-            uuid = result.data.get('file_info', {}).get('uuid', 'N/A')
+            uuid = result.data.get("file_info", {}).get("uuid", "N/A")
             console.print(f":white_check_mark: Component '{name}' created successfully")
             console.print(f"  • UUID: {uuid}")
             console.print(f"  • Type: {component_type}")
@@ -447,7 +530,7 @@ def show(
         file_service = container.file_service()
         mfile = _resolve_file(file_service, identifier)
 
-        code = mfile.data.decode('utf-8') if isinstance(mfile.data, bytes) else str(mfile.data)
+        code = mfile.data.decode("utf-8") if isinstance(mfile.data, bytes) else str(mfile.data)
         console.print(f":eyes: Component: {mfile.name} ({mfile.uuid[:8]}...)")
         console.print(f"   Type: {_file_type_name(mfile.type)}")
         console.print(f"   Description: {mfile.desc or 'N/A'}")
@@ -464,7 +547,9 @@ def edit(
     identifier: str = typer.Argument(..., help="Component UUID or name"),
     file: Optional[str] = typer.Option(None, "--file", "-f", help="Import source code from local .py file"),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Update component name"),
-    type: Optional[str] = typer.Option(None, "--type", "-t", help="Update component type (strategy/selector/sizer/risk/analyzer)"),
+    type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Update component type (strategy/selector/sizer/risk/analyzer)"
+    ),
     desc: Optional[str] = typer.Option(None, "--desc", "-d", help="Update component description"),
 ):
     """
@@ -489,22 +574,22 @@ def edit(
 
         # 更新源码
         if file:
-            with open(file, 'r', encoding='utf-8') as f:
-                new_data = f.read().encode('utf-8')
+            with open(file, "r", encoding="utf-8") as f:
+                new_data = f.read().encode("utf-8")
             updates.append(f"source: {file}")
         elif not (name or type or desc):
             # 没有任何参数 → 打开编辑器
-            code = mfile.data.decode('utf-8') if isinstance(mfile.data, bytes) else str(mfile.data)
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as tmp:
+            code = mfile.data.decode("utf-8") if isinstance(mfile.data, bytes) else str(mfile.data)
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as tmp:
                 tmp.write(code)
                 tmp_path = tmp.name
             try:
-                editor = os.environ.get('EDITOR', 'nano')
+                editor = os.environ.get("EDITOR", "nano")
                 subprocess.run([editor, tmp_path])
-                with open(tmp_path, 'r', encoding='utf-8') as f:
+                with open(tmp_path, "r", encoding="utf-8") as f:
                     edited = f.read()
                 if edited != code:
-                    new_data = edited.encode('utf-8')
+                    new_data = edited.encode("utf-8")
                     updates.append("source: editor")
                 else:
                     console.print(":information_source: No changes made")
@@ -522,13 +607,14 @@ def edit(
             updates.append(f"desc: {desc}")
         if type:
             from ginkgo.enums import FILE_TYPES
+
             type_map = {k.lower(): v for k, v in FILE_TYPES.__members__.items()}
-            type_key = type.lower().replace(' ', '_')
+            type_key = type.lower().replace(" ", "_")
             if type_key in type_map:
                 svc_kwargs["file_type"] = type_map[type_key].value
                 updates.append(f"type: {type}")
             else:
-                valid = ', '.join(sorted(type_map.keys()))
+                valid = ", ".join(sorted(type_map.keys()))
                 console.print(f":x: Invalid type '{type}'. Valid: {valid}")
                 raise typer.Exit(1)
         if new_data:
@@ -614,7 +700,9 @@ def priority(
 def list(
     task_id: Optional[str] = typer.Option(None, "--task-id", help=":mag: 按任务ID过滤 (uuid 或 task_id)"),
     portfolio: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio ID"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"),
+    status: Optional[str] = typer.Option(
+        None, "--status", "-s", help="Filter by status (pending/running/completed/failed)"
+    ),
     page: int = typer.Option(0, "--page", "-P", help="Page number"),
     page_size: int = typer.Option(20, "--page-size", help="Items per page"),
 ):
@@ -634,9 +722,7 @@ def list(
         tasks = [result.data]
         total = 1
     else:
-        result = service.list(
-            page=page, page_size=page_size, portfolio_id=portfolio, status=status
-        )
+        result = service.list(page=page, page_size=page_size, portfolio_id=portfolio, status=status)
         if not result.is_success():
             console.print(f":x: {result.error}")
             raise typer.Exit(1)
@@ -664,14 +750,11 @@ def list(
         uuid_str = task.uuid[:12] if hasattr(task, "uuid") else str(task.get("uuid", ""))[:12]
         name = task.name if hasattr(task, "name") else task.get("name", "")
         portfolio_id = (
-            task.portfolio_id[:12] if hasattr(task, "portfolio_id")
-            else str(task.get("portfolio_id", ""))[:12]
+            task.portfolio_id[:12] if hasattr(task, "portfolio_id") else str(task.get("portfolio_id", ""))[:12]
         )
         status_val = task.status if hasattr(task, "status") else task.get("status", "")
         created = str(task.create_at)[:19] if hasattr(task, "create_at") else ""
-        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(
-            status_val, "white"
-        )
+        status_style = {"completed": "green", "running": "yellow", "failed": "red"}.get(status_val, "white")
         table.add_row(
             uuid_str,
             name[:20],
@@ -765,8 +848,7 @@ def get(
 @result_app.command("show")
 def show(
     task_id: Optional[str] = typer.Option(None, "--task-id", "-t", help=":abc: 回测任务ID (统一参数名)"),
-    run_id: Optional[str] = typer.Option(
-        None, "--run-id", "-r", help="⚠ 已弃用, 请改用 --task-id", hidden=True),
+    run_id: Optional[str] = typer.Option(None, "--run-id", "-r", help="⚠ 已弃用, 请改用 --task-id", hidden=True),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Portfolio ID"),
     analyzer: Optional[str] = typer.Option(None, "--analyzer", "-a", help=":bar_chart: Analyzer name"),
     mode: str = typer.Option("table", "--mode", "-m", help=":display: Display mode (table/terminal/plot)"),
@@ -818,14 +900,14 @@ def show(
             "task_id": {"display_name": "Run ID", "style": "cyan"},
             "portfolio_name": {"display_name": "Portfolio", "style": "yellow"},
             "timestamp": {"display_name": "Run Time", "style": "dim"},
-            "record_count": {"display_name": "Records", "style": "blue"}
+            "record_count": {"display_name": "Records", "style": "blue"},
         }
 
         display_dataframe(
             data=df,
             columns_config=columns_config,
             title=":chart_with_upwards_trend: [bold]可用的运行会话[/bold]",
-            console=console
+            console=console,
         )
         console.print("\n[yellow]使用 --task-id 参数查看详细结果[/yellow]")
         console.print("[dim]示例: ginkgo result show --task-id <task_id>[/dim]")
@@ -847,15 +929,15 @@ def show(
 
     # 自动选择 portfolio（如果只有一个）
     if portfolio_id is None:
-        if summary['portfolio_count'] > 1:
+        if summary["portfolio_count"] > 1:
             console.print(f":briefcase: [bold]可用的投资组合 ({summary['portfolio_count']}个):[/bold]")
-            for pid in summary['portfolios']:
+            for pid in summary["portfolios"]:
                 console.print(f"  - {pid}")
             console.print("")
             console.print("[yellow]请使用 --portfolio 参数指定投资组合[/yellow]")
             raise typer.Exit(0)
         else:
-            portfolio_id = summary['portfolios'][0]
+            portfolio_id = summary["portfolios"][0]
             console.print(f":briefcase: [cyan]使用投资组合: {portfolio_id}[/cyan]")
             console.print("")
 
@@ -878,9 +960,7 @@ def show(
 
     # 获取数据
     data_result = result_service.get_analyzer_values_df(
-        task_id=task_id,
-        portfolio_id=portfolio_id,
-        analyzer_name=analyzer
+        task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer
     )
 
     if not data_result.success:
@@ -890,6 +970,7 @@ def show(
 
     # 转换为 DataFrame
     import pandas as pd
+
     result_df = data_result.data if isinstance(data_result.data, pd.DataFrame) else pd.DataFrame()
 
     if result_df is None or result_df.shape[0] == 0:
@@ -900,15 +981,10 @@ def show(
     if mode == "table":
         columns_config = {
             "timestamp": {"display_name": "Date", "style": "cyan"},
-            "value": {"display_name": "Value", "style": "yellow"}
+            "value": {"display_name": "Value", "style": "yellow"},
         }
         title = f":bar_chart: [bold]{analyzer}[/bold] [dim]({task_id})[/dim]"
-        display_dataframe(
-            data=result_df.head(limit),
-            columns_config=columns_config,
-            title=title,
-            console=console
-        )
+        display_dataframe(data=result_df.head(limit), columns_config=columns_config, title=title, console=console)
 
     elif mode == "terminal":
         console.print(f"[dim]显示 {result_df.shape[0]} 条记录[/dim]")
@@ -916,7 +992,7 @@ def show(
             data=result_df.head(limit) if limit > 0 else result_df,
             title=f"{analyzer} [{task_id}]",
             max_points=limit,
-            console=console
+            console=console,
         )
 
     else:
@@ -999,6 +1075,8 @@ def segment_stability(
 
         console.print(table)
         console.print("")
+
+
 get_app.add_typer(component_app, name="component", help=":wrench: Get component information")
 get_app.add_typer(mapping_app, name="mapping", help=":link: Get mapping information")
 get_app.add_typer(result_app, name="result", help=":bar_chart: Get result information")

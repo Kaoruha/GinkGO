@@ -15,6 +15,7 @@ import os
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
+import json
 import uuid
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -134,8 +135,10 @@ class TestResultListParamConflict:
             data={"data": [], "total": 0, "page": 0, "page_size": 20}
         )
         for argv in (["list", "--portfolio", "abc123"], ["list", "--page", "2"]):
-            with patch("ginkgo.data.containers.container") as mock_container, \
-                 warnings.catch_warnings(record=True) as caught:
+            with (
+                patch("ginkgo.data.containers.container") as mock_container,
+                warnings.catch_warnings(record=True) as caught,
+            ):
                 mock_container.backtest_task_service.return_value = mock_service
                 warnings.simplefilter("always")
                 result = cli_runner.invoke(flat_cli.result_app, argv)
@@ -168,6 +171,46 @@ class TestComponentList:
         assert result.exit_code == 0
         assert "TestStrategy" in result.output
         assert '"total"' in result.output
+
+    def test_list_components_json_format_outputs_adr021_contract(self, cli_runner, mock_file_crud):
+        # 模拟 DB 截断：find 返回当前页（1 个），count 返回未截断总数（每类型 7）。
+        mock_file_crud.count.return_value = 7
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.file_crud.return_value = mock_file_crud
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json", "--page-size", "1"])
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        # ADR-021：count = 当前页记录数，metadata.total = 未截断匹配总数（全类型 sum 5×7=35）。
+        assert payload["count"] == 1
+        assert payload["metadata"]["total"] == 35
+        assert payload["metadata"]["limit"] == 1
+        assert payload["metadata"]["offset"] == 0
+        assert payload["data"][0]["name"] == "TestStrategy"
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    def test_list_components_negative_param_json_envelope_exit_2(self, cli_runner, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review E2，ADR-021 dim 1/6）。
+
+        守卫在 CRUD 调用前拦截，无需 mock；JSON 模式 stdout 须为合法 JSON（listing 文本被 format!=json 守卫跳过）。
+        """
+        result = cli_runner.invoke(flat_cli.component_app, ["list", bad_arg, "--format", "json"])
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+
+    def test_list_page_size_pushes_to_file_crud(self, cli_runner, mock_component):
+        """#5009：--page-size 下推 file_crud.find page_size（all 路径，type__in DB 层过滤后分页）。"""
+        crud = MagicMock()
+        crud.find.return_value = [mock_component]
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.file_crud.return_value = crud
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--page-size", "5"])
+        assert result.exit_code == 0
+        _, kwargs = crud.find.call_args
+        assert kwargs.get("page_size") == 5
 
     def test_list_components_filter_by_type(self, cli_runner, mock_component):
         mock_component.type = FILE_TYPES.RISKMANAGER
@@ -215,23 +258,33 @@ class TestComponentCreate:
     """Tests for 'component create' command."""
 
     def test_create_component_with_required_options(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.component_app, [
-            "create", "--type", "strategy", "--name", "MyStrategy", "--class", "MyStrategyClass"
-        ])
+        result = cli_runner.invoke(
+            flat_cli.component_app,
+            ["create", "--type", "strategy", "--name", "MyStrategy", "--class", "MyStrategyClass"],
+        )
         assert result.exit_code == 0
         assert "MyStrategy" in result.output
         assert "created successfully" in result.output
 
     def test_create_component_with_all_options(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.component_app, [
-            "create",
-            "--type", "risk",
-            "--name", "StopLoss",
-            "--class", "StopLossRisk",
-            "--description", "Stop loss risk manager",
-            "--tags", "risk,stop",
-            "--author", "testuser",
-        ])
+        result = cli_runner.invoke(
+            flat_cli.component_app,
+            [
+                "create",
+                "--type",
+                "risk",
+                "--name",
+                "StopLoss",
+                "--class",
+                "StopLossRisk",
+                "--description",
+                "Stop loss risk manager",
+                "--tags",
+                "risk,stop",
+                "--author",
+                "testuser",
+            ],
+        )
         assert result.exit_code == 0
         assert "StopLoss" in result.output
         assert "StopLossRisk" in result.output
@@ -258,11 +311,20 @@ class TestMappingCommands:
         assert "not yet implemented" in result.output
 
     def test_mapping_create_shows_not_implemented(self, cli_runner):
-        result = cli_runner.invoke(flat_cli.mapping_app, [
-            "create",
-            "--from-type", "portfolio", "--from-id", "abc",
-            "--to-type", "engine", "--to-id", "def",
-        ])
+        result = cli_runner.invoke(
+            flat_cli.mapping_app,
+            [
+                "create",
+                "--from-type",
+                "portfolio",
+                "--from-id",
+                "abc",
+                "--to-type",
+                "engine",
+                "--to-id",
+                "def",
+            ],
+        )
         assert result.exit_code == 0
         assert "not yet implemented" in result.output
 
@@ -292,6 +354,7 @@ class TestResultCommands:
         """#4634: result list 应调 backtest_task_service.list 返回任务表格，
         而非 'not yet implemented' 占位。"""
         from ginkgo.data.services.base_service import ServiceResult
+
         task = MagicMock()
         task.uuid = "abc123def456"
         task.name = "TestBacktest"
@@ -314,6 +377,7 @@ class TestResultCommands:
     def test_result_list_with_task_id_calls_get_by_id(self, cli_runner):
         """#4634: --task-id 应复用 result get 查询路径(get_by_id), 单条展示。"""
         from ginkgo.data.services.base_service import ServiceResult
+
         task = MagicMock()
         task.uuid = "task-uuid-12345"
         task.name = "SingleBT"
@@ -324,9 +388,7 @@ class TestResultCommands:
         mock_service.get_by_id.return_value = ServiceResult.success(data=task)
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.backtest_task_service.return_value = mock_service
-            result = cli_runner.invoke(
-                flat_cli.result_app, ["list", "--task-id", "task-uuid-12345"]
-            )
+            result = cli_runner.invoke(flat_cli.result_app, ["list", "--task-id", "task-uuid-12345"])
         assert result.exit_code == 0, result.output
         assert "SingleBT" in result.output
         mock_service.get_by_id.assert_called_once_with("task-uuid-12345")
@@ -335,6 +397,7 @@ class TestResultCommands:
     def test_result_list_empty_shows_no_results(self, cli_runner):
         """#4634: 空结果应优雅提示, 非 crash。"""
         from ginkgo.data.services.base_service import ServiceResult
+
         mock_service = MagicMock()
         mock_service.list.return_value = ServiceResult.success(
             data={"data": [], "total": 0, "page": 0, "page_size": 20}
@@ -348,6 +411,7 @@ class TestResultCommands:
     def test_result_list_service_error_exits_nonzero(self, cli_runner):
         """#4634: service 失败应 exit 1 + 显示错误, 非 crash。"""
         from ginkgo.data.services.base_service import ServiceResult
+
         mock_service = MagicMock()
         mock_service.list.return_value = ServiceResult.error("DB down")
         with patch("ginkgo.data.containers.container") as mock_container:
@@ -362,11 +426,19 @@ class TestResultCommands:
     def test_result_show_no_task_id_lists_runs(self, cli_runner):
         """result show without --run-id should list available runs."""
         from ginkgo.data.services.base_service import ServiceResult
+
         mock_service = MagicMock()
-        mock_service.list_runs.return_value = ServiceResult.success(data=[
-            {"engine_name": "test_engine", "task_id": "run-1",
-             "portfolio_name": "p1", "timestamp": "2025-01-01", "record_count": 10}
-        ])
+        mock_service.list_runs.return_value = ServiceResult.success(
+            data=[
+                {
+                    "engine_name": "test_engine",
+                    "task_id": "run-1",
+                    "portfolio_name": "p1",
+                    "timestamp": "2025-01-01",
+                    "record_count": 10,
+                }
+            ]
+        )
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.result_service.return_value = mock_service
             result = cli_runner.invoke(flat_cli.result_app, ["show"])
@@ -386,10 +458,12 @@ class TestGetEngineStatusName:
 
     def test_known_status_running(self):
         from ginkgo.enums import ENGINESTATUS_TYPES
+
         assert flat_cli._get_engine_status_name(ENGINESTATUS_TYPES.RUNNING.value) == "Running"
 
     def test_known_status_idle(self):
         from ginkgo.enums import ENGINESTATUS_TYPES
+
         assert flat_cli._get_engine_status_name(ENGINESTATUS_TYPES.IDLE.value) == "Idle"
 
     def test_unknown_status(self):
@@ -414,8 +488,21 @@ class TestExceptionHandling:
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.file_crud.return_value = crud
             result = cli_runner.invoke(flat_cli.component_app, ["list"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1  # ADR-021 第 6 维：异常 → exit 1（原 exit 0 是 false-success）
         assert "Error" in result.output
+
+    def test_component_list_exception_json_envelope(self, cli_runner):
+        """ADR-021 第 1/5/6 维：--format json + 异常 → stdout 合法 JSON INTERNAL 错误 envelope + exit 1。"""
+        crud = MagicMock()
+        crud.find.side_effect = Exception("DB connection error")
+        with patch("ginkgo.data.containers.container") as mock_container:
+            mock_container.file_crud.return_value = crud
+            result = cli_runner.invoke(flat_cli.component_app, ["list", "--format", "json"])
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "DB connection error" in payload["error"]["message"]
 
 
 # ============================================================================
@@ -442,9 +529,13 @@ class TestResultGetRealData:
         from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
 
         order = BacktestOrderItem(
-            code="600000.SH", direction="1", status="4",
-            volume=100, transaction_price="12.34",
-            transaction_volume=100, timestamp="2025-06-03 09:30",
+            code="600000.SH",
+            direction="1",
+            status="4",
+            volume=100,
+            transaction_price="12.34",
+            transaction_volume=100,
+            timestamp="2025-06-03 09:30",
         )
         record = MagicMock(name="bt-record")
         record.name = "my-bt"
@@ -452,8 +543,7 @@ class TestResultGetRealData:
 
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.backtest_task_service.return_value = task_svc
-            result = cli_runner.invoke(
-                flat_cli.result_app, ["get", "task-123", "--trades"])
+            result = cli_runner.invoke(flat_cli.result_app, ["get", "task-123", "--trades"])
 
         assert result.exit_code == 0, result.output
         # 参数透传为 task_id
@@ -495,13 +585,19 @@ class TestResultShowTaskIdUnify:
         from ginkgo.data.services.base_service import ServiceResult
         import pandas as pd
 
-        summary = {"task_id": task_id_value, "engine_id": "e1", "total_records": 1,
-                   "portfolio_count": 1, "portfolios": ["p1"]}
+        summary = {
+            "task_id": task_id_value,
+            "engine_id": "e1",
+            "total_records": 1,
+            "portfolio_count": 1,
+            "portfolios": ["p1"],
+        }
         mock_result_svc = MagicMock()
         mock_result_svc.get_run_summary.return_value = ServiceResult.success(data=summary)
         mock_result_svc.get_portfolio_analyzers.return_value = ServiceResult.success(data=["net_value"])
         mock_result_svc.get_analyzer_values_df.return_value = ServiceResult.success(
-            data=pd.DataFrame([{"timestamp": "2025-01-01", "value": 1.05}]))
+            data=pd.DataFrame([{"timestamp": "2025-01-01", "value": 1.05}])
+        )
         return mock_result_svc
 
     def test_show_help_exposes_task_id(self, cli_runner):
@@ -543,6 +639,7 @@ class TestResultGetTaskIdOption:
 
     def _task_svc(self, record=None):
         from ginkgo.data.services.base_service import ServiceResult
+
         svc = MagicMock()
         svc.get_by_id.return_value = ServiceResult(success=True, data=record)
         return svc

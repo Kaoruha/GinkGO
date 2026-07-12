@@ -62,7 +62,7 @@ class OrderService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -94,6 +94,7 @@ class OrderService(BaseService):
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
         task_id: Optional[str] = None,
+        page: int = None,
         page_size: int = 50,
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
@@ -101,6 +102,9 @@ class OrderService(BaseService):
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
         不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
         ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+
+        #5009：page（0-based）/page_size 分页；MOrder 为 MySQL，order_by=create_at
+        desc 保证分页确定性。
         """
         try:
             filters = self._build_order_filters(
@@ -108,7 +112,10 @@ class OrderService(BaseService):
             )
             model_list = self._crud_repo.find(
                 filters=filters,
-                page_size=page_size if page_size > 0 else None,
+                page=page,
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                order_by="create_at",
+                desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -118,6 +125,23 @@ class OrderService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"查询订单(df)失败: {str(e)}")
             return ServiceResult.error(f"查询订单(df)失败: {str(e)}")
+
+    def count_orders(
+        self,
+        portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> ServiceResult:
+        """统计匹配订单总数（#5009：metadata.total 真实总数，非 len(df)）。"""
+        try:
+            filters = self._build_order_filters(
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
+            )
+            count = self._crud_repo.count(filters=filters)
+            return ServiceResult.success({"count": count}, f"Successfully counted orders: {count}")
+        except Exception as e:
+            GLOG.ERROR(f"统计订单失败: {str(e)}")
+            return ServiceResult.error(f"统计订单失败: {str(e)}")
 
     def get_orders_by_portfolio(
         self,

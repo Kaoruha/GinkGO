@@ -55,8 +55,8 @@ class TestBaseFeederConstruction:
         feeder = BaseFeeder(name="my_feeder", bar_service=_mock_bar_service())
         assert feeder.name == "my_feeder"
 
-    def test_backtest_base_inheritance(self):
-        """测试BacktestBase继承"""
+    def test_base_mixin_composition(self):
+        """测试基类组合（Base + NamedMixin）"""
         feeder = BaseFeeder(bar_service=_mock_bar_service())
         assert getattr(feeder, 'uuid', None) is not None
         assert callable(getattr(feeder, 'set_name', None))

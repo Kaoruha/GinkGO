@@ -366,12 +366,16 @@ class DeploymentService(BaseService):
         }
         return result
 
-    def list_deployments(self, portfolio_id: str = None) -> ServiceResult:
-        """列出部署记录"""
+    def list_deployments(self, portfolio_id: str = None, page: int = None, page_size: int = None) -> ServiceResult:
+        """列出部署记录（#5009：page/page_size 分页，portfolio 过滤下推 find）"""
+        filters = {}
         if portfolio_id:
-            records = self._deployment_crud.get_by_source_portfolio(portfolio_id)
-        else:
-            records = self._deployment_crud.find()
+            filters["source_portfolio_id"] = portfolio_id
+
+        records = self._deployment_crud.find(
+            filters=filters, page=page, page_size=page_size,
+            order_by="create_at", desc_order=True,
+        )
 
         if not records:
             return ServiceResult(success=True, data=[])
@@ -379,6 +383,14 @@ class DeploymentService(BaseService):
         result = ServiceResult(success=True)
         result.data = [self._deployment_to_dict(r) for r in records]
         return result
+
+    def count_deployments(self, portfolio_id: str = None) -> ServiceResult:
+        """统计部署记录总数（#5009：metadata.total 真实总数，非 len(data)）"""
+        filters = {}
+        if portfolio_id:
+            filters["source_portfolio_id"] = portfolio_id
+        count = self._deployment_crud.count(filters=filters)
+        return ServiceResult.success({"count": count}, f"Successfully counted deployments: {count}")
 
     # #3867: API 层不再直调 CRUD，通过 Service 封装
 

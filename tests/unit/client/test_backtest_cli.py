@@ -1,4 +1,5 @@
 # #5329 backtest cat 输出提示 result show 用法
+import json
 import sys
 from pathlib import Path
 
@@ -80,6 +81,28 @@ class TestBacktestListProgressFormat:
     """#5323 list 命令 progress 格式化应为 N% 而非 N00%"""
 
     @patch("ginkgo.data.containers.container")
+    def test_list_json_format_outputs_adr021_contract(self, mock_container):
+        """--format json 输出 list 契约，含 count/metadata。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is True
+        assert payload["count"] == 1
+        assert payload["metadata"] == {"total": 1, "limit": 1, "offset": 0}
+        assert payload["data"][0]["uuid"] == "abc123456789"
+
+    @patch("ginkgo.data.containers.container")
     def test_list_shows_correct_progress_percentage(self, mock_container):
         """#5323 progress=50 应显示 50% 而非 5000%"""
         from ginkgo.client.backtest_cli import app
@@ -129,6 +152,55 @@ class TestBacktestListProgressFormat:
 
 class TestBacktestCatNoTradesWarning:
     """#5322 completed 回测无交易时应显示警告"""
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_not_found_json_format_outputs_not_found_contract(self, mock_container):
+        """--format json 下 cat 未找到输出 NOT_FOUND 错误对象。"""
+        from ginkgo.client.backtest_cli import app
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = False
+        result.error = "Not found"
+        fuzzy_result = MagicMock()
+        fuzzy_result.is_success.return_value = True
+        fuzzy_result.data = []
+        mock_service.get_by_id.return_value = result
+        mock_service.fuzzy_search.return_value = fuzzy_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "missing-task", "--format", "json"])
+
+        assert invoke_result.exit_code == 1
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"] == {"code": "NOT_FOUND", "message": "Backtest task not found: missing-task"}
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_fuzzy_multi_match_json_envelope(self, mock_container):
+        """ADR-021 第 1/5 维：--format json + fuzzy 多匹配 → stdout 合法 JSON VALIDATION_ERROR envelope + exit 1。"""
+        from ginkgo.client.backtest_cli import app
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = False
+        result.error = "Not found"
+        t1 = MagicMock(uuid="aaaa111122223333", name="bt-a", status="completed", create_at=None)
+        t2 = MagicMock(uuid="bbbb555566667777", name="bt-b", status="running", create_at=None)
+        fuzzy_result = MagicMock()
+        fuzzy_result.is_success.return_value = True
+        fuzzy_result.data = [t1, t2]
+        mock_service.get_by_id.return_value = result
+        mock_service.fuzzy_search.return_value = fuzzy_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc", "--format", "json"])
+
+        assert invoke_result.exit_code == 1
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "VALIDATION_ERROR"
+        assert "Multiple tasks match 'abc'" in payload["error"]["message"]
 
     @patch("ginkgo.data.containers.container")
     def test_cat_shows_no_trades_warning_when_zero_stats(self, mock_container):
@@ -641,3 +713,157 @@ class TestBacktestRunTaskPreflightWarningDisplay:
         assert result_arg.data.get("preflight_warning") == full_warning, (
             "传给 helper 的 result 应携带全文 preflight_warning"
         )
+
+
+class TestBacktestCatJsonResultData:
+    """#6580 backtest cat --format json 须输出完整回测结果数据
+
+    text 路径渲染的 final_portfolio_value/total_pnl/max_drawdown/sharpe_ratio
+    等核心指标在 JSON 路径缺失（PR #6652 review 打回）。_task_record 补全字段，
+    让机读消费者在 JSON 路径拿到与 text 等量的结构化回测结果（ADR-021 初衷）。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    def test_cat_json_includes_full_result_data(self, mock_container):
+        """--format json 成功路径输出含 metrics + statistics + 执行信息。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        # 回测结果 metrics（text 路径 Results panel）
+        task.final_portfolio_value = 125000.0
+        task.total_pnl = 25000.0
+        task.max_drawdown = -0.12
+        task.sharpe_ratio = 1.85
+        task.annual_return = 0.23
+        task.win_rate = 0.62
+        # 统计（text 路径 Statistics panel）
+        task.total_signals = 42
+        task.total_orders = 38
+        task.total_positions = 15
+        task.total_events = 500
+        # 执行信息
+        task.start_time = "2025-01-01T10:00:00"
+        task.end_time = "2025-01-01T10:05:00"
+        task.duration_seconds = 300
+        task.error_message = None
+
+        mock_service = MagicMock()
+        result = MagicMock()
+        result.is_success.return_value = True
+        result.data = task
+        mock_service.get_by_id.return_value = result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["cat", "abc123456789", "--format", "json"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is True
+        record = payload["data"]
+        # Results metrics（reviewer 点名的核心指标）
+        assert record["final_portfolio_value"] == 125000.0
+        assert record["total_pnl"] == 25000.0
+        assert record["max_drawdown"] == -0.12
+        assert record["sharpe_ratio"] == 1.85
+        assert record["annual_return"] == 0.23
+        assert record["win_rate"] == 0.62
+        # Statistics
+        assert record["total_signals"] == 42
+        assert record["total_orders"] == 38
+        assert record["total_positions"] == 15
+        assert record["total_events"] == 500
+        # 执行信息
+        assert record["start_time"] == "2025-01-01T10:00:00"
+        assert record["end_time"] == "2025-01-01T10:05:00"
+        assert record["duration_seconds"] == 300
+        assert record["error_message"] is None
+
+
+class TestBacktestListJsonResultMetrics:
+    """#6580 list --format json 也含回测结果 metrics
+
+    _task_record 被 list/cat 共用，扩展后 list 每个 record 同步带上 metrics，
+    回测列表可机读每个任务收益/回撤（ADR-021 机读收益）。
+    """
+
+    @patch("ginkgo.data.containers.container")
+    def test_list_json_includes_metrics(self, mock_container):
+        """--format json list 每个 record 含 final_portfolio_value/sharpe_ratio 等。"""
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        task.status = "completed"
+        task.final_portfolio_value = 125000.0
+        task.total_pnl = 25000.0
+        task.max_drawdown = -0.12
+        task.sharpe_ratio = 1.85
+
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        assert invoke_result.exit_code == 0
+        payload = json.loads(invoke_result.output)
+        record = payload["data"][0]
+        assert record["final_portfolio_value"] == 125000.0
+        assert record["sharpe_ratio"] == 1.85
+        assert record["total_pnl"] == 25000.0
+        assert record["max_drawdown"] == -0.12
+
+
+class TestBacktestListParamGuardAndEnvelope:
+    """#6652 review R3：backtest list 参数守卫 + JSON 异常 envelope。
+
+    补齐其他 list 命令（portfolio/engine/record/deploy/data）已有的两道契约：
+    ① page<0/page_size<0 → BAD_PARAMS + exit 2；② 整段包 try，JSON 模式 stdout 永远合法 JSON。
+    """
+
+    @pytest.mark.parametrize("bad_arg", ["--page=-1", "--page-size=-1"])
+    @patch("ginkgo.data.containers.container")
+    def test_list_negative_param_json_envelope_exit_2(self, mock_container, bad_arg):
+        """--page/--page-size <0 + --format json → BAD_PARAMS envelope + exit 2（#6652 review R3-issue1，ADR-021 dim 1/6）。
+
+        守卫在 service 调用前拦截，无需 mock service 调用。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        invoke_result = runner.invoke(app, ["list", bad_arg, "--format", "json"])
+
+        assert invoke_result.exit_code == 2, invoke_result.output
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "BAD_PARAMS"
+        # 守卫前置：service.list 不应被调用
+        mock_container.backtest_task_service.assert_not_called()
+
+    @patch("ginkgo.client.backtest_cli._task_record", side_effect=RuntimeError("enrichment boom"))
+    @patch("ginkgo.data.containers.container")
+    def test_list_json_enrichment_exception_internal_envelope(self, mock_container, _mock_record):
+        """_task_record 逐条 enrichment 异常 + --format json → INTERNAL envelope + exit 1，非裸 traceback（#6652 review R3-issue2，ADR-021 dim 1）。
+
+        整段包 try 后，enrichment 异常走 INTERNAL 错误对象，stdout 保持合法 JSON。
+        """
+        from ginkgo.client.backtest_cli import app
+
+        task = _mock_task()
+        mock_service = MagicMock()
+        list_result = MagicMock()
+        list_result.is_success.return_value = True
+        list_result.data = {"data": [task], "total": 1}
+        mock_service.list.return_value = list_result
+        mock_container.backtest_task_service.return_value = mock_service
+
+        invoke_result = runner.invoke(app, ["list", "--format", "json", "--limit", "1"])
+
+        # JSON 模式 stdout 永远合法 JSON：INTERNAL envelope，非裸 traceback
+        assert invoke_result.exit_code == 1, invoke_result.output
+        payload = json.loads(invoke_result.output)
+        assert payload["success"] is False
+        assert payload["error"]["code"] == "INTERNAL"
+        assert "enrichment boom" in payload["error"]["message"]

@@ -59,6 +59,23 @@ class TestGetSignalsDfFilters:
         _, kwargs = mock_crud.find.call_args
         assert "task_id" not in kwargs["filters"]
 
+    def test_order_by_timestamp_not_create_at(self, signal_svc, mock_crud):
+        """order_by=timestamp（MSignal 是 ClickHouse 模型无 create_at 字段）。
+
+        回归：曾误用 create_at，base_crud._do_find 的 hasattr 守卫静默丢弃，
+        致 ClickHouse MergeTree 分页顺序未定（ADR-021 第 7 维要求分页确定性）。
+        对齐同族 analyzer_service/result_service 的 order_by=timestamp。
+        """
+        model_list = MagicMock()
+        model_list.to_dataframe.return_value = pd.DataFrame()
+        mock_crud.find.return_value = model_list
+
+        signal_svc.get_signals_df(engine_id="e1")
+
+        _, kwargs = mock_crud.find.call_args
+        assert kwargs["order_by"] == "timestamp"
+        assert kwargs["desc_order"] is True
+
 
 @pytest.mark.unit
 class TestGetSignalsByPortfolioDateFilter:

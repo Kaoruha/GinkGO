@@ -12,6 +12,9 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
+from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.data.services.base_service import ServiceResult
+
 app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
@@ -64,19 +67,6 @@ class SyncStats:
         return (
             f"{type_name} sync completed. " f"Success: {self.success}, Skipped: {self.skipped}, Errors: {self.errors}"
         )
-
-
-def _emit_json_records(records: list, *, total: int, limit: Optional[int], order: Optional[str] = None) -> None:
-    from ginkgo.client.cli_utils import format_result
-    from ginkgo.data.services.base_service import ServiceResult
-
-    result = ServiceResult.success(data=records)
-    result.set_metadata("total", total)
-    result.set_metadata("limit", limit)
-    result.set_metadata("offset", 0)
-    if order:
-        result.set_metadata("order", order)
-    format_result(result, format="json", command="get")
 
 
 @app.command()
@@ -145,7 +135,9 @@ def get(
 
                 # 应用模糊过滤
                 if filter:
-                    console.print(f":mag: Applying filter: '{filter}'")
+                    # ADR-021 第1维：json 模式隔离 filter 诊断 print，stdout 保持纯 JSON（jq/json.loads 不崩）
+                    if format != "json":
+                        console.print(f":mag: Applying filter: '{filter}'")
                     filter_lower = filter.lower()
 
                     # 创建过滤条件
@@ -166,10 +158,19 @@ def get(
                     df = df[mask]
 
                     if df.empty:
+                        if format == "json":
+                            # ADR-021 第9维：空结果 exit 0 + envelope，机读消费者拿得到结构
+                            format_result(
+                                build_list_result([], total=0, limit=limit, order="head"),
+                                format="json",
+                                command="get",
+                            )
+                            return
                         console.print(":memo: No matching records found for the filter.")
                         return
 
-                    console.print(f":white_check_mark: Filter matched {len(df)} records")
+                    if format != "json":
+                        console.print(f":white_check_mark: Filter matched {len(df)} records")
 
                 # 配置列显示
                 columns_config = {
@@ -219,12 +220,13 @@ def get(
 
                 if format == "json":
                     json_df = formatted_df.head(limit) if limit is not None else formatted_df
-                    _emit_json_records(
+                    _list_result = build_list_result(
                         json_df.to_dict("records"),
                         total=total_records,
                         limit=limit,
                         order="head",
                     )
+                    format_result(_list_result, format="json", command="get")
                     return
 
                 # 交互式翻页仅在 TTY 下启用；非 TTY（CI/脚本/管道）退化为 limit 输出（#5280）
@@ -362,12 +364,27 @@ def get(
                     console.print(table)
                     console.print(f"\n:information_source: [dim]总记录数: {len(formatted_df)}[/dim]")
             else:
-                console.print(f":x: Failed to get stock info: {result.error}")
+                # ADR-021 第 5/6 维：service 失败时 JSON 模式发错误 envelope + exit 1；
+                # text 模式诊断 + exit 1（原隐式 exit 0 是 false-success，违反第 6 维）。
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get stock info: {result.error}")
+                    raise typer.Exit(1)
 
         elif data_type in ["day", "bars"]:
             if not code:
-                console.print(":x: Stock code required for bar data")
-                raise typer.Exit(1)
+                # ADR-021 第 5/6 维：JSON 模式发 envelope（code=None → exit 1，与 text 一致，
+                # 不升级为 BAD_PARAMS/exit 2，避免跨模式 exit 漂移破坏既有 exit-1 契约）。
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for bar data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for bar data")
+                    raise typer.Exit(1)
 
             # #5920: 前缀 SH600000 → 后缀 600000.SH（DB 存后缀），与策略/回测组件格式对齐
             code = _normalize_stock_code(code)
@@ -385,25 +402,39 @@ def get(
             result = bar_service.get_bars_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
-                console.print(f":x: Failed to get bar data: {result.error}")
-                raise typer.Exit(1)
+                # ADR-021 第 5/6 维：service 失败，JSON 模式发错误 envelope + exit 1。
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get bar data: {result.error}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo 对称），
+                    # 机读消费者拿得到结构，不能纯文本零 envelope
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="tail"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No bar data found for {code} ({start}-{end})")
                 return
 
             if format == "json":
                 json_df = df.sort_values("timestamp").tail(limit) if limit is not None else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=limit,
                     order="tail",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             display_cols = ["code", "timestamp", "open", "high", "low", "close", "volume", "amount"]
@@ -427,8 +458,15 @@ def get(
 
         elif data_type == "tick":
             if not code:
-                console.print(":x: Stock code required for tick data")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for tick data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for tick data")
+                    raise typer.Exit(1)
 
             from datetime import datetime, timedelta
 
@@ -444,14 +482,25 @@ def get(
             result = tick_service.get_ticks_df(code=code, start_date=start, end_date=end)
 
             if not result.success:
-                console.print(f":x: Failed to get tick data: {result.error}")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get tick data: {result.error}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo/day 对称）
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="tail"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No tick data found for {code} ({start}-{end})")
                 return
 
@@ -461,12 +510,13 @@ def get(
                 # 解耦——机读场景需更多样本，1000 兼顾样本量与 stdout 友好）。
                 json_limit = limit if limit is not None else 1000
                 json_df = df.tail(json_limit) if len(df) > json_limit else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=json_limit,
                     order="tail",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             # ADR-021 第 2/3 维：tick = 分笔时序，--limit 取最新 N（tail）
@@ -487,8 +537,15 @@ def get(
 
         elif data_type == "adjustfactor":
             if not code:
-                console.print(":x: Stock code required for adjustfactor data")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(
+                        ServiceResult.failure(message="Stock code required for adjustfactor data"),
+                        format="json",
+                        command="get",
+                    )
+                else:
+                    console.print(":x: Stock code required for adjustfactor data")
+                    raise typer.Exit(1)
 
             # 默认时间范围（对齐 day 分支：end 缺省补 now，start 缺省补 now-365d）
             from datetime import datetime, timedelta
@@ -509,25 +566,37 @@ def get(
             result = adjustfactor_service.get_adjustfactors_df(code=code, start_date=start_dt, end_date=end_dt)
 
             if not result.success:
-                console.print(f":x: Failed to get adjustfactor data: {result.message}")
-                raise typer.Exit(1)
+                if format == "json":
+                    format_result(result, format="json", command="get")
+                else:
+                    console.print(f":x: Failed to get adjustfactor data: {result.message}")
+                    raise typer.Exit(1)
 
             import pandas as pd
 
             df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if df.empty:
+                if format == "json":
+                    # ADR-021 第 9 维：空结果 exit 0 + envelope（与 stockinfo/day/tick 对称）
+                    format_result(
+                        build_list_result([], total=0, limit=limit, order="head"),
+                        format="json",
+                        command="get",
+                    )
+                    return
                 console.print(f":information: No adjustfactor data found for {code} ({start}-{end})")
                 return
 
             if format == "json":
                 json_df = df.sort_values("timestamp").head(limit) if limit is not None else df
-                _emit_json_records(
+                _list_result = build_list_result(
                     json_df.to_dict("records"),
                     total=len(df),
                     limit=limit,
                     order="head",
                 )
+                format_result(_list_result, format="json", command="get")
                 return
 
             # Raw JSON 输出（对齐 stockinfo 分支）
@@ -580,11 +649,13 @@ def get(
                     {
                         "name": name,
                         "type": cls.__name__,
-                        "configured": "yes" if token is None or token else "no",
+                        # bool 对齐既有 JSON 字段先例（notifier check_kafka_health "configured": False）
+                        "configured": token is None or bool(token),
                     }
                     for name, cls, token in configured_sources
                 ]
-                _emit_json_records(records, total=len(records), limit=None)
+                _list_result = build_list_result(records, total=len(records), limit=None)
+                format_result(_list_result, format="json", command="get")
                 return
 
             table = Table(title=":plug: Configured Data Sources", show_lines=False)
@@ -612,22 +683,97 @@ def get(
             console.print(":information: Data status check not yet implemented. Use 'ginkgo data status'.")
 
         else:
-            console.print(f":x: Unknown data type: {data_type}")
-            raise typer.Exit(1)
+            if format == "json":
+                format_result(
+                    ServiceResult.failure(message=f"Unknown data type: {data_type}"),
+                    format="json",
+                    command="get",
+                )
+            else:
+                console.print(f":x: Unknown data type: {data_type}")
+                raise typer.Exit(1)
 
+    except typer.Exit:
+        # ADR-021 第 6 维：typer.Exit 是 Exception 子类，须在 except Exception 前透传，
+        # 否则上面的 raise typer.Exit(N) 被吞成 exit 1 + "Error getting data" 污染。
+        raise
     except Exception as e:
-        console.print(f":x: Error getting data: {e}")
-        raise typer.Exit(1)
+        # 兜底：service 之外的意外异常（如容器装配失败）。
+        if format == "json":
+            format_result(
+                ServiceResult.failure(message=f"Error getting data: {e}", code="INTERNAL"),
+                format="json",
+                command="get",
+            )
+        else:
+            console.print(f":x: Error getting data: {e}")
+            raise typer.Exit(1)
 
 
 @app.command()
-def status():
+def status(
+    sync_type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by sync type"),
+    limit: int = typer.Option(10, "--limit", "-l", min=1, max=100, help="Recent records to show"),
+):
     """
     :gear: Show data synchronization status.
     """
-    console.print(":gear: Data synchronization status:")
-    # TODO: Implement data status check
-    console.print(":information: Data status check not yet implemented")
+    try:
+        from ginkgo.data.containers import container
+
+        sync_record_service = container.data_sync_record_service()
+        result = sync_record_service.get_history(sync_type=sync_type, page=0, page_size=limit)
+        if not result or not result.is_success():
+            error_msg = result.error if result and hasattr(result, "error") else "unknown error"
+            console.print(f":x: Failed to load data sync status: {error_msg}")
+            raise typer.Exit(1)
+
+        payload = result.data or {}
+        items = payload.get("items", []) if isinstance(payload, dict) else []
+        total = payload.get("total", len(items)) if isinstance(payload, dict) else len(items)
+
+        console.print(":gear: Data synchronization status:")
+        if not items:
+            console.print(":information: No sync records found")
+            return
+
+        counts = {}
+        for item in items:
+            status_value = str(item.get("status") or "unknown")
+            counts[status_value] = counts.get(status_value, 0) + 1
+        summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+        console.print(f":information: Showing {len(items)} of {total} sync record(s); {summary}")
+
+        table = Table(title="Recent Data Sync Records", show_lines=False)
+        table.add_column("Type", style="cyan", no_wrap=True)
+        table.add_column("Code", style="green", no_wrap=True)
+        table.add_column("Status", style="yellow", no_wrap=True)
+        table.add_column("Processed", justify="right")
+        table.add_column("Added", justify="right")
+        table.add_column("Failed", justify="right")
+        table.add_column("Completed", style="dim", no_wrap=True)
+        table.add_column("Strategy", style="dim", no_wrap=True)
+
+        for item in items:
+            completed_at = item.get("completed_at") or item.get("started_at") or ""
+            if isinstance(completed_at, str) and "T" in completed_at:
+                completed_at = completed_at.replace("T", " ")[:19]
+            table.add_row(
+                str(item.get("sync_type") or ""),
+                str(item.get("code") or ""),
+                str(item.get("status") or ""),
+                str(item.get("records_processed") or 0),
+                str(item.get("records_added") or 0),
+                str(item.get("records_failed") or 0),
+                str(completed_at),
+                str(item.get("sync_strategy") or ""),
+            )
+        console.print(table)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Error loading data sync status: {e}")
+        raise typer.Exit(1)
 
 
 def _is_valid_stock_code(code: str) -> bool:

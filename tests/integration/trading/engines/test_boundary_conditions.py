@@ -2,7 +2,7 @@
 边界测试 - 覆盖本次变更的边界条件
 
 测试范围:
-1. base_strategy: name=name 传递给 BacktestBase
+1. base_strategy: name=name 正确初始化
 2. time_controlled_engine: LIVE 模式走 else 分支
 3. sim_broker: _get_field 额外边界
 4. event_engine: _processed_events_count 与 _event_stats 同步
@@ -19,7 +19,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ginkgo.trading.strategies.strategy_base import BaseStrategy
-from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.trading.engines.event_engine import EventEngine
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
@@ -27,21 +26,20 @@ from ginkgo.enums import EXECUTION_MODE, EVENT_TYPES, DIRECTION_TYPES, ORDER_TYP
 
 
 # ============================================================
-# 1. BaseStrategy: name=name 传递给 BacktestBase
+# 1. BaseStrategy: name=name 正确初始化（原 BacktestBase 职责已收敛至 Mixin）
 # ============================================================
 class TestBaseStrategyNamePassThrough:
-    """验证 name 参数正确传递到 BacktestBase"""
+    """验证 name 参数正确设置到 strategy"""
 
-    def test_name_propagates_to_backtest_base(self):
-        """name 应传递给 BacktestBase.__init__"""
+    def test_name_propagates_to_strategy(self):
+        """name 应正确传递到 BaseStrategy.__init__"""
         strategy = BaseStrategy(name="MyStrategy")
         assert strategy._name == "MyStrategy"
         assert strategy.name == "MyStrategy"
 
-    def test_backtest_base_name_matches_strategy_name(self):
-        """BacktestBase.name 属性应与 BaseStrategy.name 一致"""
+    def test_strategy_name_attribute(self):
+        """strategy.name 属性应与构造参数一致"""
         strategy = BaseStrategy(name="TestAlpha")
-        assert isinstance(strategy, BacktestBase)
         assert strategy.name == "TestAlpha"
 
     def test_default_name(self):

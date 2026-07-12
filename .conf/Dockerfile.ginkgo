@@ -40,8 +40,8 @@ RUN uv pip install --system . \
 COPY main.py ./
 COPY src/ ./src/
 
-# 复制配置文件（部分 worker 需要）
-COPY .conf/task_timer.yml ./src/ginkgo/config/task_timer.yml
+# 非 root 用户（ginkgo）运行：COPY 产生的 root 属主文件归还给 ginkgo（master #6651 加固）
+# task_timer.yml 不再 bake 进镜像，由 worker-common 的 ~/.ginkgo volume 提供（PR 统一图式）
 RUN chown -R ginkgo:ginkgo /ginkgo /var/log/ginkgo /home/ginkgo
 
 # 设置环境变量

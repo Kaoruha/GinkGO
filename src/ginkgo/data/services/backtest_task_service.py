@@ -180,12 +180,14 @@ class BacktestTaskService(BaseService):
             ServiceResult: 列表结果
         """
         try:
+            # None 守卫：0=全量下推 None（与 signal/engine/portfolio service 一致），
+            # 裸 page_size=0 触发 BaseCRUD.find LIMIT 0 返空，破坏 ADR-021 "0=all" 契约（#6652 review R4）。
             result = self._crud_repo.get_tasks_page_filtered(
                 engine_id=engine_id,
                 portfolio_id=portfolio_id,
                 status=status,
                 page=page,
-                page_size=page_size
+                page_size=page_size if page_size and page_size > 0 else None,
             )
 
             # 获取总数（应用相同的筛选条件）

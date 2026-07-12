@@ -34,6 +34,7 @@
 | ADR-019 | [Feeder 价格发布统一 Seam（publish_price_update）](ADR-019-feeder-publish-seam.md) | Accepted | 2026-06-29 |
 | ADR-020 | [组件参数纯位置装配（移除 name-skip + 打分启发式）](ADR-020-param-assembly-positional.md) | Accepted | 2026-07-02 |
 | ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Accepted | 2026-07-04 |
+| ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 
 ## 如何新增 / 修订
 
