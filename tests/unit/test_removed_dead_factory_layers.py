@@ -72,3 +72,42 @@ def test_list_analyzers_no_longer_imports_registry():
     assert "AnalyzerRegistry()" not in source, (
         "backtest.py 仍实例化已删的 AnalyzerRegistry —— 应清理死 try 块"
     )
+
+
+# ---------- ComponentFactoryService 死层已删 ----------
+
+@pytest.mark.unit
+def test_component_factory_service_module_removed():
+    """ComponentFactoryService(213L)已删:业务代码零实例化零调用。
+
+    唯一使用方是 test_component_factory_service_smoke.py(纯 MagicMock 合成
+    可调用性测试,无真实业务断言),随 CFS 一并删除。
+    """
+    assert importlib.util.find_spec(
+        "ginkgo.trading.services.component_factory_service"
+    ) is None
+
+
+@pytest.mark.unit
+def test_component_factory_service_smoke_removed():
+    """测死代码的合成 smoke 随 CFS 一并删除(测的对象已不存在)。"""
+    from pathlib import Path
+
+    smoke = (
+        Path(__file__).resolve().parents[2]
+        / "tests" / "unit" / "services" / "smoke"
+        / "test_component_factory_service_smoke.py"
+    )
+    assert not smoke.exists()
+
+
+@pytest.mark.unit
+def test_services_package_intact_after_factory_removal():
+    """正向守卫:删 CFS 后 services 包仍导出活跃服务(防过度删除)。"""
+    from ginkgo.trading.services import (
+        EngineAssemblyService,
+        PortfolioManagementService,
+    )
+
+    assert EngineAssemblyService is not None
+    assert PortfolioManagementService is not None
