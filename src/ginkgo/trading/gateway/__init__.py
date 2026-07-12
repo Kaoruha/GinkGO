@@ -19,11 +19,9 @@
 """
 
 from .interfaces import (
-    # 核心接口
-    IEventRoutingCenter,
-    ILoadBalancer,
-    ICircuitBreaker,
-    
+    # 负载均衡器纯契约（多实现 ABC，ADR-022 原则 1）
+    LoadBalancer,
+
     # 枚举类型
     RoutingStrategy,
     RoutingMode,
@@ -70,11 +68,9 @@ from .base_matchmaking import MatchMakingBase
 from .trade_gateway import TradeGateway
 
 __all__ = [
-    # 核心接口
-    'IEventRoutingCenter',
-    'ILoadBalancer', 
-    'ICircuitBreaker',
-    
+    # 负载均衡器纯契约
+    'LoadBalancer',
+
     # 枚举类型
     'RoutingStrategy',
     'RoutingMode',
