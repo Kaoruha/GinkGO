@@ -128,6 +128,41 @@ def test_core_adapters_module_removed():
 
 
 @pytest.mark.unit
+def test_core_factories_tests_removed():
+    """core.factories 死层的测试随源码一并删除(测的对象已不存在)。
+
+    与 test_component_factory_service_smoke_removed 对称:删源码时同步删测它的
+    测试,防 import 已删模块致 pytest 收集崩。守目录不存在比 find_spec 更强——
+    find_spec 守源码模块,目录存在性守测试文件残留(PEP420 命名空间包陷阱)。
+    """
+    from pathlib import Path
+
+    tests_dir = (
+        Path(__file__).resolve().parents[2] / "tests" / "unit" / "core" / "factories"
+    )
+    assert not tests_dir.exists(), (
+        "tests/unit/core/factories/ 应随 core.factories 源码一并删除"
+    )
+
+
+@pytest.mark.unit
+def test_core_adapters_tests_removed():
+    """core.adapters 死层的测试随源码一并删除(测的对象已不存在)。
+
+    与 test_core_factories_tests_removed 同理;core.adapters 删源码后漏删测试
+    曾致 pytest tests/unit/core/ 收集崩 4 个 ModuleNotFoundError(PR #6710 review)。
+    """
+    from pathlib import Path
+
+    tests_dir = (
+        Path(__file__).resolve().parents[2] / "tests" / "unit" / "core" / "adapters"
+    )
+    assert not tests_dir.exists(), (
+        "tests/unit/core/adapters/ 应随 core.adapters 源码一并删除"
+    )
+
+
+@pytest.mark.unit
 def test_core_package_intact_after_factories_adapters_removal():
     """正向守卫:删 factories/adapters 后 core 包仍导出活跃服务。
 
