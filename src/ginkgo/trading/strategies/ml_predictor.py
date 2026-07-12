@@ -1,5 +1,5 @@
 # Upstream: PortfolioBase, ComponentLoader
-# Downstream: StrategyMLBase, BaseModel, FeatureProcessor, AlphaFactors, Signal, DIRECTION_TYPES
+# Downstream: MLStrategyBase, BaseModel, FeatureProcessor, AlphaFactors, Signal, DIRECTION_TYPES
 # Role: ML预测策略，基于已训练机器学习模型预测股价收益率并生成交易信号
 
 
@@ -10,7 +10,7 @@
 """
 ML预测策略示例
 
-基于机器学习模型的股价预测策略，展示如何使用StrategyMLBase
+基于机器学习模型的股价预测策略，展示如何使用MLStrategyBase
 构建具体的ML交易策略。
 """
 
@@ -18,13 +18,13 @@ import datetime
 import pandas as pd
 from typing import List, Dict, Optional
 
-from ginkgo.trading.strategies.ml_strategy_base import StrategyMLBase
+from ginkgo.trading.strategies.ml_strategy_base import MLStrategyBase
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
 
-class StrategyMLPredictor(StrategyMLBase):
+class StrategyMLPredictor(MLStrategyBase):
     """
     ML预测策略
     

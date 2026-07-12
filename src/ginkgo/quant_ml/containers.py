@@ -75,8 +75,8 @@ def _get_alpha_factors_class():
     return AlphaFactors
 
 def _get_ml_strategy_base_class():
-    """Lazy import for MLStrategyBase class."""
-    from ginkgo.quant_ml.strategies.ml_strategy_base import MLStrategyBase
+    """Lazy import for MLStrategyBase class (统一归 trading 域, ADR-022 原则6)."""
+    from ginkgo.trading.strategies.ml_strategy_base import MLStrategyBase
     return MLStrategyBase
 
 def _get_prediction_strategy_class():
