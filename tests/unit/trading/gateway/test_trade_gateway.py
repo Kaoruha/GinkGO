@@ -9,15 +9,15 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
 
 from ginkgo.trading.gateway.trade_gateway import TradeGateway
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES, EVENT_TYPES
 
 
 class StubBroker(BaseBroker):
-    """测试用 Broker 桩，满足 isinstance 检查"""
+    """测试用 Broker 桩，满足 isinstance 检查（#6715：继承强侧 BaseBroker）"""
     def __init__(self, market: str = "SIM"):
-        super().__init__()
+        super().__init__({})
         self.market = market
         self._result_callback = None
         self._submit_calls = []

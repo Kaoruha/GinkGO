@@ -41,7 +41,7 @@ from datetime import datetime
 import time
 
 from ginkgo.trading.gateway.trade_gateway import TradeGateway
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics

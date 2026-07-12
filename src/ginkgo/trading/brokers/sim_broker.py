@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (回测模拟撮合)、Portfolio Manager (订单执行)
-# Downstream: BaseBroker (继承提供Broker基础功能)、IBroker接口(实现submit_order_event/get_market_data等Broker接口)、ATTITUDE_TYPES (撮合态度枚举OPTIMISTIC/PESSIMISTIC/RANDOM)
-# Role: SimBroker回测模拟撮合Broker继承BaseBroker和实现IBroker接口，提供立即执行同步返回、模拟撮合、完整验证订单等功能
+# Downstream: BrokerCacheMixin (继承提供行情/持仓缓存)、IBroker接口(实现submit_order_event/get_market_data等Broker接口)、ATTITUDE_TYPES (撮合态度枚举OPTIMISTIC/PESSIMISTIC/RANDOM)
+# Role: SimBroker回测模拟撮合Broker继承BrokerCacheMixin和实现IBroker接口，提供立即执行同步返回、模拟撮合、完整验证订单等功能
 
 
 
@@ -22,25 +22,25 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from scipy import stats
 
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.bases.broker_cache_mixin import BrokerCacheMixin
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
 
 
-class SimBroker(BaseBroker):
+class SimBroker(BrokerCacheMixin):
     """
     回测模拟撮合Broker
 
-    基于新的BaseBroker和IBroker接口，提供回测专用的模拟撮合功能。
+    基于BrokerCacheMixin和IBroker接口，提供回测专用的模拟撮合功能。
     支持滑点、态度设置、手续费计算等回测功能。
 
     核心特点：
     - 立即执行：支持同步立即执行（回测模式）
     - 模拟撮合：基于随机价格和滑点模型
     - 完整验证：订单验证、资金检查、价格限制
-    - 内存管理：使用BaseBroker的市场数据缓存
+    - 内存管理：使用BrokerCacheMixin的市场数据缓存
     """
 
     def __init__(self, name: str = "SimBroker", random_seed=None, **config):

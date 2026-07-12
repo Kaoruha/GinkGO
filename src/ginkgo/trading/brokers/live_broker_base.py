@@ -1,5 +1,5 @@
 # Upstream: InfrastructureFactory, FuturesBroker, HKStockBroker, USStockBroker, OKXBroker
-# Downstream: BaseBroker, BrokerExecutionResult, Order, DIRECTION_TYPES, ATTITUDE_TYPES, to_decimal
+# Downstream: BrokerCacheMixin, BrokerExecutionResult, Order, DIRECTION_TYPES, ATTITUDE_TYPES, to_decimal
 # Role: 实盘交易Broker基类，提供API交易、异步执行和本地风控等通用功能
 
 
@@ -10,7 +10,7 @@
 """
 LiveBrokerBase - 实盘交易基础类
 
-基于新的BaseBroker和IBroker接口，提供实盘交易的通用功能。
+基于BrokerCacheMixin和IBroker接口，提供实盘交易的通用功能。
 不同市场的实盘Broker可以继承此类并实现特定的API调用逻辑。
 """
 
@@ -18,14 +18,14 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.bases.broker_cache_mixin import BrokerCacheMixin
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
 
 
-class LiveBrokerBase(BaseBroker, ABC):
+class LiveBrokerBase(BrokerCacheMixin, ABC):
     """
     实盘交易基础类
 
