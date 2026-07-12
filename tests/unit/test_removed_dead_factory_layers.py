@@ -111,3 +111,34 @@ def test_services_package_intact_after_factory_removal():
 
     assert EngineAssemblyService is not None
     assert PortfolioManagementService is not None
+
+
+# ---------- core.factories / core.adapters 死层已删(ADR-022 原则 6)----------
+
+@pytest.mark.unit
+def test_core_factories_module_removed():
+    """core.factories(3 文件)已删:零外部类引用,仅 core/__init__.py try/except 残壳。"""
+    assert importlib.util.find_spec("ginkgo.core.factories") is None
+
+
+@pytest.mark.unit
+def test_core_adapters_module_removed():
+    """core.adapters(5 文件)已删:零外部类引用,仅 core/__init__.py try/except 残壳。"""
+    assert importlib.util.find_spec("ginkgo.core.adapters") is None
+
+
+@pytest.mark.unit
+def test_core_package_intact_after_factories_adapters_removal():
+    """正向守卫:删 factories/adapters 后 core 包仍导出活跃服务。
+
+    interfaces 保留(#6707 范围,本 PR 不动);factories/adapters 不再是 core 属性。
+    """
+    import ginkgo.core as core
+
+    assert callable(core.get_config)
+    assert callable(core.get_logger)
+    # interfaces 保留给 #6707
+    assert hasattr(core, "interfaces")
+    # factories/adapters 已下架
+    assert not hasattr(core, "factories")
+    assert not hasattr(core, "adapters")

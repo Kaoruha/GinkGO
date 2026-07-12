@@ -1,11 +1,9 @@
 # Upstream: 全局所有模块 (通过from ginkgo.core import访问核心服务)
-# Downstream: containers(DI容器), time_logger/retry(装饰器), interfaces/adapters/factories(延迟导入)
+# Downstream: containers(DI容器), time_logger/retry(装饰器), interfaces(延迟导入)
 # Role: 核心模块公共入口，提供get_config/get_logger/get_thread_manager等服务函数和validate_data/check_health等工具函数
 
-
-
-
-
+# 注: core/factories(3文件)与 core/adapters(5文件)已于 #6476 删除 —— 零外部类引用，
+# 仅本文件 try/except 残壳;ADR-022 原则6(core/ 层级下架)。interfaces 保留(#6707 处理)。
 
 """
 Ginkgo Core Module - Public API
@@ -37,7 +35,7 @@ def get_config(*args, **kwargs):
     """Public API: Get configuration service."""
     return container.services.config()
 
-@time_logger  
+@time_logger
 def get_logger(*args, **kwargs):
     """Public API: Get logger service."""
     return container.services.logger()
@@ -98,27 +96,15 @@ try:
 except ImportError as e:
     interfaces = None
 
-try:
-    # Import adapters if available
-    from ginkgo.core import adapters
-except ImportError as e:
-    adapters = None
-
-try:
-    # Import factories if available
-    from ginkgo.core import factories
-except ImportError as e:
-    factories = None
-
 # --- Module Information ---
 __version__ = "1.0.0"
 
 # --- Dynamic Export of all functions ---
-__all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe())) 
+__all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe()))
            if inspect.isfunction(obj) and not name.startswith('_')]
 
 # Also export the container and important objects
-__all__.extend(['container', 'interfaces', 'adapters', 'factories'])
+__all__.extend(['container', 'interfaces'])
 
 # Legacy exports for backward compatibility
 core_container = container
