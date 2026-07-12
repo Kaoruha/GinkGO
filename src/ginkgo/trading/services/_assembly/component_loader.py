@@ -39,8 +39,8 @@ COMPONENT_TYPE_INFO: Dict[int, Dict[str, str]] = {
     },
     FILE_TYPES.RISKMANAGER.value: {
         "name": "risk_manager",
-        "module_path": "ginkgo.trading.risk_managements",
-        "subpackage": "risk_managements",
+        "module_path": "ginkgo.trading.risk_management",
+        "subpackage": "risk_management",
     },
     FILE_TYPES.ANALYZER.value: {
         "name": "analyzer",
