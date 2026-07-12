@@ -48,6 +48,10 @@ x-worker-common: &worker-common
     TUSHARE_TOKEN: ${TUSHARE_TOKEN}
   volumes:
     - ginkgo-logs:/var/log/ginkgo
+    # 统一图式：容器 /home/ginkgo/.ginkgo = 宿主机 ~/.ginkgo（真实配置，非模板）
+    # GCONF 检测到文件存在会跳过运行时拷贝（idempotent），volume 提供真实配置
+    # 目标路径对齐 master #6651 的非 root 用户（ginkgo, HOME=/home/ginkgo）
+    - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
 
 services:
   # webui:
@@ -475,10 +479,6 @@ services:
     <<: *worker-common
     container_name: ginkgo-tasktimer
     command: ["python", "main.py", "serve", "tasktimer"]
-    volumes:
-      - ginkgo-logs:/var/log/ginkgo
-      # 映射用户配置目录中的 task_timer.yml（容器内读取非 root 用户 HOME）
-      - ${HOME}/.ginkgo/task_timer.yml:/home/ginkgo/.ginkgo/task_timer.yml:ro
     deploy:
       resources:
         limits:
@@ -499,10 +499,6 @@ services:
     <<: *worker-common
     container_name: ginkgo-livecore
     command: ["python", "main.py", "serve", "livecore"]
-    volumes:
-      - ginkgo-logs:/var/log/ginkgo
-      # 映射用户配置目录中的 task_timer.yml（容器内读取非 root 用户 HOME）
-      - ${HOME}/.ginkgo/task_timer.yml:/home/ginkgo/.ginkgo/task_timer.yml:ro
     deploy:
       resources:
         limits:
