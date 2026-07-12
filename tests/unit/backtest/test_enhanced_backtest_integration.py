@@ -17,11 +17,12 @@ from unittest.mock import Mock, patch
 # Import with try/except to handle API differences
 try:
     from ginkgo.trading.engines.config.backtest_config import BacktestConfig, DataFrequency
-    from ginkgo.core.interfaces.engine_interface import EngineMode
 except ImportError:
     BacktestConfig = None
     DataFrequency = None
-    EngineMode = None
+# EngineMode 随 core/interfaces/engine_interface.py 一并删除（ADR-022 原则 2，0 生产消费者）。
+# 本文件整体 skip（见上方 pytestmark），残留的 EngineMode.* 引用位于 skip 的函数体内，不执行。
+EngineMode = None
 
 from ginkgo.trading.core.containers import container
 from ginkgo.trading.strategies.trend_follow import StrategyTrendFollow

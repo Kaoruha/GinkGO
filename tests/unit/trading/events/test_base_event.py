@@ -64,8 +64,8 @@ class TestEventBaseConstruction:
         with pytest.raises(AttributeError):
             _ = event.task_id
 
-    def test_backtest_base_inheritance(self):
-        """测试BacktestBase继承"""
+    def test_mixin_composition(self):
+        """测试 Mixin 组合（TimeMixin + ContextMixin）"""
         event = EventBase(name="Test")
         # TimeMixin provides timestamp and init_time
         assert isinstance(event.timestamp, datetime.datetime)
