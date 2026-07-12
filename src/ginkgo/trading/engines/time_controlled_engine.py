@@ -1,5 +1,5 @@
 # Upstream: PaperTradingWorker (PAPER模式每日循环)、CLI (BACKTEST模式回测执行)
-# Downstream: EventEngine (继承事件驱动基类)、LogicalTimeProvider/SystemTimeProvider (逻辑/系统时间)、ITimeAwareComponent (时间感知接口)
+# Downstream: EventEngine (继承事件驱动基类)、LogicalTimeProvider/SystemTimeProvider (逻辑/系统时间)、TimeAwareComponent (时间感知接口)
 # Role: 时间控制事件引擎，支持逻辑时间回测与系统时间实盘，set_time_provider 实现 REPLAY→LIVE 切换
 
 
@@ -30,7 +30,7 @@ import time
 
 from .event_engine import EventEngine
 from ..events.base_event import EventBase
-from ..time.interfaces import ITimeProvider, ITimeAwareComponent
+from ..time.interfaces import ITimeProvider, TimeAwareComponent
 from ..time.providers import LogicalTimeProvider, SystemTimeProvider
 from ..time.clock import set_global_time_provider, now as clock_now
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES, EXECUTION_MODE, TIME_MODE, ENGINESTATUS_TYPES
@@ -38,7 +38,7 @@ from ginkgo.trading.core.status import TimeInfo, ComponentSyncInfo
 from ginkgo.libs import GLOG
 
 
-class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
+class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
     """时间控制的事件引擎
 
     继承现有EventEngine，扩展时间控制能力：
@@ -379,7 +379,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         pass  # Provider已更新时间,无需额外操作
 
     def get_current_time(self) -> datetime:
-        """获取当前时间 (ITimeAwareComponent接口)"""
+        """获取当前时间 (TimeAwareComponent接口)"""
         return self.now
 
     async def on_time_changed(self, old_time: datetime, new_time: datetime):

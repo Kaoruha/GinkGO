@@ -1,4 +1,4 @@
-# Upstream: ILiveDataFeeder (实盘数据馈送接口)
+# Upstream: LiveDataFeeder (实盘数据馈送接口)
 # Downstream: DataManager (数据管理器)、WebSocketManager (WebSocket连接)
 # Role: OKXDataFeeder 统一OKX实盘数据馈送器，支持WebSocket + REST API双模式
 
@@ -6,7 +6,7 @@
 """
 OKX 实盘数据馈送器（统一版）
 
-实现 ILiveDataFeeder 接口，支持双模式数据获取：
+实现 LiveDataFeeder 接口，支持双模式数据获取：
 - WebSocket 实时推送（优先）
 - REST API 轮询（降级）
 
@@ -22,7 +22,7 @@ from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 from enum import Enum
 
-from ginkgo.trading.feeders.interfaces import ILiveDataFeeder, DataFeedStatus
+from ginkgo.trading.feeders.interfaces import LiveDataFeeder, DataFeedStatus
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.trading.feeders.okx_feeder import OKXMarketDataFeeder
 from ginkgo.trading.events.base_event import EventBase
@@ -41,11 +41,11 @@ class DataFetchMode(Enum):
     REST_API = "rest_api"    # 轮询降级
 
 
-class OKXDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
+class OKXDataFeeder(EngineBindableMixin, FeederPublishMixin, LiveDataFeeder):
     """
     OKX 实盘数据馈送器（统一版）
 
-    实现 ILiveDataFeeder 接口，支持 WebSocket + REST API 双模式。
+    实现 LiveDataFeeder 接口，支持 WebSocket + REST API 双模式。
     """
 
     # 轮询间隔（秒）
@@ -101,7 +101,7 @@ class OKXDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
 
         GLOG.INFO(f"OKXDataFeeder initialized: {environment}")
 
-    # ==================== IDataFeeder 接口实现 ====================
+    # ==================== DataFeeder 接口实现 ====================
 
     def initialize(self, config: Dict[str, Any] = None) -> bool:
         """
@@ -226,7 +226,7 @@ class OKXDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
             return True
         return self._time_provider.validate_time_access(request_time, data_time)
 
-    # ==================== ILiveDataFeeder 接口实现 ====================
+    # ==================== LiveDataFeeder 接口实现 ====================
 
     def subscribe_symbols(
         self,

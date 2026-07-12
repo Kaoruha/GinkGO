@@ -1,6 +1,6 @@
 # Upstream: feeders.backtest_feeder, feeders.live_feeder, feeders.okx_data_feeder
 # Downstream: trading.events, trading.time.interfaces, trading.time.providers
-# Role: 数据馈送接口定义，包括DataFeedStatus状态枚举、IDataFeeder核心接口、IBacktestDataFeeder和ILiveDataFeeder扩展接口
+# Role: 数据馈送接口定义，包括DataFeedStatus状态枚举、DataFeeder核心接口、BacktestDataFeeder和LiveDataFeeder扩展接口
 
 
 
@@ -11,9 +11,9 @@
 数据馈送接口定义
 
 定义统一的数据馈送接口，支持回测和实盘两种模式：
-- IDataFeeder: 核心数据馈送接口
-- ILiveDataFeeder: 实盘数据馈送扩展接口
-- IBacktestDataFeeder: 回测数据馈送扩展接口
+- DataFeeder: 核心数据馈送接口
+- LiveDataFeeder: 实盘数据馈送扩展接口
+- BacktestDataFeeder: 回测数据馈送扩展接口
 
 这些接口确保回测与实盘数据馈送的一致性。
 """
@@ -38,7 +38,7 @@ class DataFeedStatus(Enum):
     ERROR = "ERROR"         # 错误状态
 
 
-class IDataFeeder(ABC):
+class DataFeeder(ABC):
     """
     数据馈送核心接口
     
@@ -126,7 +126,7 @@ class IDataFeeder(ABC):
         pass
 
 
-class IBacktestDataFeeder(IDataFeeder):
+class BacktestDataFeeder(DataFeeder):
     """
     回测数据馈送接口
     
@@ -179,7 +179,7 @@ class IBacktestDataFeeder(IDataFeeder):
         pass
 
 
-class ILiveDataFeeder(IDataFeeder):
+class LiveDataFeeder(DataFeeder):
     """
     实盘数据馈送接口
     

@@ -204,8 +204,8 @@ def _get_backtest_feeder_class():
 
 def _get_live_feeder_class():
     """Lazy import for LiveFeeder class."""
-    from ginkgo.trading.feeders.live_feeder import LiveDataFeeder
-    return LiveDataFeeder
+    from ginkgo.trading.feeders.live_feeder import LiveFeederBase
+    return LiveFeederBase
 
 def _get_event_routing_center_class():
     """Lazy import for EventRoutingCenter class."""

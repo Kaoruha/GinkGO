@@ -1,5 +1,5 @@
 # Upstream: PortfolioBase, StrategyMLPredictor
-# Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, IDataFeeder, DIRECTION_TYPES, MODEL_TYPES
+# Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, DataFeeder, DIRECTION_TYPES, MODEL_TYPES
 # Role: 机器学习策略基类 — 通过 data_feeder 获取历史数据，提供ML模型加载、特征工程、预测到信号的桥接框架
 
 

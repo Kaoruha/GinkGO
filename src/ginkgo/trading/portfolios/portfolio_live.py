@@ -44,7 +44,7 @@ from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.utils.display import base_repr
 
 from ginkgo.data.containers import container
-from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
+from ginkgo.interfaces.notification_interface import NotificationService, NotificationServiceFactory
 from ginkgo.notifier.core.notify import notify_trading_signal
 
 console = Console()
@@ -59,7 +59,7 @@ class PortfolioLive(PortfolioBase):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, notification_service: INotificationService = None,
+    def __init__(self, notification_service: NotificationService = None,
                  position_writer=None, redis_writer=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 使用依赖注入的通知服务，如果没有提供则自动创建

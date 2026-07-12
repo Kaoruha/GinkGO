@@ -24,7 +24,7 @@ from ginkgo.trading.engines.time_controlled_engine import (
 )
 from ginkgo.enums import EXECUTION_MODE, ENGINESTATUS_TYPES
 from ginkgo.trading.engines.event_engine import EventEngine
-from ginkgo.trading.time.interfaces import ITimeProvider, ITimeAwareComponent
+from ginkgo.trading.time.interfaces import ITimeProvider, TimeAwareComponent
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.time_advance import EventTimeAdvance

@@ -12,7 +12,7 @@ import pytz
 from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Optional, Set
-from .interfaces import ITimeProvider, ITimeAwareComponent
+from .interfaces import ITimeProvider, TimeAwareComponent
 from ginkgo.enums import TIME_MODE
 
 
@@ -124,7 +124,7 @@ class LogicalTimeProvider(ITimeProvider):
         """
         return (self._start_time, self._end_time)
 
-    def register_time_listener(self, listener: ITimeAwareComponent):
+    def register_time_listener(self, listener: TimeAwareComponent):
         """注册时间监听器
 
         Args:
@@ -134,7 +134,7 @@ class LogicalTimeProvider(ITimeProvider):
             self._listeners = set()
         self._listeners.add(listener)
 
-    def unregister_time_listener(self, listener: ITimeAwareComponent):
+    def unregister_time_listener(self, listener: TimeAwareComponent):
         """注销时间监听器
 
         Args:
@@ -160,7 +160,7 @@ class SystemTimeProvider(ITimeProvider):
         self._timezone = timezone_info
         self._mode = TIME_MODE.SYSTEM
         # 监听器集合（非接口要求，供引擎订阅时间变更）
-        self._listeners: Set[ITimeAwareComponent] = set()
+        self._listeners: Set[TimeAwareComponent] = set()
         # 心跳控制
         self._heartbeat_active = False
         
@@ -212,7 +212,7 @@ class SystemTimeProvider(ITimeProvider):
     def stop_heartbeat(self):
         self._heartbeat_active = False
 
-    def register_time_listener(self, listener: ITimeAwareComponent):
+    def register_time_listener(self, listener: TimeAwareComponent):
         """注册时间监听器
 
         Args:
@@ -220,7 +220,7 @@ class SystemTimeProvider(ITimeProvider):
         """
         self._listeners.add(listener)
 
-    def unregister_time_listener(self, listener: ITimeAwareComponent):
+    def unregister_time_listener(self, listener: TimeAwareComponent):
         """注销时间监听器
 
         Args:

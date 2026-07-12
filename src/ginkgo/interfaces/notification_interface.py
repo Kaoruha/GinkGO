@@ -1,6 +1,6 @@
-# Upstream: 业务逻辑层(依赖注入INotificationService接口实现通知解耦)
+# Upstream: 业务逻辑层(依赖注入NotificationService接口实现通知解耦)
 # Downstream: 具体通知实现(GinkgoNotifier/MockNotificationService通过工厂创建)
-# Role: INotificationService通知服务接口定义消息/长信号/短信号/提醒等方法
+# Role: NotificationService通知服务接口定义消息/长信号/短信号/提醒等方法
 
 
 
@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
-class INotificationService(ABC):
+class NotificationService(ABC):
     """通知服务接口"""
 
     @abstractmethod
@@ -38,7 +38,7 @@ class INotificationService(ABC):
         pass
 
 
-class MockNotificationService(INotificationService):
+class MockNotificationService(NotificationService):
     """测试用的空通知服务实现"""
 
     def beep(self) -> None:
@@ -58,7 +58,7 @@ class NotificationServiceFactory:
     """通知服务工厂"""
 
     @staticmethod
-    def create_service(service_type: str = "auto") -> INotificationService:
+    def create_service(service_type: str = "auto") -> NotificationService:
         """
         创建通知服务实例
 
@@ -66,7 +66,7 @@ class NotificationServiceFactory:
             service_type: 服务类型 ("auto", "mock", "real")
 
         Returns:
-            INotificationService: 通知服务实例
+            NotificationService: 通知服务实例
         """
         if service_type == "mock":
             return MockNotificationService()

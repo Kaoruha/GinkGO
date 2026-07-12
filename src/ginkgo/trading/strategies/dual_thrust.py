@@ -1,5 +1,5 @@
 # Upstream: Backtest Engines (调用cal方法)
-# Downstream: BaseStrategy, IDataFeeder, DIRECTION_TYPES
+# Downstream: BaseStrategy, DataFeeder, DIRECTION_TYPES
 # Role: Dual Thrust策略 — 通过 data_feeder 获取历史K线计算突破区间
 
 

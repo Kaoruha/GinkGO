@@ -10,13 +10,13 @@ import websockets
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from ginkgo.trading.feeders.live_feeder import LiveDataFeeder
+from ginkgo.trading.feeders.live_feeder import LiveFeederBase
 from ginkgo.trading.feeders.interfaces import DataFeedStatus
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.libs import GCONF, GLOG
 
 
-class AlpacaFeeder(LiveDataFeeder):
+class AlpacaFeeder(LiveFeederBase):
     """
     Alpaca WebSocket数据适配器（美股）
 

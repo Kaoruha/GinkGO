@@ -1,6 +1,6 @@
 # Upstream: 全局系统通知(GNOTIFIER全局实例用于系统级通知)
-# Downstream: Kafka驱动(GinkgoProducer/GinkgoConsumer)、通知接口(INotificationService)、其他通知模块(notifier_telegram/notifier_beep)、配置服务(GCONF)、线程管理器(GinkgoThreadManager/GTM)
-# Role: GinkgoNotifier统一通知服务实现INotificationService提供Kafka/Telegram/Beep等通知
+# Downstream: Kafka驱动(GinkgoProducer/GinkgoConsumer)、通知接口(NotificationService)、其他通知模块(notifier_telegram/notifier_beep)、配置服务(GCONF)、线程管理器(GinkgoThreadManager/GTM)
+# Role: GinkgoNotifier统一通知服务实现NotificationService提供Kafka/Telegram/Beep等通知
 
 
 
@@ -13,7 +13,7 @@ import psutil
 import os
 
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
-from ginkgo.interfaces.notification_interface import INotificationService
+from ginkgo.interfaces.notification_interface import NotificationService
 from ginkgo.notifier.notifier_telegram import echo
 from ginkgo.notifier.notifier_beep import beep as beepbeep
 from ginkgo.notifier.notifier_telegram import (
@@ -26,7 +26,7 @@ from ginkgo.libs.core.threading import GinkgoThreadManager
 gtm = GinkgoThreadManager()
 
 
-class GinkgoNotifier(INotificationService):
+class GinkgoNotifier(NotificationService):
     def __init__(self):
         self._producer = None
         self._kafka_service = None
