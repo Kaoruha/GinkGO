@@ -29,18 +29,30 @@ class OperatorRegistry:
     _operator_metadata: Dict[str, Dict[str, Any]] = {}
     
     @classmethod
-    def register(cls, name: str, function: Callable, description: str = "", 
+    def register(cls, name: str, function: Callable, description: str = "",
                  min_args: int = 0, max_args: int = None):
         """
         注册操作符函数
-        
+
         Args:
             name: 函数名称
             function: 函数实现
             description: 函数描述
             min_args: 最少参数数量
             max_args: 最多参数数量
+
+        Raises:
+            ValueError: 同名操作符已注册时抛出。调用方须先 unregister() 或换名,
+                避免静默覆盖(历史 bug:截面 Rank 被滚动 Rank 静默覆盖成死代码,#6479)。
         """
+        if name in cls._operators:
+            existing = cls._operators[name]
+            raise ValueError(
+                f"Operator '{name}' is already registered by "
+                f"{existing.__module__}.{existing.__name__}; cannot register "
+                f"duplicate from {function.__module__}.{function.__name__}. "
+                f"Call unregister() first or use a distinct name."
+            )
         cls._operators[name] = function
         cls._operator_metadata[name] = {
             "description": description,
@@ -153,6 +165,37 @@ def register_operator(name: str, description: str = "", min_args: int = 0, max_a
 
 
 # ============================================================================
+# 操作符参数提取工具(供内置算子与 operators/* 共用,#6479 AC2)
+# 放在 registry(叶子模块)以避免 operators/__init__ 急切加载造成的循环 import。
+# ============================================================================
+def _extract_window(series: pd.Series, default: int = 20) -> int:
+    """从窗口参数 Series 提取整数:取首元素,空则用 default,<=0 抛 ValueError。
+
+    替换原模板::
+
+        window_size = int(window.iloc[0]) if len(window) > 0 else N
+        if window_size <= 0:
+            raise ValueError(f"Window size must be positive, got {window_size}")
+    """
+    window_size = int(series.iloc[0]) if len(series) > 0 else default
+    if window_size <= 0:
+        raise ValueError(f"Window size must be positive, got {window_size}")
+    return window_size
+
+
+def _extract_periods(series: pd.Series, default: int = 1, *, allow_negative: bool = True) -> int:
+    """从周期/滞后参数 Series 提取整数:取首元素,空则用 default。
+
+    - ``allow_negative=True``(默认):Ref/Delta/Shift_fill/Delay,允许负偏移。
+    - ``allow_negative=False``:AutoCorr lag,要求非负,<0 抛 ValueError。
+    """
+    periods = int(series.iloc[0]) if len(series) > 0 else default
+    if not allow_negative and periods < 0:
+        raise ValueError(f"Lag must be non-negative, got {periods}")
+    return periods
+
+
+# ============================================================================
 # 内置操作符定义
 # ============================================================================
 
@@ -165,143 +208,81 @@ def mean_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series) -> p
         series: 输入序列
         window: 窗口大小序列
     """
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        
-        return series.rolling(window=window_size, min_periods=1).mean()
-    except Exception as e:
-        GLOG.ERROR(f"Mean operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    
+    return series.rolling(window=window_size, min_periods=1).mean()
 
 
 @register_operator("Std", "Standard deviation", min_args=2, max_args=2)
 def std_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series) -> pd.Series:
     """标准差"""
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        
-        return series.rolling(window=window_size, min_periods=1).std()
-    except Exception as e:
-        GLOG.ERROR(f"Std operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    
+    return series.rolling(window=window_size, min_periods=1).std()
 
 
 @register_operator("Max", "Rolling maximum", min_args=2, max_args=2)
 def max_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series) -> pd.Series:
     """滚动最大值"""
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        
-        return series.rolling(window=window_size, min_periods=1).max()
-    except Exception as e:
-        GLOG.ERROR(f"Max operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    
+    return series.rolling(window=window_size, min_periods=1).max()
 
 
 @register_operator("Min", "Rolling minimum", min_args=2, max_args=2)
 def min_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series) -> pd.Series:
     """滚动最小值"""
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        
-        return series.rolling(window=window_size, min_periods=1).min()
-    except Exception as e:
-        GLOG.ERROR(f"Min operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    
+    return series.rolling(window=window_size, min_periods=1).min()
 
 
 @register_operator("Ref", "Time reference/lag", min_args=2, max_args=2)
 def ref_operator(data: pd.DataFrame, series: pd.Series, periods: pd.Series) -> pd.Series:
     """时间偏移/滞后"""
-    try:
-        shift_periods = int(periods.iloc[0]) if len(periods) > 0 else 1
-        return series.shift(shift_periods)
-    except Exception as e:
-        GLOG.ERROR(f"Ref operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    shift_periods = _extract_periods(periods)
+    return series.shift(shift_periods)
 
 
 @register_operator("Delta", "Difference", min_args=2, max_args=2)
 def delta_operator(data: pd.DataFrame, series: pd.Series, periods: pd.Series) -> pd.Series:
     """差分"""
-    try:
-        diff_periods = int(periods.iloc[0]) if len(periods) > 0 else 1
-        return series.diff(diff_periods)
-    except Exception as e:
-        GLOG.ERROR(f"Delta operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    diff_periods = _extract_periods(periods)
+    return series.diff(diff_periods)
 
 
 @register_operator("Sum", "Rolling sum", min_args=2, max_args=2)
 def sum_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series) -> pd.Series:
     """滚动求和"""
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        
-        return series.rolling(window=window_size, min_periods=1).sum()
-    except Exception as e:
-        GLOG.ERROR(f"Sum operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
-
-
-@register_operator("Rank", "Cross-sectional rank", min_args=1, max_args=1)
-def rank_operator(data: pd.DataFrame, series: pd.Series) -> pd.Series:
-    """截面排名"""
-    try:
-        return series.rank(method='min', na_option='keep')
-    except Exception as e:
-        GLOG.ERROR(f"Rank operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    
+    return series.rolling(window=window_size, min_periods=1).sum()
 
 
 @register_operator("Quantile", "Rolling quantile", min_args=3, max_args=3)
 def quantile_operator(data: pd.DataFrame, series: pd.Series, window: pd.Series, q: pd.Series) -> pd.Series:
     """滚动分位数"""
-    try:
-        window_size = int(window.iloc[0]) if len(window) > 0 else 20
-        quantile = float(q.iloc[0]) if len(q) > 0 else 0.5
-        
-        if window_size <= 0:
-            raise ValueError(f"Window size must be positive, got {window_size}")
-        if not 0 <= quantile <= 1:
-            raise ValueError(f"Quantile must be between 0 and 1, got {quantile}")
-        
-        return series.rolling(window=window_size, min_periods=1).quantile(quantile)
-    except Exception as e:
-        GLOG.ERROR(f"Quantile operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    window_size = _extract_window(window)
+    quantile = float(q.iloc[0]) if len(q) > 0 else 0.5
+
+    if not 0 <= quantile <= 1:
+        raise ValueError(f"Quantile must be between 0 and 1, got {quantile}")
+
+    return series.rolling(window=window_size, min_periods=1).quantile(quantile)
 
 
 @register_operator("Abs", "Absolute value", min_args=1, max_args=1)
 def abs_operator(data: pd.DataFrame, series: pd.Series) -> pd.Series:
     """绝对值"""
-    try:
-        return series.abs()
-    except Exception as e:
-        GLOG.ERROR(f"Abs operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    return series.abs()
 
 
 @register_operator("Log", "Natural logarithm", min_args=1, max_args=1)
 def log_operator(data: pd.DataFrame, series: pd.Series) -> pd.Series:
     """自然对数"""
-    try:
-        with np.errstate(divide='ignore', invalid='ignore'):
-            result = np.log(series)
-            return result.replace([np.inf, -np.inf], np.nan)
-    except Exception as e:
-        GLOG.ERROR(f"Log operator failed: {e}")
-        return pd.Series([np.nan] * len(series), index=series.index)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        result = np.log(series)
+        return result.replace([np.inf, -np.inf], np.nan)
 
 
 # 技术指标相关操作符会在indicators模块中定义和注册

@@ -9,6 +9,12 @@ try:
 except ImportError:
     HAS_REGISTRY = False
 
+if HAS_REGISTRY:
+    # 触发 operators 包加载,注册全部算子。
+    # Rank/Mean 等住 operators 包(statistical),非 registry.py 内建;
+    # 不触发则 test_has_builtin_operators 看不到 Rank。
+    import ginkgo.features.engines.expression.operators  # noqa: F401
+
 
 @pytest.fixture
 def sample_df():
@@ -49,6 +55,30 @@ class TestOperatorRegistry:
 
     def test_validate_function_call(self):
         assert OperatorRegistry.validate_function_call('Mean', 2) is True
+
+    def test_duplicate_registration_raises(self):
+        """同名重注册必须 raise,禁止静默覆盖(#6479 回归)。"""
+        def op_a(data, x):
+            return x
+
+        def op_b(data, x):
+            return x * 2
+
+        name = "test_dup_op_xyz_6479"
+        OperatorRegistry.register(name, op_a, description="first")
+        try:
+            with pytest.raises(ValueError, match="already registered"):
+                OperatorRegistry.register(name, op_b, description="second")
+        finally:
+            OperatorRegistry.unregister(name)
+
+    def test_rank_is_rolling_two_arg(self):
+        """Rank 是滚动排名(2参, statistical),非被覆盖删除的截面版(#6479 回归)。"""
+        assert OperatorRegistry.is_registered('Rank')
+        info = OperatorRegistry.get_operator_info('Rank')
+        assert info['min_args'] == 2
+        assert info['max_args'] == 2
+        assert OperatorRegistry._operators['Rank'].__module__.endswith('statistical')
 
 
 # Test operator modules actually load and register their functions
