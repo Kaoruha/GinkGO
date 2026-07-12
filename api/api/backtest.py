@@ -408,39 +408,25 @@ async def cleanup_stale_engines(
         raise BusinessError(f"Error cleaning stale engines: {str(e)}")
 
 
+# 内置分析器目录（名称与各 Analyzer 子类 __init__ default name 一致）。
+# 历史：曾尝试用 AnalyzerRegistry 动态扫描内置子类，但其 import 即崩
+# （ANALYZER_CATEGORY_TYPES 全仓零定义），被 except 静默吞，端点运行时永远走此列表；
+# #6476 删除 AnalyzerRegistry 死层后将本列表提为唯一实现，消除误导性死壳。
+_BUILTIN_ANALYZERS = [
+    {"name": "annualized_return", "type": "annualized_return", "description": "年化收益率"},
+    {"name": "sharpe_ratio", "type": "sharpe_ratio", "description": "夏普比率"},
+    {"name": "max_drawdown", "type": "max_drawdown", "description": "最大回撤"},
+    {"name": "order_count", "type": "order_count", "description": "订单统计"},
+    {"name": "volatility", "type": "volatility", "description": "波动率"},
+    {"name": "profit_factor", "type": "profit_factor", "description": "盈亏比"},
+    {"name": "win_rate", "type": "win_rate", "description": "胜率"},
+]
+
+
 @router.get("/analyzers")
 async def list_analyzers():
-    """
-    获取可用的分析器类型列表
-
-    返回系统中所有可用的分析器类型及其参数。
-    优先从 service 获取，失败时使用内置回退列表。
-    """
-    try:
-        # 从 AnalyzerRegistry 直接获取已注册的分析器
-        from ginkgo.trading.analysis.analyzers.registry import AnalyzerRegistry
-
-        registry = AnalyzerRegistry()
-        count = registry.scan_builtin()
-        if count > 0:
-            analyzers = []
-            for name in registry.all_analyzers:
-                analyzers.append({"name": name, "type": name, "description": name})
-            return ok(data=analyzers)
-    except Exception as e:
-        logger.error(f"Error scanning analyzer registry: {str(e)}")
-
-    # Registry 扫描失败时的回退列表（名称与实际 __init__ default name 一致）
-    _FALLBACK_ANALYZERS = [
-        {"name": "annualized_return", "type": "annualized_return", "description": "年化收益率"},
-        {"name": "sharpe_ratio", "type": "sharpe_ratio", "description": "夏普比率"},
-        {"name": "max_drawdown", "type": "max_drawdown", "description": "最大回撤"},
-        {"name": "order_count", "type": "order_count", "description": "订单统计"},
-        {"name": "volatility", "type": "volatility", "description": "波动率"},
-        {"name": "profit_factor", "type": "profit_factor", "description": "盈亏比"},
-        {"name": "win_rate", "type": "win_rate", "description": "胜率"},
-    ]
-    return ok(data=_FALLBACK_ANALYZERS, message="Analyzers retrieved from fallback catalog")
+    """获取可用的内置分析器类型列表。"""
+    return ok(data=_BUILTIN_ANALYZERS, message="Built-in analyzers")
 
 
 @router.get("/{uuid}")
