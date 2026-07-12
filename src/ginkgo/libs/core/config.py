@@ -240,8 +240,7 @@ class GinkgoConfig(object):
         if not os.path.exists(config_path):
             origin_path = os.path.join(_config_src, "config.yml")
             if os.path.exists(origin_path):
-                os.makedirs(path, exist_ok=True)
-                shutil.copy(origin_path, config_path)
+                self._copy_template(origin_path, config_path, path)
                 print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}", file=sys.stderr)
                 self._has_local_config = True  # ✅ 更新缓存
             else:
@@ -255,8 +254,7 @@ class GinkgoConfig(object):
         if not os.path.exists(secure_path):
             origin_path = os.path.join(_config_src, "secure.template")
             if os.path.exists(origin_path):
-                os.makedirs(path, exist_ok=True)
-                shutil.copy(origin_path, secure_path)
+                self._copy_template(origin_path, secure_path, path)
                 print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}", file=sys.stderr)
                 self._has_local_secure = True  # ✅ 更新缓存
             else:
@@ -273,11 +271,27 @@ class GinkgoConfig(object):
         if not os.path.exists(task_timer_path):
             origin_path = os.path.join(_config_src, "task_timer.yml")
             if os.path.exists(origin_path):
-                os.makedirs(path, exist_ok=True)
-                shutil.copy(origin_path, task_timer_path)
+                self._copy_template(origin_path, task_timer_path, path)
                 print(f"[GCONF] Copy task_timer.yml from {origin_path} to {task_timer_path}", file=sys.stderr)
             # 源模板缺失时不阻塞（task_timer.yml 非启动核心依赖，缺失由
             # TaskTimer._load_config 运行时降级兜底），故不引入 _has_local_task_timer 缓存。
+
+    def _copy_template(self, origin_path: str, target_path: str, path: str) -> None:
+        """从包内模板拷贝到目标目录。
+
+        :ro 挂载点（容器未初始化宿主机 ``~/.ginkgo``）写入失败时给 install.py 指引并 raise：
+        把裸 ``OSError(errno=EROFS)`` 翻译成可操作提示，控制流不变（仍向上抛，worker 响亮失败）。
+        """
+        try:
+            os.makedirs(path, exist_ok=True)
+            shutil.copy(origin_path, target_path)
+        except OSError as e:
+            print(
+                f"[GCONF] 写入 {target_path} 失败 (errno={e.errno}: {e.strerror}). "
+                f"若容器以 :ro 挂载 ~/.ginkgo，请先在宿主机运行 `python install.py` 初始化 ~/.ginkgo",
+                file=sys.stderr,
+            )
+            raise
 
     def _read_config(self) -> dict:
         self.generate_config_file()
