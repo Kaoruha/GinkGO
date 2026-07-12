@@ -103,6 +103,61 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/client/test_user_cli.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: page_size passthrough smoke (#6652 ADR-021 L139)
+        # service 层 page_size 透传 crud 的 3 个出口方法（engine get_engines_df/
+        # fuzzy_search、portfolio get_portfolios_df）被 containers import 链触达
+        # （class 定义行 executed → 非 exempt）但 smoke 不调其方法体，函数体内
+        # page_size 透传行无覆盖信号。此处用 mock 依赖补信号，供 #6685 门禁采集。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: list count_X smoke (#5009 metadata.total)
+        # count_signals/count_orders/count_records/count_positions + get_positions_df(page=)
+        # 是本 PR 新增可执行行，被 containers import 链触达但 smoke 不调方法体 → 门禁红。
+        # 用 mock 依赖（result count_positions/get_positions_df inline 实例化 PositionRecordCRUD
+        # → patch 类构造）补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_list_count_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: deployment_service list/count smoke (#5009 pagination)
+        # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
+        # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
+        # smoke 不调方法体 → 门禁红。用 mock 依赖补覆盖信号。
+        run: |
+          uv run python -m pytest tests/unit/trading/services/test_deployment_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: deploy_cli + record_cli list smoke (#5009 pagination CliRunner)
+        # deploy_cli.list_deployments / record_cli(signal,order,position,analyzer) 为本 PR
+        # 重构（offset 分页 + ADR-021 json envelope + count metadata.total）。CliRunner +
+        # mock container 补命令体覆盖信号，使这些文件脱离 diff coverage gate 豁免（非
+        # list 命令仍豁免：portfolio_cli/engine_cli/flat_cli 的 get/create 等需另开 smoke）。
+        run: |
+          uv run python -m pytest \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: GCONF generate_config_file smoke (PR6686 模板源跟随包)
+        # PR6686 将配置模板源从 cwd 改为跟随 ginkgo 包（__file__→src/ginkgo/config/）。
+        # generate_config_file 的 origin_path 三分支（config.yml/secure.yml/task_timer.yml）
+        # 被 import 链部分触达会使 config.py 脱离豁免→未覆盖分支拉低 diff coverage gate。
+        # 用空 tmp_path 触发"目标不存在→从包内拷贝"覆盖三条分支。
+        run: |
+          uv run python -m pytest \
+            tests/unit/libs/test_config_generate_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: expression registry/operator/engine smoke (#6708 ADR-022 原则4+5)
+        # registry.py 新增 override raise（注册冲突检测）+ with_error_handling +
+        # _extract_scalar 多分支，operators/*.py 用此重构。被 containers import 链触达
+        # 但 smoke 不调方法体 → diff coverage gate 红。PR 自带 3 测试补覆盖信号
+        # （register 冲突 + 异常兜底 + alpha101 cs_rank 端到端 + 全量 operator 参数化烟雾
+        # + windowed 冷分支）。独立 step 使 push→master 时也跑（gate 仅 PR 触发），
+        # 同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/features/test_expression_registry.py \
+            tests/unit/features/test_operator_registry.py \
+            tests/unit/features/test_expression_engine.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -113,6 +168,15 @@ jobs:
             tests/unit/features/test_containers.py \
             tests/unit/client/test_user_cli.py \
             tests/unit/data/mappers/test_bar_mapper.py \
+            tests/unit/data/services/test_page_size_passthrough_smoke.py \
+            tests/unit/data/services/test_list_count_smoke.py \
+            tests/unit/trading/services/test_deployment_list_smoke.py \
+            tests/unit/client/test_deploy_cli_list_smoke.py \
+            tests/unit/client/test_record_cli_list_smoke.py \
+            tests/unit/libs/test_config_generate_smoke.py \
+            tests/unit/features/test_expression_registry.py \
+            tests/unit/features/test_operator_registry.py \
+            tests/unit/features/test_expression_engine.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
