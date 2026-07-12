@@ -3,6 +3,10 @@
 # Role: 投资组合业务服务，提供 CRUD 封装、组件绑定、状态持久化/恢复、组合完整加载与实例化
 
 
+
+
+
+
 """
 Portfolio Management Service (Class-based)
 
@@ -51,18 +55,22 @@ class PortfolioService(BaseService):
         通过查询 MDeployment 判定：存在 source_portfolio_id 匹配且
         target 未删除且状态为 DEPLOYED 的记录时返回 True。
         """
-        if not hasattr(self, "_deployment_crud") or self._deployment_crud is None:
+        if not hasattr(self, '_deployment_crud') or self._deployment_crud is None:
             return False
 
-        deployments = self._deployment_crud.find(filters={"source_portfolio_id": portfolio_id})
+        deployments = self._deployment_crud.find(
+            filters={"source_portfolio_id": portfolio_id}
+        )
 
         for d in deployments:
-            if getattr(d, "status", -1) != 1:  # DEPLOYMENT_STATUS.DEPLOYED = 1
+            if getattr(d, 'status', -1) != 1:  # DEPLOYMENT_STATUS.DEPLOYED = 1
                 continue
-            target_id = getattr(d, "target_portfolio_id", None)
+            target_id = getattr(d, 'target_portfolio_id', None)
             if not target_id:
                 continue
-            targets = self._crud_repo.find(filters={"uuid": target_id, "is_del": False})
+            targets = self._crud_repo.find(
+                filters={"uuid": target_id, "is_del": False}
+            )
             if targets and len(targets) > 0:
                 return True
 
@@ -80,11 +88,8 @@ class PortfolioService(BaseService):
     ) -> ServiceResult:
         """分页查询投资组合列表"""
         return self._paginated_query(
-            filters=filters,
-            page=page,
-            page_size=page_size,
-            order_by=order_by,
-            desc_order=desc_order,
+            filters=filters, page=page, page_size=page_size,
+            order_by=order_by, desc_order=desc_order,
         )
 
     @retry(max_try=3)
@@ -94,7 +99,7 @@ class PortfolioService(BaseService):
         mode: PORTFOLIO_MODE_TYPES = PORTFOLIO_MODE_TYPES.BACKTEST,
         description: str = None,
         initial_capital: float = None,
-        **kwargs,
+        **kwargs
     ) -> ServiceResult:
         """
         创建新的投资组合
@@ -125,7 +130,7 @@ class PortfolioService(BaseService):
                 GLOG.WARN(f"无法检查投资组合存在性: {str(e)}")
 
             # 获取模式名称
-            mode_name = mode.name if hasattr(mode, "name") else str(mode)
+            mode_name = mode.name if hasattr(mode, 'name') else str(mode)
 
             # 创建投资组合
             capital = initial_capital if initial_capital is not None else 1000000.0
@@ -151,7 +156,10 @@ class PortfolioService(BaseService):
 
                 GLOG.INFO(f"成功创建投资组合 '{name}' (模式: {mode_name})")
 
-                return ServiceResult.success(data=portfolio_info, message=f"投资组合创建成功: {name}")
+                return ServiceResult.success(
+                    data=portfolio_info,
+                    message=f"投资组合创建成功: {name}"
+                )
 
         except Exception as e:
             GLOG.ERROR(f"创建投资组合失败 '{name}': {str(e)}")
@@ -172,7 +180,7 @@ class PortfolioService(BaseService):
         total_fee=None,
         total_profit=None,
         live_account_id=None,
-        **kwargs,
+        **kwargs
     ) -> ServiceResult:
         """
         更新现有投资组合的信息，支持部分字段更新
@@ -196,17 +204,11 @@ class PortfolioService(BaseService):
 
         # 冻结检查（state 由 Worker 运行时控制，不阻止）
         _only_state = state is not None and all(
-            v is None
-            for k, v in [
-                ("name", name),
-                ("mode", mode),
-                ("description", description),
+            v is None for k, v in [
+                ("name", name), ("mode", mode), ("description", description),
                 ("initial_capital", initial_capital),
-                ("cash", cash),
-                ("frozen", frozen),
-                ("current_capital", current_capital),
-                ("total_fee", total_fee),
-                ("total_profit", total_profit),
+                ("cash", cash), ("frozen", frozen), ("current_capital", current_capital),
+                ("total_fee", total_fee), ("total_profit", total_profit),
             ]
         )
         if not _only_state and self.is_portfolio_frozen(portfolio_id):
@@ -221,6 +223,7 @@ class PortfolioService(BaseService):
                 name = name[:100]
             updates["name"] = name
             updates_applied.append("name")
+
 
         if mode is not None:
             GLOG.WARN(
@@ -295,7 +298,11 @@ class PortfolioService(BaseService):
             return ServiceResult.error(f"Database operation failed: {str(e)}")
 
         # 返回更新结果
-        result_data = {"portfolio_id": portfolio_id, "updates_applied": updates_applied, "warnings": warnings}
+        result_data = {
+            "portfolio_id": portfolio_id,
+            "updates_applied": updates_applied,
+            "warnings": warnings
+        }
         return ServiceResult.success(result_data, f"Portfolio updated successfully")
 
     def update_performance(
@@ -374,7 +381,10 @@ class PortfolioService(BaseService):
 
             # 1. 更新 portfolio 表的运行时字段
             positions = state.get("positions", [])
-            position_value = sum(Decimal(p.get("price", 0)) * int(p.get("volume", 0)) for p in positions)
+            position_value = sum(
+                Decimal(p.get("price", 0)) * int(p.get("volume", 0))
+                for p in positions
+            )
             current_capital = Decimal(state["cash"]) + Decimal(state["frozen"]) + position_value
 
             portfolio_updates = {
@@ -429,39 +439,35 @@ class PortfolioService(BaseService):
 
             positions_data = []
             for m_pos in m_positions:
-                positions_data.append(
-                    {
-                        "portfolio_id": m_pos.portfolio_id,
-                        "engine_id": m_pos.engine_id,
-                        "task_id": m_pos.task_id,
-                        "code": m_pos.code,
-                        "cost": str(m_pos.cost),
-                        "volume": m_pos.volume,
-                        "frozen_volume": m_pos.frozen_volume,
-                        "settlement_frozen_volume": m_pos.settlement_frozen_volume,
-                        "settlement_days": m_pos.settlement_days,
-                        "settlement_queue_json": m_pos.settlement_queue_json,
-                        "frozen_money": str(m_pos.frozen_money),
-                        "price": str(m_pos.price),
-                        "fee": str(m_pos.fee),
-                        "uuid": m_pos.uuid,
-                    }
-                )
+                positions_data.append({
+                    "portfolio_id": m_pos.portfolio_id,
+                    "engine_id": m_pos.engine_id,
+                    "task_id": m_pos.task_id,
+                    "code": m_pos.code,
+                    "cost": str(m_pos.cost),
+                    "volume": m_pos.volume,
+                    "frozen_volume": m_pos.frozen_volume,
+                    "settlement_frozen_volume": m_pos.settlement_frozen_volume,
+                    "settlement_days": m_pos.settlement_days,
+                    "settlement_queue_json": m_pos.settlement_queue_json,
+                    "frozen_money": str(m_pos.frozen_money),
+                    "price": str(m_pos.price),
+                    "fee": str(m_pos.fee),
+                    "uuid": m_pos.uuid,
+                })
 
             has_state = float(p.cash) > 0 or len(positions_data) > 0
 
             et = p.engine_current_time
-            return ServiceResult.success(
-                {
-                    "cash": str(p.cash),
-                    "frozen": str(p.frozen),
-                    "fee": str(p.total_fee),
-                    "positions": positions_data,
-                    "has_state": has_state,
-                    # #6159: 返回引擎时间，worker 据此判定是否进入 REPLAY 快进历史
-                    "engine_current_time": et.isoformat() if et else None,
-                }
-            )
+            return ServiceResult.success({
+                "cash": str(p.cash),
+                "frozen": str(p.frozen),
+                "fee": str(p.total_fee),
+                "positions": positions_data,
+                "has_state": has_state,
+                # #6159: 返回引擎时间，worker 据此判定是否进入 REPLAY 快进历史
+                "engine_current_time": et.isoformat() if et else None,
+            })
 
         except Exception as e:
             GLOG.ERROR(f"Failed to load persisted portfolio state: {e}")
@@ -491,24 +497,22 @@ class PortfolioService(BaseService):
 
             positions_data = []
             for m_pos in m_positions:
-                positions_data.append(
-                    {
-                        "portfolio_id": m_pos.portfolio_id,
-                        "engine_id": m_pos.engine_id,
-                        "task_id": m_pos.task_id,
-                        "code": m_pos.code,
-                        "cost": str(m_pos.cost),
-                        "volume": m_pos.volume,
-                        "frozen_volume": m_pos.frozen_volume,
-                        "settlement_frozen_volume": m_pos.settlement_frozen_volume,
-                        "settlement_days": m_pos.settlement_days,
-                        "settlement_queue_json": m_pos.settlement_queue_json,
-                        "frozen_money": str(m_pos.frozen_money),
-                        "price": str(m_pos.price),
-                        "fee": str(m_pos.fee),
-                        "uuid": m_pos.uuid,
-                    }
-                )
+                positions_data.append({
+                    "portfolio_id": m_pos.portfolio_id,
+                    "engine_id": m_pos.engine_id,
+                    "task_id": m_pos.task_id,
+                    "code": m_pos.code,
+                    "cost": str(m_pos.cost),
+                    "volume": m_pos.volume,
+                    "frozen_volume": m_pos.frozen_volume,
+                    "settlement_frozen_volume": m_pos.settlement_frozen_volume,
+                    "settlement_days": m_pos.settlement_days,
+                    "settlement_queue_json": m_pos.settlement_queue_json,
+                    "frozen_money": str(m_pos.frozen_money),
+                    "price": str(m_pos.price),
+                    "fee": str(m_pos.fee),
+                    "uuid": m_pos.uuid,
+                })
             return ServiceResult.success(positions_data)
         except Exception as e:
             GLOG.ERROR(f"Failed to get positions for portfolio {(portfolio_id or '')[:8]}: {e}")
@@ -517,7 +521,6 @@ class PortfolioService(BaseService):
     def _get_position_crud(self):
         """获取 PositionCRUD 实例（延迟导入避免循环依赖）"""
         from ginkgo import services
-
         return services.data.cruds.position()
 
     def reset_stale_running(self) -> ServiceResult:
@@ -533,7 +536,9 @@ class PortfolioService(BaseService):
             stale_states = (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value)
             for mode_value in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
                 for stale_state in stale_states:
-                    portfolios = self._crud_repo.find(filters={"mode": mode_value, "state": stale_state})
+                    portfolios = self._crud_repo.find(
+                        filters={"mode": mode_value, "state": stale_state}
+                    )
                     for p in portfolios:
                         self._crud_repo.modify(
                             filters={"uuid": p.uuid},
@@ -546,7 +551,10 @@ class PortfolioService(BaseService):
             if reset_count > 0:
                 GLOG.INFO(f"Reset {reset_count} stale RUNNING portfolios")
 
-            return ServiceResult.success({"reset_count": reset_count}, f"重置 {reset_count} 个残留 RUNNING 组合")
+            return ServiceResult.success(
+                {"reset_count": reset_count},
+                f"重置 {reset_count} 个残留 RUNNING 组合"
+            )
         except Exception as e:
             GLOG.ERROR(f"重置残留 RUNNING 组合失败: {e}")
             return ServiceResult.error(f"重置残留 RUNNING 组合失败: {str(e)}")
@@ -571,8 +579,8 @@ class PortfolioService(BaseService):
                 return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
 
             portfolio = portfolios[0]
-            mode = getattr(portfolio, "mode", -1)
-            state = getattr(portfolio, "state", 0)
+            mode = getattr(portfolio, 'mode', -1)
+            state = getattr(portfolio, 'state', 0)
 
             # 校验 mode
             if mode == PORTFOLIO_MODE_TYPES.BACKTEST.value:
@@ -605,7 +613,10 @@ class PortfolioService(BaseService):
             else:
                 GLOG.WARN(f"[STOP] Failed to send Kafka unload command for {portfolio_id[:8]}")
 
-            return ServiceResult.success({"portfolio_id": portfolio_id}, "停止命令已发送")
+            return ServiceResult.success(
+                {"portfolio_id": portfolio_id},
+                "停止命令已发送"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"停止投资组合失败: {e}")
@@ -639,14 +650,14 @@ class PortfolioService(BaseService):
             portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
             if portfolios:
                 p = portfolios[0]
-                mode = getattr(p, "mode", -1)
-                state = getattr(p, "state", 0)
+                mode = getattr(p, 'mode', -1)
+                state = getattr(p, 'state', 0)
                 if mode in (PORTFOLIO_MODE_TYPES.PAPER.value, PORTFOLIO_MODE_TYPES.LIVE.value):
                     if state in (PORTFOLIO_RUNSTATE_TYPES.RUNNING.value, PORTFOLIO_RUNSTATE_TYPES.STOPPING.value):
-                        state_name = {v.value: k for k, v in PORTFOLIO_RUNSTATE_TYPES.__members__.items()}.get(
-                            state, str(state)
+                        state_name = {v.value: k for k, v in PORTFOLIO_RUNSTATE_TYPES.__members__.items()}.get(state, str(state))
+                        return ServiceResult.error(
+                            f"组合正在{state_name}状态，请先停止后再删除"
                         )
-                        return ServiceResult.error(f"组合正在{state_name}状态，请先停止后再删除")
 
             deleted_count = 0
             mappings_deleted = 0
@@ -655,29 +666,39 @@ class PortfolioService(BaseService):
 
             # 清理投资组合-文件映射和参数
             try:
-                file_mappings = self._portfolio_file_mapping_crud.find(filters={"portfolio_id": portfolio_id})
+                file_mappings = self._portfolio_file_mapping_crud.find(
+                    filters={"portfolio_id": portfolio_id}
+                )
 
                 for mapping in file_mappings:
                     # 删除关联参数
                     try:
-                        self._param_crud.remove(filters={"mapping_id": mapping.uuid})
+                        self._param_crud.remove(
+                            filters={"mapping_id": mapping.uuid}
+                        )
                     except Exception as e:
                         warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
 
                 # 删除投资组合-文件映射
-                self._portfolio_file_mapping_crud.remove(filters={"portfolio_id": portfolio_id})
+                self._portfolio_file_mapping_crud.remove(
+                    filters={"portfolio_id": portfolio_id}
+                )
 
             except Exception as e:
                 warnings.append(f"清理映射关系时出错: {str(e)}")
 
             # 软删除投资组合
-            self._crud_repo.soft_remove(filters={"uuid": portfolio_id})
+            self._crud_repo.soft_remove(
+                filters={"uuid": portfolio_id}
+            )
 
             # 如果是已部署的 target，将对应 deployment 状态更新为 STOPPED
-            if hasattr(self, "_deployment_crud") and self._deployment_crud:
-                deployments = self._deployment_crud.find(filters={"target_portfolio_id": portfolio_id})
+            if hasattr(self, '_deployment_crud') and self._deployment_crud:
+                deployments = self._deployment_crud.find(
+                    filters={"target_portfolio_id": portfolio_id}
+                )
                 for d in deployments:
-                    if getattr(d, "status", -1) == 1:  # DEPLOYED
+                    if getattr(d, 'status', -1) == 1:  # DEPLOYED
                         self._deployment_crud.modify(
                             filters={"uuid": d.uuid},
                             updates={"status": 3},  # STOPPED
@@ -689,7 +710,7 @@ class PortfolioService(BaseService):
                 "portfolio_id": portfolio_id,
                 "mappings_deleted": mappings_deleted,
                 "parameters_deleted": parameters_deleted,
-                "warnings": warnings,
+                "warnings": warnings
             }
 
             message = f"投资组合删除成功: {portfolio_id}"
@@ -757,7 +778,7 @@ class PortfolioService(BaseService):
                     file_id=component_id,
                     name=component_name,
                     type=component_type,
-                    session=session,
+                    session=session
                 )
 
                 mount_info = {
@@ -793,11 +814,16 @@ class PortfolioService(BaseService):
                 return ServiceResult.error("挂载ID不能为空")
 
             # 软删除挂载关系
-            self._portfolio_file_mapping_crud.soft_remove(filters={"uuid": mount_id})
+            self._portfolio_file_mapping_crud.soft_remove(
+                filters={"uuid": mount_id}
+            )
 
             GLOG.INFO(f"成功卸载组件挂载 {mount_id}")
 
-            return ServiceResult.success({"mount_id": mount_id}, f"组件卸载成功: {mount_id}")
+            return ServiceResult.success(
+                {"mount_id": mount_id},
+                f"组件卸载成功: {mount_id}"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"卸载组件失败 {mount_id}: {str(e)}")
@@ -834,26 +860,28 @@ class PortfolioService(BaseService):
 
         # FILE_TYPES.value(int) → 分组 key 单一映射（消除原函数双重 if/elif 链）
         type_to_key = {
-            FILE_TYPES.STRATEGY.value: "strategies",
-            FILE_TYPES.RISKMANAGER.value: "risk_managers",
-            FILE_TYPES.ANALYZER.value: "analyzers",
-            FILE_TYPES.SELECTOR.value: "selectors",
-            FILE_TYPES.SIZER.value: "sizers",
+            FILE_TYPES.STRATEGY.value: 'strategies',
+            FILE_TYPES.RISKMANAGER.value: 'risk_managers',
+            FILE_TYPES.ANALYZER.value: 'analyzers',
+            FILE_TYPES.SELECTOR.value: 'selectors',
+            FILE_TYPES.SIZER.value: 'sizers',
         }
         component_data = {key: [] for key in type_to_key.values()}
 
         try:
             # 1. 获取 Portfolio 的所有文件绑定关系
-            all_file_mappings = self._portfolio_file_mapping_crud.find(filters={"portfolio_id": portfolio_id}) or []
+            all_file_mappings = self._portfolio_file_mapping_crud.find(
+                filters={"portfolio_id": portfolio_id}
+            ) or []
 
             # 2. 按类型分类文件映射
             for mapping in all_file_mappings:
                 file_info = {
-                    "name": mapping.name,
-                    "file_id": mapping.file_id,
-                    "type": mapping.type,
-                    "mapping_uuid": mapping.uuid,
-                    "parameters": [],
+                    'name': mapping.name,
+                    'file_id': mapping.file_id,
+                    'type': mapping.type,
+                    'mapping_uuid': mapping.uuid,
+                    'parameters': []
                 }
                 key = type_to_key.get(mapping.type)
                 if key is not None:
@@ -875,24 +903,22 @@ class PortfolioService(BaseService):
                 if key is None:
                     continue
                 for component in component_data[key]:
-                    if component["file_id"] != mapping.file_id:
+                    if component['file_id'] != mapping.file_id:
                         continue
                     for param in params:
                         # value 以 '[' 开头尝试 JSON 解析（原契约：列表参数）
                         display_value = param.value
-                        if param.value and param.value.startswith("["):
+                        if param.value and param.value.startswith('['):
                             try:
                                 display_value = json.loads(param.value)
                             except (json.JSONDecodeError, TypeError) as e:
                                 GLOG.ERROR(f"Failed to parse JSON param value: {e}")
                                 display_value = param.value
-                        component["parameters"].append(
-                            {
-                                "index": param.index,
-                                "value": display_value,
-                                "raw_value": param.value,
-                            }
-                        )
+                        component['parameters'].append({
+                            'index': param.index,
+                            'value': display_value,
+                            'raw_value': param.value,
+                        })
 
             return ServiceResult.success(component_data)
 
@@ -937,7 +963,7 @@ class PortfolioService(BaseService):
                     "component_id": mapping.file_id,
                     "component_name": mapping.name,
                     "component_type": mapping.type.name if hasattr(mapping.type, "name") else str(mapping.type),
-                    "created_at": mapping.created_at.isoformat() if hasattr(mapping, "created_at") else None,
+                    "created_at": mapping.created_at.isoformat() if hasattr(mapping, 'created_at') else None,
                 }
                 components.append(component_info)
 
@@ -947,6 +973,7 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"获取组件列表失败: {str(e)}")
             return ServiceResult.error(f"获取组件列表失败: {str(e)}")
 
+  
     # ==================== 标准接口方法 ====================
 
     def get_names_by_ids(self, portfolio_ids: List[str]) -> Dict[str, str]:
@@ -962,19 +989,12 @@ class PortfolioService(BaseService):
             return {}
         try:
             portfolios = self._crud_repo.find(filters={"uuid__in": list(portfolio_ids)})
-            return {getattr(p, "uuid", ""): getattr(p, "name", "") for p in portfolios}
+            return {getattr(p, 'uuid', ''): getattr(p, 'name', '') for p in portfolios}
         except Exception as e:
             GLOG.ERROR(f"批量查询组合名称失败: {e}")
             return {}
 
-    def get(
-        self,
-        portfolio_id: str = None,
-        name: str = None,
-        mode: PORTFOLIO_MODE_TYPES = None,
-        state: PORTFOLIO_RUNSTATE_TYPES = None,
-        **kwargs,
-    ) -> ServiceResult:
+    def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         获取投资组合数据
 
@@ -1003,14 +1023,14 @@ class PortfolioService(BaseService):
 
             else:
                 # 按条件查询
-                filters = kwargs.get("filters", {})
-                filters["is_del"] = False
+                filters = kwargs.get('filters', {})
+                filters['is_del'] = False
 
                 if mode is not None:
-                    filters["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+                    filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
 
                 if state is not None:
-                    filters["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+                    filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
 
                 portfolios = self._crud_repo.find(filters=filters)
                 return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
@@ -1043,39 +1063,30 @@ class PortfolioService(BaseService):
 
     # ===== ADR-010 Phase 4 R1a：类型即契约多出口（DF 出口，纯增量） =====
 
-    def _build_portfolio_filters(
-        self,
-        portfolio_id: str = None,
-        name: str = None,
-        mode: PORTFOLIO_MODE_TYPES = None,
-        state: PORTFOLIO_RUNSTATE_TYPES = None,
-    ) -> dict:
+    def _build_portfolio_filters(self, portfolio_id: str = None, name: str = None,
+                                 mode: PORTFOLIO_MODE_TYPES = None,
+                                 state: PORTFOLIO_RUNSTATE_TYPES = None) -> dict:
         """从业务参数构造 Portfolio CRUD filters。get_portfolios_df 独立使用（DRY）。
 
         mode/state 经 validate_input 归一（CRUD 层 enum 映射会二次转换，幂等）；
         其余字段（portfolio_id→uuid / name / is_del）与 get() 一致。
         未抽改 get()，保持纯增量。
         """
-        filters = {"is_del": False}
+        filters = {'is_del': False}
         if portfolio_id:
-            filters["uuid"] = portfolio_id
+            filters['uuid'] = portfolio_id
         if name:
-            filters["name"] = name
+            filters['name'] = name
         if mode is not None:
-            filters["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+            filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
         if state is not None:
-            filters["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+            filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
         return filters
 
-    def get_portfolios_df(
-        self,
-        portfolio_id: str = None,
-        name: str = None,
-        mode: PORTFOLIO_MODE_TYPES = None,
-        state: PORTFOLIO_RUNSTATE_TYPES = None,
-        page: int = None,
-        page_size: int = None,
-    ) -> ServiceResult:
+    def get_portfolios_df(self, portfolio_id: str = None, name: str = None,
+                          mode: PORTFOLIO_MODE_TYPES = None,
+                          state: PORTFOLIO_RUNSTATE_TYPES = None,
+                          page: int = None, page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
         ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
@@ -1090,18 +1101,13 @@ class PortfolioService(BaseService):
         """
         try:
             filters = self._build_portfolio_filters(
-                portfolio_id=portfolio_id,
-                name=name,
-                mode=mode,
-                state=state,
+                portfolio_id=portfolio_id, name=name, mode=mode, state=state,
             )
             # None 守卫：0=全量下推 None（与 signal_service 一致），裸 page_size=0 触发 LIMIT 0 返空（#6652 review R3-issue3）。
             model_list = self._crud_repo.find(
-                filters=filters,
-                page=page,
+                filters=filters, page=page,
                 page_size=page_size if page_size and page_size > 0 else None,
-                order_by="create_at",
-                desc_order=True,
+                order_by="create_at", desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
             return ServiceResult.success(
@@ -1112,9 +1118,7 @@ class PortfolioService(BaseService):
             GLOG.ERROR(f"获取投资组合数据(df)失败: {str(e)}")
             return ServiceResult.error(f"获取投资组合数据(df)失败: {str(e)}")
 
-    def count(
-        self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs
-    ) -> ServiceResult:
+    def count(self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         统计投资组合数量
 
@@ -1128,19 +1132,22 @@ class PortfolioService(BaseService):
             ServiceResult: 统计结果
         """
         try:
-            filters = kwargs.get("filters", {})
-            filters["is_del"] = False
+            filters = kwargs.get('filters', {})
+            filters['is_del'] = False
 
             if name:
-                filters["name"] = name
+                filters['name'] = name
             if mode is not None:
-                filters["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+                filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
             if state is not None:
-                filters["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+                filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
 
             count = self._crud_repo.count(filters=filters)
 
-            return ServiceResult.success({"count": count}, f"统计到{count}个投资组合")
+            return ServiceResult.success(
+                {"count": count},
+                f"统计到{count}个投资组合"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"统计投资组合失败: {str(e)}")
@@ -1159,39 +1166,31 @@ class PortfolioService(BaseService):
 
             conn = crud._get_connection()
             with conn.get_session() as s:
-                row = (
-                    s.query(
-                        func.sum(MPortfolio.initial_capital),
-                        func.avg(MPortfolio.cash / MPortfolio.initial_capital),
-                    )
-                    .filter(
-                        MPortfolio.is_del == False,
-                        MPortfolio.initial_capital > 0,
-                    )
-                    .one()
-                )
+                row = s.query(
+                    func.sum(MPortfolio.initial_capital),
+                    func.avg(MPortfolio.cash / MPortfolio.initial_capital),
+                ).filter(
+                    MPortfolio.is_del == False,
+                    MPortfolio.initial_capital > 0,
+                ).one()
 
             total_assets = float(row[0] or 0)
             avg_net_value = round(float(row[1] or 1.0), 4)
 
-            return ServiceResult.success(
-                {
-                    "total": total,
-                    "running": running,
-                    "avg_net_value": avg_net_value,
-                    "total_assets": total_assets,
-                }
-            )
+            return ServiceResult.success({
+                "total": total,
+                "running": running,
+                "avg_net_value": avg_net_value,
+                "total_assets": total_assets,
+            })
         except Exception as e:
             GLOG.ERROR(f"获取 Portfolio 统计失败: {e}")
-            return ServiceResult.success(
-                {
-                    "total": 0,
-                    "running": 0,
-                    "avg_net_value": 1.0,
-                    "total_assets": 0,
-                }
-            )
+            return ServiceResult.success({
+                "total": 0,
+                "running": 0,
+                "avg_net_value": 1.0,
+                "total_assets": 0,
+            })
 
     def exists(self, portfolio_id: str = None, name: str = None, **kwargs) -> ServiceResult:
         """
@@ -1214,7 +1213,10 @@ class PortfolioService(BaseService):
             else:
                 exists = self._crud_repo.exists(filters={"name": name, "is_del": False})
 
-            return ServiceResult.success({"exists": exists}, f"投资组合{'存在' if exists else '不存在'}")
+            return ServiceResult.success(
+                {"exists": exists},
+                f"投资组合{'存在' if exists else '不存在'}"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"检查投资组合存在性失败: {str(e)}")
@@ -1228,7 +1230,11 @@ class PortfolioService(BaseService):
             ServiceResult: 健康检查结果
         """
         try:
-            health_info = {"service_name": "PortfolioService", "status": "healthy", "checks": {}}
+            health_info = {
+                "service_name": "PortfolioService",
+                "status": "healthy",
+                "checks": {}
+            }
 
             # 检查CRUD依赖
             if self._crud_repo is None:
@@ -1250,7 +1256,7 @@ class PortfolioService(BaseService):
                     total_count = count_result.data.get("count", 0)
                     health_info["checks"]["service_functionality"] = {
                         "status": "passed",
-                        "message": f"服务功能正常，共{total_count}个投资组合",
+                        "message": f"服务功能正常，共{total_count}个投资组合"
                     }
                     health_info["total_portfolios"] = total_count
                 else:
@@ -1280,17 +1286,20 @@ class PortfolioService(BaseService):
                 return ServiceResult.error("数据必须是字典格式")
 
             # 必填字段验证
-            required_fields = ["name"]
+            required_fields = ['name']
             missing_fields = [field for field in required_fields if not portfolio_data.get(field)]
 
             if missing_fields:
                 return ServiceResult.error(
-                    data={"valid": False, "missing_fields": missing_fields},
-                    error=f"缺少必填字段: {', '.join(missing_fields)}",
+                    data={
+                        "valid": False,
+                        "missing_fields": missing_fields
+                    },
+                    error=f"缺少必填字段: {', '.join(missing_fields)}"
                 )
 
             # 名称长度验证
-            name = portfolio_data["name"]
+            name = portfolio_data['name']
             if not name or not name.strip():
                 return ServiceResult.error("投资组合名称不能为空")
 
@@ -1298,8 +1307,8 @@ class PortfolioService(BaseService):
                 return ServiceResult.error("投资组合名称不能超过100个字符")
 
             # 枚举值验证
-            if "mode" in portfolio_data:
-                mode_value = portfolio_data["mode"]
+            if 'mode' in portfolio_data:
+                mode_value = portfolio_data['mode']
                 if isinstance(mode_value, PORTFOLIO_MODE_TYPES):
                     pass  # Valid enum
                 elif isinstance(mode_value, int):
@@ -1310,8 +1319,8 @@ class PortfolioService(BaseService):
                 else:
                     return ServiceResult.error("mode字段必须是枚举或整数")
 
-            if "state" in portfolio_data:
-                state_value = portfolio_data["state"]
+            if 'state' in portfolio_data:
+                state_value = portfolio_data['state']
                 if isinstance(state_value, PORTFOLIO_RUNSTATE_TYPES):
                     pass  # Valid enum
                 elif isinstance(state_value, int):
@@ -1322,7 +1331,10 @@ class PortfolioService(BaseService):
                 else:
                     return ServiceResult.error("state字段必须是枚举或整数")
 
-            return ServiceResult.success(data={"valid": True}, message="投资组合数据验证通过")
+            return ServiceResult.success(
+                data={"valid": True},
+                message="投资组合数据验证通过"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"投资组合数据验证失败: {str(e)}")
@@ -1365,9 +1377,11 @@ class PortfolioService(BaseService):
                     portfolio_issues.append("缺少投资组合名称")
 
                 if portfolio_issues:
-                    issues.append(
-                        {"portfolio_id": portfolio.uuid, "portfolio_name": portfolio.name, "issues": portfolio_issues}
-                    )
+                    issues.append({
+                        "portfolio_id": portfolio.uuid,
+                        "portfolio_name": portfolio.name,
+                        "issues": portfolio_issues
+                    })
 
             integrity_score = 1.0
             if total_count > 0:
@@ -1377,7 +1391,7 @@ class PortfolioService(BaseService):
                 "total_portfolios": total_count,
                 "portfolios_with_issues": len(issues),
                 "integrity_score": integrity_score,
-                "issues": issues,
+                "issues": issues
             }
 
             message = f"完整性检查完成，{total_count}个投资组合中{len(issues)}个存在问题"
@@ -1391,14 +1405,12 @@ class PortfolioService(BaseService):
         """构建持仓持久化 writer（委托给 PositionService）。"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.position_service import PositionService
-
         position_crud = container.cruds.position()
         return PositionService(crud_repo=position_crud)
 
     def build_redis_writer(self):
         """构建 Redis 状态 writer（委托给 RedisService）。"""
         from ginkgo.data.containers import container
-
         return container.redis_service()
 
     # ── Analytics & Event Timeline ──────────────────────────────
@@ -1443,7 +1455,6 @@ class PortfolioService(BaseService):
             # 2. 信号计数
             try:
                 from ginkgo.data.containers import container
-
                 signal_crud = container.cruds.signal()
                 metrics["signal_count"] = signal_crud.count({"portfolio_id": portfolio_id})
             except Exception:
@@ -1453,14 +1464,10 @@ class PortfolioService(BaseService):
             net_value_series = []
             try:
                 from ginkgo.data.containers import container
-
                 analyzer_crud = container.cruds.analyzer_record()
                 records = analyzer_crud.find(
                     filters={"portfolio_id": portfolio_id, "name": "net_value"},
-                    page=0,
-                    page_size=5000,
-                    order_by="timestamp",
-                    desc_order=False,
+                    page=0, page_size=5000, order_by="timestamp", desc_order=False,
                 )
                 items = records if isinstance(records, list) else getattr(records, "data", [])
                 for r in items:
@@ -1524,7 +1531,7 @@ class PortfolioService(BaseService):
 
             # 计算总数后分页
             total = len(all_events)
-            paged = all_events[offset : offset + limit]
+            paged = all_events[offset: offset + limit]
 
             return ServiceResult.success(
                 {"data": paged, "total": total, "limit": limit, "offset": offset},

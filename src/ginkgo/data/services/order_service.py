@@ -62,9 +62,7 @@ class OrderService(BaseService):
 
             results = self._crud_repo.find(
                 filters=filters,
-                page_size=(
-                    page_size if page_size and page_size > 0 else None
-                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
             )
             return ServiceResult.success(data=results)
         except Exception as e:
@@ -110,16 +108,12 @@ class OrderService(BaseService):
         """
         try:
             filters = self._build_order_filters(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                task_id=task_id,
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
             model_list = self._crud_repo.find(
                 filters=filters,
                 page=page,
-                page_size=(
-                    page_size if page_size and page_size > 0 else None
-                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
                 order_by="create_at",
                 desc_order=True,
             )
@@ -141,9 +135,7 @@ class OrderService(BaseService):
         """统计匹配订单总数（#5009：metadata.total 真实总数，非 len(df)）。"""
         try:
             filters = self._build_order_filters(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                task_id=task_id,
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
             count = self._crud_repo.count(filters=filters)
             return ServiceResult.success({"count": count}, f"Successfully counted orders: {count}")
@@ -210,15 +202,8 @@ class OrderService(BaseService):
 
         try:
             updates = {}
-            for attr in (
-                "status",
-                "transaction_price",
-                "transaction_volume",
-                "remain",
-                "fee",
-                "exchange_order_id",
-                "exchange_response",
-            ):
+            for attr in ("status", "transaction_price", "transaction_volume",
+                         "remain", "fee", "exchange_order_id", "exchange_response"):
                 val = getattr(order, attr, None)
                 if val is not None:
                     updates[attr] = val
@@ -250,14 +235,12 @@ class OrderService(BaseService):
             total_fee = sum(getattr(o, "fee", 0) or 0 for o in orders)
             filled = [o for o in orders if getattr(o, "status", 0) in (3, 4)]
 
-            return ServiceResult.success(
-                data={
-                    "total_orders": total,
-                    "total_volume": total_volume,
-                    "total_fee": float(total_fee),
-                    "filled_count": len(filled),
-                }
-            )
+            return ServiceResult.success(data={
+                "total_orders": total,
+                "total_volume": total_volume,
+                "total_fee": float(total_fee),
+                "filled_count": len(filled),
+            })
         except Exception as e:
             GLOG.ERROR(f"获取订单统计失败: {e}")
             return ServiceResult.error(str(e))

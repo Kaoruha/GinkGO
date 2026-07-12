@@ -16,13 +16,6 @@ app = typer.Typer(
 console = Console()
 
 
-def _print_page_hint(row_count: int, page: int, page_size: int) -> None:
-    if page_size > 0 and row_count == page_size:
-        console.print(
-            f"[dim]Showing page {page} ({page_size} records per page). Use --page-size 0 to see all records.[/dim]"
-        )
-
-
 @app.command()
 def signal(
     portfolio: Annotated[

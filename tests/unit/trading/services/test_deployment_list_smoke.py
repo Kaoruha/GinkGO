@@ -61,6 +61,19 @@ class TestListDeploymentsPagination:
         assert result.success is True
         assert len(result.data) == 1
 
+    @pytest.mark.unit
+    def test_list_slices_records_when_portfolio_and_page(self, service):
+        """#5009: portfolio + page + page_size 时对 find 结果二次切片（offset 对齐）。"""
+        recs = [MagicMock() for _ in range(3)]
+        service._deployment_crud.find.return_value = recs
+        # page=0, page_size=2 → records[0:2]，返回 2 条
+        result = service.list_deployments(portfolio_id="pf-src", page=0, page_size=2)
+        assert result.success is True
+        assert len(result.data) == 2
+        # page=1 → records[2:4]，返回 1 条（翻页对齐 offset）
+        result2 = service.list_deployments(portfolio_id="pf-src", page=1, page_size=2)
+        assert len(result2.data) == 1
+
 
 class TestCountDeployments:
     """count_deployments → _deployment_crud.count(filters=)（#5009 metadata.total）。"""

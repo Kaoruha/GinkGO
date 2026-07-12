@@ -18,9 +18,7 @@ def deploy(
     mode: Annotated[str, typer.Option("--mode", "-m", help="部署模式: paper 或 live")] = "paper",
     account: Annotated[Optional[str], typer.Option("--account", "-a", help="实盘账号ID (live模式必填)")] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="新Portfolio名称")] = None,
-    source_task: Annotated[
-        Optional[str], typer.Option("--source-task", help="源回测任务ID (可选, 记录回测→部署链路)")
-    ] = None,
+    source_task: Annotated[Optional[str], typer.Option("--source-task", help="源回测任务ID (可选, 记录回测→部署链路)")] = None,
 ):
     """一键部署：Portfolio → 纸上交易/实盘"""
     try:
@@ -69,9 +67,7 @@ def deploy(
 
 @app.command("info")
 def info(
-    deployment_id: Annotated[
-        str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")
-    ],
+    deployment_id: Annotated[str, typer.Argument(help="部署记录 ID 或 Portfolio ID（按部署 UUID / 源组合 / 目标组合 任一反查）")],
 ):
     """查看部署详情（#4982：支持按部署 UUID 或 portfolio_id 反查）"""
     try:
@@ -162,19 +158,13 @@ def list_deployments(
     # ADR-021：参数校验失败 exit 2（BAD_PARAMS）；JSON 模式发错误 envelope（#6652 review E2）。
     if page < 0:
         if format == "json":
-            format_result(
-                ServiceResult.failure(message="--page 必须 >= 0", code="BAD_PARAMS"), format="json", command="list"
-            )
+            format_result(ServiceResult.failure(message="--page 必须 >= 0", code="BAD_PARAMS"), format="json", command="list")
             raise typer.Exit(2)
         console.print("[red]--page 必须 >= 0[/red]")
         raise typer.Exit(2)
     if page_size < 0:
         if format == "json":
-            format_result(
-                ServiceResult.failure(message="--page-size 必须 >= 0（0=全部）", code="BAD_PARAMS"),
-                format="json",
-                command="list",
-            )
+            format_result(ServiceResult.failure(message="--page-size 必须 >= 0（0=全部）", code="BAD_PARAMS"), format="json", command="list")
             raise typer.Exit(2)
         console.print("[red]--page-size 必须 >= 0（0=全部）[/red]")
         raise typer.Exit(2)
@@ -196,9 +186,7 @@ def list_deployments(
         records = result.data or []
         # #5009：metadata.total = count() 真实总数（非 len(records)，records 已被 page_size 截断）
         count_res = svc.count_deployments(portfolio_id=portfolio_id)
-        total = (
-            count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(records)
-        )
+        total = count_res.data.get("count", 0) if count_res.success and isinstance(count_res.data, dict) else len(records)
 
         if format == "json":
             offset = 0 if unlimited else page * page_size
@@ -230,9 +218,7 @@ def list_deployments(
                 )
             console.print(table)
             if unlimited is False and total > len(records):
-                console.print(
-                    f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页。[/dim]"
-                )
+                console.print(f"[dim]共 {total} 条，当前第 {page + 1} 页（每页 {page_size} 条）。使用 --page 翻页。[/dim]")
         else:
             console.print("[yellow]无部署记录[/yellow]")
 

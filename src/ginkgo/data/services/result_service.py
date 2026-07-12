@@ -3,6 +3,10 @@
 # Role: ResultService回测结果查询和分析业务服务提供运行摘要/分析器值/记录/投资组合摘要等方法
 
 
+
+
+
+
 """
 Result Service Module
 
@@ -67,7 +71,7 @@ class ResultService(BaseService):
             timestamps = [r.timestamp for r in records if r.timestamp]
             time_range = {
                 "start": min(timestamps) if timestamps else None,
-                "end": max(timestamps) if timestamps else None,
+                "end": max(timestamps) if timestamps else None
             }
 
             summary = {
@@ -78,7 +82,7 @@ class ResultService(BaseService):
                 "analyzer_count": len(analyzers),
                 "analyzers": analyzers,
                 "total_records": len(records),
-                "time_range": time_range,
+                "time_range": time_range
             }
 
             GLOG.INFO(f"获取 task_id={task_id} 的摘要信息成功")
@@ -89,7 +93,10 @@ class ResultService(BaseService):
             return ServiceResult.error(f"获取运行摘要失败: {e}")
 
     def get_analyzer_values(
-        self, task_id: str, portfolio_id: Optional[str] = None, analyzer_name: Optional[str] = None
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None,
+        analyzer_name: Optional[str] = None
     ) -> ServiceResult:
         """
         获取 analyzer 指标值
@@ -108,7 +115,10 @@ class ResultService(BaseService):
 
             # 使用 CRUD 的 get_by_task_id 方法
             result = self._crud_repo.get_by_task_id(
-                task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer_name, page_size=10000
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=analyzer_name,
+                page_size=10000
             )
 
             GLOG.INFO(f"获取 task_id={task_id} 的 analyzer 值成功")
@@ -119,7 +129,10 @@ class ResultService(BaseService):
             return ServiceResult.error(f"获取 analyzer 值失败: {e}")
 
     def get_analyzer_values_df(
-        self, task_id: str, portfolio_id: Optional[str] = None, analyzer_name: Optional[str] = None
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None,
+        analyzer_name: Optional[str] = None
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
@@ -134,7 +147,10 @@ class ResultService(BaseService):
                 return ServiceResult.error("task_id 不能为空")
 
             result = self._crud_repo.get_by_task_id(
-                task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer_name, page_size=10000
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=analyzer_name,
+                page_size=10000
             )
             df = result.to_dataframe() if result else pd.DataFrame()
 
@@ -145,7 +161,12 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取 analyzer 值(df)失败: {e}")
             return ServiceResult.error(f"获取 analyzer 值(df)失败: {e}")
 
-    def get_multi_analyzer_data(self, task_id: str, portfolio_id: str, analyzer_names: List[str]) -> ServiceResult:
+    def get_multi_analyzer_data(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        analyzer_names: List[str]
+    ) -> ServiceResult:
         """
         获取多个 analyzer 的数据，用于对比绘图
 
@@ -167,7 +188,10 @@ class ResultService(BaseService):
             data_map = {}
             for analyzer_name in analyzer_names:
                 model_list = self._crud_repo.get_by_task_id(
-                    task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer_name, page_size=10000
+                    task_id=task_id,
+                    portfolio_id=portfolio_id,
+                    analyzer_name=analyzer_name,
+                    page_size=10000
                 )
                 data_map[analyzer_name] = model_list
 
@@ -179,7 +203,10 @@ class ResultService(BaseService):
             return ServiceResult.error(f"获取多 analyzer 数据失败: {e}")
 
     def list_runs(
-        self, engine_id: Optional[str] = None, portfolio_id: Optional[str] = None, limit: int = 100
+        self,
+        engine_id: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+        limit: int = 100
     ) -> ServiceResult:
         """
         列出运行会话（task_id）
@@ -201,9 +228,7 @@ class ResultService(BaseService):
                 filters["portfolio_id"] = portfolio_id
 
             # 获取记录 - 使用 page_size 代替 limit
-            records = self._crud_repo.find(
-                filters=filters, page_size=limit * 100, order_by="timestamp", desc_order=True
-            )
+            records = self._crud_repo.find(filters=filters, page_size=limit * 100, order_by="timestamp", desc_order=True)
 
             # 按 task_id 分组
             run_map = {}
@@ -218,7 +243,7 @@ class ResultService(BaseService):
                         "engine_id": record.engine_id,
                         "portfolio_id": record.portfolio_id,
                         "timestamp": record.timestamp,
-                        "record_count": 1,
+                        "record_count": 1
                     }
                     engine_ids.add(record.engine_id)
                     portfolio_ids.add(record.portfolio_id)
@@ -229,7 +254,6 @@ class ResultService(BaseService):
             engine_name_map = {}
             if engine_ids:
                 from ginkgo.data.containers import container
-
                 engine_service = container.engine_service()
                 for eid in engine_ids:
                     if eid:
@@ -266,7 +290,11 @@ class ResultService(BaseService):
             GLOG.ERROR(f"列出运行会话失败: {e}")
             return ServiceResult.error(f"列出运行会话失败: {e}")
 
-    def get_portfolio_analyzers(self, task_id: str, portfolio_id: str) -> ServiceResult:
+    def get_portfolio_analyzers(
+        self,
+        task_id: str,
+        portfolio_id: str
+    ) -> ServiceResult:
         """
         获取某个 portfolio 的所有 analyzer 列表
 
@@ -278,7 +306,11 @@ class ResultService(BaseService):
             ServiceResult[List[str]]: analyzer 名称列表
         """
         try:
-            records = self._crud_repo.get_by_task_id(task_id=task_id, portfolio_id=portfolio_id, page_size=10000)
+            records = self._crud_repo.get_by_task_id(
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                page_size=10000
+            )
 
             analyzers = list(set(r.name for r in records if r.name))
 
@@ -289,7 +321,12 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取 analyzer 列表失败: {e}")
             return ServiceResult.error(f"获取 analyzer 列表失败: {e}")
 
-    def get_analyzer_stats(self, task_id: str, portfolio_id: str, analyzer_name: str) -> ServiceResult:
+    def get_analyzer_stats(
+        self,
+        task_id: str,
+        portfolio_id: str,
+        analyzer_name: str
+    ) -> ServiceResult:
         """
         获取某个 analyzer 的统计信息
 
@@ -303,7 +340,10 @@ class ResultService(BaseService):
         """
         try:
             records = self._crud_repo.get_by_task_id(
-                task_id=task_id, portfolio_id=portfolio_id, analyzer_name=analyzer_name, page_size=10000
+                task_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=analyzer_name,
+                page_size=10000
             )
 
             if not records:
@@ -325,7 +365,7 @@ class ResultService(BaseService):
                 "avg": sum(values) / len(values),
                 "latest": values[0] if values else None,
                 "first": values[-1] if values else None,
-                "change": values[0] - values[-1] if len(values) >= 2 else 0,
+                "change": values[0] - values[-1] if len(values) >= 2 else 0
             }
 
             GLOG.INFO(f"获取 analyzer={analyzer_name} 的统计信息成功")
@@ -336,7 +376,11 @@ class ResultService(BaseService):
             return ServiceResult.error(f"获取统计信息失败: {e}")
 
     def get_signals(
-        self, task_id: str, portfolio_id: Optional[str] = None, page: int = 0, page_size: int = 100
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None,
+        page: int = 0,
+        page_size: int = 100
     ) -> ServiceResult:
         """
         获取回测信号记录
@@ -355,7 +399,6 @@ class ResultService(BaseService):
                 return ServiceResult.error("task_id 不能为空")
 
             from ginkgo.data.crud.signal_crud import SignalCRUD
-
             signal_crud = SignalCRUD()
 
             filters = {"task_id": task_id}
@@ -363,7 +406,11 @@ class ResultService(BaseService):
                 filters["portfolio_id"] = portfolio_id
 
             result = signal_crud.find(
-                filters=filters, page=page, page_size=page_size, order_by="timestamp", desc_order=True
+                filters=filters,
+                page=page,
+                page_size=page_size,
+                order_by="timestamp",
+                desc_order=True
             )
 
             total = signal_crud.count(filters)
@@ -421,20 +468,22 @@ class ResultService(BaseService):
             # 去重后内存分页(page 从 1 起); page/page_size 非法时回退全量
             if page >= 1 and page_size >= 1:
                 start = (page - 1) * page_size
-                paged = unique[start : start + page_size]
+                paged = unique[start:start + page_size]
             else:
                 paged = unique
 
-            GLOG.INFO(
-                f"获取 task_id={task_id} 的订单成功: {total} 个唯一订单 (流水 {len(records)} 条), 返回第 {page} 页 {len(paged)} 条"
-            )
+            GLOG.INFO(f"获取 task_id={task_id} 的订单成功: {total} 个唯一订单 (流水 {len(records)} 条), 返回第 {page} 页 {len(paged)} 条")
             return ServiceResult.success({"data": paged, "total": total, "page": page, "page_size": page_size})
 
         except Exception as e:
             GLOG.ERROR(f"获取订单失败: {e}")
             return ServiceResult.error(f"获取订单失败: {e}")
 
-    def get_order_records(self, task_id: str, portfolio_id: Optional[str] = None) -> ServiceResult:
+    def get_order_records(
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> ServiceResult:
         """
         获取回测订单记录（完整状态流水，不去重）。
 
@@ -463,19 +512,30 @@ class ResultService(BaseService):
             GLOG.ERROR(f"获取订单记录失败: {e}")
             return ServiceResult.error(f"获取订单记录失败: {e}")
 
-    def _find_order_records(self, task_id: str, portfolio_id: Optional[str] = None) -> list:
+    def _find_order_records(
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> list:
         """查询订单记录流水(按 timestamp desc), 供 get_orders/get_order_records 共用。"""
         from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-
         order_record_crud = OrderRecordCRUD()
 
         filters = {"task_id": task_id}
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
 
-        return order_record_crud.find(filters=filters, order_by="timestamp", desc_order=True)
+        return order_record_crud.find(
+            filters=filters,
+            order_by="timestamp",
+            desc_order=True
+        )
 
-    def get_positions(self, task_id: str, portfolio_id: Optional[str] = None) -> ServiceResult:
+    def get_positions(
+        self,
+        task_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> ServiceResult:
         """
         获取回测持仓记录
 
@@ -491,14 +551,17 @@ class ResultService(BaseService):
                 return ServiceResult.error("task_id 不能为空")
 
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-
             position_record_crud = PositionRecordCRUD()
 
             filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
-            result = position_record_crud.find(filters=filters, order_by="timestamp", desc_order=True)
+            result = position_record_crud.find(
+                filters=filters,
+                order_by="timestamp",
+                desc_order=True
+            )
 
             total = position_record_crud.count(filters)
 
@@ -529,20 +592,15 @@ class ResultService(BaseService):
         """
         try:
             filters = self._build_position_record_filters(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                task_id=task_id,
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-
             position_record_crud = PositionRecordCRUD()
 
             model_list = position_record_crud.find(
                 filters=filters,
                 page=page,
-                page_size=(
-                    page_size if page_size and page_size > 0 else None
-                ),  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
+                page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
                 order_by="timestamp",
                 desc_order=True,
             )
@@ -564,12 +622,9 @@ class ResultService(BaseService):
         """统计匹配持仓流水总数（#5009：metadata.total 真实总数，非 len(df)）。"""
         try:
             filters = self._build_position_record_filters(
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                task_id=task_id,
+                portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-
             position_record_crud = PositionRecordCRUD()
             count = position_record_crud.count(filters=filters)
             return ServiceResult.success({"count": count}, f"Successfully counted positions: {count}")
@@ -616,7 +671,6 @@ class ResultService(BaseService):
         """
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-
             order_record_crud = OrderRecordCRUD()
 
             order_record_crud.create(**kwargs)
@@ -653,7 +707,6 @@ class ResultService(BaseService):
         """
         try:
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-
             position_record_crud = PositionRecordCRUD()
 
             position_record_crud.create(**kwargs)
@@ -674,7 +727,6 @@ class ResultService(BaseService):
         """按 portfolio 查询订单记录（不依赖 task_id，用于实盘/模拟盘）"""
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-
             crud = OrderRecordCRUD()
 
             filters = {"portfolio_id": portfolio_id}
@@ -702,7 +754,6 @@ class ResultService(BaseService):
         """查询当前持仓（不依赖 task_id，用于实盘/模拟盘）"""
         try:
             from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-
             crud = PositionRecordCRUD()
 
             result = crud.find_current_positions(
@@ -718,7 +769,6 @@ class ResultService(BaseService):
         """取消订单"""
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-
             crud = OrderRecordCRUD()
 
             records = crud.find_by_order_id(order_id)
@@ -743,7 +793,6 @@ class ResultService(BaseService):
         """按 portfolio + 日期范围查询订单（不依赖 task_id）"""
         try:
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-
             crud = OrderRecordCRUD()
 
             result = crud.find_by_portfolio(

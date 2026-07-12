@@ -12,7 +12,8 @@ from ginkgo.enums import DEPLOYMENT_STATUS
 # #6285: int→枚举名映射，供 info/list 输出人类可读部署状态。
 # 动态收集 DEPLOYMENT_STATUS 类属性，新增成员自动覆盖，无需手维护 dict。
 _DEPLOYMENT_STATUS_NAMES = {
-    v: k for k, v in vars(DEPLOYMENT_STATUS).items() if not k.startswith("_") and isinstance(v, int)
+    v: k for k, v in vars(DEPLOYMENT_STATUS).items()
+    if not k.startswith("_") and isinstance(v, int)
 }
 
 
@@ -117,7 +118,9 @@ class DeploymentService(BaseService):
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
             account_res = self._live_account_service.get_account_by_uuid(account_id)
             if not account_res or not account_res.get("success"):
-                return ServiceResult(success=False, error=f"实盘账户不存在: {account_id}")
+                return ServiceResult(
+                    success=False, error=f"实盘账户不存在: {account_id}"
+                )
 
         # 3c. 检查 live_account 是否已被其他 Portfolio 绑定
         if mode == PORTFOLIO_MODE_TYPES.LIVE and account_id:
@@ -185,7 +188,9 @@ class DeploymentService(BaseService):
     ) -> ServiceResult:
         """核心部署流程: 步骤 4-8。失败时由调用方标记 FAILED。"""
         # 4. 读取原 Portfolio 的组件映射
-        mappings_result = self._mapping_service.get_portfolio_mappings(source_portfolio_id, include_params=True)
+        mappings_result = self._mapping_service.get_portfolio_mappings(
+            source_portfolio_id, include_params=True
+        )
         if not mappings_result.success:
             raise RuntimeError(f"读取Portfolio组件映射失败: {mappings_result.error}")
 
@@ -368,11 +373,8 @@ class DeploymentService(BaseService):
             filters["source_portfolio_id"] = portfolio_id
 
         records = self._deployment_crud.find(
-            filters=filters,
-            page=page,
-            page_size=page_size,
-            order_by="create_at",
-            desc_order=True,
+            filters=filters, page=page, page_size=page_size,
+            order_by="create_at", desc_order=True,
         )
 
         if not records:
