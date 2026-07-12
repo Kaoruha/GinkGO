@@ -367,22 +367,24 @@ class DeploymentService(BaseService):
         return result
 
     def list_deployments(self, portfolio_id: str = None, page: int = None, page_size: int = None) -> ServiceResult:
-        """列出部署记录（#5009：page/page_size 分页，portfolio 过滤下推 find）"""
-        filters = {}
-        if portfolio_id:
-            filters["source_portfolio_id"] = portfolio_id
+        """列出部署记录（#5009：page/page_size 分页，portfolio 过滤下推 find）。
 
-        records = self._deployment_crud.find(
-            filters=filters, page=page, page_size=page_size,
-            order_by="create_at", desc_order=True,
-        )
+        page_size<=0 = 全量（page/page_size 同置 None）；portfolio_id 为空时不下推
+        filters；分页完全交给 CRUD find（DB 层 offset/limit），不做内存二次切片。
+        """
+        # None 守卫：page_size<=0=全量，page/page_size 同置 None（#6670 review R5）
+        if not page_size or page_size <= 0:
+            page = None
+            page_size = None
+
+        find_kwargs = dict(page=page, page_size=page_size, order_by="create_at", desc_order=True)
+        if portfolio_id:
+            find_kwargs["filters"] = {"source_portfolio_id": portfolio_id}
+
+        records = self._deployment_crud.find(**find_kwargs)
 
         if not records:
             return ServiceResult(success=True, data=[])
-
-        if portfolio_id and page is not None and page_size and page_size > 0:
-            start = page * page_size
-            records = records[start : start + page_size]
 
         result = ServiceResult(success=True)
         result.data = [self._deployment_to_dict(r) for r in records]

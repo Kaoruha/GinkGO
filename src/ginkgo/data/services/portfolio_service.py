@@ -1103,10 +1103,13 @@ class PortfolioService(BaseService):
             filters = self._build_portfolio_filters(
                 portfolio_id=portfolio_id, name=name, mode=mode, state=state,
             )
-            # None 守卫：0=全量下推 None（与 signal_service 一致），裸 page_size=0 触发 LIMIT 0 返空（#6652 review R3-issue3）。
+            # None 守卫：page_size<=0=全量，page/page_size 同置 None（全量时分页无意义；
+            # 裸 page_size=0 触发 LIMIT 0 返空。#6652 review R3 / #6670 review R5）。
+            if not page_size or page_size <= 0:
+                page = None
+                page_size = None
             model_list = self._crud_repo.find(
-                filters=filters, page=page,
-                page_size=page_size if page_size and page_size > 0 else None,
+                filters=filters, page=page, page_size=page_size,
                 order_by="create_at", desc_order=True,
             )
             df = model_list.to_dataframe() if model_list else pd.DataFrame()
