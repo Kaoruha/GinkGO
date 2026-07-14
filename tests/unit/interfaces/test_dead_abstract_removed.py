@@ -87,6 +87,13 @@ def test_base_model_migrated_to_quant_ml():
 
 
 def test_ml_strategy_base_unified_in_trading():
-    """ML 策略三变体应统一为 trading/strategies/ml_strategy_base.py 的 MLStrategyBase。"""
+    """ML 策略三变体应统一为 trading/strategies/ml_strategy_base.py 的 MLStrategyBase。
+
+    quant_ml/strategies/ml_strategy_base.py 的同名死双胞胎应已删除（防回潮）：
+    若重建该模块，三变体统一静默失效，故用 ModuleNotFoundError 强断言守护。
+    """
     from ginkgo.trading.strategies.ml_strategy_base import MLStrategyBase
     assert MLStrategyBase is not None
+    # 死双胞胎模块不可再 import（与 test_core_interfaces_*_module_removed 同模式）
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("ginkgo.quant_ml.strategies.ml_strategy_base")
