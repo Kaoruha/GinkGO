@@ -10,7 +10,7 @@
 """
 SimBroker - 回测模拟撮合Broker
 
-基于新的BaseBroker和IBroker接口，提供统一的回测模拟撮合功能。
+基于BrokerCacheMixin和IBroker接口，提供统一的回测模拟撮合功能。
 支持滑点、态度设置、手续费计算等回测功能。
 """
 
