@@ -1,6 +1,6 @@
 # Upstream: TimeControlledEventEngine, clock.py (全局provider)
-# Downstream: ITimeProvider接口, TimeBoundaryValidator
-# Role: ITimeProvider实现(逻辑时间/系统时间)及时间边界验证器
+# Downstream: TimeProvider接口, TimeBoundaryValidator
+# Role: TimeProvider实现(逻辑时间/系统时间)及时间边界验证器
 
 """
 时间提供者实现
@@ -12,11 +12,11 @@ import pytz
 from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Optional, Set
-from .interfaces import ITimeProvider, ITimeAwareComponent
+from .interfaces import TimeProvider, ITimeAwareComponent
 from ginkgo.enums import TIME_MODE
 
 
-class LogicalTimeProvider(ITimeProvider):
+class LogicalTimeProvider(TimeProvider):
     """逻辑时间提供者
     
     用于回测场景，提供可控的逻辑时间推进功能。
@@ -144,7 +144,7 @@ class LogicalTimeProvider(ITimeProvider):
             self._listeners.remove(listener)
 
 
-class SystemTimeProvider(ITimeProvider):
+class SystemTimeProvider(TimeProvider):
     """系统时间提供者
     
     用于实盘交易场景，提供基于系统时钟的实时时间。
@@ -241,7 +241,7 @@ class TimeBoundaryValidator:
     _shared_cache: dict = {}
     _default_cache_size: int = 50  # 每个run默认50个槽位
 
-    def __init__(self, time_provider: ITimeProvider, task_id: Optional[str] = None, cache_size: Optional[int] = None):
+    def __init__(self, time_provider: TimeProvider, task_id: Optional[str] = None, cache_size: Optional[int] = None):
         """初始化时间边界验证器
 
         Args:

@@ -20,7 +20,7 @@ from typing import Optional, TYPE_CHECKING
 from ginkgo.enums import SOURCE_TYPES
 
 if TYPE_CHECKING:
-    from ginkgo.trading.time.interfaces import ITimeProvider
+    from ginkgo.trading.time.interfaces import TimeProvider
 
 
 class EngineContext:
@@ -31,7 +31,7 @@ class EngineContext:
     - Store engine_id (read-only, updatable by Engine)
     - Store task_id (read-only, updatable by Engine)
     - Store source_type (marks BACKTEST / PAPER_REPLAY / PAPER_LIVE)
-    - Hold reference to ITimeProvider for dynamic business_timestamp
+    - Hold reference to TimeProvider for dynamic business_timestamp
     - Provide read-only property access
 
     Design:
@@ -50,7 +50,7 @@ class EngineContext:
         self._engine_id = engine_id
         self._task_id: Optional[str] = None
         self._source_type: int = SOURCE_TYPES.OTHER
-        self._time_provider: Optional["ITimeProvider"] = None
+        self._time_provider: Optional["TimeProvider"] = None
 
     @property
     def engine_id(self) -> str:
@@ -68,8 +68,8 @@ class EngineContext:
         return self._source_type
 
     @property
-    def time_provider(self) -> Optional["ITimeProvider"]:
-        """Read-only: Bound ITimeProvider instance"""
+    def time_provider(self) -> Optional["TimeProvider"]:
+        """Read-only: Bound TimeProvider instance"""
         return self._time_provider
 
     @property
@@ -106,12 +106,12 @@ class EngineContext:
         """
         self._source_type = source_type
 
-    def set_time_provider(self, provider: Optional["ITimeProvider"]) -> None:
+    def set_time_provider(self, provider: Optional["TimeProvider"]) -> None:
         """
-        Bind or unbind an ITimeProvider (only Engine should call this).
+        Bind or unbind a TimeProvider (only Engine should call this).
 
         Args:
-            provider: ITimeProvider instance, or None to unbind
+            provider: TimeProvider instance, or None to unbind
         """
         self._time_provider = provider
 

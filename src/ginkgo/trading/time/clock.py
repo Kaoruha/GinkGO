@@ -1,11 +1,11 @@
 # Upstream: 全项目 (通过clock.now()获取时间)
-# Downstream: ITimeProvider实现 (LogicalTimeProvider/SystemTimeProvider)
+# Downstream: TimeProvider实现 (LogicalTimeProvider/SystemTimeProvider)
 # Role: 全局时钟适配层，统一now()入口，支持provider注入和回退
 
 """
 Global Clock Adapter
 
-提供一个轻量全局时钟适配层，便于在尚未彻底注入 ITimeProvider 的代码中，
+提供一个轻量全局时钟适配层，便于在尚未彻底注入 TimeProvider 的代码中，
 统一通过 clock.now() 获取当前时间：
 - 若已设置全局 provider，则返回 provider.now()
 - 否则回退为系统 UTC 时间
@@ -18,17 +18,17 @@ from typing import Optional
 
 from ginkgo.libs import GLOG
 
-from .interfaces import ITimeProvider
+from .interfaces import TimeProvider
 
-_GLOBAL_TIME_PROVIDER: Optional[ITimeProvider] = None
+_GLOBAL_TIME_PROVIDER: Optional[TimeProvider] = None
 
 
-def set_global_time_provider(provider: ITimeProvider) -> None:
+def set_global_time_provider(provider: TimeProvider) -> None:
     global _GLOBAL_TIME_PROVIDER
     _GLOBAL_TIME_PROVIDER = provider
 
 
-def get_global_time_provider() -> Optional[ITimeProvider]:
+def get_global_time_provider() -> Optional[TimeProvider]:
     return _GLOBAL_TIME_PROVIDER
 
 
