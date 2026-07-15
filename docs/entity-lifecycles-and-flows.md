@@ -129,7 +129,7 @@ IBroker (接口)
   └─ (其他交易所适配器)
 ```
 
-> 源码: `src/ginkgo/trading/bases/base_broker.py`, `src/ginkgo/trading/brokers/broker_manager.py`
+> 源码: `src/ginkgo/trading/brokers/base_broker.py`, `src/ginkgo/trading/brokers/broker_manager.py`
 
 ---
 

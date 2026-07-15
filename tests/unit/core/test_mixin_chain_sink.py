@@ -4,7 +4,7 @@ import pytest
 
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.price_update import EventPriceUpdate
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.bases.broker_cache_mixin import BrokerCacheMixin
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.entities.base import Base
 
@@ -17,8 +17,8 @@ class TestMixinChainSink:
         assert Base in EventBase.__mro__
 
     def test_base_broker_has_base_in_mro(self):
-        """BaseBroker 的 MRO 中应包含 Base"""
-        assert Base in BaseBroker.__mro__
+        """BrokerCacheMixin 的 MRO 中应包含 Base（#6715：原 BaseBroker 弱侧降级为 Mixin）"""
+        assert Base in BrokerCacheMixin.__mro__
 
     def test_base_trade_gateway_has_base_in_mro(self):
         """BaseTradeGateway 的 MRO 中应包含 Base"""
@@ -37,8 +37,8 @@ class TestMixinChainSink:
         assert e is not None
 
     def test_base_broker_with_unknown_kwargs(self):
-        """BaseBroker 传入未知 kwargs 不应 TypeError"""
-        b = BaseBroker(name="test", extra_param="value")
+        """BrokerCacheMixin 传入未知 kwargs 不应 TypeError（#6715：原 BaseBroker 弱侧）"""
+        b = BrokerCacheMixin(name="test", extra_param="value")
         assert b is not None
 
     def test_base_trade_gateway_with_unknown_kwargs(self):

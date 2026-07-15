@@ -376,7 +376,7 @@ class LiveCore:
         集成方式（Phase 4完成broker配置后启用）：
         ```python
         from ginkgo.livecore.trade_gateway_adapter import TradeGatewayAdapter
-        from ginkgo.trading.bases.base_broker import BaseBroker
+        from ginkgo.trading.brokers.base_broker import BaseBroker
 
         # 1. 从config或环境变量加载broker配置
         brokers = self._load_brokers()

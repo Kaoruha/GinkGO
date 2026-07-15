@@ -1,5 +1,5 @@
 # Upstream: BaseEngine, TimeControlledEventEngine, PaperTradingWorker
-# Downstream: bases.base_trade_gateway, trading.interfaces.broker_interface, trading.bases.base_broker, entities.Order, trading.enums, trading.events.order_lifecycle_events
+# Downstream: bases.base_trade_gateway, trading.interfaces.broker_interface, trading.brokers.base_broker (强侧唯一 BaseBroker), entities.Order, trading.enums, trading.events.order_lifecycle_events
 # Role: 统一交易网关实现，支持回测/模拟/实盘三种模式，自动路由订单到对应市场Broker，纯内存订单管理
 
 
@@ -25,7 +25,7 @@ import traceback
 from ginkgo.libs import GLOG
 from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
-from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.entities import Order
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.trading.events.order_lifecycle_events import (
