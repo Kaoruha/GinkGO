@@ -1,9 +1,9 @@
 # Upstream: 全局所有模块 (通过from ginkgo.core import访问核心服务)
-# Downstream: containers(DI容器), time_logger/retry(装饰器), interfaces(延迟导入)
+# Downstream: containers(DI容器), time_logger/retry(装饰器)
 # Role: 核心模块公共入口，提供get_config/get_logger/get_thread_manager等服务函数和validate_data/check_health等工具函数
 
-# 注: core/factories(3文件)与 core/adapters(5文件)已于 #6476 删除 —— 零外部类引用，
-# 仅本文件 try/except 残壳;ADR-022 原则6(core/ 层级下架)。interfaces 保留(#6707 处理)。
+# 注: core/factories(3文件)、core/adapters(5文件)、core/interfaces(4文件)已分别于 #6476/#6712 删除
+# —— 零外部类引用; ADR-022 原则6(core/ 层级下架)。
 
 """
 Ginkgo Core Module - Public API
@@ -88,13 +88,7 @@ def get_core_utility(utility_type: str):
     return container.get_utility(utility_type)
 
 # --- Import other components with error handling ---
-# Try to import other components, but don't fail if they're not available
-
-try:
-    # Import interfaces if available
-    from ginkgo.core import interfaces
-except ImportError as e:
-    interfaces = None
+# (core/interfaces 已于 #6712 整层下架；本块原为 interfaces try/except 容错，已清除)
 
 # --- Module Information ---
 __version__ = "1.0.0"
@@ -104,7 +98,7 @@ __all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.cu
            if inspect.isfunction(obj) and not name.startswith('_')]
 
 # Also export the container and important objects
-__all__.extend(['container', 'interfaces'])
+__all__.extend(['container'])
 
 # Legacy exports for backward compatibility
 core_container = container

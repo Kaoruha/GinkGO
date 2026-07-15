@@ -26,7 +26,7 @@ except ImportError:
     LIGHTGBM_AVAILABLE = False
     lgb = None
 
-from ginkgo.core.interfaces.model_interface import BaseModel, ModelStatus
+from ginkgo.quant_ml.models.base_model import BaseModel, ModelStatus
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG
 
