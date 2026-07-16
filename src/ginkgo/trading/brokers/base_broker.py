@@ -1,6 +1,6 @@
 # Upstream: SimBroker/ManualBroker/AutoBroker等具体Broker实现(继承获得通用功能)
 # Downstream: asyncio(异步编程)、datetime/timedelta(时间管理)、clock_now(业务时间)、Decimal(精度计算)、dataclasses/Enum/typing(类型定义)、uuid(UUID生成)
-# Role: BaseBroker交易代理基类实现IBroker接口，提供订单生命周期管理/持仓计算/成交记录/账户统计
+# Role: BaseBroker交易代理基类实现Broker接口，提供订单生命周期管理/持仓计算/成交记录/账户统计
 
 
 
@@ -10,7 +10,7 @@
 """
 交易代理基类实现
 
-提供IBroker接口的基础实现，包括：
+提供Broker接口的基础实现，包括：
 - 统一的执行结果/状态类型
 - 订单生命周期管理
 - 持仓计算逻辑  
@@ -31,7 +31,7 @@ from uuid import uuid4
 
 from ginkgo.libs import GLOG
 from .interfaces import (
-    IBroker, BrokerType, OrderType, OrderSide, OrderStatus, PositionSide,
+    Broker, BrokerType, OrderType, OrderSide, OrderStatus, PositionSide,
     TradingOrder, BrokerPosition, BrokerTrade, AccountBalance, BrokerStats,
     ManualConfirmationRequired
 )
@@ -103,7 +103,7 @@ class ExecutionResult:
         }
 
 
-class BaseBroker(IBroker):
+class BaseBroker(Broker):
     """交易代理基类"""
     
     def __init__(self, config_or_type: Any, initial_cash: Decimal = Decimal('1000000')):

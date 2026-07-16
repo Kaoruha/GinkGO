@@ -1,6 +1,6 @@
 # Upstream: EngineAssemblyService, InfrastructureFactory, PortfolioBase, SyncBrokerFacade
-# Downstream: IBroker, BaseBroker, BrokerType, OrderType, OrderSide, TradingOrder, Position
-# Role: 经纪商模块包，导出IBroker接口、数据类定义及BaseBroker基类
+# Downstream: Broker, BaseBroker, BrokerType, OrderType, OrderSide, TradingOrder, Position
+# Role: 经纪商模块包，导出Broker接口、数据类定义及BaseBroker基类
 
 
 
@@ -18,7 +18,7 @@
 """
 
 from .interfaces import (
-    IBroker,
+    Broker,
     BrokerType,
     OrderType,
     OrderSide,
@@ -39,7 +39,7 @@ from .base_broker import BaseBroker
 
 __all__ = [
     # 接口和枚举
-    'IBroker',
+    'Broker',
     'BrokerType',
     'OrderType',
     'OrderSide', 

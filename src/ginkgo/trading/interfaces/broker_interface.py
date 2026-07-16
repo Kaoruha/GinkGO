@@ -1,6 +1,6 @@
-# Upstream: SimBroker/ManualBroker/AutoBroker/AShareBroker等Broker实现(实现IBroker接口)
+# Upstream: SimBroker/ManualBroker/AutoBroker/AShareBroker等Broker实现(实现SyncBroker接口)
 # Downstream: BaseEngine/BrokerRouter (通过接口调用Broker)、EVENT_TYPES/ORDERSTATUS_TYPES (事件类型和订单状态枚举)
-# Role: IBroker交易代理接口定义提交订单/取消订单/持仓/订单/成交/账户信息等方法
+# Role: SyncBroker交易代理接口定义提交订单/取消订单/持仓/订单/成交/账户信息等方法
 
 
 
@@ -125,7 +125,7 @@ class BrokerExecutionResult:
                 f"filled_volume={self.filled_volume})")
 
 
-class IBroker(ABC):
+class SyncBroker(ABC):
     """统一Broker接口"""
 
     @abstractmethod
