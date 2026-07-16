@@ -1,6 +1,9 @@
 # Upstream: PortfolioBase, StrategyMLPredictor
 # Downstream: BaseStrategy, BaseModel, FeatureProcessor, AlphaFactors, DataFeeder, DIRECTION_TYPES, MODEL_TYPES
-# Role: 机器学习策略基类 — 通过 data_feeder 获取历史数据，提供ML模型加载、特征工程、预测到信号的桥接框架
+# Role: 机器学习策略统一基类 MLStrategyBase — 接入 quant_ml 产出的模型、连接回测与神经网络（trading 域消费者/桥接层）
+# Note: ADR-022 原则6 · ML 策略三变体统一。原名 StrategyMLBase；quant_ml/strategies/ml_strategy_base.py
+#       的同名死类已删（其唯一继承者 PredictionStrategy 改继承本类）。BaseModel 已自 core/interfaces 迁至
+#       quant_ml/models/base_model.py。
 
 
 
@@ -29,7 +32,7 @@ from ginkgo.libs import GLOG
 
 # 尝试导入ML模块
 try:
-    from ginkgo.core.interfaces.model_interface import BaseModel
+    from ginkgo.quant_ml.models.base_model import BaseModel
     from ginkgo.quant_ml.features import FeatureProcessor, AlphaFactors
     ML_AVAILABLE = True
 except ImportError as e:
@@ -40,7 +43,7 @@ except ImportError as e:
     AlphaFactors = None
 
 
-class StrategyMLBase(BaseStrategy):
+class MLStrategyBase(BaseStrategy):
     """
     机器学习策略基类
     

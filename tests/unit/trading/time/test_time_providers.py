@@ -18,7 +18,7 @@ if _path not in sys.path:
 
 # 导入TimeProvider相关组件
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator, DSTHandler
-from ginkgo.trading.time.interfaces import ITimeProvider, TimeAwareComponent
+from ginkgo.trading.time.interfaces import TimeProvider, TimeAwareComponent
 from ginkgo.enums import TIME_MODE
 
 
@@ -816,9 +816,9 @@ class TestTimeProvidersIntegration:
         logical = LogicalTimeProvider(datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc))
         system = SystemTimeProvider()
 
-        # 验证都实现了ITimeProvider接口
-        assert isinstance(logical, ITimeProvider)
-        assert isinstance(system, ITimeProvider)
+        # 验证都实现了TimeProvider接口
+        assert isinstance(logical, TimeProvider)
+        assert isinstance(system, TimeProvider)
 
         # 验证都实现了核心接口方法
         for provider in [logical, system]:

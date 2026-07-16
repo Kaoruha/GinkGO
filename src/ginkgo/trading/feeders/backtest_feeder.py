@@ -32,7 +32,7 @@ from ginkgo.trading.feeders.interfaces import (
 from ginkgo.trading.events import EventPriceUpdate, EventBase
 from ginkgo.entities import Bar
 from ginkgo.entities.mixins import TimeMixin
-from ginkgo.trading.time.interfaces import ITimeProvider
+from ginkgo.trading.time.interfaces import TimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration, GLOG
 from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES, ADJUSTMENT_TYPES
@@ -55,7 +55,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
         self.status = DataFeedStatus.IDLE
 
         # 时间控制组件（由Engine注入）
-        self.time_controller: Optional[ITimeProvider] = None
+        self.time_controller: Optional[TimeProvider] = None
         self.time_boundary_validator: Optional[TimeBoundaryValidator] = None
 
         # 数据缓存
@@ -115,7 +115,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
         """获取当前状态"""
         return self.status
 
-    def set_time_provider(self, time_controller: ITimeProvider) -> None:
+    def set_time_provider(self, time_controller: TimeProvider) -> None:
         """设置时间控制器"""
         # 调用父类TimeMixin的set_time_provider
         super().set_time_provider(time_controller)

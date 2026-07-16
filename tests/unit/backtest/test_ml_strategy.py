@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 
-from ginkgo.trading.strategies.ml_strategy_base import StrategyMLBase
+from ginkgo.trading.strategies.ml_strategy_base import MLStrategyBase
 from ginkgo.trading.strategies.ml_predictor import StrategyMLPredictor
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
@@ -108,7 +108,7 @@ def _with_mocks(fn):
     return wrapper
 
 
-class TestStrategyMLBase(unittest.TestCase):
+class TestMLStrategyBase(unittest.TestCase):
     """测试 ML 策略基类"""
 
     def setUp(self):
@@ -123,7 +123,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_initialization_defaults(self):
         """测试默认参数初始化"""
-        strategy = StrategyMLBase()
+        strategy = MLStrategyBase()
         self.assertEqual(strategy.name, "MLStrategy")
         self.assertEqual(strategy._signal_threshold, 0.01)
         self.assertTrue(strategy._enable_monitoring)
@@ -132,7 +132,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_initialization_custom_params(self):
         """测试自定义参数初始化"""
-        strategy = StrategyMLBase(
+        strategy = MLStrategyBase(
             name="CustomML",
             signal_threshold=0.05,
             lookback_days=120,
@@ -150,7 +150,7 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy")
+            strategy = MLStrategyBase(name="TestStrategy")
             result = strategy.load_model(model_path)
             self.assertTrue(result)
             self.assertTrue(strategy.is_model_loaded())
@@ -160,7 +160,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_model_loading_nonexistent_path(self):
         """测试加载不存在的模型文件"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         result = strategy.load_model("/nonexistent/model.pkl")
         self.assertFalse(result)
         self.assertFalse(strategy.is_model_loaded())
@@ -172,7 +172,7 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy")
+            strategy = MLStrategyBase(name="TestStrategy")
             strategy.load_model(model_path)
 
             info = strategy.get_model_info()
@@ -185,7 +185,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_predict_without_model(self):
         """测试未加载模型时预测返回 None"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         features = pd.DataFrame(np.random.random((1, 10)))
         result = strategy.predict(features, "000001.SZ")
         self.assertIsNone(result)
@@ -197,7 +197,7 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy")
+            strategy = MLStrategyBase(name="TestStrategy")
             strategy.load_model(model_path)
 
             features = pd.DataFrame(
@@ -216,7 +216,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_signal_generation_long(self):
         """测试生成买入信号"""
-        strategy = StrategyMLBase(name="TestStrategy", signal_threshold=0.01)
+        strategy = MLStrategyBase(name="TestStrategy", signal_threshold=0.01)
         # 绑定 portfolio_id 等上下文，否则 Signal 初始化会失败
         mock_ctx = Mock(portfolio_id="test_portfolio", engine_id="test_engine", task_id="test_task")
         strategy._context = mock_ctx
@@ -236,7 +236,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_signal_generation_below_threshold(self):
         """测试低于阈值不生成信号"""
-        strategy = StrategyMLBase(name="TestStrategy", signal_threshold=0.1)
+        strategy = MLStrategyBase(name="TestStrategy", signal_threshold=0.1)
         prediction_result = {
             "prediction": 0.01,
             "confidence": 0.8,
@@ -250,7 +250,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_performance_monitoring(self):
         """测试性能监控"""
-        strategy = StrategyMLBase(name="TestStrategy", enable_monitoring=True)
+        strategy = MLStrategyBase(name="TestStrategy", enable_monitoring=True)
         # 需要至少 20 条记录（含 actual_return）才能计算指标
         for i in range(25):
             strategy.update_performance_monitoring(
@@ -266,14 +266,14 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_performance_monitoring_disabled(self):
         """测试禁用监控时不记录"""
-        strategy = StrategyMLBase(name="TestStrategy", enable_monitoring=False)
+        strategy = MLStrategyBase(name="TestStrategy", enable_monitoring=False)
         strategy.update_performance_monitoring("000001.SZ", 0.01, 0.02)
         self.assertEqual(len(strategy._prediction_history), 0)
 
     @_with_mocks
     def test_extract_features_with_data(self):
         """测试传入数据时特征提取"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         features = strategy.extract_features(
             "000001.SZ", datetime.now(), history_data=self.test_data
         )
@@ -285,7 +285,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_extract_features_caching(self):
         """测试特征缓存"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         dt = datetime(2023, 6, 1)
         # 第一次调用
         f1 = strategy.extract_features(
@@ -301,7 +301,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_cal_method_no_model(self):
         """测试未加载模型时 cal 返回空列表"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         signals = strategy.cal(self.portfolio_info, self.test_event)
         self.assertIsInstance(signals, list)
         self.assertEqual(len(signals), 0)
@@ -313,7 +313,7 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy", signal_threshold=0.01)
+            strategy = MLStrategyBase(name="TestStrategy", signal_threshold=0.01)
             strategy.load_model(model_path)
 
             # 绑定上下文，否则 Signal 初始化会失败
@@ -332,14 +332,14 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_set_signal_threshold(self):
         """测试动态修改信号阈值"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         strategy.set_signal_threshold(0.05)
         self.assertEqual(strategy._signal_threshold, 0.05)
 
     @_with_mocks
     def test_strategy_summary(self):
         """测试策略摘要"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         summary = strategy.get_strategy_summary()
         self.assertIn("name", summary)
         self.assertIn("model_loaded", summary)
@@ -353,7 +353,7 @@ class TestStrategyMLBase(unittest.TestCase):
             model_path = f.name
 
         try:
-            strategy = StrategyMLBase(name="TestStrategy", model_path=model_path)
+            strategy = MLStrategyBase(name="TestStrategy", model_path=model_path)
             self.assertTrue(strategy.is_model_loaded())
             result = strategy.reload_model()
             self.assertTrue(result)
@@ -363,7 +363,7 @@ class TestStrategyMLBase(unittest.TestCase):
     @_with_mocks
     def test_reload_model_no_path(self):
         """测试无路径时重载失败"""
-        strategy = StrategyMLBase(name="TestStrategy")
+        strategy = MLStrategyBase(name="TestStrategy")
         result = strategy.reload_model()
         self.assertFalse(result)
 
@@ -523,21 +523,21 @@ class TestMLStrategyIntegration(unittest.TestCase):
 
     def test_imports(self):
         """测试模块导入"""
-        from ginkgo.trading.strategies import StrategyMLBase, StrategyMLPredictor
+        from ginkgo.trading.strategies import MLStrategyBase, StrategyMLPredictor
 
-        self.assertIsNotNone(StrategyMLBase)
+        self.assertIsNotNone(MLStrategyBase)
         self.assertIsNotNone(StrategyMLPredictor)
 
     def test_strategy_inheritance(self):
         """测试策略继承关系"""
         from ginkgo.trading.strategies import (
-            StrategyMLBase,
+            MLStrategyBase,
             StrategyMLPredictor,
             BaseStrategy,
         )
 
-        self.assertTrue(issubclass(StrategyMLBase, BaseStrategy))
-        self.assertTrue(issubclass(StrategyMLPredictor, StrategyMLBase))
+        self.assertTrue(issubclass(MLStrategyBase, BaseStrategy))
+        self.assertTrue(issubclass(StrategyMLPredictor, MLStrategyBase))
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ from ginkgo.trading.engines.time_controlled_engine import (
 )
 from ginkgo.enums import EXECUTION_MODE, ENGINESTATUS_TYPES
 from ginkgo.trading.engines.event_engine import EventEngine
-from ginkgo.trading.time.interfaces import ITimeProvider, TimeAwareComponent
+from ginkgo.trading.time.interfaces import TimeProvider, TimeAwareComponent
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.time_advance import EventTimeAdvance
@@ -325,9 +325,9 @@ class TestTimeControlledEngineProperties:
         assert isinstance(paper_engine._time_provider, SystemTimeProvider), "PAPER_MANUAL模式应创建SystemTimeProvider"
         assert paper_engine._time_provider is not None, "时间提供者不应为空"
 
-        # 验证时间提供者实现了ITimeProvider接口
-        assert isinstance(backtest_engine._time_provider, ITimeProvider), "时间提供者应实现ITimeProvider接口"
-        assert isinstance(live_engine._time_provider, ITimeProvider), "时间提供者应实现ITimeProvider接口"
+        # 验证时间提供者实现了TimeProvider接口
+        assert isinstance(backtest_engine._time_provider, TimeProvider), "时间提供者应实现TimeProvider接口"
+        assert isinstance(live_engine._time_provider, TimeProvider), "时间提供者应实现TimeProvider接口"
 
     def test_engine_state_tracking(self):
         """测试引擎状态追踪能力"""
@@ -554,8 +554,8 @@ class TestTimeControllerDataSetting:
         # 验证时间提供者类型
         assert isinstance(backtest_engine._time_provider, LogicalTimeProvider), "回测模式应使用LogicalTimeProvider"
 
-        # 验证时间提供者实现了ITimeProvider接口
-        assert isinstance(backtest_engine._time_provider, ITimeProvider), "时间提供者应实现ITimeProvider接口"
+        # 验证时间提供者实现了TimeProvider接口
+        assert isinstance(backtest_engine._time_provider, TimeProvider), "时间提供者应实现TimeProvider接口"
 
         # 测试时间提供者的now方法
         initial_time = backtest_engine._time_provider.now()
@@ -585,8 +585,8 @@ class TestTimeControllerDataSetting:
         # 验证时间提供者类型
         assert isinstance(live_engine._time_provider, SystemTimeProvider), "实盘模式应使用SystemTimeProvider"
 
-        # 验证时间提供者实现了ITimeProvider接口
-        assert isinstance(live_engine._time_provider, ITimeProvider), "时间提供者应实现ITimeProvider接口"
+        # 验证时间提供者实现了TimeProvider接口
+        assert isinstance(live_engine._time_provider, TimeProvider), "时间提供者应实现TimeProvider接口"
 
         # 测试时间提供者的now方法
         current_time = live_engine._time_provider.now()
@@ -637,14 +637,14 @@ class TestTimeControllerDataSetting:
                     result = method()
                     # 验证返回的时间提供者
                     if result is not None:
-                        assert isinstance(result, ITimeProvider), "返回的应是ITimeProvider实例"
+                        assert isinstance(result, TimeProvider), "返回的应是TimeProvider实例"
                 print(f"全局时间提供者方法{method_name}测试成功")
             except Exception as e:
                 print(f"全局时间提供者方法{method_name}调用问题: {e}")
 
         # 验证引擎内部时间提供者
         assert getattr(engine, '_time_provider', None) is not None, "引擎应有内部时间提供者"
-        assert isinstance(engine._time_provider, ITimeProvider), "内部时间提供者应实现ITimeProvider接口"
+        assert isinstance(engine._time_provider, TimeProvider), "内部时间提供者应实现TimeProvider接口"
 
         print("全局时间提供者注册功能检查完成")
 

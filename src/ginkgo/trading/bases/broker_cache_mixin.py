@@ -1,18 +1,17 @@
-# Upstream: SimBroker/ManualBroker/LiveBroker (Broker子类继承)、Portfolio (使用Broker执行订单)
-# Downstream: TimeMixin (继承提供时间戳管理)、ContextMixin (继承提供上下文管理)、LoggableMixin (继承提供日志记录)
-# Role: BaseBroker经纪商基础抽象基类通过Mixin组装时间戳管理/上下文管理/日志记录等基础功能定义订单执行和成交处理的核心方法
-
-
-
-
-
+# Upstream: SimBroker/LiveBrokerBase (Broker子类继承, 行情/持仓缓存)、Portfolio (使用Broker执行订单)
+# Downstream: TimeMixin (继承提供时间戳管理)、ContextMixin (继承提供上下文管理)、Base (mro 末端兜底)
+# Role: BrokerCacheMixin 经纪商行情/持仓缓存 Mixin——窄 Mixin，仅含缓存方法。
+#   历史：原弱侧 BaseBroker（与 trading/brokers/base_broker.py 的强侧 BaseBroker 同名双胞胎）。
+#   ADR-022 原则6（命名空间唯一性）收敛：弱侧降级为 BrokerCacheMixin，强侧保留为唯一 BaseBroker 组合根。
 
 """
-BaseBroker基础类
+BrokerCacheMixin 经纪商行情/持仓缓存 Mixin
 
-通过Mixin组装，提供Broker的基础功能。
-组装TimeMixin、ContextMixin、LoggableMixin等基础功能。
-不包含OrderManagementMixin，因为不同类型的Broker有不同的订单管理需求。
+ADR-022 原则6 收敛后的窄 Mixin：仅含行情数据缓存、持仓缓存、异步结果回调方法。
+强侧 BaseBroker（trading/brokers/base_broker.py）保留订单/账户状态组合根职责，
+本 Mixin 不与之揉成上帝对象。
+
+历史：原 trading/bases/base_broker.py:BaseBroker（与强侧同名双胞胎）。
 """
 
 from typing import Optional, Dict, Any
@@ -25,11 +24,11 @@ from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
 
-class BaseBroker(TimeMixin, ContextMixin, Base):
+class BrokerCacheMixin(TimeMixin, ContextMixin, Base):
     """
-    Broker基础类
+    Broker 行情/持仓缓存 Mixin
 
-    通过Mixin组装提供Broker的基础功能：
+    通过Mixin组装提供行情/持仓缓存能力：
     - TimeMixin: 时间管理和业务时间戳处理
     - ContextMixin: 引擎上下文管理
 
@@ -40,9 +39,9 @@ class BaseBroker(TimeMixin, ContextMixin, Base):
     - LiveBroker: SDK管理订单状态，不需要本地队列
     """
 
-    def __init__(self, name: str = "BaseBroker", *args, **kwargs):
+    def __init__(self, name: str = "BrokerCacheMixin", *args, **kwargs):
         """
-        初始化Broker基础功能
+        初始化缓存 Mixin
 
         Args:
             name: Broker名称

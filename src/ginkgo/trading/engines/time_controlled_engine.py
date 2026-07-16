@@ -30,7 +30,7 @@ import time
 
 from .event_engine import EventEngine
 from ..events.base_event import EventBase
-from ..time.interfaces import ITimeProvider, TimeAwareComponent
+from ..time.interfaces import TimeProvider, TimeAwareComponent
 from ..time.providers import LogicalTimeProvider, SystemTimeProvider
 from ..time.clock import set_global_time_provider, now as clock_now
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES, EXECUTION_MODE, TIME_MODE, ENGINESTATUS_TYPES
@@ -103,7 +103,7 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
         # mode属性通过继承BaseEngine的mode属性获取
 
         # 时间提供者
-        self._time_provider: Optional[ITimeProvider] = None
+        self._time_provider: Optional[TimeProvider] = None
 
         # 并发控制（实盘模式）
         self._executor: Optional[ThreadPoolExecutor] = None
@@ -340,7 +340,7 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
 
     # === 时间感知组件接口实现 ===
 
-    def set_time_provider(self, time_provider: ITimeProvider) -> None:
+    def set_time_provider(self, time_provider: TimeProvider) -> None:
         """设置时间提供者（带模式校验）"""
         from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider
 
@@ -529,7 +529,7 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
 
     # === 扩展接口 ===
 
-    def get_time_controller(self) -> ITimeProvider:
+    def get_time_controller(self) -> TimeProvider:
         """获取时间控制器"""
         return self._time_provider
 

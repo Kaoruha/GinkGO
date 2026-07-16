@@ -24,7 +24,7 @@ from ginkgo.trading.engines.time_controlled_engine import (
 )
 from ginkgo.enums import EXECUTION_MODE, ENGINESTATUS_TYPES
 from ginkgo.trading.engines.event_engine import EventEngine
-from ginkgo.trading.time.interfaces import ITimeProvider, TimeAwareComponent
+from ginkgo.trading.time.interfaces import TimeProvider, TimeAwareComponent
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.time_advance import EventTimeAdvance
@@ -4100,9 +4100,9 @@ class TestEXECUTION_MODESwitch:
             assert actual_provider == expected_provider, \
                 f"模式{mode}应使用{expected_provider.__name__}，实际使用{actual_provider.__name__}"
 
-            # 验证时间提供者实现了ITimeProvider接口
-            assert isinstance(engine._time_provider, ITimeProvider), \
-                f"时间提供者应实现ITimeProvider接口"
+            # 验证时间提供者实现了TimeProvider接口
+            assert isinstance(engine._time_provider, TimeProvider), \
+                f"时间提供者应实现TimeProvider接口"
 
             # 测试时间提供者的基本方法
             assert callable(getattr(engine._time_provider, 'now', None)), "时间提供者应有now方法"

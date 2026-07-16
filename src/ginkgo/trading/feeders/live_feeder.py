@@ -32,7 +32,7 @@ from ginkgo.trading.feeders.interfaces import (
     LiveDataFeeder, DataFeedStatus
 )
 from ginkgo.trading.events import EventBase, EventPriceUpdate
-from ginkgo.trading.time.interfaces import ITimeProvider
+from ginkgo.trading.time.interfaces import TimeProvider
 from ginkgo.entities.mixins import EngineBindableMixin
 from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
 from ginkgo.trading.time.providers import TimeBoundaryValidator
@@ -199,7 +199,7 @@ class LiveFeederBase(EngineBindableMixin, FeederPublishMixin, LiveDataFeeder):
         # 核心组件（懒加载）
         self.connection_manager: Optional[ConnectionManager] = None
         self.rate_limiter: Optional[RateLimiter] = None
-        self.time_controller: Optional[ITimeProvider] = None
+        self.time_controller: Optional[TimeProvider] = None
         self.time_boundary_validator: Optional[TimeBoundaryValidator] = None
 
         # 限流配置
@@ -320,7 +320,7 @@ class LiveFeederBase(EngineBindableMixin, FeederPublishMixin, LiveDataFeeder):
         """获取当前状态"""
         return self.status
     
-    def set_time_provider(self, time_controller: ITimeProvider) -> None:
+    def set_time_provider(self, time_controller: TimeProvider) -> None:
         """设置时间控制器"""
         self.time_controller = time_controller
         # 自动启用时间边界检查

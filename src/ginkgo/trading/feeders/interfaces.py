@@ -24,7 +24,7 @@ from datetime import datetime, date, timedelta
 from enum import Enum
 
 from ginkgo.trading.events import EventBase, EventPriceUpdate
-from ginkgo.trading.time.interfaces import ITimeProvider
+from ginkgo.trading.time.interfaces import TimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 
 
@@ -102,7 +102,7 @@ class DataFeeder(ABC):
         pass
     
     @abstractmethod
-    def set_time_provider(self, time_provider: ITimeProvider) -> None:
+    def set_time_provider(self, time_provider: TimeProvider) -> None:
         """
         设置时间提供者
 
