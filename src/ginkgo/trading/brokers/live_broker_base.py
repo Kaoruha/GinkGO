@@ -10,7 +10,7 @@
 """
 LiveBrokerBase - 实盘交易基础类
 
-基于BrokerCacheMixin和IBroker接口，提供实盘交易的通用功能。
+基于BrokerCacheMixin和SyncBroker接口，提供实盘交易的通用功能。
 不同市场的实盘Broker可以继承此类并实现特定的API调用逻辑。
 """
 
@@ -111,7 +111,7 @@ class LiveBrokerBase(BrokerCacheMixin, ABC):
         """从交易所查询订单状态（由子类实现）"""
         pass
 
-    # ============= IBroker接口实现 =============
+    # ============= SyncBroker接口实现 =============
     def submit_order(self, order: Order) -> BrokerExecutionResult:
         """
         提交订单到实盘市场

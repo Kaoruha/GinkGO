@@ -1,4 +1,4 @@
-# Upstream: BrokerManager (生命周期管理)、IBroker (Broker接口)
+# Upstream: BrokerManager (生命周期管理)、SyncBroker (Broker接口)
 # Downstream: python-okx SDK (OKX API通信)、MBrokerInstance (状态跟踪)
 # Role: OKXBroker OKX交易所Broker实现处理订单提交/撤单/查询与OKX API通信
 
@@ -21,7 +21,7 @@ except ImportError:
     Trade = None
     OKXException = Exception
 
-from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
+from ginkgo.trading.interfaces.broker_interface import SyncBroker, BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.enums import ExchangeType, EnvironmentType
@@ -58,7 +58,7 @@ class RetryConfig:
         self.OKX_DOMAIN = GCONF.OKX_DOMAIN
 
 
-class OKXBroker(IBroker):
+class OKXBroker(SyncBroker):
     """
     OKX交易所Broker实现
 
@@ -656,7 +656,7 @@ class OKXBroker(IBroker):
         获取挂单信息
 
         Returns:
-            list: 挂单列表，格式符合 IBroker 接口定义
+            list: 挂单列表，格式符合 SyncBroker 接口定义
             [
                 {
                     "order_id": str,           # 订单ID (OKX ordId)

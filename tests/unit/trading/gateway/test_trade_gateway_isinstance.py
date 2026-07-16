@@ -85,9 +85,9 @@ class TestTradeGatewayIsinstanceStrongSide:
         import ginkgo.trading.brokers.base_broker as strong_mod
         from ginkgo.trading.bases.broker_cache_mixin import BrokerCacheMixin
 
-        # 强侧 BaseBroker 必须仍是 IBroker 子类（组合根）
-        from ginkgo.trading.brokers.interfaces import IBroker
-        assert issubclass(strong_mod.BaseBroker, IBroker)
+        # 强侧 BaseBroker 必须仍是 Broker 子类（组合根）
+        from ginkgo.trading.brokers.interfaces import Broker
+        assert issubclass(strong_mod.BaseBroker, Broker)
 
         # 弱侧已降级为 BrokerCacheMixin，不再是 BaseBroker
         assert not hasattr(BrokerCacheMixin, "__name__") or BrokerCacheMixin.__name__ != "BaseBroker"

@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines (回测模拟撮合)、Portfolio Manager (订单执行)
-# Downstream: BrokerCacheMixin (继承提供行情/持仓缓存)、IBroker接口(实现submit_order_event/get_market_data等Broker接口)、ATTITUDE_TYPES (撮合态度枚举OPTIMISTIC/PESSIMISTIC/RANDOM)
-# Role: SimBroker回测模拟撮合Broker继承BrokerCacheMixin和实现IBroker接口，提供立即执行同步返回、模拟撮合、完整验证订单等功能
+# Downstream: BrokerCacheMixin (继承提供行情/持仓缓存)、SyncBroker接口(实现submit_order_event/get_market_data等Broker接口)、ATTITUDE_TYPES (撮合态度枚举OPTIMISTIC/PESSIMISTIC/RANDOM)
+# Role: SimBroker回测模拟撮合Broker继承BrokerCacheMixin和实现SyncBroker接口，提供立即执行同步返回、模拟撮合、完整验证订单等功能
 
 
 
@@ -10,7 +10,7 @@
 """
 SimBroker - 回测模拟撮合Broker
 
-基于BrokerCacheMixin和IBroker接口，提供统一的回测模拟撮合功能。
+基于BrokerCacheMixin和SyncBroker接口，提供统一的回测模拟撮合功能。
 支持滑点、态度设置、手续费计算等回测功能。
 """
 
@@ -33,7 +33,7 @@ class SimBroker(BrokerCacheMixin):
     """
     回测模拟撮合Broker
 
-    基于BrokerCacheMixin和IBroker接口，提供回测专用的模拟撮合功能。
+    基于BrokerCacheMixin和SyncBroker接口，提供回测专用的模拟撮合功能。
     支持滑点、态度设置、手续费计算等回测功能。
 
     核心特点：
@@ -82,7 +82,7 @@ class SimBroker(BrokerCacheMixin):
             return data.get(field, default)
         return default
 
-    # ============= IBroker接口实现 =============
+    # ============= SyncBroker接口实现 =============
     def submit_order_event(self, event) -> BrokerExecutionResult:
         """
         提交订单事件 - 同步立即执行（回测模式）

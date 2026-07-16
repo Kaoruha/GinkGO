@@ -1,6 +1,6 @@
 # Upstream: BaseBroker, FuturesBroker, HKStockBroker, USStockBroker, OKXBroker
-# Downstream: IBroker, BrokerType, OrderType, OrderSide, OrderStatus, TradingOrder, Position, Trade, GLOG, clock_now
-# Role: 交易代理接口定义，提供IBroker抽象接口及BrokerType/OrderType等数据类
+# Downstream: Broker, BrokerType, OrderType, OrderSide, OrderStatus, TradingOrder, Position, Trade, GLOG, clock_now
+# Role: 交易代理接口定义，提供Broker抽象接口及BrokerType/OrderType等数据类
 
 
 
@@ -278,7 +278,7 @@ class BrokerStats:
         return self.total_volume / self.total_trades
 
 
-class IBroker(ABC):
+class Broker(ABC):
     """交易代理接口"""
     
     def __init__(self, broker_type: BrokerType):
