@@ -229,6 +229,30 @@ class TestStatusExecNodes:
 
 
 # ===========================================================================
+# 2c. status command — main_control 字段退役 (#6727)
+# ===========================================================================
+
+class TestStatusMainControlRetired:
+    """#6727: main_control 远控总线退役后,status 不再显示 Main Ctrl / Watch Dog。
+
+    #6726 删除远控消费链后,无进程再 register_main_process,GTM.main_status /
+    watch_dog_status 属性恒返回 "NOT EXIST",core_cli 这两行输出成误导性半死 UI。
+    本测试守护 status 不得回退出这两行。
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.cli
+    def test_status_omits_main_control_fields(self, cli_runner, mock_gconf, mock_gtm):
+        """#6727 AC: status 输出不含 Main Ctrl / Watch Dog 两行。"""
+        with patch("ginkgo.libs.GCONF", mock_gconf), \
+             patch("ginkgo.libs.GTM", mock_gtm):
+            result = cli_runner.invoke(_get_main_app(), ["status"])
+        assert result.exit_code == 0
+        assert "Main Ctrl" not in result.output
+        assert "Watch Dog" not in result.output
+
+
+# ===========================================================================
 # 3. debug command
 # ===========================================================================
 

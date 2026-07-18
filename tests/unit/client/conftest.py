@@ -56,8 +56,6 @@ def mock_gtm():
     """Mock GTM 对象"""
     m = MagicMock()
     m.get_workers_status.return_value = {}
-    m.main_status = "running"
-    m.watch_dog_status = "active"
     m.get_worker_count.return_value = 0
     return m
 
