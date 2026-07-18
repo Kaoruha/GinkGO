@@ -534,7 +534,7 @@ def _run_health_check():
         
         # 4. 主题状态检查
         try:
-            topics_to_check = ["ginkgo_data_update", "ginkgo_main_control", "notify"]
+            topics_to_check = ["ginkgo_data_update", "notify"]
             healthy_topics = 0
             
             for topic in topics_to_check:
