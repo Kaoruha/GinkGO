@@ -581,26 +581,6 @@ if __name__ == "__main__":
         finally:
             pass
 
-    @property
-    def main_status(self) -> str:
-        pid = self.redis_service.get_main_process_pid()
-        if pid is not None:
-            status = self.get_proc_status(pid)
-            if status == "NOT EXIST":
-                self.redis_service.unregister_main_process()
-            return self.get_proc_status(pid)
-        return "NOT EXIST"
-
-    @property
-    def watch_dog_status(self) -> str:
-        pid = self.redis_service.get_watchdog_pid()
-        if pid is not None:
-            status = self.get_proc_status(pid)
-            if status == "NOT EXIST":
-                self.redis_service.unregister_watchdog()
-            return status
-        return "NOT EXIST"
-
     def kill_proc(self, pid: int) -> None:
         try:
             proc = psutil.Process(int(pid))

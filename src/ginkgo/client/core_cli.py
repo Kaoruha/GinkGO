@@ -83,8 +83,6 @@ def status():
         console.print(f"[bold green]:wrench: Ginkgo System Status[/bold green]")
         console.print(f"Debug Mode : {'[green]ON[/green]' if GCONF.DEBUGMODE else '[red]OFF[/red]'}")
         console.print(f"Quiet Mode : {'[green]ON[/green]' if GCONF.QUIET else '[red]OFF[/red]'}")
-        console.print(f"Main Ctrl  : [medium_spring_green]{GTM.main_status}[/]")
-        console.print(f"Watch Dog  : [medium_spring_green]{GTM.watch_dog_status}[/]")
         console.print(f"CPU Limit  : {GCONF.CPURATIO*100}%")
         console.print(f"Data Workers : {GTM.get_worker_count()}")
         console.print(f"Exec Nodes : {_get_exec_node_count()}")
