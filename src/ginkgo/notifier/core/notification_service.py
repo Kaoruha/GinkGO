@@ -1,5 +1,5 @@
 # Upstream: CLI Commands (ginkgo notify 命令)、Kafka Worker (通知消费)
-# Downstream: data.services.NotificationService (模板/记录Service)、BaseNotificationChannel (通知渠道接口)
+# Downstream: data.services.NotificationManagementService (模板/记录Service)、BaseNotificationChannel (通知渠道接口)
 # Role: NotificationDeliveryService通知交付服务提供通知发送/模板渲染/渠道选择/记录管理等交付逻辑支持通知系统功能
 
 from __future__ import annotations  # 启用延迟注解评估，避免循环导入
@@ -10,7 +10,7 @@ Notification Delivery Service
 提供通知发送的交付逻辑，包括：
 - 多渠道通知发送（Discord、Email、Kafka）
 - 模板渲染和变量替换
-- 通知记录管理（委托 data layer NotificationService）
+- 通知记录管理（委托 data layer NotificationManagementService）
 - 用户和用户组批量通知
 
 注意：Webhook 相关方法已提取到 webhook_dispatcher.py
@@ -18,7 +18,7 @@ Notification Delivery Service
       常量已提取到 notification_constants.py
 
 重构说明：
-- 类名从 NotificationService 改为 NotificationDeliveryService，避免与 data layer 的 NotificationService 混淆
+- 类名从 NotificationManagementService 改为 NotificationDeliveryService，避免与 data layer 的 NotificationManagementService 混淆
 - 不再直接持有 CRUD 实例，通过 data layer Service 间接访问
 """
 
@@ -42,7 +42,7 @@ from .webhook_dispatcher import WebhookDispatcher
 
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
-    from ginkgo.data.services.notification_service import NotificationService as DataNotificationService
+    from ginkgo.data.services.notification_service import NotificationManagementService as DataNotificationManagementService
     from ginkgo.notifier.core.template_engine import TemplateEngine
     from ginkgo.libs.utils.kafka_health_checker import KafkaHealthChecker
     from ginkgo.user.services.user_service import UserService
@@ -57,12 +57,12 @@ class NotificationDeliveryService:
     - 单个/批量用户通知发送
     - 模板渲染和变量替换
     - 多渠道支持（Discord、Email 等）
-    - 通知记录持久化（委托 data layer NotificationService）
+    - 通知记录持久化（委托 data layer NotificationManagementService）
     """
 
     def __init__(
         self,
-        notification_service: 'DataNotificationService',
+        notification_service: 'DataNotificationManagementService',
         template_engine: 'TemplateEngine',
         user_service: 'UserService',
         user_group_service: 'UserGroupService',
@@ -73,7 +73,7 @@ class NotificationDeliveryService:
         初始化 NotificationDeliveryService
 
         Args:
-            notification_service: data layer NotificationService 实例（模板/记录操作）
+            notification_service: data layer NotificationManagementService 实例（模板/记录操作）
             template_engine: 模板引擎实例
             user_service: UserService 实例（用户/联系方式查询）
             user_group_service: UserGroupService 实例（用户组查询）
@@ -1462,7 +1462,3 @@ class NotificationDeliveryService:
             "should_degrade": self._kafka_health_checker.should_degrade(),
             "health_summary": self._kafka_health_checker.get_health_summary()
         }
-
-
-# 向后兼容别名：旧代码中 import NotificationService 仍然有效
-NotificationService = NotificationDeliveryService

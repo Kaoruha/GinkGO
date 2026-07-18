@@ -1,10 +1,10 @@
-# See #22: data layer NotificationService facade for notifier module
+# See #22: data layer NotificationManagementService facade for notifier module
 # Tests verify CRUD is injected via constructor and facade methods work through public API
 
 import pytest
 from unittest.mock import MagicMock
 
-from ginkgo.data.services.notification_service import NotificationService
+from ginkgo.data.services.notification_service import NotificationManagementService
 from ginkgo.data.services.base_service import ServiceResult
 
 
@@ -12,8 +12,8 @@ pytestmark = pytest.mark.unit
 
 
 def _service(template_crud=None, record_crud=None):
-    """Create NotificationService with constructor-injected mocks"""
-    return NotificationService(
+    """Create NotificationManagementService with constructor-injected mocks"""
+    return NotificationManagementService(
         template_crud=template_crud or MagicMock(),
         record_crud=record_crud or MagicMock(),
     )

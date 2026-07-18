@@ -19,7 +19,6 @@ __all__ = [
     "BaseNotificationChannel",
     "WebhookChannel",
     "NotificationDeliveryService",
-    "NotificationService",  # backward compat alias
     "NotificationWorker",
     "container",
 ]
@@ -34,7 +33,7 @@ def __getattr__(name):
     if name == "WebhookChannel":
         from ginkgo.notifier.channels.webhook_channel import WebhookChannel
         return WebhookChannel
-    if name in ("NotificationDeliveryService", "NotificationService"):
+    if name == "NotificationDeliveryService":
         from ginkgo.notifier.core.notification_service import NotificationDeliveryService
         return NotificationDeliveryService
     if name == "NotificationWorker":

@@ -1,6 +1,6 @@
 # Upstream: Settings API (通知管理)
 # Downstream: NotificationTemplateCRUD, NotificationRecordCRUD
-# Role: NotificationService通知管理业务服务，整合模板和历史记录
+# Role: NotificationManagementService通知管理业务服务，整合模板和历史记录
 
 from typing import Optional, List
 
@@ -11,7 +11,7 @@ from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 
-class NotificationService(BaseService):
+class NotificationManagementService(BaseService):
     """通知管理服务 — 整合 template + record"""
 
     def __init__(self, template_crud=None, record_crud=None, **kwargs):

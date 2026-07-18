@@ -36,7 +36,7 @@ _LAZY_IMPORTS = {
     "OrderService": ("ginkgo.data.services.order_service", "OrderService"),
     # See #22: CredentialService removed — dead code, zero callers
     # See #6235: UserGroupService removed — 统一到 ginkgo.user.services.user_group_service（容器注入）
-    "NotificationService": ("ginkgo.data.services.notification_service", "NotificationService"),
+    "NotificationManagementService": ("ginkgo.data.services.notification_service", "NotificationManagementService"),
 }
 
 

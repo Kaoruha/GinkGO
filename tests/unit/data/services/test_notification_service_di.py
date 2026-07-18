@@ -1,12 +1,12 @@
-# TDD for NotificationService dependency injection (#5568).
+# TDD for NotificationManagementService dependency injection (#5568).
 # Upstream: tests/unit/data/services/test_notification_service_di.py
 # Downstream: src/ginkgo/data/services/notification_service.py
-# Role: 验证 NotificationService 接入 BaseService DI 生命周期（构造器注入 + lazy 兜底）
+# Role: 验证 NotificationManagementService 接入 BaseService DI 生命周期（构造器注入 + lazy 兜底）
 
 from unittest.mock import MagicMock
 
 from ginkgo.data.services.base_service import BaseService
-from ginkgo.data.services.notification_service import NotificationService
+from ginkgo.data.services.notification_service import NotificationManagementService
 
 
 def test_injected_crud_used_and_extends_base():
@@ -17,7 +17,7 @@ def test_injected_crud_used_and_extends_base():
     """
     mock_crud = MagicMock()
     mock_crud.get_by_template_id.return_value = None
-    svc = NotificationService(template_crud=mock_crud)
+    svc = NotificationManagementService(template_crud=mock_crud)
     assert isinstance(svc, BaseService)
     svc.get_template_by_id("tpl_1")
     mock_crud.get_by_template_id.assert_called_once_with("tpl_1")
@@ -38,7 +38,7 @@ def test_no_arg_does_not_eagerly_create_crud(monkeypatch):
         "ginkgo.data.services.notification_service.NotificationTemplateCRUD",
         FakeCRUD,
     )
-    svc = NotificationService()
+    svc = NotificationManagementService()
     assert created == []  # __init__ 不 eager 建
     _ = svc.template_crud  # 首次访问 property 才建
     assert len(created) == 1
@@ -57,7 +57,7 @@ def test_no_arg_method_lazily_creates_crud(monkeypatch):
         "ginkgo.data.services.notification_service.NotificationTemplateCRUD",
         FakeCRUD,
     )
-    svc = NotificationService()
+    svc = NotificationManagementService()
     result = svc.get_template_by_id("tpl_1")
     assert result.success
     assert result.data == {"id": "tpl_1"}
