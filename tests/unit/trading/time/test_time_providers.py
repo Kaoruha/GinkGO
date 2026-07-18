@@ -18,7 +18,7 @@ if _path not in sys.path:
 
 # 导入TimeProvider相关组件
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator, DSTHandler
-from ginkgo.trading.time.interfaces import TimeProvider, ITimeAwareComponent
+from ginkgo.trading.time.interfaces import TimeProvider, TimeAwareComponent
 from ginkgo.enums import TIME_MODE
 
 
@@ -196,8 +196,8 @@ class TestLogicalTimeProviderListenerManagement:
         provider = LogicalTimeProvider(initial_time)
 
         # 创建模拟监听器
-        listener1 = Mock(spec=ITimeAwareComponent)
-        listener2 = Mock(spec=ITimeAwareComponent)
+        listener1 = Mock(spec=TimeAwareComponent)
+        listener2 = Mock(spec=TimeAwareComponent)
 
         # 注册监听器
         provider.register_time_listener(listener1)
@@ -213,7 +213,7 @@ class TestLogicalTimeProviderListenerManagement:
         initial_time = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
         provider = LogicalTimeProvider(initial_time)
 
-        listener = Mock(spec=ITimeAwareComponent)
+        listener = Mock(spec=TimeAwareComponent)
         provider.register_time_listener(listener)
         assert listener in provider._listeners
 
@@ -223,7 +223,7 @@ class TestLogicalTimeProviderListenerManagement:
         assert len(provider._listeners) == 0
 
         # 验证移除不存在的监听器不报错
-        another_listener = Mock(spec=ITimeAwareComponent)
+        another_listener = Mock(spec=TimeAwareComponent)
         provider.unregister_time_listener(another_listener)  # 不应抛出异常
 
     def test_listener_notification_on_time_change(self):
@@ -234,7 +234,7 @@ class TestLogicalTimeProviderListenerManagement:
         initial_time = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
         provider = LogicalTimeProvider(initial_time)
 
-        listener = Mock(spec=ITimeAwareComponent)
+        listener = Mock(spec=TimeAwareComponent)
         provider.register_time_listener(listener)
 
         new_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
@@ -252,8 +252,8 @@ class TestLogicalTimeProviderListenerManagement:
         initial_time = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
         provider = LogicalTimeProvider(initial_time)
 
-        listener1 = Mock(spec=ITimeAwareComponent)
-        listener2 = Mock(spec=ITimeAwareComponent)
+        listener1 = Mock(spec=TimeAwareComponent)
+        listener2 = Mock(spec=TimeAwareComponent)
         provider.register_time_listener(listener1)
         provider.register_time_listener(listener2)
 
@@ -272,7 +272,7 @@ class TestLogicalTimeProviderListenerManagement:
         provider = LogicalTimeProvider(initial_time)
 
         # 注册多个监听器
-        listeners = [Mock(spec=ITimeAwareComponent) for _ in range(5)]
+        listeners = [Mock(spec=TimeAwareComponent) for _ in range(5)]
         for listener in listeners:
             provider.register_time_listener(listener)
 

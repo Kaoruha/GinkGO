@@ -1,5 +1,5 @@
 # Upstream: Trading Strategies, Analysis Modules (consumers of notifications)
-# Downstream: Data Layer Services (NotificationService, UserService, UserGroupService)
+# Downstream: Data Layer Services (NotificationManagementService, UserService, UserGroupService)
 # Role: 通知模块依赖注入容器管理NotificationDeliveryService/TemplateEngine/Worker等通知系统组件的依赖注入提供通知系统功能支持
 
 from __future__ import annotations  # 启用延迟注解评估，避免运行时类型错误
@@ -61,9 +61,9 @@ def _create_template_engine(template_crud):
 
 
 def _create_data_notification_service():
-    """Factory function to create data layer NotificationService."""
-    from ginkgo.data.services.notification_service import NotificationService
-    return NotificationService()
+    """Factory function to create data layer NotificationManagementService."""
+    from ginkgo.data.services.notification_service import NotificationManagementService
+    return NotificationManagementService()
 
 
 def _create_notification_service(
@@ -148,10 +148,10 @@ class Container(containers.DeclarativeContainer):
         template_crud=notification_template_crud
     )
 
-    # Data layer NotificationService (template + record management)
+    # Data layer NotificationManagementService (template + record management)
     data_notification_service = providers.Singleton(_create_data_notification_service)
 
-    # Notification Delivery Service (main service, uses data layer NotificationService)
+    # Notification Delivery Service (main service, uses data layer NotificationManagementService)
     notification_service = providers.Singleton(
         _create_notification_service,
         data_notification_service=data_notification_service,

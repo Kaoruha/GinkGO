@@ -1,5 +1,5 @@
 # Upstream: LogicalTimeProvider, SystemTimeProvider, TimeBoundaryValidator
-# Downstream: TimeProvider, ITimeAwareComponent, TIME_MODE
+# Downstream: TimeProvider, TimeAwareComponent, TIME_MODE
 # Role: 时间控制接口定义，提供时间提供者和时间感知组件的抽象接口
 
 
@@ -52,7 +52,7 @@ class TimeProvider(ABC):
         pass
 
 
-class ITimeAwareComponent(ABC):
+class TimeAwareComponent(ABC):
     """时间感知组件接口
     
     需要时间同步的组件必须实现此接口，以便接收时间更新通知。

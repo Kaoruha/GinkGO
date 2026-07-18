@@ -29,7 +29,7 @@ from urllib.parse import urljoin
 import logging
 
 from ginkgo.trading.feeders.interfaces import (
-    ILiveDataFeeder, DataFeedStatus
+    LiveDataFeeder, DataFeedStatus
 )
 from ginkgo.trading.events import EventBase, EventPriceUpdate
 from ginkgo.trading.time.interfaces import TimeProvider
@@ -175,7 +175,7 @@ class ConnectionManager:
             await asyncio.sleep(self.reconnect_delay_seconds * self.reconnect_attempts)
 
 
-class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
+class LiveFeederBase(EngineBindableMixin, FeederPublishMixin, LiveDataFeeder):
     """
     实盘数据馈送器实现
 
@@ -221,7 +221,7 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
         self._initialize_handlers()
 
         # 统计信息（super().__init__() 已设 stats={events_published, publish_errors}；
-        # 此处 update 补 LiveDataFeeder 特有字段，非覆盖，避免丢 publish_errors → ADR-019）
+        # 此处 update 补 LiveFeederBase 特有字段，非覆盖，避免丢 publish_errors → ADR-019）
         self.stats.update({
             'messages_received': 0,
             'connection_errors': 0,
@@ -238,7 +238,7 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
             'error': self._handle_error_message
         }
     
-    # === IDataFeeder 基础接口实现 ===
+    # === DataFeeder 基础接口实现 ===
     
     def initialize(self, config: Dict[str, Any] = None) -> bool:
         """
@@ -265,11 +265,11 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
                 self.time_boundary_validator = TimeBoundaryValidator(self.time_controller)
 
             self.status = DataFeedStatus.IDLE
-            GLOG.INFO("LiveDataFeeder initialized successfully")
+            GLOG.INFO("LiveFeederBase initialized successfully")
             return True
 
         except Exception as e:
-            GLOG.ERROR(f"LiveDataFeeder initialization failed: {e}")
+            GLOG.ERROR(f"LiveFeederBase initialization failed: {e}")
             return False
     
     def start(self) -> bool:
@@ -285,14 +285,14 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
             self._wait_for_connection(timeout_seconds=10)
             
             if self.status == DataFeedStatus.CONNECTED:
-                GLOG.INFO("LiveDataFeeder started successfully")
+                GLOG.INFO("LiveFeederBase started successfully")
                 return True
             else:
-                GLOG.ERROR("LiveDataFeeder failed to establish connection")
+                GLOG.ERROR("LiveFeederBase failed to establish connection")
                 return False
                 
         except Exception as e:
-            GLOG.ERROR(f"LiveDataFeeder start failed: {e}")
+            GLOG.ERROR(f"LiveFeederBase start failed: {e}")
             return False
     
     def stop(self) -> bool:
@@ -309,11 +309,11 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
                 self.event_loop_thread.join(timeout=5)
             
             self.status = DataFeedStatus.DISCONNECTED
-            GLOG.INFO("LiveDataFeeder stopped")
+            GLOG.INFO("LiveFeederBase stopped")
             return True
             
         except Exception as e:
-            GLOG.ERROR(f"LiveDataFeeder stop failed: {e}")
+            GLOG.ERROR(f"LiveFeederBase stop failed: {e}")
             return False
     
     def get_status(self) -> DataFeedStatus:
@@ -346,7 +346,7 @@ class LiveDataFeeder(EngineBindableMixin, FeederPublishMixin, ILiveDataFeeder):
         # 实盘模式下，只能访问当前时间之前的数据
         return data_time <= request_time
     
-    # === ILiveDataFeeder 扩展接口实现 ===
+    # === LiveDataFeeder 扩展接口实现 ===
     
     def subscribe_symbols(self, symbols: List[str], data_types: List[str] = None) -> bool:
         """订阅股票数据"""

@@ -1,5 +1,5 @@
 # Upstream: PortfolioBase, ComponentLoader
-# Downstream: BaseStrategy, IDataFeeder, Signal, EventSignalGeneration, DIRECTION_TYPES
+# Downstream: BaseStrategy, DataFeeder, Signal, EventSignalGeneration, DIRECTION_TYPES
 # Role: 成交量激活策略 — 通过 data_feeder 获取历史成交量检测均值偏离
 
 

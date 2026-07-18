@@ -1,5 +1,5 @@
 # Upstream: BacktestEngine, TimeControlledEventEngine, EngineAssemblyService
-# Downstream: PortfolioBase, Position, Signal, Order, EventOrderAck, EventPriceUpdate, INotificationService, MOrder, container
+# Downstream: PortfolioBase, Position, Signal, Order, EventOrderAck, EventPriceUpdate, NotificationService, MOrder, container
 # Role: T1回测投资组合，管理策略调度、持仓跟踪、订单执行和资金结算
 
 
@@ -37,7 +37,7 @@ from ginkgo.trading.events import (
 )
 
 from ginkgo.libs import datetime_normalize, base_repr, to_decimal, GLOG
-from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
+from ginkgo.interfaces.notification_interface import NotificationService, NotificationServiceFactory
 from ginkgo.data.models import MOrder
 from ginkgo.enums import (
     DIRECTION_TYPES,
@@ -58,7 +58,7 @@ class PortfolioT1Backtest(PortfolioBase):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
+    def __init__(self, notification_service: NotificationService = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 使用依赖注入的通知服务，如果没有提供则自动创建
         self._notification_service = notification_service or NotificationServiceFactory.create_service()

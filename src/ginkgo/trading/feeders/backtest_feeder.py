@@ -27,7 +27,7 @@ from ginkgo.trading.feeders.base_feeder import BaseFeeder
 from ginkgo.trading.feeders.mixins.feeder_publish_mixin import FeederPublishMixin
 from ginkgo.trading.mixins.subscribable_mixin import SubscribableMixin, subscribes
 from ginkgo.trading.feeders.interfaces import (
-    IBacktestDataFeeder, DataFeedStatus
+    BacktestDataFeeder, DataFeedStatus
 )
 from ginkgo.trading.events import EventPriceUpdate, EventBase
 from ginkgo.entities import Bar
@@ -39,11 +39,11 @@ from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES, ADJUSTMENT_TYPES
 from ginkgo.data.mappers import BarMapper
 
 
-class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktestDataFeeder):
+class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, BacktestDataFeeder):
     """
     回测数据馈送器
     
-    继承原有BaseFeeder功能，同时实现IBacktestDataFeeder接口，
+    继承原有BaseFeeder功能，同时实现BacktestDataFeeder接口，
     提供时间边界验证和完整的回测数据馈送功能。
     """
     
@@ -68,7 +68,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
         # 预过滤后仍可能出现的"当日无 bar"（停牌等）走此去重，避免逐日刷屏。
         self._warned_no_data: Set[str] = set()
         
-    # === IDataFeeder 基础接口实现 ===
+    # === DataFeeder 基础接口实现 ===
 
     def initialize(self) -> bool:
         """初始化回测数据馈送器"""
@@ -134,7 +134,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, IBacktes
             return False
         return True
     
-    # === IBacktestDataFeeder 扩展接口实现 ===
+    # === BacktestDataFeeder 扩展接口实现 ===
     
     def advance_time(self, target_time: datetime, *args, **kwargs) -> bool:
         """推进到指定时间，主动推送价格事件到引擎。

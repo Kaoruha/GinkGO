@@ -47,22 +47,22 @@ class TestBacktestFeederConstruction:
     def test_dual_inheritance(self):
         """测试双继承 - 验证两个父类的接口"""
         from ginkgo.trading.feeders.base_feeder import BaseFeeder
-        from ginkgo.trading.feeders.interfaces import IBacktestDataFeeder
+        from ginkgo.trading.feeders.interfaces import BacktestDataFeeder
 
         feeder = BacktestFeeder()
 
-        # 验证继承BaseFeeder和IBacktestDataFeeder
+        # 验证继承BaseFeeder和BacktestDataFeeder
         assert isinstance(feeder, BaseFeeder)
-        assert isinstance(feeder, IBacktestDataFeeder)
+        assert isinstance(feeder, BacktestDataFeeder)
 
         # 验证BaseFeeder的接口
         assert getattr(feeder, 'bar_service', None) is not None, "BaseFeeder的DI属性"
         assert getattr(feeder, 'timestamp', None) is not None, "TimeMixin属性"
 
-        # 验证IBacktestDataFeeder的接口
-        assert callable(getattr(feeder, 'advance_time', None)), "IBacktestDataFeeder核心方法"
-        assert callable(getattr(feeder, 'get_historical_data', None)), "IBacktestDataFeeder数据方法"
-        assert callable(getattr(feeder, 'validate_time_access', None)), "IBacktestDataFeeder时间验证"
+        # 验证BacktestDataFeeder的接口
+        assert callable(getattr(feeder, 'advance_time', None)), "BacktestDataFeeder核心方法"
+        assert callable(getattr(feeder, 'get_historical_data', None)), "BacktestDataFeeder数据方法"
+        assert callable(getattr(feeder, 'validate_time_access', None)), "BacktestDataFeeder时间验证"
 
     def test_initial_attributes(self):
         """测试初始属性状态 - 验证所有BacktestFeeder特有属性"""
@@ -558,7 +558,7 @@ def configured_feeder():
 
     # 正确的时间推进顺序：先推进Provider，再通知组件
     provider.set_current_time(datetime(2023, 6, 10))
-    feeder.on_time_update(datetime(2023, 6, 10))  # 使用ITimeAwareComponent接口
+    feeder.on_time_update(datetime(2023, 6, 10))  # 使用TimeAwareComponent接口
 
     return feeder
 

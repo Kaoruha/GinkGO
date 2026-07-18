@@ -1,5 +1,5 @@
 # Upstream: Portfolio Manager (添加趋势跟踪策略)、BaseStrategy (继承提供策略基础能力)
-# Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、IDataFeeder (数据获取)
+# Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、DataFeeder (数据获取)
 # Role: Trend Follow策略 — 通过 data_feeder 获取历史K线计算均线和动量
 
 

@@ -14,7 +14,7 @@ import bcrypt
 from ginkgo.data.containers import container
 from ginkgo.data.models import MUserCredential, MUser
 from ginkgo.enums import CONTACT_TYPES, CONTACT_METHOD_STATUS_TYPES
-from ginkgo.data.services.notification_service import NotificationService
+from ginkgo.data.services.notification_service import NotificationManagementService
 from core.logging import logger
 from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.response import ok
@@ -111,9 +111,9 @@ def get_user_group_service():
     return container.user_group_service()
 
 
-def get_notification_service() -> NotificationService:
-    """获取NotificationService实例"""
-    return NotificationService()
+def get_notification_service() -> NotificationManagementService:
+    """获取NotificationManagementService实例"""
+    return NotificationManagementService()
 
 
 def get_api_key_service():

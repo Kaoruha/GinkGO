@@ -14,13 +14,13 @@ from queue import Queue
 
 import requests
 
-from ginkgo.trading.feeders.live_feeder import LiveDataFeeder
+from ginkgo.trading.feeders.live_feeder import LiveFeederBase
 from ginkgo.trading.feeders.interfaces import DataFeedStatus
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.libs import GCONF, GLOG
 
 
-class FuShuFeeder(LiveDataFeeder):
+class FuShuFeeder(LiveFeederBase):
     """
     FuShu HTTP轮询数据适配器（港股）
 

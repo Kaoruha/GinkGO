@@ -287,20 +287,6 @@ class TestConftestIntegrationWithProject:
         except ImportError as e:
             pytest.fail(f"项目组件导入失败: {e}")
 
-    def test_import_protocol_interfaces_from_test_environment(self):
-        """测试从测试环境导入Protocol接口"""
-        try:
-            from ginkgo.trading.interfaces import IStrategy, IRiskManagement, IPortfolio, IEngine
-
-            # 验证导入成功
-            assert IStrategy is not None, "IStrategy接口应该可以导入"
-            assert IRiskManagement is not None, "IRiskManagement接口应该可以导入"
-            assert IPortfolio is not None, "IPortfolio接口应该可以导入"
-            assert IEngine is not None, "IEngine接口应该可以导入"
-
-        except ImportError as e:
-            pytest.fail(f"Protocol接口导入失败: {e}")
-
     def test_import_mixin_classes_from_test_environment(self):
         """测试从测试环境导入Mixin类"""
         try:

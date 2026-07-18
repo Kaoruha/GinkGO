@@ -24,7 +24,7 @@ from ginkgo.trading.engines.time_controlled_engine import (
 )
 from ginkgo.enums import EXECUTION_MODE, ENGINESTATUS_TYPES
 from ginkgo.trading.engines.event_engine import EventEngine
-from ginkgo.trading.time.interfaces import TimeProvider, ITimeAwareComponent
+from ginkgo.trading.time.interfaces import TimeProvider, TimeAwareComponent
 from ginkgo.trading.time.providers import LogicalTimeProvider, SystemTimeProvider
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.trading.events.time_advance import EventTimeAdvance
@@ -614,7 +614,7 @@ class TestComponentTimeSync:
             else:
                 print("投资组合没有set_time_provider方法")
 
-        # 验证ITimeAwareComponent接口支持
+        # 验证TimeAwareComponent接口支持
         # 检查引擎是否支持时间感知组件
         time_aware_attrs = ['_time_aware_components', 'time_aware_components']
         for attr in time_aware_attrs:
@@ -1413,7 +1413,7 @@ class TestComponentTimeSync:
         print("  ✓ 正常组件不受异常影响")
 
     def test_time_aware_component_interface(self):
-        """测试ITimeAwareComponent接口实现"""
+        """测试TimeAwareComponent接口实现"""
         # 创建引擎
         engine = TimeControlledEventEngine(name="TimeAwareComponentEngine")
 

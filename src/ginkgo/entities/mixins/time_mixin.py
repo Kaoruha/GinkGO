@@ -1,5 +1,5 @@
 # Upstream: Base/Signal/Order/Position/Strategy/Portfolio等所有实体和组件(继承获得时间管理能力)
-# Downstream: datetime(Python标准库datetime模块)、datetime_normalize(日期时间标准化工具)、TimeBoundaryValidator(ITimeAwareComponent接口实现)、GLOG/Rich Console(日志输出)
+# Downstream: datetime(Python标准库datetime模块)、datetime_normalize(日期时间标准化工具)、TimeBoundaryValidator(TimeAwareComponent接口实现)、GLOG/Rich Console(日志输出)
 # Role: TimeMixin时间混入类提供时间管理和时区处理能力支持时间操作和时区转换及时间校准
 
 
@@ -48,7 +48,7 @@ class TimeMixin:
         # 验证专用task_id（兜底存储，当父类未管理task_id时使用）
         self._validation_task_id: Optional[str] = None
 
-        # 时间验证相关（ITimeAwareComponent接口）
+        # 时间验证相关（TimeAwareComponent接口）
         self._time_validator: Optional[Any] = None  # TimeBoundaryValidator
 
         super().__init__(*args, **kwargs)
@@ -270,7 +270,7 @@ class TimeMixin:
         # Default behavior: update last_update timestamp
         self._last_update = new_time
 
-    # ==================== ITimeAwareComponent接口实现 ====================
+    # ==================== TimeAwareComponent接口实现 ====================
 
     def set_task_id(self, task_id: str) -> None:
         """
@@ -321,7 +321,7 @@ class TimeMixin:
 
     def on_time_update(self, new_time: datetime.datetime) -> None:
         """
-        时间更新通知回调（ITimeAwareComponent接口）
+        时间更新通知回调（TimeAwareComponent接口）
 
         Args:
             new_time: 新的当前时间
@@ -330,7 +330,7 @@ class TimeMixin:
 
     def get_current_time(self) -> Optional[datetime.datetime]:
         """
-        获取当前时间（ITimeAwareComponent接口）
+        获取当前时间（TimeAwareComponent接口）
         直接从TimeProvider获取时间
 
         Returns:
