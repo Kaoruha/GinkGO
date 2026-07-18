@@ -39,3 +39,25 @@ _Avoid_: 把 ORM Model 或 ValueObject 称为 DTO
 - `entities/__init__.py` 自称 "DTO" → 误称，应为 Entity / ValueObject。
 - **Signal** 维持 **Entity**（代码现状 `Signal(TimeMixin,...,Base)` 有 uuid）；`docs/entity-lifecycles-and-flows.md` 的 "Signal as VO" 标为过时。
 - "数据对象 / 视图" 泛指时，必须区分 **DTO** vs **ORM Model** vs **Entity**。
+
+## 时间语义 (Time Semantics)
+
+> 决策依据见 `docs/adrs/ADR-023`。系统中存在两种正确性标准不同的时间，**不共享一个 seam**（ADR-022 原则 3「单一接缝」的时间维度推论）。
+
+**Business Time（业务时间）**：
+事件链上的时间——信号/订单/bar/分析结果/持仓快照的发生时间。必须经 **TimeProvider**（`trading/time/`），由 `EXECUTION_MODE` 决定 `LogicalTimeProvider`（回测，bar 驱动）或 `SystemTimeProvider`（实盘，墙钟）。承载两个不变量：**回测可复现** + **防未来数据泄露**。组件经 `TimeMixin` 获 `now()`，且 `TimeMixin` 强制 provider-set（未设 `GLOG.ERROR`）并校验数据访问时间。
+_Avoid_: 把业务时间戳写成 `datetime.now()`（回测下不可复现、绕过 `TimeMixin` 的防泄露校验）。
+
+**Infra Time（基础设施时间）**：
+进程/基础设施的时间——日志时间戳、心跳间隔、WS 重连退避、Redis TTL、Kafka 消息时间戳、scheduler 触发时刻。**刻意用 `datetime.now()`（墙钟）**，不经 TimeProvider，不归 `TimeMixin` 管。
+_Avoid_: 把 infra 时间迁进 TimeProvider（与 Redis/交易所/Kafka 的真实墙钟契约冲突，逻辑时钟会制造错误）；把它误判为"违反唯一权威"的 bug 强行"修复"。
+
+**Relationships**:
+- Business Time 有两个真实 Adapter（`LogicalTimeProvider`/`SystemTimeProvider`，按模式切换）→ 真 seam（ADR-022 原则 2 存活门槛：≥2 实现者）；Infra Time 只有墙钟一 Adapter → **不构成 seam**。
+- "一个时钟统一所有时间"是反模式：两种正确性标准不同的时间共享 seam，会让调用方无法判断某处 `now()` 是否会被逻辑时钟影响。分家后各查各的。
+- 测试替身（scheduler 单测跳过 sleep）是 infra 组件的**内部 seam**（私有于自己的测试），独立于生产 TimeProvider——别混。
+
+## Flagged ambiguities（时间）
+
+- `TimeProvider` docstring 旧称"系统中唯一的时间权威，所有时间获取必须通过此接口"（`trading/time/interfaces.py:23-26`）——**已由 ADR-023 订正**为"业务时间的唯一权威"。infra 时间不归它管。
+- `trading/livecore/workers` 的 ~74 处 `datetime.now()` 须按本节 triage：事件链上的（business）迁 `TimeMixin.now()`；infra 的（日志/心跳/TTL/退避）标注"刻意墙钟"锚点，非违规。
