@@ -326,7 +326,9 @@ class PortfolioLive(PortfolioBase):
 
                 pos = self.get_position(code)
                 if pos is None:
-                    GLOG.ERROR(f"Partial SHORT fill but no position found for {code}")
+                    # SHORT 无持仓收到 fill = 业务异常；raise 进事务 except，回滚已执行的
+                    # add_cash/add_fee + CRITICAL + re-raise（修正原静默 ERROR 半应用资金，#6739 审计）
+                    raise ValueError(f"Partial SHORT fill but no position found for {code}")
                 else:
                     pos.deal(DIRECTION_TYPES.SHORT, price, qty)
                     self.clean_positions()

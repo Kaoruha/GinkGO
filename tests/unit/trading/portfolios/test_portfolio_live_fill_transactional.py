@@ -7,6 +7,7 @@ PortfolioLive.on_order_partially_filled fill 应用事务性测试 (#6741)
 - AC3: SHORT 分支异常 → 全回滚 + CRITICAL + re-raise
 - AC4: 正常路径行为不变
 - AC5: re-raise 不崩 worker（PortfolioProcessor 主循环兜底）
+- AC6: SHORT 无持仓（pos None）→ raise + 全回滚（修正原静默 ERROR 半应用资金）
 """
 import sys
 import datetime
@@ -155,6 +156,32 @@ class TestFillTransactional:
         assert p.cash == entry_cash
         assert p.fee == entry_fee
         assert order.transaction_volume == entry_tv
+        assert mock_glog.CRITICAL.called
+
+    def test_short_no_position_raises_and_rolls_back(self):
+        """AC6: SHORT 无持仓（pos None）→ raise + 全回滚 + CRITICAL。
+
+        SHORT 收到 fill 但无持仓属业务异常：add_cash/add_fee 已执行，须被事务回滚，
+        CRITICAL + re-raise，不再静默 ERROR 半应用资金（#6739 审计 flag）。
+        """
+        p = _make_portfolio()
+        p.add_cash(Decimal("100000"))
+        # 故意不建 SHORT 持仓 → get_position 返回 None
+        order = _make_order(direction=DIRECTION_TYPES.SHORT, portfolio_id=p.uuid)
+
+        entry_cash = p.cash
+        entry_fee = p.fee
+        entry_tv = order.transaction_volume
+
+        with patch('ginkgo.trading.portfolios.portfolio_live.GLOG') as mock_glog, \
+             patch('ginkgo.trading.portfolios.portfolio_live.container'):
+            with pytest.raises(ValueError, match="no position found"):
+                p.on_order_partially_filled(_make_fill_event(order, portfolio_id=p.uuid))
+
+        # add_cash(proceeds)/add_fee(fee) 已执行但被 snapshot-restore 回滚
+        assert p.cash == entry_cash
+        assert p.fee == entry_fee
+        assert order.transaction_volume == entry_tv  # settle 改的也被回滚
         assert mock_glog.CRITICAL.called
 
     def test_normal_fill_long_behavior_unchanged(self):
