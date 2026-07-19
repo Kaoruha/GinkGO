@@ -227,10 +227,15 @@ ginkgo debug on          # Required for database operations
 
 ### Configuration
 
+`~/.ginkgo/` is the single config home. It is initialized by `install.py` (`copy_config`) on first run and materialized on demand by `GCONF` (`generate_config_file`). Both resolve templates from the package's bundled `config/` dir (via `__file__`), so host / container / wheel installs land on the same layout; existing files are preserved on re-init (idempotent).
+
 ```bash
-vi ~/.ginkgo/config.yaml   # Main config
-vi ~/.ginkgo/secure.yml    # Credentials (base64 encoded)
+vi ~/.ginkgo/config.yml       # Main config
+vi ~/.ginkgo/secure.yml       # Credentials (base64 encoded)
+vi ~/.ginkgo/task_timer.yml   # tasktimer worker schedule
 ```
+
+Force-overwrite stale config: `python install.py -updateconfig`. Docker workers mount the host `~/.ginkgo` read-only at `/root/.ginkgo` (`x-worker-common` volume), so containers read your real config, not a build-time template.
 
 ## CLI Reference
 
