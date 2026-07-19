@@ -257,3 +257,68 @@ class TestFillTransactional:
             finally:
                 proc.stop()
                 proc.join(timeout=2.0)
+
+    def test_short_fill_clears_flat_position(self):
+        """AC7: SHORT 有持仓全部成交 → clean_positions 移除空持仓 + cash 到账。
+
+        覆盖 BUG-1 自然路径（不 mock 任何方法）：position 已冻结待卖（frozen_volume=100，
+        volume=0），SHORT fill 100 股 → _sold 清空 frozen → total_position=0 →
+        clean_positions 删除该 position。修复前此处抛 AttributeError 触发全回滚，
+        券商卖了票但 cash 未到账、position 未清理；修复后 fill 正常落地。
+        """
+        p = _make_portfolio()
+        p.add_cash(Decimal("100000"))
+        # 模拟下单冻结后的 position：volume 已转 frozen_volume（_sold 只减 frozen）
+        pos = Position(
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
+            code="000001.SZ", cost=Decimal("10.0"), volume=0, frozen_volume=100,
+        )
+        p.add_position(pos)
+        order = _make_order(
+            direction=DIRECTION_TYPES.SHORT, volume=100, portfolio_id=p.uuid,
+        )
+
+        entry_cash = p.cash
+
+        with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \
+             patch('ginkgo.trading.portfolios.portfolio_live.container'):
+            p.on_order_partially_filled(_make_fill_event(order, portfolio_id=p.uuid))
+
+        # proceeds = 10*100 - 5 = 995 到账（无回滚）
+        assert p.cash == entry_cash + Decimal("995")
+        # 空持仓被 clean_positions 移除
+        assert "000001.SZ" not in p.positions
+        # order 成交累计
+        assert order.transaction_volume == 100
+
+    def test_short_partial_fill_keeps_residual_position(self):
+        """AC8: SHORT 部分成交（有残留）→ position 保留，frozen_volume 正确扣减。
+
+        frozen_volume=100 卖 30 → 残留 frozen_volume=70，total_position=70 > 0，
+        clean_positions 不移除。证明清理条件精确（仅清完全平仓），不误删残留持仓。
+        """
+        p = _make_portfolio()
+        p.add_cash(Decimal("100000"))
+        pos = Position(
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
+            code="000001.SZ", cost=Decimal("10.0"), volume=0, frozen_volume=100,
+        )
+        p.add_position(pos)
+        order = _make_order(
+            direction=DIRECTION_TYPES.SHORT, volume=100, portfolio_id=p.uuid,
+        )
+
+        entry_cash = p.cash
+
+        with patch('ginkgo.trading.portfolios.portfolio_live.GLOG'), \
+             patch('ginkgo.trading.portfolios.portfolio_live.container'):
+            p.on_order_partially_filled(
+                _make_fill_event(order, filled_quantity=30, portfolio_id=p.uuid)
+            )
+
+        # proceeds = 10*30 - 5 = 295 到账
+        assert p.cash == entry_cash + Decimal("295")
+        # 残留持仓保留，frozen_volume 扣减到 70
+        assert "000001.SZ" in p.positions
+        assert p.positions["000001.SZ"].frozen_volume == 70
+        assert order.transaction_volume == 30

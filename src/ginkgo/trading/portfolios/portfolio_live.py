@@ -414,6 +414,18 @@ class PortfolioLive(PortfolioBase):
         order._transaction_volume = snapshot["order_transaction_volume"]
         order._transaction_price = snapshot["order_transaction_price"]
 
+    def clean_positions(self) -> None:
+        """移除已完全平仓的 position（``total_position <= 0``）。
+
+        SHORT 成交经 ``_sold`` 扣减 ``frozen_volume`` 后，若持仓被全部卖空
+        （``volume + frozen_volume + settlement_frozen_volume`` 均为 0），从
+        ``_positions`` 移除，避免空持仓残留污染快照与持久化。LONG 只增不减，
+        不会产生零持仓，不触发清理。#6741
+        """
+        emptied = [code for code, pos in self._positions.items() if pos.total_position <= 0]
+        for code in emptied:
+            del self._positions[code]
+
     def update_worth(self):
         pass
 
