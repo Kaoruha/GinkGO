@@ -374,7 +374,6 @@ def _start_queue_monitor(duration: int, interval: int):
             layout.split_column(
                 Layout(kafka_table, name="kafka"),
                 Layout(worker_table, name="worker"),
-                Layout(subscription_table, name="subscriptions")
             )
             
             # 添加时间信息
