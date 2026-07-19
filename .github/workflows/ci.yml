@@ -158,6 +158,17 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: portfolio_live fill transactional smoke (#6741/#6742)
+        # portfolio_live.on_order_partially_filled 事务性重构（snapshot-restore 全回滚 +
+        # CRITICAL + re-raise）+ deal return False 转 raise（#6742 扩 scope）。整个方法体
+        # 被 gate 视为新增可执行行，但无 smoke 调其方法体 → diff coverage gate 红。
+        # PR 自带 10 测试（AC1-AC10：LONG/SHORT 异常回滚 + deal return False 回滚 +
+        # 正常路径 + worker 不崩）补覆盖信号。独立 step 使 push→master 时也跑，
+        # 同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -177,6 +188,7 @@ jobs:
             tests/unit/features/test_expression_registry.py \
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
+            tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
