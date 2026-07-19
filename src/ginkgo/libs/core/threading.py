@@ -569,31 +569,6 @@ if __name__ == "__main__":
         self.kill_thread(name)
         self.add_thread(name, target)
 
-    def get_proc_status(self, pid) -> str:
-        try:
-            # Handle cases where pid might be None, "None", or non-numeric
-            if pid is None or pid == "None" or not str(pid).isdigit():
-                return "NOT EXIST"
-            proc = psutil.Process(int(pid))
-            return proc.status().upper()
-        except Exception as e:
-            return "NOT EXIST"
-        finally:
-            pass
-
-    def kill_proc(self, pid: int) -> None:
-        try:
-            proc = psutil.Process(int(pid))
-            if proc.is_running():
-                control_logger.DEBUG(f"Kill PID: {pid}")
-                os.kill(int(pid), signal.SIGKILL)
-            console.print(f":leaf_fluttering_in_wind: Kill PID: {pid}")
-            time.sleep(0.4)
-        except Exception as e:
-            console.print(f":leaf_fluttering_in_wind: Kill PID Failed: {e}")
-        finally:
-            pass
-
     def clean_thread_pool(self, *args, **kwargs) -> None:
         cursor = 0
         while True:

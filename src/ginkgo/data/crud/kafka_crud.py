@@ -243,58 +243,6 @@ class KafkaCRUD:
             GLOG.ERROR(f"Failed to consume messages from topic {topic}: {e}")
             return messages
     
-    @time_logger
-    def consume_with_callback(self, topic: str, callback: Callable[[Dict[str, Any]], bool], 
-                             group_id: str = None, max_messages: int = None) -> int:
-        """
-        使用回调函数消费消息
-        
-        Args:
-            topic: 主题名称
-            callback: 消息处理回调函数，返回True表示处理成功
-            group_id: 消费者组ID
-            max_messages: 最大消息数量，None表示无限制
-            
-        Returns:
-            int: 成功处理的消息数量
-        """
-        processed_count = 0
-        
-        try:
-            consumer = self._get_or_create_consumer(topic, group_id)
-            if not consumer:
-                return 0
-                
-            for message in consumer.consumer:
-                try:
-                    message_data = {
-                        "topic": message.topic,
-                        "partition": message.partition,
-                        "offset": message.offset,
-                        "key": message.key.decode('utf-8') if message.key else None,
-                        "value": message.value,
-                        "timestamp": datetime.fromtimestamp(message.timestamp / 1000) if message.timestamp else None
-                    }
-
-                    # 调用回调函数处理消息
-                    if callback(message_data):
-                        processed_count += 1
-                        consumer.commit()  # 提交偏移量
-                        
-                    # 检查是否达到最大消息数量
-                    if max_messages and processed_count >= max_messages:
-                        break
-                        
-                except Exception as callback_error:
-                    GLOG.ERROR(f"Callback processing error: {callback_error}")
-                    
-            GLOG.DEBUG(f"Processed {processed_count} messages from topic: {topic}")
-            return processed_count
-            
-        except Exception as e:
-            GLOG.ERROR(f"Failed to consume with callback from topic {topic}: {e}")
-            return processed_count
-    
     def commit_offset(self, topic: str, group_id: str = None) -> bool:
         """
         手动提交消费偏移量
