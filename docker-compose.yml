@@ -18,6 +18,10 @@ x-worker-common: &worker-common
     - mongo-master
     - clickhouse-test
   environment: &worker-env
+    # 确定性声明容器身份：触发 is_container_environment() 返 True（不依赖隐式 /.dockerenv）。
+    # config.py 的 CLICKPORT/MYSQLPORT +1 守卫据此跳过 +1，使容器内服务连内部端口 3306/8123
+    # 而非宿主映射端口（ADR-024，修复 TaskTimer→DataWorker 连 mysql-test:13306 ECONNREFUSED）。
+    DOCKER_CONTAINER: "true"
     GINKGO_KAFKA_HOST: kafka1
     GINKGO_KAFKA_PORT: 9092
     GINKGO_REDIS_HOST: redis-master
