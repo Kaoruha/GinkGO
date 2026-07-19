@@ -8,6 +8,7 @@
 
 
 import time
+import copy
 import datetime
 from enum import Enum
 from rich.console import Console
@@ -267,23 +268,25 @@ class PortfolioLive(PortfolioBase):
         # ORDER IDEMPOTENCY: Portfolio层只做幂等性检查，不负责持久化
         # TODO: 通过 Order.transaction_volume 判断是否重复处理
 
+        order = getattr(event, "order", None)
+        if order is None:
+            GLOG.ERROR("Partial fill event missing order payload")
+            return
+
+        qty = int(getattr(event, "filled_quantity", 0) or 0)
+        price = to_decimal(getattr(event, "fill_price", 0) or 0)
+        fee = to_decimal(getattr(event, "commission", 0) or 0)
+        if qty <= 0 or price <= 0:
+            GLOG.WARN(f"Partial fill ignored due to invalid qty/price: {qty}/{price}")
+            return
+
+        direction = getattr(order, "direction", None) or getattr(event, "direction", None)
+        code = event.code
+        fill_cost = price * qty + fee
+
+        # 事务边界：拍快照，fill 链任一步抛异常则全回滚 + CRITICAL + re-raise（#6741）
+        snapshot = self._snapshot_fill_state(order)
         try:
-            order = getattr(event, "order", None)
-            if order is None:
-                GLOG.ERROR("Partial fill event missing order payload")
-                return
-
-            qty = int(getattr(event, "filled_quantity", 0) or 0)
-            price = to_decimal(getattr(event, "fill_price", 0) or 0)
-            fee = to_decimal(getattr(event, "commission", 0) or 0)
-            if qty <= 0 or price <= 0:
-                GLOG.WARN(f"Partial fill ignored due to invalid qty/price: {qty}/{price}")
-                return
-
-            direction = getattr(order, "direction", None) or getattr(event, "direction", None)
-            code = event.code
-            fill_cost = price * qty + fee
-
             # 累计成交 + 扣减剩余冻结资金（ADR-010 V5：settle，内部守 min 截断 + remain 兜底 + ≥0）
             order.settle(qty, price, fee)
 
@@ -312,7 +315,12 @@ class PortfolioLive(PortfolioBase):
                     )
                     self.add_position(p)
                 else:
-                    pos.deal(DIRECTION_TYPES.LONG, price, qty)
+                    # pos.deal 失败（cost<0/非 Decimal/异常）返回 False 不抛；转 raise 进事务 except 触发回滚
+                    if not pos.deal(DIRECTION_TYPES.LONG, price, qty):
+                        raise RuntimeError(
+                            f"LONG pos.deal rejected for {code}: {qty}@{price} "
+                            f"(total={pos.total_position}, frozen={pos.frozen_volume})"
+                        )
 
                 GLOG.INFO(f"PARTIAL LONG filled {code}: {qty}@{price}, fee={fee}, remain_frozen={order.remain}",
                 )
@@ -323,9 +331,16 @@ class PortfolioLive(PortfolioBase):
 
                 pos = self.get_position(code)
                 if pos is None:
-                    GLOG.ERROR(f"Partial SHORT fill but no position found for {code}")
+                    # SHORT 无持仓收到 fill = 业务异常；raise 进事务 except，回滚已执行的
+                    # add_cash/add_fee + CRITICAL + re-raise（修正原静默 ERROR 半应用资金，#6739 审计）
+                    raise ValueError(f"Partial SHORT fill but no position found for {code}")
                 else:
-                    pos.deal(DIRECTION_TYPES.SHORT, price, qty)
+                    # pos.deal 失败（SHORT qty>frozen_volume/异常）返回 False 不抛；转 raise 进事务 except 触发回滚
+                    if not pos.deal(DIRECTION_TYPES.SHORT, price, qty):
+                        raise RuntimeError(
+                            f"SHORT pos.deal rejected for {code}: {qty}@{price} "
+                            f"(total={pos.total_position}, frozen={pos.frozen_volume})"
+                        )
                     self.clean_positions()
 
                 GLOG.INFO(f"PARTIAL SHORT filled {code}: {qty}@{price}, fee={fee}")
@@ -337,7 +352,89 @@ class PortfolioLive(PortfolioBase):
             self.update_worth()
             self.update_profit()
         except Exception as e:
-            GLOG.ERROR(f"on_order_partially_filled failed: {e}")
+            # 回滚 fill 路径所有可变状态；restore 自身抛降级 CRITICAL 记二阶异常，仍 re-raise 原异常
+            try:
+                self._restore_fill_state(snapshot, order)
+            except Exception as restore_err:
+                GLOG.CRITICAL(
+                    f"on_order_partially_filled ROLLBACK FAILED (secondary): "
+                    f"{restore_err}; original error: {e}. State may be inconsistent."
+                )
+            GLOG.CRITICAL(
+                f"on_order_partially_filled FILL ROLLED BACK: "
+                f"order={getattr(order, 'uuid', '?')}, code={code}, qty={qty}, "
+                f"price={price}, fee={fee}, error: {e}"
+            )
+            raise
+
+    def _snapshot_fill_state(self, order) -> dict:
+        """拍 fill 路径可变状态快照（#6741 事务边界）。
+
+        覆盖 Portfolio 内存账户簿（``_cash``/``_frozen``/``_fee``/``_worth``/``_profit``）
+        与 Order 成交字段（``_remain``/``_transaction_volume``/``_transaction_price``，
+        settle/release_frozen 改的状态）。
+
+        ``_positions`` 必须 **深拷贝** —— ``pos.deal`` 原地改 position 对象的
+        ``_cost``/``_volume`` 等字段，浅拷贝只拷 dict 引用，回滚还原的仍是已污染实例。
+        """
+        return {
+            "_cash": self._cash,
+            "_frozen": self._frozen,
+            "_fee": self._fee,
+            "_worth": self._worth,
+            "_profit": self._profit,
+            "_positions": self._deepcopy_positions(self._positions),
+            "order_remain": order._remain,
+            "order_transaction_volume": order._transaction_volume,
+            "order_transaction_price": order._transaction_price,
+        }
+
+    def _deepcopy_positions(self, positions: dict) -> dict:
+        """深拷贝 positions dict（#6741 事务快照）。
+
+        Position 继承的 ``loggers`` 字段持有 ``logging.Logger``（含 RLock，
+        不可 pickle）。loggers 是日志器单例引用、非业务状态，深拷贝时跳过——
+        副本共享原 loggers（回滚只还原业务字段，不触碰日志器）。
+        """
+        snap: dict = {}
+        for code, pos in positions.items():
+            saved_loggers = getattr(pos, "loggers", None)
+            if saved_loggers is not None:
+                pos.loggers = []
+            try:
+                snap[code] = copy.deepcopy(pos)
+            finally:
+                if saved_loggers is not None:
+                    pos.loggers = saved_loggers
+            snap[code].loggers = saved_loggers
+        return snap
+
+    def _restore_fill_state(self, snapshot: dict, order) -> None:
+        """还原 fill 路径状态到快照（#6741 事务回滚）。
+
+        ``_positions`` 直接接管快照里的深拷贝副本（快照一次性，方法结束即弃）。
+        """
+        self._cash = snapshot["_cash"]
+        self._frozen = snapshot["_frozen"]
+        self._fee = snapshot["_fee"]
+        self._worth = snapshot["_worth"]
+        self._profit = snapshot["_profit"]
+        self._positions = snapshot["_positions"]
+        order._remain = snapshot["order_remain"]
+        order._transaction_volume = snapshot["order_transaction_volume"]
+        order._transaction_price = snapshot["order_transaction_price"]
+
+    def clean_positions(self) -> None:
+        """移除已完全平仓的 position（``total_position <= 0``）。
+
+        SHORT 成交经 ``_sold`` 扣减 ``frozen_volume`` 后，若持仓被全部卖空
+        （``volume + frozen_volume + settlement_frozen_volume`` 均为 0），从
+        ``_positions`` 移除，避免空持仓残留污染快照与持久化。LONG 只增不减，
+        不会产生零持仓，不触发清理。#6741
+        """
+        emptied = [code for code, pos in self._positions.items() if pos.total_position <= 0]
+        for code in emptied:
+            del self._positions[code]
 
     def update_worth(self):
         pass
