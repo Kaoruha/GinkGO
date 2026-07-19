@@ -315,7 +315,12 @@ class PortfolioLive(PortfolioBase):
                     )
                     self.add_position(p)
                 else:
-                    pos.deal(DIRECTION_TYPES.LONG, price, qty)
+                    # pos.deal 失败（cost<0/非 Decimal/异常）返回 False 不抛；转 raise 进事务 except 触发回滚
+                    if not pos.deal(DIRECTION_TYPES.LONG, price, qty):
+                        raise RuntimeError(
+                            f"LONG pos.deal rejected for {code}: {qty}@{price} "
+                            f"(total={pos.total_position}, frozen={pos.frozen_volume})"
+                        )
 
                 GLOG.INFO(f"PARTIAL LONG filled {code}: {qty}@{price}, fee={fee}, remain_frozen={order.remain}",
                 )
@@ -330,7 +335,12 @@ class PortfolioLive(PortfolioBase):
                     # add_cash/add_fee + CRITICAL + re-raise（修正原静默 ERROR 半应用资金，#6739 审计）
                     raise ValueError(f"Partial SHORT fill but no position found for {code}")
                 else:
-                    pos.deal(DIRECTION_TYPES.SHORT, price, qty)
+                    # pos.deal 失败（SHORT qty>frozen_volume/异常）返回 False 不抛；转 raise 进事务 except 触发回滚
+                    if not pos.deal(DIRECTION_TYPES.SHORT, price, qty):
+                        raise RuntimeError(
+                            f"SHORT pos.deal rejected for {code}: {qty}@{price} "
+                            f"(total={pos.total_position}, frozen={pos.frozen_volume})"
+                        )
                     self.clean_positions()
 
                 GLOG.INFO(f"PARTIAL SHORT filled {code}: {qty}@{price}, fee={fee}")

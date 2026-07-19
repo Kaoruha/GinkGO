@@ -8,6 +8,8 @@ PortfolioLive.on_order_partially_filled fill 应用事务性测试 (#6741)
 - AC4: 正常路径行为不变
 - AC5: re-raise 不崩 worker（PortfolioProcessor 主循环兜底）
 - AC6: SHORT 无持仓（pos None）→ raise + 全回滚（修正原静默 ERROR 半应用资金）
+- AC9: SHORT pos.deal return False（qty>frozen_volume）→ raise + 全回滚（修正 bool 失败不触发事务的 gap）
+- AC10: LONG pos.deal return False → raise + 全回滚
 """
 import sys
 import datetime
@@ -322,3 +324,71 @@ class TestFillTransactional:
         assert "000001.SZ" in p.positions
         assert p.positions["000001.SZ"].frozen_volume == 70
         assert order.transaction_volume == 30
+
+    def test_short_deal_return_false_triggers_rollback(self):
+        """AC9: SHORT pos.deal return False（qty>frozen_volume）→ raise + 全回滚。
+
+        _sold 在 volume>frozen_volume 时 return False 不抛（position.py _sold）；
+        修复前：无异常 → 事务 except 不触发 → 回滚跳过 → cash 已加/fee 已加/持仓未减（半应用）。
+        修复后：return False 转 raise RuntimeError → 进事务 except → snapshot-restore 全回滚。
+        """
+        p = _make_portfolio()
+        p.add_cash(Decimal("100000"))
+        # frozen_volume=30，但 fill qty=100 → _sold return False
+        pos = Position(
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
+            code="000001.SZ", cost=Decimal("10.0"), volume=0, frozen_volume=30,
+        )
+        p.add_position(pos)
+        order = _make_order(
+            direction=DIRECTION_TYPES.SHORT, volume=100, portfolio_id=p.uuid,
+        )
+
+        entry_cash = p.cash
+        entry_fee = p.fee
+        entry_tv = order.transaction_volume
+
+        with patch('ginkgo.trading.portfolios.portfolio_live.GLOG') as mock_glog, \
+             patch('ginkgo.trading.portfolios.portfolio_live.container'):
+            with pytest.raises(RuntimeError, match="SHORT pos.deal rejected"):
+                p.on_order_partially_filled(_make_fill_event(order, portfolio_id=p.uuid))
+
+        # 全回滚：add_cash(proceeds)/add_fee/settle 都被 snapshot-restore 还原
+        assert p.cash == entry_cash
+        assert p.fee == entry_fee
+        assert order.transaction_volume == entry_tv
+        # _sold 在 frozen_volume 检查前 return False 未改 pos；snapshot 副本亦为 30
+        assert p.get_position("000001.SZ").frozen_volume == 30
+        assert mock_glog.CRITICAL.called
+
+    def test_long_deal_return_false_triggers_rollback(self):
+        """AC10: LONG pos.deal return False → raise RuntimeError + 全回滚。
+
+        LONG 路径 _bought 失败（如 cost<0/异常）return False 不抛；修复前事务不触发，
+        修复后转 raise 进事务 except 全回滚。
+        """
+        p = _make_portfolio()
+        p.add_cash(Decimal("100000"))
+        p.freeze(Decimal("1005"))
+        pos = Position(
+            portfolio_id=p.uuid, engine_id="eid", task_id="rid",
+            code="000001.SZ", cost=Decimal("10.0"), volume=100,
+        )
+        p.add_position(pos)
+        order = _make_order(portfolio_id=p.uuid)
+
+        entry_cash = p.cash
+        entry_fee = p.fee
+        entry_tv = order.transaction_volume
+
+        with patch.object(pos, 'deal', return_value=False), \
+             patch('ginkgo.trading.portfolios.portfolio_live.GLOG') as mock_glog, \
+             patch('ginkgo.trading.portfolios.portfolio_live.container'):
+            with pytest.raises(RuntimeError, match="LONG pos.deal rejected"):
+                p.on_order_partially_filled(_make_fill_event(order, portfolio_id=p.uuid))
+
+        # 全回滚：deduct_from_frozen/add_fee/settle 都被 snapshot-restore 还原
+        assert p.cash == entry_cash
+        assert p.fee == entry_fee
+        assert order.transaction_volume == entry_tv
+        assert mock_glog.CRITICAL.called
