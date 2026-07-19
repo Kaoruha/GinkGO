@@ -163,6 +163,60 @@ def inherits_from(class_node: ast.ClassDef, base_class_name: str) -> bool:
     return base_class_name in get_base_classes(class_node)
 
 
+def get_node_name(node: ast.AST) -> Optional[str]:
+    """
+    Extract a name from an AST node using the *attr* semantic.
+
+    Returns ``node.id`` for ``ast.Name`` and ``node.attr`` for ``ast.Attribute``
+    (so ``mod.BaseStrategy`` → ``"BaseStrategy"``), or ``None`` otherwise.
+
+    Differs from :func:`get_base_classes`, which ``ast.unparse``-es an
+    ``Attribute`` to ``"mod.BaseStrategy"``. :func:`find_strategy_classes`
+    relies on this attr semantic to match ``module.BaseStrategy`` bases,
+    which is why it cannot reuse :func:`inherits_from`.
+
+    Args:
+        node: The AST node (typically a base-class expression)
+
+    Returns:
+        The name string, or None if the node is neither Name nor Attribute
+    """
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def find_strategy_classes(
+    tree: ast.Module, base_name: str = "BaseStrategy"
+) -> List[Tuple[ast.ClassDef, str]]:
+    """
+    Find all classes inheriting from ``base_name``.
+
+    Walks the tree collecting ``ClassDef`` nodes whose bases include a
+    ``Name``/``Attribute`` whose :func:`get_node_name` equals ``base_name``.
+    The attr semantic matches both ``class Foo(BaseStrategy)`` and
+    ``class Foo(mod.BaseStrategy)``.
+
+    Args:
+        tree: The AST tree to search
+        base_name: Base class name to match (default ``"BaseStrategy"``)
+
+    Returns:
+        List of ``(class_node, class_name)`` tuples
+    """
+    result: List[Tuple[ast.ClassDef, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for base in node.bases:
+            if get_node_name(base) == base_name:
+                result.append((node, node.name))
+                break
+    return result
+
+
 def get_function_signature(
     func_node: ast.FunctionDef
 ) -> Dict[str, Any]:

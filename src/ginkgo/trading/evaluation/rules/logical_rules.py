@@ -21,6 +21,7 @@ from typing import Optional, List
 
 from ginkgo.trading.evaluation.core.enums import EvaluationSeverity, EvaluationLevel
 from ginkgo.trading.evaluation.rules.base_rule import ASTBasedRule
+from ginkgo.trading.evaluation.utils.ast_helpers import find_method_def
 
 
 class ReturnStatementRule(ASTBasedRule):
@@ -43,18 +44,11 @@ class ReturnStatementRule(ASTBasedRule):
         """Check return statements in cal() method."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     issue = self._check_cal_method(cal_method, file_path)
                     if issue:
                         return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_cal_method(self, method: ast.FunctionDef, file_path: Path) -> Optional["EvaluationIssue"]:
@@ -129,20 +123,13 @@ class SignalFieldRule(ASTBasedRule):
         """Check Signal() calls in cal() method."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     for child in ast.walk(cal_method):
                         if isinstance(child, ast.Call):
                             issue = self._check_signal_call(child, file_path)
                             if issue:
                                 return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_signal_call(self, node: ast.Call, file_path: Path) -> Optional["EvaluationIssue"]:
@@ -198,20 +185,13 @@ class DirectionValidationRule(ASTBasedRule):
         """Check direction parameter in Signal() calls."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     for child in ast.walk(cal_method):
                         if isinstance(child, ast.Call):
                             issue = self._check_direction_value(child, file_path)
                             if issue:
                                 return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_direction_value(self, node: ast.Call, file_path: Path) -> Optional["EvaluationIssue"]:
@@ -289,20 +269,13 @@ class TimeProviderUsageRule(ASTBasedRule):
         """Check time provider usage in cal() method."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     for child in ast.walk(cal_method):
                         if isinstance(child, ast.Call):
                             issue = self._check_time_call(child, file_path)
                             if issue:
                                 return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_time_call(self, node: ast.Call, file_path: Path) -> Optional["EvaluationIssue"]:
@@ -443,20 +416,13 @@ class ForbiddenOperationsRule(ASTBasedRule):
         """Check for forbidden operations in cal() method."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     for child in ast.walk(cal_method):
                         if isinstance(child, (ast.Call, ast.Import, ast.ImportFrom)):
                             issue = self._check_forbidden_operation(child, file_path)
                             if issue:
                                 return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_forbidden_operation(self, node: ast.AST, file_path: Path) -> Optional["EvaluationIssue"]:
@@ -565,20 +531,13 @@ class SignalParameterRule(ASTBasedRule):
         """Check Signal() calls in cal() method."""
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                cal_method = self._find_cal_method(node)
+                cal_method = find_method_def(node, "cal")
                 if cal_method:
                     for child in ast.walk(cal_method):
                         if isinstance(child, ast.Call):
                             issue = self._check_signal_call(child, file_path)
                             if issue:
                                 return issue
-        return None
-
-    def _find_cal_method(self, class_node: ast.ClassDef) -> Optional[ast.FunctionDef]:
-        """Find cal() method in class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "cal":
-                return item
         return None
 
     def _check_signal_call(self, node: ast.Call, file_path: Path) -> Optional["EvaluationIssue"]:
