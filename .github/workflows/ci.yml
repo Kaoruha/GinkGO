@@ -119,6 +119,16 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/data/services/test_list_count_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: kafka service retired contract smoke (#6736)
+        # #6736 退役 KafkaService 消费 worker 模型（删 _message_handlers/_consumer_threads
+        # 等本地状态）连带改动 3 个查询/健康方法的可执行行（get_topic_status 直返 crud、
+        # get_queue_metrics(None)→[]、health_check 删 consumer 字段+精简 healthy 判定）。
+        # 同目录 test_kafka_consumer_retired.py 只断言 hasattr（已删除），不调方法体 →
+        # 门禁红。本 smoke mock crud 调起 3 方法体补覆盖信号，并锁定退役后新契约。
+        # 独立 step 使 push→master 时也跑（gate 仅 PR 触发），同时纳入下方 gate 合集采集。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_kafka_service_retired_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: deployment_service list/count smoke (#5009 pagination)
         # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
         # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
@@ -170,6 +180,7 @@ jobs:
             tests/unit/data/mappers/test_bar_mapper.py \
             tests/unit/data/services/test_page_size_passthrough_smoke.py \
             tests/unit/data/services/test_list_count_smoke.py \
+            tests/unit/data/services/test_kafka_service_retired_smoke.py \
             tests/unit/trading/services/test_deployment_list_smoke.py \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
