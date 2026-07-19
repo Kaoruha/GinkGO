@@ -21,6 +21,11 @@ from typing import Optional
 from ginkgo.trading.evaluation.core.enums import EvaluationLevel, EvaluationSeverity
 from ginkgo.trading.evaluation.core.evaluation_result import EvaluationIssue
 from ginkgo.trading.evaluation.rules.base_rule import ASTBasedRule
+from ginkgo.trading.evaluation.utils.ast_helpers import (
+    find_method_def,
+    find_strategy_classes,
+    is_abstract_class,
+)
 from ginkgo.libs import GLOG
 
 
@@ -43,13 +48,13 @@ class DecoratorUsageRule(ASTBasedRule):
         source_code: str,
     ) -> Optional["EvaluationIssue"]:
         """Check if cal() method has recommended decorators."""
-        strategy_classes = self._find_strategy_classes(tree)
+        strategy_classes = find_strategy_classes(tree)
 
         for class_node, class_name in strategy_classes:
-            if self._is_abstract_class(class_node):
+            if is_abstract_class(class_node):
                 continue
 
-            cal_method = self._find_method(class_node, "cal")
+            cal_method = find_method_def(class_node, "cal")
             if not cal_method:
                 continue
 
@@ -83,45 +88,6 @@ class DecoratorUsageRule(ASTBasedRule):
 
         return None
 
-    def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from BaseStrategy."""
-        strategy_classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    base_name = self._get_name(base)
-                    if base_name == "BaseStrategy":
-                        strategy_classes.append((node, node.name))
-                        break
-        return strategy_classes
-
-    def _get_name(self, node: ast.AST) -> Optional[str]:
-        """Extract the name from an AST node."""
-        if isinstance(node, ast.Name):
-            return node.id
-        elif isinstance(node, ast.Attribute):
-            return node.attr
-        return None
-
-    def _is_abstract_class(self, class_node: ast.ClassDef) -> bool:
-        """Check if class has __abstract__ = False marker."""
-        for stmt in class_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        if target.id == "__abstract__":
-                            if isinstance(stmt.value, ast.Constant):
-                                return stmt.value.value is True
-        return False
-
-    def _find_method(self, class_node: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
-        """Find a method by name in the class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                if item.name == method_name:
-                    return item
-        return None
-
     def _is_decorator_named(self, decorator: ast.expr, name: str) -> bool:
         """Check if decorator matches given name."""
         if isinstance(decorator, ast.Name):
@@ -153,13 +119,13 @@ class ExceptionHandlingRule(ASTBasedRule):
         source_code: str,
     ) -> Optional["EvaluationIssue"]:
         """Check if cal() method has exception handling."""
-        strategy_classes = self._find_strategy_classes(tree)
+        strategy_classes = find_strategy_classes(tree)
 
         for class_node, class_name in strategy_classes:
-            if self._is_abstract_class(class_node):
+            if is_abstract_class(class_node):
                 continue
 
-            cal_method = self._find_method(class_node, "cal")
+            cal_method = find_method_def(class_node, "cal")
             if not cal_method:
                 continue
 
@@ -174,45 +140,6 @@ class ExceptionHandlingRule(ASTBasedRule):
                     line=cal_method.lineno,
                 )
 
-        return None
-
-    def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from BaseStrategy."""
-        strategy_classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    base_name = self._get_name(base)
-                    if base_name == "BaseStrategy":
-                        strategy_classes.append((node, node.name))
-                        break
-        return strategy_classes
-
-    def _get_name(self, node: ast.AST) -> Optional[str]:
-        """Extract the name from an AST node."""
-        if isinstance(node, ast.Name):
-            return node.id
-        elif isinstance(node, ast.Attribute):
-            return node.attr
-        return None
-
-    def _is_abstract_class(self, class_node: ast.ClassDef) -> bool:
-        """Check if class has __abstract__ = False marker."""
-        for stmt in class_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        if target.id == "__abstract__":
-                            if isinstance(stmt.value, ast.Constant):
-                                return stmt.value.value is True
-        return False
-
-    def _find_method(self, class_node: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
-        """Find a method by name in the class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                if item.name == method_name:
-                    return item
         return None
 
     def _has_try_except(self, method_node: ast.FunctionDef) -> bool:
@@ -241,13 +168,13 @@ class LoggingRule(ASTBasedRule):
         source_code: str,
     ) -> Optional["EvaluationIssue"]:
         """Check if cal() method has logging for debugging."""
-        strategy_classes = self._find_strategy_classes(tree)
+        strategy_classes = find_strategy_classes(tree)
 
         for class_node, class_name in strategy_classes:
-            if self._is_abstract_class(class_node):
+            if is_abstract_class(class_node):
                 continue
 
-            cal_method = self._find_method(class_node, "cal")
+            cal_method = find_method_def(class_node, "cal")
             if not cal_method:
                 continue
 
@@ -262,45 +189,6 @@ class LoggingRule(ASTBasedRule):
                     line=cal_method.lineno,
                 )
 
-        return None
-
-    def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from BaseStrategy."""
-        strategy_classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    base_name = self._get_name(base)
-                    if base_name == "BaseStrategy":
-                        strategy_classes.append((node, node.name))
-                        break
-        return strategy_classes
-
-    def _get_name(self, node: ast.AST) -> Optional[str]:
-        """Extract the name from an AST node."""
-        if isinstance(node, ast.Name):
-            return node.id
-        elif isinstance(node, ast.Attribute):
-            return node.attr
-        return None
-
-    def _is_abstract_class(self, class_node: ast.ClassDef) -> bool:
-        """Check if class has __abstract__ = False marker."""
-        for stmt in class_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        if target.id == "__abstract__":
-                            if isinstance(stmt.value, ast.Constant):
-                                return stmt.value.value is True
-        return False
-
-    def _find_method(self, class_node: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
-        """Find a method by name in the class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                if item.name == method_name:
-                    return item
         return None
 
     def _has_logging(self, method_node: ast.FunctionDef) -> bool:
@@ -338,13 +226,13 @@ class ResetStateRule(ASTBasedRule):
         source_code: str,
     ) -> Optional["EvaluationIssue"]:
         """Check if reset_state() calls super().reset_state()."""
-        strategy_classes = self._find_strategy_classes(tree)
+        strategy_classes = find_strategy_classes(tree)
 
         for class_node, class_name in strategy_classes:
-            if self._is_abstract_class(class_node):
+            if is_abstract_class(class_node):
                 continue
 
-            reset_method = self._find_method(class_node, "reset_state")
+            reset_method = find_method_def(class_node, "reset_state")
             if not reset_method:
                 continue
 
@@ -359,45 +247,6 @@ class ResetStateRule(ASTBasedRule):
                     line=reset_method.lineno,
                 )
 
-        return None
-
-    def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from BaseStrategy."""
-        strategy_classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    base_name = self._get_name(base)
-                    if base_name == "BaseStrategy":
-                        strategy_classes.append((node, node.name))
-                        break
-        return strategy_classes
-
-    def _get_name(self, node: ast.AST) -> Optional[str]:
-        """Extract the name from an AST node."""
-        if isinstance(node, ast.Name):
-            return node.id
-        elif isinstance(node, ast.Attribute):
-            return node.attr
-        return None
-
-    def _is_abstract_class(self, class_node: ast.ClassDef) -> bool:
-        """Check if class has __abstract__ = False marker."""
-        for stmt in class_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        if target.id == "__abstract__":
-                            if isinstance(stmt.value, ast.Constant):
-                                return stmt.value.value is True
-        return False
-
-    def _find_method(self, class_node: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
-        """Find a method by name in the class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                if item.name == method_name:
-                    return item
         return None
 
     def _calls_super_reset(self, method_node: ast.FunctionDef) -> bool:
@@ -433,13 +282,13 @@ class ParameterValidationRule(ASTBasedRule):
         source_code: str,
     ) -> Optional["EvaluationIssue"]:
         """Check if cal() method validates input parameters."""
-        strategy_classes = self._find_strategy_classes(tree)
+        strategy_classes = find_strategy_classes(tree)
 
         for class_node, class_name in strategy_classes:
-            if self._is_abstract_class(class_node):
+            if is_abstract_class(class_node):
                 continue
 
-            cal_method = self._find_method(class_node, "cal")
+            cal_method = find_method_def(class_node, "cal")
             if not cal_method:
                 continue
 
@@ -454,45 +303,6 @@ class ParameterValidationRule(ASTBasedRule):
                     line=cal_method.lineno,
                 )
 
-        return None
-
-    def _find_strategy_classes(self, tree: ast.Module) -> list:
-        """Find all classes that inherit from BaseStrategy."""
-        strategy_classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    base_name = self._get_name(base)
-                    if base_name == "BaseStrategy":
-                        strategy_classes.append((node, node.name))
-                        break
-        return strategy_classes
-
-    def _get_name(self, node: ast.AST) -> Optional[str]:
-        """Extract the name from an AST node."""
-        if isinstance(node, ast.Name):
-            return node.id
-        elif isinstance(node, ast.Attribute):
-            return node.attr
-        return None
-
-    def _is_abstract_class(self, class_node: ast.ClassDef) -> bool:
-        """Check if class has __abstract__ = False marker."""
-        for stmt in class_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        if target.id == "__abstract__":
-                            if isinstance(stmt.value, ast.Constant):
-                                return stmt.value.value is True
-        return False
-
-    def _find_method(self, class_node: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
-        """Find a method by name in the class."""
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                if item.name == method_name:
-                    return item
         return None
 
     def _has_parameter_validation(self, method_node: ast.FunctionDef) -> bool:
