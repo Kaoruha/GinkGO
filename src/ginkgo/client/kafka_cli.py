@@ -126,33 +126,7 @@ def _check_queue_status():
         receive_stats = stats.get("receive_statistics", {})
         table.add_row("Total Messages Received", str(receive_stats.get("total_received", 0)), ":inbox_tray:")
         
-        # 显示订阅信息
-        active_subscriptions = stats.get("active_subscriptions", 0)
-        running_consumers = stats.get("running_consumers", 0)
-        table.add_row("Active Subscriptions", str(active_subscriptions), "[blue]📑[/blue]")
-        table.add_row("Running Consumers", str(running_consumers), "[blue]🏃[/blue]")
-        
         console.print(table)
-        
-        # 显示订阅详情
-        subscription_details = stats.get("subscription_details", [])
-        if subscription_details:
-            detail_table = Table(title="Subscription Details")
-            detail_table.add_column("Topic", style="cyan")
-            detail_table.add_column("Handler", style="blue")
-            detail_table.add_column("Consumer Status", style="green")
-            detail_table.add_column("Thread Name", style="yellow")
-            
-            for sub in subscription_details:
-                status = ":green_circle: Running" if sub.get("is_consuming", False) else ":red_circle: Stopped"
-                detail_table.add_row(
-                    sub.get("topic", "N/A"),
-                    ":white_check_mark: Registered" if sub.get("has_handler", False) else ":x: No Handler",
-                    status,
-                    sub.get("thread_name", "N/A")
-                )
-            
-            console.print(detail_table)
         
         # 执行健康检查
         health_result = kafka_service.health_check()
@@ -367,7 +341,6 @@ def _start_queue_monitor(duration: int, interval: int):
                 
                 kafka_table.add_row("Connection", ":white_check_mark: Connected" if kafka_conn.get("connected") else ":x: Disconnected")
                 kafka_table.add_row("Active Consumers", str(kafka_conn.get("active_consumers", 0)))
-                kafka_table.add_row("Subscriptions", str(stats.get("active_subscriptions", 0)))
                 kafka_table.add_row("Messages Sent", str(send_stats.get("total_sent", 0)))
                 kafka_table.add_row("Messages Received", str(receive_stats.get("total_received", 0)))
                 kafka_table.add_row("Failed Sends", str(send_stats.get("failed_sends", 0)))
@@ -396,37 +369,11 @@ def _start_queue_monitor(duration: int, interval: int):
             except Exception as e:
                 worker_table.add_row("Status", f":x: Error: {str(e)[:40]}...")
             
-            # 订阅详情表
-            subscription_table = Table(title="Active Subscriptions", expand=True)
-            subscription_table.add_column("Topic", style="cyan")
-            subscription_table.add_column("Status", style="green")
-            subscription_table.add_column("Thread", style="yellow")
-            
-            try:
-                stats_result = kafka_service.get_statistics()
-                stats = stats_result.data if stats_result.success else {}
-                subscription_details = stats.get("subscription_details", [])
-                
-                if subscription_details:
-                    for sub in subscription_details:
-                        status = ":green_circle: Running" if sub.get("is_consuming") else ":red_circle: Stopped"
-                        subscription_table.add_row(
-                            sub.get("topic", "N/A"),
-                            status,
-                            sub.get("thread_name", "N/A")
-                        )
-                else:
-                    subscription_table.add_row("No subscriptions", "N/A", "N/A")
-                    
-            except Exception as e:
-                subscription_table.add_row("Error", f"{str(e)[:30]}...", "N/A")
-            
             # 创建布局
             layout = Layout()
             layout.split_column(
                 Layout(kafka_table, name="kafka"),
                 Layout(worker_table, name="worker"),
-                Layout(subscription_table, name="subscriptions")
             )
             
             # 添加时间信息

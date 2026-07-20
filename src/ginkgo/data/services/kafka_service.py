@@ -46,11 +46,6 @@ class KafkaService(BaseService):
         # Keep kafka property for backward compatibility
         self.kafka = kafka_crud
 
-        # Message processing state tracking
-        self._message_handlers = {}  # {topic: handler_function}
-        self._consumer_threads = {}  # {topic: thread}
-        self._stop_events = {}      # {topic: threading.Event}
-
         # Message sending statistics
         self._send_stats = {
             "total_sent": 0,
@@ -256,249 +251,6 @@ class KafkaService(BaseService):
                 message=f"Error publishing message to {topic}: {str(e)}"
             )
     
-    def publish_batch_messages(self, topic: str, messages: List[Dict[str, Any]],
-                              add_metadata: bool = True) -> Dict[str, Any]:
-        """
-        批量发布消息
-        
-        Args:
-            topic: 主题名称
-            messages: 消息列表
-            add_metadata: 是否添加元数据
-            
-        Returns:
-            Dict: 发送结果统计
-        """
-        try:
-            self._log_operation_start("publish_batch_messages", topic=topic, count=len(messages))
-            
-            # 预处理消息
-            processed_messages = []
-            for msg in messages:
-                if add_metadata:
-                    if isinstance(msg, dict):
-                        enhanced_msg = msg.copy()
-                    else:
-                        enhanced_msg = {"content": msg}
-                    
-                    enhanced_msg.update({
-                        "message_id": str(uuid.uuid4()),
-                        "timestamp": datetime.now().isoformat(),
-                        "service": "KafkaService",
-                        "batch_id": str(uuid.uuid4())
-                    })
-                    processed_messages.append(enhanced_msg)
-                else:
-                    processed_messages.append(msg)
-            
-            # 批量发送
-            success_count = self._crud_repo.send_batch_messages(topic, processed_messages)
-            
-            # 更新统计信息
-            self._send_stats["total_sent"] += success_count
-            self._send_stats["failed_sends"] += len(messages) - success_count
-            self._send_stats["last_send_time"] = datetime.now()
-            
-            result = {
-                "topic": topic,
-                "total_messages": len(messages),
-                "successful_sends": success_count,
-                "failed_sends": len(messages) - success_count,
-                "success_rate": success_count / len(messages) if messages else 0
-            }
-            
-            self._log_operation_end("publish_batch_messages", success_count > 0)
-            return result
-            
-        except Exception as e:
-            self._logger.ERROR(f"Error in batch publish to {topic}: {e}")
-            return {
-                "topic": topic,
-                "total_messages": len(messages),
-                "successful_sends": 0,
-                "failed_sends": len(messages),
-                "success_rate": 0,
-                "error": str(e)
-            }
-    
-    # ==================== Message Subscription Service ====================
-
-    def subscribe_topic(self, topic: str, handler: Callable[[Dict[str, Any]], bool],
-                       group_id: str = None, auto_start: bool = True) -> bool:
-        """
-        Subscribe to topic and set message handler
-
-        Args:
-            topic: Topic name
-            handler: Message handler function, receives message dict, returns success status
-            group_id: Consumer group ID
-            auto_start: Whether to automatically start consumption
-
-        Returns:
-            bool: Whether subscription was successful
-        """
-        try:
-            self._log_operation_start("subscribe_topic", topic=topic, group_id=group_id)
-            
-            # 保存处理器
-            self._message_handlers[topic] = handler
-            
-            if auto_start:
-                return self.start_consuming(topic, group_id)
-            
-            self._logger.INFO(f"Subscribed to topic: {topic} (handler registered)")
-            return True
-            
-        except Exception as e:
-            self._logger.ERROR(f"Error subscribing to topic {topic}: {e}")
-            return False
-    
-    def start_consuming(self, topic: str, group_id: str = None, 
-                       max_messages: int = None) -> bool:
-        """
-        开始消费指定主题的消息
-        
-        Args:
-            topic: 主题名称
-            group_id: 消费者组ID
-            max_messages: 最大消息数量，None表示持续消费
-            
-        Returns:
-            bool: 启动是否成功
-        """
-        try:
-            self._log_operation_start("start_consuming", topic=topic, group_id=group_id)
-            
-            # 检查是否已有处理器
-            if topic not in self._message_handlers:
-                self._logger.ERROR(f"No handler registered for topic: {topic}")
-                return False
-            
-            # 停止现有的消费线程（如果有）
-            self.stop_consuming(topic)
-            
-            # 创建停止事件
-            stop_event = threading.Event()
-            self._stop_events[topic] = stop_event
-            
-            # 创建消费者线程
-            consumer_thread = threading.Thread(
-                target=self._consumer_worker,
-                args=(topic, group_id, max_messages, stop_event),
-                daemon=True,
-                name=f"kafka_consumer_{topic}"
-            )
-            
-            self._consumer_threads[topic] = consumer_thread
-            consumer_thread.start()
-            
-            self._logger.INFO(f"Started consuming topic: {topic}")
-            return True
-            
-        except Exception as e:
-            self._logger.ERROR(f"Error starting consumer for topic {topic}: {e}")
-            return False
-    
-    def stop_consuming(self, topic: str) -> ServiceResult:
-        """
-        停止消费指定主题
-
-        Args:
-            topic: 主题名称
-
-        Returns:
-            ServiceResult: 停止结果
-        """
-        try:
-            self._log_operation_start("stop_consuming", topic=topic)
-
-            # 设置停止信号
-            if topic in self._stop_events:
-                self._stop_events[topic].set()
-
-            # 等待线程结束
-            if topic in self._consumer_threads:
-                thread = self._consumer_threads[topic]
-                if thread.is_alive():
-                    thread.join(timeout=5.0)  # 最多等待5秒
-
-                del self._consumer_threads[topic]
-
-            # 清理停止事件
-            if topic in self._stop_events:
-                del self._stop_events[topic]
-
-            # 关闭对应的消费者
-            self._crud_repo.close_consumer(topic)
-
-            self._logger.INFO(f"Stopped consuming topic: {topic}")
-            return ServiceResult.success({"stopped": True}, f"Successfully stopped consuming topic: {topic}")
-
-        except Exception as e:
-            self._logger.ERROR(f"Error stopping consumer for topic {topic}: {e}")
-            return ServiceResult.error(f"Failed to stop consuming topic: {str(e)}")
-    
-    def _consumer_worker(self, topic: str, group_id: str, max_messages: int, 
-                        stop_event: threading.Event):
-        """
-        消费者工作线程
-        
-        Args:
-            topic: 主题名称
-            group_id: 消费者组ID
-            max_messages: 最大消息数量
-            stop_event: 停止事件
-        """
-        handler = self._message_handlers.get(topic)
-        if not handler:
-            self._logger.ERROR(f"No handler found for topic: {topic}")
-            return
-        
-        processed_count = 0
-        
-        try:
-            # 使用回调方式消费消息
-            def message_processor(message_data: Dict[str, Any]) -> bool:
-                nonlocal processed_count
-                
-                try:
-                    # 检查停止信号
-                    if stop_event.is_set():
-                        return False
-                    
-                    # 调用用户处理器
-                    success = handler(message_data)
-                    
-                    if success:
-                        processed_count += 1
-                        self._receive_stats["total_received"] += 1
-                        self._receive_stats["last_receive_time"] = datetime.now()
-                    
-                    # 检查最大消息数量
-                    if max_messages and processed_count >= max_messages:
-                        stop_event.set()
-                        return False
-                    
-                    return success
-                    
-                except Exception as e:
-                    self._logger.ERROR(f"Error in message handler for {topic}: {e}")
-                    return False
-            
-            # 开始消费
-            self._crud_repo.consume_with_callback(
-                topic=topic,
-                callback=message_processor,
-                group_id=group_id,
-                max_messages=max_messages
-            )
-            
-        except Exception as e:
-            self._logger.ERROR(f"Consumer worker error for topic {topic}: {e}")
-        
-        finally:
-            self._logger.DEBUG(f"Consumer worker for {topic} processed {processed_count} messages")
-    
     # ==================== Topic Management Service ====================
 
     def get_topic_status(self, topic: str) -> ServiceResult:
@@ -512,51 +264,13 @@ class KafkaService(BaseService):
             ServiceResult: Topic status information
         """
         try:
-            basic_info = self._crud_repo.get_topic_info(topic)
-
-            # 添加服务层的状态信息
-            status = basic_info.copy()
-            status.update({
-                "has_handler": topic in self._message_handlers,
-                "is_consuming": topic in self._consumer_threads and
-                               self._consumer_threads[topic].is_alive(),
-                "consumer_thread_name": self._consumer_threads[topic].name
-                                       if topic in self._consumer_threads else None
-            })
-
+            status = self._crud_repo.get_topic_info(topic)
             return ServiceResult.success(status, f"Retrieved status for topic: {topic}")
 
         except Exception as e:
             self._logger.ERROR(f"Error getting topic status for {topic}: {e}")
             return ServiceResult.error(f"Failed to get topic status: {str(e)}")
-    
-    def list_active_subscriptions(self) -> ServiceResult:
-        """
-        列出所有活跃的订阅
 
-        Returns:
-            ServiceResult: 订阅状态列表
-        """
-        try:
-            subscriptions = []
-
-            for topic in self._message_handlers.keys():
-                subscription_info = {
-                    "topic": topic,
-                    "has_handler": True,
-                    "is_consuming": topic in self._consumer_threads and
-                                   self._consumer_threads[topic].is_alive(),
-                    "thread_name": self._consumer_threads[topic].name
-                                  if topic in self._consumer_threads else None
-                }
-                subscriptions.append(subscription_info)
-
-            return ServiceResult.success(subscriptions, f"Listed {len(subscriptions)} active subscriptions")
-
-        except Exception as e:
-            self._logger.ERROR(f"Failed to list active subscriptions: {e}")
-            return ServiceResult.error(f"Failed to list active subscriptions: {str(e)}")
-    
     def list_consumer_groups(self) -> ServiceResult:
         """
         列出 broker 端所有 consumer groups
@@ -573,31 +287,6 @@ class KafkaService(BaseService):
             self._logger.ERROR(f"Failed to list consumer groups: {e}")
             return ServiceResult.error(f"Failed to list consumer groups: {str(e)}")
 
-    def unsubscribe_topic(self, topic: str) -> ServiceResult:
-        """
-        取消订阅主题
-
-        Args:
-            topic: 主题名称
-
-        Returns:
-            ServiceResult: 取消订阅结果
-        """
-        try:
-            # 停止消费
-            self.stop_consuming(topic)
-
-            # 移除处理器
-            if topic in self._message_handlers:
-                del self._message_handlers[topic]
-
-            self._logger.INFO(f"Unsubscribed from topic: {topic}")
-            return ServiceResult.success({"unsubscribed": True}, f"Successfully unsubscribed from topic: {topic}")
-
-        except Exception as e:
-            self._logger.ERROR(f"Error unsubscribing from topic {topic}: {e}")
-            return ServiceResult.error(f"Failed to unsubscribe from topic: {str(e)}")
-    
     # ==================== 队列监控和统计 ====================
     
     def get_statistics(self) -> ServiceResult:
@@ -610,18 +299,10 @@ class KafkaService(BaseService):
         try:
             kafka_status = self._crud_repo.get_kafka_status()
 
-            # 注意：list_active_subscriptions现在返回ServiceResult
-            subscriptions_result = self.list_active_subscriptions()
-            subscriptions_data = subscriptions_result.data if subscriptions_result.is_success() else []
-
             statistics = {
                 "kafka_connection": kafka_status,
                 "send_statistics": self._send_stats.copy(),
                 "receive_statistics": self._receive_stats.copy(),
-                "active_subscriptions": len(self._message_handlers),
-                "running_consumers": len([t for t in self._consumer_threads.values()
-                                        if t.is_alive()]),
-                "subscription_details": subscriptions_data
             }
 
             return ServiceResult.success(statistics, "Retrieved service statistics successfully")
@@ -629,7 +310,7 @@ class KafkaService(BaseService):
         except Exception as e:
             self._logger.ERROR(f"Failed to get statistics: {e}")
             return ServiceResult.error(f"Failed to get statistics: {str(e)}")
-    
+
     def get_unconsumed_count(self, topic: str, group_id: str = None) -> ServiceResult:
         """
         查询指定主题的未消费消息数量
@@ -795,14 +476,14 @@ class KafkaService(BaseService):
         获取队列指标
 
         Args:
-            topics: 主题列表，None表示所有订阅的主题
+            topics: 主题列表，None 表示空集（消费 worker 模型已退役，无本地订阅状态）
 
         Returns:
             ServiceResult: 队列指标
         """
         try:
             if topics is None:
-                topics = list(self._message_handlers.keys())
+                topics = []
 
             metrics = {
                 "timestamp": datetime.now().isoformat(),
@@ -831,33 +512,7 @@ class KafkaService(BaseService):
         except Exception as e:
             self._logger.ERROR(f"Failed to get queue metrics: {e}")
             return ServiceResult.error(f"Failed to get queue metrics: {str(e)}")
-    
-    def reset_statistics(self) -> ServiceResult:
-        """
-        重置统计信息
 
-        Returns:
-            ServiceResult: 重置结果
-        """
-        try:
-            self._send_stats = {
-                "total_sent": 0,
-                "failed_sends": 0,
-                "last_send_time": None
-            }
-
-            self._receive_stats = {
-                "total_received": 0,
-                "last_receive_time": None
-            }
-
-            self._logger.INFO("Statistics reset successfully")
-            return ServiceResult.success({"reset": True}, "Statistics reset successfully")
-
-        except Exception as e:
-            self._logger.ERROR(f"Error resetting statistics: {e}")
-            return ServiceResult.error(f"Failed to reset statistics: {str(e)}")
-    
     # ==================== 健康检查和系统管理 ====================
     
     def health_check(self) -> ServiceResult:
@@ -868,37 +523,15 @@ class KafkaService(BaseService):
             ServiceResult: 健康状态信息
         """
         try:
-            # 基础健康状态
-            base_health = {
-                "service": "KafkaService",
-                "status": "healthy",
-                "timestamp": time.time()
-            }
             kafka_status = self._crud_repo.get_kafka_status()
+            overall_healthy = kafka_status["connected"]
 
-            # 检查消费者线程健康状态
-            consumer_health = {}
-            for topic, thread in self._consumer_threads.items():
-                consumer_health[topic] = {
-                    "alive": thread.is_alive(),
-                    "name": thread.name
-                }
-
-            health_status = base_health.copy()
-            health_status.update({
+            health_status = {
+                "service": "KafkaService",
+                "status": "healthy" if overall_healthy else "unhealthy",
+                "timestamp": time.time(),
                 "kafka_connection": kafka_status["connected"],
-                "active_consumers": consumer_health,
-                "total_subscriptions": len(self._message_handlers),
-                "running_consumers": len([t for t in self._consumer_threads.values() if t.is_alive()])
-            })
-
-            # 判断整体健康状态
-            overall_healthy = (
-                kafka_status["connected"] and
-                len([t for t in self._consumer_threads.values() if not t.is_alive()]) == 0
-            )
-
-            health_status["status"] = "healthy" if overall_healthy else "unhealthy"
+            }
 
             status_message = "Kafka service is healthy" if overall_healthy else "Kafka service has issues"
             return ServiceResult.success(health_status, status_message)
@@ -906,35 +539,27 @@ class KafkaService(BaseService):
         except Exception as e:
             self._logger.ERROR(f"Health check failed: {e}")
             return ServiceResult.error(f"Health check failed: {str(e)}")
-    
+
     def shutdown(self) -> bool:
         """
         优雅关闭服务
-        
+
         Returns:
             bool: 关闭是否成功
         """
         try:
             self._logger.INFO("Shutting down KafkaService...")
-            
-            # 停止所有消费者
-            topics_to_stop = list(self._consumer_threads.keys())
-            for topic in topics_to_stop:
-                self.stop_consuming(topic)
-            
-            # 清理处理器
-            self._message_handlers.clear()
-            
-            # 关闭所有Kafka消费者连接
+
+            # 关闭所有 Kafka 消费者连接
             self._crud_repo.close_all_consumers()
-            
+
             self._logger.INFO("KafkaService shutdown completed")
             return True
-            
+
         except Exception as e:
             self._logger.ERROR(f"Error during service shutdown: {e}")
             return False
-    
+
     # ==================== Data Update Signal Sending ====================
 
     def send_stockinfo_update_signal(self) -> bool:
@@ -977,13 +602,6 @@ class KafkaService(BaseService):
             "code": code,
             "full": full,
             "force": force
-        })
-
-    def send_worker_kill_signal(self) -> bool:
-        """Send worker stop signal"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "kill",
-            "code": ""
         })
 
     def send_tick_all_signal(self, full: bool = False, force: bool = False) -> bool:
