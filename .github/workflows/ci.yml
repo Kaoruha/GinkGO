@@ -129,6 +129,17 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/data/services/test_kafka_service_retired_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: kafka data commands signal smoke (#6745 topic 对齐)
+        # #6745 producer 端 5 个 send_*_signal（stockinfo/trade_day/adjustfactor/daybar/tick）
+        # 统一改发 DATA_COMMANDS topic（旧发 ginkgo.data.update 黑洞）。5 个方法体
+        # （kafka_service.py L567/575/582/589/597）被 containers import 链触达但 smoke
+        # 不调方法体 → diff coverage gate 红。本 smoke mock publish_message（不连 kafka）
+        # 调起 5 方法体补覆盖信号，并锁定 DATA_COMMANDS publish 契约（含 tick force→overwrite
+        # 数据修复语义）。独立 step 使 push→master 时也跑（gate 仅 PR 触发），同时纳入
+        # 下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_kafka_data_commands_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: deployment_service list/count smoke (#5009 pagination)
         # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
         # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
@@ -192,6 +203,7 @@ jobs:
             tests/unit/data/services/test_page_size_passthrough_smoke.py \
             tests/unit/data/services/test_list_count_smoke.py \
             tests/unit/data/services/test_kafka_service_retired_smoke.py \
+            tests/unit/data/services/test_kafka_data_commands_smoke.py \
             tests/unit/trading/services/test_deployment_list_smoke.py \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
