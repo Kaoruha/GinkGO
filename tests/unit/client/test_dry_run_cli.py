@@ -253,3 +253,179 @@ class TestEngineDeleteDryRun:
         assert "Please use --confirm" not in out
         assert svc.delete.call_args.kwargs.get("dry_run") is True
         assert "3 portfolio mapping" in out
+
+
+# ===========================================================================
+# Wave 3：单记录软删 / 解绑类（统一 if dry_run: announce + return 短路）
+# 每命令断言：破坏性 service/crud 调用**未触发** + 横幅/"Would ..." 文案到位
+# ===========================================================================
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestGroupDeleteDryRun:
+    def test_dry_run_skips_service(self, cli_runner):
+        """group delete --dry-run：confirm 被旁路，delete_group 未调用。"""
+        svc = MagicMock()
+        cont = MagicMock()
+        cont.user_group_service.return_value = svc
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(_get_main_app(), ["group", "delete", "gid", "--dry-run"])
+        assert res.exit_code == 0
+        svc.delete_group.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Dry-run" in out and "Would delete group" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestGroupRemoveDryRun:
+    def test_dry_run_skips_service(self, cli_runner):
+        """group remove --dry-run（无 confirm 守卫）：remove_user_from_group 未调用。"""
+        svc = MagicMock()
+        cont = MagicMock()
+        cont.user_group_service.return_value = svc
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(
+                _get_main_app(), ["group", "remove", "--user", "u1", "--group", "g1", "--dry-run"]
+            )
+        assert res.exit_code == 0
+        svc.remove_user_from_group.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would remove user" in out and "g1" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestParamDeleteDryRun:
+    def test_dry_run_skips_crud(self, cli_runner):
+        """param delete --dry-run：confirm_or_exit 被旁路，delete_by_uuid 未调用。"""
+        crud = MagicMock()
+        cont = MagicMock()
+        cont.cruds.param.return_value = crud
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(
+                _get_main_app(), ["param", "delete", "--param", "pid1234567890ab", "--dry-run"]
+            )
+        assert res.exit_code == 0
+        crud.delete_by_uuid.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete parameter" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestComponentDeleteDryRun:
+    def test_dry_run_resolves_then_skips(self, cli_runner):
+        """component delete --dry-run：_resolve_file 仍跑（校验存在），soft_delete 未调用。"""
+        mfile = MagicMock()
+        mfile.name = "MyComp"
+        mfile.uuid = "comp12345678abcdef"
+        file_svc = MagicMock()
+        cont = MagicMock()
+        cont.file_service.return_value = file_svc
+        with patch("ginkgo.data.containers.container", cont), \
+             patch("ginkgo.client.flat_cli._resolve_file", return_value=mfile):
+            res = cli_runner.invoke(_get_main_app(), ["component", "delete", "MyComp", "--dry-run"])
+        assert res.exit_code == 0
+        file_svc.soft_delete.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete component" in out and "MyComp" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestBacktestDeleteDryRun:
+    def test_dry_run_skips_soft_delete(self, cli_runner):
+        """backtest delete --dry-run：get_by_id 仍跑（校验存在），update(is_del=True) 未调用。"""
+        task = MagicMock()
+        task.name = "mytask"
+        task.uuid = "abc123def456"
+        svc = MagicMock()
+        svc.get_by_id.return_value = ServiceResult.success(task)
+        cont = MagicMock()
+        cont.backtest_task_service.return_value = svc
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(_get_main_app(), ["backtest", "delete", "tid", "--dry-run"])
+        assert res.exit_code == 0
+        svc.update.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete task" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestTemplateDeleteDryRun:
+    def test_dry_run_skips_crud_delete(self, cli_runner):
+        """templates delete --dry-run：get_by_template_id 仍跑，crud.delete 未调用。"""
+        existing = MagicMock()
+        existing.uuid = "tpl-uuid-123"
+        crud = MagicMock()
+        crud.get_by_template_id.return_value = existing
+        cont = MagicMock()
+        cont.notification_template_crud.return_value = crud
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(_get_main_app(), ["templates", "delete", "tpl1", "--dry-run"])
+        assert res.exit_code == 0
+        crud.delete.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete template" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestUserContactDeleteDryRun:
+    def test_dry_run_skips_service(self, cli_runner):
+        """user contact delete --dry-run：confirm 被旁路，delete_contact 未调用。"""
+        svc = MagicMock()
+        cont = MagicMock()
+        cont.user_service.return_value = svc
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(_get_main_app(), ["user", "contact", "delete", "cid", "--dry-run"])
+        assert res.exit_code == 0
+        svc.delete_contact.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete contact" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestNotifyRecipientDeleteDryRun:
+    def test_dry_run_skips_service(self, cli_runner):
+        """notify recipients delete --dry-run（无 confirm 守卫）：delete_recipient 未调用。"""
+        svc = MagicMock()
+        cont = MagicMock()
+        cont.notification_recipient_service.return_value = svc
+        with patch("ginkgo.data.containers.container", cont):
+            res = cli_runner.invoke(_get_main_app(), ["notify", "recipients", "delete", "rid", "--dry-run"])
+        assert res.exit_code == 0
+        svc.delete_recipient.assert_not_called()
+        out = _strip_ansi(res.output)
+        assert "Would delete recipient" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestPortfolioUnbindDryRun:
+    def test_dry_run_bypasses_confirm(self, cli_runner):
+        """portfolio unbind-component --dry-run：--confirm 守卫旁路，不触达 container。"""
+        res = cli_runner.invoke(
+            _get_main_app(), ["portfolio", "unbind-component", "pid", "fid", "--dry-run"]
+        )
+        assert res.exit_code == 0
+        out = _strip_ansi(res.output)
+        assert "Please use --confirm" not in out
+        assert "Would unbind component" in out
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestEngineUnbindDryRun:
+    def test_dry_run_bypasses_confirm(self, cli_runner):
+        """engine unbind-portfolio --dry-run：--confirm 守卫旁路，不触达 container。"""
+        res = cli_runner.invoke(
+            _get_main_app(), ["engine", "unbind-portfolio", "eid", "pid", "--dry-run"]
+        )
+        assert res.exit_code == 0
+        out = _strip_ansi(res.output)
+        assert "Please use --confirm" not in out
+        assert "Would unbind engine" in out

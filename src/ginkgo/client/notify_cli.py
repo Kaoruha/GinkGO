@@ -16,6 +16,7 @@ from rich import print as rprint
 import json
 
 from ginkgo.libs import GLOG
+from ginkgo.client.cli_utils import announce_dry_run
 
 app = typer.Typer(help=":bell: Notification sending", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -735,6 +736,7 @@ def add_recipient(
 @recipients_app.command("delete")
 def delete_recipient(
     uuid: str = typer.Argument(..., help="Recipient UUID to delete"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without deleting (no recipient removed)"),
 ):
     """
     :trash: Delete a notification recipient.
@@ -746,6 +748,10 @@ def delete_recipient(
         from ginkgo.data.containers import container
 
         service = container.notification_recipient_service()
+        if dry_run:
+            announce_dry_run(f"删除 recipient {uuid}", console=console)
+            console.print(f"[cyan]:eye: Would delete recipient {uuid}.[/cyan]")
+            return
         result = service.delete_recipient(uuid=uuid)
 
         if result.is_success():

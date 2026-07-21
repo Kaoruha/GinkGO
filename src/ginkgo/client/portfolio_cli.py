@@ -715,13 +715,21 @@ def unbind_component(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     file_id: str = typer.Argument(..., help="File UUID or name"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without unbinding (skips confirm)"),
 ):
     """
     :broken_link: Unbind a component from a portfolio.
     """
-    if not confirm:
+    if not confirm and not dry_run:
         console.print(":x: Please use --confirm to unbind component")
         raise typer.Exit(1)
+
+    if dry_run:
+        announce_dry_run(f"解绑 portfolio {portfolio_id} 的 component {file_id}", console=console)
+        console.print(
+            f"[cyan]:eye: Would unbind component {file_id} from portfolio {portfolio_id}.[/cyan]"
+        )
+        return
 
     from ginkgo.data.containers import container
 

@@ -988,13 +988,21 @@ def unbind_portfolio(
     engine_id: str = typer.Argument(..., help="Engine UUID or name"),
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without unbinding (skips confirm)"),
 ):
     """
     :broken_link: Unbind an engine from a portfolio.
     """
-    if not confirm:
+    if not confirm and not dry_run:
         console.print(":x: Please use --confirm to unbind portfolio")
         raise typer.Exit(1)
+
+    if dry_run:
+        announce_dry_run(f"解绑 engine {engine_id} 的 portfolio {portfolio_id}", console=console)
+        console.print(
+            f"[cyan]:eye: Would unbind engine {engine_id} from portfolio {portfolio_id}.[/cyan]"
+        )
+        return
 
     from ginkgo.data.containers import container
 
