@@ -142,7 +142,8 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
         #6586：无数据 code 过滤下沉到本层——
           1. 用 bar_service.get_available_codes 与 _interested_codes 取交集（feedable），
              剔除 DB 中完全无 bar 的 code，不为其查询/发事件/WARN；
-          2. 按日批量取当日全市场复权 bar（一次 get(code=None)，消除逐股 N+1）；
+          2. 只取 feedable 子集的当日复权 bar（逐股 get(code=str) 快速路径，
+             避免全市场逐股复权）；
           3. feedable code 当日无 bar 时 WARN，且整个回测内同一 code 至多 WARN 一次。
         """
         try:
@@ -168,7 +169,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
             )
 
             # 2. 批量取当日复权 bar（一次查询，消除逐股 N+1），按 code 索引
-            bars_by_code = self._fetch_day_bars_batch(target_time)
+            bars_by_code = self._fetch_day_bars_batch(target_time, feedable)
 
             # 3. 对 feedable code 发事件；当日无 bar 的走 WARN 去重
             event_count = 0
@@ -215,28 +216,29 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
             )
         return feedable
 
-    def _fetch_day_bars_batch(self, target_time: datetime) -> Dict[str, Any]:
-        """批量取当日全市场复权 bar，按 code 索引返回（#6586 消除 N+1）。
+    def _fetch_day_bars_batch(self, target_time: datetime, codes: List[str]) -> Dict[str, Any]:
+        """取指定 code 集合的当日复权 bar，按 code 索引返回。
 
-        走 bar_service.get(code=None)（多股复权分支），一次查询取当日全部 code 的 bar
-        并按 code 索引；调用方只用 feedable 子集。相比逐股 bar_service.get，把每日 N 次
-        DB round-trip 压成 1 次（#5163 宽 universe 性能根因）。保留复权语义，与原
-        _generate_price_events 单股 get(code) 一致。
+        性能根因修复：原走 bar_service.get(code=None) 每日拉全市场（~5293 股）+ 逐股
+        复权 = 165s/天，与 selector 实际选几只无关（10 年窗口需 ~115h，从未跑完）。
+        现改为只取调用方已算好的 feedable 子集，每股走单股快速路径 get(code=str)
+        （含复权，~40ms/股）。N 股 × 40ms × 2520 天：N=10→17min，N=50→1.4h（原 115h）。
+
+        #6586 的 get(code=None) 全市场批量是为「宽 universe N+1」设计，但宽 universe
+        （cn_all ~5000 股）即便批量仍 165s/天=115h 不可行；现实 selector 均窄（<数百），
+        逐股快速路径在 N<~4000 时恒快于全市场批量，故全市场批量对可达场景纯负优化。
         """
         bars_by_code: Dict[str, Any] = {}
-        result = self.bar_service.get(
-            code=None,
-            start_date=target_time.date(),
-            end_date=target_time.date(),
-        )
-        if not result.success or not result.data:
+        if not codes:
             return bars_by_code
-
-        bar_entities = BarMapper.from_models(result.data)
-        for bar in bar_entities:
-            code = getattr(bar, "code", None)
-            if code is not None:
-                bars_by_code.setdefault(code, bar)
+        day = target_time.date()
+        for code in codes:
+            result = self.bar_service.get(code=code, start_date=day, end_date=day)
+            if not result.success or not result.data:
+                continue
+            bar_entities = BarMapper.from_models(result.data)
+            if bar_entities:
+                bars_by_code[code] = bar_entities[0]
         return bars_by_code
 
     def _warn_no_data_once(self, code: str, target_time: datetime) -> None:
