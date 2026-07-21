@@ -315,6 +315,21 @@ def confirm_or_exit(message: str, *, yes_flag: bool = False) -> None:
         raise typer.Exit(0)
 
 
+def announce_dry_run(action: str, *, console: Optional[Console] = None) -> None:
+    """打印 dry-run 横幅（ADR-021 第 3 维，destructive 命令统一 UX）。
+
+    各 destructive 命令在 ``--dry-run`` 路径入口调用一次，统一三件事的对外口径：
+      1. 横幅明示"仅预览，不实际{action}"（与 ``ginkgo cleanup --dry-run`` 对齐）；
+      2. 提示已跳过确认（dry-run 不需要确认，也不应删除）；
+      3. 命令随后只 COUNT/枚举受影响范围，不触达删除/状态变更。
+
+    ``action`` 为动词短语，如"删除 portfolio"、"清理 Kafka 队列消息"。
+    """
+    (console or Console()).print(
+        f"[bold cyan]:eye: Dry-run 模式[/bold cyan]：仅预览，不实际{action}（已跳过确认）。"
+    )
+
+
 def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
     """构造 rich Progress（ADR-021 第 8 维）。
 

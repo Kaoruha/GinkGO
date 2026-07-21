@@ -18,7 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -806,24 +806,36 @@ def run(
 def delete(
     engine_id: str = typer.Argument(..., help="Engine UUID"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview cascade scope (portfolio mappings) without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete engine.
     """
-    if not confirm:
-        console.print(":x: Please use --confirm to delete engine")
+    # dry-run 安全：不删除，无需 --confirm；其余路径仍要求显式 --confirm
+    if not confirm and not dry_run:
+        console.print(":x: Please use --confirm to delete engine (or --dry-run to preview)")
         raise typer.Exit(1)
 
-    console.print(f":wastebasket: Deleting engine: {engine_id}")
+    if dry_run:
+        announce_dry_run(f"删除 engine {engine_id}（含 portfolio 映射级联）", console=console)
+    else:
+        console.print(f":wastebasket: Deleting engine: {engine_id}")
 
     try:
         from ginkgo.data.containers import container
 
         engine_service = container.engine_service()
-        result = engine_service.delete(engine_id)
+        result = engine_service.delete(engine_id, dry_run=dry_run)
 
         if result.success:
-            console.print(":white_check_mark: Engine deleted successfully")
+            if dry_run:
+                d = result.data or {}
+                console.print(
+                    f"[cyan]:eye: Would delete engine {engine_id}: "
+                    f"{d.get('mappings_would_delete', 0)} portfolio mapping(s) would be removed.[/cyan]"
+                )
+            else:
+                console.print(":white_check_mark: Engine deleted successfully")
         else:
             console.print(f":x: Failed to delete engine: {result.error}")
             raise typer.Exit(1)
