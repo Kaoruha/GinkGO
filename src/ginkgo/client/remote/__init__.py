@@ -21,3 +21,7 @@ from ginkgo.client.remote.api_client import (  # noqa: F401
     TokenExpiredError,
     get_client,
 )
+from ginkgo.client.remote.services import (  # noqa: F401
+    RemoteService,
+    RemotePortfolioService,
+)

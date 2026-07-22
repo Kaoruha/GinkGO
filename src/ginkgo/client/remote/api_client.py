@@ -102,7 +102,7 @@ class ApiClient:
         )
         auth_store.save(record)
 
-    def request(
+    def _request_raw(
         self,
         method: str,
         path: str,
@@ -111,12 +111,12 @@ class ApiClient:
         params: Optional[dict] = None,
         timeout: float = 30,
         _retry: bool = True,
-    ) -> Any:
-        """
-        发请求并解包。``path`` 为相对 ``API_PREFIX`` 的路径（如 ``/portfolio/<id>``）。
+    ) -> "tuple[Any, Optional[dict]]":
+        """发请求，返回 ``(data, meta)``（信封 code 字段 + meta 字段）。
 
-        返回响应 ``data`` 字段；``code != 0`` 抛 ``ApiError``。
-        401 先 refresh 一次再重试（``_retry`` 防递归）。
+        - ``path`` 为相对 ``API_PREFIX`` 的路径（如 ``/portfolio/<id>``）；
+        - ``code != 0`` 抛 ``ApiError``；
+        - 401 先 refresh 一次再重试（``_retry`` 防递归），仍 401 清凭证抛 ``TokenExpiredError``。
         """
         token = self._ensure_token()
         url = f"{self._base_url()}{API_PREFIX}{path}"
@@ -136,7 +136,7 @@ class ApiClient:
             if _retry:
                 try:
                     self._refresh()
-                    return self.request(
+                    return self._request_raw(
                         method,
                         path,
                         json_body=json_body,
@@ -166,7 +166,40 @@ class ApiClient:
                 status_code=resp.status_code,
                 code=body.get("code", -1),
             )
-        return body.get("data")
+        return body.get("data"), body.get("meta")
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: Any = None,
+        params: Optional[dict] = None,
+        timeout: float = 30,
+    ) -> Any:
+        """发请求，返回 ``data``（丢 meta）。分页总数请用 ``request_with_meta``。"""
+        data, _meta = self._request_raw(
+            method, path, json_body=json_body, params=params, timeout=timeout
+        )
+        return data
+
+    def request_with_meta(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: Any = None,
+        params: Optional[dict] = None,
+        timeout: float = 30,
+    ) -> "tuple[Any, Optional[dict]]":
+        """同 ``request``，但额外返回信封 ``meta``（分页 ``total`` 等）。
+
+        远端 list 端点的总数在 ``meta.total``，``data`` 只是当前页 → ``count()``
+        读总数必须走此方法。
+        """
+        return self._request_raw(
+            method, path, json_body=json_body, params=params, timeout=timeout
+        )
 
     def get(self, path: str, **kw) -> Any:
         return self.request("GET", path, **kw)
