@@ -647,13 +647,20 @@ class GinkgoConfig(object):
 
     @property
     def API_HOST(self) -> str:
-        """Ginkgo API 服务主机"""
-        return os.environ.get("GINKGO_API_HOST", "localhost")
+        """Ginkgo API 服务主机（client 模式连远端）。
+
+        优先级：env ``GINKGO_API_HOST`` > config.yml ``api_host`` > ``localhost``
+        （与 ``MODE``/``API_TLS`` 一致走 ``_get_config``，install 写 config.yml 即生效）。
+        """
+        return str(self._get_config("api_host", "localhost"))
 
     @property
     def API_PORT(self) -> str:
-        """Ginkgo API 服务端口"""
-        return os.environ.get("GINKGO_API_PORT", "8000")
+        """Ginkgo API 服务端口。
+
+        优先级：env ``GINKGO_API_PORT`` > config.yml ``api_port`` > ``8000``。
+        """
+        return str(self._get_config("api_port", "8000"))
 
     @property
     def MODE(self) -> str:

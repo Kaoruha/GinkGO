@@ -86,6 +86,15 @@ def get(
             elif key.lower() == 'working_path':
                 # #5931: list 显示的 key 也须可 get（显示名 working_path ↔ 属性 WORKING_PATH）
                 console.print(f":white_check_mark: working_path: {GCONF.WORKING_PATH}")
+            elif key.lower() in ('mode', 'api_host', 'api_port', 'api_tls'):
+                # ADR-024 client 模式四键：mode/api_host/api_port/api_tls 均可 get
+                _val = {
+                    'mode': GCONF.MODE,
+                    'api_host': GCONF.API_HOST,
+                    'api_port': GCONF.API_PORT,
+                    'api_tls': GCONF.API_TLS,
+                }[key.lower()]
+                console.print(f":white_check_mark: {key.lower()}: {_val}")
             else:
                 console.print(f":x: Configuration key '{key}' not found")
         else:
@@ -191,6 +200,17 @@ def set(
             # #5931: 接线到已存在的 set_work_path（list 显示名 working_path ↔ setter 名 set_work_path 命名漂移）
             GCONF.set_work_path(value)
             console.print(f":white_check_mark: Set {key} = {value}")
+        elif key.lower() in ('mode', 'api_host', 'api_port'):
+            # ADR-024 client 模式：写 config.yml 平铺 key（_get_config 经 mtime 自动重载）
+            if key.lower() == 'mode' and value.lower() not in ('local', 'client'):
+                console.print(f":x: mode 仅支持 local | client（got {value}）")
+                return
+            GCONF._write_config(key.lower(), value)
+            console.print(f":white_check_mark: Set {key} = {value} (config.yml)")
+        elif key.lower() == 'api_tls':
+            tls_val = value.lower() in ('on', 'true', '1', 'yes')
+            GCONF._write_config('api_tls', str(tls_val).lower())
+            console.print(f":white_check_mark: Set api_tls = {tls_val}")
         else:
             console.print(f":x: Configuration key '{key}' not found")
 
@@ -220,6 +240,10 @@ def list():
         table.add_row("cpu_ratio", "number", "CPU usage limit (0-100)")
         table.add_row("log_path", "string", "Log files location")
         table.add_row("working_path", "string", "Working directory")
+        table.add_row("mode", "string", "Run mode: local | client (ADR-024)")
+        table.add_row("api_host", "string", "Remote API host (client mode)")
+        table.add_row("api_port", "string", "Remote API port (client mode)")
+        table.add_row("api_tls", "boolean", "Remote API use TLS (client mode)")
 
         console.print(table)
 

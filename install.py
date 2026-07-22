@@ -177,6 +177,68 @@ def is_uv_environment():
     return check_uv_available()
 
 
+def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
+    """写 client 版 config.yml（mode:client + api 设置），**不写 secure.yml**（ADR-024 §1）。
+
+    client 瘦装无需本地 DB 密码，故只写 config.yml。host/port/tls 经 GCONF 的
+    ``_get_config``（API_HOST/API_PORT/API_TLS）读取生效。
+    """
+    import yaml
+
+    if not os.path.exists(ginkgo_dir):
+        os.makedirs(ginkgo_dir)
+    config_path = os.path.join(ginkgo_dir, "config.yml")
+    config = {
+        "mode": "client",
+        "api_host": str(api_host),
+        "api_port": str(api_port),
+        "api_tls": str(bool(api_tls)).lower(),
+    }
+    with open(config_path, "w") as f:
+        yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
+    scheme = "https" if api_tls else "http"
+    print(f"[{green('CLIENT')}] Wrote thin-client config to {lightblue(config_path)}")
+    print(f"  mode: {green('client')}  (zero local compute; connects to remote API)")
+    print(f"  api:  {lightblue(f'{scheme}://{api_host}:{api_port}')}")
+    print(f"  Next: {green('ginkgo user login')}  (modify later: {green('ginkgo config set api_host <host>')})")
+    return config_path
+
+
+def prompt_client_api(args):
+    """交互式问远端 API host/port/tls，空回车用占位符兜底（ADR-024 §1）。
+
+    非交互（``-y``）或命令行已传值时跳过提示，直接用传入值/默认占位符。
+    """
+    # host
+    if args.api_host:
+        api_host = args.api_host
+    elif args.y:
+        api_host = "localhost"  # 占位符，装完 config set 改
+    else:
+        raw = input(f"{lightblue('Ginkgo API host')} [{green('localhost')}] (enter=use default): ").strip()
+        api_host = raw or "localhost"
+    # port
+    if args.api_port:
+        api_port = args.api_port
+    elif args.y:
+        api_port = "8000"
+    else:
+        raw = input(f"{lightblue('Ginkgo API port')} [{green('8000')}] (enter=use default): ").strip()
+        api_port = raw or "8000"
+    # tls
+    if args.api_tls:
+        api_tls = True
+    elif args.y:
+        api_tls = False
+    else:
+        raw = input(f"{lightblue('Use TLS?')} [{green('n')}] (y/n, enter=n): ").strip().lower()
+        api_tls = raw in ("y", "yes", "true", "1")
+    return api_host, api_port, api_tls
+
+
+
+
+
 def get_package_manager():
     return "uv"
 
@@ -539,6 +601,25 @@ def main():
         type=int,
         default=1,
     )
+    # ADR-024 client 模式 API 设置（默认无 --server = client；非交互或脚本化安装可直传）
+    parser.add_argument(
+        "-api-host",
+        "--api-host",
+        help="Remote Ginkgo API host (client mode, default localhost)",
+        default=None,
+    )
+    parser.add_argument(
+        "-api-port",
+        "--api-port",
+        help="Remote Ginkgo API port (client mode, default 8000)",
+        default=None,
+    )
+    parser.add_argument(
+        "-api-tls",
+        "--api-tls",
+        help="Remote Ginkgo API use TLS (client mode)",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     working_directory = os.path.dirname(os.path.abspath(__file__))
@@ -573,33 +654,42 @@ def main():
     ginkgo_config = os.path.join(ginkgo_dir, "config.yml")
     ginkgo_secure = os.path.join(ginkgo_dir, "secure.yml")
 
-    # 检查 ~/.ginkgo 下配置文件，不存在则从源拷贝
-    if not os.path.exists(ginkgo_config) or not os.path.exists(ginkgo_secure):
-        print(f"[{lightblue('SETUP')}] Config files not found in {ginkgo_dir}, copying from source...")
-        if not os.path.exists(path_gink_conf):
-            print(f"[{red(' MISSING ')}] Source config file not found at {path_gink_conf}")
-            sys.exit(1)
-        if not os.path.exists(path_gink_sec):
-            print(f"[{red(' MISSING ')}] Source secure file not found at {path_gink_sec}")
-            sys.exit(1)
-        copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
+    # ADR-024 §1：--server=全量后端（拷 config+secure 起 Docker）；默认=client 瘦装
+    # （写 client config.yml，不写 secure.yml，不起 Docker）。砍掉原"半套本地"中间态。
+    if args.server:
+        print(f"[{green('SERVER')}] Full backend install (Docker + config + secure)")
+        # 检查 ~/.ginkgo 下配置文件，不存在则从源拷贝
+        if not os.path.exists(ginkgo_config) or not os.path.exists(ginkgo_secure):
+            print(f"[{lightblue('SETUP')}] Config files not found in {ginkgo_dir}, copying from source...")
+            if not os.path.exists(path_gink_conf):
+                print(f"[{red(' MISSING ')}] Source config file not found at {path_gink_conf}")
+                sys.exit(1)
+            if not os.path.exists(path_gink_sec):
+                print(f"[{red(' MISSING ')}] Source secure file not found at {path_gink_sec}")
+                sys.exit(1)
+            copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
+        else:
+            print(f"[{green('CONFIRMED')}] Config files in {lightblue(ginkgo_dir)}")
     else:
-        print(f"[{green('CONFIRMED')}] Config files in {lightblue(ginkgo_dir)}")
+        print(f"[{green('CLIENT')}] Thin-client install (no Docker, no local DB; connects to remote API)")
+        api_host, api_port, api_tls = prompt_client_api(args)
+        write_client_config(ginkgo_dir, api_host, api_port, api_tls)
 
     if os.path.exists(path_pip):
         print(f"[{green('CONFIRMED')}] Pip requirements.")
     else:
         print(f"[{red(' MISSING ')}] Pip requirements.")
 
-    if os.path.exists(path_dockercompose):
-        print(f"[{green('CONFIRMED')}] Docker compose file")
-    else:
-        print(f"[{red(' MISSING ')}] Docker Compose file")
-
-    if os.path.exists(path_click):
-        print(f"[{green('CONFIRMED')}] Clickhouse config file")
-    else:
-        print(f"[{red(' MISSING ')}] Clickhouse config file")
+    if args.server:
+        # docker-compose / clickhouse 仅 server 模式需要（client 瘦装无本地后端，缺这些是正常的）
+        if os.path.exists(path_dockercompose):
+            print(f"[{green('CONFIRMED')}] Docker compose file")
+        else:
+            print(f"[{red(' MISSING ')}] Docker Compose file")
+        if os.path.exists(path_click):
+            print(f"[{green('CONFIRMED')}] Clickhouse config file")
+        else:
+            print(f"[{red(' MISSING ')}] Clickhouse config file")
 
     install_ginkgo()
 
@@ -614,11 +704,11 @@ def main():
 
     set_config_path(path_log, working_directory)
 
-    # 创建映射文件夹
-    if not os.path.exists(path_db):
+    # 创建映射文件夹（仅 server：Docker 卷挂载点；client 瘦装无本地 DB）
+    if args.server and not os.path.exists(path_db):
         Path(path_db).mkdir(parents=True, exist_ok=True)
 
-    # 创建日志文件夹
+    # 创建日志文件夹（两种模式都需要日志）
     if not os.path.exists(path_log):
         Path(path_log).mkdir(parents=True, exist_ok=True)
 
