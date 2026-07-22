@@ -99,6 +99,10 @@ services:
       # api-server 特有: Settings() 在生产(DEBUG=False)硬拒绝默认 SECRET_KEY(#5464)
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG:-False}
+      # bind mount 宿主 ~/.ginkgo(开发机 config debug=True, 连 Test 实例宿主 13306) 致
+      # GCONF.DEBUGMODE=True → MYSQLPORT 端口首位+1(3306→13306, config.py:584);
+      # 容器内 mysql-test 仅 3306, 13306 连接被拒. 显式 False 覆盖, 对齐 worker
+      GINKGO_DEBUG_MODE: "False"
     volumes:
       - ginkgo-logs:/var/log/ginkgo
       - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
