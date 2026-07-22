@@ -563,45 +563,40 @@ class KafkaService(BaseService):
     # ==================== Data Update Signal Sending ====================
 
     def send_stockinfo_update_signal(self) -> bool:
-        """Send stock basic info update signal"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "stockinfo",
-            "code": ""
+        """Send stockinfo sync command to DataWorker (ginkgo.data.commands)."""
+        return self.publish_message(KafkaTopics.DATA_COMMANDS, {
+            "command": "stockinfo",
+            "params": {}
         })
 
     def send_trade_day_signal(self) -> bool:
-        """Send trade calendar update signal (#6488). Worker 消费后调用
+        """Send trade calendar sync command (#6488). Worker 消费后调用
         TradeDayService.sync 落库，供 paper worker 查 is_open 判断开市。"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "trade_day",
-            "code": ""
+        return self.publish_message(KafkaTopics.DATA_COMMANDS, {
+            "command": "trade_day",
+            "params": {}
         })
 
     def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
-        """Send adjustment factor update signal"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "adjust",
-            "code": code,
-            "full": full,
-            "force": force
+        """Send adjustment factor sync command."""
+        return self.publish_message(KafkaTopics.DATA_COMMANDS, {
+            "command": "adjustfactor",
+            "params": {"code": code, "full": full, "force": force}
         })
 
     def send_daybar_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
-        """Send daily bar data update signal"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "bar",
-            "code": code,
-            "full": full,
-            "force": force
+        """Send daily bar snapshot sync command (worker dispatches on bar_snapshot)."""
+        return self.publish_message(KafkaTopics.DATA_COMMANDS, {
+            "command": "bar_snapshot",
+            "params": {"code": code, "full": full, "force": force}
         })
 
     def send_tick_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
-        """Send tick data update signal"""
-        return self.publish_message(KafkaTopics.DATA_UPDATE, {
-            "type": "tick",
-            "code": code,
-            "full": full,
-            "force": force
+        """Send tick sync command. ``force`` maps to worker's ``overwrite`` key
+        (data-repair: delete and re-insert), per ControlCommandDTO TICK contract."""
+        return self.publish_message(KafkaTopics.DATA_COMMANDS, {
+            "command": "tick",
+            "params": {"code": code, "full": full, "overwrite": force}
         })
 
     def send_tick_all_signal(self, full: bool = False, force: bool = False) -> bool:
