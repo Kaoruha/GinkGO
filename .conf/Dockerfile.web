@@ -16,9 +16,7 @@ RUN pnpm install --frozen-lockfile
 COPY web-ui/ ./
 
 # Build the Vue app (output goes to dist/)
-# 用 vite build 跳过 vue-tsc: web-ui 存在 pre-existing TS 错误(TS6133/TS2339/TS18047)致 vue-tsc 失败,
-# web 容器此前从未启用故长期掩盖; vite build 产出运行时可用的 dist, TS 债务应单独 PR 修复后再恢复 pnpm build
-RUN pnpm exec vite build
+RUN pnpm build
 
 # 2nd stage: Serve with nginx
 FROM nginx:1.27.0-alpine AS vue_runtime

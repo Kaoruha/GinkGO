@@ -100,7 +100,6 @@ import {
   ColorType,
   CrosshairMode,
   Time,
-  Range,
 } from 'lightweight-charts'
 
 const route = useRoute()
@@ -137,8 +136,6 @@ const barColumns = [
   { title: '成交量', dataIndex: 'volume', slotName: 'colVolume' },
   { title: '成交额', dataIndex: 'amount', slotName: 'colAmount' },
 ]
-
-const stockOptions: { value: string; label: string }[] = []
 
 const searchStocks = async (query: string) => {
   const res = await dataApi.listStocks({ query, page_size: 50 })
