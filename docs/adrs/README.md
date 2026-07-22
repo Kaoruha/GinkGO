@@ -36,6 +36,7 @@
 | ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Accepted | 2026-07-04 |
 | ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
+| ADR-024 | [CLI Client 模式（瘦客户端 + 远端 API + JWT）](ADR-024-cli-client-mode.md) | Accepted | 2026-07-22 |
 
 ## 如何新增 / 修订
 
