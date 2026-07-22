@@ -68,8 +68,32 @@ services:
       dockerfile: .conf/Dockerfile.web
     ports:
       - '127.0.0.1:8080:8080'
+    depends_on:
+      - api-server
     volumes:
       - .conf/nginx.conf:/etc/nginx/nginx.conf
+  api-server:
+    build:
+      context: .
+      dockerfile: .conf/Dockerfile.api-server
+    image: ginkgo/api-server:latest
+    container_name: ginkgo-api-server
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    depends_on:
+      - kafka1
+      - redis-master
+      - mongo-master
+      - clickhouse-test
+      - mysql-test
+    environment: *worker-env
+    volumes:
+      - ginkgo-logs:/var/log/ginkgo
+      - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
   kafka1:
     image: apache/kafka:4.0.0
     restart: always
