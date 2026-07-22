@@ -178,10 +178,11 @@ def is_uv_environment():
 
 
 def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
-    """写 client 版 config.yml（mode:client + api 设置），**不写 secure.yml**（ADR-024 §1）。
+    """写 client 版 config.yml（mode:client + 控制面 API 设置）（ADR-024 §4 混合架构）。
 
-    client 瘦装无需本地 DB 密码，故只写 config.yml。host/port/tls 经 GCONF 的
-    ``_get_config``（API_HOST/API_PORT/API_TLS）读取生效。
+    client 仍装引擎（支持默认本地 ``backtest run``），数据面 DB 端点写进 secure.yml
+    （见 ``write_client_secure``）。此处 config.yml 只承载模式 + 控制面 API；
+    ``api_host``/``api_port``/``api_tls`` 经 GCONF 的 ``_get_config`` 读取生效。
     """
     import yaml
 
@@ -197,16 +198,17 @@ def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
     with open(config_path, "w") as f:
         yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
     scheme = "https" if api_tls else "http"
-    print(f"[{green('CLIENT')}] Wrote thin-client config to {lightblue(config_path)}")
-    print(f"  mode: {green('client')}  (zero local compute; connects to remote API)")
+    print(f"[{green('CLIENT')}] Wrote client config to {lightblue(config_path)}")
+    print(f"  mode: {green('client')}  (engine installed; data plane → server DB, control plane → server API)")
     print(f"  api:  {lightblue(f'{scheme}://{api_host}:{api_port}')}")
     print(f"  Next: {green('ginkgo user login')}  (modify later: {green('ginkgo config set api_host <host>')})")
     return config_path
 
 
 def prompt_client_api(args):
-    """交互式问远端 API host/port/tls，空回车用占位符兜底（ADR-024 §1）。
+    """交互式问 server（A）地址：api_host/port/tls（ADR-024 §4 混合架构）。
 
+    A 的 API host 与 DB host 是同一台机，故 api_host 同时作数据面 DB 与控制面 API 的端点。
     非交互（``-y``）或命令行已传值时跳过提示，直接用传入值/默认占位符。
     """
     # host
@@ -236,9 +238,38 @@ def prompt_client_api(args):
     return api_host, api_port, api_tls
 
 
+def write_client_secure(ginkgo_dir, db_host, path_secure_template):
+    """写 client 版 secure.yml：从 secure.template 拷贝，把数据面 DB host 指向 server（A）。
 
+    ADR-024 §4 混合架构：client 的引擎数据面直连 server DB（``MYSQLHOST``/``CLICKHOST`` 等
+    由 ``_ensure_env_vars`` 从 secure.yml 的 ``database.<engine>.host`` 烘焙成 env），故 DB host
+    须指向 A（= api_host）。DB 凭据复用 A 的共享账号（"无专门 db 账号"），模板占位，
+    装完用 ``ginkgo config set`` 填 A 的真实凭据。已存在 secure.yml 则跳过（保护已填凭据）。
+    """
+    import yaml
 
-
+    secure_path = os.path.join(ginkgo_dir, "secure.yml")
+    if os.path.exists(secure_path):
+        print(f"[{lightyellow('SKIP')}] secure.yml already exists at {lightblue(secure_path)} (preserving existing DB creds)")
+        print(f"       If server address changed, repoint {lightblue('database.*.host')} there to {green(db_host)}")
+        return secure_path
+    if not os.path.exists(path_secure_template):
+        print(f"[{red(' MISSING ')}] Source secure template not found at {path_secure_template}")
+        return None
+    with open(path_secure_template) as f:
+        secure = yaml.safe_load(f) or {}
+    # 数据面 DB host 全部指向 server（A）
+    db = secure.get("database", {})
+    if isinstance(db, dict):
+        for engine in ("clickhouse", "mysql", "mongodb", "redis", "kafka"):
+            if isinstance(db.get(engine), dict):
+                db[engine]["host"] = str(db_host)
+    with open(secure_path, "w") as f:
+        yaml.safe_dump(secure, f, default_flow_style=False, sort_keys=False)
+    print(f"[{green('CLIENT')}] Wrote client secure.yml to {lightblue(secure_path)}")
+    print(f"  DB hosts → {green(db_host)}  (data plane: engine reads/writes server DB directly)")
+    print(f"  Next: set A's shared DB creds via {green('ginkgo config set')} (template placeholders need replacing)")
+    return secure_path
 def get_package_manager():
     return "uv"
 
@@ -654,8 +685,8 @@ def main():
     ginkgo_config = os.path.join(ginkgo_dir, "config.yml")
     ginkgo_secure = os.path.join(ginkgo_dir, "secure.yml")
 
-    # ADR-024 §1：--server=全量后端（拷 config+secure 起 Docker）；默认=client 瘦装
-    # （写 client config.yml，不写 secure.yml，不起 Docker）。砍掉原"半套本地"中间态。
+    # ADR-024 §4：--server=全量后端（拷 config+secure 起 Docker）；默认=client（装引擎，
+    # 不起 Docker/本地 DB；写 client config.yml[mode+api] + secure.yml[DB host→A]）。
     if args.server:
         print(f"[{green('SERVER')}] Full backend install (Docker + config + secure)")
         # 检查 ~/.ginkgo 下配置文件，不存在则从源拷贝
@@ -671,9 +702,11 @@ def main():
         else:
             print(f"[{green('CONFIRMED')}] Config files in {lightblue(ginkgo_dir)}")
     else:
-        print(f"[{green('CLIENT')}] Thin-client install (no Docker, no local DB; connects to remote API)")
+        print(f"[{green('CLIENT')}] Client install (engine installed; no Docker/local backend; data plane → server DB, control plane → server API)")
         api_host, api_port, api_tls = prompt_client_api(args)
         write_client_config(ginkgo_dir, api_host, api_port, api_tls)
+        # ADR-024 §4 混合架构：数据面 DB host 指向 server（A），引擎本地跑时直连 A 的库。
+        write_client_secure(ginkgo_dir, api_host, path_gink_sec)
 
     if os.path.exists(path_pip):
         print(f"[{green('CONFIRMED')}] Pip requirements.")

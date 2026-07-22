@@ -1,11 +1,12 @@
 """install.py client 分支烟测 (ADR-024 Task #7)。
 
 覆盖闭环：
-1. ``write_client_config`` 产 client 版 config.yml（mode:client + api_* 键），且**不写 secure.yml**
-2. ``GCONF.API_HOST/API_PORT/API_TLS/MODE`` 从 client config.yml 读回生效（``_get_config`` mtime 自动重载）
-3. ``ginkgo config set api_host <host>`` 改 config.yml 后 GCONF 读到新值（install 写 + config 改 闭环）
+1. ``write_client_config`` 产 client 版 config.yml（mode:client + api_* 键）；secure.yml 由独立的 ``write_client_secure`` 写
+2. ``write_client_secure`` 从 secure.template 拷贝并把数据面 DB host 全指向 server（api_host）；已存在则跳过（保护凭据）
+3. ``GCONF.API_HOST/API_PORT/API_TLS/MODE`` 从 client config.yml 读回生效（``_get_config`` mtime 自动重载）
+4. ``ginkgo config set api_host <host>`` 改 config.yml 后 GCONF 读到新值（install 写 + config 改 闭环）
 
-纯文件 IO，不触 Docker/DB/网络。install.py 是仓库根脚本非包，按路径加载取 ``write_client_config``。
+纯文件 IO，不触 Docker/DB/网络。install.py 是仓库根脚本非包，按路径加载取 ``write_client_config`` / ``write_client_secure``。
 """
 import importlib.util
 from pathlib import Path
@@ -111,3 +112,34 @@ def test_config_set_mode_rejects_invalid(ginkgo_dir, install_mod):
     assert "仅支持 local | client" in result.output
     cfg = yaml.safe_load((ginkgo_dir / "config.yml").read_text())
     assert cfg["mode"] == "client"  # 未被改成 server
+
+
+def test_write_client_secure_repoints_db_hosts_to_server(install_mod, ginkgo_dir):
+    """client secure.yml 从 secure.template 拷贝，数据面 DB host 全指向 server（api_host）。ADR-024 §4。
+
+    B 复用 A 的共享 DB 凭据直连——host 指向 A，账号/密码/库保持模板占位（装完 config set 填真凭据）。
+    """
+    template = _repo_root() / "src" / "ginkgo" / "config" / "secure.template"
+    path = install_mod.write_client_secure(str(ginkgo_dir), "a.example.com", str(template))
+    assert path == str(ginkgo_dir / "secure.yml")
+
+    sec = yaml.safe_load((ginkgo_dir / "secure.yml").read_text())
+    db = sec["database"]
+    for engine in ("clickhouse", "mysql", "mongodb", "redis", "kafka"):
+        assert db[engine]["host"] == "a.example.com", engine
+    # 凭据 / 库名来自模板，不被改动（装完由 config set 填真实值）
+    assert db["mysql"]["username"] == "ginkgoadm"
+    assert db["clickhouse"]["port"] == 8123
+
+
+def test_write_client_secure_skips_if_exists(install_mod, ginkgo_dir):
+    """已存在 secure.yml 则跳过、不覆盖——保护用户已填的真实凭据。"""
+    template = _repo_root() / "src" / "ginkgo" / "config" / "secure.template"
+    pre = "database: {mysql: {host: kept.host, username: real}}\n"
+    (ginkgo_dir / "secure.yml").write_text(pre)
+
+    install_mod.write_client_secure(str(ginkgo_dir), "a.example.com", str(template))
+
+    sec = yaml.safe_load((ginkgo_dir / "secure.yml").read_text())
+    assert sec["database"]["mysql"]["host"] == "kept.host"  # 未被 repoint
+    assert sec["database"]["mysql"]["username"] == "real"  # 未被覆盖

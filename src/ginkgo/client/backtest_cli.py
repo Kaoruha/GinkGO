@@ -285,17 +285,24 @@ def _run_remote_backtest(task_id: str, bg: bool = False) -> None:
 def run_task(
     task_id: str = typer.Argument(help="Task UUID to run"),
     bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
+    remote: bool = typer.Option(
+        False, "--remote",
+        help="Submit to the server worker + poll (control plane API). Default runs the engine locally.",
+    ),
 ):
-    """:rocket: Run a backtest task locally (or submit+poll to remote in client mode)."""
+    """:rocket: Run a backtest task. Default runs the engine locally — in client mode the engine
+    reads/writes the server DB directly via the data plane (ADR-024 hybrid). Pass --remote to submit
+    to the server worker instead."""
     import json as _json
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
-    from ginkgo.libs import GinkgoLogger, GCONF
 
-    # ADR-024 client 模式：run 是 UseCase 编排（本地同步跑引擎 vs 远端提交+轮询），
-    # 语义/返回类型都不同 → 命令级分支，不走 service Selector（Selector 只换读取代理）。
-    if GCONF.MODE == "client":
+    # ADR-024 混合架构：默认本地跑引擎（数据面直连配置的 DB；client 模式 GCONF 指向 A 的 DB，
+    # 引擎经 datafeeder 读 A、经 result_service 写 A，零代码改）。--remote 走控制面 API，
+    # 提交到 A 的 worker + 轮询。run 是 UseCase 编排（orchestrator+progress+aggregator），
+    # 非单一 service 方法，无法代理 → 命令级分支（ADR-022 §3 不静默）。
+    if remote:
         _run_remote_backtest(task_id, bg=bg)
         return
 
