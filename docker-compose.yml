@@ -77,6 +77,10 @@ services:
       context: .
       dockerfile: .conf/Dockerfile.api-server
     image: ginkgo/api-server:latest
+    # ginkgo-logs volume 被历史 root worker 初始化为 root:root(#6651 前),
+    # USER ginkgo 无写权限致 PermissionError; 暂以 root 对齐现状 worker,
+    # 待 volume 权限统一为 ginkgo:10001 后恢复非 root
+    user: "0:0"
     container_name: ginkgo-api-server
     restart: always
     logging:
@@ -90,7 +94,11 @@ services:
       - mongo-master
       - clickhouse-test
       - mysql-test
-    environment: *worker-env
+    environment:
+      <<: *worker-env
+      # api-server 特有: Settings() 在生产(DEBUG=False)硬拒绝默认 SECRET_KEY(#5464)
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG:-False}
     volumes:
       - ginkgo-logs:/var/log/ginkgo
       - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
