@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
 
-from middleware.auth import create_access_token
+from middleware.auth import create_access_token, token_blacklist
+from jose import JWTError, jwt
 from core.config import settings
 from core.logging import logger
 from core.response import ok
@@ -170,6 +171,68 @@ async def login(login_request: LoginRequest, req: Request):
             "display_name": user_info.get("display_name", user_info["username"]),
             "is_admin": credential.is_admin
         }
+    }
+    return ok(data=response_data)
+
+
+@router.post("/refresh")
+async def refresh_token(req: Request):
+    """凭当前 (近过期) JWT 换新 JWT —— 无感续期 (ADR-024)。
+
+    - PUBLIC path，自鉴权：从 ``Authorization: Bearer`` 提取 token。
+    - jose decode 带 60s leeway，允许刚过 exp 的边界 token（应对时钟漂移）；
+      过期超过 leeway → 401，client 须重新 ``login``。
+    - 仍校验黑名单（logout/改密码撤销的 token 不能 refresh）。
+    - 重签保留 user_uuid/credential_uuid/username/is_admin，新 jti/exp。
+
+    注：MVP 不在 refresh 时把旧 token 加入黑名单（旧 token 自然将过期）；
+    未来可做 token rotation 强撤销。
+    """
+    authorization = req.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    token = authorization[7:]
+
+    try:
+        # leeway=60s：允许刚过 exp 的边界 token，应对 client/server 时钟漂移。
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=["HS256"], leeway=60
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid or too far expired; please login again",
+        )
+
+    # 黑名单 token（logout / 改密码撤销）不允许 refresh
+    if token_blacklist.check_revoked(payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+        )
+
+    new_data = {
+        k: payload[k]
+        for k in ("user_uuid", "credential_uuid", "username", "is_admin")
+        if k in payload
+    }
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_token = create_access_token(new_data, access_token_expires)
+    expires_at = datetime.utcnow() + access_token_expires
+
+    logger.info(f"Token refreshed for user: {payload.get('username')}")
+
+    response_data = {
+        "token": new_token,
+        "expires_at": expires_at.isoformat() + "Z",
+        "user": {
+            "uuid": new_data.get("user_uuid"),
+            "username": new_data.get("username"),
+            "is_admin": bool(new_data.get("is_admin", False)),
+        },
     }
     return ok(data=response_data)
 

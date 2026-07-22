@@ -20,6 +20,132 @@ console = Console(emoji=True, legacy_windows=False)
 
 
 # ============================================================================
+# Auth Commands (client 模式登录) — ADR-024
+# ============================================================================
+
+@app.command("login")
+def login(
+    username: Optional[str] = typer.Option(
+        None, "--username", "-u", help="用户名（不传则交互式输入）"
+    ),
+    api_host: Optional[str] = typer.Option(
+        None, "--api-host", help="远端 API host（覆盖 config/env）"
+    ),
+    api_port: Optional[str] = typer.Option(
+        None, "--api-port", help="远端 API 端口"
+    ),
+    tls: Optional[bool] = typer.Option(
+        None, "--tls/--no-tls", help="是否走 TLS（连远端默认 true）"
+    ),
+):
+    """登录远端 API，获取 JWT 存入 auth.json（client 模式）。
+
+    密码仅内存持有、POST 完即丢，**不落盘**；落盘的是 bearer token。
+    host 不传则交互式问，占位符兜底，装完可用 ``ginkgo config set`` 改。
+    """
+    import getpass
+    import os
+
+    import httpx
+
+    from ginkgo.libs import GCONF
+    from ginkgo.client.remote import auth_store
+
+    # 1) endpoint：参数 > env > config；未配置则交互式问（占位符兜底）
+    if api_host:
+        os.environ["GINKGO_API_HOST"] = api_host
+    if api_port:
+        os.environ["GINKGO_API_PORT"] = api_port
+    if tls is not None:
+        os.environ["GINKGO_API_TLS"] = "true" if tls else "false"
+    host = GCONF.API_HOST
+    if not host or host == "localhost":
+        host = typer.prompt("远端 API host", default=host or "api.example.com")
+        os.environ["GINKGO_API_HOST"] = host
+
+    # 2) 凭据
+    if not username:
+        username = typer.prompt("用户名")
+    password = getpass.getpass("密码: ")
+
+    base = GCONF.API_BASE
+    console.print(f":satellite: 登录 {base} ...")
+    try:
+        resp = httpx.post(
+            f"{base}/api/v1/auth/login",
+            json={"username": username, "password": password},
+            timeout=15,
+        )
+    except httpx.HTTPError as e:
+        console.print(f":x: 无法连接 API：{e}")
+        raise typer.Exit(1)
+
+    if resp.status_code == 401:
+        console.print(":x: 用户名或密码错误")
+        raise typer.Exit(1)
+    if resp.status_code == 403:
+        console.print(":x: 账户已禁用")
+        raise typer.Exit(1)
+    if resp.status_code == 429:
+        console.print(":x: 登录过于频繁，稍后再试")
+        raise typer.Exit(1)
+    if resp.status_code != 200:
+        console.print(f":x: 登录失败 HTTP {resp.status_code}")
+        raise typer.Exit(1)
+
+    body = resp.json()
+    if body.get("code") != 0:
+        console.print(f":x: 登录失败：{body.get('message')}")
+        raise typer.Exit(1)
+    data = body["data"]
+    auth_store.save(
+        {
+            "api_base": base,
+            "token": data["token"],
+            "expires_at": data["expires_at"],
+            "user": data.get("user", {}),
+        }
+    )
+    auth_store.ensure_secure_perms()
+    u = data.get("user", {})
+    console.print(
+        f":white_check_mark: 登录成功：{u.get('username')} (admin={u.get('is_admin')})"
+    )
+    console.print(f"   过期：{data.get('expires_at')}")
+
+
+@app.command("logout")
+def logout():
+    """清除本地 JWT（撤销本地凭证）。"""
+    from ginkgo.client.remote import auth_store
+
+    if not auth_store.load():
+        console.print(":information: 未登录")
+        raise typer.Exit(0)
+    auth_store.clear()
+    console.print(":white_check_mark: 已登出（本地凭证已清除）")
+
+
+@app.command("whoami")
+def whoami():
+    """显示当前登录用户与 token 过期时间。"""
+    from ginkgo.client.remote import auth_store
+
+    record = auth_store.load()
+    if not record:
+        console.print(":information: 未登录（`ginkgo user login`）")
+        raise typer.Exit(0)
+    u = record.get("user", {})
+    console.print(f"用户：{u.get('username')} (admin={u.get('is_admin')})")
+    console.print(f"API：{record.get('api_base')}")
+    console.print(f"过期：{record.get('expires_at')}")
+    if auth_store.is_expired(record):
+        console.print(":warning: token 已过期，请 `ginkgo user login`")
+    elif auth_store.is_expired(record, slack_seconds=300):
+        console.print(":information: token 即将过期（将在下次请求自动刷新）")
+
+
+# ============================================================================
 # User Commands
 # ============================================================================
 

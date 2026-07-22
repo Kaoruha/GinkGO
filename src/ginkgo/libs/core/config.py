@@ -656,6 +656,32 @@ class GinkgoConfig(object):
         return os.environ.get("GINKGO_API_PORT", "8000")
 
     @property
+    def MODE(self) -> str:
+        """
+        安装/运行模式：``local`` | ``client``（ADR-024）。
+
+        - ``local``（默认）：CLI 进程内调本地 Service/DB。
+        - ``client``：瘦客户端，container 返回远程代理 service，经 HTTP 打远端 API；
+          零本地算力（backtest run 走提交+轮询）。
+        优先级：环境变量 ``GINKGO_MODE`` > config.yml ``mode`` > ``local``。
+        """
+        return str(self._get_config("mode", "local")).lower()
+
+    @property
+    def API_TLS(self) -> bool:
+        """远端 API 是否走 TLS（client 模式连远端默认 true）。"""
+        val = os.environ.get("GINKGO_API_TLS")
+        if val is None:
+            val = self._get_config("api_tls", "false")
+        return str(val).lower() == "true"
+
+    @property
+    def API_BASE(self) -> str:
+        """远端 API 基址：``scheme://host:port``，供 ApiClient 使用。"""
+        scheme = "https" if self.API_TLS else "http"
+        return f"{scheme}://{self.API_HOST}:{self.API_PORT}"
+
+    @property
     def HEARTBEAT(self) -> float:
         """心跳间隔（环境标识，有默认值）"""
         key = "GINKGO_HEARTBEAT"
