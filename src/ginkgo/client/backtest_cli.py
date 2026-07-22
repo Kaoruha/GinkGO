@@ -192,17 +192,112 @@ def create_task(
     console.print(f"   Run with: [cyan]ginkgo backtest run {task_uuid}[/cyan]")
 
 
+def _print_remote_summary(detail) -> None:
+    """从远端 task detail dict 打印关键指标（字段缺失/为空则跳过，ADR-024）。
+
+    detail 来自 ``GET /backtest/{uuid}``（``BacktestTaskDetail.dict()``），completed 时已含
+    annual_return/sharpe/max_drawdown/win_rate/total_pnl/final_portfolio_value/total_orders
+    等，无需另拉 /results。
+    """
+    if not isinstance(detail, dict):
+        return
+    rows = [
+        ("Annual Return", detail.get("annual_return")),
+        ("Sharpe", detail.get("sharpe_ratio")),
+        ("Max Drawdown", detail.get("max_drawdown")),
+        ("Win Rate", detail.get("win_rate")),
+        ("Total PnL", detail.get("total_pnl")),
+        ("Final Value", detail.get("final_portfolio_value")),
+        ("Orders", detail.get("total_orders")),
+        ("Signals", detail.get("total_signals")),
+    ]
+    table = Table(show_header=False, box=None)
+    for label, val in rows:
+        if val is None or val == "":
+            continue
+        if isinstance(val, float):
+            val = f"{val:.4f}"
+        table.add_row(f"[dim]{label}[/dim]", str(val))
+    if table.row_count:
+        console.print(table)
+
+
+def _run_remote_backtest(task_id: str, bg: bool = False) -> None:
+    """client 模式 backtest run：提交到远端 + 轮询 + 打印（ADR-024 命令级分支）。
+
+    与本地 ``BacktestOrchestrator`` 路径对偶：零本地计算，全部交远端 BacktestWorker。
+    ``--bg`` 语义对齐本地（提交后即返回，不阻塞 CLI），非 bg 则同步轮询到终态。
+    """
+    from ginkgo.client.remote.services import RemoteBacktestRunner
+
+    runner = RemoteBacktestRunner()
+    try:
+        console.print(f":rocket: Submitting backtest [bold]{task_id}[/bold] to remote server...")
+        # best-effort banner：先取详情印 name（取不到不阻塞提交）
+        try:
+            head = runner.get_status(task_id)
+            if isinstance(head, dict) and head.get("name"):
+                console.print(f"   Name: {head['name']}")
+        except Exception:
+            pass
+
+        if bg:
+            runner.submit(task_id)
+            console.print(
+                f":hourglass: Submitted to remote. Poll status: "
+                f"[cyan]ginkgo backtest cat {task_id}[/cyan]"
+            )
+            return
+
+        def _on_progress(status, detail):
+            progress = detail.get("progress") if isinstance(detail, dict) else None
+            tag = str(status) + (
+                f" ({progress:.0f}%)" if isinstance(progress, (int, float)) else ""
+            )
+            console.print(f"   status: [cyan]{tag}[/cyan]")
+
+        state, detail, _results = runner.run(task_id, on_progress=_on_progress)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f":x: Remote backtest failed: {e}")
+        raise typer.Exit(1)
+
+    if state == "completed":
+        console.print(f":white_check_mark: Backtest completed: [bold green]{task_id[:12]}[/bold green]")
+        _print_remote_summary(detail)
+    elif state == "failed":
+        msg = detail.get("error_message") if isinstance(detail, dict) else None
+        console.print(f":x: Backtest failed: {msg or 'see server logs'}")
+        raise typer.Exit(1)
+    elif state == "stopped":
+        console.print(":stop_sign: Backtest stopped")
+        raise typer.Exit(1)
+    else:
+        console.print(
+            f":hourglass: Backtest still {state} (poll timed out). "
+            f"Check later: [cyan]ginkgo backtest cat {task_id}[/cyan]"
+        )
+        raise typer.Exit(1)
+
+
 @app.command("run")
 def run_task(
     task_id: str = typer.Argument(help="Task UUID to run"),
     bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
 ):
-    """:rocket: Run a backtest task locally."""
+    """:rocket: Run a backtest task locally (or submit+poll to remote in client mode)."""
     import json as _json
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
-    from ginkgo.libs import GinkgoLogger
+    from ginkgo.libs import GinkgoLogger, GCONF
+
+    # ADR-024 client 模式：run 是 UseCase 编排（本地同步跑引擎 vs 远端提交+轮询），
+    # 语义/返回类型都不同 → 命令级分支，不走 service Selector（Selector 只换读取代理）。
+    if GCONF.MODE == "client":
+        _run_remote_backtest(task_id, bg=bg)
+        return
 
     service = container.backtest_task_service()
     result = service.get_by_id(task_id)

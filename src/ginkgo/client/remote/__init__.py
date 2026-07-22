@@ -24,4 +24,5 @@ from ginkgo.client.remote.api_client import (  # noqa: F401
 from ginkgo.client.remote.services import (  # noqa: F401
     RemoteService,
     RemotePortfolioService,
+    RemoteBacktestRunner,
 )

@@ -206,3 +206,84 @@ class RemotePortfolioService(RemoteService):
             return self._ok(None, "Portfolio deleted (remote)")
         except Exception as e:
             return self._fail(e)
+
+
+class RemoteBacktestRunner:
+    """client 模式 backtest run：提交 + 轮询（ADR-024 命令级分支）。
+
+    与本地 ``BacktestOrchestrator.run_from_task`` 对偶：本地同步阻塞跑引擎，本类把任务
+    **提交到远端 BacktestWorker**（``POST /backtest/{uuid}/start``）后轮询
+    ``GET /backtest/{uuid}`` 的 ``status`` 字段到终态。**零本地计算**。
+
+    ``status`` 取值（``model_backtest_task.py:67``）：created/pending/running/
+    completed/failed/stopped；终态 = completed/failed/stopped。
+
+    注：``POST /{uuid}/start`` 返回的 ``{state: "PENDING"}`` 只是即时 ack，真正要轮询的
+    是 detail 的 ``status`` 字段（小写、由 worker 落库驱动）。
+    """
+
+    #: 轮询终态（小写，对齐 DB status 字段）
+    TERMINAL_STATES = ("completed", "failed", "stopped")
+    #: 默认轮询间隔（秒）
+    POLL_INTERVAL = 1.0
+
+    def __init__(self, client: Optional[ApiClient] = None, poll_interval: Optional[float] = None):
+        self._client = client or get_client()
+        self.poll_interval = (
+            poll_interval if poll_interval is not None else self.POLL_INTERVAL
+        )
+
+    def submit(self, uuid: str) -> Any:
+        """``POST /backtest/{uuid}/start``：触发远端 worker。"""
+        return self._client.post(f"/backtest/{uuid}/start")
+
+    def get_status(self, uuid: str) -> Any:
+        """``GET /backtest/{uuid}``：task detail dict（含 ``status``）。"""
+        return self._client.get(f"/backtest/{uuid}")
+
+    def get_results(self, uuid: str) -> Any:
+        """``GET /backtest/{uuid}/results``：结果摘要（completed 才有意义，可能 None）。"""
+        return self._client.get(f"/backtest/{uuid}/results")
+
+    @staticmethod
+    def _status_of(detail: Any) -> Optional[str]:
+        """从 detail dict 取 status（兼容 ``state`` 别名），归一小写。"""
+        if isinstance(detail, dict):
+            return str(detail.get("status") or detail.get("state") or "").lower()
+        return None
+
+    def run(
+        self,
+        uuid: str,
+        on_progress=None,
+        timeout: Optional[float] = None,
+    ) -> "tuple[str, Any, Any]":
+        """提交并轮询到终态，返回 ``(final_status, detail, results)``。
+
+        - ``on_progress(status, detail)`` 在 ``status`` 变化时回调（CLI 用于印状态行）；
+        - ``timeout``（秒）超时则返回当前非终态 status，CLI 据此提示仍在跑；
+        - ``completed`` 时额外拉一次 ``results``（失败静默为 None）。
+        """
+        import time
+
+        self.submit(uuid)
+        last: Optional[str] = None
+        start = time.monotonic()
+        while True:
+            detail = self.get_status(uuid)
+            status = self._status_of(detail)
+            if status != last:
+                if on_progress is not None:
+                    on_progress(status, detail)
+                last = status
+            if status in self.TERMINAL_STATES:
+                results = None
+                if status == "completed":
+                    try:
+                        results = self.get_results(uuid)
+                    except Exception:
+                        results = None
+                return status, detail, results
+            time.sleep(self.poll_interval)
+            if timeout is not None and (time.monotonic() - start) > timeout:
+                return status or "unknown", detail, None
