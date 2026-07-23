@@ -195,6 +195,16 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 - **判死依据**：2024Q4 是 A 股近 2 年最强涨势段（924 行情），momentum 在此仍 -5.6%/win 13% + 2025 震荡 -28.72% → **涨势、震荡双市场均亏 = 结构性失效**（非周期性、非参数可救）。entry「追最高动量股」在 A 股追涨杀跌失效。
 - **结论**：唯一可用动态 selector（momentum）× momentum strategy 在所有已测窗口亏损。**momentum 路径判死**。
 
+### ITER-005 (2026-07-24) — G3 实盘侧 account create 诊断（**create 通畅；改发现 UUID 输出空 bug #6761**）
+
+**目的**：arc 收束后，推进 §8 队列"G3 路径 live 侧 account create SQL error 待查"——独立于策略盈利性，属问求"实盘路径可行性"范畴。
+**方法**（生产库 debug=false，只读探表 + 单次 auto-validate OFF 重现）：
+- `account list`（只读）正常返回"无记录"——`live_account` 表存在于 Master、可读、非 SQL error。先前"SQL error"未复现。
+- `account create`（auto-validate OFF，dummy OKX 凭证，不触达交易所）**成功**：账号 `27039f7b...` 入库、status disabled。**写路径通畅**。
+- **发现 bug**：create 成功输出里 `Account UUID:` 恒空、`--account <uuid>` 提示 uuid 空白；同文件 `list` 却正确显示同一 UUID。根因 = CLI create 读 `data.account_uuid` 键、服务返回 `data.uuid` 键、list 读 `acc.uuid`——**三方不一致，create 单点取错键**。用户拿不到 deploy 所需 uuid（list 为 workaround）。
+- **清理**：CRUD `delete_live_account`（无 CLI delete）软删 dummy 账号，`remaining_for_user=0`，Master 库已还原干净。
+**结果**：提 **#6761**（bug, P2, mod:cli/mod:live, ready-for-agent）。G3 live 侧 account 表/读写均通畅，先前 SQL error 假设证伪；唯一缺陷是 create 输出取错返回键的显示 bug。paper 侧 blocker 仍为 #6757。
+
 ---
 
 ## 7. 已提交 issue（本轮探索期间）
@@ -204,6 +214,7 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 - **#6756** `feat(cli): ginkgo backtest 缺 cancel/reset 命令`（P2, mod:cli, ready-for-agent）— ITER-001 撞 a71978d9 卡 running 70% 不可恢复；`backtest` 有 `delete` 软删但无主动 cancel/reset。与 **#4633 互补**（#4633=worker 死后心跳被动自愈；#6756=用户主动手动终止/恢复）。
 - **#6757** `bug(paper): 运行时 deploy 路径漏 add_cash，新 paper 组合现金=0→信号照发但订单全失败（状态却 RUNNING）`（P1, mod:trading, ready-for-agent）— G3 代码复核发现：`_handle_deploy` 不注资而 INIT step8 注资；`_deploy_core` step9 发 Kafka 给运行中 worker → 新 paper 组合 cash=0 → 订单因无购买力静默全失败。与 **#6473 互补**（#6473=信号链 selector 种子；#6757=资金链 cash）。属 memory 警示的"状态机绿/链路红"安静失败类。
 - **#6760** `bug(selector): PopularitySelector 生产库 pick 恒返回空（依赖空 stock_info 表未 fallback bar 表 + 静默无告警）`（P2, mod:trading, ready-for-agent）— ITER-003c 撞实：Master `stock_info` 表 0 行，popularity 取码 `get_all_codes()` 恒空且静默 return → 0 信号。`MomentumSelector` 已改从 bar 表取码 + 空时 WARN，popularity 未对齐。属「selector 依赖未填充元数据表→静默 0 交易」又一例。
+- **#6761** `bug(account): 创建实盘账户成功但输出中 Account UUID 恒为空（取错返回字段）`（P2, mod:cli/mod:live, ready-for-agent）— ITER-005 验 G3 live 侧：create 成功入库但输出 UUID 空白（CLI create 读 `data.account_uuid`、服务返 `data.uuid`、list 读 `acc.uuid` 三方不一致，create 单点取错键）→ deploy 首步拿不到 uuid（list 为 workaround）。先前"account create SQL error"假设证伪，写路径实通畅。
 
 ---
 
@@ -237,5 +248,5 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 > - **未关闭的探索口**（条件 gated，非本 arc 阻塞）：
 >   - **#6760 修复后**：cn_all/popularity 复活 → 可测 MR/mean_reversion/trend_reverse 等震荡市策略（它们曾因无 selector 喂票而未验）。
 >   - **其他真实策略未验**：moving_average_crossover / dual_thrust / trend_reverse / volume_activate 等（非 stub），但同样卡在 selector 缺口（需 momentum 喂票，而 momentum 喂的股对这些策略未必适配）。
-> - **G3 路径**：paper 侧 blocker #6757（cash=0）已提；live 侧 account create SQL error 待查。路径连通性独立于策略盈利性——可用任一有交易组合（如 momentum 2024Q4 的 119 单）验回测→模拟盘→实盘管道，不受 momentum 判死影响。
+> - **G3 路径**：paper 侧 blocker #6757（cash=0）已提；live 侧 account create 已验通畅（ITER-005 证伪先前"SQL error"假设），改发现 create 输出 UUID 恒空 bug **#6761**（实盘 deploy 首步拿不到 uuid，list 为 workaround）。路径连通性独立于策略盈利性——可用任一有交易组合（如 momentum 2024Q4 的 119 单）验回测→模拟盘→实盘管道，不受 momentum 判死影响。
 > - **本 arc 收束判定**：在 #6760 修复（打开 selector 空间）前，进一步策略探索边际收益低；优先等 #6760 落地后重启 MR/震荡市策略线。
