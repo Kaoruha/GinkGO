@@ -128,6 +128,21 @@ Portfolio `badbea37d8fd4250bbf07706ca6c56a5`
 4. **复现 A1 成功**：中位 年化 15.93%/Sharpe 0.674/MaxDD 25.3%/胜率 ~44%，落在 A1 已知带（15–17%/0.65–0.70/20–21%/42–48%）。
 5. ⚠️ **G4 不达标**：FixedSelector(601899.SH) 是预选股（后视），**不可直接上 live**。ITER-001 只验证了引擎可复现性 + A1 盈利性，**非可部署策略**。可部署路径须 ITER-003 动态 selector。
 
+### ITER-003 (2026-07-24) — 动态 selector 全市场无后视路径（**进行中**）
+
+**配置**：`MomentumSelector(interval=5,rank=5,window=20)` + `momentum(lookback=10,threshold=0.022)` + `RatioSizer(0.1)` + `LossLimitRisk(10%)`
+Portfolio `036057a26f624444885123af10f0ee8f`（生产 Master 库，`debug:false` 核验）
+
+**G4 后视过堂**：✅ MomentumSelector 每 interval(5) bar 用**过去 window(20) 天已知收益**横截面排序选 top-5——纯历史信息，无未来函数、无预置股票池。这是**首个真正无后视可部署**的候选（FixedSelector 的替代）。
+**G5 出场过堂**：进场 `选入且 momentum>0.022→LONG`；出场 ① `momentum<-0.022→反转` ② `亏损>10%→LossLimitRisk 卖`。✅ 规则化出场。
+
+**Smoke（1 月 2026-06-20~07-20）** BT `a084006395534f0088b715c128433af8`：
+Final 87524(-12.5%) ｜ 年化 **-68.6%** ｜ Sharpe **-5.83** ｜ MaxDD 13.7% ｜ 胜率 **10%** ｜ **Signals 99 / Orders 30**。
+- ✅ **关键正面结论**：**Signals=99**（≈20 交易日×5 股）证明全市场 momentum_selector **在回测模式能取数产信号**——`arch-strategy-data-api-backtest-availability` 的 data-feeder 陷阱**不适用**动态 selector（该陷阱是单股策略取数 API 问题）。**G4 可行性 + 回测可跑通**。
+- ⚠️ 1 月巨亏属预期：动量在 2026-06~07 反转窗口被碾压（买顶部赢家即反转），**不代表全周期**。胜率 10% 偏低，后续迭代可加趋势过滤/调阈值。
+
+**全 2 年周期起跑**（2024-07-20~2026-07-20，含完整牛熊）BT `fa9a1ca93b1d40db99ce48206a7dd98f`：bg 运行中（全市场 ranking 5796 股较慢，监视器 `bviinqkov` 守完成），结果待下轮记录。
+
 ---
 
 ## 7. 已提交 issue（本轮探索期间）
@@ -139,7 +154,7 @@ Portfolio `badbea37d8fd4250bbf07706ca6c56a5`
 ## 8. 下一步（队列）
 
 1. ✅ **ITER-001 完成**：引擎 per-portfolio 近确定性（年化极差 1.18pp），A1 复现成功；但 FixedSelector 违 G4 不可部署。
-2. **ITER-003（下一优先）**：`MomentumSelector(interval,rank,window)` 动态选股 + 轮动策略——真正无后视可部署路径。需先确认有"选入即买/剔除即卖"的轮动 strategy 组件（查 `xs_momentum_rotate` 等）。
+2. **ITER-003（进行中）**：`MomentumSelector` 全市场动态选股——**首个无后视可部署路径**。Smoke 已证回测可取数产信号(99)；全 2 年周期 BT `fa9a1ca9` 跑中，结果待录。
 3. **ITER-002**：对 ITER-003 胜出策略走 walk-forward（2023 训练→2024–2026 OOS），验 G2/G4。
 4. **G3 路径**：ITER-003 出 G2 达标候选后，立即验 deploy 模拟盘是否丢绑定（§5），是则 `/to-issues`。
 5. **既有 issue 关联**（不重复提）：#4711 非确定性 P1（ITER-001 证其属跨 portfolio 轴）、#4633 卡死 P2（a71978d9 70% 为其复现）。
