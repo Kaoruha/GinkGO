@@ -1139,12 +1139,6 @@ const eventClass = (et?: string | null) => {
 const DIR_LABEL_MAP: Record<string, string> = { '1': 'LONG', '2': 'SHORT', 'LONG': 'LONG', 'SHORT': 'SHORT' }
 const dirLabel = (d: string | number | null) => DIR_LABEL_MAP[String(d)] || String(d ?? '')
 
-const shortMsg = (msg: string | null) => {
-  if (!msg) return ''
-  const s = msg.replace(/^[\p{Emoji_Presentation}\s]+\[.*?\]\s*/u, '').trim()
-  return s.length > 120 ? s.substring(0, 120) + '...' : s
-}
-
 const getAnalyzerColor = (name: string, value: number | null): string => {
   if (value === null || value === undefined) return '#666'
   const nl = name.toLowerCase()

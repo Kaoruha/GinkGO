@@ -321,7 +321,7 @@ function updateChart() {
     return ratio >= 0.5 ? 'rgba(82,196,26,0.6)' : 'rgba(245,34,45,0.6)'
   })
 
-  chart.setOption({
+  chart!.setOption({
     backgroundColor: '#1a1a2e',
     animation: false,
     tooltip: {

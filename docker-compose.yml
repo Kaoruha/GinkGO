@@ -58,22 +58,59 @@ x-worker-common: &worker-common
     - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
 
 services:
-  # webui:
-  #   image: ginkgo/webui:latest
-  #   container_name: ginkgo-web-ui
-  #   restart: always
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "100m"
-  #       max-file: "3"
-  #   build:
-  #     context: .
-  #     dockerfile: .conf/Dockerfile.web
-  #   ports:
-  #     - '127.0.0.1:8080:8080'
-  #   volumes:
-  #     - .conf/nginx.conf:/etc/nginx/nginx.conf
+  webui:
+    image: ginkgo/webui:latest
+    container_name: ginkgo-web-ui
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    build:
+      context: .
+      dockerfile: .conf/Dockerfile.web
+    ports:
+      - '0.0.0.0:8080:8080'
+    depends_on:
+      - api-server
+    volumes:
+      - .conf/nginx.conf:/etc/nginx/nginx.conf
+  api-server:
+    build:
+      context: .
+      dockerfile: .conf/Dockerfile.api-server
+    image: ginkgo/api-server:latest
+    # ginkgo-logs volume 被历史 root worker 初始化为 root:root(#6651 前),
+    # USER ginkgo 无写权限致 PermissionError; 暂以 root 对齐现状 worker,
+    # 待 volume 权限统一为 ginkgo:10001 后恢复非 root
+    user: "0:0"
+    container_name: ginkgo-api-server
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    depends_on:
+      - kafka1
+      - redis-master
+      - mongo-master
+      - clickhouse-test
+      - mysql-test
+    environment:
+      <<: *worker-env
+      # api-server 特有: Settings() 在生产(DEBUG=False)硬拒绝默认 SECRET_KEY(#5464)
+      # :? 守卫: .env 漏配 SECRET_KEY 时 compose 启动即失败, 避免空串静默绕过 #5464 validator
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set via environment}
+      DEBUG: ${DEBUG:-False}
+      # bind mount 宿主 ~/.ginkgo(开发机 config debug=True, 连 Test 实例宿主 13306) 致
+      # GCONF.DEBUGMODE=True → MYSQLPORT 端口首位+1(3306→13306, config.py:584);
+      # 容器内 mysql-test 仅 3306, 13306 连接被拒. 显式 False 覆盖, 对齐 worker
+      GINKGO_DEBUG_MODE: "False"
+    volumes:
+      - ginkgo-logs:/var/log/ginkgo
+      - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
   kafka1:
     image: apache/kafka:4.0.0
     restart: always

@@ -6,27 +6,39 @@ RUN groupadd --system --gid 10001 ginkgo \
 
 WORKDIR /app
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
+# 换 aliyun 源加速 apt（对齐 Dockerfile.ginkgo；本机到 deb.debian.org 极慢）+ 安装系统依赖
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件
-COPY apiserver/requirements.txt .
+# 安装 uv（极快的 Python 包管理器，对齐 Dockerfile.ginkgo）
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ uv
 
-# 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# 只复制依赖安装所需文件（利用层缓存：源码变动不触发重装依赖）
+# 路径修正：旧 apiserver/ 已重命名为 api/
+COPY api/requirements.txt ./requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN mkdir -p src/ginkgo && touch src/ginkgo/__init__.py
 
-# 复制API Server代码
-COPY apiserver/ .
+# 安装 Ginkgo 核心依赖(pyproject 全量) + API 专属依赖(api/requirements.txt)
+# api/requirements.txt 仅含 fastapi/uvicorn 等 Web 层；DB 驱动(sqlalchemy/pymongo/clickhouse-driver/redis)由 ginkgo 核心提供
+RUN uv pip install --system . \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+    && uv pip install --system -r requirements.txt \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+    && rm -rf /root/.cache/uv
 
-# 复制Ginkgo核心库
+# 复制 API Server 代码（路径修正：旧 apiserver/ 已重命名为 api/）
+COPY api/ ./
+
+# 复制 Ginkgo 核心库源码
 COPY src/ /app/src/
 
 # 复制 pyproject.toml 供版本读取（SystemService.get_version fallback 链，#5406）
-# 生产镜像未安装 dist-info，importlib.metadata 失败 → 回退读 pyproject.toml
 COPY pyproject.toml /app/
+
 RUN chown -R ginkgo:ginkgo /app /home/ginkgo
 
 # 设置环境变量
@@ -40,5 +52,5 @@ EXPOSE 8000
 
 USER ginkgo
 
-# 启动命令
+# 启动命令（api/main.py 定义 FastAPI app；与 ginkgo serve api 的 app_dir=api/ 同构）
 CMD ["python", "main.py"]
