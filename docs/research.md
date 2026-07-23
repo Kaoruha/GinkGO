@@ -205,6 +205,15 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 - **清理**：CRUD `delete_live_account`（无 CLI delete）软删 dummy 账号，`remaining_for_user=0`，Master 库已还原干净。
 **结果**：提 **#6761**（bug, P2, mod:cli/mod:live, ready-for-agent）。G3 live 侧 account 表/读写均通畅，先前 SQL error 假设证伪；唯一缺陷是 create 输出取错返回键的显示 bug。paper 侧 blocker 仍为 #6757。
 
+### ITER-006 (2026-07-24) — arc 重启：MA_crossover × momentum_selector（**smoke 运行中**）
+
+**重启理据**：arc 收束（ITER-004）理据有边界——只对 momentum+momentum 穷尽。§8 列的**趋势同向策略（MA_crossover/dual_thrust/trend_reverse）× momentum_selector 未测**；与 MR 不同，趋势策略与动量选股**理论同向**（不像 MR 那样语义冲突判死）。三阻塞（#6757/#6760/#6761）均 OPEN 未被认领，选择器仍锁 momentum——故用 momentum_selector 喂票，换趋势策略验。
+**配置**：新 portfolio `70c4f29972aa45b0925cc73214f88738`（`iter006_ma_mom`）= momentum_selector(5,5,20) + **MovingAverageCrossover(short=5,long=20)** + RatioSizer(0.1) + LossLimitRisk(10.0)。4 组件绑定读回齐全、index0 name 全在。
+- **MA 周期选 (5,20) 非 (20,60)**：get_bars_cached 回测约返 42 根（ITER-003b 实测），MA(20,60) 需 61 根不够→0 信号；MA(5,20) 需 21 根安全，且快线匹配 selector 5 日轮动。
+- **G5**：MA_crossover 死叉（短下穿长）→ 卖出信号，明确规则退出 ✓。非 stub（金叉死叉真实实现 + get_bars_cached）。
+**smoke**：BT `a3dc75981d9743d0b4ec1ec2277bba27`，2024-10-01~12-31（最强涨势段——趋势策略应盈，否则判死，同 momentum ITER-004 逻辑）。bg 运行中，下 tick 读结果。
+- **判据**：①信号数>0（排除时标错配 0 信号）；②2024Q4 涨势段盈→延伸 2025 验稳定性；③亏→趋势策略×momentum 选股亦失效，arc 再收束（证 momentum_selector 选股本身见顶反转，与策略无关）。
+
 ---
 
 ## 7. 已提交 issue（本轮探索期间）
