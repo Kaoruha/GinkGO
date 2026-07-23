@@ -37,6 +37,7 @@
 | ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
 | ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Proposed | 2026-07-20 |
+| ADR-025 | [DTO 信使角色全面复位（Mapper 家族覆盖四边界）](ADR-025-dto-messenger-full-restoration.md) | Accepted | 2026-07-24 |
 
 ## 如何新增 / 修订
 
