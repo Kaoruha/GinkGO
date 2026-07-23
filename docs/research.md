@@ -26,7 +26,7 @@
 ## 2. 探索协议（每轮迭代遵循）
 
 1. **确定性优先**：同配置连跑 ≥3 次（隔离已知非确定性 bug，见 §4 警告 A），取中位数，记录极差。
-2. **生产模式**：回测前 `ginkgo debug off`；数据预检（§3 表）确认标的有 ≥250 行。
+2. **生产模式（⚠️ debug 易翻转）**：`debug` 是**全局共享 config**，并发会话/用户可互相翻转。实测本探索期间被翻成 `true`（test 库），致 portfolio 落错库 + 组件 "File not found"。**每次建 portfolio / 回测前必 `ginkgo debug off` 并 grep config 确认 `debug: false`**；bg 进程启动时读 config 即锁死，免受运行中翻转影响。
 3. **无后视**：单股策略必须做 walk-forward（in-sample 拟合 → out-of-sample 验证）；全市场策略用动态 selector。
 4. **退出信号**：记录每个候选的进场/出场规则各是什么。
 5. **基准对照**：每个策略与同标的 Buy&Hold 比，报告 alpha（超额）而非绝对收益。
