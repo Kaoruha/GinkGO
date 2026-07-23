@@ -150,6 +150,15 @@ Final **61404(-38.6%)** ｜ 年化 **-28.72%** ｜ Sharpe **-3.15** ｜ MaxDD **
 - **孤儿救援技巧（可复用）**：刷新阶段逼近 3000s timeout（数据 04:26 已到 12-31，但收尾 add_all 刷新慢且 CH I/O 竞争下退化 1.5→9.4s）。SIGKILL timeout 封装+脚本冻结倒计时、**孤立 python 引擎**继续刷新，待并发回测退出后刷新加速（add_all 降 1.1s），引擎 04:58:16 干净完成——从超时丢失中救回结果。
 - **关键判读**：A 股 2025 属震荡/均值回归市，**纯动量不适配**。plan-B 须换**市场适配**的信号（均值回归）而非仅调参（B1 拉长窗口难逃震荡市动量失效）。
 
+### ITER-003b (2026-07-24) — plan-B mean_reversion（**prep 完成，待 CH 空闲起 smoke**）
+
+**配置**：`momentum_selector(interval=5,rank=5,window=20)` + `MeanReversion(rsi_period=14,oversold=30,overbought=70)` + `RatioSizer(0.1)` + `LossLimitRisk(10%)`
+Portfolio `iter_mr_planB` = `9a08d73217bd4c7187b0bf47c22aa7fd`（生产 Master，`debug:false` 核验；4 组件绑定读回齐全，index0 name 全在）。
+**G4/G5 过堂**：RSI 用过去 N(14) 日算超卖/超买→纯历史（G4✅）；出场 RSI 升破 overbought/止损（G5✅）。
+**已验 mean_reversion 真实实现**（非 stub，`src/ginkgo/trading/strategies/mean_reversion.py`：`_calculate_rsi`+`_detect_crossing`）。
+**下一步（CH-gated）**：CH 当前被并发会话 bt `6554d322`(iter9_mom2025c，非我的) flush 占用，**起 smoke 前须 pgrep 确认其退出**。先 smoke 2026-06~07（MR 反转主场，~3min）；盈→1yr cal-2025 终验。
+⚠️ 语义风险：momentum_selector 喂 top-5 动量赢家（常 overbought），MR 要 oversold→可能 LONG 信号稀少/SHORT(A股不可融)失败。smoke Signals 数即判据；若≈0 换 popularity/cn_all selector。
+
 ---
 
 ## 7. 已提交 issue（本轮探索期间）
