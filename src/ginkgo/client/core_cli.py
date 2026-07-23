@@ -156,6 +156,10 @@ def init():
     """
     :rocket: Complete system initialization including database setup, component registration, and example data with idempotency.
     """
+    # ADR-024 §6：client 模式禁止建表 / DDL（危险操作须在 server 执行）。
+    from ginkgo.client.client_mode import assert_command_allowed_in_client
+
+    assert_command_allowed_in_client("init")
     try:
         console.print(":rocket: Initializing Ginkgo System...")
 

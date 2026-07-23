@@ -647,13 +647,46 @@ class GinkgoConfig(object):
 
     @property
     def API_HOST(self) -> str:
-        """Ginkgo API 服务主机"""
-        return os.environ.get("GINKGO_API_HOST", "localhost")
+        """Ginkgo API 服务主机（client 模式连远端）。
+
+        优先级：env ``GINKGO_API_HOST`` > config.yml ``api_host`` > ``localhost``
+        （与 ``MODE``/``API_TLS`` 一致走 ``_get_config``，install 写 config.yml 即生效）。
+        """
+        return str(self._get_config("api_host", "localhost"))
 
     @property
     def API_PORT(self) -> str:
-        """Ginkgo API 服务端口"""
-        return os.environ.get("GINKGO_API_PORT", "8000")
+        """Ginkgo API 服务端口。
+
+        优先级：env ``GINKGO_API_PORT`` > config.yml ``api_port`` > ``8000``。
+        """
+        return str(self._get_config("api_port", "8000"))
+
+    @property
+    def MODE(self) -> str:
+        """
+        安装/运行模式：``local`` | ``client``（ADR-024）。
+
+        - ``local``（默认）：CLI 进程内调本地 Service/DB。
+        - ``client``：瘦客户端，container 返回远程代理 service，经 HTTP 打远端 API；
+          零本地算力（backtest run 走提交+轮询）。
+        优先级：环境变量 ``GINKGO_MODE`` > config.yml ``mode`` > ``local``。
+        """
+        return str(self._get_config("mode", "local")).lower()
+
+    @property
+    def API_TLS(self) -> bool:
+        """远端 API 是否走 TLS（client 模式连远端默认 true）。"""
+        val = os.environ.get("GINKGO_API_TLS")
+        if val is None:
+            val = self._get_config("api_tls", "false")
+        return str(val).lower() == "true"
+
+    @property
+    def API_BASE(self) -> str:
+        """远端 API 基址：``scheme://host:port``，供 ApiClient 使用。"""
+        scheme = "https" if self.API_TLS else "http"
+        return f"{scheme}://{self.API_HOST}:{self.API_PORT}"
 
     @property
     def HEARTBEAT(self) -> float:

@@ -94,6 +94,17 @@ from ginkgo.user.services.user_group_service import UserGroupService
 from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
 
 
+def _remote_portfolio_service_factory():
+    """ADR-024 client 模式惰性工厂：首次用到才 import 远端代理（含 httpx），
+
+    避免污染 local/API 进程启动。供 ``Container.portfolio_service`` 的 Selector
+    client 分支使用。
+    """
+    from ginkgo.client.remote.services import RemotePortfolioService
+
+    return RemotePortfolioService()
+
+
 class Container(containers.DeclarativeContainer):
     # Data Sources
     ginkgo_tushare_source = providers.Singleton(GinkgoTushare)
@@ -221,12 +232,18 @@ class Container(containers.DeclarativeContainer):
         param_crud=param_crud,
     )
 
-    portfolio_service = providers.Singleton(
-        PortfolioService,
-        crud_repo=portfolio_crud,
-        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
-        deployment_crud=deployment_crud,
-        param_crud=param_crud,
+    portfolio_service = providers.Selector(
+        lambda: GCONF.MODE if GCONF.MODE in ("local", "client") else "local",
+        local=providers.Singleton(
+            PortfolioService,
+            crud_repo=portfolio_crud,
+            portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+            deployment_crud=deployment_crud,
+            param_crud=param_crud,
+        ),
+        # ADR-024 client 模式：返回远端代理，零本地 DB/计算。
+        # client 分支惰性 import（不污染 local/API 进程启动，不 eager 拉 httpx）。
+        client=providers.Singleton(_remote_portfolio_service_factory),
     )
 
     # Param service with ParamCRUD dependency (must be before portfolio_mapping_service)
