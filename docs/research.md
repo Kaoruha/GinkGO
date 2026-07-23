@@ -80,7 +80,7 @@
 |---|---|---|
 | 策略构建 | ✅ | — |
 | 回测 | ⚠️ | 无数据预检→0 交易要跑完才知；`result show` 末值 50 点采样未必含末日 |
-| 模拟盘 | ❌ | deploy 克隆丢 strategy+sizer 绑定→`No strategy found`（`deployment_service._copy_graph`） |
+| 模拟盘 | ⚠️ | **2026-07-24 代码复核**：原审计"deploy 丢 strategy+sizer 绑定"**已在代码层修复**——`_deploy_core` step4 `get_portfolio_mappings(include_params=True)` 取全类型，step5 逐映射建新映射+拷原始参数(无类型过滤)；`_copy_graph` 改 `sync_mysql=False` 不再覆盖(#6164/#6279)。**service 层图克隆 OK，端到端待跑**。worker 层另有 `arch_paper_worker_init_deploy_assembly_symmetry`（INIT vs _handle_deploy 装配对称性）风险待验 |
 | 实盘 | ❌ | 无 CLI 建账户；假 account_id 触发裸 `Unknown column` SQL 错 |
 | deploy 输出 | ⚠️ | Portfolio ID 被截断 31 位（真 32 位 UUID） |
 
