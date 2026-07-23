@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
 
 console = Console(emoji=True, legacy_windows=False)
 app = typer.Typer(
@@ -418,6 +418,7 @@ def edit_task(
 def delete_task(
     task_id: str = typer.Argument(help="Task UUID to delete"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without deleting (skips confirm)"),
 ):
     """:wastebasket: Delete a backtest task (soft delete)."""
     from ginkgo.data.containers import container
@@ -432,6 +433,13 @@ def delete_task(
     task = result.data
     task_name = task.name if hasattr(task, "name") else task_id
     task_uuid = task.uuid if hasattr(task, "uuid") else task_id
+
+    if dry_run:
+        announce_dry_run(f"删除 task {task_name}", console=console)
+        console.print(
+            f"[cyan]:eye: Would delete task '{task_name}' ({task_uuid[:12]}).[/cyan]"
+        )
+        return
 
     if not confirm:
         confirmed = typer.confirm(f"Delete task '{task_name}' ({task_uuid[:12]})?")

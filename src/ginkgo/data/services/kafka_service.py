@@ -101,6 +101,20 @@ class KafkaService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"Failed to count Kafka topics: {str(e)}")
 
+    def topic_exists(self, topic: str) -> bool:
+        """Check whether a Kafka topic exists (thin delegate to KafkaCRUD)."""
+        # 不包 try/except：与同模块其它 ServiceResult 方法不同，CLI purge 需要
+        # 原始 bool 且让 CRUD 异常向上冒泡到 CLI 的 except 响亮报错，避免掩盖失败。
+        return self._crud_repo.topic_exists(topic)
+
+    def get_message_count(self, topic: str) -> int:
+        """Get current message count of a topic (thin delegate to KafkaCRUD).
+
+        ``count()`` 已把同一 CRUD 调用包成 ServiceResult；CLI purge/dry-run 需要
+        原始 int，故提供此薄透传。不包 try/except，让异常冒泡响亮报错。
+        """
+        return self._crud_repo.get_message_count(topic)
+
     def validate(self, topic: str, message: Any = None) -> ServiceResult:
         """Validate Kafka data"""
         try:

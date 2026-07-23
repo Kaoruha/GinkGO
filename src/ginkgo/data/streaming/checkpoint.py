@@ -353,9 +353,12 @@ class CheckpointManager:
             GLOG.ERROR(f"Failed to list checkpoints: {e}")
             return []
 
-    def cleanup_expired_checkpoints(self) -> int:
+    def cleanup_expired_checkpoints(self, dry_run: bool = False) -> int:
         """
         清理过期断点
+
+        Args:
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
 
         Returns:
             清理的断点数量
@@ -369,11 +372,13 @@ class CheckpointManager:
 
             for checkpoint in all_checkpoints:
                 if checkpoint.expires_at and current_time > checkpoint.expires_at:
-                    self.delete_checkpoint(checkpoint.checkpoint_id)
+                    if not dry_run:
+                        self.delete_checkpoint(checkpoint.checkpoint_id)
                     expired_count += 1
 
             if expired_count > 0:
-                GLOG.INFO(f"Cleaned up {expired_count} expired checkpoints")
+                action = "Will clean up" if dry_run else "Cleaned up"
+                GLOG.INFO(f"{action} {expired_count} expired checkpoints")
 
             return expired_count
 

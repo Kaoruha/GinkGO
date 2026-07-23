@@ -14,7 +14,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
-from ginkgo.client.cli_utils import confirm_or_exit
+from ginkgo.client.cli_utils import confirm_or_exit, announce_dry_run
 
 app = typer.Typer(
     help=":wrench: Module for [bold medium_spring_green]PARAMETER[/] management. [grey62]CRUD operations for component parameters.[/grey62]",
@@ -112,11 +112,17 @@ def update(
 def delete(
     param_id: Annotated[str, typer.Option("--param", "-p", help="Parameter UUID")],
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help=":eye: Preview without deleting (skips confirm)")] = False,
 ):
     """
     :wastebasket: Delete a parameter.
     """
     from ginkgo.data.containers import container
+
+    if dry_run:
+        announce_dry_run(f"删除 parameter {param_id[:8]}...", console=console)
+        console.print(f"[cyan]:eye: Would delete parameter {param_id[:8]}...[/cyan]")
+        return
 
     confirm_or_exit(f":question: Delete parameter {param_id[:8]}...?", yes_flag=force)
 

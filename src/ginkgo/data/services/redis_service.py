@@ -657,38 +657,43 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to update task status: {e}")
             return False
     
-    def cleanup_dead_tasks(self, max_idle_time: int = 3600) -> int:
+    def cleanup_dead_tasks(self, max_idle_time: int = 3600, dry_run: bool = False) -> int:
         """
         清理超过最大空闲时间的死任务，维护Redis存储空间
 
         Args:
             max_idle_time: 最大空闲时间（秒），默认1小时
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
 
         Returns:
             int: 清理的任务数量
         """
         try:
             import time
-            
+
             current_time = time.time()
             cleaned_count = 0
-            
+
             # 获取所有任务键
             task_keys = self._crud_repo.keys("ginkgo_task_*")
-            
+
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
                 if task_status and 'updated_at' in task_status:
                     last_update = task_status['updated_at']
                     if current_time - last_update > max_idle_time:
-                        # 任务超过最大空闲时间，删除
-                        if self._crud_repo.delete(task_key):
+                        # 任务超过最大空闲时间，删除（dry-run 只计数）
+                        if dry_run:
+                            cleaned_count += 1
+                            self._logger.DEBUG(f"[dry-run] would clean dead task: {task_key}")
+                        elif self._crud_repo.delete(task_key):
                             cleaned_count += 1
                             self._logger.DEBUG(f"Cleaned dead task: {task_key}")
-            
+
             if cleaned_count > 0:
-                self._logger.INFO(f"Cleaned {cleaned_count} dead tasks")
-            
+                action = "Will clean" if dry_run else "Cleaned"
+                self._logger.INFO(f"{action} {cleaned_count} dead tasks")
+
             return cleaned_count
         except Exception as e:
             self._logger.ERROR(f"Failed to cleanup dead tasks: {e}")
@@ -1221,11 +1226,16 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get function cache stats: {e}")
             return {"total_entries": 0, "by_function": {}, "error": str(e)}
     
-    def cleanup_expired_function_cache(self) -> int:
+    def cleanup_expired_function_cache(self, dry_run: bool = False) -> int:
         """
         检查并统计过期的函数缓存条目数量
 
-        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查和统计
+        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查和统计。
+        本方法只统计不删除（Redis TTL 自动回收过期键），dry_run 形参仅为
+        与其他 cleanup 方法接口一致而保留，不改变行为。
+
+        Args:
+            dry_run: 接口对齐用（本方法始终只统计，不实际删除）
 
         Returns:
             int: 检查的缓存条目数量
@@ -1234,14 +1244,14 @@ class RedisService(BaseService):
             from ginkgo.data.redis_schema import RedisKeyPrefix
             cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_*"
             cache_keys = self._crud_repo.keys(cache_pattern)
-            
+
             checked_count = 0
             for cache_key in cache_keys:
                 # 尝试获取TTL，如果返回-2则表示键已过期或不存在
                 ttl = self._crud_repo.ttl(cache_key)
                 if ttl == -2:  # Key doesn't exist (expired)
                     checked_count += 1
-                    
+
             self._logger.DEBUG(f"Checked {len(cache_keys)} function cache entries, {checked_count} were expired")
             return checked_count
         except Exception as e:

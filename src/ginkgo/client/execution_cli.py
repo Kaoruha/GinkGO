@@ -22,6 +22,7 @@ from rich.panel import Panel
 import signal
 import sys
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.client.cli_utils import announce_dry_run
 
 app = typer.Typer(help=":execution: ExecutionNode - Portfolio Execution Engine", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -551,7 +552,7 @@ def _is_node_active(redis_client, node_id: str) -> bool:
     return heartbeat_ttl >= _STALE_HEARTBEAT_TTL_THRESHOLD
 
 
-def _cleanup_node(redis_client, node_id: str, force: bool = False) -> tuple:
+def _cleanup_node(redis_client, node_id: str, force: bool = False, dry_run: bool = False) -> tuple:
     """清理单个 ExecutionNode 的 heartbeat + metrics（#5980 deep module，#4945 加活跃守卫）。
 
     返回 (skipped_active, heartbeat_deleted, metrics_deleted)：
@@ -559,6 +560,8 @@ def _cleanup_node(redis_client, node_id: str, force: bool = False) -> tuple:
     - 其余情况按 key 是否存在删除，返回删除标志，供调用方统计/输出。
 
     force=True 跳过活跃守卫，强制清理（用于运维明确知道要清的场景）。
+    dry_run=True 只做 exists 探测与活跃守卫判定，不实际 delete（返回值含义改为
+    "将删除"，供调用方预览）。活跃守卫在 dry_run 下仍生效（预览也应诚实反映跳过项）。
     """
     from ginkgo.data.redis_schema import RedisKeyBuilder
 
@@ -570,10 +573,11 @@ def _cleanup_node(redis_client, node_id: str, force: bool = False) -> tuple:
     metrics_key = f"node:metrics:{node_id}"
     heartbeat_exists = redis_client.exists(heartbeat_key)
     metrics_exists = redis_client.exists(metrics_key)
-    if heartbeat_exists:
-        redis_client.delete(heartbeat_key)
-    if metrics_exists:
-        redis_client.delete(metrics_key)
+    if not dry_run:
+        if heartbeat_exists:
+            redis_client.delete(heartbeat_key)
+        if metrics_exists:
+            redis_client.delete(metrics_key)
     return (False, bool(heartbeat_exists), bool(metrics_exists))
 
 
@@ -581,6 +585,7 @@ def _cleanup_node(redis_client, node_id: str, force: bool = False) -> tuple:
 def cleanup(
     node_id: Optional[str] = typer.Option(None, "--node-id", "-n", help="ExecutionNode ID to cleanup (default: scan all nodes from heartbeats)"),
     force: bool = typer.Option(False, "--force", help="Force cleanup even if heartbeat is still fresh (node appears running). Use only for stuck/zombie nodes."),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview which nodes/keys would be cleaned without deleting (skips confirm; no writes)."),
 ):
     """
     :broom: Cleanup stale data for an ExecutionNode.
@@ -592,6 +597,10 @@ def cleanup(
     --force is given, since deleting a live heartbeat makes the scheduler mark the
     node offline while it is actually still running.
 
+    --dry-run: enumerate heartbeat/metrics keys and report what WOULD be removed
+    without touching Redis (active-node guard still applies, so running nodes are
+    still reported as skipped). Useful to audit before a real cleanup.
+
     Without --node-id, scans all heartbeat keys and cleans every stale node
     (consistent with `execution status`); running nodes are skipped.
     With --node-id, cleans only that node (also guarded by --force).
@@ -600,7 +609,15 @@ def cleanup(
       ginkgo execution cleanup                      # Clean all stale nodes
       ginkgo execution cleanup --node-id node_1     # Clean specific node only
       ginkgo execution cleanup --node-id node_1 --force  # Force clean a running node
+      ginkgo execution cleanup --dry-run            # Preview without deleting
     """
+    if dry_run:
+        announce_dry_run("清理 ExecutionNode 残留数据", console=console)
+    # dry-run 下"已清理/已删除"统一改为"将清理/将删除"，动词随 dry_run 切换
+    verb_done = "would remove" if dry_run else "removed"
+    verb_node = "Would clean" if dry_run else "Cleaned"
+    verb_hb = "Would delete" if dry_run else "Deleted"
+
     try:
         from ginkgo.data.crud import RedisCRUD
         from ginkgo.data.redis_schema import (
@@ -632,7 +649,7 @@ def cleanup(
             total_skipped = 0
             for nid in node_ids:
                 # #4945: 三元组 (skipped_active, hb_deleted, mt_deleted)
-                skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, nid, force=force)
+                skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, nid, force=force, dry_run=dry_run)
                 if skipped:
                     total_skipped += 1
                     console.print(
@@ -644,12 +661,12 @@ def cleanup(
                     total_hb += 1
                 if mt_deleted:
                     total_mt += 1
-                console.print(f":white_check_mark: [green]Cleaned ExecutionNode '{nid}'[/green]")
+                console.print(f":white_check_mark: [green]{verb_node} ExecutionNode '{nid}'[/green]")
 
             cleaned_count = len(node_ids) - total_skipped
             console.print(
                 f"\n:information: Cleanup completed: {total_hb} heartbeat(s), "
-                f"{total_mt} metrics removed across {cleaned_count} node(s)"
+                f"{total_mt} metrics {verb_done} across {cleaned_count} node(s)"
             )
             if total_skipped:
                 console.print(
@@ -657,13 +674,14 @@ def cleanup(
                     f"(fresh heartbeat). Re-run with --force to clean them.[/yellow]"
                 )
             # 仅在确实清理了 stale 节点时才提示调度器将判定离线（语义对这些节点成立）
-            if cleaned_count:
+            # dry_run 下不删除，调度器判定不受影响，不打印此提示避免误导。
+            if cleaned_count and not dry_run:
                 console.print("[dim]Scheduler will detect cleaned nodes as offline on next schedule loop[/dim]")
         else:
             console.print(f":information: Cleaning up data for ExecutionNode '{node_id}'...")
 
             # #4945: 三元组 (skipped_active, hb_deleted, mt_deleted)
-            skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, node_id, force=force)
+            skipped, hb_deleted, mt_deleted = _cleanup_node(redis_client, node_id, force=force, dry_run=dry_run)
 
             if skipped:
                 # 节点仍在运行——拒绝清理，绝不声称"调度器会判定它离线"（那正是 bug 表象）
@@ -679,12 +697,13 @@ def cleanup(
                 return
 
             if hb_deleted:
-                console.print(":white_check_mark: [green]Deleted heartbeat data[/green]")
+                console.print(f":white_check_mark: [green]{verb_hb} heartbeat data[/green]")
             if mt_deleted:
-                console.print(":white_check_mark: [green]Deleted metrics data[/green]")
+                console.print(f":white_check_mark: [green]{verb_hb} metrics data[/green]")
 
             console.print(f"\n:information: Cleanup completed for ExecutionNode '{node_id}'")
-            console.print("[dim]Scheduler will detect this node as offline on next schedule loop[/dim]")
+            if not dry_run:
+                console.print("[dim]Scheduler will detect this node as offline on next schedule loop[/dim]")
 
     except Exception as e:
         console.print(f"[red]:x: Error cleaning up ExecutionNode data: {e}[/red]")

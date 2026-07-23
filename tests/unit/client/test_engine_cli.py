@@ -654,7 +654,7 @@ class TestDelete:
             result = cli_runner.invoke(engine_cli.app, ["delete", "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", "-y"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
-        svc.delete.assert_called_once_with("aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
+        svc.delete.assert_called_once_with("aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa", dry_run=False)
 
     @pytest.mark.unit
     @pytest.mark.cli
