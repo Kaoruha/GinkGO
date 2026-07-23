@@ -1,7 +1,9 @@
 # ADR-004: Docker 双实例与 Debug 模式
 
-**Status:** Accepted
+**Status:** Accepted（端口约定部分 supersede by [ADR-024](ADR-024-db-port-injection-debug-semantics.md)）
 **Date:** 2026-06-13
+
+> **演进说明（ADR-024）**：双实例概念（Master/Test）与 debug 切库语义保留；但"+1 端口派生"约定收窄为**仅宿主客户端**（config.py 加 `is_container_environment()` 守卫），不再无差别对容器内服务 +1（曾致 TaskTimer 连 mysql-test:13306 ECONNREFUSED，bar 停滞 8.5 月）。详见 ADR-024。
 
 ## Context
 
