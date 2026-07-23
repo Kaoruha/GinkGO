@@ -205,14 +205,16 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 - **清理**：CRUD `delete_live_account`（无 CLI delete）软删 dummy 账号，`remaining_for_user=0`，Master 库已还原干净。
 **结果**：提 **#6761**（bug, P2, mod:cli/mod:live, ready-for-agent）。G3 live 侧 account 表/读写均通畅，先前 SQL error 假设证伪；唯一缺陷是 create 输出取错返回键的显示 bug。paper 侧 blocker 仍为 #6757。
 
-### ITER-006 (2026-07-24) — arc 重启：MA_crossover × momentum_selector（**smoke 运行中**）
+### ITER-006 (2026-07-24) — arc 重启：MA_crossover × momentum_selector（**2024Q4 仍亏 -5.7% → 证 momentum_selector 选股为跨策略共性失效因子，arc 再收束**）
 
 **重启理据**：arc 收束（ITER-004）理据有边界——只对 momentum+momentum 穷尽。§8 列的**趋势同向策略（MA_crossover/dual_thrust/trend_reverse）× momentum_selector 未测**；与 MR 不同，趋势策略与动量选股**理论同向**（不像 MR 那样语义冲突判死）。三阻塞（#6757/#6760/#6761）均 OPEN 未被认领，选择器仍锁 momentum——故用 momentum_selector 喂票，换趋势策略验。
 **配置**：新 portfolio `70c4f29972aa45b0925cc73214f88738`（`iter006_ma_mom`）= momentum_selector(5,5,20) + **MovingAverageCrossover(short=5,long=20)** + RatioSizer(0.1) + LossLimitRisk(10.0)。4 组件绑定读回齐全、index0 name 全在。
 - **MA 周期选 (5,20) 非 (20,60)**：get_bars_cached 回测约返 42 根（ITER-003b 实测），MA(20,60) 需 61 根不够→0 信号；MA(5,20) 需 21 根安全，且快线匹配 selector 5 日轮动。
 - **G5**：MA_crossover 死叉（短下穿长）→ 卖出信号，明确规则退出 ✓。非 stub（金叉死叉真实实现 + get_bars_cached）。
-**smoke**：BT `a3dc75981d9743d0b4ec1ec2277bba27`，2024-10-01~12-31（最强涨势段——趋势策略应盈，否则判死，同 momentum ITER-004 逻辑）。bg 运行中，下 tick 读结果。
-- **判据**：①信号数>0（排除时标错配 0 信号）；②2024Q4 涨势段盈→延伸 2025 验稳定性；③亏→趋势策略×momentum 选股亦失效，arc 再收束（证 momentum_selector 选股本身见顶反转，与策略无关）。
+**结果（BT `a3dc75981d9743d0b4ec1ec2277bba27`，2024-10-01~12-31，Master，与 769ec4f7 并发 ~3min）**：
+Final **94308（-5.69%）** ｜ MaxDD **6.21%** ｜ Sharpe **-3.4549** ｜ AnnualReturn **-15.13%** ｜ WinRate **22.22%** ｜ 69 信号 / 21 单。信号>0（排除时标错配；MA 交叉正常触发）。
+- **跨策略诊断（命中判据③）**：两个**不同趋势策略**——momentum（ITER-004 -5.6%/win13%）与 MA_crossover（本轮 -5.7%/win22%）——在**同一 momentum_selector**、同一最强涨势窗口（2024Q4）**双败**。共性失效因子 = **momentum_selector 选股本身**（专挑 top 动量 = 近期见顶 = 随即反转），与策略逻辑无关。MA_crossover win 22% > momentum 13%（死叉退出更干净），但仍亏——救不了见顶选股。
+- **结论**：趋势策略×momentum_selector 亦失效，**arc 再收束**。证据升级：原结论"momentum 策略失效"→ 现为"**momentum_selector 选股为跨趋势策略的共性失效因子**"。dual_thrust/trend_reverse 同源（同 selector 喂见顶股），测之属低价值重复，不再跑。**#6760（打开 selector 空间）是唯一解锁点**——换喂波动/超卖/估值股的 selector，趋势/反转策略才有素材可言。
 
 ---
 
@@ -249,11 +251,11 @@ Final **94358（-5.6%）** ｜ MaxDD **18.88%** ｜ Sharpe **-0.6687** ｜ Annua
 >   1. ~~ITER-004 momentum walk-forward~~（**已完成 2026-07-24，判死**：2024Q4 涨势段 -5.6%/win 13% + 2025 震荡 -28.72% → momentum 双市场均亏，结构性失效）。
 >   2. ~~探测 cn_all/multi_params~~（ITER-003d 已完成：均不可用）。
 
-> **ITER-004 后结论（2026-07-24 落定）— 本 arc 进入收束阶段**：
-> - **核心结论**：现有**动态 selector×内置策略**组合在近 2 年 A 股（2024Q4 涨势 + 2025 震荡）**难稳定盈利**。唯一可用动态 selector（momentum）× momentum strategy 双窗口均亏，结构性失效。
+> **ITER-004 后结论（2026-07-24 落定，ITER-006 强化）— 本 arc 进入收束阶段**：
+> - **核心结论**：现有**动态 selector×内置策略**组合在近 2 年 A 股（2024Q4 涨势 + 2025 震荡）**难稳定盈利**。唯一可用动态 selector（momentum）× 趋势策略双窗口均亏，结构性失效。
 > - **根因双线**：
 >   1. **selector 缺口**（#6760）：stock_info 元数据未填充锁死 cn_all+popularity，策略空间被压缩到 momentum 单族。
->   2. **momentum 失效**：entry 追最高动量股 → A 股追涨杀跌失效（win 13%），连最强涨势都不盈。
+>   2. **momentum_selector 选股为跨策略共性失效因子**（ITER-006 强化）：entry 追 top 动量股 = 买近期见顶股 → 随即反转。**两个不同趋势策略**（momentum -5.6%/win13%、MA_crossover -5.7%/win22%）在同一 selector、同一最强涨势窗口双败 → 失效在选股非策略逻辑。dual_thrust/trend_reverse 同源不再测。
 > - **未关闭的探索口**（条件 gated，非本 arc 阻塞）：
 >   - **#6760 修复后**：cn_all/popularity 复活 → 可测 MR/mean_reversion/trend_reverse 等震荡市策略（它们曾因无 selector 喂票而未验）。
 >   - **其他真实策略未验**：moving_average_crossover / dual_thrust / trend_reverse / volume_activate 等（非 stub），但同样卡在 selector 缺口（需 momentum 喂票，而 momentum 喂的股对这些策略未必适配）。
