@@ -222,15 +222,20 @@ def _print_remote_summary(detail) -> None:
         console.print(table)
 
 
-def _run_remote_backtest(task_id: str, bg: bool = False) -> None:
+def _run_remote_backtest(task_id: str, bg: bool = False, timeout: Optional[int] = None) -> None:
     """client 模式 backtest run：提交到远端 + 轮询 + 打印（ADR-024 命令级分支）。
 
     与本地 ``BacktestOrchestrator`` 路径对偶：零本地计算，全部交远端 BacktestWorker。
     ``--bg`` 语义对齐本地（提交后即返回，不阻塞 CLI），非 bg 则同步轮询到终态。
+
+    ``timeout``（秒）：非 bg 时轮询上限，到点未终态则返回当前 status + 提示稍后 ``backtest cat``
+    查询，避免 CLI 无限阻塞（ADR-024 Consequences：远端 worker 跑长回测，CLI 不应挂死）。
+    ``None`` / ``<=0`` 表示不限（旧行为，仅显式 ``--timeout 0`` 触发）。
     """
     from ginkgo.client.remote.services import RemoteBacktestRunner
 
     runner = RemoteBacktestRunner()
+    poll_timeout = timeout if (timeout is not None and timeout > 0) else None
     try:
         console.print(f":rocket: Submitting backtest [bold]{task_id}[/bold] to remote server...")
         # best-effort banner：先取详情印 name（取不到不阻塞提交）
@@ -256,7 +261,9 @@ def _run_remote_backtest(task_id: str, bg: bool = False) -> None:
             )
             console.print(f"   status: [cyan]{tag}[/cyan]")
 
-        state, detail, _results = runner.run(task_id, on_progress=_on_progress)
+        state, detail, _results = runner.run(
+            task_id, on_progress=_on_progress, timeout=poll_timeout
+        )
     except typer.Exit:
         raise
     except Exception as e:
@@ -289,6 +296,11 @@ def run_task(
         False, "--remote",
         help="Submit to the server worker + poll (control plane API). Default runs the engine locally.",
     ),
+    timeout: int = typer.Option(
+        3600, "--timeout",
+        help="Remote poll timeout in seconds (--remote only). Default 3600 (1h); 0 = no limit. "
+             "On timeout the CLI returns non-terminal status — poll later with `backtest cat`.",
+    ),
 ):
     """:rocket: Run a backtest task. Default runs the engine locally — in client mode the engine
     reads/writes the server DB directly via the data plane (ADR-024 hybrid). Pass --remote to submit
@@ -303,7 +315,7 @@ def run_task(
     # 提交到 A 的 worker + 轮询。run 是 UseCase 编排（orchestrator+progress+aggregator），
     # 非单一 service 方法，无法代理 → 命令级分支（ADR-022 §3 不静默）。
     if remote:
-        _run_remote_backtest(task_id, bg=bg)
+        _run_remote_backtest(task_id, bg=bg, timeout=timeout)
         return
 
     service = container.backtest_task_service()

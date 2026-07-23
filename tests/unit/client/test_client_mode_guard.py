@@ -30,6 +30,24 @@ def test_client_mode_blocks_init(monkeypatch):
     assert ei.value.code == 1
 
 
+def test_client_mode_blocks_data_migrate(monkeypatch):
+    """client 模式：``data migrate``（alembic schema 迁移）被拒。
+
+    ``ginkgo data migrate --action upgrade`` 已注册（data_cli），client（默认安装）下须拦，
+    否则可对共享 DB 跑 schema 变更，绕过 ADR-024 §6。
+    """
+    monkeypatch.setenv("GINKGO_MODE", "client")
+    with pytest.raises(SystemExit) as ei:
+        _guard()("data migrate")
+    assert ei.value.code == 1
+
+
+def test_local_mode_allows_data_migrate(monkeypatch):
+    """local 模式：``data migrate`` 放行（schema 迁移在 server 本地合法）。"""
+    monkeypatch.setenv("GINKGO_MODE", "local")
+    _guard()("data migrate")  # 不抛即通过
+
+
 def test_client_mode_allows_non_forbidden(monkeypatch):
     """client 模式：非危险命令（status / backtest）放行。"""
     monkeypatch.setenv("GINKGO_MODE", "client")

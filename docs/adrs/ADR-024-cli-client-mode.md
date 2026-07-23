@@ -91,5 +91,7 @@
   - 控制面命令依赖 A 的 API 可用性；client 本地回测须能连 A 的 DB。
   - 须为白名单控制面 service 逐个写远端代理（MVP 先 portfolio；backtest 走命令级 `--remote`）。
   - 长任务（`--remote` 轮询）中途 token 过期须中止 + 提示重登重跑（不假成功）。
+- **数据面写入张力（已接受）**：`result_service`（订单记录 / 净值回写）属**数据面 service**，不走 Selector 代理——client 模式下 B 的引擎**直接写 A 的 DB**，不经控制面 API。代价是 B 可伪造回测结果（无 API 层校验）；接受此权衡是因为结果回写是**高频逐事件批量**（`t1backtest._save_order_record`），走 REST 逐条不可行（读写不对称，见 [[arch_backtest_read_write_asymmetry_forces_remote_compute]]），且默认本地引擎路径是 ADR-024 的核心收益（数据面零代码改）。彻底规避须切 `--remote`（结果由 server worker 落库）。`result_service` 内附带的 code→name 富化是数据面附带的展示元数据，非控制面逻辑泄漏。
 - **诚实限制**：B 持共享 DB 凭据，绕过 CLI 直连做 DDL 无法阻止；拦截是"提高门槛 + 明确意图"。
+  - **API 层 DDL 纵深防御 = MVP 跳过**：§6 设计的「API 拒绝 client 发起 DDL」在 MVP **未实现**——MVP 仅落地 **CLI 层守卫**（`assert_command_allowed_in_client`，拦 `init` / `data migrate`）。API 层拒绝须先界定「client 发起」的判定信号（无 DB 专门账号、JWT 不携带角色标记 client/local），留作 post-MVP。判危险操作拦截当前**只信 CLI 层**，勿假设 API 兜底。
 - **未来扩展**：纯瘦客户端（零本地算、全部提交 server）可作为 `--remote`-by-default 的可选配置，不进 MVP。

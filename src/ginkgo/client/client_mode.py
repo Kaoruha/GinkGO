@@ -10,9 +10,10 @@ API 层作纵深防御（拒绝 client 发起的 DDL）。
 from ginkgo.libs import GCONF
 
 # client 模式禁止的命令（DDL / schema 变更类）。按需扩展。
+# 注意：命令名须对齐实际注册路径（CLI 动态注册，判可用性须实跑——见 arch_ginkgo_cli_dynamic_registration）。
 CLIENT_FORBIDDEN_COMMANDS = {
-    "init",  # create_all_tables（建表 / DDL）
-    # "migrate",  # alembic schema 迁移（当前未注册 CLI；注册后加入此集合）
+    "init",  # ginkgo init：create_all_tables（建表 / DDL）
+    "data migrate",  # ginkgo data migrate --action upgrade/downgrade/revision：alembic schema 迁移（data_cli 已注册）
 }
 
 

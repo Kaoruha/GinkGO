@@ -189,6 +189,12 @@ def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
     if not os.path.exists(ginkgo_dir):
         os.makedirs(ginkgo_dir)
     config_path = os.path.join(ginkgo_dir, "config.yml")
+    # 已存在则跳过（与 write_client_secure 对称）：保护用户安装后用 ``ginkgo config set`` 改过的
+    # api_host/port（重跑 install 不应回退到安装期占位值）。要重新指向 server 用 config set。
+    if os.path.exists(config_path):
+        print(f"[{lightyellow('SKIP')}] config.yml already exists at {lightblue(config_path)} (preserving existing mode + API settings)")
+        print(f"       To repoint server: {green('ginkgo config set api_host <host>')} / {green('ginkgo config set api_port <port>')}")
+        return config_path
     config = {
         "mode": "client",
         "api_host": str(api_host),

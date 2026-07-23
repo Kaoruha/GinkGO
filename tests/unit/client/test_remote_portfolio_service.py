@@ -130,3 +130,54 @@ def test_token_expired_maps_to_failure():
 def test_remote_factory_returns_service():
     svc = _remote_portfolio_service_factory()
     assert isinstance(svc, RemotePortfolioService)
+
+
+def test_fuzzy_search_passes_keyword_returns_modellist():
+    """fuzzy_search 走 list keyword（REST 精确 name 匹配），出口 _ModelList。"""
+    fc = FakeClient(list_items=[_detail_dict()], list_total=1)
+    res = RemotePortfolioService(client=fc).fuzzy_search("p1")
+    assert res.success
+    assert isinstance(res.data, _ModelList)
+    assert res.data[0].uuid == "u1"
+    assert any(c[2] and c[2].get("keyword") == "p1" for c in fc.calls)
+
+
+def test_fuzzy_search_empty_query_returns_empty_no_call():
+    """空 query 不打远端，直接返空 _ModelList。"""
+    fc = FakeClient(list_total=99)
+    res = RemotePortfolioService(client=fc).fuzzy_search("   ")
+    assert res.success
+    assert len(res.data) == 0
+    assert fc.calls == []  # 未触 request_with_meta
+
+
+def test_collect_portfolio_components_maps_detail_arrays():
+    """collect_portfolio_components 从 detail 抽五组件数组，shape 对齐 display_component_tree。"""
+    detail = {
+        "uuid": "u1",
+        "strategies": [{"uuid": "s-uuid-1234", "name": "MA", "type": "strategy", "config": {"fast": 5, "slow": 20}}],
+        "selectors": [],
+        "sizers": [{"uuid": "sz1", "name": "fixed", "config": {"volume": 100}}],
+        "risk_managers": [],
+        "analyzers": [],
+    }
+    fc = FakeClient(detail=detail)
+    res = RemotePortfolioService(client=fc).collect_portfolio_components("u1")
+    assert res.success
+    data = res.data
+    assert set(data.keys()) == {"strategies", "selectors", "sizers", "risk_managers", "analyzers"}
+    strat = data["strategies"][0]
+    # display_component_tree 访问 name / file_id[:8] / parameters[].index|value
+    assert strat["name"] == "MA"
+    assert strat["file_id"] == "s-uuid-1234"
+    assert strat["file_id"][:8] == "s-uuid-1"
+    assert [(p["index"], p["value"]) for p in strat["parameters"]] == [(0, 5), (1, 20)]
+    assert any(c[0] == "GET" and c[1] == "/portfolio/u1" for c in fc.calls)
+
+
+def test_collect_portfolio_components_non_dict_returns_empty_contract():
+    """detail 非 dict（如 None）时返五空数组契约，不崩。"""
+    fc = FakeClient(detail=None)
+    res = RemotePortfolioService(client=fc).collect_portfolio_components("u1")
+    assert res.success
+    assert res.data == {"strategies": [], "selectors": [], "sizers": [], "risk_managers": [], "analyzers": []}

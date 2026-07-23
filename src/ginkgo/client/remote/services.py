@@ -17,7 +17,7 @@ service 的 ``ServiceResult`` 契约（DataFrame / 可属性访问对象），�
 """
 
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import pandas as pd
 
@@ -54,7 +54,11 @@ class _ModelList(list):
 def _map_detail_to_namespace(data: Any) -> Optional[SimpleNamespace]:
     """REST ``GET /portfolio/{uuid}`` detail dict → CLI 期望属性的 namespace。
 
-    补齐 CLI 直接访问的字段：``initial_capital``/``current_capital``/``cash``/``is_live``。
+    强制补齐 CLI 直接访问的字段 ``initial_capital``/``current_capital``/``cash``/``desc``/``is_live``：
+    缺值给安全默认（数值 0.0 / 空串），避免 ``portfolio.desc`` / ``portfolio.initial_capital``
+    访问不存在属性致 ``AttributeError``（CLI ``get``/``status`` 一跑即崩）。REST 用
+    ``initial_cash``/``current_cash`` 命名，list 端点 items 全无这些字段且无 desc →
+    uuid 与 name 两路径都可能缺，统一 ``setdefault`` 兜底。
     """
     if not isinstance(data, dict):
         return _to_ns(data) if data is not None else None
@@ -63,16 +67,14 @@ def _map_detail_to_namespace(data: Any) -> Optional[SimpleNamespace]:
     current_cash = data.get("current_cash")
     mode_str = data.get("mode")
     merged = dict(data)
-    # CLI get/status 读 initial_capital / current_capital / cash
-    if "initial_capital" not in merged and initial_cash is not None:
-        merged["initial_capital"] = initial_cash
-    if "current_capital" not in merged and current_cash is not None:
-        merged["current_capital"] = current_cash
-    if "cash" not in merged and current_cash is not None:
-        merged["cash"] = current_cash
+    # CLI get/status 格式串 ``:,.2f`` 拒 None（TypeError），故数值缺值默认 0.0。
+    merged.setdefault("initial_capital", float(initial_cash) if initial_cash is not None else 0.0)
+    merged.setdefault("current_capital", float(current_cash) if current_cash is not None else 0.0)
+    merged.setdefault("cash", float(current_cash) if current_cash is not None else 0.0)
+    # CLI get 读 desc：REST detail/list 均不返 desc/description → 默认空串（容错展示）。
+    merged.setdefault("desc", merged.get("description") or "")
     # CLI status 读 is_live（REST 用 mode 字符串推导）
-    if "is_live" not in merged:
-        merged["is_live"] = str(mode_str).lower() == "live"
+    merged.setdefault("is_live", str(mode_str).lower() == "live")
     return _to_ns(merged)
 
 
@@ -204,6 +206,79 @@ class RemotePortfolioService(RemoteService):
         try:
             self._client.delete(f"{self.resource}/{portfolio_id}")
             return self._ok(None, "Portfolio deleted (remote)")
+        except Exception as e:
+            return self._fail(e)
+
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None,
+        **kwargs,
+    ) -> ServiceResult:
+        """``PortfolioService.fuzzy_search`` (#5995) 的远端代理。
+
+        REST ``GET /portfolio?keyword=`` 当前是 **精确 name 匹配**（``filters["name"]=keyword``），
+        非 LIKE 片段；故本代理仅覆盖「精确名称命中」，UUID 片段 / 名称部分模糊需 server 端
+        keyword 改 LIKE（后续工作）。补此方法让命令体（如 ``resolve_portfolio_uuid``）在
+        client 模式不再 ``AttributeError``，名称解析可用。出口为 ``_ModelList``（元素含 ``uuid``）。
+        """
+        try:
+            if not query or not str(query).strip():
+                return self._ok(_ModelList([]), "Empty query (remote)")
+            items, _ = self._client.request_with_meta(
+                "GET", self.resource, params={"keyword": str(query), "page_size": 100}
+            )
+            ns_list = [_map_detail_to_namespace(i) for i in (items or [])]
+            return self._ok(_ModelList(ns_list), f"{len(ns_list)} match(es) (remote)")
+        except Exception as e:
+            return self._fail(e)
+
+    def collect_portfolio_components(self, portfolio_id: str, **kwargs) -> ServiceResult:
+        """``PortfolioService.collect_portfolio_components`` 的远端代理。
+
+        REST ``GET /portfolio/{uuid}`` detail 响应已内含组件装配（strategies/selectors/sizers/
+        risk_managers/analyzers 五数组，见 ``api/api/portfolio.py::get_portfolio``），直接抽取
+        映射回本地 service 的 dict 契约。元素 shape 对齐 ``display_component_tree`` 的字段访问
+        （``name`` / ``file_id`` 字符串 / ``parameters=[{index, value}]``）；REST 用 ``uuid``/
+        ``config``，做一层归一。
+        """
+        try:
+            detail = self._client.get(f"{self.resource}/{portfolio_id}")
+            if not isinstance(detail, dict):
+                return self._ok(
+                    {"strategies": [], "selectors": [], "sizers": [], "risk_managers": [], "analyzers": []},
+                    "No component data (remote)",
+                )
+
+            def _shape(items):
+                shaped = []
+                for elem in (items or []):
+                    if not isinstance(elem, dict):
+                        continue
+                    config = elem.get("config") or {}
+                    params = [
+                        {"index": idx, "value": val, "raw_value": val}
+                        for idx, (_k, val) in enumerate(config.items())
+                    ]
+                    shaped.append(
+                        {
+                            "name": str(elem.get("name") or ""),
+                            "file_id": str(elem.get("uuid") or ""),
+                            "type": elem.get("type"),
+                            "mapping_uuid": elem.get("mapping_uuid"),
+                            "parameters": params,
+                        }
+                    )
+                return shaped
+
+            component_data = {
+                "strategies": _shape(detail.get("strategies")),
+                "selectors": _shape(detail.get("selectors")),
+                "sizers": _shape(detail.get("sizers")),
+                "risk_managers": _shape(detail.get("risk_managers")),
+                "analyzers": _shape(detail.get("analyzers")),
+            }
+            return self._ok(component_data, "Components collected (remote)")
         except Exception as e:
             return self._fail(e)
 

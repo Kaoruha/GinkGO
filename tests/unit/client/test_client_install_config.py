@@ -143,3 +143,20 @@ def test_write_client_secure_skips_if_exists(install_mod, ginkgo_dir):
     sec = yaml.safe_load((ginkgo_dir / "secure.yml").read_text())
     assert sec["database"]["mysql"]["host"] == "kept.host"  # 未被 repoint
     assert sec["database"]["mysql"]["username"] == "real"  # 未被覆盖
+
+
+def test_write_client_config_skips_if_exists(install_mod, ginkgo_dir):
+    """已存在 config.yml 则跳过、不覆盖——保护用户安装后用 ``config set`` 改过的 api_host/port。
+
+    与 ``write_client_secure`` 对称：重跑 install 不应把 api_host 回退到安装期占位值。
+    要重新指向 server 用 ``ginkgo config set api_host <host>``。
+    """
+    pre = "mode: client\napi_host: user.set.host\napi_port: '9999'\napi_tls: 'false'\n"
+    (ginkgo_dir / "config.yml").write_text(pre)
+
+    install_mod.write_client_config(str(ginkgo_dir), "install.default.host", "8000", False)
+
+    cfg = yaml.safe_load((ginkgo_dir / "config.yml").read_text())
+    assert cfg["api_host"] == "user.set.host"  # 未被回退
+    assert cfg["api_port"] == "9999"
+    assert cfg["mode"] == "client"
