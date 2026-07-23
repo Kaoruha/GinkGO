@@ -97,7 +97,8 @@ services:
     environment:
       <<: *worker-env
       # api-server 特有: Settings() 在生产(DEBUG=False)硬拒绝默认 SECRET_KEY(#5464)
-      SECRET_KEY: ${SECRET_KEY}
+      # :? 守卫: .env 漏配 SECRET_KEY 时 compose 启动即失败, 避免空串静默绕过 #5464 validator
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set via environment}
       DEBUG: ${DEBUG:-False}
       # bind mount 宿主 ~/.ginkgo(开发机 config debug=True, 连 Test 实例宿主 13306) 致
       # GCONF.DEBUGMODE=True → MYSQLPORT 端口首位+1(3306→13306, config.py:584);
