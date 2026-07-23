@@ -560,7 +560,7 @@ class TestPortfolioDelete:
         result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001", "--confirm"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
-        mock_service.delete.assert_called_once_with("portfolio-uuid-001")
+        mock_service.delete.assert_called_once_with("portfolio-uuid-001", dry_run=False)
 
     def test_delete_missing_confirm(self, cli_runner):
         """缺少 --confirm 时拒绝删除"""
@@ -584,7 +584,7 @@ class TestPortfolioDelete:
         result = cli_runner.invoke(portfolio_cli.app, ["delete", "deploy_test", "--confirm"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
-        mock_service.delete.assert_called_once_with("resolved-uuid-999")
+        mock_service.delete.assert_called_once_with("resolved-uuid-999", dry_run=False)
 
     @patch("ginkgo.data.containers.container")
     def test_delete_by_partial_uuid_fuzzy(self, mock_container, cli_runner):
@@ -601,7 +601,7 @@ class TestPortfolioDelete:
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
         mock_service.fuzzy_search.assert_called_once_with("deadbeef")
-        mock_service.delete.assert_called_once_with("deadbeefdeadbeefdeadbeefdeadbeef")
+        mock_service.delete.assert_called_once_with("deadbeefdeadbeefdeadbeefdeadbeef", dry_run=False)
 
     @patch("ginkgo.data.containers.container")
     def test_delete_ambiguous_fuzzy_rejected(self, mock_container, cli_runner):
@@ -658,7 +658,7 @@ class TestPortfolioDelete:
         result = cli_runner.invoke(portfolio_cli.app, ["delete", "portfolio-uuid-001", "-y"])
         assert result.exit_code == 0
         assert "deleted successfully" in result.output
-        mock_service.delete.assert_called_once_with("portfolio-uuid-001")
+        mock_service.delete.assert_called_once_with("portfolio-uuid-001", dry_run=False)
 
 
 # ============================================================================

@@ -301,9 +301,12 @@ def _validate_system_health() -> dict:
 
     return health_status
 
-def _cleanup_invalid_data() -> dict:
+def _cleanup_invalid_data(dry_run: bool = False) -> dict:
     """
     清理系统中的无效数据，包括孤立映射、孤立参数、死任务等
+
+    Args:
+        dry_run: 仅统计将清理数量，不实际删除（透传给各 cleanup 方法）
 
     Returns:
         dict: 清理结果统计
@@ -314,25 +317,27 @@ def _cleanup_invalid_data() -> dict:
         "services_cleaned": [],
         "services_failed": [],
         "warnings": [],
-        "details": {}
+        "details": {},
+        "dry_run": dry_run,
     }
 
     try:
-        console.print(":broom: Cleaning invalid data...")
+        action_word = "Previewing" if dry_run else "Cleaning"
+        console.print(f":broom: {action_word} invalid data{' (dry-run)' if dry_run else ''}...")
         from ginkgo.data.containers import container
         from ginkgo.libs import GLOG
 
         # 1. 清理孤立的映射关系 (高优先级)
         try:
             mapping_service = container.mapping_service()
-            result = mapping_service.cleanup_orphaned_mappings()
+            result = mapping_service.cleanup_orphaned_mappings(dry_run=dry_run)
             if result.success:
                 count = result.data.get("cleaned_count", 0)
                 cleanup_result["cleaned_count"] += count
                 cleanup_result["services_cleaned"].append("mapping_service")
                 cleanup_result["details"]["mappings"] = count
                 if count > 0:
-                    console.print(f":white_check_mark: Cleaned {count} orphaned mappings")
+                    console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} orphaned mappings")
             else:
                 cleanup_result["warnings"].append(f"Mapping cleanup: {result.error}")
         except Exception as e:
@@ -342,14 +347,14 @@ def _cleanup_invalid_data() -> dict:
         # 2. 清理孤立的参数 (高优先级)
         try:
             param_service = container.param_service()
-            result = param_service.cleanup_orphaned_params()
+            result = param_service.cleanup_orphaned_params(dry_run=dry_run)
             if result.success:
                 count = result.data.get("deleted_count", 0)
                 cleanup_result["cleaned_count"] += count
                 cleanup_result["services_cleaned"].append("param_service")
                 cleanup_result["details"]["params"] = count
                 if count > 0:
-                    console.print(f":white_check_mark: Cleaned {count} orphaned parameters")
+                    console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} orphaned parameters")
             else:
                 cleanup_result["warnings"].append(f"Param cleanup: {result.error}")
         except Exception as e:
@@ -359,10 +364,10 @@ def _cleanup_invalid_data() -> dict:
         # 3. 清理Redis死任务 (中优先级)
         try:
             redis_service = container.redis_service()
-            count = redis_service.cleanup_dead_tasks(max_idle_time=3600)
+            count = redis_service.cleanup_dead_tasks(max_idle_time=3600, dry_run=dry_run)
             cleanup_result["cleaned_count"] += count
             if count > 0:
-                console.print(f":white_check_mark: Cleaned {count} dead tasks")
+                console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} dead tasks")
         except Exception as e:
             cleanup_result["warnings"].append(f"Redis cleanup error: {str(e)}")
             GLOG.WARN(f"Redis cleanup failed: {e}")
@@ -370,10 +375,10 @@ def _cleanup_invalid_data() -> dict:
         # 4. 清理过期函数缓存 (中优先级)
         try:
             redis_service = container.redis_service()
-            count = redis_service.cleanup_expired_function_cache()
+            count = redis_service.cleanup_expired_function_cache(dry_run=dry_run)
             cleanup_result["cleaned_count"] += count
             if count > 0:
-                console.print(f":white_check_mark: Cleaned {count} expired cache entries")
+                console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} expired cache entries")
         except Exception as e:
             cleanup_result["warnings"].append(f"Cache cleanup error: {str(e)}")
             GLOG.WARN(f"Cache cleanup failed: {e}")
@@ -381,14 +386,14 @@ def _cleanup_invalid_data() -> dict:
         # 5. 清理旧的信号追踪记录 (低优先级)
         try:
             signal_service = container.signal_tracking_service()
-            result = signal_service.cleanup(days_to_keep=30)
+            result = signal_service.cleanup(days_to_keep=30, dry_run=dry_run)
             if result.success:
                 count = result.data
                 cleanup_result["cleaned_count"] += count
                 cleanup_result["services_cleaned"].append("signal_tracking_service")
                 cleanup_result["details"]["signals"] = count
                 if count > 0:
-                    console.print(f":white_check_mark: Cleaned {count} old signal records")
+                    console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} old signal records")
             else:
                 cleanup_result["warnings"].append(f"Signal cleanup: {result.error}")
         except Exception as e:
@@ -399,20 +404,22 @@ def _cleanup_invalid_data() -> dict:
         try:
             from ginkgo.data.streaming import CheckpointManager
             checkpoint_manager = CheckpointManager()
-            count = checkpoint_manager.cleanup_expired_checkpoints()
+            count = checkpoint_manager.cleanup_expired_checkpoints(dry_run=dry_run)
             cleanup_result["cleaned_count"] += count
             if count > 0:
-                console.print(f":white_check_mark: Cleaned {count} expired checkpoints")
+                console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'} {count} expired checkpoints")
         except Exception as e:
             cleanup_result["warnings"].append(f"Checkpoint cleanup error: {str(e)}")
             GLOG.WARN(f"Checkpoint cleanup failed: {e}")
 
         # 显示清理摘要
         if cleanup_result["cleaned_count"] > 0:
+            outcome = "preview" if dry_run else "completed"
+            verb = "to clean" if dry_run else "cleaned"
             if cleanup_result["warnings"]:
-                console.print(f":information: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned, {len(cleanup_result['warnings'])} warnings")
+                console.print(f":information: Cleanup {outcome}: {cleanup_result['cleaned_count']} items {verb}, {len(cleanup_result['warnings'])} warnings")
             else:
-                console.print(f":white_check_mark: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+                console.print(f":white_check_mark: Cleanup {outcome}: {cleanup_result['cleaned_count']} items {verb}")
         else:
             console.print(":information: No invalid data found, system is clean")
 
@@ -420,7 +427,7 @@ def _cleanup_invalid_data() -> dict:
             for warning in cleanup_result["warnings"]:
                 console.print(f":warning: {warning}")
 
-        GLOG.INFO(f"Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+        GLOG.INFO(f"Cleanup {'preview' if dry_run else 'completed'}: {cleanup_result['cleaned_count']} items")
 
     except Exception as e:
         cleanup_result["success"] = False
@@ -428,6 +435,27 @@ def _cleanup_invalid_data() -> dict:
         GLOG.ERROR(f"Cleanup failed: {e}")
 
     return cleanup_result
+
+def cleanup(
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="跳过确认提示")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="仅预览将清理的数量，不实际删除")] = False,
+):
+    """
+    :broom: 清理孤儿数据：废弃的绑定关系（映射）、孤立参数、Redis 死任务、过期缓存、旧信号记录、过期断点。
+
+    默认二次确认；--yes 跳过确认；--dry-run 仅预览不删除（预览无需确认）。
+    """
+    if dry_run:
+        console.print(":information: Dry-run 模式：仅统计，不删除任何数据")
+    elif not yes:
+        if not typer.confirm("即将清理孤儿数据（映射/参数/死任务/缓存/旧信号/断点），是否继续？"):
+            console.print(":x: 已取消")
+            raise typer.Exit(1)
+
+    result = _cleanup_invalid_data(dry_run=dry_run)
+    if not result["success"]:
+        raise typer.Exit(1)
+
 
 def get(
     data_type: Annotated[DataType, typer.Argument(help="Data type to fetch")],

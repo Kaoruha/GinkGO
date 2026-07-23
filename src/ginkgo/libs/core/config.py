@@ -569,9 +569,17 @@ class GinkgoConfig(object):
         """ClickHouse 端口（核心基础设施，有默认值）"""
         self._ensure_env_vars()
         port = os.environ.get("GINKGO_CLICKHOUSE_PORT", "8123")
-        # DEBUG 模式：端口首位 +1（例如 8123 -> 18123）
-        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
-        if self.DEBUGMODE and not str(port).startswith("1"):
+        # DEBUG 模式端口首位 +1 是"宿主机经 Docker 映射端口访问 test 实例"的约定
+        # （Master 内部 8123 / Test 宿主映射 18123，见 ADR-004）。仅宿主客户端适用；
+        # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
+        # 致 DataWorker 连 clickhouse-test:18123 ECONNREFUSED → 停滞。详见 ADR-024。
+        # 惰性 import 规避 config ↔ log_utils 包初始化循环。
+        from ginkgo.libs.utils.log_utils import is_container_environment
+        if (
+            self.DEBUGMODE
+            and not is_container_environment()
+            and not str(port).startswith("1")
+        ):
             port = f"1{port}"
         return int(port)
 
@@ -580,9 +588,18 @@ class GinkgoConfig(object):
         """MySQL 端口（核心基础设施，有默认值）"""
         self._ensure_env_vars()
         port = os.environ.get("GINKGO_MYSQL_PORT", "3306")
-        # DEBUG 模式：端口首位 +1（例如 3306 -> 13306）
-        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
-        if self.DEBUGMODE and not str(port).startswith("1"):
+        # DEBUG 模式端口首位 +1 是"宿主机经 Docker 映射端口访问 test 实例"的约定
+        # （Master 内部 3306 / Test 宿主映射 13306，见 ADR-004）。仅宿主客户端适用；
+        # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
+        # 致 TaskTimer 连 mysql-test:13306 ECONNREFUSED → health_check 失败 →
+        # _get_all_stock_codes 返空 → bar_snapshot "No stocks found" 停滞 8.5 月。
+        # 详见 ADR-024。惰性 import 规避 config ↔ log_utils 包初始化循环。
+        from ginkgo.libs.utils.log_utils import is_container_environment
+        if (
+            self.DEBUGMODE
+            and not is_container_environment()
+            and not str(port).startswith("1")
+        ):
             port = f"1{port}"
         return int(port)
 

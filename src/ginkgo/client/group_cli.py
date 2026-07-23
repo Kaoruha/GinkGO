@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich import print as rprint
+from ginkgo.client.cli_utils import announce_dry_run
 
 app = typer.Typer(help=":people_hugging: User group management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -200,6 +201,7 @@ def cat_group(
 def delete_group(
     group_uuid: str = typer.Argument(..., help="Group UUID"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview deletion scope without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete a group (cascades to user mappings).
@@ -209,6 +211,14 @@ def delete_group(
     """
     try:
         from ginkgo.data.containers import container
+
+        if dry_run:
+            announce_dry_run(f"删除 group {group_uuid}", console=console)
+            console.print(
+                f"[cyan]:eye: Would delete group {group_uuid} "
+                f"(cascades to user mappings).[/cyan]"
+            )
+            return
 
         if not confirm:
             confirm_delete = typer.confirm(f"Are you sure you want to delete group {group_uuid}?")
@@ -319,6 +329,7 @@ def add_user_to_group(
 def remove_user_from_group(
     user_uuid: Optional[str] = typer.Option(None, "--user", "-u", help="User UUID"),
     group_uuid: Optional[str] = typer.Option(None, "--group", "-g", help="Group UUID"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without removing (no mapping deleted)"),
 ):
     """
     :minus: Remove a user from a group.
@@ -377,6 +388,12 @@ def remove_user_from_group(
             sys.exit(0)
 
         group_service = container.user_group_service()
+        if dry_run:
+            announce_dry_run(f"从 group {group_uuid} 移除 user {user_uuid}", console=console)
+            console.print(
+                f"[cyan]:eye: Would remove user {user_uuid} from group {group_uuid}.[/cyan]"
+            )
+            return
         result = group_service.remove_user_from_group(user_uuid, group_uuid)
 
         if result.success:

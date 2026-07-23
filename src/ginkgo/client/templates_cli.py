@@ -16,6 +16,7 @@ from rich import print as rprint
 from rich.syntax import Syntax
 import json
 from ginkgo.libs import GLOG
+from ginkgo.client.cli_utils import announce_dry_run
 
 app = typer.Typer(help=":memo: Notification template management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -297,6 +298,7 @@ def update_template(
 def delete_template(
     template_id: str = typer.Argument(..., help="Template ID"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete a template (soft delete).
@@ -315,6 +317,12 @@ def delete_template(
         if not existing:
             console.print(f"[red]:x: Template not found: {template_id}[/red]")
             raise typer.Exit(1)
+
+        # dry-run：预览后返回（目标存在性已校验）
+        if dry_run:
+            announce_dry_run(f"删除 template {template_id}", console=console)
+            console.print(f"[cyan]:eye: Would delete template '{template_id}'.[/cyan]")
+            return
 
         # Confirm deletion
         if not confirm:
