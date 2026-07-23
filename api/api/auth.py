@@ -183,7 +183,9 @@ async def refresh_token(req: Request):
     - jose decode 带 60s leeway，允许刚过 exp 的边界 token（应对时钟漂移）；
       过期超过 leeway → 401，client 须重新 ``login``。
     - 仍校验黑名单（logout/改密码撤销的 token 不能 refresh）。
-    - 重签保留 user_uuid/credential_uuid/username/is_admin，新 jti/exp。
+    - #5899: is_active/is_admin 从 DB 实查（与 /auth/verify、/auth/me 一致），不信任
+      payload；否则被禁用用户 / 被降权管理员可借每次 refresh 无限续期原权限。
+    - 重签保留 user_uuid/credential_uuid/username + DB-fresh is_admin，新 jti/exp。
 
     注：MVP 不在 refresh 时把旧 token 加入黑名单（旧 token 自然将过期）；
     未来可做 token rotation 强撤销。
@@ -198,8 +200,9 @@ async def refresh_token(req: Request):
 
     try:
         # leeway=60s：允许刚过 exp 的边界 token，应对 client/server 时钟漂移。
+        # python-jose 的 leeway 走 options（不是顶层 kwarg），否则 TypeError。
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"], leeway=60
+            token, settings.SECRET_KEY, algorithms=["HS256"], options={"leeway": 60}
         )
     except JWTError:
         raise HTTPException(
@@ -214,10 +217,45 @@ async def refresh_token(req: Request):
             detail="Token has been revoked",
         )
 
+    # #5899: is_active / is_admin 从 DB 实查（与 /auth/verify、/auth/me 一致），
+    # 不信任 JWT payload 中的值 —— 黑名单只覆盖 logout/改密码，不覆盖 disable/demote。
+    user_uuid = payload.get("user_uuid")
+    if not user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid; please login again",
+        )
+    is_admin = False
+    try:
+        svc = get_user_service()
+        credential = svc.get_credential(user_uuid)
+        if credential is None:
+            # 凭据/用户已删除 —— 不发新 token
+            logger.warning(f"Refresh denied: credential not found, user={user_uuid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account no longer exists",
+            )
+        if not credential.is_active:
+            # 账户已禁用 —— 不发新 token，强制重新登录（登录入口会 403）
+            logger.warning(f"Refresh denied: account disabled, user={user_uuid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled",
+            )
+        is_admin = credential.is_admin
+    except HTTPException:
+        raise
+    except Exception as e:
+        # #5899: fail-closed —— DB 不可用时 is_admin=False（不传播 payload 中的旧值），
+        # 与 /auth/verify、/auth/me 一致。
+        logger.warning(f"#5899: DB query failed for refresh, user={user_uuid}: {e}")
+
     new_data = {
-        k: payload[k]
-        for k in ("user_uuid", "credential_uuid", "username", "is_admin")
-        if k in payload
+        "user_uuid": user_uuid,
+        "credential_uuid": payload.get("credential_uuid"),
+        "username": payload.get("username"),
+        "is_admin": is_admin,
     }
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     new_token = create_access_token(new_data, access_token_expires)
