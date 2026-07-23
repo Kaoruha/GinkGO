@@ -91,8 +91,25 @@
 ### ITER-000 (2026-07-24) — Bootstrap
 - 消化前置研究语料（Explore 子代理）；查明生产库数据完整（§3）。
 - 建立本载体 + 探索协议 + 任务清单。
-- **未跑回测**。下轮起进入 ITER-001。
-- **待办**：复现 A1（momentum on 601899.SH）做 ≥3 连跑 + 2024–2026 窗口 OOS。
+
+### ITER-001 (2026-07-24) — 复现 A1 + 隔离非确定性（**进行中**）
+
+**配置**：`momentum(lookback=10, threshold=0.022) + FixedSelector(601899.SH) + RatioSizer(0.8) + LossLimitRisk(10%)`
+Portfolio `badbea37d8fd4250bbf07706ca6c56a5`
+
+**G5 出场规则过堂**：进场 `momentum>0.022 且空仓→LONG`；出场 ① `momentum<-0.022 且持仓→SHORT`（反转）② `亏损>10%→卖`（止损）。✅ 有规则出场。
+
+**验证回测（3 月 2026-04~07，生产 Master 库）** BT `9e5682914e404aa0ab074352a73de050`：
+55s ｜ Final 103389(+3.39%) ｜ **年化 9.78%** ｜ Sharpe 1.15 ｜ MaxDD 2.14% ｜ 胜率 0.50 ｜ Signal 7 / Order 6。
+✅ G1（生产可跑）+ G5 验证通过，组件装配正确。
+
+**超时事故 + CLI 缺口**：全 3.5 年 run1（BT `a71978d9…`）前台 8min 超时被杀（exit 143），**卡 running 70% 不可恢复**（`feedback_backtest_run_sync_timeout` 陷阱）。
+- `ginkgo backtest` 有 `delete`（软删）但**无 `cancel`/`reset`/`abort`**——卡死任务无法恢复（待 /to-issues）。
+- `backtest run` 有 `-bg`（后台线程）选项，异步能力存在；但前台同步默认 + 无超时保护，长窗口（>8min）前台必死。
+
+**改 2 年窗口后台 3 连跑**（2024-07-20~2026-07-20，bg `bi37qu1jg`，marker `iter001_bg_running`）：
+~7min/次、~21min 总，后台跑不被 kill。窗口取近 2 年（贴近 live regime，比 A1 3 年更快）。
+- **待回填**：3 次年化/Sharpe/maxDD 极差 → 量化非确定性。
 
 ---
 
@@ -104,7 +121,8 @@
 
 ## 8. 下一步（队列）
 
-1. **ITER-001**：`ginkgo debug off` → 复现 A1 momentum on 601899.SH，3 年窗口连跑 3 次取中位（隔离非确定性）。
+1. **ITER-001（进行中）**：2 年窗口后台 3 连跑（bg `bi37qu1jg`）完成后回填极差，量化非确定性。
 2. **ITER-002**：A1 走 walk-forward（2023 训练 → 2024–2026 OOS），验 G2/G4。
 3. **ITER-003**：动态 selector（momentum 扫描全市场）首试——真正无后视路径。
 4. **路径**：每出一个 G2 达标候选，立即验模拟盘 deploy 是否仍丢绑定（§5），是则 `/to-issues`。
+5. **CLI 缺口待提**：`backtest` 缺 cancel/reset（卡死任务不可恢复）；长窗口无超时保护。
