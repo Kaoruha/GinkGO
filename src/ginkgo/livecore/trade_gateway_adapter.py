@@ -186,18 +186,15 @@ class TradeGatewayAdapter(Thread):
         self.total_orders += 1
 
         try:
-            # 构造Order对象
-            order = Order(
-                portfolio_id=order_data['portfolio_id'],
-                engine_id=order_data.get('engine_id', 'live_engine'),
-                task_id=order_data.get('task_id', 'live_run'),
-                code=order_data['code'],
-                direction=DIRECTION_TYPES(order_data['direction']),
-                order_type=ORDER_TYPES.LIMITORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=order_data['volume'],
-                limit_price=order_data['limit_price']
-            )
+            # ADR-025 第②步: raw dict → OrderSubmissionDTO (model_validate β 校验)
+            # → MessageMapper.submission_to_order 构造骨架 Order。
+            # 修正旧 drift: DTO 无 limit_price 字段, 旧代码 order_data['limit_price'] 必 KeyError;
+            # 正解 limit_price 取 dto.price (见 MessageMapper.submission_to_order)。
+            from ginkgo.interfaces.dtos import OrderSubmissionDTO
+            from ginkgo.interfaces.mappers import MessageMapper
+
+            dto = MessageMapper.decode(order_data, OrderSubmissionDTO)
+            order = MessageMapper.submission_to_order(dto)
 
             # 提交到TradeGateway（同步，确认提交）
             # TODO: Phase 3调用TradeGateway.submit_order()

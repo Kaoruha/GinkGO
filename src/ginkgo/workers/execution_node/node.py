@@ -89,6 +89,12 @@ class ExecutionNode:
         # Kafka生产者（订单提交）
         self.order_producer = GinkgoProducer()
 
+        # ADR-025 第②步: 已提交待 feedback 的 Order 注册表 (uuid → Order)。
+        # 提交订单后注册, feedback 回来按 order_id 取原 Order 注入
+        # MessageMapper.feedback_to_event; pop None = 非本节点提交 → GLOG.ERROR 响亮丢弃。
+        # (Mapper 不碰 CRUD/DB, consumer 内存态是唯一 Order 来源。)
+        self._pending_orders = {}
+
         # 运行状态（同时存储到Redis）
         self.is_running = False
         self.is_paused = False
@@ -822,12 +828,13 @@ class ExecutionNode:
         消费市场数据线程（单线程快速消费和路由）
 
         线程职责：
-        1. 从Kafka快速消费EventPriceUpdate消息
+        1. 从Kafka快速消费 PriceUpdateDTO → EventPriceUpdate (ADR-025 第②步经 MessageMapper)
         2. 查询InterestMap获取订阅该股票的Portfolio列表
         3. 非阻塞分发消息到各PortfolioProcessor的Queue
         4. 消息成功放入队列后立即提交 offset
         """
-        from ginkgo.trading.events.price_update import EventPriceUpdate
+        from ginkgo.interfaces.dtos import PriceUpdateDTO
+        from ginkgo.interfaces.mappers import MessageMapper
 
         GLOG.INFO(f"Market data consumer thread started for node {self.node_id}")
 
@@ -851,23 +858,22 @@ class ExecutionNode:
                     if self.is_paused:
                         break
 
-                    event_data = message.value
+                    raw = message.value
 
                     # T069/T070: 恢复分布式追踪上下文（从 PriceUpdateDTO 的 trace_id/span_id）
-                    trace_id = event_data.get('trace_id')
-                    span_id = event_data.get('span_id')
+                    trace_id = raw.get('trace_id')
+                    span_id = raw.get('span_id')
                     if trace_id:
                         GLOG.set_trace_id(trace_id)
                     if span_id:
                         GLOG.set_span_id(span_id)
 
-                    # 解析EventPriceUpdate
-                    event = EventPriceUpdate(
-                        code=event_data['code'],
-                        timestamp=datetime.fromisoformat(event_data['timestamp']),
-                        price=event_data['price'],
-                        volume=event_data.get('volume', 0)
-                    )
+                    # ADR-025 第②步: raw dict → PriceUpdateDTO (model_validate β 校验)
+                    # → EventPriceUpdate(payload=Bar)。
+                    # 消灭旧死路径: EventPriceUpdate(code=.., price=..) 既读错字段
+                    # (生产端发 symbol 非 code) 又传错签名 (要 payload=Bar)。
+                    dto = MessageMapper.decode(raw, PriceUpdateDTO)
+                    event = MessageMapper.price_update_to_event(dto)
 
                     # 路由到对应的Portfolio
                     self._route_event_to_portfolios(event)
@@ -878,13 +884,22 @@ class ExecutionNode:
 
             except Exception as e:
                 if self.is_running:
+                    # ADR-025 §3 严格模式: 失败响亮报错 (不再 sleep 静默吞)
+                    GLOG.ERROR(
+                        f"Market data consume error for node {self.node_id}: {e}"
+                    )
                     time.sleep(1)  # 消费异常时延迟
 
         GLOG.INFO(f"Market data consumer thread stopped for node {self.node_id}")
 
     def _consume_order_feedback(self):
-        """消费订单回报线程 - 消息成功放入队列后立即提交 offset"""
-        from ginkgo.trading.events.order_lifecycle_events import EventOrderPartiallyFilled
+        """消费订单回报线程 - 消息成功放入队列后立即提交 offset
+
+        ADR-025 第②步: raw dict → OrderFeedbackDTO (model_validate β 校验)
+        → 取回本节点提交的原 Order → MessageMapper.feedback_to_event → EventOrderPartiallyFilled。
+        """
+        from ginkgo.interfaces.dtos import OrderFeedbackDTO
+        from ginkgo.interfaces.mappers import MessageMapper
 
         GLOG.INFO(f"Order feedback consumer thread started for node {self.node_id}")
 
@@ -908,22 +923,34 @@ class ExecutionNode:
                     if self.is_paused:
                         break
 
-                    event_data = message.value
+                    raw = message.value
 
-                    # 解析EventOrderPartiallyFilled
-                    event = EventOrderPartiallyFilled(
-                        order_id=event_data['order_id'],
-                        code=event_data['code'],
-                        timestamp=datetime.fromisoformat(event_data['timestamp']),
-                        direction=event_data['direction'],
-                        filled_volume=event_data['filled_volume'],
-                        filled_price=event_data['filled_price']
-                    )
+                    # ADR-025 第②步: raw dict → OrderFeedbackDTO (model_validate 校验)
+                    dto = MessageMapper.decode(raw, OrderFeedbackDTO)
+
+                    # 取回本节点提交的原 Order (consumer 内存注册表, Mapper 不碰 CRUD/DB)。
+                    # pop None = 非本节点提交 / 进程重启后丢失 → 响亮丢弃, 不伪造骨架 Order。
+                    order = self._pending_orders.pop(dto.order_id, None)
+                    if order is None:
+                        GLOG.ERROR(
+                            f"Order feedback for {dto.order_id} has no matching "
+                            f"pending order on node {self.node_id}; dropping "
+                            f"(code={dto.code}, filled={dto.filled_quantity}@{dto.fill_price})"
+                        )
+                        self.order_feedback_consumer.commit()
+                        continue
+
+                    event = MessageMapper.feedback_to_event(dto, order)
 
                     # 路由到对应的Portfolio
-                    portfolio_id = event_data.get('portfolio_id')
+                    portfolio_id = dto.portfolio_id
                     if portfolio_id and portfolio_id in self.portfolios:
                         self.input_queues[portfolio_id].put(event)
+                    else:
+                        GLOG.WARN(
+                            f"Order feedback portfolio {portfolio_id} not in node "
+                            f"{self.node_id} portfolios; event {dto.order_id} dropped"
+                        )
 
                     # 消息成功放入队列后立即提交 offset
                     # 此时消息已经在 ExecutionNode 的内存中，不会丢失（除非进程崩溃）
@@ -931,6 +958,10 @@ class ExecutionNode:
 
             except Exception as e:
                 if self.is_running:
+                    # ADR-025 §3 严格模式: 失败响亮报错 (不再 sleep 静默吞)
+                    GLOG.ERROR(
+                        f"Order feedback consume error for node {self.node_id}: {e}"
+                    )
                     time.sleep(1)  # 消费异常时延迟
 
         GLOG.INFO(f"Order feedback consumer thread stopped for node {self.node_id}")
@@ -1071,6 +1102,9 @@ class ExecutionNode:
                         # 发送到Kafka
                         success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_dto.model_dump())
                         if success:
+                            # ADR-025 第②步: 注册待 feedback 的原 Order,
+                            # feedback 回来按 order_id 取回注入 MessageMapper.feedback_to_event。
+                            self._pending_orders[str(event.uuid)] = event
                             GLOG.INFO(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:
                             GLOG.ERROR(f"[ERROR] Failed to send order {event.uuid} to Kafka")
