@@ -20,6 +20,8 @@ from pathlib import Path
 
 class GinkgoConfig(object):
     _instance_lock = threading.Lock()
+    # #6756: 启动期集群一致性护栏幂等标志（断言+横幅只执行一次）
+    _cluster_guard_done = False
 
     def __new__(cls, *args, **kwargs) -> object:
         if not hasattr(GinkgoConfig, "_instance"):
@@ -550,13 +552,50 @@ class GinkgoConfig(object):
     def CLICKHOST(self) -> str:
         """ClickHouse 主机（核心基础设施，有默认值）"""
         self._ensure_env_vars()
+        self._assert_cluster_consistency()
         return os.environ.get("GINKGO_CLICKHOUSE_HOST", "localhost")
 
     @property
     def MYSQLHOST(self) -> str:
         """MySQL 主机（核心基础设施，有默认值）"""
         self._ensure_env_vars()
+        self._assert_cluster_consistency()
         return os.environ.get("GINKGO_MYSQL_HOST", "localhost")
+
+    def _assert_cluster_consistency(self) -> None:
+        """启动期护栏：DEBUGMODE 与 DB host 后缀一致性校验 + 集群横幅（幂等）。
+
+        防"忘翻 debug 致 .env 残留 test host、真实运行静默连错集群"（#6756）。
+        - 横幅无条件打一次到 stderr：声明当前实际连接的 MySQL/ClickHouse host。
+        - 断言仅在 host 落 master/test 体系时触发；localhost/外部域名跳过，不误伤外部部署。
+        - GINKGO_SKIP_CLUSTER_GUARD=1 仅跳断言、横幅照打（测试/特殊部署逃生用）。
+        """
+        if GinkgoConfig._cluster_guard_done:
+            return
+        GinkgoConfig._cluster_guard_done = True
+        debug = self.DEBUGMODE
+        env_label, expect_suffix = ("TEST", "-test") if debug else ("PROD", "-master")
+        hosts = {
+            "MySQL": os.environ.get("GINKGO_MYSQL_HOST", ""),
+            "ClickHouse": os.environ.get("GINKGO_CLICKHOUSE_HOST", ""),
+        }
+        if os.environ.get("GINKGO_SKIP_CLUSTER_GUARD", "") != "1":
+            for name, host in hosts.items():
+                if host.endswith("-test") or host.endswith("-master"):
+                    if host.endswith("-test") != debug:
+                        raise RuntimeError(
+                            f"[Ginkgo Env Guard] {name} host={host!r} 与 DEBUGMODE={debug} "
+                            f"冲突：debug={'on(应 -test)' if debug else 'off(应 -master)'}。"
+                            f"运行 `ginkgo config set debug {'on' if debug else 'off'}` "
+                            f"重对齐 .env 后重启。"
+                        )
+        import sys
+        color = "31" if not debug else "32"  # PROD 红 / TEST 绿
+        line = (
+            f"=== [{env_label}] MySQL={hosts['MySQL']} / "
+            f"ClickHouse={hosts['ClickHouse']} ==="
+        )
+        print(f"\033[{color}m{line}\033[0m", file=sys.stderr, flush=True)
 
     @property
     def MONGOHOST(self) -> str:
