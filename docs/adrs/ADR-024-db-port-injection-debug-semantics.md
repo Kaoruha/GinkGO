@@ -8,7 +8,7 @@
 
 ADR-004 确立 Docker 双实例：**Master（生产，内部 3306 / 宿主映射 3306）+ Test（调试，内部 3306 / 宿主映射 13306）**，Debug 模式切换连哪个实例。当前 debug 切换由**两处配合**完成：
 
-- `config_cli.update_env_for_debug`（config_cli.py:34-38）切 `.env` 的 **HOST**：`mysql-master ↔ mysql-test`（mongo 恒 master，无 test 实例）。容器侧 debug 切实例靠它。
+- `config_cli.update_env_for_debug`（config_cli.py:34-38）切 `.env` 的 **HOST**：`mysql-master ↔ mysql-test`（mongo/redis 恒 master，均无 test 实例，不随 debug 切）。容器侧 debug 切实例靠它。
 - `config.py` 的 `CLICKPORT`/`MYSQLPORT`（config.py:568-587）在 `DEBUGMODE=True` 时做 `"1"+port` 字符串拼接（3306→13306、8123→18123）切 **PORT**。宿主侧 debug 切端口靠它（宿主 CLI 的 `~/.ginkgo/config.yml` 无 mysql 节，port 全靠默认 + 此 +1 派生）。
 
 `+1` 魔法的**意图**是正确的：宿主机经 Docker 映射端口访问 test 实例（`127.0.0.1:13306:3306`），宿主 CLI 该连 13306。
@@ -72,7 +72,7 @@ def MYSQLPORT(self) -> int:
 
 ### 5. CLI 双模（本地直连 / 外部 API）—— 关联方向，另立 ADR
 
-同一 `ginkgo` CLI 二进制，`Backend` 适配层按 `GINKGO_API_URL` 切：未设 → `LocalBackend` 直连 Service/DB（本地运维特权，含 bootstrap 元命令、长任务、调试）；设为 URL → `HTTPBackend` 打 api-server（外部/远程）。bootstrap 元命令（`init` / `debug` / `serve` / `status`）锁定本地模式（api-server 依赖 DB，逻辑上先于 api-server）。此为独立大工程，**本 ADR 仅记录方向，实施细节另立 ADR-025**。
+同一 `ginkgo` CLI 二进制，`Backend` 适配层按 `GINKGO_API_URL` 切：未设 → `LocalBackend` 直连 Service/DB（本地运维特权，含 bootstrap 元命令、长任务、调试）；设为 URL → `HTTPBackend` 打 api-server（外部/远程）。bootstrap 元命令（`init` / `debug` / `serve` / `status`）锁定本地模式（api-server 依赖 DB，逻辑上先于 api-server）。此为独立大工程，**本 ADR 仅记录方向，实施细节另立 ADR**（编号待定；ADR-025 已用于启动期集群一致性护栏）。
 
 ## Rationale
 
@@ -92,7 +92,7 @@ def MYSQLPORT(self) -> int:
 - **supersede ADR-004 端口约定部分**：ADR-004 的双实例概念（Master/Test）保留，"+1 端口派生"约定**收窄为仅宿主客户端**（加容器守卫），不再是无差别规则。ADR-004 顶部标注 `部分 supersede by ADR-024`。
 - **DEBUGMODE 不变之处**：ADR-013（@retry 退避）、日志标注、宿主 +1 触发仍用 DEBUGMODE，本 ADR 不动这些。
 - **关联 memory 更新**：`arch_database_debug_mode`（+1 加容器守卫）、`project_schedule_data_update_broken`（根因实施修复指向本 ADR）。
-- **未决（与本 ADR 正交）**：CLI 双模（Decision 5）的实施、api-server REST 端点对 CLI 命令的覆盖率——另立 ADR-025 + 工程，不阻塞本 ADR 的 config 止血。
+- **未决（与本 ADR 正交）**：CLI 双模（Decision 5）的实施、api-server REST 端点对 CLI 命令的覆盖率——另立 ADR + 工程，不阻塞本 ADR 的 config 止血。
 - **未来增量（非本 ADR 强制）**：若后续 config.yml 引入显式 mysql 节（port 字段），可进一步完全删 +1（config.py 零端口知识），本 ADR 的守卫是通往该终态的增量第一步。
 
 ## 判定标准自检
