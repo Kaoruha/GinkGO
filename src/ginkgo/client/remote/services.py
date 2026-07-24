@@ -182,27 +182,53 @@ class RemotePortfolioService(RemoteService):
     def add(
         self,
         name: str = None,
+        mode: Any = None,
         description: str = None,
         initial_capital: Any = None,
         **kwargs,
     ) -> ServiceResult:
-        """``POST /portfolio``，出口 data 为 ``{"uuid": ...}``（与本地 add 同契约）。"""
+        """``POST /portfolio``，出口 data 为 ``{"uuid": ...}``（与本地 add 同契约）。
+
+        远端 ``PortfolioCreate``（api/models/portfolio.py）字段与本地 service 参数有差异：
+        - ``mode`` 接受 ``PORTFOLIO_MODE_TYPES`` 枚举或字符串，映射为 server 的 str 枚举
+          （``BACKTEST``/``PAPER``/``LIVE``）；缺省 BACKTEST（与本地 add 一致）。
+        - ``initial_capital`` 映射为 server **必填**的 ``initial_cash``；缺省 1000000.0。
+        """
         try:
-            body: dict = {}
-            if name is not None:
-                body["name"] = name
+            if not name or not str(name).strip():
+                return ServiceResult.error("投资组合名称不能为空")
+            if mode is None:
+                mode_str = "BACKTEST"
+            elif hasattr(mode, "name"):
+                mode_str = mode.name
+            else:
+                mode_str = str(mode)
+            capital = initial_capital if initial_capital is not None else 1000000.0
+            body: dict = {
+                "name": name,
+                "mode": mode_str,
+                "initial_cash": capital,
+            }
             if description is not None:
                 body["description"] = description
-            if initial_capital is not None:
-                body["initial_capital"] = initial_capital
             data = self._client.post(self.resource, json_body=body)
             uuid = data.get("uuid") if isinstance(data, dict) else None
             return self._ok({"uuid": uuid}, "Portfolio created (remote)")
         except Exception as e:
             return self._fail(e)
 
-    def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
-        """``DELETE /portfolio/{uuid}``（REST 返 204 无 body，成功即 data=None）。"""
+    def delete(self, portfolio_id: str, dry_run: bool = False, **kwargs) -> ServiceResult:
+        """``DELETE /portfolio/{uuid}``（REST 返 204 无 body，成功即 data=None）。
+
+        client 模式不支持 ``--dry-run`` 预览：本地 delete 的级联预览依赖直连 DB 计数，
+        而 server ``DELETE /portfolio/{uuid}`` 无 dry_run 语义。``dry_run=True`` 时显式
+        拒绝（#6751 review：避免预览被当真实删除执行致数据丢失）。
+        """
+        if dry_run:
+            return ServiceResult.error(
+                "client 模式暂不支持 --dry-run 预览：远端 DELETE 无 dry_run 语义。"
+                "请在 server 端预览，或去掉 --dry-run 执行真实删除。"
+            )
         try:
             self._client.delete(f"{self.resource}/{portfolio_id}")
             return self._ok(None, "Portfolio deleted (remote)")

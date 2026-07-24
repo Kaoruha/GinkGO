@@ -8,6 +8,7 @@ import pandas as pd
 from ginkgo.client.remote.api_client import ApiError, TokenExpiredError
 from ginkgo.client.remote.services import RemotePortfolioService, _ModelList
 from ginkgo.data.containers import _remote_portfolio_service_factory
+from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
 
 class FakeClient:
@@ -101,10 +102,40 @@ def test_add_returns_uuid_dict():
     )
     assert res.success
     assert res.data == {"uuid": "abc"}
-    # body 透传
+    # body 字段名映射：CLI initial_capital → server initial_cash；缺省 mode=BACKTEST
     post_call = [c for c in fc.calls if c[0] == "POST"][0]
     assert post_call[2]["name"] == "x"
-    assert post_call[2]["initial_capital"] == 100000
+    assert post_call[2]["initial_cash"] == 100000
+    assert post_call[2]["mode"] == "BACKTEST"
+    assert post_call[2]["description"] == "d"
+
+
+def test_add_maps_mode_enum_to_string():
+    """mode 传 PORTFOLIO_MODE_TYPES 枚举时映射为 server str 枚举（BACKTEST/PAPER/LIVE）。"""
+    fc = FakeClient(created={"uuid": "abc"})
+
+    res = RemotePortfolioService(client=fc).add(
+        name="p", mode=PORTFOLIO_MODE_TYPES.PAPER, initial_capital=500000
+    )
+    assert res.success
+    body_p = [c for c in fc.calls if c[0] == "POST"][-1][2]
+    assert body_p["mode"] == "PAPER"
+    assert body_p["initial_cash"] == 500000
+
+    res = RemotePortfolioService(client=fc).add(name="p", mode=PORTFOLIO_MODE_TYPES.LIVE)
+    assert res.success
+    body_l = [c for c in fc.calls if c[0] == "POST"][-1][2]
+    assert body_l["mode"] == "LIVE"
+    # 缺省 initial_capital → 1000000.0（与本地 add 同默认）
+    assert body_l["initial_cash"] == 1000000.0
+
+
+def test_add_rejects_empty_name():
+    """空 name 不发请求，直接失败（防 422 之前就拦）。"""
+    fc = FakeClient()
+    res = RemotePortfolioService(client=fc).add(name="   ")
+    assert not res.success
+    assert not any(c[0] == "POST" for c in fc.calls)
 
 
 def test_delete_succeeds():
@@ -112,6 +143,15 @@ def test_delete_succeeds():
     res = RemotePortfolioService(client=fc).delete("u1")
     assert res.success
     assert any(c[0] == "DELETE" for c in fc.calls)
+
+
+def test_delete_dry_run_refuses_without_calling():
+    """client 模式不支持 --dry-run：dry_run=True 显式拒绝，且不发 DELETE。"""
+    fc = FakeClient()
+    res = RemotePortfolioService(client=fc).delete("u1", dry_run=True)
+    assert not res.success
+    assert not any(c[0] == "DELETE" for c in fc.calls)
+    assert "dry-run" in (res.error or "")
 
 
 def test_api_error_maps_to_failure():
