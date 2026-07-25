@@ -565,7 +565,7 @@ class GinkgoConfig(object):
     def _assert_cluster_consistency(self) -> None:
         """启动期护栏：GINKGO_ENV 与 DB host 后缀一致性校验 + 集群横幅（幂等）。
 
-        防"env 与 .env host 漂移致真实运行静默连错集群"（#6756，ADR-025 / ADR-026）。
+        防"env 与 .env host 漂移致真实运行静默连错集群"（#6756，ADR-027 / ADR-028）。
         - 横幅无条件打一次到 stderr：声明当前实际连接的 MySQL/ClickHouse host。
         - 断言仅在 host 落 master/test 体系时触发；localhost/外部域名跳过，不误伤外部部署。
         - GINKGO_SKIP_CLUSTER_GUARD=1 仅跳断言、横幅照打（测试/特殊部署逃生用）。
@@ -611,7 +611,7 @@ class GinkgoConfig(object):
         # DEVELOPMENT 环境端口首位 +1 是"宿主机经 Docker 映射端口访问 test 实例"的约定
         # （Master 内部 8123 / Test 宿主映射 18123，见 ADR-004）。仅宿主客户端适用；
         # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
-        # 致 DataWorker 连 clickhouse-test:18123 ECONNREFUSED → 停滞。详见 ADR-024 / ADR-026。
+        # 致 DataWorker 连 clickhouse-test:18123 ECONNREFUSED → 停滞。详见 ADR-024 / ADR-028。
         # 判据用 IS_DEV_ENV（集群选择），与 DEBUGMODE（纯日志）解耦。惰性 import 规避循环。
         from ginkgo.libs.utils.log_utils import is_container_environment
         if (
@@ -632,7 +632,7 @@ class GinkgoConfig(object):
         # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
         # 致 TaskTimer 连 mysql-test:13306 ECONNREFUSED → health_check 失败 →
         # _get_all_stock_codes 返空 → bar_snapshot "No stocks found" 停滞 8.5 月。
-        # 详见 ADR-024 / ADR-026。判据用 IS_DEV_ENV（集群选择），与 DEBUGMODE（纯日志）解耦。
+        # 详见 ADR-024 / ADR-028。判据用 IS_DEV_ENV（集群选择），与 DEBUGMODE（纯日志）解耦。
         # 惰性 import 规避 config ↔ log_utils 包初始化循环。
         from ginkgo.libs.utils.log_utils import is_container_environment
         if (
@@ -789,7 +789,7 @@ class GinkgoConfig(object):
 
         PRODUCTION → master 集群（mysql-master/clickhouse-master，宿主端口不 +1）；
         DEVELOPMENT → test 集群（mysql-test/clickhouse-test，宿主端口首位 +1）。
-        与 DEBUGMODE（纯日志/@retry 退避，ADR-013）解耦——详见 ADR-026。
+        与 DEBUGMODE（纯日志/@retry 退避，ADR-013）解耦——详见 ADR-028。
 
         取值优先级：GINKGO_ENV env > bridge-default（未设时从 DEBUGMODE 推断）。
         bridge 保证解耦后首次启动零行为变化：DEBUGMODE=True→DEVELOPMENT，
@@ -815,7 +815,7 @@ class GinkgoConfig(object):
         与 set_debug 异处：set_debug 写 ~/.ginkgo/config.yml（用户偏好层）；
         set_env 只同步本进程 os.environ——GINKGO_ENV 是部署态，持久层是 .env
         （compose 需 ${GINKGO_ENV:-DEVELOPMENT} 插值注入容器，且 config.yml 在
-        容器内以 :ro 挂载不可写）。详见 ADR-026。
+        容器内以 :ro 挂载不可写）。详见 ADR-028。
         """
         val = str(value).upper()
         if val not in ("PRODUCTION", "DEVELOPMENT"):

@@ -530,11 +530,11 @@ def run(
     """
     :rocket: Run backtest (simplified from 'backtest run').
     """
-    # ADR-026: 回测防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
+    # ADR-028: 回测防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
     from ginkgo.libs import GCONF
     if GCONF.ENV == "PRODUCTION":
         console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
-        console.print("[dim]请先切到研发集群：ginkgo config set env DEVELOPMENT[/dim]")
+        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
         raise typer.Exit(1)
 
     try:
@@ -703,11 +703,11 @@ def test(
     """
     :test_tube: Run tests (simplified from 'pytest run').
     """
-    # ADR-026: 测试防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
+    # ADR-028: 测试防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
     from ginkgo.libs import GCONF
     if GCONF.ENV == "PRODUCTION":
         console.print("[red]:x: 测试在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
-        console.print("[dim]请先切到研发集群：ginkgo config set env DEVELOPMENT[/dim]")
+        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
         raise typer.Exit(1)
 
     try:

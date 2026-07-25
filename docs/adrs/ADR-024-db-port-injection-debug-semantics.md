@@ -4,7 +4,7 @@
 **Date:** 2026-07-20
 **关联:** 源自 `mysql-test` 连接根因排查（memory `project_schedule_data_update_broken`）+ config 统一重构（#6640）；细化并部分 supersede ADR-004（Docker 双实例与 Debug 模式）的端口约定；关联 ADR-013（Debug 改 @retry 退避语义，仍依赖 DEBUGMODE 标记）；关联 memory `arch_database_debug_mode` / `arch_docker_mysql_test_port_13306`。
 
-> **演进说明（ADR-026，2026-07-25）**：本 ADR 的 **Decision 1**（+1 守卫判据）与 **Decision 2**（DEBUGMODE 作为"连哪个库"的语义标记）已被 ADR-026 supersede——集群选择改由 `GINKGO_ENV` 单一决定，+1 与断言判据改用 `IS_DEV_ENV`，DEBUGMODE 退回纯日志。Decision 3（切换机制）实质由 `ginkgo config set env` 接管。Decision 4/5（远程访问、CLI 双模）不受影响。容器守卫（`is_container_environment()`）与幂等逻辑保留，仅判据替换。
+> **演进说明（ADR-028，2026-07-25）**：本 ADR 的 **Decision 1**（+1 守卫判据）与 **Decision 2**（DEBUGMODE 作为"连哪个库"的语义标记）已被 ADR-028 supersede——集群选择改由 `GINKGO_ENV` 单一决定，+1 与断言判据改用 `IS_DEV_ENV`，DEBUGMODE 退回纯日志。Decision 3（切换机制）实质由 `ginkgo config set env` 接管。Decision 4/5（远程访问、CLI 双模）不受影响。容器守卫（`is_container_environment()`）与幂等逻辑保留，仅判据替换。
 
 ## Context
 
@@ -74,7 +74,7 @@ def MYSQLPORT(self) -> int:
 
 ### 5. CLI 双模（本地直连 / 外部 API）—— 关联方向，另立 ADR
 
-同一 `ginkgo` CLI 二进制，`Backend` 适配层按 `GINKGO_API_URL` 切：未设 → `LocalBackend` 直连 Service/DB（本地运维特权，含 bootstrap 元命令、长任务、调试）；设为 URL → `HTTPBackend` 打 api-server（外部/远程）。bootstrap 元命令（`init` / `debug` / `serve` / `status`）锁定本地模式（api-server 依赖 DB，逻辑上先于 api-server）。此为独立大工程，**本 ADR 仅记录方向，实施细节另立 ADR**（编号待定；ADR-025 已用于启动期集群一致性护栏）。
+同一 `ginkgo` CLI 二进制，`Backend` 适配层按 `GINKGO_API_URL` 切：未设 → `LocalBackend` 直连 Service/DB（本地运维特权，含 bootstrap 元命令、长任务、调试）；设为 URL → `HTTPBackend` 打 api-server（外部/远程）。bootstrap 元命令（`init` / `debug` / `serve` / `status`）锁定本地模式（api-server 依赖 DB，逻辑上先于 api-server）。此为独立大工程，**本 ADR 仅记录方向，实施细节另立 ADR**（编号待定；ADR-027 已用于启动期集群一致性护栏）。
 
 ## Rationale
 

@@ -119,6 +119,18 @@ class TestRefuseProduction:
         with pytest.raises(typer.Exit):
             core_cli.test()
 
+    def test_backtest_run_task_refuses_production(self, monkeypatch):
+        """`ginkgo backtest run`（backtest_cli.run_task，真入口）在 PRODUCTION env 下 Exit(1)。
+
+        ADR-028 Decision 4 守卫须覆盖真实活动入口。早期版本误把守卫加在 deprecated
+        的 engine_cli.run，真入口 backtest_cli.run_task（ginkgo backtest run 的实际派发
+        目标）漏覆盖，PRODUCTION 下最常用回测命令仍直连 master 写数据（review P1）。
+        """
+        _set_env(monkeypatch, "PRODUCTION")
+        from ginkgo.client import backtest_cli
+        with pytest.raises(typer.Exit):
+            backtest_cli.run_task(task_id="any")
+
     def test_backtest_run_allows_development(self, monkeypatch):
         """DEVELOPMENT env 下守卫不触发 Exit（不误伤研发工作流）。
 

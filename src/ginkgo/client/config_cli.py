@@ -134,10 +134,10 @@ def set(
             debug_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_debug(debug_value)
             console.print(f":white_check_mark: Set {key} = {debug_value}")
-            # ADR-026: debug 现仅控日志/@retry 退避，不再切库。集群选择用 `set env`。
+            # ADR-028: debug 现仅控日志/@retry 退避，不再切库。集群选择用 `set env`。
             console.print(":bulb: 集群选择请用 `ginkgo config set env DEVELOPMENT|PRODUCTION`（debug 已与 DB 解耦）")
         elif key.lower() == 'env':
-            # ADR-026: GINKGO_ENV 单一决定集群（host + 宿主端口 +1）。DEBUGMODE 退为纯日志。
+            # ADR-028: GINKGO_ENV 单一决定集群（host + 宿主端口 +1）。DEBUGMODE 退为纯日志。
             aliases = {"prod": "PRODUCTION", "dev": "DEVELOPMENT"}
             env_value = aliases.get(value.lower(), value.upper())
             if env_value not in ("PRODUCTION", "DEVELOPMENT"):

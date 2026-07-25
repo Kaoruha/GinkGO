@@ -22,7 +22,7 @@ x-worker-common: &worker-common
     # config.py 的 CLICKPORT/MYSQLPORT +1 守卫据此跳过 +1，使容器内服务连内部端口 3306/8123
     # 而非宿主映射端口（ADR-024，修复 TaskTimer→DataWorker 连 mysql-test:13306 ECONNREFUSED）。
     DOCKER_CONTAINER: "true"
-    # ADR-026: GINKGO_ENV 单一决定集群（host 由下方 GINKGO_*_HOST 插值，+1 守卫判据用 IS_DEV_ENV）。
+    # ADR-028: GINKGO_ENV 单一决定集群（host 由下方 GINKGO_*_HOST 插值，+1 守卫判据用 IS_DEV_ENV）。
     # 与 DEBUGMODE 解耦：DEBUGMODE 退为纯日志/退避。默认 DEVELOPMENT 对齐下方 -test host 默认。
     GINKGO_ENV: ${GINKGO_ENV:-DEVELOPMENT}
     GINKGO_KAFKA_HOST: kafka1
@@ -107,6 +107,10 @@ services:
       # :? 守卫: .env 漏配 SECRET_KEY 时 compose 启动即失败, 避免空串静默绕过 #5464 validator
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set via environment}
       DEBUG: ${DEBUG:-False}
+      # ADR-013: GINKGO_DEBUG_MODE 经 :ro 挂载的宿主 ~/.ginkgo/config.yml(debug=True) 回落进容器
+      # (config.py:772 env 未设时读 config.yml)，致 @retry 不退避(30s×backoff^i 失效)→ tushare 封禁。
+      # 端口 +1 判据本 PR 已改 IS_DEV_ENV，但 DEBUGMODE 仍驱动 @retry 退避，故覆盖保留。
+      GINKGO_DEBUG_MODE: "False"
     volumes:
       - ginkgo-logs:/var/log/ginkgo
       - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
