@@ -14,7 +14,16 @@ from core.exceptions import APIError
 
 
 def _trace_id() -> str:
-    return uuid.uuid4().hex[:16]
+    """错误响应 trace_id：优先取请求已注入的（与日志一致），fallback 生成。
+
+    TraceIdMiddleware 在请求入口 set GLOG contextvars，exception_handler 在 middleware
+    内层执行，此时 trace_id 仍在作用域内 → 错误信封 trace_id 与该请求日志同源（#6784）。
+    """
+    try:
+        from ginkgo.libs import GLOG
+        return GLOG.get_trace_id() or uuid.uuid4().hex[:16]
+    except ImportError:
+        return uuid.uuid4().hex[:16]
 
 
 async def global_error_handler(request: Request, exc: Exception):
