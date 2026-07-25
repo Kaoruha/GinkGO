@@ -29,6 +29,10 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         trace_id = request.headers.get(TRACE_ID_HEADER) or _new_trace_id()
+        # 注入 request.state：随 scope 存活，跨越中间件异常 unwind（call_next 重抛时
+        # contextvar 已随 with 块退出而 reset）。error_handler 在中间件异常路径下由
+        # ServerErrorMiddleware 在本中间件之外触发，靠 state 取回同一 trace_id (#6788)。
+        request.state.trace_id = trace_id
         with GLOG.with_trace_id(trace_id):
             response: Response = await call_next(request)
         response.headers[TRACE_ID_HEADER] = trace_id
