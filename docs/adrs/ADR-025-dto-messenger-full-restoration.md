@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-24
-**关联:** ADR-010（三层角色分离，本文档推广其 Mapper 概念）· ADR-022（原则3 单一接缝 / 原则4 注册冲突检测）· `CONTEXT.md`（DTO / Mapper 术语）· Epic「DTO 信使复位」（本文档 + 后续四步 PR 序列）
+**关联:** ADR-010（三层角色分离，本文档推广其 Mapper 概念）· ADR-022（原则3 单一接缝 / 原则4 注册冲突检测）· `CONTEXT.md`（DTO / Mapper 术语）· Epic E #6701（CRUD/Mapper seam 集中化）· Epic F #6702（ADR 兑现）
 
 ## Context
 
