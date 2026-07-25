@@ -1,4 +1,4 @@
-"""统一集群切换测试（ADR-026）
+"""统一集群切换测试（ADR-028）
 
 验证 ginkgo config set env DEVELOPMENT|PRODUCTION 经 update_env_for_env 更新 .env：
 - DEVELOPMENT → GINKGO_ENV=DEVELOPMENT + CLICKHOUSE_HOST=clickhouse-test + MYSQL_HOST=mysql-test

@@ -1,8 +1,8 @@
 # Upstream: client/config_cli.py, client/engine_cli.py, client/core_cli.py
 # Downstream: -
-# Role: ADR-026 CLI 闸门回归：set env 写 .env+触发 compose；set debug 不再触发；回测拒跑生产
+# Role: ADR-028 CLI 闸门回归：set env 写 .env+触发 compose；set debug 不再触发；回测拒跑生产
 
-"""ADR-026 CLI 闸门回归测试。
+"""ADR-028 CLI 闸门回归测试。
 
 覆盖：
 - `config set env DEVELOPMENT`：写 .env（GINKGO_ENV + host）+ 触发 docker compose 重启

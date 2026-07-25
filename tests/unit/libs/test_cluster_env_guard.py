@@ -1,10 +1,10 @@
 # Upstream: libs/core/config.py
 # Downstream: -
-# Role: 回归测试启动期集群一致性护栏（ADR-026：GINKGO_ENV vs DB host 后缀）
+# Role: 回归测试启动期集群一致性护栏（ADR-027 护栏；ADR-028 判据改 IS_DEV_ENV vs DB host 后缀）
 
 """启动期护栏：GINKGO_ENV（DEVELOPMENT/PRODUCTION）与 DB host 后缀不一致拒启。
 
-ADR-026 起，护栏判据从 DEBUGMODE 改为 IS_DEV_ENV（集群选择单一旋钮）。
+ADR-028 起，护栏判据从 DEBUGMODE 改为 IS_DEV_ENV（集群选择单一旋钮）。
 护栏在 GCONF.MYSQLHOST/CLICKHOST 首次访问时惰性触发，幂等。本套件每用例
 重置幂等标志 + monkeypatch 环境变量隔离验证，另覆盖 bridge-default 迁移逻辑。
 """
@@ -86,7 +86,7 @@ def test_guard_is_idempotent(monkeypatch):
     assert GCONF.MYSQLHOST == "mysql-test"
 
 
-# --- bridge-default 迁移逻辑（ADR-026 Decision 2）---
+# --- bridge-default 迁移逻辑（ADR-028：ENV 未设从 DEBUGMODE 推断，向后兼容）---
 
 def test_bridge_unset_debug_true_is_dev(monkeypatch):
     """GINKGO_ENV 未设 + DEBUGMODE=True → bridge 推断 DEVELOPMENT。"""

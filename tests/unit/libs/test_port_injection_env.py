@@ -1,8 +1,8 @@
 # Upstream: libs/core/config.py
 # Downstream: -
-# Role: 回归测试端口 +1 守卫判据改用 IS_DEV_ENV（ADR-026，与 DEBUGMODE 解耦）
+# Role: 回归测试端口 +1 守卫判据改用 IS_DEV_ENV（ADR-028，与 DEBUGMODE 解耦）
 
-"""端口 +1 守卫测试（ADR-026）。
+"""端口 +1 守卫测试（ADR-028）。
 
 CLICKPORT/MYSQLPORT 的首位 +1 判据从 DEBUGMODE 改为 IS_DEV_ENV（集群选择），
 容器守卫与幂等保留。覆盖：
