@@ -485,6 +485,14 @@ def run(
     console.print("   Use [cyan]'ginkgo backtest run <task_id>'[/cyan] instead.")
     console.print()
 
+    # ADR-026: 回测防误连生产 —— set_debug 现仅开日志不再切库，PRODUCTION env 下回测直连 master 写数据，故拒跑
+    # 置于 resolve_engine_id（DB 调用）之前 fail-fast，避免生产 env 下做无谓 DB 查询
+    from ginkgo.libs import GCONF as _GCONF_ENGINE_RUN
+    if _GCONF_ENGINE_RUN.ENV == "PRODUCTION":
+        console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
+        console.print("[dim]请先切到研发集群：ginkgo config set env DEVELOPMENT[/dim]")
+        raise typer.Exit(1)
+
     # 如果提供了engine_id，尝试解析为UUID
     if engine_id:
         original_identifier = engine_id

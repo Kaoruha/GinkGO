@@ -22,6 +22,9 @@ x-worker-common: &worker-common
     # config.py 的 CLICKPORT/MYSQLPORT +1 守卫据此跳过 +1，使容器内服务连内部端口 3306/8123
     # 而非宿主映射端口（ADR-024，修复 TaskTimer→DataWorker 连 mysql-test:13306 ECONNREFUSED）。
     DOCKER_CONTAINER: "true"
+    # ADR-026: GINKGO_ENV 单一决定集群（host 由下方 GINKGO_*_HOST 插值，+1 守卫判据用 IS_DEV_ENV）。
+    # 与 DEBUGMODE 解耦：DEBUGMODE 退为纯日志/退避。默认 DEVELOPMENT 对齐下方 -test host 默认。
+    GINKGO_ENV: ${GINKGO_ENV:-DEVELOPMENT}
     GINKGO_KAFKA_HOST: kafka1
     GINKGO_KAFKA_PORT: 9092
     GINKGO_REDIS_HOST: redis-master
@@ -104,10 +107,6 @@ services:
       # :? 守卫: .env 漏配 SECRET_KEY 时 compose 启动即失败, 避免空串静默绕过 #5464 validator
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set via environment}
       DEBUG: ${DEBUG:-False}
-      # bind mount 宿主 ~/.ginkgo(开发机 config debug=True, 连 Test 实例宿主 13306) 致
-      # GCONF.DEBUGMODE=True → MYSQLPORT 端口首位+1(3306→13306, config.py:584);
-      # 容器内 mysql-test 仅 3306, 13306 连接被拒. 显式 False 覆盖, 对齐 worker
-      GINKGO_DEBUG_MODE: "False"
     volumes:
       - ginkgo-logs:/var/log/ginkgo
       - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro

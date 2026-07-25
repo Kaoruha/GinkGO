@@ -4,6 +4,8 @@
 **Date:** 2026-07-25
 **关联:** 源自 #6756 / PR #6773；建立在 [ADR-004](ADR-004-dual-db-debug.md)（双实例）与 [ADR-024](ADR-024-db-port-injection-debug-semantics.md)（端口 + debug 语义）之上；关联 memory `arch_database_debug_mode`。
 
+> **演进说明（ADR-026，2026-07-25）**：本 ADR 的 **Decision 1**（断言判据用 DEBUGMODE）已被 ADR-026 supersede——判据改用 `IS_DEV_ENV`（DEVELOPMENT/PRODUCTION），错误提示改 `ginkgo config set env DEVELOPMENT|PRODUCTION`。护栏本身（横幅 + 逃生口 + 幂等 + 范围）保留，仍是 host/env 错配的兜底。Context 描述的"三合一旋钮"根因由 ADR-026 彻底解耦。
+
 ## Context
 
 ADR-004/024 确立的机制下，`DEBUGMODE` 是**"三合一旋钮"**——一个布尔同时决定多件事：

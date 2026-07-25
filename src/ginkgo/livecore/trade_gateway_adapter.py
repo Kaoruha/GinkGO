@@ -45,7 +45,7 @@ from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, GCONF
 
 
 class TradeGatewayAdapter(Thread):
@@ -293,8 +293,8 @@ class TradeGatewayAdapter(Thread):
                     continue
 
                 # #3961 MVP阶段：模拟成交逻辑 - 仅在非生产环境执行
-                import os
-                is_production = os.getenv("GINKGO_ENV", "development") == "production"
+                # ADR-026：集群判据统一走 GCONF.ENV（大写），不再裸读小写 env var（避免 bridge 不触发 + 大小写冲突）
+                is_production = GCONF.ENV == "PRODUCTION"
                 if is_production:
                     continue
 

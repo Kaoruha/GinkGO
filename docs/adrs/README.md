@@ -36,8 +36,9 @@
 | ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Accepted | 2026-07-04 |
 | ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
-| ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Proposed | 2026-07-20 |
-| ADR-025 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-025-env-cluster-consistency-guard.md) | Accepted | 2026-07-25 |
+| ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Proposed（D1/2 ⟵ ADR-026） | 2026-07-20 |
+| ADR-025 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-025-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-026） | 2026-07-25 |
+| ADR-026 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-026-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
 
 ## 如何新增 / 修订
 
