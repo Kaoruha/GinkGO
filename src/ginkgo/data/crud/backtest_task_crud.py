@@ -96,6 +96,9 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             total_events=kwargs.get("total_events", 0),
             config_snapshot=kwargs.get("config_snapshot", "{}"),
             environment_info=kwargs.get("environment_info", "{}"),
+            # #6786: meta 须显式透传——MMysqlBase.meta 默认 "{}"，白名单漏掉会让
+            # api 层写入的 trace_id 在此被静默丢弃（arch_crud_whitelist_field_drop）。
+            meta=kwargs.get("meta", "{}"),
             final_portfolio_value=kwargs.get("final_portfolio_value", 0.0),
             total_pnl=kwargs.get("total_pnl", 0.0),
             max_drawdown=kwargs.get("max_drawdown", 0.0),

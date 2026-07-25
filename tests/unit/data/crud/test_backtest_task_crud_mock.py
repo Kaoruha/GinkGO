@@ -93,6 +93,30 @@ class TestBacktestTaskCRUDCreateFromParams:
         model = crud_instance._create_from_params()
         assert model.source == SOURCE_TYPES.SIM.value
 
+    @pytest.mark.unit
+    def test_create_from_params_preserves_meta_trace_id(self, crud_instance):
+        """#6786 AC2/AC5: meta 须透传到模型，不能被字段白名单静默丢弃。
+
+        回归守卫：api 层把 trace_id 写入 meta（JSON），经 service **kwargs →
+        crud.create → _create_from_params。此处构造 MBacktestTask 的字段表
+        必须显式含 meta=，否则 trace_id 落库为 MMysqlBase 默认 "{}"，
+        backtest cat 永远看不到 trace_id（arch_crud_whitelist_field_drop）。
+        """
+        import json
+
+        trace_meta = json.dumps({"trace_id": "tid-6786-ac2"})
+        model = crud_instance._create_from_params(name="t", meta=trace_meta)
+
+        assert model.meta == trace_meta, (
+            "meta 被 _create_from_params 字段白名单丢弃——trace_id 不落库"
+        )
+
+    @pytest.mark.unit
+    def test_create_from_params_meta_defaults_to_empty_json(self, crud_instance):
+        """未传 meta 时取 MMysqlBase 默认 '{}'（向后兼容非 API 入口）。"""
+        model = crud_instance._create_from_params(name="t")
+        assert model.meta == "{}"
+
 
 # ============================================================
 # Business Helper 测试
