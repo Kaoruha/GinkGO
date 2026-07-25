@@ -63,8 +63,13 @@ async def global_error_handler(request: Request, exc: Exception):
     with trace_cm:
         if isinstance(exc, APIError):
             logger.error(f"APIError [{exc.code}] {request.url.path}: {exc.message}")
+            # exc.to_dict() 带 APIError 构造时自生的随机 trace_id（exceptions.py），
+            # 与本请求 X-Trace-Id 头/日志脱钩；override 为请求 trace_id，与下方
+            # HTTPException/500 分支对称，兑现 docstring「三者一致」契约。
             return JSONResponse(
-                status_code=exc.status_code, content=exc.to_dict(), headers=headers
+                status_code=exc.status_code,
+                content={**exc.to_dict(), "trace_id": trace_id},
+                headers=headers,
             )
 
         if isinstance(exc, HTTPException):

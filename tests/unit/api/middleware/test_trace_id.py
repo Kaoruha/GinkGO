@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 
 from middleware.trace_id import TRACE_ID_HEADER, TraceIdMiddleware
 from middleware.error_handler import global_error_handler
+from core.exceptions import APIError, NotFoundError
 
 
 @pytest.fixture
@@ -19,7 +20,10 @@ def app():
     """最小 app:只挂 TraceIdMiddleware + 错误处理,避免拉起完整 Ginkgo 服务。"""
     app = FastAPI()
     app.add_middleware(TraceIdMiddleware)
+    # 复刻 main.py 的三层注册(Exception/APIError/HTTPException);漏 APIError 会致
+    # NotFoundError 冒泡到 ServerErrorMiddleware 而非 ExceptionMiddleware
     app.exception_handler(Exception)(global_error_handler)
+    app.exception_handler(APIError)(global_error_handler)
     app.exception_handler(HTTPException)(global_error_handler)
 
     @app.get("/probe")
@@ -31,6 +35,12 @@ def app():
     @app.get("/boom")
     async def boom():
         raise HTTPException(status_code=400, detail="test error")
+
+    @app.get("/apierror")
+    async def apierror():
+        # APIError 子类:构造时自生随机 trace_id(exceptions.py),用于验证 error_handler
+        # override body.trace_id 为请求 trace_id(否则与 X-Trace-Id 头脱钩)
+        raise NotFoundError("user", "123")
 
     return app
 
@@ -85,6 +95,35 @@ async def test_error_passthrough_consistency(app):
     client_tid = uuid.uuid4().hex[:16]
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.get("/boom", headers={TRACE_ID_HEADER: client_tid})
+    assert r.json()["trace_id"] == client_tid
+    assert r.headers[TRACE_ID_HEADER] == client_tid
+
+
+@pytest.mark.asyncio
+async def test_apierror_response_trace_id_consistency(app):
+    """APIError 响应 body.trace_id 必须等于请求 X-Trace-Id 头,而非 exc 自生随机值。
+
+    回归 #6797 review:exc.to_dict() 带 APIError 构造时自生的随机 trace_id,修复前
+    error_handler 直接 content=exc.to_dict() 致 body 与响应头脱钩(同一响应两个 trace_id)。
+    """
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get("/apierror")
+    assert r.status_code == 404
+    body = r.json()
+    header_tid = r.headers[TRACE_ID_HEADER]
+    assert body["trace_id"] == header_tid, (
+        f"APIError body trace_id({body['trace_id']})与响应头({header_tid})脱钩 — "
+        "应 override 为请求 trace_id,而非 exc 自生随机值"
+    )
+
+
+@pytest.mark.asyncio
+async def test_apierror_passthrough_consistency(app):
+    """APIError 路径下,入站 X-Trace-Id 贯穿到 body.trace_id(非 exc 随机值)。"""
+    client_tid = uuid.uuid4().hex[:16]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get("/apierror", headers={TRACE_ID_HEADER: client_tid})
+    assert r.status_code == 404
     assert r.json()["trace_id"] == client_tid
     assert r.headers[TRACE_ID_HEADER] == client_tid
 
