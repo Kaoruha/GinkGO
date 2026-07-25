@@ -14,6 +14,19 @@ from core.exceptions import APIError
 
 
 def _trace_id() -> str:
+    """复用请求绑定的 trace_id (GLOG contextvar)，无则新生成。
+
+    TraceIdMiddleware 在请求入口已把 trace_id 注入 GLOG contextvars，此处直接
+    取用，保证错误信封与该请求的全部日志同 trace_id (不再二次生成)。
+    """
+    try:
+        from ginkgo.libs import GLOG
+
+        tid = GLOG.get_trace_id()
+        if tid:
+            return tid
+    except ImportError:
+        pass
     return uuid.uuid4().hex[:16]
 
 

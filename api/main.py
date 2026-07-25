@@ -15,6 +15,7 @@ from middleware.error_handler import global_error_handler
 from middleware.rate_limit import RateLimitMiddleware
 from trailing_slash import strip_trailing_slash
 from middleware.api_stats import ApiStatsMiddleware
+from middleware.trace_id import TraceIdMiddleware
 from core.exceptions import APIError
 from websocket.manager import connection_manager
 
@@ -98,8 +99,12 @@ app.add_middleware(JWTAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(ApiStatsMiddleware)
 # trailing slash：strip 后路由匹配，禁 307 重定向避免 POST 丢 Auth header（#5389）
-# 最后注册 → 栈顶最先执行，JWT/RateLimit 读到 strip 后 path
+# 栈顶先于 JWT/RateLimit 执行，使其读到 strip 后 path
 app.middleware("http")(strip_trailing_slash)
+# #6784: TraceIdMiddleware 最后注册 → 栈顶最外层，请求最先进入、绑定 trace_id 到
+# GLOG contextvars，包住 trailing_slash / JWT / RateLimit / ApiStats 及
+# exception_handler，使该请求的全链路日志 (router→service→crud) 同 trace_id
+app.add_middleware(TraceIdMiddleware)
 
 # 全局错误处理
 app.exception_handler(Exception)(global_error_handler)
