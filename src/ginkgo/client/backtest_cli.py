@@ -53,6 +53,26 @@ def _emit_backtest_failure(result):
         console.print(preflight_warning)
 
 
+def _extract_trace_id_from_meta(meta) -> Optional[str]:
+    """从 task.meta JSON 解析 trace_id（#6786 AC5）。
+
+    meta 是 MMysqlBase.meta（String(255) 默认 '{}'）。API create_backtest_task
+    写 {"trace_id": ...}（任务 #3）；cat 解析显示，让运维 grep trace_id 串联
+    API→worker 全链路。非 JSON / 无 trace_id / None graceful 返 None（向后兼容
+    旧任务 + 防 cat 崩溃）。
+    """
+    if not meta or not isinstance(meta, str):
+        return None
+    try:
+        data = json.loads(meta)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    tid = data.get("trace_id")
+    return tid if isinstance(tid, str) and tid else None
+
+
 def _task_record(task) -> dict:
     """序列化 backtest task 为 JSON record。
 
@@ -100,6 +120,8 @@ def _task_record(task) -> dict:
         "error_message": _get("error_message"),
         # config_snapshot：回测配置快照（text 路径 Config panel；#6652 review E6 补齐 _task_record 覆盖声明）。
         "config_snapshot": _get("config_snapshot"),
+        # trace_id：从 meta JSON 解析（#6786 AC5，API create_backtest_task 写入）。
+        "trace_id": _extract_trace_id_from_meta(_get("meta")),
     }
 
 
@@ -651,6 +673,11 @@ def cat_task(
     display_progress = _display_progress(status_val, task.progress)
     info_lines.append(f"[bold]Progress:[/bold]     {display_progress}%")
     info_lines.append(f"[bold]Created:[/bold]      {task.create_at}")
+
+    # #6786 AC5：trace_id 从 meta 解析显示（运维 grep 串联 API→worker 全链路）
+    trace_id = _extract_trace_id_from_meta(getattr(task, "meta", None))
+    if trace_id:
+        info_lines.append(f"[bold]Trace ID:[/bold]    {trace_id}")
 
     if task.start_time:
         info_lines.append(f"[bold]Started:[/bold]      {task.start_time}")
