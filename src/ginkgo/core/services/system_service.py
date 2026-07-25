@@ -91,6 +91,24 @@ class SystemService:
         """获取模块加载状态"""
         return self._get_module_status()
 
+    # ===== 错误统计 (#6785) =====
+
+    def get_error_stats(self) -> Dict[str, Any]:
+        """获取进程内错误统计（透传 GLOG.get_error_stats）。
+
+        #6785: GLOG 已在进程内累计错误模式统计 (logger.py:519)，本方法在 Service 层
+        暴露，供 API /system/error-stats 端点查询当前 API 进程累计的错误热点。
+        """
+        return GLOG.get_error_stats()
+
+    def reset_error_stats(self) -> Dict[str, Any]:
+        """清零进程内错误统计（调 GLOG.clear_error_stats）。
+
+        #6785: 排障后清零，便于观察新一轮错误分布。POST /system/error-stats/reset 调用。
+        """
+        GLOG.clear_error_stats()
+        return {"reset": True}
+
     # ===== Worker 数据格式化 =====
 
     def _format_workers(self, components: Dict[str, Any]) -> List[Dict[str, Any]]:
