@@ -51,6 +51,7 @@ class SystemService:
                 "modules": self._get_module_status(),
                 "infrastructure": self._check_infrastructure(),
                 "debug_mode": GCONF.DEBUGMODE,
+                "env": GCONF.ENV,
             }
         except Exception as e:
             GLOG.ERROR(f"Failed to get system status: {e}")
