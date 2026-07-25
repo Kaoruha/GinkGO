@@ -142,11 +142,13 @@ def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off")])
             console.print("[green]:white_check_mark: Debug mode enabled[/green]")
             console.print("[dim]This enables detailed logging and error information[/dim]")
             console.print("[dim]Configuration saved to ~/.ginkgo/config.yml[/dim]")
+            console.print("[dim]:bulb: 集群选择请用 `ginkgo config set env DEVELOPMENT|PRODUCTION`（debug 已与 DB 解耦）[/dim]")
         else:
             GCONF.set_debug(False)  # 正确的调用方式，会写入配置文件
             console.print("[yellow]:muted_speaker: Debug mode disabled[/yellow]")
             console.print("[dim]Switched to production logging level[/dim]")
             console.print("[dim]Configuration saved to ~/.ginkgo/config.yml[/dim]")
+            console.print("[dim]:bulb: 集群选择请用 `ginkgo config set env DEVELOPMENT|PRODUCTION`（debug 已与 DB 解耦）[/dim]")
             
     except Exception as e:
         console.print(f"[red]Error setting debug mode: {e}[/red]")
@@ -528,13 +530,19 @@ def run(
     """
     :rocket: Run backtest (simplified from 'backtest run').
     """
+    # ADR-028: 回测防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
+    from ginkgo.libs import GCONF
+    if GCONF.ENV == "PRODUCTION":
+        console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
+        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
+        raise typer.Exit(1)
+
     try:
         console.print(f"[bold blue]:rocket: Running backtest: {engine_id}[/bold blue]")
-        
+
         from ginkgo.trading.core.containers import container as backtest_container
-        
+
         if debug_mode:
-            from ginkgo.libs import GCONF
             GCONF.set_debug(True)
             console.print("[dim]Debug mode enabled for this run[/dim]")
         
@@ -695,11 +703,17 @@ def test(
     """
     :test_tube: Run tests (simplified from 'pytest run').
     """
+    # ADR-028: 测试防误连生产 —— 守卫须在 try 之外，否则 typer.Exit 被下方 except Exception 吞掉
+    from ginkgo.libs import GCONF
+    if GCONF.ENV == "PRODUCTION":
+        console.print("[red]:x: 测试在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
+        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
+        raise typer.Exit(1)
+
     try:
         console.print("[bold blue]:test_tube: Running tests...[/bold blue]")
-        
+
         # Enable debug mode for testing
-        from ginkgo.libs import GCONF
         original_debug = GCONF.DEBUGMODE
         GCONF.set_debug(True)
         

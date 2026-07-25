@@ -198,6 +198,14 @@ def run_task(
     bg: bool = typer.Option(False, "--bg", help="Run in background thread"),
 ):
     """:rocket: Run a backtest task locally."""
+    # ADR-028: 回测防误连生产 —— 守卫须在 container.backtest_task_service()（DB 调用）之前
+    # fail-fast，且在下方 try 之外（typer.Exit 否则被 except Exception 吞掉，#6590）。
+    from ginkgo.libs import GCONF
+    if GCONF.ENV == "PRODUCTION":
+        console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
+        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
+        raise typer.Exit(1)
+
     import json as _json
     import threading
     from ginkgo import services

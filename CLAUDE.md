@@ -35,11 +35,12 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 
 ### 数据库
 - **禁止手动 ALTER TABLE**，表由 Model 定义 + `ginkgo init` 自动创建
-- Docker 双实例：Master(非Debug) | Test(Debug，端口首位+1)
+- Docker 双实例：Master(PRODUCTION) | Test(DEVELOPMENT，端口首位+1)
 - ClickHouse=时序 | MySQL=关系 | Redis=缓存 | MongoDB=文档
 
-### Debug 模式
-数据库操作前必须开启：`ginkgo debug on`
+### 集群与 Debug（ADR-028 解耦）
+- 集群选择：`ginkgo config set env PRODUCTION|DEVELOPMENT`（PRODUCTION=Master / DEVELOPMENT=Test，DEV 端口首位 +1）
+- Debug：`ginkgo debug on` 仅开日志/退避，**不再切库**（ADR-028 起与集群解耦）
 
 ### 基础组件
 **禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
@@ -61,7 +62,8 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
-ginkgo debug on                               # 开启 debug（必须）
+ginkgo config set env DEVELOPMENT             # 切 Test 集群（端口 +1）；PRODUCTION=Master
+ginkgo debug on                               # 开日志/退避（ADR-028 起不再切库）
 ginkgo serve api                              # API 服务器 (:8000)
 ginkgo serve webui                            # Web UI (:5173)
 ginkgo serve worker-backtest --id test2       # 回测 Worker

@@ -190,6 +190,17 @@ jobs:
           uv run python -m pytest \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: GINKGO_ENV + cluster guard smoke (PR6773 ADR-028 集群选择+护栏)
+        # #6773 config.py 新增 ENV property（bridge 推断）/ IS_DEV_ENV / set_env /
+        # _assert_cluster_consistency 被 import 链触达但方法体无 smoke 调用（gate 测试
+        # 不读 CLICKHOST/MYSQLHOST 故 _assert 不触发）→ diff coverage gate 红（20%）。
+        # 本 smoke 调起方法体补覆盖信号，并锁定集群选择 + 护栏新契约（bridge/冲突
+        # raise/SKIP 逃生/幂等横幅）。独立 step 使 push→master 时也跑，同时纳入下方
+        # gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/libs/test_config_env_cluster_guard_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -208,6 +219,7 @@ jobs:
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             tests/unit/libs/test_config_generate_smoke.py \
+            tests/unit/libs/test_config_env_cluster_guard_smoke.py \
             tests/unit/features/test_expression_registry.py \
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
