@@ -143,15 +143,24 @@ def set(
             if env_value not in ("PRODUCTION", "DEVELOPMENT"):
                 console.print(":x: env must be PRODUCTION|DEVELOPMENT (alias: PROD|DEV)")
                 return
-            env_file = GCONF.COMPOSE_FILE_PATH
-            if not env_file:
-                console.print(":x: COMPOSE_FILE_PATH 未配置，无法定位 .env")
+            env_label = "DEVELOPMENT(test)" if env_value == "DEVELOPMENT" else "PRODUCTION(master)"
+            # 始终持久化：set_env 写 config.yml 的 env 字位 + 同步本进程 os.environ。
+            # 本地 CLI 不读 .env，新进程经 ENV property 读 config.yml 拿到正确集群（review Q5 修复）。
+            # 容器场景额外写 .env + compose 重启（下方），本地 CLI 无 compose 也已持久化。
+            try:
+                GCONF.set_env(env_value)
+            except ValueError:
+                console.print(":x: env must be PRODUCTION|DEVELOPMENT (alias: PROD|DEV)")
                 return
+            console.print(f":white_check_mark: env = {env_value} ({env_label})，已写入 config.yml（本地 CLI 新进程生效）")
+            # 容器部署态：写 .env（compose ${GINKGO_ENV:-DEVELOPMENT} 插值注入）+ 重启容器
+            # （worker-env 烘焙不可变，改 .env 须 compose up -d 重建）。本地 CLI 无 compose 则止于此。
+            env_file = GCONF.COMPOSE_FILE_PATH
+            if not env_file or not os.path.exists(env_file):
+                return  # 本地 CLI 场景：config.yml 已持久化，无 .env/compose 可操作
             env_path = os.path.join(os.path.dirname(env_file), ".env")
             try:
                 changed = update_env_for_env(env_path, env_value)
-                GCONF.set_env(env_value)  # 同步本进程
-                env_label = "DEVELOPMENT(test)" if env_value == "DEVELOPMENT" else "PRODUCTION(master)"
                 if changed:
                     summary = ", ".join(f"{k}={v}" for k, v in changed.items())
                     console.print(f":white_check_mark: .env updated → {env_label} ({summary})")
@@ -160,34 +169,32 @@ def set(
             except Exception as e:
                 console.print(f":warning: Failed to update .env: {e}")
                 return
-            # 重启容器使 worker-env 重新插值（env 烘焙不可变，改 .env 须重建）
-            if os.path.exists(env_file):
-                import subprocess
-                try:
-                    compose_dir = os.path.dirname(env_file)
-                    console.print(":whale: Restarting docker containers...")
-                    result = subprocess.run(
-                        ["docker", "compose", "up", "-d"],
-                        cwd=compose_dir,
-                        capture_output=True, text=True, timeout=60,
-                    )
-                    if result.returncode == 0:
-                        # 解析输出显示重建的容器
-                        recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
-                        if recreated:
-                            for line in recreated:
-                                console.print(f"  {line.strip()}")
-                        else:
-                            console.print("  No containers changed")
-                        console.print(":white_check_mark: Docker containers restarted")
+            import subprocess
+            try:
+                compose_dir = os.path.dirname(env_file)
+                console.print(":whale: Restarting docker containers...")
+                result = subprocess.run(
+                    ["docker", "compose", "up", "-d"],
+                    cwd=compose_dir,
+                    capture_output=True, text=True, timeout=60,
+                )
+                if result.returncode == 0:
+                    # 解析输出显示重建的容器
+                    recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
+                    if recreated:
+                        for line in recreated:
+                            console.print(f"  {line.strip()}")
                     else:
-                        console.print(f":warning: Docker compose: {result.stderr.strip()}")
-                except FileNotFoundError:
-                    console.print(":memo: Docker not installed, skipped container restart")
-                except subprocess.TimeoutExpired:
-                    console.print(":warning: Docker compose timed out")
-                except Exception as e:
-                    console.print(f":warning: Docker compose: {e}")
+                        console.print("  No containers changed")
+                    console.print(":white_check_mark: Docker containers restarted")
+                else:
+                    console.print(f":warning: Docker compose: {result.stderr.strip()}")
+            except FileNotFoundError:
+                console.print(":memo: Docker not installed, skipped container restart")
+            except subprocess.TimeoutExpired:
+                console.print(":warning: Docker compose timed out")
+            except Exception as e:
+                console.print(f":warning: Docker compose: {e}")
         elif key.lower() == 'quiet':
             quiet_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_quiet(quiet_value)

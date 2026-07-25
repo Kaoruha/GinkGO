@@ -791,17 +791,25 @@ class GinkgoConfig(object):
         DEVELOPMENT → test 集群（mysql-test/clickhouse-test，宿主端口首位 +1）。
         与 DEBUGMODE（纯日志/@retry 退避，ADR-013）解耦——详见 ADR-028。
 
-        取值优先级：GINKGO_ENV env > bridge-default（未设时从 DEBUGMODE 推断）。
-        bridge 保证解耦后首次启动零行为变化：DEBUGMODE=True→DEVELOPMENT，
-        DEBUGMODE=False→PRODUCTION。用户首次 `ginkgo config set env ...` 材料化到
-        .env 后 bridge 不再触发，DEBUGMODE 彻底无关集群。
+        取值优先级：GINKGO_ENV env > config.yml 的 env 字段 > bridge-default。
+        - env var：容器由 compose `${GINKGO_ENV:-DEVELOPMENT}` 注入，权威。
+        - config.yml env 字段：本地 CLI 持久化层（本地 CLI 不读 .env，`set env` 写
+          config.yml 使新进程读到，对称 `debug` 字位）。详见 ADR-028 Q5 决策。
+        - bridge-default：env 字段未设时从 DEBUGMODE 推断（True→DEVELOPMENT，
+          False→PRODUCTION），保证解耦后首次启动零行为变化。用户首次
+          `ginkgo config set env ...` 写入 env 字段后 bridge 不再触发。
         """
         key = "GINKGO_ENV"
         val = os.environ.get(key, None)
         if val is None:
-            # 迁移桥：未显式设 GINKGO_ENV 时从 DEBUGMODE 推断，保证零行为变化
-            val = "DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"
-            os.environ[key] = val
+            # 本地 CLI 持久化层：读 config.yml 的 env 字段（set_env 写入）
+            cfg_env = self._read_config().get("env")
+            if cfg_env is not None:
+                val = str(cfg_env)
+            else:
+                # 迁移桥：未设 env 字段时从 DEBUGMODE 推断，保证零行为变化
+                val = "DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"
+            os.environ[key] = str(val)
         return str(val).upper()
 
     @property
@@ -810,16 +818,19 @@ class GinkgoConfig(object):
         return self.ENV == "DEVELOPMENT"
 
     def set_env(self, value: str) -> None:
-        """同步本进程 GINKGO_ENV（持久化 .env 由 CLI update_env_for_env 负责）。
+        """持久化 GINKGO_ENV 到 config.yml + 同步本进程 os.environ。
 
-        与 set_debug 异处：set_debug 写 ~/.ginkgo/config.yml（用户偏好层）；
-        set_env 只同步本进程 os.environ——GINKGO_ENV 是部署态，持久层是 .env
-        （compose 需 ${GINKGO_ENV:-DEVELOPMENT} 插值注入容器，且 config.yml 在
-        容器内以 :ro 挂载不可写）。详见 ADR-028。
+        对称 set_debug（写 ~/.ginkgo/config.yml 的 debug 字位）：写 config.yml 的 env
+        字位，使本地 CLI 新进程（不读 .env）经 ENV property 读到正确集群——修复 review
+        Q5（本地 CLI `set env` 后新进程仍被生产守卫拒）。容器部署态的 .env 持久化由 CLI
+        `update_env_for_env` 负责（compose `${GINKGO_ENV:-DEVELOPMENT}` 插值注入容器）。
+        set_env 仅在 CLI（宿主）调用——容器内 config.yml 以 :ro 挂载不可写，但容器内
+        不跑 `ginkgo config` CLI。详见 ADR-028。
         """
         val = str(value).upper()
         if val not in ("PRODUCTION", "DEVELOPMENT"):
             raise ValueError(f"GINKGO_ENV must be PRODUCTION|DEVELOPMENT, got {value!r}")
+        self._write_config("env", val)  # 本地 CLI 持久化（新进程 ENV property 读得到）
         os.environ["GINKGO_ENV"] = val
 
     # 装饰器配置属性

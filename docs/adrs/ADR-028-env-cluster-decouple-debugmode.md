@@ -21,16 +21,22 @@ ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错�
 
 ### 1. 新增 `GINKGO_ENV ∈ {PRODUCTION, DEVELOPMENT}` 为集群选择单一旋钮
 
-`GCONF.ENV` property（`config.py`）读 `GINKGO_ENV` env，取值**大写**（`.upper()`），单一决定连 master 还是 test：
+`GCONF.ENV` property（`config.py`）按**优先级链**解析集群取值（统一 `.upper()`），单一决定连 master 还是 test：
+
+1. `os.environ["GINKGO_ENV"]`——显式 env var，**最高**优先级（容器经 compose 插值注入、`set env` 同步本进程、CI/一次性覆盖）
+2. `config.yml` 的 `env` 字位——本地 CLI 部署态（`set_env` 写入，新进程经 `ENV` property 读取；review Q5 补，见 Decision 6）
+3. bridge 推断（见 Decision 2，**最低**——前两层都缺时从 DEBUGMODE 兜底）
 
 - `DEVELOPMENT` → test 集群（`*-test` host + 宿主客户端端口 +1）
 - `PRODUCTION` → master 集群（`*-master` host + 原端口）
 
 `IS_DEV_ENV = (ENV == "DEVELOPMENT")`。`DEBUGMODE` **退回 ADR-013 纯日志/@retry 退避语义**，不再决定 host、不再决定 +1。
 
-### 2. bridge-default：未设时从 DEBUGMODE 推断（零行为变化迁移）
+### 2. bridge-default：env var 与 config.yml env 字位均缺时从 DEBUGMODE 推断（零行为变化迁移）
 
-`GINKGO_ENV` 未显式设置时，`GCONF.ENV` bridge 推断 `"DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"` 并写回 `os.environ`（材料化）。这保证**首次启动零行为变化**：现存部署（未设 `GINKGO_ENV`）的集群选择与解耦前完全一致。一旦用户执行 `ginkgo config set env ...` 把 `GINKGO_ENV` 写进 `.env`，bridge 不再触发，env 成为显式部署态。
+`GINKGO_ENV` 未设 env var **且** config.yml 无 `env` 字位时，`GCONF.ENV` bridge 推断 `"DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"` 并写回 `os.environ`（材料化）。这保证**首次启动零行为变化**：现存部署（未设 `GINKGO_ENV` 且 config.yml 无 env 字位）的集群选择与解耦前完全一致。一旦用户执行 `ginkgo config set env ...`（写 config.yml env 字位 + 容器场景额外写 .env），env 材料化，bridge 不再触发。
+
+**优先级链 rationale**（review Q5 补）：os.environ > config.yml env 字位 > bridge。os.environ 最高保证容器 compose 插值与单次进程覆盖优先；config.yml 层保证本地 CLI 新进程（不读 .env）拿到 `set env` 持久化的集群；bridge 兜底保证迁移零行为变化。
 
 ### 3. +1 守卫与启动护栏判据改用 IS_DEV_ENV（supersede ADR-024 D1 / ADR-027 D1）
 
@@ -46,9 +52,17 @@ ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错�
 - 新增 `ginkgo config set env DEVELOPMENT|PRODUCTION`（别名 DEV/PROD，normalize 大写）：`update_env_for_env` 写 `.env` 的 `GINKGO_ENV` + CLICKHOUSE/MYSQL host（DEVELOPMENT→`*-test` / PRODUCTION→`*-master`，Mongo 恒 master）+ `set_env` 同步本进程 + `docker compose up -d` 重启使 worker env 重新插值。
 - `ginkgo config set debug on/off` **移除** `.env` 改写与 compose 重启副作用，仅 `set_debug` 写 config.yml（退纯日志）。
 
-### 6. set_env 持久层是 .env 而非 config.yml
+### 6. set_env 两层持久化：config.yml（本地 CLI）+ .env（容器）+ os.environ（本进程）
 
-`set_env` 只同步本进程 `os.environ`，**不写 config.yml**。理由：① compose 需 `${GINKGO_ENV:-DEVELOPMENT}` 插值注入容器，持久值必须在 `.env`；② config.yml 在容器内 `:ro` 挂载（`docker-compose.yml` worker volume），容器侧不可写。`GINKGO_ENV` 是**部署态**（prod/dev），与 config.yml 的**用户偏好态**（debug 日志、cpu_ratio、路径）分层不同。
+`set_env` 三路写（review Q5 演进）：
+
+- **`config.yml` 的 `env` 字位**：本地 CLI 部署态持久化。本地 CLI 不读 `.env`（无 dotenv 加载），新进程经 `ENV` property 优先级链读 config.yml env 字位拿到集群。**Q5 修复根因**：初版 `set_env` 仅写本进程 `os.environ`，新进程无该 env var 且 config.yml 无 env 字位，bridge 从 DEBUGMODE 推断覆盖用户 `set env` 的意图——本地 CLI 场景 `set env` 完全不持久化。
+- **`.env`**（容器场景，CLI 层）：`update_env_for_env` 写 `.env` 的 `GINKGO_ENV` + host，供 compose `${GINKGO_ENV:-DEVELOPMENT}` 插值注入容器；仅在 `COMPOSE_FILE_PATH` 存在时执行（本地 CLI 无 compose 则跳过）。
+- **`os.environ`**：本进程即时生效。
+
+**与 set_debug 对称**：`set_debug` 持久化层是 config.yml（纯用户偏好态），`set_env` 新增 config.yml 层与其对称——env 虽是"部署态"，但本地 CLI 场景的部署态本质也是用户偏好（连 test 还是 master），分层一致。容器内 config.yml `:ro` 挂载不影响（容器走 .env 插值，不依赖 config.yml 写入）。
+
+> **演进注记**：初版 Decision 6 判定 `set_env` 持久层**仅 .env**，理由是 config.yml 容器内 `:ro`。review Q5 发现本地 CLI 不读 .env，导致 `ginkgo config set env` 在本地 CLI 场景下完全不持久化（新进程被 bridge 覆盖）。修订为两层持久化：config.yml 层服务本地 CLI、.env 层服务容器，互不干扰。
 
 ### 7. 统一读口：trade_gateway_adapter 改走 GCONF.ENV
 
@@ -70,7 +84,8 @@ ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错�
 - **worker env 烘焙问题仍未根治**：`set env` 改 `.env` + `docker compose up -d` 重建容器才生效；**运行中** worker 带旧 env 仍连错。彻底解法是 worker 启动期读最新配置而非烘焙（ADR-024 Decision 5 范畴），本 ADR 不涉及。
 - **Redis/Mongo 仍恒 master**：`update_env_for_env` 只切 MySQL/ClickHouse host（compose 无 `redis-test`/`mongo-test` 实例）。DEVELOPMENT env 下这两库仍打 master——已知坑，未变。
 - **回测/测试在 PRODUCTION env 下被拒**：所有依赖 `engine run` / `core test` 的工作流须先 `set env DEVELOPMENT`。这是有意的行为变化（防误连生产）。
-- **bridge 期 DEBUGMODE 仍间接影响集群**：env 未显式设时，bridge 从 DEBUGMODE 推断——故此期间改 DEBUGMODE 仍会经 bridge 切集群。材料化（`set env` 写 .env）后此间接影响消失。
+- **bridge 期 DEBUGMODE 仍间接影响集群**：env 未显式设（os.environ 无）**且** config.yml 无 env 字位时，bridge 从 DEBUGMODE 推断——故此纯迁移态下改 DEBUGMODE 仍会经 bridge 切集群。材料化（本地 `set env` 写 config.yml / 容器写 .env）后此间接影响消失。
+- **本地 CLI `set env` 现可持久化**（review Q5 修复）：`ginkgo config set env DEVELOPMENT` 写 config.yml env 字位，本地 CLI 新进程经 `ENV` property 优先级链读到，不再被陈旧 DEBUGMODE 经 bridge 覆盖。容器场景仍额外写 .env + compose 重启（行为不变）。
 
 ## 判定标准自检
 

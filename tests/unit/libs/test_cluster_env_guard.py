@@ -13,6 +13,25 @@ import pytest
 from ginkgo.libs.core.config import GCONF, GinkgoConfig
 
 
+@pytest.fixture(autouse=True)
+def _isolate_config_yml(monkeypatch, tmp_path):
+    """隔离 config.yml：防 set_env 写 env 字位污染全局 GCONF 单例的 bridge 测试。
+
+    ADR-028 review Q5 修复后 ENV property 优先读 config.yml env 字位；若其他测试
+    （如 smoke 的 test_set_env_valid_and_invalid）调 set_env 写了真实 ~/.ginkgo/config.yml
+    的 env 字位，本套件 bridge 测试（期望未设 env 时从 DEBUGMODE 推断）会读到残留而失效。
+    把 setting_path 指到 tmp_path 干净 config.yml（无 env 字位）保证 bridge 正常触发。
+    """
+    cfg = tmp_path / "config.yml"
+    cfg.write_text("debug: False\n")
+    monkeypatch.setattr(GinkgoConfig, "setting_path", property(lambda self: str(cfg)))
+    GCONF._config_cache = {}
+    GCONF._config_mtime = 0
+    yield
+    GCONF._config_cache = {}
+    GCONF._config_mtime = 0
+
+
 def _trigger(monkeypatch, env: str, mh: str, ch: str, skip: str = "0") -> str:
     """重置护栏幂等标志并按给定 GINKGO_ENV 触发一次校验，返回解析的 MySQL host。"""
     monkeypatch.setenv("GINKGO_ENV", env)

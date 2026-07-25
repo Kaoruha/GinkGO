@@ -30,14 +30,26 @@ _ENV_KEYS = (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_env():
-    """每测试重置护栏幂等标志 + 清理相关 env，防跨测试污染。"""
+def _isolate_env(monkeypatch, tmp_path):
+    """每测试重置护栏幂等标志 + 清理相关 env + 隔离 config.yml，防跨测试污染。
+
+    set_env 写 config.yml 的 env 字位后会污染全局 GCONF 单例的 bridge 测试
+   （ENV property 优先读 config.yml env 字位，bridge 不再触发），故把 setting_path
+    指到 tmp_path 干净 config.yml（仅 debug:False，无 env 字位 → bridge 正常触发）。
+    """
     GinkgoConfig._cluster_guard_done = False
     saved = {k: os.environ.get(k) for k in _ENV_KEYS}
     for k in _ENV_KEYS:
         os.environ.pop(k, None)
+    cfg = tmp_path / "config.yml"
+    cfg.write_text("debug: False\n")
+    monkeypatch.setattr(GinkgoConfig, "setting_path", property(lambda self: str(cfg)))
+    GCONF._config_cache = {}
+    GCONF._config_mtime = 0
     yield
     GinkgoConfig._cluster_guard_done = False
+    GCONF._config_cache = {}
+    GCONF._config_mtime = 0
     for k, v in saved.items():
         if v is not None:
             os.environ[k] = v
@@ -111,3 +123,31 @@ class TestEnvClusterGuardSmoke:
         # 不 raise（SKIP 生效）
         assert GCONF.MYSQLHOST == "mysql-test"
         assert "[PROD]" in capsys.readouterr().err
+
+    # --- review Q5 修复：set_env 持久化到 config.yml，本地 CLI 新进程读到 ---
+
+    def test_set_env_persists_for_new_process(self, monkeypatch):
+        """review Q5：set_env 写 config.yml → 新进程（无 env var）ENV 仍读到。
+
+        本地 CLI 不读 .env，新进程经 ENV property 读 config.yml env 字位拿到集群。
+        fixture 初始化 config.yml debug:False（bridge 应推断 PRODUCTION）；set_env
+        ('DEVELOPMENT') 写 env 字位后清 env var 模拟新进程，读到 DEVELOPMENT 即证明
+        从 config.yml env 字位读到（非 bridge），持久化修复生效。
+        """
+        GCONF.set_env("DEVELOPMENT")
+        monkeypatch.delenv("GINKGO_ENV", raising=False)  # 模拟新进程
+        GCONF._config_cache = {}  # 清缓存强制重读 config.yml
+        assert GCONF.ENV == "DEVELOPMENT"  # config.yml env 字位命中，非 bridge(PRODUCTION)
+
+    def test_env_config_yml_overrides_bridge(self, monkeypatch):
+        """ENV property 优先级：config.yml env 字位 > bridge(DEBUGMODE)。
+
+        DEBUGMODE=True（bridge 应推断 DEVELOPMENT）但 config.yml env=PRODUCTION 时，
+        ENV 读到 PRODUCTION——证明 config.yml env 字位优先于 bridge。Q5 持久化使本地
+        CLI 新进程不再被陈旧 DEBUGMODE 误导集群选择。
+        """
+        GCONF.set_env("PRODUCTION")  # 写 config.yml env: PRODUCTION
+        monkeypatch.delenv("GINKGO_ENV", raising=False)
+        monkeypatch.setattr(GinkgoConfig, "DEBUGMODE", property(lambda self: True))  # bridge 会推断 DEVELOPMENT
+        GCONF._config_cache = {}
+        assert GCONF.ENV == "PRODUCTION"  # config.yml env 字位优先于 bridge
