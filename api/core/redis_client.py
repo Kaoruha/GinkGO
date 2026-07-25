@@ -2,12 +2,12 @@
 Redis client utilities for API Server
 """
 
-import json
 from typing import Optional, Any
 import asyncio
 import redis.asyncio as aioredis
 
 from core.logging import logger
+from ginkgo.data.mappers.cache_mapper import CacheMapper
 
 
 # 数据库/Redis 配置从 GCONF 读取（与 get_db_config() 保持一致）
@@ -63,7 +63,7 @@ async def set_backtest_progress(task_uuid: str, progress_data: dict, ttl: int = 
     try:
         redis = await get_redis()
         key = f"backtest:progress:{task_uuid}"
-        value = json.dumps(progress_data, ensure_ascii=False)
+        value = CacheMapper.encode(progress_data)
         await redis.setex(key, ttl, value)
         logger.debug(f"Set progress for {task_uuid[:8]}: {progress_data.get('progress', 0):.1f}%")
     except Exception as e:
@@ -85,7 +85,7 @@ async def get_backtest_progress(task_uuid: str) -> Optional[dict]:
         key = f"backtest:progress:{task_uuid}"
         value = await redis.get(key)
         if value:
-            return json.loads(value)
+            return CacheMapper.decode(value)
         return None
     except Exception as e:
         logger.error(f"Failed to get progress from Redis: {e}")
