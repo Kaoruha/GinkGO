@@ -5,7 +5,7 @@ mcp>=1.28.1
 
 # SSE/HTTP mode dependencies (optional, for --transport sse)
 uvicorn>=0.24.0
-starlette>=1.0.1
+starlette>=1.3.1
 sse-starlette>=1.6.0
 
 # Ginkgo dependencies (already installed in main project)
