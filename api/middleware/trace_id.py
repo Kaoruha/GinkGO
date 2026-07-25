@@ -37,6 +37,11 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         trace_id = request.headers.get(TRACE_ID_HEADER) or _new_trace_id()
+        # 注入 request.state：随 scope 存活，跨越中间件异常 unwind。内层中间件(如
+        # JWTAuthMiddleware 401)抛 HTTPException 时 call_next re-raise，本 with 块退出
+        # 致 contextvar reset、且下方响应头写入行被跳过；error_handler 由外层
+        # ServerErrorMiddleware 在本 with 作用域之外触发，靠 state 取回同一 trace_id 补头。
+        request.state.trace_id = trace_id
         # sync contextmanager 包 await call_next: contextvars 在同 task 贯穿该请求所有
         # 后续 await（service/crud 同 task 读到），请求结束 finally 自动 reset 不泄漏
         with GLOG.with_trace_id(trace_id):
