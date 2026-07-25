@@ -665,14 +665,14 @@ class GinkgoConfig(object):
     @property
     def MODE(self) -> str:
         """
-        安装/运行模式：``local`` | ``client``（ADR-024 混合架构）。
+        安装/运行模式：``local`` | ``client``（ADR-026 混合架构）。
 
         - ``local``（默认）：CLI 进程内调本地 Service/DB。
         - ``client``：混合架构——**数据面**（引擎读 bar / 写 result）直连 server DB（``GCONF``
           指向 A 的库），**控制面**（portfolio/backtest 任务管理 + 认证）经 container 返回的
           远程代理 service 走 HTTP API。client 仍装引擎，``backtest run`` **默认本地跑**
           （数据面直连 A 的 DB）；``--remote`` 才提交到 server worker + 轮询（纯瘦客户端是
-          未来可选配置，非默认）。两条平面区别见 ADR-024 §1。
+          未来可选配置，非默认）。两条平面区别见 ADR-026 §1。
         优先级：环境变量 ``GINKGO_MODE`` > config.yml ``mode`` > ``local``。
         """
         return str(self._get_config("mode", "local")).lower()

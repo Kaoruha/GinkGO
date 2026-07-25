@@ -1183,7 +1183,7 @@ def migrate(
         ginkgo data migrate --action heads
         ginkgo data migrate --action revision -r <revision_id>
     """
-    # ADR-024 §6：client 模式禁止 schema 迁移（危险操作须在 server 执行）。
+    # ADR-026 §6：client 模式禁止 schema 迁移（危险操作须在 server 执行）。
     from ginkgo.client.client_mode import assert_command_allowed_in_client
 
     assert_command_allowed_in_client("data migrate")

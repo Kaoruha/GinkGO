@@ -20,7 +20,7 @@ console = Console(emoji=True, legacy_windows=False)
 
 
 # ============================================================================
-# Auth Commands (client 模式登录) — ADR-024
+# Auth Commands (client 模式登录) — ADR-026
 # ============================================================================
 
 @app.command("login")

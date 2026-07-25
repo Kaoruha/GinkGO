@@ -193,7 +193,7 @@ def create_task(
 
 
 def _print_remote_summary(detail) -> None:
-    """从远端 task detail dict 打印关键指标（字段缺失/为空则跳过，ADR-024）。
+    """从远端 task detail dict 打印关键指标（字段缺失/为空则跳过，ADR-026）。
 
     detail 来自 ``GET /backtest/{uuid}``（``BacktestTaskDetail.dict()``），completed 时已含
     annual_return/sharpe/max_drawdown/win_rate/total_pnl/final_portfolio_value/total_orders
@@ -223,13 +223,13 @@ def _print_remote_summary(detail) -> None:
 
 
 def _run_remote_backtest(task_id: str, bg: bool = False, timeout: Optional[int] = None) -> None:
-    """client 模式 backtest run：提交到远端 + 轮询 + 打印（ADR-024 命令级分支）。
+    """client 模式 backtest run：提交到远端 + 轮询 + 打印（ADR-026 命令级分支）。
 
     与本地 ``BacktestOrchestrator`` 路径对偶：零本地计算，全部交远端 BacktestWorker。
     ``--bg`` 语义对齐本地（提交后即返回，不阻塞 CLI），非 bg 则同步轮询到终态。
 
     ``timeout``（秒）：非 bg 时轮询上限，到点未终态则返回当前 status + 提示稍后 ``backtest cat``
-    查询，避免 CLI 无限阻塞（ADR-024 Consequences：远端 worker 跑长回测，CLI 不应挂死）。
+    查询，避免 CLI 无限阻塞（ADR-026 Consequences：远端 worker 跑长回测，CLI 不应挂死）。
     ``None`` / ``<=0`` 表示不限（旧行为，仅显式 ``--timeout 0`` 触发）。
     """
     from ginkgo.client.remote.services import RemoteBacktestRunner
@@ -303,14 +303,14 @@ def run_task(
     ),
 ):
     """:rocket: Run a backtest task. Default runs the engine locally — in client mode the engine
-    reads/writes the server DB directly via the data plane (ADR-024 hybrid). Pass --remote to submit
+    reads/writes the server DB directly via the data plane (ADR-026 hybrid). Pass --remote to submit
     to the server worker instead."""
     import json as _json
     import threading
     from ginkgo import services
     from ginkgo.data.containers import container
 
-    # ADR-024 混合架构：默认本地跑引擎（数据面直连配置的 DB；client 模式 GCONF 指向 A 的 DB，
+    # ADR-026 混合架构：默认本地跑引擎（数据面直连配置的 DB；client 模式 GCONF 指向 A 的 DB，
     # 引擎经 datafeeder 读 A、经 result_service 写 A，零代码改）。--remote 走控制面 API，
     # 提交到 A 的 worker + 轮询。run 是 UseCase 编排（orchestrator+progress+aggregator），
     # 非单一 service 方法，无法代理 → 命令级分支（ADR-022 §3 不静默）。

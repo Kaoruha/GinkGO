@@ -95,7 +95,7 @@ from ginkgo.notifier.services.notification_recipient_service import Notification
 
 
 def _remote_portfolio_service_factory():
-    """ADR-024 client 模式惰性工厂：首次用到才 import 远端代理（含 httpx），
+    """ADR-026 client 模式惰性工厂：首次用到才 import 远端代理（含 httpx），
 
     避免污染 local/API 进程启动。供 ``Container.portfolio_service`` 的 Selector
     client 分支使用。
@@ -241,7 +241,7 @@ class Container(containers.DeclarativeContainer):
             deployment_crud=deployment_crud,
             param_crud=param_crud,
         ),
-        # ADR-024 client 模式：返回远端代理，零本地 DB/计算。
+        # ADR-026 client 模式：返回远端代理，零本地 DB/计算。
         # client 分支惰性 import（不污染 local/API 进程启动，不 eager 拉 httpx）。
         client=providers.Singleton(_remote_portfolio_service_factory),
     )

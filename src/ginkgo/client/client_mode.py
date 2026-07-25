@@ -1,11 +1,11 @@
-"""ADR-024 §6 client 模式危险操作拦截。
+"""ADR-026 §6 client 模式危险操作拦截。
 
 client 模式下，建表 / migrate / schema 变更等危险操作必须禁止——这类操作应在 server（A）
 执行。DB 无专门账号（B 复用 A 的共享凭据直连），无法靠 DB 权限拦 DDL，故在 CLI 层拦截；
 API 层作纵深防御（拒绝 client 发起的 DDL）。
 
 诚实限制：B 持共享 DB 凭据，绕过 CLI 直接连 server DB 做 DDL 无法阻止——拦截是
-"提高门槛 + 明确意图"，非绝对墙（见 ADR-024 §6 / Consequences）。
+"提高门槛 + 明确意图"，非绝对墙（见 ADR-026 §6 / Consequences）。
 """
 from ginkgo.libs import GCONF
 
@@ -35,6 +35,6 @@ def assert_command_allowed_in_client(command_name: str) -> None:
         f"（危险操作：建表 / schema 变更）。[/red]"
     )
     console.print(
-        "[yellow]请在 server（A）执行：数据库 schema 变更须由 server 侧发起（ADR-024 §6）。[/yellow]"
+        "[yellow]请在 server（A）执行：数据库 schema 变更须由 server 侧发起（ADR-026 §6）。[/yellow]"
     )
     raise SystemExit(1)

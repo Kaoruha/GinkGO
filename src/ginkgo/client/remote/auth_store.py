@@ -1,4 +1,4 @@
-"""Client 模式 JWT 凭证存储 (ADR-024).
+"""Client 模式 JWT 凭证存储 (ADR-026).
 
 存 ``$GINKGO_DIR/auth.json`` (chmod 600)：``api_base / token / expires_at / user``。
 

@@ -177,7 +177,7 @@ async def login(login_request: LoginRequest, req: Request):
 
 @router.post("/refresh")
 async def refresh_token(req: Request):
-    """凭当前 (近过期) JWT 换新 JWT —— 无感续期 (ADR-024)。
+    """凭当前 (近过期) JWT 换新 JWT —— 无感续期 (ADR-026)。
 
     - PUBLIC path，自鉴权：从 ``Authorization: Bearer`` 提取 token。
     - jose decode 带 60s leeway，允许刚过 exp 的边界 token（应对时钟漂移）；
@@ -185,6 +185,9 @@ async def refresh_token(req: Request):
     - 仍校验黑名单（logout/改密码撤销的 token 不能 refresh）。
     - #5899: is_active/is_admin 从 DB 实查（与 /auth/verify、/auth/me 一致），不信任
       payload；否则被禁用用户 / 被降权管理员可借每次 refresh 无限续期原权限。
+    - DB 查询异常 → fail-closed 拒绝续签（503，不发新 token）：is_active/is_admin 依赖 DB，
+      DB 故障时无法核验身份，不能放行续期（否则被禁用用户可借 DB 故障窗口续期）。
+      旧 token 不受影响（自然过期），仅阻断本次续签。
     - 重签保留 user_uuid/credential_uuid/username + DB-fresh is_admin，新 jti/exp。
 
     注：MVP 不在 refresh 时把旧 token 加入黑名单（旧 token 自然将过期）；
@@ -247,9 +250,14 @@ async def refresh_token(req: Request):
     except HTTPException:
         raise
     except Exception as e:
-        # #5899: fail-closed —— DB 不可用时 is_admin=False（不传播 payload 中的旧值），
-        # 与 /auth/verify、/auth/me 一致。
-        logger.warning(f"#5899: DB query failed for refresh, user={user_uuid}: {e}")
+        # #5899: fail-closed —— DB 不可用时无法核验 is_active/is_admin，拒绝续签（不发新 token）。
+        # is_active/is_admin 依赖 DB，DB 故障时不能放行续期，否则被禁用（is_active=False）用户
+        # 可借 DB 故障窗口 refresh 续期。旧 token 不受影响（自然过期），仅阻断本次续签。
+        logger.warning(f"#5899: DB query failed for refresh, denying, user={user_uuid}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to verify account status; please retry shortly",
+        )
 
     new_data = {
         "user_uuid": user_uuid,

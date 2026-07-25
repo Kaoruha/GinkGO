@@ -1,4 +1,4 @@
-"""远端 service 代理 (ADR-024)。
+"""远端 service 代理 (ADR-026)。
 
 client 模式下，``container.portfolio_service()`` 等 provider 经 Selector 返回这里的
 代理（而非本地 service）。代理走 :class:`ApiClient` 调远端 REST，把 JSON 映射回本地
@@ -310,7 +310,7 @@ class RemotePortfolioService(RemoteService):
 
 
 class RemoteBacktestRunner:
-    """client 模式 backtest run：提交 + 轮询（ADR-024 命令级分支）。
+    """client 模式 backtest run：提交 + 轮询（ADR-026 命令级分支）。
 
     与本地 ``BacktestOrchestrator.run_from_task`` 对偶：本地同步阻塞跑引擎，本类把任务
     **提交到远端 BacktestWorker**（``POST /backtest/{uuid}/start``）后轮询

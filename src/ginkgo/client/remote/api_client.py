@@ -1,4 +1,4 @@
-"""瘦客户端 HTTP 客户端 (ADR-024)。
+"""瘦客户端 HTTP 客户端 (ADR-026)。
 
 封装与远端 Ginkgo API 的交互：
 - ``base_url`` 取自 ``GCONF.API_BASE``；

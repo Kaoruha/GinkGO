@@ -9,7 +9,7 @@
 验证 refresh 续签同样遵守 #5899 的 DB-实查不变量（与 /auth/verify、/auth/me 对齐）：
 - 被禁用用户 → 401（不发新 token）
 - 被降权管理员 → 新 token 的 is_admin 来自 DB 而非旧 payload
-- DB 异常 → fail-closed（新 token is_admin=False，不传播旧 payload）
+- DB 异常 → fail-closed 拒绝续签（503，不发新 token）
 - 凭据/用户已删除 → 401
 - payload 缺 user_uuid → 401
 - 正常活跃用户 → 200 + 新 token + DB-fresh is_admin
@@ -117,14 +117,14 @@ class TestRefreshDemotedAdmin:
 
 
 # ============================================================
-# Test 3: DB 异常 → fail-closed（新 token is_admin=False）
+# Test 3: DB 异常 → fail-closed 拒绝续签（503）
 # ============================================================
 
 class TestRefreshDBFailure:
-    """#5899: DB 查询异常时新 token is_admin 必须 fail-closed，不回退旧 payload"""
+    """#5899: DB 查询异常时拒绝续签（fail-closed，不发新 token）"""
 
     @pytest.mark.asyncio
-    async def test_db_exception_is_admin_false(self):
+    async def test_db_exception_denied_503(self):
         from api.auth import refresh_token
 
         # 旧 token is_admin=True（伪造），DB 抛异常
@@ -136,11 +136,11 @@ class TestRefreshDBFailure:
 
         with _patch_blacklist(), patch("api.auth.get_user_service", return_value=mock_svc):
             req = _mock_request(headers={"Authorization": f"Bearer {token}"})
-            result = await refresh_token(req)
+            with pytest.raises(HTTPException) as exc:
+                await refresh_token(req)
 
-        # fail-closed: 仍发新 token（不锁死用户），但 is_admin 必须为 False
-        assert result["data"]["token"]
-        assert result["data"]["user"]["is_admin"] is False
+        # fail-closed: DB 故障无法核验身份 → 拒绝续签（503），不发新 token
+        assert exc.value.status_code == 503
 
 
 # ============================================================

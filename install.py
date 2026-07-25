@@ -178,7 +178,7 @@ def is_uv_environment():
 
 
 def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
-    """写 client 版 config.yml（mode:client + 控制面 API 设置）（ADR-024 §4 混合架构）。
+    """写 client 版 config.yml（mode:client + 控制面 API 设置）（ADR-026 §4 混合架构）。
 
     client 仍装引擎（支持默认本地 ``backtest run``），数据面 DB 端点写进 secure.yml
     （见 ``write_client_secure``）。此处 config.yml 只承载模式 + 控制面 API；
@@ -212,7 +212,7 @@ def write_client_config(ginkgo_dir, api_host, api_port="8000", api_tls=False):
 
 
 def prompt_client_api(args):
-    """交互式问 server（A）地址：api_host/port/tls（ADR-024 §4 混合架构）。
+    """交互式问 server（A）地址：api_host/port/tls（ADR-026 §4 混合架构）。
 
     A 的 API host 与 DB host 是同一台机，故 api_host 同时作数据面 DB 与控制面 API 的端点。
     非交互（``-y``）或命令行已传值时跳过提示，直接用传入值/默认占位符。
@@ -247,7 +247,7 @@ def prompt_client_api(args):
 def write_client_secure(ginkgo_dir, db_host, path_secure_template):
     """写 client 版 secure.yml：从 secure.template 拷贝，把数据面 DB host 指向 server（A）。
 
-    ADR-024 §4 混合架构：client 的引擎数据面直连 server DB（``MYSQLHOST``/``CLICKHOST`` 等
+    ADR-026 §4 混合架构：client 的引擎数据面直连 server DB（``MYSQLHOST``/``CLICKHOST`` 等
     由 ``_ensure_env_vars`` 从 secure.yml 的 ``database.<engine>.host`` 烘焙成 env），故 DB host
     须指向 A（= api_host）。DB 凭据复用 A 的共享账号（"无专门 db 账号"），模板占位，
     装完用 ``ginkgo config set`` 填 A 的真实凭据。已存在 secure.yml 则跳过（保护已填凭据）。
@@ -638,7 +638,7 @@ def main():
         type=int,
         default=1,
     )
-    # ADR-024 client 模式 API 设置（默认无 --server = client；非交互或脚本化安装可直传）
+    # ADR-026 client 模式 API 设置（默认无 --server = client；非交互或脚本化安装可直传）
     parser.add_argument(
         "-api-host",
         "--api-host",
@@ -691,7 +691,7 @@ def main():
     ginkgo_config = os.path.join(ginkgo_dir, "config.yml")
     ginkgo_secure = os.path.join(ginkgo_dir, "secure.yml")
 
-    # ADR-024 §4：--server=全量后端（拷 config+secure 起 Docker）；默认=client（装引擎，
+    # ADR-026 §4：--server=全量后端（拷 config+secure 起 Docker）；默认=client（装引擎，
     # 不起 Docker/本地 DB；写 client config.yml[mode+api] + secure.yml[DB host→A]）。
     if args.server:
         print(f"[{green('SERVER')}] Full backend install (Docker + config + secure)")
@@ -711,7 +711,7 @@ def main():
         print(f"[{green('CLIENT')}] Client install (engine installed; no Docker/local backend; data plane → server DB, control plane → server API)")
         api_host, api_port, api_tls = prompt_client_api(args)
         write_client_config(ginkgo_dir, api_host, api_port, api_tls)
-        # ADR-024 §4 混合架构：数据面 DB host 指向 server（A），引擎本地跑时直连 A 的库。
+        # ADR-026 §4 混合架构：数据面 DB host 指向 server（A），引擎本地跑时直连 A 的库。
         write_client_secure(ginkgo_dir, api_host, path_gink_sec)
 
     if os.path.exists(path_pip):
