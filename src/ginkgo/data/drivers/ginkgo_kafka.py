@@ -93,9 +93,8 @@ class GinkgoProducer(object):
         Args:
             topic: Kafka topic
             msg: 消息内容
-            headers: Kafka 消息头 [(key, bytes_value)]，跨进程 trace_id 传播用
-                （#6786/#6787）。None 时不下发 header（向后兼容）。底层
-                kafka-python KafkaProducer.send 原生支持 headers 形参。
+            headers: Kafka 消息头 [(key, bytes_value)]，跨进程 trace_id 传播用（#6786）。
+                None 等价不传，向后兼容现有调用方。
 
         Returns:
             bool: 发送是否成功

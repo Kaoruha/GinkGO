@@ -157,6 +157,17 @@ jobs:
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: paper/live trace_id smoke (#6787 Kafka header 传播)
+        # deployment_service._dispatch_deploy_command 发 Kafka deploy 带 trace_id header（AC1）+
+        # paper_trading_worker._dispatch_command/_extract_trace_id 消费恢复 trace_id（AC2/AC3）
+        # 是本 PR 新增可执行行，被 containers import 链触达但 smoke 不调方法体 → diff coverage gate 红。
+        # 本 smoke mock GinkgoProducer/ControlCommand（不连 Kafka）调起两方法体补覆盖信号。
+        # 底层 send(headers=) 形参由 master 已合的 #6803 提供（本 PR 不再重复该 hunk）。
+        run: |
+          uv run python -m pytest \
+            tests/unit/trading/services/test_deployment_service_deploy_trace_id_6787.py \
+            tests/unit/workers/test_paper_trading_worker_consume_trace_id_6787.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: GCONF generate_config_file smoke (PR6686 模板源跟随包)
         # PR6686 将配置模板源从 cwd 改为跟随 ginkgo 包（__file__→src/ginkgo/config/）。
         # generate_config_file 的 origin_path 三分支（config.yml/secure.yml/task_timer.yml）
