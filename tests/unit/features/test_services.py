@@ -175,6 +175,92 @@ class TestFactorService:
         assert status["alpha158_total_factors"] > 0
         assert status["alpha158_core_factors"] > 0
 
+    # ===== #6792 Phase 1: calculate_factors_by_library + 增量物化 (TDD 垂直切片) =====
+
+    def test_calculate_factors_by_library_full_when_no_crud(self):
+        """RED#1: 无 factor_crud 时不增量,engine 收到全部 entity_ids + library 表达式。"""
+        mock_engine = MagicMock()
+        mock_engine.calculate_and_store.return_value = self._make_engine_ok()
+        mock_expr_engine = MagicMock()
+        mock_expr_engine.validate_expressions.return_value = self._make_engine_ok()
+        svc = FactorService(mock_engine, mock_expr_engine)
+
+        result = svc.calculate_factors_by_library(
+            library_name="alpha158",
+            entity_ids=["000001.SZ", "000002.SZ"],
+            start_date="2024-01-01", end_date="2024-12-31",
+        )
+
+        assert result.success is True, f"err: {result.error}"
+        call_kwargs = mock_engine.calculate_and_store.call_args.kwargs
+        assert call_kwargs["entity_ids"] == ["000001.SZ", "000002.SZ"]
+        assert len(call_kwargs["expressions"]) > 0
+
+    def test_calculate_factors_by_library_incremental_skips_materialized(self):
+        """RED#2: factor_crud 返回部分已物化,engine 只收到差集 + skipped 计数正确。"""
+        mock_engine = MagicMock()
+        mock_engine.calculate_and_store.return_value = self._make_engine_ok()
+        mock_expr_engine = MagicMock()
+        mock_expr_engine.validate_expressions.return_value = self._make_engine_ok()
+        svc = FactorService(mock_engine, mock_expr_engine)
+
+        mock_crud = MagicMock()
+        mock_crud.get_materialized_entities.return_value = ["000001.SZ"]
+
+        result = svc.calculate_factors_by_library(
+            library_name="alpha158",
+            entity_ids=["000001.SZ", "000002.SZ", "000003.SZ"],
+            start_date="2024-01-01", end_date="2024-12-31",
+            factor_crud=mock_crud,
+        )
+
+        assert result.success is True, f"err: {result.error}"
+        call_kwargs = mock_engine.calculate_and_store.call_args.kwargs
+        assert call_kwargs["entity_ids"] == ["000002.SZ", "000003.SZ"]
+        assert result.data["skipped_entities"] == 1
+        crud_kwargs = mock_crud.get_materialized_entities.call_args.kwargs
+        assert crud_kwargs["start_time"] == "2024-01-01"
+        assert crud_kwargs["end_time"] == "2024-12-31"
+
+    def test_calculate_factors_by_library_all_materialized_zero_write(self):
+        """RED#3: 全部 entity 已物化 → engine 不调用,processed=0,skipped=N(二次运行写入为零)。"""
+        mock_engine = MagicMock()
+        mock_engine.calculate_and_store.return_value = self._make_engine_ok()
+        mock_expr_engine = MagicMock()
+        mock_expr_engine.validate_expressions.return_value = self._make_engine_ok()
+        svc = FactorService(mock_engine, mock_expr_engine)
+
+        mock_crud = MagicMock()
+        mock_crud.get_materialized_entities.return_value = ["000001.SZ", "000002.SZ"]
+
+        result = svc.calculate_factors_by_library(
+            library_name="alpha158",
+            entity_ids=["000001.SZ", "000002.SZ"],
+            start_date="2024-01-01", end_date="2024-12-31",
+            factor_crud=mock_crud,
+        )
+
+        assert result.success is True, f"err: {result.error}"
+        mock_engine.calculate_and_store.assert_not_called()
+        assert result.data["processed_entities"] == 0
+        assert result.data["total_factors_stored"] == 0
+        assert result.data["skipped_entities"] == 2
+
+    def test_calculate_factors_by_library_unknown_library_returns_error(self):
+        """未知 library → error(不静默空计算),不调 engine。"""
+        mock_engine = MagicMock()
+        svc = FactorService(mock_engine, MagicMock())
+
+        result = svc.calculate_factors_by_library(
+            library_name="nonexistent_lib",
+            entity_ids=["000001.SZ"],
+            start_date="2024-01-01", end_date="2024-12-31",
+        )
+
+        assert result.success is False
+        assert "nonexistent_lib" in (result.error or "")
+        mock_engine.calculate_and_store.assert_not_called()
+
 
 @pytest.mark.skipif(not HAS_FACTOR_SVC, reason="FactorService not available")
 def test_features_convenience_expression_helpers():

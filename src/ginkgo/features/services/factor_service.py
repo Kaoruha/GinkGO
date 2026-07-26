@@ -119,9 +119,100 @@ class FactorService:
         except Exception as e:
             result.error = f"Alpha158因子计算失败: {str(e)}"
             GLOG.ERROR(result.error)
-        
+
         return result
-    
+
+    def calculate_factors_by_library(
+        self,
+        library_name: str,
+        entity_ids: List[str],
+        start_date: str,
+        end_date: str,
+        entity_type: ENTITY_TYPES = ENTITY_TYPES.STOCK,
+        batch_size: int = 1000,
+        incremental: bool = True,
+        factor_crud: Optional[Any] = None,
+    ) -> ServiceResult:
+        """计算指定因子库的因子(通用入口,支持增量物化。#6792)。
+
+        Args:
+            library_name: 因子库名(如 "alpha158",见 list_factor_libraries)
+            entity_ids: 实体ID列表
+            start_date/end_date: 时间范围(YYYY-MM-DD)
+            entity_type: 实体类型
+            batch_size: 批量存储大小
+            incremental: True=跳过已物化 entity(二次运行写入为零);False=全量重算
+            factor_crud: 增量查询用的 FactorCRUD;None 时降级为全量(不增量)
+
+        Returns:
+            ServiceResult: processed_entities / total_factors_stored /
+                           skipped_entities / factor_count
+        """
+        result = ServiceResult(data={})
+
+        try:
+            expressions = self.factor_registry.get_factors_by_library(library_name)
+            if not expressions:
+                result.error = f"Library '{library_name}' not found or has no factors"
+                return result
+
+            validation_result = self.expression_engine.validate_expressions(expressions)
+            if not validation_result.success:
+                result.error = f"表达式验证失败: {validation_result.error}"
+                return result
+
+            # 增量物化:跳过 [start,end] 内对该库因子已有数据的 entity(#6792)
+            target_ids = list(entity_ids)
+            skipped = 0
+            if incremental:
+                crud = factor_crud if factor_crud is not None else getattr(self, "_factor_crud", None)
+                if crud is not None:
+                    materialized = set(crud.get_materialized_entities(
+                        entity_type=entity_type,
+                        factor_names=list(expressions.keys()),
+                        start_time=start_date,
+                        end_time=end_date,
+                    ))
+                    target_ids = [eid for eid in entity_ids if eid not in materialized]
+                    skipped = len(entity_ids) - len(target_ids)
+                    GLOG.INFO(f"增量物化: {skipped}/{len(entity_ids)} entity 已物化,跳过")
+
+            if not target_ids:
+                # 全已物化:零写入(满足"二次运行写入为零"验收,#6792)
+                processed_entities = 0
+                total_factors_stored = 0
+                GLOG.INFO(f"全部 {skipped} entity 已物化,本次零写入")
+            else:
+                calculation_result = self.factor_engine.calculate_and_store(
+                    expressions=expressions,
+                    entity_ids=target_ids,
+                    start_date=start_date,
+                    end_date=end_date,
+                    entity_type=entity_type,
+                    batch_size=batch_size,
+                )
+                if not calculation_result.success:
+                    result.error = calculation_result.error
+                    return result
+                # engine 成功路径必走 set_data → data 为 dict;or {} 仅兜底空 entity 边界
+                calc_data = calculation_result.data or {}
+                processed_entities = calc_data.get("processed_entities", 0)
+                total_factors_stored = calc_data.get("total_factors_stored", 0)
+                GLOG.INFO(f"库 {library_name} 因子计算完成: {len(expressions)} 个因子, "
+                         f"{total_factors_stored} 条记录")
+
+            result.success = True
+            result.set_data("processed_entities", processed_entities)
+            result.set_data("total_factors_stored", total_factors_stored)
+            result.set_data("skipped_entities", skipped)
+            result.set_data("factor_count", len(expressions))
+
+        except Exception as e:
+            result.error = f"calculate_factors_by_library failed: {str(e)}"
+            GLOG.ERROR(result.error)
+
+        return result
+
     def calculate_core_factors(self,
                              entity_ids: List[str],
                              start_date: str,

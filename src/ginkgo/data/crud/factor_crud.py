@@ -295,6 +295,53 @@ class FactorCRUD(BaseCRUD[MFactor]):
             distinct_field="entity_id"
         )
 
+    def get_materialized_entities(
+        self,
+        entity_type: Union[ENTITY_TYPES, str, int],
+        factor_names: List[str],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> List[str]:
+        """查询 [start_time, end_time] 内对指定因子已有物化数据的 entity_id 集合。
+
+        增量物化决策用:已物化的 entity 跳过,避免重复计算(#6792)。
+        distinct_field 下推 SQL 层做 DISTINCT,返回去重后的 entity_id 列表。
+
+        Args:
+            entity_type: 实体类型
+            factor_names: 因子名称列表(圈定物化范围)
+            start_time: 起始时间(含),None 不限下界
+            end_time: 截止时间(含),None 不限上界
+
+        Returns:
+            已物化的 entity_id 列表(去重)
+        """
+        filters = {}
+
+        # 实体类型转换(与 get_factors_by_entity 同口径)
+        if isinstance(entity_type, ENTITY_TYPES):
+            filters["entity_type"] = entity_type.value
+        elif isinstance(entity_type, str):
+            entity_enum = ENTITY_TYPES.enum_convert(entity_type)
+            if entity_enum:
+                filters["entity_type"] = entity_enum.value
+            else:
+                raise ValueError(f"Invalid entity_type string: {entity_type}")
+        elif isinstance(entity_type, int):
+            filters["entity_type"] = entity_type
+
+        filters["factor_name__in"] = factor_names
+
+        if start_time:
+            filters["timestamp__gte"] = start_time
+        if end_time:
+            filters["timestamp__lte"] = end_time
+
+        return self.find(
+            filters=filters,
+            distinct_field="entity_id"
+        )
+
     def get_available_factors(
         self,
         entity_type: Optional[Union[ENTITY_TYPES, str, int]] = None,
