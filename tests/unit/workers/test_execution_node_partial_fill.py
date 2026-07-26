@@ -8,8 +8,8 @@
 返回 None → GLOG.ERROR 丢弃 → 持仓错账。正确性被钉死在"gateway 必须一发完"。
 
 修法: 累积 filled 量, 仅最终 filled (累积 >= volume) 才 pop, 中间笔保留 entry。
-用独立 ``_pending_filled`` 字典累积, 不改原 Order (避免污染已路由 event 的
-remaining, 也避免越界碰 Order 的资金语义 settle)。
+累积计数与 Order 同存一个 dict value ``[order, cumulative]`` (避免双注册表孤儿),
+不改原 Order (避免污染已路由 event 的 remaining, 也避免越界碰 Order 的资金语义 settle)。
 """
 
 from pathlib import Path
@@ -31,8 +31,7 @@ from ginkgo.interfaces.dtos import OrderFeedbackDTO
 def _make_node_pending_only() -> ExecutionNode:
     """构造仅含 pending 注册表的 ExecutionNode (跳过 Kafka/Redis init 副作用)。"""
     node = object.__new__(ExecutionNode)
-    node._pending_orders = {}
-    node._pending_filled = {}  # review #6778 问题③: 累积 filled 判终态
+    node._pending_orders = {}  # value = [Order, cumulative_filled] (单 dict, review #6778 问题③)
     node.node_id = "test-node"
     return node
 
@@ -54,7 +53,7 @@ class TestPartialFillNoDrop:
         node = _make_node_pending_only()
         order = Order(uuid="ord-1", portfolio_id="p1", code="X",
                       direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
-        node._pending_orders["ord-1"] = order
+        node._pending_orders["ord-1"] = [order, 0.0]
 
         ev1 = node._reconcile_feedback(_dto("ord-1", 500))
         ev2 = node._reconcile_feedback(_dto("ord-1", 300))
@@ -69,7 +68,7 @@ class TestPartialFillNoDrop:
         node = _make_node_pending_only()
         order = Order(uuid="ord-1", portfolio_id="p1", code="X",
                       direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
-        node._pending_orders["ord-1"] = order
+        node._pending_orders["ord-1"] = [order, 0.0]
 
         node._reconcile_feedback(_dto("ord-1", 500))
         assert "ord-1" in node._pending_orders  # 累积 500 < 1000, 保留
@@ -79,14 +78,14 @@ class TestPartialFillNoDrop:
         assert "ord-1" not in node._pending_orders  # 累积 1000 = volume, 移除
 
     def test_cumulative_filled_cleared_after_final(self):
-        """终态 pop 后, 累积字典也清, 不留孤儿。"""
+        """终态 (累积达 volume) pop 整个 [order, cumulative] entry, 不残留。"""
         node = _make_node_pending_only()
         order = Order(uuid="ord-1", portfolio_id="p1", code="X",
                       direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
-        node._pending_orders["ord-1"] = order
+        node._pending_orders["ord-1"] = [order, 0.0]
 
         node._reconcile_feedback(_dto("ord-1", 1000))
-        assert "ord-1" not in node._pending_filled
+        assert "ord-1" not in node._pending_orders
 
     def test_no_matching_order_returns_none(self):
         """非本节点提交 / 进程重启后丢失 → None (consumer 层响亮 drop, 不伪造骨架)。"""
@@ -101,7 +100,7 @@ class TestPartialFillNoDrop:
         node = _make_node_pending_only()
         order = Order(uuid="ord-1", portfolio_id="p1", code="X",
                       direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
-        node._pending_orders["ord-1"] = order
+        node._pending_orders["ord-1"] = [order, 0.0]
 
         ev = node._reconcile_feedback(_dto("ord-1", 500))
         assert ev is not None
