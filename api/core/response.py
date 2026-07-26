@@ -12,9 +12,9 @@
 """
 
 import uuid
-from typing import Optional, Any, Generic, TypeVar, List
+from typing import Optional, Any, Generic, TypeVar, List, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 T = TypeVar('T')
 
@@ -25,6 +25,63 @@ class PaginationMeta(BaseModel):
     page_size: int = Field(20, description="每页大小", ge=1, le=100)
     total: int = Field(0, description="总记录数")
     total_pages: int = Field(0, description="总页数")
+
+
+# ----------------------------------------------------------------------
+# 统一响应信封 (WebResponse 亚型, ADR-025 Step ③ 基座)
+# ----------------------------------------------------------------------
+# 现状: ok()/paginated()/fail() 返 plain dict → OpenAPI 无响应 schema。
+# 本基座补 pydantic 信封泛型, wire 形状与 ok() 逐字段一致 (前端 request.ts/
+# types/api.ts 已锁 {code,data,message,meta?,trace_id}), 端点声明
+# response_model=APIResponse[...] 即得 OpenAPI schema + 响应校验, wire 不变。
+# 后续按域 PR 逐步给端点接 response_model (backtest→portfolio→...); 本 PR 零端点改动。
+
+
+class APIResponse(BaseModel, Generic[T]):
+    """统一响应信封 (HTTP 边界 WebResponse, ADR-025)。
+
+    Wire 形状 (与 ``core.response.ok()`` 逐字段一致)::
+
+        {code, data, message, trace_id} + meta (仅非 None 时出现)
+
+    用法::
+
+        @router.get("/x", response_model=APIResponse[ItemDTO])
+        async def get_x(): return ok(data=item_dict)
+
+    ``data: Optional[T]`` 仅在声明 ``response_model=APIResponse[ConcreteDTO]`` 时
+    起**类型化**作用 (OpenAPI schema + 响应字段裁剪); ``ok()`` 运行期仍返 dict,
+    FastAPI 据响应模型校验/序列化, wire 与既有完全一致。
+    """
+    code: int = 0
+    data: Optional[T] = None
+    message: str = "ok"
+    trace_id: str = ""
+    meta: Optional[Dict[str, Any]] = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        # wire-exact: meta 仅非 None 时出现 (对齐 ok(): meta is None → 省 key)。
+        # 其余 code/data/message/trace_id 恒出现 (data 即使 None 亦保留, 同 ok())。
+        d = handler(self)
+        if d.get("meta") is None:
+            d.pop("meta", None)
+        return d
+
+
+class PaginatedResponse(APIResponse):
+    """分页响应信封: ``data`` 为 items 列表, ``meta`` 为 PaginationMeta。
+
+    用法::
+
+        @router.get("/x", response_model=PaginatedResponse)
+        async def list_x(): return paginated(items=..., total=..., ...)
+
+    若需 item 级强类型, 改声明 ``response_model=APIResponse[List[ItemDTO]]``
+    并手填 ``meta`` (PaginatedResponse 本身 data 留 Any, 兼容既有异构列表)。
+    """
+    data: Optional[List[Any]] = None
+    meta: Optional[PaginationMeta] = None
 
 
 def _new_trace_id() -> str:
