@@ -45,6 +45,21 @@ def _get_factor_crud():
     return container.factor_crud()
 
 
+def _get_factor_analysis_service():
+    """延迟拿 FactorAnalysisService (因子效果分析编排器, #6794)。
+
+    纯编排器无构造依赖, 直接 new。测试可 monkeypatch。
+    """
+    from ginkgo.features.services.factor_analysis_service import FactorAnalysisService
+    return FactorAnalysisService()
+
+
+def _get_bar_service():
+    """延迟拿 data 层 BarService (读 bars 算前瞻收益, #6794)。"""
+    from ginkgo.data.containers import container
+    return container.bar_service()
+
+
 @app.command()
 def materialize(
     library: str = typer.Argument(..., help="因子库名 (如 alpha158), 见 `ginkgo factor libraries`"),
@@ -116,6 +131,119 @@ def materialize(
         console.print("[dim]--full: 忽略已物化, 全部重算[/]")
 
     console.print("[green]✓ 物化完成[/]")
+
+
+@app.command(name="analyze")
+def analyze(
+    name: str = typer.Argument(..., help="因子名 (已物化的 MFactor.factor_name)"),
+    start: str = typer.Option(..., "--start", "-s", help="起始日期 YYYY-MM-DD"),
+    end: str = typer.Option(..., "--end", "-e", help="截止日期 YYYY-MM-DD (PIT: 前瞻收益在此截断)"),
+    entities: List[str] = typer.Option(
+        None, "--entity", "-c",
+        help="实体代码 (可多次, 如 -c 000001.SZ -c 000002.SZ)",
+    ),
+    entity_type: str = typer.Option("stock", "--entity-type", "-t", help="实体类型 (默认 stock)"),
+    fmt: str = typer.Option("table", "--format", help="输出格式: table | csv | json"),
+    periods: List[int] = typer.Option(
+        [1, 5, 10, 20], "--period", help="前瞻收益周期 (日, 可多次)",
+    ),
+    n_groups: int = typer.Option(5, "--n-groups", help="分层数"),
+):
+    """分析已物化因子的效果: IC/IR/decay/turnover/分层 (#6794)。
+
+    PIT: 前瞻收益按 --end 截断 (realized_cutoff), 防前瞻泄漏 (验收2)。
+    需先 `ginkgo factor materialize` 物化因子 (验收4: 已物化因子跑通非空报告)。
+    """
+    if not entities:
+        console.print("[red]✗ 必须指定至少一个 --entity (如 -c 000001.SZ)[/]")
+        raise typer.Exit(1)
+    if fmt not in ("table", "csv", "json"):
+        console.print(f"[red]✗ --format 仅支持 table/csv/json, 得到 {fmt}[/]")
+        raise typer.Exit(1)
+
+    from ginkgo.enums import ENTITY_TYPES
+    et = ENTITY_TYPES.enum_convert(entity_type)
+    if et is None:
+        console.print(f"[red]✗ 未知 entity_type: {entity_type}[/]")
+        raise typer.Exit(1)
+
+    svc = _get_factor_analysis_service()
+    factor_crud = _get_factor_crud()
+    bar_service = _get_bar_service()
+
+    console.print(
+        f"[cyan]▶ 分析因子 {name}[/]: {len(entities)} entity, {start} ~ {end}, "
+        f"periods={list(periods)}, n_groups={n_groups}, format={fmt}"
+    )
+
+    result = svc.analyze_factor(
+        factor_name=name,
+        entity_ids=entities,
+        start_date=start,
+        end_date=end,
+        factor_crud=factor_crud,
+        bar_service=bar_service,
+        entity_type=et,
+        periods=list(periods),
+        n_groups=n_groups,
+    )
+
+    if not result.success:
+        console.print(f"[red]✗ 分析失败: {result.error}[/]")
+        raise typer.Exit(1)
+
+    data = result.data or {}
+    if fmt == "json":
+        import json
+        console.print_json(json.dumps(data, default=str, ensure_ascii=False))
+    elif fmt == "csv":
+        _print_analysis_csv(data)
+    else:
+        _print_analysis_table(data, name)
+
+    console.print("[green]✓ 分析完成[/]")
+
+
+def _print_analysis_table(data: dict, factor_name: str):
+    """表格输出 IC/IR/decay/turnover/分位 (验收3 可读输出)。"""
+    table = Table(title=f"因子效果分析 — {factor_name}", show_header=True, header_style="bold cyan")
+    table.add_column("指标", style="cyan", no_wrap=True)
+    table.add_column("值", style="green")
+    table.add_row("IC (primary)", _fmt(data.get("ic")))
+    table.add_row("IR (primary)", _fmt(data.get("ir")))
+    table.add_row("turnover", _fmt(data.get("turnover")))
+    table.add_row("分层多空 spread", _fmt(data.get("layering_spread")))
+    ic_all = data.get("ic_by_period", {}) or {}
+    if ic_all:
+        table.add_row("IC (各周期)", ", ".join(f"{k}d={_fmt(v)}" for k, v in ic_all.items()))
+    decay = data.get("decay", {}) or {}
+    if decay.get("half_life") is not None:
+        table.add_row("decay half_life", _fmt(decay.get("half_life")))
+    console.print(table)
+
+
+def _print_analysis_csv(data: dict):
+    """CSV 输出 (验收3 结构化, 供管道消费)。"""
+    console.print("metric,value")
+    core_metrics = [
+        ("ic_primary", data.get("ic")),
+        ("ir_primary", data.get("ir")),
+        ("turnover", data.get("turnover")),
+        ("layering_spread", data.get("layering_spread")),
+    ]
+    for k, v in core_metrics:
+        console.print(f"{k},{_fmt(v)}")
+    for k, v in (data.get("ic_by_period") or {}).items():
+        console.print(f"ic_{k}d,{_fmt(v)}")
+
+
+def _fmt(v):
+    """数值格式化: None→N/A, float→round 6, 其他 str。"""
+    if v is None:
+        return "N/A"
+    if isinstance(v, float):
+        return f"{v:.6f}"
+    return str(v)
 
 
 @app.command(name="libraries")
