@@ -119,6 +119,8 @@ class MessageMapper:
         """OrderFeedbackDTO + 原 Order → EventOrderPartiallyFilled。
 
         Order 由 consumer 从 _pending_orders 注册表取出注入 (Mapper 不碰 CRUD/DB)。
+        order_status 透传 (review #6778 altitude): dto.order_status 还原 enum → event.order_status,
+        下游 PortfolioT1Backtest.is_final 据此判 release_frozen (#5492 闭环); None 时不覆盖。
         修正旧 drift: filled_volume→filled_quantity, filled_price→fill_price,
         且签名要 (order, filled_quantity, fill_price) 非 (order_id, code, direction, ...)。
         """
@@ -133,6 +135,7 @@ class MessageMapper:
             portfolio_id=dto.portfolio_id,
             engine_id=dto.engine_id,
             task_id=dto.task_id,
+            order_status=ORDERSTATUS_TYPES(int(dto.order_status)) if dto.order_status else None,
         )
 
     # ------------------------------------------------------------------

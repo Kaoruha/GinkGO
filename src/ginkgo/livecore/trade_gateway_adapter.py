@@ -296,7 +296,9 @@ class TradeGatewayAdapter(Thread):
                     continue
 
                 if time_elapsed >= 1.0 and order.status == ORDERSTATUS_TYPES.SUBMITTED:
-                    # 生成成交事件
+                    # 模拟成交 = 全量成交终态; 显式 order_status=FILLED 让 DTO 自描述终态
+                    # (review #6778 altitude), 避免 fallback order.status=SUBMITTED 致
+                    # consumer 永不 pop / 下游 is_final 漏判 release_frozen (#5492)。
                     fill_event = EventOrderPartiallyFilled(
                         order=order,
                         filled_quantity=float(order.volume),  # 全部成交
@@ -305,7 +307,8 @@ class TradeGatewayAdapter(Thread):
                         commission=Decimal('5.25'),  # 模拟手续费
                         portfolio_id=order.portfolio_id,
                         engine_id=order.engine_id,
-                        task_id=order.task_id
+                        task_id=order.task_id,
+                        order_status=ORDERSTATUS_TYPES.FILLED,
                     )
 
                     # 发布到Kafka
@@ -348,7 +351,8 @@ class TradeGatewayAdapter(Thread):
                 direction=str(fill_event.order.direction.value),
                 filled_quantity=fill_event.filled_quantity,
                 fill_price=fill_event.fill_price,
-                timestamp=fill_event.timestamp.isoformat()
+                timestamp=fill_event.timestamp.isoformat(),
+                order_status=str(fill_event.order_status.value) if fill_event.order_status else None,
             )
 
             # 发布到Kafka

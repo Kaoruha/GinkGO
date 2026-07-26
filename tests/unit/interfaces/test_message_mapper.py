@@ -21,6 +21,7 @@ from ginkgo.enums import (
     DIRECTION_TYPES,
     PRICEINFO_TYPES,
     FREQUENCY_TYPES,
+    ORDERSTATUS_TYPES,
 )
 
 
@@ -139,3 +140,30 @@ class TestFeedbackToEvent:
         assert ev.order is src
         # remaining = volume - transaction_volume - filled = 100 - 0 - 50
         assert ev.remaining_quantity == 50
+
+    def test_event_carries_order_status_filled(self):
+        # review #6778 altitude: DTO.order_status (broker 终态) 透传到 event.order_status,
+        # 下游 PortfolioT1Backtest.is_final 据此判 release_frozen (#5492 闭环)。
+        # wire 格式同 direction: str(enum.value); mapper int() 还原。
+        src = Order(portfolio_id="p", code="X", direction=DIRECTION_TYPES.LONG,
+                    volume=100, limit_price=10.0)
+        dto = OrderFeedbackDTO(order_id="abc", portfolio_id="p", engine_id="e",
+                               task_id="t", code="X", direction="1",
+                               filled_quantity=50, fill_price=10.5,
+                               timestamp="2026-07-25T10:01:00",
+                               order_status=str(ORDERSTATUS_TYPES.FILLED.value))  # "4"
+        ev = MessageMapper.feedback_to_event(dto, src)
+        assert ev.order_status == ORDERSTATUS_TYPES.FILLED
+
+    def test_event_order_status_not_faked_when_dto_omits(self):
+        # DTO.order_status 缺省 None → mapper 传 None 给 event (不伪造 FILLED)。
+        # event.order_status 缺省回退 order.status (#5492 fallback 设计, 此处=NEW),
+        # 关键是 mapper 不把 None 美化成 FILLED → 下游 is_final 不会误判 release_frozen。
+        src = Order(portfolio_id="p", code="X", direction=DIRECTION_TYPES.LONG,
+                    volume=100, limit_price=10.0)
+        dto = OrderFeedbackDTO(order_id="abc", portfolio_id="p", engine_id="e",
+                               task_id="t", code="X", direction="1",
+                               filled_quantity=50, fill_price=10.5,
+                               timestamp="2026-07-25T10:01:00")  # 无 order_status
+        ev = MessageMapper.feedback_to_event(dto, src)
+        assert ev.order_status != ORDERSTATUS_TYPES.FILLED  # 不伪造终态

@@ -24,7 +24,7 @@ if _path not in sys.path:
 
 from ginkgo.workers.execution_node.node import ExecutionNode
 from ginkgo.entities import Order
-from ginkgo.enums import DIRECTION_TYPES
+from ginkgo.enums import DIRECTION_TYPES, ORDERSTATUS_TYPES
 from ginkgo.interfaces.dtos import OrderFeedbackDTO
 
 
@@ -36,11 +36,12 @@ def _make_node_pending_only() -> ExecutionNode:
     return node
 
 
-def _dto(order_id: str, filled: float, price: str = "10.0") -> OrderFeedbackDTO:
+def _dto(order_id: str, filled: float, price: str = "10.0",
+         status: str = None) -> OrderFeedbackDTO:
     return OrderFeedbackDTO(
         order_id=order_id, portfolio_id="p1", engine_id="e", task_id="t",
         code="X", direction="1", filled_quantity=filled, fill_price=price,
-        timestamp="2026-07-26T10:00:00",
+        timestamp="2026-07-26T10:00:00", order_status=status,
     )
 
 
@@ -108,3 +109,44 @@ class TestPartialFillNoDrop:
         assert ev.remaining_quantity == 500
         # 原_order.transaction_volume 不被 consumer 改 (保持 0, 历史=下游职责)
         assert order.transaction_volume == 0
+
+
+@pytest.mark.unit
+class TestStatusFinalization:
+    """review #6778 altitude: dto.order_status 优先判终态 (broker 自描述),
+    缺省/解析失败回退累积量。消除"靠累积量猜终态"的 special case。"""
+
+    def test_final_status_pops_even_if_cumulative_below_volume(self):
+        """dto.order_status=FILLED → 直接判终态 pop, 不依赖累积量达 volume。
+        (broker 报 FILLED 即终态权威, 即使 filled_quantity 漏报尾笔)"""
+        node = _make_node_pending_only()
+        order = Order(uuid="ord-1", portfolio_id="p1", code="X",
+                      direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
+        node._pending_orders["ord-1"] = [order, 0.0]
+        ev = node._reconcile_feedback(
+            _dto("ord-1", 800, status=str(ORDERSTATUS_TYPES.FILLED.value)))
+        assert ev is not None
+        assert "ord-1" not in node._pending_orders  # status=FILLED → pop
+
+    def test_partial_status_retained_even_if_cumulative_reaches_volume(self):
+        """dto.order_status=PARTIAL_FILLED → 中间笔保留 entry, 即使累积碰巧达 volume。
+        (broker 说 partial = 还有后续笔, 累积达 volume 是巧合不能 overrides broker 终态)"""
+        node = _make_node_pending_only()
+        order = Order(uuid="ord-1", portfolio_id="p1", code="X",
+                      direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
+        node._pending_orders["ord-1"] = [order, 0.0]
+        node._reconcile_feedback(
+            _dto("ord-1", 1000, status=str(ORDERSTATUS_TYPES.PARTIAL_FILLED.value)))
+        assert "ord-1" in node._pending_orders  # broker 说 partial, 保留
+
+    def test_no_status_falls_back_to_cumulative(self):
+        """dto.order_status 缺省 None → 回退累积量判终态
+        (兼容旧 DTO / 模拟路径未填 status, 不破坏既有累积语义)。"""
+        node = _make_node_pending_only()
+        order = Order(uuid="ord-1", portfolio_id="p1", code="X",
+                      direction=DIRECTION_TYPES.LONG, volume=1000, limit_price=10.0)
+        node._pending_orders["ord-1"] = [order, 0.0]
+        node._reconcile_feedback(_dto("ord-1", 500))  # 无 status
+        assert "ord-1" in node._pending_orders  # 累积 500 < 1000, 保留
+        node._reconcile_feedback(_dto("ord-1", 500))  # 无 status
+        assert "ord-1" not in node._pending_orders  # 累积 1000, pop

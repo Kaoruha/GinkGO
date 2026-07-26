@@ -893,12 +893,12 @@ class ExecutionNode:
         GLOG.INFO(f"Market data consumer thread stopped for node {self.node_id}")
 
     def _reconcile_feedback(self, dto):
-        """单笔回报 → event;累积达 order.volume 才 pop 注册表 (review #6778 问题③)。
+        """单笔回报 → event;终态才 pop 注册表 (review #6778 问题③ + altitude)。
 
-        partial fill 多笔共享 order_id (真实 broker 常拆 500+300+200), 中间笔
-        保留 entry 供后续回报取回。不调 Order.settle —— event 持同一 order 引用,
-        改其 transaction_volume 会污染已路由 event 的 remaining (实时 property),
-        且 settle 是资金语义属下游 portfolio 职责。
+        终态判定见 _is_final_fill: dto.order_status==FILLED 优先 (broker 自描述),
+        缺省/解析失败回退累积量 >= order.volume。partial fill 多笔共享 order_id,
+        中间笔保留 entry。不调 Order.settle —— event 持同一 order 引用, 改其
+        transaction_volume 会污染已路由 event 的 remaining (实时 property)。
 
         Returns: EventOrderPartiallyFilled, 或 None (非本节点提交 → consumer 响亮 drop)。
         """
@@ -910,11 +910,26 @@ class ExecutionNode:
         order, cumulative = entry
         event = MessageMapper.feedback_to_event(dto, order)
         cumulative += dto.filled_quantity
-        if cumulative >= order.volume:
+        if self._is_final_fill(dto, cumulative, order.volume):
             self._pending_orders.pop(dto.order_id, None)
         else:
             entry[1] = cumulative
         return event
+
+    @staticmethod
+    def _is_final_fill(dto, cumulative, volume):
+        """终态判定: dto.order_status==FILLED 优先 (broker 权威), 缺省/解析失败回退累积量。
+
+        status 优先消除"靠累积量猜终态"的脆弱性 (broker 漏报尾笔时累积永不到 volume →
+        entry 永不 pop → 内存泄漏); 回退累积量兼容旧 DTO / 模拟路径未填 status。
+        """
+        if dto.order_status:
+            try:
+                from ginkgo.enums import ORDERSTATUS_TYPES
+                return ORDERSTATUS_TYPES(int(dto.order_status)) == ORDERSTATUS_TYPES.FILLED
+            except (ValueError, TypeError):
+                pass  # status 不可解析 → 累积兜底
+        return cumulative >= volume
 
     def _consume_order_feedback(self):
         """消费订单回报线程 - 消息成功放入队列后立即提交 offset
