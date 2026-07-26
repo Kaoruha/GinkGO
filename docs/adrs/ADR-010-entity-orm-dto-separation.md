@@ -1,6 +1,6 @@
 # ADR-010: 数据对象三层角色分离（Entity / ORM / DTO）与独立 Mapper 流转
 
-**Status:** Accepted
+**Status:** Accepted（§4 钩子处理条款 ⟵ ADR-029 修订;其余不变）
 **Date:** 2026-06-13
 **关联:** #6106（架构评审总览）· #6112（entities 不变量）· #6117（转换层深化）· #3865（反向依赖）；细化 ADR-002，区分于 ADR-001（组件边界）/ ADR-009（BaseCRUD/BaseService）。术语定义见仓库根 `CONTEXT.md`。
 
@@ -60,7 +60,7 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
   - **删 Entity 转换**：`ModelList.to_entities()`、`ModelConversion.to_entity()`（16 处调用点改 `Mapper.from_models(model_list)`——`ModelList` 是 list 子类可直传）。
   - **留 DF 出口（仅 Service 内部）**：`ModelList.to_dataframe()`、`ModelConversion.to_dataframe()`、`ModelCRUDMapping`（DF 路径 `get_crud_instance` 仍需要）。**DF 出口只供 Service 内部用**——Service 转 DF 后对外返，client/trading 不接触 ModelList。
   - **DataFrame 模拟方法**（`first/count/filter/empty/shape/head/tail`）：grep 证实调用方几乎未用（dead code），瘦身时一并删，缩小 ModelList 表面积。
-  - **不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。
+  - ~~**不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。~~ ⟵ **ADR-029 修订**：钩子族授权退役,转换收敛到 Mapper（详见 [ADR-029](ADR-029-basecrud-hook-retirement.md) §1/§2）。
 - Entity/DTO 类内抹掉一切转换方法（含 `Bar.to_model`、`BarDTO.from_bar`）。
 - 套 C（`data/mappers.py` 外部数据源入站）保留，并入 `data/mappers/`。
 - **热路径**：回测 Bar 读走 `ModelList.to_dataframe()`（批量、不经 Entity），不碰 Mapper。
@@ -87,7 +87,7 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
 - **VO 无 uuid 字段**——持久化时 ORM `MClickBase.uuid`（`default=lambda: uuid4().hex`）自动生成，业务键 `(code,timestamp)` 定位，uuid 不污染领域 VO。
 - **Signal 维持 Entity**（代码现状 `Signal(TimeMixin,...,Base)` 有 uuid）；`entity-lifecycles-and-flows.md` 的 "Signal as VO" 标过时。
 - 组件（Strategy/Portfolio/Engine/Risk/Sizer）继续 `Base`，不受影响。
-- 本 ADR 只调整数据 entity 继承分流，**不修改 `Base`/`BaseCRUD`/`BaseService` 本身**（ADR-009）。
+- 本 ADR 只调整数据 entity 继承分流，~~**不修改 `Base`/`BaseCRUD`/`BaseService` 本身**（ADR-009）~~。⟵ **ADR-029 突破**：`BaseCRUD` mixin 转换钩子族经 ADR 背书退役（详见 [ADR-029](ADR-029-basecrud-hook-retirement.md) §3）；`Base`/`BaseService` 仍不修改。
 
 ### 7. 正名与归类
 
@@ -136,7 +136,7 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
 - pass-through VO 在"CRUD 返 ORM"下存在性存疑——本次保留，标后续删除候选。
 - Order 状态机驱动方缺失归 #6107。
 - **ModelList 瘦身方案直接源于 BaseCRUD 约束**：`ModelList` 由 `base_crud.py` 构造返回，全删即改 BaseCRUD；瘦身（删 Entity 转换、留 DF）是唯一不触铁律的路径。**严格不透传**：ModelList 封闭在 CRUD↔Service，爆破 ~51 处（to_entities 16 + 外部 to_dataframe 35），换来 client/trading 与持久层解耦。
-- 不修改 `Base`/`BaseCRUD`/`BaseService` 本身（ADR-009）。
+- ~~不修改 `Base`/`BaseCRUD`/`BaseService` 本身（ADR-009）~~。⟵ **ADR-029 突破**：`BaseCRUD` mixin 钩子族退役（详见 [ADR-029](ADR-029-basecrud-hook-retirement.md) §3）；`Base`/`BaseService` 仍不修改。
 
 ## 验收（对齐 #6112）
 
