@@ -142,6 +142,10 @@ class MessageMapper:
     def submission_to_order(dto: OrderSubmissionDTO) -> Order:
         """OrderSubmissionDTO → 骨架 Order (gateway 重建用)。
 
+        uuid 贯穿 (review #6778 问题②): dto.order_id → Order.uuid, 保证 gateway 成交后
+        发回的 OrderFeedbackDTO(order_id=Order.uuid) 与 producer 注册的
+        _pending_orders[原 order_id] 同 key, consumer pop 命中, feedback 链路端到端打通。
+        旧代码不传 uuid → Base.__init__ 自动生成新 uuid → consumer pop 必 None → 100% drop。
         修正旧 drift: DTO 无 limit_price 字段, 旧代码 ``order_data['limit_price']`` 必 KeyError;
         正解 limit_price 取 dto.price (字符串格式, 需 float 转换)。
         engine_id / task_id DTO 未携带 → 沿用 gateway 旧默认 (live_engine / live_run)。
@@ -149,6 +153,7 @@ class MessageMapper:
         字段拒 int、不强转); 此处 ``int(dto.direction)`` 还原回 enum value (LONG=1/SHORT=2)。
         """
         return Order(
+            uuid=dto.order_id,
             portfolio_id=dto.portfolio_id,
             engine_id="live_engine",
             task_id="live_run",

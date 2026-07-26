@@ -113,6 +113,17 @@ class TestSubmissionToOrder:
         order = MessageMapper.submission_to_order(dto)
         assert order.limit_price == 0.0
 
+    def test_order_id_preserved_as_uuid(self):
+        # review #6778 问题②: submission_to_order 未把 dto.order_id 贯穿到 Order.uuid。
+        # 全链路: producer 发 OrderSubmissionDTO(order_id=原uuid) + _pending_orders[原uuid]=event;
+        # gateway 成交后发 OrderFeedbackDTO(order_id=Order.uuid); consumer pop(dto.order_id) 取回。
+        # 若 Order.uuid ≠ 原 order_id, consumer pop 必 None → feedback 端到端 100% drop。
+        # 修法: Order(uuid=dto.order_id) 单点贯穿。
+        dto = OrderSubmissionDTO(order_id="order-abc-123", portfolio_id="p1", code="X",
+                                 direction="1", volume=100, price="10.5")
+        order = MessageMapper.submission_to_order(dto)
+        assert order.uuid == "order-abc-123"
+
 
 class TestFeedbackToEvent:
     def test_event_from_dto_and_order(self):
