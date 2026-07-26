@@ -18,6 +18,7 @@ from core.pagination import DEFAULT_MAX_PAGE_SIZE
 from core.redis_client import get_backtest_progress
 from core.response import ok, paginated
 from core.exceptions import APIError, NotFoundError, ValidationError, BusinessError
+from ginkgo.libs import GLOG
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.data.containers import container
@@ -219,6 +220,15 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
     if effective_end:
         create_kwargs["backtest_end_date"] = effective_end
 
+    # #6786 AC2: 持久化 trace_id 到 task.meta JSON（复用 MMysqlBase.meta，无 schema 变更）。
+    # #6784 TraceIdMiddleware 在请求入口注入 GLOG contextvars；此处取出写入 meta，
+    # worker/CLI 可从 DB 回查 trace_id（AC5 backtest cat 显示），不依赖 Kafka header
+    # 是否完好（header 是运行期串联，meta 是落库回查，双保险）。
+    # 无 trace_id 时不写 meta，保持 model 默认 "{}"（向后兼容）。
+    trace_id = GLOG.get_trace_id()
+    if trace_id:
+        create_kwargs["meta"] = json.dumps({"trace_id": trace_id})
+
     task_service = get_backtest_task_service()
     result = task_service.create(**create_kwargs)
 
@@ -247,7 +257,13 @@ def create_backtest_task(data: BacktestTaskCreate) -> dict:
 
 
 async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, config: dict):
-    """发送任务到Kafka"""
+    """发送任务到Kafka
+
+    #6786: 从 GLOG contextvars 取请求 trace_id（#6784 TraceIdMiddleware 在请求入口
+    注入），写入 Kafka 消息 header；worker 消费时从 header 恢复到 GLOG contextvars，
+    使 engine/strategy/fill/portfolio 日志共享同一 trace_id，串联 API 提交端与
+    worker 执行端全链路日志。
+    """
     producer = get_kafka_producer()
 
     assignment = {
@@ -260,9 +276,15 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
         "priority": 0,
     }
 
+    # #6786: trace_id 经 Kafka header 跨进程传播。None 时等价不传（向后兼容，
+    # 非 API 入口调用如 CLI 直派无 trace_id 时不污染消息）。
+    trace_id = GLOG.get_trace_id()
+    headers = [("trace_id", trace_id.encode())] if trace_id else None
+
     result = producer.send(
         topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
         msg=assignment,
+        headers=headers,
     )
     # GinkgoProducer.send 返 bool 不 raise（ginkgo_kafka.py:89-123 三处 return False：
     # 未连接/KafkaError/异常，成功 return True）。不判返回值则协程无异常，create_task

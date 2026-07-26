@@ -86,13 +86,15 @@ class GinkgoProducer(object):
 
     @time_logger(threshold=1.0)
     @retry(max_try=3)
-    def send(self, topic, msg):
+    def send(self, topic, msg, headers=None):
         """
         同步发送消息（等待确认）
 
         Args:
             topic: Kafka topic
             msg: 消息内容
+            headers: Kafka 消息头 [(key, bytes_value)]，跨进程 trace_id 传播用（#6786）。
+                None 等价不传，向后兼容现有调用方。
 
         Returns:
             bool: 发送是否成功
@@ -103,7 +105,7 @@ class GinkgoProducer(object):
             return False
 
         try:
-            future = self.producer.send(topic, msg)
+            future = self.producer.send(topic, msg, headers=headers)
             result = future.get(timeout=10)
             # result 是 RecordMetadata 对象，不需要打印
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
