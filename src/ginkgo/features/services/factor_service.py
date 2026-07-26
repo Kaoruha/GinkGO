@@ -14,7 +14,8 @@
 支持便捷的因子计算、批量处理、进度跟踪等功能。
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
+from datetime import datetime, timedelta
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import ENTITY_TYPES
@@ -209,6 +210,120 @@ class FactorService:
 
         except Exception as e:
             result.error = f"calculate_factors_by_library failed: {str(e)}"
+            GLOG.ERROR(result.error)
+
+        return result
+
+    def walk_forward_factor_evaluation(
+        self,
+        factor_name: str,
+        entity_ids: List[str],
+        start_date: str,
+        end_date: str,
+        evaluator: Callable,
+        n_folds: int = 5,
+        train_ratio: float = 0.7,
+        factor_crud: Optional[Any] = None,
+    ) -> ServiceResult:
+        """走步因子评估: 滑动 train/test 折, 每折 PIT 读取因子, 输出样本外折 (#6793 验收3)。
+
+        防全样本拟合: 不用全部数据算单一指标, 而是滑动 train/test 验证 (OOS),
+        与全样本拟合的假阳性区分 (memory: iter037 OOS 证伪教训)。
+
+        PIT: 每折只用该折时间窗内因子 — train [ts, te] / test [te+1, T],
+        全部窗口 <= 评估终点 end_date (评估日 end_date 时数据已实现, 非未来)。
+
+        evaluator 注入: (factors: List[MFactor]) -> score; 具体指标 (IC/IR/decay)
+        由调用方提供 (#6794 提供 IC evaluator 并通过 CLI 调本方法)。
+
+        Args:
+            factor_name: 因子名称
+            entity_ids: 实体代码列表
+            start_date/end_date: 评估区间 (YYYY-MM-DD)
+            evaluator: 因子效果打分函数 (因子列表 -> score)
+            n_folds: 折数 (默认 5)
+            train_ratio: 训练期比例 (默认 0.7)
+            factor_crud: FactorCRUD (读窗口因子); None 报错
+
+        Returns:
+            ServiceResult: folds / mean_train_score / mean_test_score /
+                           degradation / n_folds
+        """
+        result = ServiceResult(data={})
+
+        try:
+            crud = factor_crud if factor_crud is not None else getattr(self, "_factor_crud", None)
+            if crud is None:
+                result.error = "factor_crud required for walk-forward evaluation"
+                return result
+
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            total_days = (end - start).days + 1
+            fold_size = total_days // (n_folds + 1)
+            if fold_size <= 0:
+                result.error = f"date range ({total_days}d) too small for {n_folds} folds"
+                return result
+            train_days = int(fold_size * train_ratio)
+            test_days = fold_size - train_days
+
+            folds_result = []
+            train_scores = []
+            test_scores = []
+
+            def fetch_window(start_w: datetime, end_w: datetime) -> List[Any]:
+                """PIT: 收集 [start_w, end_w] 窗口内所有 entity 的因子 (窗口有界, #6793)。"""
+                out: List[Any] = []
+                for eid in entity_ids:
+                    out.extend(crud.get_factors_by_entity(
+                        entity_type=ENTITY_TYPES.STOCK, entity_id=eid,
+                        factor_names=[factor_name],
+                        start_time=start_w, end_time=end_w,
+                    ))
+                return out
+
+            for i in range(n_folds):
+                train_start = start + timedelta(days=i * test_days)
+                train_end = train_start + timedelta(days=train_days - 1)
+                test_start = train_end + timedelta(days=1)
+                test_end = test_start + timedelta(days=test_days - 1)
+                if test_end > end:
+                    test_end = end
+
+                # PIT: 每折只用该折窗内因子 (窗口 end <= 评估终点)
+                train_factors = fetch_window(train_start, train_end)
+                test_factors = fetch_window(test_start, test_end)
+
+                tr_score = evaluator(train_factors)
+                te_score = evaluator(test_factors)
+                train_scores.append(tr_score)
+                test_scores.append(te_score)
+                folds_result.append({
+                    "fold": i + 1,
+                    "train_start": train_start.strftime("%Y-%m-%d"),
+                    "train_end": train_end.strftime("%Y-%m-%d"),
+                    "test_start": test_start.strftime("%Y-%m-%d"),
+                    "test_end": test_end.strftime("%Y-%m-%d"),
+                    "train_score": tr_score,
+                    "test_score": te_score,
+                })
+
+            mean_train = sum(train_scores) / len(train_scores) if train_scores else 0.0
+            mean_test = sum(test_scores) / len(test_scores) if test_scores else 0.0
+            degradation = (mean_train - mean_test) / mean_train if mean_train != 0 else 0.0
+
+            result.success = True
+            result.set_data("folds", folds_result)
+            result.set_data("mean_train_score", mean_train)
+            result.set_data("mean_test_score", mean_test)
+            result.set_data("degradation", degradation)
+            result.set_data("n_folds", len(folds_result))
+            GLOG.INFO(f"走步因子评估完成: {len(folds_result)} 折, "
+                     f"mean_train={mean_train:.4f}, mean_test={mean_test:.4f}, "
+                     f"degradation={degradation:.2%}")
+
+        except Exception as e:
+            result.error = f"walk_forward_factor_evaluation failed: {e}"
             GLOG.ERROR(result.error)
 
         return result

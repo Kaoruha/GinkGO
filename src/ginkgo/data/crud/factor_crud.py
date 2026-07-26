@@ -216,15 +216,17 @@ class FactorCRUD(BaseCRUD[MFactor]):
         entity_id: str,
         factor_names: Optional[List[str]] = None,
         factor_category: Optional[str] = None,
+        at_time: Optional[datetime] = None,
     ) -> List[MFactor]:
         """
-        获取指定实体的最新因子值
+        获取指定实体的最新因子值 (PIT: at_time 给定时只返回 timestamp <= at_time, #6793)
 
         Args:
             entity_type: 实体类型
             entity_id: 实体标识
             factor_names: 因子名称列表
             factor_category: 因子分类过滤
+            at_time: PIT 截止时间;None 时不过滤 (向后兼容运维全量查询)
 
         Returns:
             最新因子数据
@@ -238,6 +240,7 @@ class FactorCRUD(BaseCRUD[MFactor]):
                     entity_id=entity_id,
                     factor_names=[factor_name],
                     factor_category=factor_category,
+                    end_time=at_time,
                 )
                 if factors:
                     # 获取最新的那个
@@ -251,6 +254,7 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 entity_type=entity_type,
                 entity_id=entity_id,
                 factor_category=factor_category,
+                end_time=at_time,
             )
 
             if not all_factors:
