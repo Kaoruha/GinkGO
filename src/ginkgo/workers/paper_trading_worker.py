@@ -1163,12 +1163,13 @@ class PaperTradingWorker:
         from ginkgo.messages.control_command import ControlCommand
 
         cmd = ControlCommand.from_dict(message.value)
-        GLOG.INFO(
-            f"[PAPER-WORKER] Received command: {cmd.command}, "
-            f"params: {cmd.params}"
-        )
         tid = self._extract_trace_id(message.headers)
         with (GLOG.with_trace_id(tid) if tid else nullcontext()):
+            # 入口日志置于 trace_id 作用域内（AC4）：grep trace_id 可串联消费端入口
+            GLOG.INFO(
+                f"[PAPER-WORKER] Received command: {cmd.command}, "
+                f"params: {cmd.params}"
+            )
             success = self._handle_command(cmd.command, cmd.params)
             self._send_response(cmd.command, success, cmd.params)
 

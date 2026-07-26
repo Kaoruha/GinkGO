@@ -30,7 +30,7 @@ class TestDispatchDeployCommandPropagatesTraceId:
         """GLOG contextvars 有 trace_id 时，producer.send 收到 headers=[("trace_id", bytes)]。"""
         from ginkgo.libs import GLOG
 
-        with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer") as MockProducer, \
+        with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer", autospec=True) as MockProducer, \
                 GLOG.with_trace_id("tid-deploy-6787"):
             mock_producer = MockProducer.return_value
             ok = service._dispatch_deploy_command("port-new-123")
@@ -47,7 +47,7 @@ class TestDispatchDeployCommandPropagatesTraceId:
 
         token = _trace_id_ctx.set(None)
         try:
-            with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer") as MockProducer:
+            with patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer", autospec=True) as MockProducer:
                 mock_producer = MockProducer.return_value
                 ok = service._dispatch_deploy_command("port-new-123")
         finally:
