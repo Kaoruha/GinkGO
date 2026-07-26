@@ -147,11 +147,7 @@ def set(
             # 始终持久化：set_env 写 config.yml 的 env 字位 + 同步本进程 os.environ。
             # 本地 CLI 不读 .env，新进程经 ENV property 读 config.yml 拿到正确集群（review Q5 修复）。
             # 容器场景额外写 .env + compose 重启（下方），本地 CLI 无 compose 也已持久化。
-            try:
-                GCONF.set_env(env_value)
-            except ValueError:
-                console.print(":x: env must be PRODUCTION|DEVELOPMENT (alias: PROD|DEV)")
-                return
+            GCONF.set_env(env_value)  # env_value 上方已校验 ∈ {PRODUCTION, DEVELOPMENT}，ValueError 不可达
             console.print(f":white_check_mark: env = {env_value} ({env_label})，已写入 config.yml（本地 CLI 新进程生效）")
             # 容器部署态：写 .env（compose ${GINKGO_ENV:-DEVELOPMENT} 插值注入）+ 重启容器
             # （worker-env 烘焙不可变，改 .env 须 compose up -d 重建）。本地 CLI 无 compose 则止于此。
