@@ -56,12 +56,13 @@ ADR-009 line 28「重构时禁止擅自修改 Base 类」原则**不变**。本 
 
 ### 4. 前置条件(不可省,缺一不可)
 
-1. **Mapper 补 `to_model` 反向入路**:11 个 Mapper 补 `to_model(Entity)→ORM`,接替 `_convert_input_item` 的 28 CRUD 入库入路。**未补即退役 = 入库断**,禁(呼应 #4652:宁响亮 `raise`,不静默 stub 兜底)。此项 = ADR-025 步骤 ⑤ DB Mapper 收尾 / Epic E #6298 DB seam。
-2. **契约测试锁**:转换行为(字段映射、枚举转换、batch 语义)先有契约测试,退役前后行为一致方算通过。呼应 ADR-025 原则 2「严格模式」+ CLAUDE.md「失败必须响亮」。
+1. **Mapper `to_model` 与 CRUD `_convert_input_item`(Tick 为 `_convert_to_model`)逐字段对齐(忠实镜像入库现状,不借机修 bug)**:审计(#6629)核实 10/11 Mapper 已具 `to_model`(仅 MappingMapper 缺,只读不在本批),但与 override 在三大系统性字段不对称——`business_timestamp`(Order/Position/Signal/CapitalAdjustment 4 对 Mapper 漏塞)、`source`/`market`(Bar/StockInfo/TradeDay/Adjustfactor 4 对漏塞或默认化)、`uuid`(8 对 Mapper 多塞 entity.uuid,CRUD 走 `MClickBase.uuid` default)。**纯替换会入库行为变更(违反 #4652)**,0/10 对可直接替换。故阶段 1 = 让 Mapper `to_model` 逐字段镜像 CRUD override 入库现状,为阶段 2 override 迁移奠定纯等价替换基础;既有分歧(uuid 策略、Transfer task_id、Position settlement 三件套、Signal volume/strength 的 CRUD 写/读不对称)留阶段 3 另立 ADR 以 Mapper 为单一真相源修。**未对齐即迁移 = 入库行为漂移**,禁(呼应 #4652:宁响亮 `raise`,不静默 stub 兜底)。此项 = ADR-025 步骤 ⑤ DB Mapper 收尾 / Epic E #6298 DB seam。
+2. **契约测试锁**:转换行为(字段映射、枚举转换、batch 语义)先有契约测试,退役前后行为一致方算通过。阶段 1 契约 = 参数化等价测试(DB-free,`tests/unit/data/mappers/test_to_model_override_equivalence.py`):相同 entity 喂 Mapper `to_model` 与 CRUD override 两条路径,断言产出 ORM `__dict__` 严格相等(剥 `_sa_*` + uuid/create_at/update_at 自动列);隐式覆盖 Tick/TradeDay/Transfer/CapitalAdjustment 四个缺测 CRUD hook。呼应 ADR-025 原则 2「严格模式」+ CLAUDE.md「失败必须响亮」。
 
 ### 5. 退役顺序(门禁串联,不可跳步)
 
-1. Mapper 补 `to_model` 反向(§4 前提 1)→ 契约测试就位(§4 前提 2)
+1. Mapper `to_model` 与 CRUD override 逐字段对齐(§4 前提 1,strict mirror)+ 等价契约测试就位(§4 前提 2)
+   1a. **strict mirror 落地**:参数化 10 对 DB-free 契约(`tests/unit/data/mappers/test_to_model_override_equivalence.py`)逐对转绿,作阶段 2 override 迁移的零行为变更门禁。Position 特例:`to_model` 唯一活跃调用方 `portfolio_base.snapshot_state` 依赖 settlement 三件套 + uuid,strict mirror 会静默损坏该路径,标 skip 留阶段 3 另立 ADR 以 Mapper 为单一真相源修。
 2. 本 ADR 生效(本文档 Accepted)
 3. 分批迁移:30+ 子类 override 先改 Mapper,每批跑该 CRUD 测试门
 4. Base mixin 钩子本体最后删(此时全仓零调用方)
@@ -82,4 +83,5 @@ ADR-009 line 28「重构时禁止擅自修改 Base 类」原则**不变**。本 
 - **对 Epic E #6701 的连带**:串成主线 `#6629(审计) → ADR-029(本文档,授权) → #6298 + #6117 + #6469(补 Mapper 反向 + 收口)`。
 - **对 ADR-010 的标注**:ADR-010 顶部加「§4 钩子处理条款修订见 ADR-029」,其余不变。
 - **退役期风险**:每批迁移须跑该 CRUD 测试门(全量测试 OOM,分批 + xdist `-n auto`);热路径(Bar 大量读)Mapper `to_model` 批量转避免逐条(呼应 ADR-010 §4 热路径)。
+- **测试方法论陷阱(阶段 1 实测发现)**:ORM 列默认(如 `MSignal.strength default=0.5`)只在 **DB INSERT** 生效,内存构造不塞则属性为 None。故 DB-free roundtrip(`to_model`→`from_model`)会假崩(内存 `strength=None` → `from_model` → `Signal(None)` 拒收),真实 DB roundtrip 不崩(INSERT 时 DB 填列默认)。结论:**转换等价契约**(DB-free 比对两条内存转换路径产出 `__dict__` 相等)有效;但完整 roundtrip 测试须真实 DB 才反映列默认行为。本批 unit 测试对 roundtrip 崩溃项改用 `to_model` 直出断言 + `from_model` 手构(模拟 DB 读出态),完整 DB roundtrip 见 `tests/integration/data/crud/`(阶段 1 零迁移不动)。
 - **删除测试(ADR-025 同款验收)**:退役后转换集中到 Mapper,删任一 Mapper 即断该 CRUD 转换 = Mapper 在发挥作用,非 pass-through;退役前钩子族同理。
