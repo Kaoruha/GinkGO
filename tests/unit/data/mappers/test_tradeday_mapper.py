@@ -28,11 +28,13 @@ class TestTradeDayMapperRoundtrip:
         assert isinstance(model, MTradeDay)
 
     def test_to_model_preserves_market_and_uuid(self):
+        """ADR-029 strict mirror:去 uuid 透传(镜像 TradeDayCRUD 不塞),
+        走 MClickBase.uuid default 自动生成 32-hex。market 经 validate_input 转 int 保真。"""
         entity = _make_tradeday(market=MARKET_TYPES.CHINA)
         model = TradeDayMapper.to_model(entity, MTradeDay)
         # market 经 validate_input 转 int 存
         assert model.market == MARKET_TYPES.CHINA.value
-        assert model.uuid == entity.uuid
+        assert model.uuid and len(model.uuid) == 32  # 32-hex auto,非 entity.uuid
 
     def test_roundtrip_preserves_core_fields(self):
         """roundtrip 还原 market(is_open)/timestamp/uuid。
@@ -49,7 +51,8 @@ class TestTradeDayMapperRoundtrip:
 
         assert restored.market == MARKET_TYPES.CHINA
         assert restored.is_open is False
-        assert restored.uuid == entity.uuid
+        # ADR-029:to_model 去 uuid 透传,model.uuid=32-hex auto;from_model 还原 model.uuid
+        assert restored.uuid == model.uuid
 
     def test_from_model_market_int_to_enum(self):
         """ORM market 存 int，from_model 转 enum。"""

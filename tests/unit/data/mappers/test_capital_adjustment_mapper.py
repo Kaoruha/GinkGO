@@ -32,11 +32,13 @@ class TestCapitalAdjustmentMapperRoundtrip:
         assert isinstance(model, MCapitalAdjustment)
 
     def test_to_model_preserves_portfolio_amount_uuid(self):
+        """ADR-029 strict mirror:去 uuid 透传(镜像 CapitalAdjustmentCRUD 不塞),
+        走 MClickBase.uuid default 自动生成 32-hex。portfolio_id/amount 保真。"""
         entity = _make_capital()
         model = CapitalAdjustmentMapper.to_model(entity, MCapitalAdjustment)
         assert model.portfolio_id == "port-1"
         assert model.amount == Decimal("10000.5")
-        assert model.uuid == entity.uuid
+        assert model.uuid and len(model.uuid) == 32  # 32-hex auto,非 entity.uuid
 
     def test_roundtrip_preserves_non_source_fields(self):
         """roundtrip 还原 portfolio_id/amount/reason/timestamp/uuid（不含 source）。

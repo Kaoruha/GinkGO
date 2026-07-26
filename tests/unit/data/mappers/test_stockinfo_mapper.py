@@ -32,24 +32,23 @@ class TestStockInfoMapperRoundtrip:
         assert isinstance(model, MStockInfo)
 
     def test_to_model_preserves_code_currency_uuid(self):
+        """ADR-029 strict mirror:uuid=entity.uuid if entity.uuid else None(镜像 StockInfoCRUD)。
+        StockInfo entity 默认 uuid='' → model.uuid=None(显式传 None 覆盖 MClickBase default,
+        非自动生成)。code/code_name/industry 保真。"""
         entity = _make_stockinfo()
         model = StockInfoMapper.to_model(entity, MStockInfo)
         assert model.code == "SH600000"
         assert model.code_name == "浦发银行"
         assert model.industry == "银行"
-        assert model.uuid == entity.uuid
+        assert model.uuid is None  # entity.uuid='' → None(CRUD mirror,非自动生成)
 
-    def test_to_model_does_not_pass_market(self):
-        """已知 bug：原码 to_model 未传 market（stockinfo.py:215-227）。
-
-        model.market 走 MStockInfo.__init__ 默认 CHINA.value，而非 entity.market。
-        忠实搬运保留，留 Task 1.6 统一评估。本测试断言此 bug 行为：
-        非 CHINA entity → model.market 仍 CHINA.value。
-        """
+    def test_to_model_passes_market(self):
+        """ADR-029 strict mirror:to_model 加 market=entity.market(镜像 StockInfoCRUD,
+        修原 Mapper 漏 market 走默认 CHINA 的口径偏差)。非 CHINA entity → model.market=entity.market。"""
         entity = _make_stockinfo(market=MARKET_TYPES.NASDAQ)
         model = StockInfoMapper.to_model(entity, MStockInfo)
-        # market 未传，走默认
-        assert model.market == MARKET_TYPES.CHINA.value
+        # market 现透传(原漏传 bug 已由 strict mirror 修复)
+        assert model.market == MARKET_TYPES.NASDAQ.value
 
     def test_roundtrip_preserves_core_fields_default_market(self):
         """roundtrip 还原 code/code_name/industry/currency/list_date/delist_date/uuid。
@@ -66,7 +65,8 @@ class TestStockInfoMapperRoundtrip:
         assert restored.industry == "银行"
         assert restored.market == MARKET_TYPES.CHINA
         assert restored.currency == CURRENCY_TYPES.CNY
-        assert restored.uuid == entity.uuid
+        # ADR-029:to_model 传 uuid=None(entity.uuid='' → None);from_model getattr 透传 None
+        assert restored.uuid is None
 
     def test_from_model_market_currency_int_to_enum(self):
         """ORM market/currency 存 int，from_model 转 enum。"""

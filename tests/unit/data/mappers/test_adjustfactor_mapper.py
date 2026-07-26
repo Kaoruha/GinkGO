@@ -29,11 +29,13 @@ class TestAdjustfactorMapperRoundtrip:
         assert isinstance(model, MAdjustfactor)
 
     def test_to_model_preserves_code_and_uuid(self):
+        """ADR-029 strict mirror:去 uuid 透传(镜像 AdjustfactorCRUD 不塞),
+        走 MClickBase.uuid default 自动生成 32-hex。code 保真。"""
         entity = _make_adjustfactor()
         model = AdjustfactorMapper.to_model(entity, MAdjustfactor)
-        # code/uuid 字段名匹配 MAdjustfactor，正确 setattr
+        # code 字段名匹配 MAdjustfactor，正确 setattr
         assert model.code == "SH600000"
-        assert model.uuid == entity.uuid
+        assert model.uuid and len(model.uuid) == 32  # 32-hex auto,非 entity.uuid
 
     def test_roundtrip_preserves_code_timestamp_uuid(self):
         """roundtrip 还原 code/timestamp/uuid（from_model 还原 uuid）。
@@ -52,7 +54,8 @@ class TestAdjustfactorMapperRoundtrip:
         restored = AdjustfactorMapper.from_model(model)
 
         assert restored.code == "SZ000001"
-        assert restored.uuid == entity.uuid
+        # ADR-029:to_model 去 uuid 透传,model.uuid=32-hex auto;from_model 还原 model.uuid
+        assert restored.uuid == model.uuid
 
 
 class TestAdjustfactorMapperTypeError:

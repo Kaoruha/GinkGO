@@ -40,11 +40,12 @@ class TestTransferMapperToModel:
         assert isinstance(model, MTransfer)
 
     def test_to_model_preserves_core_fields(self):
+        """ADR-029 strict mirror:去 task_id(镜像 TransferCRUD._convert_input_item 不塞,
+        task_id 留 from_model 出路口)。portfolio_id/engine_id/money 保真。"""
         entity = _make_transfer()
         model = TransferMapper.to_model(entity)
         assert model.portfolio_id == "p-1"
         assert model.engine_id == "e-1"
-        assert model.task_id == "t-1"
         assert model.money == Decimal("10000")
 
     def test_to_model_enums_validated_to_int(self):
@@ -55,11 +56,12 @@ class TestTransferMapperToModel:
         assert model.market == MARKET_TYPES.CHINA.value
         assert model.status == TRANSFERSTATUS_TYPES.PENDING.value
 
-    def test_to_model_restores_uuid(self):
-        """uuid 还原（原码惯例）。"""
+    def test_to_model_auto_generates_uuid(self):
+        """ADR-029 strict mirror:去 uuid 透传(镜像 TransferCRUD 不塞),
+        走 MClickBase.uuid default 自动生成 32-hex。"""
         entity = _make_transfer()
         model = TransferMapper.to_model(entity)
-        assert model.uuid == entity.uuid
+        assert model.uuid and len(model.uuid) == 32  # 32-hex auto,非 entity.uuid
 
 
 def _make_mtransfer(**overrides) -> MTransfer:

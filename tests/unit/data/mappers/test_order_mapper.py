@@ -27,14 +27,15 @@ def _make_order():
 
 
 def test_to_model_roundtrip_preserves_uuid():
-    """Order.to_model → MOrder；from_model 还原，uuid 必须保真（修 order_id→uuid bug）。"""
+    """ADR-029 strict mirror:to_model 去 uuid 透传(镜像 OrderCRUD 不塞),走 MClickBase.uuid
+    default 自动生成 32-hex;from_model 还原 model.uuid(非 order.uuid)。"""
     order = _make_order()
-    expected_uuid = order.uuid
     model = OrderMapper.to_model(order)
     assert model.code == "000001.SZ"
     assert model.volume == 100
+    assert model.uuid and len(model.uuid) == 32  # 32-hex auto,非 order.uuid
     restored = OrderMapper.from_model(model)
-    assert restored.uuid == expected_uuid  # 关键：旧 from_model 丢 uuid，现已修
+    assert restored.uuid == model.uuid  # from_model 还原 model 的 uuid
     assert restored.code == "000001.SZ"
     assert restored.volume == 100
 
