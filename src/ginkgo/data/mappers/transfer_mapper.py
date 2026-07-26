@@ -7,6 +7,7 @@ Mapper.to_model 已补全，比 CRUD 更正确）。
 
 铁律：不 import CRUD；不含 to_dataframe（DF 出口留 CRUD）。
 """
+from datetime import datetime
 from typing import List
 
 from ginkgo.data.models import MTransfer
@@ -28,31 +29,22 @@ class TransferMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Transfer) -> MTransfer:
-        """Entity → ORM。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 TransferCRUD._convert_input_item(strict mirror)。
 
-        按 from_model 反向 + CRUD _convert_input_item（transfer_crud.py:113-123）
-        构造逻辑。enum 经 validate_input 转 int（ORM 存 int）。uuid 还原（原码惯例）。
+        去 task_id + 去 uuid(镜像 CRUD 不塞:task_id 留 from_model 出路口,uuid 走 MClickBase default);
+        去 ' or -1' 兜底(镜像 CRUD enum 无兜底);timestamp default datetime.now()(镜像 CRUD)。
+        改直构 MTransfer(镜像 CRUD 直构),替代原逐属性赋值。enum 经 validate_input 转 int。
         """
-        model = MTransfer()
-        model.portfolio_id = getattr(entity, 'portfolio_id', '')
-        model.engine_id = getattr(entity, 'engine_id', '')
-        model.task_id = getattr(entity, 'task_id', '')
-        model.direction = TRANSFERDIRECTION_TYPES.validate_input(
-            getattr(entity, 'direction', TRANSFERDIRECTION_TYPES.IN)
-        ) or -1
-        model.market = MARKET_TYPES.validate_input(
-            getattr(entity, 'market', MARKET_TYPES.CHINA)
-        ) or -1
-        model.money = to_decimal(getattr(entity, 'money', 0))
-        model.status = TRANSFERSTATUS_TYPES.validate_input(
-            getattr(entity, 'status', TRANSFERSTATUS_TYPES.PENDING)
-        ) or -1
-        model.timestamp = datetime_normalize(getattr(entity, 'timestamp', None))
-        model.source = SOURCE_TYPES.validate_input(
-            getattr(entity, 'source', SOURCE_TYPES.SIM)
-        ) or -1
-        model.uuid = getattr(entity, 'uuid', '')
-        return model
+        return MTransfer(
+            portfolio_id=getattr(entity, 'portfolio_id', ''),
+            engine_id=getattr(entity, 'engine_id', ''),
+            direction=TRANSFERDIRECTION_TYPES.validate_input(getattr(entity, 'direction', TRANSFERDIRECTION_TYPES.IN)),
+            market=MARKET_TYPES.validate_input(getattr(entity, 'market', MARKET_TYPES.CHINA)),
+            money=to_decimal(getattr(entity, 'money', 0)),
+            status=TRANSFERSTATUS_TYPES.validate_input(getattr(entity, 'status', TRANSFERSTATUS_TYPES.PENDING)),
+            timestamp=datetime_normalize(getattr(entity, 'timestamp', datetime.now())),
+            source=SOURCE_TYPES.validate_input(getattr(entity, 'source', SOURCE_TYPES.SIM)),
+        )
 
     # ------------------------------------------------------------------
     # ORM → Entity（忠实原码 transfer.py:218-239，含 task_id）

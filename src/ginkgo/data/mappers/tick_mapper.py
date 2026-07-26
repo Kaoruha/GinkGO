@@ -20,6 +20,7 @@ from typing import List
 from ginkgo.data.models import MTick
 from ginkgo.entities import Tick
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
+from ginkgo.libs import datetime_normalize
 
 
 class TickMapper:
@@ -30,22 +31,23 @@ class TickMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Tick, model_class=MTick) -> MTick:
-        """Entity → ORM。model_class 形参保留（VO 动态表选择）。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 TickCRUD._convert_to_model(strict mirror)。
 
-        忠实原码（tick.py:131-149）：model = model_class() + model.update(
-        code, price, volume, direction, timestamp, source)。update 内部做
-        enum→int validate_input。
+        镜像 tick_crud.py:537-553(私有 _convert_to_model,非 BaseCRUD hook——tick_crud 重写
+        add_batch)。加 uuid(entity.uuid if uuid else None)+ source(validate_input getattr
+        _source 默认 TDX)+ timestamp(datetime_normalize)+ direction(validate_input)。改直构
+        model_class(镜像 CRUD 直构),替代原 model.update()。model_class 形参保留(VO 动态表,
+        调用方传 get_tick_model 返回值,Mapper 不 import CRUD)。
         """
-        model = model_class()
-        model.update(
-            entity.code,  # code 作为第一个位置参数
+        return model_class(
+            timestamp=datetime_normalize(entity.timestamp),
+            code=entity.code,
             price=entity.price,
             volume=entity.volume,
-            direction=entity.direction,
-            timestamp=entity.timestamp,
-            source=entity.source,
+            direction=TICKDIRECTION_TYPES.validate_input(entity.direction),
+            source=SOURCE_TYPES.validate_input(getattr(entity, '_source', SOURCE_TYPES.TDX)),
+            uuid=entity.uuid if entity.uuid else None,
         )
-        return model
 
     @staticmethod
     def from_model(model: MTick) -> Tick:

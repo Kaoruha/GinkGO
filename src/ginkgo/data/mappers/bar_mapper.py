@@ -9,7 +9,7 @@ from typing import List
 
 from ginkgo.data.models import MBar
 from ginkgo.entities import Bar
-from ginkgo.enums import FREQUENCY_TYPES
+from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.interfaces.dtos.bar_dto import BarDTO
 
 
@@ -21,10 +21,15 @@ class BarMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Bar) -> MBar:
-        """Entity → ORM。code 作为 singledispatch update 的第一个位置参数。"""
-        model = MBar()
-        model.update(
-            entity.code,
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 BarCRUD._convert_input_item(strict mirror)。
+
+        加 source(getattr _source 原始值,镜像 CRUD 无显式 validate_input;MBar.__init__ 内部
+        set_source 校验)+ uuid(entity.uuid if uuid else None,镜像 CRUD);timestamp 直传(镜像 CRUD
+        直传 item.timestamp,无 datetime_normalize;经 MBar.__init__ 同款转换)。改直构 MBar(镜像
+        CRUD 直构),替代原 model.update()。
+        """
+        return MBar(
+            code=entity.code,
             open=entity.open,
             high=entity.high,
             low=entity.low,
@@ -33,8 +38,9 @@ class BarMapper:
             amount=entity.amount,
             frequency=entity.frequency,
             timestamp=entity.timestamp,
+            source=getattr(entity, '_source', SOURCE_TYPES.TUSHARE),
+            uuid=entity.uuid if entity.uuid else None,
         )
-        return model
 
     @staticmethod
     def from_model(model: MBar) -> Bar:

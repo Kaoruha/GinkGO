@@ -19,7 +19,7 @@ from typing import List
 
 from ginkgo.data.models import MStockInfo
 from ginkgo.entities import StockInfo
-from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES
+from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES, SOURCE_TYPES
 
 
 class StockInfoMapper:
@@ -30,20 +30,23 @@ class StockInfoMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: StockInfo, model_class=MStockInfo) -> MStockInfo:
-        """Entity → ORM。model_class 形参保留（VO 动态表选择）。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 StockInfoCRUD._convert_input_item(strict mirror)。
 
-        忠实原码：model_class(...) 直接构造。**未传 market**（原码即如此，
-        stockinfo.py:215-227）——model.market 走 MStockInfo.__init__ 默认
-        CHINA.value。已知 bug，留 Task 1.6。
+        加 market=entity.market(镜像 CRUD,修原 Mapper 漏 market 走默认 CHINA 的口径偏差)+
+        source(getattr _source 原始值,镜像 CRUD 无显式 validate_input;MStockInfo.__init__
+        set_source 校验)。uuid 改 entity.uuid if uuid else None(镜像 CRUD)。model_class 形参
+        保留(VO 动态表选择)。
         """
         return model_class(
             code=entity.code,
             code_name=entity.code_name,
             industry=entity.industry,
-            currency=entity.currency,
+            market=entity.market,
             list_date=entity.list_date,
             delist_date=entity.delist_date,
-            uuid=entity.uuid,
+            currency=entity.currency,
+            source=getattr(entity, '_source', SOURCE_TYPES.TUSHARE),
+            uuid=entity.uuid if entity.uuid else None,
         )
 
     @staticmethod

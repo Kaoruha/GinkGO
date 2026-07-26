@@ -17,6 +17,7 @@ from typing import List
 from ginkgo.data.models import MSignal
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize
 
 
 class SignalMapper:
@@ -27,24 +28,24 @@ class SignalMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Signal) -> MSignal:
-        """Entity → ORM。3 位置参数 + model.uuid 赋值（原码行为保留）。"""
-        model = MSignal()
-        model.update(
-            entity.portfolio_id,
-            entity.engine_id,
-            entity.task_id,
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 SignalCRUD._convert_input_item(strict mirror)。
+
+        去 uuid(镜像 CRUD 走 MClickBase.uuid default)+ 加 business_timestamp(镜像 CRUD);
+        direction/source validate_input;字段集对齐 CRUD override(移除 volume/weight/
+        strength/confidence——CRUD 不塞)。直构 MSignal 替代原 model.update()(CRUD 即直构)。
+        entity 直读替代 getattr。
+        """
+        return MSignal(
+            portfolio_id=entity.portfolio_id,
+            engine_id=entity.engine_id,
+            task_id=entity.task_id,
             timestamp=entity.timestamp,
             code=entity.code,
-            direction=entity.direction,
+            direction=DIRECTION_TYPES.validate_input(entity.direction),
             reason=entity.reason,
-            source=entity.source,
-            volume=entity.volume,
-            weight=entity.weight,
-            strength=entity.strength,
-            confidence=entity.confidence,
+            source=SOURCE_TYPES.validate_input(entity.source if hasattr(entity, 'source') else SOURCE_TYPES.SIM),
+            business_timestamp=datetime_normalize(entity.business_timestamp),
         )
-        model.uuid = entity.uuid
-        return model
 
     @staticmethod
     def from_model(model: MSignal) -> Signal:

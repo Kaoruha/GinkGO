@@ -10,7 +10,8 @@ from typing import List, Optional
 
 from ginkgo.data.models import MOrder
 from ginkgo.entities import Order
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.libs import to_decimal, datetime_normalize
 from ginkgo.interfaces.dtos.order_submission_dto import OrderSubmissionDTO
 
 
@@ -39,26 +40,32 @@ class OrderMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Order) -> MOrder:
-        """Entity → ORM。直构 MOrder（update() 是 singledispatch，全 kwargs 调用会失败）。"""
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 OrderCRUD._convert_input_item(strict mirror)。
+
+        去 uuid(镜像 CRUD 走 MClickBase.uuid default)+ 加 business_timestamp(镜像 CRUD)。
+        转换逻辑(direction/order_type/status validate_input;数值 to_decimal;frozen_volume int;
+        时间 datetime_normalize;source validate_input)镜像 CRUD override。entity 直读替代 getattr
+        (Mapper 严格 entity 类型)。经 MOrder.__init__ 同款兜底,两路径 ORM 状态等价。
+        """
         return MOrder(
             portfolio_id=entity.portfolio_id,
             engine_id=entity.engine_id,
             task_id=entity.task_id,
-            uuid=entity.uuid,
             code=entity.code,
-            direction=entity.direction,
-            order_type=entity.order_type,
-            status=entity.status,
+            direction=DIRECTION_TYPES.validate_input(entity.direction),
+            order_type=ORDER_TYPES.validate_input(entity.order_type),
+            status=ORDERSTATUS_TYPES.validate_input(entity.status),
             volume=entity.volume,
-            limit_price=entity.limit_price,
-            frozen_money=entity.frozen_money,
-            frozen_volume=entity.frozen_volume,
-            transaction_price=entity.transaction_price,
+            limit_price=to_decimal(entity.limit_price),
+            frozen_money=to_decimal(entity.frozen_money),
+            frozen_volume=int(entity.frozen_volume),
+            transaction_price=to_decimal(entity.transaction_price),
             transaction_volume=entity.transaction_volume,
-            remain=entity.remain,
-            fee=entity.fee,
-            timestamp=entity.timestamp,
-            source=entity.source,
+            remain=to_decimal(entity.remain),
+            fee=to_decimal(entity.fee),
+            timestamp=datetime_normalize(entity.timestamp),
+            business_timestamp=datetime_normalize(entity.business_timestamp),
+            source=SOURCE_TYPES.validate_input(entity.source),
         )
 
     @staticmethod

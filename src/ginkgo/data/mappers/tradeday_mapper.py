@@ -15,7 +15,8 @@ from typing import List
 
 from ginkgo.data.models import MTradeDay
 from ginkgo.entities import TradeDay
-from ginkgo.enums import MARKET_TYPES
+from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize
 
 
 class TradeDayMapper:
@@ -26,16 +27,18 @@ class TradeDayMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: TradeDay, model_class=MTradeDay) -> MTradeDay:
-        """Entity → ORM。model_class 形参保留（VO 动态表选择）。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 TradeDayCRUD._convert_input_item(strict mirror)。
 
-        忠实原码：model_class(...) 直接构造，market enum 经 MTradeDay.__init__
-        validate_input 转 int 存储。
+        去 uuid(镜像 CRUD 不塞,走 MClickBase.uuid default)+ 加 source(validate_input getattr
+        'source' public 属性默认 TUSHARE,+ or TUSHARE.value 兜底)。timestamp datetime_normalize;
+        market validate_input + or CHINA.value 兜底(镜像 CRUD)。is_open getattr 兜底 True。
+        model_class 形参保留(VO 动态表选择)。
         """
         return model_class(
-            market=entity.market,
-            is_open=entity.is_open,
-            timestamp=entity.timestamp,
-            uuid=entity.uuid,
+            timestamp=datetime_normalize(entity.timestamp),
+            market=MARKET_TYPES.validate_input(getattr(entity, 'market', MARKET_TYPES.CHINA)) or MARKET_TYPES.CHINA.value,
+            is_open=getattr(entity, 'is_open', True),
+            source=SOURCE_TYPES.validate_input(getattr(entity, 'source', SOURCE_TYPES.TUSHARE)) or SOURCE_TYPES.TUSHARE.value,
         )
 
     @staticmethod

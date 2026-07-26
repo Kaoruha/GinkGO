@@ -24,6 +24,7 @@ from typing import List
 from ginkgo.data.models import MCapitalAdjustment
 from ginkgo.entities import CapitalAdjustment
 from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import to_decimal, datetime_normalize
 
 
 class CapitalAdjustmentMapper:
@@ -34,18 +35,19 @@ class CapitalAdjustmentMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: CapitalAdjustment, model_class=MCapitalAdjustment) -> MCapitalAdjustment:
-        """Entity → ORM。model_class 形参保留（VO 动态表选择）。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 CapitalAdjustmentCRUD._convert_input_item(strict mirror)。
 
-        忠实原码：model_class(...) 直接构造，source enum 经
-        MCapitalAdjustment.__init__ validate_input 转 int 存储。
+        去 uuid(镜像 CRUD 走 MClickBase.uuid default)+ 加 business_timestamp(镜像 CRUD);
+        amount to_decimal;timestamp datetime_normalize;source validate_input。
+        镜像 CRUD 对象入路。entity 直读替代 getattr。model_class 形参保留(VO 动态表选择)。
         """
         return model_class(
             portfolio_id=entity.portfolio_id,
-            amount=entity.amount,
-            timestamp=entity.timestamp,
+            timestamp=datetime_normalize(entity.timestamp),
+            amount=to_decimal(entity.amount),
             reason=entity.reason,
-            source=entity.source,
-            uuid=entity.uuid,
+            source=SOURCE_TYPES.validate_input(entity.source),
+            business_timestamp=datetime_normalize(getattr(entity, 'business_timestamp', None)),
         )
 
     @staticmethod

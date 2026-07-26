@@ -21,6 +21,8 @@ from typing import List
 
 from ginkgo.data.models import MAdjustfactor
 from ginkgo.entities import Adjustfactor
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import to_decimal, datetime_normalize
 
 
 class AdjustfactorMapper:
@@ -31,19 +33,22 @@ class AdjustfactorMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def to_model(entity: Adjustfactor, model_class=MAdjustfactor) -> MAdjustfactor:
-        """Entity → ORM。model_class 形参保留（VO 动态表选择）。
+        """Entity → ORM。ADR-029 阶段1:逐字段对齐 AdjustfactorCRUD._convert_input_item(strict mirror)。
 
-        忠实原码：model_class(...) 直接构造，传 fore_adjustfactor 等带下划线
-        字段名（MAdjustfactor 实际字段无下划线，三 adjustfactor 字段被
-        MClickBase.__init__ 的 hasattr setattr 静默丢弃——已知问题留后续）。
+        kwarg 改无下划线 foreadjustfactor/backadjustfactor(匹配 MAdjustfactor 字段名,修原带下划线
+        被 MClickBase hasattr setattr 静默丢弃)。值用 getattr(entity,'foreadjustfactor',1.0)
+        镜像 CRUD 占位策略:entity 属性实为 fore_adjustfactor(带下划线),getattr 'foreadjustfactor'
+        取不到走默认 1.0——恒 1.0 是有意入库占位(后续计算覆盖,非 bug)。加 source(validate_input
+        getattr 'source' public 属性默认 TUSHARE);timestamp datetime_normalize;去 uuid(镜像 CRUD
+        不塞)。model_class 形参保留(VO 动态表选择)。
         """
         return model_class(
             code=entity.code,
-            timestamp=entity.timestamp,
-            fore_adjustfactor=entity.fore_adjustfactor,
-            back_adjustfactor=entity.back_adjustfactor,
-            adjustfactor=entity.adjustfactor,
-            uuid=entity.uuid,
+            timestamp=datetime_normalize(entity.timestamp),
+            foreadjustfactor=to_decimal(getattr(entity, 'foreadjustfactor', 1.0)),
+            backadjustfactor=to_decimal(getattr(entity, 'backadjustfactor', 1.0)),
+            adjustfactor=to_decimal(getattr(entity, 'adjustfactor', 1.0)),
+            source=SOURCE_TYPES.validate_input(getattr(entity, 'source', SOURCE_TYPES.TUSHARE)),
         )
 
     @staticmethod
