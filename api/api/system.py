@@ -2,12 +2,13 @@
 系统状态和Worker管理API路由
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any
 
 from core.config import settings
 from core.response import ok
 from core.logging import logger
+from api.settings import _require_admin  # #6175: 单一权威 admin 权限源，不在本模块重写
 
 router = APIRouter()
 
@@ -68,3 +69,22 @@ async def get_workers_by_type(worker_type: str):
     except Exception as e:
         logger.error(f"Failed to get workers by type {worker_type}: {e}")
         return ok(data={"type": target, "workers": [], "count": 0})
+
+
+@router.get("/error-stats")
+async def get_error_stats(req: Request):
+    """#6785: 查询当前 API 进程累计的错误热点（管理员）。
+
+    走 SystemService → GLOG.get_error_stats（分层 API→Service→GLOG，不直访 GLOG）。
+    """
+    _require_admin(req)
+    svc = _get_system_service()
+    return ok(data=svc.get_error_stats())
+
+
+@router.post("/error-stats/reset")
+async def reset_error_stats(req: Request):
+    """#6785: 清零进程内错误统计（管理员），便于排障后观察新一轮错误分布。"""
+    _require_admin(req)
+    svc = _get_system_service()
+    return ok(data=svc.reset_error_stats())
