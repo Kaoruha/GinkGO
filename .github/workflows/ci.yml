@@ -227,6 +227,8 @@ jobs:
             tests/unit/data/services/test_kafka_service_retired_smoke.py \
             tests/unit/data/services/test_kafka_data_commands_smoke.py \
             tests/unit/trading/services/test_deployment_list_smoke.py \
+            tests/unit/trading/services/test_deployment_service_deploy_trace_id_6787.py \
+            tests/unit/workers/test_paper_trading_worker_consume_trace_id_6787.py \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             tests/unit/libs/test_config_generate_smoke.py \
