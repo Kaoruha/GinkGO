@@ -1131,7 +1131,7 @@ class ExecutionNode:
                             code=event.code,
                             direction=str(event.direction.value),
                             volume=event.volume,
-                            price=str(event.price) if event.price else None,
+                            price=str(event.limit_price) if event.limit_price else None,
                             timestamp=event.timestamp.isoformat() if event.timestamp else None
                         )
 
