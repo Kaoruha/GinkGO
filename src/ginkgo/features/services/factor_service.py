@@ -77,10 +77,10 @@ class FactorService:
         try:
             # 获取要计算的因子表达式
             if factor_names is None:
-                expressions = Alpha158Factors.get_all_factors()
+                expressions = Alpha158Factors.get_all_expressions()
                 GLOG.INFO(f"计算全部Alpha158因子: {len(expressions)}个")
             else:
-                all_expressions = Alpha158Factors.get_all_factors()
+                all_expressions = Alpha158Factors.get_all_expressions()
                 expressions = {name: all_expressions[name] for name in factor_names 
                              if name in all_expressions}
                 GLOG.INFO(f"计算指定Alpha158因子: {len(expressions)}个")
@@ -139,7 +139,7 @@ class FactorService:
         Returns:
             ServiceResult: 计算结果
         """
-        core_expressions = Alpha158Factors.get_core_factors()
+        core_expressions = Alpha158Factors.get_expressions_by_category("core")
         core_factor_names = list(core_expressions.keys())
         
         return self.calculate_alpha158_factors(
@@ -172,22 +172,13 @@ class FactorService:
         result = ServiceResult()
         
         try:
-            # 根据分类获取因子表达式
-            category_methods = {
-                'price': Alpha158Factors.get_price_factors,
-                'ma': Alpha158Factors.get_ma_factors,
-                'volatility': Alpha158Factors.get_volatility_factors,
-                'momentum': Alpha158Factors.get_momentum_factors,
-                'extremum': Alpha158Factors.get_extremum_factors,
-                'quantile': Alpha158Factors.get_quantile_factors,
-                'rsv': Alpha158Factors.get_rsv_factors
-            }
-            
-            if category not in category_methods:
-                result.error = f"未知的因子分类: {category}。可用分类: {list(category_methods.keys())}"
+            # 根据分类获取因子表达式（对齐 BaseDefinition.CATEGORIES 真实 key）
+            available = Alpha158Factors.get_category_names()
+            if category not in available:
+                result.error = f"未知的因子分类: {category}。可用分类: {available}"
                 return result
-            
-            category_expressions = category_methods[category]()
+
+            category_expressions = Alpha158Factors.get_expressions_by_category(category)
             factor_names = list(category_expressions.keys())
             
             return self.calculate_alpha158_factors(
@@ -209,8 +200,8 @@ class FactorService:
         return {
             "factor_engine_stats": self.factor_engine.get_stats(),
             "expression_engine_stats": self.expression_engine.get_engine_stats(),
-            "alpha158_total_factors": len(Alpha158Factors.get_all_factors()),
-            "alpha158_core_factors": len(Alpha158Factors.get_core_factors()),
+            "alpha158_total_factors": len(Alpha158Factors.get_all_expressions()),
+            "alpha158_core_factors": len(Alpha158Factors.get_expressions_by_category("core")),
         }
 
     # ===== 新增因子查询API =====
