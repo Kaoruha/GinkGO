@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-24
-**关联:** ADR-010（三层角色分离，本文档推广其 Mapper 概念）· ADR-022（原则3 单一接缝 / 原则4 注册冲突检测）· `CONTEXT.md`（DTO / Mapper 术语）· Epic「DTO 信使复位」（本文档 + 后续四步 PR 序列）
+**关联:** ADR-010（三层角色分离，本文档推广其 Mapper 概念）· ADR-022（原则3 单一接缝 / 原则4 注册冲突检测）· `CONTEXT.md`（DTO / Mapper 术语）· Epic E #6701（CRUD/Mapper seam 集中化）· Epic F #6702（ADR 兑现）
 
 ## Context
 
@@ -11,11 +11,11 @@ ADR-010 把 **DTO** 定位为"跨边界、**隔离两个不耦合世界**的信�
 | 边界 | ADR-010 期望 | 现状 |
 |---|---|---|
 | Kafka 出站 | 信使封装 wire 载荷 | ✅ 10 个 BusDTO 定义载荷，producer `model_dump` 序列化（`node.py:1072`） |
-| Kafka 入站 | wire→DTO→Entity | ❌ **15/16 consumer 手抓 dict 重组 Event**，全 livecore/workers 仅 `portfolio_processor.py:499` 一处 `ControlCommandDTO(**data)` |
+| Kafka 入站 | wire→DTO→Entity | ❌ **15/16 consumer 手抓 dict 重组 Event**，全 `workers/execution_node/` 仅 `portfolio_processor.py:499` 一处 `ControlCommandDTO(**data)` |
 | HTTP 响应 | WebResponse | ❌ `api/` **0 个 `response_model`**，无统一响应 schema 层（仅 `backtest_task_schemas.py` 孤例） |
 | Redis | CacheEntry | ❌ 通用 `redis_crud` 全程 `json.dumps/loads` 任意 dict；`CacheEntry` 仅 `data/streaming/cache/cache_manager.py:68` 局部用 |
 
-**后果不止整洁**：DTO 从"信使"退化为"**出站发货单**"——只定义发什么，收货侧不认单子、直接拆裸 dict。drift 藏在缝里：`OrderFeedback` consumer 用 `filled_volume`/`fill_price`（错）而非 `filled_quantity`/`fill_price` 构造 `EventOrderPartiallyFilled` → `TypeError`（缺必需的 `order: Order`）→ 被 `node.py:932` `except` 静默吞，**整条 fill-feedback 路径从未跑通**。HTTP 无契约保护前端，Redis 无类型安全。
+**后果不止整洁**：DTO 从"信使"退化为"**出站发货单**"——只定义发什么，收货侧不认单子、直接拆裸 dict。drift 藏在缝里：`OrderFeedback` consumer 用 `filled_volume`/`filled_price`（错）而非 `filled_quantity`/`fill_price` 构造 `EventOrderPartiallyFilled` → `KeyError`（`node.py:919` 读 `event_data['filled_volume']` 而 wire 发 `filled_quantity`，实参求值期即抛，构造未及进入缺 `order` 的 `TypeError`）→ 被 `node.py:932` `except` 静默吞，**整条 fill-feedback 路径从未跑通**。HTTP 无契约保护前端，Redis 无类型安全。
 
 **根因**：ADR-010 §1 把 Mapper 定为唯一转换点，但只建了 **DB 边界 + Kafka 出站**。Mapper 概念未对称覆盖四边。
 
@@ -29,7 +29,7 @@ ADR-010 把 **DTO** 定位为"跨边界、**隔离两个不耦合世界**的信�
 |---|---|---|---|
 | DB | `XxxMapper`（ADR-010 已立） | ORM↔Entity↔DTO | §4 V1/V3/V9 收尾 |
 | Kafka | `MessageMapper` | wire↔BusDTO↔Event | 出站✓ / 入站补全 |
-| HTTP | `ResponseMapper` | Entity/ORM↔WebResponse | 从无到有 + `response_model` |
+| HTTP | `ResponseMapper` | Entity↔WebResponse | 从无到有 + `response_model` |
 | Redis | `CacheMapper` | wire↔CacheEntry↔Entity | 从无到有，替 `json.dumps` 任意 dict |
 
 `MessageMapper`/`ResponseMapper`/`CacheMapper` **不是新抽象层**，是 ADR-010 Mapper 概念在各自边界的实例——符合 ADR-022 原则 3（单一接缝：每边界一个权威转换点）。其中 `MessageMapper` 因带 wire 依赖（kafka-python）与纯类型转换的 `XxxMapper` 异质，承认 Mapper 家族含**纯转换 / IO 转换**两亚型，不硬塞纯转换家族。
