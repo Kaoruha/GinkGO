@@ -94,6 +94,12 @@ class ExecutionNode:
         # MessageMapper.feedback_to_event; pop None = 非本节点提交 → GLOG.ERROR 响亮丢弃。
         # (Mapper 不碰 CRUD/DB, consumer 内存态是唯一 Order 来源。)
         self._pending_orders = {}
+        # review #6778 问题③: 累积已成交量 (uuid → cumulative filled)。
+        # 真实 broker 常分多笔回报 (1000 手拆 500+300+200), _pending_orders.pop
+        # 在第一笔就移除 → 后续 partial 必 None → drop。改用累积判终态,
+        # 仅累积 >= volume 才 pop。独立字典, 不改原 Order (避免污染已路由 event
+        # 的 remaining, 也避免越界调 Order.settle 资金语义)。
+        self._pending_filled = {}
 
         # 运行状态（同时存储到Redis）
         self.is_running = False
@@ -892,6 +898,41 @@ class ExecutionNode:
 
         GLOG.INFO(f"Market data consumer thread stopped for node {self.node_id}")
 
+    def _reconcile_feedback(self, dto):
+        """单笔成交回报 → event + 条件 pop 注册表 (review #6778 问题③)。
+
+        真实 broker 常分多笔回报 (如 1000 手拆 500+300+200)。旧代码
+        ``_pending_orders.pop(dto.order_id)`` 在第一笔就移除 entry → 第二笔
+        pop 返回 None → GLOG.ERROR 丢弃 → 持仓错账, 正确性被钉死在"gateway 必须
+        一发完"。
+
+        正解: 累积本次 filled 量, 仅当累积达 order.volume (最终 filled) 才 pop;
+        中间笔保留 entry 供后续回报取回。用独立 ``_pending_filled`` 字典累积,
+        **不改原 Order.transaction_volume** —— 避免污染已路由 event 的 remaining
+        (event 持 order 引用, settle/赋值会让下游读到的 remaining 失真), 也避免
+        越界调 ``Order.settle`` (资金语义属下游 portfolio 职责, consumer 不碰)。
+
+        Args:
+            dto: OrderFeedbackDTO (已经 MessageMapper.decode 校验)。
+
+        Returns:
+            EventOrderPartiallyFilled, 或 None (非本节点提交 / 进程重启后丢失
+            → consumer 层响亮 drop, 不伪造骨架 Order)。
+        """
+        from ginkgo.interfaces.mappers import MessageMapper
+
+        order = self._pending_orders.get(dto.order_id)
+        if order is None:
+            return None
+        event = MessageMapper.feedback_to_event(dto, order)
+        cumulative = self._pending_filled.get(dto.order_id, 0.0) + dto.filled_quantity
+        if cumulative >= float(order.volume):
+            self._pending_orders.pop(dto.order_id, None)
+            self._pending_filled.pop(dto.order_id, None)
+        else:
+            self._pending_filled[dto.order_id] = cumulative
+        return event
+
     def _consume_order_feedback(self):
         """消费订单回报线程 - 消息成功放入队列后立即提交 offset
 
@@ -928,10 +969,12 @@ class ExecutionNode:
                     # ADR-025 第②步: raw dict → OrderFeedbackDTO (model_validate 校验)
                     dto = MessageMapper.decode(raw, OrderFeedbackDTO)
 
-                    # 取回本节点提交的原 Order (consumer 内存注册表, Mapper 不碰 CRUD/DB)。
-                    # pop None = 非本节点提交 / 进程重启后丢失 → 响亮丢弃, 不伪造骨架 Order。
-                    order = self._pending_orders.pop(dto.order_id, None)
-                    if order is None:
+                    # 取回本节点提交的原 Order + 累积判终态 (review #6778 问题③)。
+                    # _reconcile_feedback 返回 event 或 None (非本节点提交 / 进程重启后
+                    # 丢失 → None)。partial fill 多笔共享 order_id: 仅最终 filled 才 pop,
+                    # 中间笔保留 entry, 避免后续 partial 取 None → drop → 持仓错账。
+                    event = self._reconcile_feedback(dto)
+                    if event is None:
                         GLOG.ERROR(
                             f"Order feedback for {dto.order_id} has no matching "
                             f"pending order on node {self.node_id}; dropping "
@@ -939,8 +982,6 @@ class ExecutionNode:
                         )
                         self.order_feedback_consumer.commit()
                         continue
-
-                    event = MessageMapper.feedback_to_event(dto, order)
 
                     # 路由到对应的Portfolio
                     portfolio_id = dto.portfolio_id
@@ -1104,7 +1145,9 @@ class ExecutionNode:
                         if success:
                             # ADR-025 第②步: 注册待 feedback 的原 Order,
                             # feedback 回来按 order_id 取回注入 MessageMapper.feedback_to_event。
+                            # review #6778 问题③: 同步初始化累积计数器 (partial fill 多笔)。
                             self._pending_orders[str(event.uuid)] = event
+                            self._pending_filled[str(event.uuid)] = 0.0
                             GLOG.INFO(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:
                             GLOG.ERROR(f"[ERROR] Failed to send order {event.uuid} to Kafka")
