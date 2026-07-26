@@ -212,6 +212,7 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            tests/unit/interfaces/test_message_mapper.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
