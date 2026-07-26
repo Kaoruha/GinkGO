@@ -18,7 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run, reject_in_production
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -487,11 +487,7 @@ def run(
 
     # ADR-028: 回测防误连生产 —— set_debug 现仅开日志不再切库，PRODUCTION env 下回测直连 master 写数据，故拒跑
     # 置于 resolve_engine_id（DB 调用）之前 fail-fast，避免生产 env 下做无谓 DB 查询
-    from ginkgo.libs import GCONF as _GCONF_ENGINE_RUN
-    if _GCONF_ENGINE_RUN.ENV == "PRODUCTION":
-        console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
-        console.print("[dim]请先切到研发集群：ginkgo config set env DEVELOPMENT[/dim]")
-        raise typer.Exit(1)
+    reject_in_production("回测")
 
     # 如果提供了engine_id，尝试解析为UUID
     if engine_id:

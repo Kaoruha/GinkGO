@@ -276,6 +276,9 @@ class TradeGatewayAdapter(Thread):
         if not pending_orders:
             return
 
+        # ADR-028: 集群判据不依赖 order，上提到循环外（避免每待成交订单重复读 ENV）
+        is_production = GCONF.ENV == "PRODUCTION"
+
         # 遍历待成交订单
         for order in pending_orders:
             try:
@@ -300,7 +303,6 @@ class TradeGatewayAdapter(Thread):
                 # P3: PRODUCTION 下模拟成交被禁；非容器 paper worker(宿主直跑)若 config.yml debug=False
                 #     且未设 GINKGO_ENV → bridge 推断 PRODUCTION → 订单卡 SUBMITTED。开发场景设
                 #     GINKGO_ENV=DEVELOPMENT 即恢复模拟成交。一次性 WARN 兼顾可诊断与不刷屏。
-                is_production = GCONF.ENV == "PRODUCTION"
                 if is_production:
                     if not self._prod_mock_fill_warned:
                         GLOG.WARN("PRODUCTION env 下模拟成交已禁用，订单将保持 SUBMITTED；"
