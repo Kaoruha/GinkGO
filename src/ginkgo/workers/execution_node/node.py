@@ -1093,7 +1093,7 @@ class ExecutionNode:
                             order_id=str(event.uuid),
                             portfolio_id=event.portfolio_id,
                             code=event.code,
-                            direction=event.direction.value,
+                            direction=str(event.direction.value),
                             volume=event.volume,
                             price=str(event.price) if event.price else None,
                             timestamp=event.timestamp.isoformat() if event.timestamp else None

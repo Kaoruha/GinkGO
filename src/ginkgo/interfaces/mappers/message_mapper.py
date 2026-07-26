@@ -145,8 +145,8 @@ class MessageMapper:
         修正旧 drift: DTO 无 limit_price 字段, 旧代码 ``order_data['limit_price']`` 必 KeyError;
         正解 limit_price 取 dto.price (字符串格式, 需 float 转换)。
         engine_id / task_id DTO 未携带 → 沿用 gateway 旧默认 (live_engine / live_run)。
-        direction: listener_thread 发 ``event.direction.value`` (int), DTO str 字段强转为 str,
-        此处 ``int(dto.direction)`` 还原回 enum value (与 order_mapper DIRECTION_TYPES(int) 一致)。
+        direction: listener_thread 显式 ``str(event.direction.value)`` 发送 (pydantic v2 str
+        字段拒 int、不强转); 此处 ``int(dto.direction)`` 还原回 enum value (LONG=1/SHORT=2)。
         """
         return Order(
             portfolio_id=dto.portfolio_id,

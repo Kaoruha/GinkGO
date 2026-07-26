@@ -12,6 +12,7 @@
 """
 
 import pytest
+from pydantic import ValidationError
 
 from ginkgo.interfaces.mappers import MessageMapper
 from ginkgo.interfaces.dtos import PriceUpdateDTO, OrderFeedbackDTO, OrderSubmissionDTO
@@ -83,11 +84,28 @@ class TestSubmissionToOrder:
         assert order.volume == 100
 
     def test_direction_int_value_restored(self):
-        # listener_thread 发 event.direction.value (int); DTO str 强转; int() 还原
+        # listener_thread 显式 str(event.direction.value) 发送; int() 还原 enum value
         dto = OrderSubmissionDTO(order_id="a", portfolio_id="p", code="X",
                                  direction="2", volume=1, price="1")  # SHORT=2
         order = MessageMapper.submission_to_order(dto)
         assert order.direction == DIRECTION_TYPES.SHORT
+
+    def test_listener_thread_direction_must_coerce_str(self):
+        # 回归 (review #6778 问题①): listener_thread 发 event.direction.value (int),
+        # OrderSubmissionDTO.direction 是 str 字段, pydantic v2 拒 int → ValidationError,
+        # 构造在 send / _pending_orders 注册前崩, 使订单链路修复全空转。
+        # 生产端必须显式 str(); 此测试锁定 str() 不可被去掉。
+        # 正向: str(value) 构造 + 还原 OK
+        dto = OrderSubmissionDTO(order_id="a", portfolio_id="p", code="X",
+                                 direction=str(DIRECTION_TYPES.LONG.value),  # "1"
+                                 volume=1, price="1")
+        assert dto.direction == "1"
+        assert MessageMapper.submission_to_order(dto).direction == DIRECTION_TYPES.LONG
+        # 反向: 裸 int 必被拒 (防 str() 回退)
+        with pytest.raises(ValidationError):
+            OrderSubmissionDTO(order_id="a", portfolio_id="p", code="X",
+                               direction=DIRECTION_TYPES.LONG.value,  # int 1
+                               volume=1, price="1")
 
     def test_price_none_defaults_zero(self):
         dto = OrderSubmissionDTO(order_id="a", portfolio_id="p", code="X",
