@@ -288,19 +288,9 @@ class DeploymentService(BaseService):
         except Exception as e:
             GLOG.WARN(f"更新部署记录状态失败(非致命): {e}")
 
-        # 9. 发送 Kafka deploy 命令通知 PaperTradingWorker
+        # 9. 发送 Kafka deploy 命令通知 PaperTradingWorker（#6787: 携带 trace_id header）
         try:
-            from ginkgo.messages.control_command import ControlCommand
-            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-            from ginkgo.interfaces.kafka_topics import KafkaTopics
-
-            cmd = ControlCommand.deploy(new_portfolio_id)
-            producer = GinkgoProducer()
-            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
-            if success:
-                GLOG.INFO(f"[DEPLOY] Kafka deploy command sent for {new_portfolio_id[:8]}")
-            else:
-                GLOG.WARN(f"[DEPLOY] Failed to send Kafka deploy command for {new_portfolio_id[:8]}")
+            self._dispatch_deploy_command(new_portfolio_id)
         except Exception as e:
             GLOG.WARN(f"[DEPLOY] Kafka notification failed (non-fatal): {e}")
 
@@ -311,6 +301,31 @@ class DeploymentService(BaseService):
             "deployment_id": deployment_id,
         }
         return result
+
+    def _dispatch_deploy_command(self, new_portfolio_id: str) -> bool:
+        """发送 Kafka deploy 命令通知 PaperTradingWorker（#6787 AC1: 携带 trace_id header）。
+
+        #6787: 从 GLOG contextvars 取 #6784 中间件注入的 trace_id 写 Kafka header，
+        使 paper/live worker 消费端恢复 trace_id（AC2/AC3），deploy 全链路日志按
+        trace_id 串联（AC4）。无 trace_id 时 headers=None（向后兼容：CLI 直接调用
+        等非 API 入口不强制注入）。异常由调用方兜底（non-fatal，不阻断 deploy 主流程）。
+        """
+        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.kafka_topics import KafkaTopics
+
+        cmd = ControlCommand.deploy(new_portfolio_id)
+        trace_id = GLOG.get_trace_id()
+        headers = [("trace_id", trace_id.encode())] if trace_id else None
+        producer = GinkgoProducer()
+        success = producer.send(
+            KafkaTopics.CONTROL_COMMANDS, cmd.to_dict(), headers=headers
+        )
+        if success:
+            GLOG.INFO(f"[DEPLOY] Kafka deploy command sent for {new_portfolio_id[:8]}")
+        else:
+            GLOG.WARN(f"[DEPLOY] Failed to send Kafka deploy command for {new_portfolio_id[:8]}")
+        return bool(success)
 
     def get_deployment_info(self, portfolio_id: str) -> ServiceResult:
         """获取部署信息"""
