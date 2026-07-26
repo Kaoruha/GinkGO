@@ -345,7 +345,7 @@ class TradeGatewayAdapter(Thread):
                 engine_id=fill_event.engine_id,
                 task_id=fill_event.task_id,
                 code=fill_event.order.code,
-                direction=fill_event.order.direction.value,
+                direction=str(fill_event.order.direction.value),
                 filled_quantity=fill_event.filled_quantity,
                 fill_price=fill_event.fill_price,
                 timestamp=fill_event.timestamp.isoformat()
