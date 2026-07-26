@@ -59,7 +59,7 @@ class TestErrorStatsGetEndpoint:
             "top_error_patterns": [{"pattern_hash": "h1", "count": 3}],
             "total_error_count": 3,
         }
-        with patch("api.auth.get_user_service", return_value=mock_user_svc), \
+        with patch("api.settings.get_user_service", return_value=mock_user_svc), \
              patch("api.system._get_system_service", return_value=mock_sys_svc):
             result = run_async(get_error_stats(req))
 
@@ -76,7 +76,7 @@ class TestErrorStatsGetEndpoint:
         mock_user_svc = MagicMock()
         mock_user_svc.get_credential.return_value = mock_cred
         mock_sys_svc = MagicMock()
-        with patch("api.auth.get_user_service", return_value=mock_user_svc), \
+        with patch("api.settings.get_user_service", return_value=mock_user_svc), \
              patch("api.system._get_system_service", return_value=mock_sys_svc):
             with pytest.raises(HTTPException) as exc:
                 run_async(get_error_stats(req))
@@ -92,7 +92,7 @@ class TestErrorStatsGetEndpoint:
         mock_user_svc = MagicMock()
         mock_user_svc.get_credential.side_effect = RuntimeError("db down")
         mock_sys_svc = MagicMock()
-        with patch("api.auth.get_user_service", return_value=mock_user_svc), \
+        with patch("api.settings.get_user_service", return_value=mock_user_svc), \
              patch("api.system._get_system_service", return_value=mock_sys_svc):
             with pytest.raises(HTTPException) as exc:
                 run_async(get_error_stats(req))
@@ -115,7 +115,7 @@ class TestErrorStatsResetEndpoint:
         mock_user_svc.get_credential.return_value = mock_cred
         mock_sys_svc = MagicMock()
         mock_sys_svc.reset_error_stats.return_value = {"reset": True}
-        with patch("api.auth.get_user_service", return_value=mock_user_svc), \
+        with patch("api.settings.get_user_service", return_value=mock_user_svc), \
              patch("api.system._get_system_service", return_value=mock_sys_svc):
             result = run_async(reset_error_stats(req))
 
@@ -132,7 +132,7 @@ class TestErrorStatsResetEndpoint:
         mock_user_svc = MagicMock()
         mock_user_svc.get_credential.return_value = mock_cred
         mock_sys_svc = MagicMock()
-        with patch("api.auth.get_user_service", return_value=mock_user_svc), \
+        with patch("api.settings.get_user_service", return_value=mock_user_svc), \
              patch("api.system._get_system_service", return_value=mock_sys_svc):
             with pytest.raises(HTTPException) as exc:
                 run_async(reset_error_stats(req))

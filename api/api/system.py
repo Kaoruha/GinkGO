@@ -8,6 +8,7 @@ from typing import Dict, Any
 from core.config import settings
 from core.response import ok
 from core.logging import logger
+from api.settings import _require_admin  # #6175: 单一权威 admin 权限源，不在本模块重写
 
 router = APIRouter()
 
@@ -68,23 +69,6 @@ async def get_workers_by_type(worker_type: str):
     except Exception as e:
         logger.error(f"Failed to get workers by type {worker_type}: {e}")
         return ok(data={"type": target, "workers": [], "count": 0})
-
-
-def _require_admin(req: Request):
-    """#6785/#5899: 管理员守卫。DB 实查 credential.is_admin，不信任 JWT payload 里的
-    req.state.is_admin（用户被降权后旧 token 仍带 is_admin=True）。fail-closed：DB
-    不可用或 credential 缺失或非 admin 一律 403，与 /auth/me 的 is_admin 取值口径一致。
-    """
-    from api.auth import get_user_service
-    user_uuid = getattr(req.state, "user_uuid", None)
-    if not user_uuid:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        credential = get_user_service().get_credential(user_uuid)
-    except Exception:
-        credential = None
-    if not credential or not getattr(credential, "is_admin", False):
-        raise HTTPException(status_code=403, detail="Admin only")
 
 
 @router.get("/error-stats")
