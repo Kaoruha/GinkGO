@@ -16,6 +16,8 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 
 没有 ADR 锚定，后续 agent 极易把"contextvars 覆盖""engine 用 task_id 当 trace_id""DTO 带 trace_id 字段"当 bug 修掉。判定三条全中（难逆转 / 反直觉 / 真实取舍），立本 ADR。
 
+> **实现时序注记**：本 ADR 起草时（相对 master 的 merge-base `debda14b`）api 层 `TraceIdFilter` 与 `error_handler._trace_id` 三级优先级尚未落地，早期版本按"待办/缺口"描述；[#6797](https://github.com/Kaoruha/GinkGO/pull/6797)（`9a89cfeb`，*API 请求 trace_id 全量注入贯穿 GLOG 日志*）随后在 master 实现了这两处接线。本 ADR 现按 master 现状（#6797 已合）描述，不再留"待办"措辞——否则后续 agent 会去"补齐"已存在的东西（#4652 类归因陷阱）。
+
 ## Decision
 
 ### 1. 进程内单一真相源：`_trace_id_ctx` contextvars
@@ -28,14 +30,14 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 
 **src 层已实现**：`ecs_processor` / `ginkgo_processor`（structlog，`logger.py:152/208`）读 `_trace_id_ctx` 输出 `trace.id`，故 src 层 service/crud/engine 日志可按 trace_id 聚合。
 
-**api 层标准 logging 尚未接线（已知缺口）**：`api/core/logging.py` 走独立 `logging` logger（`RichHandler` / `JsonFormatter`），格式串 `'%(asctime)s %(name)s %(levelname)s %(message)s'` **不含 trace_id 字段**、无 filter 读 `_trace_id_ctx`，且显式"避免 GLOG 的 API 不兼容问题"；api 层 router/middleware（20+ 文件 `from core.logging import logger`）的日志记录**不带 trace_id**。故"一个 trace_id grep 出跨层全链路"当前**仅对 src 层成立**；补齐 api 层需新增 `TraceIdFilter`（读 `_trace_id_ctx` 注入 record）并接入 `setup_logging`（见 Consequences 待办）。关联 memory `arch_api_src_dual_logging_trace_id`（"#6784 后经 `_trace_id_ctx` 桥接"）据此校正：桥接仅落 src 侧，api 侧未建。
+**api 层标准 logging 已同源接线（#6797）**：`api/core/logging.py` 走独立 `logging` logger，但经 `TraceIdFilter`（`logging.Filter` 子类，`filter()` 内读 `GLOG.get_trace_id()` → `_trace_id_ctx` 注入 `record.trace_id`）桥接——`setup_logging` 中 `logger.addFilter(TraceIdFilter())` 挂载，`RichHandler` 格式串 `[trace_id=%(trace_id)s] %(message)s`、`JsonFormatter` 格式串含 `%(trace_id)s`。故 api 层 router/middleware（`from core.logging import logger`）日志亦带 trace_id，与 src 层共享同一 `_trace_id_ctx`——一个 trace_id 即可 grep 出一个请求的跨层（api + src）全链路日志。关联 memory `arch_api_src_dual_logging_trace_id`。
 
 ### 2. API 入口契约（#6784）
 
 `TraceIdMiddleware`（`api/middleware/trace_id.py`）是 trace_id 的进程入口，对**每个请求**（不采样）执行：
 
 1. `trace_id = request.headers.get("X-Trace-Id") or _new_trace_id()`——**透传客户端 trace_id 优先**，否则生成（uuid4 hex 前 16 位，与 error_handler 格式一致）。
-2. `request.state.trace_id = trace_id`——**设计上**作跨中间件 unwind 的兜底载体（**当前为待接线的死载体**）。`with_trace_id` 的 with 块退出会 reset contextvar；内层中间件（如 JWTAuthMiddleware 401）抛 `HTTPException` 时 `call_next` re-raise、响应头写入行被跳过。**注意**：`error_handler`（`api/middleware/error_handler.py`）当前**未读 `request.state.trace_id`**——错误信封的 `trace_id` 由 `_trace_id()`（`uuid.uuid4().hex[:16]`）重新生成（L35/L47），与请求 trace_id **断链**。故 `request.state.trace_id` 目前写了从不读，待 error_handler 改读它（或 `GLOG.get_trace_id()`）才名副其实（见 Consequences 待办）。
+2. `request.state.trace_id = trace_id`——跨中间件 unwind 的兜底载体，**error_handler 已读（#6797）**。`with_trace_id` 的 with 块退出会 reset contextvar；内层中间件（如 JWTAuthMiddleware 401）抛 `HTTPException` 时 `call_next` re-raise，异常逃逸到 `ServerErrorMiddleware`，此时 contextvar 已 reset。`error_handler._trace_id(request)` 三级优先级 `request.state.trace_id`（优先级 1）→ `GLOG.get_trace_id()`（contextvar）→ `uuid.uuid4().hex[:16]`（兜底）；`global_error_handler` 还在 `with_trace_id(trace_id)` 块内复位 contextvar——错误日志、`X-Trace-Id` 响应头、body trace_id 三者与请求同源。
 3. `with GLOG.with_trace_id(trace_id): await call_next(request)`——sync contextmanager 包 await，保证 contextvars 在同 task 贯穿该请求所有后续 await（service/crud 同 task 读到），请求结束 finally 自动 reset 不泄漏。
 4. `response.headers["X-Trace-Id"] = trace_id`——所有响应（正常 + 错误）回写，便于客户端关联。
 
@@ -63,13 +65,13 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 - **为何 contextvars 而非 thread-local**：FastAPI 全 async，一个请求的 handler → service → crud 跨多个 await，同 task 但可能切线程（anyio threadpool）。thread-local 在 `to_thread` 跨越时丢失；`contextvars` 由 asyncio task 自动传播，且 `with_trace_id` 的 token/reset 保证嵌套作用域不互相污染。备选 thread-local 的取舍：简单但 async 下静默断链，不可接受。
 - **为何跨进程走 DTO 字段而非 Kafka headers**：DTO 是 pydantic 契约，`trace_id` 字段在序列化/反序列化两端显式可见、可 schema 校验、可单测；Kafka headers 是隐式 dict，新增消费者易漏读。代价是新 DTO 类型须显式加该字段——但 Ginkgo 跨进程消息类型有限（PriceUpdate / ControlCommand 为主），成本可控，换来强契约。
 - **为何 engine 用 task_id 覆盖请求 trace_id**：engine 是秒~小时级长生命周期（一次回测、一轮实盘），期间消费成百上千条消息，每条带不同上游 trace_id。若 engine 内日志跟随每条消息的 trace_id 切换，同一 engine 的日志会被打散到无数 trace_id，无法按"这次回测"聚合。用 task_id 作稳定锚，engine 内全部日志可一次 `grep task_id` 取全。代价是 engine 入口处的请求 trace_id 被覆盖——由 Decision 4 的 `set_task_id` 先调约束兜底。
-- **为何 `request.state.trace_id` 兜底而非依赖 contextvar 贯穿 error_handler**（**设计意图；当前未落地**）：`ServerErrorMiddleware` 与 `TraceIdMiddleware` 的 `with_trace_id` 作用域是**错开的**——error_handler 在 with 块退出后才触发，此时 contextvar 已 reset。若强求 contextvar 贯穿，得把 error_handler 也塞进 with 块，破坏中间件分层。`request.state` 随 scope 存活、跨中间件 unwind 不丢，是最低成本的 trace_id 取回载体——**但 error_handler 当前未实现此读取**（见 Decision 2 / Consequences 待办），故该兜底目前是设计预留而非已生效。
+- **为何 `request.state.trace_id` 兜底而非依赖 contextvar 贯穿 error_handler**（**#6797 已落地**）：`ServerErrorMiddleware` 与 `TraceIdMiddleware` 的 `with_trace_id` 作用域是**错开的**——error_handler 在 with 块退出后才触发，此时 contextvar 已 reset。若强求 contextvar 贯穿，得把 error_handler 也塞进 with 块，破坏中间件分层。`request.state` 随 scope 存活、跨中间件 unwind 不丢，是最低成本的 trace_id 取回载体。`error_handler._trace_id(request)` 以 `request.state.trace_id` 为优先级 1，配合 `global_error_handler` 内 `with_trace_id` 复位 contextvar，使错误信封 / 响应头 / 日志三者同 trace_id。
 
 ## Consequences
 
-- **新增日志点须经 `GLOG`（src 层，自动带 trace_id），禁止裸 `logging.getLogger`**——否则该日志行拿不到 trace_id，成为断点。注意 api 层 `core.logging` 标准 logger **当前不带 trace_id**（见 Decision 1 缺口），其 trace_id 覆盖待 `TraceIdFilter` 落地。
-- **【待办】api 层 `TraceIdFilter` 未实现**：补齐 `api/core/logging.py` 的 trace_id 注入（新增 `TraceIdFilter` 读 `_trace_id_ctx` 写入 record + `JsonFormatter` 格式串加 `trace_id` 字段 + `setup_logging` 挂 filter），使"双层日志同源"名副其实。落地前勿宣称 api 层日志可按 trace_id 聚合。
-- **【待办】`error_handler` 未读请求 trace_id**：`api/middleware/error_handler.py` 的错误信封 `trace_id` 由 `_trace_id()` 重生成（L35/L47），与请求 trace_id 断链；`request.state.trace_id`（Decision 2.2 写入）当前是死载体。补齐：error_handler 改读 `getattr(request.state, "trace_id", None) or GLOG.get_trace_id() or _trace_id()`，使错误信封与请求/日志同 trace_id。
+- **所有日志层已同源读 `_trace_id_ctx`，禁止裸 `logging.getLogger`**：src 层经 `GLOG`（`ecs_processor` / `ginkgo_processor` 输出 `trace.id`），api 层经 `core.logging` 的 `TraceIdFilter`（#6797）。新增日志点 src 侧用 `GLOG`、api 侧 `from core.logging import logger`，均自动带 trace_id；裸 `logging.getLogger` 拿不到 trace_id，成为断点。
+- **api 层 `TraceIdFilter` 已落地（#6797）**：`api/core/logging.py` 的 `TraceIdFilter`（`logging.Filter` 子类）读 `GLOG.get_trace_id()` 注入 record，`setup_logging` 经 `logger.addFilter(TraceIdFilter())` 挂载，`RichHandler` 格式 `[trace_id=%(trace_id)s]`、`JsonFormatter` 含 `%(trace_id)s`。改 api 日志格式须保留 `%(trace_id)s` 占位，否则 filter 注入被吞。
+- **`error_handler` 已读请求 trace_id（#6797）**：`api/middleware/error_handler.py` 的 `_trace_id(request)` 三级优先级 `request.state.trace_id`（TraceIdMiddleware 注入，优先级 1）→ `GLOG.get_trace_id()`（contextvar）→ `uuid.uuid4().hex[:16]`（兜底）；`global_error_handler` 在 `with_trace_id(trace_id)` 块内复位 contextvar，错误日志 / `X-Trace-Id` 响应头 / body trace_id 三者同源。`request.state.trace_id` 随 scope 存活、跨中间件 unwind 不丢，是 error_handler 取回 trace_id 的主载体。
 - **新增跨进程 DTO 必须携带 `trace_id` 字段**，且生产侧注入、消费侧恢复，否则下游断链。新增 DTO review 项。
 - **改 `BaseEngine.start` 启动顺序前必读 Decision 4**：`set_task_id` 须先于 `start` 调用以保留上游 trace_id；动 LIVE 链路 trace_id 尤甚。
 - **`clear_trace_id` 须用 token，禁止裸覆盖**：嵌套 `with_trace_id` 场景下裸 `set(None)` 会破坏外层作用域的 trace_id。
@@ -79,5 +81,5 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 ## 判定标准自检
 
 - ① **难逆转**：trace_id 已贯穿 API→Kafka→worker→engine 全链路 + error_stats 端点，全系统可观测依赖此契约——高。
-- ② **反直觉**：① engine 用 task_id 覆盖 trace_id；② async 下用 contextvars 而非 thread-local；③ 跨进程走 DTO 字段而非 Kafka headers；④ 进程内 trace_id 单一真相源为 contextvars、设计上供 api/src 双层共享（api 层 `TraceIdFilter` 待落地，见 Decision 1 / Consequences）——满足。
+- ② **反直觉**：① engine 用 task_id 覆盖 trace_id；② async 下用 contextvars 而非 thread-local；③ 跨进程走 DTO 字段而非 Kafka headers；④ 进程内 trace_id 单一真相源为 contextvars、api/src 双层经各自的 filter/processor 同源读它——满足。
 - ③ **真实权衡**：contextvars vs thread-local、DTO 字段 vs headers、engine task_id 覆盖 vs 保留请求 trace_id——每条都有备选且做了取舍——满足。
