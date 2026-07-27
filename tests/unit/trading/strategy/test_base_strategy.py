@@ -2047,3 +2047,38 @@ class TestBaseStrategyParameterization:
 
         strategy.update_parameters({'strategy_type': 'rsi'})  # 有效选择
         assert strategy.get_parameter('strategy_type') == 'rsi'
+
+
+@pytest.mark.unit
+class TestBaseStrategyFactorReader:
+    """#6791 Phase 0: 因子读取钩子(PIT 委托)。"""
+
+    def test_factor_reader_defaults_none(self):
+        """RED#6: 未绑定时 factor_reader 为 None。"""
+        strategy = BaseStrategy()
+        assert strategy.factor_reader is None
+
+    def test_bind_factor_reader_stores_reader(self):
+        """RED#6: bind_factor_reader 存储 reader。"""
+        from unittest.mock import MagicMock
+        strategy = BaseStrategy()
+        reader = MagicMock()
+        strategy.bind_factor_reader(reader)
+        assert strategy.factor_reader is reader
+
+    def test_get_factor_value_delegates_to_reader(self):
+        """RED#7: get_factor_value 委托 reader,原样传 (code, factor, at_time)。"""
+        from unittest.mock import MagicMock
+        strategy = BaseStrategy()
+        reader = MagicMock()
+        reader.get_factor_value.return_value = 0.05
+        strategy.bind_factor_reader(reader)
+        t = datetime(2024, 6, 1)
+        val = strategy.get_factor_value("000001.SZ", "KMID", t)
+        assert val == 0.05
+        reader.get_factor_value.assert_called_once_with("000001.SZ", "KMID", t)
+
+    def test_get_factor_value_none_without_reader(self):
+        """RED#7b: 未绑定 reader 时返回 None,不崩。"""
+        strategy = BaseStrategy()
+        assert strategy.get_factor_value("000001.SZ", "KMID", datetime(2024, 6, 1)) is None

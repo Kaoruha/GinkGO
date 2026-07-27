@@ -14,7 +14,8 @@
 支持便捷的因子计算、批量处理、进度跟踪等功能。
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
+from datetime import datetime, timedelta
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import ENTITY_TYPES
@@ -77,10 +78,10 @@ class FactorService:
         try:
             # 获取要计算的因子表达式
             if factor_names is None:
-                expressions = Alpha158Factors.get_all_factors()
+                expressions = Alpha158Factors.get_all_expressions()
                 GLOG.INFO(f"计算全部Alpha158因子: {len(expressions)}个")
             else:
-                all_expressions = Alpha158Factors.get_all_factors()
+                all_expressions = Alpha158Factors.get_all_expressions()
                 expressions = {name: all_expressions[name] for name in factor_names 
                              if name in all_expressions}
                 GLOG.INFO(f"计算指定Alpha158因子: {len(expressions)}个")
@@ -119,9 +120,214 @@ class FactorService:
         except Exception as e:
             result.error = f"Alpha158因子计算失败: {str(e)}"
             GLOG.ERROR(result.error)
-        
+
         return result
-    
+
+    def calculate_factors_by_library(
+        self,
+        library_name: str,
+        entity_ids: List[str],
+        start_date: str,
+        end_date: str,
+        entity_type: ENTITY_TYPES = ENTITY_TYPES.STOCK,
+        batch_size: int = 1000,
+        incremental: bool = True,
+        factor_crud: Optional[Any] = None,
+    ) -> ServiceResult:
+        """计算指定因子库的因子(通用入口,支持增量物化。#6792)。
+
+        Args:
+            library_name: 因子库名(如 "alpha158",见 list_factor_libraries)
+            entity_ids: 实体ID列表
+            start_date/end_date: 时间范围(YYYY-MM-DD)
+            entity_type: 实体类型
+            batch_size: 批量存储大小
+            incremental: True=跳过已物化 entity(二次运行写入为零);False=全量重算
+            factor_crud: 增量查询用的 FactorCRUD;None 时降级为全量(不增量)
+
+        Returns:
+            ServiceResult: processed_entities / total_factors_stored /
+                           skipped_entities / factor_count
+        """
+        result = ServiceResult(data={})
+
+        try:
+            expressions = self.factor_registry.get_factors_by_library(library_name)
+            if not expressions:
+                result.error = f"Library '{library_name}' not found or has no factors"
+                return result
+
+            validation_result = self.expression_engine.validate_expressions(expressions)
+            if not validation_result.success:
+                result.error = f"表达式验证失败: {validation_result.error}"
+                return result
+
+            # 增量物化:跳过 [start,end] 内对该库因子已有数据的 entity(#6792)
+            target_ids = list(entity_ids)
+            skipped = 0
+            if incremental:
+                crud = factor_crud if factor_crud is not None else getattr(self, "_factor_crud", None)
+                if crud is not None:
+                    materialized = set(crud.get_materialized_entities(
+                        entity_type=entity_type,
+                        factor_names=list(expressions.keys()),
+                        start_time=start_date,
+                        end_time=end_date,
+                    ))
+                    target_ids = [eid for eid in entity_ids if eid not in materialized]
+                    skipped = len(entity_ids) - len(target_ids)
+                    GLOG.INFO(f"增量物化: {skipped}/{len(entity_ids)} entity 已物化,跳过")
+
+            if not target_ids:
+                # 全已物化:零写入(满足"二次运行写入为零"验收,#6792)
+                processed_entities = 0
+                total_factors_stored = 0
+                GLOG.INFO(f"全部 {skipped} entity 已物化,本次零写入")
+            else:
+                calculation_result = self.factor_engine.calculate_and_store(
+                    expressions=expressions,
+                    entity_ids=target_ids,
+                    start_date=start_date,
+                    end_date=end_date,
+                    entity_type=entity_type,
+                    batch_size=batch_size,
+                )
+                if not calculation_result.success:
+                    result.error = calculation_result.error
+                    return result
+                # engine 成功路径必走 set_data → data 为 dict;or {} 仅兜底空 entity 边界
+                calc_data = calculation_result.data or {}
+                processed_entities = calc_data.get("processed_entities", 0)
+                total_factors_stored = calc_data.get("total_factors_stored", 0)
+                GLOG.INFO(f"库 {library_name} 因子计算完成: {len(expressions)} 个因子, "
+                         f"{total_factors_stored} 条记录")
+
+            result.success = True
+            result.set_data("processed_entities", processed_entities)
+            result.set_data("total_factors_stored", total_factors_stored)
+            result.set_data("skipped_entities", skipped)
+            result.set_data("factor_count", len(expressions))
+
+        except Exception as e:
+            result.error = f"calculate_factors_by_library failed: {str(e)}"
+            GLOG.ERROR(result.error)
+
+        return result
+
+    def walk_forward_factor_evaluation(
+        self,
+        factor_name: str,
+        entity_ids: List[str],
+        start_date: str,
+        end_date: str,
+        evaluator: Callable,
+        n_folds: int = 5,
+        train_ratio: float = 0.7,
+        factor_crud: Optional[Any] = None,
+    ) -> ServiceResult:
+        """走步因子评估: 滑动 train/test 折, 每折 PIT 读取因子, 输出样本外折 (#6793 验收3)。
+
+        防全样本拟合: 不用全部数据算单一指标, 而是滑动 train/test 验证 (OOS),
+        与全样本拟合的假阳性区分 (memory: iter037 OOS 证伪教训)。
+
+        PIT: 每折只用该折时间窗内因子 — train [ts, te] / test [te+1, T],
+        全部窗口 <= 评估终点 end_date (评估日 end_date 时数据已实现, 非未来)。
+
+        evaluator 注入: (factors: List[MFactor]) -> score; 具体指标 (IC/IR/decay)
+        由调用方提供 (#6794 提供 IC evaluator 并通过 CLI 调本方法)。
+
+        Args:
+            factor_name: 因子名称
+            entity_ids: 实体代码列表
+            start_date/end_date: 评估区间 (YYYY-MM-DD)
+            evaluator: 因子效果打分函数 (因子列表 -> score)
+            n_folds: 折数 (默认 5)
+            train_ratio: 训练期比例 (默认 0.7)
+            factor_crud: FactorCRUD (读窗口因子); None 报错
+
+        Returns:
+            ServiceResult: folds / mean_train_score / mean_test_score /
+                           degradation / n_folds
+        """
+        result = ServiceResult(data={})
+
+        try:
+            crud = factor_crud if factor_crud is not None else getattr(self, "_factor_crud", None)
+            if crud is None:
+                result.error = "factor_crud required for walk-forward evaluation"
+                return result
+
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            total_days = (end - start).days + 1
+            fold_size = total_days // (n_folds + 1)
+            if fold_size <= 0:
+                result.error = f"date range ({total_days}d) too small for {n_folds} folds"
+                return result
+            train_days = int(fold_size * train_ratio)
+            test_days = fold_size - train_days
+
+            folds_result = []
+            train_scores = []
+            test_scores = []
+
+            def fetch_window(start_w: datetime, end_w: datetime) -> List[Any]:
+                """PIT: 收集 [start_w, end_w] 窗口内所有 entity 的因子 (窗口有界, #6793)。"""
+                out: List[Any] = []
+                for eid in entity_ids:
+                    out.extend(crud.get_factors_by_entity(
+                        entity_type=ENTITY_TYPES.STOCK, entity_id=eid,
+                        factor_names=[factor_name],
+                        start_time=start_w, end_time=end_w,
+                    ))
+                return out
+
+            for i in range(n_folds):
+                train_start = start + timedelta(days=i * test_days)
+                train_end = train_start + timedelta(days=train_days - 1)
+                test_start = train_end + timedelta(days=1)
+                test_end = test_start + timedelta(days=test_days - 1)
+                if test_end > end:
+                    test_end = end
+
+                # PIT: 每折只用该折窗内因子 (窗口 end <= 评估终点)
+                train_factors = fetch_window(train_start, train_end)
+                test_factors = fetch_window(test_start, test_end)
+
+                tr_score = evaluator(train_factors)
+                te_score = evaluator(test_factors)
+                train_scores.append(tr_score)
+                test_scores.append(te_score)
+                folds_result.append({
+                    "fold": i + 1,
+                    "train_start": train_start.strftime("%Y-%m-%d"),
+                    "train_end": train_end.strftime("%Y-%m-%d"),
+                    "test_start": test_start.strftime("%Y-%m-%d"),
+                    "test_end": test_end.strftime("%Y-%m-%d"),
+                    "train_score": tr_score,
+                    "test_score": te_score,
+                })
+
+            mean_train = sum(train_scores) / len(train_scores) if train_scores else 0.0
+            mean_test = sum(test_scores) / len(test_scores) if test_scores else 0.0
+            degradation = (mean_train - mean_test) / mean_train if mean_train != 0 else 0.0
+
+            result.success = True
+            result.set_data("folds", folds_result)
+            result.set_data("mean_train_score", mean_train)
+            result.set_data("mean_test_score", mean_test)
+            result.set_data("degradation", degradation)
+            result.set_data("n_folds", len(folds_result))
+            GLOG.INFO(f"走步因子评估完成: {len(folds_result)} 折, "
+                     f"mean_train={mean_train:.4f}, mean_test={mean_test:.4f}, "
+                     f"degradation={degradation:.2%}")
+
+        except Exception as e:
+            result.error = f"walk_forward_factor_evaluation failed: {e}"
+            GLOG.ERROR(result.error)
+
+        return result
+
     def calculate_core_factors(self,
                              entity_ids: List[str],
                              start_date: str,
@@ -139,7 +345,7 @@ class FactorService:
         Returns:
             ServiceResult: 计算结果
         """
-        core_expressions = Alpha158Factors.get_core_factors()
+        core_expressions = Alpha158Factors.get_expressions_by_category("core")
         core_factor_names = list(core_expressions.keys())
         
         return self.calculate_alpha158_factors(
@@ -172,22 +378,13 @@ class FactorService:
         result = ServiceResult()
         
         try:
-            # 根据分类获取因子表达式
-            category_methods = {
-                'price': Alpha158Factors.get_price_factors,
-                'ma': Alpha158Factors.get_ma_factors,
-                'volatility': Alpha158Factors.get_volatility_factors,
-                'momentum': Alpha158Factors.get_momentum_factors,
-                'extremum': Alpha158Factors.get_extremum_factors,
-                'quantile': Alpha158Factors.get_quantile_factors,
-                'rsv': Alpha158Factors.get_rsv_factors
-            }
-            
-            if category not in category_methods:
-                result.error = f"未知的因子分类: {category}。可用分类: {list(category_methods.keys())}"
+            # 根据分类获取因子表达式（对齐 BaseDefinition.CATEGORIES 真实 key）
+            available = Alpha158Factors.get_category_names()
+            if category not in available:
+                result.error = f"未知的因子分类: {category}。可用分类: {available}"
                 return result
-            
-            category_expressions = category_methods[category]()
+
+            category_expressions = Alpha158Factors.get_expressions_by_category(category)
             factor_names = list(category_expressions.keys())
             
             return self.calculate_alpha158_factors(
@@ -209,8 +406,8 @@ class FactorService:
         return {
             "factor_engine_stats": self.factor_engine.get_stats(),
             "expression_engine_stats": self.expression_engine.get_engine_stats(),
-            "alpha158_total_factors": len(Alpha158Factors.get_all_factors()),
-            "alpha158_core_factors": len(Alpha158Factors.get_core_factors()),
+            "alpha158_total_factors": len(Alpha158Factors.get_all_expressions()),
+            "alpha158_core_factors": len(Alpha158Factors.get_expressions_by_category("core")),
         }
 
     # ===== 新增因子查询API =====

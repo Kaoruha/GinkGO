@@ -23,6 +23,7 @@ class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
         super().__init__(name=name, **kwargs)
         self._raw = {}
         self._data_feeder = None
+        self._factor_reader = None
 
     def bind_data_feeder(self, feeder, *args, **kwargs):
         self._data_feeder = feeder
@@ -30,6 +31,28 @@ class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, Base):
     @property
     def data_feeder(self):
         return self._data_feeder
+
+    def bind_factor_reader(self, reader, *args, **kwargs):
+        """绑定因子读取器(策略 cal() 内读 PIT 因子值)。
+
+        reader 契约:get_factor_value(code, factor_name, at_time) -> Optional[float],
+        内部负责 point-in-time 约束(只返回 timestamp <= at_time 的值)。
+        """
+        self._factor_reader = reader
+
+    @property
+    def factor_reader(self):
+        return self._factor_reader
+
+    def get_factor_value(self, code: str, factor_name: str, at_time=None):
+        """读取 code 在 at_time 时刻可见的 factor_name 值(PIT)。
+
+        未绑定 reader 返回 None(不崩,便于纯价格策略无因子依赖)。
+        """
+        reader = self.factor_reader
+        if reader is None:
+            return None
+        return reader.get_factor_value(code, factor_name, at_time)
 
     def create_signal(
         self,
