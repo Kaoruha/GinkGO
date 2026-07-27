@@ -45,7 +45,7 @@ class TestBacktestFeederPrefilter:
 
     def test_advance_time_drops_codes_without_bar_data(self):
         """interested 含全无数据 code（不在 get_available_codes）时，feeder 预过滤剔除它：
-        不为其发事件；当日 bar 走批量查询（bar_service.get 全市场一次），非逐股 N+1。"""
+        不为其发事件；当日 bar 只为 feedable 子集逐股取（#6745 get(code=str)），非全市场。"""
         feeder = BacktestFeeder()
         feeder.set_time_provider(LogicalTimeProvider(datetime(2023, 6, 1)))
         feeder._interested_codes = ["A.SZ", "NODATA.SZ"]
@@ -68,10 +68,10 @@ class TestBacktestFeederPrefilter:
         assert len(captured) == 1, "NODATA 应被预过滤剔除，只为 A 发事件"
         assert isinstance(captured[0], EventPriceUpdate)
         assert captured[0].source == SOURCE_TYPES.BACKTESTFEEDER
-        # 批量取 bar：bar_service.get 一次（code=None 全市场当日），非逐股 N 次
-        assert mock_bs.get.call_count == 1, "应批量取 bar 一次，非逐股 N+1"
+        # #6745：只为 feedable 子集逐股取（此处 feedable=[A]），非全市场 code=None
+        assert mock_bs.get.call_count == 1, "只为 feedable 子集逐股取一次"
         _args, kwargs = mock_bs.get.call_args
-        assert kwargs.get("code") is None, "批量取 bar 应传 code=None（全市场当日复权）"
+        assert kwargs.get("code") == "A.SZ", "应逐股取 get(code=str)，非全市场 code=None"
 
     def test_warn_no_data_deduplicated_across_days(self):
         """feedable code 当日无 bar（停牌等）时，跨多日 advance_time 该 code 的
