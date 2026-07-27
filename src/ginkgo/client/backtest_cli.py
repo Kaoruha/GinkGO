@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run, reject_in_production
 
 console = Console(emoji=True, legacy_windows=False)
 app = typer.Typer(
@@ -222,11 +222,7 @@ def run_task(
     """:rocket: Run a backtest task locally."""
     # ADR-028: 回测防误连生产 —— 守卫须在 container.backtest_task_service()（DB 调用）之前
     # fail-fast，且在下方 try 之外（typer.Exit 否则被 except Exception 吞掉，#6590）。
-    from ginkgo.libs import GCONF
-    if GCONF.ENV == "PRODUCTION":
-        console.print("[red]:x: 回测在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
-        console.print("[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]")
-        raise typer.Exit(1)
+    reject_in_production("回测")
 
     import json as _json
     import threading

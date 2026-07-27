@@ -120,14 +120,14 @@ class PortfolioProcessor(Thread):
             GLOG.WARN(f"PortfolioProcessor {self.portfolio_id} is already running")
             return
 
-        # 初始化Kafka控制命令消费者
+        # 初始化Kafka控制命令消费者 (ADR-025 第②步: GinkgoConsumer(topic=..) 构造即订阅,
+        # 签名是 (topic, group_id, offset), 无 bootstrap_servers 参数; 也无 .subscribe() 方法。
+        # 旧代码两处皆死路径。)
         try:
-            bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
             self._control_consumer = GinkgoConsumer(
-                bootstrap_servers=bootstrap_servers,
+                topic=KafkaTopics.CONTROL_COMMANDS,
                 group_id=f"portfolio_processor_{self.portfolio_id}"
             )
-            self._control_consumer.subscribe([KafkaTopics.CONTROL_COMMANDS])
             GLOG.INFO(f"PortfolioProcessor {self.portfolio_id}: subscribed to {KafkaTopics.CONTROL_COMMANDS}")
         except Exception as e:
             GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to subscribe to control commands: {e}")
@@ -454,17 +454,18 @@ class PortfolioProcessor(Thread):
         从Kafka的ginkgo.live.control.commands topic消费控制命令，
         解析后路由到对应的处理方法。
         """
-        if not self._control_consumer:
+        consumer = self._control_consumer.consumer if self._control_consumer else None
+        if consumer is None:
             return
 
         try:
-            # 非阻塞poll，超时10ms
-            messages = self._control_consumer.poll(timeout_ms=10)
+            # ADR-025 第②步: GinkgoConsumer 无 .poll(); 底层 KafkaConsumer.poll 非阻塞轮询,
+            # 返回 {TopicPartition: [Message]}, message.value 已是 dict (json.loads 后)。
+            messages = consumer.poll(timeout_ms=10, max_records=100)
 
             for topic_partition, records in messages.items():
                 for record in records:
                     try:
-                        # 解析Kafka消息
                         self._handle_control_command(record.value)
                     except Exception as e:
                         GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to handle control command: {e}")
@@ -473,30 +474,28 @@ class PortfolioProcessor(Thread):
             # Kafka消费异常不中断主循环
             GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: Kafka poll error: {e}")
 
-    def _handle_control_command(self, message: bytes) -> None:
+    def _handle_control_command(self, message: dict) -> None:
         """
-        处理控制命令
+        处理控制命令 (ADR-025 第②步: 经 MessageMapper.decode β 校验)
 
         T070: 恢复 trace_id 和 span_id 到 GLOG 上下文，用于分布式追踪
 
         解析Kafka消息中的ControlCommandDTO，根据命令类型路由到对应处理方法。
 
         Args:
-            message: Kafka消息（JSON字节序列）
+            message: Kafka message.value (json.loads 后的 dict)
 
         支持的命令类型：
             - update_selector: 触发selector.pick()，发布EventInterestUpdate
             - bar_snapshot: 由DataManager处理，PortfolioProcessor忽略
             - update_data: 由DataManager处理，PortfolioProcessor忽略
         """
-        try:
-            # 解析JSON
-            import json
-            message_str = message.decode('utf-8') if isinstance(message, bytes) else message
-            command_data = json.loads(message_str)
+        from ginkgo.interfaces.mappers import MessageMapper
 
-            # 使用ControlCommandDTO解析
-            command_dto = ControlCommandDTO(**command_data)
+        try:
+            # ADR-025 第②步: message 已是 dict (value_deserializer=json.loads),
+            # 经 MessageMapper.decode β 校验。消灭旧 drift: json.loads(dict) 必 TypeError。
+            command_dto = MessageMapper.decode(message, ControlCommandDTO)
 
             # T070: 恢复分布式追踪上下文到 GLOG
             if command_dto.trace_id:
@@ -520,8 +519,9 @@ class PortfolioProcessor(Thread):
             else:
                 GLOG.WARN(f"PortfolioProcessor {self.portfolio_id}: unknown command type: {command_dto.command}")
 
-        except json.JSONDecodeError as e:
-            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: invalid JSON in control command: {e}")
+        except ValueError as e:
+            # MessageMapper.decode β 校验失败 (字段缺失 / 类型错)
+            GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: invalid control command payload: {e}")
         except Exception as e:
             GLOG.ERROR(f"PortfolioProcessor {self.portfolio_id}: failed to parse control command: {e}")
 

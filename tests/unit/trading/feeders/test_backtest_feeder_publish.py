@@ -5,9 +5,9 @@ BacktestFeeder 端到端：advance_time 的 emit 经 FeederPublishMixin.publish_
 advance_time 内 emit 走 publish_price_update → publish_event → engine.put，
 成功投递计 stats['events_published']。
 
-#6587 重构后 advance_time 取数从单股 _generate_price_events 改为批量
-_compute_feedable_codes（∩ available）+ _fetch_day_bars_batch（code=None 全市场）。
-本契约测试 mock 经 public collaborator bar_service（DI seam）让新路径产出当日 bar，
+#6587 重构后 advance_time 取数走 _compute_feedable_codes（∩ available）
++ _fetch_day_bars_batch（#6745 起改为只取 feedable 子集逐股 get(code=str)，非 code=None 全市场）。
+本契约测试 mock 经 public collaborator bar_service（DI seam）让取数路径产出当日 bar，
 验证 emit 经 publish seam 投递并计数——不 mock feeder 内部方法（实现细节，重构即坏）。
 """
 from datetime import datetime
@@ -55,9 +55,9 @@ class TestBacktestFeederEmitsViaPublishPriceUpdate:
         feeder.set_event_publisher(captured.append)
         feeder._interested_codes = ["X.SZ"]
 
-        # mock bar_service（DI seam）让新取数路径产出当日 X.SZ bar：
+        # mock bar_service（DI seam）让取数路径产出当日 X.SZ bar：
         #   get_available_codes 返 ["X.SZ"]（_compute_feedable_codes 交集非空）
-        #   get(code=None, ...) 返 ModelList（_fetch_day_bars_batch 批量取当日 bar）
+        #   get(code="X.SZ", ...) 返 ModelList（_fetch_day_bars_batch 逐股取当日 bar）
         bar_x = _make_bar("X.SZ")
         mock_bs = Mock()
         mock_bs.get_available_codes.return_value = ServiceResult(
