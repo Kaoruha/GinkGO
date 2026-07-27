@@ -124,15 +124,24 @@ class _Conversion:
         return items  # Default: return model instances as-is
 
     def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Hook method: Override to define field-to-enum mappings.
-        Subclasses should return a dictionary mapping field names to enum classes.
+        """字段→enum 映射(ADR c1):真值下沉到 model 字段定义。
 
-        Returns:
-            Dictionary mapping field names to enum classes
-            Example: {'market': MARKET_TYPES, 'currency': CURRENCY_TYPES}
+        默认实现反射 ``self.model_class.__table__.columns``，取每列
+        ``mapped_column(..., info={'enum': XxxTypes})`` 声明的 enum 类。
+        子类仍可 override（迁移期 fallback；全量迁移后 override 应清零，
+        真值单源归位字段定义）。CH(MClickBase)/MySQL(MMysqlBase) 同属 SA
+        DeclarativeBase，反射两库通用；Mongo(MMongoBase) 走 Pydantic
+        model_dump，不经此路径。
         """
-        return {}  # Default: no enum conversions
+        model_cls = getattr(self, "model_class", None)
+        if model_cls is None or not hasattr(model_cls, "__table__"):
+            return {}
+        mappings: Dict[str, Any] = {}
+        for col in model_cls.__table__.columns:
+            enum_cls = (col.info or {}).get("enum")
+            if enum_cls is not None:
+                mappings[col.name] = enum_cls
+        return mappings
 
     def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
         """

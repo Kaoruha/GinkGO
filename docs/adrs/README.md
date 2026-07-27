@@ -41,6 +41,7 @@
 | ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
 | ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
 | ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
+| ADR-031 | [enum 映射真值下沉 model 字段 info（字段→Enum 映射单源归位）](ADR-031-enum-mapping-field-info-sink.md) | Accepted | 2026-07-28 |
 | ADR-032 | [持久化模型基类分流（CH 时序审计 vs MySQL 活状态）](ADR-032-persistence-model-basesplit.md) | Accepted（含现状偏离） | 2026-07-28 |
 | ADR-033 | [PaperTradingWorker INIT/deploy 装配对称契约](ADR-033-paper-worker-assembly-symmetry.md) | Accepted | 2026-07-28 |
 | ADR-034 | [signal 跨库同名陷阱（CH 事件流 vs MySQL tracker）](ADR-034-signal-cross-store-namesake.md) | Accepted（含现状偏离） | 2026-07-28 |

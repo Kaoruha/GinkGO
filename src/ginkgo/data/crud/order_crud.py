@@ -218,19 +218,9 @@ class OrderCRUD(BaseCRUD[MOrder]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Order.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': DIRECTION_TYPES,      # 交易方向字段映射
-            'order_type': ORDER_TYPES,        # 订单类型字段映射
-            'status': ORDERSTATUS_TYPES,      # 订单状态字段映射
-            'source': SOURCE_TYPES            # 数据源字段映射
-        }
+    # c1(ADR):enum 映射下沉 model 字段 ``info={'enum': ...}``，
+    # 默认反射生效（见 _conversion._get_enum_mappings）；direction/order_type/status
+    # 声明见 model_order；source 继承自 MMysqlBase.source（MySQL 公共基类）。
 
     def _convert_models_to_business_objects(self, models: List[MOrder]) -> List[Order]:
         """

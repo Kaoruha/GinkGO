@@ -145,17 +145,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Signal.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': DIRECTION_TYPES,  # 交易方向字段映射
-            'source': SOURCE_TYPES        # 数据源字段映射
-        }
+    # c1(ADR):enum 映射下沉 model 字段 ``info={'enum': ...}``，
+    # 默认反射生效（见 _conversion._get_enum_mappings）；direction/source
+    # 声明见 model_signal.direction 与 MClickBase.source。
 
     def _convert_models_to_business_objects(self, models: List[MSignal]) -> List[Signal]:
         """

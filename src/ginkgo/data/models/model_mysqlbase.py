@@ -49,7 +49,7 @@ class MMysqlBase(Base, MBase):
     create_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
     update_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
     is_del: Mapped[bool] = mapped_column(Boolean, default=False)
-    source: Mapped[int] = mapped_column(TINYINT, default=-1)
+    source: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": SOURCE_TYPES})
 
     def get_source_enum(self):
         """Convert database source integer back to enum for business layer"""
