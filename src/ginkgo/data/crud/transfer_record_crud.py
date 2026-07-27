@@ -17,7 +17,6 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTransferRecord
 from ginkgo.entities import Transfer
 from ginkgo.enums import (
-    CAPITALADJUSTMENT_TYPES,
     MARKET_TYPES,
     SOURCE_TYPES,
     TRANSFERDIRECTION_TYPES,
@@ -119,21 +118,6 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             )
         return None
 
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'capitaladjustment': CAPITALADJUSTMENT_TYPES,
-            'market': MARKET_TYPES,
-            'source': SOURCE_TYPES,
-            'transferdirection': TRANSFERDIRECTION_TYPES,
-            'transferstatus': TRANSFERSTATUS_TYPES
-        }
 
     def _convert_models_to_business_objects(self, models: List) -> List:
         """

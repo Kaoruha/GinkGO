@@ -31,7 +31,7 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
     order_id: Mapped[str] = mapped_column(String(), default="")
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
-    direction: Mapped[int] = mapped_column(types.Int8, default=-1)
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": DIRECTION_TYPES})
     order_type: Mapped[int] = mapped_column(types.Int8, default=-1)
     status: Mapped[int] = mapped_column(types.Int8, default=-1)
     volume: Mapped[int] = mapped_column(Integer, default=0)
