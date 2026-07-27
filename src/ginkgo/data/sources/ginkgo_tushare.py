@@ -348,3 +348,35 @@ class GinkgoTushare(GinkgoSourceBase):
         except Exception as e:
             GLOG.ERROR(f"Failed to fetch adjustfactor for {code}: {e}")
             raise e
+
+    @time_logger
+    @retry(max_try=5)
+    def fetch_cn_fundancial_indicator(
+        self, code: str, period: str, *args, **kwargs
+    ) -> pd.DataFrame:
+        """
+        获取基本面财务指标数据 (#6795 — 估值/质量类因子的数据源)
+
+        调 tushare fina_indicator 接口,返回每股单个报告期的财务指标
+        (eps/bps/roe/dt_roe/profit_to_gr/debt_to_assets 等)。
+
+        Args:
+            code: 股票代码 (ts_code, 如 "000001.SZ")
+            period: 报告期 (YYYYMMDD, 如 "20240331")
+
+        Returns:
+            包含财务指标的 DataFrame;每股每报告期一行。无数据返回空 DataFrame。
+        """
+        GLOG.DEBUG(f"Trying get cn fundamental indicator for {code} @ {period}.")
+        try:
+            r = self.pro.fina_indicator(ts_code=code, period=period)
+            if r.shape[0] == 0:
+                return pd.DataFrame()
+            console.print(
+                f":crab: Got {r.shape[0]} records about fundamental indicator for {code} @ {period}."
+            )
+            return r
+        except Exception as e:
+            raise e
+        finally:
+            pass
