@@ -1,4 +1,4 @@
-# ADR-029: 全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）
+# ADR-030: 全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）
 
 **Status:** Accepted
 **Date:** 2026-07-26
@@ -45,7 +45,7 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 
 trace_id 跨进程传播由**两层正交设计**共同覆盖，不是"DTO 字段 vs headers"二选一：
 
-**3a. 数据模型层（全局）：DTO 携带 `trace_id` 字段**——`PriceUpdateDTO`（`src/ginkgo/interfaces/dtos/price_update_dto.py:40`）、`ControlCommandDTO`（`src/ginkgo/interfaces/dtos/control_command_dto.py:53`）各带 `trace_id: Optional[str]`。这是**全局数据模型约定**：数据对 trace_id 透明，DTO 流到哪里 trace_id 跟到哪里，**与是否跨进程无关**。注入点 `src/ginkgo/livecore/data_manager.py:549` 从 `GLOG.get_trace_id()` 取 ctx 写字段；消费点 `src/ginkgo/workers/execution_node/node.py:857`（PriceUpdateDTO payload）与 `portfolio_processor.py:502`（ControlCommandDTO）读字段后 `GLOG.set_trace_id` 恢复。DTO 流过 Kafka 时 trace_id 随 payload 自然过界——全局字段的副作用，**非为跨进程单独选的机制**。
+**3a. 数据模型层（全局）：DTO 携带 `trace_id` 字段**——`PriceUpdateDTO`（`src/ginkgo/interfaces/dtos/price_update_dto.py:40`）、`ControlCommandDTO`（`src/ginkgo/interfaces/dtos/control_command_dto.py:53`）各带 `trace_id: Optional[str]`。这是**全局数据模型约定**：数据对 trace_id 透明，DTO 流到哪里 trace_id 跟到哪里，**与是否跨进程无关**。注入点 `src/ginkgo/livecore/data_manager.py:560` 从 `GLOG.get_trace_id()` 取 ctx 写字段（DTO 字段写入同函数 :574）；消费点 `src/ginkgo/workers/execution_node/node.py:867`（PriceUpdateDTO payload）与 `src/ginkgo/workers/execution_node/portfolio_processor.py:502`（ControlCommandDTO）读字段后 `GLOG.set_trace_id` 恢复。DTO 流过 Kafka 时 trace_id 随 payload 自然过界——全局字段的副作用，**非为跨进程单独选的机制**。
 
 **3b. 传输层（跨进程载体）：Kafka message header**——任务派发/部署等**消息体非 DTO 的流**过 Kafka 边界时，trace_id 经 header 传播。写入 `src/ginkgo/data/services/backtest_task_service.py:845`（#6786 回测任务派发）、`src/ginkgo/trading/services/deployment_service.py:319`（#6787 paper/live 部署）；读取 `src/ginkgo/workers/backtest_worker/node.py:225`（#6786）、`src/ginkgo/workers/paper_trading_worker.py:1166`（#6787，注释明示"复用 #6786 header 传播模式"）。
 
