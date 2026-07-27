@@ -38,7 +38,7 @@ dependencies = [
     "attrs>=25.0.0",
     "baostock>=0.8.9",
     "beautifulsoup4>=4.13.0",
-    "black>=25.0.0",
+    "black>=26.3.1",
     "certifi>=2025.0.0",
     "charset-normalizer>=3.4.0",
     "click>=8.1.0",
@@ -122,7 +122,7 @@ scripts = [
 ]
 # 开发环境依赖
 dev = [
-    "black>=25.0.0",
+    "black>=26.3.1",
     "mypy>=1.17.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
