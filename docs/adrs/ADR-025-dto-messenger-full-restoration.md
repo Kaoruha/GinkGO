@@ -66,3 +66,16 @@ ADR-010 把 **DTO** 定位为"跨边界、**隔离两个不耦合世界**的信�
 - **严格模式迁移期**：每边 PR 须把该边所有手抓/裸路径一次性改对，否则启动报错阻断。每边 PR 配该边全量冒烟（启动 + 关键路径）。
 - **删除测试**：删 Mapper 家族任一亚型，该边复杂度（drift 风险 + 手抓重组 + 契约脆弱）回散至 N 调用方 = 在发挥作用，非 pass-through。
 - **`CONTEXT.md` 同步**：新增 Mapper 词条（唯一转换点、覆盖四边、纯/IO 亚型）、强化 DTO 词条（信使双侧性，禁单侧）。
+
+## 勘误/增补 (2026-07-28)：HTTP 边界经评估不做 ResponseMapper
+
+**Supersede**：上文「原则 1」表格中 HTTP 行（ResponseMapper，从无到有 + response_model）及「原则 3」第 3 项「HTTP ResponseMapper」**撤销**。HTTP 边界不做 Mapper 化。
+
+**四边界 DTO 价值不对等**：DTO 的核心价值是**跨进程 consumer 经反序列化重建强类型对象**，消灭调用方各自手抓 dict 解包的 drift。Kafka / Redis consumer 是**本系统进程**，依赖 DTO 反序列化——DTO 在此真正收窄了 interface、集中了 locality。而 **HTTP consumer 是前端**（独立工程，web-ui `request.ts` 已 `return response.data` 一层 unwrap），前端从不反序列化服务端 Python DTO；前端按自有 TypeScript 契约消费 JSON，服务端 DTO 类型对它不可见。
+
+**三个理由**：
+1. **consumer 不依赖服务端 DTO**：HTTP 出站 JSON 的消费者是前端，不靠服务端 DTO 重建对象。强加 DTO 经 ResponseMapper 序列化，对前端零收益（它照样按自己的契约解 JSON），不像 Kafka/Redis 那样消灭 drift。
+2. **`response_model` 不消灭 dict**：FastAPI `response_model` 只校验/裁剪出站结构，**handler 内部仍造 dict**。把构造从「手搓 dict」改成「DTO.model_dump() 再传给 response_model」只是多一层包装，dict 依然存在，反而引入序列化往返开销，interface 并未收窄。
+3. **收益是契约层非数据流动层**：HTTP 出站真正该治理的是**契约层**（OpenAPI schema 精度、出站字段裁剪、前端类型生成）——这由 `response_model` + 前端 codegen 解决，与「DB/Entity/Kafka 跨进程数据流动经 DTO」是不同层问题。强行把 HTTP 纳入 Mapper 体系是层错配。
+
+**结论**：HTTP 边界保留现状（handler 返 dict/pydantic + 可选 `response_model` 做契约校验），不纳入本 ADR 的 Mapper 收敛范围。本次收尾仅覆盖 Kafka（PR-3）、Redis（PR-2）、DB（PR-1）三边——这三边 consumer 是本系统进程，DTO 收益真实。
